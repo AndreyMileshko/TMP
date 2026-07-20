@@ -1,0 +1,9 @@
+spring:
+  config:
+    activate:
+      on-profile: package
+
+logging:
+  level:
+    root: INFO
+    com.tmp: INFO

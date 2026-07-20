@@ -1,0 +1,4 @@
+#Mon Jul 20 11:59:33 NOVT 2026
+configuration*?=5FD2BD61E63DEE283AF628AE24BA5E8BA2B648A
+module-resource*?\:checkstyle-suppressions.xml=73D0A107BF9A540A1EEADB1AFE55186827006C4
+module-resource*?\:checkstyle-xpath-suppressions.xml=430C7A55CF72630683B6C71E574FBF2155EA914D

@@ -1,0 +1,13 @@
+spring:
+  main:
+    web-application-type: none
+    banner-mode: off
+  profiles:
+    active: ${TMP_PROFILE:dev}
+
+logging:
+  level:
+    root: INFO
+    com.tmp: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

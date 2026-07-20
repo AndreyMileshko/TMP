@@ -1,0 +1,32 @@
+# Исключение папок IDE и инструментов
+.cursor/
+.tools/
+dist/
+
+# Дополнительные полезные исключения для Java-проектов
+# (можно добавить, если нужно)
+
+# Файлы сборки
+*/target/
+*/build/
+*/out/
+*.class
+
+# Файлы IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# Логи
+*.log
+
+# Временные файлы
+*.tmp
+*.temp
