@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
 import javafx.scene.Parent;
+import javafx.scene.layout.BorderPane;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -47,5 +48,21 @@ class JavaFxShellSmokeTest {
             throw new AssertionError("Empty shell root creation failed", error.get());
         }
         assertNotNull(root.get(), "Empty shell root must be created");
+    }
+
+    @Test
+    void rendersPlatformStatusLabelWhenProvided() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Parent> root = new AtomicReference<>();
+
+        Platform.runLater(() -> {
+            root.set(EmptyMainShell.createRoot("Platform ready"));
+            latch.countDown();
+        });
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        Parent createdRoot = root.get();
+        assertNotNull(createdRoot);
+        assertTrue(createdRoot instanceof BorderPane);
     }
 }

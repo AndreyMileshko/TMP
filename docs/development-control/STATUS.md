@@ -2,11 +2,11 @@
 
 **Mode:** Autonomous Cursor Agent  
 **Project status:** STAGE_COMPLETE  
-**Current Stage:** Stage 0 — Development Foundation  
+**Current Stage:** Stage 1 — Platform Core  
 **Current Task:** None  
-**Last completed task:** STAGE0-012 (re-verified after BLK-004 fix)  
+**Last completed task:** STAGE1-013  
 **Active blocker:** None  
-**Last successful full verification:** STAGE0-012 (`mvn clean verify`, `mvn clean verify -Ppackage`, `TmpBootstrapPostgresIntegrationIT` PASSED)
+**Last successful full verification:** STAGE1-013 (`mvn clean verify`, `mvn clean verify -Ppackage` EXIT_CODE=0, 2026-07-20)
 
 ---
 
@@ -15,7 +15,7 @@
 | Stage | Name | Status | Progress |
 |---:|---|---|---:|
 | 0 | Development Foundation | DONE | 100% |
-| 1 | Platform Core | PLANNED | 0% |
+| 1 | Platform Core | DONE | 100% |
 | 2 | Document Engine | PLANNED | 0% |
 | 3 | Capability Engine | PLANNED | 0% |
 | 4 | Security | PLANNED | 0% |
@@ -42,3 +42,5 @@ Cursor обязан поддерживать:
 - активный blocker;
 - результат последней полной проверки;
 - процент прогресса только по фактически закрытым задачам.
+
+**Stage 1 закрыт.** Следующий этап — Stage 2 Document Engine (не начинать без явного Start Gate).

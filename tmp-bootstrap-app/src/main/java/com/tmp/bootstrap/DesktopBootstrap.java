@@ -1,5 +1,6 @@
 package com.tmp.bootstrap;
 
+import com.tmp.core.api.PlatformCore;
 import com.tmp.ui.shell.JavaFxShellLauncher;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
@@ -14,6 +15,7 @@ public final class DesktopBootstrap {
         ConfigurableApplicationContext springContext = new SpringApplicationBuilder(TmpBootstrapApplication.class)
                 .web(WebApplicationType.NONE)
                 .run(args);
-        JavaFxShellLauncher.launch(springContext::close);
+        PlatformCore platformCore = springContext.getBean(PlatformCore.class);
+        JavaFxShellLauncher.launch(springContext::close, platformCore.status().summary());
     }
 }

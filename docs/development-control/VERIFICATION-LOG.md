@@ -241,3 +241,20 @@
 ### Failures
 
 - None.
+
+## 2026-07-20 — Stage 1 verification gate (`STAGE1-013`)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Full reactor verify | `mvn clean verify` | PASSED |
+| Package profile verify | `mvn clean verify -Ppackage` | PASSED |
+| Platform Core unit tests | `tmp-platform-core` surefire | PASSED |
+| Bootstrap integration | `PlatformCoreIntegrationIT`, `TmpBootstrapPostgresIntegrationIT` | PASSED |
+| Architecture tests | `Stage0ArchitectureBaselineTest`, `Stage1PlatformCoreArchitectureTest` | PASSED |
+| Static analysis | checkstyle + spotbugs in verify | PASSED |
+| UI status smoke | `JavaFxShellSmokeTest.rendersPlatformStatusLabelWhenProvided` | PASSED |
+| Stage 1 exit criteria | Manual review vs STAGE-1-PLATFORM-CORE.md | PASSED |
+
+### Failures
+
+- None.

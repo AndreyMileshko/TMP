@@ -7,7 +7,7 @@ public class JavaFxShellApplication extends Application {
 
     @Override
     public void start(Stage stage) {
-        EmptyMainShell.attach(stage);
+        EmptyMainShell.attach(stage, JavaFxShellLauncher.platformStatusText());
     }
 
     @Override

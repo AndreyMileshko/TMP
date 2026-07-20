@@ -32,6 +32,7 @@
     </properties>
 
     <modules>
+        <module>tmp-platform-core</module>
         <module>tmp-bootstrap-app</module>
         <module>tmp-ui-shell</module>
         <module>tmp-infra-db</module>
@@ -74,6 +75,11 @@
             <dependency>
                 <groupId>com.tmp</groupId>
                 <artifactId>tmp-infra-db</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tmp</groupId>
+                <artifactId>tmp-platform-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

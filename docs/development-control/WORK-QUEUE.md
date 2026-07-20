@@ -728,3 +728,645 @@ mvn -q verify
 - STATUS;
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
+
+---
+
+# Stage 1 — Platform Core
+
+## STAGE1-001 — Bootstrap tmp-platform-core module and Core API boundaries
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE0-012  
+**Module:** tmp-platform-core
+
+### Goal
+
+Создать Maven-модуль `tmp-platform-core` с пакетом стабильного публичного API `com.tmp.core.api` без бизнес-логики.
+
+### Required documents
+
+- `Platform-Core-Specification.md`; `TMP-004-Architecture-Overview.md`; `STAGE-1-PLATFORM-CORE.md`; `Master-Implementation-Plan.md`.
+
+### Required code context
+
+- root `pom.xml` reactor; Stage 0 module conventions.
+
+### Allowed code scope
+
+- `tmp-platform-core/pom.xml`; root `pom.xml`; `com.tmp.core.api` skeleton.
+
+### Forbidden
+
+- бизнес-модули; Document Engine; Capability Engine; Security.
+
+### Implementation requirements
+
+- модуль в reactor; API отделён от implementation; только Spring Boot starter.
+
+### Acceptance criteria
+
+- [x] `mvn -q -DskipTests validate` проходит; [x] `com.tmp.core.api` без бизнес-логики.
+
+### Required tests
+
+- module validate smoke.
+
+### Verification commands
+
+```bash
+mvn -q -DskipTests validate
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-002 — Define PlatformComponent contract and module metadata
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-001  
+**Module:** tmp-platform-core
+
+### Goal
+
+Определить контракт `PlatformComponent`, метаданные и `CapabilityDescriptor`.
+
+### Required documents
+
+- `Platform-Core-Specification.md`; `TMP-003-Glossary.md`; `STAGE-1-PLATFORM-CORE.md`.
+
+### Required code context
+
+- `com.tmp.core.api` из STAGE1-001.
+
+### Allowed code scope
+
+- `com.tmp.core.api.component.*`; `com.tmp.core.api.capability.*`.
+
+### Forbidden
+
+- загрузка Capability internals; JPA/SQL в Core API.
+
+### Implementation requirements
+
+- lifecycle hooks initialize/start/stop; immutable metadata types.
+
+### Acceptance criteria
+
+- [x] контракты компилируются; [x] нет предметных типов.
+
+### Required tests
+
+- registry/metadata unit tests.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-platform-core test
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-003 — Implement Platform Registry
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-002  
+**Module:** tmp-platform-core
+
+### Goal
+
+Реализовать регистрацию и поиск platform components.
+
+### Required documents
+
+- `Platform-Core-Specification.md`; `ADR-001`.
+
+### Required code context
+
+- `PlatformRegistry` API; `PlatformComponent`.
+
+### Allowed code scope
+
+- `DefaultPlatformRegistry`; `PlatformRegistry` interface.
+
+### Forbidden
+
+- прямой доступ к Capability internals.
+
+### Implementation requirements
+
+- thread-safe register/find/list; reject duplicates.
+
+### Acceptance criteria
+
+- [x] register/find/list работают; [x] duplicate → fail.
+
+### Required tests
+
+- `DefaultPlatformRegistryTest`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-platform-core test -Dtest=DefaultPlatformRegistryTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-004 — Implement Service Registry
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-002  
+**Module:** tmp-platform-core
+
+### Goal
+
+Реализовать регистрацию и lookup инфраструктурных сервисов.
+
+### Required documents
+
+- `Platform-Core-Specification.md`; `Master-Implementation-Plan.md`.
+
+### Required code context
+
+- `ServiceRegistry` API.
+
+### Allowed code scope
+
+- `DefaultServiceRegistry`; `ServiceRegistry` interface.
+
+### Forbidden
+
+- доменные use-case сервисы.
+
+### Implementation requirements
+
+- lookup/lookupAll by type; track owner metadata.
+
+### Acceptance criteria
+
+- [x] register + lookup работает.
+
+### Required tests
+
+- `DefaultServiceRegistryTest`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-platform-core test -Dtest=DefaultServiceRegistryTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-005 — Implement Capability Registry
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-002  
+**Module:** tmp-platform-core
+
+### Goal
+
+Регистрация metadata Capability без Capability Engine.
+
+### Required documents
+
+- `Platform-Core-Specification.md`; `Master-Implementation-Plan.md`.
+
+### Required code context
+
+- `CapabilityRegistry`; `CapabilityDescriptor`.
+
+### Allowed code scope
+
+- `DefaultCapabilityRegistry`.
+
+### Forbidden
+
+- Capability Loader/Discovery (Stage 3).
+
+### Implementation requirements
+
+- metadata-only register/find; reject duplicates.
+
+### Acceptance criteria
+
+- [x] capability metadata регистрируется и читается.
+
+### Required tests
+
+- `DefaultCapabilityRegistryTest`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-platform-core test -Dtest=DefaultCapabilityRegistryTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-006 — Define Event Bus contracts
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-001  
+**Module:** tmp-platform-core
+
+### Goal
+
+Контракты Platform Events и Domain Events.
+
+### Required documents
+
+- `Database-Specification.md` §9; `Code Quality Standards.md`.
+
+### Required code context
+
+- `com.tmp.core.api.event.*`.
+
+### Allowed code scope
+
+- event marker interfaces; `EventBus` API.
+
+### Forbidden
+
+- Kafka/RabbitMQ/ActiveMQ.
+
+### Implementation requirements
+
+- `PlatformEvent`, `DomainEvent`, `EventHandler`, `EventSubscription`.
+
+### Acceptance criteria
+
+- [x] контракты без broker-зависимостей.
+
+### Required tests
+
+- compile + EventBus impl tests.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-platform-core compile
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-007 — Implement synchronous Event Bus
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-006  
+**Module:** tmp-platform-core
+
+### Goal
+
+Синхронный in-process publish/subscribe.
+
+### Required documents
+
+- `Database-Specification.md` §9.
+
+### Required code context
+
+- `EventBus` API.
+
+### Allowed code scope
+
+- `SynchronousEventBus`; `PlatformStartedEvent`; `PlatformStoppingEvent`.
+
+### Forbidden
+
+- async broker; domain business handlers.
+
+### Implementation requirements
+
+- sync dispatch; subscribe by type; unsubscribe.
+
+### Acceptance criteria
+
+- [x] platform/domain events delivered synchronously.
+
+### Required tests
+
+- `SynchronousEventBusTest`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-platform-core test -Dtest=SynchronousEventBusTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-008 — Implement Lifecycle Management
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-002, STAGE1-003  
+**Module:** tmp-platform-core
+
+### Goal
+
+Управление жизненным циклом platform components.
+
+### Required documents
+
+- `Platform-Core-Specification.md`; `ADR-001`.
+
+### Required code context
+
+- `PlatformComponent`; `LifecycleManager`.
+
+### Allowed code scope
+
+- `DefaultLifecycleManager`.
+
+### Forbidden
+
+- управление бизнес-состоянием Capability.
+
+### Implementation requirements
+
+- startAll/stopAll; per-component states; reverse shutdown.
+
+### Acceptance criteria
+
+- [x] initialize → start → stop lifecycle works.
+
+### Required tests
+
+- `DefaultLifecycleManagerTest`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-platform-core test -Dtest=DefaultLifecycleManagerTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-009 — Implement Platform Configuration access
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-001  
+**Module:** tmp-platform-core
+
+### Goal
+
+Read-only доступ к конфигурации через Core API.
+
+### Required documents
+
+- `Platform-Core-Specification.md`; `STAGE-1-PLATFORM-CORE.md`.
+
+### Required code context
+
+- Spring Environment; `application.yml`.
+
+### Allowed code scope
+
+- `SpringPlatformConfiguration`; `PlatformCoreProperties`; `tmp.platform.*` in yml.
+
+### Forbidden
+
+- secrets management (Stage 4).
+
+### Implementation requirements
+
+- getString/getBoolean; platform name/version properties.
+
+### Acceptance criteria
+
+- [x] PlatformConfiguration bean in context.
+
+### Required tests
+
+- `PlatformCoreAutoConfigurationTest`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-platform-core test -Dtest=PlatformCoreAutoConfigurationTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-010 — Wire Platform Core into bootstrap
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-003..STAGE1-009  
+**Module:** tmp-bootstrap-app, tmp-platform-core
+
+### Goal
+
+Подключить Platform Core к composition root.
+
+### Required documents
+
+- `Development-Guide.md`; `STAGE-1-PLATFORM-CORE.md`.
+
+### Required code context
+
+- `TmpBootstrapApplication`; `PlatformCoreAutoConfiguration`.
+
+### Allowed code scope
+
+- auto-config; bootstrap pom dependency; lifecycle listener.
+
+### Forbidden
+
+- изменение Stage 0 DB wiring; business beans.
+
+### Implementation requirements
+
+- PlatformCore bean; start/stop on context events; platform events published.
+
+### Acceptance criteria
+
+- [x] PlatformCore in bootstrap context; [x] lifecycle hooks work.
+
+### Required tests
+
+- `SpringContextSmokeTest`; `PlatformCoreIntegrationIT`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-bootstrap-app verify
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-011 — Add Stage 1 architecture tests
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-010  
+**Module:** tmp-architecture-tests
+
+### Goal
+
+ArchUnit-правила границ Platform Core.
+
+### Required documents
+
+- `Platform-Core-Specification.md`; Stage 0 ArchUnit baseline.
+
+### Required code context
+
+- `Stage0ArchitectureBaselineTest`.
+
+### Allowed code scope
+
+- `Stage1PlatformCoreArchitectureTest`; architecture-tests pom.
+
+### Forbidden
+
+- ослабление Stage 0 rules.
+
+### Implementation requirements
+
+- core ⊥ ui/infra; external → api only; ui ⊥ core.
+
+### Acceptance criteria
+
+- [x] Stage 1 + Stage 0 arch tests pass in verify.
+
+### Required tests
+
+- `Stage1PlatformCoreArchitectureTest`; `Stage0ArchitectureBaselineTest`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-architecture-tests test
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-012 — Minimal platform status UI visibility
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-010  
+**Module:** tmp-ui-shell, tmp-bootstrap-app
+
+### Goal
+
+Технический статус Platform Core в empty shell без coupling UI к Core.
+
+### Required documents
+
+- `Master Implementation Checklist.md`; Stage 0 UI rules.
+
+### Required code context
+
+- `EmptyMainShell`; `JavaFxShellLauncher`; `DesktopBootstrap`.
+
+### Allowed code scope
+
+- status label in ui-shell; bootstrap passes status string.
+
+### Forbidden
+
+- ui-shell dependency on tmp-platform-core; business screens.
+
+### Implementation requirements
+
+- `platformCore.status().summary()` → launcher → bottom label.
+
+### Acceptance criteria
+
+- [x] status rendered; [x] ui-shell has no core dependency.
+
+### Required tests
+
+- `JavaFxShellSmokeTest.rendersPlatformStatusLabelWhenProvided`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-ui-shell test
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-013 — Run complete Stage 1 verification gate
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-003..STAGE1-012  
+**Module:** cross-stage
+
+### Goal
+
+Финальная верификация Stage 1 против exit criteria.
+
+### Required documents
+
+- `STAGE-1-PLATFORM-CORE.md`; `Master-Implementation-Plan.md`.
+
+### Required code context
+
+- full reactor; all Stage 1 tests.
+
+### Allowed code scope
+
+- development-control documentation only.
+
+### Forbidden
+
+- feature changes; переход к Stage 2.
+
+### Implementation requirements
+
+- full verify + package verify; PackagingSmokeIT.
+
+### Acceptance criteria
+
+- [x] exit criteria confirmed; [x] `mvn verify` + `-Ppackage` PASSED; [x] no domain logic in Core.
+
+### Required tests
+
+- full stage verification suite.
+
+### Verification commands
+
+```bash
+mvn clean verify
+mvn clean verify -Ppackage
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.

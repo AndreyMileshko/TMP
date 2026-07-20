@@ -5,6 +5,11 @@ spring:
   profiles:
     active: ${TMP_PROFILE:dev}
 
+tmp:
+  platform:
+    name: TOP Manufacturing Platform
+    version: 0.1.0-SNAPSHOT
+
 logging:
   level:
     root: INFO

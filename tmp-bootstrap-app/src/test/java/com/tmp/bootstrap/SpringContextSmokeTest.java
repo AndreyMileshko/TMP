@@ -1,5 +1,6 @@
 package com.tmp.bootstrap;
 
+import com.tmp.core.api.PlatformCore;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,17 @@ class SpringContextSmokeTest {
 
     @Autowired
     private Flyway flyway;
+
+    @Autowired
+    private PlatformCore platformCore;
+
+    @Test
+    void contextLoadsPlatformCore() {
+        assertNotNull(platformCore, "PlatformCore must be configured in bootstrap context");
+        assertNotNull(platformCore.eventBus(), "EventBus must be available through PlatformCore");
+        assertNotNull(platformCore.platformRegistry(), "PlatformRegistry must be available through PlatformCore");
+        assertEquals("TOP Manufacturing Platform", platformCore.status().platformName());
+    }
 
     @Test
     void contextLoadsDatabaseInfrastructure() throws Exception {

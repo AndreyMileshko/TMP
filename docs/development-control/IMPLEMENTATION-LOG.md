@@ -509,6 +509,43 @@ Docker Desktop + WSL2 подключены; Testcontainers обновлён до
 
 Stage 0 complete — awaiting Stage 1 Start Gate
 
+## Stage 1 — Platform Core (summary)
+
+**Date:** 2026-07-20  
+**Status:** DONE (STAGE1-001..STAGE1-013)
+
+### Result
+
+Реализован модуль `tmp-platform-core` с публичным API (`com.tmp.core.api`), registries (Platform/Service/Capability), синхронным Event Bus, lifecycle management, platform configuration, Spring auto-configuration, ArchUnit-границами и минимальной UI-видимостью статуса платформы.
+
+### Key deliverables
+
+| Component | Location |
+|---|---|
+| Public Core API | `tmp-platform-core/.../com/tmp/core/api/` |
+| Registries | `DefaultPlatformRegistry`, `DefaultServiceRegistry`, `DefaultCapabilityRegistry` |
+| Event Bus | `SynchronousEventBus` (sync, no broker) |
+| Lifecycle | `DefaultLifecycleManager` |
+| Configuration | `SpringPlatformConfiguration`, `PlatformCoreProperties` |
+| Bootstrap wiring | `PlatformCoreAutoConfiguration`, `DesktopBootstrap` |
+| Architecture tests | `Stage1PlatformCoreArchitectureTest` |
+| UI status | `EmptyMainShell` bottom label via status string |
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `mvn clean verify` | PASSED |
+| `mvn clean verify -Ppackage` | PASSED |
+| Unit tests (platform-core) | PASSED |
+| Integration tests (bootstrap) | PASSED |
+| Architecture tests | PASSED |
+| No domain/business logic in Core | CONFIRMED |
+
+### Next task
+
+Stage 1 complete — awaiting Stage 2 Start Gate
+
 ## `STAGE0-012` — `Run complete Stage 0 verification gate` (BLK-004 rework)
 
 **Date:** 2026-07-20  

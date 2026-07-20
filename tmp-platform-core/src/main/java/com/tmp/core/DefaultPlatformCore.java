@@ -1,0 +1,84 @@
+package com.tmp.core;
+
+import com.tmp.core.api.CapabilityRegistry;
+import com.tmp.core.api.EventBus;
+import com.tmp.core.api.LifecycleManager;
+import com.tmp.core.api.PlatformConfiguration;
+import com.tmp.core.api.PlatformCore;
+import com.tmp.core.api.PlatformRegistry;
+import com.tmp.core.api.PlatformStatus;
+import com.tmp.core.api.ServiceRegistry;
+import com.tmp.core.lifecycle.DefaultLifecycleManager;
+
+public final class DefaultPlatformCore implements PlatformCore {
+
+    private final PlatformRegistry platformRegistry;
+    private final ServiceRegistry serviceRegistry;
+    private final CapabilityRegistry capabilityRegistry;
+    private final EventBus eventBus;
+    private final PlatformConfiguration configuration;
+    private final DefaultLifecycleManager lifecycleManager;
+    private final String platformName;
+    private final String platformVersion;
+
+    public DefaultPlatformCore(
+            PlatformRegistry platformRegistry,
+            ServiceRegistry serviceRegistry,
+            CapabilityRegistry capabilityRegistry,
+            EventBus eventBus,
+            PlatformConfiguration configuration,
+            DefaultLifecycleManager lifecycleManager,
+            String platformName,
+            String platformVersion) {
+        this.platformRegistry = platformRegistry;
+        this.serviceRegistry = serviceRegistry;
+        this.capabilityRegistry = capabilityRegistry;
+        this.eventBus = eventBus;
+        this.configuration = configuration;
+        this.lifecycleManager = lifecycleManager;
+        this.platformName = platformName;
+        this.platformVersion = platformVersion;
+        lifecycleManager.attachPlatformCore(this);
+    }
+
+    @Override
+    public PlatformRegistry platformRegistry() {
+        return platformRegistry;
+    }
+
+    @Override
+    public ServiceRegistry serviceRegistry() {
+        return serviceRegistry;
+    }
+
+    @Override
+    public CapabilityRegistry capabilityRegistry() {
+        return capabilityRegistry;
+    }
+
+    @Override
+    public EventBus eventBus() {
+        return eventBus;
+    }
+
+    @Override
+    public PlatformConfiguration configuration() {
+        return configuration;
+    }
+
+    @Override
+    public LifecycleManager lifecycleManager() {
+        return lifecycleManager;
+    }
+
+    @Override
+    public PlatformStatus status() {
+        return new PlatformStatus(
+                platformName,
+                platformVersion,
+                lifecycleManager.platformState(),
+                platformRegistry.registeredComponents().size(),
+                serviceRegistry.registeredServices().size(),
+                capabilityRegistry.findAll().size());
+    }
+}
