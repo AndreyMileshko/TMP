@@ -127,3 +127,36 @@
 ### Resolution
 
 Docker Desktop установлен и запущен; WSL2 kernel обновлён; Testcontainers обновлён до 1.21.4 с `api.version=1.44` для совместимости с Docker Engine 29. Verification `mvn -q -pl :tmp-infra-db verify` PASSED.
+
+## `BLK-004` — `TmpBootstrapApplication excludes database auto-configuration`
+
+**Status:** RESOLVED  
+**Task:** `STAGE0-012` (re-opened)  
+**Detected:** 2026-07-20
+
+### Reason
+
+Stage 0 acceptance review выявил, что `TmpBootstrapApplication` исключает `DataSourceAutoConfiguration` и `FlywayAutoConfiguration`. Из-за этого packaged `TMP.exe` не подключается к PostgreSQL и не применяет Flyway, несмотря на успешные тесты модуля `tmp-infra-db`.
+
+### Evidence
+
+- Document/file/check: `tmp-bootstrap-app/src/main/java/com/tmp/bootstrap/TmpBootstrapApplication.java` содержит `@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class, FlywayAutoConfiguration.class})`.
+- Document/file/check: acceptance review — `TMP.exe` стартует без DB/Flyway wiring.
+- Document/file/check: `tmp-infra-db` integration tests проходят на отдельном `InfraDbTestApplication`, не на реальном bootstrap entry point.
+
+### Options
+
+1. Удалить exclusions, настроить профили dev/test/package и добавить integration test на `TmpBootstrapApplication` с PostgreSQL Testcontainers.
+2. Оставить exclusions и полагаться только на ручную конфигурацию (нарушает acceptance criteria Stage 0).
+
+### Recommendation
+
+Вариант 1: восстановить штатный Spring Boot wiring DataSource/Flyway в bootstrap и закрыть Stage 0 только после PostgreSQL/Flyway integration test на реальном entry point.
+
+### Required user decision
+
+Не требуется — исправление выполняется в рамках текущего Stage 0 rework.
+
+### Resolution
+
+Удалены exclusions из `TmpBootstrapApplication`; настроены профили `dev`/`test`/`package` (package использует `TMP_DB_URL`, `TMP_DB_USERNAME`, `TMP_DB_PASSWORD`); добавлен `TmpBootstrapPostgresIntegrationIT` на реальном entry point; усилены `SpringContextSmokeTest` и `PackagingSmokeIT`. Verification: `mvn clean verify` и `mvn clean verify -Ppackage` PASSED.

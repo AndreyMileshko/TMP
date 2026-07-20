@@ -4,9 +4,9 @@
 **Project status:** STAGE_COMPLETE  
 **Current Stage:** Stage 0 — Development Foundation  
 **Current Task:** None  
-**Last completed task:** STAGE0-012  
+**Last completed task:** STAGE0-012 (re-verified after BLK-004 fix)  
 **Active blocker:** None  
-**Last successful full verification:** STAGE0-012 (`mvn -q verify`, package artifact `dist/jpackage/TMP/TMP.exe`)
+**Last successful full verification:** STAGE0-012 (`mvn clean verify`, `mvn clean verify -Ppackage`, `TmpBootstrapPostgresIntegrationIT` PASSED)
 
 ---
 

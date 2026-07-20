@@ -3,7 +3,7 @@
 ## Latest result
 
 **Date:** 2026-07-20  
-**Scope:** STAGE0-012 (Stage 0 complete)  
+**Scope:** STAGE0-012 (BLK-004 rework, Stage 0 re-verified)  
 **Overall:** PASSED
 
 ---
@@ -123,6 +123,21 @@
 | Verification | Command / Method | Result |
 |---|---|---|
 | Packaging verify | `.tools/apache-maven-3.9.9/bin/mvn.cmd -q -Ppackage verify` | PASSED |
+| Package artifact | `dist/jpackage/TMP/TMP.exe` | PRESENT |
+
+### Failures
+
+- None.
+
+## 2026-07-20 — `STAGE0-012` (BLK-004 rework)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Full Stage 0 verify | `.tools/apache-maven-3.9.9/bin/mvn.cmd clean verify` | PASSED |
+| Package verify | `.tools/apache-maven-3.9.9/bin/mvn.cmd clean verify -Ppackage` | PASSED |
+| Bootstrap PostgreSQL IT | `TmpBootstrapPostgresIntegrationIT` (Testcontainers) | PASSED |
+| Bootstrap DB smoke | `SpringContextSmokeTest` (DataSource/JdbcTemplate/Flyway) | PASSED |
+| Packaging smoke | `PackagingSmokeIT` (TMP.exe, runtime, TMP.cfg, fat jar) | PASSED |
 | Package artifact | `dist/jpackage/TMP/TMP.exe` | PRESENT |
 
 ### Failures

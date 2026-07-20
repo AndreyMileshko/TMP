@@ -509,3 +509,26 @@ Docker Desktop + WSL2 подключены; Testcontainers обновлён до
 
 Stage 0 complete — awaiting Stage 1 Start Gate
 
+## `STAGE0-012` — `Run complete Stage 0 verification gate` (BLK-004 rework)
+
+**Date:** 2026-07-20  
+**Stage:** Stage 0 — Development Foundation  
+**Status:** DONE
+
+### Result
+
+Исправлен блокирующий дефект acceptance review: `TmpBootstrapApplication` больше не исключает DataSource/Flyway auto-configuration. Настроены профили `dev`/`test`/`package`; package-профиль читает `TMP_DB_URL`, `TMP_DB_USERNAME`, `TMP_DB_PASSWORD`. Добавлен `TmpBootstrapPostgresIntegrationIT` на реальном entry point; усилены `SpringContextSmokeTest` и `PackagingSmokeIT`. Исправлен порядок jpackage (pre-integration-test после repackage).
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `.tools/apache-maven-3.9.9/bin/mvn.cmd clean verify` | PASSED |
+| `.tools/apache-maven-3.9.9/bin/mvn.cmd clean verify -Ppackage` | PASSED |
+| `TmpBootstrapPostgresIntegrationIT` (PostgreSQL Testcontainers) | PASSED |
+| Package artifact `dist/jpackage/TMP/TMP.exe` | PRESENT |
+
+### Next task
+
+Stage 0 complete — awaiting Stage 1 Start Gate
+
