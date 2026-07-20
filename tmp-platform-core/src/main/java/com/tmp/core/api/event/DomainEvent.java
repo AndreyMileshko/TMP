@@ -1,7 +1,6 @@
 package com.tmp.core.api.event;
 
 import java.time.Instant;
-import java.util.UUID;
 
 /**
  * Marker for domain-level business events published through Platform Core.
@@ -9,17 +8,11 @@ import java.util.UUID;
  */
 public interface DomainEvent {
 
-    default String eventId() {
-        return UUID.randomUUID().toString();
-    }
+    String eventId();
 
-    default Instant occurredAt() {
-        return Instant.now();
-    }
+    Instant occurredAt();
 
-    default String eventType() {
-        return getClass().getSimpleName();
-    }
+    String eventType();
 
     /**
      * Identifier of the capability that owns this event.

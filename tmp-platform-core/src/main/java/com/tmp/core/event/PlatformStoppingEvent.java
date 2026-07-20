@@ -1,9 +1,18 @@
 package com.tmp.core.event;
 
-import com.tmp.core.api.event.PlatformEvent;
+import com.tmp.core.api.event.AbstractPlatformEvent;
+import java.time.Instant;
 
 /**
  * Emitted when Platform Core begins shutdown of registered components.
  */
-public record PlatformStoppingEvent() implements PlatformEvent {
+public final class PlatformStoppingEvent extends AbstractPlatformEvent {
+
+    public PlatformStoppingEvent() {
+        super();
+    }
+
+    public PlatformStoppingEvent(String eventId, Instant occurredAt) {
+        super(eventId, occurredAt);
+    }
 }

@@ -1,23 +1,15 @@
 package com.tmp.core.api.event;
 
 import java.time.Instant;
-import java.util.Objects;
-import java.util.UUID;
 
 /**
- * Marker for infrastructure-level platform events.
+ * Marker for infrastructure-level platform events with stable metadata.
  */
 public interface PlatformEvent {
 
-    default String eventId() {
-        return UUID.randomUUID().toString();
-    }
+    String eventId();
 
-    default Instant occurredAt() {
-        return Instant.now();
-    }
+    Instant occurredAt();
 
-    default String eventType() {
-        return getClass().getSimpleName();
-    }
+    String eventType();
 }

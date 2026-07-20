@@ -11,7 +11,7 @@ import com.tmp.core.api.component.ComponentLifecycleState;
 import com.tmp.core.api.component.ComponentType;
 import com.tmp.core.api.component.PlatformComponent;
 import com.tmp.core.api.component.PlatformComponentMetadata;
-import com.tmp.core.api.event.PlatformEvent;
+import com.tmp.core.event.PlatformStartedEvent;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,12 +47,14 @@ class PlatformCoreIntegrationIT {
         capabilityRegistry.register(new CapabilityDescriptor("cap.integration", "Integration", "0.1.0"));
 
         AtomicBoolean eventReceived = new AtomicBoolean(false);
-        eventBus.subscribePlatform(TestPlatformEvent.class, event -> eventReceived.set(true));
-        eventBus.publish(new TestPlatformEvent());
+        eventBus.subscribePlatform(PlatformStartedEvent.class, event -> eventReceived.set(true));
+        eventBus.publish(new PlatformStartedEvent());
 
         assertTrue(eventReceived.get(), "EventBus must deliver platform events synchronously");
         assertEquals(1, capabilityRegistry.findAll().size());
         assertEquals(ComponentLifecycleState.STARTED, platformCore.status().lifecycleState());
+        assertEquals(1, platformCore.platformRegistry().registeredComponents().size());
+        assertEquals(1, platformCore.status().registeredServices());
     }
 
     @Configuration
@@ -66,8 +68,7 @@ class PlatformCoreIntegrationIT {
             SamplePlatformComponent component = new SamplePlatformComponent();
 
             platformCore.serviceRegistry().register(SampleInfrastructureService.class, service, owner);
-            platformCore.platformRegistry().register(component);
-            platformCore.lifecycleManager().registerComponent(component);
+            platformCore.registerComponent(component);
 
             return new IntegrationTestRegistrar();
         }
@@ -102,8 +103,5 @@ class PlatformCoreIntegrationIT {
         public void stop() {
             // no-op
         }
-    }
-
-    private record TestPlatformEvent() implements PlatformEvent {
     }
 }

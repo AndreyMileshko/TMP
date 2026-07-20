@@ -9,13 +9,13 @@ import java.util.Map;
  */
 public interface LifecycleManager {
 
-    void registerComponent(PlatformComponent component);
-
     void startAll();
 
     void stopAll();
 
     ComponentLifecycleState stateOf(String componentId);
+
+    ComponentLifecycleState platformState();
 
     Map<String, ComponentLifecycleState> allStates();
 }

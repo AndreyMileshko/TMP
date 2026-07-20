@@ -511,6 +511,41 @@ Stage 0 complete — awaiting Stage 1 Start Gate
 
 ## Stage 1 — Platform Core (summary)
 
+## `STAGE1-014` — `Fix Stage 1 acceptance review blockers (BLK-005..007)`
+
+**Date:** 2026-07-20  
+**Stage:** Stage 1 — Platform Core  
+**Status:** DONE
+
+### Result
+
+Устранены три блокирующих дефекта acceptance review. Event metadata теперь immutable через `AbstractPlatformEvent` / `AbstractDomainEvent`. `DefaultLifecycleManager` переписан с корректным rollback и platform state на failure. Единый атомарный registration path — `PlatformCore.registerComponent()`. Исправлен Service Registry count; расширены EventBus и architecture tests.
+
+### Key deliverables
+
+| Fix | Location |
+|---|---|
+| Stable event contract | `AbstractPlatformEvent`, `AbstractDomainEvent`, updated platform events |
+| Lifecycle failure policy | `DefaultLifecycleManager`, `DefaultLifecycleManagerTest` |
+| Atomic registration | `DefaultPlatformCore.registerComponent()`, `DefaultPlatformCoreRegistrationTest` |
+| Service registry accuracy | `registeredServiceCount()`, `DefaultServiceRegistryTest` |
+| API boundary enforcement | `Stage1PlatformCoreArchitectureTest` (com.tmp.core root blocked) |
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `mvn clean verify` | PASSED |
+| `mvn clean verify -Ppackage` | PASSED |
+| BLK-005..007 | RESOLVED |
+| Manual TMP.exe launch | PASSED (window opens, process stops cleanly) |
+
+### Next task
+
+Stage 1 complete — awaiting Stage 2 Start Gate
+
+---
+
 **Date:** 2026-07-20  
 **Status:** DONE (STAGE1-001..STAGE1-013)
 

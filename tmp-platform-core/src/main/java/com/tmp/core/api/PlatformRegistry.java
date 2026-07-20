@@ -6,11 +6,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Registry of platform components.
+ * Read-only registry view of platform components.
  */
 public interface PlatformRegistry {
-
-    void register(PlatformComponent component);
 
     Optional<PlatformComponent> findById(String componentId);
 

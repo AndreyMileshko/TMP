@@ -4,9 +4,9 @@
 **Project status:** STAGE_COMPLETE  
 **Current Stage:** Stage 1 — Platform Core  
 **Current Task:** None  
-**Last completed task:** STAGE1-013  
+**Last completed task:** STAGE1-014  
 **Active blocker:** None  
-**Last successful full verification:** STAGE1-013 (`mvn clean verify`, `mvn clean verify -Ppackage` EXIT_CODE=0, 2026-07-20)
+**Last successful full verification:** STAGE1-014 (`mvn clean verify`, `mvn clean verify -Ppackage` EXIT_CODE=0, manual TMP.exe launch PASSED, 2026-07-20)
 
 ---
 
@@ -42,5 +42,3 @@ Cursor обязан поддерживать:
 - активный blocker;
 - результат последней полной проверки;
 - процент прогресса только по фактически закрытым задачам.
-
-**Stage 1 закрыт.** Следующий этап — Stage 2 Document Engine (не начинать без явного Start Gate).

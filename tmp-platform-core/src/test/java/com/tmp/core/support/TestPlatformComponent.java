@@ -6,7 +6,7 @@ import com.tmp.core.api.component.PlatformComponent;
 import com.tmp.core.api.component.PlatformComponentMetadata;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public final class TestPlatformComponent implements PlatformComponent {
+public class TestPlatformComponent implements PlatformComponent {
 
     private final String id;
     private final AtomicInteger initializeCount = new AtomicInteger();

@@ -3,6 +3,7 @@ package com.tmp.core.registry;
 import com.tmp.core.api.ServiceRegistry;
 import com.tmp.core.api.component.PlatformComponentMetadata;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,11 +46,23 @@ public final class DefaultServiceRegistry implements ServiceRegistry {
 
     @Override
     public List<PlatformComponentMetadata> registeredServices() {
-        return services.values().stream()
-                .flatMap(entries -> entries.stream().map(ServiceEntry::owner))
-                .distinct()
-                .sorted((left, right) -> left.id().compareTo(right.id()))
-                .toList();
+        List<PlatformComponentMetadata> result = new ArrayList<>();
+        for (CopyOnWriteArrayList<ServiceEntry<?>> entries : services.values()) {
+            for (ServiceEntry<?> entry : entries) {
+                result.add(entry.owner());
+            }
+        }
+        result.sort(Comparator.comparing(PlatformComponentMetadata::id));
+        return List.copyOf(result);
+    }
+
+    @Override
+    public int registeredServiceCount() {
+        int count = 0;
+        for (CopyOnWriteArrayList<ServiceEntry<?>> entries : services.values()) {
+            count += entries.size();
+        }
+        return count;
     }
 
     private record ServiceEntry<T>(T instance, PlatformComponentMetadata owner) {

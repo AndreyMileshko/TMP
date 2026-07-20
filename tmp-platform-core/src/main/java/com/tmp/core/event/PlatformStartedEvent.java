@@ -1,9 +1,18 @@
 package com.tmp.core.event;
 
-import com.tmp.core.api.event.PlatformEvent;
+import com.tmp.core.api.event.AbstractPlatformEvent;
+import java.time.Instant;
 
 /**
  * Emitted when Platform Core completes startup of all registered components.
  */
-public record PlatformStartedEvent() implements PlatformEvent {
+public final class PlatformStartedEvent extends AbstractPlatformEvent {
+
+    public PlatformStartedEvent() {
+        super();
+    }
+
+    public PlatformStartedEvent(String eventId, Instant occurredAt) {
+        super(eventId, occurredAt);
+    }
 }

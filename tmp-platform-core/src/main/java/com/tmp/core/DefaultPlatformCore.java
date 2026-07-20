@@ -8,11 +8,13 @@ import com.tmp.core.api.PlatformCore;
 import com.tmp.core.api.PlatformRegistry;
 import com.tmp.core.api.PlatformStatus;
 import com.tmp.core.api.ServiceRegistry;
+import com.tmp.core.api.component.PlatformComponent;
 import com.tmp.core.lifecycle.DefaultLifecycleManager;
+import com.tmp.core.registry.DefaultPlatformRegistry;
 
 public final class DefaultPlatformCore implements PlatformCore {
 
-    private final PlatformRegistry platformRegistry;
+    private final DefaultPlatformRegistry platformRegistry;
     private final ServiceRegistry serviceRegistry;
     private final CapabilityRegistry capabilityRegistry;
     private final EventBus eventBus;
@@ -20,9 +22,10 @@ public final class DefaultPlatformCore implements PlatformCore {
     private final DefaultLifecycleManager lifecycleManager;
     private final String platformName;
     private final String platformVersion;
+    private final Object registrationLock = new Object();
 
     public DefaultPlatformCore(
-            PlatformRegistry platformRegistry,
+            DefaultPlatformRegistry platformRegistry,
             ServiceRegistry serviceRegistry,
             CapabilityRegistry capabilityRegistry,
             EventBus eventBus,
@@ -39,6 +42,26 @@ public final class DefaultPlatformCore implements PlatformCore {
         this.platformName = platformName;
         this.platformVersion = platformVersion;
         lifecycleManager.attachPlatformCore(this);
+    }
+
+    @Override
+    public void registerComponent(PlatformComponent component) {
+        String componentId = component.metadata().id();
+        synchronized (registrationLock) {
+            if (platformRegistry.isRegistered(componentId)) {
+                throw new IllegalStateException("Component already registered: " + componentId);
+            }
+            if (lifecycleManager.isRegistered(componentId)) {
+                throw new IllegalStateException("Component already registered for lifecycle: " + componentId);
+            }
+            platformRegistry.registerInternal(component);
+            try {
+                lifecycleManager.registerInternal(component);
+            } catch (RuntimeException lifecycleRegistrationFailure) {
+                platformRegistry.unregisterInternal(componentId);
+                throw lifecycleRegistrationFailure;
+            }
+        }
     }
 
     @Override
@@ -78,7 +101,7 @@ public final class DefaultPlatformCore implements PlatformCore {
                 platformVersion,
                 lifecycleManager.platformState(),
                 platformRegistry.registeredComponents().size(),
-                serviceRegistry.registeredServices().size(),
+                serviceRegistry.registeredServiceCount(),
                 capabilityRegistry.findAll().size());
     }
 }

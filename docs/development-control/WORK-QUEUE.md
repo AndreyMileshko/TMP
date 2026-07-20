@@ -1370,3 +1370,63 @@ mvn clean verify -Ppackage
 ### Documentation updates
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-014 — Fix Stage 1 acceptance review blockers (BLK-005..007)
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-013  
+**Module:** tmp-platform-core, tmp-bootstrap-app, tmp-architecture-tests
+
+### Goal
+
+Устранить три блокирующих дефекта acceptance review Stage 1 без перехода к Stage 2.
+
+### Required documents
+
+- `STAGE-1-PLATFORM-CORE.md`; Platform Core Specification; acceptance review blockers BLK-005..007.
+
+### Required code context
+
+- Event contracts; `DefaultLifecycleManager`; registries; `PlatformCore`; architecture tests.
+
+### Allowed code scope
+
+- `tmp-platform-core`; integration/architecture tests; development-control documentation.
+
+### Forbidden
+
+- Stage 2 features; Document Engine; business logic in Core.
+
+### Implementation requirements
+
+- Stable immutable event metadata contract.
+- Lifecycle failure consistency with rollback.
+- Atomic single-path component registration.
+- Service registry count fixes; expanded EventBus and architecture tests.
+
+### Acceptance criteria
+
+- [x] BLK-005 RESOLVED — stable eventId/occurredAt, expanded EventBus tests.
+- [x] BLK-006 RESOLVED — lifecycle failure/rollback tests.
+- [x] BLK-007 RESOLVED — `PlatformCore.registerComponent()` only public path.
+- [x] Service registry and architecture test enhancements.
+- [x] `mvn clean verify` and `mvn clean verify -Ppackage` PASSED.
+- [x] Manual TMP.exe launch verified.
+
+### Required tests
+
+- `SynchronousEventBusTest`, `DefaultLifecycleManagerTest`, `DefaultPlatformCoreRegistrationTest`, `DefaultServiceRegistryTest`, `Stage1PlatformCoreArchitectureTest`, `PlatformCoreIntegrationIT`.
+
+### Verification commands
+
+```bash
+mvn clean verify
+mvn clean verify -Ppackage
+```
+
+Manual: `dist/jpackage/TMP/TMP.exe` with `TMP_DB_URL`, `TMP_DB_USERNAME`, `TMP_DB_PASSWORD`.
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.

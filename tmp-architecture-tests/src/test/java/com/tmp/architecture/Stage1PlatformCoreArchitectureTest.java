@@ -27,7 +27,7 @@ class Stage1PlatformCoreArchitectureTest {
                     .because("Platform Core must remain independent from database infrastructure");
 
     @ArchTest
-    static final ArchRule externalModulesUseOnlyCorePublicApi =
+    static final ArchRule externalModulesUseOnlyCorePublicApiPackages =
             noClasses()
                     .that().resideOutsideOfPackage("com.tmp.core..")
                     .should().dependOnClassesThat().resideInAnyPackage(
@@ -36,6 +36,13 @@ class Stage1PlatformCoreArchitectureTest {
                             "com.tmp.core.lifecycle..",
                             "com.tmp.core.config..")
                     .because("Platform Core internals must be accessed only through com.tmp.core.api");
+
+    @ArchTest
+    static final ArchRule externalModulesMustNotDependOnCoreRootPackage =
+            noClasses()
+                    .that().resideOutsideOfPackage("com.tmp.core..")
+                    .should().dependOnClassesThat().resideInAPackage("com.tmp.core")
+                    .because("External modules must not depend on DefaultPlatformCore or PlatformCoreAutoConfiguration");
 
     @ArchTest
     static final ArchRule uiShellDoesNotDependOnPlatformCore =

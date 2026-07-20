@@ -13,13 +13,20 @@ public final class DefaultPlatformRegistry implements PlatformRegistry {
 
     private final Map<String, PlatformComponent> components = new ConcurrentHashMap<>();
 
-    @Override
-    public void register(PlatformComponent component) {
+    public void registerInternal(PlatformComponent component) {
         PlatformComponentMetadata metadata = component.metadata();
         PlatformComponent existing = components.putIfAbsent(metadata.id(), component);
         if (existing != null) {
             throw new IllegalStateException("Platform component already registered: " + metadata.id());
         }
+    }
+
+    public void unregisterInternal(String componentId) {
+        components.remove(componentId);
+    }
+
+    public boolean isRegistered(String componentId) {
+        return components.containsKey(componentId);
     }
 
     @Override

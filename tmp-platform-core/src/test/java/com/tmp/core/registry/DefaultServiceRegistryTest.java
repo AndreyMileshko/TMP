@@ -13,6 +13,10 @@ class DefaultServiceRegistryTest {
         String value();
     }
 
+    interface AnotherService {
+        int count();
+    }
+
     @Test
     void registersAndLooksUpServices() {
         DefaultServiceRegistry registry = new DefaultServiceRegistry();
@@ -24,6 +28,38 @@ class DefaultServiceRegistryTest {
 
         assertTrue(registry.lookup(SampleService.class).isPresent());
         assertEquals("ok", registry.lookup(SampleService.class).orElseThrow().value());
+        assertEquals(1, registry.registeredServiceCount());
         assertEquals(1, registry.registeredServices().size());
+    }
+
+    @Test
+    void lookupAllReturnsAllInstancesForType() {
+        DefaultServiceRegistry registry = new DefaultServiceRegistry();
+        PlatformComponentMetadata ownerA = new PlatformComponentMetadata(
+                "owner-a", "Owner A", "1.0.0", ComponentType.SERVICE);
+        PlatformComponentMetadata ownerB = new PlatformComponentMetadata(
+                "owner-b", "Owner B", "1.0.0", ComponentType.SERVICE);
+
+        registry.register(SampleService.class, () -> "first", ownerA);
+        registry.register(SampleService.class, () -> "second", ownerB);
+
+        assertEquals(2, registry.lookupAll(SampleService.class).size());
+        assertEquals(2, registry.registeredServiceCount());
+        assertEquals(2, registry.registeredServices().size());
+    }
+
+    @Test
+    void tracksMultipleServiceTypesAndOwners() {
+        DefaultServiceRegistry registry = new DefaultServiceRegistry();
+        PlatformComponentMetadata owner = new PlatformComponentMetadata(
+                "multi-owner", "Multi Owner", "1.0.0", ComponentType.SERVICE);
+
+        registry.register(SampleService.class, () -> "sample", owner);
+        registry.register(AnotherService.class, () -> 7, owner);
+
+        assertEquals(2, registry.registeredServiceCount());
+        assertEquals(2, registry.registeredServices().size());
+        assertTrue(registry.lookup(SampleService.class).isPresent());
+        assertTrue(registry.lookup(AnotherService.class).isPresent());
     }
 }

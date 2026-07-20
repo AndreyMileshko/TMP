@@ -4,8 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.tmp.core.api.component.ComponentType;
-import com.tmp.core.api.component.PlatformComponentMetadata;
 import com.tmp.core.support.TestPlatformComponent;
 import org.junit.jupiter.api.Test;
 
@@ -16,7 +14,7 @@ class DefaultPlatformRegistryTest {
         DefaultPlatformRegistry registry = new DefaultPlatformRegistry();
         TestPlatformComponent component = new TestPlatformComponent("core-test");
 
-        registry.register(component);
+        registry.registerInternal(component);
 
         assertTrue(registry.findById("core-test").isPresent());
         assertEquals(1, registry.registeredComponents().size());
@@ -26,8 +24,8 @@ class DefaultPlatformRegistryTest {
     @Test
     void rejectsDuplicateRegistration() {
         DefaultPlatformRegistry registry = new DefaultPlatformRegistry();
-        registry.register(new TestPlatformComponent("dup"));
+        registry.registerInternal(new TestPlatformComponent("dup"));
 
-        assertThrows(IllegalStateException.class, () -> registry.register(new TestPlatformComponent("dup")));
+        assertThrows(IllegalStateException.class, () -> registry.registerInternal(new TestPlatformComponent("dup")));
     }
 }

@@ -60,7 +60,7 @@ public class PlatformCoreAutoConfiguration {
 
     @Bean
     PlatformCore platformCore(
-            PlatformRegistry platformRegistry,
+            DefaultPlatformRegistry platformRegistry,
             ServiceRegistry serviceRegistry,
             CapabilityRegistry capabilityRegistry,
             EventBus eventBus,

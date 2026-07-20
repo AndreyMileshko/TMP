@@ -242,6 +242,24 @@
 
 - None.
 
+## 2026-07-20 — Stage 1 blocker rework (`STAGE1-014`, BLK-005..007)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Full reactor verify | `mvn clean verify` | PASSED |
+| Package profile verify | `mvn clean verify -Ppackage` | PASSED |
+| Event metadata stability | `SynchronousEventBusTest` | PASSED |
+| Lifecycle failure/rollback | `DefaultLifecycleManagerTest` | PASSED |
+| Atomic registration | `DefaultPlatformCoreRegistrationTest`, `PlatformCoreIntegrationIT` | PASSED |
+| Service registry counts | `DefaultServiceRegistryTest` | PASSED |
+| Architecture API boundaries | `Stage1PlatformCoreArchitectureTest` | PASSED |
+| Static analysis | checkstyle + spotbugs in verify | PASSED |
+| Manual TMP.exe | `dist/jpackage/TMP/TMP.exe` with PostgreSQL env vars | PASSED |
+
+### Failures
+
+- None (SpotBugs `CT_CONSTRUCTOR_THROW` on `AbstractDomainEvent` resolved via `@SuppressFBWarnings` and static validation helper).
+
 ## 2026-07-20 — Stage 1 verification gate (`STAGE1-013`)
 
 | Verification | Command / Method | Result |

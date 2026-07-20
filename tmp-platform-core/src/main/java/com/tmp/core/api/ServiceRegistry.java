@@ -15,5 +15,10 @@ public interface ServiceRegistry {
 
     <T> List<T> lookupAll(Class<T> serviceType);
 
+    /**
+     * Returns one entry per registered service instance.
+     */
     List<PlatformComponentMetadata> registeredServices();
+
+    int registeredServiceCount();
 }
