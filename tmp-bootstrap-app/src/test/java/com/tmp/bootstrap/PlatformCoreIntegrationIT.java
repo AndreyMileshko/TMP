@@ -53,7 +53,7 @@ class PlatformCoreIntegrationIT {
         assertTrue(eventReceived.get(), "EventBus must deliver platform events synchronously");
         assertEquals(1, capabilityRegistry.findAll().size());
         assertEquals(ComponentLifecycleState.STARTED, platformCore.status().lifecycleState());
-        assertEquals(1, platformCore.platformRegistry().registeredComponents().size());
+        assertEquals(2, platformCore.platformRegistry().registeredComponents().size());
         assertEquals(1, platformCore.status().registeredServices());
     }
 

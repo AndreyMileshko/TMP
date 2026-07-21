@@ -509,6 +509,45 @@ Docker Desktop + WSL2 подключены; Testcontainers обновлён до
 
 Stage 0 complete — awaiting Stage 1 Start Gate
 
+## Stage 2 — Document Engine (summary)
+
+## `STAGE2-016` — `Complete Stage 2 Document Engine`
+
+**Date:** 2026-07-21  
+**Stage:** Stage 2 — Document Engine  
+**Status:** DONE
+
+### Result
+
+Реализован модуль `tmp-document-engine` как domain-independent подсистема управления документами: типы документов, единый lifecycle, регистрация процессоров, storage/journal/version ports, JDBC adapters, миграция схемы `documents`, bootstrap integration и архитектурные ограничения.
+
+### Key deliverables
+
+| Component | Location |
+|---|---|
+| Public API | `com.tmp.document.api` (`DocumentEngine`, metadata/commands/query/status) |
+| Processor contract | `DocumentProcessor` (one type → one processor) |
+| Engine implementation | `DefaultDocumentEngine` |
+| Persistence ports | `DocumentStoragePort`, `LifecycleJournalPort`, `DocumentVersionPort`, `DocumentFileStoragePort` |
+| JDBC adapters | `JdbcDocumentStorageAdapter`, `JdbcLifecycleJournalAdapter`, `JdbcDocumentVersionAdapter`, `JdbcDocumentFileStorageAdapter` |
+| Database migration | `V2__documents_schema.sql` (`documents` schema + tables/indexes/checks) |
+| Spring wiring | `DocumentEngineAutoConfiguration`, platform component registrar |
+| UI bridge | Bootstrap renders document panel text; UI shell remains independent |
+| Architecture rules | `Stage2DocumentEngineArchitectureTest` |
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `mvn clean verify` | PASSED |
+| `mvn clean verify -Ppackage` | PASSED |
+| Stage 2 exit criteria | CONFIRMED |
+| Stage 3 start | NOT STARTED |
+
+### Next task
+
+Stage 2 complete — awaiting Stage 3 Start Gate
+
 ## Stage 1 — Platform Core (summary)
 
 ## `STAGE1-016` — `Fix registration/lifecycle race condition (BLK-009)`

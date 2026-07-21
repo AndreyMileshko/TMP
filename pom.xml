@@ -33,6 +33,7 @@
 
     <modules>
         <module>tmp-platform-core</module>
+        <module>tmp-document-engine</module>
         <module>tmp-bootstrap-app</module>
         <module>tmp-ui-shell</module>
         <module>tmp-infra-db</module>
@@ -80,6 +81,11 @@
             <dependency>
                 <groupId>com.tmp</groupId>
                 <artifactId>tmp-platform-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tmp</groupId>
+                <artifactId>tmp-document-engine</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

@@ -6,6 +6,7 @@ public final class JavaFxShellLauncher {
 
     private static Runnable onStopCallback;
     private static String platformStatusText = "";
+    private static String centerContentText = "";
 
     private JavaFxShellLauncher() {
     }
@@ -15,8 +16,13 @@ public final class JavaFxShellLauncher {
     }
 
     public static void launch(Runnable onStopCallback, String platformStatusText) {
+        launch(onStopCallback, platformStatusText, "");
+    }
+
+    public static void launch(Runnable onStopCallback, String platformStatusText, String centerContentText) {
         JavaFxShellLauncher.onStopCallback = onStopCallback;
         JavaFxShellLauncher.platformStatusText = platformStatusText == null ? "" : platformStatusText;
+        JavaFxShellLauncher.centerContentText = centerContentText == null ? "" : centerContentText;
         Application.launch(JavaFxShellApplication.class);
     }
 
@@ -26,5 +32,9 @@ public final class JavaFxShellLauncher {
 
     static String platformStatusText() {
         return platformStatusText;
+    }
+
+    static String centerContentText() {
+        return centerContentText;
     }
 }

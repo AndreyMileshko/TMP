@@ -30,6 +30,11 @@
         </dependency>
         <dependency>
             <groupId>com.tmp</groupId>
+            <artifactId>tmp-document-engine</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.tmp</groupId>
             <artifactId>tmp-platform-core</artifactId>
         </dependency>
         <dependency>

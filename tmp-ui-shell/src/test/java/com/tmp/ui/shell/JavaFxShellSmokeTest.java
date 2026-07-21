@@ -65,4 +65,18 @@ class JavaFxShellSmokeTest {
         assertNotNull(createdRoot);
         assertTrue(createdRoot instanceof BorderPane);
     }
+
+    @Test
+    void rendersCenterContentWhenProvided() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Parent> root = new AtomicReference<>();
+
+        Platform.runLater(() -> {
+            root.set(EmptyMainShell.createRoot("Platform ready", "Document Engine\nDOC-1"));
+            latch.countDown();
+        });
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        assertNotNull(root.get());
+    }
 }

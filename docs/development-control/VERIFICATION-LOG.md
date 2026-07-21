@@ -257,6 +257,24 @@
 
 - None.
 
+## 2026-07-21 — Stage 2 completion (`STAGE2-001..016`)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Baseline before Stage 2 | `mvn clean verify` | PASSED |
+| Full reactor verify after implementation | `mvn clean verify` | PASSED |
+| Package profile verify | `mvn clean verify -Ppackage` | PASSED |
+| Document Engine unit/integration tests | `DefaultDocumentEngineTest`, `DocumentEngineIntegrationIT` | PASSED |
+| Bootstrap integration with Document Engine | `DesktopBootstrap`, `PlatformCoreIntegrationIT` | PASSED |
+| Database migration for documents schema | Flyway `V2__documents_schema.sql` on H2/PostgreSQL | PASSED |
+| Architecture boundaries | `Stage2DocumentEngineArchitectureTest` | PASSED |
+| Static analysis | checkstyle + spotbugs in verify | PASSED |
+| Stage 2 exit criteria | Manual review vs STAGE-2-DOCUMENT-ENGINE.md | PASSED |
+
+### Failures
+
+- None.
+
 ## 2026-07-21 — Stage 1 re-review fixes (`STAGE1-015`, BLK-008)
 
 | Verification | Command / Method | Result |

@@ -1431,6 +1431,34 @@ Manual: `dist/jpackage/TMP/TMP.exe` with `TMP_DB_URL`, `TMP_DB_USERNAME`, `TMP_D
 
 - STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
+## Stage 2 — Document Engine (decomposition)
+
+| Task | Status | Scope |
+|---|---|---|
+| STAGE2-001 | DONE | Create `tmp-document-engine` module and API boundaries |
+| STAGE2-002 | DONE | Document type/metadata/lifecycle contracts |
+| STAGE2-003 | DONE | Document processor registry (one processor per type) |
+| STAGE2-004 | DONE | Document engine public facade contract |
+| STAGE2-005 | DONE | Storage/journal/version/file ports |
+| STAGE2-006 | DONE | Flyway migration `V2__documents_schema.sql` |
+| STAGE2-007 | DONE | JDBC adapters for documents/journal/version/files |
+| STAGE2-008 | DONE | `DefaultDocumentEngine` lifecycle implementation |
+| STAGE2-009 | DONE | Processor invocation rules and status transitions |
+| STAGE2-010 | DONE | Lifecycle journal and version snapshots |
+| STAGE2-011 | DONE | Search/query support and status API |
+| STAGE2-012 | DONE | Spring auto-configuration and PlatformCore registration |
+| STAGE2-013 | DONE | Bootstrap integration and document panel text rendering |
+| STAGE2-014 | DONE | Integration tests (document engine + bootstrap + DB) |
+| STAGE2-015 | DONE | Stage 2 architecture rules |
+| STAGE2-016 | DONE | Final Stage 2 verification gate (`verify`, `verify -Ppackage`) |
+
+### Stage 2 completion notes
+
+- Document Engine remains domain-independent and contains no business module logic.
+- One document type maps to exactly one registered `DocumentProcessor`.
+- Module depends on Platform Core public API only.
+- Stage 2 complete; stop before Stage 3.
+
 ## STAGE1-016 — Fix registration/lifecycle race condition (BLK-009)
 
 **Status:** DONE  
