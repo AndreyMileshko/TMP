@@ -1,4 +1,4 @@
-package com.tmp.core.event;
+package com.tmp.core.api.event.platform;
 
 import com.tmp.core.api.event.AbstractPlatformEvent;
 import java.time.Instant;

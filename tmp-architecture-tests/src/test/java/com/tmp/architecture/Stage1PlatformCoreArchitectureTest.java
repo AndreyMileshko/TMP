@@ -1,5 +1,7 @@
 package com.tmp.architecture;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideOutsideOfPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -27,22 +29,13 @@ class Stage1PlatformCoreArchitectureTest {
                     .because("Platform Core must remain independent from database infrastructure");
 
     @ArchTest
-    static final ArchRule externalModulesUseOnlyCorePublicApiPackages =
+    static final ArchRule externalModulesUseOnlyCorePublicApi =
             noClasses()
                     .that().resideOutsideOfPackage("com.tmp.core..")
-                    .should().dependOnClassesThat().resideInAnyPackage(
-                            "com.tmp.core.registry..",
-                            "com.tmp.core.event..",
-                            "com.tmp.core.lifecycle..",
-                            "com.tmp.core.config..")
-                    .because("Platform Core internals must be accessed only through com.tmp.core.api");
-
-    @ArchTest
-    static final ArchRule externalModulesMustNotDependOnCoreRootPackage =
-            noClasses()
-                    .that().resideOutsideOfPackage("com.tmp.core..")
-                    .should().dependOnClassesThat().resideInAPackage("com.tmp.core")
-                    .because("External modules must not depend on DefaultPlatformCore or PlatformCoreAutoConfiguration");
+                    .should().dependOnClassesThat(
+                            resideInAnyPackage("com.tmp.core..")
+                                    .and(resideOutsideOfPackage("com.tmp.core.api..")))
+                    .because("External modules may depend on com.tmp.core only through com.tmp.core.api..");
 
     @ArchTest
     static final ArchRule uiShellDoesNotDependOnPlatformCore =

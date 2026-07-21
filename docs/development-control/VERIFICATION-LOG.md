@@ -242,6 +242,22 @@
 
 - None.
 
+## 2026-07-21 — Stage 1 re-review fixes (`STAGE1-015`, BLK-008)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Full reactor verify | `mvn clean verify` | PASSED |
+| Package profile verify | `mvn clean verify -Ppackage` | PASSED |
+| Registration lifecycle guard | `DefaultPlatformCoreRegistrationTest` | PASSED |
+| Shutdown listener resilience | `PlatformCoreLifecycleListenerTest` | PASSED |
+| Public platform event package | `PlatformCoreIntegrationIT`, updated imports | PASSED |
+| Generic API boundary ArchUnit | `Stage1PlatformCoreArchitectureTest` | PASSED |
+| Static analysis | checkstyle + spotbugs in verify | PASSED |
+
+### Failures
+
+- None.
+
 ## 2026-07-20 — Stage 1 blocker rework (`STAGE1-014`, BLK-005..007)
 
 | Verification | Command / Method | Result |

@@ -511,6 +511,39 @@ Stage 0 complete — awaiting Stage 1 Start Gate
 
 ## Stage 1 — Platform Core (summary)
 
+## `STAGE1-015` — `Fix Stage 1 re-review remaining defects (BLK-008)`
+
+**Date:** 2026-07-21  
+**Stage:** Stage 1 — Platform Core  
+**Status:** DONE
+
+### Result
+
+Устранены оставшиеся дефекты повторной проверки Stage 1. Registration guard по platform state; platform events в `com.tmp.core.api.event.platform`; shutdown listener с `try/finally`; обобщённое ArchUnit правило api-only.
+
+### Key deliverables
+
+| Fix | Location |
+|---|---|
+| Registration lifecycle guard | `DefaultPlatformCore.isRegistrationAllowed()` |
+| Public platform events | `com.tmp.core.api.event.platform` |
+| Shutdown resilience | `PlatformCoreAutoConfiguration.PlatformCoreLifecycleListener` |
+| Generic API boundary rule | `Stage1PlatformCoreArchitectureTest.externalModulesUseOnlyCorePublicApi` |
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `mvn clean verify` | PASSED |
+| `mvn clean verify -Ppackage` | PASSED |
+| BLK-008 | RESOLVED |
+
+### Next task
+
+Stage 1 complete — awaiting Stage 2 Start Gate
+
+---
+
 ## `STAGE1-014` — `Fix Stage 1 acceptance review blockers (BLK-005..007)`
 
 **Date:** 2026-07-20  

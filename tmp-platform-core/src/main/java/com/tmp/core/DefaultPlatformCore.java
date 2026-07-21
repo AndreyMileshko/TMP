@@ -8,6 +8,7 @@ import com.tmp.core.api.PlatformCore;
 import com.tmp.core.api.PlatformRegistry;
 import com.tmp.core.api.PlatformStatus;
 import com.tmp.core.api.ServiceRegistry;
+import com.tmp.core.api.component.ComponentLifecycleState;
 import com.tmp.core.api.component.PlatformComponent;
 import com.tmp.core.lifecycle.DefaultLifecycleManager;
 import com.tmp.core.registry.DefaultPlatformRegistry;
@@ -48,6 +49,11 @@ public final class DefaultPlatformCore implements PlatformCore {
     public void registerComponent(PlatformComponent component) {
         String componentId = component.metadata().id();
         synchronized (registrationLock) {
+            ComponentLifecycleState platformState = lifecycleManager.platformState();
+            if (!isRegistrationAllowed(platformState)) {
+                throw new IllegalStateException(
+                        "Component registration is not allowed in platform state: " + platformState);
+            }
             if (platformRegistry.isRegistered(componentId)) {
                 throw new IllegalStateException("Component already registered: " + componentId);
             }
@@ -62,6 +68,11 @@ public final class DefaultPlatformCore implements PlatformCore {
                 throw lifecycleRegistrationFailure;
             }
         }
+    }
+
+    private static boolean isRegistrationAllowed(ComponentLifecycleState platformState) {
+        return platformState == ComponentLifecycleState.REGISTERED
+                || platformState == ComponentLifecycleState.STOPPED;
     }
 
     @Override

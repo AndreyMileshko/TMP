@@ -1430,3 +1430,62 @@ Manual: `dist/jpackage/TMP/TMP.exe` with `TMP_DB_URL`, `TMP_DB_USERNAME`, `TMP_D
 ### Documentation updates
 
 - STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE1-015 — Fix Stage 1 re-review remaining defects (BLK-008)
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-014  
+**Module:** tmp-platform-core, tmp-bootstrap-app, tmp-architecture-tests
+
+### Goal
+
+Устранить оставшиеся дефекты повторной проверки Stage 1 без перехода к Stage 2.
+
+### Required documents
+
+- `STAGE-1-PLATFORM-CORE.md`; acceptance review BLK-008 items.
+
+### Required code context
+
+- `DefaultPlatformCore.registerComponent()`; platform events; shutdown listener; ArchUnit rules.
+
+### Allowed code scope
+
+- `tmp-platform-core`; integration/architecture tests; development-control documentation.
+
+### Forbidden
+
+- Stage 2 features; Document Engine; business logic in Core.
+
+### Implementation requirements
+
+- Registration guard by platform lifecycle state.
+- Move platform events to `com.tmp.core.api.event.platform`.
+- Shutdown listener `try/finally` for guaranteed `stopAll()`.
+- Generic ArchUnit api-only dependency rule.
+
+### Acceptance criteria
+
+- [x] Registration allowed only in REGISTERED/STOPPED; forbidden in INITIALIZING/STARTED/STOPPING/FAILED without partial state.
+- [x] Platform events in public API package; no external imports from `com.tmp.core.event`.
+- [x] Failing stopping handler does not prevent `stopAll()`.
+- [x] ArchUnit: external modules depend on `com.tmp.core..` only via `com.tmp.core.api..`.
+- [x] `mvn clean verify` and `mvn clean verify -Ppackage` PASSED.
+
+### Required tests
+
+- `DefaultPlatformCoreRegistrationTest` (registration guard scenarios).
+- `PlatformCoreLifecycleListenerTest`.
+- `Stage1PlatformCoreArchitectureTest`.
+
+### Verification commands
+
+```bash
+mvn clean verify
+mvn clean verify -Ppackage
+```
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.

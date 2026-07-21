@@ -9,6 +9,7 @@ import com.tmp.core.api.event.AbstractDomainEvent;
 import com.tmp.core.api.event.AbstractPlatformEvent;
 import com.tmp.core.api.event.DomainEvent;
 import com.tmp.core.api.event.PlatformEvent;
+import com.tmp.core.api.event.platform.PlatformStartedEvent;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

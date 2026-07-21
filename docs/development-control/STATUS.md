@@ -4,9 +4,9 @@
 **Project status:** STAGE_COMPLETE  
 **Current Stage:** Stage 1 — Platform Core  
 **Current Task:** None  
-**Last completed task:** STAGE1-014  
+**Last completed task:** STAGE1-015  
 **Active blocker:** None  
-**Last successful full verification:** STAGE1-014 (`mvn clean verify`, `mvn clean verify -Ppackage` EXIT_CODE=0, manual TMP.exe launch PASSED, 2026-07-20)
+**Last successful full verification:** STAGE1-015 (`mvn clean verify`, `mvn clean verify -Ppackage` EXIT_CODE=0, 2026-07-21)
 
 ---
 

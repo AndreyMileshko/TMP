@@ -11,7 +11,7 @@ import com.tmp.core.api.component.ComponentLifecycleState;
 import com.tmp.core.api.component.ComponentType;
 import com.tmp.core.api.component.PlatformComponent;
 import com.tmp.core.api.component.PlatformComponentMetadata;
-import com.tmp.core.event.PlatformStartedEvent;
+import com.tmp.core.api.event.platform.PlatformStartedEvent;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

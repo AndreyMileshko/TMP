@@ -8,8 +8,8 @@ import com.tmp.core.api.PlatformRegistry;
 import com.tmp.core.api.ServiceRegistry;
 import com.tmp.core.config.PlatformCoreProperties;
 import com.tmp.core.config.SpringPlatformConfiguration;
-import com.tmp.core.event.PlatformStartedEvent;
-import com.tmp.core.event.PlatformStoppingEvent;
+import com.tmp.core.api.event.platform.PlatformStartedEvent;
+import com.tmp.core.api.event.platform.PlatformStoppingEvent;
 import com.tmp.core.event.SynchronousEventBus;
 import com.tmp.core.lifecycle.DefaultLifecycleManager;
 import com.tmp.core.registry.DefaultCapabilityRegistry;
@@ -101,8 +101,11 @@ public class PlatformCoreAutoConfiguration {
 
         @EventListener
         public void onContextClosed(ContextClosedEvent event) {
-            eventBus.publish(new PlatformStoppingEvent());
-            platformCore.lifecycleManager().stopAll();
+            try {
+                eventBus.publish(new PlatformStoppingEvent());
+            } finally {
+                platformCore.lifecycleManager().stopAll();
+            }
         }
     }
 }
