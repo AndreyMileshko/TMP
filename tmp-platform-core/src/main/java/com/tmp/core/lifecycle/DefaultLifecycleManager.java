@@ -4,6 +4,7 @@ import com.tmp.core.api.LifecycleManager;
 import com.tmp.core.api.PlatformCore;
 import com.tmp.core.api.component.ComponentLifecycleState;
 import com.tmp.core.api.component.PlatformComponent;
+import com.tmp.core.registry.DefaultPlatformRegistry;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,7 +25,34 @@ public final class DefaultLifecycleManager implements LifecycleManager {
         this.platformCore = platformCore;
     }
 
-    public void registerInternal(PlatformComponent component) {
+    /**
+     * Atomically validates platform state and registers the component in both
+     * lifecycle and platform registry under the same monitor used by {@link #startAll()}
+     * and {@link #stopAll()}.
+     */
+    public synchronized void registerComponentWithRegistry(
+            PlatformComponent component, DefaultPlatformRegistry platformRegistry) {
+        String componentId = component.metadata().id();
+        if (!isRegistrationAllowed(platformState)) {
+            throw new IllegalStateException(
+                    "Component registration is not allowed in platform state: " + platformState);
+        }
+        if (platformRegistry.isRegistered(componentId)) {
+            throw new IllegalStateException("Component already registered: " + componentId);
+        }
+        if (components.containsKey(componentId)) {
+            throw new IllegalStateException("Component already registered for lifecycle: " + componentId);
+        }
+        platformRegistry.registerInternal(component);
+        try {
+            registerInternal(component);
+        } catch (RuntimeException lifecycleRegistrationFailure) {
+            platformRegistry.unregisterInternal(componentId);
+            throw lifecycleRegistrationFailure;
+        }
+    }
+
+    public synchronized void registerInternal(PlatformComponent component) {
         String componentId = component.metadata().id();
         if (components.containsKey(componentId)) {
             throw new IllegalStateException("Component already registered for lifecycle: " + componentId);
@@ -33,12 +61,12 @@ public final class DefaultLifecycleManager implements LifecycleManager {
         states.put(componentId, ComponentLifecycleState.REGISTERED);
     }
 
-    public void unregisterInternal(String componentId) {
+    public synchronized void unregisterInternal(String componentId) {
         components.remove(componentId);
         states.remove(componentId);
     }
 
-    public boolean isRegistered(String componentId) {
+    public synchronized boolean isRegistered(String componentId) {
         return components.containsKey(componentId);
     }
 
@@ -54,9 +82,10 @@ public final class DefaultLifecycleManager implements LifecycleManager {
 
         platformState = ComponentLifecycleState.INITIALIZING;
         List<String> startedComponentIds = new ArrayList<>();
+        List<PlatformComponent> startupOrder = List.copyOf(components.values());
 
         try {
-            for (PlatformComponent component : components.values()) {
+            for (PlatformComponent component : startupOrder) {
                 String componentId = component.metadata().id();
                 states.put(componentId, ComponentLifecycleState.INITIALIZING);
                 try {
@@ -124,18 +153,23 @@ public final class DefaultLifecycleManager implements LifecycleManager {
     }
 
     @Override
-    public ComponentLifecycleState stateOf(String componentId) {
+    public synchronized ComponentLifecycleState stateOf(String componentId) {
         return states.getOrDefault(componentId, ComponentLifecycleState.REGISTERED);
     }
 
     @Override
-    public ComponentLifecycleState platformState() {
+    public synchronized ComponentLifecycleState platformState() {
         return platformState;
     }
 
     @Override
-    public Map<String, ComponentLifecycleState> allStates() {
+    public synchronized Map<String, ComponentLifecycleState> allStates() {
         return Map.copyOf(states);
+    }
+
+    private static boolean isRegistrationAllowed(ComponentLifecycleState state) {
+        return state == ComponentLifecycleState.REGISTERED
+                || state == ComponentLifecycleState.STOPPED;
     }
 
     private void rollbackStartedComponents(List<String> startedComponentIds, RuntimeException originalFailure) {

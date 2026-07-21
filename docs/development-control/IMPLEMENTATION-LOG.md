@@ -511,6 +511,39 @@ Stage 0 complete — awaiting Stage 1 Start Gate
 
 ## Stage 1 — Platform Core (summary)
 
+## `STAGE1-016` — `Fix registration/lifecycle race condition (BLK-009)`
+
+**Date:** 2026-07-21  
+**Stage:** Stage 1 — Platform Core  
+**Status:** DONE
+
+### Result
+
+Устранена race condition между registration и lifecycle. Единый monitor `DefaultLifecycleManager` для всех state transitions и `registerComponentWithRegistry()`. Deterministic concurrency test (200 iterations). Закреплена семантика STOPPED restart.
+
+### Key deliverables
+
+| Fix | Location |
+|---|---|
+| Unified synchronization | `DefaultLifecycleManager.registerComponentWithRegistry()` |
+| Removed split lock | `DefaultPlatformCore` delegates to lifecycle manager |
+| Safe startup iteration | `List.copyOf(components.values())` in `startAll()` |
+| Concurrency + restart tests | `DefaultPlatformCoreRegistrationTest` |
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `mvn clean verify` | PASSED |
+| `mvn clean verify -Ppackage` | PASSED |
+| BLK-009 | RESOLVED |
+
+### Next task
+
+Stage 1 complete — awaiting Stage 2 Start Gate
+
+---
+
 ## `STAGE1-015` — `Fix Stage 1 re-review remaining defects (BLK-008)`
 
 **Date:** 2026-07-21  

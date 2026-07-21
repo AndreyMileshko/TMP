@@ -2,6 +2,7 @@ package com.tmp.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -9,7 +10,6 @@ import com.tmp.core.api.PlatformConfiguration;
 import com.tmp.core.api.PlatformCore;
 import com.tmp.core.api.component.ComponentLifecycleState;
 import com.tmp.core.api.component.ComponentType;
-import com.tmp.core.api.component.PlatformComponent;
 import com.tmp.core.api.component.PlatformComponentMetadata;
 import com.tmp.core.event.SynchronousEventBus;
 import com.tmp.core.lifecycle.DefaultLifecycleManager;
@@ -17,7 +17,7 @@ import com.tmp.core.registry.DefaultCapabilityRegistry;
 import com.tmp.core.registry.DefaultPlatformRegistry;
 import com.tmp.core.registry.DefaultServiceRegistry;
 import com.tmp.core.support.TestPlatformComponent;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,6 +70,24 @@ class DefaultPlatformCoreRegistrationTest {
     }
 
     @Test
+    void registrationAfterStopAndSubsequentStartAllStartsAllComponents() {
+        TestPlatformComponent first = new TestPlatformComponent("restart.first");
+        platformCore.registerComponent(first);
+        platformCore.lifecycleManager().startAll();
+        platformCore.lifecycleManager().stopAll();
+
+        TestPlatformComponent second = new TestPlatformComponent("restart.second");
+        platformCore.registerComponent(second);
+        platformCore.lifecycleManager().startAll();
+
+        assertEquals(ComponentLifecycleState.STARTED, platformCore.lifecycleManager().platformState());
+        assertEquals(ComponentLifecycleState.STARTED, platformCore.lifecycleManager().stateOf("restart.first"));
+        assertEquals(ComponentLifecycleState.STARTED, platformCore.lifecycleManager().stateOf("restart.second"));
+        assertEquals(2, first.startCount());
+        assertEquals(1, second.startCount());
+    }
+
+    @Test
     void registrationWhileStartedFailsWithoutPartialState() {
         TestPlatformComponent existing = new TestPlatformComponent("existing.started");
         platformCore.registerComponent(existing);
@@ -102,56 +120,95 @@ class DefaultPlatformCoreRegistrationTest {
     }
 
     @Test
-    void registrationWhileInitializingFailsWithoutPartialState() throws Exception {
+    void registrationDuringStartupBlocksUntilCompleteThenRejectsIfTooLate() throws Exception {
         BlockingInitializeComponent blocking = new BlockingInitializeComponent("blocking.init");
         platformCore.registerComponent(blocking);
 
-        AtomicReference<IllegalStateException> registrationFailure = new AtomicReference<>();
         Thread startupThread = new Thread(() -> platformCore.lifecycleManager().startAll());
         startupThread.start();
-
         blocking.waitUntilInitializeEntered();
-        assertEquals(ComponentLifecycleState.INITIALIZING, platformCore.lifecycleManager().platformState());
 
-        TestPlatformComponent rejected = new TestPlatformComponent("rejected.initializing");
-        registrationFailure.set(assertThrows(
-                IllegalStateException.class, () -> platformCore.registerComponent(rejected)));
+        TestPlatformComponent rejected = new TestPlatformComponent("rejected.late");
+        AtomicReference<Throwable> registrationFailure = new AtomicReference<>();
+        Thread registrationThread = new Thread(() -> {
+            try {
+                platformCore.registerComponent(rejected);
+            } catch (Throwable failure) {
+                registrationFailure.set(failure);
+            }
+        });
+        registrationThread.start();
 
         blocking.releaseInitialize();
         startupThread.join(TimeUnit.SECONDS.toMillis(5));
+        registrationThread.join(TimeUnit.SECONDS.toMillis(5));
 
-        assertTrue(registrationFailure.get().getMessage().contains("INITIALIZING"));
-        assertFalse(platformCore.platformRegistry().findById("rejected.initializing").isPresent());
+        assertTrue(registrationFailure.get() instanceof IllegalStateException);
+        assertTrue(registrationFailure.get().getMessage().contains("STARTED"));
+        assertFalse(platformCore.platformRegistry().findById("rejected.late").isPresent());
         assertEquals(1, platformCore.platformRegistry().registeredComponents().size());
         assertEquals(ComponentLifecycleState.STARTED, platformCore.lifecycleManager().platformState());
     }
 
     @Test
-    void registrationWhileStoppingFailsWithoutPartialState() throws Exception {
+    void registrationDuringShutdownBlocksUntilCompleteThenAllowedOnStopped() throws Exception {
         TestPlatformComponent existing = new TestPlatformComponent("existing.stopping");
         BlockingStopComponent blocking = new BlockingStopComponent("blocking.stop");
         platformCore.registerComponent(existing);
         platformCore.registerComponent(blocking);
         platformCore.lifecycleManager().startAll();
 
-        AtomicReference<IllegalStateException> registrationFailure = new AtomicReference<>();
         Thread shutdownThread = new Thread(() -> platformCore.lifecycleManager().stopAll());
         shutdownThread.start();
-
         blocking.waitUntilStopEntered();
-        assertEquals(ComponentLifecycleState.STOPPING, platformCore.lifecycleManager().platformState());
 
-        TestPlatformComponent rejected = new TestPlatformComponent("rejected.stopping");
-        registrationFailure.set(assertThrows(
-                IllegalStateException.class, () -> platformCore.registerComponent(rejected)));
+        TestPlatformComponent addedDuringStop = new TestPlatformComponent("added.during.stop");
+        Thread registrationThread = new Thread(() -> platformCore.registerComponent(addedDuringStop));
+        registrationThread.start();
 
         blocking.releaseStop();
         shutdownThread.join(TimeUnit.SECONDS.toMillis(5));
+        registrationThread.join(TimeUnit.SECONDS.toMillis(5));
 
-        assertTrue(registrationFailure.get().getMessage().contains("STOPPING"));
-        assertFalse(platformCore.platformRegistry().findById("rejected.stopping").isPresent());
-        assertEquals(2, platformCore.platformRegistry().registeredComponents().size());
+        assertTrue(platformCore.platformRegistry().findById("added.during.stop").isPresent());
+        assertEquals(ComponentLifecycleState.REGISTERED, platformCore.lifecycleManager().stateOf("added.during.stop"));
         assertEquals(ComponentLifecycleState.STOPPED, platformCore.lifecycleManager().platformState());
+        assertRegistryAndLifecycleConsistent(platformCore);
+    }
+
+    @Test
+    void concurrentRegistrationAndStartAllMaintainsConsistentState() throws Exception {
+        for (int iteration = 0; iteration < 200; iteration++) {
+            DefaultPlatformCore core = createPlatformCore(new DefaultLifecycleManager());
+            String componentId = "concurrent." + iteration;
+            TestPlatformComponent racing = new TestPlatformComponent(componentId);
+            CyclicBarrier gate = new CyclicBarrier(2);
+
+            Thread registrationThread = new Thread(() -> {
+                awaitGate(gate);
+                try {
+                    core.registerComponent(racing);
+                } catch (RuntimeException ignored) {
+                    // Either outcome is valid; invariants must hold afterward.
+                }
+            });
+            Thread startupThread = new Thread(() -> {
+                awaitGate(gate);
+                try {
+                    core.lifecycleManager().startAll();
+                } catch (RuntimeException ignored) {
+                    // Either outcome is valid; invariants must hold afterward.
+                }
+            });
+
+            registrationThread.start();
+            startupThread.start();
+            registrationThread.join(TimeUnit.SECONDS.toMillis(5));
+            startupThread.join(TimeUnit.SECONDS.toMillis(5));
+
+            assertRegistryAndLifecycleConsistent(core);
+            assertNoRegisteredComponentsInsideStartedPlatform(core, componentId);
+        }
     }
 
     @Test
@@ -174,6 +231,44 @@ class DefaultPlatformCoreRegistrationTest {
         platformCore.serviceRegistry().register(Integer.class, 42, owner);
 
         assertEquals(2, platformCore.status().registeredServices());
+    }
+
+    private static void awaitGate(CyclicBarrier gate) {
+        try {
+            gate.await(5, TimeUnit.SECONDS);
+        } catch (Exception failure) {
+            throw new IllegalStateException("Concurrent test gate failed", failure);
+        }
+    }
+
+    private static void assertRegistryAndLifecycleConsistent(DefaultPlatformCore core) {
+        assertEquals(
+                core.platformRegistry().registeredComponents().size(),
+                core.lifecycleManager().allStates().size());
+        for (PlatformComponentMetadata metadata : core.platformRegistry().registeredComponents()) {
+            assertTrue(core.lifecycleManager().allStates().containsKey(metadata.id()));
+        }
+    }
+
+    private static void assertNoRegisteredComponentsInsideStartedPlatform(
+            DefaultPlatformCore core, String racingComponentId) {
+        ComponentLifecycleState platformState = core.lifecycleManager().platformState();
+        boolean racingRegistered = core.platformRegistry().findById(racingComponentId).isPresent();
+
+        if (racingRegistered) {
+            ComponentLifecycleState racingState = core.lifecycleManager().stateOf(racingComponentId);
+            if (platformState == ComponentLifecycleState.STARTED) {
+                assertEquals(ComponentLifecycleState.STARTED, racingState);
+            }
+        }
+
+        if (platformState == ComponentLifecycleState.STARTED) {
+            for (PlatformComponentMetadata metadata : core.platformRegistry().registeredComponents()) {
+                assertNotEquals(
+                        ComponentLifecycleState.REGISTERED,
+                        core.lifecycleManager().stateOf(metadata.id()));
+            }
+        }
     }
 
     private static DefaultPlatformCore createPlatformCore(DefaultLifecycleManager lifecycleManager) {
@@ -217,8 +312,8 @@ class DefaultPlatformCoreRegistrationTest {
 
     private static final class BlockingInitializeComponent extends TestPlatformComponent {
 
-        private final CountDownLatch initializeEntered = new CountDownLatch(1);
-        private final CountDownLatch initializeContinue = new CountDownLatch(1);
+        private final java.util.concurrent.CountDownLatch initializeEntered = new java.util.concurrent.CountDownLatch(1);
+        private final java.util.concurrent.CountDownLatch initializeContinue = new java.util.concurrent.CountDownLatch(1);
 
         BlockingInitializeComponent(String id) {
             super(id);
@@ -250,8 +345,8 @@ class DefaultPlatformCoreRegistrationTest {
 
     private static final class BlockingStopComponent extends TestPlatformComponent {
 
-        private final CountDownLatch stopEntered = new CountDownLatch(1);
-        private final CountDownLatch stopContinue = new CountDownLatch(1);
+        private final java.util.concurrent.CountDownLatch stopEntered = new java.util.concurrent.CountDownLatch(1);
+        private final java.util.concurrent.CountDownLatch stopContinue = new java.util.concurrent.CountDownLatch(1);
 
         BlockingStopComponent(String id) {
             super(id);
@@ -281,4 +376,3 @@ class DefaultPlatformCoreRegistrationTest {
         }
     }
 }
-

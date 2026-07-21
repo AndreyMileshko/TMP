@@ -1431,6 +1431,62 @@ Manual: `dist/jpackage/TMP/TMP.exe` with `TMP_DB_URL`, `TMP_DB_USERNAME`, `TMP_D
 
 - STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
+## STAGE1-016 — Fix registration/lifecycle race condition (BLK-009)
+
+**Status:** DONE  
+**Stage:** 1  
+**Depends on:** STAGE1-015  
+**Module:** tmp-platform-core
+
+### Goal
+
+Устранить race condition между `registerComponent()` и `startAll()`/`stopAll()` через единый synchronization boundary.
+
+### Required documents
+
+- `STAGE-1-PLATFORM-CORE.md`; STAGE1-015 re-review BLK-009.
+
+### Required code context
+
+- `DefaultPlatformCore`; `DefaultLifecycleManager`; registration and lifecycle tests.
+
+### Allowed code scope
+
+- `tmp-platform-core`; development-control documentation.
+
+### Forbidden
+
+- Stage 2 features; Document Engine; business logic in Core.
+
+### Implementation requirements
+
+- Unified lifecycle monitor for state, registration, startAll, stopAll.
+- Atomic registry+lifecycle registration with rollback.
+- Deterministic concurrency test; STOPPED restart semantics test.
+
+### Acceptance criteria
+
+- [x] No split `registrationLock`; single synchronization boundary.
+- [x] Registration and lifecycle state checks atomic vs startAll/stopAll.
+- [x] No REGISTERED components inside STARTED platform; no ConcurrentModificationException.
+- [x] STOPPED restart: registration + startAll starts all components.
+- [x] `mvn clean verify` and `mvn clean verify -Ppackage` PASSED.
+
+### Required tests
+
+- `DefaultPlatformCoreRegistrationTest` (concurrency, restart-after-STOPPED).
+
+### Verification commands
+
+```bash
+mvn clean verify
+mvn clean verify -Ppackage
+```
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
 ## STAGE1-015 — Fix Stage 1 re-review remaining defects (BLK-008)
 
 **Status:** DONE  

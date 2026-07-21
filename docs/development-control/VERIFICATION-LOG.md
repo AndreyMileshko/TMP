@@ -242,6 +242,21 @@
 
 - None.
 
+## 2026-07-21 — Stage 1 registration/lifecycle race fix (`STAGE1-016`, BLK-009)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Full reactor verify | `mvn clean verify` | PASSED |
+| Package profile verify | `mvn clean verify -Ppackage` | PASSED |
+| Unified synchronization | `DefaultLifecycleManager.registerComponentWithRegistry()` | PASSED |
+| Deterministic concurrency | `DefaultPlatformCoreRegistrationTest.concurrentRegistrationAndStartAllMaintainsConsistentState` (200 iterations) | PASSED |
+| STOPPED restart semantics | `DefaultPlatformCoreRegistrationTest.registrationAfterStopAndSubsequentStartAllStartsAllComponents` | PASSED |
+| Static analysis | checkstyle + spotbugs in verify | PASSED |
+
+### Failures
+
+- None.
+
 ## 2026-07-21 — Stage 1 re-review fixes (`STAGE1-015`, BLK-008)
 
 | Verification | Command / Method | Result |
