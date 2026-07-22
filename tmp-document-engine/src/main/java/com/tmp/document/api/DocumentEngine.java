@@ -9,7 +9,7 @@ import java.util.UUID;
  */
 public interface DocumentEngine {
 
-    void registerProcessor(DocumentProcessor processor);
+    DocumentProcessorRegistration registerProcessor(DocumentProcessor processor);
 
     DocumentMetadata createDocument(CreateDocumentCommand command);
 

@@ -14,7 +14,9 @@ import com.tmp.capability.api.NavigationContribution;
 import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.capability.api.ViewDescriptor;
 import com.tmp.capability.contribution.CapabilityContributionCatalogs;
+import com.tmp.capability.contribution.CapabilityExternalContributionRegistry;
 import com.tmp.capability.discovery.CapabilityDiscovery;
+import com.tmp.capability.lifecycle.CapabilityEventSubscriptionRegistry;
 import com.tmp.capability.lifecycle.CapabilityLifecycleManager;
 import com.tmp.capability.registration.CapabilityRegistrationService;
 import com.tmp.capability.registry.CapabilityRegistry;
@@ -34,6 +36,7 @@ import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.DocumentEngineStatus;
 import com.tmp.document.api.DocumentMetadata;
 import com.tmp.document.api.DocumentProcessor;
+import com.tmp.document.api.DocumentProcessorRegistration;
 import com.tmp.document.api.DocumentQuery;
 import com.tmp.document.api.DocumentTypeDescriptor;
 import com.tmp.document.api.UpdateDocumentCommand;
@@ -66,12 +69,21 @@ class DefaultCapabilityEngineTest {
 
         CapabilityRegistry capabilityRegistry = new CapabilityRegistry();
         CapabilityContributionCatalogs catalogs = new CapabilityContributionCatalogs();
+        CapabilityExternalContributionRegistry externalContributions =
+                new CapabilityExternalContributionRegistry();
+        CapabilityEventSubscriptionRegistry eventSubscriptions = new CapabilityEventSubscriptionRegistry();
+        DefaultCapabilityRegistry platformCapabilityRegistry = new DefaultCapabilityRegistry();
+        DefaultServiceRegistry serviceRegistry = new DefaultServiceRegistry();
+        StubPlatformCore platformCore = new StubPlatformCore(platformCapabilityRegistry, serviceRegistry);
         CapabilityRegistrationService registrationService = new CapabilityRegistrationService(
                 capabilityRegistry,
                 catalogs,
-                new StubPlatformCore(new DefaultCapabilityRegistry(), new DefaultServiceRegistry()),
+                externalContributions,
+                eventSubscriptions,
+                platformCore,
                 new EmptyDocumentEngine());
-        CapabilityLifecycleManager lifecycleManager = new CapabilityLifecycleManager(capabilityRegistry, catalogs);
+        CapabilityLifecycleManager lifecycleManager = new CapabilityLifecycleManager(
+                capabilityRegistry, catalogs, externalContributions, eventSubscriptions, platformCore);
         engine = new DefaultCapabilityEngine(
                 new CapabilityDiscovery(List.of(leaf, root)),
                 registrationService,
@@ -233,8 +245,24 @@ class DefaultCapabilityEngineTest {
 
     private static final class EmptyDocumentEngine implements DocumentEngine {
         @Override
-        public void registerProcessor(DocumentProcessor processor) {
-            // no documents in this facade test
+        public DocumentProcessorRegistration registerProcessor(DocumentProcessor processor) {
+            String typeId = processor.documentTypeId();
+            return new DocumentProcessorRegistration() {
+                @Override
+                public String documentTypeId() {
+                    return typeId;
+                }
+
+                @Override
+                public void unregister() {
+                    // no documents in this facade test
+                }
+
+                @Override
+                public void deactivate() {
+                    // no documents in this facade test
+                }
+            };
         }
 
         @Override

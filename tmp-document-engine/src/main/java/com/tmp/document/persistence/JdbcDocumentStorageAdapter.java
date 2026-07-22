@@ -164,6 +164,24 @@ public final class JdbcDocumentStorageAdapter implements DocumentStoragePort {
         return Boolean.TRUE.equals(exists);
     }
 
+    @Override
+    public boolean hasDocumentsForType(String typeId) {
+        Boolean exists = jdbcTemplate.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM documents.documents WHERE document_type_id = ?)",
+                Boolean.class,
+                typeId);
+        return Boolean.TRUE.equals(exists);
+    }
+
+    @Override
+    public void unregisterDocumentType(String typeId) {
+        if (hasDocumentsForType(typeId)) {
+            throw new IllegalStateException(
+                    "Cannot unregister document type with existing documents: " + typeId);
+        }
+        jdbcTemplate.update("DELETE FROM documents.document_types WHERE id = ?", typeId);
+    }
+
     private static DocumentMetadata mapRow(ResultSet rs, int rowNum) throws SQLException {
         return new DocumentMetadata(
                 rs.getObject("id", UUID.class),

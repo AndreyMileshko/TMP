@@ -479,3 +479,48 @@ Stage 2 (`STAGE2-001..026`) завершён. Re-review residual BLK-011 и BLK-
 ### Resolution
 
 `deliverSafely` логирует и поглощает delivery failures. Policy в javadoc: документная операция не откатывается; callers must not retry mutations. Platform Core unchanged. Тесты: `DefaultDocumentEngineTransactionEventTest`, `DocumentEnginePostgresIntegrationIT`. Verification PASSED.
+
+---
+
+## `BLK-014` — `Public APIs cannot reverse external Capability contributions`
+
+**Status:** RESOLVED  
+**Task:** `STAGE3-022`  
+**Detected:** 2026-07-22
+
+### Reason
+
+Stage 3 acceptance review: `CapabilityRegistrationService` не мог полностью откатить внешние contributions при ошибке позднего шага; деактивация оставляла stale Platform Core capability metadata, public services, document processors и event subscriptions. Partial external state не является допустимым поведением.
+
+### Evidence
+
+- Document/file/check: acceptance review Stage 3 — registration rollback left Platform Core descriptor / Document Processor / service registrations.
+- Document/file/check: `CapabilityRegistrationService` javadoc acknowledged residual limitation before rework.
+- Document/file/check: tests previously tolerated partial external state.
+
+### Options
+
+1. **Минимальные owner-aware reversible public API** (Stage 1–2):
+   - `ServiceRegistration` handle с `unregister()`; `ServiceRegistry.register()` возвращает handle.
+   - `CapabilityRegistry.unregister(String capabilityId)`.
+   - `DocumentProcessorRegistration` с `unregister()` и `deactivate()`; `DocumentEngine.registerProcessor()` возвращает handle.
+   - Event subscriptions: `EventSubscription` handles, tracked by Capability Engine.
+2. Reflection / internal map cleanup / Spring Context bypass (запрещено политикой Stage 3).
+
+### Recommendation
+
+Вариант 1: расширить принятые public API Stage 1–2 минимальными compensation handles; Capability Engine ведёт стек compensation и снимает event subscriptions при rollback / activation failure / stop / deactivation.
+
+### Required user decision
+
+Не требуется — API proposal принят; реализация в STAGE3-022.
+
+### Resolution
+
+Добавлены reversible public API:
+- `com.tmp.core.api.ServiceRegistration` + `DefaultServiceRegistry` unregister by handle;
+- `CapabilityRegistry.unregister` + `DefaultCapabilityRegistry`;
+- `DocumentProcessorRegistration` + `deactivate()` / `unregister()` в Document Engine;
+- `DocumentStoragePort.hasDocumentsForType()` / `unregisterDocumentType()`.
+
+Capability Engine: `CapabilityExternalContributionRegistry`, `CapabilityEventSubscriptionRegistry`, `CapabilityTrackingEventBus`, atomic `CapabilityRegistrationService` с compensation stack, lifecycle failure handling и deactivation cleanup. Acceptance tests: `CapabilityDeactivationAcceptanceTest`, `CapabilityLifecycleFailureAcceptanceTest`, расширенные registration/lifecycle/PostgreSQL ITs. Verification: `mvn clean verify`, `mvn clean verify -Ppackage`, manual `TMP.exe`.

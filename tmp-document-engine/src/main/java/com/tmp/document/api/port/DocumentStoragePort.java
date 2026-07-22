@@ -26,4 +26,11 @@ public interface DocumentStoragePort {
     void registerDocumentType(String typeId, String displayName, String description);
 
     boolean documentTypeExists(String typeId);
+
+    boolean hasDocumentsForType(String typeId);
+
+    /**
+     * Removes the document type row when {@link #hasDocumentsForType(String)} is false.
+     */
+    void unregisterDocumentType(String typeId);
 }

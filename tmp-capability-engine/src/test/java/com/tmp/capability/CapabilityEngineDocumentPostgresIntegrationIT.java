@@ -123,6 +123,34 @@ class CapabilityEngineDocumentPostgresIntegrationIT {
         assertEquals(typesBefore, countDocumentTypes(SampleTechnicalDocumentProcessor.DOCUMENT_TYPE_ID));
     }
 
+    @Test
+    @Order(4)
+    void deactivationBlocksNewDocumentOperationsButPreservesExistingDocuments() {
+        DocumentMetadata created = documentEngine.createDocument(new CreateDocumentCommand(
+                SampleTechnicalDocumentProcessor.DOCUMENT_TYPE_ID, "Document before deactivation"));
+        assertEquals(1, countDocuments(created.id()));
+
+        capabilityEngine.deactivate(SampleDependentTechnicalCapability.ID);
+        capabilityEngine.deactivate(SampleTechnicalCapability.ID);
+
+        assertEquals(CapabilityLifecycleState.DEACTIVATED, capabilityEngine.stateOf(SampleTechnicalCapability.ID));
+        assertThrows(
+                IllegalStateException.class,
+                () -> documentEngine.createDocument(new CreateDocumentCommand(
+                        SampleTechnicalDocumentProcessor.DOCUMENT_TYPE_ID, "blocked after deactivation")));
+        assertTrue(documentEngine.findById(created.id()).isPresent());
+        assertEquals(1, countDocuments(created.id()));
+        assertEquals(1, countDocumentTypes(SampleTechnicalDocumentProcessor.DOCUMENT_TYPE_ID));
+    }
+
+    private int countDocuments(java.util.UUID documentId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM documents.documents WHERE id = ?",
+                Integer.class,
+                documentId);
+        return count == null ? 0 : count;
+    }
+
     private int countDocumentTypes(String typeId) {
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM documents.document_types WHERE id = ?",

@@ -3,7 +3,9 @@ package com.tmp.capability;
 import com.tmp.capability.api.Capability;
 import com.tmp.capability.api.CapabilityEngine;
 import com.tmp.capability.contribution.CapabilityContributionCatalogs;
+import com.tmp.capability.contribution.CapabilityExternalContributionRegistry;
 import com.tmp.capability.discovery.CapabilityDiscovery;
+import com.tmp.capability.lifecycle.CapabilityEventSubscriptionRegistry;
 import com.tmp.capability.lifecycle.CapabilityLifecycleManager;
 import com.tmp.capability.registration.CapabilityRegistrationService;
 import com.tmp.capability.registry.CapabilityRegistry;
@@ -40,19 +42,45 @@ public class CapabilityEngineAutoConfiguration {
     }
 
     @Bean
+    CapabilityExternalContributionRegistry capabilityExternalContributionRegistry() {
+        return new CapabilityExternalContributionRegistry();
+    }
+
+    @Bean
+    CapabilityEventSubscriptionRegistry capabilityEventSubscriptionRegistry() {
+        return new CapabilityEventSubscriptionRegistry();
+    }
+
+    @Bean
     CapabilityRegistrationService capabilityRegistrationService(
             CapabilityRegistry capabilityEngineRegistry,
             CapabilityContributionCatalogs contributionCatalogs,
+            CapabilityExternalContributionRegistry externalContributions,
+            CapabilityEventSubscriptionRegistry eventSubscriptions,
             PlatformCore platformCore,
             DocumentEngine documentEngine) {
         return new CapabilityRegistrationService(
-                capabilityEngineRegistry, contributionCatalogs, platformCore, documentEngine);
+                capabilityEngineRegistry,
+                contributionCatalogs,
+                externalContributions,
+                eventSubscriptions,
+                platformCore,
+                documentEngine);
     }
 
     @Bean
     CapabilityLifecycleManager capabilityLifecycleManager(
-            CapabilityRegistry capabilityEngineRegistry, CapabilityContributionCatalogs contributionCatalogs) {
-        return new CapabilityLifecycleManager(capabilityEngineRegistry, contributionCatalogs);
+            CapabilityRegistry capabilityEngineRegistry,
+            CapabilityContributionCatalogs contributionCatalogs,
+            CapabilityExternalContributionRegistry externalContributions,
+            CapabilityEventSubscriptionRegistry eventSubscriptions,
+            PlatformCore platformCore) {
+        return new CapabilityLifecycleManager(
+                capabilityEngineRegistry,
+                contributionCatalogs,
+                externalContributions,
+                eventSubscriptions,
+                platformCore);
     }
 
     @Bean

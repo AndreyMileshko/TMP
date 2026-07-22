@@ -13,8 +13,20 @@ import com.tmp.capability.api.CommandDescriptor;
 import com.tmp.capability.api.DependencyDescriptor;
 import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.capability.contribution.CapabilityContributionCatalogs;
+import com.tmp.capability.contribution.CapabilityExternalContributionRegistry;
 import com.tmp.capability.registry.CapabilityRegistration;
 import com.tmp.capability.registry.CapabilityRegistry;
+import com.tmp.core.api.EventBus;
+import com.tmp.core.api.LifecycleManager;
+import com.tmp.core.api.PlatformConfiguration;
+import com.tmp.core.api.PlatformCore;
+import com.tmp.core.api.PlatformRegistry;
+import com.tmp.core.api.PlatformStatus;
+import com.tmp.core.api.ServiceRegistry;
+import com.tmp.core.api.component.PlatformComponent;
+import com.tmp.core.event.SynchronousEventBus;
+import com.tmp.core.registry.DefaultCapabilityRegistry;
+import com.tmp.core.registry.DefaultServiceRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +45,14 @@ class CapabilityLifecycleManagerTest {
     void setUp() {
         registry = new CapabilityRegistry();
         catalogs = new CapabilityContributionCatalogs();
-        lifecycle = new CapabilityLifecycleManager(registry, catalogs);
+        DefaultCapabilityRegistry platformCapabilityRegistry = new DefaultCapabilityRegistry();
+        DefaultServiceRegistry serviceRegistry = new DefaultServiceRegistry();
+        lifecycle = new CapabilityLifecycleManager(
+                registry,
+                catalogs,
+                new CapabilityExternalContributionRegistry(),
+                new CapabilityEventSubscriptionRegistry(),
+                new StubPlatformCore(platformCapabilityRegistry, serviceRegistry));
         initializeOrder.clear();
         activateOrder.clear();
         stopOrder.clear();
@@ -273,6 +292,58 @@ class CapabilityLifecycleManagerTest {
         @Override
         public void onStop() {
             stopOrder.add(descriptor.id().value());
+        }
+    }
+
+    private static final class StubPlatformCore implements PlatformCore {
+        private final com.tmp.core.api.CapabilityRegistry capabilityRegistry;
+        private final ServiceRegistry serviceRegistry;
+        private final EventBus eventBus = new SynchronousEventBus();
+
+        private StubPlatformCore(
+                com.tmp.core.api.CapabilityRegistry capabilityRegistry, ServiceRegistry serviceRegistry) {
+            this.capabilityRegistry = capabilityRegistry;
+            this.serviceRegistry = serviceRegistry;
+        }
+
+        @Override
+        public void registerComponent(PlatformComponent component) {
+            throw new UnsupportedOperationException("not used in this test");
+        }
+
+        @Override
+        public PlatformRegistry platformRegistry() {
+            throw new UnsupportedOperationException("not used in this test");
+        }
+
+        @Override
+        public ServiceRegistry serviceRegistry() {
+            return serviceRegistry;
+        }
+
+        @Override
+        public com.tmp.core.api.CapabilityRegistry capabilityRegistry() {
+            return capabilityRegistry;
+        }
+
+        @Override
+        public EventBus eventBus() {
+            return eventBus;
+        }
+
+        @Override
+        public PlatformConfiguration configuration() {
+            throw new UnsupportedOperationException("not used in this test");
+        }
+
+        @Override
+        public LifecycleManager lifecycleManager() {
+            throw new UnsupportedOperationException("not used in this test");
+        }
+
+        @Override
+        public PlatformStatus status() {
+            throw new UnsupportedOperationException("not used in this test");
         }
     }
 }

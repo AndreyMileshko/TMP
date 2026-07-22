@@ -606,3 +606,53 @@
 ### Failures
 
 - None.
+
+## 2026-07-22 — `STAGE3-022` (acceptance rework / BLK-014)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Capability Engine tests | `mvn -q test -pl :tmp-capability-engine` | PASSED |
+| Acceptance tests | `CapabilityDeactivationAcceptanceTest`, `CapabilityLifecycleFailureAcceptanceTest` | PASSED |
+| SpotBugs | `CapabilityRegistrationService` lock release | FIXED |
+
+### Failures
+
+- SpotBugs `UL_UNRELEASED_LOCK_EXCEPTION_PATH` — fixed by nested try/finally on `registrationLock`.
+
+## 2026-07-22 — `STAGE3-023`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Full reactor verify | `mvn clean verify` | PASSED |
+| Package profile verify | `mvn clean verify -Ppackage` | PASSED |
+| Manual TMP.exe | `TMP.exe` with `TMP_DB_*` + Docker PostgreSQL | PASSED |
+| Stage 4 start | Not started (stop gate) | CONFIRMED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-022` (acceptance rework / BLK-014)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Capability Engine tests | `mvn -q test -pl :tmp-capability-engine` | PASSED |
+| Acceptance tests | `CapabilityDeactivationAcceptanceTest`, `CapabilityLifecycleFailureAcceptanceTest` | PASSED |
+| SpotBugs | `CapabilityRegistrationService` lock release | FIXED |
+
+### Failures
+
+- SpotBugs `UL_UNRELEASED_LOCK_EXCEPTION_PATH` — fixed by nested try/finally on `registrationLock`.
+
+## 2026-07-22 — `STAGE3-023`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Full reactor verify | `mvn clean verify` | PASSED |
+| Package profile verify | `mvn clean verify -Ppackage` | PASSED |
+| Manual TMP.exe | `TMP.exe` with `TMP_DB_*` + Docker PostgreSQL | PASSED |
+| Stage 4 start | Not started (stop gate) | CONFIRMED |
+
+### Failures
+
+- None.

@@ -1,9 +1,11 @@
 package com.tmp.core.registry;
 
+import com.tmp.core.api.ServiceRegistration;
 import com.tmp.core.api.ServiceRegistry;
 import com.tmp.core.api.component.PlatformComponentMetadata;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -15,9 +17,12 @@ public final class DefaultServiceRegistry implements ServiceRegistry {
     private final Map<Class<?>, CopyOnWriteArrayList<ServiceEntry<?>>> services = new ConcurrentHashMap<>();
 
     @Override
-    public <T> void register(Class<T> serviceType, T instance, PlatformComponentMetadata owner) {
-        services.computeIfAbsent(serviceType, ignored -> new CopyOnWriteArrayList<>())
-                .add(new ServiceEntry<>(instance, owner));
+    public <T> ServiceRegistration register(Class<T> serviceType, T instance, PlatformComponentMetadata owner) {
+        CopyOnWriteArrayList<ServiceEntry<?>> entries =
+                services.computeIfAbsent(serviceType, ignored -> new CopyOnWriteArrayList<>());
+        ServiceEntry<T> entry = new ServiceEntry<>(instance, owner);
+        entries.add(entry);
+        return new DefaultServiceRegistration(serviceType, owner, () -> entries.remove(entry));
     }
 
     @Override
@@ -66,5 +71,15 @@ public final class DefaultServiceRegistry implements ServiceRegistry {
     }
 
     private record ServiceEntry<T>(T instance, PlatformComponentMetadata owner) {
+    }
+
+    private record DefaultServiceRegistration(
+            Class<?> serviceType, PlatformComponentMetadata owner, Runnable unregisterAction)
+            implements ServiceRegistration {
+
+        @Override
+        public void unregister() {
+            unregisterAction.run();
+        }
     }
 }

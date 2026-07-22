@@ -9,7 +9,7 @@ import java.util.Optional;
  */
 public interface ServiceRegistry {
 
-    <T> void register(Class<T> serviceType, T instance, PlatformComponentMetadata owner);
+    <T> ServiceRegistration register(Class<T> serviceType, T instance, PlatformComponentMetadata owner);
 
     <T> Optional<T> lookup(Class<T> serviceType);
 

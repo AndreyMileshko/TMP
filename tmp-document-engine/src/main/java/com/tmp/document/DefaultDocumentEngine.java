@@ -10,6 +10,7 @@ import com.tmp.document.api.DocumentEngineStatus;
 import com.tmp.document.api.DocumentMetadata;
 import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentProcessor;
+import com.tmp.document.api.DocumentProcessorRegistration;
 import com.tmp.document.api.DocumentQuery;
 import com.tmp.document.api.DocumentStatus;
 import com.tmp.document.api.DocumentTypeDescriptor;
@@ -85,7 +86,7 @@ public class DefaultDocumentEngine implements DocumentEngine, PlatformComponent 
     }
 
     @Override
-    public void registerProcessor(DocumentProcessor processor) {
+    public DocumentProcessorRegistration registerProcessor(DocumentProcessor processor) {
         String typeId = processor.documentTypeId();
         documentStorage.registerDocumentType(
                 typeId,
@@ -93,6 +94,7 @@ public class DefaultDocumentEngine implements DocumentEngine, PlatformComponent 
                 "Registered document processor");
         processorRegistry.register(processor);
         registerProcessorRollbackCompensation(typeId);
+        return new DefaultDocumentProcessorRegistration(typeId);
     }
 
     @Override
@@ -321,8 +323,38 @@ public class DefaultDocumentEngine implements DocumentEngine, PlatformComponent 
             public void afterCompletion(int status) {
                 if (status != STATUS_COMMITTED) {
                     processorRegistry.unregister(typeId);
+                    if (!documentStorage.hasDocumentsForType(typeId)) {
+                        documentStorage.unregisterDocumentType(typeId);
+                    }
                 }
             }
         });
+    }
+
+    private final class DefaultDocumentProcessorRegistration implements DocumentProcessorRegistration {
+
+        private final String documentTypeId;
+
+        private DefaultDocumentProcessorRegistration(String documentTypeId) {
+            this.documentTypeId = documentTypeId;
+        }
+
+        @Override
+        public String documentTypeId() {
+            return documentTypeId;
+        }
+
+        @Override
+        public void unregister() {
+            processorRegistry.unregister(documentTypeId);
+            if (!documentStorage.hasDocumentsForType(documentTypeId)) {
+                documentStorage.unregisterDocumentType(documentTypeId);
+            }
+        }
+
+        @Override
+        public void deactivate() {
+            processorRegistry.deactivate(documentTypeId);
+        }
     }
 }

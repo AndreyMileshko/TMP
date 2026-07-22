@@ -17,6 +17,7 @@ import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.DocumentEngineStatus;
 import com.tmp.document.api.DocumentMetadata;
 import com.tmp.document.api.DocumentProcessor;
+import com.tmp.document.api.DocumentProcessorRegistration;
 import com.tmp.document.api.DocumentQuery;
 import com.tmp.document.api.DocumentTypeDescriptor;
 import com.tmp.document.api.UpdateDocumentCommand;
@@ -138,8 +139,24 @@ class CapabilityEngineAutoConfigurationTest {
 
     private static final class EmptyDocumentEngine implements DocumentEngine {
         @Override
-        public void registerProcessor(DocumentProcessor processor) {
-            // no documents in auto-config slice test
+        public DocumentProcessorRegistration registerProcessor(DocumentProcessor processor) {
+            String typeId = processor.documentTypeId();
+            return new DocumentProcessorRegistration() {
+                @Override
+                public String documentTypeId() {
+                    return typeId;
+                }
+
+                @Override
+                public void unregister() {
+                    // no documents in auto-config slice test
+                }
+
+                @Override
+                public void deactivate() {
+                    // no documents in auto-config slice test
+                }
+            };
         }
 
         @Override

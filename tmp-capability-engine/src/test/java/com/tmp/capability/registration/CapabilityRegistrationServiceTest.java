@@ -19,8 +19,11 @@ import com.tmp.capability.api.PublicServiceContribution;
 import com.tmp.capability.api.SettingsContribution;
 import com.tmp.capability.api.ViewDescriptor;
 import com.tmp.capability.contribution.CapabilityContributionCatalogs;
+import com.tmp.capability.contribution.CapabilityExternalContributionRegistry;
+import com.tmp.capability.lifecycle.CapabilityEventSubscriptionRegistry;
 import com.tmp.capability.registry.CapabilityRegistry;
 import com.tmp.core.api.EventBus;
+import com.tmp.core.api.ServiceRegistration;
 import com.tmp.core.api.LifecycleManager;
 import com.tmp.core.api.PlatformConfiguration;
 import com.tmp.core.api.PlatformCore;
@@ -38,6 +41,7 @@ import com.tmp.document.api.DocumentEngineStatus;
 import com.tmp.document.api.DocumentMetadata;
 import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentProcessor;
+import com.tmp.document.api.DocumentProcessorRegistration;
 import com.tmp.document.api.DocumentQuery;
 import com.tmp.document.api.DocumentTypeDescriptor;
 import com.tmp.document.api.UpdateDocumentCommand;
@@ -57,6 +61,8 @@ class CapabilityRegistrationServiceTest {
     private CapabilityContributionCatalogs catalogs;
     private DefaultCapabilityRegistry platformCapabilityRegistry;
     private DefaultServiceRegistry serviceRegistry;
+    private CapabilityExternalContributionRegistry externalContributions;
+    private CapabilityEventSubscriptionRegistry eventSubscriptions;
     private RecordingDocumentEngine documentEngine;
     private CapabilityRegistrationService registrationService;
 
@@ -66,10 +72,14 @@ class CapabilityRegistrationServiceTest {
         catalogs = new CapabilityContributionCatalogs();
         platformCapabilityRegistry = new DefaultCapabilityRegistry();
         serviceRegistry = new DefaultServiceRegistry();
+        externalContributions = new CapabilityExternalContributionRegistry();
+        eventSubscriptions = new CapabilityEventSubscriptionRegistry();
         documentEngine = new RecordingDocumentEngine();
         registrationService = new CapabilityRegistrationService(
                 capabilityRegistry,
                 catalogs,
+                externalContributions,
+                eventSubscriptions,
                 new StubPlatformCore(platformCapabilityRegistry, serviceRegistry),
                 documentEngine);
     }
@@ -126,7 +136,7 @@ class CapabilityRegistrationServiceTest {
         assertTrue(failure.getCause().getMessage().contains("sample.document"));
         assertTrue(capabilityRegistry.findById(CapabilityId.of("sample.capability")).isEmpty());
         assertTrue(catalogs.activePermissions().isEmpty());
-        assertTrue(platformCapabilityRegistry.findById("sample.capability").isPresent());
+        assertTrue(platformCapabilityRegistry.findById("sample.capability").isEmpty());
         assertEquals(1, documentEngine.registeredTypes().size());
         assertEquals(0, documentEngine.registerProcessorCallCount());
     }
@@ -151,6 +161,8 @@ class CapabilityRegistrationServiceTest {
         CapabilityRegistrationService service = new CapabilityRegistrationService(
                 capabilityRegistry,
                 catalogs,
+                externalContributions,
+                eventSubscriptions,
                 new StubPlatformCore(platformCapabilityRegistry, failingServices),
                 documentEngine);
 
@@ -161,9 +173,8 @@ class CapabilityRegistrationServiceTest {
         assertTrue(failure.getCause().getMessage().contains("service registration failed"));
         assertTrue(capabilityRegistry.findById(CapabilityId.of("sample.capability")).isEmpty());
         assertTrue(catalogs.activePermissions().isEmpty());
-        // Document Engine already mutated — known residual limitation of Stage 1/2 public APIs
-        assertEquals(1, documentEngine.registeredTypes().size());
-        assertTrue(platformCapabilityRegistry.findById("sample.capability").isPresent());
+        assertEquals(0, documentEngine.registeredTypes().size());
+        assertTrue(platformCapabilityRegistry.findById("sample.capability").isEmpty());
     }
 
     @Test
@@ -173,16 +184,7 @@ class CapabilityRegistrationServiceTest {
                 CapabilityRegistrationException.class,
                 () -> registrationService.register(fullCapability("sample.capability")));
 
-        // Correct the external conflict and clear residual Platform Core descriptor left by the
-        // known Stage 1/2 compensation limitation, then retry.
         documentEngine.clearSeededTypes();
-        platformCapabilityRegistry = new DefaultCapabilityRegistry();
-        registrationService = new CapabilityRegistrationService(
-                capabilityRegistry,
-                catalogs,
-                new StubPlatformCore(platformCapabilityRegistry, serviceRegistry),
-                documentEngine);
-
         registrationService.register(fullCapability("sample.capability"));
 
         assertTrue(capabilityRegistry.findById(CapabilityId.of("sample.capability")).isPresent());
@@ -216,6 +218,42 @@ class CapabilityRegistrationServiceTest {
         assertEquals(1, failures.get());
         assertEquals(1, capabilityRegistry.findAll().size());
         assertEquals(1, catalogs.activePermissions().size());
+    }
+
+    @Test
+    void failureAtPlatformCapabilityRollsBackAllPriorState() {
+        platformCapabilityRegistry.register(
+                new com.tmp.core.api.capability.CapabilityDescriptor("sample.capability", "Existing", "1.0.0"));
+
+        CapabilityRegistrationException failure = assertThrows(
+                CapabilityRegistrationException.class,
+                () -> registrationService.register(fullCapability("sample.capability")));
+
+        assertInstanceOf(IllegalStateException.class, failure.getCause());
+        assertTrue(capabilityRegistry.findById(CapabilityId.of("sample.capability")).isEmpty());
+        assertTrue(catalogs.activePermissions().isEmpty());
+        assertEquals(0, documentEngine.registeredTypes().size());
+    }
+
+    @Test
+    void compensationFailuresAreSuppressedOnOriginalRegistrationFailure() {
+        documentEngine.failOnUnregister = true;
+        FailingServiceRegistry failingServices = new FailingServiceRegistry();
+        CapabilityRegistrationService service = new CapabilityRegistrationService(
+                capabilityRegistry,
+                catalogs,
+                externalContributions,
+                eventSubscriptions,
+                new StubPlatformCore(platformCapabilityRegistry, failingServices),
+                documentEngine);
+
+        CapabilityRegistrationException failure = assertThrows(
+                CapabilityRegistrationException.class, () -> service.register(fullCapability("sample.capability")));
+
+        assertTrue(failure.getCause().getMessage().contains("service registration failed"));
+        assertEquals(1, failure.getCause().getSuppressed().length);
+        assertTrue(capabilityRegistry.findById(CapabilityId.of("sample.capability")).isEmpty());
+        assertTrue(platformCapabilityRegistry.findById("sample.capability").isEmpty());
     }
 
     @Test
@@ -403,7 +441,7 @@ class CapabilityRegistrationServiceTest {
 
     private static final class FailingServiceRegistry implements ServiceRegistry {
         @Override
-        public <T> void register(Class<T> serviceType, T instance, PlatformComponentMetadata owner) {
+        public <T> ServiceRegistration register(Class<T> serviceType, T instance, PlatformComponentMetadata owner) {
             throw new IllegalStateException("service registration failed");
         }
 
@@ -432,6 +470,7 @@ class CapabilityRegistrationServiceTest {
         private final List<DocumentTypeDescriptor> types = new ArrayList<>();
         private final AtomicInteger registerProcessorCalls = new AtomicInteger();
         private boolean failOnRegisterProcessor;
+        private boolean failOnUnregister;
 
         void seedType(String typeId) {
             types.add(new DocumentTypeDescriptor(typeId, typeId, "seeded"));
@@ -446,7 +485,7 @@ class CapabilityRegistrationServiceTest {
         }
 
         @Override
-        public void registerProcessor(DocumentProcessor processor) {
+        public DocumentProcessorRegistration registerProcessor(DocumentProcessor processor) {
             registerProcessorCalls.incrementAndGet();
             if (failOnRegisterProcessor) {
                 throw new IllegalStateException("processor rejected");
@@ -456,8 +495,27 @@ class CapabilityRegistrationServiceTest {
                     throw new IllegalStateException("duplicate processor: " + processor.documentTypeId());
                 }
             }
-            types.add(new DocumentTypeDescriptor(
-                    processor.documentTypeId(), processor.documentTypeId(), "registered"));
+            String typeId = processor.documentTypeId();
+            types.add(new DocumentTypeDescriptor(typeId, typeId, "registered"));
+            return new DocumentProcessorRegistration() {
+                @Override
+                public String documentTypeId() {
+                    return typeId;
+                }
+
+                @Override
+                public void unregister() {
+                    if (failOnUnregister) {
+                        throw new IllegalStateException("unregister compensation failed");
+                    }
+                    types.removeIf(type -> type.typeId().equals(typeId));
+                }
+
+                @Override
+                public void deactivate() {
+                    // test double: no-op
+                }
+            };
         }
 
         @Override

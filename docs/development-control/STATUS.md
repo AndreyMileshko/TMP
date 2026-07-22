@@ -4,9 +4,9 @@
 **Project status:** IN_PROGRESS  
 **Current Stage:** Stage 3 — Capability Engine  
 **Current Task:** — (Stage 3 complete; stop before Stage 4)  
-**Last completed task:** STAGE3-021  
-**Active blocker:** None  
-**Last successful full verification:** `mvn clean verify -Ppackage` EXIT_CODE=0 (2026-07-22, STAGE3-021)
+**Last completed task:** STAGE3-023  
+**Active blocker:** None (`BLK-014` RESOLVED)  
+**Last successful full verification:** `mvn clean verify -Ppackage` EXIT_CODE=0 (2026-07-22, STAGE3-023)
 
 ---
 
@@ -43,4 +43,4 @@ Cursor обязан поддерживать:
 - результат последней полной проверки;
 - процент прогресса только по фактически закрытым задачам.
 
-**Stop gate:** Stage 3 закрыт. Stage 4 не начинать без явного указания пользователя.
+**Stop gate:** Stage 3 acceptance rework (`BLK-014`) завершён и повторно верифицирован (`STAGE3-023`). Stage 4 не начинать без явного указания пользователя.

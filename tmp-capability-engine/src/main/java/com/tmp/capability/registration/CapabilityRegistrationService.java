@@ -7,49 +7,34 @@ import com.tmp.capability.api.CapabilityLifecycleState;
 import com.tmp.capability.api.DocumentContribution;
 import com.tmp.capability.api.PublicServiceContribution;
 import com.tmp.capability.contribution.CapabilityContributionCatalogs;
+import com.tmp.capability.contribution.CapabilityExternalContributionRegistry;
+import com.tmp.capability.lifecycle.CapabilityEventSubscriptionRegistry;
 import com.tmp.capability.registry.CapabilityRegistration;
 import com.tmp.capability.registry.CapabilityRegistry;
 import com.tmp.core.api.PlatformCore;
+import com.tmp.core.api.ServiceRegistration;
 import com.tmp.core.api.component.ComponentType;
 import com.tmp.core.api.component.PlatformComponentMetadata;
 import com.tmp.document.api.DocumentEngine;
+import com.tmp.document.api.DocumentProcessorRegistration;
 import com.tmp.document.api.DocumentTypeDescriptor;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Single atomic registration entry point for a Capability. Executes Capability-Engine-owned
- * catalog mutations first (always reversible), then external Platform Core / Document Engine
- * calls in the fixed order defined by Stage 3 design decisions §6:
- *
- * <ol>
- *   <li>reserve id in the Capability-Engine {@link CapabilityRegistry};</li>
- *   <li>register internal contribution catalogs (permissions, commands, views, navigation,
- *       settings, event descriptors);</li>
- *   <li>register basic descriptor into Platform Core {@code capabilityRegistry()};</li>
- *   <li>pre-check and register each {@link DocumentContribution} via
- *       {@link DocumentEngine#registerProcessor};</li>
- *   <li>register each {@link PublicServiceContribution} via
- *       {@code platformCore.serviceRegistry().register(...)}</li>
- *   <li>event contributions: cataloging only (no EventBus subscription intermediation —
- *       capabilities subscribe themselves in {@code onActivate}/{@code onInitialize} and
- *       unsubscribe in {@code onStop}/{@code onDeactivate});</li>
- *   <li>on success: {@code commit} the Capability-Engine registration as
- *       {@link CapabilityLifecycleState#REGISTERED}.</li>
- * </ol>
- *
- * <p><b>Known residual limitation</b> (design decisions §6, documented verbatim intent):
- * no compensation is possible for {@code ServiceRegistry} / Document Engine calls that
- * already succeeded before a later step fails. This is mitigated by ordering +
- * pre-validation under a single registration lock, not eliminated by contract. A future
- * Platform Core contract change that made {@code ServiceRegistry.register} fail after
- * Document Engine registration already succeeded would leave those external registrations
- * in place; Capability-Engine-owned state (catalogs + reservation) is still fully unwound.
+ * Atomic registration entry point for a Capability. Each successful external step records a
+ * compensation handle; failures unwind internal and external state in reverse order while
+ * preserving the original exception and suppressing compensation failures.
  */
 public final class CapabilityRegistrationService {
 
     private final CapabilityRegistry capabilityRegistry;
     private final CapabilityContributionCatalogs contributionCatalogs;
+    private final CapabilityExternalContributionRegistry externalContributions;
+    private final CapabilityEventSubscriptionRegistry eventSubscriptions;
     private final PlatformCore platformCore;
     private final DocumentEngine documentEngine;
     private final ReentrantLock registrationLock = new ReentrantLock();
@@ -57,10 +42,14 @@ public final class CapabilityRegistrationService {
     public CapabilityRegistrationService(
             CapabilityRegistry capabilityRegistry,
             CapabilityContributionCatalogs contributionCatalogs,
+            CapabilityExternalContributionRegistry externalContributions,
+            CapabilityEventSubscriptionRegistry eventSubscriptions,
             PlatformCore platformCore,
             DocumentEngine documentEngine) {
         this.capabilityRegistry = Objects.requireNonNull(capabilityRegistry, "capabilityRegistry");
         this.contributionCatalogs = Objects.requireNonNull(contributionCatalogs, "contributionCatalogs");
+        this.externalContributions = Objects.requireNonNull(externalContributions, "externalContributions");
+        this.eventSubscriptions = Objects.requireNonNull(eventSubscriptions, "eventSubscriptions");
         this.platformCore = Objects.requireNonNull(platformCore, "platformCore");
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
     }
@@ -71,42 +60,49 @@ public final class CapabilityRegistrationService {
         CapabilityId id = descriptor.id();
 
         registrationLock.lock();
-        boolean reserved = false;
-        boolean catalogsRegistered = false;
         try {
-            capabilityRegistry.reserve(id);
-            reserved = true;
+            boolean reserved = false;
+            boolean catalogsRegistered = false;
+            List<Runnable> compensations = new ArrayList<>();
+            try {
+                capabilityRegistry.reserve(id);
+                reserved = true;
+                compensations.add(() -> capabilityRegistry.release(id));
 
-            contributionCatalogs.registerInternalContributions(descriptor);
-            catalogsRegistered = true;
+                contributionCatalogs.registerInternalContributions(descriptor);
+                catalogsRegistered = true;
+                compensations.add(() -> contributionCatalogs.removeAllForOwner(id));
 
-            registerPlatformCapabilityDescriptor(descriptor);
-            registerDocumentContributions(descriptor);
-            registerPublicServices(descriptor);
+                registerPlatformCapabilityDescriptor(id, descriptor, compensations);
+                registerDocumentContributions(id, descriptor, compensations);
+                registerPublicServices(id, descriptor, compensations);
 
-            capabilityRegistry.commit(
-                    new CapabilityRegistration(descriptor, CapabilityLifecycleState.REGISTERED, capability));
-            reserved = false;
-            catalogsRegistered = false;
-        } catch (RuntimeException failure) {
-            compensate(id, reserved, catalogsRegistered, failure);
-            throw new CapabilityRegistrationException(
-                    "Failed to register capability '" + id + "': " + failure.getMessage(), failure);
+                capabilityRegistry.commit(
+                        new CapabilityRegistration(descriptor, CapabilityLifecycleState.REGISTERED, capability));
+            } catch (RuntimeException failure) {
+                compensate(id, reserved, catalogsRegistered, compensations, failure);
+                throw new CapabilityRegistrationException(
+                        "Failed to register capability '" + id + "': " + failure.getMessage(), failure);
+            }
         } finally {
             registrationLock.unlock();
         }
     }
 
-    private void registerPlatformCapabilityDescriptor(CapabilityDescriptor descriptor) {
+    private void registerPlatformCapabilityDescriptor(
+            CapabilityId id, CapabilityDescriptor descriptor, List<Runnable> compensations) {
         com.tmp.core.api.capability.CapabilityDescriptor platformDescriptor =
                 new com.tmp.core.api.capability.CapabilityDescriptor(
                         descriptor.id().value(),
                         descriptor.name(),
                         descriptor.version().toString());
         platformCore.capabilityRegistry().register(platformDescriptor);
+        externalContributions.recordPlatformCapabilityRegistration(id);
+        compensations.add(() -> platformCore.capabilityRegistry().unregister(id.value()));
     }
 
-    private void registerDocumentContributions(CapabilityDescriptor descriptor) {
+    private void registerDocumentContributions(
+            CapabilityId id, CapabilityDescriptor descriptor, List<Runnable> compensations) {
         for (DocumentContribution contribution : descriptor.documents()) {
             String typeId = contribution.documentTypeId();
             for (DocumentTypeDescriptor existing : documentEngine.registeredTypes()) {
@@ -115,29 +111,55 @@ public final class CapabilityRegistrationService {
                             "Document type already registered: " + typeId);
                 }
             }
-            documentEngine.registerProcessor(contribution.processor());
+            DocumentProcessorRegistration registration = documentEngine.registerProcessor(contribution.processor());
+            externalContributions.recordDocumentProcessor(id, registration);
+            compensations.add(registration::unregister);
         }
     }
 
-    private void registerPublicServices(CapabilityDescriptor descriptor) {
+    private void registerPublicServices(
+            CapabilityId id, CapabilityDescriptor descriptor, List<Runnable> compensations) {
         PlatformComponentMetadata owner = new PlatformComponentMetadata(
                 descriptor.id().value(),
                 descriptor.name(),
                 descriptor.version().toString(),
                 ComponentType.CAPABILITY);
         for (PublicServiceContribution<?> contribution : descriptor.publicServices()) {
-            registerPublicService(contribution, owner);
+            ServiceRegistration registration = registerPublicService(contribution, owner);
+            externalContributions.recordServiceRegistration(id, registration);
+            compensations.add(registration::unregister);
         }
     }
 
     @SuppressWarnings("unchecked")
-    private <T> void registerPublicService(PublicServiceContribution<T> contribution, PlatformComponentMetadata owner) {
-        platformCore.serviceRegistry().register(
-                contribution.serviceType(), contribution.serviceInstance(), owner);
+    private <T> ServiceRegistration registerPublicService(
+            PublicServiceContribution<T> contribution, PlatformComponentMetadata owner) {
+        return platformCore
+                .serviceRegistry()
+                .register(contribution.serviceType(), contribution.serviceInstance(), owner);
     }
 
     private void compensate(
-            CapabilityId id, boolean reserved, boolean catalogsRegistered, RuntimeException originalFailure) {
+            CapabilityId id,
+            boolean reserved,
+            boolean catalogsRegistered,
+            List<Runnable> compensations,
+            RuntimeException originalFailure) {
+        eventSubscriptions.unsubscribeAll(id);
+        List<Runnable> ordered = new ArrayList<>(compensations);
+        Collections.reverse(ordered);
+        for (Runnable compensation : ordered) {
+            try {
+                compensation.run();
+            } catch (RuntimeException compensationFailure) {
+                originalFailure.addSuppressed(compensationFailure);
+            }
+        }
+        try {
+            externalContributions.clear(id);
+        } catch (RuntimeException compensationFailure) {
+            originalFailure.addSuppressed(compensationFailure);
+        }
         if (catalogsRegistered) {
             try {
                 contributionCatalogs.removeAllForOwner(id);

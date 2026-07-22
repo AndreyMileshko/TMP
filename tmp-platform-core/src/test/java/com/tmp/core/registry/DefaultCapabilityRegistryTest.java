@@ -10,6 +10,20 @@ import org.junit.jupiter.api.Test;
 class DefaultCapabilityRegistryTest {
 
     @Test
+    void unregisterRemovesCapabilityMetadata() {
+        DefaultCapabilityRegistry registry = new DefaultCapabilityRegistry();
+        CapabilityDescriptor descriptor = new CapabilityDescriptor("cap.test", "Test", "0.1.0");
+
+        registry.register(descriptor);
+        assertTrue(registry.findById("cap.test").isPresent());
+
+        registry.unregister("cap.test");
+
+        assertTrue(registry.findById("cap.test").isEmpty());
+        assertEquals(0, registry.findAll().size());
+    }
+
+    @Test
     void registersCapabilityMetadata() {
         DefaultCapabilityRegistry registry = new DefaultCapabilityRegistry();
         CapabilityDescriptor descriptor = new CapabilityDescriptor("cap.test", "Test", "0.1.0");

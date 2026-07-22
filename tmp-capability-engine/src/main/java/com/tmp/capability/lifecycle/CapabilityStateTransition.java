@@ -67,7 +67,10 @@ public final class CapabilityStateTransition {
                 EnumSet.of(CapabilityLifecycleState.STOPPED, CapabilityLifecycleState.FAILED));
         transitions.put(
                 CapabilityLifecycleState.STOPPED,
-                EnumSet.of(CapabilityLifecycleState.INITIALIZED, CapabilityLifecycleState.DEACTIVATED));
+                EnumSet.of(
+                        CapabilityLifecycleState.INITIALIZED,
+                        CapabilityLifecycleState.DEACTIVATED,
+                        CapabilityLifecycleState.FAILED));
         transitions.put(CapabilityLifecycleState.DEACTIVATED, EnumSet.noneOf(CapabilityLifecycleState.class));
         transitions.put(CapabilityLifecycleState.FAILED, EnumSet.noneOf(CapabilityLifecycleState.class));
         return Map.copyOf(transitions);

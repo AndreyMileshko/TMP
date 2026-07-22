@@ -5,9 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.tmp.document.api.DocumentProcessor;
+import com.tmp.document.api.DocumentProcessorRegistration;
 import com.tmp.document.api.port.DocumentStoragePort;
 import com.tmp.document.api.port.DocumentVersionPort;
 import com.tmp.document.api.port.LifecycleJournalPort;
@@ -40,6 +43,42 @@ class DefaultDocumentEngineRegistrationTest {
                 lifecycleJournal,
                 documentVersionPort,
                 eventPublisher);
+    }
+
+    @Test
+    void deactivateBlocksNewOperationsWithoutRemovingPersistedDocumentType() {
+        DocumentProcessor processor = new TestDocumentProcessor(TYPE_ID);
+        when(documentStorage.documentTypeExists(TYPE_ID)).thenReturn(true);
+        when(documentStorage.hasDocumentsForType(TYPE_ID)).thenReturn(true);
+        DocumentProcessorRegistration registration = documentEngine.registerProcessor(processor);
+        registration.deactivate();
+
+        assertFalse(processorRegistry.isActive(TYPE_ID));
+        verify(documentStorage).registerDocumentType(TYPE_ID, TYPE_ID, "Registered document processor");
+    }
+
+    @Test
+    void unregisterRemovesDocumentTypeWhenNoDocumentsExist() {
+        DocumentProcessor processor = new TestDocumentProcessor(TYPE_ID);
+        when(documentStorage.hasDocumentsForType(TYPE_ID)).thenReturn(false);
+        DocumentProcessorRegistration registration = documentEngine.registerProcessor(processor);
+
+        registration.unregister();
+
+        assertFalse(processorRegistry.isRegistered(TYPE_ID));
+        verify(documentStorage).unregisterDocumentType(TYPE_ID);
+    }
+
+    @Test
+    void unregisterRetainsDocumentTypeWhenDocumentsExist() {
+        DocumentProcessor processor = new TestDocumentProcessor(TYPE_ID);
+        when(documentStorage.hasDocumentsForType(TYPE_ID)).thenReturn(true);
+        DocumentProcessorRegistration registration = documentEngine.registerProcessor(processor);
+
+        registration.unregister();
+
+        assertFalse(processorRegistry.isRegistered(TYPE_ID));
+        verify(documentStorage, never()).unregisterDocumentType(TYPE_ID);
     }
 
     @Test

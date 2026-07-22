@@ -3656,3 +3656,85 @@ Manual: `dist/jpackage/TMP/TMP.exe`
 ### Expected result
 
 Stage 3 fully verified end-to-end; `STATUS.md` updated to `Stage 3: DONE 100%`; explicit stop before Stage 4 per user instruction.
+
+---
+
+## STAGE3-022 — Stage 3 acceptance rework (BLK-014)
+
+**Status:** DONE  
+**Stage:** 3  
+**Depends on:** STAGE3-021  
+**Module:** `tmp-platform-core`, `tmp-document-engine`, `tmp-capability-engine`
+
+### Goal
+
+Устранить блокирующие дефекты acceptance review: полностью атомарная регистрация Capability с compensation handles, корректная деактивация и lifecycle failure handling, reversible public API Stage 1–2.
+
+### Required documents
+
+- `STAGE-3-CAPABILITY-ENGINE.md`;
+- `BLOCKERS.md` (`BLK-014`).
+
+### Implementation requirements
+
+- Owner-aware reversible registrations (`ServiceRegistration`, `CapabilityRegistry.unregister`, `DocumentProcessorRegistration`);
+- Atomic registration with reverse-order compensation; original exception preserved; compensation failures suppressed;
+- Deactivation removes commands/views/navigation/services/processor ops/events/settings; preserves existing documents;
+- Lifecycle: STOPPED/DEACTIVATED only after successful callbacks; FAILED on error; `stopAll` continues with suppressed errors;
+- Capability Engine tracks event subscription handles;
+- Mandatory acceptance tests per user acceptance review list.
+
+### Acceptance criteria
+
+- [x] No test documents partial external state as acceptable;
+- [x] Registration failure at each contribution step rolls back all internal and external state;
+- [x] Retry after rollback succeeds;
+- [x] Deactivation acceptance tests pass;
+- [x] Lifecycle failure acceptance tests pass;
+- [x] PostgreSQL IT covers document contribution lifecycle on deactivation;
+- [x] `BLK-014` registered and resolved.
+
+### Required tests
+
+- `CapabilityRegistrationServiceTest` (extended);
+- `CapabilityDeactivationAcceptanceTest`;
+- `CapabilityLifecycleFailureAcceptanceTest`;
+- `DefaultServiceRegistryTest`, `DefaultCapabilityRegistryTest`, `DefaultDocumentProcessorRegistryTest`, `DefaultDocumentEngineRegistrationTest` (extended);
+- `CapabilityEngineDocumentPostgresIntegrationIT` (deactivation scenario).
+
+### Expected result
+
+Stage 3 returned to IN_PROGRESS during rework; ready for `STAGE3-023` full re-verification.
+
+---
+
+## STAGE3-023 — Re-verification gate after acceptance rework
+
+**Status:** DONE  
+**Stage:** 3  
+**Depends on:** STAGE3-022  
+**Module:** cross-stage
+
+### Goal
+
+Повторная полная верификация Stage 3 после устранения `BLK-014`, без перехода к Stage 4.
+
+### Verification commands
+
+```bash
+mvn clean verify
+mvn clean verify -Ppackage
+```
+
+Manual: `dist/jpackage/TMP/TMP.exe`
+
+### Acceptance criteria
+
+- [x] `mvn clean verify` PASSED (full reactor);
+- [x] `mvn clean verify -Ppackage` PASSED;
+- [x] manual `TMP.exe` run PASSED (launched with `TMP_DB_*` + Docker PostgreSQL; exit 0);
+- [x] Stage 3 re-closed at 100%; stop before Stage 4.
+
+### Expected result
+
+`STATUS.md` → Stage 3 DONE 100%; `STAGE3-023` DONE.

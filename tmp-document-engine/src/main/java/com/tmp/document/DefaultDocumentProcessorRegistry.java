@@ -5,10 +5,13 @@ import com.tmp.document.api.DocumentTypeDescriptor;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class DefaultDocumentProcessorRegistry {
 
     private final Map<String, DocumentProcessor> processors = new LinkedHashMap<>();
+    private final Set<String> deactivatedTypes = ConcurrentHashMap.newKeySet();
 
     public synchronized void register(DocumentProcessor processor) {
         String typeId = processor.documentTypeId();
@@ -18,6 +21,7 @@ public final class DefaultDocumentProcessorRegistry {
         if (processors.containsKey(typeId)) {
             throw new IllegalStateException("Document processor already registered for type: " + typeId);
         }
+        deactivatedTypes.remove(typeId);
         processors.put(typeId, processor);
     }
 
@@ -27,10 +31,25 @@ public final class DefaultDocumentProcessorRegistry {
     public synchronized void unregister(String documentTypeId) {
         if (documentTypeId != null) {
             processors.remove(documentTypeId);
+            deactivatedTypes.remove(documentTypeId);
         }
     }
 
+    public synchronized void deactivate(String documentTypeId) {
+        if (documentTypeId != null) {
+            processors.remove(documentTypeId);
+            deactivatedTypes.add(documentTypeId);
+        }
+    }
+
+    public synchronized boolean isActive(String documentTypeId) {
+        return processors.containsKey(documentTypeId) && !deactivatedTypes.contains(documentTypeId);
+    }
+
     public synchronized DocumentProcessor require(String documentTypeId) {
+        if (deactivatedTypes.contains(documentTypeId)) {
+            throw new IllegalStateException("Document processor deactivated for type: " + documentTypeId);
+        }
         DocumentProcessor processor = processors.get(documentTypeId);
         if (processor == null) {
             throw new IllegalStateException("No document processor registered for type: " + documentTypeId);

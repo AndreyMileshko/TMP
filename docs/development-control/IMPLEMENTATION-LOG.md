@@ -1882,3 +1882,50 @@ STAGE3-020
 
 — (stop before Stage 4)
 
+---
+
+## `STAGE3-022` — Stage 3 acceptance rework (BLK-014)
+
+**Date:** 2026-07-22
+**Stage:** Stage 3 — Capability Engine
+**Status:** DONE
+
+### Result
+
+Устранены блокирующие дефекты acceptance review: reversible public API Stage 1–2, атомарная регистрация с compensation handles, корректная деактивация и lifecycle failure handling, отслеживание event subscriptions.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `mvn -q test -pl :tmp-capability-engine` | PASSED |
+| SpotBugs lock-path fix | PASSED |
+
+### Next task
+
+STAGE3-023
+
+---
+
+## `STAGE3-023` — Re-verification gate after acceptance rework
+
+**Date:** 2026-07-22
+**Stage:** Stage 3 — Capability Engine
+**Status:** DONE
+
+### Result
+
+`mvn clean verify`, `mvn clean verify -Ppackage`, manual `TMP.exe` с PostgreSQL — все PASSED.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `mvn clean verify` | PASSED |
+| `mvn clean verify -Ppackage` | PASSED |
+| Manual `TMP.exe` | PASSED |
+
+### Next task
+
+— (stop before Stage 4)
+

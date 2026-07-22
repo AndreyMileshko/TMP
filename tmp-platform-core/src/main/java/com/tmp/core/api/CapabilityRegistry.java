@@ -11,6 +11,12 @@ public interface CapabilityRegistry {
 
     void register(CapabilityDescriptor descriptor);
 
+    /**
+     * Removes capability metadata previously registered for rollback or deactivation.
+     * Idempotent when the id is not registered.
+     */
+    void unregister(String capabilityId);
+
     Optional<CapabilityDescriptor> findById(String capabilityId);
 
     List<CapabilityDescriptor> findAll();

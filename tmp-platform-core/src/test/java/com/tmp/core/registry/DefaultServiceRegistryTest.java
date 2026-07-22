@@ -3,6 +3,7 @@ package com.tmp.core.registry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.core.api.ServiceRegistration;
 import com.tmp.core.api.component.ComponentType;
 import com.tmp.core.api.component.PlatformComponentMetadata;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,23 @@ class DefaultServiceRegistryTest {
 
     interface AnotherService {
         int count();
+    }
+
+    @Test
+    void unregisterRemovesServiceFromLookup() {
+        DefaultServiceRegistry registry = new DefaultServiceRegistry();
+        PlatformComponentMetadata owner = new PlatformComponentMetadata(
+                "svc-owner", "Owner", "1.0.0", ComponentType.SERVICE);
+        SampleService service = () -> "ok";
+
+        ServiceRegistration registration =
+                registry.register(SampleService.class, service, owner);
+        assertTrue(registry.lookup(SampleService.class).isPresent());
+
+        registration.unregister();
+
+        assertTrue(registry.lookup(SampleService.class).isEmpty());
+        assertEquals(0, registry.registeredServiceCount());
     }
 
     @Test

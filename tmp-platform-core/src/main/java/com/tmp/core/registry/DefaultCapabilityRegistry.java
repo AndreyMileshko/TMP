@@ -31,4 +31,11 @@ public final class DefaultCapabilityRegistry implements CapabilityRegistry {
         result.sort((left, right) -> left.id().compareTo(right.id()));
         return List.copyOf(result);
     }
+
+    @Override
+    public void unregister(String capabilityId) {
+        if (capabilityId != null) {
+            capabilities.remove(capabilityId);
+        }
+    }
 }
