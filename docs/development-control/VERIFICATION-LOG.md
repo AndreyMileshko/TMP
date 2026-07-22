@@ -3,7 +3,7 @@
 ## Latest result
 
 **Date:** 2026-07-22  
-**Scope:** STAGE2-026 (re-review residual BLK-011/BLK-013; Stage 2 re-verified)  
+**Scope:** Stage 3 Start Gate baseline (`mvn clean verify` before any Capability Engine code)  
 **Overall:** PASSED
 
 ---
@@ -360,6 +360,248 @@
 | Static analysis | checkstyle + spotbugs in verify | PASSED |
 | UI status smoke | `JavaFxShellSmokeTest.rendersPlatformStatusLabelWhenProvided` | PASSED |
 | Stage 1 exit criteria | Manual review vs STAGE-1-PLATFORM-CORE.md | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `Stage 3 Start Gate`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Git state | `git status --short`, `git branch --show-current`, `git rev-parse HEAD`, `git fetch origin`, `git rev-parse origin/master` | PASSED — HEAD == origin/master (`af0d2a1b86c3e340398face46dbdf3e8c537e452`), no unrelated production changes |
+| Full reactor verify (baseline) | `mvn clean verify` (JAVA_HOME=.tools/jdk-21.0.11+10) | PASSED — BUILD SUCCESS, 105 tests total, 0 failures/errors, 0 skipped except 1 intentionally-skipped PackagingSmokeIT precondition |
+| PostgreSQL Testcontainers ITs | included in `mvn clean verify` (`DocumentEnginePostgresIntegrationIT`, `TmpBootstrapPostgresIntegrationIT`, `FlywayPostgresIntegrationIT`) | PASSED |
+| Architecture tests Stage 0-2 | `Stage0ArchitectureBaselineTest`, `Stage1PlatformCoreArchitectureTest`, `Stage2DocumentEngineArchitectureTest` | PASSED |
+| Java/Maven/Docker environment | Java 21 Temurin 21.0.11+10, Maven 3.9.9, Docker (Testcontainers) | AVAILABLE |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-002`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Upstream install (dependency refresh) | `mvn -q -pl :tmp-platform-core,:tmp-document-engine -am install -DskipTests` | PASSED |
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=CapabilityIdTest,CapabilityVersionTest` | PASSED |
+| Full module test suite | `mvn -q -pl :tmp-capability-engine test` | PASSED |
+| Static analysis gates | `mvn -q -pl :tmp-capability-engine verify` (checkstyle + spotbugs) | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-003`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=DependencyDescriptorTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` (tests + checkstyle + spotbugs) | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-004`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=ContributionDescriptorsTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` (tests + checkstyle + spotbugs) | PASSED (first run flagged `EI_EXPOSE_REP` on `CommandDescriptor.requiredPermissionIds()`; fixed with a justified `@SuppressFBWarnings` since the list is immutable via `List.copyOf`; re-run PASSED) |
+
+### Failures
+
+- Initial `verify` run: SpotBugs `EI_EXPOSE_REP` (Medium) on `CommandDescriptor.requiredPermissionIds()` — resolved in the same task (see above).
+
+## 2026-07-22 — `STAGE3-005`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=IntegrationContributionDescriptorsTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` (tests + checkstyle + spotbugs) | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-006`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=CapabilityDescriptorTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` (tests + checkstyle + spotbugs) | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-007`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=CapabilityRegistryTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` (tests + checkstyle + spotbugs) | PASSED (first run flagged `EI_EXPOSE_REP`/`EI_EXPOSE_REP2` on `CapabilityRegistration`; fixed with justified `@SuppressFBWarnings`; re-run PASSED) |
+
+### Failures
+
+- Initial `verify` run: SpotBugs `EI_EXPOSE_REP` and `EI_EXPOSE_REP2` (both Medium) on `CapabilityRegistration` — resolved in the same task (see above).
+
+## 2026-07-22 — `STAGE3-008`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=CapabilityStateTransitionTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` (tests + checkstyle + spotbugs) | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-009`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=CapabilityDiscoveryTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-010`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=DependencyGraphValidatorTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` (tests + checkstyle + spotbugs) | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-011`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=ContributionCatalogTest,CapabilityContributionCatalogsTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` | PASSED (first run: SpotBugs EI_EXPOSE_REP on six catalog accessors; fixed with justified `@SuppressFBWarnings`; re-run PASSED) |
+
+### Failures
+
+- Initial SpotBugs EI_EXPOSE_REP on catalog accessors — resolved in the same task.
+
+## 2026-07-22 — `STAGE3-012`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=CapabilityRegistrationServiceTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-013`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=CapabilityLifecycleManagerTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-014`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=DefaultCapabilityEngineTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-015`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-capability-engine test -Dtest=CapabilityEngineAutoConfigurationTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-016`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required integration test | `mvn -q -pl :tmp-capability-engine test -Dtest=SampleTechnicalCapabilityIntegrationTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` | PASSED |
+
+### Failures
+
+- Initial failure: missing H2 driver on test classpath — fixed by adding `com.h2database:h2` test dependency to `tmp-capability-engine/pom.xml`.
+- SpotBugs `EI_EXPOSE_REP` on sample `descriptor()` accessors — fixed with `@SuppressFBWarnings` (immutable `CapabilityDescriptor`).
+
+## 2026-07-22 — `STAGE3-017`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Required unit tests | `mvn -q -pl :tmp-bootstrap-app test -Dtest=CapabilityEngineBeanLookupTest,SpringContextSmokeTest,DocumentEngineBeanLookupTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-bootstrap-app verify` | PASSED |
+
+### Failures
+
+- `PlatformCoreIntegrationIT` expected 1 capability / 2 components — updated counts after sample capabilities and capability-engine component auto-registration (3 capabilities, 3 components, 2 services).
+
+## 2026-07-22 — `STAGE3-018`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Stage 0-3 architecture tests | `mvn -q -pl :tmp-architecture-tests test -Dtest=Stage3CapabilityEngineArchitectureTest,Stage0ArchitectureBaselineTest,Stage1PlatformCoreArchitectureTest,Stage2DocumentEngineArchitectureTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-architecture-tests verify` | PASSED |
+
+### Failures
+
+- Pre-test: bootstrap depended on `com.tmp.capability.sample..` (violates `externalModulesUseOnlyCapabilityPublicApi`); `CapabilityEngineAutoConfiguration` imported non-public auto-config classes — fixed before rules could pass.
+
+## 2026-07-22 — `STAGE3-019`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| PostgreSQL IT | `mvn -q -pl :tmp-capability-engine test -Dtest=CapabilityEngineDocumentPostgresIntegrationIT` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` | PASSED |
+
+### Failures
+
+- Testcontainers 1.19.8 (from Spring Boot BOM) failed Ryuk startup on Docker Desktop 29.6.1 (`client version 1.32 is too old`); fixed by explicit Testcontainers 1.21.4 managed deps in parent `pom.xml`.
+- Duplicate-test fixture missing `description` on `CapabilityDescriptor` — NPE fixed.
+
+## 2026-07-22 — `STAGE3-020`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Concurrency tests | `mvn -q -pl :tmp-capability-engine test -Dtest=CapabilityLifecycleConcurrencyTest` | PASSED |
+| Full module verify | `mvn -q -pl :tmp-capability-engine verify` | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — `STAGE3-021`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Full reactor verify | `mvn clean verify` | PASSED |
+| Package profile verify | `mvn clean verify -Ppackage` | PASSED |
+| Package artifact | `dist/jpackage/TMP/TMP.exe` | PRESENT |
+| Manual TMP.exe | `TMP.exe` with `TMP_DB_*` + Docker PostgreSQL | PASSED |
+| Stage 3 exit criteria | Manual review vs STAGE-3-CAPABILITY-ENGINE.md | PASSED |
+| Stage 4 start | Not started (stop gate) | CONFIRMED |
 
 ### Failures
 

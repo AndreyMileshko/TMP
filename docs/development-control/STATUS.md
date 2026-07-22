@@ -1,12 +1,12 @@
 # TMP Development Status
 
 **Mode:** Autonomous Cursor Agent  
-**Project status:** STAGE_COMPLETE  
-**Current Stage:** Stage 2 — Document Engine  
-**Current Task:** None  
-**Last completed task:** STAGE2-026  
+**Project status:** IN_PROGRESS  
+**Current Stage:** Stage 3 — Capability Engine  
+**Current Task:** — (Stage 3 complete; stop before Stage 4)  
+**Last completed task:** STAGE3-021  
 **Active blocker:** None  
-**Last successful full verification:** STAGE2-026 (`mvn clean verify`, `mvn clean verify -Ppackage` EXIT_CODE=0, manual TMP.exe PASSED, 2026-07-22)
+**Last successful full verification:** `mvn clean verify -Ppackage` EXIT_CODE=0 (2026-07-22, STAGE3-021)
 
 ---
 
@@ -17,7 +17,7 @@
 | 0 | Development Foundation | DONE | 100% |
 | 1 | Platform Core | DONE | 100% |
 | 2 | Document Engine | DONE | 100% |
-| 3 | Capability Engine | PLANNED | 0% |
+| 3 | Capability Engine | DONE | 100% |
 | 4 | Security | PLANNED | 0% |
 | 5 | Order Management | PLANNED | 0% |
 | 6 | Warehouse | PLANNED | 0% |
@@ -42,3 +42,5 @@ Cursor обязан поддерживать:
 - активный blocker;
 - результат последней полной проверки;
 - процент прогресса только по фактически закрытым задачам.
+
+**Stop gate:** Stage 3 закрыт. Stage 4 не начинать без явного указания пользователя.

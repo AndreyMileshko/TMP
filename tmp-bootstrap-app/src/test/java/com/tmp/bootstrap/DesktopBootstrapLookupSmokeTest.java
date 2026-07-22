@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.tmp.core.api.PlatformCore;
 import com.tmp.document.api.DocumentEngine;
+import com.tmp.capability.api.CapabilityEngine;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
@@ -25,9 +26,12 @@ class DesktopBootstrapLookupSmokeTest {
         try {
             PlatformCore platformCore = context.getBean(PlatformCore.class);
             DocumentEngine documentEngine = context.getBean(DocumentEngine.class);
+            CapabilityEngine capabilityEngine = context.getBean(CapabilityEngine.class);
             assertNotNull(platformCore);
             assertNotNull(documentEngine);
+            assertNotNull(capabilityEngine);
             assertNotNull(DesktopBootstrap.formatDocumentPanel(documentEngine));
+            assertNotNull(DesktopBootstrap.formatCapabilityStatus(capabilityEngine));
         } finally {
             context.close();
         }

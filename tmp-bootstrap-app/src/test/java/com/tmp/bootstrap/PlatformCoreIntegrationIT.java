@@ -51,10 +51,10 @@ class PlatformCoreIntegrationIT {
         eventBus.publish(new PlatformStartedEvent());
 
         assertTrue(eventReceived.get(), "EventBus must deliver platform events synchronously");
-        assertEquals(1, capabilityRegistry.findAll().size());
+        assertEquals(3, capabilityRegistry.findAll().size(), "two sample technical capabilities plus one manual registration");
         assertEquals(ComponentLifecycleState.STARTED, platformCore.status().lifecycleState());
-        assertEquals(2, platformCore.platformRegistry().registeredComponents().size());
-        assertEquals(1, platformCore.status().registeredServices());
+        assertEquals(3, platformCore.platformRegistry().registeredComponents().size(), "document-engine, capability-engine, integration test component");
+        assertEquals(2, platformCore.status().registeredServices(), "integration test service plus sample technical public service");
     }
 
     @Configuration

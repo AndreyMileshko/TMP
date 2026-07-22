@@ -9,6 +9,9 @@ tmp:
   platform:
     name: TOP Manufacturing Platform
     version: 0.1.0-SNAPSHOT
+  capability:
+    sample:
+      diagnostic: true
 
 logging:
   level:

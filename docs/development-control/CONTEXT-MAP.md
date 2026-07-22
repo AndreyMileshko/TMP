@@ -37,7 +37,7 @@ Cursor обновляет реальные пути во время CONTROL-001.
 | 6 | Warehouse Specification | Order public API; Production contracts; Database Specification |
 | 7 | Production Specification | Order and Warehouse public APIs; Database Specification |
 | 8 | Cutting Optimization Specification | Production contracts; algorithm requirements |
-| 9 | Analytics Specification | read-only public APIs/events of source modules |
+| 9 | Analytics Specification | Warehouse read-only Public API; Capability Engine registration API; Security permission API; Order Management read-only references; UI/UX report screen rules |
 | 10 | all public contracts only | integration scenarios; no internal implementations unless defect requires it |
 | 11 | release and packaging documents | verification logs and known limitations |
 
@@ -90,3 +90,27 @@ Read only:
 - public APIs/events of participating modules;
 - scenario acceptance criteria;
 - integration test infrastructure.
+
+# Stage 9 — Analytics Context
+
+Основные документы:
+
+- `docs/TMP/TMP_Initial_Documents/architecture/14-Analytics/Analytics-Specification.md`;
+- `docs/development-control/stages/STAGE-9-ANALYTICS.md`.
+
+Основные зависимости:
+
+- Warehouse read-only Public API;
+- Capability Engine Public API;
+- Security Public API;
+- read-only ссылки Order Management;
+- UI/UX Specification.
+
+Cursor должен загружать только разделы и публичные контракты, необходимые для текущей задачи.
+
+Запрещается загружать полную реализацию Warehouse, Production, Order Management или Cutting Optimization.
+
+Подробные правила контекста Stage 9 определены в:
+
+```text
+docs/development-control/stages/STAGE-9-ANALYTICS.md
