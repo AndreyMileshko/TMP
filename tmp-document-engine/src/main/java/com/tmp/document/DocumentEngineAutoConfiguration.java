@@ -48,26 +48,28 @@ public class DocumentEngineAutoConfiguration {
     }
 
     @Bean
-    DefaultDocumentEngine documentEngine(
+    TransactionAfterCommitEventPublisher transactionAfterCommitEventPublisher() {
+        return new TransactionAfterCommitEventPublisher();
+    }
+
+    @Bean
+    DocumentEngine documentEngine(
             DefaultDocumentProcessorRegistry processorRegistry,
             DocumentStoragePort documentStoragePort,
             LifecycleJournalPort lifecycleJournalPort,
-            DocumentVersionPort documentVersionPort) {
+            DocumentVersionPort documentVersionPort,
+            TransactionAfterCommitEventPublisher eventPublisher) {
         return new DefaultDocumentEngine(
                 processorRegistry,
                 documentStoragePort,
                 lifecycleJournalPort,
-                documentVersionPort);
-    }
-
-    @Bean
-    DocumentEngine documentEngineFacade(DefaultDocumentEngine documentEngine) {
-        return documentEngine;
+                documentVersionPort,
+                eventPublisher);
     }
 
     @Bean
     DocumentEnginePlatformRegistrar documentEnginePlatformRegistrar(
-            PlatformCore platformCore, DefaultDocumentEngine documentEngine) {
+            PlatformCore platformCore, DocumentEngine documentEngine) {
         return new DocumentEnginePlatformRegistrar(platformCore, documentEngine);
     }
 }

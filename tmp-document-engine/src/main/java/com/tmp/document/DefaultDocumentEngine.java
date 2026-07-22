@@ -1,6 +1,5 @@
 package com.tmp.document;
 
-import com.tmp.core.api.EventBus;
 import com.tmp.core.api.PlatformCore;
 import com.tmp.core.api.component.ComponentType;
 import com.tmp.core.api.component.PlatformComponent;
@@ -48,17 +47,19 @@ public class DefaultDocumentEngine implements DocumentEngine, PlatformComponent 
     private final DocumentStoragePort documentStorage;
     private final LifecycleJournalPort lifecycleJournal;
     private final DocumentVersionPort documentVersionPort;
-    private EventBus eventBus;
+    private final TransactionAfterCommitEventPublisher eventPublisher;
 
     public DefaultDocumentEngine(
             DefaultDocumentProcessorRegistry processorRegistry,
             DocumentStoragePort documentStorage,
             LifecycleJournalPort lifecycleJournal,
-            DocumentVersionPort documentVersionPort) {
+            DocumentVersionPort documentVersionPort,
+            TransactionAfterCommitEventPublisher eventPublisher) {
         this.processorRegistry = processorRegistry;
         this.documentStorage = documentStorage;
         this.lifecycleJournal = lifecycleJournal;
         this.documentVersionPort = documentVersionPort;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -68,7 +69,7 @@ public class DefaultDocumentEngine implements DocumentEngine, PlatformComponent 
 
     @Override
     public void initialize(PlatformCore platformCore) {
-        this.eventBus = platformCore.eventBus();
+        eventPublisher.setEventBus(platformCore.eventBus());
     }
 
     @Override
@@ -83,11 +84,11 @@ public class DefaultDocumentEngine implements DocumentEngine, PlatformComponent 
 
     @Override
     public void registerProcessor(DocumentProcessor processor) {
-        processorRegistry.register(processor);
         documentStorage.registerDocumentType(
                 processor.documentTypeId(),
                 processor.documentTypeId(),
                 "Registered document processor");
+        processorRegistry.register(processor);
     }
 
     @Override
@@ -294,8 +295,6 @@ public class DefaultDocumentEngine implements DocumentEngine, PlatformComponent 
     }
 
     private void publishAfterCommit(com.tmp.core.api.event.DomainEvent event) {
-        if (eventBus != null) {
-            eventBus.publish(event);
-        }
+        eventPublisher.publishAfterCommit(event);
     }
 }

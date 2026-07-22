@@ -511,6 +511,155 @@ Stage 0 complete — awaiting Stage 1 Start Gate
 
 ## Stage 2 — Document Engine (summary)
 
+## `STAGE2-021` — `Final Stage 2 re-verification gate`
+
+**Date:** 2026-07-22  
+**Stage:** Stage 2 — Document Engine  
+**Status:** DONE
+
+### Result
+
+Stage 2 закрыт после устранения acceptance-review blockers BLK-010..012. Полная verification и ручной запуск TMP.exe успешны. Stage 3 не начат.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `mvn clean verify` | PASSED |
+| `mvn clean verify -Ppackage` | PASSED |
+| Manual `dist/jpackage/TMP/TMP.exe` | PASSED |
+| BLK-010..012 | RESOLVED |
+| Stage 2 exit criteria | CONFIRMED |
+| Stage 3 start | NOT STARTED |
+
+### Documentation updated
+
+- STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG
+
+### Next task
+
+Stage 2 complete — awaiting Stage 3 Start Gate
+
+## `STAGE2-020` — `Expanded lifecycle/rollback/concurrency tests`
+
+**Date:** 2026-07-22  
+**Stage:** Stage 2 — Document Engine  
+**Status:** DONE
+
+### Result
+
+Расширено покрытие: processor failure rollback (create/post/unpost), invalid transitions, immutable POSTED/CLOSED, delete restrictions, optimistic locking, concurrent post/update, version snapshots, journal consistency, close allow/reject, file storage adapter.
+
+### Tests added or changed
+
+- `DefaultDocumentEngineLifecycleTest`
+- `JdbcDocumentFileStorageAdapterTest`
+- `ConfigurableDocumentProcessor` (test support)
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Document engine + bootstrap tests | PASSED |
+
+### Next task
+
+`STAGE2-021`
+
+## `STAGE2-019` — `Post-commit event publishing (BLK-012)`
+
+**Date:** 2026-07-22  
+**Stage:** Stage 2 — Document Engine  
+**Status:** DONE
+
+### Result
+
+События DocumentCreated/Posted/Unposted/Closed/Deleted публикуются только после commit через Spring `TransactionSynchronization.afterCommit`. При rollback события не публикуются. Message broker не внедрялся.
+
+### Files created
+
+- `TransactionAfterCommitEventPublisher.java`
+
+### Files modified
+
+- `DefaultDocumentEngine.java`
+- `DocumentEngineAutoConfiguration.java`
+
+### Tests added or changed
+
+- `DefaultDocumentEngineTransactionEventTest`
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Transaction event integration tests | PASSED |
+| BLK-012 | RESOLVED |
+
+### Next task
+
+`STAGE2-020`
+
+## `STAGE2-018` — `Atomic processor registration (BLK-011)`
+
+**Date:** 2026-07-22  
+**Stage:** Stage 2 — Document Engine  
+**Status:** DONE
+
+### Result
+
+Регистрация processor согласована с document type: DB `registerDocumentType` выполняется до in-memory `processorRegistry.register`. При DB failure partial state в registry не остаётся; повторная регистрация проходит.
+
+### Files modified
+
+- `DefaultDocumentEngine.java`
+
+### Tests added or changed
+
+- `DefaultDocumentEngineRegistrationTest` (duplicate, DB failure, retry)
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Registration atomicity tests | PASSED |
+| BLK-011 | RESOLVED |
+
+### Next task
+
+`STAGE2-019`
+
+## `STAGE2-017` — `Fix duplicate DocumentEngine beans (BLK-010)`
+
+**Date:** 2026-07-22  
+**Stage:** Stage 2 — Document Engine  
+**Status:** DONE
+
+### Result
+
+Оставлен ровно один Spring bean типа `DocumentEngine`. `DesktopBootstrap.getBean(DocumentEngine.class)` больше не получает ambiguous candidates.
+
+### Files modified
+
+- `DocumentEngineAutoConfiguration.java` (удалён `documentEngineFacade`)
+- `DocumentEnginePlatformRegistrar.java`
+
+### Tests added or changed
+
+- `DocumentEngineBeanLookupTest`
+- `DesktopBootstrapLookupSmokeTest`
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Bean lookup + DesktopBootstrap smoke | PASSED |
+| BLK-010 | RESOLVED |
+
+### Next task
+
+`STAGE2-018`
+
 ## `STAGE2-016` — `Complete Stage 2 Document Engine`
 
 **Date:** 2026-07-21  
@@ -546,7 +695,7 @@ Stage 0 complete — awaiting Stage 1 Start Gate
 
 ### Next task
 
-Stage 2 complete — awaiting Stage 3 Start Gate
+Stage 2 complete — awaiting Stage 3 Start Gate (later reopened for BLK-010..012; closed again in STAGE2-021)
 
 ## Stage 1 — Platform Core (summary)
 

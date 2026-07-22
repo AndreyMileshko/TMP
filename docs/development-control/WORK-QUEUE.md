@@ -1451,13 +1451,296 @@ Manual: `dist/jpackage/TMP/TMP.exe` with `TMP_DB_URL`, `TMP_DB_USERNAME`, `TMP_D
 | STAGE2-014 | DONE | Integration tests (document engine + bootstrap + DB) |
 | STAGE2-015 | DONE | Stage 2 architecture rules |
 | STAGE2-016 | DONE | Final Stage 2 verification gate (`verify`, `verify -Ppackage`) |
+| STAGE2-017 | DONE | Fix duplicate DocumentEngine beans (BLK-010) |
+| STAGE2-018 | DONE | Atomic processor registration (BLK-011) |
+| STAGE2-019 | DONE | Post-commit event publishing (BLK-012) |
+| STAGE2-020 | DONE | Expanded lifecycle/rollback/concurrency tests |
+| STAGE2-021 | DONE | Final Stage 2 re-verification gate |
 
 ### Stage 2 completion notes
 
 - Document Engine remains domain-independent and contains no business module logic.
 - One document type maps to exactly one registered `DocumentProcessor`.
 - Module depends on Platform Core public API only.
-- Stage 2 complete; stop before Stage 3.
+- Acceptance review blockers BLK-010..012 RESOLVED in STAGE2-017..021.
+- Stage 2 CLOSED — stop before Stage 3.
+
+## STAGE2-017 — Fix duplicate DocumentEngine beans (BLK-010)
+
+**Status:** DONE  
+**Stage:** 2  
+**Depends on:** STAGE2-016  
+**Module:** tmp-document-engine, tmp-bootstrap-app
+
+### Goal
+
+Оставить ровно один Spring bean типа `DocumentEngine` и подтвердить уникальный lookup из bootstrap context.
+
+### Required documents
+
+- `STAGE-2-DOCUMENT-ENGINE.md`; acceptance review BLK-010; `Document-Engine-Specification.md`.
+
+### Required code context
+
+- `DocumentEngineAutoConfiguration`; `DocumentEnginePlatformRegistrar`; `DesktopBootstrap`; `SpringContextSmokeTest`.
+
+### Allowed code scope
+
+- `tmp-document-engine/src/main/java/com/tmp/document/DocumentEngineAutoConfiguration.java`;
+- `tmp-document-engine/src/main/java/com/tmp/document/DocumentEnginePlatformRegistrar.java`;
+- `tmp-bootstrap-app/src/test/**`.
+
+### Forbidden
+
+- Stage 3 features; business logic; ослабление quality gates.
+
+### Implementation requirements
+
+- Удалить `documentEngineFacade` bean; единственный `@Bean DocumentEngine`.
+- Обновить `DocumentEnginePlatformRegistrar` на `DocumentEngine`.
+- Добавить тест `getBean(DocumentEngine.class)` в bootstrap context.
+- Добавить DesktopBootstrap lookup smoke test.
+
+### Acceptance criteria
+
+- [x] Ровно один bean типа `DocumentEngine` в контексте.
+- [x] `applicationContext.getBean(DocumentEngine.class)` возвращает bean без ambiguity.
+- [x] DesktopBootstrap lookup smoke test проходит.
+- [x] BLK-010 RESOLVED.
+
+### Required tests
+
+- `DocumentEngineBeanLookupTest` или расширение `SpringContextSmokeTest`.
+- `DesktopBootstrapLookupSmokeTest`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-bootstrap-app test -Dtest=SpringContextSmokeTest,DocumentEngineBeanLookupTest,DesktopBootstrapLookupSmokeTest
+```
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE2-018 — Atomic processor registration (BLK-011)
+
+**Status:** DONE  
+**Stage:** 2  
+**Depends on:** STAGE2-017  
+**Module:** tmp-document-engine
+
+### Goal
+
+Сделать регистрацию processor + document type атомарной без partial in-memory state при DB failure.
+
+### Required documents
+
+- `Document-Engine-Specification.md`; acceptance review BLK-011.
+
+### Required code context
+
+- `DefaultDocumentEngine.registerProcessor()`; `DefaultDocumentProcessorRegistry`; `DocumentStoragePort`.
+
+### Allowed code scope
+
+- `DefaultDocumentEngine.java`; `tmp-document-engine/src/test/**`.
+
+### Forbidden
+
+- Изменение Platform Core; message broker.
+
+### Implementation requirements
+
+- DB `registerDocumentType` перед in-memory `processorRegistry.register`.
+- Метод в одной `@Transactional` границе.
+- Тест с намеренной DB failure; повторная регистрация после failure проходит.
+
+### Acceptance criteria
+
+- [x] При DB failure processor не остаётся в registry.
+- [x] Повторная корректная регистрация успешна.
+- [x] Duplicate processor registration по-прежнему отклоняется.
+- [x] BLK-011 RESOLVED.
+
+### Required tests
+
+- `DefaultDocumentEngineRegistrationTest` (DB failure, retry, duplicate).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineRegistrationTest
+```
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE2-019 — Post-commit event publishing (BLK-012)
+
+**Status:** DONE  
+**Stage:** 2  
+**Depends on:** STAGE2-018  
+**Module:** tmp-document-engine
+
+### Goal
+
+Публиковать DocumentCreated/Posted/Unposted/Closed/Deleted только после успешного transaction commit.
+
+### Required documents
+
+- `Document-Engine-Specification.md`; `Database-Specification.md` §9; acceptance review BLK-012.
+
+### Required code context
+
+- `DefaultDocumentEngine.publishAfterCommit()`; `EventBus`; Spring transaction management.
+
+### Allowed code scope
+
+- `tmp-document-engine/src/main/java/com/tmp/document/**`; `tmp-document-engine/src/test/**`.
+
+### Forbidden
+
+- Message broker; async event infrastructure beyond Spring synchronization.
+
+### Implementation requirements
+
+- `TransactionAfterCommitEventPublisher` через `TransactionSynchronizationManager.afterCommit`.
+- События не публикуются при rollback.
+- Transaction integration tests.
+
+### Acceptance criteria
+
+- [x] Event emitted once after commit.
+- [x] Event not emitted on rollback.
+- [x] Stable event metadata preserved.
+- [x] BLK-012 RESOLVED.
+
+### Required tests
+
+- `DefaultDocumentEngineTransactionEventTest`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineTransactionEventTest
+```
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE2-020 — Expanded lifecycle/rollback/concurrency tests
+
+**Status:** DONE  
+**Stage:** 2  
+**Depends on:** STAGE2-019  
+**Module:** tmp-document-engine, tmp-bootstrap-app
+
+### Goal
+
+Покрыть обязательные сценарии acceptance review: rollback, lifecycle guards, optimistic locking, concurrency, file storage.
+
+### Required documents
+
+- `STAGE-2-DOCUMENT-ENGINE.md`; `Document-Engine-Specification.md`; acceptance review test list.
+
+### Required code context
+
+- `DefaultDocumentEngine`; processor hooks; JDBC adapters; `DocumentFileStoragePort`.
+
+### Allowed code scope
+
+- `tmp-document-engine/src/test/**`; `tmp-bootstrap-app/src/test/**`.
+
+### Forbidden
+
+- Ослабление существующих тестов; business document types.
+
+### Implementation requirements
+
+- Processor failure rollback (create/post/unpost/close/delete).
+- Invalid lifecycle transitions; immutable POSTED/CLOSED; delete restrictions.
+- Optimistic locking conflict; concurrent post/update.
+- Version snapshot persistence; lifecycle journal consistency.
+- Close allowed/rejected by processor; file storage adapter integration.
+
+### Acceptance criteria
+
+- [x] Все перечисленные сценарии покрыты тестами.
+- [x] `mvn -q -pl :tmp-document-engine,:tmp-bootstrap-app test` PASSED.
+
+### Required tests
+
+- `DefaultDocumentEngineLifecycleTest`; `JdbcDocumentFileStorageAdapterTest`; concurrency tests.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-document-engine,:tmp-bootstrap-app test
+```
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE2-021 — Final Stage 2 re-verification gate
+
+**Status:** DONE  
+**Stage:** 2  
+**Depends on:** STAGE2-017..STAGE2-020  
+**Module:** cross-stage
+
+### Goal
+
+Закрыть Stage 2 после устранения всех blockers, полной verification и ручного запуска TMP.exe.
+
+### Required documents
+
+- `STAGE-2-DOCUMENT-ENGINE.md`; `RUN-DEVELOPMENT.md`.
+
+### Required code context
+
+- full reactor; packaged application.
+
+### Allowed code scope
+
+- development-control documentation only.
+
+### Forbidden
+
+- Stage 3 features; новые feature-изменения вне defect fixes.
+
+### Implementation requirements
+
+- `mvn clean verify` и `mvn clean verify -Ppackage` PASSED.
+- Ручной запуск `dist/jpackage/TMP/TMP.exe`.
+- Все blockers BLK-010..012 RESOLVED.
+
+### Acceptance criteria
+
+- [x] Full verify PASSED.
+- [x] Package verify PASSED.
+- [x] TMP.exe запускается.
+- [x] Stage 2 exit criteria подтверждены.
+
+### Required tests
+
+- full stage verification suite.
+
+### Verification commands
+
+```bash
+mvn clean verify
+mvn clean verify -Ppackage
+```
+
+Manual: `dist/jpackage/TMP/TMP.exe`
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
 ## STAGE1-016 — Fix registration/lifecycle race condition (BLK-009)
 

@@ -2,8 +2,8 @@
 
 ## Latest result
 
-**Date:** 2026-07-20  
-**Scope:** STAGE0-012 (BLK-004 rework, Stage 0 re-verified)  
+**Date:** 2026-07-22  
+**Scope:** STAGE2-021 (acceptance review rework BLK-010..012; Stage 2 re-verified)  
 **Overall:** PASSED
 
 ---
@@ -252,6 +252,27 @@
 | Deterministic concurrency | `DefaultPlatformCoreRegistrationTest.concurrentRegistrationAndStartAllMaintainsConsistentState` (200 iterations) | PASSED |
 | STOPPED restart semantics | `DefaultPlatformCoreRegistrationTest.registrationAfterStopAndSubsequentStartAllStartsAllComponents` | PASSED |
 | Static analysis | checkstyle + spotbugs in verify | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — Stage 2 acceptance rework (`STAGE2-017..021`, BLK-010..012)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Full reactor verify | `mvn clean verify` | PASSED |
+| Package profile verify | `mvn clean verify -Ppackage` | PASSED |
+| Single DocumentEngine bean | `DocumentEngineBeanLookupTest` | PASSED |
+| DesktopBootstrap lookup smoke | `DesktopBootstrapLookupSmokeTest` | PASSED |
+| Atomic processor registration | `DefaultDocumentEngineRegistrationTest` | PASSED |
+| After-commit events | `DefaultDocumentEngineTransactionEventTest` | PASSED |
+| Lifecycle/rollback/concurrency | `DefaultDocumentEngineLifecycleTest` | PASSED |
+| File storage adapter | `JdbcDocumentFileStorageAdapterTest` | PASSED |
+| Manual TMP.exe | `dist/jpackage/TMP/TMP.exe` with PostgreSQL env vars | PASSED |
+| Static analysis | checkstyle + spotbugs in verify | PASSED |
+| Stage 2 exit criteria | Manual review vs STAGE-2-DOCUMENT-ENGINE.md | PASSED |
+| Stage 3 start | Not started (stop gate) | CONFIRMED |
 
 ### Failures
 

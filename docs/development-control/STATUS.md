@@ -4,9 +4,9 @@
 **Project status:** STAGE_COMPLETE  
 **Current Stage:** Stage 2 — Document Engine  
 **Current Task:** None  
-**Last completed task:** STAGE2-016  
+**Last completed task:** STAGE2-021  
 **Active blocker:** None  
-**Last successful full verification:** STAGE2-016 (`mvn clean verify`, `mvn clean verify -Ppackage` EXIT_CODE=0, 2026-07-21)
+**Last successful full verification:** STAGE2-021 (`mvn clean verify`, `mvn clean verify -Ppackage` EXIT_CODE=0, manual TMP.exe PASSED, 2026-07-22)
 
 ---
 
