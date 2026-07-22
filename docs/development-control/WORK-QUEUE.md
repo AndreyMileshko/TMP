@@ -1456,14 +1456,297 @@ Manual: `dist/jpackage/TMP/TMP.exe` with `TMP_DB_URL`, `TMP_DB_USERNAME`, `TMP_D
 | STAGE2-019 | DONE | Post-commit event publishing (BLK-012) |
 | STAGE2-020 | DONE | Expanded lifecycle/rollback/concurrency tests |
 | STAGE2-021 | DONE | Final Stage 2 re-verification gate |
+| STAGE2-022 | DONE | Registry rollback compensation (BLK-011 reopen) |
+| STAGE2-023 | DONE | After-commit handler failure policy (BLK-013) |
+| STAGE2-024 | DONE | PostgreSQL Testcontainers Document Engine ITs |
+| STAGE2-025 | DONE | FK document_type_id decision and invariant |
+| STAGE2-026 | DONE | Final Stage 2 re-verification gate (re-review) |
 
 ### Stage 2 completion notes
 
 - Document Engine remains domain-independent and contains no business module logic.
 - One document type maps to exactly one registered `DocumentProcessor`.
 - Module depends on Platform Core public API only.
-- Acceptance review blockers BLK-010..012 RESOLVED in STAGE2-017..021.
-- Stage 2 CLOSED — stop before Stage 3.
+- STAGE2-022..026 closed residual BLK-011/BLK-013; Stage 2 CLOSED — stop before Stage 3.
+
+## STAGE2-022 — Registry rollback compensation (BLK-011 reopen)
+
+**Status:** DONE  
+**Stage:** 2  
+**Depends on:** STAGE2-021  
+**Module:** tmp-document-engine
+
+### Goal
+
+Сделать итог `registerProcessor` согласованным с финальным outcome транзакции: при любом rollback processor не остаётся в registry.
+
+### Required documents
+
+- `Document-Engine-Specification.md`; acceptance re-review BLK-011.
+
+### Required code context
+
+- `DefaultDocumentEngine.registerProcessor()`; `DefaultDocumentProcessorRegistry`; Spring `TransactionSynchronization`.
+
+### Allowed code scope
+
+- `DefaultDocumentEngine.java`; `DefaultDocumentProcessorRegistry.java`; `tmp-document-engine/src/test/**`.
+
+### Forbidden
+
+- Stage 3; изменение Platform Core EventBus; message broker.
+
+### Implementation requirements
+
+- После DB write + registry register: compensating `unregister` в `afterCompletion` если status != COMMITTED.
+- Guard create: тип должен существовать в `documents.document_types`.
+- Deterministic `TransactionTemplate` test: register → rollbackOnly → no DB type, no registry entry → retry succeeds.
+- Покрыть commit-failure path (`beforeCommit` throw).
+
+### Acceptance criteria
+
+- [x] Outer rollback leaves neither DB type nor in-memory processor.
+- [x] Retry registration after rollback succeeds.
+- [x] Create document rejected when type absent from DB.
+- [x] BLK-011 RESOLVED.
+
+### Required tests
+
+- `DefaultDocumentEngineRegistrationTransactionTest` (H2 component).
+- Coverage included in STAGE2-024 PostgreSQL IT.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineRegistration*
+```
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE2-023 — After-commit handler failure policy (BLK-013)
+
+**Status:** DONE  
+**Stage:** 2  
+**Depends on:** STAGE2-022  
+**Module:** tmp-document-engine
+
+### Goal
+
+Документная операция не должна выглядеть откатившейся из-за падения after-commit подписчика; зафиксировать best-effort delivery policy без изменения Platform Core.
+
+### Required documents
+
+- `Document-Engine-Specification.md`; BLK-013.
+
+### Required code context
+
+- `TransactionAfterCommitEventPublisher`; `SynchronousEventBus` (read-only contract).
+
+### Allowed code scope
+
+- `TransactionAfterCommitEventPublisher.java`; related tests/docs in document-engine.
+
+### Forbidden
+
+- Изменение Platform Core EventBus failure contract; message broker; unsafe auto-retry API.
+
+### Implementation requirements
+
+- Catch handler/delivery failures in after-commit publish; log error; do not rethrow to caller.
+- Document policy in class javadoc.
+- Test: failing subscriber; document + journal persisted; create returns successfully.
+
+### Acceptance criteria
+
+- [x] Failing handler does not fail document operation after commit.
+- [x] Delivery failure logged.
+- [x] Document and lifecycle journal remain committed.
+- [x] BLK-013 RESOLVED; Platform Core unchanged.
+
+### Required tests
+
+- Extend `DefaultDocumentEngineTransactionEventTest`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineTransactionEventTest
+```
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE2-024 — PostgreSQL Testcontainers Document Engine ITs
+
+**Status:** DONE  
+**Stage:** 2  
+**Depends on:** STAGE2-023  
+**Module:** tmp-document-engine
+
+### Goal
+
+Подтвердить PostgreSQL semantics для rollback/concurrency/events/storage; H2 оставить как быстрые component tests.
+
+### Required documents
+
+- `STAGE-2-DOCUMENT-ENGINE.md`; Database Specification § naming/FK module rules.
+
+### Required code context
+
+- Existing H2 component tests; Testcontainers setup patterns from bootstrap ITs.
+
+### Allowed code scope
+
+- `tmp-document-engine/src/test/**` PostgreSQL IT classes.
+
+### Forbidden
+
+- Removing H2 component tests; Stage 3 features.
+
+### Implementation requirements
+
+Cover on PostgreSQL Testcontainers:
+
+- processor registration rollback;
+- processor operation rollback;
+- optimistic locking conflict;
+- concurrent post; concurrent update;
+- event after commit; no event after rollback;
+- failing event subscriber;
+- version snapshots; lifecycle journal;
+- document file storage.
+
+### Acceptance criteria
+
+- [x] All listed scenarios pass on PostgreSQL Testcontainers.
+- [x] H2 component tests retained.
+
+### Required tests
+
+- `DocumentEnginePostgresIntegrationIT`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-document-engine test -Dtest=*Postgres*
+```
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE2-025 — FK document_type_id decision and invariant
+
+**Status:** DONE  
+**Stage:** 2  
+**Depends on:** STAGE2-022  
+**Module:** tmp-document-engine
+
+### Goal
+
+Зафиксировать решение по FK `documents.document_type_id → document_types.id` и обеспечить инвариант отсутствия orphan types.
+
+### Required documents
+
+- Database Specification §12 (inter-module FK ban; intra-module FK allowed).
+
+### Required code context
+
+- `V2__documents_schema.sql`; `JdbcDocumentStorageAdapter.insert`.
+
+### Allowed code scope
+
+- Flyway migration under document-engine; create guard; tests.
+
+### Forbidden
+
+- Cross-module PostgreSQL FKs.
+
+### Implementation requirements
+
+- Add intra-schema FK via new Flyway migration (or document intentional absence).
+- If FK added: migration + IT asserting constraint.
+- Application-level `documentTypeExists` guard on create.
+
+### Acceptance criteria
+
+- [x] Decision documented in BLOCKERS/IMPLEMENTATION-LOG.
+- [x] Orphan document_type_id cannot be inserted (FK and/or guard).
+- [x] Test covers invariant.
+
+### Required tests
+
+- FK/invariant assertion in H2 and PostgreSQL suites.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-document-engine test -Dtest=*Registration*,*Postgres*,*Lifecycle*
+```
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+## STAGE2-026 — Final Stage 2 re-verification gate (re-review)
+
+**Status:** DONE  
+**Stage:** 2  
+**Depends on:** STAGE2-022..STAGE2-025  
+**Module:** cross-stage
+
+### Goal
+
+Закрыть Stage 2 после residual blockers, full verify и ручного TMP.exe; не начинать Stage 3.
+
+### Required documents
+
+- `STAGE-2-DOCUMENT-ENGINE.md`; `RUN-DEVELOPMENT.md`.
+
+### Required code context
+
+- full reactor; packaged application.
+
+### Allowed code scope
+
+- development-control documentation only (unless last-minute defect fixes).
+
+### Forbidden
+
+- Stage 3 features.
+
+### Implementation requirements
+
+- `mvn clean verify` and `mvn clean verify -Ppackage` PASSED.
+- Manual `dist/jpackage/TMP/TMP.exe`.
+- BLK-011 and BLK-013 RESOLVED.
+
+### Acceptance criteria
+
+- [x] Full verify PASSED.
+- [x] Package verify PASSED.
+- [x] TMP.exe starts.
+- [x] Stage 2 exit criteria confirmed; Stage 3 not started.
+
+### Required tests
+
+- full stage verification suite.
+
+### Verification commands
+
+```bash
+mvn clean verify
+mvn clean verify -Ppackage
+```
+
+Manual: `dist/jpackage/TMP/TMP.exe`
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
 ## STAGE2-017 — Fix duplicate DocumentEngine beans (BLK-010)
 

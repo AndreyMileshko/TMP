@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Transactional
 @SuppressFBWarnings(
@@ -84,16 +86,23 @@ public class DefaultDocumentEngine implements DocumentEngine, PlatformComponent 
 
     @Override
     public void registerProcessor(DocumentProcessor processor) {
+        String typeId = processor.documentTypeId();
         documentStorage.registerDocumentType(
-                processor.documentTypeId(),
-                processor.documentTypeId(),
+                typeId,
+                typeId,
                 "Registered document processor");
         processorRegistry.register(processor);
+        registerProcessorRollbackCompensation(typeId);
     }
 
     @Override
     public DocumentMetadata createDocument(CreateDocumentCommand command) {
         DocumentProcessor processor = processorRegistry.require(command.documentTypeId());
+        if (!documentStorage.documentTypeExists(command.documentTypeId())) {
+            throw new IllegalStateException(
+                    "Document type is not persisted in documents.document_types: "
+                            + command.documentTypeId());
+        }
         Instant now = Instant.now();
         DocumentMetadata draft = new DocumentMetadata(
                 UUID.randomUUID(),
@@ -296,5 +305,24 @@ public class DefaultDocumentEngine implements DocumentEngine, PlatformComponent 
 
     private void publishAfterCommit(com.tmp.core.api.event.DomainEvent event) {
         eventPublisher.publishAfterCommit(event);
+    }
+
+    /**
+     * Keeps in-memory processor registry aligned with the final transaction outcome.
+     * Registry is updated eagerly so same-TX operations can resolve the processor; on rollback
+     * the registration is compensated.
+     */
+    private void registerProcessorRollbackCompensation(String typeId) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    processorRegistry.unregister(typeId);
+                }
+            }
+        });
     }
 }

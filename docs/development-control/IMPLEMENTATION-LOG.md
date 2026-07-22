@@ -511,7 +511,7 @@ Stage 0 complete — awaiting Stage 1 Start Gate
 
 ## Stage 2 — Document Engine (summary)
 
-## `STAGE2-021` — `Final Stage 2 re-verification gate`
+## `STAGE2-026` — `Final Stage 2 re-verification gate (re-review)`
 
 **Date:** 2026-07-22  
 **Stage:** Stage 2 — Document Engine  
@@ -519,7 +519,7 @@ Stage 0 complete — awaiting Stage 1 Start Gate
 
 ### Result
 
-Stage 2 закрыт после устранения acceptance-review blockers BLK-010..012. Полная verification и ручной запуск TMP.exe успешны. Stage 3 не начат.
+Stage 2 закрыт после residual re-review fixes (BLK-011 transaction-final registry compensation, BLK-013 after-commit handler policy, PostgreSQL ITs, intra-module FK). Stage 3 не начат.
 
 ### Verification
 
@@ -528,7 +528,113 @@ Stage 2 закрыт после устранения acceptance-review blockers 
 | `mvn clean verify` | PASSED |
 | `mvn clean verify -Ppackage` | PASSED |
 | Manual `dist/jpackage/TMP/TMP.exe` | PASSED |
-| BLK-010..012 | RESOLVED |
+| BLK-011, BLK-013 | RESOLVED |
+| Stage 3 start | NOT STARTED |
+
+### Next task
+
+Stage 2 complete — awaiting Stage 3 Start Gate
+
+## `STAGE2-025` — `FK document_type_id decision and invariant`
+
+**Date:** 2026-07-22  
+**Stage:** Stage 2 — Document Engine  
+**Status:** DONE
+
+### Result
+
+Добавлен intra-module FK `fk_documents_document_type` (`documents.document_type_id` → `document_types.id`) через `V3__documents_document_type_fk.sql`. Решение согласовано с Database Specification §12 (cross-module FK запрещены; обе таблицы в schema `documents`). Дополнительно `createDocument` проверяет `documentTypeExists`.
+
+### Files created
+
+- `V3__documents_document_type_fk.sql`
+
+### Next task
+
+`STAGE2-026`
+
+## `STAGE2-024` — `PostgreSQL Testcontainers Document Engine ITs`
+
+**Date:** 2026-07-22  
+**Stage:** Stage 2 — Document Engine  
+**Status:** DONE
+
+### Result
+
+Добавлен `DocumentEnginePostgresIntegrationIT` с покрытием registration/operation rollback, optimistic lock, concurrent post/update, after-commit/no-event-on-rollback, failing subscriber, snapshots/journal, file storage, FK presence. H2 component tests сохранены. Добавлен `docker-java.properties` (`api.version=1.44`) для Docker Engine 29.
+
+### Files created
+
+- `DocumentEnginePostgresIntegrationIT.java`
+- `tmp-document-engine/src/test/resources/docker-java.properties`
+
+### Next task
+
+`STAGE2-025` / `STAGE2-026`
+
+## `STAGE2-023` — `After-commit handler failure policy (BLK-013)`
+
+**Date:** 2026-07-22  
+**Stage:** Stage 2 — Document Engine  
+**Status:** DONE
+
+### Result
+
+Best-effort after-commit delivery: handler failures логируются и не пробрасываются вызывающему коду. Документ/journal остаются committed. Platform Core EventBus contract не изменён. Callers must not retry document mutations on delivery failure.
+
+### Files modified
+
+- `TransactionAfterCommitEventPublisher.java`
+
+### Tests added or changed
+
+- `DefaultDocumentEngineTransactionEventTest.failingAfterCommitHandlerDoesNotFailDocumentOperation`
+
+### Next task
+
+`STAGE2-024`
+
+## `STAGE2-022` — `Registry rollback compensation (BLK-011 reopen)`
+
+**Date:** 2026-07-22  
+**Stage:** Stage 2 — Document Engine  
+**Status:** DONE
+
+### Result
+
+In-memory processor registry компенсируется при любом non-COMMITTED outcome через `TransactionSynchronization.afterCompletion`. Outer rollback / commit-failure path очищают registry; повторная регистрация успешна. Create блокируется при отсутствии типа в БД.
+
+### Files modified
+
+- `DefaultDocumentEngine.java`
+- `DefaultDocumentProcessorRegistry.java`
+
+### Tests added or changed
+
+- `DefaultDocumentEngineRegistrationTransactionTest`
+
+### Next task
+
+`STAGE2-023`
+
+## `STAGE2-021` — `Final Stage 2 re-verification gate`
+
+**Date:** 2026-07-22  
+**Stage:** Stage 2 — Document Engine  
+**Status:** DONE
+
+### Result
+
+Stage 2 закрыт после устранения acceptance-review blockers BLK-010..012. Полная verification и ручной запуск TMP.exe успешны. Stage 3 не начат. (Позднее reopened для residual BLK-011/BLK-013; окончательно закрыт в STAGE2-026.)
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `mvn clean verify` | PASSED |
+| `mvn clean verify -Ppackage` | PASSED |
+| Manual `dist/jpackage/TMP/TMP.exe` | PASSED |
+| BLK-010..012 | RESOLVED (BLK-011 later reopened) |
 | Stage 2 exit criteria | CONFIRMED |
 | Stage 3 start | NOT STARTED |
 

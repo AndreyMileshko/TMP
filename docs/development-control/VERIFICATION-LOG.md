@@ -3,7 +3,7 @@
 ## Latest result
 
 **Date:** 2026-07-22  
-**Scope:** STAGE2-021 (acceptance review rework BLK-010..012; Stage 2 re-verified)  
+**Scope:** STAGE2-026 (re-review residual BLK-011/BLK-013; Stage 2 re-verified)  
 **Overall:** PASSED
 
 ---
@@ -252,6 +252,24 @@
 | Deterministic concurrency | `DefaultPlatformCoreRegistrationTest.concurrentRegistrationAndStartAllMaintainsConsistentState` (200 iterations) | PASSED |
 | STOPPED restart semantics | `DefaultPlatformCoreRegistrationTest.registrationAfterStopAndSubsequentStartAllStartsAllComponents` | PASSED |
 | Static analysis | checkstyle + spotbugs in verify | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-22 — Stage 2 re-review residual fix (`STAGE2-022..026`, BLK-011/BLK-013)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Full reactor verify | `mvn clean verify` | PASSED |
+| Package profile verify | `mvn clean verify -Ppackage` | PASSED |
+| Registry rollback compensation | `DefaultDocumentEngineRegistrationTransactionTest` | PASSED |
+| After-commit handler failure policy | `DefaultDocumentEngineTransactionEventTest` | PASSED |
+| PostgreSQL Document Engine IT | `DocumentEnginePostgresIntegrationIT` | PASSED |
+| FK document_type_id | `V3__documents_document_type_fk.sql` + tests | PASSED |
+| Manual TMP.exe | `dist/jpackage/TMP/TMP.exe` with PostgreSQL env vars | PASSED |
+| Static analysis | checkstyle + spotbugs in verify | PASSED |
+| Stage 3 start | Not started (stop gate) | CONFIRMED |
 
 ### Failures
 

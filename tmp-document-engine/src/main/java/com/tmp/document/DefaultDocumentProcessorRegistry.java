@@ -21,6 +21,15 @@ public final class DefaultDocumentProcessorRegistry {
         processors.put(typeId, processor);
     }
 
+    /**
+     * Removes a processor registration. Idempotent — used for transaction rollback compensation.
+     */
+    public synchronized void unregister(String documentTypeId) {
+        if (documentTypeId != null) {
+            processors.remove(documentTypeId);
+        }
+    }
+
     public synchronized DocumentProcessor require(String documentTypeId) {
         DocumentProcessor processor = processors.get(documentTypeId);
         if (processor == null) {

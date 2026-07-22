@@ -6,15 +6,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.core.api.PlatformCore;
+import com.tmp.core.api.event.EventSubscription;
 import com.tmp.document.api.CreateDocumentCommand;
 import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.DocumentMetadata;
+import com.tmp.document.api.LifecycleEventType;
 import com.tmp.document.api.event.DocumentCreatedEvent;
+import com.tmp.document.api.port.LifecycleJournalPort;
 import com.tmp.document.support.ConfigurableDocumentProcessor;
 import com.tmp.document.support.TestDocumentProcessor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,17 +51,28 @@ class DefaultDocumentEngineTransactionEventTest {
     @Autowired
     private PlatformTransactionManager transactionManager;
 
+    @Autowired
+    private LifecycleJournalPort lifecycleJournalPort;
+
     private final List<DocumentCreatedEvent> receivedEvents = new ArrayList<>();
+    private EventSubscription collectorSubscription;
 
     @BeforeEach
     void setUp() {
         receivedEvents.clear();
-        platformCore.eventBus().subscribeDomain(DocumentCreatedEvent.class, event ->
+        collectorSubscription = platformCore.eventBus().subscribeDomain(DocumentCreatedEvent.class, event ->
                 receivedEvents.add((DocumentCreatedEvent) event));
         try {
             documentEngine.registerProcessor(new TestDocumentProcessor(TYPE_ID));
         } catch (IllegalStateException alreadyRegistered) {
             // shared context
+        }
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (collectorSubscription != null) {
+            collectorSubscription.unsubscribe();
         }
     }
 
@@ -110,6 +125,31 @@ class DefaultDocumentEngineTransactionEventTest {
                 documentEngine.createDocument(new CreateDocumentCommand(failingType, "Should fail"))));
 
         assertEquals(eventsBefore, receivedEvents.size());
+    }
+
+    @Test
+    void failingAfterCommitHandlerDoesNotFailDocumentOperation() {
+        String typeId = uniqueType("handler.fail");
+        documentEngine.registerProcessor(new TestDocumentProcessor(typeId));
+        EventSubscription failingSubscription = platformCore.eventBus().subscribeDomain(
+                DocumentCreatedEvent.class,
+                event -> {
+                    throw new IllegalStateException("subscriber failed after commit");
+                });
+        try {
+            DocumentMetadata created = documentEngine.createDocument(
+                    new CreateDocumentCommand(typeId, "Committed despite handler failure"));
+
+            assertEquals(typeId, created.documentTypeId());
+            assertTrue(documentEngine.findById(created.id()).isPresent());
+            assertEquals(
+                    1,
+                    lifecycleJournalPort.findByDocumentId(created.id()).stream()
+                            .filter(entry -> entry.eventType() == LifecycleEventType.CREATED)
+                            .count());
+        } finally {
+            failingSubscription.unsubscribe();
+        }
     }
 
     private static String uniqueType(String suffix) {
