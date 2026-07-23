@@ -9,23 +9,16 @@ import com.tmp.capability.api.CapabilityEngine;
 import com.tmp.capability.api.CapabilityLifecycleState;
 import com.tmp.capability.sample.SampleDependentTechnicalCapability;
 import com.tmp.capability.sample.SampleTechnicalCapability;
+import com.tmp.security.capability.SecurityAdministrationCapability;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@TestPropertySource(
-        properties = {
-            "spring.datasource.url=jdbc:h2:mem:tmp_bootstrap_capability_lookup;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
-            "spring.datasource.driver-class-name=org.h2.Driver",
-            "spring.datasource.username=sa",
-            "spring.datasource.password="
-        })
-class CapabilityEngineBeanLookupTest {
+class CapabilityEngineBeanLookupTest extends AbstractBootstrapPostgresSpringTest {
 
     @Autowired
     private ApplicationContext applicationContext;
@@ -52,10 +45,12 @@ class CapabilityEngineBeanLookupTest {
     void formatCapabilityStatusIncludesCountsAndSampleCapabilityStates() {
         String statusText = DesktopBootstrap.formatCapabilityStatus(capabilityEngine);
 
-        assertTrue(statusText.contains("discovered=2"));
-        assertTrue(statusText.contains("active=2"));
+        assertTrue(statusText.contains("discovered=3"));
+        assertTrue(statusText.contains("active=3"));
         assertTrue(statusText.contains(SampleTechnicalCapability.ID.value() + " state=" + CapabilityLifecycleState.ACTIVE));
         assertTrue(statusText.contains(
                 SampleDependentTechnicalCapability.ID.value() + " state=" + CapabilityLifecycleState.ACTIVE));
+        assertTrue(statusText.contains(
+                SecurityAdministrationCapability.ID.value() + " state=" + CapabilityLifecycleState.ACTIVE));
     }
 }

@@ -20,18 +20,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest(classes = TmpBootstrapApplication.class)
 @Import(PlatformCoreIntegrationIT.IntegrationTestPlatformConfiguration.class)
 @ActiveProfiles("test")
-@TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:h2:mem:tmp_platform_core_it;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
-        "spring.datasource.driver-class-name=org.h2.Driver",
-        "spring.datasource.username=sa",
-        "spring.datasource.password="
-})
-class PlatformCoreIntegrationIT {
+class PlatformCoreIntegrationIT extends AbstractBootstrapPostgresSpringTest {
 
     @Autowired
     private PlatformCore platformCore;
@@ -51,9 +44,15 @@ class PlatformCoreIntegrationIT {
         eventBus.publish(new PlatformStartedEvent());
 
         assertTrue(eventReceived.get(), "EventBus must deliver platform events synchronously");
-        assertEquals(3, capabilityRegistry.findAll().size(), "two sample technical capabilities plus one manual registration");
+        assertEquals(
+                4,
+                capabilityRegistry.findAll().size(),
+                "two sample technical capabilities, security administration, plus one manual registration");
         assertEquals(ComponentLifecycleState.STARTED, platformCore.status().lifecycleState());
-        assertEquals(3, platformCore.platformRegistry().registeredComponents().size(), "document-engine, capability-engine, integration test component");
+        assertEquals(
+                4,
+                platformCore.platformRegistry().registeredComponents().size(),
+                "document-engine, capability-engine, security, integration test component");
         assertEquals(2, platformCore.status().registeredServices(), "integration test service plus sample technical public service");
     }
 

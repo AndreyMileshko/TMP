@@ -3807,3 +3807,2763 @@ Stage 3 re-verified; stop before Stage 4.
 ### Expected result
 
 `STATUS.md` → Stage 3 DONE 100%; stop before Stage 4.
+
+---
+
+# Stage 4 — Security (decomposition)
+
+## Design decisions fixed for this Stage
+
+1. Module: `tmp-security` (new). Public API package: `com.tmp.security.api` (mirrors `com.tmp.capability.api` / `com.tmp.document.api`). Internal packages: `com.tmp.security.domain` (+ `com.tmp.security.domain.repository` ports), `com.tmp.security.application`, `com.tmp.security.persistence`, `com.tmp.security.capability`, `com.tmp.security` (auto-configuration + `PlatformComponent`). Identity/value-object types that other modules must reference at call sites (`UserId`, `RoleId`, `PermissionId`, `AuditEventId`, `SessionId`, `Login`, `DisplayName`) are defined directly in `com.tmp.security.api`, matching the precedent of `com.tmp.capability.api.CapabilityId`. Richer mutable-behaviour aggregates (`User`, `Role`, `PermissionDefinition`, `RoleAssignment`, `IndividualPermissionOverride`, `SecurityAuditEvent`) stay in `com.tmp.security.domain`, exposed to callers only through DTOs/services in `com.tmp.security.api`.
+2. Persistence technology follows the Stage 2 precedent, **not** the Database Specification §13 JPA/Hibernate section literally: `tmp-document-engine` already uses plain `spring-boot-starter-jdbc` (`JdbcTemplate`) with hand-written Repository ports/adapters/mappers, no Hibernate anywhere in the reactor. `tmp-security` follows the same established pattern for consistency (Repository interface in Domain, `Jdbc*Repository` implementation in `com.tmp.security.persistence`, manual row-mapping, no JPA entities). This is a normal technical decision following existing in-repo precedent, not a deviation requiring a blocker.
+3. Flyway: single global `classpath:db/migration` scan (existing `tmp-infra-db` configuration, unchanged) is shared by all modules; each module ships its own numbered scripts. Existing highest version is `V3` (`tmp-document-engine`); `tmp-capability-engine` has no persistence. Security's migration starts at `V4__security_schema.sql` in `tmp-security/src/main/resources/db/migration/`.
+4. `PermissionId` format: `<area>.<resource>.<action>` (3 dot-separated lowercase segments, `[a-z][a-z0-9-]*` per segment), exactly as stated in the Security Specification's format rule and in the Stage 4 task's permission catalogue (`security.users.view`, `security.roles.assign`, `security.permissions.assign`, `security.audit.view`, etc.). The Security Specification's illustrative examples (`order.view`, `warehouse.issue` — 2 segments) are informal shorthand from an earlier doc revision and do not override the explicit 3-segment rule stated in the same document and repeated in the Stage 4 task; validation implements the 3-segment rule. Not a blocker: the authoritative rule text is consistent across both sources, only the illustrative examples are imprecise.
+5. Capability Engine integration: Security registers exactly one Spring bean implementing `com.tmp.capability.api.Capability` ("Security Administration Capability"), discovered the same way `SampleTechnicalCapability` is (constructor injection into `List<Capability>` in `CapabilityDiscovery`). Its `onInitialize/onActivate/onDeactivate/onStop` hooks are no-ops (it contributes only `PermissionDescriptor`/`CommandDescriptor`/`NavigationContribution`/`ViewDescriptor` metadata — no `PublicServiceContribution`, no `DocumentContribution` — Security's own services are consumed directly as ordinary Spring beans by `tmp-ui-shell`/`tmp-bootstrap-app`, exactly like `PlatformCore`/`DocumentEngine`/`CapabilityEngine` are today, **not** through the Capability Engine's public-service mechanism, because Security is itself a platform-level component, not a business Capability providing services to other Capabilities).
+6. Permission-definition catalogue and "active" status: Security never reads Capability Engine internals. It uses only `CapabilityEngine.registeredCapabilities()` (full declared catalogue, any lifecycle state) + `CapabilityDescriptor.permissions()` to learn every declared `PermissionDescriptor`, and `CapabilityEngine.activePermissions()` (or `stateOf(id) == ACTIVE`) to know which are currently active. `Authorization.requirePermission()` denies whenever the given `PermissionId` is absent from `CapabilityEngine.activePermissions()`, regardless of role/individual grants (Stage 4 task §7/§11). No Capability Engine API change is needed for this; if a real gap is later found, a blocker will be raised rather than a workaround.
+7. Startup ordering (no Capability Engine/Platform Core change needed): `DefaultLifecycleManager.startAll()` iterates registered `PlatformComponent`s in **registration order**, calling `initialize()` then `start()` on each before moving to the next (verified in `tmp-platform-core` source). `SecurityAutoConfiguration` declares `@AutoConfigureAfter(name = {"com.tmp.core.PlatformCoreAutoConfiguration", "com.tmp.infra.db.DatabaseAutoConfiguration", "com.tmp.capability.CapabilityEngineAutoConfiguration"})`, so Security's `@PostConstruct` component registrar runs after Capability Engine's, and Security's `PlatformComponent` therefore lands later in the registration-ordered map. Consequently, when `startAll()` reaches Security, Capability Engine's `initialize()` (discovery/registration) **and** `start()` (`activateAll()`) have already completed — safe point to run permission-catalogue synchronization and bootstrap-administrator creation inside Security's own `initialize()`/`start()`. Security's own Capability bean is created eagerly by Spring because `CapabilityEngineAutoConfiguration.capabilityDiscovery(List<Capability> discoveredCapabilities)` depends on the full `Capability` bean collection — ordinary Spring DI, unaffected by `@AutoConfigureAfter` (which only orders auto-configuration *class* processing, not bean instantiation).
+8. UI screens (Login, Main Window, Access Denied, User Administration, Role Administration, Security Audit) are **all** implemented in `tmp-ui-shell` (FXML + Controller + ViewModel), never inside `tmp-security`. Rationale: (a) `tmp-security`'s allowed dependencies are limited to `com.tmp.core.api..`/`com.tmp.capability.api..` (Stage 4 task §4.10) — it must not depend on JavaFX/`tmp-ui-shell`; (b) `tmp-ui-shell` has no such restriction and may freely depend on `com.tmp.security.api` (an "external module" per Stage 4 task §7, exactly as `tmp-bootstrap-app` already depends on `com.tmp.capability.api`/`com.tmp.document.api`); (c) `ViewDescriptor`/`NavigationContribution` are documented in `tmp-capability-engine` as pure metadata that intentionally does **not** reference any FXML/Controller/ViewModel class ("resolving this metadata into an actual screen is deferred to future UI stages") — Stage 4 is that future stage, and the concrete FXML resource path ↔ screen-id mapping is owned entirely by `tmp-ui-shell`'s new Navigation Service (a small internal registry, not a new public contract). This keeps `tmp-ui-shell` as the only JavaFX-aware module (unchanged Stage 0–3 precedent: `EmptyMainShell`/`JavaFxShellLauncher` have zero business-module dependencies) while satisfying "Controller is not a Spring Bean" (FXMLLoader instantiates Controllers by reflection via `fx:controller`) and "ViewModel is created by Spring" (ViewModels become ordinary `@Bean`s inside a new `UiShellAutoConfiguration` in `tmp-ui-shell`, calling `com.tmp.security.api`/`com.tmp.capability.api` services). Navigation-item-to-permission gating convention (needed because `NavigationContribution`/`ViewDescriptor` carry no permission field): Security declares one `CommandDescriptor` per admin screen whose `commandId()` equals the corresponding `NavigationContribution.navigationId()` (e.g. both `"security.nav.users"`); the Navigation Service looks up that command among `CapabilityEngine.activeCommands()` and hides the navigation item unless `Authorization.hasPermission(...)` holds for every id in `requiredPermissionIds()`. This is a local `tmp-ui-shell` implementation convention, not a Capability Engine API change.
+9. `JavaFxShellLauncher`/`JavaFxShellApplication` keep the existing "static hand-off" pattern (JavaFX requires a no-arg-constructible `Application` subclass, so Spring cannot construct it): `DesktopBootstrap` now looks up a `UiShellEntryPoint` bean (defined in `tmp-ui-shell`, exposing the Navigation Service + initial screen id) and passes it into `JavaFxShellLauncher.launch(...)` the same way it already passes `onStopCallback`/status strings, so `JavaFxShellApplication.start(Stage)` can build the real Login → Main Window flow with full Spring-backed ViewModels.
+10. Config: bootstrap administrator credentials are read via `@ConfigurationProperties(prefix = "tmp.security.bootstrap")` bound from `TMP_SECURITY_BOOTSTRAP_ADMIN_LOGIN` / `TMP_SECURITY_BOOTSTRAP_ADMIN_DISPLAY_NAME` / `TMP_SECURITY_BOOTSTRAP_ADMIN_PASSWORD` env vars (Spring relaxed binding), matching the existing `TMP_DB_*` → `spring.datasource.*` convention in `tmp-bootstrap-app/application-package.yml`. No default/fallback password is ever hard-coded.
+11. `BCryptPasswordHasher` (infrastructure adapter of the Domain `PasswordHasher` port) is the single implementation, backed by `org.springframework.security:spring-security-crypto:BCryptPasswordEncoder` (version managed transitively by the already-imported `spring-boot-dependencies` BOM — no new version property needed). No `spring-security-core`, no servlet/web starter is added anywhere.
+12. Login case-insensitive uniqueness is enforced at the database via a unique index on `lower(login)` (named `uk_users_login`, functional index), not a stored normalized column; the Domain `Login` value object preserves the user's original casing for display and trims/validates non-blank input only.
+13. Audit is Security's own append-only table (`security.security_audit_events`), per the Stage 4 task's explicit table list. The Database Specification §14 "единый Audit Service Platform Core" phrase is a non-binding recommendation ("рекомендуется... либо отдельный платформенный модуль") and Platform Core currently exposes no audit facility at all — implementing Security's own audit inside its own schema is one of the two options the specification itself allows, and is what the Stage 4 task explicitly mandates. Not a conflict, not a blocker.
+14. Out of scope, per explicit Stage 4 restrictions (§4.18) and confirmed absent from the Security Specification: LDAP/AD/OAuth/OIDC/JWT/2FA/email password recovery/external IdP/auto user lockout/password expiry/password history/remember-me/session timeout/network session. No such code, dependency, or table column is introduced anywhere in this Stage.
+
+## STAGE4-001 — Bootstrap `tmp-security` module and public API package skeleton
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE3-025
+**Module:** tmp-security (new)
+
+### Goal
+
+Создать Maven-модуль `tmp-security`, подключить его в root reactor и `dependencyManagement`, объявить зависимости только на `tmp-platform-core` и `tmp-capability-engine` (публичные API) плюс `spring-boot-starter`/`spring-boot-starter-jdbc`/`spring-security-crypto`/test dependencies (JUnit, H2, Testcontainers postgresql — mirroring `tmp-document-engine/pom.xml`), создать пустой пакет `com.tmp.security.api` с `package-info.java` без единого класса контракта.
+
+### Required documents
+
+- `Security-Specification.md` (Назначение; Основные принципы);
+- `TMP-Architecture-Decisions.md` ADR-001..003, ADR-019 (module boundaries, public-API-only interaction);
+- this file's "Design decisions" §1–2, §11 above.
+
+### Required code context
+
+- `tmp-document-engine/pom.xml` as structural template (module depending only on `tmp-platform-core` public API + `spring-boot-starter-jdbc`);
+- root `pom.xml` (`<modules>`, `<dependencyManagement>`).
+
+### Allowed code scope
+
+- root `pom.xml` (`<modules>` entry for `tmp-security`, `<dependencyManagement>` entry);
+- `tmp-security/pom.xml` (new);
+- `tmp-security/src/main/java/com/tmp/security/api/package-info.java` (new, documents package purpose only).
+
+### Forbidden
+
+- any interface/class beyond `package-info.java`;
+- dependency on any module other than `tmp-platform-core`, `tmp-capability-engine` (test scope may add JUnit/H2/Testcontainers/ArchUnit per parent `dependencyManagement`);
+- adding `tmp-security` dependency to `tmp-ui-shell`/`tmp-bootstrap-app`/`tmp-architecture-tests` yet (later tasks).
+
+### Implementation requirements
+
+- `tmp-security/pom.xml`: `<parent>` = `tmp-parent`; dependencies = `tmp-platform-core`, `tmp-capability-engine`, `spring-boot-starter`, `spring-boot-starter-jdbc`, `spring-security-crypto` (no explicit version — BOM-managed), `tmp-infra-db` (for shared datasource/profile convention, matching `tmp-document-engine`), test-scope `spring-boot-starter-test`, `junit-jupiter`, `h2`, `testcontainers` (`junit-jupiter`, `postgresql`), `spotbugs-annotations` (`provided`, matching `tmp-document-engine`);
+- add module to root `pom.xml` `<modules>` (after `tmp-capability-engine`, before `tmp-bootstrap-app`) and to `<dependencyManagement>`;
+- no other production code in this task.
+
+### Public contracts that may change
+
+- none exist yet; this task only creates the module shell.
+
+### Acceptance criteria
+
+- [x] `mvn -q -DskipTests validate` passes for the full reactor with the new module present;
+- [x] `mvn -q -pl :tmp-security compile` passes with zero business logic;
+- [x] module has no dependency other than `tmp-platform-core`, `tmp-capability-engine`, declared technology starters.
+
+### Required tests
+
+- none (pure structural task, matching STAGE1-001/STAGE2-001/STAGE3-001 precedent).
+
+### Verification commands
+
+```bash
+mvn -q -DskipTests validate
+mvn -q -pl :tmp-security compile
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+`tmp-security` exists in the reactor, compiles, and has zero implementation.
+
+---
+
+## STAGE4-002 — Identity value objects: `UserId`, `RoleId`, `PermissionId`, `AuditEventId`, `SessionId`, `Login`, `DisplayName`
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-001
+**Module:** tmp-security
+
+### Goal
+
+Определить immutable value objects идентичности в `com.tmp.security.api`, включая формат-валидацию `PermissionId` (`<area>.<resource>.<action>`).
+
+### Required documents
+
+- `Security-Specification.md` (Право — формат идентификатора; Пользователь);
+- Stage 4 task §5 (перечень value objects, требование неизменяемости `PermissionId` после регистрации);
+- this file's "Design decisions" §4, §12 above.
+
+### Required code context
+
+- `com.tmp.capability.api.CapabilityId` (style precedent: immutable String wrapper, static factory, `equals`/`hashCode`/`toString`).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/api/UserId.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/api/RoleId.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/api/PermissionId.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/api/AuditEventId.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/api/SessionId.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/api/Login.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/api/DisplayName.java` (new);
+- matching test classes under `tmp-security/src/test/java/com/tmp/security/api/`.
+
+### Forbidden
+
+- any domain aggregate/entity logic;
+- any persistence/Spring annotation on these types.
+
+### Implementation requirements
+
+- `UserId`/`RoleId`/`AuditEventId`/`SessionId`: immutable `UUID`-backed wrappers, static factory `of(UUID)` + `generate()` (random), `equals`/`hashCode`/`toString`;
+- `PermissionId`: immutable `String`-backed wrapper; `of(String)` validates against `^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$`, throws `IllegalArgumentException` with precise message otherwise; no setter, no mutation — identifiers are immutable by construction (registration-time immutability is an application-layer invariant, enforced in STAGE4-006/017, not by this type);
+- `Login`: immutable `String`-backed wrapper; `of(String)` trims, rejects blank/null, rejects length > 128, preserves original case; documents that DB-level uniqueness is case-insensitive (Design decision §12) but this type does not itself lowercase;
+- `DisplayName`: immutable `String`-backed wrapper; `of(String)` trims, rejects blank/null, rejects length > 255.
+- Every type's Javadoc states it carries no password/credential data.
+
+### Public contracts that may change
+
+- new public types only (`UserId`, `RoleId`, `PermissionId`, `AuditEventId`, `SessionId`, `Login`, `DisplayName`); nothing existing changes.
+
+### Acceptance criteria
+
+- [x] valid inputs construct successfully for every type;
+- [x] `PermissionId` accepts exactly the 12 catalogue ids from Stage 4 task §7 and rejects 1-segment/2-segment/4-segment/uppercase/blank input;
+- [x] blank/null input rejected for every type with `IllegalArgumentException`;
+- [x] `equals`/`hashCode` consistent with wrapped value; `toString` never leaks anything beyond the wrapped identity value.
+
+### Required tests
+
+- `UserIdTest`, `RoleIdTest`, `AuditEventIdTest`, `SessionIdTest`: generate/of, null/equals/hashCode.
+- `PermissionIdTest`: all 12 catalogue ids accepted; malformed formats rejected (missing segment, extra segment, uppercase, digit-leading segment, blank).
+- `LoginTest`: valid, blank/null rejected, over-length rejected, case preserved.
+- `DisplayNameTest`: valid, blank/null rejected, over-length rejected.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=UserIdTest,RoleIdTest,PermissionIdTest,AuditEventIdTest,SessionIdTest,LoginTest,DisplayNameTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Stable, fully-tested identity value objects usable by every later Domain/Application/API type.
+
+---
+
+## STAGE4-003 — `PasswordHash` value object and `PasswordHasher` domain port
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-002
+**Module:** tmp-security
+
+### Goal
+
+Определить `PasswordHash` (никогда не содержит plaintext, безопасный `toString`) и порт `PasswordHasher` (Domain-интерфейс, без знания о BCrypt/Spring), не позволяющие паролю попасть в DTO/log/audit.
+
+### Required documents
+
+- `Security-Specification.md` (Пароль);
+- Stage 4 task §5, §9 (password never a plaintext field; hash differs from plaintext; port abstraction implied by "Domain не зависит от Spring/JDBC/persistence/JavaFX");
+- Database Specification §13 (Domain independent of the persistence technology — same principle applied to the hashing technology).
+
+### Required code context
+
+- none beyond STAGE4-002 value objects (self-contained).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/domain/PasswordHash.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/PasswordHasher.java` (new, port interface);
+- `tmp-security/src/main/java/com/tmp/security/domain/package-info.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/domain/`.
+
+### Forbidden
+
+- importing `org.springframework.security.*`, `jakarta.persistence.*`, `javafx.*` in this package;
+- exposing the wrapped hash string via any public getter without an explicit, clearly-named accessor documented as infrastructure-only.
+
+### Implementation requirements
+
+- `PasswordHash`: immutable wrapper over a non-blank hash `String`; static factory `of(String encodedHash)` (used by infrastructure adapters only, never by application code with plaintext); `value()` accessor documented as "infrastructure-only, never logged/audited/serialized"; `toString()` returns a fixed redacted marker (e.g. `"PasswordHash[REDACTED]"`), never the hash itself; `equals`/`hashCode` based on the wrapped value (needed for persistence round-trip tests only, not for business comparison).
+- `PasswordHasher` port: `PasswordHash hash(char[] plaintextPassword)`; `boolean matches(char[] plaintextPassword, PasswordHash hash)`. Uses `char[]` (not `String`) for plaintext parameters so callers can zero the array after use; Javadoc documents this intent explicitly.
+
+### Public contracts that may change
+
+- none exist yet; new internal Domain types only (not in `com.tmp.security.api`).
+
+### Acceptance criteria
+
+- [ ] `PasswordHash.toString()` never contains the wrapped value;
+- [ ] `PasswordHash` has no method that returns the raw value under an easily-misused name (only a clearly infrastructure-flagged accessor);
+- [ ] `PasswordHasher` is a pure interface, zero implementation, zero dependency beyond `java.*`.
+
+### Required tests
+
+- `PasswordHashTest`: construction, `toString()` redaction (given several distinct hash values, assert none appear in `toString()`), equality.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=PasswordHashTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A safe password-hash carrier and a Domain-owned hashing port ready for a BCrypt adapter (STAGE4-015) and the `User` aggregate (STAGE4-004).
+
+---
+
+## STAGE4-004 — `User` aggregate, `UserStatus`, `UserRepository` port, domain exceptions
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-003
+**Module:** tmp-security
+
+### Goal
+
+Реализовать immutable-snapshot `User` aggregate (создание, смена пароля/hash, логическое удаление) со статусами `ACTIVE`/`DELETED`, без физического удаления, и Domain repository port.
+
+### Required documents
+
+- `Security-Specification.md` (Пользователь; Пароль);
+- Stage 4 task §5 (допустимые состояния; запрет физического удаления; поведение удалённого пользователя);
+- Database Specification §5 (`id/created_at/updated_at/version/created_by/updated_by`), §7 (Optimistic Locking).
+
+### Required code context
+
+- `PasswordHash` (STAGE4-003); `UserId`/`Login`/`DisplayName` (STAGE4-002).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/domain/User.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/UserStatus.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/repository/UserRepository.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/UserAlreadyDeletedException.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/domain/`.
+
+### Forbidden
+
+- any Spring/JPA/JDBC import;
+- any UI/JavaFX import;
+- exposing `PasswordHash` via `toString()`.
+
+### Implementation requirements
+
+- `UserStatus` enum: `ACTIVE`, `DELETED`.
+- `User`: immutable aggregate (`UserId id, Login login, DisplayName displayName, PasswordHash passwordHash, UserStatus status, long version, Instant createdAt, Instant updatedAt`); factory `User.createActive(UserId, Login, DisplayName, PasswordHash, Clock)`; behaviour methods return **new** `User` snapshots (`withDisplayName`, `withPasswordHash`, `deleted(Clock)` — throws `UserAlreadyDeletedException` if already `DELETED`); `isActive()`/`isDeleted()` helpers; `toString()` never includes `passwordHash`'s raw value (relies on `PasswordHash.toString()` redaction, and does not print `passwordHash` field name/value pair with anything but the redacted marker).
+- `UserRepository` port (Domain interface): `save(User)` (insert-or-update, optimistic-lock aware — throws a dedicated `OptimisticLockException`-style exception, defined here or reused from a shared location — define `com.tmp.security.domain.OptimisticLockConflictException` in this task since it's the first aggregate needing it), `findById(UserId)`, `findByLoginIgnoreCase(Login)`, `existsByLoginIgnoreCase(Login)`, `findAll(paging/filter DTO placeholder deferred to STAGE4-023 if needed)` — for this task only `save/findById/findByLoginIgnoreCase/existsByLoginIgnoreCase` are required; a paging query method is added in STAGE4-023 together with its concrete use, to avoid speculative API.
+
+### Public contracts that may change
+
+- none exist yet; new internal Domain types only.
+
+### Acceptance criteria
+
+- [ ] a newly created `User` is `ACTIVE`;
+- [ ] `deleted()` transitions to `DELETED`; calling it twice throws `UserAlreadyDeletedException`;
+- [ ] no setter exists; every mutation returns a new instance; `version`/timestamps are immutable fields set only through the constructor/factory;
+- [ ] `User.toString()` contains no BCrypt hash characters (verified via a hash value substring check in the test).
+
+### Required tests
+
+- `UserTest`: creation invariants, `withDisplayName`/`withPasswordHash` produce new instances leaving the original unchanged, `deleted()` transition + double-delete rejection, `toString()` redaction.
+- `UserStatusTest`: exhaustive enum values.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=UserTest,UserStatusTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A fully-tested, persistence-agnostic `User` aggregate ready for the JDBC adapter (STAGE4-011) and Application Services (STAGE4-023/024).
+
+---
+
+## STAGE4-005 — `Role` aggregate and `RoleRepository` port
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-002
+**Module:** tmp-security
+
+### Goal
+
+Реализовать `Role` aggregate как шаблон набора разрешений (immutable snapshot, добавление/отзыв `PermissionId`, изменение имени/описания) и Domain repository port.
+
+### Required documents
+
+- `Security-Specification.md` (Роль);
+- Stage 4 task §6 (создание/изменение/назначение/отзыв разрешений роли; удаление роли только при отсутствии назначенных пользователей — the "no assigned users" check itself belongs to the Application Service, STAGE4-025, since it requires cross-aggregate knowledge; this task only models the Role's own permission set).
+
+### Required code context
+
+- `RoleId`/`PermissionId` (STAGE4-002).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/domain/Role.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/repository/RoleRepository.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/domain/`.
+
+### Forbidden
+
+- any Spring/JPA/JDBC import;
+- any reference to `User`/`UserId` (Role does not know which users hold it — that link is `RoleAssignment`, STAGE4-007).
+
+### Implementation requirements
+
+- `Role`: immutable aggregate (`RoleId id, String name, String description, Set<PermissionId> permissions, long version, Instant createdAt, Instant updatedAt`); factory `Role.create(RoleId, String name, String description, Clock)`; behaviour methods return new snapshots: `withName`, `withDescription`, `grantPermission(PermissionId)` (idempotent — no-op if already present), `revokePermission(PermissionId)` (idempotent); `permissions()` returns an unmodifiable `Set`.
+- `RoleRepository` port: `save(Role)` (optimistic-lock aware, reuses `OptimisticLockConflictException` from STAGE4-004), `findById(RoleId)`, `findAll()`, `deleteById(RoleId)` (physical delete is allowed here — roles are configuration, not business history; the "cannot delete while assigned" rule is enforced by the Application Service before calling this, per Stage 4 task §6).
+
+### Public contracts that may change
+
+- none exist yet; new internal Domain types only.
+
+### Acceptance criteria
+
+- [ ] `grantPermission`/`revokePermission` are idempotent and return new immutable snapshots;
+- [ ] `name`/`description` mutation methods do not mutate the permission set;
+- [ ] no setter exists anywhere on `Role`.
+
+### Required tests
+
+- `RoleTest`: creation, grant/revoke idempotency, name/description change independence, immutability (original snapshot unaffected by derived snapshot mutation).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=RoleTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A fully-tested `Role` aggregate ready for persistence (STAGE4-011) and Role Administration Application Services (STAGE4-025/026).
+
+---
+
+## STAGE4-006 — `PermissionDefinition` domain concept and `PermissionDefinitionRepository` port
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-002
+**Module:** tmp-security
+
+### Goal
+
+Моделировать зарегистрированное разрешение (`PermissionId` + метаданные + признак активности), без знания о Capability Engine внутри Domain.
+
+### Required documents
+
+- `Security-Specification.md` (Право; Capability; Проверка доступа);
+- Stage 4 task §7 (Security регистрирует определения разрешений; деактивация Capability не удаляет назначения; identifier immutable after registration).
+
+### Required code context
+
+- `PermissionId` (STAGE4-002).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/domain/PermissionDefinition.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/repository/PermissionDefinitionRepository.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/domain/`.
+
+### Forbidden
+
+- any reference to `com.tmp.capability.api.*` from this package (that mapping happens only in the Application layer, STAGE4-017 — Domain stays capability-agnostic, knowing only "a permission id with an active flag");
+- allowing `permissionId` to be replaced/changed after construction (only `active`/`displayName`/`description` may evolve).
+
+### Implementation requirements
+
+- `PermissionDefinition`: immutable snapshot (`PermissionId permissionId, String displayName, String description, boolean active, Instant registeredAt, long version`); factory `PermissionDefinition.register(PermissionId, String displayName, String description, Clock)` (starts `active = true`); `withDisplayName`, `withDescription`, `activated()`, `deactivated()` — all return new snapshots; `permissionId()` never changes across snapshots derived from the same original (enforced by construction, not by a runtime check, since the id is only ever set once via the factory and copy methods never take a new id parameter).
+- `PermissionDefinitionRepository` port: `save(PermissionDefinition)` (optimistic-lock aware), `findById(PermissionId)`, `findAll()`.
+
+### Public contracts that may change
+
+- none exist yet; new internal Domain types only.
+
+### Acceptance criteria
+
+- [ ] `activated()`/`deactivated()` toggle only the `active` flag, nothing else;
+- [ ] no method allows constructing a `PermissionDefinition` with a different `permissionId` from an existing snapshot (copy methods take no id parameter);
+- [ ] no setter exists anywhere.
+
+### Required tests
+
+- `PermissionDefinitionTest`: registration defaults to active, activate/deactivate toggling, display/description change independence, id immutability across derived snapshots.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=PermissionDefinitionTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A capability-agnostic permission-registry Domain concept ready for persistence (STAGE4-012) and Permission Synchronization (STAGE4-017).
+
+---
+
+## STAGE4-007 — `RoleAssignment`, `IndividualPermissionOverride`, and their repository ports
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-004, STAGE4-005, STAGE4-006
+**Module:** tmp-security
+
+### Goal
+
+Моделировать назначение ролей пользователям и индивидуальные GRANT/REVOKE разрешений, как отдельные association aggregates (не поля `User`/`Role`, чтобы избежать конкурентных конфликтов версий при массовом назначении).
+
+### Required documents
+
+- `Security-Specification.md` (Роль; Право);
+- Stage 4 task §6 (индивидуальные разрешения: отсутствие решения / GRANT / REVOKE).
+
+### Required code context
+
+- `UserId`, `RoleId`, `PermissionId` (STAGE4-002).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/domain/RoleAssignment.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/PermissionOverrideDecision.java` (new, enum `GRANT`/`REVOKE`);
+- `tmp-security/src/main/java/com/tmp/security/domain/IndividualPermissionOverride.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/repository/RoleAssignmentRepository.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/repository/PermissionOverrideRepository.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/domain/`.
+
+### Forbidden
+
+- storing a *set* of overrides inside `User`/`Role` (would create false optimistic-lock conflicts between unrelated administrative actions — this is a deliberate modelling choice, not a spec requirement, documented here to keep the reviewer from expecting it inside `User`).
+
+### Implementation requirements
+
+- `RoleAssignment`: immutable value (`UserId userId, RoleId roleId, Instant assignedAt`); no version field (assignment either exists or does not — deletion is physical removal of the pairing row, not a lifecycle).
+- `PermissionOverrideDecision`: enum `GRANT`, `REVOKE`.
+- `IndividualPermissionOverride`: immutable value (`UserId userId, PermissionId permissionId, PermissionOverrideDecision decision, Instant updatedAt, long version`); factory `IndividualPermissionOverride.of(UserId, PermissionId, PermissionOverrideDecision, Clock)`; `withDecision(PermissionOverrideDecision, Clock)` returns a new snapshot (used when flipping GRANT↔REVOKE without a remove/re-add round trip).
+- `RoleAssignmentRepository`: `assign(RoleAssignment)` (idempotent — no-op if already present), `revoke(UserId, RoleId)`, `findRoleIdsForUser(UserId)`, `findUserIdsForRole(RoleId)`, `countUsersForRole(RoleId)` (used by the "cannot delete role while assigned" rule in STAGE4-025).
+- `PermissionOverrideRepository`: `save(IndividualPermissionOverride)` (optimistic-lock aware — insert-or-update on the natural key), `remove(UserId, PermissionId)`, `findByUser(UserId)`, `findByUserAndPermission(UserId, PermissionId)`.
+
+### Public contracts that may change
+
+- none exist yet; new internal Domain types only.
+
+### Acceptance criteria
+
+- [ ] `RoleAssignment`/`IndividualPermissionOverride` are immutable value objects with no setters;
+- [ ] repository ports expose exactly the query shapes needed by later application services (no speculative methods beyond what STAGE4-008/018/026 will call).
+
+### Required tests
+
+- `RoleAssignmentTest`, `IndividualPermissionOverrideTest`: construction, `withDecision` snapshot independence, equality on natural key.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=RoleAssignmentTest,IndividualPermissionOverrideTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Association-level Domain types ready for the effective-permission calculator (STAGE4-008), persistence (STAGE4-012), and role/permission application services (STAGE4-025/026).
+
+---
+
+## STAGE4-008 — `EffectivePermissionCalculator` domain service
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-005, STAGE4-007
+**Module:** tmp-security
+
+### Goal
+
+Реализовать чистую функцию расчёта effective permission (individual REVOKE > individual GRANT > union ролей > deny), без сохранения вычисленного множества.
+
+### Required documents
+
+- Stage 4 task §6 (алгоритм расчёта, 4 шага, порядок приоритета);
+- `TMP-Architecture-Decisions.md` ADR-020 (вычисляемые состояния не хранятся — reinforces "no caching of the computed set as source of truth").
+
+### Required code context
+
+- `Role` (STAGE4-005), `IndividualPermissionOverride`/`PermissionOverrideDecision` (STAGE4-007).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/domain/EffectivePermissionCalculator.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/domain/`.
+
+### Forbidden
+
+- any persistence call inside this class (pure function of its input parameters only — inputs are supplied already-loaded by the caller, per ADR-020: never stored, always recomputed);
+- any Capability Engine reference (inactive-permission filtering is applied by the *caller*, `AuthorizationApplicationService` in STAGE4-022, before/after this calculator — this class only implements the role/override precedence algorithm from the Security Specification, treating "declared and active" as an external input).
+
+### Implementation requirements
+
+- Static method `boolean isGranted(PermissionId permissionId, Set<IndividualPermissionOverride> overrides, Set<Role> assignedRoles)`: 1) if an override for `permissionId` with decision `REVOKE` exists → `false`; 2) else if an override with decision `GRANT` exists → `true`; 3) else if any role in `assignedRoles` has `permissions().contains(permissionId)` → `true`; 4) else `false`.
+- Additional method `Set<PermissionId> effectivePermissions(Set<PermissionId> declaredActivePermissionIds, Set<IndividualPermissionOverride> overrides, Set<Role> assignedRoles)`: applies the same 4-step rule per id, restricted to `declaredActivePermissionIds` (the caller passes only currently-active ids, so an individual GRANT for a currently-inactive permission correctly yields no access — Stage 4 task §7 "новые операции с ними запрещаются").
+
+### Public contracts that may change
+
+- none exist yet; new internal Domain type only.
+
+### Acceptance criteria
+
+- [ ] individual REVOKE wins over any role grant;
+- [ ] individual GRANT wins when no REVOKE exists, even with no matching role;
+- [ ] union of multiple roles grants a permission if *any* role grants it;
+- [ ] no override and no role ⇒ denied;
+- [ ] a permission absent from `declaredActivePermissionIds` is never returned as effective, even with an individual GRANT override present.
+
+### Required tests
+
+- `EffectivePermissionCalculatorTest`: one test per acceptance-criteria bullet above, plus a combined multi-role/multi-permission scenario.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=EffectivePermissionCalculatorTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A fully-tested, persistence-free effective-permission algorithm, the single source of truth used later by `AuthorizationApplicationService` (STAGE4-022).
+
+---
+
+## STAGE4-009 — `SecurityAuditEvent` aggregate, `AuditOperation`, `SecurityAuditRepository` port
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-002
+**Module:** tmp-security
+
+### Goal
+
+Моделировать append-only событие аудита Security с безопасным описанием (без пароля/hash), фиксированным набором операций.
+
+### Required documents
+
+- `Security-Specification.md` (Аудит);
+- Stage 4 task §12 (что фиксируется; что запрещено сохранять; append-only);
+- Database Specification §14 (минимальный состав записи аудита; допустимый набор операций; append-only, только INSERT).
+
+### Required code context
+
+- `UserId`, `AuditEventId` (STAGE4-002).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/domain/AuditOperation.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/AuditResult.java` (new, enum `SUCCESS`/`FAILURE`);
+- `tmp-security/src/main/java/com/tmp/security/domain/SecurityAuditEvent.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/repository/SecurityAuditRepository.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/domain/`.
+
+### Forbidden
+
+- any field or constructor parameter capable of carrying a password/hash (no `String password`, no `PasswordHash`, no `char[]` parameter anywhere in this class — enforced by the class simply never declaring such a parameter);
+- any `update`/`delete` method — this type has no mutation methods at all beyond construction (append-only by construction, not just by convention).
+
+### Implementation requirements
+
+- `AuditOperation` enum: `LOGIN_SUCCESS, LOGIN_FAILURE, LOGOUT, USER_CREATED, USER_UPDATED, USER_DELETED, PASSWORD_CHANGED, PASSWORD_RESET, ROLE_CREATED, ROLE_UPDATED, ROLE_DELETED, ROLE_ASSIGNED, ROLE_REVOKED, ROLE_PERMISSIONS_CHANGED, PERMISSION_GRANTED, PERMISSION_REVOKED, PERMISSION_OVERRIDE_REMOVED, PERMISSION_DEFINITION_REGISTERED` (exact set required by Stage 4 task §12, mapped onto Database Specification §14's generic operation vocabulary where applicable).
+- `SecurityAuditEvent`: immutable, single constructor only (no builder mutation), fields `AuditEventId id, Instant occurredAt, UserId actorUserId (nullable), String actorLoginSnapshot, AuditOperation operation, String targetType, String targetIdentifier (nullable), String safeDescription, AuditResult result`; static factory `SecurityAuditEvent.record(...)` performs `Objects.requireNonNull` on all non-nullable params and rejects a `safeDescription` containing suspicious markers is **not** attempted (impossible to generically detect) — instead the Javadoc explicitly documents that callers (Application layer, later tasks) must never pass password/hash material into `safeDescription`, and a dedicated test in STAGE4-021/023/024/026 asserts no audit call site ever does.
+- `SecurityAuditRepository` port: `append(SecurityAuditEvent)` only (no update/delete method exists on the port at all) plus read methods `findPage(AuditQueryFilter, int pageIndex, int pageSize)` and `count(AuditQueryFilter)` — define a minimal `AuditQueryFilter` record here (`Instant from, Instant to, UserId actorUserId, AuditOperation operation` — all nullable/optional) since the query capability is required by Stage 4 task §18 ("pagination и filtering").
+
+### Public contracts that may change
+
+- none exist yet; new internal Domain types only.
+
+### Acceptance criteria
+
+- [ ] `SecurityAuditEvent` has no setter and no update/delete method reachable from its own type or from `SecurityAuditRepository`;
+- [ ] constructing an event with `null` operation/targetType/safeDescription/result throws `NullPointerException`;
+- [ ] `actorUserId`/`targetIdentifier` may be `null` (covers pre-authentication failed-login and system-triggered events).
+
+### Required tests
+
+- `SecurityAuditEventTest`: construction success/failure paths, immutability (no reflection-discoverable setter — a simple check that the class declares no non-final fields).
+- `AuditOperationTest`: all 17 enum constants present (guards against accidental removal).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=SecurityAuditEventTest,AuditOperationTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+An append-only-by-construction audit Domain model, ready for the JDBC adapter (STAGE4-013) and every mutating Application Service (STAGE4-017/018/021/023/024/025/026).
+
+---
+
+## STAGE4-010 — Flyway migration `V4__security_schema.sql`
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-009
+**Module:** tmp-security
+
+### Goal
+
+Создать единственную Flyway-миграцию, создающую схему `security` со всеми обязательными таблицами, constraints и индексами.
+
+### Required documents
+
+- Database Specification §3 (Schema per Module), §4 (UUID identifiers), §5 (общие технические поля), §7 (Optimistic Locking), §10 (Flyway), §11 (правила именования), §12 (связи между модулями — internal FK only), Приложение А/Б;
+- Stage 4 task §13 (список таблиц; case-insensitive unique login; отсутствие plaintext password columns; password_hash NOT NULL).
+
+### Required code context
+
+- `tmp-document-engine/src/main/resources/db/migration/V2__documents_schema.sql` (naming/structure precedent);
+- confirmed next free version: `V4` (highest existing is `V3`, `tmp-capability-engine` has none).
+
+### Allowed code scope
+
+- `tmp-security/src/main/resources/db/migration/V4__security_schema.sql` (new).
+
+### Forbidden
+
+- editing any existing `V1`/`V2`/`V3` migration in any module;
+- any cross-schema foreign key;
+- any plaintext password column.
+
+### Implementation requirements
+
+- `CREATE SCHEMA IF NOT EXISTS security;`
+- `security.users(id UUID PK, login VARCHAR(128) NOT NULL, display_name VARCHAR(255) NOT NULL, password_hash VARCHAR(255) NOT NULL, status VARCHAR(16) NOT NULL CHECK (status IN ('ACTIVE','DELETED')), version BIGINT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL)`; `CREATE UNIQUE INDEX uk_users_login ON security.users (lower(login));`
+- `security.roles(id UUID PK, name VARCHAR(128) NOT NULL, description TEXT NOT NULL DEFAULT '', version BIGINT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL)`; `CREATE INDEX idx_roles_name ON security.roles (name);`
+- `security.permission_definitions(permission_id VARCHAR(160) PK, display_name VARCHAR(255) NOT NULL, description TEXT NOT NULL DEFAULT '', active BOOLEAN NOT NULL DEFAULT TRUE, registered_at TIMESTAMPTZ NOT NULL, version BIGINT NOT NULL DEFAULT 0)`.
+- `security.role_permissions(role_id UUID NOT NULL, permission_id VARCHAR(160) NOT NULL, granted_at TIMESTAMPTZ NOT NULL, CONSTRAINT pk_role_permissions PRIMARY KEY (role_id, permission_id), CONSTRAINT fk_role_permissions_role FOREIGN KEY (role_id) REFERENCES security.roles(id), CONSTRAINT fk_role_permissions_permission FOREIGN KEY (permission_id) REFERENCES security.permission_definitions(permission_id))`.
+- `security.user_roles(user_id UUID NOT NULL, role_id UUID NOT NULL, assigned_at TIMESTAMPTZ NOT NULL, CONSTRAINT pk_user_roles PRIMARY KEY (user_id, role_id), CONSTRAINT fk_user_roles_user FOREIGN KEY (user_id) REFERENCES security.users(id), CONSTRAINT fk_user_roles_role FOREIGN KEY (role_id) REFERENCES security.roles(id))`.
+- `security.user_permission_overrides(user_id UUID NOT NULL, permission_id VARCHAR(160) NOT NULL, decision VARCHAR(16) NOT NULL CHECK (decision IN ('GRANT','REVOKE')), updated_at TIMESTAMPTZ NOT NULL, version BIGINT NOT NULL DEFAULT 0, CONSTRAINT pk_user_permission_overrides PRIMARY KEY (user_id, permission_id), CONSTRAINT fk_user_permission_overrides_user FOREIGN KEY (user_id) REFERENCES security.users(id), CONSTRAINT fk_user_permission_overrides_permission FOREIGN KEY (permission_id) REFERENCES security.permission_definitions(permission_id))`.
+- `security.security_audit_events(id UUID PK, occurred_at TIMESTAMPTZ NOT NULL, actor_user_id UUID, actor_login VARCHAR(128), operation VARCHAR(64) NOT NULL, target_type VARCHAR(64) NOT NULL, target_id VARCHAR(160), safe_description TEXT NOT NULL DEFAULT '', result VARCHAR(16) NOT NULL CHECK (result IN ('SUCCESS','FAILURE')), CONSTRAINT fk_security_audit_events_actor FOREIGN KEY (actor_user_id) REFERENCES security.users(id))`; `CREATE INDEX idx_security_audit_events_occurred_at ON security.security_audit_events (occurred_at DESC);`; `CREATE INDEX idx_security_audit_events_target ON security.security_audit_events (target_type, target_id);`; `CREATE INDEX idx_security_audit_events_actor ON security.security_audit_events (actor_user_id);`.
+- all PK/FK/UK/CHECK/index names follow Appendix A exactly (`pk_*`, `fk_*`, `uk_*`, `idx_*`, `chk_*` — CHECK constraints above are inline `CHECK` without explicit name; add explicit `CONSTRAINT chk_users_status`/`CONSTRAINT chk_user_permission_overrides_decision`/`CONSTRAINT chk_security_audit_events_result` names to match the naming appendix precisely).
+
+### Public contracts that may change
+
+- none (pure SQL DDL).
+
+### Acceptance criteria
+
+- [ ] `mvn -q -pl :tmp-infra-db,:tmp-security test` (or the dedicated Flyway IT below) applies `V4` cleanly on a fresh PostgreSQL Testcontainers instance, after `V1`..`V3`;
+- [ ] no `public` schema object created;
+- [ ] no cross-schema FK exists.
+
+### Required tests
+
+- none new in this task (verified by STAGE4-014's Testcontainers IT, which is the first to exercise this schema end-to-end); a minimal smoke check may be added there, not here, to avoid duplicate Testcontainers bring-up cost.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security -DskipTests compile
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+`security` schema fully defined via Flyway, ready for JDBC adapters (STAGE4-011/012/013).
+
+---
+
+## STAGE4-011 — JDBC `UserRepository` and `RoleRepository` adapters
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-010
+**Module:** tmp-security
+
+### Goal
+
+Реализовать `JdbcUserRepository`/`JdbcRoleRepository` с optimistic locking и case-insensitive проверкой login.
+
+### Required documents
+
+- Database Specification §7 (Optimistic Locking — conflict must fail, no auto-overwrite), §11 (naming);
+- Stage 4 task §13 (uniqueness без учёта регистра; password_hash NOT NULL).
+
+### Required code context
+
+- `tmp-document-engine/src/main/java/com/tmp/document/persistence/JdbcDocumentFileStorageAdapter.java` (JdbcTemplate row-mapping precedent);
+- `User`/`UserStatus`/`UserRepository` (STAGE4-004); `Role`/`RoleRepository` (STAGE4-005); `PasswordHash` (STAGE4-003).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/persistence/JdbcUserRepository.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/persistence/JdbcRoleRepository.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/persistence/package-info.java` (new);
+- matching unit tests (H2, same convention as `tmp-document-engine`'s H2-based adapter tests) under `tmp-security/src/test/java/com/tmp/security/persistence/`.
+
+### Forbidden
+
+- JPA/Hibernate annotations anywhere;
+- catching and swallowing SQL unique-violation exceptions silently (must translate to a domain-meaningful exception, e.g. a `DuplicateLoginException` in `com.tmp.security.domain`, added in this task since it is first needed here).
+
+### Implementation requirements
+
+- `JdbcUserRepository implements UserRepository`: `save()` performs `INSERT ... ON CONFLICT (id) DO UPDATE ... WHERE users.version = :expectedVersion` style optimistic update (or explicit `UPDATE ... SET version = version + 1 WHERE id = ? AND version = ?` then check affected-rows == 1, throwing `OptimisticLockConflictException` on 0 rows for existing records); unique-login violations from the DB translate to `DuplicateLoginException`; `findByLoginIgnoreCase` uses `WHERE lower(login) = lower(?)`.
+- `JdbcRoleRepository implements RoleRepository`: same optimistic-locking pattern; `role_permissions` rows are fully replaced (`DELETE` then re-`INSERT`) inside the same `save()` call for simplicity and correctness (small permission sets, no need for diffing).
+- Both adapters are package-private classes wired only through `SecurityAutoConfiguration` (STAGE4-029), matching `tmp-document-engine`'s adapter visibility convention.
+
+### Public contracts that may change
+
+- new internal Domain exception `DuplicateLoginException` (in `com.tmp.security.domain`) and `OptimisticLockConflictException` (already introduced in STAGE4-004) — both internal, not in `com.tmp.security.api`.
+
+### Acceptance criteria
+
+- [ ] saving a new `User`/`Role` and reading it back round-trips all fields exactly;
+- [ ] saving with a stale `version` throws `OptimisticLockConflictException`;
+- [ ] inserting two users with logins differing only by case throws `DuplicateLoginException`;
+- [ ] `Role.save()` correctly replaces the full permission set on update.
+
+### Required tests
+
+- `JdbcUserRepositoryTest` (H2): round-trip, optimistic-lock conflict, case-insensitive duplicate rejection, `findByLoginIgnoreCase`/`existsByLoginIgnoreCase`.
+- `JdbcRoleRepositoryTest` (H2): round-trip incl. permission set, optimistic-lock conflict, permission-set replace-on-update.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=JdbcUserRepositoryTest,JdbcRoleRepositoryTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Working, unit-tested persistence for `User`/`Role`, ready for PostgreSQL confirmation in STAGE4-014.
+
+---
+
+## STAGE4-012 — JDBC `PermissionDefinitionRepository`, `RoleAssignmentRepository`, `PermissionOverrideRepository` adapters
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-011
+**Module:** tmp-security
+
+### Goal
+
+Реализовать оставшиеся JDBC-адаптеры для реестра разрешений, назначений ролей и индивидуальных override.
+
+### Required documents
+
+- Database Specification §7 (Optimistic Locking), §11 (naming);
+- Stage 4 task §6/§7 (assignment/override semantics).
+
+### Required code context
+
+- `PermissionDefinition`/`PermissionDefinitionRepository` (STAGE4-006); `RoleAssignment`/`IndividualPermissionOverride`/repositories (STAGE4-007).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/persistence/JdbcPermissionDefinitionRepository.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/persistence/JdbcRoleAssignmentRepository.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/persistence/JdbcPermissionOverrideRepository.java` (new);
+- matching unit tests (H2) under `tmp-security/src/test/java/com/tmp/security/persistence/`.
+
+### Forbidden
+
+- JPA/Hibernate annotations;
+- any query joining across the `security` schema into another module's schema.
+
+### Implementation requirements
+
+- `JdbcPermissionDefinitionRepository`: optimistic-lock aware `save()` (PK is `permission_id`, not a surrogate UUID — update by PK+version, insert on first registration).
+- `JdbcRoleAssignmentRepository`: `assign()` = `INSERT ... ON CONFLICT (user_id, role_id) DO NOTHING`; `revoke()` = `DELETE`; `countUsersForRole()` = `SELECT COUNT(*) ... WHERE role_id = ?`.
+- `JdbcPermissionOverrideRepository`: `save()` = `INSERT ... ON CONFLICT (user_id, permission_id) DO UPDATE SET decision = ?, updated_at = ?, version = version + 1 WHERE user_permission_overrides.version = ?` (optimistic, translate 0-row update on an existing key to `OptimisticLockConflictException`); `remove()` = `DELETE`.
+
+### Public contracts that may change
+
+- none beyond internal persistence classes.
+
+### Acceptance criteria
+
+- [ ] permission-definition round-trip incl. `active` flag toggle with optimistic locking;
+- [ ] role assignment is idempotent (`assign()` called twice does not error and does not duplicate);
+- [ ] `countUsersForRole` reflects assignments accurately after assign/revoke;
+- [ ] override save/remove round-trips correctly, including flipping `GRANT`↔`REVOKE` on the same key.
+
+### Required tests
+
+- `JdbcPermissionDefinitionRepositoryTest`, `JdbcRoleAssignmentRepositoryTest`, `JdbcPermissionOverrideRepositoryTest` (all H2).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=JdbcPermissionDefinitionRepositoryTest,JdbcRoleAssignmentRepositoryTest,JdbcPermissionOverrideRepositoryTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Full persistence coverage for the permission/assignment/override side of the model.
+
+---
+
+## STAGE4-013 — JDBC `SecurityAuditRepository` adapter (append-only insert, paginated/filtered read)
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-012
+**Module:** tmp-security
+
+### Goal
+
+Реализовать append-only персистентность аудита с фильтрацией/пагинацией для чтения.
+
+### Required documents
+
+- Database Specification §14 (append-only; только INSERT);
+- Stage 4 task §12, §18 (pagination и filtering).
+
+### Required code context
+
+- `SecurityAuditEvent`/`AuditOperation`/`AuditResult`/`SecurityAuditRepository`/`AuditQueryFilter` (STAGE4-009).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/persistence/JdbcSecurityAuditRepository.java` (new);
+- matching unit tests (H2) under `tmp-security/src/test/java/com/tmp/security/persistence/`.
+
+### Forbidden
+
+- any `UPDATE`/`DELETE` SQL statement anywhere in this class (append-only enforced structurally — the class simply never issues such statements);
+- storing `password`/`password_hash`/raw credentials in `safe_description` (verified by test, not by runtime filtering — this class has no way to know what a caller puts in the string, so the guarantee comes from upstream Application Services, tested there).
+
+### Implementation requirements
+
+- `append(SecurityAuditEvent)`: single `INSERT`.
+- `findPage(AuditQueryFilter, pageIndex, pageSize)`: dynamic `WHERE` clause built from non-null filter fields (`occurred_at BETWEEN`, `actor_user_id =`, `operation =`), `ORDER BY occurred_at DESC`, `LIMIT`/`OFFSET`.
+- `count(AuditQueryFilter)`: same `WHERE` clause, `SELECT COUNT(*)`.
+
+### Public contracts that may change
+
+- none beyond internal persistence class.
+
+### Acceptance criteria
+
+- [ ] `append` followed by `findPage`/`count` returns the inserted event correctly mapped;
+- [ ] filtering by `actorUserId`/`operation`/date range narrows results correctly;
+- [ ] pagination returns disjoint pages covering all rows with no duplicates/gaps for a fixed filter.
+
+### Required tests
+
+- `JdbcSecurityAuditRepositoryTest` (H2): append+read round-trip, each filter dimension individually, pagination correctness across 3+ pages.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=JdbcSecurityAuditRepositoryTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Working append-only audit persistence, ready for PostgreSQL confirmation (STAGE4-014) and every audited Application Service.
+
+---
+
+## STAGE4-014 — PostgreSQL Testcontainers IT: schema, constraints, optimistic locking, case-insensitive uniqueness, logical deletion
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-013
+**Module:** tmp-security
+
+### Goal
+
+Подтвердить всю схему `security` и её адаптеры на реальном PostgreSQL через Testcontainers.
+
+### Required documents
+
+- Stage 4 task §18 (полный список обязательных проверок Testcontainers для схемы/constraints/locking/deletion, за исключением bootstrap admin и BCrypt/audit end-to-end, которые проверяются в STAGE4-019/030).
+
+### Required code context
+
+- `tmp-document-engine/src/test/java/com/tmp/document/DocumentEnginePostgresIntegrationIT.java` (Testcontainers setup precedent: container lifecycle, Flyway trigger, `@Testcontainers`/`@Container` usage).
+
+### Allowed code scope
+
+- `tmp-security/src/test/java/com/tmp/security/SecuritySchemaPostgresIntegrationIT.java` (new).
+
+### Forbidden
+
+- relying on H2 as the sole confirmation for any of these checks (H2 tests from STAGE4-011/012/013 remain as fast feedback, but this IT is mandatory and must run against real PostgreSQL);
+- modifying `V4__security_schema.sql` to make a test pass (a genuine schema defect found here would require revisiting STAGE4-010, not patching around it in the test).
+
+### Implementation requirements
+
+- `@Testcontainers` PostgreSQL container (same image/version as `tmp-document-engine`'s IT), Flyway migrates `V1..V4` on start;
+- test cases: table/constraint presence (via `information_schema` queries) for all 7 tables; no plaintext password column exists (`information_schema.columns` does not contain any column named like `password` other than `password_hash`, and `password_hash` is `NOT NULL`); case-insensitive unique login (`INSERT` two users differing only by case inside two separate transactions → second fails with a unique-violation, not silently succeeding); concurrent duplicate user creation (two threads/transactions racing to insert the same login → exactly one succeeds); optimistic locking on `users` and `roles` (stale-version update affects 0 rows); logical deletion (`User.deleted()` persists as `status = 'DELETED'`, row still physically present, still readable by `findById`); deleted-user-not-authenticatable is verified in STAGE4-021's IT, not here (needs the Authentication Application Service).
+
+### Public contracts that may change
+
+- none.
+
+### Acceptance criteria
+
+- [ ] every checklist item above passes against a real PostgreSQL Testcontainers instance;
+- [ ] test suite is deterministic (no flaky timing assumptions for the concurrency case — uses an explicit synchronization barrier, matching the pattern already used in `CapabilityLifecycleConcurrencyTest`).
+
+### Required tests
+
+- `SecuritySchemaPostgresIntegrationIT` (the task's whole deliverable).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security verify -Dit.test=SecuritySchemaPostgresIntegrationIT
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Schema-level correctness confirmed against real PostgreSQL.
+
+---
+
+## STAGE4-015 — `BCryptPasswordHasher` infrastructure adapter
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-003
+**Module:** tmp-security
+
+### Goal
+
+Реализовать единственную реализацию `PasswordHasher` на основе `spring-security-crypto` `BCryptPasswordEncoder`, как единственный централизованный `PasswordEncoder` bean.
+
+### Required documents
+
+- Stage 4 task §4.20 (approved `PasswordEncoder`, `spring-security-crypto`, no servlet/web stack), §9 (hash differs from plaintext; same password → different hashes).
+
+### Required code context
+
+- `PasswordHasher`/`PasswordHash` (STAGE4-003).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/infrastructure/BCryptPasswordHasher.java` (new — new `com.tmp.security.infrastructure` package for this single technology-facing adapter; `package-info.java` added alongside);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/infrastructure/`.
+
+### Forbidden
+
+- any `spring-security-web`/`spring-security-config`/servlet dependency (none added to `pom.xml` — `spring-security-crypto` was already added in STAGE4-001);
+- exposing the underlying `BCryptPasswordEncoder` instance through any public method beyond the `PasswordHasher` port methods.
+
+### Implementation requirements
+
+- `BCryptPasswordHasher implements PasswordHasher`: wraps a single `BCryptPasswordEncoder` instance (default strength); `hash(char[] plaintext)` calls `encode(new String(plaintext))` and wraps the result in `PasswordHash.of(...)`; `matches(char[] plaintext, PasswordHash hash)` calls `encoder.matches(new String(plaintext), hash.value())`; the class does not itself clear the input `char[]` (caller's responsibility, documented in `PasswordHasher`'s Javadoc from STAGE4-003) but never retains the `String` conversion beyond the call.
+
+### Public contracts that may change
+
+- none (internal infrastructure adapter, wired as a bean in STAGE4-029).
+
+### Acceptance criteria
+
+- [ ] `matches()` returns `true` for the correct plaintext and `false` for an incorrect one;
+- [ ] hashing the same plaintext twice yields two different `PasswordHash` values (BCrypt salting) that both `matches()` the original plaintext;
+- [ ] the produced hash string is never equal to the plaintext.
+
+### Required tests
+
+- `BCryptPasswordHasherTest`: hash≠plaintext, same-password-different-hashes, matches-true/false.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=BCryptPasswordHasherTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A working, tested BCrypt adapter ready to be the sole `PasswordEncoder`-backed bean in Security's Spring wiring.
+
+---
+
+## STAGE4-016 — Security Administration Capability descriptor and permission-id constants
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-002, STAGE4-001
+**Module:** tmp-security
+
+### Goal
+
+Объявить единственный `Capability` bean "Security Administration", предоставляющий 12 разрешений Stage 4 §7 и связанные Command/Navigation/View метаданные для будущих UI-экранов, зависимый только от публичного API Capability Engine.
+
+### Required documents
+
+- Stage 4 task §7 (точный список 12 разрешений), §15 (обязательные экраны — навигация нужна для User Administration/Role Administration/Security Audit screens);
+- this file's "Design decisions" §5, §8 (no-op lifecycle hooks; navigation-id ↔ command-id convention for permission gating).
+
+### Required code context
+
+- `Capability`/`CapabilityDescriptor`/`PermissionDescriptor`/`CommandDescriptor`/`NavigationContribution`/`ViewDescriptor`/`CapabilityId`/`CapabilityVersion` (`com.tmp.capability.api`, Stage 3, already read in full during Stage 4 planning);
+- `SampleTechnicalCapability` (`tmp-capability-engine/src/main/java/com/tmp/capability/sample/`) as the minimal-Capability-implementation precedent.
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/capability/SecurityPermissions.java` (new — `public final class` of `public static final PermissionId` constants for the 12 catalogue ids, placed in `com.tmp.security.capability` since it is an internal wiring detail, **not** re-exported from `com.tmp.security.api` — Application Services in later tasks reference these constants directly within the module);
+- `tmp-security/src/main/java/com/tmp/security/capability/SecurityAdministrationCapability.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/capability/package-info.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/capability/`.
+
+### Forbidden
+
+- declaring any dependency (`DependencyDescriptor`) on another Capability (Security Administration Capability has none);
+- declaring a `PublicServiceContribution` or `DocumentContribution` (per Design decision §5);
+- inventing any permission id beyond the 12 listed in Stage 4 task §7.
+
+### Implementation requirements
+
+- `SecurityPermissions`: 12 `public static final PermissionId` constants named `USERS_VIEW, USERS_CREATE, USERS_UPDATE, USERS_DELETE, USERS_RESET_PASSWORD, ROLES_VIEW, ROLES_CREATE, ROLES_UPDATE, ROLES_DELETE, ROLES_ASSIGN, PERMISSIONS_ASSIGN, AUDIT_VIEW`, values exactly `security.users.view` … `security.audit.view`.
+- `SecurityAdministrationCapability implements Capability`: `descriptor()` returns a `CapabilityDescriptor` with `id = CapabilityId.of("security-administration")`, `version = CapabilityVersion.of("1.0.0")`, no dependencies, `permissions()` = the 12 `PermissionDescriptor`s (one per constant, human-readable display name/description), `commands()` = one `CommandDescriptor` per admin screen (`"security.nav.users"` requiring `USERS_VIEW`; `"security.nav.roles"` requiring `ROLES_VIEW`; `"security.nav.audit"` requiring `AUDIT_VIEW`), `navigationContributions()` = matching `NavigationContribution`s (same ids, pointing at `viewId`s `"security.view.users"`/`"security.view.roles"`/`"security.view.audit"`), `views()` = matching `ViewDescriptor`s; `onInitialize/onActivate/onDeactivate/onStop` are no-ops (per Design decision §5).
+
+### Public contracts that may change
+
+- none in `com.tmp.security.api`; these are internal wiring types.
+
+### Acceptance criteria
+
+- [ ] `SecurityAdministrationCapability.descriptor()` builds without throwing (no duplicate contribution ids, per `CapabilityDescriptor.Builder` validation);
+- [ ] exactly the 12 required permission ids are present, no more, no fewer;
+- [ ] each navigation contribution's id matches a command's `commandId()` exactly (the STAGE4-033 gating convention depends on this).
+
+### Required tests
+
+- `SecurityAdministrationCapabilityTest`: descriptor builds, permission id set equality against `SecurityPermissions` constants, navigation↔command id matching, no dependencies declared, lifecycle hooks are no-ops (call each, assert no exception/no side effect observable).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=SecurityAdministrationCapabilityTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A ready-to-discover Capability bean (wired in STAGE4-029) declaring Security's own permission catalogue through the public Capability Engine mechanism, as required by Stage 4 task §7.
+
+---
+
+## STAGE4-017 — Permission Synchronization Application Service
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-006, STAGE4-012, STAGE4-016
+**Module:** tmp-security
+
+### Goal
+
+Синхронизировать `PermissionDefinition` registry с полным каталогом разрешений, объявленных активными и зарегистрированными Capability, включая пометку неактивных.
+
+### Required documents
+
+- Stage 4 task §7 (регистрация; деактивация не удаляет назначения; повторная активация восстанавливает применимость);
+- this file's "Design decisions" §6.
+
+### Required code context
+
+- `CapabilityEngine.registeredCapabilities()`, `CapabilityEngine.stateOf(CapabilityId)`, `CapabilityDescriptor.permissions()`, `CapabilityLifecycleState` (`com.tmp.capability.api`);
+- `PermissionDefinition`/`PermissionDefinitionRepository` (STAGE4-006); `SecurityAuditEvent`/`AuditOperation.PERMISSION_DEFINITION_REGISTERED`/`SecurityAuditRepository` (STAGE4-009).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/application/PermissionSynchronizationApplicationService.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/application/package-info.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/application/`.
+
+### Forbidden
+
+- reflection or internal-registry access into `tmp-capability-engine` (only `com.tmp.capability.api` types used);
+- deleting a `PermissionDefinition` row when its Capability becomes inactive (only the `active` flag toggles — assignments referencing it via FK must remain valid).
+
+### Implementation requirements
+
+- `synchronize()` (called once at startup by `SecurityPlatformComponent`, STAGE4-029, and safe to call again idempotently): for every `CapabilityDescriptor` in `capabilityEngine.registeredCapabilities()`, for every `PermissionDescriptor` in `descriptor.permissions()` — if no `PermissionDefinition` exists for that `PermissionId`, register it (`active` = `stateOf(descriptor.id()) == ACTIVE`), audit `PERMISSION_DEFINITION_REGISTERED`; if one exists, reconcile only its `active` flag to match current capability state (never touch `permissionId`, `displayName`/`description` are only updated if they actually differ, to avoid pointless optimistic-lock churn); permissions belonging to a capability not currently `ACTIVE` are marked `active = false` but never removed.
+- Whole `synchronize()` call runs inside one `@Transactional` boundary per Stage 4 task §14 ("mutating operation ... фиксируется одной транзакцией") — since this may touch many rows, this is the one documented exception where "one business operation" legitimately spans many aggregate instances of the *same* aggregate type (`PermissionDefinition`), not a cross-aggregate-type violation.
+
+### Public contracts that may change
+
+- none in `com.tmp.security.api`; internal Application Service.
+
+### Acceptance criteria
+
+- [ ] first sync run registers exactly the permissions declared by all currently-registered capabilities (Security's own 12 plus the diagnostic sample capability's, if enabled — test asserts by explicit id set, not by count, to stay independent of unrelated sample-capability changes);
+- [ ] re-running sync after a capability is deactivated flips only that capability's permissions to `active = false`, leaves rows intact;
+- [ ] re-activating flips them back to `active = true`;
+- [ ] every registration is audited exactly once (no duplicate audit rows on repeated `synchronize()` calls for an already-registered permission).
+
+### Required tests
+
+- `PermissionSynchronizationApplicationServiceTest`: initial registration, deactivation reconciliation, reactivation reconciliation, idempotent re-sync (no duplicate audit), uses an in-memory fake `CapabilityEngine`/repositories (unit-level, no Spring context) matching the style of `DefaultDocumentEngineRegistrationTest`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=PermissionSynchronizationApplicationServiceTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A working synchronization service ready to be invoked from `SecurityPlatformComponent.initialize()` (STAGE4-029), immediately after Capability Engine has activated.
+
+---
+
+## STAGE4-018 — Bootstrap Administrator Application Service and `TMP_SECURITY_*` configuration
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-004, STAGE4-011, STAGE4-015, STAGE4-016
+**Module:** tmp-security
+
+### Goal
+
+Создать первого администратора один раз при первом запуске, транзакционно, идемпотентно и защищённо от конкурентного запуска, с ролью Security Administrator, ограниченной 12 разрешениями Security Administration Capability.
+
+### Required documents
+
+- Stage 4 task §8 (полные требования: fail-fast без пароля, идемпотентность, конкурентная защита, роль ограничена только Security Administration Capability);
+- this file's "Design decisions" §7, §10.
+
+### Required code context
+
+- `User`/`UserRepository` (STAGE4-004); `Role`/`RoleRepository` (STAGE4-005); `RoleAssignmentRepository` (STAGE4-007); `PasswordHasher` (STAGE4-003); `SecurityPermissions` (STAGE4-016); audit types (STAGE4-009).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/application/SecurityBootstrapProperties.java` (new, `@ConfigurationProperties(prefix = "tmp.security.bootstrap")`);
+- `tmp-security/src/main/java/com/tmp/security/application/BootstrapAdministratorApplicationService.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/MissingBootstrapConfigurationException.java` (new, unchecked, fail-fast signal);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/application/`.
+
+### Forbidden
+
+- any default/example password value, anywhere (including test fixtures using a clearly-fake, never-shipped value only inside test code, never in `main`);
+- logging the configured password at any log level.
+
+### Implementation requirements
+
+- `SecurityBootstrapProperties`: `String adminLogin, String adminDisplayName, String adminPassword` (no defaults); binds from `TMP_SECURITY_BOOTSTRAP_ADMIN_LOGIN`/`_DISPLAY_NAME`/`_PASSWORD` via Spring relaxed binding on prefix `tmp.security.bootstrap` (property names `admin-login`/`admin-display-name`/`admin-password`).
+- `BootstrapAdministratorApplicationService.ensureBootstrapAdministrator()`: if `userRepository` reports any user exists at all (any status) → no-op, return; else if any of the three properties is blank/missing → throw `MissingBootstrapConfigurationException` with a clear technical message (no password value in the message); else, in one transaction: create+save the `Role` "Security Administrator" granted exactly the 12 `SecurityPermissions` constants (create-or-reuse-if-already-exists-by-name is **not** needed since this only runs when zero users exist — a fresh role is always created); create+save the admin `User` (`ACTIVE`, hashed password via `PasswordHasher`); assign the role to the user; append `SecurityAuditEvent` (`operation = USER_CREATED`, actor = the new admin's own id or a `null` system actor — choose `null` actor with `actorLoginSnapshot = "system-bootstrap"`, documented as the one legitimate `null`-actor case besides failed pre-auth login).
+- Concurrency safety: the "any user exists" check plus the multi-row insert must be safe under two JVM instances racing at first startup. Achieved via the DB-level unique constraint on `users.login` (STAGE4-010) as the ultimate arbiter — if a race causes two bootstrap attempts, the second's `User` insert fails with `DuplicateLoginException` (STAGE4-011), which this service catches and treats as "another instance already bootstrapped" (logs at INFO, does not fail startup), rather than relying solely on the initial existence check (which has a race window by itself, hence the DB constraint back-stop). Document this reasoning in the class Javadoc.
+
+### Public contracts that may change
+
+- none in `com.tmp.security.api`; internal Application Service + config type.
+
+### Acceptance criteria
+
+- [ ] with zero users and complete config: exactly one `ACTIVE` admin user + "Security Administrator" role (12 permissions) + one `RoleAssignment` + one audit row are created;
+- [ ] with zero users and missing/blank config: throws `MissingBootstrapConfigurationException`, no partial `User`/`Role` row persisted (verified via repository state after the exception, using a fake in-memory repository at unit level; real transactional rollback confirmed in STAGE4-019's Postgres IT);
+- [ ] with at least one existing user (regardless of status): no-op, no exception, nothing created;
+- [ ] simulated race (two service instances against the same fake repository state) results in exactly one successful bootstrap and the other treated as a benign duplicate.
+
+### Required tests
+
+- `SecurityBootstrapPropertiesTest`: binding from env-var-shaped property names.
+- `BootstrapAdministratorApplicationServiceTest`: all four acceptance-criteria scenarios above, unit-level with fakes.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=SecurityBootstrapPropertiesTest,BootstrapAdministratorApplicationServiceTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A safe, idempotent bootstrap service ready for real-transaction/real-concurrency confirmation in STAGE4-019 and startup wiring in STAGE4-029.
+
+---
+
+## STAGE4-019 — PostgreSQL Testcontainers IT: bootstrap administrator exactly-once, concurrent bootstrap, missing-config fail-fast, permission-sync inactive denial
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-017, STAGE4-018, STAGE4-014
+**Module:** tmp-security
+
+### Goal
+
+Подтвердить bootstrap admin и permission synchronization на реальном PostgreSQL с реальной транзакционностью и конкурентностью.
+
+### Required documents
+
+- Stage 4 task §8, §18 (bootstrap admin exactly-once; concurrent bootstrap; missing bootstrap config fail-fast; permission synchronization; inactive permission denial — the "inactive permission denial" behavioural check itself is completed in STAGE4-022/030 once `Authorization` exists; here only the *data* side — `active` flag correctness after sync — is confirmed).
+
+### Required code context
+
+- `SecuritySchemaPostgresIntegrationIT` (STAGE4-014) as the container-setup precedent within this module.
+
+### Allowed code scope
+
+- `tmp-security/src/test/java/com/tmp/security/SecurityBootstrapPostgresIntegrationIT.java` (new).
+
+### Forbidden
+
+- weakening `BootstrapAdministratorApplicationService`'s transaction boundary to make the test pass.
+
+### Implementation requirements
+
+- Real Spring context (`@SpringBootTest`-style, using `tmp-security`'s auto-configuration once available from STAGE4-029 — if this task lands before STAGE4-029 completes, construct the service graph manually with real JDBC repositories against the Testcontainers datasource, without full Spring Boot autoconfiguration, and revisit with `@SpringBootTest` wiring once STAGE4-029 exists; record whichever approach is actually used in the Implementation Log) against a real PostgreSQL container with `V1..V4` migrated;
+- test cases: (1) bootstrap with valid config on empty DB creates admin+role+assignment+audit exactly once; (2) two concurrent bootstrap attempts (real threads, real transactions) against the same schema result in exactly one admin user, no duplicate-login DB error escaping as a startup failure for the "loser" thread; (3) missing config on empty DB throws and leaves zero rows in `users`/`roles`; (4) permission synchronization after this module's own registered Capability produces the exact 12 active `permission_definitions` rows.
+
+### Public contracts that may change
+
+- none.
+
+### Acceptance criteria
+
+- [ ] all four scenarios pass against real PostgreSQL;
+- [ ] scenario (3)'s rollback leaves the DB in exactly its pre-test state (`SELECT COUNT(*) FROM security.users` = 0).
+
+### Required tests
+
+- `SecurityBootstrapPostgresIntegrationIT` (the task's whole deliverable).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security verify -Dit.test=SecurityBootstrapPostgresIntegrationIT
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Bootstrap correctness confirmed under real transactions and real concurrency.
+
+---
+
+## STAGE4-020 — `Session` model and `SessionContext`
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-002
+**Module:** tmp-security
+
+### Goal
+
+Реализовать immutable in-memory `Session` и thread-safe application-wide `SessionContext` (не персистентный, без timeout).
+
+### Required documents
+
+- Security Specification (Пользовательская сессия);
+- Stage 4 task §10 (сессия действует до logout/закрытия приложения; не хранится в PostgreSQL; не содержит password hash; thread-safe для чтения; очищается при logout/shutdown).
+
+### Required code context
+
+- `SessionId`/`UserId`/`Login` (STAGE4-002).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/domain/Session.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/application/SessionContext.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/domain/` and `.../application/`.
+
+### Forbidden
+
+- any field on `Session` carrying `PasswordHash`;
+- persisting `Session`/`SessionContext` state to any repository/table.
+
+### Implementation requirements
+
+- `Session`: immutable value (`SessionId id, UserId userId, Login login, Instant startedAt`); no permission snapshot stored on `Session` itself (per Design decision reinforcing ADR-020 — effective permissions are always recomputed live via `AuthorizationApplicationService`, STAGE4-022, never cached on the session).
+- `SessionContext`: a single application-scoped bean holding at most one current `Session` (single logged-in user per running desktop process, consistent with "Пользователь входит в систему при запуске приложения" — one session per process); `open(Session)`, `close()`, `current()` returns `Optional<Session>`; internally uses a `volatile` reference or `AtomicReference` for thread-safe reads without needing a lock (writes only happen on login/logout/shutdown, all rare, serialized by the caller).
+
+### Public contracts that may change
+
+- none in `com.tmp.security.api` yet (session read-only view exposed publicly in STAGE4-028 via a DTO, not this raw type).
+
+### Acceptance criteria
+
+- [ ] `SessionContext.current()` is empty before any `open()` call and after `close()`;
+- [ ] concurrent reads from multiple threads while a single writer calls `open`/`close` never observe a torn/partial state (visibility guaranteed by `AtomicReference`/`volatile`).
+
+### Required tests
+
+- `SessionTest`: construction/immutability.
+- `SessionContextTest`: open/close/current lifecycle, concurrent-read visibility (a simple multi-thread read-after-write test).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=SessionTest,SessionContextTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A safe, non-persistent session holder ready for Authentication (STAGE4-021) and Authorization (STAGE4-022).
+
+---
+
+## STAGE4-021 — Authentication Application Service (login/logout/currentSession/isAuthenticated)
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-004, STAGE4-011, STAGE4-015, STAGE4-020, STAGE4-009, STAGE4-013
+**Module:** tmp-security
+
+### Goal
+
+Реализовать вход/выход с единым generic сообщением об ошибке и аудитом обоих исходов, без раскрытия существования пользователя.
+
+### Required documents
+
+- Security Specification (Пароль; Пользовательская сессия);
+- Stage 4 task §10 (точные требования к успешному/неуспешному входу; §12 audit — "исключение составляют события безопасности" per Database Spec §14, meaning login audit is written even though the session itself is not part of a "business" rollback boundary).
+
+### Required code context
+
+- `User`/`UserRepository` (STAGE4-004); `PasswordHasher` (STAGE4-003/015); `Session`/`SessionContext` (STAGE4-020); `SecurityAuditEvent`/`AuditOperation.LOGIN_SUCCESS`/`LOGIN_FAILURE`/`LOGOUT`/`SecurityAuditRepository` (STAGE4-009).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/domain/AuthenticationFailedException.java` (new, in Domain since it's a Domain-meaningful failure, thrown to the caller after the generic-message contract is applied);
+- `tmp-security/src/main/java/com/tmp/security/application/AuthenticationApplicationService.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/application/`.
+
+### Forbidden
+
+- any branch of the failure path that returns a *different* message for "user not found" vs "wrong password" vs "user deleted" (single generic message string for all three, per Stage 4 task §10);
+- logging the attempted password anywhere, success or failure.
+
+### Implementation requirements
+
+- `login(Login login, char[] password)`: looks up `findByLoginIgnoreCase`; if absent, or `status != ACTIVE`, or `passwordHasher.matches(password, user.passwordHash())` is `false` → append `SecurityAuditEvent(LOGIN_FAILURE, actorUserId = user's id if found else null, actorLoginSnapshot = the attempted login text, ...)` in its own transaction (audited even though authentication "failed" — Stage 4 task explicitly requires failed-login audit) and throw `AuthenticationFailedException("Неверный логин или пароль")`; if all checks pass → `sessionContext.open(new Session(...))`, append `SecurityAuditEvent(LOGIN_SUCCESS, actorUserId = user.id(), ...)` in the same transaction as the audit write (the session itself is never persisted, so "same transaction" here means the DB audit INSERT commits atomically — there is nothing else to roll back), return a session view.
+- `logout()`: if a session is open, append `SecurityAuditEvent(LOGOUT, ...)`, then `sessionContext.close()`.
+- `currentSession()`/`isAuthenticated()`: thin delegations to `SessionContext`.
+- Every code path clears any local `char[]` copy of the password as soon as it is no longer needed (best-effort defensive clearing, documented, not a strict guarantee against a debugger, but present).
+
+### Public contracts that may change
+
+- none in `com.tmp.security.api` yet (the public-facing `AuthenticationService` façade is assembled in STAGE4-028 by delegating to this Application Service).
+
+### Acceptance criteria
+
+- [ ] unknown login, wrong password, and deleted-user login all produce the exact same exception message;
+- [ ] successful login opens exactly one session and audits `LOGIN_SUCCESS`;
+- [ ] every failure path audits `LOGIN_FAILURE`, including for a login that does not exist at all (audit row has `actor_user_id = NULL`, `actor_login = <attempted text>`);
+- [ ] `logout()` on a session-less context is a safe no-op (no exception, no audit row);
+- [ ] no test assertion or production code path ever compares the plaintext password to a logged/audited string.
+
+### Required tests
+
+- `AuthenticationApplicationServiceTest`: success, unknown-login failure, wrong-password failure, deleted-user failure (all three failures asserted to share the identical exception message), logout with/without active session, audit row content for each case (via a fake in-memory `SecurityAuditRepository`).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=AuthenticationApplicationServiceTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A fully-tested Authentication Application Service ready for the public façade (STAGE4-028) and the Login Screen (STAGE4-032).
+
+---
+
+## STAGE4-022 — Authorization Application Service, `AccessDeniedException`, secured-operation fixture
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-008, STAGE4-020, STAGE4-017
+**Module:** tmp-security
+
+### Goal
+
+Реализовать централизованную проверку доступа (`hasPermission`/`requirePermission`/`effectivePermissions`) с учётом активности разрешения, плюс технический fixture, демонстрирующий, что скрытие UI-команды не заменяет проверку.
+
+### Required documents
+
+- Stage 4 task §11 (полные требования к Authorization API; secured-operation fixture);
+- this file's "Design decisions" §6.
+
+### Required code context
+
+- `EffectivePermissionCalculator` (STAGE4-008); `SessionContext` (STAGE4-020); `CapabilityEngine.activePermissions()` (`com.tmp.capability.api`); `UserRepository`/`RoleRepository`/`RoleAssignmentRepository`/`PermissionOverrideRepository` (loading the current user's roles/overrides for the live calculation).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/domain/AccessDeniedException.java` (new; Domain-level, since "access denied" is a Domain-meaningful outcome, not an infrastructure error);
+- `tmp-security/src/main/java/com/tmp/security/application/AuthorizationApplicationService.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/application/securedfixture/SecuredOperationFixture.java` (new — a tiny technical demo class: one method `void performSecuredOperation(PermissionId required)` that calls `requirePermission(required)` then returns a fixed success marker; used only by tests, not wired into any real screen);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/application/`.
+
+### Forbidden
+
+- caching/storing the computed effective-permission set anywhere beyond the single method call that computed it (per ADR-020 / Design decision — always recomputed, never a session field);
+- letting `requirePermission` succeed when there is no open session (absence of session ⇒ deny, per Stage 4 task §11).
+
+### Implementation requirements
+
+- `hasPermission(PermissionId id)`: `false` if no open session; else compute `EffectivePermissionCalculator.isGranted(id, currentUserOverrides, currentUserRoles)` **and** `id` is present in `capabilityEngine.activePermissions()` (both conditions required — inactive permission always denies, per Design decision §6); never throws.
+- `requirePermission(PermissionId id)`: calls `hasPermission(id)`; if `false`, throws `AccessDeniedException` with a message that names the permission id but never leaks other users' data or password material (permission ids are not secret — they are public metadata already visible via `CapabilityEngine.activePermissions()`).
+- `effectivePermissions()`: returns the full computed `Set<PermissionId>` for the current session's user (empty set if no session).
+- `SecuredOperationFixture`: constructor takes an `AuthorizationApplicationService`; `performSecuredOperation(PermissionId required)` unconditionally calls `authorization.requirePermission(required)` before doing anything else — used by the fixture test (and later, STAGE4-034's UI test) to prove that even if a caller bypasses a hidden UI command, the direct call still enforces the check.
+
+### Public contracts that may change
+
+- none in `com.tmp.security.api` yet (public façade assembled in STAGE4-028).
+
+### Acceptance criteria
+
+- [ ] no session ⇒ `hasPermission` is `false` for every id, `requirePermission` always throws;
+- [ ] a permission granted via role but currently inactive (its owning Capability deactivated) ⇒ denied;
+- [ ] individual REVOKE overrides a role grant ⇒ denied even though role grants it and the permission is active;
+- [ ] `SecuredOperationFixture.performSecuredOperation(...)` throws `AccessDeniedException` when the required permission is missing, and succeeds when granted — proving direct invocation is always checked regardless of any UI-level hiding decision made elsewhere.
+
+### Required tests
+
+- `AuthorizationApplicationServiceTest`: no-session denial, active+granted allow, inactive-permission denial, individual-REVOKE-over-role-grant denial, individual-GRANT-without-role allow, multi-role union allow.
+- `SecuredOperationFixtureTest`: allowed vs denied direct-call behaviour.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=AuthorizationApplicationServiceTest,SecuredOperationFixtureTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A fully-tested Authorization Application Service and a reusable secured-operation fixture, ready for the public façade (STAGE4-028) and the Access Denied Screen / navigation-gating UI (STAGE4-033/034).
+
+---
+
+## STAGE4-023 — User Administration Application Service (create/update/logical delete)
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-004, STAGE4-011, STAGE4-015, STAGE4-022, STAGE4-009
+**Module:** tmp-security
+
+### Goal
+
+Реализовать транзакционные операции администрирования пользователей с обязательной проверкой прав и аудитом в одной транзакции.
+
+### Required documents
+
+- Stage 4 task §14 (mutating operation pipeline: validate → authorize → mutate domain → persist → audit → one transaction);
+- Security Specification (Администрирование).
+
+### Required code context
+
+- `User`/`UserRepository`/`DuplicateLoginException` (STAGE4-004/011); `PasswordHasher` (STAGE4-015); `AuthorizationApplicationService`/`SecurityPermissions.USERS_*` (STAGE4-022/016); audit types (STAGE4-009).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/application/UserAdministrationApplicationService.java` (new);
+- extend `UserRepository` (STAGE4-004) with a paging/listing query method now that a real caller needs it: `findPage(int pageIndex, int pageSize, UserStatus statusFilter)` and matching `JdbcUserRepository` implementation update;
+- matching tests under `tmp-security/src/test/java/com/tmp/security/application/` and updated `tmp-security/src/test/java/com/tmp/security/persistence/JdbcUserRepositoryTest.java`.
+
+### Forbidden
+
+- creating/updating a user without first calling `authorization.requirePermission(...)` (no operation may skip this — even for the very first bootstrap admin, which is created by a separate, non-`requirePermission`-gated bootstrap path in STAGE4-018, explicitly documented as the one exception since no session/permission exists yet at first boot);
+- returning `User`/`PasswordHash` directly from any method (only DTOs, defined together with the public façade in STAGE4-028 — this task may return the Domain `User` internally to callers *within the module* for now, with the DTO mapping added in STAGE4-028, since the public API package does not exist as consumable yet outside the module boundary at this point in the sequence).
+
+### Implementation requirements
+
+- `createUser(Login, DisplayName, char[] initialPassword)`: `requirePermission(USERS_CREATE)`; construct `User.createActive(...)` with hashed password; `save()` (translates `DuplicateLoginException` to a clear caller-facing exception); audit `USER_CREATED`; all in one `@Transactional` method.
+- `updateUser(UserId, DisplayName newDisplayName)`: `requirePermission(USERS_UPDATE)`; load, `withDisplayName`, save (optimistic lock surfaces as-is to the caller), audit `USER_UPDATED`; one transaction.
+- `deleteUser(UserId)`: `requirePermission(USERS_DELETE)`; load, `deleted(clock)`, save, audit `USER_DELETED`; one transaction. (Login change is intentionally not offered as a separate operation — not required by the Security Specification and would complicate the case-insensitive-uniqueness invariant without a stated business need; noted here so the omission is a documented decision, not an oversight.)
+- `listUsers(int pageIndex, int pageSize, UserStatus statusFilter)`: `requirePermission(USERS_VIEW)`; delegates to the new `UserRepository.findPage(...)`.
+
+### Public contracts that may change
+
+- `UserRepository` (internal Domain port) gains `findPage(...)` — internal contract, not yet public.
+
+### Acceptance criteria
+
+- [ ] every method throws `AccessDeniedException` and performs zero persistence when the caller lacks the required permission (verified with a fake `AuthorizationApplicationService` returning denial);
+- [ ] `createUser` with a duplicate login surfaces a clear exception and persists nothing;
+- [ ] `deleteUser` never physically removes the row (status becomes `DELETED`, row still present, still returned by `listUsers` when `statusFilter = DELETED` or `null`);
+- [ ] each successful mutation writes exactly one audit row with the correct operation.
+
+### Required tests
+
+- `UserAdministrationApplicationServiceTest`: one test per acceptance-criteria bullet, using fakes for repository/authorization/audit.
+- `JdbcUserRepositoryTest` (extended): `findPage` pagination/filter correctness (H2).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=UserAdministrationApplicationServiceTest,JdbcUserRepositoryTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Fully-tested user administration, ready for password operations (STAGE4-024), the public façade (STAGE4-028), and the User Administration Screen (STAGE4-035).
+
+---
+
+## STAGE4-024 — Password change / reset Application Services
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-023
+**Module:** tmp-security
+
+### Goal
+
+Реализовать самостоятельную смену пароля (с проверкой старого) и административный сброс (с проверкой прав, без старого пароля), с аудитом в одной транзакции.
+
+### Required documents
+
+- Stage 4 task §9 (точные требования: old-password check for self-change; reset needs no old password but needs permission; hash differs each time; никогда в audit/exception/log).
+
+### Required code context
+
+- `User`/`UserRepository` (STAGE4-004); `PasswordHasher` (STAGE4-015); `AuthorizationApplicationService`/`SecurityPermissions.USERS_RESET_PASSWORD` (STAGE4-022/016); `SessionContext` (STAGE4-020, to identify "self" for self-change); audit types (STAGE4-009).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/application/PasswordApplicationService.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/InvalidCurrentPasswordException.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/application/`.
+
+### Forbidden
+
+- accepting an old-password parameter on the admin-reset method (its absence *is* the enforcement — no parameter to check means no old-password verification path exists at all, matching the spec exactly);
+- including any password/hash value in `InvalidCurrentPasswordException`'s message.
+
+### Implementation requirements
+
+- `changeOwnPassword(char[] currentPassword, char[] newPassword)`: requires an open session (self-service, no explicit `requirePermission` call — every authenticated user may change their own password, per Security Specification "Пользователь может самостоятельно изменить пароль"); loads the current session's user, verifies `passwordHasher.matches(currentPassword, user.passwordHash())`, else throws `InvalidCurrentPasswordException`; on success, `withPasswordHash(hash(newPassword))`, save, audit `PASSWORD_CHANGED` (actor = self); one transaction.
+- `resetPassword(UserId targetUserId, char[] newPassword)`: `requirePermission(USERS_RESET_PASSWORD)`; loads target user (any caller, including resetting another admin's password — no additional restriction stated in the spec), `withPasswordHash(hash(newPassword))`, save, audit `PASSWORD_RESET` (actor = the acting admin, target = `targetUserId`); one transaction; no old-password parameter exists.
+
+### Public contracts that may change
+
+- none new beyond this task's internal types.
+
+### Acceptance criteria
+
+- [ ] `changeOwnPassword` with a wrong current password throws `InvalidCurrentPasswordException` and persists nothing;
+- [ ] `changeOwnPassword` with the correct current password updates the hash and audits `PASSWORD_CHANGED`;
+- [ ] `resetPassword` without `USERS_RESET_PASSWORD` throws `AccessDeniedException` and persists nothing;
+- [ ] `resetPassword` with permission updates the hash and audits `PASSWORD_RESET`, with no old-password check performed (verified by the method signature itself having no such parameter, and by a test that resets successfully without ever supplying/knowing the old password);
+- [ ] neither method's exception message nor audit `safeDescription` ever contains a password or hash value (property-based-style test: construct with several distinct password values, assert none appear in any thrown exception's message or in the captured audit event).
+
+### Required tests
+
+- `PasswordApplicationServiceTest`: all acceptance-criteria bullets, using fakes.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=PasswordApplicationServiceTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Fully-tested password operations, ready for the public façade (STAGE4-028) and the User Administration Screen (STAGE4-035).
+
+---
+
+## STAGE4-025 — Role Administration Application Service (create/update/delete-if-unassigned)
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-005, STAGE4-011, STAGE4-012, STAGE4-022
+**Module:** tmp-security
+
+### Goal
+
+Реализовать транзакционные операции администрирования ролей, включая запрет удаления назначенной роли.
+
+### Required documents
+
+- Stage 4 task §6 (удаление роли только при отсутствии назначенных пользователей), §14 (transaction pipeline).
+
+### Required code context
+
+- `Role`/`RoleRepository` (STAGE4-005); `RoleAssignmentRepository.countUsersForRole` (STAGE4-007/012); `AuthorizationApplicationService`/`SecurityPermissions.ROLES_*` (STAGE4-022/016); audit types (STAGE4-009).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/application/RoleAdministrationApplicationService.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/domain/RoleInUseException.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/application/`.
+
+### Forbidden
+
+- deleting a role's `role_permissions` rows without deleting the role itself in the same operation (no orphaned permission rows — handled naturally by the FK `ON DELETE` default `NO ACTION`, meaning delete must be blocked at the application layer *before* attempting the SQL delete, which this task implements; no cascading delete is introduced).
+
+### Implementation requirements
+
+- `createRole(String name, String description)`: `requirePermission(ROLES_CREATE)`; `Role.create(...)`, save, audit `ROLE_CREATED`; one transaction.
+- `updateRole(RoleId, String name, String description)`: `requirePermission(ROLES_UPDATE)`; load, `withName`/`withDescription`, save, audit `ROLE_UPDATED`; one transaction.
+- `grantPermissionToRole(RoleId, PermissionId)` / `revokePermissionFromRole(RoleId, PermissionId)`: `requirePermission(PERMISSIONS_ASSIGN)`; load, `grantPermission`/`revokePermission`, save, audit `ROLE_PERMISSIONS_CHANGED`; one transaction each.
+- `deleteRole(RoleId)`: `requirePermission(ROLES_DELETE)`; if `roleAssignmentRepository.countUsersForRole(id) > 0` → throw `RoleInUseException` (no persistence performed); else `roleRepository.deleteById(id)`, audit `ROLE_DELETED`; one transaction.
+
+### Public contracts that may change
+
+- none new beyond this task's internal types.
+
+### Acceptance criteria
+
+- [ ] each method enforces its stated permission and performs zero persistence on denial;
+- [ ] `deleteRole` on a role with ≥1 assigned user throws `RoleInUseException` and does not delete the row;
+- [ ] `deleteRole` on an unassigned role succeeds and audits `ROLE_DELETED`;
+- [ ] `grantPermissionToRole` is idempotent (calling twice with the same permission does not error, per `Role.grantPermission`'s idempotency from STAGE4-005) and audits once per call regardless.
+
+### Required tests
+
+- `RoleAdministrationApplicationServiceTest`: one test per acceptance-criteria bullet, using fakes.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=RoleAdministrationApplicationServiceTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Fully-tested role administration, ready for the public façade (STAGE4-028) and the Role Administration Screen (STAGE4-036).
+
+---
+
+## STAGE4-026 — Role assignment/revocation and individual permission grant/revoke/remove-override Application Services
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-007, STAGE4-012, STAGE4-022, STAGE4-025
+**Module:** tmp-security
+
+### Goal
+
+Реализовать назначение/отзыв ролей пользователю и индивидуальные GRANT/REVOKE/удаление override, с аудитом в одной транзакции.
+
+### Required documents
+
+- Stage 4 task §6 (assign/revoke role; individual grant/revoke; §12 audit list — assignment, revocation, individual GRANT, individual REVOKE, override removal).
+
+### Required code context
+
+- `RoleAssignmentRepository`/`PermissionOverrideRepository` (STAGE4-007/012); `AuthorizationApplicationService`/`SecurityPermissions.ROLES_ASSIGN`/`PERMISSIONS_ASSIGN` (STAGE4-022/016); `UserRepository`/`RoleRepository` (existence checks); audit types (STAGE4-009).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/application/RoleAssignmentApplicationService.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/application/PermissionOverrideApplicationService.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/application/`.
+
+### Forbidden
+
+- assigning a role or granting a permission to a `DELETED` user (validated by loading the `User` and checking `isActive()` before mutating the assignment/override tables — a deleted user "остаётся доступным для аудита и исторических ссылок" but not for new grants).
+
+### Implementation requirements
+
+- `RoleAssignmentApplicationService.assignRole(UserId, RoleId)`: `requirePermission(ROLES_ASSIGN)`; verify target user is `ACTIVE` and role exists; `roleAssignmentRepository.assign(...)`; audit `ROLE_ASSIGNED`; one transaction.
+- `RoleAssignmentApplicationService.revokeRole(UserId, RoleId)`: `requirePermission(ROLES_ASSIGN)`; `roleAssignmentRepository.revoke(...)`; audit `ROLE_REVOKED`; one transaction.
+- `PermissionOverrideApplicationService.grantIndividualPermission(UserId, PermissionId)` / `revokeIndividualPermission(UserId, PermissionId)`: `requirePermission(PERMISSIONS_ASSIGN)`; verify target user is `ACTIVE`; `permissionOverrideRepository.save(IndividualPermissionOverride.of(..., GRANT|REVOKE, clock))`; audit `PERMISSION_GRANTED`/`PERMISSION_REVOKED`; one transaction.
+- `PermissionOverrideApplicationService.removeOverride(UserId, PermissionId)`: `requirePermission(PERMISSIONS_ASSIGN)`; `permissionOverrideRepository.remove(...)`; audit `PERMISSION_OVERRIDE_REMOVED`; one transaction.
+
+### Public contracts that may change
+
+- none new beyond this task's internal types.
+
+### Acceptance criteria
+
+- [ ] each method enforces its stated permission and performs zero persistence on denial;
+- [ ] assigning a role to a `DELETED` user is rejected with a clear domain exception, no row written;
+- [ ] flipping an override from `GRANT` to `REVOKE` (or vice versa) on the same user/permission updates the single existing row (no duplicate row), audited each time it's called;
+- [ ] `removeOverride` on a non-existent override is a safe no-op (no exception), still audits `PERMISSION_OVERRIDE_REMOVED` only if a row actually existed to remove (verified by return-value/repository state, not by audit-count alone, to avoid over-specifying "no-op audit" behaviour beyond what's testable).
+
+### Required tests
+
+- `RoleAssignmentApplicationServiceTest`, `PermissionOverrideApplicationServiceTest`: one test per acceptance-criteria bullet, using fakes.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=RoleAssignmentApplicationServiceTest,PermissionOverrideApplicationServiceTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Fully-tested assignment/override administration, ready for the public façade (STAGE4-028) and the Role Administration Screen (STAGE4-036).
+
+---
+
+## STAGE4-027 — Audit Query Application Service (read-only, paginated/filtered)
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-013, STAGE4-022
+**Module:** tmp-security
+
+### Goal
+
+Реализовать read-only просмотр аудита, доступный только с разрешением `security.audit.view`.
+
+### Required documents
+
+- Stage 4 task §12 ("Audit API read-only"), §18 (pagination/filtering).
+
+### Required code context
+
+- `SecurityAuditRepository`/`AuditQueryFilter` (STAGE4-009/013); `AuthorizationApplicationService`/`SecurityPermissions.AUDIT_VIEW` (STAGE4-022/016).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/application/AuditQueryApplicationService.java` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/application/`.
+
+### Forbidden
+
+- any mutating method on this class (query-only, matching "Audit API read-only" literally — the class has no method that writes).
+
+### Implementation requirements
+
+- `queryAuditEvents(AuditQueryFilter filter, int pageIndex, int pageSize)`: `requirePermission(AUDIT_VIEW)`; delegates to `securityAuditRepository.findPage(...)`, returns Domain `SecurityAuditEvent` list to internal callers (DTO mapping added in STAGE4-028) plus `countAuditEvents(filter)` for total-count/pagination UI needs, also `requirePermission`-gated.
+
+### Public contracts that may change
+
+- none new beyond this task's internal type.
+
+### Acceptance criteria
+
+- [ ] both methods throw `AccessDeniedException` without `AUDIT_VIEW`;
+- [ ] with permission, results match the underlying repository's filtered/paginated output exactly.
+
+### Required tests
+
+- `AuditQueryApplicationServiceTest`: denial without permission, pass-through correctness with permission, using fakes.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=AuditQueryApplicationServiceTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A fully-tested, read-only audit query service, ready for the public façade (STAGE4-028) and the Security Audit Screen (STAGE4-037).
+
+---
+
+## STAGE4-028 — Public `com.tmp.security.api` facade types, DTOs, and exceptions
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-021, STAGE4-022, STAGE4-023, STAGE4-024, STAGE4-025, STAGE4-026, STAGE4-027
+**Module:** tmp-security
+
+### Goal
+
+Собрать окончательные публичные контракты `com.tmp.security.api`, делегирующие ко всем ранее реализованным Application Services, без единого поля/метода, раскрывающего пароль или его хеш.
+
+### Required documents
+
+- Stage 4 task §3 (публичный API `com.tmp.security.api..`; внутренняя реализация недоступна другим модулям), §10/§11 (Authentication/Authorization API shapes), §14 (application services list).
+
+### Required code context
+
+- every Application Service produced in STAGE4-017..027 (this task only wires/wraps, adds no new business logic — "Application Services будущих модулей должны использовать публичный Authorization API Security" means these wrappers are the *only* thing external modules ever call).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/api/AuthenticationService.java` (new, interface: `login`, `logout`, `currentSession`, `isAuthenticated`);
+- `tmp-security/src/main/java/com/tmp/security/api/AuthorizationService.java` (new, interface: `hasPermission`, `requirePermission`, `effectivePermissions`);
+- `tmp-security/src/main/java/com/tmp/security/api/UserAdministrationService.java` (new, interface wrapping STAGE4-023/024);
+- `tmp-security/src/main/java/com/tmp/security/api/RoleAdministrationService.java` (new, interface wrapping STAGE4-025/026);
+- `tmp-security/src/main/java/com/tmp/security/api/AuditQueryService.java` (new, interface wrapping STAGE4-027);
+- `tmp-security/src/main/java/com/tmp/security/api/AccessDeniedException.java` (new, public re-throwable type — or expose the Domain one directly if its package placement already satisfies "public API"; **decision**: move `AccessDeniedException`/`AuthenticationFailedException` from `com.tmp.security.domain` into `com.tmp.security.api` in this task, since external callers must be able to catch them by type, matching how `com.tmp.capability.api.DependencyValidationException` lives in the Capability Engine's `api` package rather than an internal one);
+- DTOs: `UserSummary`, `RoleSummary`, `PermissionSummary`, `AuditEventSummary`, `SessionSummary` (new, in `com.tmp.security.api`, immutable records/classes, **no** `PasswordHash`/password field anywhere);
+- `tmp-security/src/main/java/com/tmp/security/api/package-info.java` update (finalize documentation);
+- adjust STAGE4-021/022 files to move the two exception classes as described (small, mechanical, within this task's allowed scope since it directly serves this task's goal).
+
+### Forbidden
+
+- any DTO field typed `PasswordHash`, `char[]` password, or raw hash `String`;
+- any internal Domain/Application/Persistence type appearing in a public method signature (only `com.tmp.security.api` types + `java.*`/`com.tmp.core.api`/`com.tmp.capability.api` types are allowed in public method signatures).
+
+### Implementation requirements
+
+- Each public interface's implementation is a thin adapter class in `com.tmp.security.application` (e.g. `DefaultAuthenticationService implements AuthenticationService`) that maps DTOs ↔ Domain types and delegates to the corresponding Application Service — no new business rule is introduced here.
+- `UserSummary`/etc. carry only display-safe fields (`UserId`, `Login`, `DisplayName`, `UserStatus`, `version`, timestamps for `UserSummary` — explicitly no `passwordHash` field, not even a redacted placeholder field, since the type should not even hint at internal hashing details).
+
+### Public contracts that may change
+
+- this task **is** the introduction of the stable public API surface: `AuthenticationService`, `AuthorizationService`, `UserAdministrationService`, `RoleAdministrationService`, `AuditQueryService`, `AccessDeniedException`, `AuthenticationFailedException`, `UserSummary`, `RoleSummary`, `PermissionSummary`, `AuditEventSummary`, `SessionSummary`, plus the identity value objects already introduced in STAGE4-002.
+
+### Acceptance criteria
+
+- [ ] reflective scan of every class in `com.tmp.security.api` finds no field/method whose declared type is `PasswordHash`, `char[]`, or contains the substring "hash"/"password" in a way that could return credential material (a dedicated ArchUnit-style or reflection-based unit test enforces this, run now and again in STAGE4-039's architecture test);
+- [ ] every public interface method compiles and delegates correctly to its backing Application Service (verified by adapter unit tests);
+- [ ] `toString()` of every DTO never contains a password/hash value (there is none to contain, by construction).
+
+### Required tests
+
+- `SecurityApiSurfaceNoCredentialLeakTest` (reflection-based, scans `com.tmp.security.api` classes/records for any field/return type matching a small denylist of type names — `PasswordHash`, `char[]`, "Hash" in a suspicious position).
+- `DefaultAuthenticationServiceTest`, `DefaultAuthorizationServiceTest`, `DefaultUserAdministrationServiceTest`, `DefaultRoleAdministrationServiceTest`, `DefaultAuditQueryServiceTest`: adapter delegation correctness (thin, mostly mapping-verification tests).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=SecurityApiSurfaceNoCredentialLeakTest,DefaultAuthenticationServiceTest,DefaultAuthorizationServiceTest,DefaultUserAdministrationServiceTest,DefaultRoleAdministrationServiceTest,DefaultAuditQueryServiceTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+The complete, stable `com.tmp.security.api` surface that `tmp-ui-shell` and any future module will depend on.
+
+---
+
+## STAGE4-029 — Security Spring auto-configuration, `PlatformComponent`, and startup wiring
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-028, STAGE4-018, STAGE4-016
+**Module:** tmp-security
+
+### Goal
+
+Собрать единственные beans для facade/services/`PasswordEncoder`/`SessionContext`, зарегистрировать Security как Platform Component, обеспечить порядок запуска (persistence → permission sync → bootstrap admin).
+
+### Required documents
+
+- Stage 4 task §16 (все требования к auto-configuration и bean cardinality);
+- this file's "Design decisions" §7.
+
+### Required code context
+
+- `CapabilityEngineAutoConfiguration`/`CapabilityEnginePlatformComponent` (`tmp-capability-engine`, precedent for `@AutoConfigureAfter` + `@PostConstruct` component registration pattern);
+- `DocumentEngineAutoConfiguration`/`DocumentEnginePlatformRegistrar` (secondary precedent).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/SecurityAutoConfiguration.java` (new);
+- `tmp-security/src/main/java/com/tmp/security/SecurityPlatformComponent.java` (new, package-private);
+- `tmp-security/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` (new);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/`.
+
+### Forbidden
+
+- defining more than one bean of any public façade/service/`PasswordEncoder`/`SessionContext` type (enforced by simply not declaring duplicates — verified by a Spring context test asserting exactly one bean per type, same style as `CapabilityEngineAutoConfigurationTest`);
+- calling `bootstrapAdministratorApplicationService.ensureBootstrapAdministrator()` from anywhere other than `SecurityPlatformComponent.initialize()`/`start()` (single, well-defined trigger point).
+
+### Implementation requirements
+
+- `SecurityAutoConfiguration`: `@AutoConfiguration` `@AutoConfigureAfter(name = {"com.tmp.core.PlatformCoreAutoConfiguration", "com.tmp.infra.db.DatabaseAutoConfiguration", "com.tmp.capability.CapabilityEngineAutoConfiguration"})`; `@Bean` methods for: `BCryptPasswordHasher` (as the sole `PasswordHasher`), all `Jdbc*Repository` adapters, `SessionContext`, every Application Service (STAGE4-017..027), every public façade adapter (STAGE4-028), `SecurityAdministrationCapability` (STAGE4-016, so it's discoverable in `List<Capability>`), `SecurityPlatformComponent`, and a `@PostConstruct`-driven registrar (mirroring `CapabilityEnginePlatformRegistrar`) that calls `platformCore.registerComponent(securityPlatformComponent)`.
+- `SecurityPlatformComponent implements PlatformComponent`: `metadata()` = `ComponentType.SERVICE`, id `"security"`; `initialize(PlatformCore)` calls `permissionSynchronizationApplicationService.synchronize()` then `bootstrapAdministratorApplicationService.ensureBootstrapAdministrator()`; `start()`/`stop()` are no-ops (nothing further to start/stop — sessions are cleared explicitly on logout/shutdown by the UI/bootstrap layer, STAGE4-038, not by this component's lifecycle).
+- `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` lists `com.tmp.security.SecurityAutoConfiguration`.
+
+### Public contracts that may change
+
+- none (pure wiring task).
+
+### Acceptance criteria
+
+- [ ] full Spring context (`tmp-bootstrap-app`-style test, or a focused `@SpringBootTest` within `tmp-security` using H2/Testcontainers) starts with exactly one bean of each public façade/service type;
+- [ ] `SecurityPlatformComponent` registers and initializes strictly after `CapabilityEnginePlatformComponent` (verified via `LifecycleManager.allStates()`/ordering assertion, or via a synchronization-sensitive fake `CapabilityEngine` that records whether `activateAll()` was already called when Security's `initialize()` runs).
+
+### Required tests
+
+- `SecurityAutoConfigurationTest` (bean-cardinality + ordering, mirroring `CapabilityEngineAutoConfigurationTest`).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=SecurityAutoConfigurationTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A fully-wired, single-bean-per-contract Security module, ready to be added as a dependency of `tmp-bootstrap-app`/`tmp-ui-shell`/`tmp-architecture-tests`.
+
+---
+
+## STAGE4-030 — `tmp-security` end-to-end PostgreSQL Testcontainers IT (mutation+audit same-transaction rollback, full role/permission flow)
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-029
+**Module:** tmp-security
+
+### Goal
+
+Подтвердить полный поток (bootstrap → login → создание пользователя/роли → назначение → эффективные права → аудит) на реальном PostgreSQL с реальным Spring-контекстом, включая rollback mutation+audit при ошибке.
+
+### Required documents
+
+- Stage 4 task §18 (mutation+audit rollback; permission synchronization; inactive permission denial — full behavioural confirmation, closing out what STAGE4-014/019 left to Authorization/Authentication).
+
+### Required code context
+
+- `SecurityBootstrapPostgresIntegrationIT` (STAGE4-019) as the real-Spring-context precedent (revisited here with the now-complete `SecurityAutoConfiguration` from STAGE4-029).
+
+### Allowed code scope
+
+- `tmp-security/src/test/java/com/tmp/security/SecurityEndToEndPostgresIntegrationIT.java` (new).
+
+### Forbidden
+
+- any production code change to make this IT pass (a genuine defect found here re-opens the relevant earlier task, it is not patched ad hoc in this test-only task).
+
+### Implementation requirements
+
+- Full `@SpringBootTest`-style context against a real PostgreSQL Testcontainers instance with the complete `tmp-security` auto-configuration active;
+- scenarios: bootstrap admin creation → admin login succeeds; admin creates a second user + a role with 2 permissions, assigns role, grants one individual override → `effectivePermissions()` for that user matches the expected union; forcing a simulated failure between the domain mutation and the audit write (e.g. a role-permission grant where the audit insert is made to fail via a test-only hook/spy) rolls back **both** the mutation and the audit row (transaction atomicity, per Stage 4 task §14); deactivating Security's own Capability (test-only toggle) causes a previously-granted `security.audit.view`-style check to be denied even though the role still lists it — demonstrating inactive-permission denial end-to-end.
+
+### Public contracts that may change
+
+- none.
+
+### Acceptance criteria
+
+- [ ] all scenarios above pass against real PostgreSQL with the real Spring wiring from STAGE4-029.
+
+### Required tests
+
+- `SecurityEndToEndPostgresIntegrationIT` (the task's whole deliverable).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security verify -Dit.test=SecurityEndToEndPostgresIntegrationIT
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+End-to-end Security correctness confirmed against real PostgreSQL with the fully wired module — closes out all `tmp-security`-internal Stage 4 work before UI tasks begin.
+
+---
+
+## STAGE4-031 — `tmp-ui-shell` Spring wiring and Navigation Service foundation
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-028
+**Module:** tmp-ui-shell
+
+### Goal
+
+Ввести Spring в `tmp-ui-shell` впервые, создать generic Navigation Service (screen registry + FXML loader утилита), не создавая ни одного конкретного экрана в этой задаче.
+
+### Required documents
+
+- UI/UX Specification (Архитектура UI; FXML; Controller; ViewModel; JavaFX и Spring);
+- this file's "Design decisions" §8, §9.
+
+### Required code context
+
+- current `tmp-ui-shell` classes (`JavaFxShellApplication`, `JavaFxShellLauncher`, `EmptyMainShell` — all read in full during Stage 4 planning);
+- `CapabilityEngineAutoConfiguration`/`DocumentEngineAutoConfiguration` as `@AutoConfiguration` + `META-INF/spring/...imports` precedent.
+
+### Allowed code scope
+
+- `tmp-ui-shell/pom.xml` (add `spring-boot-starter`, `com.tmp:tmp-security`, `com.tmp:tmp-capability-engine`, `com.tmp:tmp-platform-core` dependencies; test-scope `spring-boot-starter-test`);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/navigation/ScreenRegistration.java` (new — record: `screenId, fxmlClasspathResource, Supplier<Object> viewModelSupplier`);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/navigation/NavigationService.java` (new — interface: `register(ScreenRegistration)`, `Parent load(String screenId)`; a small `ViewModelAware<T>` marker interface `setViewModel(T viewModel)` that Controllers may implement);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/navigation/DefaultNavigationService.java` (new, package-private);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/UiShellAutoConfiguration.java` (new, `@AutoConfiguration` `@AutoConfigureAfter(name = "com.tmp.security.SecurityAutoConfiguration")`, defines the `NavigationService` bean);
+- `tmp-ui-shell/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` (new);
+- matching tests under `tmp-ui-shell/src/test/java/com/tmp/ui/shell/navigation/`.
+
+### Forbidden
+
+- creating any concrete `.fxml` file or screen-specific Controller/ViewModel in this task (pure infrastructure — screens follow in STAGE4-032..037);
+- making `NavigationService` depend on any concrete screen type.
+
+### Implementation requirements
+
+- `DefaultNavigationService.load(String screenId)`: looks up the registered `ScreenRegistration`, creates an `FXMLLoader` for the classpath resource, calls `load()` (default controller factory — reflection via `fx:controller`), then if the resulting controller implements `ViewModelAware`, calls `setViewModel(viewModelSupplier.get())`; returns the loaded `Parent`.
+- `register(ScreenRegistration)` rejects a duplicate `screenId` (`IllegalStateException`) to catch wiring mistakes early.
+
+### Public contracts that may change
+
+- none (internal `tmp-ui-shell` infrastructure, no `tmp-ui-shell` public API package exists/is required by the Stage 4 task).
+
+### Acceptance criteria
+
+- [ ] `tmp-ui-shell` now has a Spring `ApplicationContext` bootable in tests (`spring-boot-starter` present, auto-configuration imports file present);
+- [ ] `NavigationService.load(...)` on a registered screen id returns a non-null `Parent` and, for a test Controller implementing `ViewModelAware`, correctly injects the supplied ViewModel;
+- [ ] registering a duplicate screen id throws.
+
+### Required tests
+
+- `DefaultNavigationServiceTest`: a tiny in-test FXML fixture (a trivial `.fxml` + Controller under `tmp-ui-shell/src/test/resources`/`src/test/java`) proving load + ViewModel injection + duplicate-id rejection.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-ui-shell test -Dtest=DefaultNavigationServiceTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A generic, screen-agnostic Navigation Service ready for the six concrete screens (STAGE4-032..037).
+
+---
+
+## STAGE4-032 — Login Screen (FXML/Controller/ViewModel) and login-gated startup
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-031, STAGE4-028
+**Module:** tmp-ui-shell (+ tmp-bootstrap-app wiring)
+
+### Goal
+
+Реализовать экран входа (FXML/Controller/ViewModel), интегрированный с `AuthenticationService`, отображаемый до открытия рабочего места.
+
+### Required documents
+
+- UI/UX Specification (Обязательные технические экраны — экран входа; Сообщения пользователю — ошибки без stack trace);
+- Security Specification (Пользовательская сессия); Stage 4 task §15 (Login Screen requirements exactly).
+
+### Required code context
+
+- `AuthenticationService`/`SessionSummary`/`AuthenticationFailedException` (`com.tmp.security.api`, STAGE4-028);
+- `NavigationService`/`ScreenRegistration`/`ViewModelAware` (STAGE4-031).
+
+### Allowed code scope
+
+- `tmp-ui-shell/src/main/resources/com/tmp/ui/shell/screen/login/LoginScreen.fxml` (new);
+- `tmp-ui-shell/src/main/resources/com/tmp/ui/shell/screen/login/LoginScreen.css` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/login/LoginController.java` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/login/LoginViewModel.java` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/UiShellAutoConfiguration.java` (extend: register the login screen + `LoginViewModel` bean);
+- matching tests under `tmp-ui-shell/src/test/java/com/tmp/ui/shell/screen/login/`.
+
+### Forbidden
+
+- `LoginController` implementing `ApplicationContextAware`, being annotated `@Component`/`@Controller`, or holding any Spring reference (per UI/UX Spec Controller rules — it only implements `ViewModelAware<LoginViewModel>` and talks to the injected ViewModel);
+- displaying the underlying `AuthenticationFailedException`'s stack trace or any technical detail beyond its message.
+
+### Implementation requirements
+
+- `LoginScreen.fxml`: login `TextField`, password `PasswordField`, login `Button`, an error `Label` (hidden by default), no self-registration/password-recovery control anywhere on the screen (matching Stage 4 task §15 exactly).
+- `LoginViewModel` (Spring `@Bean`, not `@Component`, defined explicitly in `UiShellAutoConfiguration`): exposes JavaFX properties (`StringProperty login`, `StringProperty errorMessage`) and a `submit(char[] password)` method that calls `authenticationService.login(...)`; on `AuthenticationFailedException`, sets `errorMessage` to the caught exception's message (already the generic, safe message from STAGE4-021) and returns `false`; on success returns `true` and exposes the resulting `SessionSummary`.
+- `LoginController implements ViewModelAware<LoginViewModel>`: wires FXML fields to the ViewModel's properties/bindings, calls `submit(...)` on button click, shows/hides the error label based on `errorMessage` being blank.
+- Bootstrap integration: `DesktopBootstrap` now looks up the `NavigationService` bean (via the Spring context it already holds) and passes a small `UiShellEntryPoint` (new tiny record/interface in `tmp-ui-shell`, containing the `NavigationService` and the initial screen id `"login"`) into `JavaFxShellLauncher.launch(...)` (extending its static-field pattern per Design decision §9); `JavaFxShellApplication.start(Stage)` now calls `navigationService.load("login")` and sets it as the scene root, instead of `EmptyMainShell.attach(...)` directly (the Main Window flow itself is completed in STAGE4-033 — for this task, a successful login may temporarily just show a placeholder "Login OK" state, finalized in STAGE4-033).
+
+### Public contracts that may change
+
+- none in `com.tmp.security.api`; `tmp-ui-shell` internal additions only.
+
+### Acceptance criteria
+
+- [ ] wrong credentials show the exact generic message from STAGE4-021, no stack trace visible anywhere in the UI;
+- [ ] correct credentials call `authenticationService.login(...)` successfully and the ViewModel reports success;
+- [ ] `LoginController` has zero Spring imports and is not annotated as a Spring bean.
+
+### Required tests
+
+- `LoginViewModelTest`: success/failure paths against a fake `AuthenticationService`, error-message propagation, no stack-trace-string leakage into `errorMessage`.
+- `LoginControllerFxTest` (JavaFX unit test, matching `JavaFxShellSmokeTest`'s existing JavaFX-test-harness convention in this module): field bindings and button-click wiring against a fake `LoginViewModel`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-ui-shell test -Dtest=LoginViewModelTest,LoginControllerFxTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A working Login Screen gating application startup, ready for the Main Window redesign (STAGE4-033).
+
+---
+
+## STAGE4-033 — Main Window redesign: permission-filtered navigation and logout
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-032, STAGE4-022
+**Module:** tmp-ui-shell
+
+### Goal
+
+Заменить `EmptyMainShell` реальным главным окном с панелью навигации, построенной из активных Capability и отфильтрованной по правам, плюс действие "выход".
+
+### Required documents
+
+- UI/UX Specification (Главное окно; Навигация; Architecture Rules AR-005); Stage 4 task §15/§16 (navigation filtered by permissions; logout returns Login Screen).
+
+### Required code context
+
+- `CapabilityEngine.activeNavigation()`/`activeCommands()`/`activeViews()` (`com.tmp.capability.api`); `AuthorizationService.hasPermission(...)` (`com.tmp.security.api`, STAGE4-028); `AuthenticationService.logout()`; this file's "Design decisions" §8 (navigation-id ↔ command-id gating convention).
+
+### Allowed code scope
+
+- `tmp-ui-shell/src/main/resources/com/tmp/ui/shell/screen/main/MainWindow.fxml` (new);
+- `tmp-ui-shell/src/main/resources/com/tmp/ui/shell/screen/main/MainWindow.css` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/main/MainWindowController.java` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/main/MainWindowViewModel.java` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/UiShellAutoConfiguration.java` (extend: register main window screen + ViewModel);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/EmptyMainShell.java` (remove — fully superseded; confirm no remaining production reference before deleting; test file removed alongside if it becomes dead code);
+- matching tests under `tmp-ui-shell/src/test/java/com/tmp/ui/shell/screen/main/`.
+
+### Forbidden
+
+- hardcoding a static list of navigation items (must be built from `CapabilityEngine.activeNavigation()` every time the window opens/refreshes, per UI/UX Spec "Навигация строится автоматически");
+- allowing a hidden (permission-denied) navigation item to still be reachable via any enabled control on this screen (the Access Denied Screen's own bypass-prevention proof is STAGE4-034's concern, using the fixture; this screen's own job is simply to not render/enable what the user cannot see).
+
+### Implementation requirements
+
+- `MainWindowViewModel`: on construction/refresh, iterates `capabilityEngine.activeNavigation()`; for each item, looks up the matching `CommandDescriptor` (by `navigationId == commandId`, per Design decision §8) among `activeCommands()`; if found, item is shown only if `authorizationService.hasPermission(...)` holds for every `requiredPermissionIds()`; if no matching command exists, item is shown unconditionally (unrestricted navigation item); exposes an observable list of visible nav items (id + display name) and a `selectNavigation(String navigationId)` method that resolves the item's `viewId` and calls `navigationService.load(viewId)` to swap the content area; also exposes `logout()` delegating to `authenticationService.logout()`.
+- `MainWindowController`: BorderPane layout (top bar, left navigation list, center content area, bottom status bar — reusing the existing `EmptyMainShell` visual structure as a starting point, per UI/UX Spec's main-window diagram), wires the nav list to `selectNavigation`, wires a logout button to `logout()` and then instructs the shell (via a callback passed at construction, not via Spring) to return to the Login Screen.
+- Remove `EmptyMainShell`/its test once `MainWindowController` fully supersedes it and `JavaFxShellApplication` no longer references it.
+
+### Public contracts that may change
+
+- none in `com.tmp.security.api`/`com.tmp.capability.api`.
+
+### Acceptance criteria
+
+- [ ] a navigation item whose command's required permission is missing does not appear in the rendered list;
+- [ ] an unrestricted navigation item (no matching command) always appears;
+- [ ] logout clears the session (`SessionContext.current()` becomes empty after) and the shell returns to the Login Screen;
+- [ ] `EmptyMainShell` is fully removed with no leftover references (verified by compilation).
+
+### Required tests
+
+- `MainWindowViewModelTest`: permission-filtered visibility (granted/denied/unrestricted item), navigation selection triggers the correct `NavigationService.load` call, logout delegates correctly.
+- `MainWindowControllerFxTest`: layout wiring against a fake ViewModel.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-ui-shell test -Dtest=MainWindowViewModelTest,MainWindowControllerFxTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A real, permission-aware Main Window replacing the Stage 0 placeholder, ready to host the three admin screens (STAGE4-035..037) and the Access Denied Screen (STAGE4-034).
+
+---
+
+## STAGE4-034 — Access Denied Screen and secured-operation UI bypass-prevention proof
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-033, STAGE4-022
+**Module:** tmp-ui-shell
+
+### Goal
+
+Реализовать экран отсутствия доступа и продемонстрировать, что скрытие UI-команды не заменяет проверку доступа (прямой вызов защищённой операции всё равно проверяется).
+
+### Required documents
+
+- UI/UX Specification (Обязательные технические экраны — экран отсутствия доступа); Stage 4 task §11 (secured-operation fixture: UI hides command; direct call still enforces; bypass not possible), §15 (Access Denied Screen).
+
+### Required code context
+
+- `AccessDeniedException` (`com.tmp.security.api`, STAGE4-028); `SecuredOperationFixture` (`com.tmp.security.application`, STAGE4-022 — used here as the concrete demonstration target, exposed to `tmp-ui-shell` tests through a small public wrapper if needed, or referenced directly since it is package-private to `tmp-security` — **decision**: add a thin public `com.tmp.security.api.SecuredOperationDemo` wrapping the fixture, since `tmp-ui-shell`, as an external module, cannot reach `com.tmp.security.application` at all).
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/api/SecuredOperationDemo.java` (new, thin public wrapper delegating to `SecuredOperationFixture` — small addition to `tmp-security`, justified because this task's core goal is proving the UI cannot bypass authorization, which requires a public entry point);
+- `tmp-security/src/main/java/com/tmp/security/SecurityAutoConfiguration.java` (extend: register `SecuredOperationDemo` bean);
+- `tmp-ui-shell/src/main/resources/com/tmp/ui/shell/screen/accessdenied/AccessDeniedScreen.fxml` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/accessdenied/AccessDeniedController.java` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/accessdenied/AccessDeniedViewModel.java` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/UiShellAutoConfiguration.java` (extend: register access-denied screen);
+- matching tests under `tmp-security/src/test/java/com/tmp/security/api/` and `tmp-ui-shell/src/test/java/com/tmp/ui/shell/screen/accessdenied/`.
+
+### Forbidden
+
+- making the Access Denied Screen itself perform any authorization check (it only displays a message — the check already happened before this screen was shown, exactly matching "Скрытие UI-команды не является проверкой доступа" / "Окончательная проверка выполняется непосредственно перед защищённой операцией").
+
+### Implementation requirements
+
+- `SecuredOperationDemo` (public, `com.tmp.security.api`): single method `performSecuredOperation(PermissionId required)`, delegates straight to the internal fixture, throwing `AccessDeniedException` on denial exactly like the fixture.
+- `AccessDeniedScreen.fxml`/`Controller`/`ViewModel`: displays a fixed, non-technical message (e.g. "У вас нет доступа к этой операции.") and a "Back" action; `AccessDeniedViewModel` takes the triggering `AccessDeniedException`'s message as display text, no stack trace shown.
+- Bypass-prevention proof test (the real deliverable of this task): a test that (a) as a user without the required permission, confirms `MainWindowViewModel` hides the corresponding navigation item (reusing STAGE4-033's mechanism), **and** (b) directly calls `SecuredOperationDemo.performSecuredOperation(sameRequiredPermission)` bypassing the UI entirely, and asserts it still throws `AccessDeniedException` — proving hiding the command is cosmetic only.
+
+### Public contracts that may change
+
+- new public type `com.tmp.security.api.SecuredOperationDemo`.
+
+### Acceptance criteria
+
+- [ ] the navigation item is hidden for a permission-lacking user (reusing STAGE4-033 behaviour);
+- [ ] `SecuredOperationDemo.performSecuredOperation(...)` called directly (no UI involved) still throws `AccessDeniedException` for that same user/permission;
+- [ ] the Access Denied Screen shows no stack trace and no technical detail.
+
+### Required tests
+
+- `SecuredOperationDemoTest` (`tmp-security`): denial/allow behaviour.
+- `AccessDeniedBypassPreventionTest` (`tmp-ui-shell`): the combined (a)+(b) proof described above.
+- `AccessDeniedViewModelTest`: message display, no stack trace text.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=SecuredOperationDemoTest
+mvn -q -pl :tmp-ui-shell test -Dtest=AccessDeniedBypassPreventionTest,AccessDeniedViewModelTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A working Access Denied Screen and a concrete, tested proof that UI-level hiding never substitutes for the real authorization check, satisfying Stage 4 task §11's explicit requirement.
+
+---
+
+## STAGE4-035 — User Administration Screen
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-033, STAGE4-028
+**Module:** tmp-ui-shell
+
+### Goal
+
+Реализовать минимальный экран администрирования пользователей: список, создание, изменение, логическое удаление, сброс пароля.
+
+### Required documents
+
+- UI/UX Specification (Экраны; FXML; Controller; ViewModel; Длительные операции); Stage 4 task §15/§17 (minimal user/role admin UI); Security Specification (Администрирование).
+
+### Required code context
+
+- `UserAdministrationService`/`UserSummary` (`com.tmp.security.api`, STAGE4-028); `AuthorizationService` (permission-gated buttons); navigation/view ids `"security.view.users"` (STAGE4-016).
+
+### Allowed code scope
+
+- `tmp-ui-shell/src/main/resources/com/tmp/ui/shell/screen/useradmin/UserAdministrationScreen.fxml` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/useradmin/UserAdministrationController.java` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/useradmin/UserAdministrationViewModel.java` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/UiShellAutoConfiguration.java` (extend: register screen bound to `"security.view.users"`);
+- matching tests under `tmp-ui-shell/src/test/java/com/tmp/ui/shell/screen/useradmin/`.
+
+### Forbidden
+
+- calling any repository/persistence type directly (only `UserAdministrationService`);
+- performing the permission check only in the ViewModel and skipping it in the Application Service (defence stays in `tmp-security`; the UI-level check here is only for control enabling/disabling, matching Stage 4 task §11).
+
+### Implementation requirements
+
+- `UserAdministrationViewModel`: observable list of `UserSummary` (loaded via `listUsers(...)`, paginated); `createUser(...)`, `updateUser(...)`, `deleteUser(...)`, `resetPassword(...)` methods delegating to `UserAdministrationService`/`PasswordApplicationService`-backed façade methods (via `com.tmp.security.api` only), each wrapped to surface `AccessDeniedException`/validation failures as a bound error message (no stack trace).
+- `UserAdministrationController`: a `TableView<UserSummary>` (login, display name, status) + a simple create/edit form + reset-password action + delete action, with create/edit/delete/reset buttons' `disableProperty()` bound to the corresponding `AuthorizationService.hasPermission(...)` result (cosmetic convenience only — the real enforcement remains in `tmp-security`).
+
+### Public contracts that may change
+
+- none.
+
+### Acceptance criteria
+
+- [ ] table lists users with correct status;
+- [ ] create/update/delete/reset actions call the correct façade methods and refresh the list on success;
+- [ ] a denied action surfaces the `AccessDeniedException` message without a stack trace;
+- [ ] buttons are disabled when the corresponding permission is missing.
+
+### Required tests
+
+- `UserAdministrationViewModelTest`: CRUD delegation correctness, error surfacing, list refresh.
+- `UserAdministrationControllerFxTest`: table/form wiring against a fake ViewModel.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-ui-shell test -Dtest=UserAdministrationViewModelTest,UserAdministrationControllerFxTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A working, minimal User Administration Screen.
+
+---
+
+## STAGE4-036 — Role Administration Screen
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-033, STAGE4-028
+**Module:** tmp-ui-shell
+
+### Goal
+
+Реализовать минимальный экран администрирования ролей: список, создание/изменение, назначение/отзыв разрешений, назначение/отзыв ролей пользователям, удаление с учётом ограничения.
+
+### Required documents
+
+- Same as STAGE4-035, applied to roles; Stage 4 task §6 (deletion restriction) surfaced as a UI-level error message, not re-implemented.
+
+### Required code context
+
+- `RoleAdministrationService`/`RoleSummary`/`PermissionSummary` (`com.tmp.security.api`, STAGE4-028); navigation/view id `"security.view.roles"` (STAGE4-016).
+
+### Allowed code scope
+
+- `tmp-ui-shell/src/main/resources/com/tmp/ui/shell/screen/roleadmin/RoleAdministrationScreen.fxml` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/roleadmin/RoleAdministrationController.java` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/roleadmin/RoleAdministrationViewModel.java` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/UiShellAutoConfiguration.java` (extend: register screen bound to `"security.view.roles"`);
+- matching tests under `tmp-ui-shell/src/test/java/com/tmp/ui/shell/screen/roleadmin/`.
+
+### Forbidden
+
+- re-implementing the "role in use" delete guard in the UI layer (the UI only surfaces the `RoleInUseException` message from the Application Service — the guard itself lives exclusively in `tmp-security`).
+
+### Implementation requirements
+
+- `RoleAdministrationViewModel`: observable list of `RoleSummary`; create/update/delete role; a permission-assignment sub-view (checklist of all known `PermissionSummary`s — from `AuditQueryService`? no — from a new read method exposed via `RoleAdministrationService`/`AuditQueryService`'s neighbours; **use** `RoleAdministrationService`'s permission-catalogue listing, which this task adds as a small extension: `List<PermissionSummary> listAllPermissionDefinitions()` on `com.tmp.security.api.RoleAdministrationService`, backed by `PermissionDefinitionRepository.findAll()` mapped to DTO — small, justified public-API extension since the UI genuinely needs the full catalogue, not just a role's current set); a user-role assignment sub-view (assign/revoke by user id/login lookup).
+- `RoleAdministrationController`: roles table + permission checklist + user-assignment controls, delete button disabled/error-surfaced per the in-use guard.
+
+### Public contracts that may change
+
+- `com.tmp.security.api.RoleAdministrationService` gains `listAllPermissionDefinitions()` — additive, backward-compatible.
+
+### Acceptance criteria
+
+- [ ] roles table lists roles with their permission count;
+- [ ] granting/revoking a permission on a role updates the checklist and persists correctly;
+- [ ] assigning/revoking a role to/from a user works via login lookup;
+- [ ] deleting an in-use role surfaces `RoleInUseException`'s message, does not remove the row from the table.
+
+### Required tests
+
+- `RoleAdministrationViewModelTest`: CRUD/permission/assignment delegation correctness, in-use-delete error surfacing.
+- `RoleAdministrationControllerFxTest`: table/checklist/assignment wiring against a fake ViewModel.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-security test -Dtest=RoleAdministrationApplicationServiceTest
+mvn -q -pl :tmp-ui-shell test -Dtest=RoleAdministrationViewModelTest,RoleAdministrationControllerFxTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A working, minimal Role Administration Screen, completing the required minimal user/role admin UI (Stage 4 task §17).
+
+---
+
+## STAGE4-037 — Security Audit Screen
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-033, STAGE4-028
+**Module:** tmp-ui-shell
+
+### Goal
+
+Реализовать read-only экран просмотра журнала аудита с пагинацией и фильтрацией.
+
+### Required documents
+
+- Stage 4 task §12/§15/§18 (read-only audit UI with pagination/filtering).
+
+### Required code context
+
+- `AuditQueryService`/`AuditEventSummary` (`com.tmp.security.api`, STAGE4-028); navigation/view id `"security.view.audit"` (STAGE4-016).
+
+### Allowed code scope
+
+- `tmp-ui-shell/src/main/resources/com/tmp/ui/shell/screen/audit/SecurityAuditScreen.fxml` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/audit/SecurityAuditController.java` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/audit/SecurityAuditViewModel.java` (new);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/UiShellAutoConfiguration.java` (extend: register screen bound to `"security.view.audit"`);
+- matching tests under `tmp-ui-shell/src/test/java/com/tmp/ui/shell/screen/audit/`.
+
+### Forbidden
+
+- any create/update/delete control on this screen (strictly read-only, matching "Audit API read-only").
+
+### Implementation requirements
+
+- `SecurityAuditViewModel`: observable page of `AuditEventSummary`, filter fields (date range, actor, operation), next/previous page navigation, delegates entirely to `AuditQueryService`.
+- `SecurityAuditController`: a read-only `TableView<AuditEventSummary>` + filter controls + pager.
+
+### Public contracts that may change
+
+- none.
+
+### Acceptance criteria
+
+- [ ] table displays audit events with correct columns (timestamp, actor, operation, target, description, result);
+- [ ] filters narrow the displayed page correctly;
+- [ ] pagination controls move between pages without duplication/gaps;
+- [ ] no mutating control exists anywhere on this screen.
+
+### Required tests
+
+- `SecurityAuditViewModelTest`: filter/pagination delegation correctness.
+- `SecurityAuditControllerFxTest`: table/filter/pager wiring against a fake ViewModel.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-ui-shell test -Dtest=SecurityAuditViewModelTest,SecurityAuditControllerFxTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A working, read-only Security Audit Screen, completing all five mandatory Stage 4 screens.
+
+---
+
+## STAGE4-038 — Bootstrap integration finalization (login-gated startup, logout-to-login, shutdown session cleanup)
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-032, STAGE4-033, STAGE4-034, STAGE4-035, STAGE4-036, STAGE4-037
+**Module:** tmp-bootstrap-app (+ tmp-ui-shell wiring touch-ups)
+
+### Goal
+
+Завершить сквозной поток запуска: главное окно не открывается до успешного login; logout возвращает Login Screen; shutdown очищает сессию.
+
+### Required documents
+
+- Stage 4 task §16 (bootstrap admin выполняется после persistence/permissions — already true via STAGE4-029's ordering; главное окно не открывается до успешного login; shutdown очищает session; logout возвращает Login Screen).
+
+### Required code context
+
+- `DesktopBootstrap`/`JavaFxShellLauncher`/`JavaFxShellApplication` (current state after STAGE4-032/033 edits); `SessionContext`/`AuthenticationService.logout()` (`com.tmp.security.api`).
+
+### Allowed code scope
+
+- `tmp-bootstrap-app/src/main/java/com/tmp/bootstrap/DesktopBootstrap.java` (finalize: remove the old `formatCapabilityStatus`/`formatDocumentPanel`/`EmptyMainShell`-based call, wire the `UiShellEntryPoint` fully);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/JavaFxShellApplication.java` (finalize: `start(Stage)` shows Login Screen first, swaps to Main Window on successful login via a callback from `LoginViewModel`, and back to Login Screen on logout; `stop()` calls `sessionContext`'s clear path in addition to the existing `onStopCallback`);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/JavaFxShellLauncher.java` (finalize: static field for the `UiShellEntryPoint`);
+- matching tests under `tmp-bootstrap-app/src/test/java/com/tmp/bootstrap/` and `tmp-ui-shell/src/test/java/com/tmp/ui/shell/`.
+
+### Forbidden
+
+- opening the Main Window scene before `AuthenticationService.isAuthenticated()` is `true`;
+- leaving any old direct call to `platformCore.status()`/`documentEngine.search(...)` string-formatting in `DesktopBootstrap` now that the Main Window renders its own live navigation (superseded by STAGE4-033) — remove dead code, do not leave it commented out (per governance §6, no commented-out code).
+
+### Implementation requirements
+
+- `DesktopBootstrap.main()`: builds the Spring context (unchanged), looks up the `UiShellEntryPoint` bean, calls `JavaFxShellLauncher.launch(springContext::close, uiShellEntryPoint)`.
+- `JavaFxShellApplication.start(Stage)`: loads the Login screen via `navigationService.load("login")`; the `LoginViewModel`'s successful-login callback swaps the stage's scene root to `navigationService.load("main-window")`; the Main Window's logout action swaps back to `navigationService.load("login")`.
+- `stop()`: calls `authenticationService.logout()` if a session is still open (idempotent per STAGE4-021, safe no-op otherwise), then the existing `onStopCallback` (closes the Spring context).
+
+### Public contracts that may change
+
+- none.
+
+### Acceptance criteria
+
+- [ ] starting the app shows the Login Screen, not the Main Window;
+- [ ] a failed login keeps the Login Screen visible with the error message;
+- [ ] a successful login shows the Main Window with permission-filtered navigation;
+- [ ] logout returns to the Login Screen and `SessionContext.current()` is empty immediately after;
+- [ ] closing the application window (JavaFX `stop()`) clears any still-open session before the Spring context closes.
+
+### Required tests
+
+- `DesktopBootstrapWiringTest` (extends the existing bean-lookup smoke test style, e.g. alongside `CapabilityEngineBeanLookupTest`): confirms the `UiShellEntryPoint`/`NavigationService`/`AuthenticationService` beans are all resolvable from the real Spring context.
+- `JavaFxShellApplicationFlowTest` (`tmp-ui-shell`): login-fail-stays, login-success-swaps-to-main, logout-swaps-to-login, stop()-clears-session — using fakes for the Navigation/Authentication services.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-bootstrap-app test -Dtest=DesktopBootstrapWiringTest
+mvn -q -pl :tmp-ui-shell test -Dtest=JavaFxShellApplicationFlowTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+A fully login-gated desktop application flow, ready for the architecture tests (STAGE4-039) and final gate (STAGE4-040).
+
+---
+
+## STAGE4-039 — Stage 4 architecture tests
+
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-038
+**Module:** tmp-architecture-tests
+
+### Goal
+
+Добавить `Stage4SecurityArchitectureTest`, покрывающий все правила Stage 4 task §19.
+
+### Required documents
+
+- Stage 4 task §19 (полный список обязательных правил);
+- `Stage3CapabilityEngineArchitectureTest`/`Stage2DocumentEngineArchitectureTest` as the ArchUnit style precedent.
+
+### Required code context
+
+- `tmp-architecture-tests/pom.xml` (add `tmp-security` dependency); existing `StageNArchitectureTest` classes for style/imports precedent.
+
+### Allowed code scope
+
+- `tmp-architecture-tests/pom.xml` (add `com.tmp:tmp-security` dependency);
+- `tmp-architecture-tests/src/test/java/com/tmp/architecture/Stage4SecurityArchitectureTest.java` (new).
+
+### Forbidden
+
+- weakening any existing `Stage0`/`Stage1`/`Stage2`/`Stage3ArchitectureTest` rule to make the new test pass;
+- adding any rule not derivable from Stage 4 task §19.
+
+### Implementation requirements
+
+ArchUnit rules, one method per bullet of Stage 4 task §19:
+- `tmp-security` (`com.tmp.security..`) does not depend on any business-module package (none exist yet, but assert no dependency on `com.tmp.document..`/`com.tmp.ui..`/`com.tmp.bootstrap..`, matching the "only core.api/capability.api" rule);
+- `com.tmp.security..` (excluding `com.tmp.security.api..`) depends only on `com.tmp.core.api..`, `com.tmp.capability.api..`, `java..`, `org.springframework..`, `org.springframework.security.crypto..`, JDBC/`javax.sql`/`org.postgresql..`, and its own module packages;
+- external packages (`com.tmp.ui..`, `com.tmp.bootstrap..`, `com.tmp.architecture..`) that reference `com.tmp.security..` reference only `com.tmp.security.api..`;
+- `com.tmp.security.domain..` does not depend on `org.springframework..`, `jakarta.persistence..`, `org.hibernate..`, `javafx..`;
+- `com.tmp.ui.shell..` Controller classes (`*Controller`) do not depend on `org.springframework.context..`/are not annotated with any Spring stereotype;
+- `com.tmp.ui.shell..` Controller classes do not depend on any `*Repository`/`com.tmp.security.persistence..`/`com.tmp.security.application..` package;
+- no class in `com.tmp.security.api..` has a field or method whose type name matches `PasswordHash`/`char\[\]` in a password-shaped position (reuse/extend the reflection check from STAGE4-028's `SecurityApiSurfaceNoCredentialLeakTest`, promoted here as an ArchUnit `ArchCondition` for durability across future additions);
+- no `groupId` in the reactor is `org.springframework.security` other than `spring-security-crypto` (no `spring-security-web`/`spring-security-config`/`spring-security-oauth2-*`/`spring-security-ldap`), and no dependency named containing `jwt`/`oauth`/`ldap`/`saml` exists anywhere in the reactor's effective dependencies (checked via a Maven-dependency-tree-based test or a `pom.xml` text-scan test, whichever fits the existing `Stage0ArchitectureBaselineTest` convention — inspect that file first to match its exact checking mechanism, since ArchUnit itself cannot inspect Maven dependencies);
+- no `com.tmp.order..`/`com.tmp.warehouse..`/`com.tmp.production..`/`com.tmp.cutting..`/`com.tmp.analytics..` package exists anywhere in the reactor (Stage 5+ absence check).
+
+### Public contracts that may change
+
+- none (test-only task).
+
+### Acceptance criteria
+
+- [ ] all rules above pass against the current reactor state;
+- [ ] each rule is a separate `@ArchTest`/`@Test` method with a clear failure message (matching existing Stage tests' granularity).
+
+### Required tests
+
+- `Stage4SecurityArchitectureTest` (the task's whole deliverable).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-architecture-tests test -Dtest=Stage4SecurityArchitectureTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Automated, durable enforcement of every Stage 4 architectural boundary.
+
+---
+
+## STAGE4-040 — Final Stage 4 verification gate
+
+**Status:** PLANNED
+**Stage:** 4
+**Depends on:** STAGE4-039, STAGE4-030
+**Module:** cross-stage
+
+### Goal
+
+Полная верификация Stage 4 (`mvn clean verify`, package profile, PostgreSQL Testcontainers, jpackage app-image, manual `TMP.exe` smoke test) и закрытие Stage 4 на 100%.
+
+### Required documents
+
+- Stage 4 task §22 (полный чек-лист Final Stage Gate); `STAGE-4-SECURITY.md` (exit criteria).
+
+### Required code context
+
+- none beyond the already-implemented module set; this task performs verification only, no new production code (a genuine defect found here re-opens the specific earlier task that owns the affected area, per governance rules — this task itself does not silently patch around a failure).
+
+### Allowed code scope
+
+- none (verification-only task; `STATUS.md`/`WORK-QUEUE.md`/`IMPLEMENTATION-LOG.md`/`VERIFICATION-LOG.md` updates only).
+
+### Forbidden
+
+- skipping any check in Stage 4 task §22's checklist;
+- marking DONE while any check fails.
+
+### Implementation requirements
+
+- Run `mvn clean verify` (full reactor); `mvn clean verify -Ppackage`; confirm PostgreSQL Testcontainers ITs across `tmp-security` (and unaffected earlier modules) pass; produce the jpackage app-image; launch `dist/jpackage/TMP/TMP.exe`; manually confirm: Spring Context starts; PostgreSQL/Flyway apply through `V4`; Security component starts after Capability Engine; bootstrap admin created exactly once; Login Screen displays; wrong password rejected with the generic message; correct password opens the Main Window; navigation matches permissions; a direct call to a secured operation enforces authorization regardless of UI state; logout clears the session and returns to Login Screen; closing the app clears the session; no password/hash appears in `logback` output.
+
+### Public contracts that may change
+
+- none.
+
+### Acceptance criteria
+
+- [ ] every item in Stage 4 task §22 passes.
+
+### Required tests
+
+- none new (this task exercises the full existing suite plus the manual smoke checklist).
+
+### Verification commands
+
+```bash
+mvn clean verify
+mvn clean verify -Ppackage
+dist/jpackage/TMP/TMP.exe
+```
+
+### Documentation updates
+
+- STATUS.md → `Project status: STAGE_COMPLETE`, `Current Stage: Stage 4 — Security`, `Current Task: None`, `Last completed task: STAGE4-040`, `Active blocker: None`, `Stage 4: DONE 100%`; WORK-QUEUE; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Stage 4 fully DONE; explicit stop before Stage 5 per governance §9 ("завершён текущий Stage и следующий Stage ещё не прошёл Start Gate").

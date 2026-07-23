@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.tmp.ui.shell.screen.roleadmin.RoleAdministrationController"
+      spacing="12">
+    <padding>
+        <Insets top="16" right="16" bottom="16" left="16"/>
+    </padding>
+    <Label text="Роли" styleClass="role-admin-title"/>
+    <TableView fx:id="roleTable" prefHeight="200">
+        <columns>
+            <TableColumn fx:id="nameColumn" text="Имя" prefWidth="160"/>
+            <TableColumn fx:id="descriptionColumn" text="Описание" prefWidth="220"/>
+            <TableColumn fx:id="permissionCountColumn" text="Права" prefWidth="80"/>
+        </columns>
+    </TableView>
+    <HBox spacing="8">
+        <TextField fx:id="nameField" promptText="Имя роли" prefWidth="160"/>
+        <TextField fx:id="descriptionField" promptText="Описание" prefWidth="220"/>
+    </HBox>
+    <HBox spacing="8">
+        <Button fx:id="createButton" text="Создать"/>
+        <Button fx:id="updateButton" text="Изменить"/>
+        <Button fx:id="deleteButton" text="Удалить"/>
+        <Button fx:id="refreshButton" text="Обновить"/>
+    </HBox>
+    <Label text="Разрешения выбранной роли"/>
+    <VBox fx:id="permissionBox" spacing="4"/>
+    <HBox spacing="8">
+        <TextField fx:id="assignLoginField" promptText="Логин пользователя" prefWidth="180"/>
+        <Button fx:id="assignButton" text="Назначить роль"/>
+        <Button fx:id="revokeButton" text="Отозвать роль"/>
+    </HBox>
+    <Label fx:id="errorLabel" styleClass="role-admin-error" visible="false" managed="false" wrapText="true"/>
+</VBox>

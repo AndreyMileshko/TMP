@@ -1,0 +1,32 @@
+.main-window-root {
+    -fx-background-color: #f3f5f8;
+}
+
+.main-window-top {
+    -fx-background-color: #1f2a37;
+}
+
+.main-window-brand {
+    -fx-text-fill: #f7f9fc;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+
+.main-window-nav {
+    -fx-background-color: #e8eef5;
+}
+
+.main-window-nav-title {
+    -fx-font-size: 13px;
+    -fx-text-fill: #1f2a37;
+    -fx-font-weight: bold;
+}
+
+.main-window-content {
+    -fx-background-color: #f7f9fc;
+}
+
+.main-window-status {
+    -fx-background-color: #d9e2ec;
+    -fx-text-fill: #1f2a37;
+}

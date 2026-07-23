@@ -680,3 +680,56 @@
 ### Failures
 
 - None.
+
+## 2026-07-23 - `STAGE4-000` (Stage 4 Start Gate + decomposition, planning only)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Start Gate preconditions (file-content only, no Git) | manual review of STATUS/WORK-QUEUE/BLOCKERS/STAGE-4-SECURITY.md/root pom.xml/Stage 0-3 sources | PASSED |
+| Full reactor baseline | `mvn clean verify` (local portable Maven 3.9.9 + JDK 21.0.11, `DOCKER_HOST=npipe:////./pipe/docker_engine`) | PASSED (BUILD SUCCESS; log: `stage4-000-baseline-verify.log`, gitignored) |
+| PostgreSQL Testcontainers ITs (part of the same `mvn clean verify` run) | `FlywayPostgresIntegrationIT`, `DocumentEnginePostgresIntegrationIT`, `CapabilityEngineDocumentPostgresIntegrationIT` | PASSED |
+| Stage 4 decomposition (`STAGE4-001`..`STAGE4-040`) recorded in `WORK-QUEUE.md` | manual template-completeness review against `templates/TASK-TEMPLATE.md` | PASSED |
+| Git operations | none performed (absolute prohibition honored) | N/A |
+
+### Failures
+
+- None. Note: the Shell tool initially failed with a sandbox-policy error ("Windows sandbox helper only provides network proxy, not filesystem isolation"); resolved by requesting the `all` permission for subsequent Shell calls (equivalent to the environment-restoration resolution already recorded for `BLK-001`). No new blocker was registered since this is the same previously-resolved class of environment issue, not a new one, and it did not block completion of this task.
+
+## 2026-07-23 - STAGE4-001..018 (batch)
+
+| Verification | Result |
+|---|---|
+| `mvn -pl :tmp-security compile/test` focused suites (domain, JDBC TC, BCrypt, Capability, sync, bootstrap) | PASSED |
+| Git operations | none |
+
+### Failures
+
+- None.
+
+## 2026-07-23 - STAGE4-024..032 (batch)
+
+| Verification | Result |
+|---|---|
+| `mvn -pl :tmp-security test -Dtest=SecurityAutoConfigurationTest` | PASSED |
+| `mvn -pl :tmp-security verify -Dit.test=SecurityEndToEndPostgresIntegrationIT` | PASSED |
+| `mvn -pl :tmp-ui-shell test -Dtest=DefaultNavigationServiceTest,LoginViewModelTest,LoginControllerFxTest` | PASSED |
+| `mvn -pl :tmp-bootstrap-app -am test` (Spring/Capability/Document/Desktop smoke, Postgres TC) | PASSED |
+| Git operations | none |
+
+### Failures
+
+- None (H2 bootstrap smokes replaced with PostgreSQL Testcontainers after V4 functional index incompatibility).
+
+## 2026-07-23 - STAGE4-033..039 (batch)
+
+| Verification | Result |
+|---|---|
+| `mvn -pl :tmp-ui-shell test` (Main/AccessDenied/UserAdmin/RoleAdmin/Audit ViewModel+FX, JavaFxShell flow) | PASSED |
+| `mvn -pl :tmp-bootstrap-app test -Dtest=DesktopBootstrapWiringTest` | PASSED |
+| `mvn -pl :tmp-architecture-tests test -Dtest=Stage0..Stage4SecurityArchitectureTest` | PASSED |
+| Git operations | none |
+
+### Failures
+
+- None (stale `UiShellAutoConfiguration.imports` in ui-shell `target/` cleared via `mvn clean`; SpotBugs EI_EXPOSE_REP suppressed on JavaFX ViewModel/Controller types).
+

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.tmp.ui.shell.screen.main.MainWindowController"
+            styleClass="main-window-root">
+    <top>
+        <HBox spacing="12" styleClass="main-window-top" alignment="CENTER_LEFT">
+            <padding>
+                <Insets top="10" right="14" bottom="10" left="14"/>
+            </padding>
+            <Label text="TOP Manufacturing Platform" styleClass="main-window-brand"/>
+            <Pane HBox.hgrow="ALWAYS"/>
+            <Button fx:id="logoutButton" text="Выход"/>
+        </HBox>
+    </top>
+    <left>
+        <VBox spacing="8" styleClass="main-window-nav" prefWidth="220">
+            <padding>
+                <Insets top="12" right="10" bottom="12" left="10"/>
+            </padding>
+            <Label text="Навигация" styleClass="main-window-nav-title"/>
+            <ListView fx:id="navigationList" VBox.vgrow="ALWAYS"/>
+        </VBox>
+    </left>
+    <center>
+        <StackPane fx:id="contentArea" styleClass="main-window-content">
+            <padding>
+                <Insets top="16" right="16" bottom="16" left="16"/>
+            </padding>
+        </StackPane>
+    </center>
+    <bottom>
+        <Label fx:id="statusLabel" styleClass="main-window-status">
+            <padding>
+                <Insets top="6" right="10" bottom="6" left="10"/>
+            </padding>
+        </Label>
+    </bottom>
+</BorderPane>

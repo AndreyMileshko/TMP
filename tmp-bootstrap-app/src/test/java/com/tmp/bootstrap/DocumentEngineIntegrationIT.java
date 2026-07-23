@@ -38,6 +38,9 @@ class DocumentEngineIntegrationIT {
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+        registry.add("tmp.security.bootstrap.admin-login", () -> "admin");
+        registry.add("tmp.security.bootstrap.admin-display-name", () -> "Administrator");
+        registry.add("tmp.security.bootstrap.admin-password", () -> "test-admin-password");
     }
 
     @Autowired

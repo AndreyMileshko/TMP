@@ -2,11 +2,10 @@
 
 **Mode:** Autonomous Cursor Agent  
 **Project status:** IN_PROGRESS  
-**Current Stage:** Stage 3 — Capability Engine  
-**Current Task:** — (Stage 3 complete; stop before Stage 4)  
-**Last completed task:** STAGE3-025  
-**Active blocker:** None (`BLK-015` RESOLVED)  
-**Last successful full verification:** `mvn clean verify -Ppackage` EXIT_CODE=0 (2026-07-23, STAGE3-025)
+**Current Stage:** Stage 4 — Security  
+**Current Task:** STAGE4-040  
+**Last completed task:** STAGE4-039  
+**Active blocker:** None  
 
 ---
 
@@ -18,29 +17,13 @@
 | 1 | Platform Core | DONE | 100% |
 | 2 | Document Engine | DONE | 100% |
 | 3 | Capability Engine | DONE | 100% |
-| 4 | Security | PLANNED | 0% |
-| 5 | Order Management | PLANNED | 0% |
-| 6 | Warehouse | PLANNED | 0% |
-| 7 | Production | PLANNED | 0% |
-| 8 | Cutting Optimization | PLANNED | 0% |
-| 9 | Analytics | PLANNED | 0% |
-| 10 | Final Integration | PLANNED | 0% |
-| 11 | Release 1.0 | PLANNED | 0% |
+| 4 | Security | IN_PROGRESS | 97% |
+| 5–11 | (later) | PLANNED | 0% |
 
 ---
 
-# Agent Instructions
+**Готово:** STAGE4-001…039 (Security API/UI, login-gated bootstrap, architecture rules).
 
-Этот файл обновляется Cursor после каждой задачи.
-Пользователь наблюдает за разработкой преимущественно через этот файл.
+**Далее:** STAGE4-040 final gate (`mvn clean verify`, `-Ppackage`, TMP.exe smoke). Stage 5 не стартовать.
 
-Cursor обязан поддерживать:
-
-- точный текущий Stage;
-- точную текущую задачу;
-- последний завершённый Task;
-- активный blocker;
-- результат последней полной проверки;
-- процент прогресса только по фактически закрытым задачам.
-
-**Stop gate:** Stage 3 закрыт после устранения `BLK-015` (lifecycle contribution cleanup) и re-verification (`STAGE3-025`). Stage 4 не начинать без явного указания пользователя.
+Git-операции запрещены.

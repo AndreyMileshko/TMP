@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.tmp.ui.shell.screen.useradmin.UserAdministrationController"
+      spacing="12"
+      styleClass="user-admin-root">
+    <padding>
+        <Insets top="16" right="16" bottom="16" left="16"/>
+    </padding>
+    <Label text="Пользователи" styleClass="user-admin-title"/>
+    <TableView fx:id="userTable" prefHeight="280">
+        <columns>
+            <TableColumn fx:id="loginColumn" text="Логин" prefWidth="160"/>
+            <TableColumn fx:id="displayNameColumn" text="Имя" prefWidth="200"/>
+            <TableColumn fx:id="statusColumn" text="Статус" prefWidth="100"/>
+        </columns>
+    </TableView>
+    <HBox spacing="8">
+        <TextField fx:id="loginField" promptText="Логин" prefWidth="140"/>
+        <TextField fx:id="displayNameField" promptText="Отображаемое имя" prefWidth="180"/>
+        <PasswordField fx:id="passwordField" promptText="Пароль" prefWidth="140"/>
+    </HBox>
+    <HBox spacing="8">
+        <Button fx:id="createButton" text="Создать"/>
+        <Button fx:id="updateButton" text="Изменить"/>
+        <Button fx:id="deleteButton" text="Удалить"/>
+        <Button fx:id="resetPasswordButton" text="Сбросить пароль"/>
+        <Button fx:id="refreshButton" text="Обновить"/>
+    </HBox>
+    <Label fx:id="errorLabel" styleClass="user-admin-error" visible="false" managed="false" wrapText="true"/>
+</VBox>

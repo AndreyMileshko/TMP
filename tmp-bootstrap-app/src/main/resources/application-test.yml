@@ -10,6 +10,11 @@ tmp:
   capability:
     sample:
       diagnostic: true
+  security:
+    bootstrap:
+      admin-login: admin
+      admin-display-name: Administrator
+      admin-password: test-admin-password
 
 logging:
   level:

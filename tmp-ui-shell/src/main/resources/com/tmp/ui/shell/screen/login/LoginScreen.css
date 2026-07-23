@@ -1,0 +1,19 @@
+.login-root {
+    -fx-background-color: linear-gradient(to bottom, #e8eef5, #f7f9fc);
+}
+
+.login-title {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #1f2a37;
+}
+
+.login-error {
+    -fx-text-fill: #b42318;
+    -fx-font-size: 13px;
+}
+
+.login-ok-placeholder {
+    -fx-font-size: 18px;
+    -fx-text-fill: #1f2a37;
+}

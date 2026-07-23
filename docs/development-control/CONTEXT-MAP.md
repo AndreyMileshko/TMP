@@ -91,6 +91,27 @@ Read only:
 - scenario acceptance criteria;
 - integration test infrastructure.
 
+# Stage 4 — Security Context
+
+Основные документы:
+
+- `docs/TMP/TMP_Initial_Documents/architecture/09-Security/Security-Specification.md` (весь документ — небольшой);
+- `docs/development-control/stages/STAGE-4-SECURITY.md`;
+- "Design decisions fixed for this Stage" preamble в `WORK-QUEUE.md` перед задачами `STAGE4-001..040` (обязательна к прочтению перед любой задачей Stage 4 — фиксирует пакетную структуру `tmp-security`, выбор персистентности, размещение UI-экранов, порядок запуска и другие решения, принятые без blocker).
+
+Разрешённый минимальный code context (публичные API только):
+
+- `com.tmp.core.api..` (`tmp-platform-core`);
+- `com.tmp.capability.api..` (`tmp-capability-engine`), включая `Capability`/`CapabilityEngine`/`CapabilityDescriptor`/`PermissionDescriptor`/`CommandDescriptor`/`NavigationContribution`/`ViewDescriptor`;
+- Database Specification — только разделы: Schema per Module, Идентификаторы, Общие технические поля, Optimistic Locking, Транзакции, Flyway, Правила именования, Связи между модулями, Аудит изменений;
+- Architecture Decisions — только ADR-001..003, ADR-019..022 (module boundaries; computed state not stored; immutable event history) — нет ADR, специфичного для Security/audit/транзакций;
+- UI/UX Specification — только разделы: Главное окно, Навигация, Экраны, FXML, Controller, ViewModel, Сообщения пользователю, Обязательные технические экраны;
+- существующий код `tmp-ui-shell`/`tmp-bootstrap-app`/`tmp-infra-db` — только файлы, перечисленные в конкретной задаче `WORK-QUEUE.md`.
+
+Запрещается загружать полную реализацию Platform Core, Document Engine или Capability Engine без необходимости (только их публичные API и, при необходимости, конкретный внутренний файл, прямо упомянутый как precedent в задаче).
+
+---
+
 # Stage 9 — Analytics Context
 
 Основные документы:

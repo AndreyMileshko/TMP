@@ -1977,3 +1977,82 @@ STAGE3-025
 ### Next task
 
 - (stop before Stage 4)
+
+---
+
+## `STAGE4-000` - Stage 4 Start Gate and decomposition (planning only)
+
+**Date:** 2026-07-23
+**Stage:** Stage 4 - Security
+**Status:** DONE (planning); implementation of `STAGE4-001` not started, per explicit user instruction to stop after planning
+
+### Result
+
+Start Gate checks performed by reading only file contents (no Git commands used, per absolute Git prohibition): confirmed Stage 0-3 DONE 100%, last completed task `STAGE3-025`, all Stage 0-3 blockers RESOLVED, Stage 4 was `PLANNED 0%`, Java 21 (`.tools/jdk-21.0.11+10`) and portable Maven (`.tools/apache-maven-3.9.9`) available, Docker available (`DOCKER_HOST=npipe:////./pipe/docker_engine`). Ran the mandatory baseline `mvn clean verify` for the full reactor (log: `stage4-000-baseline-verify.log`, gitignored) — BUILD SUCCESS, including PostgreSQL Testcontainers integration tests (`FlywayPostgresIntegrationIT`, `DocumentEnginePostgresIntegrationIT`, `CapabilityEngineDocumentPostgresIntegrationIT`). No regression found; Stage 4 was safe to start.
+
+Read the mandatory source set for Stage 4 planning: `Security-Specification.md` (full), relevant `Database-Specification.md` sections (schema-per-module, identifiers, technical fields, optimistic locking, transactions, Flyway, naming, module boundaries, JPA/persistence, audit, appendices), relevant `TMP-Architecture-Decisions.md` ADRs (ADR-001..003, ADR-019..022 — none are Security-specific; no Security/audit/transaction-specific ADR exists), relevant `UI-UX-Specification.md` sections (main window, navigation, screens, FXML, Controller, ViewModel, messages, mandatory technical screens), `Capability-Engine-Specification.md`'s public API in full (`com.tmp.capability.api.*` — `Capability`, `CapabilityEngine`, `CapabilityDescriptor`, `PermissionDescriptor`, `CommandDescriptor`, `NavigationContribution`, `ViewDescriptor`, `PublicServiceContribution`, `DocumentContribution`, `EventContribution`, `SettingsContribution`, `CapabilityId`, `CapabilityVersion`, `CapabilityLifecycleState`, `CapabilityRuntimeAccess`), `Platform-Core` public API in full (`com.tmp.core.api.*` — `PlatformCore`, `ServiceRegistry`, `PlatformComponent`, `PlatformComponentMetadata`, `LifecycleManager`), plus the current (pre-Stage-4) state of `tmp-ui-shell` (`JavaFxShellApplication`/`JavaFxShellLauncher`/`EmptyMainShell`), `tmp-bootstrap-app` (`DesktopBootstrap`/`BootstrapConfiguration`/`TmpBootstrapApplication`), `tmp-infra-db` (Flyway/datasource wiring), and the existing Flyway migration numbering across `tmp-infra-db`/`tmp-document-engine` (highest existing version `V3`; `tmp-capability-engine` has no persistence) to determine the next free migration version (`V4`) for `tmp-security`. Did not load full internal implementations of Platform Core, Document Engine, or Capability Engine beyond what was needed to confirm lifecycle-ordering and discovery mechanics (`DefaultLifecycleManager.startAll()` ordering, `CapabilityEngineAutoConfiguration`'s `List<Capability>` discovery wiring) cited in the Design decisions.
+
+Produced the full Stage 4 decomposition directly in `WORK-QUEUE.md`: a "Design decisions fixed for this Stage" preamble (14 points covering module/package layout, persistence technology choice matching Stage 2 precedent, Flyway version numbering, `PermissionId` format resolution, Capability Engine integration pattern, startup ordering proof, UI-screen module placement decision and navigation-permission-gating convention, `JavaFxShellLauncher` static hand-off extension, bootstrap config convention, BCrypt technology choice, case-insensitive login uniqueness mechanism, audit-ownership justification, and explicit confirmation that all Stage 4 §4.18 exclusions remain absent) followed by 40 fully-specified tasks (`STAGE4-001`..`STAGE4-040`) covering: Domain value objects and aggregates (`STAGE4-002`..`009`); Flyway migration and JDBC persistence (`STAGE4-010`..`014`); BCrypt hashing (`STAGE4-015`); Capability integration and permission synchronization (`STAGE4-016`..`017`); bootstrap administrator (`STAGE4-018`..`019`); session/authentication/authorization (`STAGE4-020`..`022`); user/role/permission/audit Application Services (`STAGE4-023`..`027`); the public `com.tmp.security.api` facade (`STAGE4-028`); Spring auto-configuration and startup wiring (`STAGE4-029`); an end-to-end PostgreSQL IT (`STAGE4-030`); `tmp-ui-shell` Navigation Service foundation and all five mandatory screens plus bootstrap integration (`STAGE4-031`..`038`); Stage 4 architecture tests (`STAGE4-039`); and the Final Stage 4 verification gate (`STAGE4-040`). No blocker was raised — every design ambiguity encountered (persistence technology, `PermissionId` format vs. the spec's informal examples, UI-screen module placement, navigation-permission-gating mechanism, and audit ownership vs. the Database Specification's non-binding recommendation) was resolvable from existing approved documents/precedent and is recorded as a documented design decision rather than a blocker, per governance §5 ("Обычные технические решения, однозначно следующие из документации, принимай самостоятельно").
+
+Updated `STATUS.md` (Stage 4 → IN_PROGRESS 0%, Current Task → `STAGE4-001` READY) per the user's explicit final instruction: stopped immediately after planning and filling in the work plan, before starting `STAGE4-001` implementation.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Start Gate file-content checks (STATUS/WORK-QUEUE/BLOCKERS/STAGE-4-SECURITY.md/root `pom.xml`/existing modules/Stage 0-3 sources) | PASSED |
+| `mvn clean verify` (full reactor, Stage 4 baseline) | PASSED (BUILD SUCCESS, incl. PostgreSQL Testcontainers ITs) |
+| Stage 4 decomposition completeness against governance required task fields | PASSED (all 40 tasks include Goal/Required documents/Code context/Allowed scope/Forbidden/Implementation requirements/Public contracts/Acceptance criteria/Required tests/Verification commands/Documentation updates/Expected result) |
+
+### Next task
+
+STAGE4-001 (not started — awaiting next user instruction to resume autonomous execution)
+
+---
+
+## `STAGE4-001`..`STAGE4-018` - Domain, persistence, Capability, bootstrap (autonomous batch)
+
+**Date:** 2026-07-23
+**Stage:** Stage 4 - Security
+**Status:** DONE through STAGE4-018 (implementation); STAGE4-019+ pending
+
+### Result
+
+Created Maven module `tmp-security` (reactor + dependencyManagement). Implemented public identity VOs; domain aggregates/ports (User, Role, PermissionDefinition, assignments, overrides, EffectivePermissionCalculator, SecurityAuditEvent); Flyway `V4__security_schema.sql`; JDBC adapters; BCrypt hasher; Security Administration Capability (12 permissions); PermissionSynchronizationApplicationService; BootstrapAdministratorApplicationService + `TMP_SECURITY_*` properties. JDBC repository tests use PostgreSQL Testcontainers (H2 cannot apply `lower(login)` unique index).
+
+### Next task
+
+STAGE4-019 / session / authentication / authorization / UI / final gate
+
+---
+
+## `STAGE4-024`..`STAGE4-032` - Password/roles/API/wiring/E2E/UI login (autonomous)
+
+**Date:** 2026-07-23
+**Stage:** Stage 4 - Security
+**Status:** DONE through STAGE4-032
+
+### Result
+
+Completed password/role/permission/audit application services; public `com.tmp.security.api` facades + credential-leak reflection test; `SecurityAutoConfiguration` / `SecurityPlatformComponent` (non-final `@Transactional` services for CGLIB; `Clock` `@ConditionalOnMissingBean`); `SecurityEndToEndPostgresIntegrationIT` (bootstrap>permissions, mutation+audit rollback via controllable audit repo, inactive-capability denial); `tmp-ui-shell` Navigation Service + Login Screen/FXML/ViewModel; `UiShellEntryPoint` hand-off; bootstrap tests moved from H2 to PostgreSQL Testcontainers (V4 `lower(login)` index).
+
+### Next task
+
+STAGE4-033 (Main Window permission-filtered navigation)
+
+---
+
+## `STAGE4-033`..`STAGE4-039` - Main Window, admin screens, bootstrap finalization, architecture (autonomous)
+
+**Date:** 2026-07-23
+**Stage:** Stage 4 - Security
+**Status:** DONE through STAGE4-039
+
+### Result
+
+Completed Main Window (permission-filtered nav), Access Denied + `SecuredOperationDemo` bypass-prevention proof, User/Role/Audit admin screens (ViewModels + FX controller tests), login-gated bootstrap (`UiShellEntryPoint` only; logout/stop clear session). Moved UI Spring wiring to `com.tmp.bootstrap.UiShellAutoConfiguration` and introduced `ShellNavigationCatalogue` so `com.tmp.ui..` stays free of Spring/Capability (Stage 0/3 rules). Promoted `SecurityPermissions` and `RoleInUseException` to `com.tmp.security.api`. Added `Stage4SecurityArchitectureTest` (ArchUnit + pom scan).
+
+### Next task
+
+STAGE4-040 (final Stage 4 gate)
+
