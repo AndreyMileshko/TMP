@@ -1929,3 +1929,51 @@ STAGE3-023
 
 — (stop before Stage 4)
 
+
+
+---
+
+## `STAGE3-024` - Lifecycle contribution cleanup (BLK-015)
+
+**Date:** 2026-07-23
+**Stage:** Stage 3 - Capability Engine
+**Status:** DONE
+
+### Result
+
+Unified `cleanupContributions` / `cleanupFailedCapability` for initialize/activation/stop/deactivation failures. `DEACTIVATED` only after successful full cleanup. `unsubscribeAll` aggregates failures. Original lifecycle exceptions are preserved; cleanup failures are suppressed.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Lifecycle cleanup acceptance tests | PASSED |
+| PostgreSQL IT (init failure cleanup) | PASSED |
+
+### Next task
+
+STAGE3-025
+
+---
+
+## `STAGE3-025` - Re-verification gate after BLK-015
+
+**Date:** 2026-07-23
+**Stage:** Stage 3 - Capability Engine
+**Status:** DONE
+
+### Result
+
+`mvn clean verify`, `mvn clean verify -Ppackage`, manual `TMP.exe` with PostgreSQL - all PASSED.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `mvn clean verify` | PASSED |
+| `mvn clean verify -Ppackage` | PASSED |
+| Manual `TMP.exe` | PASSED |
+
+### Next task
+
+- (stop before Stage 4)

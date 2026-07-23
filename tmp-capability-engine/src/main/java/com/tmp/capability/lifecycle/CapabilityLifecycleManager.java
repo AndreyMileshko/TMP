@@ -16,14 +16,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 /**
  * Orchestrates Capability lifecycle transitions after registration. State transitions occur
- * only after successful callback completion; failures mark the capability {@code FAILED} and
- * release tracked external contributions and event subscriptions.
+ * only after successful callback completion (and, for deactivation, successful contribution
+ * cleanup). Failures mark the capability {@code FAILED} and release all tracked contributions.
  */
 public final class CapabilityLifecycleManager {
 
@@ -62,9 +63,10 @@ public final class CapabilityLifecycleManager {
                     continue;
                 }
                 if (dependsOnFailed(capability, failed)) {
-                    markFailed(id, new IllegalStateException(
+                    RuntimeException dependencyFailure = new IllegalStateException(
                             "Capability '" + id + "' dependency failed",
-                            primaryDependencyFailure(capability, failed)));
+                            primaryDependencyFailure(capability, failed));
+                    cleanupFailedCapability(id, dependencyFailure);
                     failed.add(id);
                     continue;
                 }
@@ -72,7 +74,7 @@ public final class CapabilityLifecycleManager {
                     eventSubscriptions.runWithCapability(id, trackingEventBus, capability::onInitialize);
                     transition(id, CapabilityLifecycleState.INITIALIZED);
                 } catch (RuntimeException failure) {
-                    handleLifecycleFailure(id, failure);
+                    cleanupFailedCapability(id, failure);
                     failed.add(id);
                 }
             }
@@ -106,9 +108,10 @@ public final class CapabilityLifecycleManager {
                     continue;
                 }
                 if (dependsOnFailed(capability, failed)) {
-                    markFailed(id, new IllegalStateException(
+                    RuntimeException dependencyFailure = new IllegalStateException(
                             "Capability '" + id + "' dependency failed",
-                            primaryDependencyFailure(capability, failed)));
+                            primaryDependencyFailure(capability, failed));
+                    cleanupFailedCapability(id, dependencyFailure);
                     failed.add(id);
                     continue;
                 }
@@ -116,7 +119,7 @@ public final class CapabilityLifecycleManager {
                     eventSubscriptions.runWithCapability(id, trackingEventBus, capability::onActivate);
                     transition(id, CapabilityLifecycleState.ACTIVE);
                 } catch (RuntimeException failure) {
-                    handleActivationFailure(id, failure);
+                    cleanupFailedCapability(id, failure);
                     failed.add(id);
                 }
             }
@@ -147,24 +150,23 @@ public final class CapabilityLifecycleManager {
                 eventSubscriptions.runWithCapability(id, trackingEventBus, capability::onStop);
                 transition(id, CapabilityLifecycleState.STOPPED);
             } catch (RuntimeException failure) {
-                handleLifecycleFailure(id, failure);
+                cleanupFailedCapability(id, failure);
                 throw failure;
             }
 
             try {
                 eventSubscriptions.runWithCapability(id, trackingEventBus, capability::onDeactivate);
-                transition(id, CapabilityLifecycleState.DEACTIVATED);
             } catch (RuntimeException failure) {
-                markFailed(id, failure);
-                eventSubscriptions.unsubscribeAll(id);
+                cleanupFailedCapability(id, failure);
                 throw failure;
             }
 
-            contributionCatalogs.removeAllForOwner(id);
-            externalContributions.deactivateAll(
-                    id, () -> platformCore.capabilityRegistry().unregister(id.value()));
-            eventSubscriptions.unsubscribeAll(id);
-            externalContributions.clear(id);
+            RuntimeException cleanupFailure = cleanupContributions(id);
+            if (cleanupFailure != null) {
+                markFailed(id, cleanupFailure);
+                throw cleanupFailure;
+            }
+            transition(id, CapabilityLifecycleState.DEACTIVATED);
         } finally {
             lock.unlock();
         }
@@ -185,9 +187,12 @@ public final class CapabilityLifecycleManager {
                 try {
                     eventSubscriptions.runWithCapability(id, trackingEventBus, capability::onStop);
                     transition(id, CapabilityLifecycleState.STOPPED);
-                    eventSubscriptions.unsubscribeAll(id);
+                    RuntimeException unsubscribeFailure = eventSubscriptions.unsubscribeAll(id);
+                    if (unsubscribeFailure != null) {
+                        throw unsubscribeFailure;
+                    }
                 } catch (RuntimeException failure) {
-                    handleLifecycleFailure(id, failure);
+                    cleanupFailedCapability(id, failure);
                     if (firstFailure == null) {
                         firstFailure = failure;
                     } else {
@@ -203,17 +208,52 @@ public final class CapabilityLifecycleManager {
         }
     }
 
-    private void handleActivationFailure(CapabilityId id, RuntimeException failure) {
-        eventSubscriptions.unsubscribeAll(id);
-        externalContributions.deactivateAll(
-                id, () -> platformCore.capabilityRegistry().unregister(id.value()));
-        contributionCatalogs.removeAllForOwner(id);
+    /**
+     * Removes all internal and external contributions for a failed capability, attaches any
+     * cleanup failures as suppressed to {@code failure}, then marks the capability {@code FAILED}.
+     */
+    private void cleanupFailedCapability(CapabilityId id, RuntimeException failure) {
+        RuntimeException cleanupFailure = cleanupContributions(id);
+        if (cleanupFailure != null) {
+            failure.addSuppressed(cleanupFailure);
+        }
         markFailed(id, failure);
     }
 
-    private void handleLifecycleFailure(CapabilityId id, RuntimeException failure) {
-        eventSubscriptions.unsubscribeAll(id);
-        markFailed(id, failure);
+    /**
+     * Best-effort contribution cleanup. Continues after individual step failures and returns
+     * the first failure with subsequent failures attached as suppressed, or {@code null} when
+     * every step succeeds.
+     */
+    private RuntimeException cleanupContributions(CapabilityId id) {
+        RuntimeException firstFailure = null;
+        firstFailure = merge(firstFailure, eventSubscriptions.unsubscribeAll(id));
+        try {
+            contributionCatalogs.removeAllForOwner(id);
+        } catch (RuntimeException failure) {
+            firstFailure = merge(firstFailure, failure);
+        }
+        firstFailure = merge(
+                firstFailure,
+                externalContributions.deactivateAll(
+                        id, () -> platformCore.capabilityRegistry().unregister(id.value())));
+        try {
+            externalContributions.clear(id);
+        } catch (RuntimeException failure) {
+            firstFailure = merge(firstFailure, failure);
+        }
+        return firstFailure;
+    }
+
+    private static RuntimeException merge(RuntimeException firstFailure, RuntimeException nextFailure) {
+        if (nextFailure == null) {
+            return firstFailure;
+        }
+        if (firstFailure == null) {
+            return nextFailure;
+        }
+        firstFailure.addSuppressed(nextFailure);
+        return firstFailure;
     }
 
     private List<Capability> topologicalOrderOfRegistered() {
@@ -244,6 +284,11 @@ public final class CapabilityLifecycleManager {
             capabilityRegistry.updateState(id, CapabilityLifecycleState.FAILED);
         }
         failureCauses.put(id, cause);
+    }
+
+    public Optional<Throwable> failureCause(CapabilityId id) {
+        Objects.requireNonNull(id, "id");
+        return Optional.ofNullable(failureCauses.get(id));
     }
 
     private boolean dependsOnFailed(Capability capability, Set<CapabilityId> failed) {

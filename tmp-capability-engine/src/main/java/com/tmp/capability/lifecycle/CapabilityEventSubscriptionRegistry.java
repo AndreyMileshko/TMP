@@ -46,18 +46,30 @@ public final class CapabilityEventSubscriptionRegistry {
         subscriptions.computeIfAbsent(capabilityId, ignored -> new ArrayList<>()).add(subscription);
     }
 
-    public void unsubscribeAll(CapabilityId capabilityId) {
+    /**
+     * Unsubscribes every tracked subscription for {@code capabilityId}. Failures are aggregated:
+     * the first is returned and subsequent failures are attached as suppressed. Returns {@code null}
+     * when every unsubscribe succeeds or when there are no subscriptions.
+     */
+    public RuntimeException unsubscribeAll(CapabilityId capabilityId) {
+        Objects.requireNonNull(capabilityId, "capabilityId");
         List<EventSubscription> owned = subscriptions.remove(capabilityId);
         if (owned == null) {
-            return;
+            return null;
         }
+        RuntimeException firstFailure = null;
         for (EventSubscription subscription : owned) {
             try {
                 subscription.unsubscribe();
-            } catch (RuntimeException ignored) {
-                // best-effort cleanup during rollback or shutdown
+            } catch (RuntimeException failure) {
+                if (firstFailure == null) {
+                    firstFailure = failure;
+                } else {
+                    firstFailure.addSuppressed(failure);
+                }
             }
         }
+        return firstFailure;
     }
 
     CapabilityId currentCapability() {

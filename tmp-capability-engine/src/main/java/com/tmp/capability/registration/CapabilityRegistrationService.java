@@ -145,7 +145,10 @@ public final class CapabilityRegistrationService {
             boolean catalogsRegistered,
             List<Runnable> compensations,
             RuntimeException originalFailure) {
-        eventSubscriptions.unsubscribeAll(id);
+        RuntimeException unsubscribeFailure = eventSubscriptions.unsubscribeAll(id);
+        if (unsubscribeFailure != null) {
+            originalFailure.addSuppressed(unsubscribeFailure);
+        }
         List<Runnable> ordered = new ArrayList<>(compensations);
         Collections.reverse(ordered);
         for (Runnable compensation : ordered) {

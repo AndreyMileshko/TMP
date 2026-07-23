@@ -63,22 +63,31 @@ public final class CapabilityExternalContributionRegistry {
         }
     }
 
-    public void deactivateAll(CapabilityId owner, Runnable platformCapabilityUnregister) {
+    /**
+     * Deactivates external contributions for {@code owner} without removing persisted documents.
+     * Continues after individual step failures. Returns the first failure with subsequent failures
+     * attached as suppressed, or {@code null} when every step succeeds.
+     */
+    public RuntimeException deactivateAll(CapabilityId owner, Runnable platformCapabilityUnregister) {
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(platformCapabilityUnregister, "platformCapabilityUnregister");
         ExternalContributions external = contributions.get(owner);
         if (external == null) {
-            return;
+            return null;
         }
-        for (ServiceRegistration registration : external.serviceRegistrations) {
-            registration.unregister();
+        RuntimeException firstFailure = null;
+        for (ServiceRegistration registration : List.copyOf(external.serviceRegistrations)) {
+            firstFailure = runCompensation(firstFailure, registration::unregister);
         }
         external.serviceRegistrations.clear();
-        for (DocumentProcessorRegistration registration : external.documentProcessors) {
-            registration.deactivate();
+        for (DocumentProcessorRegistration registration : List.copyOf(external.documentProcessors)) {
+            firstFailure = runCompensation(firstFailure, registration::deactivate);
         }
         if (external.platformCapabilityRegistered) {
-            platformCapabilityUnregister.run();
+            firstFailure = runCompensation(firstFailure, platformCapabilityUnregister);
             external.platformCapabilityRegistered = false;
         }
+        return firstFailure;
     }
 
     public void clear(CapabilityId owner) {

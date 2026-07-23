@@ -3738,3 +3738,72 @@ Manual: `dist/jpackage/TMP/TMP.exe`
 ### Expected result
 
 `STATUS.md` → Stage 3 DONE 100%; `STAGE3-023` DONE.
+
+---
+
+## STAGE3-024 — Lifecycle contribution cleanup (BLK-015)
+
+**Status:** DONE  
+**Stage:** 3  
+**Depends on:** STAGE3-023  
+**Module:** `tmp-capability-engine`
+
+### Goal
+
+Устранить residual lifecycle cleanup defect: при initialize/activate/stop/deactivation failure снимать все contributions; `DEACTIVATED` только после успешной полной cleanup; не терять исходные exceptions; агрегировать unsubscribe/cleanup failures как suppressed.
+
+### Implementation requirements
+
+- Единый `cleanupFailedCapability` / `cleanupContributions` для initialize, activation, stop, deactivation failures;
+- Cleanup: event subscriptions, internal catalogs, public services, document processors, Platform Core capability metadata;
+- Continue after cleanup step failures; preserve original lifecycle exception; attach cleanup failures as suppressed;
+- `DEACTIVATED` only after successful callbacks and successful full cleanup; cleanup failure → `FAILED`;
+- `unsubscribeAll` must not silently swallow errors.
+
+### Acceptance criteria
+
+- [x] initialize failure removes public service, Document Processor, Platform Core metadata, internal catalogs;
+- [x] independent Capability still becomes ACTIVE;
+- [x] activation failure preserves original exception; cleanup errors suppressed; remaining cleanup steps execute;
+- [x] deactivation cleanup failure → FAILED (not DEACTIVATED); no stale service/subscription;
+- [x] unsubscribe failure is observable;
+- [x] stopAll continues reverse shutdown after cleanup failure;
+- [x] PostgreSQL IT: failed init after document registration; new ops rejected; existing data preserved;
+- [x] `BLK-015` RESOLVED.
+
+### Verification commands
+
+```bash
+mvn clean verify
+mvn clean verify -Ppackage
+```
+
+Manual: `dist/jpackage/TMP/TMP.exe`
+
+### Expected result
+
+Stage 3 re-verified; stop before Stage 4.
+
+---
+
+## STAGE3-025 — Re-verification gate after BLK-015
+
+**Status:** DONE  
+**Stage:** 3  
+**Depends on:** STAGE3-024  
+**Module:** cross-stage
+
+### Goal
+
+Повторная полная верификация Stage 3 после устранения `BLK-015`, без перехода к Stage 4.
+
+### Acceptance criteria
+
+- [x] `mvn clean verify` PASSED (full reactor);
+- [x] `mvn clean verify -Ppackage` PASSED;
+- [x] manual `TMP.exe` run PASSED (alive with `TMP_DB_*` + Docker PostgreSQL);
+- [x] Stage 3 re-closed at 100%; stop before Stage 4.
+
+### Expected result
+
+`STATUS.md` → Stage 3 DONE 100%; stop before Stage 4.

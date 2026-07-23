@@ -12,6 +12,7 @@ import com.tmp.capability.api.CapabilityId;
 import com.tmp.capability.api.CapabilityLifecycleState;
 import com.tmp.capability.api.CapabilityVersion;
 import com.tmp.capability.api.DocumentContribution;
+import com.tmp.capability.lifecycle.CapabilityLifecycleManager;
 import com.tmp.capability.registration.CapabilityRegistrationException;
 import com.tmp.capability.registration.CapabilityRegistrationService;
 import com.tmp.capability.sample.SampleDependentTechnicalCapability;
@@ -22,9 +23,12 @@ import com.tmp.document.DocumentEngineAutoConfiguration;
 import com.tmp.document.api.CreateDocumentCommand;
 import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.DocumentMetadata;
+import com.tmp.document.api.DocumentOperationContext;
+import com.tmp.document.api.DocumentProcessor;
 import com.tmp.document.api.DocumentQuery;
 import com.tmp.document.api.DocumentStatus;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -68,6 +72,9 @@ class CapabilityEngineDocumentPostgresIntegrationIT {
 
     @Autowired
     private CapabilityRegistrationService registrationService;
+
+    @Autowired
+    private CapabilityLifecycleManager lifecycleManager;
 
     @Autowired
     private DocumentEngine documentEngine;
@@ -143,7 +150,30 @@ class CapabilityEngineDocumentPostgresIntegrationIT {
         assertEquals(1, countDocumentTypes(SampleTechnicalDocumentProcessor.DOCUMENT_TYPE_ID));
     }
 
-    private int countDocuments(java.util.UUID documentId) {
+    @Test
+    @Order(5)
+    void failedInitializationAfterDocumentRegistrationRejectsNewOpsAndPreservesDocuments() {
+        CapabilityId failingId = CapabilityId.of("postgres.init.fail.capability");
+        String typeId = "postgres.init.fail.document";
+        registrationService.register(failingInitializeCapability(failingId, typeId));
+
+        DocumentMetadata created =
+                documentEngine.createDocument(new CreateDocumentCommand(typeId, "before initialize failure"));
+        assertEquals(1, countDocuments(created.id()));
+        assertEquals(1, countDocumentTypes(typeId));
+
+        lifecycleManager.initializeAll();
+
+        assertEquals(CapabilityLifecycleState.FAILED, capabilityEngine.stateOf(failingId));
+        assertThrows(
+                IllegalStateException.class,
+                () -> documentEngine.createDocument(new CreateDocumentCommand(typeId, "blocked after init failure")));
+        assertTrue(documentEngine.findById(created.id()).isPresent());
+        assertEquals(1, countDocuments(created.id()));
+        assertEquals(1, countDocumentTypes(typeId));
+    }
+
+    private int countDocuments(UUID documentId) {
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM documents.documents WHERE id = ?",
                 Integer.class,
@@ -157,6 +187,73 @@ class CapabilityEngineDocumentPostgresIntegrationIT {
                 Integer.class,
                 typeId);
         return count == null ? 0 : count;
+    }
+
+    private static Capability failingInitializeCapability(CapabilityId id, String documentTypeId) {
+        return new Capability() {
+            private final CapabilityDescriptor descriptor = CapabilityDescriptor.builder()
+                    .id(id)
+                    .name("PostgreSQL initialize failure test")
+                    .version(CapabilityVersion.of("1.0.0"))
+                    .description("Technical fixture for initialize-failure contribution cleanup")
+                    .documents(List.of(DocumentContribution.of(
+                            documentTypeId,
+                            "Init-fail document",
+                            "Technical fixture",
+                            new DocumentProcessor() {
+                                @Override
+                                public String documentTypeId() {
+                                    return documentTypeId;
+                                }
+
+                                @Override
+                                public void validateCreate(DocumentOperationContext context) {
+                                }
+
+                                @Override
+                                public void validateUpdate(DocumentOperationContext context) {
+                                }
+
+                                @Override
+                                public void onPost(DocumentOperationContext context) {
+                                }
+
+                                @Override
+                                public void onUnpost(DocumentOperationContext context) {
+                                }
+
+                                @Override
+                                public void onClose(DocumentOperationContext context) {
+                                }
+
+                                @Override
+                                public void onDelete(DocumentOperationContext context) {
+                                }
+                            })))
+                    .build();
+
+            @Override
+            public CapabilityDescriptor descriptor() {
+                return descriptor;
+            }
+
+            @Override
+            public void onInitialize() {
+                throw new IllegalStateException("initialize failed for " + id);
+            }
+
+            @Override
+            public void onActivate() {
+            }
+
+            @Override
+            public void onDeactivate() {
+            }
+
+            @Override
+            public void onStop() {
+            }
+        };
     }
 
     private static Capability duplicateDocumentTypeCapability() {

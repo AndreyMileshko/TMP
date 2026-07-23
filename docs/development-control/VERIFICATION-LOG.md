@@ -656,3 +656,27 @@
 ### Failures
 
 - None.
+
+## 2026-07-23 - `STAGE3-024` (BLK-015)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Cleanup acceptance | `CapabilityLifecycleCleanupAcceptanceTest` | PASSED |
+| PostgreSQL IT Order 5 | failed init after document registration | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-23 - `STAGE3-025`
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Full reactor verify | `mvn clean verify` | PASSED |
+| Package profile verify | `mvn clean verify -Ppackage` | PASSED |
+| Manual TMP.exe | `TMP.exe` with `TMP_DB_*` + Docker PostgreSQL | PASSED (alive) |
+| Stage 4 start | Not started (stop gate) | CONFIRMED |
+
+### Failures
+
+- None.
