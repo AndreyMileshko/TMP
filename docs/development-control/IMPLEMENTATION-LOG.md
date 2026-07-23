@@ -2056,3 +2056,26 @@ Completed Main Window (permission-filtered nav), Access Denied + `SecuredOperati
 
 STAGE4-040 (final Stage 4 gate)
 
+---
+
+## `STAGE4-041`…`STAGE4-048` — BLK-016 corrective (autonomous)
+
+**Date:** 2026-07-23  
+**Stage:** Stage 4 — Security  
+**Status:** DONE
+
+### Result
+
+Closed Stage 4 acceptance defects (BLK-016):
+
+- Auth audit/session separation + dummy BCrypt timing mitigation + PostgreSQL auth IT.
+- Atomic bootstrap via `pg_advisory_xact_lock`, unique `lower(roles.name)`, concurrent bootstrap IT.
+- Removed bootstrap secret defaults from `application-dev.yml`.
+- Flyway `V5__permission_ownership_and_role_name_unique.sql`; permission ownership sync.
+- Deleted-user authorization + session clear; restart-safe document contribution registration.
+- VERIFICATION-LOG Latest result + STAGE4-019..023 honest batch note.
+
+### Next task
+
+STAGE4-040 formal Stage 4 close (Stage 5 not started).
+

@@ -60,7 +60,7 @@ class JdbcPermissionDefinitionRepositoryTest {
 
     @Test
     void roundTripAndActiveToggle() {
-        PermissionDefinition saved = repository.save(PermissionDefinition.register(VIEW, "View", "d", CLOCK));
+        PermissionDefinition saved = repository.save(PermissionDefinition.register(VIEW, "test.capability", "View", "d", CLOCK));
         assertTrue(repository.findById(VIEW).orElseThrow().active());
         PermissionDefinition deactivated = repository.save(saved.deactivated());
         assertFalse(deactivated.active());
@@ -70,10 +70,10 @@ class JdbcPermissionDefinitionRepositoryTest {
 
     @Test
     void optimisticLockConflict() {
-        PermissionDefinition created = repository.save(PermissionDefinition.register(VIEW, "View", "", CLOCK));
+        PermissionDefinition created = repository.save(PermissionDefinition.register(VIEW, "test.capability", "View", "", CLOCK));
         repository.save(created.withDisplayName("View2"));
         PermissionDefinition stale = PermissionDefinition.rehydrate(
-                VIEW, "stale", "", true, created.registeredAt(), 0L);
+                VIEW, "test.capability", "stale", "", true, created.registeredAt(), 0L);
         assertThrows(OptimisticLockConflictException.class, () -> repository.save(stale));
     }
 

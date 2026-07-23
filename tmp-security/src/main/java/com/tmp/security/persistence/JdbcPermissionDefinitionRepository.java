@@ -35,10 +35,12 @@ public final class JdbcPermissionDefinitionRepository implements PermissionDefin
             jdbcTemplate.update(
                     """
                     INSERT INTO security.permission_definitions (
-                        permission_id, display_name, description, active, registered_at, version)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                        permission_id, owner_capability_id, display_name, description,
+                        active, registered_at, version)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     definition.permissionId().value(),
+                    definition.ownerCapabilityId(),
                     definition.displayName(),
                     definition.description(),
                     definition.active(),
@@ -51,9 +53,10 @@ public final class JdbcPermissionDefinitionRepository implements PermissionDefin
         int updated = jdbcTemplate.update(
                 """
                 UPDATE security.permission_definitions
-                SET display_name = ?, description = ?, active = ?, version = ?
+                SET owner_capability_id = ?, display_name = ?, description = ?, active = ?, version = ?
                 WHERE permission_id = ? AND version = ?
                 """,
+                definition.ownerCapabilityId(),
                 definition.displayName(),
                 definition.description(),
                 definition.active(),
@@ -66,6 +69,7 @@ public final class JdbcPermissionDefinitionRepository implements PermissionDefin
         }
         return PermissionDefinition.rehydrate(
                 definition.permissionId(),
+                definition.ownerCapabilityId(),
                 definition.displayName(),
                 definition.description(),
                 definition.active(),
@@ -95,6 +99,7 @@ public final class JdbcPermissionDefinitionRepository implements PermissionDefin
     private static PermissionDefinition mapRow(ResultSet rs, int rowNum) throws SQLException {
         return PermissionDefinition.rehydrate(
                 PermissionId.of(rs.getString("permission_id")),
+                rs.getString("owner_capability_id"),
                 rs.getString("display_name"),
                 rs.getString("description"),
                 rs.getBoolean("active"),

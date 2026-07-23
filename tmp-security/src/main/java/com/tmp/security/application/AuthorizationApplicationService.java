@@ -2,17 +2,20 @@ package com.tmp.security.application;
 
 import com.tmp.capability.api.CapabilityEngine;
 import com.tmp.capability.api.PermissionDescriptor;
+import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.RoleId;
 import com.tmp.security.api.UserId;
-import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.domain.EffectivePermissionCalculator;
 import com.tmp.security.domain.IndividualPermissionOverride;
 import com.tmp.security.domain.Role;
 import com.tmp.security.domain.Session;
+import com.tmp.security.domain.User;
+import com.tmp.security.domain.UserStatus;
 import com.tmp.security.domain.repository.PermissionOverrideRepository;
 import com.tmp.security.domain.repository.RoleAssignmentRepository;
 import com.tmp.security.domain.repository.RoleRepository;
+import com.tmp.security.domain.repository.UserRepository;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
@@ -21,10 +24,12 @@ import java.util.stream.Collectors;
 
 /**
  * Centralized authorization checks. Effective permissions are always recomputed live.
+ * Deleted users cannot authorize even if an in-memory session still exists.
  */
-public final class AuthorizationApplicationService {
+public class AuthorizationApplicationService {
 
     private final SessionContext sessionContext;
+    private final UserRepository userRepository;
     private final CapabilityEngine capabilityEngine;
     private final RoleAssignmentRepository roleAssignments;
     private final RoleRepository roles;
@@ -32,11 +37,13 @@ public final class AuthorizationApplicationService {
 
     public AuthorizationApplicationService(
             SessionContext sessionContext,
+            UserRepository userRepository,
             CapabilityEngine capabilityEngine,
             RoleAssignmentRepository roleAssignments,
             RoleRepository roles,
             PermissionOverrideRepository overrides) {
         this.sessionContext = Objects.requireNonNull(sessionContext, "sessionContext");
+        this.userRepository = Objects.requireNonNull(userRepository, "userRepository");
         this.capabilityEngine = Objects.requireNonNull(capabilityEngine, "capabilityEngine");
         this.roleAssignments = Objects.requireNonNull(roleAssignments, "roleAssignments");
         this.roles = Objects.requireNonNull(roles, "roles");
@@ -47,6 +54,9 @@ public final class AuthorizationApplicationService {
         Objects.requireNonNull(permissionId, "permissionId");
         Optional<Session> session = sessionContext.current();
         if (session.isEmpty()) {
+            return false;
+        }
+        if (!isSessionUserActive(session.get().userId())) {
             return false;
         }
         if (!isActivePermission(permissionId)) {
@@ -66,7 +76,7 @@ public final class AuthorizationApplicationService {
 
     public Set<PermissionId> effectivePermissions() {
         Optional<Session> session = sessionContext.current();
-        if (session.isEmpty()) {
+        if (session.isEmpty() || !isSessionUserActive(session.get().userId())) {
             return Set.of();
         }
         Set<PermissionId> active = activePermissionIds();
@@ -75,6 +85,11 @@ public final class AuthorizationApplicationService {
                 active,
                 new HashSet<>(overrides.findByUser(userId)),
                 loadRoles(userId));
+    }
+
+    private boolean isSessionUserActive(UserId userId) {
+        Optional<User> user = userRepository.findById(userId);
+        return user.isPresent() && user.get().status() == UserStatus.ACTIVE;
     }
 
     private boolean isActivePermission(PermissionId permissionId) {

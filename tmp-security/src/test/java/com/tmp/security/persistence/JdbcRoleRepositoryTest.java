@@ -62,8 +62,8 @@ class JdbcRoleRepositoryTest {
         jdbcTemplate.update("DELETE FROM security.user_roles");
         jdbcTemplate.update("DELETE FROM security.roles");
         jdbcTemplate.update("DELETE FROM security.permission_definitions");
-        permissionRepository.save(PermissionDefinition.register(VIEW, "View", "", CLOCK));
-        permissionRepository.save(PermissionDefinition.register(CREATE, "Create", "", CLOCK));
+        permissionRepository.save(PermissionDefinition.register(VIEW, "test.capability", "View", "", CLOCK));
+        permissionRepository.save(PermissionDefinition.register(CREATE, "test.capability", "Create", "", CLOCK));
     }
 
     @Test

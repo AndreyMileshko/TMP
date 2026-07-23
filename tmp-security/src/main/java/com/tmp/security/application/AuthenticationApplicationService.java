@@ -1,11 +1,12 @@
 package com.tmp.security.application;
 
 import com.tmp.security.api.AuditEventId;
+import com.tmp.security.api.AuthenticationFailedException;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.SessionId;
 import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.AuditResult;
-import com.tmp.security.api.AuthenticationFailedException;
+import com.tmp.security.domain.PasswordHash;
 import com.tmp.security.domain.PasswordHasher;
 import com.tmp.security.domain.SecurityAuditEvent;
 import com.tmp.security.domain.Session;
@@ -16,81 +17,75 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
 /**
  * Login / logout / session queries. Never logs or audits plaintext passwords.
+ *
+ * <p>DB work and in-memory session open are deliberately separated: session is opened only
+ * after a successful audit transaction commits. Failed-login audits run in their own
+ * completed transaction so they are not rolled back by {@link AuthenticationFailedException}.
  */
 public class AuthenticationApplicationService {
+
+    /**
+     * Constant technical BCrypt hash used when the login is unknown/deleted so verification
+     * cost matches the known-user path (timing side-channel mitigation). Not a real user password.
+     */
+    static final PasswordHash UNKNOWN_USER_DUMMY_HASH = PasswordHash.of(
+            "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy");
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
     private final SessionContext sessionContext;
     private final SecurityAuditRepository auditRepository;
     private final Clock clock;
+    private final TransactionOperations authenticationTransactions;
 
     public AuthenticationApplicationService(
             UserRepository userRepository,
             PasswordHasher passwordHasher,
             SessionContext sessionContext,
             SecurityAuditRepository auditRepository,
-            Clock clock) {
+            Clock clock,
+            TransactionOperations authenticationTransactions) {
         this.userRepository = Objects.requireNonNull(userRepository, "userRepository");
         this.passwordHasher = Objects.requireNonNull(passwordHasher, "passwordHasher");
         this.sessionContext = Objects.requireNonNull(sessionContext, "sessionContext");
         this.auditRepository = Objects.requireNonNull(auditRepository, "auditRepository");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.authenticationTransactions =
+                Objects.requireNonNull(authenticationTransactions, "authenticationTransactions");
     }
 
-    @Transactional
     public Session login(Login login, char[] password) {
         Objects.requireNonNull(login, "login");
         Objects.requireNonNull(password, "password");
         try {
             Optional<User> found = userRepository.findByLoginIgnoreCase(login);
-            if (found.isEmpty()
-                    || !found.get().isActive()
-                    || !passwordHasher.matches(password, found.get().passwordHash())) {
-                auditRepository.append(SecurityAuditEvent.record(
-                        AuditEventId.generate(),
-                        clock.instant(),
-                        found.map(User::id).orElse(null),
-                        login.value(),
-                        AuditOperation.LOGIN_FAILURE,
-                        "USER",
-                        found.map(u -> u.id().value().toString()).orElse(null),
-                        "Login failed",
-                        AuditResult.FAILURE));
+            boolean credentialsAccepted = verifyCredentials(found, password);
+            if (!credentialsAccepted) {
+                recordLoginFailure(login, found);
                 throw new AuthenticationFailedException();
             }
-            User user = found.get();
+            User user = found.orElseThrow();
             Session session = Session.of(
                     SessionId.generate(), user.id(), user.login(), clock.instant());
+            recordLoginSuccess(user);
             sessionContext.open(session);
-            auditRepository.append(SecurityAuditEvent.record(
-                    AuditEventId.generate(),
-                    clock.instant(),
-                    user.id(),
-                    user.login().value(),
-                    AuditOperation.LOGIN_SUCCESS,
-                    "USER",
-                    user.id().value().toString(),
-                    "Login succeeded",
-                    AuditResult.SUCCESS));
             return session;
         } finally {
             Arrays.fill(password, '\0');
         }
     }
 
-    @Transactional
     public void logout() {
         Optional<Session> current = sessionContext.current();
         if (current.isEmpty()) {
             return;
         }
         Session session = current.get();
-        auditRepository.append(SecurityAuditEvent.record(
+        authenticationTransactions.executeWithoutResult(status -> auditRepository.append(SecurityAuditEvent.record(
                 AuditEventId.generate(),
                 clock.instant(),
                 session.userId(),
@@ -99,7 +94,7 @@ public class AuthenticationApplicationService {
                 "USER",
                 session.userId().value().toString(),
                 "Logout",
-                AuditResult.SUCCESS));
+                AuditResult.SUCCESS)));
         sessionContext.close();
     }
 
@@ -109,5 +104,39 @@ public class AuthenticationApplicationService {
 
     public boolean isAuthenticated() {
         return sessionContext.isAuthenticated();
+    }
+
+    private boolean verifyCredentials(Optional<User> found, char[] password) {
+        if (found.isPresent() && found.get().isActive()) {
+            return passwordHasher.matches(password, found.get().passwordHash());
+        }
+        passwordHasher.matches(password, UNKNOWN_USER_DUMMY_HASH);
+        return false;
+    }
+
+    private void recordLoginFailure(Login login, Optional<User> found) {
+        authenticationTransactions.executeWithoutResult(status -> auditRepository.append(SecurityAuditEvent.record(
+                AuditEventId.generate(),
+                clock.instant(),
+                found.map(User::id).orElse(null),
+                login.value(),
+                AuditOperation.LOGIN_FAILURE,
+                "USER",
+                found.map(u -> u.id().value().toString()).orElse(null),
+                "Login failed",
+                AuditResult.FAILURE)));
+    }
+
+    private void recordLoginSuccess(User user) {
+        authenticationTransactions.executeWithoutResult(status -> auditRepository.append(SecurityAuditEvent.record(
+                AuditEventId.generate(),
+                clock.instant(),
+                user.id(),
+                user.login().value(),
+                AuditOperation.LOGIN_SUCCESS,
+                "USER",
+                user.id().value().toString(),
+                "Login succeeded",
+                AuditResult.SUCCESS)));
     }
 }

@@ -71,7 +71,9 @@ class RoleAdministrationApplicationServiceTest {
                 SecurityPermissions.ROLES_DELETE,
                 SecurityPermissions.PERMISSIONS_ASSIGN);
         AuthorizationApplicationService authorization = new AuthorizationApplicationService(
-                sessions, engine(perms), emptyAssignments(), emptyRoles(), grantAll(actor, perms));
+                sessions,
+                alwaysActiveUsers(),
+                engine(perms), emptyAssignments(), emptyRoles(), grantAll(actor, perms));
         service = new RoleAdministrationApplicationService(
                 roles, assignments, authorization, audit, sessions, CLOCK);
     }
@@ -321,5 +323,8 @@ class RoleAdministrationApplicationServiceTest {
         public long count(AuditQueryFilter filter) {
             return events.size();
         }
+    }
+    private static AlwaysActiveUserRepository alwaysActiveUsers() {
+        return new AlwaysActiveUserRepository();
     }
 }

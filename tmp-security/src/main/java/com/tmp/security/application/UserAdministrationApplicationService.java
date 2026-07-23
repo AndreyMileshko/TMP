@@ -81,6 +81,11 @@ public class UserAdministrationApplicationService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
         User deleted = userRepository.save(user.deleted(clock));
         appendAudit(AuditOperation.USER_DELETED, deleted.id(), "User logically deleted");
+        sessionContext.current().ifPresent(session -> {
+            if (session.userId().equals(userId)) {
+                sessionContext.close();
+            }
+        });
         return deleted;
     }
 

@@ -68,7 +68,7 @@ class JdbcRoleAssignmentRepositoryTest {
         JdbcRoleRepository roles = new JdbcRoleRepository(jdbcTemplate);
         JdbcPermissionDefinitionRepository permissions = new JdbcPermissionDefinitionRepository(jdbcTemplate);
         PermissionId view = PermissionId.of("security.users.view");
-        permissions.save(PermissionDefinition.register(view, "View", "", CLOCK));
+        permissions.save(PermissionDefinition.register(view, "test.capability", "View", "", CLOCK));
         userId = users.save(User.createActive(
                         UserId.generate(),
                         Login.of("u1"),

@@ -9,12 +9,15 @@ import com.tmp.security.api.PermissionId;
 import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.AuditResult;
 import com.tmp.security.domain.PermissionDefinition;
+import com.tmp.security.domain.PermissionOwnershipConflictException;
 import com.tmp.security.domain.SecurityAuditEvent;
 import com.tmp.security.domain.repository.PermissionDefinitionRepository;
 import com.tmp.security.domain.repository.SecurityAuditRepository;
 import java.time.Clock;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -40,15 +43,22 @@ public class PermissionSynchronizationApplicationService {
 
     @Transactional
     public void synchronize() {
+        Set<PermissionId> catalogueIds = new HashSet<>();
         for (CapabilityDescriptor descriptor : capabilityEngine.registeredCapabilities()) {
+            String ownerId = descriptor.id().value();
             boolean capabilityActive =
                     capabilityEngine.stateOf(descriptor.id()) == CapabilityLifecycleState.ACTIVE;
             for (PermissionDescriptor permission : descriptor.permissions()) {
                 PermissionId permissionId = PermissionId.of(permission.permissionId());
+                catalogueIds.add(permissionId);
                 Optional<PermissionDefinition> existing = permissionDefinitions.findById(permissionId);
                 if (existing.isEmpty()) {
                     PermissionDefinition registered = PermissionDefinition.register(
-                            permissionId, permission.displayName(), permission.description(), clock);
+                            permissionId,
+                            ownerId,
+                            permission.displayName(),
+                            permission.description(),
+                            clock);
                     if (!capabilityActive) {
                         registered = registered.deactivated();
                     }
@@ -66,6 +76,16 @@ public class PermissionSynchronizationApplicationService {
                     continue;
                 }
                 PermissionDefinition current = existing.get();
+                if (!ownerId.equals(current.ownerCapabilityId())) {
+                    throw new PermissionOwnershipConflictException(
+                            "Permission '"
+                                    + permissionId.value()
+                                    + "' is owned by capability '"
+                                    + current.ownerCapabilityId()
+                                    + "' but capability '"
+                                    + ownerId
+                                    + "' also contributes it");
+                }
                 PermissionDefinition next = current;
                 if (!Objects.equals(current.displayName(), permission.displayName())) {
                     next = next.withDisplayName(permission.displayName());
@@ -74,13 +94,21 @@ public class PermissionSynchronizationApplicationService {
                     next = next.withDescription(permission.description());
                 }
                 next = capabilityActive ? next.activated() : next.deactivated();
-                if (next != current
-                        && (next.active() != current.active()
-                                || !Objects.equals(next.displayName(), current.displayName())
-                                || !Objects.equals(next.description(), current.description()))) {
+                if (changed(current, next)) {
                     permissionDefinitions.save(next);
                 }
             }
         }
+        for (PermissionDefinition definition : permissionDefinitions.findAll()) {
+            if (!catalogueIds.contains(definition.permissionId()) && definition.active()) {
+                permissionDefinitions.save(definition.deactivated());
+            }
+        }
+    }
+
+    private static boolean changed(PermissionDefinition current, PermissionDefinition next) {
+        return next.active() != current.active()
+                || !Objects.equals(next.displayName(), current.displayName())
+                || !Objects.equals(next.description(), current.description());
     }
 }

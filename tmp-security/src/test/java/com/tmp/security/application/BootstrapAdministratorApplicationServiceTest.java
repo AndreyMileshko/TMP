@@ -4,10 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 
 import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
-import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.RoleId;
 import com.tmp.security.api.UserId;
 import com.tmp.security.domain.DuplicateLoginException;
@@ -34,6 +36,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 class BootstrapAdministratorApplicationServiceTest {
 
@@ -47,7 +50,7 @@ class BootstrapAdministratorApplicationServiceTest {
         InMemoryAudit audit = new InMemoryAudit();
         SecurityBootstrapProperties props = configuredProps();
         BootstrapAdministratorApplicationService service = new BootstrapAdministratorApplicationService(
-                users, roles, assignments, audit, new FakeHasher(), props, CLOCK);
+                users, roles, assignments, audit, new FakeHasher(), props, CLOCK, noopJdbc());
 
         service.ensureBootstrapAdministrator();
 
@@ -59,7 +62,7 @@ class BootstrapAdministratorApplicationServiceTest {
     }
 
     @Test
-    void missingConfigFailsFast() {
+    void missingConfigFailsFastWithoutPasswordLeak() {
         InMemoryUsers users = new InMemoryUsers();
         BootstrapAdministratorApplicationService service = new BootstrapAdministratorApplicationService(
                 users,
@@ -68,9 +71,13 @@ class BootstrapAdministratorApplicationServiceTest {
                 new InMemoryAudit(),
                 new FakeHasher(),
                 new SecurityBootstrapProperties(),
-                CLOCK);
-        assertThrows(MissingBootstrapConfigurationException.class, service::ensureBootstrapAdministrator);
+                CLOCK,
+                noopJdbc());
+        MissingBootstrapConfigurationException ex =
+                assertThrows(MissingBootstrapConfigurationException.class, service::ensureBootstrapAdministrator);
         assertFalse(users.existsAny());
+        assertFalse(ex.getMessage().contains("password"));
+        assertFalse(ex.getMessage().toLowerCase().contains("secret"));
     }
 
     @Test
@@ -90,26 +97,49 @@ class BootstrapAdministratorApplicationServiceTest {
                 audit,
                 new FakeHasher(),
                 configuredProps(),
-                CLOCK);
+                CLOCK,
+                noopJdbc());
         service.ensureBootstrapAdministrator();
         assertEquals(1, users.store.size());
         assertTrue(audit.events.isEmpty());
     }
 
     @Test
-    void concurrentDuplicateLoginIsBenign() {
+    void duplicateLoginAfterLockIsNotSwallowed() {
         InMemoryUsers users = new InMemoryUsers();
         users.failNextSaveWithDuplicate = true;
+        InMemoryRoles roles = new InMemoryRoles();
         BootstrapAdministratorApplicationService service = new BootstrapAdministratorApplicationService(
                 users,
-                new InMemoryRoles(),
+                roles,
                 new InMemoryAssignments(),
                 new InMemoryAudit(),
                 new FakeHasher(),
                 configuredProps(),
-                CLOCK);
-        service.ensureBootstrapAdministrator();
-        assertFalse(users.existsAny());
+                CLOCK,
+                noopJdbc());
+        assertThrows(DuplicateLoginException.class, service::ensureBootstrapAdministrator);
+        assertEquals(1, roles.findAll().size(), "role may exist before user save failure in unit double");
+    }
+
+    private static JdbcTemplate noopJdbc() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        java.sql.Connection connection = mock(java.sql.Connection.class);
+        java.sql.PreparedStatement statement = mock(java.sql.PreparedStatement.class);
+        try {
+            org.mockito.Mockito.when(connection.prepareStatement(org.mockito.ArgumentMatchers.anyString()))
+                    .thenReturn(statement);
+            org.mockito.Mockito.when(statement.execute()).thenReturn(true);
+        } catch (java.sql.SQLException ex) {
+            throw new IllegalStateException(ex);
+        }
+        doAnswer(invocation -> {
+                    org.springframework.jdbc.core.ConnectionCallback<?> callback = invocation.getArgument(0);
+                    return callback.doInConnection(connection);
+                })
+                .when(jdbc)
+                .execute(any(org.springframework.jdbc.core.ConnectionCallback.class));
+        return jdbc;
     }
 
     private static SecurityBootstrapProperties configuredProps() {

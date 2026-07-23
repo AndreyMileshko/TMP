@@ -5,12 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.security.api.AuthenticationFailedException;
 import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.UserId;
 import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.AuditQueryFilter;
-import com.tmp.security.api.AuthenticationFailedException;
 import com.tmp.security.domain.PasswordHash;
 import com.tmp.security.domain.PasswordHasher;
 import com.tmp.security.domain.SecurityAuditEvent;
@@ -25,8 +25,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionOperations;
 
 class AuthenticationApplicationServiceTest {
 
@@ -36,6 +40,7 @@ class AuthenticationApplicationServiceTest {
     private InMemoryUsers users;
     private SessionContext sessions;
     private InMemoryAudit audit;
+    private RecordingHasher hasher;
     private AuthenticationApplicationService service;
 
     @BeforeEach
@@ -43,8 +48,9 @@ class AuthenticationApplicationServiceTest {
         users = new InMemoryUsers();
         sessions = new SessionContext();
         audit = new InMemoryAudit();
+        hasher = new RecordingHasher();
         service = new AuthenticationApplicationService(
-                users, new ExactHasher(), sessions, audit, CLOCK);
+                users, hasher, sessions, audit, CLOCK, immediateTransactions());
     }
 
     @Test
@@ -80,6 +86,26 @@ class AuthenticationApplicationServiceTest {
     }
 
     @Test
+    void unknownLoginAlwaysInvokesPasswordHasherMatches() {
+        hasher.matchesCalls.set(0);
+        assertThrows(
+                AuthenticationFailedException.class,
+                () -> service.login(Login.of("missing"), "whatever".toCharArray()));
+        assertEquals(1, hasher.matchesCalls.get());
+        assertEquals(
+                AuthenticationApplicationService.UNKNOWN_USER_DUMMY_HASH,
+                hasher.lastHash);
+    }
+
+    @Test
+    void auditFailureOnSuccessPathLeavesNoSession() {
+        users.save(active("admin", "secret"));
+        audit.failOnAppend = true;
+        assertThrows(IllegalStateException.class, () -> service.login(Login.of("admin"), "secret".toCharArray()));
+        assertFalse(service.isAuthenticated());
+    }
+
+    @Test
     void logoutWithAndWithoutSession() {
         service.logout();
         assertTrue(audit.events.isEmpty());
@@ -99,7 +125,19 @@ class AuthenticationApplicationServiceTest {
                 CLOCK);
     }
 
-    private static final class ExactHasher implements PasswordHasher {
+    private static TransactionOperations immediateTransactions() {
+        return new TransactionOperations() {
+            @Override
+            public <T> T execute(TransactionCallback<T> action) {
+                return action.doInTransaction(new SimpleTransactionStatus());
+            }
+        };
+    }
+
+    private static final class RecordingHasher implements PasswordHasher {
+        private final AtomicInteger matchesCalls = new AtomicInteger();
+        private PasswordHash lastHash;
+
         @Override
         public PasswordHash hash(char[] plaintextPassword) {
             return PasswordHash.of(new String(plaintextPassword));
@@ -107,6 +145,8 @@ class AuthenticationApplicationServiceTest {
 
         @Override
         public boolean matches(char[] plaintextPassword, PasswordHash hash) {
+            matchesCalls.incrementAndGet();
+            lastHash = hash;
             return hash.encodedValue().equals(new String(plaintextPassword));
         }
     }
@@ -143,7 +183,8 @@ class AuthenticationApplicationServiceTest {
         }
 
         @Override
-        public java.util.List<User> findPage(int pageIndex, int pageSize, com.tmp.security.domain.UserStatus statusFilter) {
+        public java.util.List<User> findPage(
+                int pageIndex, int pageSize, com.tmp.security.domain.UserStatus statusFilter) {
             return store.values().stream()
                     .filter(u -> statusFilter == null || u.status() == statusFilter)
                     .skip((long) pageIndex * pageSize)
@@ -154,9 +195,13 @@ class AuthenticationApplicationServiceTest {
 
     private static final class InMemoryAudit implements SecurityAuditRepository {
         private final List<SecurityAuditEvent> events = new ArrayList<>();
+        private boolean failOnAppend;
 
         @Override
         public void append(SecurityAuditEvent event) {
+            if (failOnAppend) {
+                throw new IllegalStateException("audit write failed");
+            }
             events.add(event);
         }
 

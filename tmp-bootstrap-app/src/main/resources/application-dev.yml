@@ -17,9 +17,8 @@ spring:
 tmp:
   security:
     bootstrap:
-      admin-login: ${TMP_SECURITY_BOOTSTRAP_ADMIN_LOGIN:admin}
-      admin-display-name: ${TMP_SECURITY_BOOTSTRAP_ADMIN_DISPLAY_NAME:Administrator}
-      admin-password: ${TMP_SECURITY_BOOTSTRAP_ADMIN_PASSWORD:dev-admin-password}
+      # Credentials must come from TMP_SECURITY_BOOTSTRAP_* environment variables.
+      # No repository defaults — empty DB without configuration fails fast at startup.
 
 logging:
   level:

@@ -69,6 +69,7 @@ class UserAdministrationApplicationServiceTest {
         sessions.open(Session.of(SessionId.generate(), actor, Login.of("actor"), CLOCK.instant()));
         authorization = new AuthorizationApplicationService(
                 sessions,
+                alwaysActiveUsers(),
                 allPermissionsEngine(),
                 emptyAssignments(),
                 emptyRoles(),
@@ -335,5 +336,8 @@ class UserAdministrationApplicationServiceTest {
         public long count(AuditQueryFilter filter) {
             return events.size();
         }
+    }
+    private static AlwaysActiveUserRepository alwaysActiveUsers() {
+        return new AlwaysActiveUserRepository();
     }
 }

@@ -2,9 +2,9 @@
 
 ## Latest result
 
-**Date:** 2026-07-22  
-**Scope:** Stage 3 Start Gate baseline (`mvn clean verify` before any Capability Engine code)  
-**Overall:** PASSED
+**Date:** 2026-07-23  
+**Scope:** Stage 4 — Security; BLK-016 corrective STAGE4-041…048 + automated gate  
+**Overall:** PASSED (automated). STAGE4-040 formal close / optional interactive UI smoke still open; Stage 5 not started.
 
 ---
 
@@ -706,6 +706,21 @@
 
 - None.
 
+## 2026-07-23 - STAGE4-019..023 (honest batch note)
+
+These tasks (password / role / permission-override / audit application services and public API façades) were implemented and verified as part of the STAGE4-024..032 delivery package rather than with per-task VERIFICATION-LOG rows at the time.
+
+| Verification | Result |
+|---|---|
+| Coverage evidence | Application-service unit tests under `tmp-security/src/test/java/com/tmp/security/application/` for password/role/override/audit; public API surface tests including `SecurityApiSurfaceNoCredentialLeakTest` |
+| Later focused re-check | Exercised again by `SecurityEndToEndPostgresIntegrationIT` and Stage 4 architecture tests |
+| Per-task isolated verify at original close | NOT recorded separately (process defect noted by acceptance review; corrective work uses focused verify per STAGE4-041+) |
+| Git operations | none |
+
+### Failures
+
+- Process: batch closure without per-task VERIFICATION-LOG entries for STAGE4-019..023. Remediated by this explicit note (STAGE4-048) and by requiring focused verification on STAGE4-041+.
+
 ## 2026-07-23 - STAGE4-024..032 (batch)
 
 | Verification | Result |
@@ -732,4 +747,25 @@
 ### Failures
 
 - None (stale `UiShellAutoConfiguration.imports` in ui-shell `target/` cleared via `mvn clean`; SpotBugs EI_EXPOSE_REP suppressed on JavaFX ViewModel/Controller types).
+
+## 2026-07-23 - `STAGE4-041`…`STAGE4-048` (BLK-016 corrective)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Auth unit + PG IT | `AuthenticationApplicationServiceTest`, `AuthenticationPostgresIntegrationIT` | PASSED |
+| Bootstrap concurrent PG IT | `BootstrapAdministratorPostgresIntegrationIT` | PASSED |
+| Permission ownership PG IT | `PermissionSynchronizationPostgresIntegrationIT` | PASSED |
+| Deleted-user session PG IT | `DeletedUserSessionPostgresIntegrationIT` | PASSED |
+| Capability restart registration | `CapabilityRegistrationServiceTest` | PASSED |
+| Full reactor verify | `mvn clean verify` (log: `stage4-blk016-clean-verify.log`) | PASSED |
+| Package profile verify | `mvn clean verify -Ppackage` (log: `stage4-blk016-package-verify.log`) | PASSED |
+| Manual TMP.exe first launch | Docker Postgres + `TMP_DB_*` + `TMP_SECURITY_BOOTSTRAP_*` | PASSED (Flyway v5, admin user, JavaFX alive) |
+| Manual TMP.exe second launch | same DB | PASSED (no `Document type already registered`) |
+| Credential leak in TMP.exe logs | plaintext password / bcrypt hash | ABSENT |
+| Interactive desktop wrong-password / login / logout clicks | packaged GUI | NOT automated here — covered by Security/UI ITs; optional human STAGE4-040 confirm |
+| Git operations | none | N/A |
+
+### Failures
+
+- None for automated gate. STAGE4-040 formal Stage-complete marking deferred until optional interactive UI smoke if required by acceptance.
 

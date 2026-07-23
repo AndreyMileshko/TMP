@@ -126,19 +126,14 @@ class CapabilityRegistrationServiceTest {
     }
 
     @Test
-    void failureAtDocumentContributionPreCheckRollsBackCatalogsAndReservation() {
+    void persistedDocumentTypeFromPriorProcessAllowsRestartRegistration() {
         documentEngine.seedType("sample.document");
 
-        CapabilityRegistrationException failure = assertThrows(
-                CapabilityRegistrationException.class,
-                () -> registrationService.register(fullCapability("sample.capability")));
+        registrationService.register(fullCapability("sample.capability"));
 
-        assertTrue(failure.getCause().getMessage().contains("sample.document"));
-        assertTrue(capabilityRegistry.findById(CapabilityId.of("sample.capability")).isEmpty());
-        assertTrue(catalogs.activePermissions().isEmpty());
-        assertTrue(platformCapabilityRegistry.findById("sample.capability").isEmpty());
+        assertTrue(capabilityRegistry.findById(CapabilityId.of("sample.capability")).isPresent());
         assertEquals(1, documentEngine.registeredTypes().size());
-        assertEquals(0, documentEngine.registerProcessorCallCount());
+        assertEquals(1, documentEngine.registerProcessorCallCount());
     }
 
     @Test
@@ -179,12 +174,12 @@ class CapabilityRegistrationServiceTest {
 
     @Test
     void retryAfterCorrectedFailureSucceeds() {
-        documentEngine.seedType("sample.document");
+        documentEngine.failOnRegisterProcessor = true;
         assertThrows(
                 CapabilityRegistrationException.class,
                 () -> registrationService.register(fullCapability("sample.capability")));
 
-        documentEngine.clearSeededTypes();
+        documentEngine.failOnRegisterProcessor = false;
         registrationService.register(fullCapability("sample.capability"));
 
         assertTrue(capabilityRegistry.findById(CapabilityId.of("sample.capability")).isPresent());
@@ -258,14 +253,14 @@ class CapabilityRegistrationServiceTest {
 
     @Test
     void originalExceptionIsPreservedAndInspectableAfterFailure() {
-        documentEngine.seedType("sample.document");
+        documentEngine.failOnRegisterProcessor = true;
 
         CapabilityRegistrationException failure = assertThrows(
                 CapabilityRegistrationException.class,
                 () -> registrationService.register(fullCapability("sample.capability")));
 
         assertInstanceOf(IllegalStateException.class, failure.getCause());
-        assertTrue(failure.getCause().getMessage().contains("Document type already registered"));
+        assertTrue(failure.getCause().getMessage().contains("processor rejected"));
     }
 
     private static Capability fullCapability(String id) {
@@ -490,13 +485,12 @@ class CapabilityRegistrationServiceTest {
             if (failOnRegisterProcessor) {
                 throw new IllegalStateException("processor rejected");
             }
-            for (DocumentTypeDescriptor existing : types) {
-                if (existing.typeId().equals(processor.documentTypeId())) {
-                    throw new IllegalStateException("duplicate processor: " + processor.documentTypeId());
-                }
-            }
             String typeId = processor.documentTypeId();
-            types.add(new DocumentTypeDescriptor(typeId, typeId, "registered"));
+            // Restart-safe: persisted types may already exist; bind processor without duplicating the type row.
+            boolean alreadyPersisted = types.stream().anyMatch(type -> type.typeId().equals(typeId));
+            if (!alreadyPersisted) {
+                types.add(new DocumentTypeDescriptor(typeId, typeId, "registered"));
+            }
             return new DocumentProcessorRegistration() {
                 @Override
                 public String documentTypeId() {

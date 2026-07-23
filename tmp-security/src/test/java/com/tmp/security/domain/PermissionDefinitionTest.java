@@ -18,14 +18,14 @@ class PermissionDefinitionTest {
 
     @Test
     void registerStartsActive() {
-        PermissionDefinition def = PermissionDefinition.register(ID, "View users", "desc", CLOCK);
+        PermissionDefinition def = PermissionDefinition.register(ID, "test.capability", "View users", "desc", CLOCK);
         assertTrue(def.active());
         assertEquals(ID, def.permissionId());
     }
 
     @Test
     void activateDeactivateIdempotent() {
-        PermissionDefinition active = PermissionDefinition.register(ID, "View", "", CLOCK);
+        PermissionDefinition active = PermissionDefinition.register(ID, "test.capability", "View", "", CLOCK);
         PermissionDefinition inactive = active.deactivated();
         assertFalse(inactive.active());
         assertEquals(ID, inactive.permissionId());
@@ -36,7 +36,7 @@ class PermissionDefinitionTest {
 
     @Test
     void metadataChangeKeepsPermissionId() {
-        PermissionDefinition original = PermissionDefinition.register(ID, "View", "a", CLOCK);
+        PermissionDefinition original = PermissionDefinition.register(ID, "test.capability", "View", "a", CLOCK);
         PermissionDefinition renamed = original.withDisplayName("View users").withDescription("b");
         assertEquals(ID, renamed.permissionId());
         assertEquals("View users", renamed.displayName());

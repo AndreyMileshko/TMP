@@ -61,7 +61,9 @@ class AuditQueryApplicationServiceTest {
         service = new AuditQueryApplicationService(
                 audit,
                 new AuthorizationApplicationService(
-                        sessions, engine(perms), emptyAssignments(), emptyRoles(), grant(actor, perms)));
+                sessions,
+                alwaysActiveUsers(),
+                engine(perms), emptyAssignments(), emptyRoles(), grant(actor, perms)));
         audit.append(SecurityAuditEvent.record(
                 AuditEventId.generate(),
                 CLOCK.instant(),
@@ -247,5 +249,8 @@ class AuditQueryApplicationServiceTest {
         public long count(AuditQueryFilter filter) {
             return events.size();
         }
+    }
+    private static AlwaysActiveUserRepository alwaysActiveUsers() {
+        return new AlwaysActiveUserRepository();
     }
 }

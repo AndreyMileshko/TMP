@@ -74,6 +74,7 @@ class PasswordApplicationServiceTest {
         sessions.open(Session.of(SessionId.generate(), selfId, Login.of("self"), CLOCK.instant()));
         AuthorizationApplicationService authorization = new AuthorizationApplicationService(
                 sessions,
+                alwaysActiveUsers(),
                 engine(Set.of(SecurityPermissions.USERS_RESET_PASSWORD)),
                 emptyAssignments(),
                 emptyRoles(),
@@ -337,5 +338,8 @@ class PasswordApplicationServiceTest {
         public long count(AuditQueryFilter filter) {
             return events.size();
         }
+    }
+    private static AlwaysActiveUserRepository alwaysActiveUsers() {
+        return new AlwaysActiveUserRepository();
     }
 }

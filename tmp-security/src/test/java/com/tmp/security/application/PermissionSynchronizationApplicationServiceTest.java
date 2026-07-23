@@ -2,6 +2,7 @@ package com.tmp.security.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.capability.api.CapabilityDescriptor;
@@ -47,7 +48,9 @@ class PermissionSynchronizationApplicationServiceTest {
                 new PermissionSynchronizationApplicationService(engine, definitions, audit, CLOCK);
 
         service.synchronize();
-        assertTrue(definitions.findById(VIEW).orElseThrow().active());
+        PermissionDefinition registered = definitions.findById(VIEW).orElseThrow();
+        assertTrue(registered.active());
+        assertEquals(CAP_ID.value(), registered.ownerCapabilityId());
         assertEquals(1, audit.events.size());
         assertEquals(AuditOperation.PERMISSION_DEFINITION_REGISTERED, audit.events.getFirst().operation());
 
@@ -63,6 +66,48 @@ class PermissionSynchronizationApplicationServiceTest {
         service.synchronize();
         assertTrue(definitions.findById(VIEW).orElseThrow().active());
         assertEquals(1, audit.events.size());
+    }
+
+    @Test
+    void ownershipConflictIsDetected() {
+        FakeCapabilityEngine engine = new FakeCapabilityEngine();
+        engine.put(descriptor(), CapabilityLifecycleState.ACTIVE);
+        InMemoryPermissionDefinitions definitions = new InMemoryPermissionDefinitions();
+        PermissionSynchronizationApplicationService service =
+                new PermissionSynchronizationApplicationService(engine, definitions, new InMemoryAudit(), CLOCK);
+        service.synchronize();
+
+        CapabilityId other = CapabilityId.of("other.capability");
+        engine.put(
+                CapabilityDescriptor.builder()
+                        .id(other)
+                        .name("Other")
+                        .version(CapabilityVersion.of("1.0.0"))
+                        .description("other")
+                        .permissions(List.of(PermissionDescriptor.of(VIEW.value(), "View users", "desc")))
+                        .build(),
+                CapabilityLifecycleState.ACTIVE);
+
+        assertThrows(
+                com.tmp.security.domain.PermissionOwnershipConflictException.class, service::synchronize);
+    }
+
+    @Test
+    void orphanDefinitionIsDeactivatedWhenMissingFromCatalogue() {
+        FakeCapabilityEngine engine = new FakeCapabilityEngine();
+        engine.put(descriptor(), CapabilityLifecycleState.ACTIVE);
+        InMemoryPermissionDefinitions definitions = new InMemoryPermissionDefinitions();
+        PermissionSynchronizationApplicationService service =
+                new PermissionSynchronizationApplicationService(engine, definitions, new InMemoryAudit(), CLOCK);
+        service.synchronize();
+
+        PermissionId orphan = PermissionId.of("security.orphan.view");
+        definitions.save(PermissionDefinition.register(
+                orphan, "gone.capability", "Orphan", "", CLOCK));
+
+        service.synchronize();
+        assertFalse(definitions.findById(orphan).orElseThrow().active());
+        assertTrue(definitions.findById(VIEW).orElseThrow().active());
     }
 
     private static CapabilityDescriptor descriptor() {

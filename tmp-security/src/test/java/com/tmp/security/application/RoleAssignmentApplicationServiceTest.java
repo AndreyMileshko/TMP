@@ -79,7 +79,9 @@ class RoleAssignmentApplicationServiceTest {
                 roles,
                 assignments,
                 new AuthorizationApplicationService(
-                        sessions, engine(perms), emptyAssignments(), emptyRoles(), grant(actor, perms)),
+                sessions,
+                alwaysActiveUsers(),
+                engine(perms), emptyAssignments(), emptyRoles(), grant(actor, perms)),
                 audit,
                 sessions,
                 CLOCK);
@@ -366,5 +368,8 @@ class RoleAssignmentApplicationServiceTest {
         public long count(AuditQueryFilter filter) {
             return events.size();
         }
+    }
+    private static AlwaysActiveUserRepository alwaysActiveUsers() {
+        return new AlwaysActiveUserRepository();
     }
 }

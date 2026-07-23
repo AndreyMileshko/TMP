@@ -560,3 +560,53 @@ Capability Engine: `CapabilityExternalContributionRegistry`, `CapabilityEventSub
 ### Resolution
 
 `CapabilityLifecycleManager`: единый `cleanupContributions` / `cleanupFailedCapability` для initialize, activation, stop и deactivation failures; `DEACTIVATED` только после успешной полной cleanup. `CapabilityEventSubscriptionRegistry.unsubscribeAll` возвращает агрегированное failure. `CapabilityExternalContributionRegistry.deactivateAll` продолжает после ошибок и возвращает first+suppressed. Тесты: `CapabilityLifecycleCleanupAcceptanceTest`, PostgreSQL IT Order 5. Verification: `mvn clean verify`, `mvn clean verify -Ppackage`, manual `TMP.exe`.
+
+---
+
+## `BLK-016` — `Stage 4 Security acceptance defects`
+
+**Status:** RESOLVED  
+**Task:** `STAGE4-041`…`STAGE4-048` (corrective); blocks `STAGE4-040`  
+**Detected:** 2026-07-23
+
+### Reason
+
+Stage 4 acceptance review: шесть блокирующих дефектов Security (transaction/session consistency при login, timing side-channel, non-atomic bootstrap admin, bootstrap secret в репозитории, отсутствие ownership у permission definitions, активная session удалённого пользователя), плюс необходимость case-insensitive unique role name, remediation VERIFICATION-LOG, и idempotent document-type re-registration при повторном запуске packaged app.
+
+### Evidence
+
+1. **Authentication transaction / session:** `AuthenticationApplicationService.login` — `@Transactional`; `LOGIN_FAILURE` audit + `AuthenticationFailedException` в одной транзакции → audit откатывается. `sessionContext.open` до audit/commit success → частичная session при audit/commit failure.
+2. **Timing side-channel:** unknown login short-circuit без `PasswordHasher.matches`.
+3. **Bootstrap:** role создаётся до user; `DuplicateLoginException` поглощается; concurrent loser может оставить лишнюю role; нет unique `lower(roles.name)`.
+4. **Secret in repo:** `application-dev.yml` содержит default `dev-admin-password` через `${TMP_SECURITY_BOOTSTRAP_ADMIN_PASSWORD:dev-admin-password}`.
+5. **Permission ownership:** `security.permission_definitions` / `PermissionDefinition` без `owner_capability_id`; sync не детектит конфликты ownership и не деактивирует orphan/inactive-capability definitions.
+6. **Deleted user session:** `AuthorizationApplicationService` не проверяет `UserStatus`; `deleteUser` не очищает session текущего пользователя.
+7. **Packaged restart:** `CapabilityRegistrationService.registerDocumentContributions` трактует DB-persisted document types как конфликт → второй запуск `TMP.exe` падает.
+
+### Options
+
+1. Corrective tasks STAGE4-041…048 (рекомендуется): точечные исправления по owner-областям + PostgreSQL Testcontainers tests + VERIFICATION-LOG remediation; затем STAGE4-040.
+2. Отложить Stage 4 и перейти к Stage 5 (запрещено governance / user instruction).
+
+### Recommendation
+
+Вариант 1.
+
+### Required user decision
+
+Не требуется — acceptance review уже задал исправления; агент выполняет STAGE4-041…048 без Git-операций и без Start Gate Stage 5.
+
+### Resolution
+
+Corrective tasks STAGE4-041…048 implemented and verified:
+
+1. Authentication: separate `REQUIRES_NEW` audit transactions; session opens only after success-audit commit (`AuthenticationApplicationService`, `AuthenticationPostgresIntegrationIT`).
+2. Timing side-channel: constant dummy BCrypt hash + always `PasswordHasher.matches` for unknown/deleted paths.
+3. Bootstrap: `pg_advisory_xact_lock` + re-check `existsAny`; no swallowed duplicate path; concurrent IT; `uk_roles_name` on `lower(name)` in V5.
+4. `application-dev.yml` bootstrap defaults removed; env-only credentials; fail-fast without password leakage.
+5. V5 `owner_capability_id` NOT NULL + index; sync ownership/conflict/orphan/inactive deactivation without deleting assignments/overrides.
+6. Authorization consults `UserStatus`; self-delete clears session; deleted-user ITs.
+7. Capability document contribution registration restart-safe (DB-persisted types).
+8. VERIFICATION-LOG Latest result + STAGE4-019..023 honest batch note.
+
+Automated gate after fixes: `mvn clean verify`, `mvn clean verify -Ppackage`, `TMP.exe` first and second launch — PASSED. BLK-016 closed; STAGE4-040 remains for formal Stage 4 close / optional interactive UI smoke.

@@ -17,7 +17,6 @@ import com.tmp.core.api.component.ComponentType;
 import com.tmp.core.api.component.PlatformComponentMetadata;
 import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.DocumentProcessorRegistration;
-import com.tmp.document.api.DocumentTypeDescriptor;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -104,14 +103,11 @@ public final class CapabilityRegistrationService {
     private void registerDocumentContributions(
             CapabilityId id, CapabilityDescriptor descriptor, List<Runnable> compensations) {
         for (DocumentContribution contribution : descriptor.documents()) {
-            String typeId = contribution.documentTypeId();
-            for (DocumentTypeDescriptor existing : documentEngine.registeredTypes()) {
-                if (typeId.equals(existing.typeId())) {
-                    throw new IllegalStateException(
-                            "Document type already registered: " + typeId);
-                }
-            }
-            DocumentProcessorRegistration registration = documentEngine.registerProcessor(contribution.processor());
+            // Document types may already exist in PostgreSQL after a previous process lifetime.
+            // DefaultDocumentEngine.registerProcessor upserts the type row and binds the
+            // in-memory processor; duplicate in-process processor registration remains a hard failure.
+            DocumentProcessorRegistration registration =
+                    documentEngine.registerProcessor(contribution.processor());
             externalContributions.recordDocumentProcessor(id, registration);
             compensations.add(registration::unregister);
         }

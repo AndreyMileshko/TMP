@@ -6510,9 +6510,9 @@ Automated, durable enforcement of every Stage 4 architectural boundary.
 
 ## STAGE4-040 — Final Stage 4 verification gate
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** 4
-**Depends on:** STAGE4-039, STAGE4-030
+**Depends on:** STAGE4-039, STAGE4-030, STAGE4-041, STAGE4-042, STAGE4-043, STAGE4-044, STAGE4-045, STAGE4-046, STAGE4-047, STAGE4-048
 **Module:** cross-stage
 
 ### Goal
@@ -6567,3 +6567,498 @@ dist/jpackage/TMP/TMP.exe
 ### Expected result
 
 Stage 4 fully DONE; explicit stop before Stage 5 per governance §9 ("завершён текущий Stage и следующий Stage ещё не прошёл Start Gate").
+
+---
+
+# Stage 4 — Security (BLK-016 corrective tasks)
+
+## STAGE4-041 — Authentication transaction and session consistency
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-039, BLK-016  
+**Module:** `tmp-security`
+
+### Goal
+
+Разделить DB-транзакцию аутентификации и in-memory открытие session так, чтобы failed-login audit коммитился отдельно, session открывалась только после успешного commit success-audit, и при любом login failure session отсутствовала.
+
+### Required documents
+
+- Security Specification (authentication, audit, session);
+- BLK-016 blocker 1.
+
+### Required code context
+
+- `AuthenticationApplicationService`, `SessionContext`, `SecurityAuditRepository`, `SecurityAutoConfiguration`.
+
+### Allowed code scope
+
+- `tmp-security/src/main/java/com/tmp/security/application/AuthenticationApplicationService.java`;
+- `tmp-security/src/main/java/com/tmp/security/SecurityAutoConfiguration.java` (TransactionTemplate wiring if needed);
+- matching unit + PostgreSQL IT tests under `tmp-security/src/test`.
+
+### Forbidden
+
+- revealing login existence in exceptions/messages;
+- logging/auditing plaintext passwords or hashes;
+- opening session before successful audit commit.
+
+### Implementation requirements
+
+- Remove `@Transactional` from `login()` as a single enclosing transaction for both failure path and session open.
+- Use a completed `REQUIRES_NEW` (or equivalent) transaction for `LOGIN_FAILURE` audit before throwing.
+- Persist `LOGIN_SUCCESS` audit in a DB transaction that commits before `sessionContext.open`.
+- On audit failure: do not open session; propagate failure.
+- On any authentication failure: session must be absent.
+
+### Acceptance criteria
+
+- [ ] Failed-login audit survives rollback of the authentication attempt / exception path.
+- [ ] Session is opened only after successful success-audit commit.
+- [ ] Audit failure on success path leaves no session.
+- [ ] PostgreSQL Testcontainers IT covers failure-audit durability and success session timing.
+
+### Required tests
+
+- Unit tests for failure/success session invariants.
+- `AuthenticationPostgresIntegrationIT` (or equivalent) with Testcontainers.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-security -am test -Dtest=AuthenticationApplicationServiceTest
+mvn -pl :tmp-security -am verify -Dit.test=AuthenticationPostgresIntegrationIT
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Login audit/session consistency matches Security Specification and BLK-016 blocker 1.
+
+---
+
+## STAGE4-042 — Login timing side-channel mitigation
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-041  
+**Module:** `tmp-security`
+
+### Goal
+
+Устранить timing side-channel: для неизвестного login всегда выполнять BCrypt verification против постоянного dummy hash; одинаковое сообщение для unknown/wrong/deleted без раскрытия существования login.
+
+### Required documents
+
+- Security Specification (authentication failure messaging);
+- BLK-016 blocker 2.
+
+### Required code context
+
+- `AuthenticationApplicationService`, `PasswordHasher`, `AuthenticationFailedException`.
+
+### Allowed code scope
+
+- `tmp-security` authentication application + tests.
+
+### Forbidden
+
+- placing login existence in exception messages;
+- skipping `PasswordHasher.matches` for unknown login.
+
+### Implementation requirements
+
+- Constant technical dummy BCrypt `PasswordHash`.
+- Always call `matches` for unknown/deleted/wrong paths.
+- Keep generic `AuthenticationFailedException` message.
+
+### Acceptance criteria
+
+- [ ] Unknown login invokes `PasswordHasher.matches`.
+- [ ] unknown/wrong/deleted share the same message.
+- [ ] Unit test verifies matches invocation for unknown login.
+
+### Required tests
+
+- Extended `AuthenticationApplicationServiceTest` (mock/spy hasher).
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-security -am test -Dtest=AuthenticationApplicationServiceTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+No login-existence timing oracle via skipped BCrypt.
+
+---
+
+## STAGE4-043 — Atomic bootstrap administrator and unique role name
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-042  
+**Module:** `tmp-security`
+
+### Goal
+
+Сделать bootstrap administrator атомарным под PostgreSQL transaction-scoped lock с повторной проверкой `existsAny`, без поглощения исключений, допускающих partial commit; добавить case-insensitive unique index на role name.
+
+### Required documents
+
+- Security Specification (bootstrap administrator);
+- BLK-016 blocker 3 + additional item 1.
+
+### Required code context
+
+- `BootstrapAdministratorApplicationService`, Flyway migrations, JDBC role repository.
+
+### Allowed code scope
+
+- `tmp-security` bootstrap service + new Flyway migration (do not edit V4) + tests.
+
+### Forbidden
+
+- swallowing exceptions that can leave partial commits;
+- creating role without protecting concurrent bootstrap.
+
+### Implementation requirements
+
+- `pg_advisory_xact_lock` (or approved equivalent) inside the bootstrap transaction.
+- Re-check `existsAny()` after lock.
+- Atomic role + user + assignment + success audit.
+- `CREATE UNIQUE INDEX ... ON security.roles (lower(name))` in new migration.
+- Concurrent PostgreSQL IT: exactly one user, one Security Administrator role, one assignment, one success audit.
+
+### Acceptance criteria
+
+- [ ] Concurrent bootstrap yields exactly one admin user/role/assignment/success audit.
+- [ ] Unique case-insensitive role name enforced by DB.
+- [ ] No swallowed `DuplicateLoginException` path that leaves orphan roles.
+
+### Required tests
+
+- Concurrent bootstrap PostgreSQL IT.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-security -am verify -Dit.test=BootstrapAdministratorPostgresIntegrationIT
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Bootstrap is race-safe and atomic.
+
+---
+
+## STAGE4-044 — Remove bootstrap secret defaults from repository YAML
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-043  
+**Module:** `tmp-bootstrap-app`
+
+### Goal
+
+Удалить default admin password / bootstrap credentials из `application-dev.yml`; credentials только через `TMP_SECURITY_BOOTSTRAP_*`; fail-fast на пустой DB без конфигурации; password не в log/exception.
+
+### Required documents
+
+- BLK-016 blocker 4.
+
+### Required code context
+
+- `application-dev.yml`, `SecurityBootstrapProperties`, `MissingBootstrapConfigurationException`, `BootstrapAdministratorApplicationService`.
+
+### Allowed code scope
+
+- bootstrap YAML profiles; fail-fast path (no password leakage).
+
+### Forbidden
+
+- default passwords in repository;
+- printing password in logs/exceptions.
+
+### Implementation requirements
+
+- Remove `${...:default}` bootstrap password/login/display-name defaults from `application-dev.yml`.
+- Empty DB + missing env → startup fails with `MissingBootstrapConfigurationException` without password value.
+- Package profile continues to require env vars.
+
+### Acceptance criteria
+
+- [ ] No default bootstrap password in tracked YAML.
+- [ ] Fail-fast without config on empty DB.
+- [ ] Exception/log text does not contain password.
+
+### Required tests
+
+- Existing bootstrap missing-config unit/IT coverage updated as needed.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-security,:tmp-bootstrap-app -am test -Dtest=BootstrapAdministratorApplicationServiceTest
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+No bootstrap secrets in repository defaults.
+
+---
+
+## STAGE4-045 — Permission ownership migration and synchronization
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-044  
+**Module:** `tmp-security`
+
+### Goal
+
+Добавить `owner_capability_id` (NOT NULL + index) новой Flyway migration без изменения V4; расширить domain/repository; sync сохраняет owner, детектит конфликты PermissionId между Capability, деактивирует definitions не-ACTIVE Capability и orphan definitions, не удаляя role assignments/overrides.
+
+### Required documents
+
+- Security Specification (permission definitions / sync);
+- BLK-016 blocker 5.
+
+### Required code context
+
+- `PermissionDefinition`, JDBC repository, `PermissionSynchronizationApplicationService`, V4 schema.
+
+### Allowed code scope
+
+- new `V5__...sql`; domain/persistence/sync + PostgreSQL tests.
+
+### Forbidden
+
+- modifying V4;
+- deleting role assignments or individual overrides during sync.
+
+### Implementation requirements
+
+- Migration adds `owner_capability_id VARCHAR NOT NULL` + index (backfill existing rows with a deterministic owner if any, or delete+re-sync path only if empty in tests).
+- Sync: save owner; conflict when same PermissionId claimed by different Capability; deactivate inactive-capability and catalogue-missing definitions.
+
+### Acceptance criteria
+
+- [ ] Schema has NOT NULL owner + index.
+- [ ] Sync ownership/conflict/deactivation behaviours covered by PostgreSQL tests.
+- [ ] Role assignments and overrides remain.
+
+### Required tests
+
+- Permission sync PostgreSQL IT.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-security -am verify -Dit.test=PermissionSynchronizationPostgresIntegrationIT
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Permission definitions are capability-owned and sync-safe.
+
+---
+
+## STAGE4-046 — Deleted user cannot keep an active secured session
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-045  
+**Module:** `tmp-security`
+
+### Goal
+
+Удалённый пользователь не может выполнять secured operations; Authorization учитывает актуальный `UserStatus`; удаление текущего пользователя очищает session; concurrency test login/authorization vs logical delete.
+
+### Required documents
+
+- Security Specification (user lifecycle, authorization);
+- BLK-016 blocker 6.
+
+### Required code context
+
+- `AuthorizationApplicationService`, `UserAdministrationApplicationService`, `SessionContext`, `UserRepository`.
+
+### Allowed code scope
+
+- authorization/user-admin application services + tests.
+
+### Forbidden
+
+- allowing deleted users to pass `hasPermission` / `requirePermission`.
+
+### Implementation requirements
+
+- Authorization loads current user status; DELETED → deny.
+- `deleteUser` clears session when deleting the authenticated user.
+- Concurrency PostgreSQL IT: login/authorization vs logical delete.
+
+### Acceptance criteria
+
+- [ ] Deleted user session cannot authorize.
+- [ ] Self-delete clears session.
+- [ ] Concurrency IT passes.
+
+### Required tests
+
+- Unit + PostgreSQL concurrency IT.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-security -am verify -Dit.test=DeletedUserSessionPostgresIntegrationIT
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Logical delete immediately stops secured access for that user.
+
+---
+
+## STAGE4-047 — Idempotent document contribution registration on restart
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-046  
+**Module:** `tmp-capability-engine`
+
+### Goal
+
+Повторный запуск packaged app против той же PostgreSQL DB не падает на `Document type already registered` для sample/technical document contributions: registration must treat DB-persisted types as restart-safe while still rejecting in-process duplicate processor registration.
+
+### Required documents
+
+- BLK-016 evidence item 7; Stage 3 Capability registration semantics.
+
+### Required code context
+
+- `CapabilityRegistrationService.registerDocumentContributions`;
+- `DefaultDocumentEngine.registeredTypes` (DB-backed);
+- `DefaultDocumentEngine.registerProcessor` (DB upsert + in-memory processor).
+
+### Allowed code scope
+
+- `tmp-capability-engine` registration service + focused tests; document engine only if a minimal public probe is required.
+
+### Forbidden
+
+- deleting persisted document types on every startup;
+- silent cross-capability type hijacking in the same process.
+
+### Implementation requirements
+
+- Stop treating DB-listed types as fatal conflicts during capability registration.
+- Keep in-memory duplicate processor registration as a hard failure.
+- Add test covering re-register after persisted type exists.
+
+### Acceptance criteria
+
+- [ ] Second registration against persisted type succeeds for processor bind.
+- [ ] Same-process duplicate processor still fails.
+- [ ] Packaged `TMP.exe` second launch no longer fails on sample.technical.document.
+
+### Required tests
+
+- Focused unit/IT in capability-engine module.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-capability-engine -am test -Dtest=CapabilityRegistrationServiceTest,CapabilityLifecycle*
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Packaged app restart is stable with persisted document types.
+
+---
+
+## STAGE4-048 — VERIFICATION-LOG remediation for Stage 4
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-047  
+**Module:** docs
+
+### Goal
+
+Исправить `VERIFICATION-LOG.md`: Latest result отражает Stage 4; добавить отдельные записи STAGE4-019..023 либо честно зафиксировать пакетное выполнение; не закрывать задачи без focused verification notes.
+
+### Required documents
+
+- BLK-016 additional items 2–4.
+
+### Required code context
+
+- `docs/development-control/VERIFICATION-LOG.md`.
+
+### Allowed code scope
+
+- VERIFICATION-LOG.md (and STATUS/IMPLEMENTATION-LOG cross-links if needed).
+
+### Forbidden
+
+- fabricating PASSED results without evidence;
+- marking STAGE4-040 DONE here.
+
+### Implementation requirements
+
+- Update Latest result to Stage 4 / BLK-016 corrective scope.
+- Add STAGE4-019..023 entries or an explicit package-execution note with honesty about batch verification.
+
+### Acceptance criteria
+
+- [ ] Latest result is Stage 4 accurate.
+- [ ] STAGE4-019..023 accounted for.
+
+### Required tests
+
+- none (documentation).
+
+### Verification commands
+
+```bash
+# manual review of VERIFICATION-LOG.md
+```
+
+### Documentation updates
+
+- VERIFICATION-LOG; STATUS.
+
+### Expected result
+
+Verification log is trustworthy for Stage 4 review.

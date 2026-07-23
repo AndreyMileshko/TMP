@@ -24,9 +24,11 @@ import com.tmp.security.domain.IndividualPermissionOverride;
 import com.tmp.security.domain.PermissionOverrideDecision;
 import com.tmp.security.domain.Role;
 import com.tmp.security.domain.Session;
+import com.tmp.security.domain.User;
 import com.tmp.security.domain.repository.PermissionOverrideRepository;
 import com.tmp.security.domain.repository.RoleAssignmentRepository;
 import com.tmp.security.domain.repository.RoleRepository;
+import com.tmp.security.domain.repository.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -63,7 +65,9 @@ class AuthorizationApplicationServiceTest {
         assignments = new InMemoryAssignments();
         overrides = new InMemoryOverrides();
         authorization = new AuthorizationApplicationService(
-                sessions, engine, assignments, roles, overrides);
+                sessions,
+                alwaysActiveUsers(),
+                engine, assignments, roles, overrides);
         userId = UserId.generate();
     }
 
@@ -111,8 +115,69 @@ class AuthorizationApplicationServiceTest {
         assertTrue(authorization.hasPermission(CREATE));
     }
 
+    @Test
+    void deletedUserCannotAuthorizeEvenWithOpenSession() {
+        openSession();
+        Role role = roles.save(Role.create(RoleId.generate(), "R", "", CLOCK).grantPermission(VIEW, CLOCK));
+        assignments.assignRole(userId, role.id());
+        assertTrue(authorization.hasPermission(VIEW));
+
+        authorization = new AuthorizationApplicationService(
+                sessions,
+                deletedUserRepository(userId),
+                engine,
+                assignments,
+                roles,
+                overrides);
+        assertFalse(authorization.hasPermission(VIEW));
+        assertTrue(authorization.effectivePermissions().isEmpty());
+    }
+
     private void openSession() {
         sessions.open(Session.of(SessionId.generate(), userId, Login.of("u"), CLOCK.instant()));
+    }
+
+    private static UserRepository deletedUserRepository(UserId id) {
+        return new UserRepository() {
+            @Override
+            public User save(User user) {
+                return user;
+            }
+
+            @Override
+            public Optional<User> findById(UserId userId) {
+                if (!userId.equals(id)) {
+                    return Optional.empty();
+                }
+                return Optional.of(User.createActive(
+                                id,
+                                Login.of("u"),
+                                com.tmp.security.api.DisplayName.of("U"),
+                                com.tmp.security.domain.PasswordHash.of("h"),
+                                CLOCK)
+                        .deleted(CLOCK));
+            }
+
+            @Override
+            public Optional<User> findByLoginIgnoreCase(Login login) {
+                return Optional.empty();
+            }
+
+            @Override
+            public boolean existsByLoginIgnoreCase(Login login) {
+                return false;
+            }
+
+            @Override
+            public boolean existsAny() {
+                return true;
+            }
+
+            @Override
+            public List<User> findPage(int pageIndex, int pageSize, com.tmp.security.domain.UserStatus statusFilter) {
+                return List.of();
+            }
+        };
     }
 
     private static final class FakeCapabilityEngine implements CapabilityEngine {
@@ -264,5 +329,8 @@ class AuthorizationApplicationServiceTest {
                     .filter(o -> o.userId().equals(userId) && o.permissionId().equals(permissionId))
                     .findFirst();
         }
+    }
+    private static AlwaysActiveUserRepository alwaysActiveUsers() {
+        return new AlwaysActiveUserRepository();
     }
 }

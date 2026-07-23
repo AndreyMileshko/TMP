@@ -5,11 +5,10 @@ import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.RoleId;
-import com.tmp.security.api.UserId;
 import com.tmp.security.api.SecurityPermissions;
+import com.tmp.security.api.UserId;
 import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.AuditResult;
-import com.tmp.security.domain.DuplicateLoginException;
 import com.tmp.security.domain.MissingBootstrapConfigurationException;
 import com.tmp.security.domain.PasswordHasher;
 import com.tmp.security.domain.Role;
@@ -23,22 +22,20 @@ import com.tmp.security.domain.repository.UserRepository;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Creates the first Security Administrator exactly once when no users exist.
  *
- * <p>Concurrency: the existence check has a race window; the unique index on
- * {@code lower(login)} is the final arbiter. A racing second bootstrap that hits
- * {@link DuplicateLoginException} is treated as a benign no-op.
+ * <p>Concurrency: PostgreSQL transaction-scoped advisory lock serializes bootstrap; after the
+ * lock is acquired the empty-DB check is repeated so only one winner creates role+user+assignment+audit.
  */
 public class BootstrapAdministratorApplicationService {
 
     public static final String SECURITY_ADMINISTRATOR_ROLE_NAME = "Security Administrator";
 
-    private static final Logger LOG = LoggerFactory.getLogger(BootstrapAdministratorApplicationService.class);
+    private static final String BOOTSTRAP_LOCK_KEY = "tmp.security.bootstrap";
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -47,6 +44,7 @@ public class BootstrapAdministratorApplicationService {
     private final PasswordHasher passwordHasher;
     private final SecurityBootstrapProperties properties;
     private final java.time.Clock clock;
+    private final JdbcTemplate jdbcTemplate;
 
     public BootstrapAdministratorApplicationService(
             UserRepository userRepository,
@@ -55,7 +53,8 @@ public class BootstrapAdministratorApplicationService {
             SecurityAuditRepository auditRepository,
             PasswordHasher passwordHasher,
             SecurityBootstrapProperties properties,
-            java.time.Clock clock) {
+            java.time.Clock clock,
+            JdbcTemplate jdbcTemplate) {
         this.userRepository = Objects.requireNonNull(userRepository, "userRepository");
         this.roleRepository = Objects.requireNonNull(roleRepository, "roleRepository");
         this.roleAssignmentRepository =
@@ -64,10 +63,23 @@ public class BootstrapAdministratorApplicationService {
         this.passwordHasher = Objects.requireNonNull(passwordHasher, "passwordHasher");
         this.properties = Objects.requireNonNull(properties, "properties");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.jdbcTemplate = Objects.requireNonNull(jdbcTemplate, "jdbcTemplate");
     }
 
     @Transactional
     public void ensureBootstrapAdministrator() {
+        if (userRepository.existsAny()) {
+            return;
+        }
+        jdbcTemplate.execute(
+                (org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+                    try (var statement = connection.prepareStatement(
+                            "SELECT pg_advisory_xact_lock(hashtext(?))")) {
+                        statement.setString(1, BOOTSTRAP_LOCK_KEY);
+                        statement.execute();
+                    }
+                    return null;
+                });
         if (userRepository.existsAny()) {
             return;
         }
@@ -79,45 +91,40 @@ public class BootstrapAdministratorApplicationService {
                             + "TMP_SECURITY_BOOTSTRAP_ADMIN_PASSWORD.");
         }
 
-        try {
-            Role role = Role.create(
-                    RoleId.generate(),
-                    SECURITY_ADMINISTRATOR_ROLE_NAME,
-                    "Full access to Security Administration",
-                    clock);
-            for (PermissionId permissionId : securityAdministrationPermissions()) {
-                role = role.grantPermission(permissionId, clock);
-            }
-            role = roleRepository.save(role);
-
-            char[] passwordChars = properties.getAdminPassword().toCharArray();
-            User admin;
-            try {
-                admin = userRepository.save(User.createActive(
-                        UserId.generate(),
-                        Login.of(properties.getAdminLogin()),
-                        DisplayName.of(properties.getAdminDisplayName()),
-                        passwordHasher.hash(passwordChars),
-                        clock));
-            } finally {
-                Arrays.fill(passwordChars, '\0');
-            }
-
-            roleAssignmentRepository.assign(
-                    RoleAssignment.of(admin.id(), role.id(), clock.instant()));
-            auditRepository.append(SecurityAuditEvent.record(
-                    AuditEventId.generate(),
-                    clock.instant(),
-                    null,
-                    "system-bootstrap",
-                    AuditOperation.USER_CREATED,
-                    "USER",
-                    admin.id().value().toString(),
-                    "Bootstrap administrator created",
-                    AuditResult.SUCCESS));
-        } catch (DuplicateLoginException ex) {
-            LOG.info("Bootstrap administrator already created by a concurrent startup; continuing");
+        Role role = Role.create(
+                RoleId.generate(),
+                SECURITY_ADMINISTRATOR_ROLE_NAME,
+                "Full access to Security Administration",
+                clock);
+        for (PermissionId permissionId : securityAdministrationPermissions()) {
+            role = role.grantPermission(permissionId, clock);
         }
+        role = roleRepository.save(role);
+
+        char[] passwordChars = properties.getAdminPassword().toCharArray();
+        User admin;
+        try {
+            admin = userRepository.save(User.createActive(
+                    UserId.generate(),
+                    Login.of(properties.getAdminLogin()),
+                    DisplayName.of(properties.getAdminDisplayName()),
+                    passwordHasher.hash(passwordChars),
+                    clock));
+        } finally {
+            Arrays.fill(passwordChars, '\0');
+        }
+
+        roleAssignmentRepository.assign(RoleAssignment.of(admin.id(), role.id(), clock.instant()));
+        auditRepository.append(SecurityAuditEvent.record(
+                AuditEventId.generate(),
+                clock.instant(),
+                null,
+                "system-bootstrap",
+                AuditOperation.USER_CREATED,
+                "USER",
+                admin.id().value().toString(),
+                "Bootstrap administrator created",
+                AuditResult.SUCCESS));
     }
 
     private static Set<PermissionId> securityAdministrationPermissions() {

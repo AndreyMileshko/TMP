@@ -62,7 +62,7 @@ class JdbcPermissionOverrideRepositoryTest {
         jdbcTemplate.update("DELETE FROM security.users");
         jdbcTemplate.update("DELETE FROM security.permission_definitions");
         new JdbcPermissionDefinitionRepository(jdbcTemplate)
-                .save(PermissionDefinition.register(VIEW, "View", "", CLOCK));
+                .save(PermissionDefinition.register(VIEW, "test.capability", "View", "", CLOCK));
         userId = new JdbcUserRepository(jdbcTemplate)
                 .save(User.createActive(
                         UserId.generate(),

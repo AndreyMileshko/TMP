@@ -50,7 +50,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @AutoConfiguration
 @AutoConfigureAfter(
@@ -132,7 +135,8 @@ public class SecurityAutoConfiguration {
             SecurityAuditRepository securityAuditRepository,
             PasswordHasher passwordHasher,
             SecurityBootstrapProperties securityBootstrapProperties,
-            Clock securityClock) {
+            Clock securityClock,
+            JdbcTemplate jdbcTemplate) {
         return new BootstrapAdministratorApplicationService(
                 userRepository,
                 roleRepository,
@@ -140,7 +144,15 @@ public class SecurityAutoConfiguration {
                 securityAuditRepository,
                 passwordHasher,
                 securityBootstrapProperties,
-                securityClock);
+                securityClock,
+                jdbcTemplate);
+    }
+
+    @Bean
+    TransactionTemplate securityAuthenticationTransactionTemplate(PlatformTransactionManager transactionManager) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return template;
     }
 
     @Bean
@@ -149,20 +161,28 @@ public class SecurityAutoConfiguration {
             PasswordHasher passwordHasher,
             SessionContext sessionContext,
             SecurityAuditRepository securityAuditRepository,
-            Clock securityClock) {
+            Clock securityClock,
+            TransactionTemplate securityAuthenticationTransactionTemplate) {
         return new AuthenticationApplicationService(
-                userRepository, passwordHasher, sessionContext, securityAuditRepository, securityClock);
+                userRepository,
+                passwordHasher,
+                sessionContext,
+                securityAuditRepository,
+                securityClock,
+                securityAuthenticationTransactionTemplate);
     }
 
     @Bean
     AuthorizationApplicationService authorizationApplicationService(
             SessionContext sessionContext,
+            UserRepository userRepository,
             CapabilityEngine capabilityEngine,
             RoleAssignmentRepository roleAssignmentRepository,
             RoleRepository roleRepository,
             PermissionOverrideRepository permissionOverrideRepository) {
         return new AuthorizationApplicationService(
                 sessionContext,
+                userRepository,
                 capabilityEngine,
                 roleAssignmentRepository,
                 roleRepository,

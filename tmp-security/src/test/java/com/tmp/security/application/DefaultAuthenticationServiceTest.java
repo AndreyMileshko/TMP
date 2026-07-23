@@ -37,7 +37,20 @@ class DefaultAuthenticationServiceTest {
                 id, Login.of("admin"), DisplayName.of("A"), PasswordHash.of("secret"), CLOCK));
         SessionContext sessions = new SessionContext();
         AuthenticationApplicationService app = new AuthenticationApplicationService(
-                users, new ExactHasher(), sessions, new InMemoryAudit(), CLOCK);
+                users,
+                new ExactHasher(),
+                sessions,
+                new InMemoryAudit(),
+                CLOCK,
+                new org.springframework.transaction.support.TransactionOperations() {
+                    @Override
+                    public <T> T execute(
+                            org.springframework.transaction.support.TransactionCallback<T> action) {
+                        return action.doInTransaction(
+                                new org.springframework.transaction.support.SimpleTransactionStatus());
+                    }
+                });
+
         DefaultAuthenticationService facade = new DefaultAuthenticationService(app);
         SessionSummary summary = facade.login(Login.of("admin"), "secret".toCharArray());
         assertEquals(id, summary.userId());

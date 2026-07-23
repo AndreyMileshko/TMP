@@ -47,6 +47,7 @@ class SecuredOperationFixtureTest {
 
         AuthorizationApplicationService denied = new AuthorizationApplicationService(
                 sessions,
+                alwaysActiveUsers(),
                 activeEngine(Set.of(VIEW)),
                 emptyAssignments(),
                 emptyRoles(),
@@ -77,7 +78,9 @@ class SecuredOperationFixtureTest {
             }
         };
         AuthorizationApplicationService allowed = new AuthorizationApplicationService(
-                sessions, activeEngine(Set.of(VIEW)), emptyAssignments(), emptyRoles(), grants);
+                sessions,
+                alwaysActiveUsers(),
+                activeEngine(Set.of(VIEW)), emptyAssignments(), emptyRoles(), grants);
         assertEquals("OK", new SecuredOperationFixture(allowed).performSecuredOperation(VIEW));
     }
 
@@ -215,5 +218,8 @@ class SecuredOperationFixtureTest {
                 return Optional.empty();
             }
         };
+    }
+    private static AlwaysActiveUserRepository alwaysActiveUsers() {
+        return new AlwaysActiveUserRepository();
     }
 }
