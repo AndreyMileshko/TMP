@@ -110,6 +110,42 @@ class PermissionSynchronizationApplicationServiceTest {
         assertTrue(definitions.findById(VIEW).orElseThrow().active());
     }
 
+    @Test
+    void legacyUnassignedOwnerIsClaimedByContributingCapability() {
+        FakeCapabilityEngine engine = new FakeCapabilityEngine();
+        engine.put(descriptor(), CapabilityLifecycleState.ACTIVE);
+        InMemoryPermissionDefinitions definitions = new InMemoryPermissionDefinitions();
+        definitions.save(PermissionDefinition.rehydrate(
+                VIEW,
+                PermissionDefinition.LEGACY_UNASSIGNED_OWNER,
+                "View users",
+                "desc",
+                true,
+                CLOCK.instant(),
+                0L));
+        PermissionSynchronizationApplicationService service =
+                new PermissionSynchronizationApplicationService(engine, definitions, new InMemoryAudit(), CLOCK);
+
+        service.synchronize();
+        assertEquals(CAP_ID.value(), definitions.findById(VIEW).orElseThrow().ownerCapabilityId());
+
+        service.synchronize();
+        assertEquals(CAP_ID.value(), definitions.findById(VIEW).orElseThrow().ownerCapabilityId());
+
+        CapabilityId other = CapabilityId.of("other.capability");
+        engine.put(
+                CapabilityDescriptor.builder()
+                        .id(other)
+                        .name("Other")
+                        .version(CapabilityVersion.of("1.0.0"))
+                        .description("other")
+                        .permissions(List.of(PermissionDescriptor.of(VIEW.value(), "View users", "desc")))
+                        .build(),
+                CapabilityLifecycleState.ACTIVE);
+        assertThrows(
+                com.tmp.security.domain.PermissionOwnershipConflictException.class, service::synchronize);
+    }
+
     private static CapabilityDescriptor descriptor() {
         return CapabilityDescriptor.builder()
                 .id(CAP_ID)

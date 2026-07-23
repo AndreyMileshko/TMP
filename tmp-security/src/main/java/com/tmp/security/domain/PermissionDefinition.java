@@ -11,6 +11,12 @@ import java.util.Objects;
  */
 public final class PermissionDefinition {
 
+    /**
+     * Owner written by Flyway V5 for permission definitions that existed before ownership
+     * was introduced. Claimable once via {@link #claimLegacyOwnership(String)}.
+     */
+    public static final String LEGACY_UNASSIGNED_OWNER = "legacy.unassigned";
+
     private final PermissionId permissionId;
     private final String ownerCapabilityId;
     private final String displayName;
@@ -86,6 +92,27 @@ public final class PermissionDefinition {
         }
         return new PermissionDefinition(
                 permissionId, ownerCapabilityId, displayName, description, false, registeredAt, version);
+    }
+
+    /**
+     * One-time acceptance of ownership for definitions backfilled as
+     * {@link #LEGACY_UNASSIGNED_OWNER}. After a real Capability owns the definition,
+     * further ownership mismatches must be rejected by synchronization.
+     *
+     * @throws PermissionOwnershipConflictException if the current owner is not legacy-unassigned
+     */
+    public PermissionDefinition claimLegacyOwnership(String capabilityId) {
+        String claimedOwner = requireNonBlank(capabilityId, "capabilityId");
+        if (!LEGACY_UNASSIGNED_OWNER.equals(ownerCapabilityId)) {
+            throw new PermissionOwnershipConflictException(
+                    "Permission '"
+                            + permissionId.value()
+                            + "' cannot claim legacy ownership; current owner is '"
+                            + ownerCapabilityId
+                            + "'");
+        }
+        return new PermissionDefinition(
+                permissionId, claimedOwner, displayName, description, active, registeredAt, version);
     }
 
     public PermissionId permissionId() {

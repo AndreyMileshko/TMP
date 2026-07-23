@@ -25,6 +25,15 @@ import org.springframework.transaction.support.TransactionOperations;
  * <p>DB work and in-memory session open are deliberately separated: session is opened only
  * after a successful audit transaction commits. Failed-login audits run in their own
  * completed transaction so they are not rolled back by {@link AuthenticationFailedException}.
+ *
+ * <p>Desktop session policy:
+ * <ul>
+ *   <li>every {@link #login} attempt closes any prior session first;</li>
+ *   <li>failed login leaves no session (neither prior nor new);</li>
+ *   <li>{@link #logout} always clears the session, even when logout audit persistence fails;</li>
+ *   <li>{@link com.tmp.security.domain.UserStatus} is re-checked immediately before session open
+ *       so a concurrently deleted user never receives a usable session.</li>
+ * </ul>
  */
 public class AuthenticationApplicationService {
 
@@ -62,6 +71,9 @@ public class AuthenticationApplicationService {
         Objects.requireNonNull(login, "login");
         Objects.requireNonNull(password, "password");
         try {
+            // Desktop contract: any new login attempt closes the previous session first so a
+            // failed attempt never leaves the prior user authenticated.
+            sessionContext.close();
             Optional<User> found = userRepository.findByLoginIgnoreCase(login);
             boolean credentialsAccepted = verifyCredentials(found, password);
             if (!credentialsAccepted) {
@@ -69,9 +81,13 @@ public class AuthenticationApplicationService {
                 throw new AuthenticationFailedException();
             }
             User user = found.orElseThrow();
+            User activeUser = requireStillActive(login, user);
+            recordLoginSuccess(activeUser);
+            // Re-check immediately before open so a concurrent logical delete cannot leave a
+            // usable session for a DELETED user (LOGIN_SUCCESS may already be committed).
+            User beforeOpen = requireStillActive(login, activeUser);
             Session session = Session.of(
-                    SessionId.generate(), user.id(), user.login(), clock.instant());
-            recordLoginSuccess(user);
+                    SessionId.generate(), beforeOpen.id(), beforeOpen.login(), clock.instant());
             sessionContext.open(session);
             return session;
         } finally {
@@ -85,17 +101,22 @@ public class AuthenticationApplicationService {
             return;
         }
         Session session = current.get();
-        authenticationTransactions.executeWithoutResult(status -> auditRepository.append(SecurityAuditEvent.record(
-                AuditEventId.generate(),
-                clock.instant(),
-                session.userId(),
-                session.login().value(),
-                AuditOperation.LOGOUT,
-                "USER",
-                session.userId().value().toString(),
-                "Logout",
-                AuditResult.SUCCESS)));
-        sessionContext.close();
+        try {
+            authenticationTransactions.executeWithoutResult(status -> auditRepository.append(SecurityAuditEvent.record(
+                    AuditEventId.generate(),
+                    clock.instant(),
+                    session.userId(),
+                    session.login().value(),
+                    AuditOperation.LOGOUT,
+                    "USER",
+                    session.userId().value().toString(),
+                    "Logout",
+                    AuditResult.SUCCESS)));
+        } finally {
+            // Session must clear even when logout audit persistence fails; audit failure still
+            // propagates to the caller.
+            sessionContext.close();
+        }
     }
 
     public Optional<Session> currentSession() {
@@ -104,6 +125,15 @@ public class AuthenticationApplicationService {
 
     public boolean isAuthenticated() {
         return sessionContext.isAuthenticated();
+    }
+
+    private User requireStillActive(Login login, User previouslyAccepted) {
+        Optional<User> current = userRepository.findById(previouslyAccepted.id());
+        if (current.isPresent() && current.get().isActive()) {
+            return current.get();
+        }
+        recordLoginFailure(login, current.isPresent() ? current : Optional.of(previouslyAccepted));
+        throw new AuthenticationFailedException();
     }
 
     private boolean verifyCredentials(Optional<User> found, char[] password) {

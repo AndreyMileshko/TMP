@@ -610,3 +610,51 @@ Corrective tasks STAGE4-041…048 implemented and verified:
 8. VERIFICATION-LOG Latest result + STAGE4-019..023 honest batch note.
 
 Automated gate after fixes: `mvn clean verify`, `mvn clean verify -Ppackage`, `TMP.exe` first and second launch — PASSED. BLK-016 closed; STAGE4-040 remains for formal Stage 4 close / optional interactive UI smoke.
+
+---
+
+## `BLK-017` — `Stage 4 Security residual acceptance defects after BLK-016`
+
+**Status:** RESOLVED  
+**Task:** `STAGE4-049`…`STAGE4-053` (corrective); blocks `STAGE4-040`  
+**Detected:** 2026-07-23
+
+### Reason
+
+Повторная проверка Stage 4 подтвердила устранение основной части BLK-016, но выявила четыре оставшихся acceptance defects:
+
+1. **V5 legacy permission ownership:** V5 backfill ставит `owner_capability_id = 'legacy.unassigned'`; sync сравнивал owner строго с Capability ID и бросал `PermissionOwnershipConflictException` на upgrade существующей V4-БД.
+2. **Logout + audit failure:** `logout` писал audit до `sessionContext.close()`; при audit failure session оставалась активной.
+3. **Login with pre-existing session:** failed login при уже активной session сохранял старую session (нарушение STAGE4-041 «on any login failure session must be absent»).
+4. **Login vs user delete race:** после успешной проверки пароля concurrent logical delete мог позволить открыть session для DELETED user.
+
+### Evidence
+
+- Document/file/check: `PermissionSynchronizationApplicationService` — strict owner equality without legacy claim.
+- Document/file/check: Flyway `V5__permission_ownership_and_role_name_unique.sql` — `legacy.unassigned` backfill (V4/V5 не изменять).
+- Document/file/check: `AuthenticationApplicationService.logout` — `close()` only after successful audit.
+- Document/file/check: `AuthenticationApplicationService.login` — no prior-session close; no `UserStatus` re-check immediately before `sessionContext.open`.
+
+### Options
+
+1. Corrective tasks STAGE4-049…053 (рекомендуется): legacy ownership claim + logout try/finally + close-before-login + status re-check/race IT + automated verification; затем STAGE4-040 после ручного UI.
+2. Отложить и перейти к Stage 5 (запрещено).
+
+### Recommendation
+
+Вариант 1.
+
+### Required user decision
+
+Ручной packaged GUI smoke (неверный пароль / вход / navigation / logout / Login Screen / повторный запуск / отсутствие credentials в logs) подтверждает пользователь перед закрытием STAGE4-040.
+
+### Resolution
+
+Corrective STAGE4-049…053 implemented and verified:
+
+1. `PermissionDefinition.claimLegacyOwnership` + sync one-time legacy claim; V4/V5 SQL unchanged; `PermissionOwnershipUpgradePostgresIntegrationIT` + packaged `TMP.exe` on V4-seeded DB → owner=`security-administration`, assignments preserved.
+2. `logout` closes session in `finally`; audit failure propagates; unit + PostgreSQL IT.
+3. `login` closes prior session first; failed login leaves no session; switch-user opens only new session.
+4. `UserStatus` re-checked before `sessionContext.open`; deterministic `LoginDeleteRacePostgresIntegrationIT`.
+
+Automated gate: `mvn clean verify` PASSED; `mvn clean verify -Ppackage` PASSED; detached `TMP.exe` on V4→V5 DB PASSED. BLK-017 closed; STAGE4-040 remains for formal Stage 4 close after user GUI confirmation.

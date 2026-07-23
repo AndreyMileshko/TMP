@@ -5,9 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthenticationFailedException;
 import com.tmp.security.api.AuthenticationService;
+import com.tmp.security.api.AuthorizationService;
+import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
+import com.tmp.security.api.SecurityPermissions;
+import com.tmp.security.api.UserAdministrationService;
 import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.repository.SecurityAuditRepository;
 import com.tmp.security.persistence.JdbcSecurityAuditRepository;
@@ -57,6 +62,12 @@ class AuthenticationPostgresIntegrationIT {
     private AuthenticationService authenticationService;
 
     @Autowired
+    private AuthorizationService authorizationService;
+
+    @Autowired
+    private UserAdministrationService userAdministrationService;
+
+    @Autowired
     private ControllableSecurityAuditRepository controllableAudit;
 
     @Autowired
@@ -64,7 +75,12 @@ class AuthenticationPostgresIntegrationIT {
 
     @BeforeEach
     void clearSession() {
-        authenticationService.logout();
+        try {
+            authenticationService.logout();
+        } catch (RuntimeException ignored) {
+            // Controllable audit may still be armed from a prior failed logout assertion.
+            assertFalse(authenticationService.isAuthenticated());
+        }
     }
 
     @Test
@@ -103,6 +119,69 @@ class AuthenticationPostgresIntegrationIT {
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
         assertTrue(authenticationService.isAuthenticated());
         assertTrue(countAudit(AuditOperation.LOGIN_SUCCESS.name()) >= 1L);
+    }
+
+    @Test
+    void logoutClearsSessionEvenWhenAuditFails() {
+        authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
+        assertTrue(authenticationService.isAuthenticated());
+        controllableAudit.failNextAppend();
+        assertThrows(IllegalStateException.class, authenticationService::logout);
+        assertFalse(authenticationService.isAuthenticated());
+        assertThrows(
+                AccessDeniedException.class,
+                () -> authorizationService.requirePermission(SecurityPermissions.USERS_VIEW));
+    }
+
+    @Test
+    void failedLoginWithActiveSessionLeavesNoSession() {
+        authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
+        assertTrue(authenticationService.isAuthenticated());
+
+        assertThrows(
+                AuthenticationFailedException.class,
+                () -> authenticationService.login(Login.of("admin"), "wrong-password".toCharArray()));
+        assertFalse(authenticationService.isAuthenticated());
+
+        authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
+        assertThrows(
+                AuthenticationFailedException.class,
+                () -> authenticationService.login(Login.of("unknown-login"), "x".toCharArray()));
+        assertFalse(authenticationService.isAuthenticated());
+
+        authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
+        var deleted = userAdministrationService.createUser(
+                Login.of("to-delete-login"), DisplayName.of("To Delete"), "delete-secret".toCharArray());
+        userAdministrationService.deleteUser(deleted.id());
+        authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
+        assertThrows(
+                AuthenticationFailedException.class,
+                () -> authenticationService.login(Login.of("to-delete-login"), "delete-secret".toCharArray()));
+        assertFalse(authenticationService.isAuthenticated());
+    }
+
+    @Test
+    void successfulLoginReplacesPreviousSession() {
+        authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
+        var other = userAdministrationService.createUser(
+                Login.of("other-login"), DisplayName.of("Other"), "other-secret".toCharArray());
+        authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
+        authenticationService.login(Login.of("other-login"), "other-secret".toCharArray());
+        assertTrue(authenticationService.isAuthenticated());
+        assertEquals(other.login().value(), authenticationService.currentSession().orElseThrow().login().value());
+        assertTrue(auditDescriptionsAvoidSecrets());
+    }
+
+    private boolean auditDescriptionsAvoidSecrets() {
+        Long bad = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*) FROM security.security_audit_events
+                WHERE safe_description ILIKE '%bootstrap-secret%'
+                   OR safe_description ILIKE '%other-secret%'
+                   OR safe_description ILIKE '%$2a$%'
+                """,
+                Long.class);
+        return bad != null && bad == 0L;
     }
 
     private long countAudit(String operation) {

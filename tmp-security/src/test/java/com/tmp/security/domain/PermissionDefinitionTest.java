@@ -3,6 +3,7 @@ package com.tmp.security.domain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.security.api.PermissionId;
@@ -32,6 +33,29 @@ class PermissionDefinitionTest {
         assertSame(inactive, inactive.deactivated());
         assertSame(active, active.activated());
         assertTrue(inactive.activated().active());
+    }
+
+    @Test
+    void claimLegacyOwnershipTransfersOwnerOnce() {
+        PermissionDefinition legacy = PermissionDefinition.rehydrate(
+                ID,
+                PermissionDefinition.LEGACY_UNASSIGNED_OWNER,
+                "View",
+                "",
+                true,
+                CLOCK.instant(),
+                0L);
+        PermissionDefinition claimed = legacy.claimLegacyOwnership("security-administration");
+        assertEquals("security-administration", claimed.ownerCapabilityId());
+        assertEquals(ID, claimed.permissionId());
+    }
+
+    @Test
+    void claimLegacyOwnershipRejectedWhenAlreadyOwned() {
+        PermissionDefinition owned = PermissionDefinition.register(ID, "security-administration", "View", "", CLOCK);
+        assertThrows(
+                PermissionOwnershipConflictException.class,
+                () -> owned.claimLegacyOwnership("other.capability"));
     }
 
     @Test

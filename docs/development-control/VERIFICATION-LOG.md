@@ -3,8 +3,17 @@
 ## Latest result
 
 **Date:** 2026-07-23  
-**Scope:** Stage 4 — Security; BLK-016 corrective STAGE4-041…048 + automated gate  
-**Overall:** PASSED (automated). STAGE4-040 formal close / optional interactive UI smoke still open; Stage 5 not started.
+**Scope:** Stage 4 — Security; BLK-017 residual corrective STAGE4-049…053 + automated gate  
+**Overall:** PASSED (automated). STAGE4-040 formal close / packaged GUI smoke still open (user confirmation); Stage 5 not started.
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Full reactor | `mvn clean verify` | PASSED |
+| Package profile | `mvn clean verify -Ppackage` | PASSED |
+| V4→V5 upgrade IT | `PermissionOwnershipUpgradePostgresIntegrationIT` | PASSED |
+| Auth residual ITs | logout audit-failure / prior-session / login-delete race | PASSED |
+| Packaged app (V4 DB) | detached `TMP.exe` + Docker PostgreSQL seeded at V4 | PASSED (alive; V5 applied; legacy owner claimed) |
+| Manual GUI checklist | wrong password / login / nav / logout / restart / no secrets in logs | PENDING (user) |
 
 ---
 
@@ -21,6 +30,21 @@
 | Static analysis | `mvn ...` | PASSED/FAILED |
 | Formatting | `mvn ...` | PASSED/FAILED |
 | Manual scenario | ... | PASSED/FAILED/NOT_APPLICABLE |
+
+### Failures
+
+- None.
+
+## 2026-07-23 — `STAGE4-049`…`STAGE4-053` (BLK-017 residual)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Focused unit | `AuthenticationApplicationServiceTest`, `PermissionDefinitionTest`, sync unit | PASSED |
+| Ownership upgrade IT | `PermissionOwnershipUpgradePostgresIntegrationIT` | PASSED |
+| Auth/logout/session ITs | `AuthenticationPostgresIntegrationIT`, `LoginDeleteRacePostgresIntegrationIT` | PASSED |
+| Full reactor | `mvn clean verify` | PASSED |
+| Package | `mvn clean verify -Ppackage` | PASSED |
+| Packaged V4 upgrade smoke | detached `TMP.exe` on V4-seeded Postgres | PASSED |
 
 ### Failures
 

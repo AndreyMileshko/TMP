@@ -2079,3 +2079,66 @@ Closed Stage 4 acceptance defects (BLK-016):
 
 STAGE4-040 formal Stage 4 close (Stage 5 not started).
 
+---
+
+## `STAGE4-049`…`STAGE4-052` — BLK-017 residual corrective (implementation)
+
+**Date:** 2026-07-23
+**Stage:** Stage 4 — Security
+**Status:** DONE
+
+### Result
+
+Closed residual Stage 4 acceptance defects (BLK-017 implementation):
+
+- `PermissionDefinition.claimLegacyOwnership` + sync legacy claim; V4→V5 PostgreSQL upgrade IT preserves role permissions/overrides; post-claim ownership conflicts still rejected.
+- `logout` closes session in `finally` even when logout audit fails; unit + PostgreSQL IT with controllable audit.
+- `login` closes prior session before credential attempt; failed login leaves no session; switch-user opens only new session.
+- `UserStatus` re-checked before session open; deterministic login-vs-delete race IT denies usable session for DELETED user.
+
+### Files created
+
+- `tmp-security/src/test/java/com/tmp/security/PermissionOwnershipUpgradePostgresIntegrationIT.java`
+- `tmp-security/src/test/java/com/tmp/security/LoginDeleteRacePostgresIntegrationIT.java`
+- `tmp-security/src/test/java/com/tmp/security/support/ControllableUserRepository.java`
+
+### Files modified
+
+- `PermissionDefinition.java`, `PermissionSynchronizationApplicationService.java`, `AuthenticationApplicationService.java`
+- matching unit/IT tests; control docs (STATUS, WORK-QUEUE, BLOCKERS, IMPLEMENTATION-LOG, VERIFICATION-LOG)
+
+### Tests added or changed
+
+- Domain/unit: claimLegacyOwnership, legacy sync claim, logout audit-failure, prior-session login failures, deleted-after-credential-check.
+- PostgreSQL: upgrade ownership IT; auth logout/prior-session ITs; login/delete race IT.
+
+### Verification
+
+Focused module tests PASSED prior to STAGE4-053 full reactor gate.
+
+### Next task
+
+STAGE4-053 automated verification; then STAGE4-040 after user GUI confirmation.
+
+---
+
+## `STAGE4-053` — Automated verification after BLK-017 fixes
+
+**Date:** 2026-07-23
+**Stage:** Stage 4 — Security
+**Status:** DONE
+
+### Result
+
+Automated gate after BLK-017 residual fixes:
+
+- `mvn clean verify` — PASSED
+- `mvn clean verify -Ppackage` — PASSED
+- Detached `dist/jpackage/TMP/TMP.exe` against PostgreSQL prepared at Flyway V4 with seeded V4 permission definition — app stayed alive; Flyway applied V5; `security.users.view.owner_capability_id = security-administration`
+
+Stage 4 not closed; Stage 5 not started; STAGE4-040 awaits user packaged GUI confirmation.
+
+### Next task
+
+STAGE4-040 final Stage 4 gate (user GUI smoke).
+

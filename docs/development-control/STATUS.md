@@ -4,7 +4,7 @@
 **Project status:** IN_PROGRESS  
 **Current Stage:** Stage 4 — Security  
 **Current Task:** STAGE4-040  
-**Last completed task:** STAGE4-048  
+**Last completed task:** STAGE4-053  
 **Active blocker:** None  
 
 ---
@@ -22,10 +22,10 @@
 
 ---
 
-**Готово:** STAGE4-001…039; BLK-016 corrective STAGE4-041…048.
+**Готово:** STAGE4-001…039; BLK-016 corrective STAGE4-041…048; BLK-017 corrective STAGE4-049…053 (implementation + automated gate).
 
-**Верификация после corrective:** `mvn clean verify` PASSED; `mvn clean verify -Ppackage` PASSED; `TMP.exe` first+second launch PASSED (Flyway V5, bootstrap admin, no credential leaks). Interactive UI checklist (wrong password / login / logout on desktop) — covered by PostgreSQL ITs; packaged GUI confirmation remains part of STAGE4-040.
+**Верификация после BLK-017:** `mvn clean verify` PASSED; `mvn clean verify -Ppackage` PASSED; detached `TMP.exe` against V4→V5 upgraded PostgreSQL PASSED (Flyway V5 applied; `security.users.view` owner=`security-administration`).
 
-**Далее:** STAGE4-040 final gate close (после ручного UI smoke при необходимости). Stage 5 не стартовать.
+**Далее:** STAGE4-040 final gate — после ручного packaged GUI smoke пользователя. Stage 5 не стартовать. Stage 4 не закрывать до STAGE4-040.
 
 Git-операции запрещены.

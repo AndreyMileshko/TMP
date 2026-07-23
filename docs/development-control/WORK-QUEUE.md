@@ -6512,7 +6512,7 @@ Automated, durable enforcement of every Stage 4 architectural boundary.
 
 **Status:** READY
 **Stage:** 4
-**Depends on:** STAGE4-039, STAGE4-030, STAGE4-041, STAGE4-042, STAGE4-043, STAGE4-044, STAGE4-045, STAGE4-046, STAGE4-047, STAGE4-048
+**Depends on:** STAGE4-039, STAGE4-030, STAGE4-041, STAGE4-042, STAGE4-043, STAGE4-044, STAGE4-045, STAGE4-046, STAGE4-047, STAGE4-048, STAGE4-049, STAGE4-050, STAGE4-051, STAGE4-052, STAGE4-053
 **Module:** cross-stage
 
 ### Goal
@@ -7062,3 +7062,314 @@ Packaged app restart is stable with persisted document types.
 ### Expected result
 
 Verification log is trustworthy for Stage 4 review.
+
+---
+
+# Stage 4 — Security (BLK-017 residual corrective tasks)
+
+## STAGE4-049 — Legacy permission ownership claim on V4→V5 upgrade
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-048, BLK-017  
+**Module:** `tmp-security`
+
+### Goal
+
+Безопасно одноразово принять `owner_capability_id = legacy.unassigned` при synchronization после V5 upgrade, без изменения V4/V5 SQL; сохранить role permissions и individual overrides; после claim обычные ownership conflicts снова отклоняются.
+
+### Required documents
+
+- BLK-017 defect 1;
+- Security Specification (permission definitions / sync).
+
+### Required code context
+
+- `PermissionDefinition`, `PermissionSynchronizationApplicationService`, Flyway V4/V5 (read-only).
+
+### Allowed code scope
+
+- `tmp-security` domain/sync + PostgreSQL upgrade IT;
+- docs control files.
+
+### Forbidden
+
+- modifying V4 or V5 migrations;
+- deleting role assignments / overrides during claim;
+- allowing two Capabilities to own the same PermissionId.
+
+### Implementation requirements
+
+- `PermissionDefinition.claimLegacyOwnership(String capabilityId)` — only when owner is `legacy.unassigned`.
+- Sync claims legacy ownership for the contributing Capability, then continues reconciliation.
+- PostgreSQL Testcontainers upgrade IT: Flyway target V4 → seed V4 permission(+role permission/+override) → V5 → synchronize → owner=`security-administration` → assignments preserved → idempotent re-sync → other Capability rejected.
+
+### Acceptance criteria
+
+- [x] Legacy owner is claimable once by contributing Capability.
+- [x] Upgrade IT covers V4→V5→sync path.
+- [x] Subsequent ownership conflicts still fail.
+- [x] Role permissions and overrides survive.
+
+### Required tests
+
+- `PermissionDefinitionTest`, `PermissionSynchronizationApplicationServiceTest`, `PermissionOwnershipUpgradePostgresIntegrationIT`.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-security -am test -Dtest=PermissionDefinitionTest,PermissionSynchronizationApplicationServiceTest
+mvn -pl :tmp-security verify -Dit.test=PermissionOwnershipUpgradePostgresIntegrationIT
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Existing V4 DBs upgrade through V5 and Security startup without ownership conflict.
+
+---
+
+## STAGE4-050 — Logout clears session on audit failure
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-049  
+**Module:** `tmp-security`
+
+### Goal
+
+Гарантировать закрытие session при logout независимо от результата logout audit; audit failure не оставляет пользователя authenticated и не скрывается.
+
+### Required documents
+
+- BLK-017 defect 2.
+
+### Required code context
+
+- `AuthenticationApplicationService.logout`, `SessionContext`, `ControllableSecurityAuditRepository`.
+
+### Allowed code scope
+
+- authentication application + unit/IT tests.
+
+### Forbidden
+
+- swallowing audit failures without propagation;
+- leaving session open after logout attempt.
+
+### Implementation requirements
+
+- `try/finally` (or equivalent): always `sessionContext.close()` after logout attempt.
+- Unit test + PostgreSQL IT with controllable audit: `isAuthenticated()==false`, `requirePermission` → `AccessDeniedException`.
+
+### Acceptance criteria
+
+- [x] Audit failure still clears session.
+- [x] Audit failure still propagates.
+- [x] Protected operations denied after such logout.
+
+### Required tests
+
+- `AuthenticationApplicationServiceTest`, `AuthenticationPostgresIntegrationIT`.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-security -am test -Dtest=AuthenticationApplicationServiceTest
+mvn -pl :tmp-security verify -Dit.test=AuthenticationPostgresIntegrationIT
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Logout always ends authentication even if audit write fails.
+
+---
+
+## STAGE4-051 — Close prior session before login attempt
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-050  
+**Module:** `tmp-security`
+
+### Goal
+
+Зафиксировать desktop TMP контракт: перед новой попыткой login закрывать предыдущую session; failed login не оставляёт ни новую, ни старую session; successful login создаёт только новую.
+
+### Required documents
+
+- BLK-017 defect 3; STAGE4-041 session-absent-on-failure criterion.
+
+### Required code context
+
+- `AuthenticationApplicationService.login`, `SessionContext`.
+
+### Allowed code scope
+
+- authentication application + unit/IT tests.
+
+### Forbidden
+
+- preserving prior session after failed login;
+- auditing/logging password or hash.
+
+### Implementation requirements
+
+- Close current session at the start of every `login` attempt.
+- Tests: active session + wrong/unknown/deleted login → no session; active + other valid user → only new session; audit events без password/hash.
+
+### Acceptance criteria
+
+- [x] Failed login with prior session leaves no session.
+- [x] Successful switch-user replaces session.
+- [x] Audit descriptions avoid secrets.
+
+### Required tests
+
+- `AuthenticationApplicationServiceTest`, `AuthenticationPostgresIntegrationIT`.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-security -am test -Dtest=AuthenticationApplicationServiceTest
+mvn -pl :tmp-security verify -Dit.test=AuthenticationPostgresIntegrationIT
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Login failure never leaves a prior authenticated session.
+
+---
+
+## STAGE4-052 — Login vs user-delete race: status re-check before session open
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-051  
+**Module:** `tmp-security`
+
+### Goal
+
+Не открывать session для DELETED user, даже если password check прошёл по ранее прочитанному ACTIVE snapshot; зафиксировать политику re-check `UserStatus` непосредственно перед `sessionContext.open`.
+
+### Required documents
+
+- BLK-017 defect 4.
+
+### Required code context
+
+- `AuthenticationApplicationService`, `UserRepository`, `SessionContext`.
+
+### Allowed code scope
+
+- authentication application + deterministic concurrency PostgreSQL IT.
+
+### Forbidden
+
+- opening a usable session for a logically deleted user.
+
+### Implementation requirements
+
+- Re-load/re-check user ACTIVE status before success path opens session (and after credential acceptance).
+- Deterministic IT: login pauses at status re-check; concurrent logical delete; login fails; no session; protected ops denied.
+
+### Acceptance criteria
+
+- [x] DELETED user does not receive a usable session.
+- [x] Concurrency IT is deterministic.
+- [x] Policy documented in service javadoc.
+
+### Required tests
+
+- `AuthenticationApplicationServiceTest`, `LoginDeleteRacePostgresIntegrationIT`.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-security -am test -Dtest=AuthenticationApplicationServiceTest
+mvn -pl :tmp-security verify -Dit.test=LoginDeleteRacePostgresIntegrationIT
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Login/delete race cannot authenticate a deleted user.
+
+---
+
+## STAGE4-053 — Automated verification after BLK-017 fixes
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-049, STAGE4-050, STAGE4-051, STAGE4-052  
+**Module:** cross-stage
+
+### Goal
+
+Выполнить полный automated gate после residual fixes: `mvn clean verify`, `mvn clean verify -Ppackage`, detached `TMP.exe` smoke (включая upgrade path evidence via IT). Не закрывать Stage 4 и не стартовать Stage 5. Финальный gate остаётся STAGE4-040 после ручного GUI подтверждения пользователя.
+
+### Required documents
+
+- BLK-017; Stage 4 exit criteria (automated subset).
+
+### Required code context
+
+- none beyond already-implemented fixes; verification + docs only.
+
+### Allowed code scope
+
+- docs control files; no production code unless verification finds a genuine defect owned by STAGE4-049…052.
+
+### Forbidden
+
+- marking STAGE4-040 DONE here;
+- starting Stage 5;
+- Git operations.
+
+### Implementation requirements
+
+- Run `mvn clean verify` and report result.
+- Run `mvn clean verify -Ppackage` and report result.
+- Launch `TMP.exe` detached (do not wait GUI foreground).
+- Keep STAGE4-040 open for user manual packaged GUI checklist.
+
+### Acceptance criteria
+
+- [x] `mvn clean verify` PASSED.
+- [x] `mvn clean verify -Ppackage` PASSED.
+- [x] Detached `TMP.exe` launch attempted/reported.
+- [x] Control docs updated; Stage 4 not closed; Stage 5 not started.
+
+### Required tests
+
+- full reactor suite (existing).
+
+### Verification commands
+
+```bash
+mvn clean verify
+mvn clean verify -Ppackage
+dist/jpackage/TMP/TMP.exe
+```
+
+### Documentation updates
+
+- STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+
+### Expected result
+
+Automated residual gate green; STAGE4-040 waiting on user GUI confirmation.

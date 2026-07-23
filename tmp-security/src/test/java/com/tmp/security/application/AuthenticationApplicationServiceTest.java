@@ -116,6 +116,66 @@ class AuthenticationApplicationServiceTest {
         assertTrue(audit.events.stream().anyMatch(e -> e.operation() == AuditOperation.LOGOUT));
     }
 
+    @Test
+    void logoutClearsSessionEvenWhenAuditFails() {
+        users.save(active("admin", "secret"));
+        service.login(Login.of("admin"), "secret".toCharArray());
+        assertTrue(service.isAuthenticated());
+        audit.failOnAppend = true;
+        assertThrows(IllegalStateException.class, service::logout);
+        assertFalse(service.isAuthenticated());
+    }
+
+    @Test
+    void failedLoginWithPreExistingSessionLeavesNoSession() {
+        users.save(active("admin", "secret"));
+        users.save(active("other", "other-secret"));
+        service.login(Login.of("admin"), "secret".toCharArray());
+        assertTrue(service.isAuthenticated());
+
+        assertThrows(
+                AuthenticationFailedException.class,
+                () -> service.login(Login.of("admin"), "bad".toCharArray()));
+        assertFalse(service.isAuthenticated());
+
+        service.login(Login.of("admin"), "secret".toCharArray());
+        assertThrows(
+                AuthenticationFailedException.class,
+                () -> service.login(Login.of("missing"), "x".toCharArray()));
+        assertFalse(service.isAuthenticated());
+
+        User deleted = users.save(active("gone", "secret").deleted(CLOCK));
+        service.login(Login.of("admin"), "secret".toCharArray());
+        assertThrows(
+                AuthenticationFailedException.class,
+                () -> service.login(deleted.login(), "secret".toCharArray()));
+        assertFalse(service.isAuthenticated());
+    }
+
+    @Test
+    void successfulLoginReplacesPreExistingSession() {
+        users.save(active("admin", "secret"));
+        users.save(active("other", "other-secret"));
+        service.login(Login.of("admin"), "secret".toCharArray());
+        service.login(Login.of("other"), "other-secret".toCharArray());
+        assertTrue(service.isAuthenticated());
+        assertEquals("other", service.currentSession().orElseThrow().login().value());
+        assertTrue(audit.events.stream().anyMatch(e -> e.operation() == AuditOperation.LOGIN_SUCCESS));
+        assertTrue(audit.events.stream()
+                .noneMatch(e -> e.safeDescription().toLowerCase().contains("secret")
+                        || e.safeDescription().toLowerCase().contains("$2a$")));
+    }
+
+    @Test
+    void deletedUserAfterCredentialCheckDoesNotOpenSession() {
+        User admin = users.save(active("admin", "secret"));
+        users.deleteOnFindById = admin.id();
+        assertThrows(
+                AuthenticationFailedException.class,
+                () -> service.login(Login.of("admin"), "secret".toCharArray()));
+        assertFalse(service.isAuthenticated());
+    }
+
     private User active(String login, String password) {
         return User.createActive(
                 UserId.generate(),
@@ -153,6 +213,7 @@ class AuthenticationApplicationServiceTest {
 
     private static final class InMemoryUsers implements UserRepository {
         private final Map<UserId, User> store = new HashMap<>();
+        private UserId deleteOnFindById;
 
         @Override
         public User save(User user) {
@@ -162,6 +223,14 @@ class AuthenticationApplicationServiceTest {
 
         @Override
         public Optional<User> findById(UserId id) {
+            if (deleteOnFindById != null && deleteOnFindById.equals(id)) {
+                User current = store.get(id);
+                if (current != null && current.isActive()) {
+                    User deleted = current.deleted(CLOCK);
+                    store.put(id, deleted);
+                    return Optional.of(deleted);
+                }
+            }
             return Optional.ofNullable(store.get(id));
         }
 

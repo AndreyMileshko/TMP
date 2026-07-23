@@ -75,16 +75,21 @@ public class PermissionSynchronizationApplicationService {
                             AuditResult.SUCCESS));
                     continue;
                 }
-                PermissionDefinition current = existing.get();
+                PermissionDefinition original = existing.get();
+                PermissionDefinition current = original;
                 if (!ownerId.equals(current.ownerCapabilityId())) {
-                    throw new PermissionOwnershipConflictException(
-                            "Permission '"
-                                    + permissionId.value()
-                                    + "' is owned by capability '"
-                                    + current.ownerCapabilityId()
-                                    + "' but capability '"
-                                    + ownerId
-                                    + "' also contributes it");
+                    if (PermissionDefinition.LEGACY_UNASSIGNED_OWNER.equals(current.ownerCapabilityId())) {
+                        current = current.claimLegacyOwnership(ownerId);
+                    } else {
+                        throw new PermissionOwnershipConflictException(
+                                "Permission '"
+                                        + permissionId.value()
+                                        + "' is owned by capability '"
+                                        + current.ownerCapabilityId()
+                                        + "' but capability '"
+                                        + ownerId
+                                        + "' also contributes it");
+                    }
                 }
                 PermissionDefinition next = current;
                 if (!Objects.equals(current.displayName(), permission.displayName())) {
@@ -94,7 +99,7 @@ public class PermissionSynchronizationApplicationService {
                     next = next.withDescription(permission.description());
                 }
                 next = capabilityActive ? next.activated() : next.deactivated();
-                if (changed(current, next)) {
+                if (changed(original, next)) {
                     permissionDefinitions.save(next);
                 }
             }
@@ -108,6 +113,7 @@ public class PermissionSynchronizationApplicationService {
 
     private static boolean changed(PermissionDefinition current, PermissionDefinition next) {
         return next.active() != current.active()
+                || !Objects.equals(next.ownerCapabilityId(), current.ownerCapabilityId())
                 || !Objects.equals(next.displayName(), current.displayName())
                 || !Objects.equals(next.description(), current.description());
     }
