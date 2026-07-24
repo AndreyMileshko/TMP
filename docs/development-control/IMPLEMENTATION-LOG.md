@@ -2337,3 +2337,50 @@ None (Stage 4 COMPLETE). Stop before Stage 5. Optional later: `BACKLOG-001`.
 - Проверки границ: `tmp-order-management` в reactor; бизнес-агрегаты отсутствуют; SQL/FXML/persistence adapters отсутствуют; production-owned данные отсутствуют; импорт внутренних пакетов других модулей запрещён и проверяется ArchUnit; наружу опубликован только read-only Query surface (`com.tmp.order.api`), mutating API наружу отсутствует; идентификаторы и Value Objects покрыты unit-тестами; Stage 0–4 продолжают собираться.
 - `STAGE5-004` **не** начинался; остаётся `PLANNED`. Git-операции не выполнялись.
 
+---
+
+## Stage 5 execution module 5.2 — Domain model and repository ports
+
+### STAGE5-004 — Domain aggregate: Customer Order
+
+- Реализован агрегат `CustomerOrder` (immutable, методы возвращают новый экземпляр): `create` → `DRAFT`; `approve` (`DRAFT→APPROVED`); `cancel` (`DRAFT→CANCELLED`); `updateCommercialData` только в `DRAFT`.
+- Запрещены и покрыты тестами: `APPROVED→CANCELLED`, повторный `APPROVED`, переходы из `CANCELLED`, изменение коммерческих полей вне `DRAFT`.
+- VO: `OrderNumber`, `CurrencyCode`, `OrderDirection` (`PRIVATE/DEALER/CORPORATE`), `OrderCommercialData` (customerRef/Name, contractRef, siteRef, responsibleManager, direction, currency); исключение `InvalidOrderStateException`.
+- Предусловие «≥ 1 активная позиция» оставлено на application/document-processor (позиции — отдельный агрегат).
+- **Verification:** `mvn -q -pl tmp-order-management -am test` → PASSED.
+
+### STAGE5-005 — Domain aggregate: Order Item
+
+- Реализован агрегат `OrderItem`: `create` → `DRAFT` с `draftRevisionNumber=1`, `activeRevisionNumber=null`; `activate` (`DRAFT→ACTIVE`, требует active revision); `cancel` (`DRAFT→CANCELLED`); `updateCommercialData` только в `DRAFT`.
+- Запрещены: `ACTIVE→CANCELLED`, повторный `ACTIVE`, переходы из `CANCELLED`, вторая draft-ссылка.
+- VO: `ProductCode`, `ItemCommercialData` (productCode, name, comments — только поля Spec §5.2). Production Status / производственные количества отсутствуют.
+- Указатели revision управляются package-методами (`withActiveRevisionNumber` / `withDraftRevisionNumber` / `withoutDraftRevision`) для STAGE5-006.
+- **Verification:** `mvn -q -pl tmp-order-management "-Dtest=OrderItemTest,CustomerOrderTest" test` → PASSED.
+
+### STAGE5-006 — Active/draft Revision model
+
+- `OrderItemRevision` (entity в границе Order Item): `RevisionNumber`, `RevisionStatus`, `OrderedQuantity`, previous revision, `ItemSpecification`.
+- `OrderItem` владеет картой revisions: create создаёт Draft Rev 1; `createNextDraftRevision` → N+1 без смены active; ≤1 draft; `approveDraftRevision` атомарно APPROVED + новый active + clear draft + `DRAFT→ACTIVE` при первом утверждении; предыдущая active сохраняется.
+- Утверждённая Revision immutable (`withOrderedQuantity` / повторный `approved` отклоняются).
+- **Verification:** `mvn -q -pl tmp-order-management -am test` → PASSED.
+
+### STAGE5-007 — Immutable Item Specification
+
+- `ItemSpecification` привязана к `OrderItemId` + `RevisionNumber`; `SpecificationLine` (materialCode/Name, quantity > 0, unit, consumptionNorm ≥ 0).
+- Draft редактируется (`addLine`/`withLines`/`clearLines`); после `approveDraftRevision` — `frozen()` / `isImmutable()`, изменения запрещены; изменение изделия — только через новую Draft Revision.
+- `lines()` возвращает unmodifiable copy; входная коллекция не удерживается по ссылке.
+- **Verification:** `mvn -q -pl tmp-order-management "-Dtest=ItemSpecificationTest,OrderItemTest,OrderItemRevisionTest" test` → PASSED.
+
+### STAGE5-008 — Repository ports
+
+- Порты в `com.tmp.order.domain.repository` (только интерфейсы): `CustomerOrderRepository` (save/findById/existsByOrderNumber), `OrderItemRepository` (save полного агрегата с revisions/specs, findById, findByOrderId), `OrderItemRevisionRepository` и `ItemSpecificationRepository` (find-by-typed-id; запись через `OrderItemRepository` — единая граница агрегата).
+- `OptimisticLockConflictException` для конфликта `version` (Database Spec §7). Отсутствие — `Optional.empty()`. Нет JDBC/Spring Data/JPA/SQL на сигнатурах.
+- Contract-тесты `RepositoryPortsContractTest` (4).
+- **Verification:** `mvn -q -pl tmp-order-management -am test` → PASSED; module gate + `mvn -q -pl tmp-architecture-tests -am test` → PASSED.
+
+### Execution module 5.2 gate
+
+- `STAGE5-004..008` = DONE; `STAGE5-009` остаётся `PLANNED` (не READY, не начата).
+- Домен свободен от Spring/JPA/Hibernate/JavaFX; SQL и persistence adapters отсутствуют; внешний mutating API отсутствует; Production-owned данные отсутствуют.
+- Git-операции не выполнялись.
+

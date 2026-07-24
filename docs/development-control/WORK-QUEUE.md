@@ -7641,7 +7641,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-004 — Domain aggregate: Customer Order
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-003
 
@@ -7660,7 +7660,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-005 — Domain aggregate: Order Item
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-004
 
@@ -7679,7 +7679,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-006 — Active/draft Revision model
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-005
 
@@ -7698,7 +7698,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-007 — Immutable Item Specification
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-006
 
@@ -7717,7 +7717,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-008 — Repository ports
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-007
 

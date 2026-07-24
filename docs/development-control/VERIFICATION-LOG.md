@@ -945,3 +945,74 @@ These tasks (password / role / permission-override / audit application services 
 
 - None. `STAGE5-004` not started (remains PLANNED). Git operations not executed.
 
+## 2026-07-24 — STAGE5-004 (Customer Order aggregate)
+
+| Verification | Command | Result |
+|---|---|---|
+| Module tests (incl. CustomerOrder transitions) | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-24 — STAGE5-005 (Order Item aggregate)
+
+| Verification | Command | Result |
+|---|---|---|
+| OrderItem + CustomerOrder unit tests | `mvn -q -pl tmp-order-management "-Dtest=OrderItemTest,CustomerOrderTest" test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-24 — STAGE5-006 (Active/draft Revision model)
+
+| Verification | Command | Result |
+|---|---|---|
+| Revision + OrderItem unit tests | `mvn -q -pl tmp-order-management "-Dtest=OrderItemTest,OrderItemRevisionTest,CustomerOrderTest" test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-24 — STAGE5-007 (Immutable Item Specification)
+
+| Verification | Command | Result |
+|---|---|---|
+| ItemSpecification + related unit tests | `mvn -q -pl tmp-order-management "-Dtest=ItemSpecificationTest,OrderItemTest,OrderItemRevisionTest" test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-24 — STAGE5-008 (Repository ports)
+
+| Verification | Command | Result |
+|---|---|---|
+| Module tests incl. repository contract | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+| RepositoryPortsContractTest | surefire | 4 tests, 0 failures |
+
+### Failures
+
+- None.
+
+## 2026-07-24 — Stage 5 execution module 5.2 gate (STAGE5-004..008)
+
+| Gate check | Command / Method | Result |
+|---|---|---|
+| Order Management module gate | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0; 75 tests, 0 failures) |
+| Architecture gate | `mvn -q -pl tmp-architecture-tests -am test` | PASSED (exit 0) |
+| Domain free of Spring/JPA/Hibernate/JavaFX | ArchUnit `orderDomainIsFrameworkFree` | PASSED |
+| No SQL / persistence adapters | source review | ABSENT |
+| No external mutating API | ArchUnit | ENFORCED + PASSED |
+| No Production-owned data | source review + ArchUnit | ABSENT |
+| Status transitions covered | CustomerOrderTest, OrderItemTest | PASSED |
+| Active/draft revision invariants | OrderItemTest, OrderItemRevisionTest | PASSED |
+| Approved specification immutable | ItemSpecificationTest | PASSED |
+| Repository ports infra-free | RepositoryPortsContractTest | PASSED |
+| STAGE5-009 | WORK-QUEUE | PLANNED (not started) |
+
+### Failures
+
+- None. Git operations not executed.
+
