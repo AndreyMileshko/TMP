@@ -1,6 +1,6 @@
 # Document Engine Specification
 
-**Document ID:** TMP-SPEC-007 **Status:** Accepted **Version:** 1.0
+**Document ID:** TMP-SPEC-007 **Status:** Accepted **Version:** 1.1
 
 ------------------------------------------------------------------------
 
@@ -95,6 +95,47 @@ Document Processor.
 3.  Один тип документа --- один Document Processor.
 4.  Document Engine не зависит от бизнес-модулей.
 5.  Business Module предоставляет Document Processor.
+
+------------------------------------------------------------------------
+
+# Транзакционный контракт
+
+Транзакционное поведение lifecycle-операций является частью публичного контракта Document Engine.
+
+1.  `DocumentOperationContext` предоставляет `DocumentId` (`context.document().id()`), доступный во всех hook-ах Document Processor, включая `onPost`.
+2.  Document Engine владеет metadata и lifecycle документа; Capability владеет typed business payload и загружает его в Document Processor по `DocumentId`.
+3.  `DocumentProcessor` вызывается **внутри** транзакции соответствующей lifecycle-операции (create/post/unpost/close/delete).
+4.  Ошибка Document Processor откатывает в одной транзакционной границе: изменения Capability, metadata документа и записи lifecycle journal. Частичное применение исключено.
+5.  Изменения аудита lifecycle (journal) и изменения статуса документа согласованы с работой processor в той же транзакции.
+6.  События, которые должны публиковаться после успешного commit, публикуются через публичный after-commit механизм (см. ниже), а не напрямую внутри транзакции.
+
+------------------------------------------------------------------------
+
+# Публичный after-commit механизм
+
+Публикация доменных событий после успешного commit выполняется через публичный контракт платформы:
+
+```java
+public interface TransactionalEventPublisher {
+    void publishAfterCommit(DomainEvent event);
+}
+```
+
+Правила:
+
+1.  Контракт `TransactionalEventPublisher` является публичным API платформы/Document Engine и доступен бизнес-модулям (Capability).
+2.  Реализация основана на Spring transaction synchronization: событие доставляется только после успешного commit; при rollback событие не публикуется.
+3.  Capability публикуют свои доменные события только через этот публичный контракт и **не импортируют** внутренние классы Document Engine.
+4.  Доставка after-commit является best-effort относительно уже зафиксированной операции: сбой подписчика после commit не откатывает уже проведённую lifecycle-операцию.
+
+------------------------------------------------------------------------
+
+# История документа
+
+| Версия | Изменение |
+| --- | --- |
+| 1.0 | Базовая спецификация Document Engine: назначение, ответственность, компоненты, жизненный цикл, правила. |
+| 1.1 | Зафиксирован транзакционный контракт lifecycle-операций (`DocumentId` в operation context; вызов Document Processor внутри транзакции; атомарный откат изменений Capability, metadata и lifecycle journal при ошибке processor; загрузка capability-owned payload по `DocumentId`; владение metadata/lifecycle против typed business payload) и публичный after-commit контракт `TransactionalEventPublisher`. |
 
 ------------------------------------------------------------------------
 

@@ -52,7 +52,8 @@
 - Собственный persistence port и adapter; optimistic locking черновика через `PayloadRevision`.
 - Editable только в Draft-состоянии документа; Immutable после проведения.
 - Не generic JSON в Platform Core; недоступен другим Capability напрямую.
-- Processing record: `DocumentId + Operation` unique; идемпотентность проведения.
+- Физическая модель (Spec §11.5): `order_document_payload` (общие metadata, ключ `document_id`) + typed-таблицы (`order_create_payload`, `order_update_payload`, `order_status_payload`, `order_item_create_payload`, `order_item_update_payload`, `order_item_status_payload`, `order_item_revision_create_payload`, `order_item_revision_update_payload`, `order_item_revision_approve_payload`) + `order_item_revision_payload_line`; связь через `document_id` (FK), optimistic lock `payload_revision`, каскадное удаление Draft, immutability после проведения; JSON/сериализация запрещены.
+- Processing record: `DocumentId + Operation` unique; idempotency guard внутри processor.
 
 ---
 
@@ -90,22 +91,23 @@
 
 ## 10. Document lifecycle policy
 
-- `onPost`: единственное бизнес-изменение; загрузка payload по `DocumentId`; проверка schema version + optimistic lock + предусловий; идемпотентность; запись processing record.
+- `onPost` (сигнатура `void`): idempotency guard; загрузка payload по `DocumentId`; проверка schema version + optimistic lock + предусловий; единственное бизнес-изменение; запись processing record; публикация события через публичный `TransactionalEventPublisher`. При наличии processing record завершается как already processed без повторного изменения/события и без возврата результата.
 - `onUnpost`: NOT SUPPORTED (отклоняется).
 - `onDelete`: только Draft; удаляет payload; без изменения агрегатов, без события.
 - `onClose`: без изменения бизнес-состояния; сохраняет payload/историю.
+- Публичный повторный `DocumentEngine.postDocument(documentId)` проведённого документа отклоняется lifecycle validation.
 
 ---
 
-## 11. Транзакционная граница (verified)
+## 11. Транзакционная граница (public contract)
 
-Подтверждено по фактическому контракту Document Engine: `DefaultDocumentEngine` `@Transactional`; `onPost` вызывается внутри транзакции проведения; события после commit (`TransactionAfterCommitEventPublisher`); `DocumentId` доступен через `context.document().id()`. Изменение агрегата + processing record + результат проведения атомарны в этой границе. Включена задача верификации транзакционной границы (тест) до реализации Document Processors.
+Зафиксировано публичным контрактом Document Engine (Document Engine Specification v1.1): `DocumentProcessor` вызывается внутри транзакции lifecycle-операции; ошибка processor атомарно откатывает изменения Capability, metadata и lifecycle journal; `DocumentId` доступен через `context.document().id()`. Изменение агрегата + processing record атомарны в этой границе. События после успешного commit публикуются через публичный контракт `TransactionalEventPublisher.publishAfterCommit(DomainEvent)`; Order Management **не импортирует** внутренние классы Document Engine. Публичный `TransactionalEventPublisher` реализуется отдельной prerequisite-задачей очереди **до** первого Document Processor.
 
 ---
 
 ## 12. Persistence scope
 
-Схема `order_management`: `orders`, `order_items`, `order_item_revisions`, `item_specifications`, `item_specification_lines`, typed document payload persistence (ключ `DocumentId`), processing record (`document_id + operation` unique). Optimistic locking; schema-per-module.
+Схема `order_management`: `orders`, `order_items`, `order_item_revisions`, `item_specifications`, `item_specification_lines`; typed payload — `order_document_payload` + typed-таблицы + `order_item_revision_payload_line` (ключ/FK `document_id`, без JSON); processing record (`document_id + operation` unique). Optimistic locking; schema-per-module.
 
 Запрещено хранить: Production Status, launched/active/released quantity, партии/документы Production, Stock Position, резервы, складские движения, Cutting Plan internals, generic JSON в Platform Core.
 
@@ -149,7 +151,9 @@
 
 ## 17. Порядок реализации
 
-Определён в `WORK-QUEUE.md` (`STAGE5-001..STAGE5-045`): module bootstrap → architecture boundaries → identifiers/VO → domain aggregates → active/draft revision → immutable specification → repository ports → Query API contracts → paginated search contracts → typed payload models → payload application use cases → payload persistence port → payload DB schema → processing record & idempotency model → document type registration → document lifecycle policies → transaction boundary verification → Document Processors (по группам) → application commands → Domain Events → aggregate persistence → Flyway → Security capabilities → UI (навигация/список/редакторы/спецификация/ошибки) → unit tests → persistence ITs → document lifecycle ITs → idempotency tests → transaction rollback tests → architecture tests → full reactor → packaged verify → manual GUI smoke.
+Определён в `WORK-QUEUE.md` (`STAGE5-001..STAGE5-050`): module bootstrap → architecture boundaries → identifiers/VO → domain aggregates → active/draft revision → immutable specification → repository ports → Query API contracts → paginated search contracts → typed payload models → payload application use cases → payload persistence port → payload DB schema (physical typed tables) → payload persistence adapter → **public `TransactionalEventPublisher` contract and adapter** → processing record & idempotency model → processing record schema → processing persistence adapter → document type registration → document lifecycle policy base → Document Processors (один тип на задачу) → aggregate persistence → aggregate Flyway → Security capabilities → UI (навигация/список/редакторы/спецификация/ошибки) → unit tests → persistence ITs → document lifecycle ITs → idempotency tests → transaction rollback tests → architecture tests → full reactor → packaged verify → manual GUI smoke (`STAGE5-050`).
+
+`TransactionalEventPublisher` (публичный контракт + Spring transaction synchronization adapter + тесты publish-after-commit/no-publish-after-rollback) стоит **до** первого Document Processor.
 
 Одновременно только одна задача Stage 5 в статусе `READY`. Первой READY-задачей является `STAGE5-001`.
 
@@ -157,13 +161,13 @@
 
 ## 18. Правила контекста
 
-`CONTEXT-MAP.md` → «Stage 5 — Order Management Context» (в т.ч. группы: document payload model / payload persistence / processor lifecycle / processing idempotency / revision draft workflow / query search and pagination / transaction boundary verification). Запрещено загружать полную реализацию Production/Warehouse/Cutting/Analytics.
+`CONTEXT-MAP.md` → «Stage 5 — Order Management Context» (в т.ч. группы: document payload model / payload persistence / transactional event publisher / processor lifecycle / processing idempotency / revision draft workflow / query search and pagination). Запрещено загружать полную реализацию Production/Warehouse/Cutting/Analytics.
 
 ---
 
 ## 19. Verification gates
 
-- Per-task focused tests; integration gate (Testcontainers); document lifecycle gate; idempotency gate; transaction rollback gate; architecture gate; full `mvn clean verify` + `-Ppackage`; manual GUI smoke (`STAGE5-045`).
+- Per-task focused tests; integration gate (Testcontainers); document lifecycle gate; idempotency gate; transaction rollback gate; architecture gate; full `mvn clean verify` + `-Ppackage`; manual GUI smoke (`STAGE5-050`).
 
 ---
 
@@ -172,8 +176,9 @@
 Stage 5 завершён только когда:
 
 - UI может создать платформенный документ и сохранить typed draft payload;
-- processor получает `DocumentId` и загружает payload;
-- payload immutable после проведения; repeat posting идемпотентен;
+- processor получает `DocumentId` и загружает payload (`onPost` возвращает `void`);
+- payload immutable после проведения; публичный повторный `postDocument` отклоняется lifecycle validation; idempotency guard внутри processor предотвращает повторную/конкурентную обработку (без повторного изменения/события);
+- публичный `TransactionalEventPublisher` реализован; события публикуются только после commit; Order Management не импортирует внутренние классы Document Engine;
 - unpost проведённого документа отклоняется; delete draft-документа удаляет payload;
 - active Revision не заменяется Draft Revision до утверждения; предыдущие Revision immutable;
 - Query API предоставляет данные (Order/Item/Revision/Specification) с поиском и пагинацией; order list работает только через Query API;

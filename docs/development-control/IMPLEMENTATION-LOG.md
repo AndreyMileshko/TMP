@@ -2240,7 +2240,7 @@ None (Stage 4 COMPLETE). Stop before Stage 5. Optional later: `BACKLOG-001`.
 
 ### Transaction boundary verification (по фактическому контракту Document Engine)
 
-Проверен код и тесты `tmp-document-engine`. `DefaultDocumentEngine` `@Transactional`; `DocumentProcessor.onPost(context)` вызывается внутри транзакции проведения; `DocumentId` доступен через `context.document().id()` (`DocumentOperationContext` → `DocumentMetadata.id()`); Domain Events публикуются только после commit (`TransactionAfterCommitEventPublisher`); откат в processor откатывает документ и не публикует событие (`DefaultDocumentEngineTransactionEventTest`). Требуемая атомарность гарантирована существующим контрактом — **prerequisite Platform/Document Engine не создавался**. В очередь включена задача верификации `STAGE5-021` (тест) до Document Processors.
+Проверен код и тесты `tmp-document-engine`. `DefaultDocumentEngine` `@Transactional`; `DocumentProcessor.onPost(context)` вызывается внутри транзакции проведения; `DocumentId` доступен через `context.document().id()` (`DocumentOperationContext` → `DocumentMetadata.id()`); Domain Events публикуются только после commit (`TransactionAfterCommitEventPublisher`); откат в processor откатывает документ и не публикует событие (`DefaultDocumentEngineTransactionEventTest`). Требуемая атомарность гарантирована существующим контрактом. (Обновлено в STAGE5-000-FIX2: транзакционный контракт вынесен в публичный Document Engine Specification v1.1 и публичный `TransactionalEventPublisher`; в очередь включены задача публичного контракта `STAGE5-017` до первого Document Processor и тесты отката `STAGE5-046`.)
 
 ### Documents updated
 
@@ -2259,4 +2259,35 @@ None (Stage 4 COMPLETE). Stop before Stage 5. Optional later: `BACKLOG-001`.
 ### Next task
 
 `STAGE5-001` — Bootstrap `tmp-order-management` module (по решению пользователя). Stage 6 не стартовать. Git-операции выполняет пользователь.
+
+---
+
+## STAGE5-000-FIX2 — Final Documentation Corrections
+
+**Тип:** только документация. Java-код, Maven-модули, `pom.xml`, миграции, тесты, старт `STAGE5-001` и Git — не затрагивались.
+
+**Начальное состояние (на время работ):** `STAGE5-000-FIX2` добавлена как единственная `READY`; `STAGE5-001` переведён в `PLANNED`; в `STATUS.md` зафиксировано повторное открытие Documentation Gate.
+
+### Внесённые исправления
+
+1. **Публичный after-commit контракт.** Document Engine Specification → **v1.1**: зафиксирован транзакционный контракт lifecycle-операций (`DocumentId` в operation context; вызов processor внутри транзакции; атомарный откат изменений Capability, metadata и lifecycle journal; загрузка capability-owned payload по `DocumentId`; владение metadata/lifecycle vs typed payload) и публичный контракт `TransactionalEventPublisher { void publishAfterCommit(DomainEvent); }` на Spring transaction synchronization. Order Management переведён на публичный контракт (OM Spec §12/§17/§21, Manifest §11, CONTEXT-MAP) и **не импортирует** внутренние классы Document Engine. Добавлена prerequisite-задача `STAGE5-017` до первого Document Processor.
+2. **Физическая модель typed payload.** OM Spec §11.5/§19: `order_document_payload` (общие metadata, ключ `document_id`) + typed-таблицы по назначению документа + `order_item_revision_payload_line`; связь через `document_id` (FK), optimistic lock `payload_revision`, каскадное удаление Draft, immutability после проведения, коллекции — отдельными строками; JSON/сериализация запрещены. Обновлены задачи persistence/migrations (`STAGE5-016`, `STAGE5-020`, `STAGE5-043`).
+3. **Idempotency.** OM Spec §14.1/§16, Manifest §10: публичный повторный `DocumentEngine.postDocument` проведённого документа отклоняется lifecycle validation; guard внутри processor при существующей processing record завершается как already processed (без повторного изменения/события/записи); `resultReference` внутренний; `DocumentProcessor.onPost()` → `void`. Удалено упоминание возврата сохранённого результата. Обновлены `STAGE5-018`, `STAGE5-045`.
+4. **Синхронизация версий/номеров.** CONTEXT-MAP: «Order Management Specification **v1.2**»; Manifest §17/§19: `STAGE5-001..STAGE5-050`, GUI smoke `STAGE5-050`.
+5. **Пересборка очереди Stage 5 (50 задач).** Порядок §8: модуль/границы → доменная модель → Query API → typed payload model → typed payload persistence → публичный `TransactionalEventPublisher` (`STAGE5-017`) → processing record & idempotency → Document Processors → события → UI → тесты → финальная проверка и GUI smoke. Каждая задача содержит зависимости, scope, acceptance criteria, разрешённые файлы, verification commands, stop conditions.
+
+### Documents updated
+
+- `docs/TMP/TMP_Initial_Documents/architecture/07-Document-Engine/Document-Engine-Specification.md` → **v1.1**.
+- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` → **v1.2** (rev. STAGE5-000-FIX2: §11.5, §12, §14.1, §16, §17, §19, инварианты, история).
+- `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (§5/§10/§11/§12/§17/§18/§19/§20).
+- `docs/development-control/CONTEXT-MAP.md` (v1.2; публичный `TransactionalEventPublisher`; payload persistence физ. модель; удалён внутренний класс из OM-контекста).
+- `docs/development-control/WORK-QUEUE.md` — очередь Stage 5 пересобрана (`STAGE5-001..050`) + `STAGE5-000-FIX2` (COMPLETED).
+- `docs/development-control/STATUS.md`, `BLOCKERS.md` (DOC-BLK-7..10 CLOSED), `VERIFICATION-LOG.md`.
+
+Только `STAGE5-001` — `READY`; остальные — `PLANNED`. Реализация `STAGE5-001` не начиналась.
+
+### Next task
+
+`STAGE5-001` — Bootstrap `tmp-order-management` module. Stage 6 не стартовать. Git-операции выполняет пользователь.
 

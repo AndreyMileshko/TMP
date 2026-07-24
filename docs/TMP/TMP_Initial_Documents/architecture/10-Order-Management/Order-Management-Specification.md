@@ -341,31 +341,79 @@ Order Management UI
   -> DocumentProcessor reads DocumentId from context.document().id()
   -> loads typed payload from Order Management repository
   -> validates payload schema version, optimistic lock, preconditions
+  -> checks processing record (idempotency guard)
   -> creates internal application command
   -> changes aggregate
   -> persists aggregate
-  -> writes processing record (idempotency)
-  -> publishes Domain Event after commit
-  -> marks processing result
+  -> writes processing record
+  -> requests Domain Event publication via public TransactionalEventPublisher (delivered after commit)
+  -> onPost returns void
 ```
+
+## 11.5 Физическая модель хранения payload
+
+Payload хранится в реляционной модели схемы `order_management` строго типизированными таблицами. JSON и Java-сериализация **не используются**.
+
+Общие metadata payload — в таблице `order_document_payload`:
+
+```text
+order_document_payload
+  document_id            (PK, = platform DocumentId)
+  document_type_code
+  payload_schema_version
+  payload_revision       (optimistic lock)
+  created_at
+  updated_at
+```
+
+Бизнес-поля хранятся в typed-таблицах по назначению документа; каждая связана с `order_document_payload` через `document_id` (PK и FK):
+
+```text
+order_create_payload
+order_update_payload
+order_status_payload                     (общая для ORDER_APPROVE и ORDER_CANCEL — одинаковая структура)
+
+order_item_create_payload
+order_item_update_payload
+order_item_status_payload                (общая для ORDER_ITEM_CANCEL и статусных изменений позиции)
+
+order_item_revision_create_payload
+order_item_revision_update_payload
+order_item_revision_approve_payload
+
+order_item_revision_payload_line         (строки спецификации редакции; коллекция)
+```
+
+Правила физической модели:
+
+* каждая typed-таблица имеет `document_id` как PK и FK на `order_document_payload(document_id)`;
+* optimistic locking payload — через `order_document_payload.payload_revision`;
+* коллекции спецификации хранятся отдельными строками в `order_item_revision_payload_line` (по `document_id`, с номером строки), не как сериализованное поле;
+* при удалении непроведённого Draft-документа удаляются все typed-данные payload (каскад по `document_id`);
+* после успешного проведения payload становится immutable (запрет UPDATE/DELETE строк payload проведённого документа);
+* status-payload таблицы допустимо объединять только при полностью совпадающей структуре;
+* JSON-поля и Java-сериализация запрещены; все поля — типизированные колонки.
 
 ---
 
-# 12. Транзакционная модель (подтверждено по фактическому контракту Document Engine)
+# 12. Транзакционная модель (по публичному контракту Document Engine)
 
-Проверка контракта Document Engine (`tmp-document-engine`):
+Транзакционный контракт зафиксирован в Document Engine Specification (v1.1). Order Management опирается только на публичный контракт и **не импортирует** внутренние классы Document Engine.
 
-* `DocumentOperationContext.document()` возвращает `DocumentMetadata` с `DocumentId` (`id()`), доступным во всех hook'ах, включая `onPost`.
-* `DefaultDocumentEngine` аннотирован `@Transactional`; `postDocument(...)` вызывает `DocumentProcessor.onPost(context)` **внутри** той же транзакции, что и изменение статуса документа (`DRAFT → POSTED`) и запись lifecycle-журнала.
-* Domain Events публикуются только после commit (`TransactionAfterCommitEventPublisher.afterCommit`); при откате событие не публикуется (подтверждено тестами `eventNotEmittedOnRollback`, `rollbackAfterProcessorValidationFailureDoesNotEmitEvent`).
+Публичный контракт:
+
+* `DocumentOperationContext.document()` возвращает `DocumentMetadata` с `DocumentId` (`id()`), доступным во всех hook'ах Document Processor, включая `onPost`.
+* `DocumentProcessor` вызывается **внутри** транзакции lifecycle-операции (create/post/unpost/close/delete).
+* Ошибка Document Processor откатывает в одной транзакционной границе изменения Capability, metadata документа и записи lifecycle journal.
+* События, публикуемые после успешного commit, доставляются через публичный контракт платформы `TransactionalEventPublisher.publishAfterCommit(DomainEvent)`; при rollback событие не публикуется.
 
 Следствие для Order Management:
 
-* изменение агрегата, запись processing record и изменение результата проведения выполняются в `onPost` и участвуют в **той же** транзакционной границе Document Engine (Spring propagation `REQUIRED`);
-* при исключении в `onPost` вся транзакция откатывается атомарно (документ не переходит в `POSTED`, агрегат не изменяется, событие не публикуется);
-* Domain Events Order Management публикуются после commit через Platform Core `EventBus` тем же after-commit механизмом.
+* изменение агрегата, запись processing record и результат обработки выполняются в `onPost` и участвуют в **той же** транзакционной границе lifecycle-операции;
+* при исключении в `onPost` вся транзакция откатывается атомарно (документ не переходит в `POSTED`, агрегат не изменяется, processing record не создаётся, событие не публикуется);
+* доменные события Order Management публикуются исключительно через публичный `TransactionalEventPublisher` (реализация — Spring transaction synchronization adapter платформы/Document Engine), без прямого использования Platform Core `EventBus` внутри транзакции и без импорта внутренних классов Document Engine.
 
-Атомарность требуемого набора (processor → aggregate → processing record → posting result; event после commit) **гарантирована** существующим контрактом Document Engine. Отдельная prerequisite-задача Platform/Document Engine **не требуется**. Для страховки в очередь Stage 5 включена задача верификации транзакционной границы (архитектурный/интеграционный тест) до реализации Document Processors.
+Атомарность требуемого набора (processor → aggregate → processing record → posting result; событие после commit) гарантирована публичным транзакционным контрактом Document Engine. Публичный контракт `TransactionalEventPublisher` вводится отдельной prerequisite-задачей очереди Stage 5 **до** первого Order Management Document Processor.
 
 ---
 
@@ -409,13 +457,18 @@ Order Management UI
 
 ## 14.1 `onPost`
 
-* выполняет единственное бизнес-изменение;
+Сигнатура: `void DocumentProcessor.onPost(DocumentOperationContext context)` — ничего не возвращает.
+
 * загружает typed payload по `DocumentId`;
+* проверяет idempotency guard (см. §16): при наличии processing record завершается как already processed без повторного изменения;
 * проверяет `PayloadSchemaVersion`;
 * проверяет optimistic lock (`PayloadRevision`);
 * валидирует предусловия и состояние документа;
-* идемпотентен: повторный `onPost` не создаёт повторное изменение;
-* записывает processing result (см. §16).
+* выполняет единственное бизнес-изменение агрегата;
+* записывает processing record;
+* запрашивает публикацию Domain Event через публичный `TransactionalEventPublisher` (доставка после commit).
+
+Публичный повторный вызов `DocumentEngine.postDocument(documentId)` для уже проведённого документа отклоняется lifecycle validation Document Engine (документ не в `DRAFT`) — на уровень processor он не доходит. Idempotency guard в §16 защищает от повторной или конкурентной обработки в пределах одного проведения.
 
 ## 14.2 `onUnpost`
 
@@ -520,18 +573,24 @@ ResultReference
 
 Уникальное ограничение: `DocumentId + Operation`.
 
-Повторный `onPost`:
+**Публичный уровень.** Повторный вызов `DocumentEngine.postDocument(documentId)` для уже проведённого документа отклоняется lifecycle validation Document Engine (документ не в `DRAFT`). Публичный повторный post не «возвращает сохранённый результат» — он отклоняется.
 
-* не выполняет бизнес-операцию повторно;
-* возвращает ранее сохранённый результат либо подтверждает уже выполненную обработку.
+**Уровень processor (idempotency guard).** Idempotency применяется внутри `DocumentProcessor` для защиты от повторной или конкурентной обработки в пределах проведения. При уже существующей processing record:
 
-Idempotency применяется в той же согласованной транзакционной границе, что и изменение агрегата (§12).
+* агрегат повторно не изменяется;
+* событие повторно не публикуется;
+* новая processing record не создаётся;
+* processor завершается без ошибки как already processed;
+* `ResultReference` остаётся внутренним значением (не возвращается наружу);
+* `DocumentProcessor.onPost()` ничего не возвращает (`void`).
+
+Idempotency guard применяется в той же согласованной транзакционной границе, что и изменение агрегата (§12).
 
 ---
 
 # 17. Domain Events
 
-Публикуются только после commit (ADR-021). `OrderItemRevisionApproved` потребляется Production (Production Spec §16). События Production/Warehouse/Cutting Order Management не публикует.
+Публикуются только после commit (ADR-021) через публичный контракт `TransactionalEventPublisher.publishAfterCommit(DomainEvent)`; Order Management не импортирует внутренние классы Document Engine. `OrderItemRevisionApproved` потребляется Production (Production Spec §16). События Production/Warehouse/Cutting Order Management не публикует.
 
 | Event type | Source operation | Moment | Minimal payload | Consumers | Idempotency id |
 | --- | --- | --- | --- | --- | --- |
@@ -580,7 +639,7 @@ Security выполняет проверку разрешений; Order Managem
 * `order_items` (active/draft revision pointers, коммерческий статус, признак активности);
 * `order_item_revisions` (`order_item_id`, `revision_number`, `revision_status`, `ordered_quantity`, ссылка на предыдущую);
 * `item_specifications`, `item_specification_lines` (по `order_item_id` + `revision_number`);
-* типизированный payload документов (per-type typed persistence), ключ `DocumentId`, поля `document_type_code`, `payload_schema_version`, `payload_revision`, `created_at`, `updated_at`, immutability-after-post;
+* типизированный payload документов — физическая модель §11.5: общая `order_document_payload` (ключ `document_id`) + typed-таблицы (`order_create_payload`, `order_update_payload`, `order_status_payload`, `order_item_create_payload`, `order_item_update_payload`, `order_item_status_payload`, `order_item_revision_create_payload`, `order_item_revision_update_payload`, `order_item_revision_approve_payload`) + коллекция `order_item_revision_payload_line`; все связаны через `document_id` (FK на `order_document_payload`), optimistic lock через `payload_revision`, каскадное удаление для Draft, immutability после проведения, без JSON/сериализации;
 * processing record (`document_id`, `document_type_code`, `operation`, `processing_status`, `payload_revision`, `processed_at`, `result_reference`), уникальность `document_id + operation`.
 
 Optimistic locking, общие технические поля, schema-per-module — по Database Specification.
@@ -613,8 +672,8 @@ Order Management предоставляет стабильные `Order Item ID`
 5. Владелец хранения совпадает с владельцем изменения.
 6. Изменения — только через бизнес-документы; изменяющие операции не являются внешним Public API.
 7. Payload типизирован, версионирован, связан по `DocumentId`, Immutable после проведения.
-8. Проведение идемпотентно (processing record `DocumentId + Operation`).
-9. Атомарность проведения обеспечивается транзакционной границей Document Engine.
+8. Повторный публичный `postDocument` проведённого документа отклоняется lifecycle validation; idempotency guard внутри processor защищает от повторной/конкурентной обработки (processing record `DocumentId + Operation`); `onPost` возвращает `void`.
+9. Атомарность проведения обеспечивается публичным транзакционным контрактом Document Engine; события публикуются через публичный `TransactionalEventPublisher`; внутренние классы Document Engine не импортируются.
 10. `Order Item ID` стабилен; конкретная редакция — `Order Item ID + Revision`.
 11. Одновременно не более одной Draft Revision; active Revision не заменяется draft до утверждения.
 12. Предыдущие Revision и спецификации не изменяются.
@@ -689,3 +748,4 @@ Order Management предоставляет стабильные `Order Item ID`
 | 1.0 | Базовая архитектура Order Management: позиция как главный объект, Immutable Specification, Public API, Domain Events, Capability, инварианты, редакции. |
 | 1.1 | Разделено владение Order Management и Production; удалено хранение производственных статусов/количеств; разделены жизненные циклы; формализована модель Revision; изменяющие операции привязаны к Document Engine; Public API разделён на Query API и внутренний Application API; добавлены transition matrices; коды capability приведены к 3-сегментному формату; `IN_PROGRESS`/`COMPLETED` перенесены; определён persistence scope с запретами. |
 | 1.2 | Введён capability-owned typed business document payload (ADR-028), связанный по `DocumentId`, versioned, с optimistic locking (`PayloadRevision`) и immutability после проведения; уточнён document lifecycle (`post`/`unpost`=NOT SUPPORTED/`close`/`delete`) и idempotency (processing record `DocumentId + Operation`); подтверждена транзакционная граница Document Engine (processor внутри транзакции проведения, события после commit); модель Revision разделена на active/draft, добавлен документ `ORDER_ITEM_REVISION_UPDATE`, `ORDER_ITEM_UPDATE` ограничен коммерческими полями; безопасный коммерческий lifecycle Stage 5 (запрет `APPROVED→CANCELLED`, `ACTIVE→CANCELLED`, изменения состава утверждённого заказа); расширен Public Query API (`searchOrders`, списки items/revisions, пагинация 50/100 zero-based, стабильная сортировка); уточнены Constitution/ADR-003/ADR-004; определены future integration processes. |
+| 1.2 (rev. STAGE5-000-FIX2) | Определена физическая модель typed payload (§11.5): `order_document_payload` + typed-таблицы + `order_item_revision_payload_line`, связь через `document_id`, FK, optimistic lock `payload_revision`, каскадное удаление Draft, immutability после проведения, без JSON/сериализации. Транзакционное поведение переведено на публичный контракт Document Engine (Document Engine Specification v1.1) и публичный `TransactionalEventPublisher`; Order Management не импортирует внутренние классы Document Engine. Исправлена семантика idempotency: `void onPost`, повторный публичный `postDocument` отклоняется lifecycle validation, guard внутри processor завершается как already processed без возврата результата. |

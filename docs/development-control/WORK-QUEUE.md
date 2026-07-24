@@ -7561,11 +7561,31 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ---
 
+## STAGE5-000-FIX2 — Final Documentation Corrections
+
+**Status:** COMPLETED
+**Stage:** 5
+**Depends on:** STAGE5-000-FIX
+**Module:** documentation only
+
+- **Goal:** Устранить оставшиеся замечания подготовки Stage 5: публичный after-commit контракт `TransactionalEventPublisher`; физическая модель typed payload; корректная семантика idempotency (`void onPost`); транзакционный контракт в Document Engine Specification; синхронизация версий и номеров задач. Только документация.
+- **Scope:** Document-Engine-Specification → v1.1; Order-Management-Specification §11.5/§12/§14/§16/§19; Stage Manifest; CONTEXT-MAP (v1.2, публичный publisher); полная пересборка очереди Stage 5 с prerequisite `TransactionalEventPublisher` до первого Document Processor; синхронизация номеров (`STAGE5-001..050`, GUI smoke `STAGE5-050`).
+- **Out of scope:** Java-код, модули, `pom.xml`, миграции, тесты, старт `STAGE5-001`, Git.
+- **Required documents:** Document-Engine-Specification; Order-Management-Specification; Stage 5 Manifest; CONTEXT-MAP; control docs; публичные контракты и минимальная реализация Document Engine (только для проверки транзакций).
+- **Required code context (verification only):** `com.tmp.document.api..`; `DefaultDocumentEngine`, `TransactionAfterCommitEventPublisher` (только для подтверждения фактического поведения транзакций).
+- **Files allowed to change:** Document-Engine-Specification, Order-Management-Specification, STAGE-5 Manifest, CONTEXT-MAP, WORK-QUEUE, STATUS, BLOCKERS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Acceptance criteria:** Documentation Gate §9 пройден; after-commit механизм публичный; Order Management не использует внутренние классы Document Engine; физическое хранение typed payload определено; JSON payload не используется; idempotency соответствует `void onPost`; повторный публичный post отклоняется lifecycle validation; Document Engine Specification фиксирует транзакционный контракт; очередь и версии/номера синхронизированы; только `STAGE5-001` READY; Java-код не изменялся.
+- **Verification commands:** `Documentation cross-reference only (no Maven build; no code/build changes).`
+- **Documentation updates:** все перечисленные документы.
+- **Stop conditions:** after-commit не может быть публичным; невозможно определить физическое хранение payload; idempotency не сводится к `void onPost`; транзакционный контракт не фиксируется. (Не сработали.)
+
+---
+
 ## STAGE5-001 — Bootstrap `tmp-order-management` module
 
 **Status:** READY
 **Stage:** 5
-**Depends on:** STAGE5-000-FIX
+**Depends on:** STAGE5-000-FIX2
 **Module:** `tmp-order-management` (new)
 
 - **Goal:** Создать Maven-модуль `tmp-order-management`, подключить к reactor, задать package skeleton и разрешённые зависимости. Без агрегатов, таблиц, документов, UI.
@@ -7587,13 +7607,13 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 **Stage:** 5
 **Depends on:** STAGE5-001
 
-- **Goal:** Зафиксировать архитектурные правила модуля (границы пакетов, запрет mutating API наружу, запрет production-данных) как ArchUnit-правила скелетом.
-- **Scope:** правила: `api` не зависит от `persistence`; наружу только Query API; отсутствие импорта внутренних пакетов других Capability; отсутствие JavaFX.
+- **Goal:** Зафиксировать архитектурные правила модуля (границы пакетов, запрет mutating API наружу, запрет production-данных, запрет импорта внутренних классов Document Engine) как ArchUnit-правила скелетом.
+- **Scope:** правила: `api` не зависит от `persistence`; наружу только Query API; отсутствие импорта внутренних пакетов других Capability и внутренних классов Document Engine; отсутствие JavaFX.
 - **Out of scope:** доменная логика; реальные агрегаты.
 - **Required documents:** Manifest §3/§16; ADR-003/004/019/028.
 - **Required code context:** `tmp-architecture-tests` конвенции; `com.tmp.*.api`.
 - **Files allowed to change:** `tmp-architecture-tests` (новые правила для order), `tmp-order-management` package-info.
-- **Acceptance criteria:** architecture tests компилируются и проходят на пустом модуле.
+- **Acceptance criteria:** architecture tests компилируются и проходят на пустом модуле; правило «no internal Document Engine imports» присутствует.
 - **Verification commands:** `mvn -q -pl tmp-architecture-tests -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** правило требует доступа к внутренней реализации другой Capability.
@@ -7618,19 +7638,20 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 - **Stop conditions:** требуется идентификатор чужой Capability как владелец.
 
 ---
+
 ## STAGE5-004 — Domain aggregate: Customer Order
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-003
 
-- **Goal:** Реализовать агрегат Customer Order с коммерческими полями и статусами `DRAFT/APPROVED/CANCELLED` и инвариантами §8.
+- **Goal:** Реализовать агрегат Customer Order со статусами `DRAFT/APPROVED/CANCELLED` и инвариантами §8.
 - **Scope:** доменные объекты, инварианты, переходы (без persistence/документов).
 - **Out of scope:** persistence, документы, события, UI.
 - **Required documents:** Spec §5.1/§8; ADR-017.
 - **Required code context:** собственный домен.
 - **Files allowed to change:** `tmp-order-management/.../domain`.
-- **Acceptance criteria:** unit-тесты инвариантов и разрешённых/запрещённых переходов (в т.ч. запрет `APPROVED→CANCELLED`).
+- **Acceptance criteria:** unit-тесты инвариантов и переходов (в т.ч. запрет `APPROVED→CANCELLED`).
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** статус без полного transition rule.
@@ -7645,7 +7666,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 - **Goal:** Реализовать агрегат Order Item со статусами `DRAFT/ACTIVE/CANCELLED`, коммерческими полями и указателями `activeRevisionNumber`/`draftRevisionNumber`.
 - **Scope:** доменные инварианты §9 (в т.ч. запрет `ACTIVE→CANCELLED`).
-- **Out of scope:** Revision-логика деталей (в STAGE5-006), persistence, документы.
+- **Out of scope:** Revision-детали (STAGE5-006), persistence, документы.
 - **Required documents:** Spec §5.2/§9; ADR-017.
 - **Required code context:** собственный домен.
 - **Files allowed to change:** `tmp-order-management/.../domain`.
@@ -7757,12 +7778,12 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 **Depends on:** STAGE5-010
 
 - **Goal:** Определить typed payload модели документов заказа (`OrderCreatePayload`, `OrderUpdatePayload`, `OrderApprovePayload`, `OrderCancelPayload`) с полями identity §11.2.
-- **Scope:** типизированные Java-модели; поля `DocumentId`, `DocumentTypeCode`, `PayloadSchemaVersion`, `PayloadRevision`, `CreatedAt`, `UpdatedAt`; связь по `DocumentId`.
+- **Scope:** типизированные Java-модели; поля identity; связь по `DocumentId`; без JSON.
 - **Out of scope:** persistence, processors, generic JSON.
-- **Required documents:** Spec §11; ADR-028.
+- **Required documents:** Spec §11/§11.2; ADR-028.
 - **Required code context:** `com.tmp.document.api` (`DocumentMetadata`/`DocumentId`).
 - **Files allowed to change:** `tmp-order-management/.../application` (payload).
-- **Acceptance criteria:** модели типизированы и versioned; отсутствует generic JSON в Platform Core.
+- **Acceptance criteria:** модели типизированы и versioned; отсутствует generic JSON.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** payload нельзя связать с `DocumentId`.
@@ -7794,13 +7815,13 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 **Stage:** 5
 **Depends on:** STAGE5-012
 
-- **Goal:** Определить typed payload модели документов редакции (`OrderItemRevisionCreatePayload`, `OrderItemRevisionUpdatePayload`, `OrderItemRevisionApprovePayload`).
-- **Scope:** модели редакции/спецификации с identity §11.2; `ORDER_ITEM_REVISION_UPDATE` изменяет только draft revision.
+- **Goal:** Определить typed payload модели документов редакции (`OrderItemRevisionCreatePayload`, `OrderItemRevisionUpdatePayload`, `OrderItemRevisionApprovePayload`) и строки спецификации (payload line).
+- **Scope:** модели редакции/спецификации с identity §11.2; коллекция строк как отдельная типизированная модель; `ORDER_ITEM_REVISION_UPDATE` изменяет только draft revision.
 - **Out of scope:** persistence, processors.
 - **Required documents:** Spec §6/§11/§13; ADR-028.
 - **Required code context:** `com.tmp.document.api`.
 - **Files allowed to change:** `tmp-order-management/.../application` (payload).
-- **Acceptance criteria:** update-payload адресует только draft revision.
+- **Acceptance criteria:** update-payload адресует только draft revision; строки спецификации — типизированная коллекция.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** payload позволяет менять утверждённую revision.
@@ -7815,9 +7836,9 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 - **Goal:** Реализовать внутренние use cases создания/изменения draft payload с optimistic locking (`PayloadRevision`) и immutability после проведения.
 - **Scope:** application use cases (только внутренние); редактирование только пока документ Draft.
-- **Out of scope:** persistence-адаптер (STAGE5-015), processors.
+- **Out of scope:** persistence-адаптер (STAGE5-020), processors.
 - **Required documents:** Spec §11.3/§11.4.
-- **Required code context:** собственный application; payload port (объявляется здесь как интерфейс использования).
+- **Required code context:** собственный application; payload port (интерфейс использования).
 - **Files allowed to change:** `tmp-order-management/.../application`.
 - **Acceptance criteria:** unit-тесты: конфликт `PayloadRevision` отклоняется; правка после проведения запрещена.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
@@ -7832,62 +7853,81 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 **Stage:** 5
 **Depends on:** STAGE5-014
 
-- **Goal:** Определить persistence port для typed payload (load/store by `DocumentId`, версия схемы, `PayloadRevision`).
+- **Goal:** Определить persistence port для typed payload (load/store by `DocumentId`, версия схемы, `PayloadRevision`, каскадное удаление Draft).
 - **Scope:** только порт (интерфейс).
 - **Out of scope:** JDBC adapter, миграции.
-- **Required documents:** Spec §11/§19.
+- **Required documents:** Spec §11.5/§19.
 - **Required code context:** `com.tmp.document.api` (`DocumentId`).
 - **Files allowed to change:** `tmp-order-management/.../application` (port) или `.../persistence` (интерфейс порта).
-- **Acceptance criteria:** порт компилируется; ключ — `DocumentId`.
+- **Acceptance criteria:** порт компилируется; ключ — `DocumentId`; операции purge для Draft определены.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** payload нельзя ключевать по `DocumentId`.
 
 ---
 
-## STAGE5-016 — Capability-owned payload database schema (Flyway)
+## STAGE5-016 — Payload physical schema (Flyway typed tables)
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-015
 
-- **Goal:** Создать Flyway-миграцию схемы typed payload (`order_management`, ключ `DocumentId`, `document_type_code`, `payload_schema_version`, `payload_revision`, `created_at`, `updated_at`, immutability-after-post).
-- **Scope:** только SQL-миграция payload (следующая свободная версия ≥ V6).
-- **Out of scope:** adapter (реализация), агрегатные таблицы.
-- **Required documents:** Spec §19; Database Spec; Flyway (highest = V5).
+- **Goal:** Создать Flyway-миграцию физической модели payload (Spec §11.5): `order_document_payload` + typed-таблицы (`order_create_payload`, `order_update_payload`, `order_status_payload`, `order_item_create_payload`, `order_item_update_payload`, `order_item_status_payload`, `order_item_revision_create_payload`, `order_item_revision_update_payload`, `order_item_revision_approve_payload`) + `order_item_revision_payload_line`.
+- **Scope:** только SQL-миграция payload (следующая свободная версия ≥ V6); FK на `order_document_payload(document_id)`; `payload_revision` для optimistic lock; каскадное удаление; typed-колонки без JSON.
+- **Out of scope:** adapter, агрегатные/processing таблицы.
+- **Required documents:** Spec §11.5/§19; Database Spec; Flyway (highest = V5).
 - **Required code context:** `tmp-infra-db` конвенции.
 - **Files allowed to change:** `src/main/resources/db/migration/Vx__order_payload_schema.sql`.
-- **Acceptance criteria:** миграция применяется на чистой БД; не хранит generic JSON/Production данных.
+- **Acceptance criteria:** миграция применяется; FK и `payload_revision` присутствуют; нет JSON-колонок; нет generic payload в Platform Core.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** схема вынуждает generic JSON в Platform Core.
+- **Stop conditions:** схема вынуждает JSON/сериализацию.
 
 ---
 
-## STAGE5-017 — Processing record and idempotency model
+## STAGE5-017 — Public TransactionalEventPublisher contract and adapter (prerequisite)
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-016
 
-- **Goal:** Определить модель processing record и порт идемпотентности (`DocumentId`, `DocumentTypeCode`, `Operation`, `ProcessingStatus`, `PayloadRevision`, `ProcessedAt`, `ResultReference`), уникальность `DocumentId + Operation`.
-- **Scope:** доменная/application модель + порт; логика «повторный post не повторяет операцию».
-- **Out of scope:** SQL-миграция (STAGE5-018), adapter.
-- **Required documents:** Spec §16; ADR-028.
-- **Required code context:** `com.tmp.document.api` (`DocumentId`).
-- **Files allowed to change:** `tmp-order-management/.../application` / `.../domain`.
-- **Acceptance criteria:** unit-тесты идемпотентности (повторный post возвращает сохранённый результат).
-- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Goal:** Реализовать публичный контракт `TransactionalEventPublisher { void publishAfterCommit(DomainEvent event); }` и Spring transaction synchronization adapter в публичном API платформы/Document Engine, чтобы Capability публиковали события после commit без импорта внутренних классов Document Engine. Prerequisite до первого Document Processor.
+- **Scope:** публичный интерфейс; adapter на основе transaction synchronization; тесты publish-only-after-commit и no-publish-after-rollback.
+- **Out of scope:** Order Management processors; изменение бизнес-логики Document Engine.
+- **Required documents:** Document Engine Specification (v1.1); Spec §12; Manifest §11.
+- **Required code context:** `com.tmp.document.api`/`com.tmp.core.api` (`DomainEvent`, Event API); существующий after-commit механизм как reference (без экспонирования внутренних классов).
+- **Files allowed to change:** публичный контракт и adapter (платформа/Document Engine public API) + их тесты.
+- **Acceptance criteria:** контракт публичный; событие доставляется только после commit; при rollback не публикуется; Capability может зависеть только от публичного интерфейса.
+- **Verification commands:** `mvn -q -pl tmp-document-engine -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** невозможно определить idempotency key.
+- **Stop conditions:** невозможно вынести after-commit в публичный контракт — остановить очередь, открыть blocker.
 
 ---
 
-## STAGE5-018 — Processing record database schema (Flyway)
+## STAGE5-018 — Processing record and idempotency model
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-017
+
+- **Goal:** Определить модель processing record и idempotency guard (`DocumentId`, `DocumentTypeCode`, `Operation`, `ProcessingStatus`, `PayloadRevision`, `ProcessedAt`, `ResultReference`), уникальность `DocumentId + Operation`; семантика `void onPost` (already processed без повторного изменения/события, без возврата результата).
+- **Scope:** доменная/application модель + порт + guard-логика.
+- **Out of scope:** SQL-миграция (STAGE5-019), adapter (STAGE5-020).
+- **Required documents:** Spec §14.1/§16; ADR-028.
+- **Required code context:** `com.tmp.document.api` (`DocumentId`).
+- **Files allowed to change:** `tmp-order-management/.../application` / `.../domain`.
+- **Acceptance criteria:** unit-тесты: при существующей processing record повторная обработка не меняет агрегат, не публикует событие, не создаёт запись; `onPost` возвращает `void`; результат не возвращается наружу.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** невозможно определить idempotency guard без возврата результата.
+
+---
+
+## STAGE5-019 — Processing record schema (Flyway)
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-018
 
 - **Goal:** Создать Flyway-миграцию таблицы processing record с уникальным ограничением `document_id + operation`.
 - **Scope:** только SQL-миграция (следующая свободная версия).
@@ -7901,11 +7941,30 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 - **Stop conditions:** невозможно обеспечить уникальность `document_id + operation`.
 
 ---
-## STAGE5-019 — Business document type registration model
+
+## STAGE5-020 — Payload and processing-record persistence adapters
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-018
+**Depends on:** STAGE5-019
+
+- **Goal:** Реализовать JDBC-адаптеры payload persistence port (STAGE5-015) и processing-record port (STAGE5-018): typed-таблицы §11.5, ключ `DocumentId`, optimistic lock `payload_revision`, каскадное удаление Draft, уникальность `DocumentId + Operation`.
+- **Scope:** только адаптеры payload/processing (без JSON/сериализации).
+- **Out of scope:** миграции (STAGE5-016/019), UI, processors.
+- **Required documents:** Spec §11.5/§16/§19.
+- **Required code context:** `tmp-infra-db` конвенции; собственные порты; `com.tmp.document.api`.
+- **Files allowed to change:** `tmp-order-management/.../persistence`.
+- **Acceptance criteria:** адаптеры реализуют optimistic lock, каскадное удаление Draft, идемпотентную запись processing record; без JSON.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** невозможно обеспечить уникальность/лок на уровне адаптера.
+
+---
+## STAGE5-021 — Business document type registration model
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-020
 
 - **Goal:** Определить каталог document type codes Order Management и их дескрипторы (тип ↔ payload ↔ schema version ↔ required capability) без реализации processors.
 - **Scope:** реестр типов документов §13; связь с payload и capability.
@@ -7920,112 +7979,93 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ---
 
-## STAGE5-020 — Document lifecycle policy base
+## STAGE5-022 — Document lifecycle policy base
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-019
+**Depends on:** STAGE5-021
 
-- **Goal:** Реализовать общий базовый lifecycle-контракт processors: `onPost` (load payload by `DocumentId`, проверка schema version + optimistic lock + предусловий, идемпотентность, processing result); `onUnpost` = reject (NOT SUPPORTED); `onClose` = no business change; `onDelete` = draft only + удаление payload.
-- **Scope:** абстрактный базовый processor/шаблон lifecycle §14 (без конкретных типов).
-- **Out of scope:** конкретные document processors (STAGE5-022+).
-- **Required documents:** Spec §14; ADR-028.
-- **Required code context:** `com.tmp.document.api` (`DocumentProcessor`, `DocumentOperationContext`).
+- **Goal:** Реализовать общий базовый lifecycle-контракт processors: `void onPost` (idempotency guard, load payload by `DocumentId`, проверка schema version + optimistic lock + предусловий, единственное бизнес-изменение, запись processing record, публикация события через публичный `TransactionalEventPublisher`); `onUnpost` = reject (NOT SUPPORTED); `onClose` = no business change; `onDelete` = draft only + удаление payload.
+- **Scope:** абстрактный базовый processor/шаблон lifecycle §14 (без конкретных типов); использование публичного `TransactionalEventPublisher` (без внутренних классов Document Engine).
+- **Out of scope:** конкретные document processors (STAGE5-023+).
+- **Required documents:** Spec §14; ADR-028; Document Engine Spec v1.1.
+- **Required code context:** `com.tmp.document.api` (`DocumentProcessor`, `DocumentOperationContext`, публичный `TransactionalEventPublisher`).
 - **Files allowed to change:** `tmp-order-management/.../application`.
-- **Acceptance criteria:** unit-тесты: `onUnpost` бросает; `onDelete` требует draft; `onClose` не меняет бизнес-состояние.
+- **Acceptance criteria:** unit-тесты: `onUnpost` бросает; `onDelete` требует draft; `onClose` не меняет бизнес-состояние; `onPost` возвращает `void` и использует публичный publisher.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** lifecycle Document Engine противоречит политике.
 
 ---
 
-## STAGE5-021 — Transaction boundary verification (prerequisite)
+## STAGE5-023 — Document processor: ORDER_CREATE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-020
+**Depends on:** STAGE5-022
 
-- **Goal:** Верифицировать (архитектурным/интеграционным тестом) фактическую транзакционную границу Document Engine: `DocumentProcessor.onPost` вызывается внутри транзакции проведения; `DocumentId` доступен в operation context; событие публикуется только после commit; сбой в `onPost` откатывает всё.
-- **Scope:** тест на существующем контракте Document Engine + макет processor Order Management, подтверждающий атомарность (агрегат + processing record + результат) в одной границе.
-- **Out of scope:** реальные бизнес-processors; изменение Document Engine (не требуется — контракт подтверждён).
-- **Required documents:** Spec §12; Manifest §11.
-- **Required code context:** `com.tmp.document.api`, `com.tmp.core.api` (Event API); `DefaultDocumentEngine`, `TransactionAfterCommitEventPublisher` (только чтение).
-- **Files allowed to change:** `tmp-order-management` тесты (integration), при необходимости `tmp-architecture-tests`.
-- **Acceptance criteria:** тест подтверждает: rollback в onPost откатывает документ и не публикует событие; `DocumentId` доступен; идемпотентная запись в границе.
-- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
-- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** транзакционная граница не подтверждается тестом — остановить очередь и открыть blocker Platform/Document Engine.
-
----
-
-## STAGE5-022 — Document processor: ORDER_CREATE
-
-**Status:** PLANNED
-**Stage:** 5
-**Depends on:** STAGE5-021
-
-- **Goal:** Реализовать application command `createOrder`, processor `ORDER_CREATE` (load payload, validate, create order `DRAFT`, processing record), Domain Event `OrderCreated`, регистрацию типа.
+- **Goal:** Реализовать application command `createOrder`, processor `ORDER_CREATE` (`void onPost`: guard, load payload, validate, create order `DRAFT`, processing record, публикация `OrderCreated` через публичный publisher), регистрацию типа.
 - **Scope:** один document type (create order).
-- **Out of scope:** другие типы документов; persistence-адаптеры (используются порты).
+- **Out of scope:** другие типы; persistence-адаптеры агрегатов (STAGE5-033).
 - **Required documents:** Spec §8/§13/§14/§16/§17.
-- **Required code context:** `com.tmp.document.api`, собственный домен/application, `com.tmp.core.api` (Event).
+- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: создаёт заказ `DRAFT`; идемпотентность; событие после commit.
+- **Acceptance criteria:** unit-тесты: создаёт заказ `DRAFT`; idempotency guard; событие после commit; `onPost` void.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** невозможно загрузить payload по `DocumentId`.
 
 ---
 
-## STAGE5-023 — Document processor: ORDER_UPDATE
+## STAGE5-024 — Document processor: ORDER_UPDATE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-022
+**Depends on:** STAGE5-023
 
 - **Goal:** Реализовать `updateOrder` и processor `ORDER_UPDATE` (только коммерческие поля, заказ `DRAFT`), событие `OrderUpdated`.
 - **Scope:** один document type (update order).
 - **Out of scope:** другие типы; изменение утверждённого заказа.
 - **Required documents:** Spec §8/§13/§14.
-- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: правка только `DRAFT`; идемпотентность.
+- **Acceptance criteria:** unit-тесты: правка только `DRAFT`; idempotency guard; `onPost` void.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** payload затрагивает нерелевантные данные.
 
 ---
 
-## STAGE5-024 — Document processor: ORDER_APPROVE
+## STAGE5-025 — Document processor: ORDER_APPROVE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-023
+**Depends on:** STAGE5-024
 
 - **Goal:** Реализовать `approveOrder` и processor `ORDER_APPROVE` (≥1 active позиция), событие `OrderApproved`.
 - **Scope:** один document type (approve order).
 - **Out of scope:** другие типы.
 - **Required documents:** Spec §8/§13/§14.
-- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: утверждение без active позиций отклоняется; идемпотентность.
+- **Acceptance criteria:** unit-тесты: утверждение без active позиций отклоняется; idempotency guard.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** предусловие невозможно проверить.
 
 ---
 
-## STAGE5-025 — Document processor: ORDER_CANCEL (draft only)
+## STAGE5-026 — Document processor: ORDER_CANCEL (draft only)
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-024
+**Depends on:** STAGE5-025
 
 - **Goal:** Реализовать `cancelOrder` и processor `ORDER_CANCEL` только для `DRAFT` заказа, событие `OrderCancelled`.
 - **Scope:** один document type; запрет `APPROVED→CANCELLED`.
 - **Out of scope:** компенсационная отмена утверждённого заказа (future scope).
 - **Required documents:** Spec §8/§13/§22/§23.
-- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
 - **Acceptance criteria:** unit-тесты: отмена `APPROVED` отклоняется; отмена `DRAFT` работает.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
@@ -8033,17 +8073,18 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 - **Stop conditions:** политика отмены неоднозначна.
 
 ---
-## STAGE5-026 — Document processor: ORDER_ITEM_CREATE
+
+## STAGE5-027 — Document processor: ORDER_ITEM_CREATE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-025
+**Depends on:** STAGE5-026
 
 - **Goal:** Реализовать `createOrderItem` и processor `ORDER_ITEM_CREATE` (позиция `DRAFT` + Revision 1 `DRAFT`, родительский заказ `DRAFT`), события `OrderItemCreated`, `OrderItemRevisionCreated`.
 - **Scope:** один document type; запрет добавления позиции в `APPROVED`/`CANCELLED` заказ.
-- **Out of scope:** редактирование revision (STAGE5-028).
+- **Out of scope:** редактирование revision (STAGE5-030).
 - **Required documents:** Spec §9/§13/§14/§17.
-- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
 - **Acceptance criteria:** unit-тесты: добавление в `APPROVED` заказ отклоняется; создаётся Revision 1 draft.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
@@ -8052,17 +8093,17 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ---
 
-## STAGE5-027 — Document processor: ORDER_ITEM_UPDATE (commercial fields only)
+## STAGE5-028 — Document processor: ORDER_ITEM_UPDATE (commercial fields only)
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-026
+**Depends on:** STAGE5-027
 
 - **Goal:** Реализовать `updateOrderItem` и processor `ORDER_ITEM_UPDATE` только для коммерческих полей позиции (не Revision/Specification), событие `OrderItemUpdated`.
 - **Scope:** один document type; запрет скрытого изменения revision.
-- **Out of scope:** изменение spec/revision (STAGE5-028).
+- **Out of scope:** изменение spec/revision (STAGE5-030).
 - **Required documents:** Spec §5.2/§6.3/§13.
-- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
 - **Acceptance criteria:** unit-тесты: попытка изменить revision/spec через этот документ отклоняется.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
@@ -8070,18 +8111,17 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 - **Stop conditions:** payload позволяет менять revision.
 
 ---
-
-## STAGE5-028 — Document processor: ORDER_ITEM_REVISION_CREATE
+## STAGE5-029 — Document processor: ORDER_ITEM_REVISION_CREATE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-027
+**Depends on:** STAGE5-028
 
 - **Goal:** Реализовать `createOrderItemRevision` и processor `ORDER_ITEM_REVISION_CREATE` (Revision N+1 `DRAFT` для active позиции; не меняет active; требует отсутствия draft), событие `OrderItemRevisionCreated`.
 - **Scope:** один document type; ≤ 1 draft.
-- **Out of scope:** редактирование draft (STAGE5-029), утверждение (STAGE5-030).
+- **Out of scope:** редактирование draft (STAGE5-030), утверждение (STAGE5-031).
 - **Required documents:** Spec §6.2/§9.3/§13.
-- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
 - **Acceptance criteria:** unit-тесты: вторая draft отклоняется; active не меняется.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
@@ -8090,36 +8130,36 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ---
 
-## STAGE5-029 — Document processor: ORDER_ITEM_REVISION_UPDATE
+## STAGE5-030 — Document processor: ORDER_ITEM_REVISION_UPDATE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-028
+**Depends on:** STAGE5-029
 
-- **Goal:** Реализовать `updateOrderItemRevision` и processor `ORDER_ITEM_REVISION_UPDATE`, изменяющий только текущую Draft Revision (spec/количество), событие `OrderItemRevisionUpdated`.
+- **Goal:** Реализовать `updateOrderItemRevision` и processor `ORDER_ITEM_REVISION_UPDATE`, изменяющий только текущую Draft Revision (spec/количество, строки спецификации), событие `OrderItemRevisionUpdated`.
 - **Scope:** один document type; только draft revision.
 - **Out of scope:** утверждение; изменение утверждённой revision.
 - **Required documents:** Spec §6.3/§9.3/§13.
-- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: правка утверждённой revision отклоняется; правка draft работает; идемпотентность.
+- **Acceptance criteria:** unit-тесты: правка утверждённой revision отклоняется; правка draft работает; idempotency guard.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** отсутствует draft для изменения.
 
 ---
 
-## STAGE5-030 — Document processor: ORDER_ITEM_REVISION_APPROVE
+## STAGE5-031 — Document processor: ORDER_ITEM_REVISION_APPROVE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-029
+**Depends on:** STAGE5-030
 
 - **Goal:** Реализовать `approveOrderItemRevision` и processor `ORDER_ITEM_REVISION_APPROVE`: проверка draft + полноты spec; draft → immutable; атомарное назначение новой `activeRevision`; снятие `draftRevision`; сохранение предыдущей; событие `OrderItemRevisionApproved`; позиция → `ACTIVE`.
 - **Scope:** один document type; атомарное переключение active.
 - **Out of scope:** внешние потребители события (Production — не в Stage 5).
 - **Required documents:** Spec §6.4/§9.3/§17.
-- **Required code context:** `com.tmp.document.api`, собственный домен/application, `com.tmp.core.api` (Event).
+- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
 - **Acceptance criteria:** unit-тесты: утверждение переключает active атомарно; предыдущая revision immutable; невалидная spec отклоняется.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
@@ -8128,17 +8168,17 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ---
 
-## STAGE5-031 — Document processor: ORDER_ITEM_CANCEL (draft only)
+## STAGE5-032 — Document processor: ORDER_ITEM_CANCEL (draft only)
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-030
+**Depends on:** STAGE5-031
 
 - **Goal:** Реализовать `cancelOrderItem` и processor `ORDER_ITEM_CANCEL` только для `DRAFT` позиции, событие `OrderItemCancelled`.
 - **Scope:** один document type; запрет `ACTIVE→CANCELLED`.
 - **Out of scope:** компенсационная отмена active позиции (future scope).
 - **Required documents:** Spec §9/§22/§23.
-- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
 - **Acceptance criteria:** unit-тесты: отмена active отклоняется; отмена draft работает.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
@@ -8146,11 +8186,12 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 - **Stop conditions:** политика отмены неоднозначна.
 
 ---
-## STAGE5-032 — Aggregate persistence adapters
+
+## STAGE5-033 — Aggregate persistence adapters
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-031
+**Depends on:** STAGE5-032
 
 - **Goal:** Реализовать JDBC-адаптеры repository ports для Order/Item/Revision/Specification с optimistic locking.
 - **Scope:** только адаптеры (реализация портов STAGE5-008).
@@ -8162,25 +8203,6 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** адаптер требует чужой схемы.
-
----
-
-## STAGE5-033 — Payload and processing-record persistence adapters
-
-**Status:** PLANNED
-**Stage:** 5
-**Depends on:** STAGE5-032
-
-- **Goal:** Реализовать JDBC-адаптеры payload persistence port (STAGE5-015) и processing-record port (STAGE5-017), ключ `DocumentId`, уникальность `DocumentId + Operation`.
-- **Scope:** только адаптеры payload/processing.
-- **Out of scope:** миграции (уже STAGE5-016/018), UI.
-- **Required documents:** Spec §11/§16/§19.
-- **Required code context:** `tmp-infra-db` конвенции; собственные порты; `com.tmp.document.api`.
-- **Files allowed to change:** `tmp-order-management/.../persistence`.
-- **Acceptance criteria:** адаптеры реализуют optimistic lock payload и идемпотентную запись processing record.
-- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
-- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** невозможно обеспечить уникальность/лок на уровне адаптера.
 
 ---
 
@@ -8240,6 +8262,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 - **Stop conditions:** навигация требует прямых мутаций из UI.
 
 ---
+
 ## STAGE5-037 — UI: Order list (paginated Query API)
 
 **Status:** PLANNED
@@ -8322,10 +8345,10 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 **Stage:** 5
 **Depends on:** STAGE5-040
 
-- **Goal:** Реализовать единообразную обработку ошибок домена/проведения (оптимистичный лок, запрещённые переходы, отклонённый unpost) и сообщения пользователю.
+- **Goal:** Реализовать единообразную обработку ошибок домена/проведения (optimistic lock, запрещённые переходы, отклонённый unpost, отклонённый повторный post) и сообщения пользователю.
 - **Scope:** отображение ошибок use cases/документов в UI.
 - **Out of scope:** новые экраны данных.
-- **Required documents:** UI/UX Spec (Сообщения пользователю); Spec §14.
+- **Required documents:** UI/UX Spec (Сообщения пользователю); Spec §14/§16.
 - **Required code context:** `tmp-ui-shell`; `com.tmp.order.api`.
 - **Files allowed to change:** `tmp-ui-shell` (обработчики/сообщения).
 - **Acceptance criteria:** ошибки отображаются понятно; UI не «проглатывает» отказ проведения.
@@ -8340,7 +8363,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 **Stage:** 5
 **Depends on:** STAGE5-041
 
-- **Goal:** Обеспечить покрытие домена/application unit-тестами (агрегаты, active/draft revision, immutability, payload optimistic lock, lifecycle policy).
+- **Goal:** Обеспечить покрытие домена/application unit-тестами (агрегаты, active/draft revision, immutability, payload optimistic lock, lifecycle policy, idempotency guard, `void onPost`).
 - **Scope:** только unit-тесты модуля.
 - **Out of scope:** integration/DB тесты.
 - **Required documents:** Manifest §15.
@@ -8359,13 +8382,13 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 **Stage:** 5
 **Depends on:** STAGE5-042
 
-- **Goal:** Проверить схему/ограничения/optimistic lock/immutability revision/payload persistence на реальном PostgreSQL.
-- **Scope:** IT persistence (агрегаты + payload + processing record).
+- **Goal:** Проверить схему/ограничения/optimistic lock/immutability revision/payload typed-таблицы/каскадное удаление Draft на реальном PostgreSQL.
+- **Scope:** IT persistence (агрегаты + payload typed tables + processing record).
 - **Out of scope:** document lifecycle/idempotency/rollback (отдельные задачи).
-- **Required documents:** Manifest §15; Database Spec.
+- **Required documents:** Manifest §15; Spec §11.5; Database Spec.
 - **Required code context:** Testcontainers инфраструктура; собственные адаптеры.
 - **Files allowed to change:** `tmp-order-management/src/test` (IT).
-- **Acceptance criteria:** IT зелёные на PostgreSQL; unique/lock проверены.
+- **Acceptance criteria:** IT зелёные на PostgreSQL; unique/lock/каскад проверены; нет JSON-колонок.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am verify`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** схема не соответствует модели.
@@ -8378,13 +8401,13 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 **Stage:** 5
 **Depends on:** STAGE5-043
 
-- **Goal:** Проверить полный документный поток (create → draft payload → post → aggregate change → event) и политики `unpost` (rejected), `close` (no business change), `delete` (draft only, payload removed).
-- **Scope:** IT lifecycle через Document Engine + Order Management processors.
+- **Goal:** Проверить полный документный поток (create → draft payload → post → aggregate change → event via public publisher) и политики `unpost` (rejected), `close` (no business change), `delete` (draft only, payload removed).
+- **Scope:** IT lifecycle через Document Engine + Order Management processors + публичный `TransactionalEventPublisher`.
 - **Out of scope:** idempotency/rollback (отдельно).
-- **Required documents:** Spec §14; Manifest §15.
-- **Required code context:** `com.tmp.document.api`; собственные processors.
+- **Required documents:** Spec §14; Manifest §15; Document Engine Spec v1.1.
+- **Required code context:** `com.tmp.document.api` (публичный publisher); собственные processors.
 - **Files allowed to change:** `tmp-order-management/src/test` (IT).
-- **Acceptance criteria:** unpost проведённого отклонён; delete draft удаляет payload; close не меняет бизнес-состояние.
+- **Acceptance criteria:** unpost проведённого отклонён; delete draft удаляет payload (все typed-таблицы); close не меняет бизнес-состояние; событие после commit.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am verify`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** lifecycle расходится с политикой §14.
@@ -8397,16 +8420,16 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 **Stage:** 5
 **Depends on:** STAGE5-044
 
-- **Goal:** Проверить идемпотентность проведения: повторный `onPost` не выполняет операцию повторно и возвращает сохранённый результат; уникальность `DocumentId + Operation`.
-- **Scope:** IT идемпотентности.
+- **Goal:** Проверить семантику idempotency: публичный повторный `DocumentEngine.postDocument(documentId)` для проведённого документа отклоняется lifecycle validation; idempotency guard внутри processor при существующей processing record завершается как already processed без повторного изменения агрегата, без повторного события, без новой processing record; `onPost` возвращает `void`.
+- **Scope:** IT идемпотентности (public reject + internal guard).
 - **Out of scope:** rollback (STAGE5-046).
-- **Required documents:** Spec §16; Manifest §15.
-- **Required code context:** processing record adapter; processors.
+- **Required documents:** Spec §14.1/§16; Manifest §15.
+- **Required code context:** processing record adapter; processors; `com.tmp.document.api`.
 - **Files allowed to change:** `tmp-order-management/src/test` (IT).
-- **Acceptance criteria:** повторный post не дублирует изменение; processing record единственный.
+- **Acceptance criteria:** повторный публичный post отклонён lifecycle validation; guard не дублирует изменение/событие/запись; результат наружу не возвращается.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am verify`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** повторный post дублирует бизнес-изменение.
+- **Stop conditions:** повторная обработка дублирует бизнес-изменение.
 
 ---
 
@@ -8416,11 +8439,11 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 **Stage:** 5
 **Depends on:** STAGE5-045
 
-- **Goal:** Проверить атомарность: сбой в `onPost` откатывает изменение агрегата, processing record и результат проведения; документ не переходит в `POSTED`; событие не публикуется.
+- **Goal:** Проверить атомарность: сбой в `onPost` откатывает изменение агрегата, processing record, metadata документа и lifecycle journal; документ не переходит в `POSTED`; событие не публикуется (публичный `TransactionalEventPublisher` не доставляет при rollback).
 - **Scope:** IT rollback в транзакционной границе Document Engine.
 - **Out of scope:** прочее.
-- **Required documents:** Spec §12; Manifest §11/§15.
-- **Required code context:** `com.tmp.document.api`, `com.tmp.core.api` (Event); processors.
+- **Required documents:** Spec §12; Manifest §11/§15; Document Engine Spec v1.1.
+- **Required code context:** `com.tmp.document.api` (публичный publisher); processors.
 - **Files allowed to change:** `tmp-order-management/src/test` (IT).
 - **Acceptance criteria:** при откате нет частичных изменений и события.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am verify`
@@ -8435,13 +8458,13 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 **Stage:** 5
 **Depends on:** STAGE5-046
 
-- **Goal:** Финализировать architecture tests: границы пакетов; отсутствие production-owned данных; отсутствие внешнего mutating API; payload не в Platform Core; зависимости только на разрешённые публичные API; транзакционная граница.
+- **Goal:** Финализировать architecture tests: границы пакетов; отсутствие production-owned данных; отсутствие внешнего mutating API; payload не в Platform Core (без JSON); зависимости только на разрешённые публичные API; запрет импорта внутренних классов Document Engine; использование публичного `TransactionalEventPublisher`.
 - **Scope:** правила ArchUnit для Order Management.
 - **Out of scope:** функциональные тесты.
-- **Required documents:** Manifest §16; ADR-003/004/019/028.
+- **Required documents:** Manifest §16; ADR-003/004/019/028; Document Engine Spec v1.1.
 - **Required code context:** `tmp-architecture-tests`; `com.tmp.*.api`.
 - **Files allowed to change:** `tmp-architecture-tests`.
-- **Acceptance criteria:** все архитектурные правила проходят.
+- **Acceptance criteria:** все архитектурные правила проходят; нарушение «no internal Document Engine imports» ловится.
 - **Verification commands:** `mvn -q -pl tmp-architecture-tests -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** нарушена граница владения/зависимостей.

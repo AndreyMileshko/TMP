@@ -3,25 +3,53 @@
 ## Latest result
 
 **Date:** 2026-07-24  
-**Scope:** Stage 5 — Order Management; Documentation Gate corrections STAGE5-000-FIX (documentation gate only)  
+**Scope:** Stage 5 — Order Management; Final Documentation Corrections STAGE5-000-FIX2 (documentation gate only)  
 **Overall:** PASSED (documentation). No Java/build changes; Maven verify not required. Only `STAGE5-001` READY; Stage 5 implementation not started; Stage 6 not started.
+
+**Documentation Gate §9:**
+
+| Gate criterion | Evidence | Result |
+|---|---|---|
+| After-commit механизм — публичный контракт | Document Engine Spec v1.1 §«Публичный after-commit механизм» `TransactionalEventPublisher.publishAfterCommit(DomainEvent)`; queue `STAGE5-017` prerequisite | PASSED |
+| Order Management не использует внутренние классы Document Engine | OM Spec §12/§17/§21; Manifest §11; CONTEXT-MAP (внутренние классы удалены из OM-контекста); arch rules `STAGE5-002`/`STAGE5-047` | PASSED |
+| Физическое хранение всех typed payload определено | OM Spec §11.5/§19: `order_document_payload` + typed-таблицы + `order_item_revision_payload_line`; FK/`payload_revision`/каскад/immutability; `STAGE5-016` | PASSED |
+| JSON payload не используется | OM Spec §11.5/§19.1; `STAGE5-016`/`STAGE5-020`/`STAGE5-043` acceptance «без JSON/сериализации» | PASSED |
+| Idempotency = `void DocumentProcessor.onPost()` | OM Spec §14.1/§16; Manifest §10; `STAGE5-018`/`STAGE5-045` | PASSED |
+| Повторный публичный post отклоняется lifecycle validation | OM Spec §14.1/§16; Manifest §10; `STAGE5-045` acceptance | PASSED |
+| Document Engine Specification фиксирует транзакционный контракт | Document Engine Spec v1.1 §«Транзакционный контракт» + история | PASSED |
+| Очередь соответствует актуальным документам | queue rebuilt (50 задач) в порядке §8; payload → publisher → processing → processors → UI → tests → final | PASSED |
+| Версии и номера синхронизированы | Doc Engine v1.1; OM Spec v1.2; CONTEXT-MAP v1.2; `STAGE5-001..050`; GUI smoke `STAGE5-050` | PASSED |
+
+**Дополнительно:**
 
 | Verification | Command / Method | Result |
 |---|---|---|
-| Cross-reference Specification / ADR / Constitution | read + cross-read: Spec v1.2 ↔ ADR v1.3 (ADR-028, ADR-003/004) ↔ Constitution v1.2 (п.28) consistent | PASSED |
-| Document Engine public contract review | read `DocumentEngine`, `DocumentProcessor`, `DocumentOperationContext`, `DocumentMetadata`, `CreateDocumentCommand` | PASSED |
-| DocumentId in operation context | `DocumentOperationContext.document().id()` (UUID) available in all hooks | PASSED |
-| Transaction boundary | `DefaultDocumentEngine` `@Transactional`; `onPost` inside posting tx; events after commit; `eventNotEmittedOnRollback`, `rollbackAfterProcessorValidationFailureDoesNotEmitEvent` | PASSED (atomicity guaranteed; no prerequisite needed) |
-| Payload ownership | Spec §11 + ADR-028: Document Engine owns lifecycle/metadata; Order Management owns typed payload by `DocumentId`; no generic JSON in Platform Core | PASSED |
-| Payload schema versioning & optimistic locking | `PayloadSchemaVersion` + `PayloadRevision`; immutable after posting | PASSED |
-| Revision workflow | active vs draft separated; ≤ 1 draft; `ORDER_ITEM_REVISION_UPDATE` added; approve switches active atomically; previous revisions immutable; Query API exact revision | PASSED |
-| Query API completeness | `searchOrders`, item/revision lists, pagination (50/100 zero-based), stable sort, sort whitelist; DTO ownership | PASSED |
-| Cancellation safety | Stage 5 forbids `APPROVED→CANCELLED`, `ACTIVE→CANCELLED`, approved-order composition changes; future integration noted; order status decoupled from Production | PASSED |
-| Document lifecycle | per-type payload; post/unpost(NOT SUPPORTED)/close/delete(draft only); repeat post idempotent (processing record `DocumentId + Operation`) | PASSED |
-| Constitution uniformity | changes=documents; reads=Public Query API; notifications=Domain Events; Query API/Events do not bypass document-driven change | PASSED |
-| Queue consistency | queue matches Spec v1.2; payload tasks before processors; query before UI list; transaction/idempotency/rollback tests present; only `STAGE5-001` READY | PASSED |
+| Public TransactionalEventPublisher prerequisite before first processor | `STAGE5-017` (line ~7888) < first processor `STAGE5-023` | PASSED |
+| Payload persistence before publisher; publisher before processing record | S015/S016 → S017 → S018/S019/S020 | PASSED |
+| Exactly one READY task | grep `**Status:** READY` == 1 (`STAGE5-001`) | PASSED |
+| Stage 5 task headers count | 53 (`STAGE5-000`, `-000-FIX`, `-000-FIX2`, `STAGE5-001..050`) | PASSED |
 | No code changes | no Java/module/pom/SQL/FXML/test changes | CONFIRMED |
 | Git operations | none | CONFIRMED |
+
+### Failures
+
+- None.
+
+---
+
+## 2026-07-24 — `STAGE5-000-FIX` (Documentation Gate corrections; documentation gate only)
+
+**Overall:** PASSED (documentation). Superseded by STAGE5-000-FIX2 corrections above (public after-commit contract, physical payload model, corrected idempotency, Document Engine transaction contract, numbering).
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Cross-reference Specification / ADR / Constitution | Spec v1.2 ↔ ADR v1.3 (ADR-028, ADR-003/004) ↔ Constitution v1.2 (п.28) consistent | PASSED |
+| Payload ownership | Spec §11 + ADR-028: Document Engine owns lifecycle/metadata; Order Management owns typed payload by `DocumentId` | PASSED |
+| Revision workflow | active vs draft; ≤ 1 draft; `ORDER_ITEM_REVISION_UPDATE`; approve switches active atomically | PASSED |
+| Query API completeness | `searchOrders`, item/revision lists, pagination, stable sort | PASSED |
+| Cancellation safety | Stage 5 forbids `APPROVED→CANCELLED`, `ACTIVE→CANCELLED`, approved-order composition changes | PASSED |
+| Queue formation | `STAGE5-001..050`, only `STAGE5-001` READY | PASSED |
+| No code / Git | none | CONFIRMED |
 
 ### Failures
 

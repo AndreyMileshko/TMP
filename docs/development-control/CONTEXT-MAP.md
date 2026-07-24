@@ -33,7 +33,7 @@ Cursor обновляет реальные пути во время CONTROL-001.
 | 2 | Document Engine Specification | Database Specification; document ADR |
 | 3 | Capability Engine Specification | Platform Core public API; capability ADR |
 | 4 | Security Specification | Database Specification; audit and permission ADR |
-| 5 | Order Management Specification (v1.1) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only) |
+| 5 | Order Management Specification (v1.2) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only) |
 | 6 | Warehouse Specification | Order public API; Production contracts; Database Specification |
 | 7 | Production Specification | Order and Warehouse public APIs; Database Specification |
 | 8 | Cutting Optimization Specification | Production contracts; algorithm requirements |
@@ -126,8 +126,8 @@ Read only:
 
 - `com.tmp.core.api..` (Platform Core, включая Event API);
 - `com.tmp.capability.api..` (Capability Engine: `Capability`/`CapabilityDescriptor`/`PermissionDescriptor`/`CommandDescriptor`/`NavigationContribution`/`ViewDescriptor`);
-- `com.tmp.document.api..` (Document Engine: document lifecycle, Document Processor контракт, `DocumentOperationContext`/`DocumentMetadata`/`DocumentId`, `CreateDocumentCommand`/`UpdateDocumentCommand`, lifecycle-события);
-- для проверки транзакционной границы и наличия `DocumentId` в operation context разрешено открыть минимально необходимую реализацию Document Engine (`DefaultDocumentEngine`, `DocumentOperationContextImpl`, `TransactionAfterCommitEventPublisher`) — только для верификации, не для анализа всей реализации;
+- `com.tmp.document.api..` (Document Engine: document lifecycle, Document Processor контракт, `DocumentOperationContext`/`DocumentMetadata`/`DocumentId`, `CreateDocumentCommand`/`UpdateDocumentCommand`, публичный `TransactionalEventPublisher`, lifecycle-события);
+- транзакционный контракт зафиксирован публично в Document Engine Specification (v1.1); Order Management использует только публичный API и публичный `TransactionalEventPublisher` и **не импортирует** внутренние классы Document Engine (`DefaultDocumentEngine`, `DocumentOperationContextImpl`, внутренний after-commit publisher);
 - `com.tmp.security.api..` (Security: `PermissionId` формат, authorization контракт);
 - Database Specification — только: Schema per Module, Идентификаторы, Общие технические поля, Optimistic Locking, Транзакции, Flyway, Правила именования, Связи между модулями, Аудит изменений;
 - UI/UX Specification — только: Главное окно, Навигация, Экраны, FXML, Controller, ViewModel, Сообщения пользователю;
@@ -149,11 +149,11 @@ Read only:
 | public query API contracts | Spec §15.1; DTO-ownership | `com.tmp.order.api` собственный | Query DTO/интерфейсы | mutating операции; чужие DTO |
 | query search and pagination | Spec §15.1.1/§15.1.2/§15.1.3 | `com.tmp.order.api` | search criteria, page request, sort whitelist | mutating операции; поля вне модели |
 | document payload model | Spec §11; ADR-028 | `com.tmp.document.api` (`DocumentMetadata`/`DocumentId`) | typed payload Java-модель Order Management | generic JSON в Platform Core; payload другой Capability |
-| document payload persistence | Spec §11/§19; Database Spec | `com.tmp.document.api` (`DocumentId`) | собственный payload port/adapter, схема `order_management` | payload/схемы других Capability |
-| document processor lifecycle | Spec §12/§13/§14; ADR-004/028 | `com.tmp.document.api` (`DocumentProcessor`, `DocumentOperationContext`) | для верификации — `DefaultDocumentEngine`/`DocumentOperationContextImpl` (только чтение) | бизнес-логика других Capability |
-| document processing idempotency | Spec §16 | `com.tmp.document.api` | processing record модель/port (`DocumentId + Operation`) | processing store других Capability |
+| document payload persistence | Spec §11.5/§19; Database Spec | `com.tmp.document.api` (`DocumentId`) | собственные payload port/adapter, физические typed-таблицы (`order_document_payload` + typed + line), схема `order_management` | payload/схемы других Capability; JSON/сериализация |
+| transactional event publisher | Spec §12; Document Engine Spec v1.1; Manifest §11 | `com.tmp.document.api` (публичный `TransactionalEventPublisher`), `com.tmp.core.api` (`DomainEvent`) | публичный контракт + Spring transaction synchronization adapter + тест commit/rollback | внутренние классы Document Engine (запрещён импорт) |
+| document processor lifecycle | Spec §12/§13/§14; ADR-004/028 | `com.tmp.document.api` (`DocumentProcessor`, `DocumentOperationContext`, публичный `TransactionalEventPublisher`) | собственные processors; публичный контракт (без внутренних классов Document Engine) | бизнес-логика других Capability; внутренние классы Document Engine |
+| document processing idempotency | Spec §16 | `com.tmp.document.api` | processing record модель/port (`DocumentId + Operation`); guard внутри processor (`void onPost`) | processing store других Capability |
 | revision draft workflow | Spec §6/§9.2/§9.3; ADR-018 | `com.tmp.document.api` | `ORDER_ITEM_REVISION_*` payload/processors/домен | — |
-| transaction boundary verification | Spec §12; Manifest §11 | `com.tmp.document.api`, `com.tmp.core.api` (Event API) | `DefaultDocumentEngine`, `TransactionAfterCommitEventPublisher` (только чтение), архитектурный/интеграционный тест | внутренняя реализация Document Engine сверх верификации |
 | application commands | Spec §15.2 | — | собственный application/домен/ports | внешний вызов mutating API |
 | domain events | Spec §17; ADR-021; Platform Core Event API | `com.tmp.core.api` (Event API) | собственные события | события Production/Warehouse/Cutting |
 | aggregate persistence & migrations | Spec §19; Database Spec; Flyway (highest = V5 → V6) | `tmp-infra-db` конвенции | adapters, `V6+` миграции | хранение production/warehouse/cutting данных |
