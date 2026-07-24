@@ -4,7 +4,7 @@
 **Project status:** IN_PROGRESS  
 **Current Stage:** Stage 5 — Order Management  
 **Current Task:** STAGE5-001 (READY, not started)  
-**Last completed task:** STAGE5-000  
+**Last completed task:** STAGE5-000-FIX  
 **Active blocker:** None  
 
 ---
@@ -18,16 +18,18 @@
 | 2 | Document Engine | DONE | 100% |
 | 3 | Capability Engine | DONE | 100% |
 | 4 | Security | DONE | 100% |
-| 5 | Order Management | IN_PROGRESS (Start Gate PASSED) | 0% |
+| 5 | Order Management | IN_PROGRESS (Documentation Gate re-PASSED) | 0% |
 | 6–11 | (later) | PLANNED | 0% |
 
 ---
 
 **Stage 0–4:** завершены (DONE 100%).
 
-**Stage 5 Start Gate (STAGE5-000):** PASSED — документационная задача. Order Management Specification обновлена до v1.1; конфликт владения производственным состоянием устранён; жизненные циклы разделены; модель Revision формализована; изменяющие операции привязаны к Document Engine; Public API разделён на Query API и внутренний Application API; добавлены transition matrices; коды capability приведены к 3-сегментному формату Security `PermissionId`; Stage Manifest и Context Map обновлены; documentation gate пройден; очередь Stage 5 (`STAGE5-001..038`) сформирована. Java-код не изменялся.
+**Stage 5 Start Gate (STAGE5-000):** PASSED (v1.1). Последующая ревизия выявила документационные дефекты; для их исправления Stage 5 был временно заблокирован документационными противоречиями, `STAGE5-001` переведён в `PLANNED`, добавлена задача `STAGE5-000-FIX` (READY).
 
-**Реализация Stage 5:** ещё не начата. Следующая задача — `STAGE5-001`. Только `STAGE5-001` имеет статус `READY`; остальные — `PLANNED`.
+**Stage 5 Documentation Gate (STAGE5-000-FIX):** re-PASSED — документационная задача. Order Management Specification обновлена до v1.2; введён capability-owned typed document payload (ADR-028), связанный по `DocumentId`, versioned, с optimistic locking и immutability после проведения; подтверждена транзакционная граница Document Engine (processor внутри транзакции проведения; события после commit) — prerequisite Platform/Document Engine не требуется; уточнены Constitution (v1.2, принцип 28) и ADR-003/ADR-004; модель Revision разделена на active/draft, добавлен документ `ORDER_ITEM_REVISION_UPDATE`; введены безопасные правила отмены Stage 5 (запрет отмены approved order и active item, запрет изменения состава approved order); расширен Public Query API (`searchOrders`, списки items/revisions, пагинация 50/100 zero-based); формализованы document lifecycle policy и idempotency (processing record `DocumentId + Operation`); Stage Manifest и Context Map обновлены; очередь Stage 5 полностью пересобрана (`STAGE5-001..050`). Java-код не изменялся.
+
+**Реализация Stage 5:** ещё не начата. Documentation Gate повторно пройден; Stage 5 готов к началу реализации. Следующая задача — `STAGE5-001`. Только `STAGE5-001` имеет статус `READY`; остальные — `PLANNED`.
 
 **Открытых блокеров Stage 5:** нет.
 

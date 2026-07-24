@@ -7515,7 +7515,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 # Stage 5 — Order Management
 
-> **Обязательно к прочтению перед любой задачей Stage 5:** `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Manifest) и `Order-Management-Specification.md` v1.1. Правила контекста — `CONTEXT-MAP.md` → «Stage 5 — Order Management Context». Границы: Order Management владеет только коммерческими данными заказа/позиции/редакции/спецификации; производственное состояние принадлежит Production (не хранится в Stage 5). Изменения — только через Document Engine. Внешним Capability доступны только Query API и Domain Events. Git-операции запрещены (выполняет пользователь).
+> **Обязательно к прочтению перед любой задачей Stage 5:** `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Manifest) и `Order-Management-Specification.md` v1.2. Правила контекста — `CONTEXT-MAP.md` → «Stage 5 — Order Management Context». Границы: Order Management владеет коммерческими данными заказа/позиции/редакции/спецификации и typed payload своих документов (по `DocumentId`, ADR-028); производственное состояние принадлежит Production (не хранится в Stage 5). Изменения — только через Document Engine; проведение атомарно и идемпотентно. Внешним Capability доступны только Public Query API (только active Revision) и Domain Events. Одновременно только одна задача в статусе READY. Git-операции запрещены (выполняет пользователь).
 
 ## STAGE5-000 — Stage 5 Start Gate and Specification Reconciliation
 
@@ -7526,1384 +7526,979 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ### Goal
 
-Устранить противоречия документации Order Management, обновить Specification до v1.1, обновить Stage Manifest и Context Map, пройти documentation gate и сформировать очередь Stage 5 — без изменения Java-кода.
-
-### Allowed code scope
-
-- документация: Order Management Specification, `STAGE-5-ORDER-MANAGEMENT.md`, `CONTEXT-MAP.md`, `WORK-QUEUE.md`, `STATUS.md`, `BLOCKERS.md`, `IMPLEMENTATION-LOG.md`, `VERIFICATION-LOG.md`.
-
-### Forbidden
-
-- создание `tmp-order-management`, Java-кода, миграций, тестов, FXML/CSS;
-- изменение root `pom.xml`;
-- формирование очереди до прохождения documentation gate;
-- старт `STAGE5-001`;
-- любые Git-команды.
+Устранить первичные противоречия документации Order Management, обновить Specification до v1.1, Stage Manifest и Context Map, пройти первичный documentation gate и сформировать очередь Stage 5 — без изменения Java-кода.
 
 ### Acceptance result
 
-- [x] спецификация обновлена до версии 1.1;
-- [x] конфликт владения производственными статусами устранён;
-- [x] документные операции формализованы (каталог документов §16.1);
-- [x] transition matrices определены для всех хранимых статусов;
-- [x] Stage Manifest обновлён;
-- [x] Context Map обновлён;
-- [x] documentation gate пройден;
-- [x] очередь Stage 5 сформирована;
+- [x] спецификация обновлена (v1.1); владение производственными статусами вынесено в Production;
+- [x] документные операции формализованы; transition matrices определены;
+- [x] Stage Manifest и Context Map обновлены; первичная очередь Stage 5 сформирована;
 - [x] Java-код не изменялся.
-
-### Verification commands
-
-```text
-Documentation cross-reference only (no Maven build; no code/build changes).
-```
 
 ### Expected result
 
-Stage 5 прошёл Start Gate; только `STAGE5-001` в статусе READY; реализация не начата.
+Первичный Start Gate пройден. Последующая ревизия выявила документационные дефекты — см. `STAGE5-000-FIX`.
 
 ---
 
-## STAGE5-001 — Bootstrap `tmp-order-management` module and architecture boundaries
+## STAGE5-000-FIX — Stage 5 Documentation Gate Corrections
+
+**Status:** COMPLETED
+**Stage:** 5
+**Depends on:** STAGE5-000
+**Module:** documentation only
+
+- **Goal:** Исправить документационные дефекты после STAGE5-000, повторно пройти Documentation Gate и вернуть `STAGE5-001` в READY. Только документация и планирование.
+- **Scope:** capability-owned typed document payload (ADR-028); подтверждение транзакционной границы Document Engine; уточнение Constitution (п.28) и ADR-003/ADR-004; разделение active/draft Revision и документ `ORDER_ITEM_REVISION_UPDATE`; безопасные правила отмены Stage 5; расширение Public Query API (поиск/пагинация); document lifecycle policy и idempotency; Specification → v1.2; Stage Manifest; Context Map; полная пересборка очереди Stage 5.
+- **Out of scope:** Java-код, Maven-модули, `pom.xml`, SQL, FXML/CSS, тесты, старт `STAGE5-001`, Git.
+- **Required documents:** Constitution; ADR; Order-Management-Specification; Production-Specification; Document Engine Specification + публичные API; Stage 5 Manifest; control docs.
+- **Required code context (verification only):** `com.tmp.document.api..` (`DocumentProcessor`, `DocumentOperationContext`, `DocumentMetadata`, `Create/UpdateDocumentCommand`); `DefaultDocumentEngine`, `DocumentOperationContextImpl`, `TransactionAfterCommitEventPublisher`; `com.tmp.core.api` Event API.
+- **Files allowed to change:** Constitution, ADR file, Order-Management-Specification, STAGE-5 Manifest, CONTEXT-MAP, WORK-QUEUE, STATUS, BLOCKERS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Acceptance criteria:** все gates §18 пройдены; Specification v1.2; ADR-028 добавлен; Constitution п.28 и ADR-003/004 согласованы; очередь пересобрана; только `STAGE5-001` READY; Java-код не изменялся.
+- **Verification commands:** `Documentation cross-reference only (no Maven build; no code/build changes).`
+- **Documentation updates:** все перечисленные control и architecture документы.
+- **Stop conditions:** отсутствие `DocumentId` в operation context; невозможность связать payload с документом или определить транзакционную границу; конфликт lifecycle Document Engine с политикой; остаточные противоречия ADR. (Не сработали — контракт подтверждён.)
+
+---
+
+## STAGE5-001 — Bootstrap `tmp-order-management` module
 
 **Status:** READY
 **Stage:** 5
-**Depends on:** STAGE5-000
+**Depends on:** STAGE5-000-FIX
 **Module:** `tmp-order-management` (new)
 
-### Goal
-
-Создать Maven-модуль `tmp-order-management`, подключить к reactor, определить package boundaries и разрешённые зависимости, добавить базовые architecture tests. Без агрегатов, таблиц, документов и UI.
-
-### Required documents
-
-- Manifest §3; Database Specification (Schema per Module); root `pom.xml` конвенции (прецедент `tmp-security`).
-
-### Allowed code scope
-
-- новый `tmp-order-management/pom.xml`; root `pom.xml` (только добавление `<module>`); пустые пакеты `com.tmp.order.api|domain|application|persistence|capability` + auto-config skeleton; базовые architecture tests в `tmp-architecture-tests` или модуле.
-
-### Forbidden
-
-- реализация агрегатов, значений, репозиториев, документов;
-- создание таблиц/миграций;
-- создание UI;
-- любые Git-команды.
-
-### Acceptance criteria
-
-- [ ] модуль собирается в reactor;
-- [ ] пакеты и разрешённые зависимости (`com.tmp.core.api`, `com.tmp.capability.api`, `com.tmp.document.api`, `com.tmp.security.api`) зафиксированы;
-- [ ] базовый architecture test запрещает JavaFX и внутренние пакеты других Capability.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management -am test
-```
-
-### Expected result
-
-Пустой, корректно изолированный модуль, готовый к доменной реализации.
+- **Goal:** Создать Maven-модуль `tmp-order-management`, подключить к reactor, задать package skeleton и разрешённые зависимости. Без агрегатов, таблиц, документов, UI.
+- **Scope:** новый модуль; пакеты `com.tmp.order.api|domain|application|persistence|capability`; зависимости только `com.tmp.core.api`, `com.tmp.capability.api`, `com.tmp.document.api`, `com.tmp.security.api`.
+- **Out of scope:** любая доменная/persistence/UI логика; изменение других модулей кроме reactor pom.
+- **Required documents:** Manifest §3/§13; Database Spec (Schema per Module).
+- **Required code context:** root `pom.xml`; существующие module pom как образец.
+- **Files allowed to change:** root `pom.xml`, `tmp-order-management/pom.xml`, пустые package-info.
+- **Acceptance criteria:** модуль в reactor; `mvn -q -pl tmp-order-management -am validate` зелёный; запрещённые зависимости отсутствуют.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am validate`
+- **Documentation updates:** WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** невозможно подключить модуль без изменения чужой реализации.
 
 ---
 
-## STAGE5-002 — Stage 5 module architecture rules
+## STAGE5-002 — Architecture boundaries and dependency rules
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-001
-**Module:** `tmp-architecture-tests`
 
-### Goal
-
-Зафиксировать architecture rules Order Management: границы пакетов, отсутствие зависимостей от внутренней реализации других Capability, отсутствие JavaFX, зависимость только от разрешённых публичных API.
-
-### Allowed code scope
-
-- `tmp-architecture-tests` (Stage 5 rules).
-
-### Forbidden
-
-- доменная логика; Git-команды.
-
-### Acceptance criteria
-
-- [ ] тесты падают при запрещённой зависимости и проходят на текущей структуре.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-architecture-tests test
-```
-
-### Expected result
-
-Автоматически проверяемые границы модуля.
+- **Goal:** Зафиксировать архитектурные правила модуля (границы пакетов, запрет mutating API наружу, запрет production-данных) как ArchUnit-правила скелетом.
+- **Scope:** правила: `api` не зависит от `persistence`; наружу только Query API; отсутствие импорта внутренних пакетов других Capability; отсутствие JavaFX.
+- **Out of scope:** доменная логика; реальные агрегаты.
+- **Required documents:** Manifest §3/§16; ADR-003/004/019/028.
+- **Required code context:** `tmp-architecture-tests` конвенции; `com.tmp.*.api`.
+- **Files allowed to change:** `tmp-architecture-tests` (новые правила для order), `tmp-order-management` package-info.
+- **Acceptance criteria:** architecture tests компилируются и проходят на пустом модуле.
+- **Verification commands:** `mvn -q -pl tmp-architecture-tests -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** правило требует доступа к внутренней реализации другой Capability.
 
 ---
 
-## STAGE5-003 — Identifiers and base value objects
+## STAGE5-003 — Identifiers and common value objects
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-001
-**Module:** `tmp-order-management`
+**Depends on:** STAGE5-002
 
-### Goal
-
-Реализовать идентификаторы и базовые Value Objects: `OrderId`, `OrderItemId`, `RevisionNumber`, `OrderNumber`, `Currency`, `Direction`, `Quantity` — иммутабельные, с валидацией.
-
-### Allowed code scope
-
-- `com.tmp.order.api` (идентификаторы, стабильные VO) + unit tests.
-
-### Forbidden
-
-- агрегаты; persistence; Git-команды.
-
-### Acceptance criteria
-
-- [ ] каждый VO иммутабелен, валидирует вход, покрыт unit-тестами.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Стабильные идентификаторы и VO для домена и Public API.
+- **Goal:** Определить идентификаторы и базовые value objects (`OrderId`, `OrderItemId`, `RevisionNumber`, статусы, `PayloadSchemaVersion`, `PayloadRevision`).
+- **Scope:** типобезопасные идентификаторы и enums в `com.tmp.order.api`/`domain`.
+- **Out of scope:** агрегаты, persistence.
+- **Required documents:** Spec §5/§8/§9/§11.2.
+- **Required code context:** собственный домен.
+- **Files allowed to change:** `tmp-order-management/.../api`, `.../domain`.
+- **Acceptance criteria:** unit-тесты валидации идентификаторов проходят.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** требуется идентификатор чужой Capability как владелец.
 
 ---
-
-## STAGE5-004 — Customer Order domain model
+## STAGE5-004 — Domain aggregate: Customer Order
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-003
-**Module:** `tmp-order-management`
 
-### Goal
-
-Реализовать агрегат `CustomerOrder` с коммерческим жизненным циклом `DRAFT`/`APPROVED`/`CANCELLED` и инвариантами §8.1/§11.
-
-### Allowed code scope
-
-- `com.tmp.order.domain` (CustomerOrder) + unit tests.
-
-### Forbidden
-
-- производственные статусы/количества; persistence; Git-команды.
-
-### Acceptance criteria
-
-- [ ] переходы соответствуют transition matrix §11.2; недопустимые переходы отклоняются;
-- [ ] агрегат не содержит производственных полей.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Тестируемый агрегат заказа.
+- **Goal:** Реализовать агрегат Customer Order с коммерческими полями и статусами `DRAFT/APPROVED/CANCELLED` и инвариантами §8.
+- **Scope:** доменные объекты, инварианты, переходы (без persistence/документов).
+- **Out of scope:** persistence, документы, события, UI.
+- **Required documents:** Spec §5.1/§8; ADR-017.
+- **Required code context:** собственный домен.
+- **Files allowed to change:** `tmp-order-management/.../domain`.
+- **Acceptance criteria:** unit-тесты инвариантов и разрешённых/запрещённых переходов (в т.ч. запрет `APPROVED→CANCELLED`).
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** статус без полного transition rule.
 
 ---
 
-## STAGE5-005 — Order Item domain model
+## STAGE5-005 — Domain aggregate: Order Item
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-004
-**Module:** `tmp-order-management`
 
-### Goal
-
-Реализовать агрегат `OrderItem` (главный объект): идентичность `OrderItemId`, статусы `DRAFT`/`ACTIVE`/`CANCELLED`, `currentRevisionNumber`, признак активности; инварианты §8.2/§12.2.
-
-### Allowed code scope
-
-- `com.tmp.order.domain` (OrderItem) + unit tests.
-
-### Forbidden
-
-- производственные статусы/количества; persistence; Git-команды.
-
-### Acceptance criteria
-
-- [ ] переходы соответствуют §12.2; не более одной `DRAFT`-редакции; нет производственных полей.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Тестируемый агрегат позиции.
+- **Goal:** Реализовать агрегат Order Item со статусами `DRAFT/ACTIVE/CANCELLED`, коммерческими полями и указателями `activeRevisionNumber`/`draftRevisionNumber`.
+- **Scope:** доменные инварианты §9 (в т.ч. запрет `ACTIVE→CANCELLED`).
+- **Out of scope:** Revision-логика деталей (в STAGE5-006), persistence, документы.
+- **Required documents:** Spec §5.2/§9; ADR-017.
+- **Required code context:** собственный домен.
+- **Files allowed to change:** `tmp-order-management/.../domain`.
+- **Acceptance criteria:** unit-тесты инвариантов позиции и переходов.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** статус без полного transition rule.
 
 ---
 
-## STAGE5-006 — Order Item Revision model
+## STAGE5-006 — Active/draft Revision model
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-005
-**Module:** `tmp-order-management`
 
-### Goal
-
-Реализовать сущность `OrderItemRevision` (в границе Order Item): составной ключ `OrderItemId + RevisionNumber`, статусы `DRAFT`/`APPROVED`, нумерация, ссылка на предыдущую редакцию; §9/§12.3.
-
-### Allowed code scope
-
-- `com.tmp.order.domain` (Revision) + unit tests.
-
-### Forbidden
-
-- изменение утверждённых редакций; production данные; Git-команды.
-
-### Acceptance criteria
-
-- [ ] номера монотонны и не переиспользуются; §12.3 соблюдается; актуальность вычисляется по `currentRevisionNumber`.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Формализованная модель редакций.
+- **Goal:** Реализовать `OrderItemRevision` с разделением active/draft: ≤ 1 draft; active immutable; создание N+1 не меняет active; утверждение атомарно переключает active и снимает draft.
+- **Scope:** доменная логика редакций §6/§9.3.
+- **Out of scope:** Specification-детали (STAGE5-007), документы, persistence.
+- **Required documents:** Spec §5.3/§6/§9.3; ADR-018.
+- **Required code context:** собственный домен.
+- **Files allowed to change:** `tmp-order-management/.../domain`.
+- **Acceptance criteria:** unit-тесты: одна draft; active не заменяется до утверждения; предыдущие revision immutable; утверждение атомарно.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** невозможно гарантировать единственность draft в домене.
 
 ---
 
-## STAGE5-007 — Item Specification model
+## STAGE5-007 — Immutable Item Specification
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-006
-**Module:** `tmp-order-management`
 
-### Goal
-
-Реализовать `ItemSpecification` и её строки (материалы, количества, единицы, нормы расхода, производственные параметры), привязанные к конкретной Revision; §8.4/§9.1.
-
-### Allowed code scope
-
-- `com.tmp.order.domain` (specification) + unit tests.
-
-### Forbidden
-
-- складские/партийные/резервные данные; Git-команды.
-
-### Acceptance criteria
-
-- [ ] спецификация привязана к `OrderItemId + Revision`; не содержит запрещённых данных §19.1.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Модель состава изделия.
+- **Goal:** Реализовать Item Specification (состав/нормы) в границе Revision; после утверждения Immutable (ADR-018).
+- **Scope:** доменная модель спецификации и её инвариант неизменяемости.
+- **Out of scope:** persistence, документы, UI.
+- **Required documents:** Spec §5.4/§7; ADR-018.
+- **Required code context:** собственный домен.
+- **Files allowed to change:** `tmp-order-management/.../domain`.
+- **Acceptance criteria:** unit-тесты: изменение утверждённой спецификации запрещено; изменение только новой Revision.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** нарушается инвариант immutability.
 
 ---
 
-## STAGE5-008 — Immutable specification invariants
+## STAGE5-008 — Repository ports
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-007
-**Module:** `tmp-order-management`
 
-### Goal
-
-Реализовать заморозку спецификации при утверждении редакции (ADR-018): после `APPROVED` любые изменения состава отклоняются; предыдущие редакции неизменны.
-
-### Allowed code scope
-
-- `com.tmp.order.domain` (immutability enforcement) + unit tests.
-
-### Forbidden
-
-- обходные мутации; Git-команды.
-
-### Acceptance criteria
-
-- [ ] попытка изменить утверждённую спецификацию бросает доменное исключение;
-- [ ] предыдущие редакции остаются без изменений при создании новой.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Гарантированная неизменяемость утверждённой спецификации.
+- **Goal:** Определить domain-facing repository ports для Order/Item/Revision/Specification (интерфейсы, optimistic locking контракт).
+- **Scope:** только порты (интерфейсы), без adapters.
+- **Out of scope:** JDBC-адаптеры, миграции.
+- **Required documents:** Spec §19; Database Spec (Optimistic Locking).
+- **Required code context:** собственный домен/`repository`.
+- **Files allowed to change:** `tmp-order-management/.../domain/repository`.
+- **Acceptance criteria:** порты компилируются; контракт версии/конкурентности выражен.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** порт требует чужого хранилища.
 
 ---
 
-## STAGE5-009 — Repository ports
+## STAGE5-009 — Public Query API contracts and DTO
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-008
-**Module:** `tmp-order-management`
 
-### Goal
-
-Определить доменные repository ports: `CustomerOrderRepository`, `OrderItemRepository` (с редакциями/спецификациями), с optimistic-lock семантикой; только необходимые запросы.
-
-### Allowed code scope
-
-- `com.tmp.order.domain.repository` (интерфейсы) + unit-моки при необходимости.
-
-### Forbidden
-
-- конкретные JDBC-адаптеры; спекулятивные методы; Git-команды.
-
-### Acceptance criteria
-
-- [ ] порты покрывают запросы будущих application/query задач без лишних методов.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Персистентность-агностичные порты.
+- **Goal:** Определить Public Query API (`getOrder`, `getOrderItems`, `getOrderItem`, `getOrderItemRevisions`, `getOrderItemRevision`, `getActiveOrderItemRevision`, `getItemSpecification`) и Query DTO.
+- **Scope:** интерфейсы и DTO в `com.tmp.order.api`; DTO только данные Order Management; различие active/draft; внешне только active.
+- **Out of scope:** реализация, пагинация (STAGE5-010), mutating операции.
+- **Required documents:** Spec §15.1/§15.1.3; ADR-003.
+- **Required code context:** `com.tmp.order.api`.
+- **Files allowed to change:** `tmp-order-management/.../api`.
+- **Acceptance criteria:** DTO не содержат Production/Stock/Cutting; не раскрывают entities; draft недоступен внешне.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** DTO вынуждены содержать чужие данные.
 
 ---
 
-## STAGE5-010 — Query Public API
+## STAGE5-010 — Paginated search contracts
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-009
-**Module:** `tmp-order-management`
 
-### Goal
-
-Реализовать Query API §15.1 (`getOrder`, `getOrderItem`, `getOrderItemRevision`, `getCurrentOrderItemRevision`, `getItemSpecification`) и read-only DTO, содержащие только данные Order Management.
-
-### Allowed code scope
-
-- `com.tmp.order.api` (Query интерфейсы + DTO) + `com.tmp.order.application` (query service) + unit tests.
-
-### Forbidden
-
-- production/warehouse/cutting данные в DTO; mutating операции в Query API; Git-команды.
-
-### Acceptance criteria
-
-- [ ] DTO не содержат производственных/складских полей;
-- [ ] тест фиксирует отсутствие mutating методов во внешнем Query API.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Стабильный Query API для других Capability.
+- **Goal:** Определить `searchOrders(criteria, pageRequest)`, критерии поиска, page request и sort whitelist.
+- **Scope:** search criteria (order number/status/customer/created from/to); pagination (default 50, max 100, zero-based); sort по умолчанию `createdAt DESC, orderId DESC`; whitelist sort fields.
+- **Out of scope:** реализация репозитория, UI.
+- **Required documents:** Spec §15.1.1/§15.1.2.
+- **Required code context:** `com.tmp.order.api`.
+- **Files allowed to change:** `tmp-order-management/.../api`.
+- **Acceptance criteria:** только поля из модели; max page size enforced; недопустимый sort отклоняется.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** требуется фильтр по несуществующему полю.
 
 ---
-
-## STAGE5-011 — Application commands
+## STAGE5-011 — Typed payload models: Order documents
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-009
-**Module:** `tmp-order-management`
+**Depends on:** STAGE5-010
 
-### Goal
-
-Определить внутренние application commands §15.2 (`createOrder`…`createOrderItemRevision`) как внутренний контракт, вызываемый только Document Processor'ами.
-
-### Allowed code scope
-
-- `com.tmp.order.application` (command интерфейсы/DTO) + unit tests.
-
-### Forbidden
-
-- экспонирование commands как внешний Public API; Git-команды.
-
-### Acceptance criteria
-
-- [ ] commands не входят в `com.tmp.order.api` внешнего доступа; architecture test это проверяет.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Внутренний Application API, изолированный от внешних Capability.
+- **Goal:** Определить typed payload модели документов заказа (`OrderCreatePayload`, `OrderUpdatePayload`, `OrderApprovePayload`, `OrderCancelPayload`) с полями identity §11.2.
+- **Scope:** типизированные Java-модели; поля `DocumentId`, `DocumentTypeCode`, `PayloadSchemaVersion`, `PayloadRevision`, `CreatedAt`, `UpdatedAt`; связь по `DocumentId`.
+- **Out of scope:** persistence, processors, generic JSON.
+- **Required documents:** Spec §11; ADR-028.
+- **Required code context:** `com.tmp.document.api` (`DocumentMetadata`/`DocumentId`).
+- **Files allowed to change:** `tmp-order-management/.../application` (payload).
+- **Acceptance criteria:** модели типизированы и versioned; отсутствует generic JSON в Platform Core.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** payload нельзя связать с `DocumentId`.
 
 ---
 
-## STAGE5-012 — Domain Events
+## STAGE5-012 — Typed payload models: Item documents
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-011
-**Module:** `tmp-order-management`
 
-### Goal
-
-Определить Domain Events §17 (payload, идемпотентный идентификатор) на базе Platform Core Event API; `OrderItemRevisionApproved` как источник для Production.
-
-### Allowed code scope
-
-- `com.tmp.order.api` (event типы) + unit tests.
-
-### Forbidden
-
-- события Production/Warehouse/Cutting; Git-команды.
-
-### Acceptance criteria
-
-- [ ] набор событий соответствует §17; payload минимален; отсутствуют чужие события.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Стабильный контракт событий.
+- **Goal:** Определить typed payload модели документов позиции (`OrderItemCreatePayload`, `OrderItemUpdatePayload`, `OrderItemCancelPayload`).
+- **Scope:** типизированные модели с identity §11.2; `ORDER_ITEM_UPDATE` — только коммерческие поля (не Revision/Specification).
+- **Out of scope:** persistence, processors.
+- **Required documents:** Spec §11/§13; ADR-028.
+- **Required code context:** `com.tmp.document.api`.
+- **Files allowed to change:** `tmp-order-management/.../application` (payload).
+- **Acceptance criteria:** `OrderItemUpdatePayload` не содержит spec/revision полей.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** payload смешивает коммерческие и revision данные.
 
 ---
 
-## STAGE5-013 — Document types and payloads
+## STAGE5-013 — Typed payload models: Revision documents
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-011
-**Module:** `tmp-order-management`
+**Depends on:** STAGE5-012
 
-### Goal
-
-Определить типы бизнес-документов §16.1 (`ORDER_CREATE`…`ORDER_ITEM_REVISION_CREATE`) и их payload через контракт Document Engine.
-
-### Allowed code scope
-
-- `com.tmp.order.application`/`capability` (document type регистрация) + unit tests.
-
-### Forbidden
-
-- документы без бизнес-смысла; Git-команды.
-
-### Acceptance criteria
-
-- [ ] каждый изменяющий сценарий покрыт ровно одним типом документа.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Каталог документов Order Management.
+- **Goal:** Определить typed payload модели документов редакции (`OrderItemRevisionCreatePayload`, `OrderItemRevisionUpdatePayload`, `OrderItemRevisionApprovePayload`).
+- **Scope:** модели редакции/спецификации с identity §11.2; `ORDER_ITEM_REVISION_UPDATE` изменяет только draft revision.
+- **Out of scope:** persistence, processors.
+- **Required documents:** Spec §6/§11/§13; ADR-028.
+- **Required code context:** `com.tmp.document.api`.
+- **Files allowed to change:** `tmp-order-management/.../application` (payload).
+- **Acceptance criteria:** update-payload адресует только draft revision.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** payload позволяет менять утверждённую revision.
 
 ---
 
-## STAGE5-014 — Document Processors: Order documents
-
-**Status:** PLANNED
-**Stage:** 5
-**Depends on:** STAGE5-013, STAGE5-012, STAGE5-004
-**Module:** `tmp-order-management`
-
-### Goal
-
-Реализовать Document Processors для `ORDER_CREATE`/`ORDER_UPDATE`/`ORDER_APPROVE`/`ORDER_CANCEL`, вызывающих соответствующие commands и публикующих события.
-
-### Allowed code scope
-
-- `com.tmp.order.application` (order processors) + unit tests.
-
-### Forbidden
-
-- прямой вызов из UI/внешних Capability; Git-команды.
-
-### Acceptance criteria
-
-- [ ] проведение документа выполняет команду, применяет инварианты §11.2 и готовит событие после commit.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Документо-управляемые операции заказа.
-
----
-
-## STAGE5-015 — Document Processors: Order Item documents
-
-**Status:** PLANNED
-**Stage:** 5
-**Depends on:** STAGE5-013, STAGE5-012, STAGE5-005
-**Module:** `tmp-order-management`
-
-### Goal
-
-Реализовать процессоры `ORDER_ITEM_CREATE`/`ORDER_ITEM_UPDATE`/`ORDER_ITEM_CANCEL` (§12.2).
-
-### Allowed code scope
-
-- `com.tmp.order.application` (item processors) + unit tests.
-
-### Forbidden
-
-- production поля; Git-команды.
-
-### Acceptance criteria
-
-- [ ] создание позиции создаёт Revision 1 `DRAFT`; правила §12.2 соблюдены.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Документо-управляемые операции позиции.
-
----
-
-## STAGE5-016 — Document Processors: Revision documents
-
-**Status:** PLANNED
-**Stage:** 5
-**Depends on:** STAGE5-015, STAGE5-008
-**Module:** `tmp-order-management`
-
-### Goal
-
-Реализовать процессоры `ORDER_ITEM_REVISION_APPROVE` (заморозка спецификации, позиция → `ACTIVE`, обновление `currentRevision`) и `ORDER_ITEM_REVISION_CREATE` (§12.3).
-
-### Allowed code scope
-
-- `com.tmp.order.application` (revision processors) + unit tests.
-
-### Forbidden
-
-- изменение утверждённых редакций; Git-команды.
-
-### Acceptance criteria
-
-- [ ] утверждение делает спецификацию Immutable и публикует `OrderItemRevisionApproved`;
-- [ ] новая редакция создаётся только при `APPROVED` текущей и отсутствии открытой `DRAFT`.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Документо-управляемое версионирование позиции.
-
----
-
-## STAGE5-017 — Application services wiring
-
-**Status:** PLANNED
-**Stage:** 5
-**Depends on:** STAGE5-014, STAGE5-015, STAGE5-016
-**Module:** `tmp-order-management`
-
-### Goal
-
-Связать commands ↔ processors ↔ aggregates ↔ repositories ↔ events в согласованные application services.
-
-### Allowed code scope
-
-- `com.tmp.order.application` (services wiring) + unit tests.
-
-### Forbidden
-
-- обход документного потока; Git-команды.
-
-### Acceptance criteria
-
-- [ ] каждый processor вызывает ровно одну команду; каждая команда имеет required capability.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Согласованный application-слой.
-
----
-
-## STAGE5-018 — Transaction boundaries and event-after-commit
-
-**Status:** PLANNED
-**Stage:** 5
-**Depends on:** STAGE5-017
-**Module:** `tmp-order-management`
-
-### Goal
-
-Определить транзакционные границы агрегатов (§8) и публикацию Domain Events строго после успешного commit (ADR-021).
-
-### Allowed code scope
-
-- `com.tmp.order.application` (transaction/event publication) + unit tests.
-
-### Forbidden
-
-- публикация события при откате; Git-команды.
-
-### Acceptance criteria
-
-- [ ] при откате транзакции событие не публикуется (тест с искусственным сбоем).
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Корректные транзакции и публикация событий.
-
----
-
-## STAGE5-019 — Idempotency of document posting
-
-**Status:** PLANNED
-**Stage:** 5
-**Depends on:** STAGE5-018
-**Module:** `tmp-order-management`
-
-### Goal
-
-Реализовать идемпотентность проведения документа по `documentId` (§16.1): повторное проведение не создаёт дубликатов и не выполняет повторный переход.
-
-### Allowed code scope
-
-- `com.tmp.order.application`/`persistence` (idempotency) + unit tests.
-
-### Forbidden
-
-- недетерминированная обработка; Git-команды.
-
-### Acceptance criteria
-
-- [ ] повторное проведение того же документа — no-op/идемпотентно.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Идемпотентные документные операции.
-
----
-
-## STAGE5-020 — Capability declarations
+## STAGE5-014 — Payload application use cases (draft edit + optimistic lock)
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-013
-**Module:** `tmp-order-management`
 
-### Goal
-
-Реализовать `OrderManagementCapability` с каталогом permission §18.1 (3-сегментные коды), командами и навигационными вкладами (прецедент `SecurityAdministrationCapability`).
-
-### Allowed code scope
-
-- `com.tmp.order.capability` + unit tests.
-
-### Forbidden
-
-- permission-коды вне формата `PermissionId`; Git-команды.
-
-### Acceptance criteria
-
-- [ ] все коды проходят валидацию `PermissionId` (3 сегмента);
-- [ ] capability обнаруживается Capability Engine.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Зарегистрированная Capability Order Management.
+- **Goal:** Реализовать внутренние use cases создания/изменения draft payload с optimistic locking (`PayloadRevision`) и immutability после проведения.
+- **Scope:** application use cases (только внутренние); редактирование только пока документ Draft.
+- **Out of scope:** persistence-адаптер (STAGE5-015), processors.
+- **Required documents:** Spec §11.3/§11.4.
+- **Required code context:** собственный application; payload port (объявляется здесь как интерфейс использования).
+- **Files allowed to change:** `tmp-order-management/.../application`.
+- **Acceptance criteria:** unit-тесты: конфликт `PayloadRevision` отклоняется; правка после проведения запрещена.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** невозможно выразить optimistic lock.
 
 ---
 
-## STAGE5-021 — Security integration
+## STAGE5-015 — Payload persistence port
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-020, STAGE5-017
-**Module:** `tmp-order-management`
+**Depends on:** STAGE5-014
 
-### Goal
-
-Привязать required capability к каждой команде/документу (§16.1) и обеспечить authorization-проверку через Security public API; навигация фильтруется по правам.
-
-### Allowed code scope
-
-- `com.tmp.order.application`/`capability` (authorization) + unit tests.
-
-### Forbidden
-
-- обход authorization; Git-команды.
-
-### Acceptance criteria
-
-- [ ] вызов команды без права отклоняется; each command → required capability.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Авторизованные документные операции.
+- **Goal:** Определить persistence port для typed payload (load/store by `DocumentId`, версия схемы, `PayloadRevision`).
+- **Scope:** только порт (интерфейс).
+- **Out of scope:** JDBC adapter, миграции.
+- **Required documents:** Spec §11/§19.
+- **Required code context:** `com.tmp.document.api` (`DocumentId`).
+- **Files allowed to change:** `tmp-order-management/.../application` (port) или `.../persistence` (интерфейс порта).
+- **Acceptance criteria:** порт компилируется; ключ — `DocumentId`.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** payload нельзя ключевать по `DocumentId`.
 
 ---
 
-## STAGE5-022 — PostgreSQL schema design
+## STAGE5-016 — Capability-owned payload database schema (Flyway)
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-007
-**Module:** `tmp-order-management`
+**Depends on:** STAGE5-015
 
-### Goal
-
-Спроектировать схему `order_management` (`orders`, `order_items`, `order_item_revisions`, `item_specifications`, `item_specification_lines`) с ключами, ограничениями, optimistic-lock и общими техническими полями; §19.
-
-### Allowed code scope
-
-- проект схемы (описание/DDL черновик в задаче) + review; без применения миграции.
-
-### Forbidden
-
-- поля production/warehouse/cutting (§19.1); Git-команды.
-
-### Acceptance criteria
-
-- [ ] схема покрывает модель и не содержит запрещённых столбцов.
-
-### Verification commands
-
-```text
-Design/review (миграция применяется в STAGE5-023).
-```
-
-### Expected result
-
-Утверждённый дизайн схемы.
+- **Goal:** Создать Flyway-миграцию схемы typed payload (`order_management`, ключ `DocumentId`, `document_type_code`, `payload_schema_version`, `payload_revision`, `created_at`, `updated_at`, immutability-after-post).
+- **Scope:** только SQL-миграция payload (следующая свободная версия ≥ V6).
+- **Out of scope:** adapter (реализация), агрегатные таблицы.
+- **Required documents:** Spec §19; Database Spec; Flyway (highest = V5).
+- **Required code context:** `tmp-infra-db` конвенции.
+- **Files allowed to change:** `src/main/resources/db/migration/Vx__order_payload_schema.sql`.
+- **Acceptance criteria:** миграция применяется на чистой БД; не хранит generic JSON/Production данных.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** схема вынуждает generic JSON в Platform Core.
 
 ---
 
-## STAGE5-023 — Flyway migration V6
+## STAGE5-017 — Processing record and idempotency model
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-022
-**Module:** `tmp-order-management`
+**Depends on:** STAGE5-016
 
-### Goal
-
-Реализовать `V6__order_management_schema.sql` в `tmp-order-management/src/main/resources/db/migration/` согласно §19; `V1..V5` не изменять.
-
-### Allowed code scope
-
-- `V6__order_management_schema.sql`.
-
-### Forbidden
-
-- изменение существующих миграций; запрещённые столбцы §19.1; Git-команды.
-
-### Acceptance criteria
-
-- [ ] Flyway применяет V6 поверх V5 в PostgreSQL Testcontainers.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management verify
-```
-
-### Expected result
-
-Схема Order Management в БД.
+- **Goal:** Определить модель processing record и порт идемпотентности (`DocumentId`, `DocumentTypeCode`, `Operation`, `ProcessingStatus`, `PayloadRevision`, `ProcessedAt`, `ResultReference`), уникальность `DocumentId + Operation`.
+- **Scope:** доменная/application модель + порт; логика «повторный post не повторяет операцию».
+- **Out of scope:** SQL-миграция (STAGE5-018), adapter.
+- **Required documents:** Spec §16; ADR-028.
+- **Required code context:** `com.tmp.document.api` (`DocumentId`).
+- **Files allowed to change:** `tmp-order-management/.../application` / `.../domain`.
+- **Acceptance criteria:** unit-тесты идемпотентности (повторный post возвращает сохранённый результат).
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** невозможно определить idempotency key.
 
 ---
 
-## STAGE5-024 — Persistence adapters
+## STAGE5-018 — Processing record database schema (Flyway)
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-023, STAGE5-009
-**Module:** `tmp-order-management`
+**Depends on:** STAGE5-017
 
-### Goal
-
-Реализовать JDBC-адаптеры repository ports с ручным row-mapping и optimistic locking.
-
-### Allowed code scope
-
-- `com.tmp.order.persistence` (JDBC adapters, mappers) + unit/H2 tests при возможности.
-
-### Forbidden
-
-- JPA/Hibernate; хранение чужих данных; Git-команды.
-
-### Acceptance criteria
-
-- [ ] round-trip сохранения/чтения агрегатов; optimistic-lock конфликт обрабатывается.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Рабочая персистентность.
+- **Goal:** Создать Flyway-миграцию таблицы processing record с уникальным ограничением `document_id + operation`.
+- **Scope:** только SQL-миграция (следующая свободная версия).
+- **Out of scope:** adapter, агрегатные таблицы.
+- **Required documents:** Spec §16/§19; Database Spec; Flyway.
+- **Required code context:** `tmp-infra-db` конвенции.
+- **Files allowed to change:** `src/main/resources/db/migration/Vx__order_processing_record.sql`.
+- **Acceptance criteria:** миграция применяется; unique constraint присутствует.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** невозможно обеспечить уникальность `document_id + operation`.
 
 ---
-
-## STAGE5-025 — Persistence integration tests
+## STAGE5-019 — Business document type registration model
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-024
-**Module:** `tmp-order-management`
+**Depends on:** STAGE5-018
 
-### Goal
-
-PostgreSQL Testcontainers ITs: схема/ограничения, optimistic locking, неизменяемость утверждённой редакции, нумерация редакций.
-
-### Allowed code scope
-
-- `tmp-order-management/src/test` (ITs).
-
-### Forbidden
-
-- пропуск проверки immutability; Git-команды.
-
-### Acceptance criteria
-
-- [ ] ITs подтверждают инварианты persistence и immutability.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management verify
-```
-
-### Expected result
-
-Проверенная персистентность на PostgreSQL.
+- **Goal:** Определить каталог document type codes Order Management и их дескрипторы (тип ↔ payload ↔ schema version ↔ required capability) без реализации processors.
+- **Scope:** реестр типов документов §13; связь с payload и capability.
+- **Out of scope:** processors, lifecycle-логика.
+- **Required documents:** Spec §13; ADR-004/028.
+- **Required code context:** `com.tmp.document.api` (registration контракт).
+- **Files allowed to change:** `tmp-order-management/.../application` / `.../capability`.
+- **Acceptance criteria:** все 10 типов описаны; каждому сопоставлены payload type и capability.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** тип без payload/capability.
 
 ---
 
-## STAGE5-026 — Query API integration tests
+## STAGE5-020 — Document lifecycle policy base
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-024, STAGE5-010
-**Module:** `tmp-order-management`
+**Depends on:** STAGE5-019
 
-### Goal
-
-PostgreSQL ITs для Query API: получение заказа/позиции/редакции/текущей редакции/спецификации; DTO без чужих данных.
-
-### Allowed code scope
-
-- `tmp-order-management/src/test` (query ITs).
-
-### Forbidden
-
-- production/warehouse поля в ответах; Git-команды.
-
-### Acceptance criteria
-
-- [ ] Query API возвращает корректные данные по `Order Item ID + Revision`.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management verify
-```
-
-### Expected result
-
-Проверенный Query API.
+- **Goal:** Реализовать общий базовый lifecycle-контракт processors: `onPost` (load payload by `DocumentId`, проверка schema version + optimistic lock + предусловий, идемпотентность, processing result); `onUnpost` = reject (NOT SUPPORTED); `onClose` = no business change; `onDelete` = draft only + удаление payload.
+- **Scope:** абстрактный базовый processor/шаблон lifecycle §14 (без конкретных типов).
+- **Out of scope:** конкретные document processors (STAGE5-022+).
+- **Required documents:** Spec §14; ADR-028.
+- **Required code context:** `com.tmp.document.api` (`DocumentProcessor`, `DocumentOperationContext`).
+- **Files allowed to change:** `tmp-order-management/.../application`.
+- **Acceptance criteria:** unit-тесты: `onUnpost` бросает; `onDelete` требует draft; `onClose` не меняет бизнес-состояние.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** lifecycle Document Engine противоречит политике.
 
 ---
 
-## STAGE5-027 — UI navigation and screen registration
+## STAGE5-021 — Transaction boundary verification (prerequisite)
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-020
-**Module:** `tmp-ui-shell`
 
-### Goal
-
-Зарегистрировать навигацию Order Management и точки экранов в `tmp-ui-shell`, gated по правам (прецедент Stage 4).
-
-### Allowed code scope
-
-- `tmp-ui-shell` (navigation wiring, ViewModel beans) + tests.
-
-### Forbidden
-
-- бизнес-логика в UI; прямые мутации агрегатов; Git-команды.
-
-### Acceptance criteria
-
-- [ ] навигация видна только при наличии прав; экраны доступны из главного окна.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-ui-shell test
-```
-
-### Expected result
-
-Навигация Order Management.
+- **Goal:** Верифицировать (архитектурным/интеграционным тестом) фактическую транзакционную границу Document Engine: `DocumentProcessor.onPost` вызывается внутри транзакции проведения; `DocumentId` доступен в operation context; событие публикуется только после commit; сбой в `onPost` откатывает всё.
+- **Scope:** тест на существующем контракте Document Engine + макет processor Order Management, подтверждающий атомарность (агрегат + processing record + результат) в одной границе.
+- **Out of scope:** реальные бизнес-processors; изменение Document Engine (не требуется — контракт подтверждён).
+- **Required documents:** Spec §12; Manifest §11.
+- **Required code context:** `com.tmp.document.api`, `com.tmp.core.api` (Event API); `DefaultDocumentEngine`, `TransactionAfterCommitEventPublisher` (только чтение).
+- **Files allowed to change:** `tmp-order-management` тесты (integration), при необходимости `tmp-architecture-tests`.
+- **Acceptance criteria:** тест подтверждает: rollback в onPost откатывает документ и не публикует событие; `DocumentId` доступен; идемпотентная запись в границе.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** транзакционная граница не подтверждается тестом — остановить очередь и открыть blocker Platform/Document Engine.
 
 ---
 
-## STAGE5-028 — Order list screen
+## STAGE5-022 — Document processor: ORDER_CREATE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-027, STAGE5-010
-**Module:** `tmp-ui-shell`
+**Depends on:** STAGE5-021
 
-### Goal
-
-Экран списка заказов (read-only), использующий Query API.
-
-### Allowed code scope
-
-- `tmp-ui-shell` (FXML/Controller/ViewModel Order list) + tests.
-
-### Forbidden
-
-- прямые мутации; Git-команды.
-
-### Acceptance criteria
-
-- [ ] список заказов отображается через Query API.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-ui-shell test
-```
-
-### Expected result
-
-Экран списка заказов.
+- **Goal:** Реализовать application command `createOrder`, processor `ORDER_CREATE` (load payload, validate, create order `DRAFT`, processing record), Domain Event `OrderCreated`, регистрацию типа.
+- **Scope:** один document type (create order).
+- **Out of scope:** другие типы документов; persistence-адаптеры (используются порты).
+- **Required documents:** Spec §8/§13/§14/§16/§17.
+- **Required code context:** `com.tmp.document.api`, собственный домен/application, `com.tmp.core.api` (Event).
+- **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
+- **Acceptance criteria:** unit-тесты: создаёт заказ `DRAFT`; идемпотентность; событие после commit.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** невозможно загрузить payload по `DocumentId`.
 
 ---
 
-## STAGE5-029 — Order editor screen
+## STAGE5-023 — Document processor: ORDER_UPDATE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-028, STAGE5-014
-**Module:** `tmp-ui-shell`
+**Depends on:** STAGE5-022
 
-### Goal
-
-Экран редактора заказа: создание/изменение/утверждение/отмена через документный поток (Document Engine), не напрямую.
-
-### Allowed code scope
-
-- `tmp-ui-shell` (Order editor) + tests.
-
-### Forbidden
-
-- прямой вызов mutating API; Git-команды.
-
-### Acceptance criteria
-
-- [ ] изменения выполняются созданием и проведением документов Order Management.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-ui-shell test
-```
-
-### Expected result
-
-Документо-управляемый редактор заказа.
+- **Goal:** Реализовать `updateOrder` и processor `ORDER_UPDATE` (только коммерческие поля, заказ `DRAFT`), событие `OrderUpdated`.
+- **Scope:** один document type (update order).
+- **Out of scope:** другие типы; изменение утверждённого заказа.
+- **Required documents:** Spec §8/§13/§14.
+- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
+- **Acceptance criteria:** unit-тесты: правка только `DRAFT`; идемпотентность.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** payload затрагивает нерелевантные данные.
 
 ---
 
-## STAGE5-030 — Order Item and Revision editor screen
+## STAGE5-024 — Document processor: ORDER_APPROVE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-029, STAGE5-015, STAGE5-016
-**Module:** `tmp-ui-shell`
+**Depends on:** STAGE5-023
 
-### Goal
-
-Экран редактора позиции и редакций: создание/изменение/утверждение позиции и создание новой редакции через документы.
-
-### Allowed code scope
-
-- `tmp-ui-shell` (Item/Revision editor) + tests.
-
-### Forbidden
-
-- прямые мутации; Git-команды.
-
-### Acceptance criteria
-
-- [ ] операции позиции/редакции выполняются через документы; отражается current Revision.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-ui-shell test
-```
-
-### Expected result
-
-Редактор позиции и редакций.
+- **Goal:** Реализовать `approveOrder` и processor `ORDER_APPROVE` (≥1 active позиция), событие `OrderApproved`.
+- **Scope:** один document type (approve order).
+- **Out of scope:** другие типы.
+- **Required documents:** Spec §8/§13/§14.
+- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
+- **Acceptance criteria:** unit-тесты: утверждение без active позиций отклоняется; идемпотентность.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** предусловие невозможно проверить.
 
 ---
 
-## STAGE5-031 — Specification view/editor screen
+## STAGE5-025 — Document processor: ORDER_CANCEL (draft only)
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-030, STAGE5-008
-**Module:** `tmp-ui-shell`
+**Depends on:** STAGE5-024
 
-### Goal
-
-Экран спецификации: редактирование до утверждения редакции, read-only после утверждения (immutable).
-
-### Allowed code scope
-
-- `tmp-ui-shell` (Specification view/editor) + tests.
-
-### Forbidden
-
-- редактирование утверждённой спецификации; Git-команды.
-
-### Acceptance criteria
-
-- [ ] после утверждения редакции спецификация read-only в UI.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-ui-shell test
-```
-
-### Expected result
-
-Экран спецификации с соблюдением immutability.
+- **Goal:** Реализовать `cancelOrder` и processor `ORDER_CANCEL` только для `DRAFT` заказа, событие `OrderCancelled`.
+- **Scope:** один document type; запрет `APPROVED→CANCELLED`.
+- **Out of scope:** компенсационная отмена утверждённого заказа (future scope).
+- **Required documents:** Spec §8/§13/§22/§23.
+- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
+- **Acceptance criteria:** unit-тесты: отмена `APPROVED` отклоняется; отмена `DRAFT` работает.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** политика отмены неоднозначна.
 
 ---
-
-## STAGE5-032 — UI error handling
+## STAGE5-026 — Document processor: ORDER_ITEM_CREATE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-029, STAGE5-030, STAGE5-031
-**Module:** `tmp-ui-shell`
+**Depends on:** STAGE5-025
 
-### Goal
-
-Единообразная обработка ошибок UI: валидация документов, access denied, нейтральные сообщения (без утечки секретов/внутренних деталей).
-
-### Allowed code scope
-
-- `tmp-ui-shell` (error handling) + tests.
-
-### Forbidden
-
-- показ технических stack trace/секретов; Git-команды.
-
-### Acceptance criteria
-
-- [ ] ошибки валидации и авторизации отображаются корректно и безопасно.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-ui-shell test
-```
-
-### Expected result
-
-Надёжная обработка ошибок UI.
+- **Goal:** Реализовать `createOrderItem` и processor `ORDER_ITEM_CREATE` (позиция `DRAFT` + Revision 1 `DRAFT`, родительский заказ `DRAFT`), события `OrderItemCreated`, `OrderItemRevisionCreated`.
+- **Scope:** один document type; запрет добавления позиции в `APPROVED`/`CANCELLED` заказ.
+- **Out of scope:** редактирование revision (STAGE5-028).
+- **Required documents:** Spec §9/§13/§14/§17.
+- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
+- **Acceptance criteria:** unit-тесты: добавление в `APPROVED` заказ отклоняется; создаётся Revision 1 draft.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** нарушение состава утверждённого заказа.
 
 ---
 
-## STAGE5-033 — Unit tests consolidation
+## STAGE5-027 — Document processor: ORDER_ITEM_UPDATE (commercial fields only)
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-017, STAGE5-021
-**Module:** `tmp-order-management`
+**Depends on:** STAGE5-026
 
-### Goal
-
-Свести и дополнить unit-тесты домена и application (инварианты, transition matrices, immutability, idempotency).
-
-### Allowed code scope
-
-- `tmp-order-management/src/test` (unit).
-
-### Forbidden
-
-- Git-команды.
-
-### Acceptance criteria
-
-- [ ] все transition matrices и инварианты покрыты тестами.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management test
-```
-
-### Expected result
-
-Полное unit-покрытие домена/application.
+- **Goal:** Реализовать `updateOrderItem` и processor `ORDER_ITEM_UPDATE` только для коммерческих полей позиции (не Revision/Specification), событие `OrderItemUpdated`.
+- **Scope:** один document type; запрет скрытого изменения revision.
+- **Out of scope:** изменение spec/revision (STAGE5-028).
+- **Required documents:** Spec §5.2/§6.3/§13.
+- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
+- **Acceptance criteria:** unit-тесты: попытка изменить revision/spec через этот документ отклоняется.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** payload позволяет менять revision.
 
 ---
 
-## STAGE5-034 — End-to-end integration tests
+## STAGE5-028 — Document processor: ORDER_ITEM_REVISION_CREATE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-025, STAGE5-026, STAGE5-019
-**Module:** `tmp-order-management`
+**Depends on:** STAGE5-027
 
-### Goal
-
-PostgreSQL ITs полного потока: document → processor → command → aggregate → persistence → event, включая rollback-сценарий и idempotency.
-
-### Allowed code scope
-
-- `tmp-order-management/src/test` (E2E ITs).
-
-### Forbidden
-
-- Git-команды.
-
-### Acceptance criteria
-
-- [ ] событие публикуется только после commit; повторное проведение идемпотентно; данные корректны.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-order-management verify
-```
-
-### Expected result
-
-Проверенный сквозной документный поток.
+- **Goal:** Реализовать `createOrderItemRevision` и processor `ORDER_ITEM_REVISION_CREATE` (Revision N+1 `DRAFT` для active позиции; не меняет active; требует отсутствия draft), событие `OrderItemRevisionCreated`.
+- **Scope:** один document type; ≤ 1 draft.
+- **Out of scope:** редактирование draft (STAGE5-029), утверждение (STAGE5-030).
+- **Required documents:** Spec §6.2/§9.3/§13.
+- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
+- **Acceptance criteria:** unit-тесты: вторая draft отклоняется; active не меняется.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** невозможно гарантировать единственность draft.
 
 ---
 
-## STAGE5-035 — Stage 5 architecture tests
+## STAGE5-029 — Document processor: ORDER_ITEM_REVISION_UPDATE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-010, STAGE5-011, STAGE5-020
-**Module:** `tmp-architecture-tests`
+**Depends on:** STAGE5-028
 
-### Goal
-
-Architecture tests: отсутствие production-owned данных в Order Management, отсутствие внешнего mutating API, зависимость только от разрешённых публичных API, границы пакетов.
-
-### Allowed code scope
-
-- `tmp-architecture-tests` (Stage 5 suite).
-
-### Forbidden
-
-- ослабление правил; Git-команды.
-
-### Acceptance criteria
-
-- [ ] тесты подтверждают §13 Manifest и ADR-003/004/019.
-
-### Verification commands
-
-```bash
-mvn -q -pl :tmp-architecture-tests test
-```
-
-### Expected result
-
-Автоматическая проверка архитектурных границ Stage 5.
+- **Goal:** Реализовать `updateOrderItemRevision` и processor `ORDER_ITEM_REVISION_UPDATE`, изменяющий только текущую Draft Revision (spec/количество), событие `OrderItemRevisionUpdated`.
+- **Scope:** один document type; только draft revision.
+- **Out of scope:** утверждение; изменение утверждённой revision.
+- **Required documents:** Spec §6.3/§9.3/§13.
+- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
+- **Acceptance criteria:** unit-тесты: правка утверждённой revision отклоняется; правка draft работает; идемпотентность.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** отсутствует draft для изменения.
 
 ---
 
-## STAGE5-036 — Full reactor verification
+## STAGE5-030 — Document processor: ORDER_ITEM_REVISION_APPROVE
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-033, STAGE5-034, STAGE5-035, STAGE5-032
-**Module:** cross-stage
+**Depends on:** STAGE5-029
 
-### Goal
-
-Выполнить `mvn clean verify` для полного reactor (Stage 0–5) без регрессий.
-
-### Allowed code scope
-
-- только исправления дефектов, выявленных верификацией (в owner-задаче); docs.
-
-### Forbidden
-
-- закрытие Stage 5 без manual GUI; старт Stage 6; Git-команды.
-
-### Acceptance criteria
-
-- [ ] `mvn clean verify` PASSED.
-
-### Verification commands
-
-```bash
-mvn clean verify
-```
-
-### Expected result
-
-Зелёный полный reactor.
+- **Goal:** Реализовать `approveOrderItemRevision` и processor `ORDER_ITEM_REVISION_APPROVE`: проверка draft + полноты spec; draft → immutable; атомарное назначение новой `activeRevision`; снятие `draftRevision`; сохранение предыдущей; событие `OrderItemRevisionApproved`; позиция → `ACTIVE`.
+- **Scope:** один document type; атомарное переключение active.
+- **Out of scope:** внешние потребители события (Production — не в Stage 5).
+- **Required documents:** Spec §6.4/§9.3/§17.
+- **Required code context:** `com.tmp.document.api`, собственный домен/application, `com.tmp.core.api` (Event).
+- **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
+- **Acceptance criteria:** unit-тесты: утверждение переключает active атомарно; предыдущая revision immutable; невалидная spec отклоняется.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** переключение active не атомарно.
 
 ---
 
-## STAGE5-037 — Packaged application verification
+## STAGE5-031 — Document processor: ORDER_ITEM_CANCEL (draft only)
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-030
+
+- **Goal:** Реализовать `cancelOrderItem` и processor `ORDER_ITEM_CANCEL` только для `DRAFT` позиции, событие `OrderItemCancelled`.
+- **Scope:** один document type; запрет `ACTIVE→CANCELLED`.
+- **Out of scope:** компенсационная отмена active позиции (future scope).
+- **Required documents:** Spec §9/§22/§23.
+- **Required code context:** `com.tmp.document.api`, собственный домен/application.
+- **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
+- **Acceptance criteria:** unit-тесты: отмена active отклоняется; отмена draft работает.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** политика отмены неоднозначна.
+
+---
+## STAGE5-032 — Aggregate persistence adapters
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-031
+
+- **Goal:** Реализовать JDBC-адаптеры repository ports для Order/Item/Revision/Specification с optimistic locking.
+- **Scope:** только адаптеры (реализация портов STAGE5-008).
+- **Out of scope:** SQL-миграции (STAGE5-034), UI.
+- **Required documents:** Spec §19; Database Spec (Optimistic Locking, Транзакции).
+- **Required code context:** `tmp-infra-db`/`JdbcTemplate` конвенции; собственные порты.
+- **Files allowed to change:** `tmp-order-management/.../persistence`.
+- **Acceptance criteria:** адаптеры компилируются; реализуют контракт версии; без JPA.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** адаптер требует чужой схемы.
+
+---
+
+## STAGE5-033 — Payload and processing-record persistence adapters
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-032
+
+- **Goal:** Реализовать JDBC-адаптеры payload persistence port (STAGE5-015) и processing-record port (STAGE5-017), ключ `DocumentId`, уникальность `DocumentId + Operation`.
+- **Scope:** только адаптеры payload/processing.
+- **Out of scope:** миграции (уже STAGE5-016/018), UI.
+- **Required documents:** Spec §11/§16/§19.
+- **Required code context:** `tmp-infra-db` конвенции; собственные порты; `com.tmp.document.api`.
+- **Files allowed to change:** `tmp-order-management/.../persistence`.
+- **Acceptance criteria:** адаптеры реализуют optimistic lock payload и идемпотентную запись processing record.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** невозможно обеспечить уникальность/лок на уровне адаптера.
+
+---
+
+## STAGE5-034 — Aggregate Flyway migration (order_management schema)
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-033
+
+- **Goal:** Создать Flyway-миграцию агрегатных таблиц (`orders`, `order_items`, `order_item_revisions`, `item_specifications`, `item_specification_lines`) в схеме `order_management`.
+- **Scope:** только SQL-миграция агрегатов (следующая свободная версия).
+- **Out of scope:** payload/processing схемы (уже созданы), adapters.
+- **Required documents:** Spec §19; Database Spec; Flyway.
+- **Required code context:** `tmp-infra-db` конвенции.
+- **Files allowed to change:** `src/main/resources/db/migration/Vx__order_management_schema.sql`.
+- **Acceptance criteria:** миграция применяется на чистой БД; не хранит production/warehouse/cutting данных.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** схема вынуждает хранить чужие данные.
+
+---
+
+## STAGE5-035 — Security capabilities registration
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-034
+
+- **Goal:** Зарегистрировать capabilities Order Management (`order.order.*`, `order.item.*`, `order.revision.create/edit`, `order.specification.view`) через Capability Engine/Security.
+- **Scope:** дескрипторы разрешений и команд; 3-сегментный `PermissionId`.
+- **Out of scope:** внутренняя реализация Security; UI.
+- **Required documents:** Spec §18; Security `PermissionId` формат.
+- **Required code context:** `com.tmp.capability.api`, `com.tmp.security.api`.
+- **Files allowed to change:** `tmp-order-management/.../capability`.
+- **Acceptance criteria:** все capability коды валидны (3 сегмента); соответствуют документам §13.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** код не соответствует формату `PermissionId`.
+
+---
+
+## STAGE5-036 — UI navigation contribution
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-035
+
+- **Goal:** Добавить навигацию Order Management в `tmp-ui-shell` (пункт меню/раздел), управляемую capability.
+- **Scope:** только навигация; без экранов данных.
+- **Out of scope:** списки/редакторы (STAGE5-037+).
+- **Required documents:** UI/UX Spec (Навигация); Manifest §14.
+- **Required code context:** `tmp-ui-shell` навигация; `com.tmp.order.api`.
+- **Files allowed to change:** `tmp-ui-shell` (навигация), при необходимости `com.tmp.order.capability` (NavigationContribution).
+- **Acceptance criteria:** пункт появляется при наличии capability; скрыт без прав.
+- **Verification commands:** `mvn -q -pl tmp-ui-shell -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** навигация требует прямых мутаций из UI.
+
+---
+## STAGE5-037 — UI: Order list (paginated Query API)
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-036
-**Module:** cross-stage
 
-### Goal
-
-Выполнить `mvn clean verify -Ppackage` и detached-запуск `TMP.exe` с PostgreSQL; убедиться в старте Order Management и применении Flyway V6.
-
-### Allowed code scope
-
-- packaging/config fixes при необходимости; docs.
-
-### Forbidden
-
-- старт Stage 6; Git-команды.
-
-### Acceptance criteria
-
-- [ ] `mvn clean verify -Ppackage` PASSED; приложение стартует; V6 применён.
-
-### Verification commands
-
-```bash
-mvn clean verify -Ppackage
-dist/jpackage/TMP/TMP.exe
-```
-
-### Expected result
-
-Собранное приложение с Order Management.
+- **Goal:** Реализовать экран списка заказов через `searchOrders`/пагинацию (только Query API), с фильтрами §15.1.1 и сортировкой по умолчанию.
+- **Scope:** список, фильтры, пагинация; read-only.
+- **Out of scope:** редактирование (STAGE5-038+), прямые мутации.
+- **Required documents:** UI/UX Spec (Экраны); Spec §15.1.
+- **Required code context:** `com.tmp.order.api` (Query/DTO); `tmp-ui-shell`.
+- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel списка).
+- **Acceptance criteria:** список работает только через Query API; page size ≤ 100; сортировка стабильна.
+- **Verification commands:** `mvn -q -pl tmp-ui-shell -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** список требует mutating API или чужих данных.
 
 ---
 
-## STAGE5-038 — Manual packaged GUI smoke and final Stage 5 gate
+## STAGE5-038 — UI: Order editor (document-driven)
 
 **Status:** PLANNED
 **Stage:** 5
 **Depends on:** STAGE5-037
-**Module:** cross-stage
 
-### Goal
+- **Goal:** Реализовать редактор заказа: создать платформенный документ, сохранить typed draft payload, запросить проведение (`ORDER_CREATE`/`ORDER_UPDATE`/`ORDER_APPROVE`/`ORDER_CANCEL`).
+- **Scope:** экран заказа + document flow через внутренние use cases.
+- **Out of scope:** позиции/редакции (STAGE5-039).
+- **Required documents:** UI/UX Spec; Spec §11.4/§14; Manifest §14.
+- **Required code context:** `com.tmp.order.api` (Query), `com.tmp.document.api`; `tmp-ui-shell`.
+- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel заказа).
+- **Acceptance criteria:** UI создаёт документ, сохраняет draft payload, инициирует проведение; нет прямых мутаций агрегата.
+- **Verification commands:** `mvn -q -pl tmp-ui-shell -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** UI вынужден менять агрегат напрямую.
 
-Ручной packaged GUI smoke (пользователь) и закрытие Stage 5: создание/изменение заказа и позиции через документы, утверждение редакции с immutable спецификацией, Query API, отсутствие production-состояния, capabilities, отсутствие секретов в логах.
+---
 
-### Allowed code scope
+## STAGE5-039 — UI: Item and Revision editor
 
-- development-control документация (закрытие Stage 5).
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-038
 
-### Forbidden
+- **Goal:** Реализовать редактор позиций и редакций: `ORDER_ITEM_*` и `ORDER_ITEM_REVISION_*` через document flow; различать active/draft revision; draft доступен только во внутреннем UI use case.
+- **Scope:** экраны позиции/редакции + document flow.
+- **Out of scope:** спецификация (STAGE5-040).
+- **Required documents:** UI/UX Spec; Spec §6/§9/§11.4.
+- **Required code context:** `com.tmp.order.api`, `com.tmp.document.api`; `tmp-ui-shell`.
+- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel позиции/редакции).
+- **Acceptance criteria:** UI показывает active и draft раздельно; создание/правка draft через документы; утверждение переключает active.
+- **Verification commands:** `mvn -q -pl tmp-ui-shell -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** draft revision раскрывается как внешняя спецификация.
 
-- старт Stage 6 / Start Gate Stage 6; Git-команды.
+---
 
-### Acceptance criteria
+## STAGE5-040 — UI: Specification editor (immutable after approve)
 
-- [ ] пользователь подтвердил packaged GUI smoke по чек-листу exit criteria (Manifest §17);
-- [ ] STATUS/WORK-QUEUE/IMPLEMENTATION-LOG/VERIFICATION-LOG обновлены; Stage 5 DONE 100%; остановка перед Stage 6.
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-039
 
-### Verification commands
+- **Goal:** Реализовать редактор спецификации draft revision; после утверждения — read-only.
+- **Scope:** экран спецификации через document flow (`ORDER_ITEM_REVISION_UPDATE`).
+- **Out of scope:** прочие экраны.
+- **Required documents:** UI/UX Spec; Spec §7/§11.4.
+- **Required code context:** `com.tmp.order.api`, `com.tmp.document.api`; `tmp-ui-shell`.
+- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel спецификации).
+- **Acceptance criteria:** утверждённая спецификация только для чтения; правка только draft.
+- **Verification commands:** `mvn -q -pl tmp-ui-shell -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** UI позволяет менять утверждённую спецификацию.
 
-```text
-Manual: dist/jpackage/TMP/TMP.exe (user-confirmed checklist)
-```
+---
 
-### Expected result
+## STAGE5-041 — UI: Error handling and user messages
 
-Stage 5 полностью закрыт; явная остановка перед Stage 6.
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-040
+
+- **Goal:** Реализовать единообразную обработку ошибок домена/проведения (оптимистичный лок, запрещённые переходы, отклонённый unpost) и сообщения пользователю.
+- **Scope:** отображение ошибок use cases/документов в UI.
+- **Out of scope:** новые экраны данных.
+- **Required documents:** UI/UX Spec (Сообщения пользователю); Spec §14.
+- **Required code context:** `tmp-ui-shell`; `com.tmp.order.api`.
+- **Files allowed to change:** `tmp-ui-shell` (обработчики/сообщения).
+- **Acceptance criteria:** ошибки отображаются понятно; UI не «проглатывает» отказ проведения.
+- **Verification commands:** `mvn -q -pl tmp-ui-shell -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** отказ проведения невозможно донести до пользователя.
+
+---
+## STAGE5-042 — Unit tests consolidation
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-041
+
+- **Goal:** Обеспечить покрытие домена/application unit-тестами (агрегаты, active/draft revision, immutability, payload optimistic lock, lifecycle policy).
+- **Scope:** только unit-тесты модуля.
+- **Out of scope:** integration/DB тесты.
+- **Required documents:** Manifest §15.
+- **Required code context:** собственный модуль.
+- **Files allowed to change:** `tmp-order-management/src/test` (unit).
+- **Acceptance criteria:** unit-набор зелёный; ключевые инварианты покрыты.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** инвариант невозможно протестировать без чужой реализации.
+
+---
+
+## STAGE5-043 — Persistence integration tests (PostgreSQL Testcontainers)
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-042
+
+- **Goal:** Проверить схему/ограничения/optimistic lock/immutability revision/payload persistence на реальном PostgreSQL.
+- **Scope:** IT persistence (агрегаты + payload + processing record).
+- **Out of scope:** document lifecycle/idempotency/rollback (отдельные задачи).
+- **Required documents:** Manifest §15; Database Spec.
+- **Required code context:** Testcontainers инфраструктура; собственные адаптеры.
+- **Files allowed to change:** `tmp-order-management/src/test` (IT).
+- **Acceptance criteria:** IT зелёные на PostgreSQL; unique/lock проверены.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am verify`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** схема не соответствует модели.
+
+---
+
+## STAGE5-044 — Document lifecycle integration tests
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-043
+
+- **Goal:** Проверить полный документный поток (create → draft payload → post → aggregate change → event) и политики `unpost` (rejected), `close` (no business change), `delete` (draft only, payload removed).
+- **Scope:** IT lifecycle через Document Engine + Order Management processors.
+- **Out of scope:** idempotency/rollback (отдельно).
+- **Required documents:** Spec §14; Manifest §15.
+- **Required code context:** `com.tmp.document.api`; собственные processors.
+- **Files allowed to change:** `tmp-order-management/src/test` (IT).
+- **Acceptance criteria:** unpost проведённого отклонён; delete draft удаляет payload; close не меняет бизнес-состояние.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am verify`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** lifecycle расходится с политикой §14.
+
+---
+
+## STAGE5-045 — Idempotency tests
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-044
+
+- **Goal:** Проверить идемпотентность проведения: повторный `onPost` не выполняет операцию повторно и возвращает сохранённый результат; уникальность `DocumentId + Operation`.
+- **Scope:** IT идемпотентности.
+- **Out of scope:** rollback (STAGE5-046).
+- **Required documents:** Spec §16; Manifest §15.
+- **Required code context:** processing record adapter; processors.
+- **Files allowed to change:** `tmp-order-management/src/test` (IT).
+- **Acceptance criteria:** повторный post не дублирует изменение; processing record единственный.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am verify`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** повторный post дублирует бизнес-изменение.
+
+---
+
+## STAGE5-046 — Transaction rollback tests
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-045
+
+- **Goal:** Проверить атомарность: сбой в `onPost` откатывает изменение агрегата, processing record и результат проведения; документ не переходит в `POSTED`; событие не публикуется.
+- **Scope:** IT rollback в транзакционной границе Document Engine.
+- **Out of scope:** прочее.
+- **Required documents:** Spec §12; Manifest §11/§15.
+- **Required code context:** `com.tmp.document.api`, `com.tmp.core.api` (Event); processors.
+- **Files allowed to change:** `tmp-order-management/src/test` (IT).
+- **Acceptance criteria:** при откате нет частичных изменений и события.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am verify`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** обнаружена неатомарность — открыть blocker Platform/Document Engine.
+
+---
+
+## STAGE5-047 — Architecture tests (boundaries and ownership)
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-046
+
+- **Goal:** Финализировать architecture tests: границы пакетов; отсутствие production-owned данных; отсутствие внешнего mutating API; payload не в Platform Core; зависимости только на разрешённые публичные API; транзакционная граница.
+- **Scope:** правила ArchUnit для Order Management.
+- **Out of scope:** функциональные тесты.
+- **Required documents:** Manifest §16; ADR-003/004/019/028.
+- **Required code context:** `tmp-architecture-tests`; `com.tmp.*.api`.
+- **Files allowed to change:** `tmp-architecture-tests`.
+- **Acceptance criteria:** все архитектурные правила проходят.
+- **Verification commands:** `mvn -q -pl tmp-architecture-tests -am test`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** нарушена граница владения/зависимостей.
+
+---
+
+## STAGE5-048 — Full reactor verification
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-047
+
+- **Goal:** Полная сборка и проверка реактора.
+- **Scope:** `mvn clean verify` по всему проекту.
+- **Out of scope:** packaging (STAGE5-049).
+- **Required documents:** Manifest §19; RUN-DEVELOPMENT.
+- **Required code context:** весь реактор.
+- **Files allowed to change:** только исправления, выявленные сборкой (в рамках Stage 5).
+- **Acceptance criteria:** `mvn clean verify` зелёный.
+- **Verification commands:** `mvn -q clean verify`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** сборка падает по причинам вне Stage 5.
+
+---
+
+## STAGE5-049 — Packaged application verification
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-048
+
+- **Goal:** Собрать упакованное приложение и проверить запуск.
+- **Scope:** package profile; проверка артефакта.
+- **Out of scope:** ручной GUI smoke (STAGE5-050).
+- **Required documents:** Manifest §19; RUN-DEVELOPMENT.
+- **Required code context:** `tmp-bootstrap-app`, packaging.
+- **Files allowed to change:** packaging-конфигурация при необходимости.
+- **Acceptance criteria:** `mvn -Ppackage` зелёный; артефакт создан.
+- **Verification commands:** `mvn -q -Ppackage clean verify`
+- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** упаковка не собирается.
+
+---
+
+## STAGE5-050 — Manual packaged GUI smoke and Stage 5 close
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-049
+
+- **Goal:** Пользовательский ручной GUI smoke по чек-листу exit criteria (Manifest §20); закрытие Stage 5; остановка перед Stage 6.
+- **Scope:** ручная проверка; фиксация результата в control docs.
+- **Out of scope:** старт Stage 6; любые Git-операции (выполняет пользователь).
+- **Required documents:** Manifest §20; RUN-DEVELOPMENT.
+- **Required code context:** упакованное приложение.
+- **Files allowed to change:** STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Acceptance criteria:** пользователь подтвердил GUI smoke; Stage 5 DONE 100%; остановка перед Stage 6.
+- **Verification commands:** `Manual: packaged app (user-confirmed checklist)`
+- **Documentation updates:** STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** пользователь не подтвердил smoke.

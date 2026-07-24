@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-005  
 **Status:** Accepted  
-**Version:** 1.2
+**Version:** 1.3
 
 ---
 
@@ -165,7 +165,13 @@ Accepted
 
 Ни одна Capability не имеет права изменять внутреннее состояние другой Capability напрямую.
 
-Все взаимодействие выполняется исключительно через публичный API владельца данных.
+Взаимодействие между Capability выполняется исключительно через публичные контракты владельца данных, разделённые по назначению (согласовано с Constitution принцип 28 и ADR-004):
+
+- изменяющие межмодульные бизнес-операции — только через бизнес-документы Document Engine;
+- синхронное чтение чужих данных — только через Public Query API владельца;
+- асинхронное информирование о завершённых изменениях — только через Domain Events владельца.
+
+Public Query API и Domain Events не могут использоваться для обхода document-driven изменения состояния. Изменяющие application-операции владельца не являются внешним Public API.
 
 ### Последствия
 
@@ -173,10 +179,13 @@ Accepted
 
 Изменение внутренней реализации не влияет на остальные части платформы.
 
+Границы «чтение / изменение / уведомление» единообразны во всех спецификациях Capability.
+
 ### Связанные документы
 
 - Platform-Core-Specification.md
 - Capability-Engine-Specification.md
+- TMP-Constitution.md
 
 ---
 
@@ -205,6 +214,8 @@ Accepted
 - инициирует выполнение бизнес-логики;
 - является источником пользовательской истории.
 
+Изменяющие бизнес-операции выполняются только через проведение бизнес-документа. Public Query API (синхронное чтение) и Domain Events (асинхронное уведомление о завершённых изменениях) дополняют документную модель, но не могут использоваться для обхода document-driven изменения состояния (согласовано с Constitution принцип 28 и ADR-003).
+
 ### Последствия
 
 История действий пользователя полностью сохраняется.
@@ -214,6 +225,7 @@ Accepted
 ### Связанные документы
 
 - Document-Engine-Specification.md
+- TMP-Constitution.md
 
 ---
 
@@ -1087,6 +1099,50 @@ Production использует исключительно Revision Cutting Plan
 
 ---
 
+# ADR-028
+
+## Название
+
+Capability-owned Business Document Payload.
+
+### Статус
+
+Accepted
+
+### Контекст
+
+Document Engine владеет платформенным жизненным циклом документа и его metadata (`DocumentId`, тип, заголовок, автор, время создания, статус, операции `post`/`unpost`/`close`/`delete`, вызов зарегистрированного `DocumentProcessor`). Однако бизнес-содержимое документа конкретной Capability (например, состав заказа, спецификация позиции) является предметными данными и не должно попадать в Platform Core как произвольный domain JSON, иначе нарушаются границы владения (ADR-019) и типобезопасность.
+
+Проверка фактического контракта Document Engine: `DocumentOperationContext.document()` предоставляет `DocumentMetadata` с `DocumentId` (`id()`); `DefaultDocumentEngine` аннотирован `@Transactional`, вызывает `DocumentProcessor.onPost(...)` внутри той же транзакции, что и изменение статуса документа и запись lifecycle-журнала, а Domain Events публикуются только после commit (`TransactionAfterCommitEventPublisher`). Атомарность processor-изменения и платформенного изменения документа гарантирована этой транзакционной границей.
+
+### Решение
+
+Document Engine владеет lifecycle и metadata документа. Capability владеет строго типизированным business payload своих документов.
+
+1. Business payload не хранится в `DocumentMetadata` и не хранится в Platform Core как произвольный domain JSON.
+2. Payload хранится Capability отдельно (собственный persistence port и adapter) и связывается с платформенным документом через `DocumentId`.
+3. `DocumentProcessor` получает `DocumentId` из `DocumentOperationContext` и загружает типизированный payload из репозитория своей Capability.
+4. Payload имеет версионируемую схему (`PayloadSchemaVersion`) и optimistic locking черновика (`PayloadRevision`).
+5. Payload редактируется только внутренними application/UI use cases Capability, пока платформенный документ находится в редактируемом Draft-состоянии; после успешного проведения payload становится immutable.
+6. Payload одной Capability нельзя читать или изменять напрямую из другой Capability; доступ к результатам — только через Public Query API и Domain Events владельца.
+7. Обработка проведения должна быть идемпотентной (processing record с уникальностью `DocumentId + Operation`).
+8. Атомарность изменения агрегата, записи processing record и изменения результата проведения обеспечивается транзакционной границей Document Engine (processor вызывается внутри транзакции проведения; события — после commit). Если для какой-либо Capability этот контракт окажется недостаточным, требуется отдельный prerequisite-ADR/задача до реализации её Document Processors.
+
+### Последствия
+
+- сохраняется типобезопасность и владение предметными данными (ADR-019);
+- Platform Core остаётся свободным от предметного JSON;
+- обеспечивается воспроизводимость, идемпотентность и неизменяемость проведённого содержимого;
+- межмодульное взаимодействие остаётся document-driven (ADR-003, ADR-004, Constitution принцип 28).
+
+### Связанные документы
+
+- Document-Engine-Specification.md
+- Order-Management-Specification.md
+- TMP-Constitution.md
+
+---
+
 # 5. Матрица соответствия спецификациям
 
 Данный раздел показывает, в какой спецификации подробно раскрывается каждое архитектурное решение.
@@ -1120,6 +1176,7 @@ Production использует исключительно Revision Cutting Plan
 | ADR-025 | Cutting-Optimization-Specification.md, Production-Specification.md, Warehouse-Specification.md |
 | ADR-026 | Cutting-Optimization-Specification.md |
 | ADR-027 | Cutting-Optimization-Specification.md, Production-Specification.md |
+| ADR-028 | Document-Engine-Specification.md, Order-Management-Specification.md |
 
 > **Architecture Rule**  
 > Настоящий документ фиксирует только архитектурные решения. Подробная реализация и бизнес-логика описываются в соответствующих спецификациях.
@@ -1174,6 +1231,7 @@ Production использует исключительно Revision Cutting Plan
 | 1.0 | Создан документ. Зафиксированы базовые архитектурные решения Platform Core, Capability Engine, Document Engine и Warehouse. |
 | 1.1 | Добавлены архитектурные решения ADR-017…ADR-022 по результатам проектирования Order Management, Production и обновления Warehouse. |
 | 1.2 | Добавлены архитектурные решения ADR-023…ADR-027 по результатам проектирования Cutting Optimization и интеграции с Production и Warehouse. |
+| 1.3 | Добавлен ADR-028 (Capability-owned Business Document Payload). Уточнены ADR-003 и ADR-004: единообразное разделение межмодульного взаимодействия на изменения (бизнес-документы), синхронное чтение (Public Query API) и уведомления (Domain Events), согласованное с Constitution принцип 28; Query API и Domain Events не обходят document-driven изменение состояния. |
 
 ---
 

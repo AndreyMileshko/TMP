@@ -116,16 +116,18 @@ Read only:
 
 Основные документы:
 
-- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.1);
+- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.2);
 - `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Stage Manifest);
-- релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022;
+- `docs/TMP/TMP_Initial_Documents/architecture/00-Constitution/TMP-Constitution.md` (v1.2, принцип 28);
+- релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028** (capability-owned business document payload);
 - Production Specification (v1.1) — **только** разделы владения производственным состоянием, связи с `Order Item ID`/`Revision`, Public API, Domain Events и интеграции с Order Management (для корректной границы; не для реализации Production).
 
 Разрешённый минимальный code context (публичные API только):
 
 - `com.tmp.core.api..` (Platform Core, включая Event API);
 - `com.tmp.capability.api..` (Capability Engine: `Capability`/`CapabilityDescriptor`/`PermissionDescriptor`/`CommandDescriptor`/`NavigationContribution`/`ViewDescriptor`);
-- `com.tmp.document.api..` (Document Engine: document lifecycle, Document Processor контракт);
+- `com.tmp.document.api..` (Document Engine: document lifecycle, Document Processor контракт, `DocumentOperationContext`/`DocumentMetadata`/`DocumentId`, `CreateDocumentCommand`/`UpdateDocumentCommand`, lifecycle-события);
+- для проверки транзакционной границы и наличия `DocumentId` в operation context разрешено открыть минимально необходимую реализацию Document Engine (`DefaultDocumentEngine`, `DocumentOperationContextImpl`, `TransactionAfterCommitEventPublisher`) — только для верификации, не для анализа всей реализации;
 - `com.tmp.security.api..` (Security: `PermissionId` формат, authorization контракт);
 - Database Specification — только: Schema per Module, Идентификаторы, Общие технические поля, Optimistic Locking, Транзакции, Flyway, Правила именования, Связи между модулями, Аудит изменений;
 - UI/UX Specification — только: Главное окно, Навигация, Экраны, FXML, Controller, ViewModel, Сообщения пользователю;
@@ -135,24 +137,31 @@ Read only:
 
 ## Контекст по группам задач Stage 5
 
-| Группа задач | Обязательные документы | Разрешённые публичные контракты | Запрещённые реализации |
-|---|---|---|---|
-| module bootstrap (`STAGE5-001`) | Manifest §3; Database Spec (Schema per Module); root `pom.xml` конвенции | reactor pom; `com.tmp.*.api` пакеты как зависимости | любая реализация Production/Warehouse/Cutting/Analytics |
-| architecture rules (`STAGE5-002`, `STAGE5-035`) | Manifest §3/§13; ADR-003/004/019 | `tmp-architecture-tests` конвенции; `com.tmp.*.api` | внутренние пакеты других Capability |
-| domain model (`STAGE5-003..007`) | Spec §8/§9/§10; ADR-017/018 | нет внешних; только собственный домен | persistence/UI/другие Capability |
-| immutable specification (`STAGE5-008`) | Spec §9/§10; ADR-018 | собственный домен | persistence/UI |
-| repositories & ports (`STAGE5-009`) | Spec §8; Database Spec (Optimistic Locking) | собственный домен | конкретные adapters |
-| query API (`STAGE5-010`, `STAGE5-026`) | Spec §15.1; DTO-ownership | `com.tmp.order.api` собственный; вызывающие Capability — только контракт | mutating операции |
-| document types & processors (`STAGE5-013..016`) | Spec §16/§16.1; ADR-004 | `com.tmp.document.api` (Document Processor) | бизнес-логика других Capability |
-| application commands (`STAGE5-011`, `STAGE5-017`) | Spec §15.2/§16.1 | собственный домен/ports | внешний вызов mutating API |
-| domain events (`STAGE5-012`, `STAGE5-018`) | Spec §17; ADR-021; Platform Core Event API | `com.tmp.core.api` (Event API) | события Production/Warehouse |
-| capability registration (`STAGE5-020`, `STAGE5-021`) | Spec §18; Security `PermissionId` | `com.tmp.capability.api`, `com.tmp.security.api` | внутренняя реализация Security |
-| persistence & migrations (`STAGE5-022..025`) | Spec §19; Database Spec; Flyway (highest = V5 → V6) | `tmp-infra-db` конвенции | хранение production/warehouse/cutting данных |
-| transaction boundaries & idempotency (`STAGE5-018`, `STAGE5-019`) | Spec §8 (границы), §16.1 (idempotency) | собственный application/persistence | — |
-| UI (`STAGE5-027..032`) | UI/UX Spec (экраны/навигация); Spec §11 (UI scope) | `com.tmp.order.api` (Query/DTO), Document Engine контракт | прямые мутации агрегатов из UI |
-| integration tests (`STAGE5-025`, `STAGE5-026`, `STAGE5-034`) | Spec §12 (Testing); Testcontainers инфраструктура | публичные API участников | внутренняя реализация других Capability |
-| architecture tests (`STAGE5-035`) | Manifest §13; ADR-003/004/019 | `com.tmp.*.api` | — |
-| final verification (`STAGE5-036..038`) | Manifest §16/§17; `RUN-DEVELOPMENT.md` | packaged app | — |
+| Группа задач | Обязательные документы | Разрешённые публичные API | Минимально необходимый code context | Запрещённые внутренние реализации других Capability |
+|---|---|---|---|---|
+| module bootstrap | Manifest §3; Database Spec (Schema per Module); root `pom.xml` конвенции | `com.tmp.*.api` как зависимости | reactor pom, новый модуль | Production/Warehouse/Cutting/Analytics |
+| architecture boundaries | Manifest §3/§16; ADR-003/004/019/028 | `com.tmp.*.api` | `tmp-architecture-tests` конвенции | внутренние пакеты других Capability |
+| identifiers & value objects | Spec §5 | — | собственный домен | все прочие Capability |
+| domain aggregates | Spec §5/§8/§9; ADR-017/018 | — | собственный домен | persistence/UI/другие Capability |
+| active/draft revision model | Spec §5.3/§6/§9.3; ADR-018 | — | собственный домен | persistence/UI |
+| immutable item specification | Spec §5.4/§7; ADR-018 | — | собственный домен | persistence/UI |
+| repository ports | Spec §19; Database Spec (Optimistic Locking) | — | собственный домен | конкретные adapters |
+| public query API contracts | Spec §15.1; DTO-ownership | `com.tmp.order.api` собственный | Query DTO/интерфейсы | mutating операции; чужие DTO |
+| query search and pagination | Spec §15.1.1/§15.1.2/§15.1.3 | `com.tmp.order.api` | search criteria, page request, sort whitelist | mutating операции; поля вне модели |
+| document payload model | Spec §11; ADR-028 | `com.tmp.document.api` (`DocumentMetadata`/`DocumentId`) | typed payload Java-модель Order Management | generic JSON в Platform Core; payload другой Capability |
+| document payload persistence | Spec §11/§19; Database Spec | `com.tmp.document.api` (`DocumentId`) | собственный payload port/adapter, схема `order_management` | payload/схемы других Capability |
+| document processor lifecycle | Spec §12/§13/§14; ADR-004/028 | `com.tmp.document.api` (`DocumentProcessor`, `DocumentOperationContext`) | для верификации — `DefaultDocumentEngine`/`DocumentOperationContextImpl` (только чтение) | бизнес-логика других Capability |
+| document processing idempotency | Spec §16 | `com.tmp.document.api` | processing record модель/port (`DocumentId + Operation`) | processing store других Capability |
+| revision draft workflow | Spec §6/§9.2/§9.3; ADR-018 | `com.tmp.document.api` | `ORDER_ITEM_REVISION_*` payload/processors/домен | — |
+| transaction boundary verification | Spec §12; Manifest §11 | `com.tmp.document.api`, `com.tmp.core.api` (Event API) | `DefaultDocumentEngine`, `TransactionAfterCommitEventPublisher` (только чтение), архитектурный/интеграционный тест | внутренняя реализация Document Engine сверх верификации |
+| application commands | Spec §15.2 | — | собственный application/домен/ports | внешний вызов mutating API |
+| domain events | Spec §17; ADR-021; Platform Core Event API | `com.tmp.core.api` (Event API) | собственные события | события Production/Warehouse/Cutting |
+| aggregate persistence & migrations | Spec §19; Database Spec; Flyway (highest = V5 → V6) | `tmp-infra-db` конвенции | adapters, `V6+` миграции | хранение production/warehouse/cutting данных |
+| security capabilities | Spec §18; Security `PermissionId` | `com.tmp.capability.api`, `com.tmp.security.api` | `PermissionDescriptor`/`CapabilityDescriptor` | внутренняя реализация Security |
+| UI | UI/UX Spec (экраны/навигация); Manifest §14 | `com.tmp.order.api` (Query/DTO), `com.tmp.document.api` | `tmp-ui-shell` файлы из задачи | прямые мутации агрегатов из UI |
+| integration & lifecycle & idempotency & rollback tests | Manifest §15; Testcontainers | публичные API участников | собственные тесты | внутренняя реализация других Capability |
+| architecture tests | Manifest §16; ADR-003/004/019/028 | `com.tmp.*.api` | архитектурные правила | — |
+| final verification | Manifest §17/§19/§20; `RUN-DEVELOPMENT.md` | packaged app | — | — |
 
 ---
 

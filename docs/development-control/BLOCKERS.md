@@ -672,3 +672,26 @@ Automated gate: `mvn clean verify` PASSED; `mvn clean verify -Ppackage` PASSED; 
 Documentation gate for Stage 5 PASSED. Order Management Specification contradictions (production-status storage inside Order Item; mixed commercial/production lifecycle; storage-owner ≠ change-owner statement; mutating operations exposed as external Public API; missing business documents and transition matrices; non-conformant capability codes; `IN_PROGRESS`/`COMPLETED` order statuses without a commercial process) were resolved directly in `Order-Management-Specification.md` v1.1 under existing accepted ADRs (ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021). No new ADR was required and none was created.
 
 No unresolved contradiction remains; Stage 5 is **not** blocked. No previously closed blocker or backlog entry was removed or altered. Active blocker: None.
+
+---
+
+## Stage 5 Documentation Gate corrections (STAGE5-000-FIX)
+
+**Date:** 2026-07-24  
+**Task:** `STAGE5-000-FIX`  
+**Status:** Documentation blockers recorded and closed after re-verification. Active blocker: None.
+
+Post-STAGE5-000 review identified six documentation-level blockers. During the fix, Stage 5 was temporarily blocked by documentation contradictions and `STAGE5-001` was moved to `PLANNED`; `STAGE5-000-FIX` was opened as the single `READY` task. Each blocker below was resolved and verified before closure. History is retained (records added, none removed).
+
+| # | Documentation blocker | Resolution | Status |
+|---|---|---|---|
+| DOC-BLK-1 | Отсутствовал business document payload contract (не определено, где живёт бизнес-содержимое документа). | Введён ADR-028 «Capability-owned Business Document Payload»; Spec v1.2 §11: typed payload, связанный по `DocumentId`, versioned, immutable после проведения, отдельный persistence. | CLOSED |
+| DOC-BLK-2 | Draft Revision нельзя было редактировать (не было документа/потока). | Spec v1.2 §6/§9.3: разделены active/draft Revision; добавлен документ `ORDER_ITEM_REVISION_UPDATE`; `ORDER_ITEM_UPDATE` ограничен коммерческими полями. | CLOSED |
+| DOC-BLK-3 | Query API не поддерживал list UI (не было поиска/пагинации/списков). | Spec v1.2 §15.1: добавлены `searchOrders`, списки items/revisions, пагинация (50/100, zero-based), стабильная сортировка, sort whitelist; DTO ограничены данными Order Management. | CLOSED |
+| DOC-BLK-4 | Отмена approved order и active item была небезопасной (интеграционные последствия). | Spec v1.2 §8.2/§9.2/§22/§23: запрет `APPROVED→CANCELLED`, `ACTIVE→CANCELLED`, запрет изменения состава approved order; перенос в future integration. | CLOSED |
+| DOC-BLK-5 | Отсутствовала document lifecycle policy (`post`/`unpost`/`close`/`delete`) и idempotency. | Spec v1.2 §13.2/§14/§16: policy по каждому типу; `unpost` = NOT SUPPORTED; `delete` только draft; `close` без изменения бизнес-состояния; processing record `DocumentId + Operation`, идемпотентный post. | CLOSED |
+| DOC-BLK-6 | Constitution конфликтовала с Query API и Domain Events (широкая формулировка «изменение через публичный API»). | Constitution v1.2 принцип 28 и уточнённые ADR-003/ADR-004: изменения — бизнес-документы; чтение — Public Query API; уведомления — Domain Events; Query API/Events не обходят document-driven изменение состояния. | CLOSED |
+
+**Transaction boundary (verified, not a blocker):** Фактический контракт Document Engine подтверждён по коду и тестам: `DefaultDocumentEngine` `@Transactional`; `DocumentProcessor.onPost` вызывается внутри транзакции проведения; `DocumentId` доступен через `context.document().id()`; Domain Events публикуются только после commit (`TransactionAfterCommitEventPublisher`); откат в `onPost` откатывает документ и не публикует событие (`eventNotEmittedOnRollback`, `rollbackAfterProcessorValidationFailureDoesNotEmitEvent`). Требуемая атомарность (processor → aggregate → processing record → posting result) гарантирована этой границей. Prerequisite Platform/Document Engine **не открывался**. Для страховки в очередь включена задача верификации транзакционной границы `STAGE5-021` (тест) до реализации Document Processors.
+
+All six documentation blockers are CLOSED after re-verification; transaction boundary is defined. Stage 5 is **not** blocked; `STAGE5-001` returned to `READY`. Active blocker: None.

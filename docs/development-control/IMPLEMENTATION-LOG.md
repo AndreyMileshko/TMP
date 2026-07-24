@@ -2217,3 +2217,46 @@ None (Stage 4 COMPLETE). Stop before Stage 5. Optional later: `BACKLOG-001`.
 
 `STAGE5-001` — Bootstrap `tmp-order-management` module and architecture boundaries (по решению пользователя). Stage 6 не стартовать.
 
+---
+
+## `STAGE5-000-FIX` — Stage 5 Documentation Gate Corrections
+
+**Date:** 2026-07-24  
+**Stage:** Stage 5 — Order Management  
+**Status:** COMPLETED (documentation & planning only)
+
+### Nature of task
+
+Документационная и планировочная задача. **Java-код не изменялся.** Не создавались модуль `tmp-order-management`, миграции, тесты, FXML/CSS; root `pom.xml` не изменялся. Git-команды не выполнялись. Реализация `STAGE5-001` не начиналась. На время исправлений `STAGE5-001` был переведён в `PLANNED`, задача `STAGE5-000-FIX` была единственной `READY`; после успешного gate `STAGE5-001` возвращён в `READY`.
+
+### Decisions taken (документационные, приняты как данность заданием)
+
+- **Capability-owned payload:** принято решение, что Document Engine владеет lifecycle/metadata, а Order Management — строго типизированным payload, связанным по `DocumentId`, versioned, с optimistic locking (`PayloadRevision`) и immutability после проведения. Generic JSON в Platform Core не используется.
+- **Revision model:** обновлена — разделены `activeRevision` (immutable, внешне доступна) и `draftRevision` (≤ 1, редактируемая внутренне). Добавлен документ `ORDER_ITEM_REVISION_UPDATE`; `ORDER_ITEM_UPDATE` ограничен коммерческими полями.
+- **Query API:** исправлен/расширен — `searchOrders`, списки items/revisions, пагинация (default 50, max 100, zero-based), стабильная сортировка (`createdAt DESC, orderId DESC`), sort whitelist; внешне доступна только active Revision.
+- **Cancellation:** ограничена отмена утверждённых объектов — в Stage 5 запрещены `APPROVED→CANCELLED`, `ACTIVE→CANCELLED` и изменение состава approved order; перенесено в future integration.
+- **Document lifecycle policy:** определена — `onPost` (idempotent, load payload by `DocumentId`), `onUnpost` = NOT SUPPORTED, `onClose` = no business change, `onDelete` = draft only (payload removed); idempotency через processing record (`DocumentId + Operation`).
+- **Constitution/ADR:** уточнены — Constitution v1.2 принцип 28 и ADR-003/ADR-004: изменения — бизнес-документы; чтение — Public Query API; уведомления — Domain Events; Query API/Events не обходят document-driven изменение.
+
+### Transaction boundary verification (по фактическому контракту Document Engine)
+
+Проверен код и тесты `tmp-document-engine`. `DefaultDocumentEngine` `@Transactional`; `DocumentProcessor.onPost(context)` вызывается внутри транзакции проведения; `DocumentId` доступен через `context.document().id()` (`DocumentOperationContext` → `DocumentMetadata.id()`); Domain Events публикуются только после commit (`TransactionAfterCommitEventPublisher`); откат в processor откатывает документ и не публикует событие (`DefaultDocumentEngineTransactionEventTest`). Требуемая атомарность гарантирована существующим контрактом — **prerequisite Platform/Document Engine не создавался**. В очередь включена задача верификации `STAGE5-021` (тест) до Document Processors.
+
+### Documents updated
+
+- `docs/TMP/TMP_Initial_Documents/architecture/00-Constitution/TMP-Constitution.md` → **v1.2** (принцип 28; уточнён п.16).
+- `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` → **v1.3** (добавлен **ADR-028**; уточнены ADR-003, ADR-004; матрица и история обновлены).
+- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` → **v1.2**.
+- `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (Stage Manifest) обновлён под v1.2.
+- `docs/development-control/CONTEXT-MAP.md` — добавлены контекстные группы Stage 5 (payload model/persistence, processor lifecycle, processing idempotency, revision draft workflow, query search and pagination, transaction boundary verification).
+- `docs/development-control/WORK-QUEUE.md` — очередь Stage 5 полностью пересобрана (`STAGE5-001..050`).
+- `STATUS.md`, `BLOCKERS.md`, `VERIFICATION-LOG.md` синхронизированы.
+
+### Queue rebuild
+
+Очередь Stage 5 пересобрана заново (код Stage 5 не начинался): `STAGE5-001..050` с порядком module bootstrap → boundaries → identifiers → aggregates → active/draft revision → immutable specification → repository ports → query API → paginated search → typed payload models → payload use cases → payload persistence port → payload schema → processing record & idempotency → document type registration → lifecycle policy base → transaction boundary verification → Document Processors (один тип на задачу) → aggregate persistence → migrations → security → UI → tests (unit/persistence/lifecycle/idempotency/rollback) → architecture tests → full reactor → packaged → manual GUI smoke. Каждая задача содержит ID, Title, Status, Depends on, Goal, Scope, Out of scope, Required documents, Required code context, Files allowed to change, Acceptance criteria, Verification commands, Documentation updates, Stop conditions. Только `STAGE5-001` — `READY`.
+
+### Next task
+
+`STAGE5-001` — Bootstrap `tmp-order-management` module (по решению пользователя). Stage 6 не стартовать. Git-операции выполняет пользователь.
+

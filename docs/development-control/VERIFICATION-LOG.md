@@ -3,8 +3,35 @@
 ## Latest result
 
 **Date:** 2026-07-24  
-**Scope:** Stage 5 — Order Management; Start Gate STAGE5-000 (documentation gate only)  
+**Scope:** Stage 5 — Order Management; Documentation Gate corrections STAGE5-000-FIX (documentation gate only)  
 **Overall:** PASSED (documentation). No Java/build changes; Maven verify not required. Only `STAGE5-001` READY; Stage 5 implementation not started; Stage 6 not started.
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Cross-reference Specification / ADR / Constitution | read + cross-read: Spec v1.2 ↔ ADR v1.3 (ADR-028, ADR-003/004) ↔ Constitution v1.2 (п.28) consistent | PASSED |
+| Document Engine public contract review | read `DocumentEngine`, `DocumentProcessor`, `DocumentOperationContext`, `DocumentMetadata`, `CreateDocumentCommand` | PASSED |
+| DocumentId in operation context | `DocumentOperationContext.document().id()` (UUID) available in all hooks | PASSED |
+| Transaction boundary | `DefaultDocumentEngine` `@Transactional`; `onPost` inside posting tx; events after commit; `eventNotEmittedOnRollback`, `rollbackAfterProcessorValidationFailureDoesNotEmitEvent` | PASSED (atomicity guaranteed; no prerequisite needed) |
+| Payload ownership | Spec §11 + ADR-028: Document Engine owns lifecycle/metadata; Order Management owns typed payload by `DocumentId`; no generic JSON in Platform Core | PASSED |
+| Payload schema versioning & optimistic locking | `PayloadSchemaVersion` + `PayloadRevision`; immutable after posting | PASSED |
+| Revision workflow | active vs draft separated; ≤ 1 draft; `ORDER_ITEM_REVISION_UPDATE` added; approve switches active atomically; previous revisions immutable; Query API exact revision | PASSED |
+| Query API completeness | `searchOrders`, item/revision lists, pagination (50/100 zero-based), stable sort, sort whitelist; DTO ownership | PASSED |
+| Cancellation safety | Stage 5 forbids `APPROVED→CANCELLED`, `ACTIVE→CANCELLED`, approved-order composition changes; future integration noted; order status decoupled from Production | PASSED |
+| Document lifecycle | per-type payload; post/unpost(NOT SUPPORTED)/close/delete(draft only); repeat post idempotent (processing record `DocumentId + Operation`) | PASSED |
+| Constitution uniformity | changes=documents; reads=Public Query API; notifications=Domain Events; Query API/Events do not bypass document-driven change | PASSED |
+| Queue consistency | queue matches Spec v1.2; payload tasks before processors; query before UI list; transaction/idempotency/rollback tests present; only `STAGE5-001` READY | PASSED |
+| No code changes | no Java/module/pom/SQL/FXML/test changes | CONFIRMED |
+| Git operations | none | CONFIRMED |
+
+### Failures
+
+- None.
+
+---
+
+## 2026-07-24 — `STAGE5-000` (Start Gate; documentation gate only)
+
+**Overall:** PASSED (documentation). Superseded by STAGE5-000-FIX corrections above.
 
 | Verification | Command / Method | Result |
 |---|---|---|
