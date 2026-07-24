@@ -660,3 +660,15 @@ Corrective STAGE4-049…053 implemented and verified:
 Automated gate: `mvn clean verify` PASSED; `mvn clean verify -Ppackage` PASSED; detached `TMP.exe` on V4→V5 DB PASSED. BLK-017 closed.
 
 **2026-07-24 follow-up:** User confirmed full manual packaged GUI checklist PASS. STAGE4-040 closed by STAGE4-054; Stage 4 DONE 100% / `STAGE_COMPLETE`. Non-blocking residual UI defect (Security Audit pagination encoding) tracked as `BACKLOG-001` — not a blocker, not fixed in Stage 4 close. Active blocker: None. Stage 5 not started.
+
+---
+
+## Stage 5 Start Gate — documentation gate result (STAGE5-000)
+
+**Date:** 2026-07-24  
+**Task:** `STAGE5-000`  
+**Status:** No blocker raised.
+
+Documentation gate for Stage 5 PASSED. Order Management Specification contradictions (production-status storage inside Order Item; mixed commercial/production lifecycle; storage-owner ≠ change-owner statement; mutating operations exposed as external Public API; missing business documents and transition matrices; non-conformant capability codes; `IN_PROGRESS`/`COMPLETED` order statuses without a commercial process) were resolved directly in `Order-Management-Specification.md` v1.1 under existing accepted ADRs (ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021). No new ADR was required and none was created.
+
+No unresolved contradiction remains; Stage 5 is **not** blocked. No previously closed blocker or backlog entry was removed or altered. Active blocker: None.

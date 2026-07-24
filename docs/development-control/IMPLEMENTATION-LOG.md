@@ -2172,3 +2172,48 @@ User-confirmed manual packaged GUI checklist PASSED; prior STAGE4-053 automated 
 
 None (Stage 4 COMPLETE). Stop before Stage 5. Optional later: `BACKLOG-001`.
 
+---
+
+## `STAGE5-000` — Stage 5 Start Gate and Specification Reconciliation
+
+**Date:** 2026-07-24  
+**Stage:** Stage 5 — Order Management  
+**Status:** DONE (documentation & planning only)
+
+### Nature of task
+
+Документационная и планировочная задача. **Java-код не изменялся.** Не создавались модуль `tmp-order-management`, миграции, тесты, FXML/CSS; root `pom.xml` не изменялся. Git-команды не выполнялись.
+
+### Documents updated
+
+- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` → **v1.1**.
+- `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` → полный Stage Manifest.
+- `docs/development-control/CONTEXT-MAP.md` → раздел «Stage 5 — Order Management Context» + строка Stage 5.
+- `docs/development-control/WORK-QUEUE.md` → `STAGE5-000` (DONE) + очередь `STAGE5-001..038`.
+- `docs/development-control/STATUS.md`, `BLOCKERS.md`, `VERIFICATION-LOG.md` синхронизированы.
+
+### Architectural contradictions resolved (Etap A)
+
+1. Хранение `Production Status` внутри Order Item — удалено; Production владеет производственным состоянием (ADR-019; Production Spec §4–5).
+2. Смешение коммерческого и производственного жизненного цикла — разделено на 4 цикла (§11/§12.2/§12.3 + Production).
+3. Утверждение «владелец хранения ≠ владелец изменения» (v1.0 §13.1) — удалено; хранение и изменение совпадают (§5.12, ADR-019).
+4. «Production изменяет поле Order Management» — переформулировано: Production меняет собственное состояние по `Order Item ID + Revision`, не трогая Order Management (Production Invariant 1).
+5. Производственные статусы в Public API — убраны; Query DTO содержат только данные Order Management.
+6. Прямые mutating-операции как внешний Public API — разделены на Query API и внутренний Application API (ADR-003/004).
+7. Отсутствие бизнес-документов — введён каталог §16.1 (9 документов ↔ 9 команд).
+8. Отсутствие transition matrices — добавлены для Order/Item/Revision.
+9. Нечёткие ограничения после утверждения — формализована immutability (ADR-018).
+10. Нечёткая модель Order Item/Revision — формализована (§8/§9): стабильный `Order Item ID`, `current` Revision.
+11. Нечёткая связь документ↔команда↔событие↔разрешение — сведена в §16.1.
+12. Ссылки Order Management на данные других Capability — persistence scope §19 с явным запретом §19.1.
+13. Коды capability `order.read`/`order.item.revision.create` вне 3-сегментного формата Security `PermissionId` — приведены к формату §18.1.
+14. Статусы заказа `IN_PROGRESS`/`COMPLETED` без коммерческого процесса — исключены из Stage 5, перенесены в будущую интеграцию Order↔Production (§11.1, §5.7 задачи).
+
+### Queue formation
+
+Очередь `STAGE5-001..038` сформирована **только после** прохождения documentation gate. Только `STAGE5-001` — `READY`; остальные — `PLANNED` с корректными зависимостями. Реализация `STAGE5-001` не начиналась.
+
+### Next task
+
+`STAGE5-001` — Bootstrap `tmp-order-management` module and architecture boundaries (по решению пользователя). Stage 6 не стартовать.
+

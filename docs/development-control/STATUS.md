@@ -1,10 +1,10 @@
 # TMP Development Status
 
 **Mode:** Autonomous Cursor Agent  
-**Project status:** STAGE_COMPLETE  
-**Current Stage:** Stage 4 — Security  
-**Current Task:** None  
-**Last completed task:** STAGE4-054  
+**Project status:** IN_PROGRESS  
+**Current Stage:** Stage 5 — Order Management  
+**Current Task:** STAGE5-001 (READY, not started)  
+**Last completed task:** STAGE5-000  
 **Active blocker:** None  
 
 ---
@@ -18,14 +18,19 @@
 | 2 | Document Engine | DONE | 100% |
 | 3 | Capability Engine | DONE | 100% |
 | 4 | Security | DONE | 100% |
-| 5–11 | (later) | PLANNED | 0% |
+| 5 | Order Management | IN_PROGRESS (Start Gate PASSED) | 0% |
+| 6–11 | (later) | PLANNED | 0% |
 
 ---
 
-**Готово:** STAGE4-001…039; BLK-016 corrective STAGE4-041…048; BLK-017 corrective STAGE4-049…053; финальный gate STAGE4-040 закрыт задачей STAGE4-054 после подтверждённой ручной packaged GUI-проверки.
+**Stage 0–4:** завершены (DONE 100%).
 
-**Верификация:** automated gate (STAGE4-053) PASSED; ручной packaged GUI smoke (`dist/jpackage/TMP/TMP.exe` + Docker `tmp-stage4-pg` / БД `tmp_gui_stage4`) — PASS по полному чек-листу пользователя (2026-07-24).
+**Stage 5 Start Gate (STAGE5-000):** PASSED — документационная задача. Order Management Specification обновлена до v1.1; конфликт владения производственным состоянием устранён; жизненные циклы разделены; модель Revision формализована; изменяющие операции привязаны к Document Engine; Public API разделён на Query API и внутренний Application API; добавлены transition matrices; коды capability приведены к 3-сегментному формату Security `PermissionId`; Stage Manifest и Context Map обновлены; documentation gate пройден; очередь Stage 5 (`STAGE5-001..038`) сформирована. Java-код не изменялся.
 
-**Некритичный residual (не блокирует Stage 4):** `BACKLOG-001` — неправильная кодировка текста пагинации на Security Audit Screen (отдельная будущая задача; в рамках Stage 4 не исправлялось).
+**Реализация Stage 5:** ещё не начата. Следующая задача — `STAGE5-001`. Только `STAGE5-001` имеет статус `READY`; остальные — `PLANNED`.
 
-**Далее:** Stage 5 не стартовать до отдельного Start Gate. Git-операции запрещены в этой сессии закрытия.
+**Открытых блокеров Stage 5:** нет.
+
+**Некритичный residual (Stage 4, не блокирует):** `BACKLOG-001` — кодировка пагинации Security Audit Screen.
+
+**Далее:** выполнять `STAGE5-001` по решению пользователя. Stage 6 не стартовать. Git-операции выполняет пользователь самостоятельно.

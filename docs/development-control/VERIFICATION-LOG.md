@@ -3,16 +3,29 @@
 ## Latest result
 
 **Date:** 2026-07-24  
-**Scope:** Stage 4 — Security; final close STAGE4-054 (manual packaged GUI + STAGE4-040 gate)  
-**Overall:** PASSED. Stage 4 DONE 100% / `STAGE_COMPLETE`. Stage 5 not started. Non-blocking residual: `BACKLOG-001` (Security Audit pagination encoding).
+**Scope:** Stage 5 — Order Management; Start Gate STAGE5-000 (documentation gate only)  
+**Overall:** PASSED (documentation). No Java/build changes; Maven verify not required. Only `STAGE5-001` READY; Stage 5 implementation not started; Stage 6 not started.
 
 | Verification | Command / Method | Result |
 |---|---|---|
-| Full reactor (prior STAGE4-053) | `mvn clean verify` | PASSED |
-| Package profile (prior STAGE4-053) | `mvn clean verify -Ppackage` | PASSED |
-| Manual packaged GUI | `dist/jpackage/TMP/TMP.exe` + Docker `tmp-stage4-pg` / DB `tmp_gui_stage4` / user `tmp` | PASSED (user-confirmed) |
-| STAGE4-040 final gate | closed by STAGE4-054 | DONE |
-| Stage 5 start | Not started (stop gate) | CONFIRMED |
+| Spec version bump | Order-Management-Specification.md → v1.1 (Status Accepted) | PASSED |
+| Data-ownership consistency | grep + cross-read: no Order Management storage of Production Status/quantities | PASSED |
+| Lifecycle separation | Order/Item/Revision commercial vs Production lifecycle separated | PASSED |
+| Transition matrices | every stored status has From/To/document/capability/pre/forbidden/event | PASSED |
+| Document ↔ command ↔ event ↔ capability mapping | 9 documents ↔ 9 commands, each with capability + event/justification | PASSED |
+| Public API split | Query API (external) vs internal Application API (processors only) | PASSED |
+| Revision model | `Order Item ID + Revision`; spec bound to revision; previous revisions immutable | PASSED |
+| Capability codes | conform to Security `PermissionId` 3-segment format | PASSED |
+| ADR conformance | ADR-003, ADR-004, ADR-017, ADR-018, ADR-019 (+020/021) not violated | PASSED |
+| Manifest ↔ Spec | STAGE-5 Manifest consistent with Spec v1.1 | PASSED |
+| Context Map ↔ Manifest | Stage 5 context rules consistent with Manifest | PASSED |
+| Queue formation | `STAGE5-001..038`, only `STAGE5-001` READY, formed after gate | PASSED |
+| Java code changes | none | CONFIRMED |
+| Git operations | none | CONFIRMED |
+
+### Failures
+
+- None.
 
 ---
 

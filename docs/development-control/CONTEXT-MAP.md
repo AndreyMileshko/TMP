@@ -33,7 +33,7 @@ Cursor обновляет реальные пути во время CONTROL-001.
 | 2 | Document Engine Specification | Database Specification; document ADR |
 | 3 | Capability Engine Specification | Platform Core public API; capability ADR |
 | 4 | Security Specification | Database Specification; audit and permission ADR |
-| 5 | Order Management Specification | Document Engine public API; Database Specification |
+| 5 | Order Management Specification (v1.1) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only) |
 | 6 | Warehouse Specification | Order public API; Production contracts; Database Specification |
 | 7 | Production Specification | Order and Warehouse public APIs; Database Specification |
 | 8 | Cutting Optimization Specification | Production contracts; algorithm requirements |
@@ -109,6 +109,50 @@ Read only:
 - существующий код `tmp-ui-shell`/`tmp-bootstrap-app`/`tmp-infra-db` — только файлы, перечисленные в конкретной задаче `WORK-QUEUE.md`.
 
 Запрещается загружать полную реализацию Platform Core, Document Engine или Capability Engine без необходимости (только их публичные API и, при необходимости, конкретный внутренний файл, прямо упомянутый как precedent в задаче).
+
+---
+
+# Stage 5 — Order Management Context
+
+Основные документы:
+
+- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.1);
+- `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Stage Manifest);
+- релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022;
+- Production Specification (v1.1) — **только** разделы владения производственным состоянием, связи с `Order Item ID`/`Revision`, Public API, Domain Events и интеграции с Order Management (для корректной границы; не для реализации Production).
+
+Разрешённый минимальный code context (публичные API только):
+
+- `com.tmp.core.api..` (Platform Core, включая Event API);
+- `com.tmp.capability.api..` (Capability Engine: `Capability`/`CapabilityDescriptor`/`PermissionDescriptor`/`CommandDescriptor`/`NavigationContribution`/`ViewDescriptor`);
+- `com.tmp.document.api..` (Document Engine: document lifecycle, Document Processor контракт);
+- `com.tmp.security.api..` (Security: `PermissionId` формат, authorization контракт);
+- Database Specification — только: Schema per Module, Идентификаторы, Общие технические поля, Optimistic Locking, Транзакции, Flyway, Правила именования, Связи между модулями, Аудит изменений;
+- UI/UX Specification — только: Главное окно, Навигация, Экраны, FXML, Controller, ViewModel, Сообщения пользователю;
+- существующий код `tmp-ui-shell`/`tmp-bootstrap-app`/`tmp-infra-db` — только файлы, прямо перечисленные в конкретной задаче `WORK-QUEUE.md`.
+
+Запрещается загружать полную реализацию Production, Warehouse, Cutting Optimization и Analytics. Разрешены только их публичные контракты и Domain Events там, где это прямо требуется для границы интеграции.
+
+## Контекст по группам задач Stage 5
+
+| Группа задач | Обязательные документы | Разрешённые публичные контракты | Запрещённые реализации |
+|---|---|---|---|
+| module bootstrap (`STAGE5-001`) | Manifest §3; Database Spec (Schema per Module); root `pom.xml` конвенции | reactor pom; `com.tmp.*.api` пакеты как зависимости | любая реализация Production/Warehouse/Cutting/Analytics |
+| architecture rules (`STAGE5-002`, `STAGE5-035`) | Manifest §3/§13; ADR-003/004/019 | `tmp-architecture-tests` конвенции; `com.tmp.*.api` | внутренние пакеты других Capability |
+| domain model (`STAGE5-003..007`) | Spec §8/§9/§10; ADR-017/018 | нет внешних; только собственный домен | persistence/UI/другие Capability |
+| immutable specification (`STAGE5-008`) | Spec §9/§10; ADR-018 | собственный домен | persistence/UI |
+| repositories & ports (`STAGE5-009`) | Spec §8; Database Spec (Optimistic Locking) | собственный домен | конкретные adapters |
+| query API (`STAGE5-010`, `STAGE5-026`) | Spec §15.1; DTO-ownership | `com.tmp.order.api` собственный; вызывающие Capability — только контракт | mutating операции |
+| document types & processors (`STAGE5-013..016`) | Spec §16/§16.1; ADR-004 | `com.tmp.document.api` (Document Processor) | бизнес-логика других Capability |
+| application commands (`STAGE5-011`, `STAGE5-017`) | Spec §15.2/§16.1 | собственный домен/ports | внешний вызов mutating API |
+| domain events (`STAGE5-012`, `STAGE5-018`) | Spec §17; ADR-021; Platform Core Event API | `com.tmp.core.api` (Event API) | события Production/Warehouse |
+| capability registration (`STAGE5-020`, `STAGE5-021`) | Spec §18; Security `PermissionId` | `com.tmp.capability.api`, `com.tmp.security.api` | внутренняя реализация Security |
+| persistence & migrations (`STAGE5-022..025`) | Spec §19; Database Spec; Flyway (highest = V5 → V6) | `tmp-infra-db` конвенции | хранение production/warehouse/cutting данных |
+| transaction boundaries & idempotency (`STAGE5-018`, `STAGE5-019`) | Spec §8 (границы), §16.1 (idempotency) | собственный application/persistence | — |
+| UI (`STAGE5-027..032`) | UI/UX Spec (экраны/навигация); Spec §11 (UI scope) | `com.tmp.order.api` (Query/DTO), Document Engine контракт | прямые мутации агрегатов из UI |
+| integration tests (`STAGE5-025`, `STAGE5-026`, `STAGE5-034`) | Spec §12 (Testing); Testcontainers инфраструктура | публичные API участников | внутренняя реализация других Capability |
+| architecture tests (`STAGE5-035`) | Manifest §13; ADR-003/004/019 | `com.tmp.*.api` | — |
+| final verification (`STAGE5-036..038`) | Manifest §16/§17; `RUN-DEVELOPMENT.md` | packaged app | — |
 
 ---
 

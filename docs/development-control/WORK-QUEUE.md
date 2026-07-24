@@ -7510,3 +7510,1400 @@ Manual: dist/jpackage/TMP/TMP.exe → Security Audit → inspect pagination foot
 ### Expected result
 
 Correct pagination text encoding on Security Audit Screen; backlog item closable independently of Stage 4.
+
+---
+
+# Stage 5 — Order Management
+
+> **Обязательно к прочтению перед любой задачей Stage 5:** `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Manifest) и `Order-Management-Specification.md` v1.1. Правила контекста — `CONTEXT-MAP.md` → «Stage 5 — Order Management Context». Границы: Order Management владеет только коммерческими данными заказа/позиции/редакции/спецификации; производственное состояние принадлежит Production (не хранится в Stage 5). Изменения — только через Document Engine. Внешним Capability доступны только Query API и Domain Events. Git-операции запрещены (выполняет пользователь).
+
+## STAGE5-000 — Stage 5 Start Gate and Specification Reconciliation
+
+**Status:** DONE
+**Stage:** 5
+**Depends on:** STAGE4-054
+**Module:** documentation only
+
+### Goal
+
+Устранить противоречия документации Order Management, обновить Specification до v1.1, обновить Stage Manifest и Context Map, пройти documentation gate и сформировать очередь Stage 5 — без изменения Java-кода.
+
+### Allowed code scope
+
+- документация: Order Management Specification, `STAGE-5-ORDER-MANAGEMENT.md`, `CONTEXT-MAP.md`, `WORK-QUEUE.md`, `STATUS.md`, `BLOCKERS.md`, `IMPLEMENTATION-LOG.md`, `VERIFICATION-LOG.md`.
+
+### Forbidden
+
+- создание `tmp-order-management`, Java-кода, миграций, тестов, FXML/CSS;
+- изменение root `pom.xml`;
+- формирование очереди до прохождения documentation gate;
+- старт `STAGE5-001`;
+- любые Git-команды.
+
+### Acceptance result
+
+- [x] спецификация обновлена до версии 1.1;
+- [x] конфликт владения производственными статусами устранён;
+- [x] документные операции формализованы (каталог документов §16.1);
+- [x] transition matrices определены для всех хранимых статусов;
+- [x] Stage Manifest обновлён;
+- [x] Context Map обновлён;
+- [x] documentation gate пройден;
+- [x] очередь Stage 5 сформирована;
+- [x] Java-код не изменялся.
+
+### Verification commands
+
+```text
+Documentation cross-reference only (no Maven build; no code/build changes).
+```
+
+### Expected result
+
+Stage 5 прошёл Start Gate; только `STAGE5-001` в статусе READY; реализация не начата.
+
+---
+
+## STAGE5-001 — Bootstrap `tmp-order-management` module and architecture boundaries
+
+**Status:** READY
+**Stage:** 5
+**Depends on:** STAGE5-000
+**Module:** `tmp-order-management` (new)
+
+### Goal
+
+Создать Maven-модуль `tmp-order-management`, подключить к reactor, определить package boundaries и разрешённые зависимости, добавить базовые architecture tests. Без агрегатов, таблиц, документов и UI.
+
+### Required documents
+
+- Manifest §3; Database Specification (Schema per Module); root `pom.xml` конвенции (прецедент `tmp-security`).
+
+### Allowed code scope
+
+- новый `tmp-order-management/pom.xml`; root `pom.xml` (только добавление `<module>`); пустые пакеты `com.tmp.order.api|domain|application|persistence|capability` + auto-config skeleton; базовые architecture tests в `tmp-architecture-tests` или модуле.
+
+### Forbidden
+
+- реализация агрегатов, значений, репозиториев, документов;
+- создание таблиц/миграций;
+- создание UI;
+- любые Git-команды.
+
+### Acceptance criteria
+
+- [ ] модуль собирается в reactor;
+- [ ] пакеты и разрешённые зависимости (`com.tmp.core.api`, `com.tmp.capability.api`, `com.tmp.document.api`, `com.tmp.security.api`) зафиксированы;
+- [ ] базовый architecture test запрещает JavaFX и внутренние пакеты других Capability.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management -am test
+```
+
+### Expected result
+
+Пустой, корректно изолированный модуль, готовый к доменной реализации.
+
+---
+
+## STAGE5-002 — Stage 5 module architecture rules
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-001
+**Module:** `tmp-architecture-tests`
+
+### Goal
+
+Зафиксировать architecture rules Order Management: границы пакетов, отсутствие зависимостей от внутренней реализации других Capability, отсутствие JavaFX, зависимость только от разрешённых публичных API.
+
+### Allowed code scope
+
+- `tmp-architecture-tests` (Stage 5 rules).
+
+### Forbidden
+
+- доменная логика; Git-команды.
+
+### Acceptance criteria
+
+- [ ] тесты падают при запрещённой зависимости и проходят на текущей структуре.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-architecture-tests test
+```
+
+### Expected result
+
+Автоматически проверяемые границы модуля.
+
+---
+
+## STAGE5-003 — Identifiers and base value objects
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-001
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать идентификаторы и базовые Value Objects: `OrderId`, `OrderItemId`, `RevisionNumber`, `OrderNumber`, `Currency`, `Direction`, `Quantity` — иммутабельные, с валидацией.
+
+### Allowed code scope
+
+- `com.tmp.order.api` (идентификаторы, стабильные VO) + unit tests.
+
+### Forbidden
+
+- агрегаты; persistence; Git-команды.
+
+### Acceptance criteria
+
+- [ ] каждый VO иммутабелен, валидирует вход, покрыт unit-тестами.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Стабильные идентификаторы и VO для домена и Public API.
+
+---
+
+## STAGE5-004 — Customer Order domain model
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-003
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать агрегат `CustomerOrder` с коммерческим жизненным циклом `DRAFT`/`APPROVED`/`CANCELLED` и инвариантами §8.1/§11.
+
+### Allowed code scope
+
+- `com.tmp.order.domain` (CustomerOrder) + unit tests.
+
+### Forbidden
+
+- производственные статусы/количества; persistence; Git-команды.
+
+### Acceptance criteria
+
+- [ ] переходы соответствуют transition matrix §11.2; недопустимые переходы отклоняются;
+- [ ] агрегат не содержит производственных полей.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Тестируемый агрегат заказа.
+
+---
+
+## STAGE5-005 — Order Item domain model
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-004
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать агрегат `OrderItem` (главный объект): идентичность `OrderItemId`, статусы `DRAFT`/`ACTIVE`/`CANCELLED`, `currentRevisionNumber`, признак активности; инварианты §8.2/§12.2.
+
+### Allowed code scope
+
+- `com.tmp.order.domain` (OrderItem) + unit tests.
+
+### Forbidden
+
+- производственные статусы/количества; persistence; Git-команды.
+
+### Acceptance criteria
+
+- [ ] переходы соответствуют §12.2; не более одной `DRAFT`-редакции; нет производственных полей.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Тестируемый агрегат позиции.
+
+---
+
+## STAGE5-006 — Order Item Revision model
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-005
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать сущность `OrderItemRevision` (в границе Order Item): составной ключ `OrderItemId + RevisionNumber`, статусы `DRAFT`/`APPROVED`, нумерация, ссылка на предыдущую редакцию; §9/§12.3.
+
+### Allowed code scope
+
+- `com.tmp.order.domain` (Revision) + unit tests.
+
+### Forbidden
+
+- изменение утверждённых редакций; production данные; Git-команды.
+
+### Acceptance criteria
+
+- [ ] номера монотонны и не переиспользуются; §12.3 соблюдается; актуальность вычисляется по `currentRevisionNumber`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Формализованная модель редакций.
+
+---
+
+## STAGE5-007 — Item Specification model
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-006
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать `ItemSpecification` и её строки (материалы, количества, единицы, нормы расхода, производственные параметры), привязанные к конкретной Revision; §8.4/§9.1.
+
+### Allowed code scope
+
+- `com.tmp.order.domain` (specification) + unit tests.
+
+### Forbidden
+
+- складские/партийные/резервные данные; Git-команды.
+
+### Acceptance criteria
+
+- [ ] спецификация привязана к `OrderItemId + Revision`; не содержит запрещённых данных §19.1.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Модель состава изделия.
+
+---
+
+## STAGE5-008 — Immutable specification invariants
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-007
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать заморозку спецификации при утверждении редакции (ADR-018): после `APPROVED` любые изменения состава отклоняются; предыдущие редакции неизменны.
+
+### Allowed code scope
+
+- `com.tmp.order.domain` (immutability enforcement) + unit tests.
+
+### Forbidden
+
+- обходные мутации; Git-команды.
+
+### Acceptance criteria
+
+- [ ] попытка изменить утверждённую спецификацию бросает доменное исключение;
+- [ ] предыдущие редакции остаются без изменений при создании новой.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Гарантированная неизменяемость утверждённой спецификации.
+
+---
+
+## STAGE5-009 — Repository ports
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-008
+**Module:** `tmp-order-management`
+
+### Goal
+
+Определить доменные repository ports: `CustomerOrderRepository`, `OrderItemRepository` (с редакциями/спецификациями), с optimistic-lock семантикой; только необходимые запросы.
+
+### Allowed code scope
+
+- `com.tmp.order.domain.repository` (интерфейсы) + unit-моки при необходимости.
+
+### Forbidden
+
+- конкретные JDBC-адаптеры; спекулятивные методы; Git-команды.
+
+### Acceptance criteria
+
+- [ ] порты покрывают запросы будущих application/query задач без лишних методов.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Персистентность-агностичные порты.
+
+---
+
+## STAGE5-010 — Query Public API
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-009
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать Query API §15.1 (`getOrder`, `getOrderItem`, `getOrderItemRevision`, `getCurrentOrderItemRevision`, `getItemSpecification`) и read-only DTO, содержащие только данные Order Management.
+
+### Allowed code scope
+
+- `com.tmp.order.api` (Query интерфейсы + DTO) + `com.tmp.order.application` (query service) + unit tests.
+
+### Forbidden
+
+- production/warehouse/cutting данные в DTO; mutating операции в Query API; Git-команды.
+
+### Acceptance criteria
+
+- [ ] DTO не содержат производственных/складских полей;
+- [ ] тест фиксирует отсутствие mutating методов во внешнем Query API.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Стабильный Query API для других Capability.
+
+---
+
+## STAGE5-011 — Application commands
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-009
+**Module:** `tmp-order-management`
+
+### Goal
+
+Определить внутренние application commands §15.2 (`createOrder`…`createOrderItemRevision`) как внутренний контракт, вызываемый только Document Processor'ами.
+
+### Allowed code scope
+
+- `com.tmp.order.application` (command интерфейсы/DTO) + unit tests.
+
+### Forbidden
+
+- экспонирование commands как внешний Public API; Git-команды.
+
+### Acceptance criteria
+
+- [ ] commands не входят в `com.tmp.order.api` внешнего доступа; architecture test это проверяет.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Внутренний Application API, изолированный от внешних Capability.
+
+---
+
+## STAGE5-012 — Domain Events
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-011
+**Module:** `tmp-order-management`
+
+### Goal
+
+Определить Domain Events §17 (payload, идемпотентный идентификатор) на базе Platform Core Event API; `OrderItemRevisionApproved` как источник для Production.
+
+### Allowed code scope
+
+- `com.tmp.order.api` (event типы) + unit tests.
+
+### Forbidden
+
+- события Production/Warehouse/Cutting; Git-команды.
+
+### Acceptance criteria
+
+- [ ] набор событий соответствует §17; payload минимален; отсутствуют чужие события.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Стабильный контракт событий.
+
+---
+
+## STAGE5-013 — Document types and payloads
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-011
+**Module:** `tmp-order-management`
+
+### Goal
+
+Определить типы бизнес-документов §16.1 (`ORDER_CREATE`…`ORDER_ITEM_REVISION_CREATE`) и их payload через контракт Document Engine.
+
+### Allowed code scope
+
+- `com.tmp.order.application`/`capability` (document type регистрация) + unit tests.
+
+### Forbidden
+
+- документы без бизнес-смысла; Git-команды.
+
+### Acceptance criteria
+
+- [ ] каждый изменяющий сценарий покрыт ровно одним типом документа.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Каталог документов Order Management.
+
+---
+
+## STAGE5-014 — Document Processors: Order documents
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-013, STAGE5-012, STAGE5-004
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать Document Processors для `ORDER_CREATE`/`ORDER_UPDATE`/`ORDER_APPROVE`/`ORDER_CANCEL`, вызывающих соответствующие commands и публикующих события.
+
+### Allowed code scope
+
+- `com.tmp.order.application` (order processors) + unit tests.
+
+### Forbidden
+
+- прямой вызов из UI/внешних Capability; Git-команды.
+
+### Acceptance criteria
+
+- [ ] проведение документа выполняет команду, применяет инварианты §11.2 и готовит событие после commit.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Документо-управляемые операции заказа.
+
+---
+
+## STAGE5-015 — Document Processors: Order Item documents
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-013, STAGE5-012, STAGE5-005
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать процессоры `ORDER_ITEM_CREATE`/`ORDER_ITEM_UPDATE`/`ORDER_ITEM_CANCEL` (§12.2).
+
+### Allowed code scope
+
+- `com.tmp.order.application` (item processors) + unit tests.
+
+### Forbidden
+
+- production поля; Git-команды.
+
+### Acceptance criteria
+
+- [ ] создание позиции создаёт Revision 1 `DRAFT`; правила §12.2 соблюдены.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Документо-управляемые операции позиции.
+
+---
+
+## STAGE5-016 — Document Processors: Revision documents
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-015, STAGE5-008
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать процессоры `ORDER_ITEM_REVISION_APPROVE` (заморозка спецификации, позиция → `ACTIVE`, обновление `currentRevision`) и `ORDER_ITEM_REVISION_CREATE` (§12.3).
+
+### Allowed code scope
+
+- `com.tmp.order.application` (revision processors) + unit tests.
+
+### Forbidden
+
+- изменение утверждённых редакций; Git-команды.
+
+### Acceptance criteria
+
+- [ ] утверждение делает спецификацию Immutable и публикует `OrderItemRevisionApproved`;
+- [ ] новая редакция создаётся только при `APPROVED` текущей и отсутствии открытой `DRAFT`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Документо-управляемое версионирование позиции.
+
+---
+
+## STAGE5-017 — Application services wiring
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-014, STAGE5-015, STAGE5-016
+**Module:** `tmp-order-management`
+
+### Goal
+
+Связать commands ↔ processors ↔ aggregates ↔ repositories ↔ events в согласованные application services.
+
+### Allowed code scope
+
+- `com.tmp.order.application` (services wiring) + unit tests.
+
+### Forbidden
+
+- обход документного потока; Git-команды.
+
+### Acceptance criteria
+
+- [ ] каждый processor вызывает ровно одну команду; каждая команда имеет required capability.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Согласованный application-слой.
+
+---
+
+## STAGE5-018 — Transaction boundaries and event-after-commit
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-017
+**Module:** `tmp-order-management`
+
+### Goal
+
+Определить транзакционные границы агрегатов (§8) и публикацию Domain Events строго после успешного commit (ADR-021).
+
+### Allowed code scope
+
+- `com.tmp.order.application` (transaction/event publication) + unit tests.
+
+### Forbidden
+
+- публикация события при откате; Git-команды.
+
+### Acceptance criteria
+
+- [ ] при откате транзакции событие не публикуется (тест с искусственным сбоем).
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Корректные транзакции и публикация событий.
+
+---
+
+## STAGE5-019 — Idempotency of document posting
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-018
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать идемпотентность проведения документа по `documentId` (§16.1): повторное проведение не создаёт дубликатов и не выполняет повторный переход.
+
+### Allowed code scope
+
+- `com.tmp.order.application`/`persistence` (idempotency) + unit tests.
+
+### Forbidden
+
+- недетерминированная обработка; Git-команды.
+
+### Acceptance criteria
+
+- [ ] повторное проведение того же документа — no-op/идемпотентно.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Идемпотентные документные операции.
+
+---
+
+## STAGE5-020 — Capability declarations
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-013
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать `OrderManagementCapability` с каталогом permission §18.1 (3-сегментные коды), командами и навигационными вкладами (прецедент `SecurityAdministrationCapability`).
+
+### Allowed code scope
+
+- `com.tmp.order.capability` + unit tests.
+
+### Forbidden
+
+- permission-коды вне формата `PermissionId`; Git-команды.
+
+### Acceptance criteria
+
+- [ ] все коды проходят валидацию `PermissionId` (3 сегмента);
+- [ ] capability обнаруживается Capability Engine.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Зарегистрированная Capability Order Management.
+
+---
+
+## STAGE5-021 — Security integration
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-020, STAGE5-017
+**Module:** `tmp-order-management`
+
+### Goal
+
+Привязать required capability к каждой команде/документу (§16.1) и обеспечить authorization-проверку через Security public API; навигация фильтруется по правам.
+
+### Allowed code scope
+
+- `com.tmp.order.application`/`capability` (authorization) + unit tests.
+
+### Forbidden
+
+- обход authorization; Git-команды.
+
+### Acceptance criteria
+
+- [ ] вызов команды без права отклоняется; each command → required capability.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Авторизованные документные операции.
+
+---
+
+## STAGE5-022 — PostgreSQL schema design
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-007
+**Module:** `tmp-order-management`
+
+### Goal
+
+Спроектировать схему `order_management` (`orders`, `order_items`, `order_item_revisions`, `item_specifications`, `item_specification_lines`) с ключами, ограничениями, optimistic-lock и общими техническими полями; §19.
+
+### Allowed code scope
+
+- проект схемы (описание/DDL черновик в задаче) + review; без применения миграции.
+
+### Forbidden
+
+- поля production/warehouse/cutting (§19.1); Git-команды.
+
+### Acceptance criteria
+
+- [ ] схема покрывает модель и не содержит запрещённых столбцов.
+
+### Verification commands
+
+```text
+Design/review (миграция применяется в STAGE5-023).
+```
+
+### Expected result
+
+Утверждённый дизайн схемы.
+
+---
+
+## STAGE5-023 — Flyway migration V6
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-022
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать `V6__order_management_schema.sql` в `tmp-order-management/src/main/resources/db/migration/` согласно §19; `V1..V5` не изменять.
+
+### Allowed code scope
+
+- `V6__order_management_schema.sql`.
+
+### Forbidden
+
+- изменение существующих миграций; запрещённые столбцы §19.1; Git-команды.
+
+### Acceptance criteria
+
+- [ ] Flyway применяет V6 поверх V5 в PostgreSQL Testcontainers.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management verify
+```
+
+### Expected result
+
+Схема Order Management в БД.
+
+---
+
+## STAGE5-024 — Persistence adapters
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-023, STAGE5-009
+**Module:** `tmp-order-management`
+
+### Goal
+
+Реализовать JDBC-адаптеры repository ports с ручным row-mapping и optimistic locking.
+
+### Allowed code scope
+
+- `com.tmp.order.persistence` (JDBC adapters, mappers) + unit/H2 tests при возможности.
+
+### Forbidden
+
+- JPA/Hibernate; хранение чужих данных; Git-команды.
+
+### Acceptance criteria
+
+- [ ] round-trip сохранения/чтения агрегатов; optimistic-lock конфликт обрабатывается.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Рабочая персистентность.
+
+---
+
+## STAGE5-025 — Persistence integration tests
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-024
+**Module:** `tmp-order-management`
+
+### Goal
+
+PostgreSQL Testcontainers ITs: схема/ограничения, optimistic locking, неизменяемость утверждённой редакции, нумерация редакций.
+
+### Allowed code scope
+
+- `tmp-order-management/src/test` (ITs).
+
+### Forbidden
+
+- пропуск проверки immutability; Git-команды.
+
+### Acceptance criteria
+
+- [ ] ITs подтверждают инварианты persistence и immutability.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management verify
+```
+
+### Expected result
+
+Проверенная персистентность на PostgreSQL.
+
+---
+
+## STAGE5-026 — Query API integration tests
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-024, STAGE5-010
+**Module:** `tmp-order-management`
+
+### Goal
+
+PostgreSQL ITs для Query API: получение заказа/позиции/редакции/текущей редакции/спецификации; DTO без чужих данных.
+
+### Allowed code scope
+
+- `tmp-order-management/src/test` (query ITs).
+
+### Forbidden
+
+- production/warehouse поля в ответах; Git-команды.
+
+### Acceptance criteria
+
+- [ ] Query API возвращает корректные данные по `Order Item ID + Revision`.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management verify
+```
+
+### Expected result
+
+Проверенный Query API.
+
+---
+
+## STAGE5-027 — UI navigation and screen registration
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-020
+**Module:** `tmp-ui-shell`
+
+### Goal
+
+Зарегистрировать навигацию Order Management и точки экранов в `tmp-ui-shell`, gated по правам (прецедент Stage 4).
+
+### Allowed code scope
+
+- `tmp-ui-shell` (navigation wiring, ViewModel beans) + tests.
+
+### Forbidden
+
+- бизнес-логика в UI; прямые мутации агрегатов; Git-команды.
+
+### Acceptance criteria
+
+- [ ] навигация видна только при наличии прав; экраны доступны из главного окна.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-ui-shell test
+```
+
+### Expected result
+
+Навигация Order Management.
+
+---
+
+## STAGE5-028 — Order list screen
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-027, STAGE5-010
+**Module:** `tmp-ui-shell`
+
+### Goal
+
+Экран списка заказов (read-only), использующий Query API.
+
+### Allowed code scope
+
+- `tmp-ui-shell` (FXML/Controller/ViewModel Order list) + tests.
+
+### Forbidden
+
+- прямые мутации; Git-команды.
+
+### Acceptance criteria
+
+- [ ] список заказов отображается через Query API.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-ui-shell test
+```
+
+### Expected result
+
+Экран списка заказов.
+
+---
+
+## STAGE5-029 — Order editor screen
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-028, STAGE5-014
+**Module:** `tmp-ui-shell`
+
+### Goal
+
+Экран редактора заказа: создание/изменение/утверждение/отмена через документный поток (Document Engine), не напрямую.
+
+### Allowed code scope
+
+- `tmp-ui-shell` (Order editor) + tests.
+
+### Forbidden
+
+- прямой вызов mutating API; Git-команды.
+
+### Acceptance criteria
+
+- [ ] изменения выполняются созданием и проведением документов Order Management.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-ui-shell test
+```
+
+### Expected result
+
+Документо-управляемый редактор заказа.
+
+---
+
+## STAGE5-030 — Order Item and Revision editor screen
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-029, STAGE5-015, STAGE5-016
+**Module:** `tmp-ui-shell`
+
+### Goal
+
+Экран редактора позиции и редакций: создание/изменение/утверждение позиции и создание новой редакции через документы.
+
+### Allowed code scope
+
+- `tmp-ui-shell` (Item/Revision editor) + tests.
+
+### Forbidden
+
+- прямые мутации; Git-команды.
+
+### Acceptance criteria
+
+- [ ] операции позиции/редакции выполняются через документы; отражается current Revision.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-ui-shell test
+```
+
+### Expected result
+
+Редактор позиции и редакций.
+
+---
+
+## STAGE5-031 — Specification view/editor screen
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-030, STAGE5-008
+**Module:** `tmp-ui-shell`
+
+### Goal
+
+Экран спецификации: редактирование до утверждения редакции, read-only после утверждения (immutable).
+
+### Allowed code scope
+
+- `tmp-ui-shell` (Specification view/editor) + tests.
+
+### Forbidden
+
+- редактирование утверждённой спецификации; Git-команды.
+
+### Acceptance criteria
+
+- [ ] после утверждения редакции спецификация read-only в UI.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-ui-shell test
+```
+
+### Expected result
+
+Экран спецификации с соблюдением immutability.
+
+---
+
+## STAGE5-032 — UI error handling
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-029, STAGE5-030, STAGE5-031
+**Module:** `tmp-ui-shell`
+
+### Goal
+
+Единообразная обработка ошибок UI: валидация документов, access denied, нейтральные сообщения (без утечки секретов/внутренних деталей).
+
+### Allowed code scope
+
+- `tmp-ui-shell` (error handling) + tests.
+
+### Forbidden
+
+- показ технических stack trace/секретов; Git-команды.
+
+### Acceptance criteria
+
+- [ ] ошибки валидации и авторизации отображаются корректно и безопасно.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-ui-shell test
+```
+
+### Expected result
+
+Надёжная обработка ошибок UI.
+
+---
+
+## STAGE5-033 — Unit tests consolidation
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-017, STAGE5-021
+**Module:** `tmp-order-management`
+
+### Goal
+
+Свести и дополнить unit-тесты домена и application (инварианты, transition matrices, immutability, idempotency).
+
+### Allowed code scope
+
+- `tmp-order-management/src/test` (unit).
+
+### Forbidden
+
+- Git-команды.
+
+### Acceptance criteria
+
+- [ ] все transition matrices и инварианты покрыты тестами.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management test
+```
+
+### Expected result
+
+Полное unit-покрытие домена/application.
+
+---
+
+## STAGE5-034 — End-to-end integration tests
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-025, STAGE5-026, STAGE5-019
+**Module:** `tmp-order-management`
+
+### Goal
+
+PostgreSQL ITs полного потока: document → processor → command → aggregate → persistence → event, включая rollback-сценарий и idempotency.
+
+### Allowed code scope
+
+- `tmp-order-management/src/test` (E2E ITs).
+
+### Forbidden
+
+- Git-команды.
+
+### Acceptance criteria
+
+- [ ] событие публикуется только после commit; повторное проведение идемпотентно; данные корректны.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-order-management verify
+```
+
+### Expected result
+
+Проверенный сквозной документный поток.
+
+---
+
+## STAGE5-035 — Stage 5 architecture tests
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-010, STAGE5-011, STAGE5-020
+**Module:** `tmp-architecture-tests`
+
+### Goal
+
+Architecture tests: отсутствие production-owned данных в Order Management, отсутствие внешнего mutating API, зависимость только от разрешённых публичных API, границы пакетов.
+
+### Allowed code scope
+
+- `tmp-architecture-tests` (Stage 5 suite).
+
+### Forbidden
+
+- ослабление правил; Git-команды.
+
+### Acceptance criteria
+
+- [ ] тесты подтверждают §13 Manifest и ADR-003/004/019.
+
+### Verification commands
+
+```bash
+mvn -q -pl :tmp-architecture-tests test
+```
+
+### Expected result
+
+Автоматическая проверка архитектурных границ Stage 5.
+
+---
+
+## STAGE5-036 — Full reactor verification
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-033, STAGE5-034, STAGE5-035, STAGE5-032
+**Module:** cross-stage
+
+### Goal
+
+Выполнить `mvn clean verify` для полного reactor (Stage 0–5) без регрессий.
+
+### Allowed code scope
+
+- только исправления дефектов, выявленных верификацией (в owner-задаче); docs.
+
+### Forbidden
+
+- закрытие Stage 5 без manual GUI; старт Stage 6; Git-команды.
+
+### Acceptance criteria
+
+- [ ] `mvn clean verify` PASSED.
+
+### Verification commands
+
+```bash
+mvn clean verify
+```
+
+### Expected result
+
+Зелёный полный reactor.
+
+---
+
+## STAGE5-037 — Packaged application verification
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-036
+**Module:** cross-stage
+
+### Goal
+
+Выполнить `mvn clean verify -Ppackage` и detached-запуск `TMP.exe` с PostgreSQL; убедиться в старте Order Management и применении Flyway V6.
+
+### Allowed code scope
+
+- packaging/config fixes при необходимости; docs.
+
+### Forbidden
+
+- старт Stage 6; Git-команды.
+
+### Acceptance criteria
+
+- [ ] `mvn clean verify -Ppackage` PASSED; приложение стартует; V6 применён.
+
+### Verification commands
+
+```bash
+mvn clean verify -Ppackage
+dist/jpackage/TMP/TMP.exe
+```
+
+### Expected result
+
+Собранное приложение с Order Management.
+
+---
+
+## STAGE5-038 — Manual packaged GUI smoke and final Stage 5 gate
+
+**Status:** PLANNED
+**Stage:** 5
+**Depends on:** STAGE5-037
+**Module:** cross-stage
+
+### Goal
+
+Ручной packaged GUI smoke (пользователь) и закрытие Stage 5: создание/изменение заказа и позиции через документы, утверждение редакции с immutable спецификацией, Query API, отсутствие production-состояния, capabilities, отсутствие секретов в логах.
+
+### Allowed code scope
+
+- development-control документация (закрытие Stage 5).
+
+### Forbidden
+
+- старт Stage 6 / Start Gate Stage 6; Git-команды.
+
+### Acceptance criteria
+
+- [ ] пользователь подтвердил packaged GUI smoke по чек-листу exit criteria (Manifest §17);
+- [ ] STATUS/WORK-QUEUE/IMPLEMENTATION-LOG/VERIFICATION-LOG обновлены; Stage 5 DONE 100%; остановка перед Stage 6.
+
+### Verification commands
+
+```text
+Manual: dist/jpackage/TMP/TMP.exe (user-confirmed checklist)
+```
+
+### Expected result
+
+Stage 5 полностью закрыт; явная остановка перед Stage 6.
