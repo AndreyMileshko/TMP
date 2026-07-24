@@ -887,3 +887,61 @@ These tasks (password / role / permission-override / audit application services 
 
 - None for automated gate. STAGE4-040 formal Stage-complete marking deferred until optional interactive UI smoke if required by acceptance.
 
+## 2026-07-24 — STAGE5-001 (Bootstrap `tmp-order-management` module)
+
+| Verification | Command | Result |
+|---|---|---|
+| Module attached to reactor; module `validate` green | `mvn -q -pl tmp-order-management -am validate` | PASSED (exit 0) |
+| Forbidden dependencies (JavaFX / JPA) present | pom review | ABSENT |
+
+### Failures
+
+- None. Environment: portable JDK 21 (`.tools/jdk-21.0.11+10`) + portable Maven 3.9.9 (`.tools/apache-maven-3.9.9`).
+
+## 2026-07-24 — STAGE5-002 (Architecture boundaries and dependency rules)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Architecture tests compile and pass (incl. new Stage 5 rules) | `mvn -q -pl tmp-architecture-tests -am test` | PASSED (exit 0) |
+| `Stage5OrderManagementArchitectureTest` | surefire report | Tests run: 10, Failures: 0, Errors: 0 |
+| "No internal Document Engine imports" rule present | `orderUsesOnlyDocumentEnginePublicApi` | PRESENT + PASSED |
+| Stage 0–4 architecture tests still green | Stage0..Stage4 surefire reports | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-24 — STAGE5-003 (Identifiers and common value objects)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Module unit tests (identifiers + value objects) | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+| `OrderIdTest` / `OrderItemIdTest` | surefire | 5 / 4 tests, 0 failures |
+| `RevisionNumberTest` | surefire | 10 tests, 0 failures |
+| `OrderStatusesTest` (status enum completeness) | surefire | 3 tests, 0 failures |
+| `PayloadSchemaVersionTest` / `PayloadRevisionTest` | surefire | 7 / 8 tests, 0 failures |
+| Total | — | 37 tests, 0 failures, 0 errors |
+
+### Failures
+
+- None.
+
+## 2026-07-24 — Stage 5 execution module 5.1 gate (STAGE5-001..003)
+
+| Gate check | Command / Method | Result |
+|---|---|---|
+| Order Management module gate | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+| Architecture gate | `mvn -q -pl tmp-architecture-tests -am test` | PASSED (exit 0) |
+| `tmp-order-management` attached to reactor | root `pom.xml` `<modules>` | YES |
+| Module contains no business aggregates | source review (only ids/VO/status + package-info) | CONFIRMED |
+| No SQL / FXML / persistence adapters | source review | ABSENT |
+| No Production-owned data | source review + `orderDoesNotDependOnOtherBusinessOrUiModules` | ABSENT |
+| No imports of other modules' internal packages | ArchUnit `orderUsesOnly*PublicApi` (core/document/capability/security) | ENFORCED + PASSED |
+| No external mutating API | ArchUnit `externalModulesUseOnlyOrderPublicApi` | ENFORCED + PASSED |
+| Identifiers + Value Objects covered by unit tests | 37 unit tests | PASSED |
+| Previous stages still build | `-am` reactor build of Stage 0–4 modules | PASSED |
+
+### Failures
+
+- None. `STAGE5-004` not started (remains PLANNED). Git operations not executed.
+

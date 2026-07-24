@@ -7583,7 +7583,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-001 — Bootstrap `tmp-order-management` module
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-000-FIX2
 **Module:** `tmp-order-management` (new)
@@ -7603,7 +7603,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-002 — Architecture boundaries and dependency rules
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-001
 
@@ -7622,7 +7622,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-003 — Identifiers and common value objects
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-002
 

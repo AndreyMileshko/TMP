@@ -2,10 +2,18 @@
 
 **Mode:** Autonomous Cursor Agent  
 **Project status:** IN_PROGRESS  
-**Current Stage:** Stage 5 — Order Management  
-**Current Task:** STAGE5-001 (READY, not started)  
-**Last completed task:** STAGE5-000-FIX2  
+**Current Stage:** Stage 5 — Order Management (execution module 5.1 completed)  
+**Current Task:** STAGE5-004 (PLANNED, not started — awaiting user authorization)  
+**Last completed task:** STAGE5-003  
 **Active blocker:** None  
+
+```text
+Stage 5 execution module 5.1 completed.
+Next execution module: Stage 5.2.
+Next task: STAGE5-004.
+Waiting for user authorization.
+```
+
 
 ---
 
@@ -18,7 +26,7 @@
 | 2 | Document Engine | DONE | 100% |
 | 3 | Capability Engine | DONE | 100% |
 | 4 | Security | DONE | 100% |
-| 5 | Order Management | IN_PROGRESS (Documentation Gate re-PASSED) | 0% |
+| 5 | Order Management | IN_PROGRESS (execution module 5.1 done: STAGE5-001..003) | 6% |
 | 6–11 | (later) | PLANNED | 0% |
 
 ---
@@ -31,10 +39,10 @@
 
 **Stage 5 Documentation Gate (STAGE5-000-FIX2):** Documentation Gate был повторно открыт для финальных исправлений (на время исправлений `STAGE5-001` переведён в `PLANNED`, добавлена `STAGE5-000-FIX2` как единственная `READY`) и повторно пройден. Итоги: Document Engine Specification → v1.1 (зафиксирован транзакционный контракт lifecycle-операций и публичный `TransactionalEventPublisher`); Order Management переведён на публичный after-commit контракт и **не импортирует** внутренние классы Document Engine; определена физическая модель typed payload (`order_document_payload` + typed-таблицы + `order_item_revision_payload_line`, без JSON/сериализации); исправлена семантика idempotency (`void onPost`; повторный публичный `postDocument` отклоняется lifecycle validation; guard внутри processor завершается как already processed без возврата результата); добавлена prerequisite-задача `STAGE5-017` (public `TransactionalEventPublisher` contract and adapter) до первого Document Processor; синхронизированы версии/номера (Doc Engine v1.1, OM Spec v1.2, CONTEXT-MAP v1.2, очередь `STAGE5-001..050`, GUI smoke `STAGE5-050`). Java-код не изменялся.
 
-**Реализация Stage 5:** ещё не начата. Documentation Gate повторно пройден; Stage 5 готов к началу реализации. Следующая задача — `STAGE5-001`. Только `STAGE5-001` имеет статус `READY`; остальные — `PLANNED`.
+**Реализация Stage 5:** исполнительный модуль 5.1 завершён — `STAGE5-001` (bootstrap модуля `tmp-order-management` + reactor + package skeleton), `STAGE5-002` (архитектурные границы Stage 5 в ArchUnit), `STAGE5-003` (идентификаторы, статусы, базовые Value Objects + unit-тесты) — все `DONE`. Бизнес-агрегаты, документы, payload, persistence adapters, SQL-миграции и UI **не** реализовывались. `STAGE5-004` не начинался и остаётся `PLANNED`.
 
 **Открытых блокеров Stage 5:** нет.
 
 **Некритичный residual (Stage 4, не блокирует):** `BACKLOG-001` — кодировка пагинации Security Audit Screen.
 
-**Далее:** выполнять `STAGE5-001` по решению пользователя. Stage 6 не стартовать. Git-операции выполняет пользователь самостоятельно.
+**Далее:** ожидается авторизация пользователя на исполнительный модуль Stage 5.2 (`STAGE5-004`). Stage 6 не стартовать. Git-операции выполняет пользователь самостоятельно.

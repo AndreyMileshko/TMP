@@ -2291,3 +2291,49 @@ None (Stage 4 COMPLETE). Stop before Stage 5. Optional later: `BACKLOG-001`.
 
 `STAGE5-001` — Bootstrap `tmp-order-management` module. Stage 6 не стартовать. Git-операции выполняет пользователь.
 
+---
+
+## Stage 5 execution module 5.1 — Order Management bootstrap and boundaries
+
+Выполнены задачи `STAGE5-001..003` (первый исполнительный модуль Stage 5). Бизнес-агрегаты, документы, payload, persistence adapters, миграции и UI не реализовывались. Git-операции не выполнялись.
+
+### STAGE5-001 — Bootstrap `tmp-order-management` module
+
+- Создан новый Maven-модуль `tmp-order-management` (`jar`), подключён к reactor в root `pom.xml` (после `tmp-security`, перед `tmp-bootstrap-app`); добавлена запись в `dependencyManagement` (`com.tmp:tmp-order-management:${project.version}`).
+- Зависимости модуля — только модули, несущие разрешённые публичные API: `tmp-platform-core` (`com.tmp.core.api`), `tmp-document-engine` (`com.tmp.document.api`), `tmp-capability-engine` (`com.tmp.capability.api`), `tmp-security` (`com.tmp.security.api`), плюс `spring-boot-starter`, `spotbugs-annotations` (provided), `junit-jupiter` (test). JavaFX и JPA не подключались.
+- Создан package skeleton (только `package-info.java`, без классов): `com.tmp.order.api|domain|application|persistence|capability`. `api` описан как единственный внешний контракт без mutating-операций; внутренние пакеты помечены как недоступные извне.
+- **Files changed:** `pom.xml` (reactor + dependencyManagement), `tmp-order-management/pom.xml`, пять `package-info.java`.
+- **Verification:** `mvn -q -pl tmp-order-management -am validate` → PASSED.
+
+### STAGE5-002 — Architecture boundaries and dependency rules
+
+- Добавлен новый ArchUnit-класс `Stage5OrderManagementArchitectureTest` (`tmp-architecture-tests`) с 10 правилами границ Stage 5:
+  - внешние модули зависят от Order Management только через `com.tmp.order.api..` (нет внешнего mutating API);
+  - `com.tmp.order.api` не зависит от `domain/application/persistence/capability`;
+  - Order Management зависит от Document Engine, Capability Engine, Platform Core, Security **только** через их `*.api..` (в т.ч. явное правило «no internal Document Engine imports»);
+  - внутренние пакеты Order используют только разрешённые публичные API + JDK/Spring/JDBC;
+  - Order не зависит от warehouse/production/cutting/analytics/ui/bootstrap (нет production-owned данных через импорт);
+  - домен Order свободен от Spring/JPA/Hibernate/JavaFX;
+  - модуль Order не зависит от JavaFX.
+- `tmp-architecture-tests/pom.xml`: добавлена зависимость на `tmp-order-management`.
+- `Stage4SecurityArchitectureTest`: правило `stage5PlusBusinessPackagesDoNotExist` переименовано в `stage6PlusBusinessPackagesDoNotExist` и сужено (удалён `com.tmp.order..`, который теперь легитимно вводится Stage 5; warehouse/production/cutting/analytics по-прежнему запрещены). Прочие правила Stage 0–4 не изменялись.
+- Правила проходят на пустом (skeleton) модуле: 10/10 rules, 0 failures.
+- **Files changed:** `tmp-architecture-tests/pom.xml`, `Stage5OrderManagementArchitectureTest.java` (new), `Stage4SecurityArchitectureTest.java` (одно правило).
+- **Verification:** `mvn -q -pl tmp-architecture-tests -am test` → PASSED (`Stage5OrderManagementArchitectureTest`: Tests run: 10, Failures: 0, Errors: 0).
+
+### STAGE5-003 — Identifiers and common value objects
+
+- Публичные типы (`com.tmp.order.api`): `OrderId`, `OrderItemId` (UUID identity, `of`/`generate`, immutable, equals/hashCode/toString); `RevisionNumber` (int `>= 1`, `first()`/`next()`/`isAfter`, `Comparable`, монотонность); статусы `OrderStatus` (`DRAFT/APPROVED/CANCELLED`), `OrderItemStatus` (`DRAFT/ACTIVE/CANCELLED`), `RevisionStatus` (`DRAFT/APPROVED`) — только Stage 5 значения; production-статусы намеренно исключены.
+- Внутренние payload VO (`com.tmp.order.domain`, не публикуются наружу — соответствует §11): `PayloadSchemaVersion` (int `>= 1`, `initial()`), `PayloadRevision` (long `>= 0`, `initial()` = 0, `next()`, optimistic lock черновика).
+- Агрегаты, переходы статусов, persistence, документы и payload-модели **не** реализованы (scope STAGE5-004+). Переходы статусов остаются на STAGE5-004.
+- Unit-тесты (JUnit 5, 6 классов, 37 тестов): валидация идентификаторов (null/значение/уникальность/equality), инварианты `RevisionNumber`, полнота наборов статусов, валидация и инкремент payload VO.
+- **Files changed:** `tmp-order-management/.../api/{OrderId,OrderItemId,RevisionNumber,OrderStatus,OrderItemStatus,RevisionStatus}.java`, `.../domain/{PayloadSchemaVersion,PayloadRevision}.java`, тесты в `src/test/java/com/tmp/order/{api,domain}`.
+- **Verification:** `mvn -q -pl tmp-order-management -am test` → PASSED (37 tests, 0 failures, 0 errors).
+
+### Execution module 5.1 gate
+
+- `mvn -q -pl tmp-order-management -am test` → PASSED.
+- `mvn -q -pl tmp-architecture-tests -am test` → PASSED (Stage 0–5 architecture tests green).
+- Проверки границ: `tmp-order-management` в reactor; бизнес-агрегаты отсутствуют; SQL/FXML/persistence adapters отсутствуют; production-owned данные отсутствуют; импорт внутренних пакетов других модулей запрещён и проверяется ArchUnit; наружу опубликован только read-only Query surface (`com.tmp.order.api`), mutating API наружу отсутствует; идентификаторы и Value Objects покрыты unit-тестами; Stage 0–4 продолжают собираться.
+- `STAGE5-004` **не** начинался; остаётся `PLANNED`. Git-операции не выполнялись.
+

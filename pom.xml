@@ -36,6 +36,7 @@
         <module>tmp-document-engine</module>
         <module>tmp-capability-engine</module>
         <module>tmp-security</module>
+        <module>tmp-order-management</module>
         <module>tmp-bootstrap-app</module>
         <module>tmp-ui-shell</module>
         <module>tmp-infra-db</module>
@@ -104,6 +105,11 @@
             <dependency>
                 <groupId>com.tmp</groupId>
                 <artifactId>tmp-security</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tmp</groupId>
+                <artifactId>tmp-order-management</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
