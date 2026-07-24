@@ -609,7 +609,7 @@ Corrective tasks STAGE4-041…048 implemented and verified:
 7. Capability document contribution registration restart-safe (DB-persisted types).
 8. VERIFICATION-LOG Latest result + STAGE4-019..023 honest batch note.
 
-Automated gate after fixes: `mvn clean verify`, `mvn clean verify -Ppackage`, `TMP.exe` first and second launch — PASSED. BLK-016 closed; STAGE4-040 remains for formal Stage 4 close / optional interactive UI smoke.
+Automated gate after fixes: `mvn clean verify`, `mvn clean verify -Ppackage`, `TMP.exe` first and second launch — PASSED. BLK-016 closed. Formal Stage 4 close completed later via STAGE4-054 (2026-07-24) after user GUI confirmation.
 
 ---
 
@@ -657,4 +657,6 @@ Corrective STAGE4-049…053 implemented and verified:
 3. `login` closes prior session first; failed login leaves no session; switch-user opens only new session.
 4. `UserStatus` re-checked before `sessionContext.open`; deterministic `LoginDeleteRacePostgresIntegrationIT`.
 
-Automated gate: `mvn clean verify` PASSED; `mvn clean verify -Ppackage` PASSED; detached `TMP.exe` on V4→V5 DB PASSED. BLK-017 closed; STAGE4-040 remains for formal Stage 4 close after user GUI confirmation.
+Automated gate: `mvn clean verify` PASSED; `mvn clean verify -Ppackage` PASSED; detached `TMP.exe` on V4→V5 DB PASSED. BLK-017 closed.
+
+**2026-07-24 follow-up:** User confirmed full manual packaged GUI checklist PASS. STAGE4-040 closed by STAGE4-054; Stage 4 DONE 100% / `STAGE_COMPLETE`. Non-blocking residual UI defect (Security Audit pagination encoding) tracked as `BACKLOG-001` — not a blocker, not fixed in Stage 4 close. Active blocker: None. Stage 5 not started.

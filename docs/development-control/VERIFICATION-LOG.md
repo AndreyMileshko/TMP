@@ -2,18 +2,44 @@
 
 ## Latest result
 
-**Date:** 2026-07-23  
-**Scope:** Stage 4 — Security; BLK-017 residual corrective STAGE4-049…053 + automated gate  
-**Overall:** PASSED (automated). STAGE4-040 formal close / packaged GUI smoke still open (user confirmation); Stage 5 not started.
+**Date:** 2026-07-24  
+**Scope:** Stage 4 — Security; final close STAGE4-054 (manual packaged GUI + STAGE4-040 gate)  
+**Overall:** PASSED. Stage 4 DONE 100% / `STAGE_COMPLETE`. Stage 5 not started. Non-blocking residual: `BACKLOG-001` (Security Audit pagination encoding).
 
 | Verification | Command / Method | Result |
 |---|---|---|
-| Full reactor | `mvn clean verify` | PASSED |
-| Package profile | `mvn clean verify -Ppackage` | PASSED |
-| V4→V5 upgrade IT | `PermissionOwnershipUpgradePostgresIntegrationIT` | PASSED |
-| Auth residual ITs | logout audit-failure / prior-session / login-delete race | PASSED |
-| Packaged app (V4 DB) | detached `TMP.exe` + Docker PostgreSQL seeded at V4 | PASSED (alive; V5 applied; legacy owner claimed) |
-| Manual GUI checklist | wrong password / login / nav / logout / restart / no secrets in logs | PENDING (user) |
+| Full reactor (prior STAGE4-053) | `mvn clean verify` | PASSED |
+| Package profile (prior STAGE4-053) | `mvn clean verify -Ppackage` | PASSED |
+| Manual packaged GUI | `dist/jpackage/TMP/TMP.exe` + Docker `tmp-stage4-pg` / DB `tmp_gui_stage4` / user `tmp` | PASSED (user-confirmed) |
+| STAGE4-040 final gate | closed by STAGE4-054 | DONE |
+| Stage 5 start | Not started (stop gate) | CONFIRMED |
+
+---
+
+## 2026-07-24 — `STAGE4-054` (final Stage 4 close; manual packaged GUI)
+
+| Verification | Command / Method | Result |
+|---|---|---|
+| Clean PostgreSQL start | packaged `TMP.exe` + `tmp_gui_stage4` | PASSED |
+| Login Screen | manual GUI | PASSED |
+| Wrong password | manual GUI | PASSED |
+| Neutral «Неверный логин или пароль» | manual GUI | PASSED |
+| Successful login | manual GUI | PASSED |
+| Main Window | manual GUI | PASSED |
+| Users Screen (admin ACTIVE; no password/hash) | manual GUI | PASSED |
+| Roles Screen (single Security Administrator) | manual GUI | PASSED |
+| Security Audit (LOGIN_FAILURE / LOGIN_SUCCESS; no secrets) | manual GUI | PASSED |
+| Logout → Login; password cleared; re-login | manual GUI | PASSED |
+| Process exit / restart without bootstrap env; single admin+role | manual GUI | PASSED |
+| Logs: no startup/shutdown errors; no admin password / BCrypt / bootstrap / DB secrets / password_hash | log review | PASSED |
+| Non-blocking UI: Security Audit pagination encoding | observed mojibake | NOTED → `BACKLOG-001` (does not fail Stage 4) |
+| STAGE4-040 closed | docs update | DONE |
+| Stage 5 | not started | CONFIRMED |
+| Git operations | none | N/A |
+
+### Failures
+
+- None blocking. Residual non-blocking: pagination footer encoding on Security Audit → `BACKLOG-001`.
 
 ---
 

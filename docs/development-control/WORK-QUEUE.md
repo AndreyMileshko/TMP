@@ -6510,10 +6510,11 @@ Automated, durable enforcement of every Stage 4 architectural boundary.
 
 ## STAGE4-040 — Final Stage 4 verification gate
 
-**Status:** READY
-**Stage:** 4
-**Depends on:** STAGE4-039, STAGE4-030, STAGE4-041, STAGE4-042, STAGE4-043, STAGE4-044, STAGE4-045, STAGE4-046, STAGE4-047, STAGE4-048, STAGE4-049, STAGE4-050, STAGE4-051, STAGE4-052, STAGE4-053
-**Module:** cross-stage
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-039, STAGE4-030, STAGE4-041, STAGE4-042, STAGE4-043, STAGE4-044, STAGE4-045, STAGE4-046, STAGE4-047, STAGE4-048, STAGE4-049, STAGE4-050, STAGE4-051, STAGE4-052, STAGE4-053  
+**Module:** cross-stage  
+**Closed by:** STAGE4-054 (2026-07-24)
 
 ### Goal
 
@@ -6546,7 +6547,7 @@ Automated, durable enforcement of every Stage 4 architectural boundary.
 
 ### Acceptance criteria
 
-- [ ] every item in Stage 4 task §22 passes.
+- [x] every item in Stage 4 task §22 passes (automated subset via STAGE4-053; manual packaged GUI checklist confirmed by user 2026-07-24; formal Stage close recorded in STAGE4-054).
 
 ### Required tests
 
@@ -6562,7 +6563,7 @@ dist/jpackage/TMP/TMP.exe
 
 ### Documentation updates
 
-- STATUS.md → `Project status: STAGE_COMPLETE`, `Current Stage: Stage 4 — Security`, `Current Task: None`, `Last completed task: STAGE4-040`, `Active blocker: None`, `Stage 4: DONE 100%`; WORK-QUEUE; IMPLEMENTATION-LOG; VERIFICATION-LOG.
+- Formal Stage 4 close status fields and residual backlog are applied by `STAGE4-054` (supersedes the original “Last completed task: STAGE4-040” wording).
 
 ### Expected result
 
@@ -7373,3 +7374,139 @@ dist/jpackage/TMP/TMP.exe
 ### Expected result
 
 Automated residual gate green; STAGE4-040 waiting on user GUI confirmation.
+
+---
+
+## STAGE4-054 — Final Stage 4 close after manual packaged GUI confirmation
+
+**Status:** DONE  
+**Stage:** 4  
+**Depends on:** STAGE4-040, STAGE4-053  
+**Module:** cross-stage
+
+### Goal
+
+Зафиксировать подтверждение ручной packaged GUI-проверки пользователя, закрыть финальный verification gate Stage 4 (включая STAGE4-040) и установить Stage 4 в DONE 100% / `STAGE_COMPLETE`, без перехода к Stage 5 и без исправления некритичного UI-дефекта кодировки пагинации.
+
+### Required documents
+
+- Stage 4 task §22; `STAGE-4-SECURITY.md` (exit criteria); `templates/STAGE-CLOSE-TEMPLATE.md`; user confirmation of manual packaged GUI smoke (2026-07-24).
+
+### Required code context
+
+- none (documentation / stage-close only). Packaged app under test: `dist/jpackage/TMP/TMP.exe`.
+
+### Allowed code scope
+
+- development-control documentation only: `STATUS.md`, `WORK-QUEUE.md`, `IMPLEMENTATION-LOG.md`, `VERIFICATION-LOG.md`, `BLOCKERS.md`.
+
+### Forbidden
+
+- production-code changes (except if strictly required for documentation correctness — not needed here);
+- fixing Security Audit pagination encoding in this task (tracked as `BACKLOG-001`);
+- starting Stage 5 / Stage 5 Start Gate;
+- any Git commands (commit, branch, tag, push).
+
+### Implementation requirements
+
+- Record user-confirmed manual packaged GUI checklist against `TMP.exe` + Docker `tmp-stage4-pg` / DB `tmp_gui_stage4` / user `tmp`.
+- Close STAGE4-040 as the Stage 4 final verification gate.
+- Register non-blocking `BACKLOG-001` for Security Audit pagination encoding (do not fix here).
+- Update control docs to Stage 4 DONE 100% / `STAGE_COMPLETE`; Current Task None; stop before Stage 5.
+
+### Public contracts that may change
+
+- none.
+
+### Acceptance criteria
+
+- [x] Manual packaged GUI smoke confirmed PASSED by user (clean DB start, login/wrong password/neutral message, main window, Users/Roles/Audit screens, logout/relogin, restart without bootstrap env, single admin + Security Administrator, no secrets in logs, clean process exit).
+- [x] STAGE4-040 closed (DONE).
+- [x] Final Stage 4 verification gate closed.
+- [x] `BACKLOG-001` registered; pagination encoding not fixed in this close.
+- [x] STATUS/WORK-QUEUE/IMPLEMENTATION-LOG/VERIFICATION-LOG/BLOCKERS updated.
+- [x] Project status `STAGE_COMPLETE`; Stage 4 DONE 100%; Stage 5 not started; no Git operations.
+
+### Required tests
+
+- none new (relies on STAGE4-053 automated gate + user manual GUI confirmation).
+
+### Verification commands
+
+```text
+Manual (user-confirmed): dist/jpackage/TMP/TMP.exe
+Environment: Docker tmp-stage4-pg; PostgreSQL DB tmp_gui_stage4; user tmp
+Prior automated: mvn clean verify; mvn clean verify -Ppackage (STAGE4-053)
+```
+
+### Documentation updates
+
+- STATUS.md → `Project status: STAGE_COMPLETE`, `Current Stage: Stage 4 — Security`, `Current Task: None`, `Last completed task: STAGE4-054`, `Active blocker: None`, `Stage 4: DONE 100%`;
+- WORK-QUEUE (this task + STAGE4-040 DONE + BACKLOG-001);
+- IMPLEMENTATION-LOG; VERIFICATION-LOG; BLOCKERS.
+
+### Expected result
+
+Stage 4 fully closed; non-blocking pagination encoding backlog only; explicit stop before Stage 5.
+
+---
+
+# Backlog (non-blocking / post-Stage)
+
+## BACKLOG-001 — Fix Security Audit pagination text encoding
+
+**Status:** PLANNED  
+**Stage:** Backlog (post–Stage 4; does not block Stage 4 close)  
+**Depends on:** STAGE4-054  
+**Module:** `tmp-ui-shell` (Security Audit Screen)
+
+### Goal
+
+Исправить неправильную кодировку текста пагинации в нижней части экрана Security Audit (некритичный UI-дефект, обнаруженный при ручном packaged GUI smoke 2026-07-24).
+
+### Required documents
+
+- Stage 4 Security Audit UI (`STAGE4-037`); user manual GUI report 2026-07-24.
+
+### Required code context
+
+- Security Audit Screen FXML/Controller/ViewModel pagination labels in `tmp-ui-shell`.
+
+### Allowed code scope
+
+- `tmp-ui-shell` Security Audit pagination UI resources/strings (and tests if present); no Stage 4 re-open unless a separate task explicitly schedules it.
+
+### Forbidden
+
+- treating this defect as a Stage 4 exit-criteria failure;
+- bundling the fix into STAGE4-054 / Stage 4 close without a dedicated task.
+
+### Implementation requirements
+
+- Identify source of mojibake/wrong encoding in pagination footer text (resource bundle / FXML / string formatting / charset).
+- Fix so Russian (and other non-ASCII) pagination text renders correctly in packaged `TMP.exe` on Windows.
+- Add or extend a focused UI/unit check if practical.
+
+### Acceptance criteria
+
+- [ ] Security Audit pagination footer displays correctly (no mojibake) in packaged GUI on Windows.
+- [ ] No regression of audit filtering/pagination behaviour.
+- [ ] Verified manually on packaged `TMP.exe` or equivalent UI test evidence.
+
+### Required tests
+
+- focused ViewModel/UI test if feasible; otherwise manual packaged GUI confirmation of pagination text.
+
+### Verification commands
+
+```text
+Manual: dist/jpackage/TMP/TMP.exe → Security Audit → inspect pagination footer encoding
+```
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS (if in progress); IMPLEMENTATION-LOG; VERIFICATION-LOG when executed.
+
+### Expected result
+
+Correct pagination text encoding on Security Audit Screen; backlog item closable independently of Stage 4.

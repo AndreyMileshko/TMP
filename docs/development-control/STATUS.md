@@ -1,10 +1,10 @@
 # TMP Development Status
 
 **Mode:** Autonomous Cursor Agent  
-**Project status:** IN_PROGRESS  
+**Project status:** STAGE_COMPLETE  
 **Current Stage:** Stage 4 — Security  
-**Current Task:** STAGE4-040  
-**Last completed task:** STAGE4-053  
+**Current Task:** None  
+**Last completed task:** STAGE4-054  
 **Active blocker:** None  
 
 ---
@@ -17,15 +17,15 @@
 | 1 | Platform Core | DONE | 100% |
 | 2 | Document Engine | DONE | 100% |
 | 3 | Capability Engine | DONE | 100% |
-| 4 | Security | IN_PROGRESS | 99% |
+| 4 | Security | DONE | 100% |
 | 5–11 | (later) | PLANNED | 0% |
 
 ---
 
-**Готово:** STAGE4-001…039; BLK-016 corrective STAGE4-041…048; BLK-017 corrective STAGE4-049…053 (implementation + automated gate).
+**Готово:** STAGE4-001…039; BLK-016 corrective STAGE4-041…048; BLK-017 corrective STAGE4-049…053; финальный gate STAGE4-040 закрыт задачей STAGE4-054 после подтверждённой ручной packaged GUI-проверки.
 
-**Верификация после BLK-017:** `mvn clean verify` PASSED; `mvn clean verify -Ppackage` PASSED; detached `TMP.exe` against V4→V5 upgraded PostgreSQL PASSED (Flyway V5 applied; `security.users.view` owner=`security-administration`).
+**Верификация:** automated gate (STAGE4-053) PASSED; ручной packaged GUI smoke (`dist/jpackage/TMP/TMP.exe` + Docker `tmp-stage4-pg` / БД `tmp_gui_stage4`) — PASS по полному чек-листу пользователя (2026-07-24).
 
-**Далее:** STAGE4-040 final gate — после ручного packaged GUI smoke пользователя. Stage 5 не стартовать. Stage 4 не закрывать до STAGE4-040.
+**Некритичный residual (не блокирует Stage 4):** `BACKLOG-001` — неправильная кодировка текста пагинации на Security Audit Screen (отдельная будущая задача; в рамках Stage 4 не исправлялось).
 
-Git-операции запрещены.
+**Далее:** Stage 5 не стартовать до отдельного Start Gate. Git-операции запрещены в этой сессии закрытия.

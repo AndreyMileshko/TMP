@@ -2142,3 +2142,33 @@ Stage 4 not closed; Stage 5 not started; STAGE4-040 awaits user packaged GUI con
 
 STAGE4-040 final Stage 4 gate (user GUI smoke).
 
+---
+
+## `STAGE4-054` — Final Stage 4 close after manual packaged GUI confirmation
+
+**Date:** 2026-07-24  
+**Stage:** Stage 4 — Security  
+**Status:** DONE
+
+### Result
+
+User confirmed manual packaged GUI smoke for `dist/jpackage/TMP/TMP.exe` against Docker PostgreSQL (`tmp-stage4-pg` / DB `tmp_gui_stage4` / user `tmp`). Full checklist PASSED (clean DB start, login/wrong-password/neutral message, main window, Users/Roles/Audit screens, logout/relogin, restart without bootstrap env, single admin + Security Administrator, no secrets in logs, clean process exit).
+
+Closed final Stage 4 verification gate and STAGE4-040. Registered non-blocking `BACKLOG-001` (Security Audit pagination text encoding) — not fixed in this close. Stage 5 not started. No production-code changes. No Git operations.
+
+### Files modified
+
+- `docs/development-control/STATUS.md`
+- `docs/development-control/WORK-QUEUE.md`
+- `docs/development-control/IMPLEMENTATION-LOG.md`
+- `docs/development-control/VERIFICATION-LOG.md`
+- `docs/development-control/BLOCKERS.md`
+
+### Verification
+
+User-confirmed manual packaged GUI checklist PASSED; prior STAGE4-053 automated gate retained as evidence.
+
+### Next task
+
+None (Stage 4 COMPLETE). Stop before Stage 5. Optional later: `BACKLOG-001`.
+
