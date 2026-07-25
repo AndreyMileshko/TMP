@@ -1056,3 +1056,82 @@ These tasks (password / role / permission-override / audit application services 
 
 - None. Git operations not executed.
 
+
+## 2026-07-25 — STAGE5-011 (Typed payload models: Order documents)
+
+| Verification | Command | Result |
+|---|---|---|
+| Module tests (incl. OrderPayloadModelsTest) | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+
+### Failures
+
+- None. Git operations not executed.
+
+## 2026-07-25 — STAGE5-012 (Typed payload models: Item documents)
+
+| Verification | Command | Result |
+|---|---|---|
+| Module tests (incl. OrderItemPayloadModelsTest) | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-25 — STAGE5-013 (Typed payload models: Revision documents)
+
+| Verification | Command | Result |
+|---|---|---|
+| Module tests (incl. OrderItemRevisionPayloadModelsTest) | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-25 — STAGE5-014 (Payload application use cases)
+
+| Verification | Command | Result |
+|---|---|---|
+| Module tests (incl. DraftPayloadApplicationServiceTest) | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-25 — STAGE5-015 (Payload persistence port)
+
+| Verification | Command | Result |
+|---|---|---|
+| Module tests (incl. OrderDocumentPayloadPortContractTest) | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-25 — STAGE5-016 (Payload physical schema)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management (incl. OrderPayloadSchemaFlywayTest) | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+| Infra DB | `mvn -q -pl tmp-infra-db -am test` | PASSED (exit 0) |
+| Architecture | `mvn -q -pl tmp-architecture-tests -am test` | PASSED (exit 0) |
+| No JSON columns | OrderPayloadSchemaFlywayTest | PASSED |
+| FK cascade delete | OrderPayloadSchemaFlywayTest | PASSED |
+| V6 in flyway history | OrderPayloadSchemaFlywayTest | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-25 — Stage 5 execution module 5.4 gate (STAGE5-011..016)
+
+| Gate check | Result |
+|---|---|
+| STAGE5-011..016 | DONE |
+| STAGE5-017 | PLANNED (not started) |
+| Typed payload not public mutating API | CONFIRMED (`com.tmp.order.application.payload`) |
+| Models immutable / no generic JSON | PASSED (unit tests) |
+| Optimistic locking covered | PASSED |
+| SQL payload tables only (no aggregate/processing) | PASSED |
+| JDBC adapter absent | CONFIRMED |
+| Processing record absent | CONFIRMED |
+| Git operations | NOT EXECUTED |

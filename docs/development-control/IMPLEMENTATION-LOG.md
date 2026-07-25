@@ -2410,3 +2410,114 @@ None (Stage 4 COMPLETE). Stop before Stage 5. Optional later: `BACKLOG-001`.
 - Public API read-only; domain entities не возвращаются; Draft Revision не раскрывается; чужие бизнес-данные отсутствуют; пагинация/сортировка валидируются; persistence/UI отсутствуют.
 - Git-операции не выполнялись.
 
+
+## STAGE5-011 � Typed payload models: Order documents
+
+**Date:** 2026-07-25  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Immutable typed Order document payloads with �11.2 identity; sealed OrderDocumentPayload; document type binding enforced; no generic JSON.
+
+### Files created
+
+- 	mp-order-management/.../application/payload/{DocumentId,DocumentTypeCode,PayloadIdentity,OrderDocumentPayload,OrderCreatePayload,OrderUpdatePayload,OrderApprovePayload,OrderCancelPayload}.java
+- 	mp-order-management/.../application/payload/OrderPayloadModelsTest.java
+
+### Tests added or changed
+
+- OrderPayloadModelsTest � identity fields, type binding, immutability, no generic JSON, revision increment on commercial update.
+
+### Verification
+
+- mvn -q -pl tmp-order-management -am test > PASSED
+
+## STAGE5-012 � Typed payload models: Item documents
+
+**Date:** 2026-07-25  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Immutable typed Item payloads: create (order/item/commercial/qty), update (commercial only � no Revision/Specification), cancel (item id only).
+
+### Files created
+
+- `OrderItemCreatePayload`, `OrderItemUpdatePayload`, `OrderItemCancelPayload`
+- `OrderItemPayloadModelsTest`
+
+### Verification
+
+- `mvn -q -pl tmp-order-management -am test` > PASSED
+
+## STAGE5-013 � Typed payload models: Revision documents
+
+**Date:** 2026-07-25  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Revision payloads + `OrderItemRevisionPayloadLine`; update targets only Draft (rejects APPROVED); immutable line collection; quantity/norm validation.
+
+### Verification
+
+- `mvn -q -pl tmp-order-management -am test` > PASSED
+
+## STAGE5-014 � Payload application use cases (draft edit + optimistic lock)
+
+**Date:** 2026-07-25  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Internal `DraftPayloadApplicationService`: create/load/update/delete Draft payload; Draft check via public `DocumentEngine.findById` + `DocumentStatus.DRAFT`; optimistic lock via `PayloadRevision` / `PayloadOptimisticLockException`. Introduced single `OrderDocumentPayloadPort` (no competing port). Test double: `InMemoryOrderDocumentPayloadPort` + `FakeDocumentEngine`.
+
+### Verification
+
+- `mvn -q -pl tmp-order-management -am test` > PASSED
+
+## STAGE5-015 � Payload persistence port
+
+**Date:** 2026-07-25  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Frozen single `OrderDocumentPayloadPort` (no second port): load/create/update(expected revision)/deleteDraft/exists; typed `OrderDocumentPayload`; explicit absence and `PayloadOptimisticLockException`. Infra-free interface; JDBC adapter not implemented.
+
+### Verification
+
+- `mvn -q -pl tmp-order-management -am test` > PASSED
+
+## STAGE5-016 � Payload physical schema (Flyway typed tables)
+
+**Date:** 2026-07-25  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Flyway `V6__order_payload_schema.sql` in `tmp-order-management`: schema `order_management` with `order_document_payload` + typed payload tables + `order_item_revision_payload_line`; FK `document_id` ON DELETE CASCADE; `payload_revision` optimistic lock; no JSON/BLOB; no aggregate/processing tables; no JDBC adapter.
+
+### Files created
+
+- `tmp-order-management/src/main/resources/db/migration/V6__order_payload_schema.sql`
+- `OrderPayloadSchemaFlywayTest`
+- test-scoped Flyway/PostgreSQL/Testcontainers deps in `tmp-order-management/pom.xml`
+
+### Verification
+
+- `mvn -q -pl tmp-order-management -am test` > PASSED
+- `mvn -q -pl tmp-infra-db -am test` > PASSED
+- `mvn -q -pl tmp-architecture-tests -am test` > PASSED
+
+### Execution module 5.4 gate
+
+- `STAGE5-011..016` = DONE; `STAGE5-017` remains `PLANNED` (not READY, not started).
+- Git operations not executed.

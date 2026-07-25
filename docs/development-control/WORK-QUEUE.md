@@ -7773,7 +7773,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 ---
 ## STAGE5-011 — Typed payload models: Order documents
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-010
 
@@ -7792,7 +7792,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-012 — Typed payload models: Item documents
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-011
 
@@ -7811,7 +7811,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-013 — Typed payload models: Revision documents
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-012
 
@@ -7830,7 +7830,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-014 — Payload application use cases (draft edit + optimistic lock)
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-013
 
@@ -7849,7 +7849,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-015 — Payload persistence port
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-014
 
@@ -7868,7 +7868,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-016 — Payload physical schema (Flyway typed tables)
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-015
 
