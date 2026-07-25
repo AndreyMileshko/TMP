@@ -7736,7 +7736,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-009 — Public Query API contracts and DTO
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-008
 
@@ -7755,7 +7755,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-010 — Paginated search contracts
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-009
 

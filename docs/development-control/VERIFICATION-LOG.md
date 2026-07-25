@@ -1016,3 +1016,43 @@ These tasks (password / role / permission-override / audit application services 
 
 - None. Git operations not executed.
 
+## 2026-07-25 — STAGE5-009 (Public Query API contracts and DTO)
+
+| Verification | Command | Result |
+|---|---|---|
+| Module tests (incl. OrderQueryApiContractTest) | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-25 — STAGE5-010 (Paginated search contracts)
+
+| Verification | Command | Result |
+|---|---|---|
+| Module tests (incl. PageRequestAndSearchContractTest) | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+| PageRequestAndSearchContractTest | surefire | 14 tests, 0 failures |
+| OrderQueryApiContractTest | surefire | 9 tests, 0 failures |
+
+### Failures
+
+- None.
+
+## 2026-07-25 — Stage 5 execution module 5.3 gate (STAGE5-009..010)
+
+| Gate check | Command / Method | Result |
+|---|---|---|
+| Order Management module gate | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0; 98 tests, 0 failures) |
+| Architecture gate | `mvn -q -pl tmp-architecture-tests -am test` | PASSED (exit 0) |
+| Public API read-only | OrderQueryApiContractTest | PASSED |
+| No domain entity exposure | return/parameter type scan | PASSED |
+| Draft revision not exposed | DTO/API contract tests | PASSED |
+| No foreign capability data | field name scan on DTOs | PASSED |
+| Pagination / sort validation | PageRequestAndSearchContractTest | PASSED |
+| No persistence / UI added | source review | CONFIRMED |
+| STAGE5-011 | WORK-QUEUE | PLANNED (not started) |
+
+### Failures
+
+- None. Git operations not executed.
+

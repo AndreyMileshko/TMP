@@ -2,15 +2,15 @@
 
 **Mode:** Autonomous Cursor Agent  
 **Project status:** IN_PROGRESS  
-**Current Stage:** Stage 5 — Order Management (execution module 5.2 completed)  
-**Current Task:** STAGE5-009 (PLANNED, not started — awaiting user authorization)  
-**Last completed task:** STAGE5-008  
+**Current Stage:** Stage 5 — Order Management (execution module 5.3 completed)  
+**Current Task:** STAGE5-011 (PLANNED, not started — awaiting user authorization)  
+**Last completed task:** STAGE5-010  
 **Active blocker:** None  
 
 ```text
-Stage 5 execution module 5.2 completed.
-Next execution module: Stage 5.3.
-Next task: STAGE5-009.
+Stage 5 execution module 5.3 completed.
+Next execution module: Stage 5.4.
+Next task: STAGE5-011.
 Waiting for user authorization.
 ```
 
@@ -25,7 +25,7 @@ Waiting for user authorization.
 | 2 | Document Engine | DONE | 100% |
 | 3 | Capability Engine | DONE | 100% |
 | 4 | Security | DONE | 100% |
-| 5 | Order Management | IN_PROGRESS (execution module 5.2 done: STAGE5-001..008) | 16% |
+| 5 | Order Management | IN_PROGRESS (execution module 5.3 done: STAGE5-001..010) | 20% |
 | 6–11 | (later) | PLANNED | 0% |
 
 ---
@@ -36,11 +36,12 @@ Waiting for user authorization.
 
 **Реализация Stage 5:**
 - Модуль 5.1 (`STAGE5-001..003`) — DONE (bootstrap, architecture boundaries, identifiers/VO).
-- Модуль 5.2 (`STAGE5-004..008`) — DONE: Customer Order, Order Item, active/draft Revision, immutable Item Specification, domain repository ports. Public Query API, documents, payload, processors, SQL, JDBC adapters и UI **не** реализовывались.
-- `STAGE5-009` не начинался и остаётся `PLANNED`.
+- Модуль 5.2 (`STAGE5-004..008`) — DONE (domain aggregates, revision model, specification, repository ports).
+- Модуль 5.3 (`STAGE5-009..010`) — DONE: Public Query API contracts/DTOs, paginated search contracts (`searchOrders`, criteria, page/sort validation). Реализация Query API, payload, документы, processors, SQL, JDBC adapters и UI **не** реализовывались.
+- `STAGE5-011` не начинался и остаётся `PLANNED`.
 
 **Открытых блокеров Stage 5:** нет.
 
 **Некритичный residual (Stage 4, не блокирует):** `BACKLOG-001` — кодировка пагинации Security Audit Screen.
 
-**Далее:** ожидается авторизация пользователя на исполнительный модуль Stage 5.3 (`STAGE5-009`). Stage 6 не стартовать. Git-операции выполняет пользователь самостоятельно.
+**Далее:** ожидается авторизация пользователя на исполнительный модуль Stage 5.4 (`STAGE5-011`). Stage 6 не стартовать. Git-операции выполняет пользователь самостоятельно.

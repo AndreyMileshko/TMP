@@ -2384,3 +2384,29 @@ None (Stage 4 COMPLETE). Stop before Stage 5. Optional later: `BACKLOG-001`.
 - Домен свободен от Spring/JPA/Hibernate/JavaFX; SQL и persistence adapters отсутствуют; внешний mutating API отсутствует; Production-owned данные отсутствуют.
 - Git-операции не выполнялись.
 
+---
+
+## Stage 5 execution module 5.3 — Public Query API
+
+### STAGE5-009 — Public Query API contracts and DTO
+
+- `OrderQueryService` (read-only interface): `getOrder`, `getOrderItems`, `getOrderItem`, `getOrderItemRevisions`, `getOrderItemRevision`, `getActiveOrderItemRevision`, `getItemSpecification`. Absence via `Optional` / empty page. No mutating methods.
+- Immutable DTOs: `OrderDto`, `OrderSummaryDto`, `OrderItemDto` (only `activeRevisionNumber`, no draft), `OrderItemRevisionDto` (constructor rejects non-`APPROVED`), `ItemSpecificationDto`, `SpecificationLineDto`.
+- Supporting types introduced for list signatures: `PageRequest`, `PageResult`, `OrderSort` (defaults/validation completed in STAGE5-010 tests).
+- DTO не содержат domain types, Production/Stock/Cutting полей; коллекции unmodifiable; draft недоступен во внешнем API.
+- **Verification:** `mvn -q -pl tmp-order-management -am test` → PASSED.
+
+### STAGE5-010 — Paginated search contracts
+
+- `OrderSearchCriteria` (orderNumber/status/customerRef/customerName/createdFrom/createdTo); blank strings → absent; inverted created range rejected.
+- `PageRequest`: zero-based; default size 50 (`firstPage()`); max 100; rejects negative index / size < 1 / size > 100; carries `OrderSort`.
+- `OrderSort`: default `createdAt DESC, orderId DESC`; whitelist `createdAt|orderId|orderNumber|status`; ASC/DESC; unknown field/direction rejected.
+- `OrderQueryService.searchOrders(criteria, pageRequest)` → `PageResult<OrderSummaryDto>`.
+- **Verification:** `mvn -q -pl tmp-order-management -am test` → PASSED; architecture gate → PASSED.
+
+### Execution module 5.3 gate
+
+- `STAGE5-009..010` = DONE; `STAGE5-011` остаётся `PLANNED` (не READY, не начата).
+- Public API read-only; domain entities не возвращаются; Draft Revision не раскрывается; чужие бизнес-данные отсутствуют; пагинация/сортировка валидируются; persistence/UI отсутствуют.
+- Git-операции не выполнялись.
+
