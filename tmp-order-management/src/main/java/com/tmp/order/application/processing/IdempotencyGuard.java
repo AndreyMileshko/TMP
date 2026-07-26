@@ -3,6 +3,7 @@ package com.tmp.order.application.processing;
 import com.tmp.core.api.event.DomainEvent;
 import com.tmp.document.api.TransactionalEventPublisher;
 import com.tmp.order.application.payload.DocumentId;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -32,26 +33,36 @@ public final class IdempotencyGuard {
     }
 
     /**
-     * Executes the posting side-effects at most once for {@code documentId + POST}.
-     *
-     * <p>Return type is {@code void} to mirror {@code DocumentProcessor.onPost}. {@link
-     * ResultReference} stays inside {@link ProcessingRecord} and is never exposed.
-     *
-     * @param documentId platform document id
-     * @param businessAction aggregate change; invoked only on first processing
-     * @param recordFactory builds the processing record after a successful business action
-     * @param eventFactory builds the domain event after a successful business action; published
-     *     after commit via {@link TransactionalEventPublisher}
+     * Executes the posting side-effects at most once for {@code documentId + POST}, publishing a
+     * single domain event after a successful insert.
      */
     public void runPostOnce(
             DocumentId documentId,
             Runnable businessAction,
             Supplier<ProcessingRecord> recordFactory,
             Supplier<? extends DomainEvent> eventFactory) {
+        Objects.requireNonNull(eventFactory, "eventFactory");
+        runPostOncePublishing(
+                documentId,
+                businessAction,
+                recordFactory,
+                () -> List.of(Objects.requireNonNull(eventFactory.get(), "event")));
+    }
+
+    /**
+     * Executes the posting side-effects at most once for {@code documentId + POST}, publishing an
+     * immutable list of domain events after a successful insert. On duplicate processing or
+     * concurrent insert conflict, no events are published.
+     */
+    public void runPostOncePublishing(
+            DocumentId documentId,
+            Runnable businessAction,
+            Supplier<ProcessingRecord> recordFactory,
+            Supplier<? extends List<? extends DomainEvent>> eventsFactory) {
         Objects.requireNonNull(documentId, "documentId");
         Objects.requireNonNull(businessAction, "businessAction");
         Objects.requireNonNull(recordFactory, "recordFactory");
-        Objects.requireNonNull(eventFactory, "eventFactory");
+        Objects.requireNonNull(eventsFactory, "eventsFactory");
 
         if (alreadyProcessed(documentId, ProcessingOperation.POST)) {
             return;
@@ -73,7 +84,13 @@ public final class IdempotencyGuard {
             return;
         }
 
-        DomainEvent event = Objects.requireNonNull(eventFactory.get(), "event");
-        eventPublisher.publishAfterCommit(event);
+        List<? extends DomainEvent> events =
+                Objects.requireNonNull(eventsFactory.get(), "events");
+        if (events.isEmpty()) {
+            throw new IllegalArgumentException("at least one domain event is required");
+        }
+        for (DomainEvent event : events) {
+            eventPublisher.publishAfterCommit(Objects.requireNonNull(event, "event"));
+        }
     }
 }

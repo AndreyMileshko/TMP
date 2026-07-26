@@ -2645,3 +2645,69 @@ Immutable `OrderBusinessDocumentCatalog` with exactly 10 descriptors (type, disp
 - Exactly four concrete `ORDER_*` processors; all extend `AbstractOrderDocumentProcessor`.
 - No direct `EventBus`; no SQL/JDBC aggregate adapters; no item processors.
 - Git operations not executed.
+
+## STAGE5-027 — Document processor: ORDER_ITEM_CREATE
+
+**Date:** 2026-07-26  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Extended `IdempotencyGuard` / `AbstractOrderDocumentProcessor` with immutable multi-event publish (backward compatible). `CreateOrderItemCommand` / `CreateOrderItemUseCase` / `OrderItemCreateDocumentProcessor` create Draft item + Revision 1; publish `OrderItemCreated` + `OrderItemRevisionCreated`.
+
+## STAGE5-028 — Document processor: ORDER_ITEM_UPDATE
+
+**Date:** 2026-07-26  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+`UpdateOrderItemCommand` / `UpdateOrderItemUseCase` / `OrderItemUpdateDocumentProcessor` update commercial fields of Draft items only; publish `OrderItemUpdated`.
+
+## STAGE5-029 — Document processor: ORDER_ITEM_REVISION_CREATE
+
+**Date:** 2026-07-26  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+`CreateOrderItemRevisionCommand` / `CreateOrderItemRevisionUseCase` / `OrderItemRevisionCreateDocumentProcessor` create Draft N+1 for ACTIVE items; optional copy-from APPROVED; publish `OrderItemRevisionCreated`.
+
+## STAGE5-030 — Document processor: ORDER_ITEM_REVISION_UPDATE
+
+**Date:** 2026-07-26  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+`UpdateOrderItemRevisionCommand` / `UpdateOrderItemRevisionUseCase` / `OrderItemRevisionUpdateDocumentProcessor` update Draft quantity+specification from typed lines; publish `OrderItemRevisionUpdated`.
+
+## STAGE5-031 — Document processor: ORDER_ITEM_REVISION_APPROVE
+
+**Date:** 2026-07-26  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+`ApproveOrderItemRevisionCommand` / `ApproveOrderItemRevisionUseCase` / `OrderItemRevisionApproveDocumentProcessor` approve Draft revision atomically; publish `OrderItemRevisionApproved`.
+
+## STAGE5-032 — Document processor: ORDER_ITEM_CANCEL
+
+**Date:** 2026-07-26  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+`CancelOrderItemCommand` / `CancelOrderItemUseCase` / `OrderItemCancelDocumentProcessor` cancel Draft items only; publish `OrderItemCancelled`.
+
+### Execution module 5.7 gate
+
+- `STAGE5-027..032` = DONE; `STAGE5-033` remains `PLANNED`.
+- Six new item/revision processors; multi-event base support preserved existing order processors.
+- No direct EventBus; no aggregate JDBC/SQL; Git not executed.

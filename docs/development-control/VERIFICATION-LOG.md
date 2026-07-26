@@ -1241,3 +1241,44 @@ These tasks (password / role / permission-override / audit application services 
 | Item processors | glob | NONE |
 | STAGE5-027 | WORK-QUEUE | PLANNED (not started) |
 | Git | — | NOT EXECUTED |
+
+## 2026-07-26 — STAGE5-027 (ORDER_ITEM_CREATE)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+| Two events / idempotency / parent DRAFT guard | OrderItemCreateDocumentProcessorTest | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-26 — STAGE5-028..032
+
+| Task | Command | Result |
+|---|---|---|
+| STAGE5-028 | `mvn -q -pl tmp-order-management -am test` | PASSED |
+| STAGE5-029 | `mvn -q -pl tmp-order-management -am test` | PASSED |
+| STAGE5-030 | `mvn -q -pl tmp-order-management -am test` | PASSED |
+| STAGE5-031 | `mvn -q -pl tmp-order-management -am test` | PASSED |
+| STAGE5-032 | `mvn -q -pl tmp-order-management -am test` | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-26 — Stage 5 execution module 5.7 gate (STAGE5-027..032)
+
+| Gate check | Command / Method | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED |
+| Document Engine | `mvn -q -pl tmp-document-engine -am test` | PASSED |
+| Architecture | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| New processors | 6 item/revision DocumentProcessors | CONFIRMED |
+| ORDER_ITEM_CREATE events | 2 (Created + RevisionCreated) | CONFIRMED |
+| Multi-event base | IdempotencyGuard.runPostOncePublishing | CONFIRMED |
+| Existing order processors | still compile/test | PRESERVED |
+| Direct EventBus | grep src/main | NONE |
+| Aggregate JDBC/SQL | glob | NONE |
+| STAGE5-033 | WORK-QUEUE | PLANNED (not started) |
+| Git | — | NOT EXECUTED |

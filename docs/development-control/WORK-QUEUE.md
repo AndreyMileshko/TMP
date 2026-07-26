@@ -8076,7 +8076,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-027 — Document processor: ORDER_ITEM_CREATE
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-026
 
@@ -8095,7 +8095,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-028 — Document processor: ORDER_ITEM_UPDATE (commercial fields only)
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-027
 
@@ -8113,7 +8113,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 ---
 ## STAGE5-029 — Document processor: ORDER_ITEM_REVISION_CREATE
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-028
 
@@ -8132,7 +8132,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-030 — Document processor: ORDER_ITEM_REVISION_UPDATE
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-029
 
@@ -8151,7 +8151,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-031 — Document processor: ORDER_ITEM_REVISION_APPROVE
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-030
 
@@ -8170,7 +8170,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-032 — Document processor: ORDER_ITEM_CANCEL (draft only)
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-031
 

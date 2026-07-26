@@ -15,6 +15,7 @@ import com.tmp.order.application.processing.ProcessingRecord;
 import com.tmp.order.application.processing.ProcessingRecordPort;
 import com.tmp.order.application.processing.ResultReference;
 import java.time.Clock;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -23,6 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@code ORDER_*} business logic.
  *
  * <p>Uses only the public {@link TransactionalEventPublisher}. {@link #onPost} remains {@code void}.
+ * Processors may publish one or more domain events via {@link #createDomainEvents}.
  */
 public abstract class AbstractOrderDocumentProcessor implements DocumentProcessor {
 
@@ -72,7 +74,7 @@ public abstract class AbstractOrderDocumentProcessor implements DocumentProcesso
         OrderDocumentPayload payload = loadAndValidatePayload(documentId);
 
         AtomicReference<ResultReference> resultHolder = new AtomicReference<>();
-        idempotencyGuard.runPostOnce(
+        idempotencyGuard.runPostOncePublishing(
                 documentId,
                 () -> resultHolder.set(executeBusinessAction(context, payload)),
                 () ->
@@ -82,7 +84,7 @@ public abstract class AbstractOrderDocumentProcessor implements DocumentProcesso
                                 payload.identity().payloadRevision(),
                                 clock.instant(),
                                 resultHolder.get()),
-                () -> createDomainEvent(context, payload, resultHolder.get()));
+                () -> createDomainEvents(context, payload, resultHolder.get()));
     }
 
     @Override
@@ -121,12 +123,32 @@ public abstract class AbstractOrderDocumentProcessor implements DocumentProcesso
             DocumentOperationContext context, OrderDocumentPayload payload);
 
     /**
-     * Builds the domain event published after commit on first successful processing.
+     * Builds the domain events published after commit on first successful processing.
+     *
+     * <p>Default wraps {@link #createDomainEvent} for single-event processors. Multi-event
+     * processors override this method and return an immutable list.
      */
-    protected abstract DomainEvent createDomainEvent(
+    protected List<DomainEvent> createDomainEvents(
             DocumentOperationContext context,
             OrderDocumentPayload payload,
-            ResultReference resultReference);
+            ResultReference resultReference) {
+        return List.of(createDomainEvent(context, payload, resultReference));
+    }
+
+    /**
+     * Builds the single domain event for processors that publish exactly one event.
+     *
+     * <p>Multi-event processors override {@link #createDomainEvents} instead and need not call
+     * this method.
+     */
+    protected DomainEvent createDomainEvent(
+            DocumentOperationContext context,
+            OrderDocumentPayload payload,
+            ResultReference resultReference) {
+        throw new UnsupportedOperationException(
+                getClass().getSimpleName()
+                        + " must override createDomainEvent or createDomainEvents");
+    }
 
     private OrderDocumentPayload loadAndValidatePayload(DocumentId documentId) {
         OrderDocumentPayload payload =
