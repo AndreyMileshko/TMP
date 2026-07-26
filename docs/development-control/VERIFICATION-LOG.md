@@ -1282,3 +1282,54 @@ These tasks (password / role / permission-override / audit application services 
 | Aggregate JDBC/SQL | glob | NONE |
 | STAGE5-033 | WORK-QUEUE | PLANNED (not started) |
 | Git | — | NOT EXECUTED |
+
+## 2026-07-26 — STAGE5-033 (Aggregate persistence adapters)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+| SQL contract / mapper unit tests | AggregatePersistenceAdaptersContractTest | PASSED |
+| JPA/Hibernate | grep production persistence | NONE |
+
+### Failures
+
+- None.
+
+## 2026-07-26 — STAGE5-034 (Aggregate Flyway migration)
+
+| Verification | Command | Result |
+|---|---|---|
+| Infra DB | `mvn -q -pl tmp-infra-db -am test` | PASSED (exit 0) |
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+| Migration | V8 on clean PostgreSQL | PASSED |
+| Aggregate IT | JdbcAggregatePersistenceIT | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-26 — STAGE5-035 (Security capabilities registration)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-26 — Stage 5 execution module 5.8 gate (STAGE5-033..035)
+
+| Gate check | Command / Method | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED |
+| Infra DB | `mvn -q -pl tmp-infra-db -am test` | PASSED |
+| Capability Engine | `mvn -q -pl tmp-capability-engine -am test` | PASSED |
+| Security | `mvn -q -pl tmp-security -am test` | PASSED |
+| Architecture | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| Repository JDBC adapters | CustomerOrder/OrderItem/Revision/Specification | CONFIRMED |
+| Optimistic locking | DB version WHERE clause | CONFIRMED |
+| Migration | V8 aggregate tables | CONFIRMED |
+| Capabilities | exactly 13, no duplicates | CONFIRMED |
+| STAGE5-036 | WORK-QUEUE | PLANNED (not started) |
+| Git | — | NOT EXECUTED |

@@ -41,7 +41,11 @@ public final class ItemSpecification {
         return new ItemSpecification(orderItemId, revisionNumber, lines, false);
     }
 
-    static ItemSpecification rehydrate(
+    /**
+     * Rehydrates a persisted specification. Intended for persistence adapters only; does not
+     * change domain rules or expose a public constructor.
+     */
+    public static ItemSpecification rehydrate(
             OrderItemId orderItemId,
             RevisionNumber revisionNumber,
             List<SpecificationLine> lines,

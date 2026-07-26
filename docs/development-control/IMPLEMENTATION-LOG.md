@@ -2711,3 +2711,38 @@ Extended `IdempotencyGuard` / `AbstractOrderDocumentProcessor` with immutable mu
 - `STAGE5-027..032` = DONE; `STAGE5-033` remains `PLANNED`.
 - Six new item/revision processors; multi-event base support preserved existing order processors.
 - No direct EventBus; no aggregate JDBC/SQL; Git not executed.
+
+## STAGE5-033 — Aggregate persistence adapters
+
+**Date:** 2026-07-26  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+JDBC adapters for `CustomerOrderRepository`, `OrderItemRepository`, `OrderItemRevisionRepository` (read), `ItemSpecificationRepository` (read). Order Item `save` atomically persists item + revisions + specifications + lines + active/draft pointers with optimistic locking (`version = version + 1` / `WHERE ... AND version = ?`). No own transaction; no JPA. `OrderItemRevision.rehydrate` / `ItemSpecification.rehydrate` made public for persistence adapters only.
+
+## STAGE5-034 — Aggregate Flyway migration
+
+**Date:** 2026-07-26  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Created `V8__order_management_aggregates.sql`: `orders`, `order_items`, `order_item_revisions`, `item_specifications`, `item_specification_lines` in schema `order_management`. FK/unique/check constraints; no Production/Warehouse/Cutting columns; no JSON/BLOB. PostgreSQL IT covers migrate, aggregate round-trip, optimistic lock, unique order number, FK integrity.
+
+## STAGE5-035 — Security capabilities registration
+
+**Date:** 2026-07-26  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+`OrderManagementPermissions` (13 `PermissionId`), `OrderManagementPermissionCatalog` (immutable `PermissionDescriptor` set), `OrderManagementCapability` (Capability SPI, permissions only, no navigation). Document mappings validated against `OrderBusinessDocumentCatalog`; view capabilities for Query API declared. No user/role assignment.
+
+### Execution module 5.8 gate
+
+- `STAGE5-033..035` = DONE; `STAGE5-036` remains `PLANNED`.
+- No Public Query API service; no UI; Git not executed.

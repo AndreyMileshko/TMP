@@ -50,7 +50,11 @@ public final class OrderItemRevision {
                 null);
     }
 
-    static OrderItemRevision rehydrate(
+    /**
+     * Rehydrates a persisted revision. Intended for persistence adapters only; does not
+     * change domain rules or expose a public constructor.
+     */
+    public static OrderItemRevision rehydrate(
             OrderItemId orderItemId,
             RevisionNumber revisionNumber,
             RevisionStatus status,

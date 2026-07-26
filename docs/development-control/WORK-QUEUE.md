@@ -8189,7 +8189,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-033 — Aggregate persistence adapters
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-032
 
@@ -8208,7 +8208,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-034 — Aggregate Flyway migration (order_management schema)
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-033
 
@@ -8227,7 +8227,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-035 — Security capabilities registration
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-034
 

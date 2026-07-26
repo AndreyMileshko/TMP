@@ -1,7 +1,6 @@
 package com.tmp.order.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -73,7 +72,15 @@ class OrderPayloadSchemaFlywayTest {
                                 "order_item_revision_payload_line")),
                 () -> "Missing payload tables: " + tables);
 
-        assertFalse(tables.contains("orders"), "Aggregate tables must not be created by payload/processing migrations");
+        assertTrue(
+                tables.containsAll(
+                        List.of(
+                                "orders",
+                                "order_items",
+                                "order_item_revisions",
+                                "item_specifications",
+                                "item_specification_lines")),
+                () -> "Missing aggregate tables from V8: " + tables);
         assertTrue(
                 tables.contains("order_document_processing"),
                 "V7 processing table must be present when full classpath migrations apply");
@@ -187,7 +194,7 @@ class OrderPayloadSchemaFlywayTest {
     }
 
     @Test
-    void flywayHistoryIncludesV6() {
+    void flywayHistoryIncludesV6AndV8() {
         Integer v6 =
                 jdbc.queryForObject(
                         """
@@ -196,5 +203,13 @@ class OrderPayloadSchemaFlywayTest {
                         """,
                         Integer.class);
         assertEquals(1, v6);
+        Integer v8 =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '8' AND success = TRUE
+                        """,
+                        Integer.class);
+        assertEquals(1, v8);
     }
 }
