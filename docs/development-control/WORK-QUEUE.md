@@ -7887,7 +7887,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-017 — Public TransactionalEventPublisher contract and adapter (prerequisite)
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-016
 
@@ -7906,7 +7906,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-018 — Processing record and idempotency model
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-017
 
@@ -7925,7 +7925,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-019 — Processing record schema (Flyway)
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-018
 
@@ -7944,7 +7944,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-020 — Payload and processing-record persistence adapters
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-019
 
@@ -7962,7 +7962,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 ---
 ## STAGE5-021 — Business document type registration model
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-020
 
@@ -7981,7 +7981,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-022 — Document lifecycle policy base
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-021
 

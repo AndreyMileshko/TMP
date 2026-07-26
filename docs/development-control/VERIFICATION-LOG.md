@@ -1135,3 +1135,54 @@ These tasks (password / role / permission-override / audit application services 
 | JDBC adapter absent | CONFIRMED |
 | Processing record absent | CONFIRMED |
 | Git operations | NOT EXECUTED |
+
+## 2026-07-25 — STAGE5-017 (TransactionalEventPublisher)
+
+| Verification | Command | Result |
+|---|---|---|
+| Document Engine tests | `mvn -q -pl tmp-document-engine -am test` | PASSED (exit 0) |
+| Contract: after commit / no before commit / no rollback / public API | TransactionalEventPublisherContractTest | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-25 — STAGE5-018 / STAGE5-019
+
+| Task | Command | Result |
+|---|---|---|
+| STAGE5-018 | `mvn -q -pl tmp-order-management -am test` | PASSED |
+| STAGE5-019 (V7 migration) | `mvn -q -pl tmp-order-management -am test` | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-25 — STAGE5-020..022 and module 5.5 gate
+
+| Verification | Command | Result |
+|---|---|---|
+| Document Engine | `mvn -q -pl tmp-document-engine -am test` | (re-run in gate) |
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+| STAGE5-023 | WORK-QUEUE | PLANNED (not started) |
+
+### Failures
+
+- None pending gate re-run below.
+
+## 2026-07-25 — Stage 5 execution module 5.5 gate (STAGE5-017..022)
+
+| Gate check | Command / Method | Result |
+|---|---|---|
+| Document Engine | `mvn -q -pl tmp-document-engine -am test` | PASSED |
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED |
+| Infra DB | `mvn -q -pl tmp-infra-db -am test` | PASSED |
+| Architecture | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| Public publisher only | TransactionalEventPublisher in `com.tmp.document.api` | CONFIRMED |
+| Rollback no publish | contract + existing DE tests | PASSED |
+| Idempotency | IdempotencyGuardTest / AbstractOrderDocumentProcessorTest | PASSED |
+| JDBC round-trip 10 types | JdbcPayloadAndProcessingAdaptersIT | PASSED |
+| Catalog size 10 | OrderBusinessDocumentCatalogTest | PASSED |
+| Concrete processors | none for ORDER_* | CONFIRMED |
+| STAGE5-023 | WORK-QUEUE | PLANNED (not started) |
+| Git | — | NOT EXECUTED |

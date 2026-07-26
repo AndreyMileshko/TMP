@@ -2521,3 +2521,80 @@ Flyway `V6__order_payload_schema.sql` in `tmp-order-management`: schema `order_m
 
 - `STAGE5-011..016` = DONE; `STAGE5-017` remains `PLANNED` (not READY, not started).
 - Git operations not executed.
+
+## STAGE5-017 — Public TransactionalEventPublisher contract and adapter
+
+**Date:** 2026-07-25  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Public `com.tmp.document.api.TransactionalEventPublisher`; internal `TransactionAfterCommitEventPublisher` implements it; Spring bean exposed as public interface. Events after commit only; rollback does not deliver. Document Engine business logic unchanged.
+
+### Verification
+
+- `mvn -q -pl tmp-document-engine -am test` > PASSED
+
+## STAGE5-018 — Processing record and idempotency model
+
+**Date:** 2026-07-25  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+`ProcessingRecord`, `ProcessingOperation.POST`, `ProcessingStatus`, `ProcessingRecordPort`, `IdempotencyGuard` with void `runPostOnce`; duplicate path skips event; ResultReference internal.
+
+### Verification
+
+- `mvn -q -pl tmp-order-management -am test` > PASSED
+
+## STAGE5-019 — Processing record schema
+
+**Date:** 2026-07-25  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+`V7__order_processing_record.sql`: `order_management.order_document_processing` with PK `(document_id, operation)`, operation POST, nullable result_reference, no JSON.
+
+### Verification
+
+- `mvn -q -pl tmp-order-management -am test` > PASSED
+
+## STAGE5-020 — Payload and processing-record persistence adapters
+
+**Date:** 2026-07-25  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+`JdbcOrderDocumentPayloadAdapter` (all 10 typed payloads, optimistic lock, cascade delete, ordered revision lines) and `JdbcProcessingRecordAdapter` (unique document_id+POST, duplicate > DuplicateProcessingRecordException). PostgreSQL IT coverage.
+
+## STAGE5-021 — Business document type registration model
+
+**Date:** 2026-07-25  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Immutable `OrderBusinessDocumentCatalog` with exactly 10 descriptors (type, display, description, payload class, schema v1, capability). Processors not registered.
+
+## STAGE5-022 — Document lifecycle policy base
+
+**Date:** 2026-07-25  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+`AbstractOrderDocumentProcessor`: void onPost with idempotency + public TransactionalEventPublisher; onUnpost rejects; onClose no-op; onDelete Draft payload only. No concrete ORDER_* processors.
+
+### Execution module 5.5 gate
+
+- `STAGE5-017..022` = DONE; `STAGE5-023` remains `PLANNED`.
+- Git operations not executed.

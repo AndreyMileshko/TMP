@@ -2,6 +2,7 @@ package com.tmp.document;
 
 import com.tmp.core.api.EventBus;
 import com.tmp.core.api.event.DomainEvent;
+import com.tmp.document.api.TransactionalEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -9,6 +10,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /**
  * Publishes domain events only after the surrounding transaction commits successfully.
+ *
+ * <p>Internal Document Engine adapter implementing the public {@link TransactionalEventPublisher}
+ * contract. Capabilities must depend on that public interface, not on this class.
  *
  * <h2>After-commit handler failure policy</h2>
  *
@@ -23,7 +27,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *       local to Document Engine post-commit publication.</li>
  * </ul>
  */
-public final class TransactionAfterCommitEventPublisher {
+public final class TransactionAfterCommitEventPublisher implements TransactionalEventPublisher {
 
     private static final Logger LOG = LoggerFactory.getLogger(TransactionAfterCommitEventPublisher.class);
 
@@ -33,6 +37,7 @@ public final class TransactionAfterCommitEventPublisher {
         this.eventBus = eventBus;
     }
 
+    @Override
     public void publishAfterCommit(DomainEvent event) {
         if (eventBus == null) {
             return;

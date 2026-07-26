@@ -73,10 +73,10 @@ class OrderPayloadSchemaFlywayTest {
                                 "order_item_revision_payload_line")),
                 () -> "Missing payload tables: " + tables);
 
-        assertFalse(tables.contains("orders"), "Aggregate tables must not be created in STAGE5-016");
-        assertFalse(
-                tables.stream().anyMatch(t -> t.contains("processing")),
-                "Processing-record tables must not be created in STAGE5-016");
+        assertFalse(tables.contains("orders"), "Aggregate tables must not be created by payload/processing migrations");
+        assertTrue(
+                tables.contains("order_document_processing"),
+                "V7 processing table must be present when full classpath migrations apply");
 
         Integer jsonOrBlob =
                 jdbc.queryForObject(

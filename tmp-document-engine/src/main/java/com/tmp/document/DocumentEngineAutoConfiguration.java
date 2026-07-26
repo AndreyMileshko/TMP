@@ -52,6 +52,16 @@ public class DocumentEngineAutoConfiguration {
         return new TransactionAfterCommitEventPublisher();
     }
 
+    /**
+     * Public after-commit publisher for Capabilities. Same instance as the internal adapter;
+     * Capabilities must inject this interface type only.
+     */
+    @Bean
+    com.tmp.document.api.TransactionalEventPublisher transactionalEventPublisher(
+            TransactionAfterCommitEventPublisher adapter) {
+        return adapter;
+    }
+
     @Bean
     DocumentEngine documentEngine(
             DefaultDocumentProcessorRegistry processorRegistry,
