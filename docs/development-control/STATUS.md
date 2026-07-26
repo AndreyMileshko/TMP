@@ -2,15 +2,14 @@
 
 **Mode:** Autonomous Cursor Agent  
 **Project status:** IN_PROGRESS  
-**Current Stage:** Stage 5 — Order Management (Query API prerequisite completed)  
-**Current Task:** STAGE5-036 (PLANNED, not started — awaiting user authorization)  
-**Last completed task:** STAGE5-035B  
+**Current Stage:** Stage 5 — Order Management (Stage 5.9B completed)  
+**Current Task:** STAGE5-038 (PLANNED — awaiting user authorization)  
+**Last completed task:** STAGE5-037  
 **Active blocker:** None  
 
 ```text
-Stage 5 Query API prerequisite completed.
-Next execution module: Stage 5.9 UI.
-Next task: STAGE5-036.
+Stage 5 navigation and order list module completed.
+Next task: STAGE5-038.
 Waiting for user authorization.
 ```
 
@@ -25,7 +24,7 @@ Waiting for user authorization.
 | 2 | Document Engine | DONE | 100% |
 | 3 | Capability Engine | DONE | 100% |
 | 4 | Security | DONE | 100% |
-| 5 | Order Management | IN_PROGRESS (Query API prerequisite done: STAGE5-035A/B; UI STAGE5-036+ PLANNED) | ~76% |
+| 5 | Order Management | IN_PROGRESS (STAGE5-036..037 DONE; STAGE5-038 PLANNED) | ~80% |
 | 6–11 | (later) | PLANNED | 0% |
 
 ---
@@ -34,10 +33,10 @@ Waiting for user authorization.
 
 **Реализация Stage 5:**
 - Модули 5.1–5.8 (`STAGE5-001..035`) — DONE.
-- Query API prerequisite (`STAGE5-035A`, `STAGE5-035B`) — DONE: `DefaultOrderQueryService`, read port, JDBC read adapter, permission checks, AutoConfiguration.
-- UI navigation и экраны (`STAGE5-036+`) **не** реализовывались.
-- `STAGE5-036` не начинался и остаётся `PLANNED`.
+- Query API prerequisite (`STAGE5-035A`, `STAGE5-035B`) — DONE.
+- Stage 5.9B UI (`STAGE5-036`, `STAGE5-037`) — DONE.
+- `STAGE5-038` — PLANNED (не начиналась).
 
 **Открытых блокеров Stage 5:** нет.
 
-**Далее:** ожидается авторизация пользователя на Stage 5.9 UI (`STAGE5-036`). Git-операции выполняет пользователь самостоятельно.
+**Далее:** ожидается авторизация пользователя на `STAGE5-038`. Git-операции выполняет пользователь самостоятельно.

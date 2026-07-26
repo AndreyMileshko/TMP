@@ -1361,3 +1361,37 @@ These tasks (password / role / permission-override / audit application services 
 ### Failures
 
 - None.
+
+## 2026-07-27 — STAGE5-036 (Order Management navigation)
+
+| Verification | Command | Result |
+|---|---|---|
+| UI Shell | `mvn -q -pl tmp-ui-shell -am test` | PASSED |
+| Architecture | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| Navigation gated | OrderListNavigationTest | PASSED |
+| Capability nav | OrderManagementCapabilityNavigationTest | PASSED |
+| Positive runtime permission IT | OrderManagementAutoConfigurationTest | PASSED |
+| Git | — | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+## 2026-07-27 — STAGE5-037 (Order list screen)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management verify | `mvn -q -pl tmp-order-management -am verify` | PASSED |
+| UI Shell verify | `mvn -q -pl tmp-ui-shell -am verify` | PASSED |
+| Bootstrap | `mvn -q -pl tmp-bootstrap-app -am test` | PASSED |
+| Architecture | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| Positive runtime permission | OrderManagementAutoConfigurationTest | PASSED |
+| Navigation hidden without permission | OrderListNavigationTest | PASSED |
+| Query API only / no persistence in UI | OrderListViewModelTest | PASSED |
+| `target/checkstyle-cachefile` | removed after verify | ABSENT |
+| STAGE5-038 | WORK-QUEUE | PLANNED (not started) |
+| Git | — | NOT EXECUTED |
+
+### Failures
+
+- None.

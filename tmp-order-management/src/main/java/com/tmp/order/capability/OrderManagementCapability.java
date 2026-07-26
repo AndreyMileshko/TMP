@@ -4,18 +4,25 @@ import com.tmp.capability.api.Capability;
 import com.tmp.capability.api.CapabilityDescriptor;
 import com.tmp.capability.api.CapabilityId;
 import com.tmp.capability.api.CapabilityVersion;
+import com.tmp.capability.api.CommandDescriptor;
+import com.tmp.capability.api.NavigationContribution;
+import com.tmp.capability.api.ViewDescriptor;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.List;
 
 /**
- * Order Management Capability: declares the permission catalogue from Specification §18.
+ * Order Management Capability: permission catalogue (Specification §18) and UI navigation metadata
+ * for the order list screen.
  *
- * <p>Lifecycle hooks are no-ops. Navigation, views and UI contributions are out of scope for
- * STAGE5-035. Permissions are not assigned to users or roles here.
+ * <p>Lifecycle hooks are no-ops. Permissions are not assigned to users or roles here.
  */
 public final class OrderManagementCapability implements Capability {
 
     public static final CapabilityId ID = CapabilityId.of("order-management");
     public static final CapabilityVersion VERSION = CapabilityVersion.of("1.0.0");
+
+    public static final String NAV_ORDERS = "order.nav.orders";
+    public static final String VIEW_ORDERS = "order.view.orders";
 
     private final CapabilityDescriptor descriptor;
 
@@ -29,6 +36,14 @@ public final class OrderManagementCapability implements Capability {
                                 "Commercial lifecycle of customer orders, items, revisions and "
                                         + "item specifications")
                         .permissions(OrderManagementPermissionCatalog.all())
+                        .commands(List.of(
+                                CommandDescriptor.of(
+                                        NAV_ORDERS,
+                                        "Orders",
+                                        List.of(OrderManagementPermissions.ORDER_VIEW.value()))))
+                        .views(List.of(ViewDescriptor.of(VIEW_ORDERS, "Orders", NAV_ORDERS)))
+                        .navigationContributions(List.of(
+                                NavigationContribution.of(NAV_ORDERS, "Заказы", VIEW_ORDERS, 40)))
                         .build();
     }
 
@@ -42,21 +57,21 @@ public final class OrderManagementCapability implements Capability {
 
     @Override
     public void onInitialize() {
-        // no-op: permission contributions only
+        // no-op: contributions only
     }
 
     @Override
     public void onActivate() {
-        // no-op: permission contributions only
+        // no-op: contributions only
     }
 
     @Override
     public void onDeactivate() {
-        // no-op: permission contributions only
+        // no-op: contributions only
     }
 
     @Override
     public void onStop() {
-        // no-op: permission contributions only
+        // no-op: contributions only
     }
 }

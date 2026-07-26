@@ -11,12 +11,17 @@ public final class UiShellScreens {
     public static final String USER_ADMIN_FXML = "com/tmp/ui/shell/screen/useradmin/UserAdministrationScreen.fxml";
     public static final String ROLE_ADMIN_FXML = "com/tmp/ui/shell/screen/roleadmin/RoleAdministrationScreen.fxml";
     public static final String AUDIT_FXML = "com/tmp/ui/shell/screen/audit/SecurityAuditScreen.fxml";
+    public static final String ORDER_LIST_FXML = "com/tmp/ui/shell/screen/orderlist/OrderListScreen.fxml";
 
     public static final String MAIN_SCREEN_ID = "main";
     public static final String ACCESS_DENIED_SCREEN_ID = "access-denied";
     public static final String USER_ADMIN_SCREEN_ID = "security.view.users";
     public static final String ROLE_ADMIN_SCREEN_ID = "security.view.roles";
     public static final String AUDIT_SCREEN_ID = "security.view.audit";
+    /** Must match Order Management Capability {@code viewId} ({@code order.view.orders}). */
+    public static final String ORDER_LIST_SCREEN_ID = "order.view.orders";
+    public static final String ORDER_LIST_NAVIGATION_ID = "order.nav.orders";
+    public static final String ORDER_LIST_REQUIRED_PERMISSION = "order.order.view";
 
     private UiShellScreens() {
     }

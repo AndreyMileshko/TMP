@@ -1,6 +1,7 @@
 package com.tmp.bootstrap;
 
 import com.tmp.capability.api.CapabilityEngine;
+import com.tmp.order.api.OrderQueryService;
 import com.tmp.security.api.AuditQueryService;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
@@ -17,6 +18,7 @@ import com.tmp.ui.shell.screen.accessdenied.AccessDeniedViewModel;
 import com.tmp.ui.shell.screen.audit.SecurityAuditViewModel;
 import com.tmp.ui.shell.screen.login.LoginViewModel;
 import com.tmp.ui.shell.screen.main.MainWindowViewModel;
+import com.tmp.ui.shell.screen.orderlist.OrderListViewModel;
 import com.tmp.ui.shell.screen.roleadmin.RoleAdministrationViewModel;
 import com.tmp.ui.shell.screen.useradmin.UserAdministrationViewModel;
 import jakarta.annotation.PostConstruct;
@@ -101,6 +103,11 @@ public class UiShellAutoConfiguration {
     }
 
     @Bean
+    OrderListViewModel orderListViewModel(OrderQueryService orderQueryService) {
+        return new OrderListViewModel(orderQueryService);
+    }
+
+    @Bean
     UiShellScreenRegistrar uiShellScreenRegistrar(
             NavigationService navigationService,
             LoginViewModel loginViewModel,
@@ -108,7 +115,8 @@ public class UiShellAutoConfiguration {
             AccessDeniedViewModel accessDeniedViewModel,
             UserAdministrationViewModel userAdministrationViewModel,
             RoleAdministrationViewModel roleAdministrationViewModel,
-            SecurityAuditViewModel securityAuditViewModel) {
+            SecurityAuditViewModel securityAuditViewModel,
+            OrderListViewModel orderListViewModel) {
         return new UiShellScreenRegistrar(
                 navigationService,
                 loginViewModel,
@@ -116,7 +124,8 @@ public class UiShellAutoConfiguration {
                 accessDeniedViewModel,
                 userAdministrationViewModel,
                 roleAdministrationViewModel,
-                securityAuditViewModel);
+                securityAuditViewModel,
+                orderListViewModel);
     }
 
     @Bean
@@ -134,6 +143,7 @@ public class UiShellAutoConfiguration {
         private final UserAdministrationViewModel userAdministrationViewModel;
         private final RoleAdministrationViewModel roleAdministrationViewModel;
         private final SecurityAuditViewModel securityAuditViewModel;
+        private final OrderListViewModel orderListViewModel;
 
         UiShellScreenRegistrar(
                 NavigationService navigationService,
@@ -142,7 +152,8 @@ public class UiShellAutoConfiguration {
                 AccessDeniedViewModel accessDeniedViewModel,
                 UserAdministrationViewModel userAdministrationViewModel,
                 RoleAdministrationViewModel roleAdministrationViewModel,
-                SecurityAuditViewModel securityAuditViewModel) {
+                SecurityAuditViewModel securityAuditViewModel,
+                OrderListViewModel orderListViewModel) {
             this.navigationService = navigationService;
             this.loginViewModel = loginViewModel;
             this.mainWindowViewModel = mainWindowViewModel;
@@ -150,6 +161,7 @@ public class UiShellAutoConfiguration {
             this.userAdministrationViewModel = userAdministrationViewModel;
             this.roleAdministrationViewModel = roleAdministrationViewModel;
             this.securityAuditViewModel = securityAuditViewModel;
+            this.orderListViewModel = orderListViewModel;
         }
 
         @PostConstruct
@@ -172,6 +184,10 @@ public class UiShellAutoConfiguration {
                     () -> roleAdministrationViewModel));
             navigationService.register(new ScreenRegistration(
                     UiShellScreens.AUDIT_SCREEN_ID, UiShellScreens.AUDIT_FXML, () -> securityAuditViewModel));
+            navigationService.register(new ScreenRegistration(
+                    UiShellScreens.ORDER_LIST_SCREEN_ID,
+                    UiShellScreens.ORDER_LIST_FXML,
+                    () -> orderListViewModel));
         }
     }
 }

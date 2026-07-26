@@ -1,0 +1,333 @@
+package com.tmp.ui.shell.screen.orderlist;
+
+import com.tmp.order.api.OrderQueryService;
+import com.tmp.order.api.OrderSearchCriteria;
+import com.tmp.order.api.OrderSort;
+import com.tmp.order.api.OrderStatus;
+import com.tmp.order.api.OrderSummaryDto;
+import com.tmp.order.api.PageRequest;
+import com.tmp.order.api.PageResult;
+import com.tmp.security.api.AccessDeniedException;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
+import java.util.Objects;
+import java.util.Optional;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.LongProperty;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleLongProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+
+/**
+ * Read-only Order list ViewModel. Loads data only through {@link OrderQueryService#searchOrders}.
+ */
+@SuppressFBWarnings(
+        value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
+        justification = "JavaFX ViewModel intentionally exposes observable properties")
+public final class OrderListViewModel {
+
+    private final OrderQueryService orderQueryService;
+    private final ObservableList<OrderSummaryDto> orders = FXCollections.observableArrayList();
+    private final StringProperty title = new SimpleStringProperty("Заказы");
+    private final StringProperty statusMessage = new SimpleStringProperty("");
+    private final StringProperty errorMessage = new SimpleStringProperty("");
+    private final BooleanProperty loading = new SimpleBooleanProperty(false);
+    private final BooleanProperty emptyResult = new SimpleBooleanProperty(false);
+    private final IntegerProperty pageIndex = new SimpleIntegerProperty(0);
+    private final IntegerProperty pageSize = new SimpleIntegerProperty(PageRequest.DEFAULT_PAGE_SIZE);
+    private final LongProperty totalElements = new SimpleLongProperty(0);
+    private final StringProperty orderNumberFilter = new SimpleStringProperty("");
+    private final StringProperty orderStatusFilter = new SimpleStringProperty("");
+    private final StringProperty customerRefFilter = new SimpleStringProperty("");
+    private final StringProperty customerNameFilter = new SimpleStringProperty("");
+    private final StringProperty createdFromFilter = new SimpleStringProperty("");
+    private final StringProperty createdToFilter = new SimpleStringProperty("");
+    private final StringProperty sortField = new SimpleStringProperty(OrderSort.Field.CREATED_AT.apiName());
+    private final StringProperty sortDirection = new SimpleStringProperty(OrderSort.Direction.DESC.name());
+
+    public OrderListViewModel(OrderQueryService orderQueryService) {
+        this.orderQueryService = Objects.requireNonNull(orderQueryService, "orderQueryService");
+        refresh();
+    }
+
+    public ObservableList<OrderSummaryDto> orders() {
+        return orders;
+    }
+
+    public StringProperty titleProperty() {
+        return title;
+    }
+
+    public StringProperty statusMessageProperty() {
+        return statusMessage;
+    }
+
+    public StringProperty errorMessageProperty() {
+        return errorMessage;
+    }
+
+    public BooleanProperty loadingProperty() {
+        return loading;
+    }
+
+    public BooleanProperty emptyResultProperty() {
+        return emptyResult;
+    }
+
+    public IntegerProperty pageIndexProperty() {
+        return pageIndex;
+    }
+
+    public IntegerProperty pageSizeProperty() {
+        return pageSize;
+    }
+
+    public LongProperty totalElementsProperty() {
+        return totalElements;
+    }
+
+    public StringProperty orderNumberFilterProperty() {
+        return orderNumberFilter;
+    }
+
+    public StringProperty orderStatusFilterProperty() {
+        return orderStatusFilter;
+    }
+
+    public StringProperty customerRefFilterProperty() {
+        return customerRefFilter;
+    }
+
+    public StringProperty customerNameFilterProperty() {
+        return customerNameFilter;
+    }
+
+    public StringProperty createdFromFilterProperty() {
+        return createdFromFilter;
+    }
+
+    public StringProperty createdToFilterProperty() {
+        return createdToFilter;
+    }
+
+    public StringProperty sortFieldProperty() {
+        return sortField;
+    }
+
+    public StringProperty sortDirectionProperty() {
+        return sortDirection;
+    }
+
+    public void refresh() {
+        loading.set(true);
+        errorMessage.set("");
+        statusMessage.set("");
+        try {
+            Optional<OrderSearchCriteria> criteria = tryBuildCriteria();
+            if (criteria.isEmpty()) {
+                orders.clear();
+                totalElements.set(0);
+                emptyResult.set(false);
+                return;
+            }
+            OrderSort sort = resolveSort();
+            int size = clampPageSize(pageSize.get());
+            pageSize.set(size);
+            PageRequest request = PageRequest.of(pageIndex.get(), size, sort);
+            PageResult<OrderSummaryDto> page = orderQueryService.searchOrders(criteria.get(), request);
+            orders.setAll(page.content());
+            totalElements.set(page.totalElements());
+            pageIndex.set(page.pageIndex());
+            emptyResult.set(page.content().isEmpty());
+            if (page.content().isEmpty()) {
+                statusMessage.set("Заказы не найдены");
+            }
+        } catch (AccessDeniedException ex) {
+            orders.clear();
+            totalElements.set(0);
+            emptyResult.set(false);
+            errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
+        } catch (RuntimeException ex) {
+            orders.clear();
+            totalElements.set(0);
+            emptyResult.set(false);
+            errorMessage.set(ex.getMessage() == null ? "Ошибка загрузки заказов" : ex.getMessage());
+        } finally {
+            loading.set(false);
+        }
+    }
+
+    public void applyFilters() {
+        pageIndex.set(0);
+        refresh();
+    }
+
+    public void clearFilters() {
+        orderNumberFilter.set("");
+        orderStatusFilter.set("");
+        customerRefFilter.set("");
+        customerNameFilter.set("");
+        createdFromFilter.set("");
+        createdToFilter.set("");
+        sortField.set(OrderSort.Field.CREATED_AT.apiName());
+        sortDirection.set(OrderSort.Direction.DESC.name());
+        pageIndex.set(0);
+        refresh();
+    }
+
+    public void nextPage() {
+        long total = totalElements.get();
+        int size = clampPageSize(pageSize.get());
+        int maxPage = total <= 0 ? 0 : (int) ((total - 1) / size);
+        if (pageIndex.get() < maxPage) {
+            pageIndex.set(pageIndex.get() + 1);
+            refresh();
+        }
+    }
+
+    public void previousPage() {
+        if (pageIndex.get() > 0) {
+            pageIndex.set(pageIndex.get() - 1);
+            refresh();
+        }
+    }
+
+    OrderSearchCriteria toSearchCriteriaForTest() {
+        return tryBuildCriteria()
+                .orElseThrow(() -> new IllegalStateException(errorMessage.get()));
+    }
+
+    private Optional<OrderSearchCriteria> tryBuildCriteria() {
+        ParsedInstant from = parseInstant(createdFromFilter.get(), "createdFrom");
+        if (from.invalid()) {
+            errorMessage.set(from.errorMessage());
+            return Optional.empty();
+        }
+        ParsedInstant to = parseInstant(createdToFilter.get(), "createdTo");
+        if (to.invalid()) {
+            errorMessage.set(to.errorMessage());
+            return Optional.empty();
+        }
+        if (from.value() != null && to.value() != null && from.value().isAfter(to.value())) {
+            errorMessage.set("Некорректный диапазон дат: createdFrom позже createdTo");
+            return Optional.empty();
+        }
+        ParsedStatus status = parseStatus(orderStatusFilter.get());
+        if (status.invalid()) {
+            errorMessage.set(status.errorMessage());
+            return Optional.empty();
+        }
+        return Optional.of(OrderSearchCriteria.builder()
+                .orderNumber(blankToNull(orderNumberFilter.get()))
+                .orderStatus(status.value())
+                .customerRef(blankToNull(customerRefFilter.get()))
+                .customerName(blankToNull(customerNameFilter.get()))
+                .createdFrom(from.value())
+                .createdTo(to.value())
+                .build());
+    }
+
+    private OrderSort resolveSort() {
+        String field = blankToNull(sortField.get());
+        String direction = blankToNull(sortDirection.get());
+        if (field == null) {
+            field = OrderSort.Field.CREATED_AT.apiName();
+        }
+        if (direction == null) {
+            direction = OrderSort.Direction.DESC.name();
+        }
+        OrderSort primary = OrderSort.of(field, direction);
+        OrderSort.Order first = primary.orders().get(0);
+        if (first.field() == OrderSort.Field.CREATED_AT && first.direction() == OrderSort.Direction.DESC) {
+            return OrderSort.defaultSort();
+        }
+        if (first.field() != OrderSort.Field.ORDER_ID) {
+            return OrderSort.of(first, new OrderSort.Order(OrderSort.Field.ORDER_ID, OrderSort.Direction.DESC));
+        }
+        return primary;
+    }
+
+    private static ParsedInstant parseInstant(String raw, String fieldName) {
+        String value = blankToNull(raw);
+        if (value == null) {
+            return ParsedInstant.absent();
+        }
+        try {
+            return ParsedInstant.of(Instant.parse(value));
+        } catch (DateTimeParseException ignored) {
+            // try LocalDate
+        }
+        try {
+            return ParsedInstant.of(LocalDate.parse(value).atStartOfDay().toInstant(ZoneOffset.UTC));
+        } catch (DateTimeParseException ex) {
+            return ParsedInstant.invalid("Некорректная дата " + fieldName + ": " + value);
+        }
+    }
+
+    private static ParsedStatus parseStatus(String raw) {
+        String value = blankToNull(raw);
+        if (value == null) {
+            return ParsedStatus.absent();
+        }
+        try {
+            return ParsedStatus.of(OrderStatus.valueOf(value.toUpperCase(java.util.Locale.ROOT)));
+        } catch (IllegalArgumentException ex) {
+            return ParsedStatus.invalid("Неизвестный статус заказа: " + value);
+        }
+    }
+
+    private static int clampPageSize(int requested) {
+        if (requested < 1) {
+            return PageRequest.DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(requested, PageRequest.MAX_PAGE_SIZE);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private record ParsedInstant(Instant value, String errorMessage) {
+        static ParsedInstant absent() {
+            return new ParsedInstant(null, null);
+        }
+
+        static ParsedInstant of(Instant value) {
+            return new ParsedInstant(value, null);
+        }
+
+        static ParsedInstant invalid(String message) {
+            return new ParsedInstant(null, message);
+        }
+
+        boolean invalid() {
+            return errorMessage != null;
+        }
+    }
+
+    private record ParsedStatus(OrderStatus value, String errorMessage) {
+        static ParsedStatus absent() {
+            return new ParsedStatus(null, null);
+        }
+
+        static ParsedStatus of(OrderStatus value) {
+            return new ParsedStatus(value, null);
+        }
+
+        static ParsedStatus invalid(String message) {
+            return new ParsedStatus(null, message);
+        }
+
+        boolean invalid() {
+            return errorMessage != null;
+        }
+    }
+}

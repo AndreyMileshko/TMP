@@ -2771,3 +2771,40 @@ Created `V8__order_management_aggregates.sql`: `orders`, `order_items`, `order_i
 
 - `STAGE5-035A..035B` = DONE; `STAGE5-036` = PLANNED.
 - Git not executed.
+
+### Follow-up before STAGE5-039 (item list sorting)
+
+`getOrderItems` currently reuses order-listing `OrderSort` (fields `createdAt` / `orderId` / `orderNumber` / `status`) via `PageRequest`. Before STAGE5-039, replace that order-specific sort for item listings with a dedicated item-sort contract or a fixed item order. Do not change item-list sorting as part of Stage 5.9B UI (`STAGE5-036`/`STAGE5-037`).
+
+### Stage 5.9B preflight
+
+- Removed tracked generated file `target/checkstyle-cachefile` from the working tree (`.gitignore` unchanged; `target/` already ignored).
+- Added positive runtime permission IT: grant `order.order.view` via public `RoleAdministrationService`, then `OrderQueryService.searchOrders` succeeds without `AccessDeniedException` (no production auto-assignment).
+
+## STAGE5-036 Ч Order Management navigation
+
+**Date:** 2026-07-27  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+`OrderManagementCapability` contributes `order.nav.orders` > `order.view.orders` (display `«аказы`), gated by `order.order.view` via matching `CommandDescriptor`. UI Shell registers screen id `order.view.orders` with placeholder FXML/Controller/ViewModel; bootstrap wires registration. Navigation hidden without permission; opens list screen id. No duplicate navigation ids. UI imports only public Security/UI contracts (screen constants; no order internals).
+
+### Notes
+
+- Item-list `OrderSort` follow-up remains recorded for STAGE5-039 (unchanged in this task).
+
+## STAGE5-037 Ч Order list screen
+
+**Date:** 2026-07-27  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Read-only order list in `tmp-ui-shell`: FXML/Controller/ViewModel call only `OrderQueryService.searchOrders`. Filters (orderNumber, orderStatus, customerRef, customerName, createdFrom, createdTo) with apply/clear; invalid date range not sent. Pagination zero-based, default size 50, max 100, prev/next with boundary lock, reset to page 0 on filter. Default sort `createdAt DESC, orderId DESC` via `OrderSort`/`PageRequest` (no SQL in UI). States: loading, empty, success, access denied, data error. Bootstrap wires `OrderListViewModel(OrderQueryService)`. No mutating actions; no editor/items screens.
+
+### Follow-up (unchanged)
+
+Before STAGE5-039, replace order-specific `OrderSort` reuse for item listings with a dedicated contract or fixed order.

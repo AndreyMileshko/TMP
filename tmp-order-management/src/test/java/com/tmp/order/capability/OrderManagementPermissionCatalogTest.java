@@ -77,11 +77,21 @@ class OrderManagementPermissionCatalogTest {
     }
 
     @Test
-    void capabilityDescriptorExposesCatalogWithoutNavigation() {
+    void capabilityDescriptorExposesCatalogAndOrderListNavigation() {
         OrderManagementCapability capability = new OrderManagementCapability();
         assertEquals(OrderManagementCapability.ID, capability.descriptor().id());
         assertEquals(13, capability.descriptor().permissions().size());
-        assertTrue(capability.descriptor().navigationContributions().isEmpty());
-        assertTrue(capability.descriptor().views().isEmpty());
+        assertEquals(1, capability.descriptor().navigationContributions().size());
+        assertEquals(1, capability.descriptor().views().size());
+        assertEquals(1, capability.descriptor().commands().size());
+        assertEquals(
+                OrderManagementCapability.NAV_ORDERS,
+                capability.descriptor().navigationContributions().get(0).navigationId());
+        assertEquals(
+                "Заказы",
+                capability.descriptor().navigationContributions().get(0).displayName());
+        assertEquals(
+                OrderManagementCapability.VIEW_ORDERS,
+                capability.descriptor().navigationContributions().get(0).viewId());
     }
 }

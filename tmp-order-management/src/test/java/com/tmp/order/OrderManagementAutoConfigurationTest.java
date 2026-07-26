@@ -1,5 +1,6 @@
 package com.tmp.order;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -7,12 +8,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderSearchCriteria;
+import com.tmp.order.api.OrderSummaryDto;
 import com.tmp.order.api.PageRequest;
+import com.tmp.order.api.PageResult;
 import com.tmp.order.application.query.OrderQueryReadPort;
 import com.tmp.order.capability.OrderManagementCapability;
+import com.tmp.order.capability.OrderManagementPermissions;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthenticationService;
+import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
+import com.tmp.security.api.RoleAdministrationService;
+import com.tmp.security.api.UserAdministrationService;
+import com.tmp.security.api.UserSummary;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -38,6 +47,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
         })
 class OrderManagementAutoConfigurationTest {
 
+    private static final char[] VIEWER_PASSWORD = "viewer-secret-value".toCharArray();
+
     @Container
     private static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>("postgres:16-alpine");
@@ -59,6 +70,17 @@ class OrderManagementAutoConfigurationTest {
     @Autowired
     private AuthenticationService authenticationService;
 
+    @Autowired
+    private UserAdministrationService userAdministrationService;
+
+    @Autowired
+    private RoleAdministrationService roleAdministrationService;
+
+    @BeforeEach
+    void clearSession() {
+        authenticationService.logout();
+    }
+
     @Test
     void queryApiBeansAreCreatedExactlyOnce() {
         assertEquals(1, applicationContext.getBeansOfType(OrderQueryService.class).size());
@@ -77,6 +99,26 @@ class OrderManagementAutoConfigurationTest {
                                 OrderSearchCriteria.empty(), PageRequest.firstPage()));
         assertThrows(
                 AccessDeniedException.class, () -> orderQueryService.getOrder(OrderId.generate()));
+    }
+
+    @Test
+    void searchOrdersSucceedsAfterOrderViewPermissionGrantedViaPublicSecurityApi() {
+        authenticationService.login(Login.of("admin"), "bootstrap-secret-value".toCharArray());
+        UserSummary viewer = userAdministrationService.createUser(
+                Login.of("orderviewer"), DisplayName.of("Order Viewer"), VIEWER_PASSWORD.clone());
+        roleAdministrationService.grantIndividualPermission(
+                viewer.id(), OrderManagementPermissions.ORDER_VIEW);
+        authenticationService.logout();
+
+        authenticationService.login(Login.of("orderviewer"), VIEWER_PASSWORD.clone());
+        OrderQueryService fromContext = applicationContext.getBean(OrderQueryService.class);
+        PageResult<OrderSummaryDto> page =
+                assertDoesNotThrow(
+                        () ->
+                                fromContext.searchOrders(
+                                        OrderSearchCriteria.empty(), PageRequest.firstPage()));
+        assertNotNull(page);
+        assertEquals(0, page.pageIndex());
     }
 
     @SpringBootApplication

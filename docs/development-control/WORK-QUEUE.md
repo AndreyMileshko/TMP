@@ -8284,7 +8284,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-036 — UI navigation contribution
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-035B
 
@@ -8303,7 +8303,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-037 — UI: Order list (paginated Query API)
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-036
 

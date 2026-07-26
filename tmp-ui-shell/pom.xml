@@ -30,6 +30,10 @@
             <artifactId>tmp-security</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.tmp</groupId>
+            <artifactId>tmp-order-management</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.github.spotbugs</groupId>
             <artifactId>spotbugs-annotations</artifactId>
             <version>4.8.6</version>

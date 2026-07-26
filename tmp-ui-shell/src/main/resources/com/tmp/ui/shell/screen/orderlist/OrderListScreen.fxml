@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.tmp.ui.shell.screen.orderlist.OrderListController"
+      spacing="12">
+    <padding>
+        <Insets top="16" right="16" bottom="16" left="16"/>
+    </padding>
+    <Label fx:id="titleLabel" styleClass="order-list-title"/>
+    <HBox spacing="8">
+        <TextField fx:id="orderNumberFilterField" promptText="Номер заказа" prefWidth="140"/>
+        <TextField fx:id="orderStatusFilterField" promptText="Статус" prefWidth="120"/>
+        <TextField fx:id="customerRefFilterField" promptText="Код заказчика" prefWidth="140"/>
+        <TextField fx:id="customerNameFilterField" promptText="Заказчик" prefWidth="160"/>
+        <TextField fx:id="createdFromFilterField" promptText="Создан с" prefWidth="130"/>
+        <TextField fx:id="createdToFilterField" promptText="Создан по" prefWidth="130"/>
+        <Button fx:id="applyFilterButton" text="Применить"/>
+        <Button fx:id="clearFilterButton" text="Очистить"/>
+    </HBox>
+    <Label fx:id="loadingLabel" text="Загрузка..." styleClass="order-list-loading"
+           visible="false" managed="false"/>
+    <Label fx:id="emptyLabel" text="Заказы не найдены" styleClass="order-list-empty"
+           visible="false" managed="false"/>
+    <TableView fx:id="ordersTable" prefHeight="360">
+        <columns>
+            <TableColumn fx:id="orderNumberColumn" text="Номер заказа" prefWidth="140"/>
+            <TableColumn fx:id="customerNameColumn" text="Заказчик" prefWidth="180"/>
+            <TableColumn fx:id="statusColumn" text="Статус" prefWidth="100"/>
+            <TableColumn fx:id="createdAtColumn" text="Дата создания" prefWidth="180"/>
+            <TableColumn fx:id="customerRefColumn" text="Код заказчика" prefWidth="140"/>
+        </columns>
+    </TableView>
+    <HBox spacing="8" alignment="CENTER_LEFT">
+        <Button fx:id="previousPageButton" text="Назад"/>
+        <Label fx:id="pageLabel"/>
+        <Button fx:id="nextPageButton" text="Вперёд"/>
+    </HBox>
+    <Label fx:id="statusLabel" styleClass="order-list-status" wrapText="true"/>
+    <Label fx:id="errorLabel" styleClass="order-list-error" visible="false" managed="false" wrapText="true"/>
+</VBox>
