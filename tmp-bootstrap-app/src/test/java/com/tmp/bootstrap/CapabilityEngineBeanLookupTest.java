@@ -9,6 +9,7 @@ import com.tmp.capability.api.CapabilityEngine;
 import com.tmp.capability.api.CapabilityLifecycleState;
 import com.tmp.capability.sample.SampleDependentTechnicalCapability;
 import com.tmp.capability.sample.SampleTechnicalCapability;
+import com.tmp.order.capability.OrderManagementCapability;
 import com.tmp.security.capability.SecurityAdministrationCapability;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,12 +46,14 @@ class CapabilityEngineBeanLookupTest extends AbstractBootstrapPostgresSpringTest
     void formatCapabilityStatusIncludesCountsAndSampleCapabilityStates() {
         String statusText = DesktopBootstrap.formatCapabilityStatus(capabilityEngine);
 
-        assertTrue(statusText.contains("discovered=3"));
-        assertTrue(statusText.contains("active=3"));
+        assertTrue(statusText.contains("discovered=4"));
+        assertTrue(statusText.contains("active=4"));
         assertTrue(statusText.contains(SampleTechnicalCapability.ID.value() + " state=" + CapabilityLifecycleState.ACTIVE));
         assertTrue(statusText.contains(
                 SampleDependentTechnicalCapability.ID.value() + " state=" + CapabilityLifecycleState.ACTIVE));
         assertTrue(statusText.contains(
                 SecurityAdministrationCapability.ID.value() + " state=" + CapabilityLifecycleState.ACTIVE));
+        assertTrue(statusText.contains(
+                OrderManagementCapability.ID.value() + " state=" + CapabilityLifecycleState.ACTIVE));
     }
 }

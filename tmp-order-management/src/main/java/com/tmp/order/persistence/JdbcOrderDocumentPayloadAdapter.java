@@ -330,6 +330,9 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
                         "SELECT order_id FROM order_management.order_status_payload WHERE document_id = ?",
                         UUID.class,
                         documentId);
+        if (orderId == null) {
+            throw new IllegalStateException("Missing order_id for status payload " + documentId);
+        }
         return OrderApprovePayload.rehydrate(identity, OrderId.of(orderId));
     }
 
@@ -339,6 +342,9 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
                         "SELECT order_id FROM order_management.order_status_payload WHERE document_id = ?",
                         UUID.class,
                         documentId);
+        if (orderId == null) {
+            throw new IllegalStateException("Missing order_id for status payload " + documentId);
+        }
         return OrderCancelPayload.rehydrate(identity, OrderId.of(orderId));
     }
 
@@ -421,6 +427,9 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
                         "SELECT order_item_id FROM order_management.order_item_status_payload WHERE document_id = ?",
                         UUID.class,
                         documentId);
+        if (itemId == null) {
+            throw new IllegalStateException("Missing order_item_id for status payload " + documentId);
+        }
         return OrderItemCancelPayload.rehydrate(identity, OrderItemId.of(itemId));
     }
 
@@ -504,6 +513,10 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
                                         OrderedQuantity.of(rs.getBigDecimal("ordered_quantity")),
                                         List.of()),
                         documentId);
+        if (withoutLines == null) {
+            throw new IllegalStateException(
+                    "Missing order_item_revision_update_payload for " + documentId);
+        }
         List<OrderItemRevisionPayloadLine> lines =
                 jdbc.query(
                         """

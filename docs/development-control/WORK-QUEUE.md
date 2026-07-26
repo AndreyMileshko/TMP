@@ -8244,11 +8244,49 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ---
 
+## STAGE5-035A — Query API implementation
+
+**Status:** DONE
+**Stage:** 5
+**Depends on:** STAGE5-035
+
+- **Goal:** Реализовать `DefaultOrderQueryService` и read-only JDBC adapter Public Query API (Specification §15.1).
+- **Scope:** Query service, read port, JDBC read adapter, PostgreSQL IT.
+- **Out of scope:** Security wiring (STAGE5-035B), UI (STAGE5-036+), mutating API.
+- **Required documents:** Spec §15.1; Database Spec.
+- **Required code context:** `com.tmp.order.api`; aggregate JDBC schema; tests.
+- **Files allowed to change:** `tmp-order-management/.../application/query`, `tmp-order-management/.../persistence` (read adapter), tests.
+- **Acceptance criteria:** все методы `OrderQueryService` реализованы; Draft Revision скрыта; только DTO; нет mutating SQL.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am test`; `mvn -q -pl tmp-order-management -am verify`
+- **Documentation updates:** WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** невозможно проецировать DTO без нарушения инвариантов.
+
+---
+
+## STAGE5-035B — Query API runtime wiring and security
+
+**Status:** DONE
+**Stage:** 5
+**Depends on:** STAGE5-035A
+
+- **Goal:** Зарегистрировать Query API beans и проверить permissions через публичный Security API.
+- **Scope:** AutoConfiguration / bean wiring; `order.order.view` / `order.item.view` / `order.specification.view`.
+- **Out of scope:** UI; назначение permissions пользователям/ролям; изменение Security internals.
+- **Required documents:** Spec §15.1/§18; Security public API.
+- **Required code context:** `com.tmp.security.api`; existing AutoConfiguration examples.
+- **Files allowed to change:** `tmp-order-management` (wiring + permission checks); bootstrap dependency if required; tests.
+- **Acceptance criteria:** beans создаются; denied без permission; нет internal Security imports; нет циклов.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am verify`; `mvn -q -pl tmp-security -am test`; `mvn -q -pl tmp-bootstrap-app -am test`; `mvn -q -pl tmp-architecture-tests -am test`
+- **Documentation updates:** WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Stop conditions:** публичный Security API не позволяет проверить permission.
+
+---
+
 ## STAGE5-036 — UI navigation contribution
 
 **Status:** PLANNED
 **Stage:** 5
-**Depends on:** STAGE5-035
+**Depends on:** STAGE5-035B
 
 - **Goal:** Добавить навигацию Order Management в `tmp-ui-shell` (пункт меню/раздел), управляемую capability.
 - **Scope:** только навигация; без экранов данных.

@@ -36,6 +36,10 @@
             <artifactId>tmp-capability-engine</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.tmp</groupId>
+            <artifactId>tmp-order-management</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
         </dependency>

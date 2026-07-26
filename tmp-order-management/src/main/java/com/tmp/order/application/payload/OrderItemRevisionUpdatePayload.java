@@ -132,7 +132,7 @@ public final class OrderItemRevisionUpdatePayload implements OrderDocumentPayloa
      * Immutable view of specification lines. The returned list rejects structural modification.
      */
     public List<OrderItemRevisionPayloadLine> lines() {
-        return lines;
+        return Collections.unmodifiableList(lines);
     }
 
     /**

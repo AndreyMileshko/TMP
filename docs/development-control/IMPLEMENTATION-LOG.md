@@ -2746,3 +2746,28 @@ Created `V8__order_management_aggregates.sql`: `orders`, `order_items`, `order_i
 
 - `STAGE5-033..035` = DONE; `STAGE5-036` remains `PLANNED`.
 - No Public Query API service; no UI; Git not executed.
+
+## STAGE5-035A — Query API implementation
+
+**Date:** 2026-07-26  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+`DefaultOrderQueryService` + `OrderQueryReadPort` + `JdbcOrderQueryReadAdapter`. All eight Public Query API methods; parameterized search filters; whitelist sort; Draft Revision/Specification hidden; APPROVED-only revision exposure; active revision via `active_revision_number`; DTO projections only; read-only SQL.
+
+## STAGE5-035B — Query API runtime wiring and security
+
+**Date:** 2026-07-26  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+`OrderManagementAutoConfiguration` registers read port, `OrderQueryService`, `OrderManagementCapability`. Permission checks via public `AuthorizationService`: `order.order.view`, `order.item.view`, `order.specification.view`. Bootstrap depends on `tmp-order-management`. No user/role auto-assignment; no UI; `STAGE5-036` remains PLANNED.
+
+### Query API prerequisite gate
+
+- `STAGE5-035A..035B` = DONE; `STAGE5-036` = PLANNED.
+- Git not executed.

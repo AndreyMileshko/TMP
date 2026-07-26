@@ -1,0 +1,353 @@
+package com.tmp.order.persistence;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.tmp.order.api.ItemSpecificationDto;
+import com.tmp.order.api.OrderId;
+import com.tmp.order.api.OrderItemDto;
+import com.tmp.order.api.OrderItemId;
+import com.tmp.order.api.OrderItemRevisionDto;
+import com.tmp.order.api.OrderItemStatus;
+import com.tmp.order.api.OrderSearchCriteria;
+import com.tmp.order.api.OrderSort;
+import com.tmp.order.api.OrderStatus;
+import com.tmp.order.api.OrderSummaryDto;
+import com.tmp.order.api.PageRequest;
+import com.tmp.order.api.PageResult;
+import com.tmp.order.api.RevisionNumber;
+import com.tmp.order.api.RevisionStatus;
+import com.tmp.order.application.query.DefaultOrderQueryService;
+import com.tmp.order.application.query.OrderQueryReadPort;
+import com.tmp.order.domain.CurrencyCode;
+import com.tmp.order.domain.CustomerOrder;
+import com.tmp.order.domain.ItemCommercialData;
+import com.tmp.order.domain.ItemSpecification;
+import com.tmp.order.domain.OrderCommercialData;
+import com.tmp.order.domain.OrderDirection;
+import com.tmp.order.domain.OrderItem;
+import com.tmp.order.domain.OrderItemRevision;
+import com.tmp.order.domain.OrderNumber;
+import com.tmp.order.domain.OrderedQuantity;
+import com.tmp.order.domain.ProductCode;
+import com.tmp.order.domain.SpecificationLine;
+import com.tmp.security.api.AuthorizationService;
+import com.tmp.security.api.PermissionId;
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+@Testcontainers
+class JdbcOrderQueryReadAdapterIT {
+
+    private static final Instant T1 = Instant.parse("2026-07-20T10:00:00Z");
+    private static final Instant T2 = Instant.parse("2026-07-21T10:00:00Z");
+    private static final Instant T3 = Instant.parse("2026-07-22T10:00:00Z");
+
+    @Container
+    private static final PostgreSQLContainer<?> POSTGRES =
+            new PostgreSQLContainer<>("postgres:16-alpine");
+
+    private static JdbcTemplate jdbc;
+    private JdbcCustomerOrderRepository orderRepository;
+    private JdbcOrderItemRepository itemRepository;
+    private DefaultOrderQueryService queries;
+
+    @BeforeAll
+    static void migrate() {
+        Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration")
+                .load()
+                .migrate();
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setUrl(POSTGRES.getJdbcUrl());
+        dataSource.setUsername(POSTGRES.getUsername());
+        dataSource.setPassword(POSTGRES.getPassword());
+        dataSource.setDriverClassName("org.postgresql.Driver");
+        jdbc = new JdbcTemplate(dataSource);
+    }
+
+    @BeforeEach
+    void setUp() {
+        jdbc.update("DELETE FROM order_management.item_specification_lines");
+        jdbc.update("DELETE FROM order_management.item_specifications");
+        jdbc.update("DELETE FROM order_management.order_item_revisions");
+        jdbc.update("DELETE FROM order_management.order_items");
+        jdbc.update("DELETE FROM order_management.orders");
+        orderRepository = new JdbcCustomerOrderRepository(jdbc);
+        itemRepository = new JdbcOrderItemRepository(jdbc);
+        OrderQueryReadPort readPort = new JdbcOrderQueryReadAdapter(jdbc);
+        queries = new DefaultOrderQueryService(readPort, AllowingAuthorization.INSTANCE);
+    }
+
+    @Test
+    void searchWithoutFiltersReturnsAllOrdersWithDefaultSort() {
+        OrderId older = seedOrder("A-1", "CustA", "NameA", OrderStatus.DRAFT, T1);
+        OrderId newer = seedOrder("B-1", "CustB", "NameB", OrderStatus.APPROVED, T3);
+        seedOrder("C-1", "CustC", "NameC", OrderStatus.CANCELLED, T2);
+
+        PageResult<OrderSummaryDto> page =
+                queries.searchOrders(OrderSearchCriteria.empty(), PageRequest.firstPage());
+        assertEquals(3, page.totalElements());
+        assertEquals(3, page.content().size());
+        assertEquals(newer, page.content().get(0).orderId());
+        assertEquals(older, page.content().get(2).orderId());
+    }
+
+    @Test
+    void eachFilterWorksIndependently() {
+        seedOrder("FN-1", "REF-X", "Alpha", OrderStatus.DRAFT, T1);
+        seedOrder("FN-2", "REF-Y", "Beta", OrderStatus.APPROVED, T2);
+
+        assertEquals(
+                1,
+                queries.searchOrders(
+                                OrderSearchCriteria.builder().orderNumber("FN-1").build(),
+                                PageRequest.firstPage())
+                        .totalElements());
+        assertEquals(
+                1,
+                queries.searchOrders(
+                                OrderSearchCriteria.builder()
+                                        .orderStatus(OrderStatus.APPROVED)
+                                        .build(),
+                                PageRequest.firstPage())
+                        .totalElements());
+        assertEquals(
+                1,
+                queries.searchOrders(
+                                OrderSearchCriteria.builder().customerRef("REF-X").build(),
+                                PageRequest.firstPage())
+                        .totalElements());
+        assertEquals(
+                1,
+                queries.searchOrders(
+                                OrderSearchCriteria.builder().customerName("Beta").build(),
+                                PageRequest.firstPage())
+                        .totalElements());
+        assertEquals(
+                1,
+                queries.searchOrders(
+                                OrderSearchCriteria.builder().createdFrom(T2).build(),
+                                PageRequest.firstPage())
+                        .totalElements());
+        assertEquals(
+                1,
+                queries.searchOrders(
+                                OrderSearchCriteria.builder().createdTo(T1).build(),
+                                PageRequest.firstPage())
+                        .totalElements());
+    }
+
+    @Test
+    void combinedFiltersAndPaginationAndTotalElements() {
+        seedOrder("P-1", "R", "N", OrderStatus.DRAFT, T1);
+        seedOrder("P-2", "R", "N", OrderStatus.DRAFT, T2);
+        seedOrder("P-3", "R", "N", OrderStatus.DRAFT, T3);
+        seedOrder("P-4", "OTHER", "N", OrderStatus.DRAFT, T3);
+
+        OrderSearchCriteria criteria =
+                OrderSearchCriteria.builder().customerRef("R").orderStatus(OrderStatus.DRAFT).build();
+        PageResult<OrderSummaryDto> page0 =
+                queries.searchOrders(criteria, PageRequest.of(0, 2));
+        PageResult<OrderSummaryDto> page1 =
+                queries.searchOrders(criteria, PageRequest.of(1, 2));
+        assertEquals(3, page0.totalElements());
+        assertEquals(2, page0.content().size());
+        assertEquals(3, page1.totalElements());
+        assertEquals(1, page1.content().size());
+        assertEquals("P-3", page0.content().get(0).orderNumber());
+    }
+
+    @Test
+    void stableCustomSortByOrderNumberAsc() {
+        seedOrder("Z-9", "R", "N", OrderStatus.DRAFT, T2);
+        seedOrder("A-1", "R", "N", OrderStatus.DRAFT, T1);
+        PageResult<OrderSummaryDto> page =
+                queries.searchOrders(
+                        OrderSearchCriteria.empty(),
+                        PageRequest.of(
+                                0,
+                                10,
+                                OrderSort.of(
+                                        new OrderSort.Order(
+                                                OrderSort.Field.ORDER_NUMBER, OrderSort.Direction.ASC),
+                                        new OrderSort.Order(
+                                                OrderSort.Field.ORDER_ID, OrderSort.Direction.ASC))));
+        assertEquals("A-1", page.content().get(0).orderNumber());
+        assertEquals("Z-9", page.content().get(1).orderNumber());
+    }
+
+    @Test
+    void emptySearchReturnsEmptyPage() {
+        PageResult<OrderSummaryDto> page =
+                queries.searchOrders(OrderSearchCriteria.empty(), PageRequest.firstPage());
+        assertEquals(0, page.totalElements());
+        assertTrue(page.content().isEmpty());
+        assertTrue(queries.getOrder(OrderId.generate()).isEmpty());
+    }
+
+    @Test
+    void getOrderAndItemsAndHideDraftRevision() {
+        OrderId orderId = seedOrder("ORD-Q", "C", "Customer", OrderStatus.APPROVED, T1);
+        OrderItemId itemId = seedItemWithDraftAndApproved(orderId);
+
+        assertEquals("ORD-Q", queries.getOrder(orderId).orElseThrow().orderNumber());
+        PageResult<OrderItemDto> items = queries.getOrderItems(orderId, PageRequest.firstPage());
+        assertEquals(1, items.totalElements());
+        assertEquals(itemId, items.content().getFirst().orderItemId());
+        assertEquals(Optional.of(RevisionNumber.first()), items.content().getFirst().activeRevisionNumber());
+
+        PageResult<OrderItemRevisionDto> revisions =
+                queries.getOrderItemRevisions(itemId, PageRequest.firstPage());
+        assertEquals(1, revisions.totalElements());
+        assertEquals(RevisionStatus.APPROVED, revisions.content().getFirst().status());
+        assertEquals(RevisionNumber.first(), revisions.content().getFirst().revisionNumber());
+
+        assertTrue(
+                queries.getOrderItemRevision(itemId, RevisionNumber.of(2)).isEmpty(),
+                "Draft revision must not be exposed");
+        assertTrue(queries.getOrderItemRevision(itemId, RevisionNumber.first()).isPresent());
+
+        OrderItemRevisionDto active =
+                queries.getActiveOrderItemRevision(itemId).orElseThrow();
+        assertEquals(RevisionNumber.first(), active.revisionNumber());
+        assertEquals(RevisionStatus.APPROVED, active.status());
+    }
+
+    @Test
+    void draftSpecificationHiddenAndApprovedLinesKeepOrder() {
+        OrderId orderId = seedOrder("ORD-SPEC", "C", "Customer", OrderStatus.APPROVED, T1);
+        OrderItemId itemId = seedItemWithDraftAndApproved(orderId);
+
+        assertTrue(
+                queries.getItemSpecification(itemId, RevisionNumber.of(2)).isEmpty(),
+                "Draft specification must not be exposed");
+
+        ItemSpecificationDto spec =
+                queries.getItemSpecification(itemId, RevisionNumber.first()).orElseThrow();
+        assertEquals(2, spec.lines().size());
+        assertEquals("M1", spec.lines().get(0).materialCode());
+        assertEquals("M2", spec.lines().get(1).materialCode());
+    }
+
+    private OrderId seedOrder(
+            String number,
+            String customerRef,
+            String customerName,
+            OrderStatus status,
+            Instant createdAt) {
+        Clock clock = Clock.fixed(createdAt, ZoneOffset.UTC);
+        CustomerOrder created =
+                CustomerOrder.create(
+                        OrderId.generate(),
+                        OrderNumber.of(number),
+                        OrderCommercialData.of(
+                                customerRef,
+                                customerName,
+                                "CTR",
+                                "SITE",
+                                "Mgr",
+                                OrderDirection.PRIVATE,
+                                CurrencyCode.of("USD")),
+                        clock);
+        CustomerOrder withStatus =
+                switch (status) {
+                    case DRAFT -> created;
+                    case APPROVED -> created.approve(clock);
+                    case CANCELLED -> created.cancel(clock);
+                };
+        return orderRepository.save(withStatus).id();
+    }
+
+    private OrderItemId seedItemWithDraftAndApproved(OrderId orderId) {
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber rev1 = RevisionNumber.first();
+        RevisionNumber rev2 = RevisionNumber.of(2);
+        ItemSpecification approvedSpec =
+                ItemSpecification.rehydrate(
+                        itemId,
+                        rev1,
+                        List.of(
+                                SpecificationLine.of(
+                                        "M1", "Steel", new BigDecimal("1"), "kg", BigDecimal.ZERO),
+                                SpecificationLine.of(
+                                        "M2", "Paint", new BigDecimal("2"), "l", BigDecimal.ONE)),
+                        true);
+        ItemSpecification draftSpec =
+                ItemSpecification.rehydrate(
+                        itemId,
+                        rev2,
+                        List.of(
+                                SpecificationLine.of(
+                                        "M9", "Hidden", new BigDecimal("9"), "pcs", BigDecimal.ZERO)),
+                        false);
+        Map<RevisionNumber, OrderItemRevision> revisions = new LinkedHashMap<>();
+        revisions.put(
+                rev1,
+                OrderItemRevision.rehydrate(
+                        itemId,
+                        rev1,
+                        RevisionStatus.APPROVED,
+                        OrderedQuantity.of(5),
+                        null,
+                        approvedSpec));
+        revisions.put(
+                rev2,
+                OrderItemRevision.rehydrate(
+                        itemId,
+                        rev2,
+                        RevisionStatus.DRAFT,
+                        OrderedQuantity.of(7),
+                        rev1,
+                        draftSpec));
+        OrderItem item =
+                OrderItem.rehydrate(
+                        itemId,
+                        orderId,
+                        ItemCommercialData.of(ProductCode.of("P-1"), "Panel", "c"),
+                        OrderItemStatus.ACTIVE,
+                        rev1,
+                        rev2,
+                        revisions,
+                        0L,
+                        T1,
+                        T1);
+        return itemRepository.save(item).id();
+    }
+
+    private enum AllowingAuthorization implements AuthorizationService {
+        INSTANCE;
+
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return true;
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {
+            // allow all for Query API persistence integration tests
+        }
+
+        @Override
+        public Set<PermissionId> effectivePermissions() {
+            return Set.of();
+        }
+    }
+}

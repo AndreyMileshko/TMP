@@ -1333,3 +1333,31 @@ These tasks (password / role / permission-override / audit application services 
 | Capabilities | exactly 13, no duplicates | CONFIRMED |
 | STAGE5-036 | WORK-QUEUE | PLANNED (not started) |
 | Git | — | NOT EXECUTED |
+
+## 2026-07-26 — STAGE5-035A (Query API implementation)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management test | `mvn -q -pl tmp-order-management -am test` | PASSED |
+| Order Management verify | `mvn -q -pl tmp-order-management -am verify` | PASSED |
+| PostgreSQL Query IT | JdbcOrderQueryReadAdapterIT | PASSED |
+
+### Failures
+
+- None.
+
+## 2026-07-26 — STAGE5-035B (Query API runtime wiring and security)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management verify | `mvn -q -pl tmp-order-management -am verify` | PASSED |
+| Security | `mvn -q -pl tmp-security -am test` | PASSED |
+| Bootstrap | `mvn -q -pl tmp-bootstrap-app -am test` | PASSED |
+| Architecture | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| Permission deny | DefaultOrderQueryServiceSecurityTest / AutoConfigurationTest | PASSED |
+| STAGE5-036 | WORK-QUEUE | PLANNED (not started) |
+| Git | — | NOT EXECUTED |
+
+### Failures
+
+- None.
