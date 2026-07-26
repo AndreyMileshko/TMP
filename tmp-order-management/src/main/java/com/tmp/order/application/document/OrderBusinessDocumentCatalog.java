@@ -23,7 +23,8 @@ import java.util.stream.Collectors;
 /**
  * Immutable catalog of Order Management business document types (Specification §13.1 / §13.2).
  *
- * <p>Processors are not registered here — STAGE5-023+.
+ * <p>Processors are registered individually via {@code DocumentEngine.registerProcessor}
+ * (STAGE5-023+).
  */
 public final class OrderBusinessDocumentCatalog {
 

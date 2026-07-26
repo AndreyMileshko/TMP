@@ -8000,7 +8000,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-023 — Document processor: ORDER_CREATE
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-022
 
@@ -8019,7 +8019,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-024 — Document processor: ORDER_UPDATE
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-023
 
@@ -8038,7 +8038,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-025 — Document processor: ORDER_APPROVE
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-024
 
@@ -8057,7 +8057,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-026 — Document processor: ORDER_CANCEL (draft only)
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-025
 

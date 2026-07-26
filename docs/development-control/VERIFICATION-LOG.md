@@ -1186,3 +1186,58 @@ These tasks (password / role / permission-override / audit application services 
 | Concrete processors | none for ORDER_* | CONFIRMED |
 | STAGE5-023 | WORK-QUEUE | PLANNED (not started) |
 | Git | — | NOT EXECUTED |
+
+## 2026-07-26 — STAGE5-023 (ORDER_CREATE)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-26 — STAGE5-024 (ORDER_UPDATE)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-26 — STAGE5-025 (ORDER_APPROVE)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-26 — STAGE5-026 (ORDER_CANCEL)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-26 — Stage 5 execution module 5.6 gate (STAGE5-023..026)
+
+| Gate check | Command / Method | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED |
+| Document Engine | `mvn -q -pl tmp-document-engine -am test` | PASSED |
+| Architecture | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| Processors count | OrderCreate/Update/Approve/CancelDocumentProcessor | 4 (CONFIRMED) |
+| Extends AbstractOrderDocumentProcessor | all four | CONFIRMED |
+| Direct EventBus usage | grep src/main | NONE |
+| SQL/JDBC aggregate adapters | glob | NONE |
+| Item processors | glob | NONE |
+| STAGE5-027 | WORK-QUEUE | PLANNED (not started) |
+| Git | — | NOT EXECUTED |
