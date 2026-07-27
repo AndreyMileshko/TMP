@@ -21,6 +21,7 @@ import com.tmp.order.api.PageResult;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
+import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
 import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -164,8 +165,10 @@ class OrderListViewModelTest {
         OrderListViewModel viewModel = new OrderListViewModel(query, new FakeAuthorization());
         viewModel.refresh();
         assertTrue(viewModel.orders().isEmpty());
-        assertTrue(viewModel.errorMessageProperty().get().contains("denied")
-                || viewModel.errorMessageProperty().get().contains("Доступ"));
+        assertEquals(
+                OrderUiErrorMapper.ACCESS_DENIED, viewModel.errorMessageProperty().get());
+        assertEquals(
+                OrderUiErrorMapper.LIST_REFRESH_FAILED, viewModel.statusMessageProperty().get());
         assertFalse(viewModel.emptyResultProperty().get());
     }
 

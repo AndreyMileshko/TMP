@@ -8382,20 +8382,21 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-041 — UI: Error handling and user messages
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-040
 
 - **Goal:** Реализовать единообразную обработку ошибок домена/проведения (optimistic lock, запрещённые переходы, отклонённый unpost, отклонённый повторный post) и сообщения пользователю.
-- **Scope:** отображение ошибок use cases/документов в UI.
-- **Out of scope:** новые экраны данных.
+- **Scope:** OrderUiErrorMapper + wiring во все Order Management ViewModels; preflight dirty state для Specification Editor.
+- **Out of scope:** STAGE5-042; новые экраны; lifecycle/idempotency Document Engine; Public Query API.
 - **Required documents:** UI/UX Spec (Сообщения пользователю); Spec §14/§16.
-- **Required code context:** `tmp-ui-shell`; `com.tmp.order.api`.
-- **Files allowed to change:** `tmp-ui-shell` (обработчики/сообщения).
-- **Acceptance criteria:** ошибки отображаются понятно; UI не «проглатывает» отказ проведения.
-- **Verification commands:** `mvn -q -pl tmp-ui-shell -am test`
-- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Required code context:** `tmp-ui-shell`; `com.tmp.order.api`; `com.tmp.security.api.AccessDeniedException`.
+- **Files allowed to change:** `tmp-ui-shell` (mapper + ViewModels/FXML сообщений); control docs; architecture test rule.
+- **Acceptance criteria:** ошибки отображаются понятно; UI не «проглатывает» отказ проведения; post Spec при dirty заблокирован.
+- **Verification commands:** `mvn -q -pl tmp-ui-shell -am verify`; `mvn -q -pl tmp-order-management -am test`; `mvn -q -pl tmp-bootstrap-app -am test`; `mvn -q -pl tmp-architecture-tests -am test`
+- **Documentation updates:** WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** отказ проведения невозможно донести до пользователя.
+- **Completed (2026-07-27):** OrderUiErrorMapper; dirty/post gate for Specification Editor; unified messages on Order List/Editor/Item List/Item Editor/Spec Editor. STAGE5-042 left PLANNED (not READY).
 
 ---
 ## STAGE5-042 — Unit tests consolidation

@@ -12,6 +12,8 @@ import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
+import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
+import com.tmp.ui.shell.order.error.OrderUiOperation;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,12 +51,14 @@ public final class OrderItemSpecificationEditorViewModel {
     private final StringProperty orderedQuantity = new SimpleStringProperty("1");
     private final StringProperty errorMessage = new SimpleStringProperty("");
     private final StringProperty successMessage = new SimpleStringProperty("");
+    private final StringProperty warningMessage = new SimpleStringProperty("");
     private final StringProperty editMaterialCode = new SimpleStringProperty("");
     private final StringProperty editMaterialName = new SimpleStringProperty("");
     private final StringProperty editQuantity = new SimpleStringProperty("");
     private final StringProperty editUnitOfMeasure = new SimpleStringProperty("");
     private final StringProperty editConsumptionNorm = new SimpleStringProperty("0");
     private final BooleanProperty editable = new SimpleBooleanProperty(false);
+    private final BooleanProperty dirty = new SimpleBooleanProperty(false);
     private final BooleanProperty canAddLine = new SimpleBooleanProperty(false);
     private final BooleanProperty canUpdateLine = new SimpleBooleanProperty(false);
     private final BooleanProperty canDeleteLine = new SimpleBooleanProperty(false);
@@ -73,6 +77,7 @@ public final class OrderItemSpecificationEditorViewModel {
     private boolean immutable;
     private UUID documentId;
     private long payloadRevision;
+    private boolean suppressingDirty;
     private Consumer<OrderItemId> onBackToItem = id -> {
     };
 
@@ -85,6 +90,12 @@ public final class OrderItemSpecificationEditorViewModel {
                 Objects.requireNonNull(specificationQuery, "specificationQuery");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         selectedIndex.addListener((obs, oldValue, newValue) -> onSelectionChanged());
+        orderedQuantity.addListener(
+                (obs, oldValue, newValue) -> {
+                    if (!suppressingDirty) {
+                        markDirty();
+                    }
+                });
     }
 
     public void setOnBackToItem(Consumer<OrderItemId> onBackToItem) {
@@ -99,7 +110,7 @@ public final class OrderItemSpecificationEditorViewModel {
         this.revisionNumber = revisionNumber;
         documentId = null;
         payloadRevision = 0L;
-        reloadSnapshot();
+        reloadSnapshot(false);
     }
 
     public void selectLine(int index) {
@@ -111,7 +122,7 @@ public final class OrderItemSpecificationEditorViewModel {
     }
 
     public void addLine() {
-        clearMessages();
+        beginOperation();
         if (!ensureEditable()) {
             return;
         }
@@ -121,21 +132,21 @@ public final class OrderItemSpecificationEditorViewModel {
             lines.add(row);
             selectedIndex.set(lines.size() - 1);
             clearEditFields();
-            refreshActionFlags();
-            successMessage.set("Строка добавлена");
+            markDirty();
+            showSuccess("Строка добавлена");
         } catch (RuntimeException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Ошибка валидации строки" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.VALIDATE);
         }
     }
 
     public void updateSelectedLine() {
-        clearMessages();
+        beginOperation();
         if (!ensureEditable()) {
             return;
         }
         int index = selectedIndex.get();
         if (index < 0 || index >= lines.size()) {
-            errorMessage.set("Выберите строку для изменения");
+            showError("Выберите строку для изменения");
             return;
         }
         try {
@@ -143,21 +154,21 @@ public final class OrderItemSpecificationEditorViewModel {
             row.requireValid();
             lines.set(index, row);
             selectedLine.set(row);
-            refreshActionFlags();
-            successMessage.set("Строка изменена");
+            markDirty();
+            showSuccess("Строка изменена");
         } catch (RuntimeException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Ошибка валидации строки" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.VALIDATE);
         }
     }
 
     public void deleteSelectedLine() {
-        clearMessages();
+        beginOperation();
         if (!ensureEditable()) {
             return;
         }
         int index = selectedIndex.get();
         if (index < 0 || index >= lines.size()) {
-            errorMessage.set("Выберите строку для удаления");
+            showError("Выберите строку для удаления");
             return;
         }
         lines.remove(index);
@@ -167,12 +178,12 @@ public final class OrderItemSpecificationEditorViewModel {
         } else {
             selectedIndex.set(Math.min(index, lines.size() - 1));
         }
-        refreshActionFlags();
-        successMessage.set("Строка удалена");
+        markDirty();
+        showSuccess("Строка удалена");
     }
 
     public void moveSelectedUp() {
-        clearMessages();
+        beginOperation();
         if (!ensureEditable()) {
             return;
         }
@@ -183,11 +194,11 @@ public final class OrderItemSpecificationEditorViewModel {
         SpecificationLineRow current = lines.remove(index);
         lines.add(index - 1, current);
         selectedIndex.set(index - 1);
-        refreshActionFlags();
+        markDirty();
     }
 
     public void moveSelectedDown() {
-        clearMessages();
+        beginOperation();
         if (!ensureEditable()) {
             return;
         }
@@ -198,23 +209,23 @@ public final class OrderItemSpecificationEditorViewModel {
         SpecificationLineRow current = lines.remove(index);
         lines.add(index + 1, current);
         selectedIndex.set(index + 1);
-        refreshActionFlags();
+        markDirty();
     }
 
     public void clearLines() {
-        clearMessages();
+        beginOperation();
         if (!ensureEditable()) {
             return;
         }
         lines.clear();
         selectedIndex.set(-1);
         clearEditFields();
-        refreshActionFlags();
-        successMessage.set("Список строк очищен");
+        markDirty();
+        showSuccess("Список строк очищен");
     }
 
     public void saveDraft() {
-        clearMessages();
+        beginOperation();
         if (!ensureEditable()) {
             return;
         }
@@ -234,36 +245,35 @@ public final class OrderItemSpecificationEditorViewModel {
                             orderedQuantity.get(),
                             drafts,
                             payloadRevision);
-            successMessage.set("Черновик спецификации сохранён");
-            refreshActionFlags();
-        } catch (AccessDeniedException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
+            clearDirty();
+            showSuccess("Черновик спецификации сохранён");
         } catch (RuntimeException ex) {
-            errorMessage.set(
-                    ex.getMessage() == null ? "Ошибка сохранения спецификации" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.SAVE_DRAFT);
         }
     }
 
     public void postDocument() {
-        clearMessages();
+        beginOperation();
         if (!ensureEditable()) {
             return;
         }
+        if (documentId == null) {
+            showError("Сначала сохраните черновик спецификации");
+            return;
+        }
+        if (dirty.get()) {
+            showError(OrderUiErrorMapper.UNSAVED_CHANGES_BEFORE_POST);
+            return;
+        }
         try {
-            if (documentId == null) {
-                errorMessage.set("Сначала сохраните черновик спецификации");
-                return;
-            }
             itemDocuments.postDocument(documentId);
             documentId = null;
             payloadRevision = 0L;
-            successMessage.set("Спецификация обновлена");
-            reloadSnapshot();
-        } catch (AccessDeniedException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
+            clearDirty();
+            showSuccess("Спецификация обновлена");
+            reloadSnapshot(true);
         } catch (RuntimeException ex) {
-            errorMessage.set(
-                    ex.getMessage() == null ? "Отказ проведения документа" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.POST_DOCUMENT);
         }
     }
 
@@ -301,6 +311,10 @@ public final class OrderItemSpecificationEditorViewModel {
         return successMessage;
     }
 
+    public StringProperty warningMessageProperty() {
+        return warningMessage;
+    }
+
     public StringProperty editMaterialCodeProperty() {
         return editMaterialCode;
     }
@@ -323,6 +337,10 @@ public final class OrderItemSpecificationEditorViewModel {
 
     public BooleanProperty editableProperty() {
         return editable;
+    }
+
+    public BooleanProperty dirtyProperty() {
+        return dirty;
     }
 
     public BooleanProperty canAddLineProperty() {
@@ -385,28 +403,33 @@ public final class OrderItemSpecificationEditorViewModel {
         return immutable;
     }
 
-    private void reloadSnapshot() {
+    boolean dirtyForTest() {
+        return dirty.get();
+    }
+
+    private void reloadSnapshot(boolean afterSuccessfulPost) {
         try {
             Optional<OrderItemSpecificationEditorSnapshot> loaded =
                     specificationQuery.getSpecificationSnapshot(orderItemId, revisionNumber);
             if (loaded.isEmpty()) {
-                errorMessage.set("Спецификация не найдена");
-                lines.clear();
-                revisionNumberText.set("");
-                revisionStatusText.set("");
-                editable.set(false);
+                if (afterSuccessfulPost) {
+                    showWarning(OrderUiErrorMapper.RELOAD_FAILED_AFTER_POST);
+                } else {
+                    showMappedError(
+                            new IllegalArgumentException("not found"), OrderUiOperation.LOAD);
+                }
                 refreshActionFlags();
                 return;
             }
             applySnapshot(loaded.get());
-        } catch (AccessDeniedException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
-            editable.set(false);
-            refreshActionFlags();
+            clearDirty();
         } catch (RuntimeException ex) {
-            errorMessage.set(
-                    ex.getMessage() == null ? "Ошибка загрузки спецификации" : ex.getMessage());
-            editable.set(false);
+            if (afterSuccessfulPost) {
+                showWarning(OrderUiErrorMapper.RELOAD_FAILED_AFTER_POST);
+            } else {
+                showMappedError(ex, OrderUiOperation.LOAD);
+                editable.set(false);
+            }
             refreshActionFlags();
         }
     }
@@ -419,7 +442,7 @@ public final class OrderItemSpecificationEditorViewModel {
         title.set("Спецификация редакции " + revisionNumber.value());
         revisionNumberText.set(Integer.toString(revisionNumber.value()));
         revisionStatusText.set(revisionStatus.name());
-        orderedQuantity.set(snapshot.orderedQuantity().toPlainString());
+        setOrderedQuantityWithoutDirty(snapshot.orderedQuantity().toPlainString());
         lines.setAll(toRows(snapshot.lines()));
         selectedIndex.set(lines.isEmpty() ? -1 : 0);
         refreshActionFlags();
@@ -489,8 +512,22 @@ public final class OrderItemSpecificationEditorViewModel {
     }
 
     private boolean ensureEditable() {
-        if (immutable || !editable.get()) {
-            errorMessage.set("Утверждённая спецификация доступна только для просмотра");
+        boolean hasView =
+                authorization.hasPermission(
+                        PermissionId.of(UiShellScreens.ORDER_SPECIFICATION_VIEW_PERMISSION));
+        boolean hasEdit =
+                authorization.hasPermission(
+                        PermissionId.of(UiShellScreens.ORDER_REVISION_EDIT_PERMISSION));
+        if (!hasView || !hasEdit) {
+            showError(OrderUiErrorMapper.ACCESS_DENIED);
+            return false;
+        }
+        if (immutable || revisionStatus == RevisionStatus.APPROVED) {
+            showError(OrderUiErrorMapper.APPROVED_SPEC_READ_ONLY);
+            return false;
+        }
+        if (!editable.get()) {
+            showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
             return false;
         }
         return true;
@@ -520,7 +557,7 @@ public final class OrderItemSpecificationEditorViewModel {
         canMoveDown.set(hasSelection && index < lines.size() - 1);
         canClearLines.set(draftEditable && !lines.isEmpty());
         canSaveDraft.set(draftEditable);
-        canPost.set(draftEditable && documentId != null);
+        canPost.set(draftEditable && documentId != null && !dirty.get());
         if (!hasView) {
             canAddLine.set(false);
             canUpdateLine.set(false);
@@ -534,8 +571,57 @@ public final class OrderItemSpecificationEditorViewModel {
         }
     }
 
+    private void markDirty() {
+        dirty.set(true);
+        refreshActionFlags();
+    }
+
+    private void clearDirty() {
+        dirty.set(false);
+        refreshActionFlags();
+    }
+
+    private void setOrderedQuantityWithoutDirty(String value) {
+        suppressingDirty = true;
+        try {
+            orderedQuantity.set(value);
+        } finally {
+            suppressingDirty = false;
+        }
+    }
+
+    private void beginOperation() {
+        errorMessage.set("");
+        warningMessage.set("");
+        successMessage.set("");
+    }
+
+    private void showSuccess(String message) {
+        errorMessage.set("");
+        warningMessage.set("");
+        successMessage.set(message);
+        refreshActionFlags();
+    }
+
+    private void showWarning(String message) {
+        errorMessage.set("");
+        warningMessage.set(message);
+    }
+
+    private void showError(String message) {
+        successMessage.set("");
+        warningMessage.set("");
+        errorMessage.set(message);
+        refreshActionFlags();
+    }
+
+    private void showMappedError(Throwable error, OrderUiOperation operation) {
+        showError(OrderUiErrorMapper.text(error, operation));
+    }
+
     private void clearMessages() {
         errorMessage.set("");
         successMessage.set("");
+        warningMessage.set("");
     }
 }

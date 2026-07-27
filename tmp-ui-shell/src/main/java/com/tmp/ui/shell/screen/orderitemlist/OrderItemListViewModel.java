@@ -11,6 +11,8 @@ import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
+import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
+import com.tmp.ui.shell.order.error.OrderUiOperation;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -78,8 +80,8 @@ public final class OrderItemListViewModel {
 
     public void refresh() {
         errorMessage.set("");
-        items.clear();
         if (orderId == null) {
+            items.clear();
             refreshActionFlags();
             return;
         }
@@ -89,10 +91,10 @@ public final class OrderItemListViewModel {
             items.setAll(page.content());
             refreshActionFlags();
         } catch (AccessDeniedException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
+            errorMessage.set(OrderUiErrorMapper.text(ex, OrderUiOperation.LOAD));
             refreshActionFlags();
         } catch (RuntimeException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Ошибка загрузки позиций" : ex.getMessage());
+            errorMessage.set(OrderUiErrorMapper.text(ex, OrderUiOperation.LOAD));
             refreshActionFlags();
         }
     }

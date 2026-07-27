@@ -138,6 +138,46 @@ class OrderEditorViewModelTest {
     }
 
     @Test
+    void failedPostKeepsDocumentIdAndShowsMappedAlreadyPosted() {
+        FakeDocs docs = new FakeDocs();
+        FakeQuery query = new FakeQuery();
+        OrderEditorViewModel viewModel =
+                new OrderEditorViewModel(query, docs, auth(allOrderPerms()));
+        viewModel.openCreate();
+        viewModel.orderNumberProperty().set("A-100");
+        viewModel.customerNameProperty().set("Acme");
+        viewModel.saveDraft();
+        UUID documentId = viewModel.documentIdForTest();
+        docs.failPost =
+                new IllegalStateException(
+                        "Operation requires DRAFT status: 22222222-2222-2222-2222-222222222222");
+        viewModel.postCurrentDocument();
+        assertEquals(documentId, viewModel.documentIdForTest());
+        assertEquals("A-100", viewModel.orderNumberProperty().get());
+        assertEquals(
+                com.tmp.ui.shell.order.error.OrderUiErrorMapper.ALREADY_POSTED,
+                viewModel.errorMessageProperty().get());
+        assertEquals("", viewModel.successMessageProperty().get());
+        assertFalse(viewModel.errorMessageProperty().get().contains("22222222"));
+    }
+
+    @Test
+    void optimisticLockOnSaveShowsDedicatedMessage() {
+        FakeDocs docs = new FakeDocs();
+        docs.failSaveException = new PayloadOptimisticLockExceptionForTest();
+        OrderEditorViewModel viewModel =
+                new OrderEditorViewModel(new FakeQuery(), docs, auth(allOrderPerms()));
+        viewModel.openCreate();
+        viewModel.orderNumberProperty().set("A-100");
+        viewModel.customerNameProperty().set("Acme");
+        viewModel.saveDraft();
+        assertEquals(
+                com.tmp.ui.shell.order.error.OrderUiErrorMapper.OPTIMISTIC_LOCK,
+                viewModel.errorMessageProperty().get());
+        assertEquals("A-100", viewModel.orderNumberProperty().get());
+    }
+
+    @Test
     void permissionsHideUnavailableActions() {
         OrderId id = OrderId.generate();
         FakeQuery query = new FakeQuery();
@@ -253,6 +293,8 @@ class OrderEditorViewModelTest {
         private boolean saveCreateCalled;
         private boolean postCalled;
         private boolean failSave;
+        private RuntimeException failSaveException;
+        private RuntimeException failPost;
         private OrderId postResult = OrderId.generate();
         private UUID lastDocumentId = UUID.randomUUID();
 
@@ -285,6 +327,9 @@ class OrderEditorViewModelTest {
         @Override
         public long saveCreateDraft(
                 UUID documentId, OrderHeaderDraft draft, long expectedPayloadRevision) {
+            if (failSaveException != null) {
+                throw failSaveException;
+            }
             if (failSave) {
                 throw new IllegalStateException("payload create failed");
             }
@@ -303,6 +348,9 @@ class OrderEditorViewModelTest {
 
         @Override
         public OrderId postDocument(UUID documentId) {
+            if (failPost != null) {
+                throw failPost;
+            }
             postCalled = true;
             return postResult;
         }
@@ -315,6 +363,12 @@ class OrderEditorViewModelTest {
         @Override
         public Optional<OrderHeaderDraft> loadUpdateDraft(UUID documentId) {
             return Optional.empty();
+        }
+    }
+
+    private static final class PayloadOptimisticLockExceptionForTest extends RuntimeException {
+        private PayloadOptimisticLockExceptionForTest() {
+            super("Payload revision conflict for document");
         }
     }
 }

@@ -3,6 +3,30 @@
 ## Latest result
 
 **Date:** 2026-07-27  
+**Scope:** Stage 5.9F - STAGE5-041 UI error handling  
+**Overall:** PASSED
+
+| Verification | Command | Result |
+|---|---|---|
+| UI Shell | mvn -q -pl tmp-ui-shell -am verify | PASSED |
+| Order Management | mvn -q -pl tmp-order-management -am test | PASSED |
+| Bootstrap | mvn -q -pl tmp-bootstrap-app -am test | PASSED |
+| Architecture Tests | mvn -q -pl tmp-architecture-tests -am test | PASSED |
+| Spec dirty/post gate | OrderItemSpecificationEditorViewModelTest | PASSED |
+| Error mapper categories | OrderUiErrorMapperTest | PASSED |
+| STAGE5-041 | WORK-QUEUE | DONE |
+| STAGE5-042 | WORK-QUEUE | PLANNED (not READY) |
+| Stage 5.9 (036..041) | STATUS | COMPLETED |
+| Git | - | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+## Previous latest (2026-07-27 STAGE5-040)
+
+**Date:** 2026-07-27  
 **Scope:** Stage 5.9E - STAGE5-040 Specification editor  
 **Overall:** PASSED
 
@@ -1493,6 +1517,24 @@ These tasks (password / role / permission-override / audit application services 
 | 10 processors registered | OrderManagementAutoConfigurationTest | PASSED |
 | STAGE5-040 | WORK-QUEUE | DONE |
 | STAGE5-041 | WORK-QUEUE | PLANNED (not READY) |
+| Git | - | NOT EXECUTED |
+
+### Failures
+
+- None.
+## 2026-07-27 - STAGE5-041 DONE (Stage 5.9F UI error handling)
+
+| Verification | Command | Result |
+|---|---|---|
+| UI Shell | mvn -q -pl tmp-ui-shell -am verify | PASSED |
+| Order Management | mvn -q -pl tmp-order-management -am test | PASSED |
+| Bootstrap | mvn -q -pl tmp-bootstrap-app -am test | PASSED |
+| Architecture Tests | mvn -q -pl tmp-architecture-tests -am test | PASSED |
+| Spec dirty blocks unsaved post | OrderItemSpecificationEditorViewModelTest | PASSED |
+| Mapper AccessDenied/lock/posted/unpost | OrderUiErrorMapperTest | PASSED |
+| Editors preserve state on failed post | OrderEditor/ItemEditor ViewModel tests | PASSED |
+| STAGE5-041 | WORK-QUEUE | DONE |
+| STAGE5-042 | WORK-QUEUE | PLANNED (not READY) |
 | Git | - | NOT EXECUTED |
 
 ### Failures

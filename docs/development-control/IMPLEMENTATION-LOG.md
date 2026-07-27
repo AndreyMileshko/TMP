@@ -2920,3 +2920,45 @@ Stage 5.9E Specification editor completed end-to-end.
 
 - STAGE5-041 left PLANNED (not READY).
 - No Git operations executed.
+
+## STAGE5-041 — UI: Error handling and user messages
+
+**Date:** 2026-07-27  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Stage 5.9F unified UI error handling completed. Stage 5.9 (`STAGE5-036..041`) completed.
+
+**Preflight:** Specification Editor `dirty` state; post allowed only when `editable && documentId != null && !dirty`; unsaved changes block post without calling Document Engine and without clearing user lines.
+
+**Error mapping:** `OrderUiErrorMapper` / `OrderUiOperation` / `OrderUiErrorCategory` / `OrderUiUserMessage` in `tmp-ui-shell` (Spring-free). Classifies AccessDenied, optimistic lock, validation, not found, forbidden transition, already posted, unpost rejected, technical failure via cause chain without importing Order application/persistence or Document Engine internals. Safe Russian messages; no raw exception text leakage.
+
+**Screens:** Order List, Order Editor, Item List, Item Editor, Specification Editor use mapper; success/error exclusivity; failed post preserves fields and documentId/payloadRevision; Spec reload failure after successful post keeps success + warning.
+
+### Files created
+
+- `tmp-ui-shell/.../order/error/OrderUiErrorMapper.java` (+ Operation/Category/UserMessage)
+- mapper and ViewModel tests
+
+### Files modified
+
+- Order Management ViewModels (list/editor/item/spec)
+- Spec Editor FXML (warning label)
+- Stage5 architecture test (UI shell internals ban)
+- control docs
+
+### Verification
+
+| Check | Result |
+|---|---|
+| UI Shell verify | PASSED |
+| Order Management test | PASSED |
+| Bootstrap test | PASSED |
+| Architecture tests | PASSED |
+
+### Notes
+
+- STAGE5-042 left PLANNED (not READY).
+- No Git operations executed.

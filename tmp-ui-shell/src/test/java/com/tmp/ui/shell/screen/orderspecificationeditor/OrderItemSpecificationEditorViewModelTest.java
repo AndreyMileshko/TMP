@@ -177,6 +177,72 @@ class OrderItemSpecificationEditorViewModelTest {
         viewModel.open(itemId, revision);
         assertFalse(viewModel.editableProperty().get());
         assertFalse(viewModel.canSaveDraftProperty().get());
+        viewModel.addLine();
+        assertEquals(
+                com.tmp.ui.shell.order.error.OrderUiErrorMapper.ACCESS_DENIED,
+                viewModel.errorMessageProperty().get());
+        assertFalse(viewModel.errorMessageProperty().get().contains("утвержд"));
+    }
+
+    @Test
+    void dirtyStateBlocksPostUntilSavedAgain() {
+        FakeDocs docs = new FakeDocs();
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot =
+                draftSnapshot(
+                        itemId,
+                        revision,
+                        List.of(
+                                OrderItemSpecificationLineView.of(
+                                        1, "M1", "Mat", BigDecimal.ONE, "pcs", BigDecimal.ZERO)));
+        docs.postResult = itemId;
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(docs, query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+        assertFalse(viewModel.dirtyForTest());
+        viewModel.saveDraft();
+        assertTrue(viewModel.canPostProperty().get());
+
+        viewModel.orderedQuantityProperty().set("9");
+        assertTrue(viewModel.dirtyForTest());
+        assertFalse(viewModel.canPostProperty().get());
+        viewModel.postDocument();
+        assertFalse(docs.postCalled);
+        assertEquals(
+                com.tmp.ui.shell.order.error.OrderUiErrorMapper.UNSAVED_CHANGES_BEFORE_POST,
+                viewModel.errorMessageProperty().get());
+        assertEquals(1, viewModel.lines().size());
+        assertEquals("M1", viewModel.lines().get(0).materialCode());
+
+        viewModel.saveDraft();
+        assertFalse(viewModel.dirtyForTest());
+        assertTrue(viewModel.canPostProperty().get());
+        viewModel.postDocument();
+        assertTrue(docs.postCalled);
+    }
+
+    @Test
+    void reloadFailureAfterSuccessfulPostKeepsSuccessAndShowsWarning() {
+        FakeDocs docs = new FakeDocs();
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot = draftSnapshot(itemId, revision, List.of());
+        docs.postResult = itemId;
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(docs, query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+        viewModel.saveDraft();
+        query.failNextLoad = true;
+        viewModel.postDocument();
+        assertTrue(docs.postCalled);
+        assertEquals("Спецификация обновлена", viewModel.successMessageProperty().get());
+        assertEquals(
+                com.tmp.ui.shell.order.error.OrderUiErrorMapper.RELOAD_FAILED_AFTER_POST,
+                viewModel.warningMessageProperty().get());
+        assertEquals("", viewModel.errorMessageProperty().get());
     }
 
     @Test
@@ -243,10 +309,15 @@ class OrderItemSpecificationEditorViewModelTest {
 
     private static final class FakeSpecQuery implements OrderItemSpecificationEditorQueryService {
         private OrderItemSpecificationEditorSnapshot snapshot;
+        private boolean failNextLoad;
 
         @Override
         public Optional<OrderItemSpecificationEditorSnapshot> getSpecificationSnapshot(
                 OrderItemId orderItemId, RevisionNumber revisionNumber) {
+            if (failNextLoad) {
+                failNextLoad = false;
+                throw new RuntimeException("reload boom");
+            }
             return Optional.ofNullable(snapshot);
         }
     }

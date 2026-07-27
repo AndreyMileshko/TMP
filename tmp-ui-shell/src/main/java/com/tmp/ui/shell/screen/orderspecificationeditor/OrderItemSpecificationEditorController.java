@@ -95,6 +95,9 @@ public final class OrderItemSpecificationEditorController
     private Label successLabel;
 
     @FXML
+    private Label warningLabel;
+
+    @FXML
     private Label errorLabel;
 
     @Override
@@ -187,6 +190,18 @@ public final class OrderItemSpecificationEditorController
                                 },
                                 viewModel.successMessageProperty()));
         successLabel.managedProperty().bind(successLabel.visibleProperty());
+
+        warningLabel.textProperty().bind(viewModel.warningMessageProperty());
+        warningLabel
+                .visibleProperty()
+                .bind(
+                        Bindings.createBooleanBinding(
+                                () -> {
+                                    String message = viewModel.warningMessageProperty().get();
+                                    return message != null && !message.isBlank();
+                                },
+                                viewModel.warningMessageProperty()));
+        warningLabel.managedProperty().bind(warningLabel.visibleProperty());
 
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
         errorLabel

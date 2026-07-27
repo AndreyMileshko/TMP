@@ -140,6 +140,23 @@ class Stage5OrderManagementArchitectureTest {
                     .should().dependOnClassesThat().resideInAnyPackage("javafx..")
                     .because("Order Management must not depend on JavaFX; UI lives in tmp-ui-shell");
 
+    @ArchTest
+    static final ArchRule uiShellDoesNotImportOrderOrDocumentInternals =
+            noClasses()
+                    .that().resideInAPackage("com.tmp.ui.shell..")
+                    .should().dependOnClassesThat(
+                            resideInAnyPackage(
+                                            "com.tmp.order.application..",
+                                            "com.tmp.order.persistence..",
+                                            "com.tmp.order.domain..")
+                                    .or(
+                                            resideInAnyPackage("com.tmp.document..")
+                                                    .and(
+                                                            resideOutsideOfPackage(
+                                                                    "com.tmp.document.api.."))))
+                    .because("UI shell and OrderUiErrorMapper may use only public Order/Document "
+                            + "APIs; no application/persistence/domain or Document Engine internals");
+
     @SafeVarargs
     private static com.tngtech.archunit.base.DescribedPredicate<JavaClass> resideOutsideOfPackages(
             String... packages) {

@@ -16,6 +16,8 @@ import com.tmp.order.api.ui.OrderItemEditorSnapshot;
 import com.tmp.order.api.ui.OrderItemSpecificationLineDraft;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
+import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
+import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
 import com.tmp.ui.shell.screen.orderlist.FakeAuthorization;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
@@ -111,7 +113,7 @@ class OrderItemEditorViewModelTest {
         assertFalse(viewModel.canCreateRevisionProperty().get());
         viewModel.createNextRevision();
         assertFalse(docs.revisionCreateCalled);
-        assertTrue(viewModel.errorMessageProperty().get().contains("чернов"));
+        assertEquals(OrderUiErrorMapper.FORBIDDEN_TRANSITION, viewModel.errorMessageProperty().get());
     }
 
     @Test
@@ -149,6 +151,29 @@ class OrderItemEditorViewModelTest {
         viewModel.postRevisionUpdate();
         assertTrue(docs.postCalled);
         assertEquals("Количество черновой редакции обновлено", viewModel.successMessageProperty().get());
+    }
+
+    @Test
+    void repeatedPostShowsAlreadyPostedAndKeepsLocalState() {
+        FakeDocs docs = new FakeDocs();
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemId id = OrderItemId.generate();
+        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false);
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
+        viewModel.openExisting(id);
+        viewModel.orderedQuantityProperty().set("9");
+        viewModel.saveRevisionQuantityDraft();
+        UUID documentId = viewModel.documentIdForTest();
+        docs.failPost =
+                new IllegalStateException(
+                        "Operation requires DRAFT status: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        viewModel.postRevisionUpdate();
+        assertEquals(documentId, viewModel.documentIdForTest());
+        assertEquals("9", viewModel.orderedQuantityProperty().get());
+        assertEquals(OrderUiErrorMapper.ALREADY_POSTED, viewModel.errorMessageProperty().get());
+        assertEquals("", viewModel.successMessageProperty().get());
+        assertFalse(viewModel.errorMessageProperty().get().contains("aaaaaaaa"));
     }
 
     @Test
@@ -286,6 +311,7 @@ class OrderItemEditorViewModelTest {
         private boolean revisionCreateCalled;
         private boolean approveCalled;
         private UUID lastDocumentId = UUID.randomUUID();
+        private RuntimeException failPost;
 
         @Override
         public UUID beginItemCreate(String title, OrderId orderId) {
@@ -392,6 +418,9 @@ class OrderItemEditorViewModelTest {
 
         @Override
         public OrderItemId postDocument(UUID documentId) {
+            if (failPost != null) {
+                throw failPost;
+            }
             postCalled = true;
             return postResult;
         }

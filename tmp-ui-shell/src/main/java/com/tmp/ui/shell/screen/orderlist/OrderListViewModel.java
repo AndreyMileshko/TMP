@@ -11,6 +11,8 @@ import com.tmp.order.api.PageResult;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
+import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
+import com.tmp.ui.shell.order.error.OrderUiOperation;
 import com.tmp.ui.shell.UiShellScreens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
@@ -218,15 +220,13 @@ public final class OrderListViewModel {
                 statusMessage.set("Заказы не найдены");
             }
         } catch (AccessDeniedException ex) {
-            orders.clear();
-            totalElements.set(0);
             emptyResult.set(false);
-            errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
+            errorMessage.set(OrderUiErrorMapper.text(ex, OrderUiOperation.LOAD));
+            statusMessage.set(OrderUiErrorMapper.LIST_REFRESH_FAILED);
         } catch (RuntimeException ex) {
-            orders.clear();
-            totalElements.set(0);
             emptyResult.set(false);
-            errorMessage.set(ex.getMessage() == null ? "Ошибка загрузки заказов" : ex.getMessage());
+            errorMessage.set(OrderUiErrorMapper.text(ex, OrderUiOperation.LOAD));
+            statusMessage.set(OrderUiErrorMapper.LIST_REFRESH_FAILED);
         } finally {
             loading.set(false);
             updatePaginationFlags();
@@ -285,7 +285,7 @@ public final class OrderListViewModel {
             return Optional.empty();
         }
         if (from.value() != null && to.value() != null && from.value().isAfter(to.value())) {
-            errorMessage.set("Некорректный диапазон дат: createdFrom позже createdTo");
+            errorMessage.set("Некорректный диапазон дат: дата \"с\" позже даты \"по\"");
             return Optional.empty();
         }
         ParsedStatus status = parseStatus(orderStatusFilter.get());
@@ -336,7 +336,8 @@ public final class OrderListViewModel {
         try {
             return ParsedInstant.of(LocalDate.parse(value).atStartOfDay().toInstant(ZoneOffset.UTC));
         } catch (DateTimeParseException ex) {
-            return ParsedInstant.invalid("Некорректная дата " + fieldName + ": " + value);
+            String fieldLabel = "createdFrom".equals(fieldName) ? "дата \"с\"" : "дата \"по\"";
+            return ParsedInstant.invalid("Некорректная " + fieldLabel + ": " + value);
         }
     }
 

@@ -9,6 +9,8 @@ import com.tmp.order.api.ui.OrderHeaderDraft;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
+import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
+import com.tmp.ui.shell.order.error.OrderUiOperation;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Objects;
 import java.util.Optional;
@@ -135,15 +137,15 @@ public final class OrderEditorViewModel {
         try {
             Optional<OrderDto> loaded = orderQueryService.getOrder(id);
             if (loaded.isEmpty()) {
-                errorMessage.set("Заказ не найден");
+                showError(OrderUiErrorMapper.NOT_FOUND);
                 return;
             }
             applyOrder(loaded.get());
             onOrderOpened.accept(id);
         } catch (AccessDeniedException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.LOAD);
         } catch (RuntimeException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Ошибка загрузки заказа" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.LOAD);
         }
     }
 
@@ -157,10 +159,10 @@ public final class OrderEditorViewModel {
                     payloadRevision = 0L;
                 }
                 payloadRevision = orderDocuments.saveCreateDraft(documentId, draft, payloadRevision);
-                successMessage.set("Черновик документа сохранён");
+                showSuccess("Черновик документа сохранён");
             } else {
                 if (orderId == null || orderStatus != OrderStatus.DRAFT) {
-                    errorMessage.set("Редактирование недоступно для текущего статуса");
+                    showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
                     return;
                 }
                 if (documentId == null) {
@@ -169,13 +171,13 @@ public final class OrderEditorViewModel {
                 }
                 payloadRevision =
                         orderDocuments.saveUpdateDraft(documentId, orderId, draft, payloadRevision);
-                successMessage.set("Черновик изменения сохранён");
+                showSuccess("Черновик изменения сохранён");
             }
             refreshActionFlags();
         } catch (AccessDeniedException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.SAVE_DRAFT);
         } catch (RuntimeException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Ошибка сохранения черновика" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.SAVE_DRAFT);
         }
     }
 
@@ -189,12 +191,12 @@ public final class OrderEditorViewModel {
             OrderId result = orderDocuments.postDocument(documentId);
             documentId = null;
             payloadRevision = 0L;
-            successMessage.set("Документ проведён");
+            showSuccess("Документ проведён");
             reloadExisting(result);
         } catch (AccessDeniedException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.POST_DOCUMENT);
         } catch (RuntimeException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Отказ проведения документа" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.POST_DOCUMENT);
         }
     }
 
@@ -202,18 +204,18 @@ public final class OrderEditorViewModel {
         clearMessages();
         try {
             if (orderId == null || orderStatus != OrderStatus.DRAFT) {
-                errorMessage.set("Утверждение доступно только для черновика заказа");
+                showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
                 return;
             }
             UUID approveDoc =
                     orderDocuments.beginOrderApprove("ORDER_APPROVE " + orderId.value(), orderId);
             OrderId result = orderDocuments.postDocument(approveDoc);
-            successMessage.set("Заказ утверждён");
+            showSuccess("Заказ утверждён");
             reloadExisting(result);
         } catch (AccessDeniedException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.APPROVE);
         } catch (RuntimeException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Ошибка утверждения" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.APPROVE);
         }
     }
 
@@ -221,18 +223,18 @@ public final class OrderEditorViewModel {
         clearMessages();
         try {
             if (orderId == null || orderStatus != OrderStatus.DRAFT) {
-                errorMessage.set("Отмена доступна только для черновика заказа");
+                showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
                 return;
             }
             UUID cancelDoc =
                     orderDocuments.beginOrderCancel("ORDER_CANCEL " + orderId.value(), orderId);
             OrderId result = orderDocuments.postDocument(cancelDoc);
-            successMessage.set("Заказ отменён");
+            showSuccess("Заказ отменён");
             reloadExisting(result);
         } catch (AccessDeniedException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.CANCEL);
         } catch (RuntimeException ex) {
-            errorMessage.set(ex.getMessage() == null ? "Ошибка отмены" : ex.getMessage());
+            showMappedError(ex, OrderUiOperation.CANCEL);
         }
     }
 
@@ -413,6 +415,20 @@ public final class OrderEditorViewModel {
     private void clearMessages() {
         errorMessage.set("");
         successMessage.set("");
+    }
+
+    private void showSuccess(String message) {
+        errorMessage.set("");
+        successMessage.set(message);
+    }
+
+    private void showError(String message) {
+        successMessage.set("");
+        errorMessage.set(message);
+    }
+
+    private void showMappedError(Throwable error, OrderUiOperation operation) {
+        showError(OrderUiErrorMapper.text(error, operation));
     }
 
     private static String nullToEmpty(String value) {

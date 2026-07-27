@@ -61,5 +61,6 @@
         <Button fx:id="backButton" text="К позиции"/>
     </HBox>
     <Label fx:id="successLabel" styleClass="order-item-specification-editor-success" visible="false" managed="false" wrapText="true"/>
+    <Label fx:id="warningLabel" styleClass="order-item-specification-editor-warning" visible="false" managed="false" wrapText="true"/>
     <Label fx:id="errorLabel" styleClass="order-item-specification-editor-error" visible="false" managed="false" wrapText="true"/>
 </VBox>
