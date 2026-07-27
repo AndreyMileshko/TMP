@@ -8362,20 +8362,21 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-040 — UI: Specification editor (immutable after approve)
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-039
 
 - **Goal:** Реализовать редактор спецификации draft revision; после утверждения — read-only.
-- **Scope:** экран спецификации через document flow (`ORDER_ITEM_REVISION_UPDATE`).
-- **Out of scope:** прочие экраны.
-- **Required documents:** UI/UX Spec; Spec §7/§11.4.
-- **Required code context:** `com.tmp.order.api`, `com.tmp.document.api`; `tmp-ui-shell`.
-- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel спецификации).
-- **Acceptance criteria:** утверждённая спецификация только для чтения; правка только draft.
-- **Verification commands:** `mvn -q -pl tmp-ui-shell -am test`
-- **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+- **Scope:** экран спецификации через document flow (`ORDER_ITEM_REVISION_UPDATE`); UI-facing read model + save draft lines в `tmp-order-management` (`api.ui`); wiring в `tmp-bootstrap-app`.
+- **Out of scope:** STAGE5-041; Public Query API; Production/Warehouse/Cutting; auto-assign permissions.
+- **Required documents:** UI/UX Spec; Spec §5.4/§7/§9/§11.4/§13.2/§14.
+- **Required code context:** `com.tmp.order.api.ui`, `com.tmp.document.api`; `tmp-ui-shell`; bootstrap UI wiring.
+- **Files allowed to change:** `tmp-order-management` (api.ui + application.ui); `tmp-ui-shell` (FXML/Controller/ViewModel спецификации + Item Editor navigation); `tmp-bootstrap-app` (UI wiring only).
+- **Acceptance criteria:** утверждённая спецификация только для чтения; правка только draft через `ORDER_ITEM_REVISION_UPDATE`; Draft не в Public Query API.
+- **Verification commands:** `mvn -q -pl tmp-order-management -am verify`; `mvn -q -pl tmp-ui-shell -am verify`; `mvn -q -pl tmp-bootstrap-app -am test`; `mvn -q -pl tmp-document-engine -am test`; `mvn -q -pl tmp-architecture-tests -am test`
+- **Documentation updates:** WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** UI позволяет менять утверждённую спецификацию.
+- **Completed (2026-07-27):** UI-facing `OrderItemSpecificationEditorQueryService` / Snapshot / LineView; `OrderItemSpecificationLineDraft` + full `saveRevisionUpdateDraft`; Specification Editor screen; Item Editor open active/draft spec; bootstrap wiring. STAGE5-041 left PLANNED (not READY).
 
 ---
 

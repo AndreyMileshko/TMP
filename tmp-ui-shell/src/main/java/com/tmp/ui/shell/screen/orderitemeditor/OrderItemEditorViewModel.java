@@ -65,6 +65,8 @@ public final class OrderItemEditorViewModel {
     private final BooleanProperty canSaveRevisionDraft = new SimpleBooleanProperty(false);
     private final BooleanProperty canPostRevisionUpdate = new SimpleBooleanProperty(false);
     private final BooleanProperty canApproveRevision = new SimpleBooleanProperty(false);
+    private final BooleanProperty canOpenActiveSpecification = new SimpleBooleanProperty(false);
+    private final BooleanProperty canOpenDraftSpecification = new SimpleBooleanProperty(false);
 
     private OrderId orderId;
     private OrderItemId orderItemId;
@@ -77,6 +79,8 @@ public final class OrderItemEditorViewModel {
     private Runnable onBackToItemList = () -> {
     };
     private Consumer<OrderItemId> onItemOpened = id -> {
+    };
+    private Consumer<RevisionTarget> onOpenSpecification = target -> {
     };
 
     private enum DocumentKind {
@@ -102,6 +106,11 @@ public final class OrderItemEditorViewModel {
 
     public void setOnItemOpened(Consumer<OrderItemId> onItemOpened) {
         this.onItemOpened = Objects.requireNonNull(onItemOpened, "onItemOpened");
+    }
+
+    public void setOnOpenSpecification(Consumer<RevisionTarget> onOpenSpecification) {
+        this.onOpenSpecification =
+                Objects.requireNonNull(onOpenSpecification, "onOpenSpecification");
     }
 
     public void openCreate(OrderId orderId) {
@@ -359,8 +368,55 @@ public final class OrderItemEditorViewModel {
         }
     }
 
+    public void openActiveSpecification() {
+        clearMessages();
+        if (orderItemId == null || activeRevisionNumber == null) {
+            errorMessage.set("Нет активной спецификации");
+            return;
+        }
+        if (!authorization.hasPermission(
+                PermissionId.of(UiShellScreens.ORDER_SPECIFICATION_VIEW_PERMISSION))) {
+            errorMessage.set("Доступ запрещён");
+            return;
+        }
+        onOpenSpecification.accept(new RevisionTarget(orderItemId, activeRevisionNumber));
+    }
+
+    public void openDraftSpecification() {
+        clearMessages();
+        if (orderItemId == null || draftRevisionNumber == null) {
+            errorMessage.set("Нет черновой спецификации");
+            return;
+        }
+        if (!authorization.hasPermission(
+                PermissionId.of(UiShellScreens.ORDER_SPECIFICATION_VIEW_PERMISSION))) {
+            errorMessage.set("Доступ запрещён");
+            return;
+        }
+        onOpenSpecification.accept(new RevisionTarget(orderItemId, draftRevisionNumber));
+    }
+
     public void backToItemList() {
         onBackToItemList.run();
+    }
+
+    /** Navigation target for the Specification editor. */
+    public static final class RevisionTarget {
+        private final OrderItemId orderItemId;
+        private final RevisionNumber revisionNumber;
+
+        public RevisionTarget(OrderItemId orderItemId, RevisionNumber revisionNumber) {
+            this.orderItemId = Objects.requireNonNull(orderItemId, "orderItemId");
+            this.revisionNumber = Objects.requireNonNull(revisionNumber, "revisionNumber");
+        }
+
+        public OrderItemId orderItemId() {
+            return orderItemId;
+        }
+
+        public RevisionNumber revisionNumber() {
+            return revisionNumber;
+        }
     }
 
     public ObjectProperty<Mode> modeProperty() {
@@ -451,6 +507,14 @@ public final class OrderItemEditorViewModel {
         return canApproveRevision;
     }
 
+    public BooleanProperty canOpenActiveSpecificationProperty() {
+        return canOpenActiveSpecification;
+    }
+
+    public BooleanProperty canOpenDraftSpecificationProperty() {
+        return canOpenDraftSpecification;
+    }
+
     OrderItemId orderItemIdForTest() {
         return orderItemId;
     }
@@ -513,6 +577,9 @@ public final class OrderItemEditorViewModel {
         boolean hasRevisionEdit =
                 authorization.hasPermission(
                         PermissionId.of(UiShellScreens.ORDER_REVISION_EDIT_PERMISSION));
+        boolean hasSpecificationView =
+                authorization.hasPermission(
+                        PermissionId.of(UiShellScreens.ORDER_SPECIFICATION_VIEW_PERMISSION));
 
         if (mode.get() == Mode.CREATE) {
             commercialEditable.set(hasCreate);
@@ -524,6 +591,8 @@ public final class OrderItemEditorViewModel {
             canSaveRevisionDraft.set(false);
             canPostRevisionUpdate.set(false);
             canApproveRevision.set(false);
+            canOpenActiveSpecification.set(false);
+            canOpenDraftSpecification.set(false);
             return;
         }
 
@@ -531,6 +600,7 @@ public final class OrderItemEditorViewModel {
         boolean activeItem = itemStatus == OrderItemStatus.ACTIVE;
         boolean cancelled = itemStatus == OrderItemStatus.CANCELLED;
         boolean hasDraftRevision = draftRevisionNumber != null;
+        boolean hasActiveRevision = activeRevisionNumber != null;
 
         commercialEditable.set(draftItem && hasEdit);
         quantityEditable.set(
@@ -554,6 +624,8 @@ public final class OrderItemEditorViewModel {
                         && documentId != null
                         && pendingKind == DocumentKind.REVISION_UPDATE);
         canApproveRevision.set(hasDraftRevision && hasApprove);
+        canOpenActiveSpecification.set(hasActiveRevision && hasSpecificationView);
+        canOpenDraftSpecification.set(hasDraftRevision && hasSpecificationView);
         if (cancelled) {
             commercialEditable.set(false);
             quantityEditable.set(false);
@@ -564,6 +636,8 @@ public final class OrderItemEditorViewModel {
             canSaveRevisionDraft.set(false);
             canPostRevisionUpdate.set(false);
             canApproveRevision.set(false);
+            canOpenActiveSpecification.set(false);
+            canOpenDraftSpecification.set(false);
         }
     }
 

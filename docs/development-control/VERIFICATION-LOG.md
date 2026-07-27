@@ -2,6 +2,30 @@
 
 ## Latest result
 
+**Date:** 2026-07-27  
+**Scope:** Stage 5.9E - STAGE5-040 Specification editor  
+**Overall:** PASSED
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | mvn -q -pl tmp-order-management -am verify | PASSED |
+| UI Shell | mvn -q -pl tmp-ui-shell -am verify | PASSED |
+| Bootstrap | mvn -q -pl tmp-bootstrap-app -am test | PASSED |
+| Document Engine | mvn -q -pl tmp-document-engine -am test | PASSED |
+| Architecture Tests | mvn -q -pl tmp-architecture-tests -am test | PASSED |
+| 10 processors registered | OrderManagementAutoConfigurationTest | PASSED |
+| Public Query API APPROVED-only | unchanged; Draft via api.ui only | PASSED |
+| STAGE5-040 | WORK-QUEUE | DONE |
+| STAGE5-041 | WORK-QUEUE | PLANNED (not READY) |
+| Git | - | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+## Previous latest (2026-07-24 STAGE5-000-FIX2)
+
 **Date:** 2026-07-24  
 **Scope:** Stage 5 â€” Order Management; Final Documentation Corrections STAGE5-000-FIX2 (documentation gate only)  
 **Overall:** PASSED (documentation). No Java/build changes; Maven verify not required. Only `STAGE5-001` READY; Stage 5 implementation not started; Stage 6 not started.
@@ -1057,7 +1081,7 @@ These tasks (password / role / permission-override / audit application services 
 - None. Git operations not executed.
 
 
-## 2026-07-25 — STAGE5-011 (Typed payload models: Order documents)
+## 2026-07-25 ï¿½ STAGE5-011 (Typed payload models: Order documents)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1067,7 +1091,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None. Git operations not executed.
 
-## 2026-07-25 — STAGE5-012 (Typed payload models: Item documents)
+## 2026-07-25 ï¿½ STAGE5-012 (Typed payload models: Item documents)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1077,7 +1101,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-25 — STAGE5-013 (Typed payload models: Revision documents)
+## 2026-07-25 ï¿½ STAGE5-013 (Typed payload models: Revision documents)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1087,7 +1111,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-25 — STAGE5-014 (Payload application use cases)
+## 2026-07-25 ï¿½ STAGE5-014 (Payload application use cases)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1097,7 +1121,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-25 — STAGE5-015 (Payload persistence port)
+## 2026-07-25 ï¿½ STAGE5-015 (Payload persistence port)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1107,7 +1131,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-25 — STAGE5-016 (Payload physical schema)
+## 2026-07-25 ï¿½ STAGE5-016 (Payload physical schema)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1122,7 +1146,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-25 — Stage 5 execution module 5.4 gate (STAGE5-011..016)
+## 2026-07-25 ï¿½ Stage 5 execution module 5.4 gate (STAGE5-011..016)
 
 | Gate check | Result |
 |---|---|
@@ -1136,7 +1160,7 @@ These tasks (password / role / permission-override / audit application services 
 | Processing record absent | CONFIRMED |
 | Git operations | NOT EXECUTED |
 
-## 2026-07-25 — STAGE5-017 (TransactionalEventPublisher)
+## 2026-07-25 ï¿½ STAGE5-017 (TransactionalEventPublisher)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1147,7 +1171,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-25 — STAGE5-018 / STAGE5-019
+## 2026-07-25 ï¿½ STAGE5-018 / STAGE5-019
 
 | Task | Command | Result |
 |---|---|---|
@@ -1158,7 +1182,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-25 — STAGE5-020..022 and module 5.5 gate
+## 2026-07-25 ï¿½ STAGE5-020..022 and module 5.5 gate
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1170,7 +1194,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None pending gate re-run below.
 
-## 2026-07-25 — Stage 5 execution module 5.5 gate (STAGE5-017..022)
+## 2026-07-25 ï¿½ Stage 5 execution module 5.5 gate (STAGE5-017..022)
 
 | Gate check | Command / Method | Result |
 |---|---|---|
@@ -1185,19 +1209,9 @@ These tasks (password / role / permission-override / audit application services 
 | Catalog size 10 | OrderBusinessDocumentCatalogTest | PASSED |
 | Concrete processors | none for ORDER_* | CONFIRMED |
 | STAGE5-023 | WORK-QUEUE | PLANNED (not started) |
-| Git | — | NOT EXECUTED |
+| Git | ï¿½ | NOT EXECUTED |
 
-## 2026-07-26 — STAGE5-023 (ORDER_CREATE)
-
-| Verification | Command | Result |
-|---|---|---|
-| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
-
-### Failures
-
-- None.
-
-## 2026-07-26 — STAGE5-024 (ORDER_UPDATE)
+## 2026-07-26 ï¿½ STAGE5-023 (ORDER_CREATE)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1207,7 +1221,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-26 — STAGE5-025 (ORDER_APPROVE)
+## 2026-07-26 ï¿½ STAGE5-024 (ORDER_UPDATE)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1217,7 +1231,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-26 — STAGE5-026 (ORDER_CANCEL)
+## 2026-07-26 ï¿½ STAGE5-025 (ORDER_APPROVE)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1227,7 +1241,17 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-26 — Stage 5 execution module 5.6 gate (STAGE5-023..026)
+## 2026-07-26 ï¿½ STAGE5-026 (ORDER_CANCEL)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED (exit 0) |
+
+### Failures
+
+- None.
+
+## 2026-07-26 ï¿½ Stage 5 execution module 5.6 gate (STAGE5-023..026)
 
 | Gate check | Command / Method | Result |
 |---|---|---|
@@ -1240,9 +1264,9 @@ These tasks (password / role / permission-override / audit application services 
 | SQL/JDBC aggregate adapters | glob | NONE |
 | Item processors | glob | NONE |
 | STAGE5-027 | WORK-QUEUE | PLANNED (not started) |
-| Git | — | NOT EXECUTED |
+| Git | ï¿½ | NOT EXECUTED |
 
-## 2026-07-26 — STAGE5-027 (ORDER_ITEM_CREATE)
+## 2026-07-26 ï¿½ STAGE5-027 (ORDER_ITEM_CREATE)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1253,7 +1277,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-26 — STAGE5-028..032
+## 2026-07-26 ï¿½ STAGE5-028..032
 
 | Task | Command | Result |
 |---|---|---|
@@ -1267,7 +1291,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-26 — Stage 5 execution module 5.7 gate (STAGE5-027..032)
+## 2026-07-26 ï¿½ Stage 5 execution module 5.7 gate (STAGE5-027..032)
 
 | Gate check | Command / Method | Result |
 |---|---|---|
@@ -1281,9 +1305,9 @@ These tasks (password / role / permission-override / audit application services 
 | Direct EventBus | grep src/main | NONE |
 | Aggregate JDBC/SQL | glob | NONE |
 | STAGE5-033 | WORK-QUEUE | PLANNED (not started) |
-| Git | — | NOT EXECUTED |
+| Git | ï¿½ | NOT EXECUTED |
 
-## 2026-07-26 — STAGE5-033 (Aggregate persistence adapters)
+## 2026-07-26 ï¿½ STAGE5-033 (Aggregate persistence adapters)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1295,7 +1319,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-26 — STAGE5-034 (Aggregate Flyway migration)
+## 2026-07-26 ï¿½ STAGE5-034 (Aggregate Flyway migration)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1308,7 +1332,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-26 — STAGE5-035 (Security capabilities registration)
+## 2026-07-26 ï¿½ STAGE5-035 (Security capabilities registration)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1318,7 +1342,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-26 — Stage 5 execution module 5.8 gate (STAGE5-033..035)
+## 2026-07-26 ï¿½ Stage 5 execution module 5.8 gate (STAGE5-033..035)
 
 | Gate check | Command / Method | Result |
 |---|---|---|
@@ -1332,9 +1356,9 @@ These tasks (password / role / permission-override / audit application services 
 | Migration | V8 aggregate tables | CONFIRMED |
 | Capabilities | exactly 13, no duplicates | CONFIRMED |
 | STAGE5-036 | WORK-QUEUE | PLANNED (not started) |
-| Git | — | NOT EXECUTED |
+| Git | ï¿½ | NOT EXECUTED |
 
-## 2026-07-26 — STAGE5-035A (Query API implementation)
+## 2026-07-26 ï¿½ STAGE5-035A (Query API implementation)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1346,7 +1370,7 @@ These tasks (password / role / permission-override / audit application services 
 
 - None.
 
-## 2026-07-26 — STAGE5-035B (Query API runtime wiring and security)
+## 2026-07-26 ï¿½ STAGE5-035B (Query API runtime wiring and security)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1356,13 +1380,13 @@ These tasks (password / role / permission-override / audit application services 
 | Architecture | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
 | Permission deny | DefaultOrderQueryServiceSecurityTest / AutoConfigurationTest | PASSED |
 | STAGE5-036 | WORK-QUEUE | PLANNED (not started) |
-| Git | — | NOT EXECUTED |
+| Git | ï¿½ | NOT EXECUTED |
 
 ### Failures
 
 - None.
 
-## 2026-07-27 — STAGE5-036 (Order Management navigation)
+## 2026-07-27 ï¿½ STAGE5-036 (Order Management navigation)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1371,13 +1395,13 @@ These tasks (password / role / permission-override / audit application services 
 | Navigation gated | OrderListNavigationTest | PASSED |
 | Capability nav | OrderManagementCapabilityNavigationTest | PASSED |
 | Positive runtime permission IT | OrderManagementAutoConfigurationTest | PASSED |
-| Git | — | NOT EXECUTED |
+| Git | ï¿½ | NOT EXECUTED |
 
 ### Failures
 
 - None.
 
-## 2026-07-27 — STAGE5-037 (Order list screen)
+## 2026-07-27 ï¿½ STAGE5-037 (Order list screen)
 
 | Verification | Command | Result |
 |---|---|---|
@@ -1390,7 +1414,7 @@ These tasks (password / role / permission-override / audit application services 
 | Query API only / no persistence in UI | OrderListViewModelTest | PASSED |
 | `target/checkstyle-cachefile` | removed after verify | ABSENT |
 | STAGE5-038 | WORK-QUEUE | PLANNED (not started) |
-| Git | — | NOT EXECUTED |
+| Git | ï¿½ | NOT EXECUTED |
 
 ### Failures
 
@@ -1449,6 +1473,27 @@ These tasks (password / role / permission-override / audit application services 
 | STAGE5-039 | WORK-QUEUE | DONE |
 | STAGE5-040 | WORK-QUEUE | PLANNED (not READY) |
 | Git | ? | NOT EXECUTED |
+
+### Failures
+
+- None.
+## 2026-07-27 - STAGE5-040 DONE (Stage 5.9E Specification editor)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | mvn -q -pl tmp-order-management -am verify | PASSED |
+| UI Shell | mvn -q -pl tmp-ui-shell -am verify | PASSED |
+| Bootstrap | mvn -q -pl tmp-bootstrap-app -am test | PASSED |
+| Document Engine | mvn -q -pl tmp-document-engine -am test | PASSED |
+| Architecture Tests | mvn -q -pl tmp-architecture-tests -am test | PASSED |
+| Spec read model | DefaultOrderItemSpecificationEditorQueryServiceTest | PASSED |
+| Full-line save / approved reject / stale lock | DefaultOrderItemDocumentUiServiceTest | PASSED |
+| Spec editor FXML / draft / approved | OrderItemSpecificationEditor tests | PASSED |
+| Item Editor open specification | OrderItemEditorViewModelTest | PASSED |
+| 10 processors registered | OrderManagementAutoConfigurationTest | PASSED |
+| STAGE5-040 | WORK-QUEUE | DONE |
+| STAGE5-041 | WORK-QUEUE | PLANNED (not READY) |
+| Git | - | NOT EXECUTED |
 
 ### Failures
 

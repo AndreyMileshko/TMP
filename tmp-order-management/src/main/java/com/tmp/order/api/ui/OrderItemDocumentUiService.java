@@ -3,6 +3,7 @@ package com.tmp.order.api.ui;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderItemId;
 import com.tmp.order.api.RevisionNumber;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -61,8 +62,24 @@ public interface OrderItemDocumentUiService {
             long expectedPayloadRevision);
 
     /**
+     * Creates or updates revision-update draft for the current Draft Revision with full
+     * specification content. Line numbers are assigned sequentially from {@code 1} in list order.
+     * Approved revisions are rejected.
+     *
+     * @return new payload revision
+     */
+    long saveRevisionUpdateDraft(
+            UUID documentId,
+            OrderItemId orderItemId,
+            RevisionNumber revisionNumber,
+            String orderedQuantity,
+            List<OrderItemSpecificationLineDraft> specificationLines,
+            long expectedPayloadRevision);
+
+    /**
      * Creates or updates revision-update draft for the current Draft Revision. Ordered quantity is
-     * updated; existing specification lines are preserved unchanged.
+     * updated; existing specification lines are preserved unchanged (delegates to the full-content
+     * overload).
      */
     long saveRevisionUpdateDraft(
             UUID documentId,

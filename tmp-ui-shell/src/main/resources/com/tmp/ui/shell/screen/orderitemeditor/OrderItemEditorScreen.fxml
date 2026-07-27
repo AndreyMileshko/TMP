@@ -44,6 +44,8 @@
         <Button fx:id="saveRevisionButton" text="Сохранить количество draft"/>
         <Button fx:id="postRevisionButton" text="Провести изменение редакции"/>
         <Button fx:id="approveRevisionButton" text="Утвердить редакцию"/>
+        <Button fx:id="openActiveSpecificationButton" text="Открыть активную спецификацию"/>
+        <Button fx:id="openDraftSpecificationButton" text="Открыть черновую спецификацию"/>
         <Button fx:id="backButton" text="К списку позиций"/>
     </HBox>
     <Label fx:id="successLabel" styleClass="order-item-editor-success" visible="false" managed="false" wrapText="true"/>

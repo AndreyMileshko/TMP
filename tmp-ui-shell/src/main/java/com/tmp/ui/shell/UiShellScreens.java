@@ -17,6 +17,8 @@ public final class UiShellScreens {
             "com/tmp/ui/shell/screen/orderitemlist/OrderItemListScreen.fxml";
     public static final String ORDER_ITEM_EDITOR_FXML =
             "com/tmp/ui/shell/screen/orderitemeditor/OrderItemEditorScreen.fxml";
+    public static final String ORDER_ITEM_SPECIFICATION_EDITOR_FXML =
+            "com/tmp/ui/shell/screen/orderspecificationeditor/OrderItemSpecificationEditorScreen.fxml";
 
     public static final String MAIN_SCREEN_ID = "main";
     public static final String ACCESS_DENIED_SCREEN_ID = "access-denied";
@@ -30,6 +32,8 @@ public final class UiShellScreens {
     public static final String ORDER_EDITOR_SCREEN_ID = "order.view.order-editor";
     public static final String ORDER_ITEM_LIST_SCREEN_ID = "order.view.order-items";
     public static final String ORDER_ITEM_EDITOR_SCREEN_ID = "order.view.order-item-editor";
+    public static final String ORDER_ITEM_SPECIFICATION_EDITOR_SCREEN_ID =
+            "order.view.order-item-specification-editor";
     public static final String ORDER_CREATE_PERMISSION = "order.order.create";
     public static final String ORDER_ITEM_VIEW_PERMISSION = "order.item.view";
     public static final String ORDER_ITEM_CREATE_PERMISSION = "order.item.create";
@@ -38,6 +42,7 @@ public final class UiShellScreens {
     public static final String ORDER_ITEM_APPROVE_PERMISSION = "order.item.approve";
     public static final String ORDER_REVISION_CREATE_PERMISSION = "order.revision.create";
     public static final String ORDER_REVISION_EDIT_PERMISSION = "order.revision.edit";
+    public static final String ORDER_SPECIFICATION_VIEW_PERMISSION = "order.specification.view";
 
     private UiShellScreens() {
     }

@@ -10,6 +10,7 @@ import com.tmp.order.api.PageResult;
 import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
+import com.tmp.order.api.ui.OrderItemSpecificationEditorQueryService;
 import com.tmp.order.application.document.OrderApproveDocumentProcessor;
 import com.tmp.order.application.document.OrderCancelDocumentProcessor;
 import com.tmp.order.application.document.OrderCreateDocumentProcessor;
@@ -104,10 +105,16 @@ class OrderManagementAutoConfigurationTest {
         assertEquals(1, applicationContext.getBeansOfType(OrderDocumentUiService.class).size());
         assertEquals(1, applicationContext.getBeansOfType(OrderItemDocumentUiService.class).size());
         assertEquals(1, applicationContext.getBeansOfType(OrderItemEditorQueryService.class).size());
+        assertEquals(
+                1,
+                applicationContext
+                        .getBeansOfType(OrderItemSpecificationEditorQueryService.class)
+                        .size());
         assertNotNull(orderQueryService);
         assertNotNull(applicationContext.getBean(OrderDocumentUiService.class));
         assertNotNull(applicationContext.getBean(OrderItemDocumentUiService.class));
         assertNotNull(applicationContext.getBean(OrderItemEditorQueryService.class));
+        assertNotNull(applicationContext.getBean(OrderItemSpecificationEditorQueryService.class));
     }
 
     @Test

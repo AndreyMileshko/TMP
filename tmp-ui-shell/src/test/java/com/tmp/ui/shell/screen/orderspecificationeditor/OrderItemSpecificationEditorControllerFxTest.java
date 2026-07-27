@@ -1,4 +1,4 @@
-package com.tmp.ui.shell.screen.orderitemeditor;
+package com.tmp.ui.shell.screen.orderspecificationeditor;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -8,13 +8,15 @@ import com.tmp.order.api.OrderItemId;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.ui.OrderItemCommercialDraft;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
-import com.tmp.order.api.ui.OrderItemEditorQueryService;
-import com.tmp.order.api.ui.OrderItemEditorSnapshot;
+import com.tmp.order.api.ui.OrderItemSpecificationEditorQueryService;
+import com.tmp.order.api.ui.OrderItemSpecificationEditorSnapshot;
+import com.tmp.order.api.ui.OrderItemSpecificationLineDraft;
 import com.tmp.ui.shell.JavaFxTestSupport;
 import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.navigation.NavigationServices;
 import com.tmp.ui.shell.navigation.ScreenRegistration;
 import com.tmp.ui.shell.screen.orderlist.FakeAuthorization;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -23,12 +25,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.TextField;
+import javafx.scene.control.TableView;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-class OrderItemEditorControllerFxTest {
+class OrderItemSpecificationEditorControllerFxTest {
 
     @BeforeAll
     static void initJavaFx() {
@@ -36,29 +38,30 @@ class OrderItemEditorControllerFxTest {
     }
 
     @Test
-    void loadsOrderItemEditorFxml() throws Exception {
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(
+    void loadsOrderItemSpecificationEditorFxml() throws Exception {
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(
                         new EmptyDocs(), new EmptyQuery(), new FakeAuthorization());
-        viewModel.openCreate(OrderId.generate());
         var navigation = NavigationServices.createDefault();
         navigation.register(
                 new ScreenRegistration(
-                        UiShellScreens.ORDER_ITEM_EDITOR_SCREEN_ID,
-                        UiShellScreens.ORDER_ITEM_EDITOR_FXML,
+                        UiShellScreens.ORDER_ITEM_SPECIFICATION_EDITOR_SCREEN_ID,
+                        UiShellScreens.ORDER_ITEM_SPECIFICATION_EDITOR_FXML,
                         () -> viewModel));
 
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
-        AtomicReference<TextField> field = new AtomicReference<>();
+        AtomicReference<TableView<?>> table = new AtomicReference<>();
 
         Platform.runLater(
                 () -> {
                     try {
-                        Parent root = navigation.load(UiShellScreens.ORDER_ITEM_EDITOR_SCREEN_ID);
+                        Parent root =
+                                navigation.load(
+                                        UiShellScreens.ORDER_ITEM_SPECIFICATION_EDITOR_SCREEN_ID);
                         Stage stage = new Stage();
                         stage.setScene(new Scene(root));
-                        field.set((TextField) root.lookup("#productCodeField"));
+                        table.set((TableView<?>) root.lookup("#linesTable"));
                     } catch (Throwable throwable) {
                         error.set(throwable);
                     } finally {
@@ -68,14 +71,15 @@ class OrderItemEditorControllerFxTest {
 
         assertTrue(latch.await(10, TimeUnit.SECONDS));
         if (error.get() != null) {
-            throw new AssertionError("Order item editor FX load failed", error.get());
+            throw new AssertionError("Specification editor FX load failed", error.get());
         }
-        assertNotNull(field.get());
+        assertNotNull(table.get());
     }
 
-    private static final class EmptyQuery implements OrderItemEditorQueryService {
+    private static final class EmptyQuery implements OrderItemSpecificationEditorQueryService {
         @Override
-        public Optional<OrderItemEditorSnapshot> getEditorSnapshot(OrderItemId orderItemId) {
+        public Optional<OrderItemSpecificationEditorSnapshot> getSpecificationSnapshot(
+                OrderItemId orderItemId, RevisionNumber revisionNumber) {
             return Optional.empty();
         }
     }
@@ -147,6 +151,7 @@ class OrderItemEditorControllerFxTest {
                 OrderItemId orderItemId,
                 RevisionNumber revisionNumber,
                 String orderedQuantity,
+                List<OrderItemSpecificationLineDraft> specificationLines,
                 long expectedPayloadRevision) {
             return expectedPayloadRevision;
         }
@@ -157,8 +162,6 @@ class OrderItemEditorControllerFxTest {
                 OrderItemId orderItemId,
                 RevisionNumber revisionNumber,
                 String orderedQuantity,
-                java.util.List<com.tmp.order.api.ui.OrderItemSpecificationLineDraft>
-                        specificationLines,
                 long expectedPayloadRevision) {
             return expectedPayloadRevision;
         }

@@ -1,0 +1,372 @@
+package com.tmp.ui.shell.screen.orderspecificationeditor;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.tmp.order.api.OrderId;
+import com.tmp.order.api.OrderItemId;
+import com.tmp.order.api.RevisionNumber;
+import com.tmp.order.api.RevisionStatus;
+import com.tmp.order.api.ui.OrderItemCommercialDraft;
+import com.tmp.order.api.ui.OrderItemDocumentUiService;
+import com.tmp.order.api.ui.OrderItemSpecificationEditorQueryService;
+import com.tmp.order.api.ui.OrderItemSpecificationEditorSnapshot;
+import com.tmp.order.api.ui.OrderItemSpecificationLineDraft;
+import com.tmp.order.api.ui.OrderItemSpecificationLineView;
+import com.tmp.security.api.AuthorizationService;
+import com.tmp.security.api.PermissionId;
+import com.tmp.ui.shell.screen.orderlist.FakeAuthorization;
+import java.lang.reflect.Field;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
+
+class OrderItemSpecificationEditorViewModelTest {
+
+    @Test
+    void draftScreenIsEditableAndSupportsLineOperations() {
+        FakeDocs docs = new FakeDocs();
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot = draftSnapshot(itemId, revision, List.of());
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(docs, query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+
+        assertTrue(viewModel.editableProperty().get());
+        viewModel.editMaterialCodeProperty().set("M1");
+        viewModel.editMaterialNameProperty().set("Mat");
+        viewModel.editQuantityProperty().set("2");
+        viewModel.editUnitOfMeasureProperty().set("pcs");
+        viewModel.editConsumptionNormProperty().set("0");
+        viewModel.addLine();
+        assertEquals(1, viewModel.lines().size());
+
+        viewModel.editMaterialCodeProperty().set("M1");
+        viewModel.editMaterialNameProperty().set("Mat updated");
+        viewModel.editQuantityProperty().set("3");
+        viewModel.editUnitOfMeasureProperty().set("pcs");
+        viewModel.editConsumptionNormProperty().set("1");
+        viewModel.updateSelectedLine();
+        assertEquals("Mat updated", viewModel.lines().get(0).materialName());
+
+        viewModel.editMaterialCodeProperty().set("M2");
+        viewModel.editMaterialNameProperty().set("Second");
+        viewModel.editQuantityProperty().set("1");
+        viewModel.editUnitOfMeasureProperty().set("m");
+        viewModel.editConsumptionNormProperty().set("0");
+        viewModel.addLine();
+        viewModel.selectLine(1);
+        viewModel.moveSelectedUp();
+        assertEquals("M2", viewModel.lines().get(0).materialCode());
+
+        viewModel.deleteSelectedLine();
+        assertEquals(1, viewModel.lines().size());
+        viewModel.clearLines();
+        assertTrue(viewModel.lines().isEmpty());
+    }
+
+    @Test
+    void approvedScreenIsReadOnly() {
+        FakeDocs docs = new FakeDocs();
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot = approvedSnapshot(itemId, revision);
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(docs, query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+
+        assertFalse(viewModel.editableProperty().get());
+        assertFalse(viewModel.canAddLineProperty().get());
+        assertFalse(viewModel.canSaveDraftProperty().get());
+        assertFalse(viewModel.canPostProperty().get());
+        int before = viewModel.lines().size();
+        viewModel.editMaterialCodeProperty().set("X");
+        viewModel.editMaterialNameProperty().set("Y");
+        viewModel.editQuantityProperty().set("1");
+        viewModel.editUnitOfMeasureProperty().set("pcs");
+        viewModel.editConsumptionNormProperty().set("0");
+        viewModel.addLine();
+        assertEquals(before, viewModel.lines().size());
+        assertTrue(viewModel.errorMessageProperty().get().contains("просмотр"));
+        viewModel.saveDraft();
+        assertFalse(docs.saveRevisionUpdateCalled);
+    }
+
+    @Test
+    void validationErrorsDoNotLoseEnteredData() {
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot = draftSnapshot(itemId, revision, List.of());
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(new FakeDocs(), query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+        viewModel.editMaterialCodeProperty().set("M1");
+        viewModel.editMaterialNameProperty().set("");
+        viewModel.editQuantityProperty().set("2");
+        viewModel.editUnitOfMeasureProperty().set("pcs");
+        viewModel.editConsumptionNormProperty().set("0");
+        viewModel.addLine();
+        assertTrue(viewModel.lines().isEmpty());
+        assertEquals("M1", viewModel.editMaterialCodeProperty().get());
+        assertTrue(viewModel.errorMessageProperty().get().length() > 0);
+    }
+
+    @Test
+    void saveAndPostUseDocumentUiServiceAndReloadSnapshot() {
+        FakeDocs docs = new FakeDocs();
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot =
+                draftSnapshot(
+                        itemId,
+                        revision,
+                        List.of(
+                                OrderItemSpecificationLineView.of(
+                                        1, "M1", "Mat", BigDecimal.ONE, "pcs", BigDecimal.ZERO)));
+        docs.postResult = itemId;
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(docs, query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+        viewModel.saveDraft();
+        assertTrue(docs.beginRevisionUpdateCalled);
+        assertTrue(docs.saveRevisionUpdateCalled);
+        assertEquals(1, docs.lastSavedLines.size());
+        assertEquals("M1", docs.lastSavedLines.get(0).materialCode());
+        UUID firstDocumentId = viewModel.documentIdForTest();
+        viewModel.saveDraft();
+        assertEquals(firstDocumentId, viewModel.documentIdForTest());
+        assertTrue(viewModel.payloadRevisionForTest() > 0);
+
+        query.snapshot =
+                draftSnapshot(
+                        itemId,
+                        revision,
+                        List.of(
+                                OrderItemSpecificationLineView.of(
+                                        1, "M1", "Mat", BigDecimal.TEN, "pcs", BigDecimal.ZERO)));
+        viewModel.postDocument();
+        assertTrue(docs.postCalled);
+        assertNull(viewModel.documentIdForTest());
+        assertEquals("10", viewModel.lines().get(0).quantity());
+        assertEquals("Спецификация обновлена", viewModel.successMessageProperty().get());
+    }
+
+    @Test
+    void permissionsGateEditing() {
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot = draftSnapshot(itemId, revision, List.of());
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(
+                        new FakeDocs(),
+                        query,
+                        auth(Set.of(PermissionId.of("order.specification.view"))));
+        viewModel.open(itemId, revision);
+        assertFalse(viewModel.editableProperty().get());
+        assertFalse(viewModel.canSaveDraftProperty().get());
+    }
+
+    @Test
+    void backOpensPreviousItem() {
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot = draftSnapshot(itemId, revision, List.of());
+        AtomicReference<OrderItemId> backTo = new AtomicReference<>();
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(new FakeDocs(), query, auth(allPerms()));
+        viewModel.setOnBackToItem(backTo::set);
+        viewModel.open(itemId, revision);
+        viewModel.backToItem();
+        assertEquals(itemId, backTo.get());
+    }
+
+    @Test
+    void viewModelHasNoRepositoryJdbcOrProcessorFields() {
+        for (Field field : OrderItemSpecificationEditorViewModel.class.getDeclaredFields()) {
+            String name = field.getType().getName();
+            assertFalse(name.contains("JdbcTemplate"));
+            assertFalse(name.contains("Repository"));
+            assertFalse(name.contains("persistence"));
+            assertFalse(name.contains("DocumentProcessor"));
+        }
+    }
+
+    private static Set<PermissionId> allPerms() {
+        return Set.of(
+                PermissionId.of("order.specification.view"),
+                PermissionId.of("order.revision.edit"));
+    }
+
+    private static AuthorizationService auth(Set<PermissionId> granted) {
+        return new FakeAuthorization(granted);
+    }
+
+    private static OrderItemSpecificationEditorSnapshot draftSnapshot(
+            OrderItemId itemId,
+            RevisionNumber revision,
+            List<OrderItemSpecificationLineView> lines) {
+        return OrderItemSpecificationEditorSnapshot.of(
+                itemId,
+                revision,
+                RevisionStatus.DRAFT,
+                BigDecimal.ONE,
+                false,
+                lines);
+    }
+
+    private static OrderItemSpecificationEditorSnapshot approvedSnapshot(
+            OrderItemId itemId, RevisionNumber revision) {
+        return OrderItemSpecificationEditorSnapshot.of(
+                itemId,
+                revision,
+                RevisionStatus.APPROVED,
+                BigDecimal.TEN,
+                true,
+                List.of(
+                        OrderItemSpecificationLineView.of(
+                                1, "A", "Approved", BigDecimal.ONE, "pcs", BigDecimal.ZERO)));
+    }
+
+    private static final class FakeSpecQuery implements OrderItemSpecificationEditorQueryService {
+        private OrderItemSpecificationEditorSnapshot snapshot;
+
+        @Override
+        public Optional<OrderItemSpecificationEditorSnapshot> getSpecificationSnapshot(
+                OrderItemId orderItemId, RevisionNumber revisionNumber) {
+            return Optional.ofNullable(snapshot);
+        }
+    }
+
+    private static final class FakeDocs implements OrderItemDocumentUiService {
+        private OrderItemId postResult;
+        private boolean beginRevisionUpdateCalled;
+        private boolean saveRevisionUpdateCalled;
+        private boolean postCalled;
+        private List<OrderItemSpecificationLineDraft> lastSavedLines = List.of();
+        private UUID lastDocumentId = UUID.randomUUID();
+        private long revision;
+
+        @Override
+        public UUID beginItemCreate(String title, OrderId orderId) {
+            return UUID.randomUUID();
+        }
+
+        @Override
+        public UUID beginItemUpdate(String title, OrderItemId orderItemId) {
+            return UUID.randomUUID();
+        }
+
+        @Override
+        public UUID beginItemCancel(String title, OrderItemId orderItemId) {
+            return UUID.randomUUID();
+        }
+
+        @Override
+        public UUID beginRevisionCreate(String title, OrderItemId orderItemId) {
+            return UUID.randomUUID();
+        }
+
+        @Override
+        public UUID beginRevisionUpdate(String title, OrderItemId orderItemId) {
+            beginRevisionUpdateCalled = true;
+            lastDocumentId = UUID.randomUUID();
+            revision = 0L;
+            return lastDocumentId;
+        }
+
+        @Override
+        public UUID beginRevisionApprove(String title, OrderItemId orderItemId) {
+            return UUID.randomUUID();
+        }
+
+        @Override
+        public long saveItemCreateDraft(
+                UUID documentId,
+                OrderId orderId,
+                Optional<OrderItemId> orderItemId,
+                OrderItemCommercialDraft draft,
+                String orderedQuantity,
+                long expectedPayloadRevision) {
+            return expectedPayloadRevision;
+        }
+
+        @Override
+        public long saveItemUpdateDraft(
+                UUID documentId,
+                OrderItemId orderItemId,
+                OrderItemCommercialDraft draft,
+                long expectedPayloadRevision) {
+            return expectedPayloadRevision;
+        }
+
+        @Override
+        public long saveRevisionCreateDraft(
+                UUID documentId,
+                OrderItemId orderItemId,
+                RevisionNumber revisionNumber,
+                Optional<RevisionNumber> copyFromRevisionNumber,
+                long expectedPayloadRevision) {
+            return expectedPayloadRevision;
+        }
+
+        @Override
+        public long saveRevisionUpdateDraft(
+                UUID documentId,
+                OrderItemId orderItemId,
+                RevisionNumber revisionNumber,
+                String orderedQuantity,
+                List<OrderItemSpecificationLineDraft> specificationLines,
+                long expectedPayloadRevision) {
+            saveRevisionUpdateCalled = true;
+            lastSavedLines = new ArrayList<>(specificationLines);
+            revision = expectedPayloadRevision + 1;
+            return revision;
+        }
+
+        @Override
+        public long saveRevisionUpdateDraft(
+                UUID documentId,
+                OrderItemId orderItemId,
+                RevisionNumber revisionNumber,
+                String orderedQuantity,
+                long expectedPayloadRevision) {
+            return saveRevisionUpdateDraft(
+                    documentId,
+                    orderItemId,
+                    revisionNumber,
+                    orderedQuantity,
+                    List.of(),
+                    expectedPayloadRevision);
+        }
+
+        @Override
+        public OrderItemId postDocument(UUID documentId) {
+            postCalled = true;
+            return postResult;
+        }
+
+        @Override
+        public Optional<OrderItemCommercialDraft> loadItemCreateDraft(UUID documentId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<OrderItemCommercialDraft> loadItemUpdateDraft(UUID documentId) {
+            return Optional.empty();
+        }
+    }
+}

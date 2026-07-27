@@ -2,8 +2,10 @@ package com.tmp.order.application.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -20,12 +22,14 @@ import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
 import com.tmp.order.api.ui.OrderItemCommercialDraft;
 import com.tmp.order.api.ui.OrderItemEditorSnapshot;
+import com.tmp.order.api.ui.OrderItemSpecificationLineDraft;
 import com.tmp.order.application.payload.DocumentId;
 import com.tmp.order.application.payload.DocumentTypeCode;
 import com.tmp.order.application.payload.DraftPayloadApplicationService;
 import com.tmp.order.application.payload.OrderDocumentPayload;
 import com.tmp.order.application.payload.OrderItemCreatePayload;
 import com.tmp.order.application.payload.OrderItemRevisionUpdatePayload;
+import com.tmp.order.application.payload.PayloadOptimisticLockException;
 import com.tmp.order.application.processing.ProcessingRecordPort;
 import com.tmp.order.capability.OrderManagementPermissions;
 import com.tmp.order.domain.ItemCommercialData;
@@ -33,6 +37,7 @@ import com.tmp.order.domain.ItemSpecification;
 import com.tmp.order.domain.OrderItem;
 import com.tmp.order.domain.OrderItemRevision;
 import com.tmp.order.domain.OrderedQuantity;
+import com.tmp.order.domain.PayloadRevision;
 import com.tmp.order.domain.ProductCode;
 import com.tmp.order.domain.SpecificationLine;
 import com.tmp.order.domain.repository.OrderItemRepository;
@@ -154,6 +159,166 @@ class DefaultOrderItemDocumentUiServiceTest {
         assertEquals(1, payload.lines().size());
         assertEquals("MAT-1", payload.lines().get(0).materialCode());
         assertEquals(0, new BigDecimal("7").compareTo(payload.orderedQuantity().value()));
+    }
+
+    @Test
+    void saveRevisionUpdateDraftWithLinesCreatesTypedPayloadAndAssignsLineNumbers() {
+        UUID documentId = UUID.randomUUID();
+        DocumentId id = DocumentId.of(documentId);
+        OrderItemId itemId = OrderItemId.generate();
+        OrderId orderId = OrderId.generate();
+        RevisionNumber draftNumber = RevisionNumber.first();
+        when(orderItemRepository.findById(itemId))
+                .thenReturn(Optional.of(draftItemWithSpecLine(orderId, itemId, draftNumber)));
+        when(draftPayloads.load(id)).thenReturn(Optional.empty());
+        AtomicReference<OrderDocumentPayload> created = new AtomicReference<>();
+        when(draftPayloads.createDraft(any()))
+                .thenAnswer(
+                        invocation -> {
+                            OrderDocumentPayload payload = invocation.getArgument(0);
+                            created.set(payload);
+                            return payload;
+                        });
+
+        List<OrderItemSpecificationLineDraft> lines =
+                List.of(
+                        OrderItemSpecificationLineDraft.of(
+                                "B", "Second", BigDecimal.TEN, "m", BigDecimal.ONE),
+                        OrderItemSpecificationLineDraft.of(
+                                "A", "First", BigDecimal.ONE, "pcs", BigDecimal.ZERO));
+        service.saveRevisionUpdateDraft(documentId, itemId, draftNumber, "4", lines, 0L);
+
+        OrderItemRevisionUpdatePayload payload = (OrderItemRevisionUpdatePayload) created.get();
+        assertEquals(2, payload.lines().size());
+        assertEquals(1, payload.lines().get(0).lineNumber());
+        assertEquals("B", payload.lines().get(0).materialCode());
+        assertEquals(2, payload.lines().get(1).lineNumber());
+        assertEquals("A", payload.lines().get(1).materialCode());
+        assertEquals(0, new BigDecimal("4").compareTo(payload.orderedQuantity().value()));
+        verify(authorization).requirePermission(OrderManagementPermissions.REVISION_EDIT);
+        verify(documentEngine, never()).registerProcessor(any());
+    }
+
+    @Test
+    void saveRevisionUpdateDraftAllowsEmptyLines() {
+        UUID documentId = UUID.randomUUID();
+        DocumentId id = DocumentId.of(documentId);
+        OrderItemId itemId = OrderItemId.generate();
+        OrderId orderId = OrderId.generate();
+        RevisionNumber draftNumber = RevisionNumber.first();
+        when(orderItemRepository.findById(itemId))
+                .thenReturn(Optional.of(draftItemWithSpecLine(orderId, itemId, draftNumber)));
+        when(draftPayloads.load(id)).thenReturn(Optional.empty());
+        AtomicReference<OrderDocumentPayload> created = new AtomicReference<>();
+        when(draftPayloads.createDraft(any()))
+                .thenAnswer(
+                        invocation -> {
+                            created.set(invocation.getArgument(0));
+                            return invocation.getArgument(0);
+                        });
+
+        service.saveRevisionUpdateDraft(documentId, itemId, draftNumber, "1", List.of(), 0L);
+
+        OrderItemRevisionUpdatePayload payload = (OrderItemRevisionUpdatePayload) created.get();
+        assertTrue(payload.lines().isEmpty());
+    }
+
+    @Test
+    void saveRevisionUpdateDraftRejectsApprovedRevision() {
+        UUID documentId = UUID.randomUUID();
+        OrderItemId itemId = OrderItemId.generate();
+        OrderId orderId = OrderId.generate();
+        OrderItem item = activeWithDraft(orderId, itemId);
+        when(orderItemRepository.findById(itemId)).thenReturn(Optional.of(item));
+
+        assertThrows(
+                IllegalStateException.class,
+                () ->
+                        service.saveRevisionUpdateDraft(
+                                documentId,
+                                itemId,
+                                RevisionNumber.first(),
+                                "1",
+                                List.of(),
+                                0L));
+    }
+
+    @Test
+    void saveRevisionUpdateDraftRejectsStalePayloadRevision() {
+        UUID documentId = UUID.randomUUID();
+        DocumentId id = DocumentId.of(documentId);
+        OrderItemId itemId = OrderItemId.generate();
+        OrderId orderId = OrderId.generate();
+        RevisionNumber draftNumber = RevisionNumber.first();
+        when(orderItemRepository.findById(itemId))
+                .thenReturn(Optional.of(draftItemWithSpecLine(orderId, itemId, draftNumber)));
+        OrderItemRevisionUpdatePayload existing =
+                OrderItemRevisionUpdatePayload.create(
+                        id,
+                        itemId,
+                        draftNumber,
+                        OrderedQuantity.of(1),
+                        List.of(),
+                        NOW);
+        when(draftPayloads.load(id)).thenReturn(Optional.of(existing));
+        when(draftPayloads.updateDraft(any(), eq(PayloadRevision.of(0L))))
+                .thenThrow(
+                        new PayloadOptimisticLockException(
+                                id, PayloadRevision.of(0L), PayloadRevision.of(1L)));
+
+        assertThrows(
+                PayloadOptimisticLockException.class,
+                () ->
+                        service.saveRevisionUpdateDraft(
+                                documentId, itemId, draftNumber, "2", List.of(), 0L));
+    }
+
+    @Test
+    void saveRevisionUpdateDraftIncrementsPayloadRevisionOnResave() {
+        UUID documentId = UUID.randomUUID();
+        DocumentId id = DocumentId.of(documentId);
+        OrderItemId itemId = OrderItemId.generate();
+        OrderId orderId = OrderId.generate();
+        RevisionNumber draftNumber = RevisionNumber.first();
+        when(orderItemRepository.findById(itemId))
+                .thenReturn(Optional.of(draftItemWithSpecLine(orderId, itemId, draftNumber)));
+        OrderItemRevisionUpdatePayload existing =
+                OrderItemRevisionUpdatePayload.create(
+                        id,
+                        itemId,
+                        draftNumber,
+                        OrderedQuantity.of(1),
+                        List.of(),
+                        NOW);
+        when(draftPayloads.load(id)).thenReturn(Optional.of(existing));
+        when(draftPayloads.updateDraft(any(), eq(PayloadRevision.of(0L))))
+                .thenAnswer(
+                        invocation -> {
+                            OrderItemRevisionUpdatePayload candidate = invocation.getArgument(0);
+                            return candidate;
+                        });
+
+        long revision =
+                service.saveRevisionUpdateDraft(
+                        documentId, itemId, draftNumber, "3", List.of(), 0L);
+
+        assertEquals(1L, revision);
+    }
+
+    @Test
+    void beginRevisionUpdateUsesOrderItemRevisionUpdateDocumentType() {
+        UUID documentId = UUID.randomUUID();
+        when(documentEngine.createDocument(any(CreateDocumentCommand.class)))
+                .thenReturn(metadata(documentId, DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE.name()));
+
+        UUID result = service.beginRevisionUpdate("rev-update", OrderItemId.generate());
+
+        assertEquals(documentId, result);
+        ArgumentCaptor<CreateDocumentCommand> captor =
+                ArgumentCaptor.forClass(CreateDocumentCommand.class);
+        verify(documentEngine).createDocument(captor.capture());
+        assertEquals("ORDER_ITEM_REVISION_UPDATE", captor.getValue().documentTypeId());
+        verify(authorization).requirePermission(OrderManagementPermissions.REVISION_EDIT);
     }
 
     @Test

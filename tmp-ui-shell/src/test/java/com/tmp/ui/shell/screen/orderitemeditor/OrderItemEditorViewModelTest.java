@@ -13,14 +13,17 @@ import com.tmp.order.api.ui.OrderItemCommercialDraft;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.order.api.ui.OrderItemEditorSnapshot;
+import com.tmp.order.api.ui.OrderItemSpecificationLineDraft;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.screen.orderlist.FakeAuthorization;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class OrderItemEditorViewModelTest {
@@ -180,6 +183,26 @@ class OrderItemEditorViewModelTest {
         assertFalse(viewModel.canSaveCommercialDraftProperty().get());
         assertFalse(viewModel.canCancelItemProperty().get());
         assertFalse(viewModel.canApproveRevisionProperty().get());
+        assertFalse(viewModel.canOpenDraftSpecificationProperty().get());
+    }
+
+    @Test
+    void openSpecificationActionsRequireViewPermissionAndRevision() {
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemId id = OrderItemId.generate();
+        query.snapshot = snapshot(id, OrderItemStatus.ACTIVE, true, true);
+        AtomicReference<OrderItemEditorViewModel.RevisionTarget> opened = new AtomicReference<>();
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(new FakeDocs(), query, auth(allItemPerms()));
+        viewModel.setOnOpenSpecification(opened::set);
+        viewModel.openExisting(id);
+        assertTrue(viewModel.canOpenActiveSpecificationProperty().get());
+        assertTrue(viewModel.canOpenDraftSpecificationProperty().get());
+        viewModel.openDraftSpecification();
+        assertEquals(id, opened.get().orderItemId());
+        assertEquals(2, opened.get().revisionNumber().value());
+        viewModel.openActiveSpecification();
+        assertEquals(1, opened.get().revisionNumber().value());
     }
 
     @Test
@@ -201,7 +224,8 @@ class OrderItemEditorViewModelTest {
                 PermissionId.of("order.item.cancel"),
                 PermissionId.of("order.item.approve"),
                 PermissionId.of("order.revision.create"),
-                PermissionId.of("order.revision.edit"));
+                PermissionId.of("order.revision.edit"),
+                PermissionId.of("order.specification.view"));
     }
 
     private static AuthorizationService auth(Set<PermissionId> granted) {
@@ -344,9 +368,26 @@ class OrderItemEditorViewModelTest {
                 OrderItemId orderItemId,
                 RevisionNumber revisionNumber,
                 String orderedQuantity,
+                List<OrderItemSpecificationLineDraft> specificationLines,
                 long expectedPayloadRevision) {
             saveRevisionUpdateCalled = true;
             return expectedPayloadRevision + 1;
+        }
+
+        @Override
+        public long saveRevisionUpdateDraft(
+                UUID documentId,
+                OrderItemId orderItemId,
+                RevisionNumber revisionNumber,
+                String orderedQuantity,
+                long expectedPayloadRevision) {
+            return saveRevisionUpdateDraft(
+                    documentId,
+                    orderItemId,
+                    revisionNumber,
+                    orderedQuantity,
+                    List.of(),
+                    expectedPayloadRevision);
         }
 
         @Override

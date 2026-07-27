@@ -6,8 +6,10 @@ import com.tmp.document.api.DocumentMetadata;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderItemId;
 import com.tmp.order.api.RevisionNumber;
+import com.tmp.order.api.RevisionStatus;
 import com.tmp.order.api.ui.OrderItemCommercialDraft;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
+import com.tmp.order.api.ui.OrderItemSpecificationLineDraft;
 import com.tmp.order.application.document.OrderItemCreateDocumentProcessor;
 import com.tmp.order.application.payload.DocumentId;
 import com.tmp.order.application.payload.DocumentTypeCode;
@@ -292,13 +294,41 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
             String orderedQuantity,
             long expectedPayloadRevision) {
         Objects.requireNonNull(documentId, "documentId");
+        DocumentId id = DocumentId.of(documentId);
+        Optional<OrderDocumentPayload> existing = draftPayloads.load(id);
+        List<OrderItemSpecificationLineDraft> preserved;
+        if (existing.isPresent() && existing.get() instanceof OrderItemRevisionUpdatePayload update) {
+            preserved = toLineDrafts(update.copyLines());
+        } else {
+            preserved = toLineDrafts(loadDraftSpecificationLines(orderItemId, revisionNumber));
+        }
+        return saveRevisionUpdateDraft(
+                documentId,
+                orderItemId,
+                revisionNumber,
+                orderedQuantity,
+                preserved,
+                expectedPayloadRevision);
+    }
+
+    @Override
+    public long saveRevisionUpdateDraft(
+            UUID documentId,
+            OrderItemId orderItemId,
+            RevisionNumber revisionNumber,
+            String orderedQuantity,
+            List<OrderItemSpecificationLineDraft> specificationLines,
+            long expectedPayloadRevision) {
+        Objects.requireNonNull(documentId, "documentId");
         Objects.requireNonNull(orderItemId, "orderItemId");
         Objects.requireNonNull(revisionNumber, "revisionNumber");
+        Objects.requireNonNull(specificationLines, "specificationLines");
         authorization.requirePermission(OrderManagementPermissions.REVISION_EDIT);
+        requireEditableDraftRevision(orderItemId, revisionNumber);
         DocumentId id = DocumentId.of(documentId);
         Instant now = clock.instant();
         OrderedQuantity quantity = OrderedQuantity.of(parseQuantity(orderedQuantity));
-        List<OrderItemRevisionPayloadLine> lines = loadDraftSpecificationLines(orderItemId, revisionNumber);
+        List<OrderItemRevisionPayloadLine> lines = toPayloadLines(specificationLines);
 
         Optional<OrderDocumentPayload> existing = draftPayloads.load(id);
         try {
@@ -317,9 +347,7 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
                         "ORDER_ITEM_REVISION_UPDATE draft target mismatch");
             }
             PayloadRevision expected = PayloadRevision.of(expectedPayloadRevision);
-            // Preserve specification lines already stored on the typed payload (unchanged).
-            OrderItemRevisionUpdatePayload candidate =
-                    current.withContent(quantity, current.copyLines(), now);
+            OrderItemRevisionUpdatePayload candidate = current.withContent(quantity, lines, now);
             return draftPayloads
                     .updateDraft(candidate, expected)
                     .identity()
@@ -434,20 +462,7 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
 
     private List<OrderItemRevisionPayloadLine> loadDraftSpecificationLines(
             OrderItemId orderItemId, RevisionNumber revisionNumber) {
-        OrderItem item = requireItem(orderItemId);
-        OrderItemRevision draft =
-                item.draftRevision()
-                        .orElseThrow(
-                                () ->
-                                        new IllegalStateException(
-                                                "No draft revision on item " + orderItemId));
-        if (!draft.revisionNumber().equals(revisionNumber)) {
-            throw new IllegalStateException(
-                    "Draft revision mismatch: expected "
-                            + revisionNumber
-                            + ", got "
-                            + draft.revisionNumber());
-        }
+        OrderItemRevision draft = requireEditableDraftRevision(orderItemId, revisionNumber);
         ItemSpecification specification =
                 draft.specification().orElse(ItemSpecification.empty(orderItemId, revisionNumber));
         List<OrderItemRevisionPayloadLine> lines = new ArrayList<>();
@@ -463,6 +478,72 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
                             line.consumptionNorm()));
         }
         return lines;
+    }
+
+    private OrderItemRevision requireEditableDraftRevision(
+            OrderItemId orderItemId, RevisionNumber revisionNumber) {
+        OrderItem item = requireItem(orderItemId);
+        OrderItemRevision draft =
+                item.draftRevision()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "No draft revision on item " + orderItemId));
+        if (!draft.revisionNumber().equals(revisionNumber)) {
+            throw new IllegalStateException(
+                    "Draft revision mismatch: expected "
+                            + revisionNumber
+                            + ", got "
+                            + draft.revisionNumber());
+        }
+        if (draft.status() != RevisionStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "ORDER_ITEM_REVISION_UPDATE may address only a Draft Revision; got "
+                            + draft.status());
+        }
+        Optional<OrderItemRevision> requested = item.revision(revisionNumber);
+        if (requested.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Revision not found: " + orderItemId + "/" + revisionNumber);
+        }
+        if (requested.get().status() != RevisionStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "Cannot update approved revision " + revisionNumber + " on item " + orderItemId);
+        }
+        return draft;
+    }
+
+    private static List<OrderItemRevisionPayloadLine> toPayloadLines(
+            List<OrderItemSpecificationLineDraft> specificationLines) {
+        List<OrderItemRevisionPayloadLine> lines = new ArrayList<>(specificationLines.size());
+        int lineNumber = 1;
+        for (OrderItemSpecificationLineDraft draft : specificationLines) {
+            Objects.requireNonNull(draft, "specificationLines element");
+            lines.add(
+                    OrderItemRevisionPayloadLine.of(
+                            lineNumber++,
+                            draft.materialCode(),
+                            draft.materialName(),
+                            draft.quantity(),
+                            draft.unitOfMeasure(),
+                            draft.consumptionNorm()));
+        }
+        return lines;
+    }
+
+    private static List<OrderItemSpecificationLineDraft> toLineDrafts(
+            List<OrderItemRevisionPayloadLine> lines) {
+        List<OrderItemSpecificationLineDraft> drafts = new ArrayList<>(lines.size());
+        for (OrderItemRevisionPayloadLine line : lines) {
+            drafts.add(
+                    OrderItemSpecificationLineDraft.of(
+                            line.materialCode(),
+                            line.materialName(),
+                            line.quantity(),
+                            line.unitOfMeasure(),
+                            line.consumptionNorm()));
+        }
+        return drafts;
     }
 
     private OrderItem requireItem(OrderItemId orderItemId) {

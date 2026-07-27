@@ -68,6 +68,12 @@ public final class OrderItemEditorController implements ViewModelAware<OrderItem
     private Button approveRevisionButton;
 
     @FXML
+    private Button openActiveSpecificationButton;
+
+    @FXML
+    private Button openDraftSpecificationButton;
+
+    @FXML
     private Button backButton;
 
     @FXML
@@ -103,6 +109,12 @@ public final class OrderItemEditorController implements ViewModelAware<OrderItem
         saveRevisionButton.disableProperty().bind(viewModel.canSaveRevisionDraftProperty().not());
         postRevisionButton.disableProperty().bind(viewModel.canPostRevisionUpdateProperty().not());
         approveRevisionButton.disableProperty().bind(viewModel.canApproveRevisionProperty().not());
+        openActiveSpecificationButton
+                .disableProperty()
+                .bind(viewModel.canOpenActiveSpecificationProperty().not());
+        openDraftSpecificationButton
+                .disableProperty()
+                .bind(viewModel.canOpenDraftSpecificationProperty().not());
 
         saveCommercialButton.setOnAction(e -> viewModel.saveCommercialDraft());
         postCommercialButton.setOnAction(e -> viewModel.postCommercialDocument());
@@ -111,6 +123,8 @@ public final class OrderItemEditorController implements ViewModelAware<OrderItem
         saveRevisionButton.setOnAction(e -> viewModel.saveRevisionQuantityDraft());
         postRevisionButton.setOnAction(e -> viewModel.postRevisionUpdate());
         approveRevisionButton.setOnAction(e -> viewModel.approveDraftRevision());
+        openActiveSpecificationButton.setOnAction(e -> viewModel.openActiveSpecification());
+        openDraftSpecificationButton.setOnAction(e -> viewModel.openDraftSpecification());
         backButton.setOnAction(e -> viewModel.backToItemList());
 
         successLabel.textProperty().bind(viewModel.successMessageProperty());

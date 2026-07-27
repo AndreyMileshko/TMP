@@ -6,6 +6,7 @@ import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
+import com.tmp.order.api.ui.OrderItemSpecificationEditorQueryService;
 import com.tmp.order.application.document.OrderApproveDocumentProcessor;
 import com.tmp.order.application.document.OrderCancelDocumentProcessor;
 import com.tmp.order.application.document.OrderCreateDocumentProcessor;
@@ -34,6 +35,7 @@ import com.tmp.order.application.query.OrderQueryReadPort;
 import com.tmp.order.application.ui.DefaultOrderDocumentUiService;
 import com.tmp.order.application.ui.DefaultOrderItemDocumentUiService;
 import com.tmp.order.application.ui.DefaultOrderItemEditorQueryService;
+import com.tmp.order.application.ui.DefaultOrderItemSpecificationEditorQueryService;
 import com.tmp.order.capability.OrderManagementCapability;
 import com.tmp.order.domain.repository.CustomerOrderRepository;
 import com.tmp.order.domain.repository.OrderItemRepository;
@@ -376,6 +378,13 @@ public class OrderManagementAutoConfiguration {
     OrderItemEditorQueryService defaultOrderItemEditorQueryService(
             OrderItemRepository orderItemRepository, AuthorizationService authorizationService) {
         return new DefaultOrderItemEditorQueryService(orderItemRepository, authorizationService);
+    }
+
+    @Bean
+    OrderItemSpecificationEditorQueryService defaultOrderItemSpecificationEditorQueryService(
+            OrderItemRepository orderItemRepository, AuthorizationService authorizationService) {
+        return new DefaultOrderItemSpecificationEditorQueryService(
+                orderItemRepository, authorizationService);
     }
 
     @Bean

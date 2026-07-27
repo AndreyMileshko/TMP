@@ -2821,7 +2821,7 @@ Stage 5.9C order editor completed end-to-end.
 
 **9B list preflight:** `OrderListViewModel` no longer queries in the constructor; initial `refresh()` once on screen open; `canGoPrevious` / `canGoNext` disable Prev on first page, Next on last page, both while loading.
 
-**UI application service:** `com.tmp.order.api.ui.OrderDocumentUiService` (+ `OrderHeaderDraft`) with `DefaultOrderDocumentUiService` ? begin CREATE/UPDATE/APPROVE/CANCEL, save typed drafts via existing payload use cases, post only through `DocumentEngine.postDocument`. CREATE `OrderId` resolved from processing record (`OrderCreateDocumentProcessor.orderIdFrom`). No direct aggregate mutation, no repository/JDBC from the UI façade API surface.
+**UI application service:** `com.tmp.order.api.ui.OrderDocumentUiService` (+ `OrderHeaderDraft`) with `DefaultOrderDocumentUiService` ? begin CREATE/UPDATE/APPROVE/CANCEL, save typed drafts via existing payload use cases, post only through `DocumentEngine.postDocument`. CREATE `OrderId` resolved from processing record (`OrderCreateDocumentProcessor.orderIdFrom`). No direct aggregate mutation, no repository/JDBC from the UI fa?ade API surface.
 
 **Spring wiring:** `OrderManagementAutoConfiguration` registers order-level processors and UI service; `@AutoConfigureAfter` uses string names only (no internal Document Engine class import). Item processors not registered.
 
@@ -2858,4 +2858,65 @@ Stage 5.9D item and revision editor completed end-to-end.
 ### Notes
 
 - STAGE5-040 left PLANNED (not READY).
+- No Git operations executed.
+
+## STAGE5-040 ? UI: Specification editor (immutable after approve)
+
+**Date:** 2026-07-27  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Stage 5.9E Specification editor completed end-to-end.
+
+**UI-facing read model:** `OrderItemSpecificationEditorQueryService` / `OrderItemSpecificationEditorSnapshot` / `OrderItemSpecificationLineView` load Draft or Approved Specification for desktop UI only (`order.specification.view`). Snapshot and line list are immutable. Public Query API unchanged (APPROVED-only).
+
+**Document save:** `OrderItemSpecificationLineDraft` + full `saveRevisionUpdateDraft(..., specificationLines, ...)`. Quantity-only overload delegates and preserves lines. Typed `OrderItemRevisionUpdatePayload` with sequential line numbers `1..N`; Approved Revision rejected by application service; optimistic locking via `PayloadRevision`; post only through Document Engine.
+
+**UI shell:** `OrderItemSpecificationEditorScreen` (FXML/Controller/ViewModel); Draft editable (add/update/delete/reorder/clear/save/post); Approved read-only. Item Editor actions ???????? ????????/???????? ?????????????; return reloads item snapshot. Permissions: `order.specification.view`, `order.revision.edit`.
+
+**Bootstrap:** Specification editor ViewModel + screen registration + navigation bridge wired.
+
+### Files created
+
+- `tmp-order-management/.../api/ui/OrderItemSpecificationEditorQueryService.java`
+- `tmp-order-management/.../api/ui/OrderItemSpecificationEditorSnapshot.java`
+- `tmp-order-management/.../api/ui/OrderItemSpecificationLineView.java`
+- `tmp-order-management/.../api/ui/OrderItemSpecificationLineDraft.java`
+- `tmp-order-management/.../application/ui/DefaultOrderItemSpecificationEditorQueryService.java`
+- `tmp-ui-shell/.../orderspecificationeditor/OrderItemSpecificationEditorViewModel.java`
+- `tmp-ui-shell/.../orderspecificationeditor/OrderItemSpecificationEditorController.java`
+- `tmp-ui-shell/.../orderspecificationeditor/SpecificationLineRow.java`
+- `tmp-ui-shell/.../orderspecificationeditor/OrderItemSpecificationEditorScreen.fxml`
+- related tests
+
+### Files modified
+
+- `OrderItemDocumentUiService` / `DefaultOrderItemDocumentUiService`
+- `OrderManagementAutoConfiguration`
+- `OrderItemEditorViewModel` / Controller / FXML
+- `UiShellScreens`, `UiShellAutoConfiguration`
+- control docs
+
+### Tests added or changed
+
+- `DefaultOrderItemSpecificationEditorQueryServiceTest`
+- `DefaultOrderItemDocumentUiServiceTest` (full-line save / approved reject / stale lock / empty lines)
+- `OrderItemSpecificationEditorViewModelTest` / `ControllerFxTest`
+- Item Editor open-spec + FakeDocs overload; bootstrap/autoconfig bean assertions
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Order Management verify | PASSED |
+| UI Shell verify | PASSED |
+| Bootstrap test | PASSED |
+| Document Engine test | PASSED |
+| Architecture tests | PASSED |
+
+### Notes
+
+- STAGE5-041 left PLANNED (not READY).
 - No Git operations executed.
