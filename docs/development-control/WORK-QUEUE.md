@@ -8322,20 +8322,21 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-038 — UI: Order editor (document-driven)
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-037
 
 - **Goal:** Реализовать редактор заказа: создать платформенный документ, сохранить typed draft payload, запросить проведение (`ORDER_CREATE`/`ORDER_UPDATE`/`ORDER_APPROVE`/`ORDER_CANCEL`).
-- **Scope:** экран заказа + document flow через внутренние use cases.
+- **Scope:** экран заказа + document flow через внутренние use cases; `com.tmp.order.api.ui.OrderDocumentUiService`; 9B list fixes.
 - **Out of scope:** позиции/редакции (STAGE5-039).
 - **Required documents:** UI/UX Spec; Spec §11.4/§14; Manifest §14.
 - **Required code context:** `com.tmp.order.api` (Query), `com.tmp.document.api`; `tmp-ui-shell`.
-- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel заказа).
+- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel заказа/списка); `tmp-order-management` (`api.ui`, AutoConfiguration wiring for document UI flow); `tmp-bootstrap-app` (screen wiring).
 - **Acceptance criteria:** UI создаёт документ, сохраняет draft payload, инициирует проведение; нет прямых мутаций агрегата.
-- **Verification commands:** `mvn -q -pl tmp-ui-shell -am test`
+- **Verification commands:** `mvn -q -pl tmp-ui-shell -am verify`; `mvn -q -pl tmp-order-management -am verify`; `mvn -q -pl tmp-bootstrap-app -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** UI вынужден менять агрегат напрямую.
+- **Completed (2026-07-27):** 9B list single-load + `canGoPrevious`/`canGoNext`; `OrderDocumentUiService` + order-level processors; Order editor CREATE/VIEW_EXISTING; list create/open navigation; permissions; local errors; Spring wiring tests. STAGE5-039 not started.
 
 ---
 

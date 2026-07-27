@@ -2646,7 +2646,7 @@ Immutable `OrderBusinessDocumentCatalog` with exactly 10 descriptors (type, disp
 - No direct `EventBus`; no SQL/JDBC aggregate adapters; no item processors.
 - Git operations not executed.
 
-## STAGE5-027 Ч Document processor: ORDER_ITEM_CREATE
+## STAGE5-027 ? Document processor: ORDER_ITEM_CREATE
 
 **Date:** 2026-07-26  
 **Stage:** 5  
@@ -2656,7 +2656,7 @@ Immutable `OrderBusinessDocumentCatalog` with exactly 10 descriptors (type, disp
 
 Extended `IdempotencyGuard` / `AbstractOrderDocumentProcessor` with immutable multi-event publish (backward compatible). `CreateOrderItemCommand` / `CreateOrderItemUseCase` / `OrderItemCreateDocumentProcessor` create Draft item + Revision 1; publish `OrderItemCreated` + `OrderItemRevisionCreated`.
 
-## STAGE5-028 Ч Document processor: ORDER_ITEM_UPDATE
+## STAGE5-028 ? Document processor: ORDER_ITEM_UPDATE
 
 **Date:** 2026-07-26  
 **Stage:** 5  
@@ -2666,7 +2666,7 @@ Extended `IdempotencyGuard` / `AbstractOrderDocumentProcessor` with immutable mu
 
 `UpdateOrderItemCommand` / `UpdateOrderItemUseCase` / `OrderItemUpdateDocumentProcessor` update commercial fields of Draft items only; publish `OrderItemUpdated`.
 
-## STAGE5-029 Ч Document processor: ORDER_ITEM_REVISION_CREATE
+## STAGE5-029 ? Document processor: ORDER_ITEM_REVISION_CREATE
 
 **Date:** 2026-07-26  
 **Stage:** 5  
@@ -2676,7 +2676,7 @@ Extended `IdempotencyGuard` / `AbstractOrderDocumentProcessor` with immutable mu
 
 `CreateOrderItemRevisionCommand` / `CreateOrderItemRevisionUseCase` / `OrderItemRevisionCreateDocumentProcessor` create Draft N+1 for ACTIVE items; optional copy-from APPROVED; publish `OrderItemRevisionCreated`.
 
-## STAGE5-030 Ч Document processor: ORDER_ITEM_REVISION_UPDATE
+## STAGE5-030 ? Document processor: ORDER_ITEM_REVISION_UPDATE
 
 **Date:** 2026-07-26  
 **Stage:** 5  
@@ -2686,7 +2686,7 @@ Extended `IdempotencyGuard` / `AbstractOrderDocumentProcessor` with immutable mu
 
 `UpdateOrderItemRevisionCommand` / `UpdateOrderItemRevisionUseCase` / `OrderItemRevisionUpdateDocumentProcessor` update Draft quantity+specification from typed lines; publish `OrderItemRevisionUpdated`.
 
-## STAGE5-031 Ч Document processor: ORDER_ITEM_REVISION_APPROVE
+## STAGE5-031 ? Document processor: ORDER_ITEM_REVISION_APPROVE
 
 **Date:** 2026-07-26  
 **Stage:** 5  
@@ -2696,7 +2696,7 @@ Extended `IdempotencyGuard` / `AbstractOrderDocumentProcessor` with immutable mu
 
 `ApproveOrderItemRevisionCommand` / `ApproveOrderItemRevisionUseCase` / `OrderItemRevisionApproveDocumentProcessor` approve Draft revision atomically; publish `OrderItemRevisionApproved`.
 
-## STAGE5-032 Ч Document processor: ORDER_ITEM_CANCEL
+## STAGE5-032 ? Document processor: ORDER_ITEM_CANCEL
 
 **Date:** 2026-07-26  
 **Stage:** 5  
@@ -2712,7 +2712,7 @@ Extended `IdempotencyGuard` / `AbstractOrderDocumentProcessor` with immutable mu
 - Six new item/revision processors; multi-event base support preserved existing order processors.
 - No direct EventBus; no aggregate JDBC/SQL; Git not executed.
 
-## STAGE5-033 Ч Aggregate persistence adapters
+## STAGE5-033 ? Aggregate persistence adapters
 
 **Date:** 2026-07-26  
 **Stage:** 5  
@@ -2722,7 +2722,7 @@ Extended `IdempotencyGuard` / `AbstractOrderDocumentProcessor` with immutable mu
 
 JDBC adapters for `CustomerOrderRepository`, `OrderItemRepository`, `OrderItemRevisionRepository` (read), `ItemSpecificationRepository` (read). Order Item `save` atomically persists item + revisions + specifications + lines + active/draft pointers with optimistic locking (`version = version + 1` / `WHERE ... AND version = ?`). No own transaction; no JPA. `OrderItemRevision.rehydrate` / `ItemSpecification.rehydrate` made public for persistence adapters only.
 
-## STAGE5-034 Ч Aggregate Flyway migration
+## STAGE5-034 ? Aggregate Flyway migration
 
 **Date:** 2026-07-26  
 **Stage:** 5  
@@ -2732,7 +2732,7 @@ JDBC adapters for `CustomerOrderRepository`, `OrderItemRepository`, `OrderItemRe
 
 Created `V8__order_management_aggregates.sql`: `orders`, `order_items`, `order_item_revisions`, `item_specifications`, `item_specification_lines` in schema `order_management`. FK/unique/check constraints; no Production/Warehouse/Cutting columns; no JSON/BLOB. PostgreSQL IT covers migrate, aggregate round-trip, optimistic lock, unique order number, FK integrity.
 
-## STAGE5-035 Ч Security capabilities registration
+## STAGE5-035 ? Security capabilities registration
 
 **Date:** 2026-07-26  
 **Stage:** 5  
@@ -2747,7 +2747,7 @@ Created `V8__order_management_aggregates.sql`: `orders`, `order_items`, `order_i
 - `STAGE5-033..035` = DONE; `STAGE5-036` remains `PLANNED`.
 - No Public Query API service; no UI; Git not executed.
 
-## STAGE5-035A Ч Query API implementation
+## STAGE5-035A ? Query API implementation
 
 **Date:** 2026-07-26  
 **Stage:** 5  
@@ -2757,7 +2757,7 @@ Created `V8__order_management_aggregates.sql`: `orders`, `order_items`, `order_i
 
 `DefaultOrderQueryService` + `OrderQueryReadPort` + `JdbcOrderQueryReadAdapter`. All eight Public Query API methods; parameterized search filters; whitelist sort; Draft Revision/Specification hidden; APPROVED-only revision exposure; active revision via `active_revision_number`; DTO projections only; read-only SQL.
 
-## STAGE5-035B Ч Query API runtime wiring and security
+## STAGE5-035B ? Query API runtime wiring and security
 
 **Date:** 2026-07-26  
 **Stage:** 5  
@@ -2781,7 +2781,7 @@ Created `V8__order_management_aggregates.sql`: `orders`, `order_items`, `order_i
 - Removed tracked generated file `target/checkstyle-cachefile` from the working tree (`.gitignore` unchanged; `target/` already ignored).
 - Added positive runtime permission IT: grant `order.order.view` via public `RoleAdministrationService`, then `OrderQueryService.searchOrders` succeeds without `AccessDeniedException` (no production auto-assignment).
 
-## STAGE5-036 Ч Order Management navigation
+## STAGE5-036 ? Order Management navigation
 
 **Date:** 2026-07-27  
 **Stage:** 5  
@@ -2789,13 +2789,13 @@ Created `V8__order_management_aggregates.sql`: `orders`, `order_items`, `order_i
 
 ### Result
 
-`OrderManagementCapability` contributes `order.nav.orders` > `order.view.orders` (display `«аказы`), gated by `order.order.view` via matching `CommandDescriptor`. UI Shell registers screen id `order.view.orders` with placeholder FXML/Controller/ViewModel; bootstrap wires registration. Navigation hidden without permission; opens list screen id. No duplicate navigation ids. UI imports only public Security/UI contracts (screen constants; no order internals).
+`OrderManagementCapability` contributes `order.nav.orders` > `order.view.orders` (display `??????`), gated by `order.order.view` via matching `CommandDescriptor`. UI Shell registers screen id `order.view.orders` with placeholder FXML/Controller/ViewModel; bootstrap wires registration. Navigation hidden without permission; opens list screen id. No duplicate navigation ids. UI imports only public Security/UI contracts (screen constants; no order internals).
 
 ### Notes
 
 - Item-list `OrderSort` follow-up remains recorded for STAGE5-039 (unchanged in this task).
 
-## STAGE5-037 Ч Order list screen
+## STAGE5-037 ? Order list screen
 
 **Date:** 2026-07-27  
 **Stage:** 5  
@@ -2808,3 +2808,29 @@ Read-only order list in `tmp-ui-shell`: FXML/Controller/ViewModel call only `Ord
 ### Follow-up (unchanged)
 
 Before STAGE5-039, replace order-specific `OrderSort` reuse for item listings with a dedicated contract or fixed order.
+
+## STAGE5-038 ? UI: Order editor (document-driven)
+
+**Date:** 2026-07-27  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Stage 5.9C order editor completed end-to-end.
+
+**9B list preflight:** `OrderListViewModel` no longer queries in the constructor; initial `refresh()` once on screen open; `canGoPrevious` / `canGoNext` disable Prev on first page, Next on last page, both while loading.
+
+**UI application service:** `com.tmp.order.api.ui.OrderDocumentUiService` (+ `OrderHeaderDraft`) with `DefaultOrderDocumentUiService` ? begin CREATE/UPDATE/APPROVE/CANCEL, save typed drafts via existing payload use cases, post only through `DocumentEngine.postDocument`. CREATE `OrderId` resolved from processing record (`OrderCreateDocumentProcessor.orderIdFrom`). No direct aggregate mutation, no repository/JDBC from the UI faзade API surface.
+
+**Spring wiring:** `OrderManagementAutoConfiguration` registers order-level processors and UI service; `@AutoConfigureAfter` uses string names only (no internal Document Engine class import). Item processors not registered.
+
+**UI shell:** `OrderEditorScreen.fxml` / `OrderEditorController` / `OrderEditorViewModel` with CREATE and VIEW_EXISTING; DRAFT edit/approve/cancel; APPROVED/CANCELLED read-only; local error display without success flash; list ???????? ?????? / open selected via existing navigation (`OrderScreenNavigationBridge`). Permissions: `order.order.view|create|edit|approve|cancel` via public Security API.
+
+**Tests:** list single initial request + pagination bounds; editor FXML/open modes/read-only/permissions/document flow/error retention; Spring wiring for `OrderDocumentUiService` + `OrderEditorViewModel`.
+
+### Notes
+
+- Approve still requires ?1 ACTIVE item (existing domain rule); item UI is STAGE5-039.
+- STAGE5-039 left PLANNED (not READY).
+- No Git operations executed.

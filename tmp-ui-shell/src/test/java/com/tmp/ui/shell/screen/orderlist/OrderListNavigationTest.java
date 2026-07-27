@@ -56,7 +56,7 @@ class OrderListNavigationTest {
         navigation.register(new ScreenRegistration(
                 UiShellScreens.ORDER_LIST_SCREEN_ID,
                 UiShellScreens.ORDER_LIST_FXML,
-                () -> new OrderListViewModel(new EmptyOrderQuery())));
+                () -> new OrderListViewModel(new EmptyOrderQuery(), new FakeAuthorization())));
         MainWindowViewModel viewModel = new MainWindowViewModel(
                 catalogue,
                 new FakeAuthz(Set.of(PermissionId.of(UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION))),

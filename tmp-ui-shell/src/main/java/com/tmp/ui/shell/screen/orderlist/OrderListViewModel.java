@@ -5,9 +5,13 @@ import com.tmp.order.api.OrderSearchCriteria;
 import com.tmp.order.api.OrderSort;
 import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.OrderSummaryDto;
+import com.tmp.order.api.OrderId;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
 import com.tmp.security.api.AccessDeniedException;
+import com.tmp.security.api.AuthorizationService;
+import com.tmp.security.api.PermissionId;
+import com.tmp.ui.shell.UiShellScreens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -15,12 +19,15 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.LongProperty;
+import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleLongProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
@@ -35,7 +42,11 @@ import javafx.collections.ObservableList;
 public final class OrderListViewModel {
 
     private final OrderQueryService orderQueryService;
+    private final AuthorizationService authorizationService;
     private final ObservableList<OrderSummaryDto> orders = FXCollections.observableArrayList();
+    private final ObjectProperty<OrderSummaryDto> selectedOrder = new SimpleObjectProperty<>();
+    private final BooleanProperty canCreate = new SimpleBooleanProperty(false);
+    private final BooleanProperty canOpenSelected = new SimpleBooleanProperty(false);
     private final StringProperty title = new SimpleStringProperty("Заказы");
     private final StringProperty statusMessage = new SimpleStringProperty("");
     private final StringProperty errorMessage = new SimpleStringProperty("");
@@ -52,14 +63,61 @@ public final class OrderListViewModel {
     private final StringProperty createdToFilter = new SimpleStringProperty("");
     private final StringProperty sortField = new SimpleStringProperty(OrderSort.Field.CREATED_AT.apiName());
     private final StringProperty sortDirection = new SimpleStringProperty(OrderSort.Direction.DESC.name());
+    private final BooleanProperty canGoPrevious = new SimpleBooleanProperty(false);
+    private final BooleanProperty canGoNext = new SimpleBooleanProperty(false);
+    private Runnable onCreateOrder = () -> {
+    };
+    private Consumer<OrderId> onOpenOrder = id -> {
+    };
 
-    public OrderListViewModel(OrderQueryService orderQueryService) {
+    public OrderListViewModel(
+            OrderQueryService orderQueryService, AuthorizationService authorizationService) {
         this.orderQueryService = Objects.requireNonNull(orderQueryService, "orderQueryService");
-        refresh();
+        this.authorizationService =
+                Objects.requireNonNull(authorizationService, "authorizationService");
+        selectedOrder.addListener((obs, oldValue, newValue) -> canOpenSelected.set(newValue != null));
+        refreshPermissions();
+        updatePaginationFlags();
+    }
+
+    public void setOnCreateOrder(Runnable onCreateOrder) {
+        this.onCreateOrder = Objects.requireNonNull(onCreateOrder, "onCreateOrder");
+    }
+
+    public void setOnOpenOrder(Consumer<OrderId> onOpenOrder) {
+        this.onOpenOrder = Objects.requireNonNull(onOpenOrder, "onOpenOrder");
+    }
+
+    public void refreshPermissions() {
+        canCreate.set(authorizationService.hasPermission(
+                PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION)));
     }
 
     public ObservableList<OrderSummaryDto> orders() {
         return orders;
+    }
+
+    public ObjectProperty<OrderSummaryDto> selectedOrderProperty() {
+        return selectedOrder;
+    }
+
+    public BooleanProperty canCreateProperty() {
+        return canCreate;
+    }
+
+    public BooleanProperty canOpenSelectedProperty() {
+        return canOpenSelected;
+    }
+
+    public void createOrder() {
+        onCreateOrder.run();
+    }
+
+    public void openSelectedOrder() {
+        OrderSummaryDto selected = selectedOrder.get();
+        if (selected != null) {
+            onOpenOrder.accept(selected.orderId());
+        }
     }
 
     public StringProperty titleProperty() {
@@ -126,8 +184,17 @@ public final class OrderListViewModel {
         return sortDirection;
     }
 
+    public BooleanProperty canGoPreviousProperty() {
+        return canGoPrevious;
+    }
+
+    public BooleanProperty canGoNextProperty() {
+        return canGoNext;
+    }
+
     public void refresh() {
         loading.set(true);
+        updatePaginationFlags();
         errorMessage.set("");
         statusMessage.set("");
         try {
@@ -162,6 +229,7 @@ public final class OrderListViewModel {
             errorMessage.set(ex.getMessage() == null ? "Ошибка загрузки заказов" : ex.getMessage());
         } finally {
             loading.set(false);
+            updatePaginationFlags();
         }
     }
 
@@ -293,6 +361,16 @@ public final class OrderListViewModel {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private void updatePaginationFlags() {
+        boolean busy = loading.get();
+        long total = totalElements.get();
+        int size = clampPageSize(pageSize.get());
+        int maxPage = total <= 0 ? 0 : (int) ((total - 1) / size);
+        int page = pageIndex.get();
+        canGoPrevious.set(!busy && page > 0);
+        canGoNext.set(!busy && page < maxPage);
     }
 
     private record ParsedInstant(Instant value, String errorMessage) {

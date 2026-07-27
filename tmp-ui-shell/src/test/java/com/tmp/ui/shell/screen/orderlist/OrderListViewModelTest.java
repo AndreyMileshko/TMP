@@ -20,6 +20,7 @@ import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.security.api.AccessDeniedException;
+import com.tmp.security.api.AuthorizationService;
 import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,7 +36,8 @@ class OrderListViewModelTest {
         for (int i = 0; i < 3; i++) {
             query.orders.add(summary("O-" + i));
         }
-        OrderListViewModel viewModel = new OrderListViewModel(query);
+        OrderListViewModel viewModel = new OrderListViewModel(query, new FakeAuthorization());
+        viewModel.refresh();
         assertEquals(3, viewModel.orders().size());
         assertEquals(PageRequest.DEFAULT_PAGE_SIZE, query.lastPageRequest.pageSize());
         assertEquals(0, query.lastPageRequest.pageIndex());
@@ -49,7 +51,8 @@ class OrderListViewModelTest {
         for (int i = 0; i < 60; i++) {
             query.orders.add(summary("O-" + i));
         }
-        OrderListViewModel viewModel = new OrderListViewModel(query);
+        OrderListViewModel viewModel = new OrderListViewModel(query, new FakeAuthorization());
+        viewModel.refresh();
         viewModel.nextPage();
         assertEquals(1, viewModel.pageIndexProperty().get());
 
@@ -74,7 +77,8 @@ class OrderListViewModelTest {
     void clearFiltersResetsCriteriaAndPage() {
         FakeOrderQuery query = new FakeOrderQuery();
         query.orders.add(summary("O-1"));
-        OrderListViewModel viewModel = new OrderListViewModel(query);
+        OrderListViewModel viewModel = new OrderListViewModel(query, new FakeAuthorization());
+        viewModel.refresh();
         viewModel.orderNumberFilterProperty().set("X");
         viewModel.customerNameFilterProperty().set("Y");
         viewModel.pageIndexProperty().set(2);
@@ -89,7 +93,8 @@ class OrderListViewModelTest {
     @Test
     void blankFiltersBecomeAbsent() {
         FakeOrderQuery query = new FakeOrderQuery();
-        OrderListViewModel viewModel = new OrderListViewModel(query);
+        OrderListViewModel viewModel = new OrderListViewModel(query, new FakeAuthorization());
+        viewModel.refresh();
         viewModel.orderNumberFilterProperty().set("   ");
         viewModel.customerRefFilterProperty().set("");
         OrderSearchCriteria criteria = viewModel.toSearchCriteriaForTest();
@@ -101,7 +106,8 @@ class OrderListViewModelTest {
     @Test
     void invalidDateRangeIsNotSentToService() {
         FakeOrderQuery query = new FakeOrderQuery();
-        OrderListViewModel viewModel = new OrderListViewModel(query);
+        OrderListViewModel viewModel = new OrderListViewModel(query, new FakeAuthorization());
+        viewModel.refresh();
         int callsAfterConstruct = query.searchCalls;
         viewModel.createdFromFilterProperty().set("2026-12-31T00:00:00Z");
         viewModel.createdToFilterProperty().set("2026-01-01T00:00:00Z");
@@ -116,20 +122,37 @@ class OrderListViewModelTest {
         for (int i = 0; i < 55; i++) {
             query.orders.add(summary("O-" + i));
         }
-        OrderListViewModel viewModel = new OrderListViewModel(query);
+        OrderListViewModel viewModel = new OrderListViewModel(query, new FakeAuthorization());
+        viewModel.refresh();
         assertEquals(0, viewModel.pageIndexProperty().get());
+        assertFalse(viewModel.canGoPreviousProperty().get());
+        assertTrue(viewModel.canGoNextProperty().get());
         viewModel.previousPage();
         assertEquals(0, viewModel.pageIndexProperty().get());
         viewModel.nextPage();
         assertEquals(1, viewModel.pageIndexProperty().get());
+        assertTrue(viewModel.canGoPreviousProperty().get());
+        assertFalse(viewModel.canGoNextProperty().get());
         viewModel.nextPage();
         assertEquals(1, viewModel.pageIndexProperty().get());
     }
 
     @Test
+    void constructorDoesNotQueryAndOpenTriggersExactlyOneSearch() {
+        FakeOrderQuery query = new FakeOrderQuery();
+        query.orders.add(summary("O-1"));
+        OrderListViewModel viewModel = new OrderListViewModel(query, new FakeAuthorization());
+        assertEquals(0, query.searchCalls);
+        viewModel.refresh();
+        assertEquals(1, query.searchCalls);
+        assertEquals(1, viewModel.orders().size());
+    }
+
+    @Test
     void emptyResultSetsEmptyState() {
         FakeOrderQuery query = new FakeOrderQuery();
-        OrderListViewModel viewModel = new OrderListViewModel(query);
+        OrderListViewModel viewModel = new OrderListViewModel(query, new FakeAuthorization());
+        viewModel.refresh();
         assertTrue(viewModel.emptyResultProperty().get());
         assertEquals("Заказы не найдены", viewModel.statusMessageProperty().get());
     }
@@ -138,7 +161,8 @@ class OrderListViewModelTest {
     void accessDeniedIsSurfacedWithoutThrowing() {
         FakeOrderQuery query = new FakeOrderQuery();
         query.deny = true;
-        OrderListViewModel viewModel = new OrderListViewModel(query);
+        OrderListViewModel viewModel = new OrderListViewModel(query, new FakeAuthorization());
+        viewModel.refresh();
         assertTrue(viewModel.orders().isEmpty());
         assertTrue(viewModel.errorMessageProperty().get().contains("denied")
                 || viewModel.errorMessageProperty().get().contains("Доступ"));
@@ -148,7 +172,7 @@ class OrderListViewModelTest {
     @Test
     void pageSizeIsClampedToMax() {
         FakeOrderQuery query = new FakeOrderQuery();
-        OrderListViewModel viewModel = new OrderListViewModel(query);
+        OrderListViewModel viewModel = new OrderListViewModel(query, new FakeAuthorization());
         viewModel.pageSizeProperty().set(500);
         viewModel.refresh();
         assertEquals(PageRequest.MAX_PAGE_SIZE, query.lastPageRequest.pageSize());
@@ -158,7 +182,7 @@ class OrderListViewModelTest {
     @Test
     void rejectsUnknownSortFieldWithoutBuildingSql() {
         FakeOrderQuery query = new FakeOrderQuery();
-        OrderListViewModel viewModel = new OrderListViewModel(query);
+        OrderListViewModel viewModel = new OrderListViewModel(query, new FakeAuthorization());
         viewModel.sortFieldProperty().set("productionStatus");
         viewModel.refresh();
         assertFalse(viewModel.errorMessageProperty().get().isBlank());
@@ -166,9 +190,10 @@ class OrderListViewModelTest {
     }
 
     @Test
-    void viewModelDependsOnlyOnOrderQueryServiceField() throws Exception {
+    void viewModelUsesOnlyPublicQueryAndSecurityDependencies() throws Exception {
         Field[] fields = OrderListViewModel.class.getDeclaredFields();
         boolean foundQuery = false;
+        boolean foundAuthz = false;
         for (Field field : fields) {
             Class<?> type = field.getType();
             String name = type.getName();
@@ -179,8 +204,12 @@ class OrderListViewModelTest {
             if (type == OrderQueryService.class) {
                 foundQuery = true;
             }
+            if (type == AuthorizationService.class) {
+                foundAuthz = true;
+            }
         }
         assertTrue(foundQuery);
+        assertTrue(foundAuthz);
     }
 
     private static OrderSummaryDto summary(String number) {

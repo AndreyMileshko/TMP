@@ -1395,3 +1395,39 @@ These tasks (password / role / permission-override / audit application services 
 ### Failures
 
 - None.
+
+## 2026-07-27 ? STAGE5-038 (OrderDocumentUiService + AutoConfiguration wiring, partial)
+
+| Verification | Command | Result |
+|---|---|---|
+| UI service unit + AutoConfiguration IT | `mvn -q -pl tmp-order-management -am test -Dtest=DefaultOrderDocumentUiServiceTest,OrderManagementAutoConfigurationTest -Dsurefire.failIfNoSpecifiedTests=false` | PASSED |
+| UI shell / bootstrap editor | ? | NOT RUN (out of this slice) |
+| STAGE5-038 full acceptance | UI editor screen | PENDING |
+| Git | ? | NOT EXECUTED |
+
+### Failures
+
+- None (this slice).
+
+## 2026-07-27 ? STAGE5-038 DONE (Stage 5.9C Order editor)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am verify` | PASSED |
+| UI Shell | `mvn -q -pl tmp-ui-shell -am verify` | PASSED |
+| Bootstrap | `mvn -q -pl tmp-bootstrap-app -am test` | PASSED |
+| Document Engine | `mvn -q -pl tmp-document-engine -am test` | PASSED |
+| Architecture Tests | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| Single initial list request | OrderListViewModelTest | PASSED |
+| Pagination button bounds | OrderListViewModelTest / controller bindings | PASSED |
+| Order editor document flow / permissions / read-only | OrderEditorViewModelTest | PASSED |
+| FXML load | OrderEditorControllerFxTest | PASSED |
+| Spring wiring UI service + editor VM | OrderManagementAutoConfigurationTest / DesktopBootstrapWiringTest | PASSED |
+| No DocumentEngineAutoConfiguration class import in OM | Stage2/Stage5 architecture rules | PASSED (fixed string-name `@AutoConfigureAfter`) |
+| STAGE5-038 | WORK-QUEUE | DONE |
+| STAGE5-039 | WORK-QUEUE | PLANNED (not READY) |
+| Git | ? | NOT EXECUTED |
+
+### Failures
+
+- None.

@@ -84,8 +84,14 @@ public final class MainWindowViewModel {
         if (selected.isEmpty()) {
             return;
         }
+        showScreen(selected.get().viewId());
+    }
+
+    /** Loads a registered screen into the main content area (existing navigation mechanism). */
+    public void showScreen(String screenId) {
+        Objects.requireNonNull(screenId, "screenId");
         try {
-            content.set(navigationService.load(selected.get().viewId()));
+            content.set(navigationService.load(screenId));
         } catch (IllegalArgumentException unknownScreen) {
             content.set(null);
         }

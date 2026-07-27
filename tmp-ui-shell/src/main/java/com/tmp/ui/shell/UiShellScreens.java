@@ -12,6 +12,7 @@ public final class UiShellScreens {
     public static final String ROLE_ADMIN_FXML = "com/tmp/ui/shell/screen/roleadmin/RoleAdministrationScreen.fxml";
     public static final String AUDIT_FXML = "com/tmp/ui/shell/screen/audit/SecurityAuditScreen.fxml";
     public static final String ORDER_LIST_FXML = "com/tmp/ui/shell/screen/orderlist/OrderListScreen.fxml";
+    public static final String ORDER_EDITOR_FXML = "com/tmp/ui/shell/screen/ordereditor/OrderEditorScreen.fxml";
 
     public static final String MAIN_SCREEN_ID = "main";
     public static final String ACCESS_DENIED_SCREEN_ID = "access-denied";
@@ -22,6 +23,8 @@ public final class UiShellScreens {
     public static final String ORDER_LIST_SCREEN_ID = "order.view.orders";
     public static final String ORDER_LIST_NAVIGATION_ID = "order.nav.orders";
     public static final String ORDER_LIST_REQUIRED_PERMISSION = "order.order.view";
+    public static final String ORDER_EDITOR_SCREEN_ID = "order.view.order-editor";
+    public static final String ORDER_CREATE_PERMISSION = "order.order.create";
 
     private UiShellScreens() {
     }

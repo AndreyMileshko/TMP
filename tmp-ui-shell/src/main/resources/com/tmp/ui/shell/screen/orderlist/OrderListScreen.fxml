@@ -17,6 +17,10 @@
     </padding>
     <Label fx:id="titleLabel" styleClass="order-list-title"/>
     <HBox spacing="8">
+        <Button fx:id="createOrderButton" text="Создать заказ"/>
+        <Button fx:id="openOrderButton" text="Открыть"/>
+    </HBox>
+    <HBox spacing="8">
         <TextField fx:id="orderNumberFilterField" promptText="Номер заказа" prefWidth="140"/>
         <TextField fx:id="orderStatusFilterField" promptText="Статус" prefWidth="120"/>
         <TextField fx:id="customerRefFilterField" promptText="Код заказчика" prefWidth="140"/>

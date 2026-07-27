@@ -75,7 +75,7 @@ public final class OrderCreateDocumentProcessor extends AbstractOrderDocumentPro
                 orderIdFrom(resultReference), context.document().id().toString());
     }
 
-    static OrderId orderIdFrom(ResultReference resultReference) {
+    public static OrderId orderIdFrom(ResultReference resultReference) {
         Objects.requireNonNull(resultReference, "resultReference");
         String value = resultReference.value();
         if (!value.startsWith(RESULT_PREFIX)) {

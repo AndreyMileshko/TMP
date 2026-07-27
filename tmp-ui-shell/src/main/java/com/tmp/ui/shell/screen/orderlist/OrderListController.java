@@ -23,6 +23,12 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
     private Label titleLabel;
 
     @FXML
+    private Button createOrderButton;
+
+    @FXML
+    private Button openOrderButton;
+
+    @FXML
     private TextField orderNumberFilterField;
 
     @FXML
@@ -103,6 +109,13 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
                         cell.getValue().customerRef() == null ? "" : cell.getValue().customerRef()));
 
         ordersTable.setItems(viewModel.orders());
+        ordersTable.getSelectionModel()
+                .selectedItemProperty()
+                .addListener((obs, oldValue, newValue) -> viewModel.selectedOrderProperty().set(newValue));
+        createOrderButton.disableProperty().bind(viewModel.canCreateProperty().not());
+        openOrderButton.disableProperty().bind(viewModel.canOpenSelectedProperty().not());
+        createOrderButton.setOnAction(e -> viewModel.createOrder());
+        openOrderButton.setOnAction(e -> viewModel.openSelectedOrder());
         orderNumberFilterField.textProperty().bindBidirectional(viewModel.orderNumberFilterProperty());
         orderStatusFilterField.textProperty().bindBidirectional(viewModel.orderStatusFilterProperty());
         customerRefFilterField.textProperty().bindBidirectional(viewModel.customerRefFilterProperty());
@@ -114,6 +127,8 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
         clearFilterButton.setOnAction(e -> viewModel.clearFilters());
         previousPageButton.setOnAction(e -> viewModel.previousPage());
         nextPageButton.setOnAction(e -> viewModel.nextPage());
+        previousPageButton.disableProperty().bind(viewModel.canGoPreviousProperty().not());
+        nextPageButton.disableProperty().bind(viewModel.canGoNextProperty().not());
 
         pageLabel.textProperty().bind(Bindings.createStringBinding(
                 () -> "Страница "

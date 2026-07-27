@@ -27,7 +27,7 @@ class OrderListControllerFxTest {
 
     @Test
     void loadsOrderListFxml() throws Exception {
-        OrderListViewModel viewModel = new OrderListViewModel(new EmptyOrderQuery());
+        OrderListViewModel viewModel = new OrderListViewModel(new EmptyOrderQuery(), new FakeAuthorization());
         var navigation = NavigationServices.createDefault();
         navigation.register(new ScreenRegistration(
                 UiShellScreens.ORDER_LIST_SCREEN_ID,

@@ -11,6 +11,7 @@ import com.tmp.order.api.OrderSearchCriteria;
 import com.tmp.order.api.OrderSummaryDto;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
+import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.application.query.OrderQueryReadPort;
 import com.tmp.order.capability.OrderManagementCapability;
 import com.tmp.order.capability.OrderManagementPermissions;
@@ -86,7 +87,9 @@ class OrderManagementAutoConfigurationTest {
         assertEquals(1, applicationContext.getBeansOfType(OrderQueryService.class).size());
         assertEquals(1, applicationContext.getBeansOfType(OrderQueryReadPort.class).size());
         assertEquals(1, applicationContext.getBeansOfType(OrderManagementCapability.class).size());
+        assertEquals(1, applicationContext.getBeansOfType(OrderDocumentUiService.class).size());
         assertNotNull(orderQueryService);
+        assertNotNull(applicationContext.getBean(OrderDocumentUiService.class));
     }
 
     @Test
