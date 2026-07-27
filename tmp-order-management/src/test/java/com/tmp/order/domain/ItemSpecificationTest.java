@@ -71,6 +71,11 @@ class ItemSpecificationTest {
         ItemSpecification replaced = cleared.withLines(List.of(sampleLine("M3")));
         assertEquals(1, replaced.lines().size());
         assertEquals("M3", replaced.lines().get(0).materialCode());
+
+        // Editing via returning new values must not mutate the original Draft instance.
+        assertEquals(2, draft.lines().size());
+        assertEquals("M1", draft.lines().get(0).materialCode());
+        assertEquals("M2", draft.lines().get(1).materialCode());
     }
 
     @Test

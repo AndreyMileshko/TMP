@@ -2962,3 +2962,199 @@ Stage 5.9F unified UI error handling completed. Stage 5.9 (`STAGE5-036..041`) co
 
 - STAGE5-042 left PLANNED (not READY).
 - No Git operations executed.
+
+## STAGE5-042 — Unit tests consolidation
+
+**Date:** 2026-07-27  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+Unit tests consolidation for Order Management domain + application base processor.
+Added missing unit scenarios for `CustomerOrder`, `OrderItem`/draft revision/spec editing and
+`AbstractOrderDocumentProcessor` payload schema-version mismatch rejection.
+
+### Tests added or changed
+- `CustomerOrderTest`
+- `OrderItemTest`
+- `OrderItemRevisionTest`
+- `ItemSpecificationTest`
+- `AbstractOrderDocumentProcessorTest`
+
+### Verification
+| Check | Result |
+|---|---|
+| tmp-ui-shell unit tests | PASSED |
+| tmp-order-management unit tests | PASSED |
+
+### Documentation updated
+- `docs/development-control/STATUS.md`
+- `docs/development-control/WORK-QUEUE.md`
+
+### Next task
+`STAGE5-043`
+
+---
+
+## STAGE5-043 — Persistence integration tests (PostgreSQL Testcontainers)
+
+**Date:** 2026-07-27  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+Order Management persistence verified on real PostgreSQL (Testcontainers):
+typed payload round-trips, optimistic locking/stale update rejection, processing-record
+round-trip including nullable internal `result_reference`, and minimal `information_schema`
+checks (constraints and forbidden column/type patterns).
+
+### Tests added or changed
+- `JdbcPayloadAndProcessingAdaptersIT`
+  - stronger `typed payload` round-trip assertions: exact loaded Java class + `createdAt/updatedAt`
+  - optimistic locking/stale rejection for all 10 typed payload types
+  - `ProcessingRecord.resultReference` nullable round-trip test
+- `JdbcAggregatePersistenceIT`
+  - `information_schema` checks: UNIQUE order_number, FOREIGN KEY existence, absence of JSON/BYTEA, and no Postgres enum types for `*status*` columns
+  - extended timestamp assertions for `CustomerOrder` insert/load
+
+### Verification
+| Check | Result |
+|---|---|
+| tmp-order-management verify | PASSED |
+| tmp-infra-db test | PASSED |
+
+### Documentation updated
+- `docs/development-control/STATUS.md`
+- `docs/development-control/WORK-QUEUE.md`
+- `docs/development-control/VERIFICATION-LOG.md`
+
+### Next task
+`STAGE5-044`
+
+---
+
+## STAGE5-044 — Document lifecycle integration tests
+
+**Date:** 2026-07-27  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+Document lifecycle verified through public `DocumentEngine` + concrete Order Management processors on PostgreSQL:
+successful sequential post scenario, separate cancel/revision-create flows, unpost rejection, close without business mutation, draft delete cascade, and after-commit event timing.
+
+### Tests added or changed
+- `OrderDocumentLifecycleIT`
+  - sequential posts: ORDER_CREATE → UPDATE → ITEM_CREATE → ITEM_UPDATE → REVISION_UPDATE → REVISION_APPROVE → ORDER_APPROVE
+  - separate: ORDER_CANCEL, ORDER_ITEM_CANCEL, ORDER_ITEM_REVISION_CREATE
+  - unpost posted document rejected; aggregate/processing/payload unchanged; no extra business event
+  - close keeps aggregate/payload/processing; no new business event
+  - delete draft removes metadata + typed payload; aggregate untouched; posted delete rejected
+  - OrderCreated absent before commit, present after commit
+
+### Verification
+| Check | Result |
+|---|---|
+| tmp-order-management verify | PASSED |
+| tmp-document-engine test | PASSED |
+
+### Documentation updated
+- `docs/development-control/STATUS.md`
+- `docs/development-control/WORK-QUEUE.md`
+- `docs/development-control/VERIFICATION-LOG.md`
+
+### Next task
+`STAGE5-045`
+
+---
+
+## STAGE5-045 — Idempotency tests
+
+**Date:** 2026-07-27  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+Idempotency verified on PostgreSQL through public Document Engine and internal processor guard:
+repeated public post rejected by lifecycle; internal `onPost` with existing processing record is a no-op; concurrent processing-record insert and concurrent public post keep a single business effect.
+
+### Tests added or changed
+- `OrderDocumentIdempotencyIT`
+  - public repeated `postDocument` rejected; aggregate version / events / processing row unchanged
+  - internal processor guard: repeated `onPost` does not mutate aggregate, events, or `result_reference`; `onPost` remains `void`
+  - concurrent `ProcessingRecord` insert → one row
+  - concurrent public post → one success, one order, one processing record
+
+### Verification
+| Check | Result |
+|---|---|
+| tmp-order-management verify | PASSED |
+
+### Documentation updated
+- `docs/development-control/STATUS.md`
+- `docs/development-control/WORK-QUEUE.md`
+- `docs/development-control/VERIFICATION-LOG.md`
+
+### Next task
+`STAGE5-046`
+
+---
+
+## STAGE5-046 — Transaction rollback tests
+
+**Date:** 2026-07-27  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+Transaction rollback verified through public Document Engine API with a test-only fault-injecting processor registered via `DocumentEngine.registerProcessor()`. After controlled failure: no aggregate change, no processing record, document stays DRAFT, no lifecycle POSTED journal entry, no domain event; retry succeeds.
+
+### Tests added or changed
+- `OrderDocumentRollbackIT`
+  - `FaultInjectingProcessor` performs real aggregate mutation, processing-record insert, and `TransactionalEventPublisher` registration before throwing
+  - post-rollback assertions on aggregate, processing record, document metadata, lifecycle journal, typed payload, and events
+  - successful retry after rollback
+
+### Verification
+| Check | Result |
+|---|---|
+| tmp-order-management verify | PASSED |
+| tmp-document-engine test | PASSED |
+
+### Documentation updated
+- `docs/development-control/STATUS.md`
+- `docs/development-control/WORK-QUEUE.md`
+- `docs/development-control/VERIFICATION-LOG.md`
+
+### Next task
+`STAGE5-047`
+
+---
+
+## STAGE5-047 — Architecture tests (boundaries and ownership)
+
+**Date:** 2026-07-27  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+Finalized Stage 5 ArchUnit rules for Order Management module boundaries, Document Engine public API usage, UI/persistence isolation, payload ownership, foreign business-state prohibition, and negative-rule verification with test-only violators.
+
+### Tests added or changed
+- `Stage5OrderManagementArchitectureTest` — extended rules for api.ui isolation, EventBus, void `onPost`, Jackson/JPA bans, JDBC placement, payload ownership, read-only Query API, draft revision exposure, foreign business state
+- `Stage5OrderManagementArchitectureNegativeTest` + `Stage5ArchitectureViolators` — negative-rule detection
+
+### Verification
+| Check | Result |
+|---|---|
+| tmp-architecture-tests test | PASSED |
+| tmp-order-management verify | PASSED |
+| tmp-ui-shell verify | PASSED |
+
+### Documentation updated
+- `docs/development-control/STATUS.md`
+- `docs/development-control/WORK-QUEUE.md`
+- `docs/development-control/VERIFICATION-LOG.md`
+
+### Next task
+`STAGE5-048` (PLANNED — waiting for user authorization)

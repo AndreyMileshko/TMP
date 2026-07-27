@@ -17,6 +17,7 @@ import com.tmp.order.application.payload.InMemoryOrderDocumentPayloadPort;
 import com.tmp.order.application.payload.OrderCreatePayload;
 import com.tmp.order.application.payload.OrderDocumentPayload;
 import com.tmp.order.application.payload.OrderDocumentPayloadPort;
+import com.tmp.order.application.payload.PayloadIdentity;
 import com.tmp.order.application.processing.InMemoryProcessingRecordPort;
 import com.tmp.order.application.processing.ProcessingOperation;
 import com.tmp.order.application.processing.ProcessingRecordPort;
@@ -25,6 +26,8 @@ import com.tmp.order.domain.CurrencyCode;
 import com.tmp.order.domain.OrderCommercialData;
 import com.tmp.order.domain.OrderDirection;
 import com.tmp.order.domain.OrderNumber;
+import com.tmp.order.domain.PayloadRevision;
+import com.tmp.order.domain.PayloadSchemaVersion;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -85,6 +88,32 @@ class AbstractOrderDocumentProcessorTest {
 
         assertEquals(1, businessCalls.get());
         assertEquals(1, published.size());
+    }
+
+    @Test
+    void wrongPayloadSchemaVersionIsRejectedByBaseProcessor() {
+        DocumentId documentId = DocumentId.generate();
+        PayloadIdentity wrongSchema =
+                PayloadIdentity.of(
+                        documentId,
+                        DocumentTypeCode.ORDER_CREATE,
+                        PayloadSchemaVersion.of(2),
+                        PayloadRevision.initial(),
+                        NOW,
+                        NOW);
+
+        payloads.create(
+                OrderCreatePayload.rehydrate(
+                        wrongSchema, OrderNumber.of("PR-SCHEMA"), commercial()));
+
+        IllegalStateException ex =
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> processor.onPost(context(documentId, DocumentStatus.DRAFT)));
+        assertTrue(ex.getMessage().contains("Unsupported payload schema version"));
+        assertEquals(0, businessCalls.get());
+        assertTrue(published.isEmpty());
+        assertFalse(processing.exists(documentId, ProcessingOperation.POST));
     }
 
     @Test

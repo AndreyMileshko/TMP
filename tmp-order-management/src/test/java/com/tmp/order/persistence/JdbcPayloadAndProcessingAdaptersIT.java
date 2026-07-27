@@ -144,8 +144,14 @@ class JdbcPayloadAndProcessingAdaptersIT {
         payloads.create(original);
         OrderDocumentPayload loaded = payloads.findByDocumentId(original.documentId()).orElseThrow();
         assertEquals(original.documentTypeCode(), loaded.documentTypeCode());
+        assertEquals(
+                original.getClass(),
+                loaded.getClass(),
+                "Loaded payload must be the same typed-table mapping class");
         assertEquals(original.identity().payloadRevision(), loaded.identity().payloadRevision());
         assertEquals(original.identity().schemaVersion(), loaded.identity().schemaVersion());
+        assertEquals(original.identity().createdAt(), loaded.identity().createdAt());
+        assertEquals(original.identity().updatedAt(), loaded.identity().updatedAt());
     }
 
     @Test
@@ -182,6 +188,28 @@ class JdbcPayloadAndProcessingAdaptersIT {
         payloads.update(next, PayloadRevision.initial());
 
         OrderCreatePayload stale = created.withCommercialData(commercial(), NOW.plusSeconds(2));
+        assertThrows(
+                PayloadOptimisticLockException.class,
+                () -> payloads.update(stale, PayloadRevision.initial()));
+    }
+
+    @ParameterizedTest
+    @MethodSource("allPayloadTypes")
+    void optimisticLockAndStaleUpdateRejectionForAllTypedPayloadTypes(
+            OrderDocumentPayload original) {
+        payloads.create(original);
+
+        OrderDocumentPayload next =
+                bumpPayloadRevision(original, NOW.plusSeconds(1));
+        payloads.update(next, PayloadRevision.initial());
+
+        OrderDocumentPayload loaded = payloads.findByDocumentId(original.documentId()).orElseThrow();
+        assertEquals(next.identity().payloadRevision(), loaded.identity().payloadRevision());
+        assertEquals(next.documentTypeCode(), loaded.documentTypeCode());
+        assertEquals(next.getClass(), loaded.getClass());
+
+        OrderDocumentPayload stale =
+                bumpPayloadRevision(original, NOW.plusSeconds(2));
         assertThrows(
                 PayloadOptimisticLockException.class,
                 () -> payloads.update(stale, PayloadRevision.initial()));
@@ -230,6 +258,77 @@ class JdbcPayloadAndProcessingAdaptersIT {
                         "SELECT COUNT(*) FROM order_management.order_document_processing WHERE document_id = ?",
                         Integer.class,
                         documentId.value()));
+    }
+
+    @Test
+    void processingRecordRoundTripPreservesNullableResultReference() {
+        DocumentId documentId = DocumentId.generate();
+        ProcessingRecord record =
+                ProcessingRecord.completedPost(
+                        documentId,
+                        DocumentTypeCode.ORDER_CREATE,
+                        PayloadRevision.initial(),
+                        NOW,
+                        null);
+
+        processing.insert(record);
+
+        ProcessingRecord loaded =
+                processing.findByDocumentIdAndOperation(documentId, ProcessingOperation.POST).orElseThrow();
+
+        assertEquals(record.documentId(), loaded.documentId());
+        assertEquals(record.documentTypeCode(), loaded.documentTypeCode());
+        assertEquals(record.operation(), loaded.operation());
+        assertEquals(record.payloadRevision(), loaded.payloadRevision());
+        assertEquals(record.processedAt(), loaded.processedAt());
+        assertTrue(loaded.resultReference().isEmpty());
+    }
+
+    private static OrderDocumentPayload bumpPayloadRevision(
+            OrderDocumentPayload original, Instant updatedAt) {
+        var nextIdentity = original.identity().withNextRevision(updatedAt);
+
+        if (original instanceof OrderCreatePayload p) {
+            return OrderCreatePayload.rehydrate(nextIdentity, p.orderNumber(), p.commercialData());
+        }
+        if (original instanceof OrderUpdatePayload p) {
+            return OrderUpdatePayload.rehydrate(nextIdentity, p.orderId(), p.commercialData());
+        }
+        if (original instanceof OrderApprovePayload p) {
+            return OrderApprovePayload.rehydrate(nextIdentity, p.orderId());
+        }
+        if (original instanceof OrderCancelPayload p) {
+            return OrderCancelPayload.rehydrate(nextIdentity, p.orderId());
+        }
+        if (original instanceof OrderItemCreatePayload p) {
+            return OrderItemCreatePayload.rehydrate(
+                    nextIdentity, p.orderId(), p.orderItemId(), p.commercialData(), p.orderedQuantity());
+        }
+        if (original instanceof OrderItemUpdatePayload p) {
+            return OrderItemUpdatePayload.rehydrate(nextIdentity, p.orderItemId(), p.commercialData());
+        }
+        if (original instanceof OrderItemCancelPayload p) {
+            return OrderItemCancelPayload.rehydrate(nextIdentity, p.orderItemId());
+        }
+        if (original instanceof OrderItemRevisionCreatePayload p) {
+            return OrderItemRevisionCreatePayload.rehydrate(
+                    nextIdentity, p.orderItemId(), p.revisionNumber(), p.copyFromRevisionNumber());
+        }
+        if (original instanceof OrderItemRevisionUpdatePayload p) {
+            return OrderItemRevisionUpdatePayload.rehydrate(
+                    nextIdentity,
+                    p.orderItemId(),
+                    p.revisionNumber(),
+                    p.targetRevisionStatus(),
+                    p.orderedQuantity(),
+                    p.lines());
+        }
+        if (original instanceof OrderItemRevisionApprovePayload p) {
+            return OrderItemRevisionApprovePayload.rehydrate(
+                    nextIdentity, p.orderItemId(), p.revisionNumber());
+        }
+
+        throw new IllegalStateException("Unexpected payload type: " + original.getClass().getName());
     }
 
     @Test

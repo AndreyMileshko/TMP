@@ -2,9 +2,14 @@ package com.tmp.architecture;
 
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideOutsideOfPackage;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 
+import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaField;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -156,6 +161,186 @@ class Stage5OrderManagementArchitectureTest {
                                                                     "com.tmp.document.api.."))))
                     .because("UI shell and OrderUiErrorMapper may use only public Order/Document "
                             + "APIs; no application/persistence/domain or Document Engine internals");
+
+    @ArchTest
+    static final ArchRule otherCapabilitiesDoNotUseOrderUiApi =
+            noClasses()
+                    .that()
+                    .resideOutsideOfPackages(
+                            "com.tmp.order..", "com.tmp.ui.shell..", "com.tmp.bootstrap..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("com.tmp.order.api.ui..")
+                    .because(
+                            "com.tmp.order.api.ui is allowed only for tmp-ui-shell, bootstrap wiring, "
+                                    + "and Order Management itself");
+
+    @ArchTest
+    static final ArchRule orderDocumentProcessorsDoNotUseEventBusDirectly =
+            noClasses()
+                    .that().resideInAPackage("com.tmp.order.application.document..")
+                    .should()
+                    .dependOnClassesThat()
+                    .areAssignableTo(com.tmp.core.api.EventBus.class)
+                    .because(
+                            "Order document processors must publish through public "
+                                    + "TransactionalEventPublisher, not EventBus");
+
+    @ArchTest
+    static final ArchRule orderDocumentProcessorsOnPostReturnsVoid =
+            methods()
+                    .that()
+                    .areDeclaredInClassesThat()
+                    .resideInAPackage("com.tmp.order.application.document..")
+                    .and()
+                    .haveName("onPost")
+                    .should()
+                    .haveRawReturnType(void.class)
+                    .because("DocumentProcessor.onPost() must remain void");
+
+    @ArchTest
+    static final ArchRule orderNoJacksonOrGenericJsonPayload =
+            noClasses()
+                    .that().resideInAPackage("com.tmp.order..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("com.fasterxml.jackson..")
+                    .because("Order Management typed payload must not use Jackson/generic JSON");
+
+    @ArchTest
+    static final ArchRule orderNoJpaOrHibernate =
+            noClasses()
+                    .that().resideInAPackage("com.tmp.order..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("jakarta.persistence..", "org.hibernate..")
+                    .because("Order Management persistence uses JDBC only");
+
+    @ArchTest
+    static final ArchRule jdbcTemplateUsedOnlyInOrderPersistence =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.order..")
+                    .and(resideOutsideOfPackage("com.tmp.order.persistence.."))
+                    .and()
+                    .haveSimpleNameNotContaining("AutoConfiguration")
+                    .should()
+                    .dependOnClassesThat()
+                    .areAssignableTo(org.springframework.jdbc.core.JdbcTemplate.class)
+                    .because(
+                            "JDBC access belongs in com.tmp.order.persistence..; wiring may reference "
+                                    + "JdbcTemplate only in AutoConfiguration");
+
+    @ArchTest
+    static final ArchRule orderPublicItemDtoDoesNotExposeDraftRevision =
+            fields()
+                    .that()
+                    .areDeclaredIn(com.tmp.order.api.OrderItemDto.class)
+                    .should()
+                    .haveNameNotContaining("draft")
+                    .because("Public Query API must not expose Draft Revision pointers");
+
+    @ArchTest
+    static final ArchRule orderDoesNotOwnForeignBusinessStateClasses =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.order..")
+                    .and(
+                            resideInAnyPackage(
+                                    "com.tmp.order.domain..",
+                                    "com.tmp.order.application..",
+                                    "com.tmp.order.persistence..",
+                                    "com.tmp.order.api.."))
+                    .and(forbiddenForeignBusinessModelClass())
+                    .should()
+                    .beInterfaces()
+                    .allowEmptyShould(true)
+                    .because(
+                            "Order Management must not own Production/Warehouse/Cutting state models");
+
+    @ArchTest
+    static final ArchRule orderDoesNotOwnForeignBusinessStateFields =
+            noFields()
+                    .that()
+                    .areDeclaredInClassesThat()
+                    .resideInAPackage("com.tmp.order..")
+                    .and(forbiddenForeignBusinessField())
+                    .should()
+                    .beStatic()
+                    .allowEmptyShould(true)
+                    .because(
+                            "Order Management must not own foreign capability quantity/state fields");
+
+    @ArchTest
+    static final ArchRule platformCoreDoesNotOwnOrderPayload =
+            noClasses()
+                    .that().resideInAPackage("com.tmp.core..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.order.application.payload..", "com.tmp.order.persistence..")
+                    .because("Typed document payload ownership stays in Order Management");
+
+    @ArchTest
+    static final ArchRule publicQueryApiDoesNotDependOnUiApi =
+            noClasses()
+                    .that()
+                    .resideInAnyPackage("com.tmp.order.api..")
+                    .and(resideOutsideOfPackage("com.tmp.order.api.ui.."))
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("com.tmp.order.api.ui..")
+                    .because("Public Query API must stay isolated from ui-facing mutating contracts");
+
+    @ArchTest
+    static final ArchRule orderQueryServiceIsReadOnly =
+            methods()
+                    .that()
+                    .areDeclaredIn(com.tmp.order.api.OrderQueryService.class)
+                    .should()
+                    .haveNameNotStartingWith("save")
+                    .andShould()
+                    .haveNameNotStartingWith("create")
+                    .andShould()
+                    .haveNameNotStartingWith("update")
+                    .andShould()
+                    .haveNameNotStartingWith("delete")
+                    .andShould()
+                    .haveNameNotStartingWith("post")
+                    .andShould()
+                    .haveNameNotStartingWith("approve")
+                    .andShould()
+                    .haveNameNotStartingWith("cancel")
+                    .because("Public Query API is read-only");
+
+    private static DescribedPredicate<JavaClass> forbiddenForeignBusinessModelClass() {
+        return new DescribedPredicate<>("forbidden foreign business model class") {
+            @Override
+            public boolean test(JavaClass input) {
+                return switch (input.getSimpleName()) {
+                    case "ProductionStatus",
+                            "ProductionState",
+                            "StockPosition",
+                            "Reservation",
+                            "WarehouseMovement",
+                            "CuttingPlan" -> true;
+                    default -> false;
+                };
+            }
+        };
+    }
+
+    private static DescribedPredicate<JavaField> forbiddenForeignBusinessField() {
+        return new DescribedPredicate<>("forbidden foreign business field") {
+            @Override
+            public boolean test(JavaField input) {
+                return switch (input.getName()) {
+                    case "launchedQuantity", "releasedQuantity", "producedQuantity" -> true;
+                    default -> false;
+                };
+            }
+        };
+    }
 
     @SafeVarargs
     private static com.tngtech.archunit.base.DescribedPredicate<JavaClass> resideOutsideOfPackages(

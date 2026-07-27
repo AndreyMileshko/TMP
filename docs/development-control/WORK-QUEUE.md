@@ -8401,7 +8401,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 ---
 ## STAGE5-042 — Unit tests consolidation
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-041
 
@@ -8420,7 +8420,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-043 — Persistence integration tests (PostgreSQL Testcontainers)
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-042
 
@@ -8439,7 +8439,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-044 — Document lifecycle integration tests
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-043
 
@@ -8458,7 +8458,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-045 — Idempotency tests
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-044
 
@@ -8477,7 +8477,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-046 — Transaction rollback tests
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-045
 
@@ -8496,7 +8496,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-047 — Architecture tests (boundaries and ownership)
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-046
 

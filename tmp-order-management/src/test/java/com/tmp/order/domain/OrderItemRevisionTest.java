@@ -47,6 +47,46 @@ class OrderItemRevisionTest {
     }
 
     @Test
+    void draftRevisionAllowsOrderedQuantityChange() {
+        OrderItemRevision revision =
+                OrderItemRevision.createDraft(
+                        OrderItemId.generate(), RevisionNumber.first(), OrderedQuantity.of(2), null);
+
+        OrderItemRevision updated = revision.withOrderedQuantity(OrderedQuantity.of(5));
+
+        assertTrue(updated.isDraft());
+        assertEquals(OrderedQuantity.of(5), updated.orderedQuantity());
+    }
+
+    @Test
+    void draftRevisionAllowsSpecificationAttachment() {
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber number = RevisionNumber.first();
+
+        OrderItemRevision revision =
+                OrderItemRevision.createDraft(
+                        itemId, number, OrderedQuantity.of(2), null);
+
+        ItemSpecification spec =
+                ItemSpecification.of(
+                        itemId,
+                        number,
+                        java.util.List.of(
+                                SpecificationLine.of(
+                                        "M1",
+                                        "Material",
+                                        BigDecimal.TEN,
+                                        "pcs",
+                                        BigDecimal.ONE)));
+
+        OrderItemRevision updated = revision.withSpecification(spec);
+
+        assertTrue(updated.isDraft());
+        assertTrue(updated.specification().isPresent());
+        assertEquals("M1", updated.specification().orElseThrow().lines().get(0).materialCode());
+    }
+
+    @Test
     void orderedQuantityMustBePositive() {
         assertThrows(IllegalArgumentException.class, () -> OrderedQuantity.of(0));
         assertThrows(IllegalArgumentException.class, () -> OrderedQuantity.of(-1));

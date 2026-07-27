@@ -74,10 +74,39 @@ class OrderUiErrorMapperTest {
     void mapsUnpostNotSupported() {
         OrderUiUserMessage message =
                 OrderUiErrorMapper.map(
-                        new UnsupportedOperationException("UNPOST IS NOT SUPPORTED"),
+                        new UnsupportedOperationException("some unsupported operation"),
                         OrderUiOperation.UNPOST);
         assertEquals(OrderUiErrorCategory.UNPOST_NOT_SUPPORTED, message.category());
         assertEquals(OrderUiErrorMapper.UNPOST_NOT_SUPPORTED, message.text());
+        assertFalse(message.text().contains("UNPOST"));
+        assertFalse(message.text().contains("some unsupported operation"));
+    }
+
+    @Test
+    void doesNotMapUnpostNotSupportedWhenUnsupportedOperationOnSaveDraft() {
+        OrderUiUserMessage message =
+                OrderUiErrorMapper.map(
+                        new UnsupportedOperationException("some unsupported operation"),
+                        OrderUiOperation.SAVE_DRAFT);
+        assertEquals(OrderUiErrorCategory.TECHNICAL_FAILURE, message.category());
+        assertEquals(OrderUiErrorMapper.TECHNICAL_FAILURE, message.text());
+        assertFalse(message.text().contains("some unsupported operation"));
+    }
+
+    @Test
+    void mapsUnpostNotSupportedWhenCauseChainContainsUnpostNotSupportedMessage() {
+        RuntimeException root =
+                new RuntimeException(
+                        "wrapper",
+                        new RuntimeException(
+                                "UNPOST IS NOT SUPPORTED; SQLException: duplicate key"));
+
+        OrderUiUserMessage message = OrderUiErrorMapper.map(root, OrderUiOperation.LOAD);
+        assertEquals(OrderUiErrorCategory.UNPOST_NOT_SUPPORTED, message.category());
+        assertEquals(OrderUiErrorMapper.UNPOST_NOT_SUPPORTED, message.text());
+        // technical details must not reach the UI
+        assertFalse(message.text().contains("SQLException"));
+        assertFalse(message.text().contains("duplicate key"));
         assertFalse(message.text().contains("UNPOST"));
     }
 

@@ -65,9 +65,14 @@ public final class OrderUiErrorMapper {
                     || lower.contains("version conflict")) {
                 return OrderUiErrorCategory.OPTIMISTIC_LOCK;
             }
-            if (containsIgnoreCase(simpleName, "UnsupportedOperation")
-                    || lower.contains("unpost is not supported")
-                    || lower.contains("unpost not supported")) {
+            // Allowed logic for UNPOST_NOT_SUPPORTED classification:
+            // - operation == UNPOST and exception is UnsupportedOperationException
+            // - or cause chain message explicitly contains "unpost is not supported" / "unpost not supported"
+            if (operation == OrderUiOperation.UNPOST
+                    && current instanceof UnsupportedOperationException) {
+                return OrderUiErrorCategory.UNPOST_NOT_SUPPORTED;
+            }
+            if (lower.contains("unpost is not supported") || lower.contains("unpost not supported")) {
                 return OrderUiErrorCategory.UNPOST_NOT_SUPPORTED;
             }
             if (operation == OrderUiOperation.POST_DOCUMENT

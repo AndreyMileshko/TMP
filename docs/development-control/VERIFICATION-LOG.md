@@ -3,20 +3,14 @@
 ## Latest result
 
 **Date:** 2026-07-27  
-**Scope:** Stage 5.9F - STAGE5-041 UI error handling  
+**Scope:** Stage 5.10 - STAGE5-045 Idempotency tests  
 **Overall:** PASSED
 
 | Verification | Command | Result |
 |---|---|---|
-| UI Shell | mvn -q -pl tmp-ui-shell -am verify | PASSED |
-| Order Management | mvn -q -pl tmp-order-management -am test | PASSED |
-| Bootstrap | mvn -q -pl tmp-bootstrap-app -am test | PASSED |
-| Architecture Tests | mvn -q -pl tmp-architecture-tests -am test | PASSED |
-| Spec dirty/post gate | OrderItemSpecificationEditorViewModelTest | PASSED |
-| Error mapper categories | OrderUiErrorMapperTest | PASSED |
-| STAGE5-041 | WORK-QUEUE | DONE |
-| STAGE5-042 | WORK-QUEUE | PLANNED (not READY) |
-| Stage 5.9 (036..041) | STATUS | COMPLETED |
+| Order Management | mvn -q -pl tmp-order-management -am verify | PASSED |
+| STAGE5-044 | WORK-QUEUE | DONE |
+| STAGE5-045 | WORK-QUEUE | DONE |
 | Git | - | NOT EXECUTED |
 
 ### Failures
@@ -1535,6 +1529,27 @@ These tasks (password / role / permission-override / audit application services 
 | Editors preserve state on failed post | OrderEditor/ItemEditor ViewModel tests | PASSED |
 | STAGE5-041 | WORK-QUEUE | DONE |
 | STAGE5-042 | WORK-QUEUE | PLANNED (not READY) |
+| Git | - | NOT EXECUTED |
+
+### Failures
+
+- None.
+## 2026-07-27 - Stage 5.10 module verification COMPLETE (STAGE5-042..047)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am verify` | PASSED |
+| UI Shell | `mvn -q -pl tmp-ui-shell -am verify` | PASSED |
+| Document Engine | `mvn -q -pl tmp-document-engine -am test` | PASSED |
+| Infra DB | `mvn -q -pl tmp-infra-db -am test` | PASSED |
+| Architecture Tests | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| STAGE5-042 | Unit tests consolidation | DONE |
+| STAGE5-043 | Persistence integration tests | DONE |
+| STAGE5-044 | Document lifecycle integration tests | DONE |
+| STAGE5-045 | Idempotency tests | DONE |
+| STAGE5-046 | Transaction rollback tests | DONE |
+| STAGE5-047 | Architecture tests | DONE |
+| STAGE5-048 | WORK-QUEUE | PLANNED (not READY) |
 | Git | - | NOT EXECUTED |
 
 ### Failures

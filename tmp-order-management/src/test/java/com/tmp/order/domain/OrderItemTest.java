@@ -43,6 +43,30 @@ class OrderItemTest {
     }
 
     @Test
+    void commercialUpdateDoesNotChangeDraftRevisionOrSpecification() {
+        OrderItem draft = sampleItem();
+        ItemSpecification spec =
+                ItemSpecification.of(draft.id(), RevisionNumber.first(), java.util.List.of(sampleLine()));
+        draft = draft.updateDraftSpecification(spec, CLOCK);
+
+        OrderItemRevision beforeRevision = draft.draftRevision().orElseThrow();
+        ItemSpecification beforeSpec = beforeRevision.specification().orElseThrow();
+
+        OrderItem updated = draft.updateCommercialData(sampleCommercialData(), CLOCK);
+        assertTrue(updated.activeRevisionNumber().isEmpty());
+        assertEquals(
+                beforeRevision.revisionNumber(),
+                updated.draftRevision().orElseThrow().revisionNumber());
+        assertEquals(beforeRevision.orderedQuantity(), updated.draftRevision().orElseThrow().orderedQuantity());
+
+        ItemSpecification afterSpec = updated.draftRevision().orElseThrow().specification().orElseThrow();
+        assertEquals(beforeSpec.lines().size(), afterSpec.lines().size());
+        assertEquals(
+                beforeSpec.lines().get(0).materialCode(),
+                afterSpec.lines().get(0).materialCode());
+    }
+
+    @Test
     void activeCannotBeCancelled() {
         OrderItem active = approvedItem();
         InvalidOrderStateException ex =

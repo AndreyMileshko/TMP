@@ -119,6 +119,8 @@ class JdbcAggregatePersistenceIT {
         assertEquals(saved.orderNumber(), loaded.get().orderNumber());
         assertEquals(OrderStatus.DRAFT, loaded.get().status());
         assertEquals(0L, loaded.get().version());
+        assertEquals(CLOCK.instant(), loaded.get().createdAt());
+        assertEquals(CLOCK.instant(), loaded.get().updatedAt());
         assertEquals("Acme", loaded.get().commercialData().customerName());
         assertTrue(orders.existsByOrderNumber(OrderNumber.of("ORD-100")));
         assertFalse(orders.existsByOrderNumber(OrderNumber.of("MISSING")));
@@ -132,6 +134,7 @@ class JdbcAggregatePersistenceIT {
         CustomerOrder edited = v0.updateCommercialData(commercial("Renamed"), CLOCK);
         CustomerOrder v1 = orders.save(edited);
         assertEquals(1L, v1.version());
+        assertEquals(CLOCK.instant(), v1.updatedAt());
 
         CustomerOrder stale =
                 CustomerOrder.rehydrate(
@@ -144,6 +147,60 @@ class JdbcAggregatePersistenceIT {
                         NOW);
         assertThrows(OptimisticLockConflictException.class, () -> orders.save(stale));
         assertEquals("Renamed", orders.findById(v0.id()).orElseThrow().commercialData().customerName());
+    }
+
+    @Test
+    void informationSchemaConstraintsExistAndNoJsonOrEnumStatusColumns() {
+        Integer uniqueOrderNumber =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.table_constraints tc
+                        JOIN information_schema.key_column_usage kcu
+                          ON tc.constraint_name = kcu.constraint_name
+                         AND tc.table_schema = kcu.table_schema
+                        WHERE tc.table_schema = 'order_management'
+                          AND tc.table_name = 'orders'
+                          AND tc.constraint_type = 'UNIQUE'
+                          AND kcu.column_name = 'order_number'
+                        """,
+                        Integer.class);
+        assertTrue(uniqueOrderNumber > 0);
+
+        Integer foreignKeys =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.table_constraints tc
+                        WHERE tc.table_schema = 'order_management'
+                          AND tc.constraint_type = 'FOREIGN KEY'
+                        """,
+                        Integer.class);
+        assertTrue(foreignKeys > 0);
+
+        Integer jsonColumns =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.columns
+                        WHERE table_schema = 'order_management'
+                          AND (
+                            data_type IN ('json', 'jsonb')
+                            OR udt_name IN ('json', 'jsonb')
+                            OR data_type = 'bytea'
+                          )
+                        """,
+                        Integer.class);
+        assertEquals(0, jsonColumns);
+
+        // status columns must be string codes (no Postgres enum types)
+        Integer userDefinedStatus =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.columns
+                        WHERE table_schema = 'order_management'
+                          AND column_name ILIKE '%status%'
+                          AND data_type = 'USER-DEFINED'
+                        """,
+                        Integer.class);
+        assertEquals(0, userDefinedStatus);
     }
 
     @Test

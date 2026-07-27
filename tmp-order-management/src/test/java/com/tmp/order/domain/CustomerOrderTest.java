@@ -101,6 +101,49 @@ class CustomerOrderTest {
     }
 
     @Test
+    void identityAndOrderNumberAreImmutableAcrossTransitions() {
+        CustomerOrder order = sampleOrder();
+        OrderId id = order.id();
+        var orderNumber = order.orderNumber();
+
+        CustomerOrder updated = order.updateCommercialData(sampleCommercialData(), CLOCK);
+        assertEquals(id, updated.id());
+        assertEquals(orderNumber, updated.orderNumber());
+
+        CustomerOrder approved = order.approve(CLOCK);
+        assertEquals(id, approved.id());
+        assertEquals(orderNumber, approved.orderNumber());
+
+        CustomerOrder cancelled = order.cancel(CLOCK);
+        assertEquals(id, cancelled.id());
+        assertEquals(orderNumber, cancelled.orderNumber());
+    }
+
+    @Test
+    void optimisticVersionIsPreservedByDomainStateChanges() {
+        CustomerOrder base = sampleOrder();
+        CustomerOrder rehydrated =
+                CustomerOrder.rehydrate(
+                        base.id(),
+                        base.orderNumber(),
+                        base.commercialData(),
+                        OrderStatus.DRAFT,
+                        7L,
+                        CLOCK.instant(),
+                        CLOCK.instant());
+        assertEquals(7L, rehydrated.version());
+
+        CustomerOrder updated = rehydrated.updateCommercialData(sampleCommercialData(), CLOCK);
+        assertEquals(7L, updated.version());
+
+        CustomerOrder approved = rehydrated.approve(CLOCK);
+        assertEquals(7L, approved.version());
+
+        CustomerOrder cancelled = rehydrated.cancel(CLOCK);
+        assertEquals(7L, cancelled.version());
+    }
+
+    @Test
     void orderNumberRejectsBlank() {
         assertThrows(IllegalArgumentException.class, () -> OrderNumber.of("  "));
         assertThrows(NullPointerException.class, () -> OrderNumber.of(null));
