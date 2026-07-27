@@ -59,6 +59,9 @@ public final class OrderEditorController implements ViewModelAware<OrderEditorVi
     private Button cancelButton;
 
     @FXML
+    private Button itemsButton;
+
+    @FXML
     private Button backButton;
 
     @FXML
@@ -96,11 +99,13 @@ public final class OrderEditorController implements ViewModelAware<OrderEditorVi
         postButton.disableProperty().bind(viewModel.canPostProperty().not());
         approveButton.disableProperty().bind(viewModel.canApproveProperty().not());
         cancelButton.disableProperty().bind(viewModel.canCancelProperty().not());
+        itemsButton.disableProperty().bind(viewModel.canOpenItemsProperty().not());
 
         saveDraftButton.setOnAction(e -> viewModel.saveDraft());
         postButton.setOnAction(e -> viewModel.postCurrentDocument());
         approveButton.setOnAction(e -> viewModel.approveOrder());
         cancelButton.setOnAction(e -> viewModel.cancelOrder());
+        itemsButton.setOnAction(e -> viewModel.openItems());
         backButton.setOnAction(e -> viewModel.backToList());
 
         successLabel.textProperty().bind(viewModel.successMessageProperty());

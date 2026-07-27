@@ -4,10 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.ui.OrderDocumentUiService;
+import com.tmp.order.api.ui.OrderItemDocumentUiService;
+import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.ui.shell.UiShellEntryPoint;
 import com.tmp.ui.shell.navigation.NavigationService;
 import com.tmp.ui.shell.screen.ordereditor.OrderEditorViewModel;
+import com.tmp.ui.shell.screen.orderitemeditor.OrderItemEditorViewModel;
+import com.tmp.ui.shell.screen.orderitemlist.OrderItemListViewModel;
 import com.tmp.ui.shell.screen.orderlist.OrderListViewModel;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,7 +47,11 @@ class DesktopBootstrapWiringTest extends AbstractBootstrapPostgresSpringTest {
     void orderListAndEditorAreWiredToQueryAndDocumentUiServices() {
         assertNotNull(applicationContext.getBean(OrderQueryService.class));
         assertNotNull(applicationContext.getBean(OrderDocumentUiService.class));
+        assertNotNull(applicationContext.getBean(OrderItemDocumentUiService.class));
+        assertNotNull(applicationContext.getBean(OrderItemEditorQueryService.class));
         assertNotNull(applicationContext.getBean(OrderListViewModel.class));
         assertNotNull(applicationContext.getBean(OrderEditorViewModel.class));
+        assertNotNull(applicationContext.getBean(OrderItemListViewModel.class));
+        assertNotNull(applicationContext.getBean(OrderItemEditorViewModel.class));
     }
 }

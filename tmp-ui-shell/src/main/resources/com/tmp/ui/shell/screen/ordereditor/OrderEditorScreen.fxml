@@ -39,6 +39,7 @@
         <Button fx:id="postButton" text="Провести"/>
         <Button fx:id="approveButton" text="Утвердить"/>
         <Button fx:id="cancelButton" text="Отменить заказ"/>
+        <Button fx:id="itemsButton" text="Позиции"/>
         <Button fx:id="backButton" text="К списку"/>
     </HBox>
     <Label fx:id="successLabel" styleClass="order-editor-success" visible="false" managed="false" wrapText="true"/>

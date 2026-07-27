@@ -53,6 +53,17 @@ public final class OrderItemCreateDocumentProcessor extends AbstractOrderDocumen
         return documentEngine.registerProcessor(this);
     }
 
+    public static com.tmp.order.api.OrderItemId orderItemIdFrom(ResultReference resultReference) {
+        Objects.requireNonNull(resultReference, "resultReference");
+        String value = resultReference.value();
+        if (!value.startsWith(RESULT_PREFIX)) {
+            throw new IllegalStateException(
+                    "Unexpected ORDER_ITEM_CREATE result reference: " + value);
+        }
+        return com.tmp.order.api.OrderItemId.of(
+                java.util.UUID.fromString(value.substring(RESULT_PREFIX.length())));
+    }
+
     @Override
     protected ResultReference executeBusinessAction(
             DocumentOperationContext context, OrderDocumentPayload payload) {

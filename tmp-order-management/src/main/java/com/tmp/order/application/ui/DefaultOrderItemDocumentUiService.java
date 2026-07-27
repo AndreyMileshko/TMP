@@ -1,0 +1,576 @@
+package com.tmp.order.application.ui;
+
+import com.tmp.document.api.CreateDocumentCommand;
+import com.tmp.document.api.DocumentEngine;
+import com.tmp.document.api.DocumentMetadata;
+import com.tmp.order.api.OrderId;
+import com.tmp.order.api.OrderItemId;
+import com.tmp.order.api.RevisionNumber;
+import com.tmp.order.api.ui.OrderItemCommercialDraft;
+import com.tmp.order.api.ui.OrderItemDocumentUiService;
+import com.tmp.order.application.document.OrderItemCreateDocumentProcessor;
+import com.tmp.order.application.payload.DocumentId;
+import com.tmp.order.application.payload.DocumentTypeCode;
+import com.tmp.order.application.payload.DraftPayloadApplicationService;
+import com.tmp.order.application.payload.OrderDocumentPayload;
+import com.tmp.order.application.payload.OrderItemCancelPayload;
+import com.tmp.order.application.payload.OrderItemCreatePayload;
+import com.tmp.order.application.payload.OrderItemRevisionApprovePayload;
+import com.tmp.order.application.payload.OrderItemRevisionCreatePayload;
+import com.tmp.order.application.payload.OrderItemRevisionPayloadLine;
+import com.tmp.order.application.payload.OrderItemRevisionUpdatePayload;
+import com.tmp.order.application.payload.OrderItemUpdatePayload;
+import com.tmp.order.application.payload.PayloadOptimisticLockException;
+import com.tmp.order.application.processing.ProcessingOperation;
+import com.tmp.order.application.processing.ProcessingRecord;
+import com.tmp.order.application.processing.ProcessingRecordPort;
+import com.tmp.order.application.processing.ResultReference;
+import com.tmp.order.capability.OrderManagementPermissions;
+import com.tmp.order.domain.ItemCommercialData;
+import com.tmp.order.domain.ItemSpecification;
+import com.tmp.order.domain.OrderItem;
+import com.tmp.order.domain.OrderItemRevision;
+import com.tmp.order.domain.OrderedQuantity;
+import com.tmp.order.domain.PayloadRevision;
+import com.tmp.order.domain.ProductCode;
+import com.tmp.order.domain.SpecificationLine;
+import com.tmp.order.domain.repository.OrderItemRepository;
+import com.tmp.security.api.AuthorizationService;
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Default UI orchestration for item / revision document flows. Posts only through {@link
+ * DocumentEngine#postDocument(UUID)}.
+ */
+public final class DefaultOrderItemDocumentUiService implements OrderItemDocumentUiService {
+
+    private final DocumentEngine documentEngine;
+    private final DraftPayloadApplicationService draftPayloads;
+    private final OrderItemRepository orderItemRepository;
+    private final ProcessingRecordPort processingRecords;
+    private final AuthorizationService authorization;
+    private final Clock clock;
+
+    public DefaultOrderItemDocumentUiService(
+            DocumentEngine documentEngine,
+            DraftPayloadApplicationService draftPayloads,
+            OrderItemRepository orderItemRepository,
+            ProcessingRecordPort processingRecords,
+            AuthorizationService authorization,
+            Clock clock) {
+        this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
+        this.draftPayloads = Objects.requireNonNull(draftPayloads, "draftPayloads");
+        this.orderItemRepository =
+                Objects.requireNonNull(orderItemRepository, "orderItemRepository");
+        this.processingRecords = Objects.requireNonNull(processingRecords, "processingRecords");
+        this.authorization = Objects.requireNonNull(authorization, "authorization");
+        this.clock = Objects.requireNonNull(clock, "clock");
+    }
+
+    @Override
+    public UUID beginItemCreate(String title, OrderId orderId) {
+        Objects.requireNonNull(orderId, "orderId");
+        authorization.requirePermission(OrderManagementPermissions.ITEM_CREATE);
+        return createDocument(DocumentTypeCode.ORDER_ITEM_CREATE, title);
+    }
+
+    @Override
+    public UUID beginItemUpdate(String title, OrderItemId orderItemId) {
+        Objects.requireNonNull(orderItemId, "orderItemId");
+        authorization.requirePermission(OrderManagementPermissions.ITEM_EDIT);
+        return createDocument(DocumentTypeCode.ORDER_ITEM_UPDATE, title);
+    }
+
+    @Override
+    public UUID beginItemCancel(String title, OrderItemId orderItemId) {
+        Objects.requireNonNull(orderItemId, "orderItemId");
+        authorization.requirePermission(OrderManagementPermissions.ITEM_CANCEL);
+        UUID documentId = createDocument(DocumentTypeCode.ORDER_ITEM_CANCEL, title);
+        Instant now = clock.instant();
+        draftPayloads.createDraft(
+                OrderItemCancelPayload.create(DocumentId.of(documentId), orderItemId, now));
+        return documentId;
+    }
+
+    @Override
+    public UUID beginRevisionCreate(String title, OrderItemId orderItemId) {
+        Objects.requireNonNull(orderItemId, "orderItemId");
+        authorization.requirePermission(OrderManagementPermissions.REVISION_CREATE);
+        return createDocument(DocumentTypeCode.ORDER_ITEM_REVISION_CREATE, title);
+    }
+
+    @Override
+    public UUID beginRevisionUpdate(String title, OrderItemId orderItemId) {
+        Objects.requireNonNull(orderItemId, "orderItemId");
+        authorization.requirePermission(OrderManagementPermissions.REVISION_EDIT);
+        return createDocument(DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE, title);
+    }
+
+    @Override
+    public UUID beginRevisionApprove(String title, OrderItemId orderItemId) {
+        Objects.requireNonNull(orderItemId, "orderItemId");
+        authorization.requirePermission(OrderManagementPermissions.ITEM_APPROVE);
+        OrderItem item = requireItem(orderItemId);
+        RevisionNumber draftNumber =
+                item.draftRevisionNumber()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "No draft revision to approve on item "
+                                                        + orderItemId));
+        UUID documentId = createDocument(DocumentTypeCode.ORDER_ITEM_REVISION_APPROVE, title);
+        Instant now = clock.instant();
+        draftPayloads.createDraft(
+                OrderItemRevisionApprovePayload.create(
+                        DocumentId.of(documentId), orderItemId, draftNumber, now));
+        return documentId;
+    }
+
+    @Override
+    public long saveItemCreateDraft(
+            UUID documentId,
+            OrderId orderId,
+            Optional<OrderItemId> orderItemId,
+            OrderItemCommercialDraft draft,
+            String orderedQuantity,
+            long expectedPayloadRevision) {
+        Objects.requireNonNull(documentId, "documentId");
+        Objects.requireNonNull(orderId, "orderId");
+        Objects.requireNonNull(orderItemId, "orderItemId");
+        Objects.requireNonNull(draft, "draft");
+        authorization.requirePermission(OrderManagementPermissions.ITEM_CREATE);
+        DocumentId id = DocumentId.of(documentId);
+        Instant now = clock.instant();
+        ItemCommercialData commercial = toCommercial(draft);
+        OrderedQuantity quantity = OrderedQuantity.of(parseQuantity(orderedQuantity));
+
+        Optional<OrderDocumentPayload> existing = draftPayloads.load(id);
+        try {
+            if (existing.isEmpty()) {
+                requireExpectedInitialRevision(expectedPayloadRevision);
+                OrderItemId newItemId = orderItemId.orElseGet(OrderItemId::generate);
+                OrderItemCreatePayload created =
+                        OrderItemCreatePayload.create(
+                                id, orderId, newItemId, commercial, quantity, now);
+                return draftPayloads.createDraft(created).identity().payloadRevision().value();
+            }
+            OrderItemCreatePayload current = requireCreatePayload(existing.get(), id);
+            if (!current.orderId().equals(orderId)) {
+                throw new IllegalArgumentException(
+                        "ORDER_ITEM_CREATE draft orderId mismatch: expected "
+                                + current.orderId()
+                                + ", got "
+                                + orderId);
+            }
+            PayloadRevision expected = PayloadRevision.of(expectedPayloadRevision);
+            OrderItemCreatePayload candidate =
+                    OrderItemCreatePayload.rehydrate(
+                            current.identity().withNextRevision(now),
+                            current.orderId(),
+                            current.orderItemId(),
+                            commercial,
+                            quantity);
+            return draftPayloads
+                    .updateDraft(candidate, expected)
+                    .identity()
+                    .payloadRevision()
+                    .value();
+        } catch (PayloadOptimisticLockException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw wrap("Failed to save ORDER_ITEM_CREATE draft for document " + documentId, ex);
+        }
+    }
+
+    @Override
+    public long saveItemUpdateDraft(
+            UUID documentId,
+            OrderItemId orderItemId,
+            OrderItemCommercialDraft draft,
+            long expectedPayloadRevision) {
+        Objects.requireNonNull(documentId, "documentId");
+        Objects.requireNonNull(orderItemId, "orderItemId");
+        Objects.requireNonNull(draft, "draft");
+        authorization.requirePermission(OrderManagementPermissions.ITEM_EDIT);
+        DocumentId id = DocumentId.of(documentId);
+        Instant now = clock.instant();
+        ItemCommercialData commercial = toCommercial(draft);
+
+        Optional<OrderDocumentPayload> existing = draftPayloads.load(id);
+        try {
+            if (existing.isEmpty()) {
+                requireExpectedInitialRevision(expectedPayloadRevision);
+                OrderItemUpdatePayload created =
+                        OrderItemUpdatePayload.create(id, orderItemId, commercial, now);
+                return draftPayloads.createDraft(created).identity().payloadRevision().value();
+            }
+            OrderItemUpdatePayload current = requireUpdatePayload(existing.get(), id);
+            if (!current.orderItemId().equals(orderItemId)) {
+                throw new IllegalArgumentException(
+                        "ORDER_ITEM_UPDATE draft orderItemId mismatch: expected "
+                                + current.orderItemId()
+                                + ", got "
+                                + orderItemId);
+            }
+            PayloadRevision expected = PayloadRevision.of(expectedPayloadRevision);
+            OrderItemUpdatePayload candidate = current.withCommercialData(commercial, now);
+            return draftPayloads
+                    .updateDraft(candidate, expected)
+                    .identity()
+                    .payloadRevision()
+                    .value();
+        } catch (PayloadOptimisticLockException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw wrap("Failed to save ORDER_ITEM_UPDATE draft for document " + documentId, ex);
+        }
+    }
+
+    @Override
+    public long saveRevisionCreateDraft(
+            UUID documentId,
+            OrderItemId orderItemId,
+            RevisionNumber revisionNumber,
+            Optional<RevisionNumber> copyFromRevisionNumber,
+            long expectedPayloadRevision) {
+        Objects.requireNonNull(documentId, "documentId");
+        Objects.requireNonNull(orderItemId, "orderItemId");
+        Objects.requireNonNull(revisionNumber, "revisionNumber");
+        Objects.requireNonNull(copyFromRevisionNumber, "copyFromRevisionNumber");
+        authorization.requirePermission(OrderManagementPermissions.REVISION_CREATE);
+        DocumentId id = DocumentId.of(documentId);
+        Instant now = clock.instant();
+        RevisionNumber copyFrom = copyFromRevisionNumber.orElse(null);
+
+        Optional<OrderDocumentPayload> existing = draftPayloads.load(id);
+        try {
+            if (existing.isEmpty()) {
+                requireExpectedInitialRevision(expectedPayloadRevision);
+                OrderItemRevisionCreatePayload created =
+                        OrderItemRevisionCreatePayload.create(
+                                id, orderItemId, revisionNumber, copyFrom, now);
+                return draftPayloads.createDraft(created).identity().payloadRevision().value();
+            }
+            OrderItemRevisionCreatePayload current = requireRevisionCreatePayload(existing.get(), id);
+            if (!current.orderItemId().equals(orderItemId)) {
+                throw new IllegalArgumentException(
+                        "ORDER_ITEM_REVISION_CREATE draft orderItemId mismatch");
+            }
+            PayloadRevision expected = PayloadRevision.of(expectedPayloadRevision);
+            OrderItemRevisionCreatePayload candidate =
+                    OrderItemRevisionCreatePayload.rehydrate(
+                            current.identity().withNextRevision(now),
+                            orderItemId,
+                            revisionNumber,
+                            copyFrom);
+            return draftPayloads
+                    .updateDraft(candidate, expected)
+                    .identity()
+                    .payloadRevision()
+                    .value();
+        } catch (PayloadOptimisticLockException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw wrap(
+                    "Failed to save ORDER_ITEM_REVISION_CREATE draft for document " + documentId,
+                    ex);
+        }
+    }
+
+    @Override
+    public long saveRevisionUpdateDraft(
+            UUID documentId,
+            OrderItemId orderItemId,
+            RevisionNumber revisionNumber,
+            String orderedQuantity,
+            long expectedPayloadRevision) {
+        Objects.requireNonNull(documentId, "documentId");
+        Objects.requireNonNull(orderItemId, "orderItemId");
+        Objects.requireNonNull(revisionNumber, "revisionNumber");
+        authorization.requirePermission(OrderManagementPermissions.REVISION_EDIT);
+        DocumentId id = DocumentId.of(documentId);
+        Instant now = clock.instant();
+        OrderedQuantity quantity = OrderedQuantity.of(parseQuantity(orderedQuantity));
+        List<OrderItemRevisionPayloadLine> lines = loadDraftSpecificationLines(orderItemId, revisionNumber);
+
+        Optional<OrderDocumentPayload> existing = draftPayloads.load(id);
+        try {
+            if (existing.isEmpty()) {
+                requireExpectedInitialRevision(expectedPayloadRevision);
+                OrderItemRevisionUpdatePayload created =
+                        OrderItemRevisionUpdatePayload.create(
+                                id, orderItemId, revisionNumber, quantity, lines, now);
+                return draftPayloads.createDraft(created).identity().payloadRevision().value();
+            }
+            OrderItemRevisionUpdatePayload current =
+                    requireRevisionUpdatePayload(existing.get(), id);
+            if (!current.orderItemId().equals(orderItemId)
+                    || !current.revisionNumber().equals(revisionNumber)) {
+                throw new IllegalArgumentException(
+                        "ORDER_ITEM_REVISION_UPDATE draft target mismatch");
+            }
+            PayloadRevision expected = PayloadRevision.of(expectedPayloadRevision);
+            // Preserve specification lines already stored on the typed payload (unchanged).
+            OrderItemRevisionUpdatePayload candidate =
+                    current.withContent(quantity, current.copyLines(), now);
+            return draftPayloads
+                    .updateDraft(candidate, expected)
+                    .identity()
+                    .payloadRevision()
+                    .value();
+        } catch (PayloadOptimisticLockException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw wrap(
+                    "Failed to save ORDER_ITEM_REVISION_UPDATE draft for document " + documentId,
+                    ex);
+        }
+    }
+
+    @Override
+    public OrderItemId postDocument(UUID documentId) {
+        Objects.requireNonNull(documentId, "documentId");
+        DocumentMetadata metadata =
+                documentEngine
+                        .findById(documentId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Document not found: " + documentId));
+        DocumentTypeCode type = DocumentTypeCode.valueOf(metadata.documentTypeId());
+        requirePostPermission(type);
+
+        DocumentId id = DocumentId.of(documentId);
+        OrderDocumentPayload payload =
+                draftPayloads
+                        .load(id)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "Typed payload missing for document " + documentId));
+
+        try {
+            documentEngine.postDocument(documentId);
+        } catch (RuntimeException ex) {
+            throw wrap("Failed to post document " + documentId, ex);
+        }
+
+        return switch (type) {
+            case ORDER_ITEM_CREATE -> resolveCreatedOrderItemId(id);
+            case ORDER_ITEM_UPDATE -> ((OrderItemUpdatePayload) payload).orderItemId();
+            case ORDER_ITEM_CANCEL -> ((OrderItemCancelPayload) payload).orderItemId();
+            case ORDER_ITEM_REVISION_CREATE ->
+                    ((OrderItemRevisionCreatePayload) payload).orderItemId();
+            case ORDER_ITEM_REVISION_UPDATE ->
+                    ((OrderItemRevisionUpdatePayload) payload).orderItemId();
+            case ORDER_ITEM_REVISION_APPROVE ->
+                    ((OrderItemRevisionApprovePayload) payload).orderItemId();
+            default ->
+                    throw new IllegalStateException(
+                            "OrderItemDocumentUiService does not support document type " + type);
+        };
+    }
+
+    @Override
+    public Optional<OrderItemCommercialDraft> loadItemCreateDraft(UUID documentId) {
+        Objects.requireNonNull(documentId, "documentId");
+        authorization.requirePermission(OrderManagementPermissions.ITEM_CREATE);
+        return draftPayloads
+                .load(DocumentId.of(documentId))
+                .filter(OrderItemCreatePayload.class::isInstance)
+                .map(OrderItemCreatePayload.class::cast)
+                .map(this::toCommercialDraft);
+    }
+
+    @Override
+    public Optional<OrderItemCommercialDraft> loadItemUpdateDraft(UUID documentId) {
+        Objects.requireNonNull(documentId, "documentId");
+        authorization.requirePermission(OrderManagementPermissions.ITEM_EDIT);
+        return draftPayloads
+                .load(DocumentId.of(documentId))
+                .filter(OrderItemUpdatePayload.class::isInstance)
+                .map(OrderItemUpdatePayload.class::cast)
+                .map(this::toCommercialDraft);
+    }
+
+    private UUID createDocument(DocumentTypeCode type, String title) {
+        Objects.requireNonNull(title, "title");
+        try {
+            DocumentMetadata created =
+                    documentEngine.createDocument(new CreateDocumentCommand(type.name(), title));
+            return created.id();
+        } catch (RuntimeException ex) {
+            throw wrap("Failed to create " + type.name() + " document", ex);
+        }
+    }
+
+    private OrderItemId resolveCreatedOrderItemId(DocumentId documentId) {
+        ProcessingRecord record =
+                processingRecords
+                        .findByDocumentIdAndOperation(documentId, ProcessingOperation.POST)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "ORDER_ITEM_CREATE posted but processing record"
+                                                        + " missing for "
+                                                        + documentId));
+        ResultReference result =
+                record.resultReference()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "ORDER_ITEM_CREATE processing record has no result"
+                                                        + " for "
+                                                        + documentId));
+        return OrderItemCreateDocumentProcessor.orderItemIdFrom(result);
+    }
+
+    private List<OrderItemRevisionPayloadLine> loadDraftSpecificationLines(
+            OrderItemId orderItemId, RevisionNumber revisionNumber) {
+        OrderItem item = requireItem(orderItemId);
+        OrderItemRevision draft =
+                item.draftRevision()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "No draft revision on item " + orderItemId));
+        if (!draft.revisionNumber().equals(revisionNumber)) {
+            throw new IllegalStateException(
+                    "Draft revision mismatch: expected "
+                            + revisionNumber
+                            + ", got "
+                            + draft.revisionNumber());
+        }
+        ItemSpecification specification =
+                draft.specification().orElse(ItemSpecification.empty(orderItemId, revisionNumber));
+        List<OrderItemRevisionPayloadLine> lines = new ArrayList<>();
+        int lineNumber = 1;
+        for (SpecificationLine line : specification.lines()) {
+            lines.add(
+                    OrderItemRevisionPayloadLine.of(
+                            lineNumber++,
+                            line.materialCode(),
+                            line.materialName(),
+                            line.quantity(),
+                            line.unitOfMeasure(),
+                            line.consumptionNorm()));
+        }
+        return lines;
+    }
+
+    private OrderItem requireItem(OrderItemId orderItemId) {
+        return orderItemRepository
+                .findById(orderItemId)
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Order item not found: " + orderItemId));
+    }
+
+    private void requirePostPermission(DocumentTypeCode type) {
+        switch (type) {
+            case ORDER_ITEM_CREATE ->
+                    authorization.requirePermission(OrderManagementPermissions.ITEM_CREATE);
+            case ORDER_ITEM_UPDATE ->
+                    authorization.requirePermission(OrderManagementPermissions.ITEM_EDIT);
+            case ORDER_ITEM_CANCEL ->
+                    authorization.requirePermission(OrderManagementPermissions.ITEM_CANCEL);
+            case ORDER_ITEM_REVISION_CREATE ->
+                    authorization.requirePermission(OrderManagementPermissions.REVISION_CREATE);
+            case ORDER_ITEM_REVISION_UPDATE ->
+                    authorization.requirePermission(OrderManagementPermissions.REVISION_EDIT);
+            case ORDER_ITEM_REVISION_APPROVE ->
+                    authorization.requirePermission(OrderManagementPermissions.ITEM_APPROVE);
+            default ->
+                    throw new IllegalStateException(
+                            "Unsupported item document type for UI post: " + type);
+        }
+    }
+
+    private static void requireExpectedInitialRevision(long expectedPayloadRevision) {
+        if (expectedPayloadRevision != PayloadRevision.initial().value()) {
+            throw new IllegalArgumentException(
+                    "New draft payload expects revision 0, got " + expectedPayloadRevision);
+        }
+    }
+
+    private static OrderItemCreatePayload requireCreatePayload(
+            OrderDocumentPayload payload, DocumentId documentId) {
+        if (!(payload instanceof OrderItemCreatePayload create)) {
+            throw new IllegalStateException(
+                    "Document " + documentId + " is not an ORDER_ITEM_CREATE payload");
+        }
+        return create;
+    }
+
+    private static OrderItemUpdatePayload requireUpdatePayload(
+            OrderDocumentPayload payload, DocumentId documentId) {
+        if (!(payload instanceof OrderItemUpdatePayload update)) {
+            throw new IllegalStateException(
+                    "Document " + documentId + " is not an ORDER_ITEM_UPDATE payload");
+        }
+        return update;
+    }
+
+    private static OrderItemRevisionCreatePayload requireRevisionCreatePayload(
+            OrderDocumentPayload payload, DocumentId documentId) {
+        if (!(payload instanceof OrderItemRevisionCreatePayload create)) {
+            throw new IllegalStateException(
+                    "Document " + documentId + " is not an ORDER_ITEM_REVISION_CREATE payload");
+        }
+        return create;
+    }
+
+    private static OrderItemRevisionUpdatePayload requireRevisionUpdatePayload(
+            OrderDocumentPayload payload, DocumentId documentId) {
+        if (!(payload instanceof OrderItemRevisionUpdatePayload update)) {
+            throw new IllegalStateException(
+                    "Document " + documentId + " is not an ORDER_ITEM_REVISION_UPDATE payload");
+        }
+        return update;
+    }
+
+    private OrderItemCommercialDraft toCommercialDraft(OrderItemCreatePayload payload) {
+        ItemCommercialData commercial = payload.commercialData();
+        return OrderItemCommercialDraft.of(
+                commercial.productCode().value(), commercial.name(), commercial.comments());
+    }
+
+    private OrderItemCommercialDraft toCommercialDraft(OrderItemUpdatePayload payload) {
+        ItemCommercialData commercial = payload.commercialData();
+        return OrderItemCommercialDraft.of(
+                commercial.productCode().value(), commercial.name(), commercial.comments());
+    }
+
+    private static ItemCommercialData toCommercial(OrderItemCommercialDraft draft) {
+        return ItemCommercialData.of(
+                ProductCode.of(draft.productCode()), draft.name(), draft.comments());
+    }
+
+    private static BigDecimal parseQuantity(String orderedQuantity) {
+        Objects.requireNonNull(orderedQuantity, "orderedQuantity");
+        String trimmed = orderedQuantity.trim();
+        if (trimmed.isEmpty()) {
+            throw new IllegalArgumentException("orderedQuantity must not be blank");
+        }
+        try {
+            return new BigDecimal(trimmed);
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("orderedQuantity must be a number: " + trimmed, ex);
+        }
+    }
+
+    private static RuntimeException wrap(String message, RuntimeException cause) {
+        if (cause instanceof IllegalArgumentException
+                || cause instanceof IllegalStateException
+                || cause instanceof PayloadOptimisticLockException) {
+            return cause;
+        }
+        return new IllegalStateException(message + ": " + cause.getMessage(), cause);
+    }
+}

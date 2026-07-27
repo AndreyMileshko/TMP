@@ -1431,3 +1431,25 @@ These tasks (password / role / permission-override / audit application services 
 ### Failures
 
 - None.
+
+## 2026-07-27 ? STAGE5-039 DONE (Stage 5.9D Item and Revision editor)
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am verify` | PASSED |
+| UI Shell | `mvn -q -pl tmp-ui-shell -am verify` | PASSED |
+| Bootstrap | `mvn -q -pl tmp-bootstrap-app -am test` | PASSED |
+| Document Engine | `mvn -q -pl tmp-document-engine -am test` | PASSED |
+| Architecture Tests | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| 10 processors registered (4 order + 6 item/revision) | OrderManagementAutoConfigurationTest | PASSED |
+| Item list / editor FXML | OrderItemListControllerFxTest / OrderItemEditorControllerFxTest | PASSED |
+| Item/revision document flows + permissions | OrderItemEditorViewModelTest / DefaultOrderItemDocumentUiServiceTest | PASSED |
+| Draft not on Public Query API | OrderQueryApiContractTest | PASSED |
+| Success message after reload | OrderEditorViewModelTest / OrderItemEditorViewModelTest | PASSED |
+| STAGE5-039 | WORK-QUEUE | DONE |
+| STAGE5-040 | WORK-QUEUE | PLANNED (not READY) |
+| Git | ? | NOT EXECUTED |
+
+### Failures
+
+- None.

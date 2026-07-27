@@ -111,10 +111,9 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                        active_revision_number, created_at, updated_at
                 FROM order_management.order_items
                 WHERE order_id = ?
-                ORDER BY
-                """
-                        + itemSortSql(pageRequest.orderSort())
-                        + " LIMIT ? OFFSET ?";
+                ORDER BY created_at ASC, order_item_id ASC
+                LIMIT ? OFFSET ?
+                """;
         List<OrderItemDto> content =
                 jdbc.query(
                         sql,
@@ -310,34 +309,11 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
         return orderBy.toString();
     }
 
-    private static String itemSortSql(OrderSort sort) {
-        StringBuilder orderBy = new StringBuilder();
-        List<OrderSort.Order> orders = sort.orders();
-        for (int i = 0; i < orders.size(); i++) {
-            if (i > 0) {
-                orderBy.append(", ");
-            }
-            OrderSort.Order order = orders.get(i);
-            orderBy.append(itemColumn(order.field()));
-            orderBy.append(' ').append(order.direction().name());
-        }
-        return orderBy.toString();
-    }
-
     private static String orderColumn(OrderSort.Field field) {
         return switch (field) {
             case CREATED_AT -> "created_at";
             case ORDER_ID -> "order_id";
             case ORDER_NUMBER -> "order_number";
-            case STATUS -> "status";
-        };
-    }
-
-    private static String itemColumn(OrderSort.Field field) {
-        return switch (field) {
-            case CREATED_AT -> "created_at";
-            case ORDER_ID -> "order_item_id";
-            case ORDER_NUMBER -> "product_code";
             case STATUS -> "status";
         };
     }

@@ -1,10 +1,6 @@
 package com.tmp.order;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
+import com.tmp.document.api.DocumentEngine;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderSearchCriteria;
@@ -12,6 +8,18 @@ import com.tmp.order.api.OrderSummaryDto;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
 import com.tmp.order.api.ui.OrderDocumentUiService;
+import com.tmp.order.api.ui.OrderItemDocumentUiService;
+import com.tmp.order.api.ui.OrderItemEditorQueryService;
+import com.tmp.order.application.document.OrderApproveDocumentProcessor;
+import com.tmp.order.application.document.OrderCancelDocumentProcessor;
+import com.tmp.order.application.document.OrderCreateDocumentProcessor;
+import com.tmp.order.application.document.OrderItemCancelDocumentProcessor;
+import com.tmp.order.application.document.OrderItemCreateDocumentProcessor;
+import com.tmp.order.application.document.OrderItemRevisionApproveDocumentProcessor;
+import com.tmp.order.application.document.OrderItemRevisionCreateDocumentProcessor;
+import com.tmp.order.application.document.OrderItemRevisionUpdateDocumentProcessor;
+import com.tmp.order.application.document.OrderItemUpdateDocumentProcessor;
+import com.tmp.order.application.document.OrderUpdateDocumentProcessor;
 import com.tmp.order.application.query.OrderQueryReadPort;
 import com.tmp.order.capability.OrderManagementCapability;
 import com.tmp.order.capability.OrderManagementPermissions;
@@ -36,6 +44,12 @@ import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers
 @SpringBootTest(classes = OrderManagementAutoConfigurationTest.TestApplication.class)
@@ -88,8 +102,37 @@ class OrderManagementAutoConfigurationTest {
         assertEquals(1, applicationContext.getBeansOfType(OrderQueryReadPort.class).size());
         assertEquals(1, applicationContext.getBeansOfType(OrderManagementCapability.class).size());
         assertEquals(1, applicationContext.getBeansOfType(OrderDocumentUiService.class).size());
+        assertEquals(1, applicationContext.getBeansOfType(OrderItemDocumentUiService.class).size());
+        assertEquals(1, applicationContext.getBeansOfType(OrderItemEditorQueryService.class).size());
         assertNotNull(orderQueryService);
         assertNotNull(applicationContext.getBean(OrderDocumentUiService.class));
+        assertNotNull(applicationContext.getBean(OrderItemDocumentUiService.class));
+        assertNotNull(applicationContext.getBean(OrderItemEditorQueryService.class));
+    }
+
+    @Test
+    void registersTenOrderManagementDocumentProcessors() {
+        DocumentEngine documentEngine = applicationContext.getBean(DocumentEngine.class);
+        assertEquals(10, documentEngine.status().registeredProcessors());
+        assertNotNull(applicationContext.getBean(OrderCreateDocumentProcessor.class));
+        assertNotNull(applicationContext.getBean(OrderUpdateDocumentProcessor.class));
+        assertNotNull(applicationContext.getBean(OrderApproveDocumentProcessor.class));
+        assertNotNull(applicationContext.getBean(OrderCancelDocumentProcessor.class));
+        assertNotNull(applicationContext.getBean(OrderItemCreateDocumentProcessor.class));
+        assertNotNull(applicationContext.getBean(OrderItemUpdateDocumentProcessor.class));
+        assertNotNull(applicationContext.getBean(OrderItemCancelDocumentProcessor.class));
+        assertNotNull(applicationContext.getBean(OrderItemRevisionCreateDocumentProcessor.class));
+        assertNotNull(applicationContext.getBean(OrderItemRevisionUpdateDocumentProcessor.class));
+        assertNotNull(applicationContext.getBean(OrderItemRevisionApproveDocumentProcessor.class));
+        assertTrue(
+                documentEngine.registeredTypes().stream()
+                        .anyMatch(type -> "ORDER_CREATE".equals(type.typeId())));
+        assertTrue(
+                documentEngine.registeredTypes().stream()
+                        .anyMatch(type -> "ORDER_ITEM_CREATE".equals(type.typeId())));
+        assertTrue(
+                documentEngine.registeredTypes().stream()
+                        .anyMatch(type -> "ORDER_ITEM_REVISION_APPROVE".equals(type.typeId())));
     }
 
     @Test

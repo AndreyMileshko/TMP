@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.tmp.ui.shell.screen.orderitemeditor.OrderItemEditorController"
+      spacing="12">
+    <padding>
+        <Insets top="16" right="16" bottom="16" left="16"/>
+    </padding>
+    <Label fx:id="titleLabel" styleClass="order-item-editor-title"/>
+    <Label fx:id="statusLabel" styleClass="order-item-editor-status"/>
+    <GridPane hgap="8" vgap="8">
+        <Label text="Код изделия" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+        <TextField fx:id="productCodeField" GridPane.columnIndex="1" GridPane.rowIndex="0" prefWidth="240"/>
+        <Label text="Наименование" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+        <TextField fx:id="nameField" GridPane.columnIndex="1" GridPane.rowIndex="1" prefWidth="240"/>
+        <Label text="Комментарий" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+        <TextField fx:id="commentsField" GridPane.columnIndex="1" GridPane.rowIndex="2" prefWidth="240"/>
+        <Label text="Количество (черновик)" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+        <TextField fx:id="orderedQuantityField" GridPane.columnIndex="1" GridPane.rowIndex="3" prefWidth="240"/>
+        <Label text="Активная редакция" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+        <Label fx:id="activeRevisionLabel" GridPane.columnIndex="1" GridPane.rowIndex="4"/>
+        <Label text="Черновая редакция" GridPane.columnIndex="0" GridPane.rowIndex="5"/>
+        <Label fx:id="draftRevisionLabel" GridPane.columnIndex="1" GridPane.rowIndex="5"/>
+        <Label text="Строк спецификации (draft)" GridPane.columnIndex="0" GridPane.rowIndex="6"/>
+        <Label fx:id="draftSpecLineCountLabel" GridPane.columnIndex="1" GridPane.rowIndex="6"/>
+        <Label text="Копировать из редакции" GridPane.columnIndex="0" GridPane.rowIndex="7"/>
+        <TextField fx:id="copyFromRevisionField" GridPane.columnIndex="1" GridPane.rowIndex="7" prefWidth="240"/>
+    </GridPane>
+    <HBox spacing="8">
+        <Button fx:id="saveCommercialButton" text="Сохранить коммерческий черновик"/>
+        <Button fx:id="postCommercialButton" text="Провести коммерческий документ"/>
+        <Button fx:id="cancelItemButton" text="Отменить позицию"/>
+    </HBox>
+    <HBox spacing="8">
+        <Button fx:id="createRevisionButton" text="Создать редакцию N+1"/>
+        <Button fx:id="saveRevisionButton" text="Сохранить количество draft"/>
+        <Button fx:id="postRevisionButton" text="Провести изменение редакции"/>
+        <Button fx:id="approveRevisionButton" text="Утвердить редакцию"/>
+        <Button fx:id="backButton" text="К списку позиций"/>
+    </HBox>
+    <Label fx:id="successLabel" styleClass="order-item-editor-success" visible="false" managed="false" wrapText="true"/>
+    <Label fx:id="errorLabel" styleClass="order-item-editor-error" visible="false" managed="false" wrapText="true"/>
+</VBox>

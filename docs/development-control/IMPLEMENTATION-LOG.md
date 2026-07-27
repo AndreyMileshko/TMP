@@ -2834,3 +2834,28 @@ Stage 5.9C order editor completed end-to-end.
 - Approve still requires ?1 ACTIVE item (existing domain rule); item UI is STAGE5-039.
 - STAGE5-039 left PLANNED (not READY).
 - No Git operations executed.
+
+## STAGE5-039 ? UI: Item and Revision editor
+
+**Date:** 2026-07-27  
+**Stage:** 5  
+**Status:** DONE
+
+### Result
+
+Stage 5.9D item and revision editor completed end-to-end.
+
+**Preflight:** `OrderDocumentUiService` Javadoc corrected (`ORDER_CREATE` OrderId from processing record; no `searchOrders`). Success messages after post/approve/cancel preserved across reload. Item list order fixed to `created_at ASC, order_item_id ASC`; removed erroneous `OrderSort.ORDER_NUMBER ? product_code` mapping.
+
+**UI contracts:** `OrderItemDocumentUiService` (+ `OrderItemCommercialDraft`) for six document flows; `OrderItemEditorQueryService` / `OrderItemEditorSnapshot` expose optional Draft Revision for desktop UI only. Public Query API remains APPROVED-only.
+
+**Spring wiring:** `OrderManagementAutoConfiguration` registers six item/revision use cases and processors via Document Engine public API (10 processors total with existing four order-level). `OrderItemDocumentUiService` and `OrderItemEditorQueryService` beans wired.
+
+**UI shell:** Order editor ? item list (`getOrderItems` only); item create/open; item/revision editor with separate active/draft display; commercial UPDATE/CANCEL for Draft items; revision CREATE N+1 / UPDATE quantity (lines preserved) / APPROVE. Specification line editing not implemented (STAGE5-040). Permissions via public Security API (`order.item.*`, `order.revision.*`).
+
+**Tests:** processor registration (10); FXML list/editor; document flows; draft/active separation; second-draft blocked; permissions; no repository/JDBC in UI ViewModels; success message after reload; Public Query API draft absence contract retained.
+
+### Notes
+
+- STAGE5-040 left PLANNED (not READY).
+- No Git operations executed.

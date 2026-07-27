@@ -33,9 +33,10 @@ public interface OrderDocumentUiService {
             UUID documentId, OrderId orderId, OrderHeaderDraft draft, long expectedPayloadRevision);
 
     /**
-     * Posts via {@code DocumentEngine.postDocument} only. For CREATE, resolves {@link OrderId} via
-     * {@link com.tmp.order.api.OrderQueryService#searchOrders} by order number. For others returns
-     * the known order id from the typed payload.
+     * Posts via {@code DocumentEngine.postDocument} only. For {@code ORDER_CREATE}, resolves the
+     * created {@link OrderId} from the processing record result reference. For other supported
+     * types returns the known order id from the typed payload. Does not use
+     * {@link com.tmp.order.api.OrderQueryService#searchOrders}.
      */
     OrderId postDocument(UUID documentId);
 

@@ -8342,7 +8342,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-039 — UI: Item and Revision editor
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-038
 
@@ -8351,11 +8351,12 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 - **Out of scope:** спецификация (STAGE5-040).
 - **Required documents:** UI/UX Spec; Spec §6/§9/§11.4.
 - **Required code context:** `com.tmp.order.api`, `com.tmp.document.api`; `tmp-ui-shell`.
-- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel позиции/редакции).
+- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel позиции/редакции); `tmp-order-management` (`api.ui` + AutoConfiguration processors); `tmp-bootstrap-app` (wiring).
 - **Acceptance criteria:** UI показывает active и draft раздельно; создание/правка draft через документы; утверждение переключает active.
 - **Verification commands:** `mvn -q -pl tmp-ui-shell -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** draft revision раскрывается как внешняя спецификация.
+- **Completed (2026-07-27):** Preflight (Javadoc CREATE via processing record; success message preserved after reload; fixed item list order `created_at ASC, order_item_id ASC`). `OrderItemDocumentUiService` + `OrderItemEditorQueryService`/`OrderItemEditorSnapshot`; 6 item/revision processors registered (10 total with order-level); item list + item/revision editor screens; permissions via public Security API. STAGE5-040 not started.
 
 ---
 

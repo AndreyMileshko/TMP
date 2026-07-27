@@ -104,6 +104,24 @@ class OrderEditorViewModelTest {
     }
 
     @Test
+    void successMessagePreservedAfterPostReload() {
+        FakeDocs docs = new FakeDocs();
+        FakeQuery query = new FakeQuery();
+        OrderId created = OrderId.generate();
+        docs.postResult = created;
+        query.order = order(created, OrderStatus.DRAFT);
+        OrderEditorViewModel viewModel =
+                new OrderEditorViewModel(query, docs, auth(allOrderPerms()));
+        viewModel.openCreate();
+        viewModel.orderNumberProperty().set("A-100");
+        viewModel.customerNameProperty().set("Acme");
+        viewModel.saveDraft();
+        viewModel.postCurrentDocument();
+        assertEquals("Документ проведён", viewModel.successMessageProperty().get());
+        assertEquals(OrderEditorViewModel.Mode.VIEW_EXISTING, viewModel.modeProperty().get());
+    }
+
+    @Test
     void errorKeepsUserInputAndDoesNotShowSuccess() {
         FakeDocs docs = new FakeDocs();
         docs.failSave = true;

@@ -63,6 +63,7 @@ public final class OrderEditorViewModel {
     private final BooleanProperty canApprove = new SimpleBooleanProperty(false);
     private final BooleanProperty canCancel = new SimpleBooleanProperty(false);
     private final BooleanProperty orderNumberEditable = new SimpleBooleanProperty(true);
+    private final BooleanProperty canOpenItems = new SimpleBooleanProperty(false);
 
     private OrderId orderId;
     private OrderStatus orderStatus;
@@ -71,6 +72,8 @@ public final class OrderEditorViewModel {
     private Runnable onBackToList = () -> {
     };
     private Consumer<OrderId> onOrderOpened = id -> {
+    };
+    private Runnable onOpenItems = () -> {
     };
 
     public OrderEditorViewModel(
@@ -88,6 +91,10 @@ public final class OrderEditorViewModel {
 
     public void setOnOrderOpened(Consumer<OrderId> onOrderOpened) {
         this.onOrderOpened = Objects.requireNonNull(onOrderOpened, "onOrderOpened");
+    }
+
+    public void setOnOpenItems(Runnable onOpenItems) {
+        this.onOpenItems = Objects.requireNonNull(onOpenItems, "onOpenItems");
     }
 
     public void openCreate() {
@@ -113,9 +120,18 @@ public final class OrderEditorViewModel {
     public void openExisting(OrderId id) {
         Objects.requireNonNull(id, "id");
         clearMessages();
+        reloadExisting(id);
+    }
+
+    /**
+     * Reloads order state without clearing a previously set success message (used after post /
+     * approve / cancel).
+     */
+    private void reloadExisting(OrderId id) {
         mode.set(Mode.VIEW_EXISTING);
         documentId = null;
         payloadRevision = 0L;
+        errorMessage.set("");
         try {
             Optional<OrderDto> loaded = orderQueryService.getOrder(id);
             if (loaded.isEmpty()) {
@@ -174,7 +190,7 @@ public final class OrderEditorViewModel {
             documentId = null;
             payloadRevision = 0L;
             successMessage.set("Документ проведён");
-            openExisting(result);
+            reloadExisting(result);
         } catch (AccessDeniedException ex) {
             errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
         } catch (RuntimeException ex) {
@@ -193,7 +209,7 @@ public final class OrderEditorViewModel {
                     orderDocuments.beginOrderApprove("ORDER_APPROVE " + orderId.value(), orderId);
             OrderId result = orderDocuments.postDocument(approveDoc);
             successMessage.set("Заказ утверждён");
-            openExisting(result);
+            reloadExisting(result);
         } catch (AccessDeniedException ex) {
             errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
         } catch (RuntimeException ex) {
@@ -212,7 +228,7 @@ public final class OrderEditorViewModel {
                     orderDocuments.beginOrderCancel("ORDER_CANCEL " + orderId.value(), orderId);
             OrderId result = orderDocuments.postDocument(cancelDoc);
             successMessage.set("Заказ отменён");
-            openExisting(result);
+            reloadExisting(result);
         } catch (AccessDeniedException ex) {
             errorMessage.set(ex.getMessage() == null ? "Доступ запрещён" : ex.getMessage());
         } catch (RuntimeException ex) {
@@ -222,6 +238,21 @@ public final class OrderEditorViewModel {
 
     public void backToList() {
         onBackToList.run();
+    }
+
+    public void openItems() {
+        if (orderId == null || !canOpenItems.get()) {
+            return;
+        }
+        onOpenItems.run();
+    }
+
+    public OrderId currentOrderId() {
+        return orderId;
+    }
+
+    public OrderStatus currentOrderStatus() {
+        return orderStatus;
     }
 
     public ObjectProperty<Mode> modeProperty() {
@@ -300,6 +331,10 @@ public final class OrderEditorViewModel {
         return canCancel;
     }
 
+    public BooleanProperty canOpenItemsProperty() {
+        return canOpenItems;
+    }
+
     OrderId orderIdForTest() {
         return orderId;
     }
@@ -338,18 +373,22 @@ public final class OrderEditorViewModel {
             canPost.set(hasCreate && documentId != null);
             canApprove.set(false);
             canCancel.set(false);
+            canOpenItems.set(false);
             return;
         }
 
         boolean draft = orderStatus == OrderStatus.DRAFT;
         boolean readOnlyStatus =
                 orderStatus == OrderStatus.APPROVED || orderStatus == OrderStatus.CANCELLED;
+        boolean hasItemView =
+                authorization.hasPermission(PermissionId.of("order.item.view"));
         fieldsEditable.set(hasView && draft && hasEdit);
         orderNumberEditable.set(false);
         canSaveDraft.set(draft && hasEdit);
         canPost.set(draft && hasEdit && documentId != null);
         canApprove.set(draft && hasApprove);
         canCancel.set(draft && hasCancel);
+        canOpenItems.set(orderId != null && hasItemView);
         if (readOnlyStatus) {
             fieldsEditable.set(false);
             canSaveDraft.set(false);
