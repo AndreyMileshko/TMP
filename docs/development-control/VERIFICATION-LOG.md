@@ -3,6 +3,38 @@
 ## Latest result
 
 **Date:** 2026-07-28  
+**Scope:** Stage 5.11D-FIX-1 — Manual smoke blocker corrections (`STAGE5-050` retest pending)  
+**Overall:** WAITING_USER_RETEST
+
+| Verification | Command / evidence | Result |
+|---|---|---|
+| Security | `mvn -q -pl tmp-security -am test` | PASSED |
+| UI Shell | `mvn -q -pl tmp-ui-shell -am test` | PASSED |
+| Bootstrap | `mvn -q -pl tmp-bootstrap-app -am test` | PASSED |
+| Architecture Tests | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| Package build | `mvn -q -Ppackage clean verify` | PASSED (EXIT_CODE=0) |
+| PackagingSmokeIT | integration-test with `-Ppackage` | PASSED (EXIT_CODE=0) |
+| TMP.exe | `dist\jpackage\TMP\TMP.exe` | PRESENT |
+| DEFECT-1 regression | `OrderListCreatePermissionTest` / `OrderListPermissionBootstrapIT` | PASSED |
+| DEFECT-2 regression | `RoleAdministrationSelectionFxTest` | PASSED |
+| DEFECT-3 regression | `RoleAdministrationViewModelTest` (exact Russian UTF-8) | PASSED |
+| DEFECT-4 regression | `SecurityEndToEndPostgresIntegrationIT` duplicate assign | PASSED |
+| Manual GUI smoke | User checklist A–H | NOT COMPLETED |
+| STAGE5-048 | WORK-QUEUE | DONE |
+| STAGE5-049 | WORK-QUEUE | DONE |
+| STAGE5-050 | WORK-QUEUE | IN_PROGRESS — WAITING_USER_RETEST |
+| Stage 5 | - | IN_PROGRESS (not closed) |
+| Stage 6 | - | NOT STARTED |
+| Git | - | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+## Previous latest (2026-07-28 Stage 5.11D / STAGE5-050 preparation)
+
+**Date:** 2026-07-28  
 **Scope:** Stage 5.11D — Prepare Manual Packaged GUI Smoke (`STAGE5-050`)  
 **Overall:** WAITING_USER_CONFIRMATION
 

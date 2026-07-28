@@ -195,6 +195,7 @@ public final class OrderListViewModel {
     }
 
     public void refresh() {
+        refreshPermissions();
         loading.set(true);
         updatePaginationFlags();
         errorMessage.set("");

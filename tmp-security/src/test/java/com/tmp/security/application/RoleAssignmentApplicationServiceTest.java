@@ -16,6 +16,7 @@ import com.tmp.capability.api.ViewDescriptor;
 import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.PermissionId;
+import com.tmp.security.api.RoleAlreadyAssignedException;
 import com.tmp.security.api.RoleId;
 import com.tmp.security.api.SessionId;
 import com.tmp.security.api.UserId;
@@ -108,6 +109,22 @@ class RoleAssignmentApplicationServiceTest {
         RoleId roleId = roles.save(Role.create(RoleId.generate(), "R", "", CLOCK)).id();
         assertThrows(UserNotActiveException.class, () -> service.assignRole(deleted.id(), roleId));
         assertEquals(0, assignments.countUsersForRole(roleId));
+    }
+
+    @Test
+    void duplicateAssignmentIsRejectedWithoutSecondRow() {
+        UserId target = users.save(User.createActive(
+                        UserId.generate(), Login.of("dup"), DisplayName.of("Dup"), PasswordHash.of("h"), CLOCK))
+                .id();
+        RoleId roleId = roles.save(Role.create(RoleId.generate(), "R", "", CLOCK)).id();
+        service.assignRole(target, roleId);
+        assertEquals(1, assignments.countUsersForRole(roleId));
+
+        RoleAlreadyAssignedException ex = assertThrows(
+                RoleAlreadyAssignedException.class, () -> service.assignRole(target, roleId));
+        assertEquals("Роль уже назначена пользователю.", ex.getMessage());
+        assertEquals(1, assignments.countUsersForRole(roleId));
+        assertEquals(1, audit.events.size());
     }
 
     @Test

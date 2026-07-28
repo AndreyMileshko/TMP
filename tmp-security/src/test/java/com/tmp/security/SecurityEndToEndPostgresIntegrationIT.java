@@ -12,10 +12,12 @@ import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.PermissionId;
+import com.tmp.security.api.RoleAlreadyAssignedException;
 import com.tmp.security.api.RoleAdministrationService;
 import com.tmp.security.api.RoleSummary;
 import com.tmp.security.api.UserAdministrationService;
 import com.tmp.security.api.UserSummary;
+import com.tmp.security.api.UserId;
 import com.tmp.security.capability.SecurityAdministrationCapability;
 import com.tmp.security.api.SecurityPermissions;
 import com.tmp.security.domain.repository.RoleRepository;
@@ -162,6 +164,36 @@ class SecurityEndToEndPostgresIntegrationIT {
         assertThrows(
                 AccessDeniedException.class,
                 () -> authorizationService.requirePermission(SecurityPermissions.AUDIT_VIEW));
+    }
+
+    @Test
+    void duplicateRoleAssignmentDoesNotInsertSecondRowOrLeakSql() {
+        authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
+        UserSummary operator = userAdministrationService.createUser(
+                Login.of("duprole"), DisplayName.of("Dup Role"), OPERATOR_PASSWORD.clone());
+        RoleSummary role = roleAdministrationService.createRole("DupAssign", "duplicate assign");
+        roleAdministrationService.assignRole(operator.id(), role.id());
+        long rowsAfterFirst = countUserRoleRows(operator.id(), role.id());
+        assertEquals(1L, rowsAfterFirst);
+        long auditBefore = countAuditEvents();
+
+        RoleAlreadyAssignedException ex = assertThrows(
+                RoleAlreadyAssignedException.class,
+                () -> roleAdministrationService.assignRole(operator.id(), role.id()));
+        assertEquals("Роль уже назначена пользователю.", ex.getMessage());
+        assertEquals(1L, countUserRoleRows(operator.id(), role.id()));
+        assertEquals(auditBefore, countAuditEvents());
+        assertFalse(ex.getMessage().contains("INSERT"));
+        assertFalse(ex.getMessage().contains("SQLException"));
+    }
+
+    private long countUserRoleRows(UserId userId, com.tmp.security.api.RoleId roleId) {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM security.user_roles WHERE user_id = ?::uuid AND role_id = ?::uuid",
+                Long.class,
+                userId.value(),
+                roleId.value());
+        return count == null ? 0L : count;
     }
 
     private long countRolePermissions(String roleId) {

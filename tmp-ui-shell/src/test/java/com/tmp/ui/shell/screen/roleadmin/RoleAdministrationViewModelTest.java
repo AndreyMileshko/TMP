@@ -1,6 +1,7 @@
 package com.tmp.ui.shell.screen.roleadmin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.security.api.AuthorizationService;
@@ -54,6 +55,32 @@ class RoleAdministrationViewModelTest {
         viewModel.deleteSelected();
         assertTrue(viewModel.errorMessageProperty().get().contains("assigned"));
         assertEquals(1, viewModel.roleList().size());
+    }
+
+    @Test
+    void updateSelectedShowsExactRussianSuccessMessage() {
+        FakeRoles roles = new FakeRoles();
+        RoleSummary existing = new RoleSummary(
+                RoleId.generate(), "Ops", "ops", Set.of(), 0L,
+                Instant.parse("2026-07-23T04:00:00Z"), Instant.parse("2026-07-23T04:00:00Z"));
+        roles.roles.add(existing);
+        RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
+                roles, new EmptyUsers(), new AllowAll());
+        viewModel.select(existing);
+        viewModel.nameInputProperty().set("Ops Updated");
+        viewModel.updateSelected();
+        assertEquals(RoleAdministrationMessages.ROLE_UPDATED, viewModel.statusMessageProperty().get());
+        assertFalse(viewModel.statusMessageProperty().get().contains("Р'"));
+        assertEquals("Роль успешно изменена.", viewModel.statusMessageProperty().get());
+    }
+
+    @Test
+    void selectRoleRequiredMessageIsValidUtf8Russian() {
+        RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
+                new FakeRoles(), new EmptyUsers(), new AllowAll());
+        viewModel.updateSelected();
+        assertEquals(RoleAdministrationMessages.SELECT_ROLE, viewModel.errorMessageProperty().get());
+        assertEquals("Выберите роль", viewModel.errorMessageProperty().get());
     }
 
     private static class FakeRoles implements RoleAdministrationService {

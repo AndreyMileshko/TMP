@@ -40,5 +40,6 @@
         <Button fx:id="assignButton" text="Назначить роль"/>
         <Button fx:id="revokeButton" text="Отозвать роль"/>
     </HBox>
+    <Label fx:id="statusLabel" styleClass="role-admin-status" visible="false" managed="false" wrapText="true"/>
     <Label fx:id="errorLabel" styleClass="role-admin-error" visible="false" managed="false" wrapText="true"/>
 </VBox>

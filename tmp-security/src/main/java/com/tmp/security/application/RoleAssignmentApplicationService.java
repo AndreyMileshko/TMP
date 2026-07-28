@@ -1,6 +1,7 @@
 package com.tmp.security.application;
 
 import com.tmp.security.api.AuditEventId;
+import com.tmp.security.api.RoleAlreadyAssignedException;
 import com.tmp.security.api.RoleId;
 import com.tmp.security.api.UserId;
 import com.tmp.security.api.SecurityPermissions;
@@ -56,6 +57,9 @@ public class RoleAssignmentApplicationService {
         requireActiveUser(userId);
         if (roleRepository.findById(roleId).isEmpty()) {
             throw new IllegalArgumentException("Role not found: " + roleId);
+        }
+        if (roleAssignmentRepository.findRoleIdsForUser(userId).contains(roleId)) {
+            throw new RoleAlreadyAssignedException("Роль уже назначена пользователю.");
         }
         roleAssignmentRepository.assign(RoleAssignment.of(userId, roleId, clock.instant()));
         appendAudit(AuditOperation.ROLE_ASSIGNED, userId, roleId, "Role assigned");

@@ -2,6 +2,7 @@ package com.tmp.ui.shell.screen.roleadmin;
 
 import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.PermissionSummary;
+import com.tmp.security.api.RoleId;
 import com.tmp.security.api.RoleSummary;
 import com.tmp.ui.shell.navigation.ViewModelAware;
 import javafx.beans.binding.Bindings;
@@ -66,7 +67,11 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
     @FXML
     private Label errorLabel;
 
+    @FXML
+    private Label statusLabel;
+
     private RoleAdministrationViewModel viewModel;
+    private boolean syncingSelection;
 
     @Override
     public void setViewModel(RoleAdministrationViewModel viewModel) {
@@ -81,6 +86,9 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
 
         roleTable.setItems(viewModel.roleList());
         roleTable.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) -> {
+            if (syncingSelection) {
+                return;
+            }
             viewModel.select(selected);
             rebuildPermissionChecks();
         });
@@ -95,13 +103,26 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
         assignButton.disableProperty().bind(viewModel.canAssignProperty().not());
         revokeButton.disableProperty().bind(viewModel.canAssignProperty().not());
 
-        createButton.setOnAction(e -> viewModel.createRole());
-        updateButton.setOnAction(e -> viewModel.updateSelected());
-        deleteButton.setOnAction(e -> viewModel.deleteSelected());
+        createButton.setOnAction(e -> {
+            viewModel.createRole();
+            restoreTableSelection();
+            rebuildPermissionChecks();
+        });
+        updateButton.setOnAction(e -> {
+            viewModel.updateSelected();
+            restoreTableSelection();
+            rebuildPermissionChecks();
+        });
+        deleteButton.setOnAction(e -> {
+            viewModel.deleteSelected();
+            restoreTableSelection();
+            rebuildPermissionChecks();
+        });
         assignButton.setOnAction(e -> viewModel.assignRoleToLogin());
         revokeButton.setOnAction(e -> viewModel.revokeRoleFromLogin());
         refreshButton.setOnAction(e -> {
             viewModel.refresh();
+            restoreTableSelection();
             rebuildPermissionChecks();
         });
 
@@ -113,7 +134,18 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
                 },
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
+
+        statusLabel.textProperty().bind(viewModel.statusMessageProperty());
+        statusLabel.visibleProperty().bind(Bindings.createBooleanBinding(
+                () -> {
+                    String message = viewModel.statusMessageProperty().get();
+                    return message != null && !message.isBlank();
+                },
+                viewModel.statusMessageProperty()));
+        statusLabel.managedProperty().bind(statusLabel.visibleProperty());
+
         viewModel.refresh();
+        restoreTableSelection();
         rebuildPermissionChecks();
     }
 
@@ -125,9 +157,35 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
         for (PermissionSummary permission : viewModel.permissionCatalogue()) {
             CheckBox check = new CheckBox(permission.displayName() + " (" + permission.permissionId().value() + ")");
             PermissionId id = permission.permissionId();
+            check.setFocusTraversable(false);
             check.setSelected(viewModel.isPermissionGrantedOnSelected(id));
-            check.setOnAction(e -> viewModel.togglePermission(id, check.isSelected()));
+            check.setOnAction(e -> {
+                viewModel.togglePermission(id, check.isSelected());
+                restoreTableSelection();
+                rebuildPermissionChecks();
+            });
             permissionBox.getChildren().add(check);
         }
+    }
+
+    private void restoreTableSelection() {
+        if (viewModel == null || roleTable == null) {
+            return;
+        }
+        RoleId selectedId = viewModel.selectedRoleId();
+        if (selectedId == null) {
+            return;
+        }
+        roleTable.getItems().stream()
+                .filter(role -> role.id().equals(selectedId))
+                .findFirst()
+                .ifPresent(role -> {
+                    syncingSelection = true;
+                    try {
+                        roleTable.getSelectionModel().select(role);
+                    } finally {
+                        syncingSelection = false;
+                    }
+                });
     }
 }

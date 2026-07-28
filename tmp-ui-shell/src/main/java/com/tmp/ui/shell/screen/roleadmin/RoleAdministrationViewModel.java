@@ -5,6 +5,7 @@ import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.PermissionSummary;
 import com.tmp.security.api.RoleAdministrationService;
+import com.tmp.security.api.RoleAlreadyAssignedException;
 import com.tmp.security.api.RoleId;
 import com.tmp.security.api.RoleSummary;
 import com.tmp.security.api.UserAdministrationService;
@@ -35,6 +36,7 @@ public final class RoleAdministrationViewModel {
     private final ObservableList<PermissionSummary> permissionCatalogue = FXCollections.observableArrayList();
     private final ObservableList<PermissionId> selectedRolePermissions = FXCollections.observableArrayList();
     private final StringProperty errorMessage = new SimpleStringProperty("");
+    private final StringProperty statusMessage = new SimpleStringProperty("");
     private final StringProperty nameInput = new SimpleStringProperty("");
     private final StringProperty descriptionInput = new SimpleStringProperty("");
     private final StringProperty assignLoginInput = new SimpleStringProperty("");
@@ -43,6 +45,7 @@ public final class RoleAdministrationViewModel {
     private final BooleanProperty canDelete = new SimpleBooleanProperty(false);
     private final BooleanProperty canAssign = new SimpleBooleanProperty(false);
     private RoleSummary selected;
+    private RoleId selectedRoleId;
 
     public RoleAdministrationViewModel(
             RoleAdministrationService roles,
@@ -69,6 +72,10 @@ public final class RoleAdministrationViewModel {
 
     public StringProperty errorMessageProperty() {
         return errorMessage;
+    }
+
+    public StringProperty statusMessageProperty() {
+        return statusMessage;
     }
 
     public StringProperty nameInputProperty() {
@@ -99,8 +106,13 @@ public final class RoleAdministrationViewModel {
         return canAssign;
     }
 
+    public RoleId selectedRoleId() {
+        return selectedRoleId;
+    }
+
     public void select(RoleSummary summary) {
         this.selected = summary;
+        this.selectedRoleId = summary != null ? summary.id() : null;
         if (summary != null) {
             nameInput.set(summary.name());
             descriptionInput.set(summary.description());
@@ -115,9 +127,9 @@ public final class RoleAdministrationViewModel {
         try {
             roleList.setAll(roles.listRoles());
             permissionCatalogue.setAll(roles.listAllPermissionDefinitions());
-            if (selected != null) {
+            if (selectedRoleId != null) {
                 roleList.stream()
-                        .filter(r -> r.id().equals(selected.id()))
+                        .filter(r -> r.id().equals(selectedRoleId))
                         .findFirst()
                         .ifPresentOrElse(this::select, () -> select(null));
             }
@@ -132,41 +144,44 @@ public final class RoleAdministrationViewModel {
     public void createRole() {
         runAction(() -> {
             roles.createRole(nameInput.get(), descriptionInput.get());
+            statusMessage.set(RoleAdministrationMessages.ROLE_CREATED);
             refresh();
         });
     }
 
     public void updateSelected() {
-        if (selected == null) {
-            errorMessage.set("Р’С‹Р±РµСЂРёС‚Рµ СЂРѕР»СЊ");
+        if (selectedRoleId == null) {
+            errorMessage.set(RoleAdministrationMessages.SELECT_ROLE);
             return;
         }
-        RoleId id = selected.id();
+        RoleId id = selectedRoleId;
         runAction(() -> {
             roles.updateRole(id, nameInput.get(), descriptionInput.get());
+            statusMessage.set(RoleAdministrationMessages.ROLE_UPDATED);
             refresh();
         });
     }
 
     public void deleteSelected() {
-        if (selected == null) {
-            errorMessage.set("Р’С‹Р±РµСЂРёС‚Рµ СЂРѕР»СЊ");
+        if (selectedRoleId == null) {
+            errorMessage.set(RoleAdministrationMessages.SELECT_ROLE);
             return;
         }
-        RoleId id = selected.id();
+        RoleId id = selectedRoleId;
         runAction(() -> {
             roles.deleteRole(id);
-            selected = null;
+            select(null);
+            statusMessage.set(RoleAdministrationMessages.ROLE_DELETED);
             refresh();
         });
     }
 
     public void togglePermission(PermissionId permissionId, boolean grant) {
-        if (selected == null) {
-            errorMessage.set("Р’С‹Р±РµСЂРёС‚Рµ СЂРѕР»СЊ");
+        if (selectedRoleId == null) {
+            errorMessage.set(RoleAdministrationMessages.SELECT_ROLE);
             return;
         }
-        RoleId id = selected.id();
+        RoleId id = selectedRoleId;
         runAction(() -> {
             if (grant) {
                 roles.grantPermissionToRole(id, permissionId);
@@ -178,27 +193,29 @@ public final class RoleAdministrationViewModel {
     }
 
     public void assignRoleToLogin() {
-        if (selected == null) {
-            errorMessage.set("Р’С‹Р±РµСЂРёС‚Рµ СЂРѕР»СЊ");
+        if (selectedRoleId == null) {
+            errorMessage.set(RoleAdministrationMessages.SELECT_ROLE);
             return;
         }
-        RoleId roleId = selected.id();
+        RoleId roleId = selectedRoleId;
         runAction(() -> {
             UserId userId = findUserIdByLogin(assignLoginInput.get());
             roles.assignRole(userId, roleId);
+            statusMessage.set(RoleAdministrationMessages.ROLE_ASSIGNED);
             refresh();
         });
     }
 
     public void revokeRoleFromLogin() {
-        if (selected == null) {
-            errorMessage.set("Р’С‹Р±РµСЂРёС‚Рµ СЂРѕР»СЊ");
+        if (selectedRoleId == null) {
+            errorMessage.set(RoleAdministrationMessages.SELECT_ROLE);
             return;
         }
-        RoleId roleId = selected.id();
+        RoleId roleId = selectedRoleId;
         runAction(() -> {
             UserId userId = findUserIdByLogin(assignLoginInput.get());
             roles.revokeRole(userId, roleId);
+            statusMessage.set(RoleAdministrationMessages.ROLE_REVOKED);
             refresh();
         });
     }
@@ -212,7 +229,7 @@ public final class RoleAdministrationViewModel {
                 .filter(u -> u.login().value().equalsIgnoreCase(loginText))
                 .map(UserSummary::id)
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ: " + loginText));
+                .orElseThrow(() -> new IllegalArgumentException(RoleAdministrationMessages.userNotFound(loginText)));
     }
 
     private void refreshPermissions() {
@@ -225,9 +242,13 @@ public final class RoleAdministrationViewModel {
 
     private void runAction(Runnable action) {
         errorMessage.set("");
+        statusMessage.set("");
         try {
             action.run();
-        } catch (AccessDeniedException | RoleInUseException | IllegalArgumentException ex) {
+        } catch (AccessDeniedException
+                | RoleInUseException
+                | RoleAlreadyAssignedException
+                | IllegalArgumentException ex) {
             errorMessage.set(ex.getMessage());
         } catch (RuntimeException ex) {
             errorMessage.set(safeMessage(ex));
@@ -236,6 +257,8 @@ public final class RoleAdministrationViewModel {
 
     private static String safeMessage(Throwable ex) {
         String message = ex.getMessage();
-        return message == null || message.isBlank() ? "РћРїРµСЂР°С†РёСЏ РЅРµ РІС‹РїРѕР»РЅРµРЅР°" : message;
+        return message == null || message.isBlank()
+                ? RoleAdministrationMessages.OPERATION_FAILED
+                : message;
     }
 }

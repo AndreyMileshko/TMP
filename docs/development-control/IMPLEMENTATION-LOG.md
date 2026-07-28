@@ -3265,7 +3265,7 @@ JetBrains JBR 21 used for earlier Stage 5 work does not ship `jpackage.exe`. Tem
 
 **Date:** 2026-07-28  
 **Stage:** 5  
-**Status:** IN_PROGRESS — WAITING_USER_CONFIRMATION
+**Status:** IN_PROGRESS — WAITING_USER_RETEST
 
 ### Prepared
 - Verified packaged artifact from STAGE5-049 still present:
@@ -3284,4 +3284,36 @@ JetBrains JBR 21 used for earlier Stage 5 work does not ship `jpackage.exe`. Tem
 - Packaging not rebuilt
 
 ### Next
-Await user PASS/FAIL for sections A–H.
+Await user PASS/FAIL for sections A–H after Stage 5.11D-FIX-1 retest.
+
+---
+
+## STAGE 5.11D-FIX-1 — Manual smoke blocker corrections
+
+**Date:** 2026-07-28  
+**Stage:** 5  
+**Status:** DONE (code fixes); STAGE5-050 remains IN_PROGRESS — WAITING_USER_RETEST
+
+### Defects fixed
+
+| ID | Issue | Root cause | Fix |
+|---|---|---|---|
+| DEFECT-1 | Create Order button disabled despite `order.order.create` | `OrderListViewModel` is a Spring singleton; `refreshPermissions()` ran only in constructor before login | Call `refreshPermissions()` from `refresh()` on each screen load |
+| DEFECT-2 | Role selection cleared on permission checkbox | Checkbox focus cleared `TableView` selection; listener called `select(null)` | Track `selectedRoleId` in ViewModel; restore table selection; non-focusable checkboxes |
+| DEFECT-3 | Mojibake in Roles screen messages | Corrupted UTF-8 literals in `RoleAdministrationViewModel` | `RoleAdministrationMessages` with correct Russian UTF-8 strings + status label |
+| DEFECT-4 | Duplicate role assignment shows SQL | No application-layer duplicate check before INSERT | `RoleAlreadyAssignedException` + pre-check in `RoleAssignmentApplicationService` |
+
+### Regression tests added
+
+- `OrderListCreatePermissionTest`, `OrderListControllerFxTest`, `OrderListPermissionBootstrapIT`
+- `RoleAdministrationSelectionFxTest`, `RoleAdministrationViewModelTest` (UTF-8 message)
+- `RoleAssignmentApplicationServiceTest.duplicateAssignmentIsRejectedWithoutSecondRow`
+- `SecurityEndToEndPostgresIntegrationIT.duplicateRoleAssignmentDoesNotInsertSecondRowOrLeakSql`
+
+### Packaging
+
+Rebuilt: `mvn -q -Ppackage clean verify` — BUILD SUCCESS; `dist\jpackage\TMP\TMP.exe` present.
+
+### Next
+
+User manual GUI retest for STAGE5-050.
