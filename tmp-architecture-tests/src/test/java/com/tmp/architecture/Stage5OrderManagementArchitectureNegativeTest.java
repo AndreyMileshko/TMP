@@ -5,12 +5,16 @@ import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideOutsid
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tmp.architecture.stage5.negative.Stage5ArchitectureViolators;
 import com.tmp.core.api.EventBus;
+import com.tmp.order.application.payload.GenericMapPayloadViolator;
+import com.tmp.order.domain.DomainDependsOnSpringViolator;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -109,14 +113,49 @@ class Stage5OrderManagementArchitectureNegativeTest {
         assertThrows(AssertionError.class, () -> rule.check(VIOLATORS));
     }
 
-    @SafeVarargs
-    private static com.tngtech.archunit.base.DescribedPredicate<com.tngtech.archunit.core.domain.JavaClass>
-            resideOutsideOfPackages(String... packages) {
-        com.tngtech.archunit.base.DescribedPredicate<com.tngtech.archunit.core.domain.JavaClass>
-                predicate = resideOutsideOfPackage(packages[0]);
-        for (int i = 1; i < packages.length; i++) {
-            predicate = predicate.and(resideOutsideOfPackage(packages[i]));
-        }
-        return predicate;
+    @Test
+    void orderDomainFrameworkFreeRuleDetectsSpringDependency() {
+        JavaClasses violator =
+                new ClassFileImporter().importClasses(DomainDependsOnSpringViolator.class);
+
+        AssertionError error =
+                assertThrows(
+                        AssertionError.class,
+                        () -> Stage5OrderManagementArchitectureTest.orderDomainIsFrameworkFree
+                                .check(violator));
+
+        String message = error.getMessage().toLowerCase();
+        assertTrue(
+                message.contains("springframework") || message.contains("spring"),
+                () -> "Expected Spring dependency in violation message, got: " + error.getMessage());
+    }
+
+    @Test
+    void orderTypedPayloadRuleDetectsMapObjectViolation() {
+        JavaClasses violator =
+                new ClassFileImporter().importClasses(GenericMapPayloadViolator.class);
+
+        AssertionError error =
+                assertThrows(
+                        AssertionError.class,
+                        () -> Stage5OrderManagementArchitectureTest
+                                .orderTypedPayloadDoesNotUseObjectOrMap
+                                .check(violator));
+
+        String message = error.getMessage();
+        assertTrue(
+                message.contains("Map") || message.contains("Object"),
+                () -> "Expected Map or Object in violation message, got: " + message);
+    }
+
+    @Test
+    void productionTypedPayloadPassesObjectOrMapRule() {
+        JavaClasses production =
+                new ClassFileImporter()
+                        .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                        .importPackages("com.tmp.order.application.payload");
+
+        Stage5OrderManagementArchitectureTest.orderTypedPayloadDoesNotUseObjectOrMap.check(
+                production);
     }
 }

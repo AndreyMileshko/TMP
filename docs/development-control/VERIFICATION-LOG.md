@@ -2,6 +2,44 @@
 
 ## Latest result
 
+**Date:** 2026-07-28  
+**Scope:** Stage 5.10 — Unit, Integration and Architecture Verification  
+**Tasks:** STAGE5-042..047  
+**Overall:** PASSED
+
+| Verification | Command | Result |
+|---|---|---|
+| Order Management | `mvn -q -pl tmp-order-management -am verify` | PASSED |
+| UI Shell | `mvn -q -pl tmp-ui-shell -am verify` | PASSED |
+| Document Engine | `mvn -q -pl tmp-document-engine -am test` | PASSED |
+| Infra DB | `mvn -q -pl tmp-infra-db -am test` | PASSED |
+| Architecture Tests | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| STAGE5-042..047 | WORK-QUEUE | DONE |
+| STAGE5-048 | WORK-QUEUE | PLANNED (not READY) |
+| Git | - | NOT EXECUTED |
+
+### Stage 5.11A — Architecture verification corrections
+
+**Date:** 2026-07-28  
+**Result:** PASSED
+
+| Verification | Command | Result |
+|---|---|---|
+| Architecture Tests | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED |
+| Domain Spring negative rule | Stage5OrderManagementArchitectureNegativeTest | PASSED |
+| Generic Object/Map payload rule | Stage5OrderManagementArchitectureTest / NegativeTest | PASSED |
+| STAGE5-047 | WORK-QUEUE | DONE (unchanged) |
+| STAGE5-048 | WORK-QUEUE | PLANNED (unchanged) |
+| Git | - | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+## Previous latest (2026-07-27 STAGE5-045)
+
 **Date:** 2026-07-27  
 **Scope:** Stage 5.10 - STAGE5-045 Idempotency tests  
 **Overall:** PASSED

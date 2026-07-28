@@ -3158,3 +3158,35 @@ Finalized Stage 5 ArchUnit rules for Order Management module boundaries, Documen
 
 ### Next task
 `STAGE5-048` (PLANNED — waiting for user authorization)
+
+---
+
+## Stage 5.11A — Architecture verification corrections
+
+**Date:** 2026-07-28  
+**Stage:** 5  
+**Status:** COMPLETED
+
+Stage 5.11A completed.
+
+Added:
+- negative verification for Order Management domain dependency on Spring;
+- prohibition of Object and Map in typed payload contracts;
+- negative generic-payload violator test;
+- updated Stage 5.10 latest verification result.
+
+STAGE5-047 remains DONE.
+STAGE5-048 remains PLANNED.
+
+### Tests added or changed
+- Strengthened `orderDomainIsFrameworkFree` (`javax.persistence`, `java.sql`, `org.springframework.jdbc`)
+- `orderTypedPayloadDoesNotUseObjectOrMap` ArchUnit rule (fields, constructors, public methods)
+- Test-only `DomainDependsOnSpringViolator` (`com.tmp.order.domain`)
+- Test-only `GenericMapPayloadViolator` (`com.tmp.order.application.payload`)
+- Negative + positive checks in `Stage5OrderManagementArchitectureNegativeTest`
+
+### Verification
+| Check | Result |
+|---|---|
+| tmp-architecture-tests -am test | PASSED |
+| tmp-order-management -am test | PASSED |

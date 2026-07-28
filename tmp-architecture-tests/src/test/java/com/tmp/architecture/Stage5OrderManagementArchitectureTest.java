@@ -2,6 +2,7 @@ package com.tmp.architecture;
 
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideOutsideOfPackage;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
@@ -9,11 +10,19 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaConstructor;
 import com.tngtech.archunit.core.domain.JavaField;
+import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.domain.JavaModifier;
+import com.tngtech.archunit.core.domain.JavaParameter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
+import java.util.Map;
 
 /**
  * Stage 5 architecture boundaries for the Order Management Capability ({@code com.tmp.order..}).
@@ -133,10 +142,15 @@ class Stage5OrderManagementArchitectureTest {
                     .that().resideInAPackage("com.tmp.order.domain..")
                     .should().dependOnClassesThat().resideInAnyPackage(
                             "org.springframework..",
+                            "org.springframework.jdbc..",
                             "jakarta.persistence..",
+                            "javax.persistence..",
                             "org.hibernate..",
-                            "javafx..")
-                    .because("Order domain must stay free of Spring / JPA / Hibernate / JavaFX");
+                            "javafx..",
+                            "java.sql..")
+                    .because(
+                            "Order domain must stay free of Spring / JDBC / JPA / Hibernate / "
+                                    + "JavaFX / java.sql");
 
     @ArchTest
     static final ArchRule orderModuleHasNoJavaFxDependency =
@@ -206,6 +220,16 @@ class Stage5OrderManagementArchitectureTest {
                     .dependOnClassesThat()
                     .resideInAnyPackage("com.fasterxml.jackson..")
                     .because("Order Management typed payload must not use Jackson/generic JSON");
+
+    @ArchTest
+    static final ArchRule orderTypedPayloadDoesNotUseObjectOrMap =
+            classes()
+                    .that()
+                    .resideInAPackage("com.tmp.order.application.payload..")
+                    .should(notUseGenericObjectOrMapInTypedPayload())
+                    .because(
+                            "Typed payload contracts must not use java.lang.Object or java.util.Map "
+                                    + "(including Map<String, Object>)");
 
     @ArchTest
     static final ArchRule orderNoJpaOrHibernate =
@@ -312,6 +336,81 @@ class Stage5OrderManagementArchitectureTest {
                     .andShould()
                     .haveNameNotStartingWith("cancel")
                     .because("Public Query API is read-only");
+
+    private static ArchCondition<JavaClass> notUseGenericObjectOrMapInTypedPayload() {
+        return new ArchCondition<>("not use Object or Map in typed payload contracts") {
+            @Override
+            public void check(JavaClass javaClass, ConditionEvents events) {
+                for (JavaField field : javaClass.getFields()) {
+                    reportIfForbidden(
+                            field.getRawType(),
+                            javaClass.getName() + "." + field.getName() + " field type",
+                            field,
+                            events);
+                }
+                for (JavaConstructor constructor : javaClass.getConstructors()) {
+                    for (JavaParameter parameter : constructor.getParameters()) {
+                        reportIfForbidden(
+                                parameter.getRawType(),
+                                javaClass.getName()
+                                        + " constructor parameter "
+                                        + parameter.getIndex(),
+                                parameter,
+                                events);
+                    }
+                }
+                for (JavaMethod method : javaClass.getMethods()) {
+                    if (!method.getModifiers().contains(JavaModifier.PUBLIC)) {
+                        continue;
+                    }
+                    if (isStandardEquals(method)) {
+                        continue;
+                    }
+                    reportIfForbidden(
+                            method.getRawReturnType(),
+                            javaClass.getName() + "." + method.getName() + "() return type",
+                            method,
+                            events);
+                    for (JavaParameter parameter : method.getParameters()) {
+                        reportIfForbidden(
+                                parameter.getRawType(),
+                                javaClass.getName()
+                                        + "."
+                                        + method.getName()
+                                        + "() parameter "
+                                        + parameter.getIndex(),
+                                parameter,
+                                events);
+                    }
+                }
+            }
+
+            private static boolean isStandardEquals(JavaMethod method) {
+                return "equals".equals(method.getName())
+                        && method.getRawParameterTypes().size() == 1
+                        && method.getRawParameterTypes().get(0).isEquivalentTo(Object.class);
+            }
+
+            private static void reportIfForbidden(
+                    JavaClass type,
+                    String location,
+                    Object owner,
+                    ConditionEvents events) {
+                if (type.isEquivalentTo(Object.class)) {
+                    events.add(
+                            SimpleConditionEvent.violated(
+                                    owner,
+                                    location + " uses forbidden Object"));
+                    return;
+                }
+                if (type.isEquivalentTo(Map.class) || "java.util.Map".equals(type.getName())) {
+                    events.add(
+                            SimpleConditionEvent.violated(
+                                    owner, location + " uses forbidden Map"));
+                }
+            }
+        };
+    }
 
     private static DescribedPredicate<JavaClass> forbiddenForeignBusinessModelClass() {
         return new DescribedPredicate<>("forbidden foreign business model class") {
