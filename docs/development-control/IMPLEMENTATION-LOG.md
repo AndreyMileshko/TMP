@@ -3220,3 +3220,41 @@ Not executed (`STAGE5-049` not started).
 
 ### Next task
 `STAGE5-049` (PLANNED — waiting for user authorization)
+
+---
+
+## STAGE5-049 — Packaged application verification
+
+**Date:** 2026-07-28  
+**Stage:** 5  
+**Status:** DONE
+
+### Command
+`mvn -q -Ppackage clean verify` (project root)
+
+### Environment
+- OS: Windows 10 (10.0.19045)
+- Java: Eclipse Temurin OpenJDK 21.0.11 (full JDK with jpackage)
+- Maven: 3.9.9
+- Docker: Docker Desktop 4.82.0 / Engine 29.6.1 — available
+- jpackage: `${JAVA_HOME}\bin\jpackage.exe` present (`jpackage --version` = 21.0.11)
+
+### Infrastructure note
+JetBrains JBR 21 used for earlier Stage 5 work does not ship `jpackage.exe`. Temurin JDK 21.0.11 was installed so `${java.home}/bin/jpackage` required by the `package` profile is available. No packaging configuration changes.
+
+### Result
+- Packaging build: BUILD SUCCESS (EXIT_CODE=0)
+- PackagingSmokeIT: executed=1, failures=0, errors=0, skipped=0
+- Artifact: `dist\jpackage\TMP\TMP.exe`
+- Bundled runtime: present (`runtime\release`, `runtime\lib\jvm.cfg`)
+- `TMP.cfg`: contains `-Dspring.profiles.active=package` and `org.springframework.boot.loader.launch.JarLauncher`
+- Fat jar: `dist\jpackage\TMP\app\tmp-bootstrap-app-0.1.0-SNAPSHOT.jar`
+- `application-package.yml`: present at `BOOT-INF/classes/application-package.yml`
+- Env-based package config verified in source (`TMP_DB_*`, `TMP_SECURITY_BOOTSTRAP_ADMIN_*`)
+- GUI / `TMP.exe` launch: NOT EXECUTED
+
+### Packaging defects
+- None in project packaging configuration
+
+### Next task
+`STAGE5-050` (PLANNED — waiting for user authorization)

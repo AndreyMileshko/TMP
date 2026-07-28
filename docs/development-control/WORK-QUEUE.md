@@ -8534,7 +8534,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-049 — Packaged application verification
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-048
 

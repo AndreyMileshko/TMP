@@ -3,6 +3,43 @@
 ## Latest result
 
 **Date:** 2026-07-28  
+**Scope:** Stage 5.11C — Packaged application verification (`STAGE5-049`)  
+**Overall:** PASSED
+
+| Verification | Command / evidence | Result |
+|---|---|---|
+| Packaging build | `mvn -q -Ppackage clean verify` | PASSED (EXIT_CODE=0) |
+| PackagingSmokeIT | Failsafe report: tests=1, failures=0, errors=0, skipped=0 | PASSED |
+| TMP.exe | `dist\jpackage\TMP\TMP.exe` | PRESENT |
+| Bundled runtime | `runtime\`, `runtime\release`, `runtime\lib\jvm.cfg` | PRESENT |
+| TMP.cfg | `-Dspring.profiles.active=package` + `JarLauncher` | PASSED |
+| Fat jar | `app\tmp-bootstrap-app-0.1.0-SNAPSHOT.jar` | PRESENT |
+| application-package.yml | `BOOT-INF/classes/application-package.yml` in fat jar | PRESENT |
+| package profile env placeholders | `TMP_DB_*`, `TMP_SECURITY_BOOTSTRAP_ADMIN_*` in source yml | PRESENT |
+| jpackage | Temurin JDK 21.0.11 `${java.home}\bin\jpackage.exe` | AVAILABLE |
+| Manual GUI smoke | - | NOT EXECUTED |
+| STAGE5-049 | WORK-QUEUE | DONE |
+| STAGE5-050 | WORK-QUEUE | PLANNED (not READY) |
+| Git | - | NOT EXECUTED |
+
+### Environment
+
+| Item | Value |
+|---|---|
+| OS | Windows 10 (10.0.19045) |
+| Java | Eclipse Temurin 21.0.11 |
+| Maven | 3.9.9 |
+| Docker | available (Desktop 4.82.0) |
+| jpackage | 21.0.11 |
+
+### Failures
+
+- None.
+
+---
+## Previous latest (2026-07-28 Stage 5.11B / STAGE5-048)
+
+**Date:** 2026-07-28  
 **Scope:** Stage 5.11B — Full reactor verification (`STAGE5-048`)  
 **Overall:** PASSED
 
