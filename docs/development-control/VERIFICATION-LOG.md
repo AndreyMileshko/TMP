@@ -3,8 +3,30 @@
 ## Latest result
 
 **Date:** 2026-07-28  
-**Scope:** Stage 5.11C — Packaged application verification (`STAGE5-049`)  
-**Overall:** PASSED
+**Scope:** Stage 5.11D — Prepare Manual Packaged GUI Smoke (`STAGE5-050`)  
+**Overall:** WAITING_USER_CONFIRMATION
+
+| Verification | Evidence | Result |
+|---|---|---|
+| TMP.exe present | `dist\jpackage\TMP\TMP.exe` | PRESENT |
+| Bundled runtime | `dist\jpackage\TMP\runtime\` | PRESENT |
+| TMP.cfg | `dist\jpackage\TMP\app\TMP.cfg` | PRESENT |
+| Manual checklist A–H | Prepared for user | PREPARED |
+| Agent GUI execution | - | NOT EXECUTED |
+| Manual smoke confirmed | - | PENDING USER |
+| STAGE5-048 | WORK-QUEUE | DONE |
+| STAGE5-049 | WORK-QUEUE | DONE |
+| STAGE5-050 | WORK-QUEUE | IN_PROGRESS — WAITING_USER_CONFIRMATION |
+| Stage 5 | - | IN_PROGRESS (not closed) |
+| Stage 6 | - | NOT STARTED |
+| Git | - | NOT EXECUTED |
+
+### Failures
+
+- None (preparation only).
+
+---
+## Previous latest (2026-07-28 Stage 5.11C / STAGE5-049)
 
 | Verification | Command / evidence | Result |
 |---|---|---|

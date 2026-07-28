@@ -3258,3 +3258,30 @@ JetBrains JBR 21 used for earlier Stage 5 work does not ship `jpackage.exe`. Tem
 
 ### Next task
 `STAGE5-050` (PLANNED — waiting for user authorization)
+
+---
+
+## STAGE5-050 — Manual packaged GUI smoke (preparation)
+
+**Date:** 2026-07-28  
+**Stage:** 5  
+**Status:** IN_PROGRESS — WAITING_USER_CONFIRMATION
+
+### Prepared
+- Verified packaged artifact from STAGE5-049 still present:
+  - `dist\jpackage\TMP\TMP.exe`
+  - `dist\jpackage\TMP\runtime\`
+  - `dist\jpackage\TMP\app\TMP.cfg`
+- Prepared separate Testcontainers-style PostgreSQL smoke DB instructions (container `tmp-stage5-pg`, DB `tmp_gui_stage5`, port `54325`)
+- Prepared PowerShell env template for package profile (`TMP_DB_*`, `TMP_SECURITY_BOOTSTRAP_ADMIN_*`)
+- Prepared manual checklist sections A–H for user confirmation
+
+### Not done by agent
+- `TMP.exe` not launched
+- GUI checklist items not marked PASS/FAIL by agent
+- Stage 5 not closed
+- Stage 6 not started
+- Packaging not rebuilt
+
+### Next
+Await user PASS/FAIL for sections A–H.

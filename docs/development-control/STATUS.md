@@ -3,16 +3,16 @@
 **Mode:** Autonomous Cursor Agent  
 **Project status:** IN_PROGRESS  
 **Current Stage:** Stage 5 — Order Management  
-**Current Task:** STAGE5-050 (PLANNED — waiting for user authorization)  
+**Current Task:** STAGE5-050 (IN_PROGRESS — WAITING_USER_CONFIRMATION)  
 **Last completed task:** STAGE5-049  
 **Active blocker:** None  
 
 ```text
-Stage 5.11C packaged application verification completed.
-STAGE5-049 completed.
-Next execution module: Stage 5.11D.
-Next task: STAGE5-050.
-Waiting for user authorization.
+Stage 5.11D manual packaged GUI smoke prepared.
+STAGE5-050 = IN_PROGRESS — WAITING_USER_CONFIRMATION.
+Waiting for user to run checklist A–H and return PASS/FAIL.
+Stage 5 = IN_PROGRESS.
+Stage 6 = NOT STARTED.
 ```
 
 ---
@@ -26,7 +26,7 @@ Waiting for user authorization.
 | 2 | Document Engine | DONE | 100% |
 | 3 | Capability Engine | DONE | 100% |
 | 4 | Security | DONE | 100% |
-| 5 | Order Management | IN_PROGRESS (STAGE5-036..049 DONE) | ~99% |
+| 5 | Order Management | IN_PROGRESS (STAGE5-036..049 DONE; STAGE5-050 waiting user) | ~99% |
 | 6–11 | (later) | PLANNED | 0% |
 
 ---
@@ -34,10 +34,9 @@ Waiting for user authorization.
 **Stage 0–4:** завершены (DONE 100%).
 
 **Реализация Stage 5:**
-- Модули 5.1–5.8 и UI/verification (`STAGE5-001..048`) — DONE.
-- Stage 5.11C packaging (`STAGE5-049`) — DONE.
-- `STAGE5-050` — PLANNED (manual GUI smoke + Stage 5 close).
+- `STAGE5-001..049` — DONE.
+- `STAGE5-050` — IN_PROGRESS — WAITING_USER_CONFIRMATION (manual GUI smoke).
 
 **Открытых блокеров Stage 5:** нет.
 
-**Далее:** `STAGE5-050` — PLANNED, не переводить в READY без авторизации. Stage 5 не закрыт. Git-операции выполняет пользователь самостоятельно.
+**Далее:** пользователь выполняет manual packaged GUI smoke по checklist A–H и возвращает PASS/FAIL. Agent не запускает `TMP.exe` и не закрывает Stage 5 до подтверждения. Git-операции выполняет пользователь самостоятельно.
