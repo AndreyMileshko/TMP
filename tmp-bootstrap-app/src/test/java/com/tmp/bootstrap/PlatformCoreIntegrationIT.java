@@ -45,9 +45,10 @@ class PlatformCoreIntegrationIT extends AbstractBootstrapPostgresSpringTest {
 
         assertTrue(eventReceived.get(), "EventBus must deliver platform events synchronously");
         assertEquals(
-                4,
+                5,
                 capabilityRegistry.findAll().size(),
-                "two sample technical capabilities, security administration, plus one manual registration");
+                "two sample technical capabilities, security administration, order management, "
+                        + "plus one manual registration");
         assertEquals(ComponentLifecycleState.STARTED, platformCore.status().lifecycleState());
         assertEquals(
                 4,

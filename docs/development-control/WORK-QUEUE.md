@@ -8515,7 +8515,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-048 — Full reactor verification
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-047
 

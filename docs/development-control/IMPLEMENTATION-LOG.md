@@ -3190,3 +3190,33 @@ STAGE5-048 remains PLANNED.
 |---|---|
 | tmp-architecture-tests -am test | PASSED |
 | tmp-order-management -am test | PASSED |
+
+---
+
+## STAGE5-048 — Full reactor verification
+
+**Date:** 2026-07-28  
+**Stage:** 5  
+**Status:** DONE
+
+### Command
+`mvn -q clean verify` (project root; no packaging profile)
+
+### Environment
+- OS: Windows 10 (10.0.19045)
+- Java: OpenJDK 21.0.8 (JetBrains JBR)
+- Maven: 3.9.9
+- Docker: Docker Desktop 4.82.0 / Engine 29.6.1 — available
+
+### Defect found and fixed
+- `tmp-bootstrap-app` Failsafe: `PlatformCoreIntegrationIT.registersServicesCapabilitiesAndDeliversEvents`
+- Cause: expected capability count remained 4 after Order Management capability registration (actual 5)
+- Fix: update expected count and assertion message in `PlatformCoreIntegrationIT.java` (test-only)
+- Local gate: `mvn -q -pl tmp-bootstrap-app -am verify` PASSED
+- Final full reactor re-run: PASSED
+
+### Packaging
+Not executed (`STAGE5-049` not started).
+
+### Next task
+`STAGE5-049` (PLANNED — waiting for user authorization)

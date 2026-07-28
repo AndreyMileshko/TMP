@@ -3,6 +3,46 @@
 ## Latest result
 
 **Date:** 2026-07-28  
+**Scope:** Stage 5.11B — Full reactor verification (`STAGE5-048`)  
+**Overall:** PASSED
+
+| Verification | Command / evidence | Result |
+|---|---|---|
+| Full reactor | `mvn -q clean verify` | PASSED (EXIT_CODE=0) |
+| Unit tests (Surefire) | e.g. order-management 245, architecture-tests 53, ui-shell 95 | PASSED |
+| Integration tests (Failsafe) | order-management 55; bootstrap 8 (1 skipped packaging smoke) | PASSED |
+| Checkstyle | `checkstyle-verify` on verify phase; `failsOnError=true`; not skipped | PASSED |
+| SpotBugs | `spotbugs-verify` on verify phase; `failOnError=true`; bugs=0 | PASSED |
+| Architecture Tests | Stage5OrderManagementArchitectureTest 24/0/0/0; NegativeTest 9/0/0/0 | PASSED |
+| Stage 5.11A negative tests | Spring domain + Map/Object payload violators | PASSED |
+| STAGE5-048 | WORK-QUEUE | DONE |
+| STAGE5-049 | WORK-QUEUE | PLANNED (not READY) |
+| STAGE5-050 | WORK-QUEUE | PLANNED |
+| Packaging | - | NOT EXECUTED |
+| Git | - | NOT EXECUTED |
+
+### Required Failsafe reports (`tmp-order-management`)
+
+| Test | executed | failures | errors | skipped |
+|---|---|---:|---:|---:|
+| JdbcAggregatePersistenceIT | YES (8) | 0 | 0 | 0 |
+| JdbcPayloadAndProcessingAdaptersIT | YES (26) | 0 | 0 | 0 |
+| OrderDocumentLifecycleIT | YES (9) | 0 | 0 | 0 |
+| OrderDocumentIdempotencyIT | YES (4) | 0 | 0 | 0 |
+| OrderDocumentRollbackIT | YES (1) | 0 | 0 | 0 |
+
+### Mandatory tests skipped
+- NONE (required Order Management ITs all executed with skipped=0)
+- Note: `PackagingSmokeIT` skipped once (packaging profile / STAGE5-049) — out of STAGE5-048 scope
+
+### Failures
+
+- First reactor run failed on `PlatformCoreIntegrationIT` (capability count 4→5). Fixed in bootstrap IT; full reactor re-run PASSED.
+
+---
+## Previous latest (2026-07-28 Stage 5.11A / Stage 5.10)
+
+**Date:** 2026-07-28  
 **Scope:** Stage 5.10 — Unit, Integration and Architecture Verification  
 **Tasks:** STAGE5-042..047  
 **Overall:** PASSED
