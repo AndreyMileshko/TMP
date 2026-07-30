@@ -1,5 +1,7 @@
 package com.tmp.order.application.document;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -70,8 +72,7 @@ class OrderItemRevisionUpdateDocumentProcessorTest {
         DocumentId documentId = DocumentId.generate();
         List<OrderItemRevisionPayloadLine> lines =
                 List.of(
-                        OrderItemRevisionPayloadLine.of(
-                                1, "MAT-2", "Alu", BigDecimal.TEN, "kg", BigDecimal.ONE));
+                        IntakeContractFixtures.payloadLine(1, "MAT-2", "Alu", BigDecimal.TEN, "kg"));
         payloads.create(
                 OrderItemRevisionUpdatePayload.create(
                         documentId,
@@ -146,8 +147,7 @@ class OrderItemRevisionUpdateDocumentProcessorTest {
                         RevisionNumber.of(2),
                         OrderedQuantity.of(4),
                         List.of(
-                                OrderItemRevisionPayloadLine.of(
-                                        1, "MAT-9", "X", BigDecimal.ONE, "m", BigDecimal.ONE)),
+                                IntakeContractFixtures.payloadLine(1, "MAT-9", "X", BigDecimal.ONE, "m")),
                         NOW));
 
         processor.onPost(context(documentId));
@@ -165,8 +165,7 @@ class OrderItemRevisionUpdateDocumentProcessorTest {
         DocumentId documentId = DocumentId.generate();
         List<OrderItemRevisionPayloadLine> lines =
                 List.of(
-                        OrderItemRevisionPayloadLine.of(
-                                1, "MAT-3", "Wood", BigDecimal.ONE, "m3", BigDecimal.ONE));
+                        IntakeContractFixtures.payloadLine(1, "MAT-3", "Wood", BigDecimal.ONE, "m3"));
         OrderItemRevisionUpdatePayload payload =
                 OrderItemRevisionUpdatePayload.create(
                         documentId,
@@ -217,12 +216,7 @@ class OrderItemRevisionUpdateDocumentProcessorTest {
                         draft.id(),
                         RevisionNumber.first(),
                         List.of(
-                                SpecificationLine.of(
-                                        "MAT-1",
-                                        "Glass",
-                                        BigDecimal.ONE,
-                                        "m2",
-                                        BigDecimal.ONE)));
+                                IntakeContractFixtures.specLine("MAT-1", "Glass", BigDecimal.ONE, "m2")));
         return items.save(draft.updateDraftSpecification(spec, CLOCK).approveDraftRevision(CLOCK));
     }
 

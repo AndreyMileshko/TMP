@@ -3458,3 +3458,31 @@ Rebuilt: `mvn -q -Ppackage clean verify` — BUILD SUCCESS; `dist\jpackage\TMP\T
 ### Next
 
 User manual GUI retest for STAGE5-050.
+
+---
+
+## STAGE5-051 — Order Item and Specification Contracts
+
+**Date:** 2026-07-30  
+**Stage:** 5  
+**Status:** DONE
+
+### Summary
+
+Order Intake contract alignment in `tmp-order-management`: `externalPositionNumber` on Item; `OrderedQuantity` as sole `productQuantity` (whole number > 0); `SpecificationLine` with `color`, `lengthMm`, `lineQuantity` (removed `consumptionNorm`); incomplete commercial DRAFT per ADR-030; `ORDER_APPROVE` lists missing mandatory fields.
+
+### Key deliverables
+
+- Domain: `ItemCommercialData.externalPositionNumber`, `OrderCommercialData` nullable draft fields + `missingMandatoryFieldsForApproval()`, `CommercialPlaceholderValidator`.
+- API/DTO/Query/UI payload contracts updated across layers.
+- Flyway `V9__order_intake_contracts.sql` (nullable order commercial columns, spec line reshape, payload tables).
+- Tests: `OrderIntakeContractsTest`, `OrderIntakeContractsFlywayTest`, updated processor/persistence suites.
+
+### Verification
+
+`mvn -q -pl tmp-order-management -am test` — PASS (255 tests, 0 skipped).  
+`mvn -q -pl tmp-order-management -am verify` — PASS.
+
+### Next
+
+`STAGE5-052` Manual Entry UI — NOT STARTED (await user authorization).

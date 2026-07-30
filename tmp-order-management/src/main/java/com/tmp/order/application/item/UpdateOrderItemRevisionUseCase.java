@@ -65,9 +65,10 @@ public final class UpdateOrderItemRevisionUseCase {
                     SpecificationLine.of(
                             line.materialCode(),
                             line.materialName(),
-                            line.quantity(),
-                            line.unitOfMeasure(),
-                            line.consumptionNorm()));
+                            line.color(),
+                            line.lengthMm(),
+                            line.lineQuantity(),
+                            line.unitOfMeasure()));
         }
         return result;
     }

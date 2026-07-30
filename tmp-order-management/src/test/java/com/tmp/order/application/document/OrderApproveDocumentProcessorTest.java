@@ -1,5 +1,7 @@
 package com.tmp.order.application.document;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -93,6 +95,33 @@ class OrderApproveDocumentProcessorTest {
     }
 
     @Test
+    void incompleteCommercialDataIsRejectedWithMissingFields() {
+        CustomerOrder incomplete =
+                orders.save(
+                        CustomerOrder.create(
+                                OrderId.generate(),
+                                OrderNumber.of("ORD-INCOMPLETE"),
+                                OrderCommercialData.of(
+                                        null, null, null, null, null, null, null),
+                                CLOCK));
+        seedActiveItem(incomplete.id());
+        DocumentId documentId = DocumentId.generate();
+        payloads.create(OrderApprovePayload.create(documentId, incomplete.id(), NOW));
+
+        OrderApprovalRejectedException ex =
+                assertThrows(
+                        OrderApprovalRejectedException.class,
+                        () -> processor.onPost(context(documentId)));
+        assertTrue(ex.missingFields().contains("customerName"));
+        assertTrue(ex.missingFields().contains("direction"));
+        assertTrue(ex.missingFields().contains("currency"));
+        assertTrue(ex.missingFields().contains("contractRef"));
+        assertTrue(ex.missingFields().contains("siteRef"));
+        assertEquals(OrderStatus.DRAFT, orders.findById(incomplete.id()).orElseThrow().status());
+        assertTrue(published.isEmpty());
+    }
+
+    @Test
     void orderWithoutActiveItemsIsRejected() {
         CustomerOrder draft = seedDraft("ORD-APPR-NONE");
         seedDraftItem(draft.id());
@@ -131,8 +160,8 @@ class OrderApproveDocumentProcessorTest {
                         OrderCommercialData.of(
                                 "C-1",
                                 "Customer",
-                                null,
-                                null,
+                                "CN-1",
+                                "Site-1",
                                 null,
                                 OrderDirection.PRIVATE,
                                 CurrencyCode.of("USD")),
@@ -162,12 +191,7 @@ class OrderApproveDocumentProcessorTest {
                         draftItem.id(),
                         RevisionNumber.first(),
                         List.of(
-                                SpecificationLine.of(
-                                        "MAT-1",
-                                        "Glass",
-                                        BigDecimal.ONE,
-                                        "m2",
-                                        BigDecimal.valueOf(1.2))));
+                                IntakeContractFixtures.specLine("MAT-1", "Glass", BigDecimal.ONE, "m2")));
         items.save(draftItem.updateDraftSpecification(spec, CLOCK).approveDraftRevision(CLOCK));
     }
 

@@ -1,5 +1,7 @@
 package com.tmp.order.application.payload;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -56,8 +58,7 @@ class OrderItemRevisionPayloadModelsTest {
     @Test
     void updatePayloadProtectsLinesCollectionAndValidatesQuantities() {
         OrderItemRevisionPayloadLine line =
-                OrderItemRevisionPayloadLine.of(
-                        1, "M-1", "Material", BigDecimal.ONE, "pcs", BigDecimal.ZERO);
+                IntakeContractFixtures.payloadLine(1, "M-1", "Material", BigDecimal.ONE, "pcs");
         List<OrderItemRevisionPayloadLine> mutable = new ArrayList<>();
         mutable.add(line);
 
@@ -77,12 +78,10 @@ class OrderItemRevisionPayloadModelsTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> OrderItemRevisionPayloadLine.of(
-                        1, "M-1", "Material", BigDecimal.ZERO, "pcs", BigDecimal.ZERO));
+                () -> IntakeContractFixtures.payloadLine(1, "M-1", "Material", BigDecimal.ZERO, "pcs"));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> OrderItemRevisionPayloadLine.of(
-                        1, "M-1", "Material", BigDecimal.ONE, "pcs", BigDecimal.valueOf(-1)));
+                () -> IntakeContractFixtures.payloadLine(1, "M-1", "Material", BigDecimal.ONE, " "));
     }
 
     @Test
@@ -111,13 +110,7 @@ class OrderItemRevisionPayloadModelsTest {
                 original.withContent(
                         OrderedQuantity.of(2),
                         List.of(
-                                OrderItemRevisionPayloadLine.of(
-                                        1,
-                                        "M-2",
-                                        "Board",
-                                        BigDecimal.TEN,
-                                        "m2",
-                                        BigDecimal.ONE)),
+                                IntakeContractFixtures.payloadLine(1, "M-2", "Board", BigDecimal.TEN, "m2")),
                         NOW.plusSeconds(30));
         assertEquals(PayloadRevision.initial(), original.identity().payloadRevision());
         assertEquals(PayloadRevision.of(1L), next.identity().payloadRevision());

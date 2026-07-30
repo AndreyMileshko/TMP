@@ -1,5 +1,7 @@
 package com.tmp.order.domain;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -176,11 +178,6 @@ class OrderItemTest {
     }
 
     private static SpecificationLine sampleLine() {
-        return SpecificationLine.of(
-                "MAT-1",
-                "Glass",
-                BigDecimal.ONE,
-                "m2",
-                BigDecimal.valueOf(1.2));
+        return IntakeContractFixtures.specLine("MAT-1", "Glass", BigDecimal.ONE, "m2");
     }
 }

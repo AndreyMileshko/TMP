@@ -260,8 +260,8 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
                 commercial.contractRef(),
                 commercial.siteRef(),
                 commercial.responsibleManager(),
-                commercial.direction().name(),
-                commercial.currency().value());
+                commercial.direction() == null ? null : commercial.direction().name(),
+                commercial.currency() == null ? null : commercial.currency().value());
     }
 
     private OrderCreatePayload loadCreate(PayloadIdentity identity, UUID documentId) {
@@ -295,8 +295,8 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
                 commercial.contractRef(),
                 commercial.siteRef(),
                 commercial.responsibleManager(),
-                commercial.direction().name(),
-                commercial.currency().value());
+                commercial.direction() == null ? null : commercial.direction().name(),
+                commercial.currency() == null ? null : commercial.currency().value());
     }
 
     private OrderUpdatePayload loadUpdate(PayloadIdentity identity, UUID documentId) {
@@ -354,8 +354,8 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
                 """
                 INSERT INTO order_management.order_item_create_payload
                   (document_id, order_id, order_item_id, product_code, item_name, comments,
-                   ordered_quantity)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                   external_position_number, ordered_quantity)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 payload.documentId().value(),
                 payload.orderId().value(),
@@ -363,13 +363,15 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
                 commercial.productCode().value(),
                 commercial.name(),
                 commercial.comments(),
+                commercial.externalPositionNumber(),
                 payload.orderedQuantity().value());
     }
 
     private OrderItemCreatePayload loadItemCreate(PayloadIdentity identity, UUID documentId) {
         return jdbc.queryForObject(
                 """
-                SELECT order_id, order_item_id, product_code, item_name, comments, ordered_quantity
+                SELECT order_id, order_item_id, product_code, item_name, comments,
+                       external_position_number, ordered_quantity
                 FROM order_management.order_item_create_payload WHERE document_id = ?
                 """,
                 (rs, rowNum) ->
@@ -387,20 +389,22 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
         jdbc.update(
                 """
                 INSERT INTO order_management.order_item_update_payload
-                  (document_id, order_item_id, product_code, item_name, comments)
-                VALUES (?, ?, ?, ?, ?)
+                  (document_id, order_item_id, product_code, item_name, comments,
+                   external_position_number)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 payload.documentId().value(),
                 payload.orderItemId().value(),
                 commercial.productCode().value(),
                 commercial.name(),
-                commercial.comments());
+                commercial.comments(),
+                commercial.externalPositionNumber());
     }
 
     private OrderItemUpdatePayload loadItemUpdate(PayloadIdentity identity, UUID documentId) {
         return jdbc.queryForObject(
                 """
-                SELECT order_item_id, product_code, item_name, comments
+                SELECT order_item_id, product_code, item_name, comments, external_position_number
                 FROM order_management.order_item_update_payload WHERE document_id = ?
                 """,
                 (rs, rowNum) ->
@@ -481,17 +485,18 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
             jdbc.update(
                     """
                     INSERT INTO order_management.order_item_revision_payload_line
-                      (document_id, line_number, material_code, material_name, quantity,
-                       unit_of_measure, consumption_norm)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                      (document_id, line_number, material_code, material_name, color, length_mm,
+                       line_quantity, unit_of_measure)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     payload.documentId().value(),
                     line.lineNumber(),
                     line.materialCode(),
                     line.materialName(),
-                    line.quantity(),
-                    line.unitOfMeasure(),
-                    line.consumptionNorm());
+                    line.color(),
+                    line.lengthMm(),
+                    line.lineQuantity(),
+                    line.unitOfMeasure());
         }
     }
 
@@ -520,8 +525,8 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
         List<OrderItemRevisionPayloadLine> lines =
                 jdbc.query(
                         """
-                        SELECT line_number, material_code, material_name, quantity,
-                               unit_of_measure, consumption_norm
+                        SELECT line_number, material_code, material_name, color, length_mm,
+                               line_quantity, unit_of_measure
                         FROM order_management.order_item_revision_payload_line
                         WHERE document_id = ?
                         ORDER BY line_number ASC
@@ -531,9 +536,10 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
                                         rs.getInt("line_number"),
                                         rs.getString("material_code"),
                                         rs.getString("material_name"),
-                                        rs.getBigDecimal("quantity"),
-                                        rs.getString("unit_of_measure"),
-                                        rs.getBigDecimal("consumption_norm")),
+                                        rs.getString("color"),
+                                        rs.getBigDecimal("length_mm"),
+                                        rs.getBigDecimal("line_quantity"),
+                                        rs.getString("unit_of_measure")),
                         documentId);
         return OrderItemRevisionUpdatePayload.rehydrate(
                 identity,
@@ -582,20 +588,23 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
     }
 
     private static OrderCommercialData mapOrderCommercial(ResultSet rs) throws SQLException {
+        String directionCode = rs.getString("direction");
+        String currencyCode = rs.getString("currency_code");
         return OrderCommercialData.of(
                 rs.getString("customer_ref"),
                 rs.getString("customer_name"),
                 rs.getString("contract_ref"),
                 rs.getString("site_ref"),
                 rs.getString("responsible_manager"),
-                OrderDirection.valueOf(rs.getString("direction")),
-                CurrencyCode.of(rs.getString("currency_code")));
+                directionCode == null ? null : OrderDirection.valueOf(directionCode),
+                currencyCode == null ? null : CurrencyCode.of(currencyCode));
     }
 
     private static ItemCommercialData mapItemCommercial(ResultSet rs) throws SQLException {
         return ItemCommercialData.of(
                 ProductCode.of(rs.getString("product_code")),
                 rs.getString("item_name"),
-                rs.getString("comments"));
+                rs.getString("comments"),
+                rs.getString("external_position_number"));
     }
 }

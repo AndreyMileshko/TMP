@@ -1,5 +1,7 @@
 package com.tmp.order.lifecycle;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -230,13 +232,7 @@ class OrderDocumentLifecycleIT {
                         RevisionNumber.first(),
                         OrderedQuantity.of(3),
                         List.of(
-                                OrderItemRevisionPayloadLine.of(
-                                        1,
-                                        "M1",
-                                        "Glass",
-                                        BigDecimal.ONE,
-                                        "m2",
-                                        BigDecimal.ONE)),
+                                IntakeContractFixtures.payloadLine(1, "M1", "Glass", BigDecimal.ONE, "m2")),
                         NOW));
         int beforeRevUpdate = delivered.size();
         documentEngine.postDocument(revUpdateMeta.id());
@@ -507,13 +503,7 @@ class OrderDocumentLifecycleIT {
                         RevisionNumber.first(),
                         OrderedQuantity.of(1),
                         List.of(
-                                OrderItemRevisionPayloadLine.of(
-                                        1,
-                                        "M-SEED",
-                                        "Material",
-                                        BigDecimal.ONE,
-                                        "pcs",
-                                        BigDecimal.ZERO)),
+                                IntakeContractFixtures.payloadLine(1, "M-SEED", "Material", BigDecimal.ONE, "pcs")),
                         NOW));
         documentEngine.postDocument(revUpdate.id());
 

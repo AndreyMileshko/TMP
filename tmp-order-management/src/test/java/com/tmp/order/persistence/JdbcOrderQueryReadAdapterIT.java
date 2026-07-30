@@ -1,5 +1,7 @@
 package com.tmp.order.persistence;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -285,18 +287,15 @@ class JdbcOrderQueryReadAdapterIT {
                         itemId,
                         rev1,
                         List.of(
-                                SpecificationLine.of(
-                                        "M1", "Steel", new BigDecimal("1"), "kg", BigDecimal.ZERO),
-                                SpecificationLine.of(
-                                        "M2", "Paint", new BigDecimal("2"), "l", BigDecimal.ONE)),
+                                IntakeContractFixtures.specLine("M1", "Steel", new BigDecimal("1"), "kg"),
+                                IntakeContractFixtures.specLine("M2", "Paint", new BigDecimal("2"), "l")),
                         true);
         ItemSpecification draftSpec =
                 ItemSpecification.rehydrate(
                         itemId,
                         rev2,
                         List.of(
-                                SpecificationLine.of(
-                                        "M9", "Hidden", new BigDecimal("9"), "pcs", BigDecimal.ZERO)),
+                                IntakeContractFixtures.specLine("M9", "Hidden", new BigDecimal("9"), "pcs")),
                         false);
         Map<RevisionNumber, OrderItemRevision> revisions = new LinkedHashMap<>();
         revisions.put(

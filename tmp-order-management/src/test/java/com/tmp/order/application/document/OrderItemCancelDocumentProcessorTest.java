@@ -1,5 +1,7 @@
 package com.tmp.order.application.document;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -138,12 +140,7 @@ class OrderItemCancelDocumentProcessorTest {
                         draft.id(),
                         RevisionNumber.first(),
                         List.of(
-                                SpecificationLine.of(
-                                        "MAT-1",
-                                        "Glass",
-                                        BigDecimal.ONE,
-                                        "m2",
-                                        BigDecimal.ONE)));
+                                IntakeContractFixtures.specLine("MAT-1", "Glass", BigDecimal.ONE, "m2")));
         return items.save(draft.updateDraftSpecification(spec, CLOCK).approveDraftRevision(CLOCK));
     }
 

@@ -63,9 +63,10 @@ public final class DefaultOrderItemSpecificationEditorQueryService
                             lineNumber++,
                             line.materialCode(),
                             line.materialName(),
-                            line.quantity(),
-                            line.unitOfMeasure(),
-                            line.consumptionNorm()));
+                            line.color(),
+                            line.lengthMm(),
+                            line.lineQuantity(),
+                            line.unitOfMeasure()));
         }
         boolean immutable = found.status() == RevisionStatus.APPROVED || specification.isImmutable();
         return Optional.of(

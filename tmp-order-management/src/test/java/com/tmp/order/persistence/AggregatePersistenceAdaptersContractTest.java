@@ -1,5 +1,7 @@
 package com.tmp.order.persistence;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -129,12 +131,7 @@ class AggregatePersistenceAdaptersContractTest {
         RevisionNumber rev1 = RevisionNumber.first();
         List<SpecificationLine> lines =
                 List.of(
-                        SpecificationLine.of(
-                                "MAT-1",
-                                "Steel",
-                                new BigDecimal("2.5"),
-                                "kg",
-                                new BigDecimal("0.1")));
+                        IntakeContractFixtures.specLine("MAT-1", "Steel", new BigDecimal("2.5"), "kg"));
         ItemSpecification specification =
                 ItemSpecification.rehydrate(itemId, rev1, lines, true);
         OrderItemRevision revision =

@@ -8581,69 +8581,25 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 # Stage 5 Extension — Order Intake MVP
 
-> `STAGE5-050 = DONE (PASS)`. Tasks `STAGE5-051…057` remain `NOT STARTED` until user authorizes implementation. Stage 5 closes only after `STAGE5-057`. Stage 6 remains NOT STARTED.
+> `STAGE5-050 = DONE (PASS)`. `STAGE5-051 = DONE`. Tasks `STAGE5-052…057` = NOT STARTED. Stage 5 closes only after `STAGE5-057`. Stage 6 remains NOT STARTED.
 
 ## STAGE5-051 — Order Item and Specification Contracts
 
-**Status:** NOT STARTED  
-**Stage:** 5  
-**Depends on:** STAGE5-050 = DONE  
+**Status:** DONE
+**Stage:** 5
+**Depends on:** STAGE5-050 = DONE
 **Module:** tmp-order-management (+ migration)
 
 ### Goal
 
 Привести контракты Order Item и Specification Line к Order Intake MVP: `externalPositionNumber`, `productQuantity`↔`OrderedQuantity`, `color`, `lengthMm`, `lineQuantity`; безопасно удалить/заменить `consumptionNorm`; разрешить неполный коммерческий DRAFT (ADR-030); обновить domain, DTO, payload, Query API, validation, Flyway.
 
-### Allowed context
+### Result
 
-- CONTEXT-MAP group `stage5-order-intake-contracts`;
-- Order-Management-Specification §5.2–5.4, §27; ADR-029, ADR-030;
-- `com.tmp.order.domain`, `com.tmp.order.api`, `com.tmp.order.application.payload`, persistence/migrations (latest V8; next free = V9);
-- соответствующие unit/integration tests.
-
-### Forbidden context
-
-- Warehouse / Production / Cutting / Analytics full trees;
-- Firebird;
-- STXT parser implementation;
-- JavaFX UI (кроме чтения контрактов api.ui при совместимости);
-- starting while STAGE5-050 is still IN_PROGRESS.
-
-### Files allowed to change
-
-- `tmp-order-management` domain/api/application/persistence/resources/db/migration (new V9+ only);
-- related tests in `tmp-order-management`;
-- control docs.
-
-### Implementation steps
-
-1. Добавить `externalPositionNumber` на Item commercial data + persistence + DTO + payloads.
-2. Зафиксировать `OrderedQuantity` как единственный источник `productQuantity` (целые > 0).
-3. Расширить `SpecificationLine`: `color` nullable, `lengthMm` nullable (>0 если задано), `lineQuantity` (бывший quantity).
-4. Удалить/заменить `consumptionNorm` во всех слоях одним согласованным контрактом; миграция данных существующих строк.
-5. Разрешить неполный commercial DRAFT; запретить `ORDER_APPROVE` до заполнения обязательных полей с перечислением отсутствующих.
-6. Обновить validation и Public Query API без orientation-полей.
-7. Тесты backward compatibility / migration.
-
-### Acceptance criteria
-
-- [ ] Контракты соответствуют Spec §27 / ADR-030;
-- [ ] `consumptionNorm` не остаётся параллельным смыслом length/quantity;
-- [ ] incomplete DRAFT allowed; placeholders prohibited; approve lists missing fields;
-- [ ] permission IDs / role assignments не затронуты;
-- [ ] новые поля покрыты unit + persistence tests.
-
-### Required tests
-
-Domain VO/aggregate tests; payload mapping tests; Flyway/IT for new columns; Query DTO tests; approve-validation tests.
-
-### Required documentation updates
-
-WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG; Spec sync if names finalized differently.
-
-### Stop conditions
-
-Нельзя удалить `consumptionNorm` без миграции; конфликт с внешним модулем (не ожидается); STAGE5-050 ещё не DONE.
+- Domain/API/payload/persistence/Query/UI contracts aligned with Spec §5.2–5.4 / §27 and ADR-030.
+- Flyway `V9__order_intake_contracts.sql` applied; V8 upgrade preserves existing specification rows.
+- `ORDER_APPROVE` rejects incomplete commercial data and lists missing fields.
+- Verification: `mvn -q -pl tmp-order-management -am test` and `verify` — PASS (255 tests, 0 skipped).
 
 ---
 

@@ -145,17 +145,17 @@ class OrderQueryApiContractTest {
     void specificationLinesCollectionIsUnmodifiable() {
         List<SpecificationLineDto> mutable = new ArrayList<>();
         mutable.add(SpecificationLineDto.of(
-                "M1", "Glass", BigDecimal.ONE, "m2", BigDecimal.ONE));
+                "M1", "Glass", null, null, BigDecimal.ONE, "m2"));
         ItemSpecificationDto dto = ItemSpecificationDto.of(
                 OrderItemId.generate(), RevisionNumber.first(), mutable);
         mutable.add(SpecificationLineDto.of(
-                "M2", "Wood", BigDecimal.ONE, "m", BigDecimal.ONE));
+                "M2", "Wood", null, null, BigDecimal.ONE, "m"));
         assertEquals(1, dto.lines().size());
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> dto.lines()
                         .add(SpecificationLineDto.of(
-                                "M3", "X", BigDecimal.ONE, "pcs", BigDecimal.ONE)));
+                                "M3", "X", null, null, BigDecimal.ONE, "pcs")));
     }
 
     @Test
@@ -167,6 +167,7 @@ class OrderQueryApiContractTest {
                 "P-1",
                 "Door",
                 null,
+                "POS-1",
                 OrderItemStatus.ACTIVE,
                 RevisionNumber.first(),
                 now,

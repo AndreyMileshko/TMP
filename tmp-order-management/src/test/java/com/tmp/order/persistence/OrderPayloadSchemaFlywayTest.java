@@ -142,13 +142,12 @@ class OrderPayloadSchemaFlywayTest {
         jdbc.update(
                 """
                 INSERT INTO order_management.order_item_revision_payload_line
-                  (document_id, line_number, material_code, material_name, quantity,
-                   unit_of_measure, consumption_norm)
-                VALUES (?, 1, 'M-1', 'Material', ?, 'pcs', ?)
+                  (document_id, line_number, material_code, material_name, color, length_mm,
+                   line_quantity, unit_of_measure)
+                VALUES (?, 1, 'M-1', 'Material', NULL, NULL, ?, 'pcs')
                 """,
                 documentId,
-                new BigDecimal("1.0000"),
-                new BigDecimal("0.0000"));
+                new BigDecimal("1.0000"));
 
         assertEquals(
                 1,

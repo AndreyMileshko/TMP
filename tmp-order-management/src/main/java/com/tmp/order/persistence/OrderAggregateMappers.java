@@ -47,14 +47,16 @@ final class OrderAggregateMappers {
     }
 
     static OrderCommercialData mapOrderCommercial(ResultSet rs) throws SQLException {
+        String directionCode = rs.getString("direction");
+        String currencyCode = rs.getString("currency");
         return OrderCommercialData.of(
                 rs.getString("customer_ref"),
                 rs.getString("customer_name"),
                 rs.getString("contract_ref"),
                 rs.getString("site_ref"),
                 rs.getString("responsible_manager"),
-                OrderDirection.valueOf(rs.getString("direction")),
-                CurrencyCode.of(rs.getString("currency")));
+                directionCode == null ? null : OrderDirection.valueOf(directionCode),
+                currencyCode == null ? null : CurrencyCode.of(currencyCode));
     }
 
     static OrderItem mapOrderItemHeader(
@@ -67,7 +69,8 @@ final class OrderAggregateMappers {
                 ItemCommercialData.of(
                         ProductCode.of(rs.getString("product_code")),
                         rs.getString("item_name"),
-                        rs.getString("comments")),
+                        rs.getString("comments"),
+                        rs.getString("external_position_number")),
                 OrderItemStatus.valueOf(rs.getString("status")),
                 active == null ? null : RevisionNumber.of(active),
                 draft == null ? null : RevisionNumber.of(draft),
@@ -102,9 +105,10 @@ final class OrderAggregateMappers {
         return SpecificationLine.of(
                 rs.getString("material_code"),
                 rs.getString("material_name"),
-                rs.getBigDecimal("quantity"),
-                rs.getString("unit_of_measure"),
-                rs.getBigDecimal("consumption_norm"));
+                rs.getString("color"),
+                rs.getBigDecimal("length_mm"),
+                rs.getBigDecimal("line_quantity"),
+                rs.getString("unit_of_measure"));
     }
 
     static Map<RevisionNumber, OrderItemRevision> emptyRevisionMap() {

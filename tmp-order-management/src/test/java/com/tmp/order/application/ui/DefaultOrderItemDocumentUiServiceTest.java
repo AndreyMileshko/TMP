@@ -1,5 +1,7 @@
 package com.tmp.order.application.ui;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -183,9 +185,9 @@ class DefaultOrderItemDocumentUiServiceTest {
         List<OrderItemSpecificationLineDraft> lines =
                 List.of(
                         OrderItemSpecificationLineDraft.of(
-                                "B", "Second", BigDecimal.TEN, "m", BigDecimal.ONE),
+                                "B", "Second", null, null, BigDecimal.TEN, "m"),
                         OrderItemSpecificationLineDraft.of(
-                                "A", "First", BigDecimal.ONE, "pcs", BigDecimal.ZERO));
+                                "A", "First", "Red", BigDecimal.valueOf(1200), BigDecimal.ONE, "pcs"));
         service.saveRevisionUpdateDraft(documentId, itemId, draftNumber, "4", lines, 0L);
 
         OrderItemRevisionUpdatePayload payload = (OrderItemRevisionUpdatePayload) created.get();
@@ -354,12 +356,7 @@ class DefaultOrderItemDocumentUiServiceTest {
                         itemId,
                         draftNumber,
                         List.of(
-                                SpecificationLine.of(
-                                        "MAT-1",
-                                        "Material",
-                                        BigDecimal.ONE,
-                                        "pcs",
-                                        BigDecimal.ZERO)));
+                                IntakeContractFixtures.specLine("MAT-1", "Material", BigDecimal.ONE, "pcs")));
         OrderItemRevision draft =
                 OrderItemRevision.rehydrate(
                         itemId,
@@ -389,16 +386,14 @@ class DefaultOrderItemDocumentUiServiceTest {
                         itemId,
                         activeNumber,
                         List.of(
-                                SpecificationLine.of(
-                                        "MAT-A", "A", BigDecimal.ONE, "pcs", BigDecimal.ZERO)),
+                                IntakeContractFixtures.specLine("MAT-A", "A", BigDecimal.ONE, "pcs")),
                         true);
         ItemSpecification draftSpec =
                 ItemSpecification.of(
                         itemId,
                         draftNumber,
                         List.of(
-                                SpecificationLine.of(
-                                        "MAT-D", "D", BigDecimal.TEN, "pcs", BigDecimal.ZERO)));
+                                IntakeContractFixtures.specLine("MAT-D", "D", BigDecimal.TEN, "pcs")));
         OrderItemRevision active =
                 OrderItemRevision.rehydrate(
                         itemId,

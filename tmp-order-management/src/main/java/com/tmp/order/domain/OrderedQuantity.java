@@ -4,7 +4,8 @@ import java.math.BigDecimal;
 import java.util.Objects;
 
 /**
- * Ordered quantity of an order item revision (Specification §5.3). Must be strictly positive.
+ * Ordered quantity of an order item revision (Specification §5.3). Semantically {@code
+ * productQuantity}: a strictly positive whole number of identical product copies.
  */
 public final class OrderedQuantity {
 
@@ -18,6 +19,10 @@ public final class OrderedQuantity {
         Objects.requireNonNull(value, "value");
         if (value.signum() <= 0) {
             throw new IllegalArgumentException("Ordered quantity must be > 0: " + value);
+        }
+        if (value.stripTrailingZeros().scale() > 0) {
+            throw new IllegalArgumentException(
+                    "Ordered quantity (productQuantity) must be a whole number: " + value);
         }
         return new OrderedQuantity(value);
     }

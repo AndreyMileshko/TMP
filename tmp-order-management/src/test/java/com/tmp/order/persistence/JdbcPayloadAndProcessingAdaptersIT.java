@@ -1,5 +1,7 @@
 package com.tmp.order.persistence;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -119,20 +121,8 @@ class JdbcPayloadAndProcessingAdaptersIT {
                         RevisionNumber.first(),
                         OrderedQuantity.of(3),
                         List.of(
-                                OrderItemRevisionPayloadLine.of(
-                                        1,
-                                        "M-1",
-                                        "Mat",
-                                        BigDecimal.ONE,
-                                        "pcs",
-                                        BigDecimal.ZERO),
-                                OrderItemRevisionPayloadLine.of(
-                                        2,
-                                        "M-2",
-                                        "Board",
-                                        BigDecimal.TEN,
-                                        "m2",
-                                        BigDecimal.ONE)),
+                                IntakeContractFixtures.payloadLine(1, "M-1", "Mat", BigDecimal.ONE, "pcs"),
+                                IntakeContractFixtures.payloadLine(2, "M-2", "Board", BigDecimal.TEN, "m2")),
                         NOW),
                 OrderItemRevisionApprovePayload.create(
                         DocumentId.generate(), itemId, RevisionNumber.first(), NOW));
@@ -163,10 +153,8 @@ class JdbcPayloadAndProcessingAdaptersIT {
                         RevisionNumber.first(),
                         OrderedQuantity.of(1),
                         List.of(
-                                OrderItemRevisionPayloadLine.of(
-                                        2, "B", "Second", BigDecimal.ONE, "pcs", BigDecimal.ZERO),
-                                OrderItemRevisionPayloadLine.of(
-                                        1, "A", "First", BigDecimal.TEN, "pcs", BigDecimal.ONE)),
+                                IntakeContractFixtures.payloadLine(2, "B", "Second", BigDecimal.ONE, "pcs"),
+                                IntakeContractFixtures.payloadLine(1, "A", "First", BigDecimal.TEN, "pcs")),
                         NOW);
         payloads.create(original);
         OrderItemRevisionUpdatePayload loaded =
@@ -224,8 +212,7 @@ class JdbcPayloadAndProcessingAdaptersIT {
                         RevisionNumber.first(),
                         OrderedQuantity.of(1),
                         List.of(
-                                OrderItemRevisionPayloadLine.of(
-                                        1, "M", "Mat", BigDecimal.ONE, "pcs", BigDecimal.ZERO)),
+                                IntakeContractFixtures.payloadLine(1, "M", "Mat", BigDecimal.ONE, "pcs")),
                         NOW);
         payloads.create(original);
         payloads.deleteDraft(original.documentId());

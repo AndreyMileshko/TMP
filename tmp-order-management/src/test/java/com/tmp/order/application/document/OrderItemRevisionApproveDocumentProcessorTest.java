@@ -1,5 +1,7 @@
 package com.tmp.order.application.document;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -167,8 +169,7 @@ class OrderItemRevisionApproveDocumentProcessorTest {
     }
 
     private static SpecificationLine sampleLine() {
-        return SpecificationLine.of(
-                "MAT-1", "Glass", BigDecimal.ONE, "m2", BigDecimal.ONE);
+        return IntakeContractFixtures.specLine("MAT-1", "Glass", BigDecimal.ONE, "m2");
     }
 
     private static DocumentOperationContext context(DocumentId documentId) {

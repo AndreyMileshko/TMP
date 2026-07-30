@@ -176,6 +176,7 @@ final class OrderItemAggregateJdbcSupport {
                 item.commercialData().productCode().value(),
                 item.commercialData().name(),
                 item.commercialData().comments(),
+                item.commercialData().externalPositionNumber(),
                 item.status().name(),
                 item.activeRevisionNumber().map(RevisionNumber::value).orElse(null),
                 item.draftRevisionNumber().map(RevisionNumber::value).orElse(null),
@@ -191,6 +192,7 @@ final class OrderItemAggregateJdbcSupport {
                         item.commercialData().productCode().value(),
                         item.commercialData().name(),
                         item.commercialData().comments(),
+                        item.commercialData().externalPositionNumber(),
                         item.status().name(),
                         item.activeRevisionNumber().map(RevisionNumber::value).orElse(null),
                         item.draftRevisionNumber().map(RevisionNumber::value).orElse(null),
@@ -246,9 +248,10 @@ final class OrderItemAggregateJdbcSupport {
                     lineNumber,
                     line.materialCode(),
                     line.materialName(),
-                    line.quantity(),
-                    line.unitOfMeasure(),
-                    line.consumptionNorm());
+                    line.color(),
+                    line.lengthMm(),
+                    line.lineQuantity(),
+                    line.unitOfMeasure());
             lineNumber++;
         }
     }

@@ -473,9 +473,10 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
                             lineNumber++,
                             line.materialCode(),
                             line.materialName(),
-                            line.quantity(),
-                            line.unitOfMeasure(),
-                            line.consumptionNorm()));
+                            line.color(),
+                            line.lengthMm(),
+                            line.lineQuantity(),
+                            line.unitOfMeasure()));
         }
         return lines;
     }
@@ -524,9 +525,10 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
                             lineNumber++,
                             draft.materialCode(),
                             draft.materialName(),
-                            draft.quantity(),
-                            draft.unitOfMeasure(),
-                            draft.consumptionNorm()));
+                            draft.color(),
+                            draft.lengthMm(),
+                            draft.lineQuantity(),
+                            draft.unitOfMeasure()));
         }
         return lines;
     }
@@ -539,9 +541,10 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
                     OrderItemSpecificationLineDraft.of(
                             line.materialCode(),
                             line.materialName(),
-                            line.quantity(),
-                            line.unitOfMeasure(),
-                            line.consumptionNorm()));
+                            line.color(),
+                            line.lengthMm(),
+                            line.lineQuantity(),
+                            line.unitOfMeasure()));
         }
         return drafts;
     }
@@ -619,18 +622,27 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
     private OrderItemCommercialDraft toCommercialDraft(OrderItemCreatePayload payload) {
         ItemCommercialData commercial = payload.commercialData();
         return OrderItemCommercialDraft.of(
-                commercial.productCode().value(), commercial.name(), commercial.comments());
+                commercial.productCode().value(),
+                commercial.name(),
+                commercial.comments(),
+                commercial.externalPositionNumber());
     }
 
     private OrderItemCommercialDraft toCommercialDraft(OrderItemUpdatePayload payload) {
         ItemCommercialData commercial = payload.commercialData();
         return OrderItemCommercialDraft.of(
-                commercial.productCode().value(), commercial.name(), commercial.comments());
+                commercial.productCode().value(),
+                commercial.name(),
+                commercial.comments(),
+                commercial.externalPositionNumber());
     }
 
     private static ItemCommercialData toCommercial(OrderItemCommercialDraft draft) {
         return ItemCommercialData.of(
-                ProductCode.of(draft.productCode()), draft.name(), draft.comments());
+                ProductCode.of(draft.productCode()),
+                draft.name(),
+                draft.comments(),
+                draft.externalPositionNumber());
     }
 
     private static BigDecimal parseQuantity(String orderedQuantity) {

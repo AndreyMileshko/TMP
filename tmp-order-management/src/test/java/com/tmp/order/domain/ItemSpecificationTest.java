@@ -1,5 +1,7 @@
 package com.tmp.order.domain;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -35,28 +37,31 @@ class ItemSpecificationTest {
     void lineValidationRejectsNonPositiveQuantity() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> SpecificationLine.of("M1", "Mat", BigDecimal.ZERO, "pcs", BigDecimal.ONE));
+                () -> IntakeContractFixtures.specLine("M1", "Mat", BigDecimal.ZERO, "pcs"));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> SpecificationLine.of(
-                        "M1", "Mat", BigDecimal.valueOf(-1), "pcs", BigDecimal.ONE));
+                () -> IntakeContractFixtures.specLine("M1", "Mat", BigDecimal.valueOf(-1), "pcs"));
     }
 
     @Test
-    void lineValidationRejectsNegativeNormAndBlankFields() {
+    void lineValidationRejectsNonPositiveLengthMmAndBlankFields() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> SpecificationLine.of(
-                        "M1", "Mat", BigDecimal.ONE, "pcs", BigDecimal.valueOf(-0.1)));
+                        "M1", "Mat", null, BigDecimal.ZERO, BigDecimal.ONE, "pcs"));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> SpecificationLine.of(" ", "Mat", BigDecimal.ONE, "pcs", BigDecimal.ONE));
+                () -> SpecificationLine.of(
+                        "M1", "Mat", null, BigDecimal.valueOf(-1), BigDecimal.ONE, "pcs"));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> SpecificationLine.of("M1", " ", BigDecimal.ONE, "pcs", BigDecimal.ONE));
+                () -> IntakeContractFixtures.specLine(" ", "Mat", BigDecimal.ONE, "pcs"));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> SpecificationLine.of("M1", "Mat", BigDecimal.ONE, " ", BigDecimal.ONE));
+                () -> IntakeContractFixtures.specLine("M1", " ", BigDecimal.ONE, "pcs"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> IntakeContractFixtures.specLine("M1", "Mat", BigDecimal.ONE, " "));
     }
 
     @Test
@@ -155,6 +160,6 @@ class ItemSpecificationTest {
     }
 
     private static SpecificationLine sampleLine(String code) {
-        return SpecificationLine.of(code, "Material " + code, BigDecimal.ONE, "pcs", BigDecimal.ONE);
+        return IntakeContractFixtures.specLine(code, "Material " + code, BigDecimal.ONE, "pcs");
     }
 }

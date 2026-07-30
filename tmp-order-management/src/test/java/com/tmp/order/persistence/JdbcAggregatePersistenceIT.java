@@ -1,5 +1,7 @@
 package com.tmp.order.persistence;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -225,18 +227,15 @@ class JdbcAggregatePersistenceIT {
                         itemId,
                         rev1,
                         List.of(
-                                SpecificationLine.of(
-                                        "M1", "Steel", new BigDecimal("1.5"), "kg", BigDecimal.ZERO),
-                                SpecificationLine.of(
-                                        "M2", "Paint", new BigDecimal("0.2"), "l", new BigDecimal("0.05"))),
+                                IntakeContractFixtures.specLine("M1", "Steel", new BigDecimal("1.5"), "kg"),
+                                IntakeContractFixtures.specLine("M2", "Paint", new BigDecimal("0.2"), "l")),
                         true);
         ItemSpecification spec2 =
                 ItemSpecification.rehydrate(
                         itemId,
                         rev2,
                         List.of(
-                                SpecificationLine.of(
-                                        "M3", "Glass", new BigDecimal("3"), "m2", BigDecimal.ONE)),
+                                IntakeContractFixtures.specLine("M3", "Glass", new BigDecimal("3"), "m2")),
                         false);
         OrderItemRevision revision1 =
                 OrderItemRevision.rehydrate(

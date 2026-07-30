@@ -1,5 +1,7 @@
 package com.tmp.order.domain;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,8 +34,7 @@ class OrderItemRevisionTest {
                 itemId,
                 number,
                 java.util.List.of(
-                        SpecificationLine.of(
-                                "M1", "Material", BigDecimal.TEN, "pcs", BigDecimal.ONE)));
+                        IntakeContractFixtures.specLine("M1", "Material", BigDecimal.TEN, "pcs")));
         OrderItemRevision approved = OrderItemRevision.createDraft(
                         itemId, number, OrderedQuantity.of(1), null)
                 .withSpecification(spec)
@@ -72,12 +73,7 @@ class OrderItemRevisionTest {
                         itemId,
                         number,
                         java.util.List.of(
-                                SpecificationLine.of(
-                                        "M1",
-                                        "Material",
-                                        BigDecimal.TEN,
-                                        "pcs",
-                                        BigDecimal.ONE)));
+                                IntakeContractFixtures.specLine("M1", "Material", BigDecimal.TEN, "pcs")));
 
         OrderItemRevision updated = revision.withSpecification(spec);
 

@@ -11,21 +11,24 @@ public final class OrderItemSpecificationLineDraft {
 
     private final String materialCode;
     private final String materialName;
-    private final BigDecimal quantity;
+    private final String color;
+    private final BigDecimal lengthMm;
+    private final BigDecimal lineQuantity;
     private final String unitOfMeasure;
-    private final BigDecimal consumptionNorm;
 
     private OrderItemSpecificationLineDraft(
             String materialCode,
             String materialName,
-            BigDecimal quantity,
-            String unitOfMeasure,
-            BigDecimal consumptionNorm) {
+            String color,
+            BigDecimal lengthMm,
+            BigDecimal lineQuantity,
+            String unitOfMeasure) {
         this.materialCode = materialCode;
         this.materialName = materialName;
-        this.quantity = quantity;
+        this.color = color;
+        this.lengthMm = lengthMm;
+        this.lineQuantity = lineQuantity;
         this.unitOfMeasure = unitOfMeasure;
-        this.consumptionNorm = consumptionNorm;
     }
 
     /**
@@ -36,21 +39,23 @@ public final class OrderItemSpecificationLineDraft {
     public static OrderItemSpecificationLineDraft of(
             String materialCode,
             String materialName,
-            BigDecimal quantity,
-            String unitOfMeasure,
-            BigDecimal consumptionNorm) {
+            String color,
+            BigDecimal lengthMm,
+            BigDecimal lineQuantity,
+            String unitOfMeasure) {
         String code = requireNonBlank(materialCode, "materialCode");
         String name = requireNonBlank(materialName, "materialName");
         String unit = requireNonBlank(unitOfMeasure, "unitOfMeasure");
-        Objects.requireNonNull(quantity, "quantity");
-        Objects.requireNonNull(consumptionNorm, "consumptionNorm");
-        if (quantity.signum() <= 0) {
-            throw new IllegalArgumentException("Specification line quantity must be > 0: " + quantity);
+        Objects.requireNonNull(lineQuantity, "lineQuantity");
+        if (lineQuantity.signum() <= 0) {
+            throw new IllegalArgumentException("lineQuantity must be > 0: " + lineQuantity);
         }
-        if (consumptionNorm.signum() < 0) {
-            throw new IllegalArgumentException("Consumption norm must be >= 0: " + consumptionNorm);
+        if (lengthMm != null && lengthMm.signum() <= 0) {
+            throw new IllegalArgumentException("lengthMm must be > 0 when present: " + lengthMm);
         }
-        return new OrderItemSpecificationLineDraft(code, name, quantity, unit, consumptionNorm);
+        String normalizedColor = normalizeOptional(color);
+        return new OrderItemSpecificationLineDraft(
+                code, name, normalizedColor, lengthMm, lineQuantity, unit);
     }
 
     private static String requireNonBlank(String value, String field) {
@@ -62,6 +67,14 @@ public final class OrderItemSpecificationLineDraft {
         return trimmed;
     }
 
+    private static String normalizeOptional(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     public String materialCode() {
         return materialCode;
     }
@@ -70,15 +83,19 @@ public final class OrderItemSpecificationLineDraft {
         return materialName;
     }
 
-    public BigDecimal quantity() {
-        return quantity;
+    public String color() {
+        return color;
+    }
+
+    public BigDecimal lengthMm() {
+        return lengthMm;
+    }
+
+    public BigDecimal lineQuantity() {
+        return lineQuantity;
     }
 
     public String unitOfMeasure() {
         return unitOfMeasure;
-    }
-
-    public BigDecimal consumptionNorm() {
-        return consumptionNorm;
     }
 }

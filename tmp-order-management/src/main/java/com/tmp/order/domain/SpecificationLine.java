@@ -4,49 +4,54 @@ import java.math.BigDecimal;
 import java.util.Objects;
 
 /**
- * One line of an Item Specification (Specification §5.4): material reference, quantity, unit of
- * measure and consumption norm. Does not carry stock balances, lots or production quantities.
+ * One line of an Item Specification (Specification §5.4): material reference, optional color and
+ * length, line quantity and unit of measure. Does not carry stock balances, lots, production
+ * quantities or orientation/placement.
  */
 public final class SpecificationLine {
 
     private final String materialCode;
     private final String materialName;
-    private final BigDecimal quantity;
+    private final String color;
+    private final BigDecimal lengthMm;
+    private final BigDecimal lineQuantity;
     private final String unitOfMeasure;
-    private final BigDecimal consumptionNorm;
 
     private SpecificationLine(
             String materialCode,
             String materialName,
-            BigDecimal quantity,
-            String unitOfMeasure,
-            BigDecimal consumptionNorm) {
+            String color,
+            BigDecimal lengthMm,
+            BigDecimal lineQuantity,
+            String unitOfMeasure) {
         this.materialCode = materialCode;
         this.materialName = materialName;
-        this.quantity = quantity;
+        this.color = color;
+        this.lengthMm = lengthMm;
+        this.lineQuantity = lineQuantity;
         this.unitOfMeasure = unitOfMeasure;
-        this.consumptionNorm = consumptionNorm;
     }
 
     public static SpecificationLine of(
             String materialCode,
             String materialName,
-            BigDecimal quantity,
-            String unitOfMeasure,
-            BigDecimal consumptionNorm) {
+            String color,
+            BigDecimal lengthMm,
+            BigDecimal lineQuantity,
+            String unitOfMeasure) {
         String code = requireNonBlank(materialCode, "materialCode");
         String name = requireNonBlank(materialName, "materialName");
         String unit = requireNonBlank(unitOfMeasure, "unitOfMeasure");
-        Objects.requireNonNull(quantity, "quantity");
-        Objects.requireNonNull(consumptionNorm, "consumptionNorm");
-        if (quantity.signum() <= 0) {
-            throw new IllegalArgumentException("Specification line quantity must be > 0: " + quantity);
+        String normalizedColor = CommercialPlaceholderValidator.normalizeOptional(color);
+        CommercialPlaceholderValidator.rejectPlaceholderIfPresent(normalizedColor, "color");
+        Objects.requireNonNull(lineQuantity, "lineQuantity");
+        if (lineQuantity.signum() <= 0) {
+            throw new IllegalArgumentException("lineQuantity must be > 0: " + lineQuantity);
         }
-        if (consumptionNorm.signum() < 0) {
-            throw new IllegalArgumentException(
-                    "Consumption norm must be >= 0: " + consumptionNorm);
+        if (lengthMm != null && lengthMm.signum() <= 0) {
+            throw new IllegalArgumentException("lengthMm must be > 0 when present: " + lengthMm);
         }
-        return new SpecificationLine(code, name, quantity, unit, consumptionNorm);
+        return new SpecificationLine(code, name, normalizedColor, lengthMm, lineQuantity, unit);
     }
 
     private static String requireNonBlank(String value, String field) {
@@ -66,16 +71,20 @@ public final class SpecificationLine {
         return materialName;
     }
 
-    public BigDecimal quantity() {
-        return quantity;
+    public String color() {
+        return color;
+    }
+
+    public BigDecimal lengthMm() {
+        return lengthMm;
+    }
+
+    public BigDecimal lineQuantity() {
+        return lineQuantity;
     }
 
     public String unitOfMeasure() {
         return unitOfMeasure;
-    }
-
-    public BigDecimal consumptionNorm() {
-        return consumptionNorm;
     }
 
     @Override
@@ -88,9 +97,20 @@ public final class SpecificationLine {
         }
         return materialCode.equals(that.materialCode)
                 && materialName.equals(that.materialName)
-                && quantity.compareTo(that.quantity) == 0
-                && unitOfMeasure.equals(that.unitOfMeasure)
-                && consumptionNorm.compareTo(that.consumptionNorm) == 0;
+                && Objects.equals(color, that.color)
+                && compareNullable(lengthMm, that.lengthMm)
+                && lineQuantity.compareTo(that.lineQuantity) == 0
+                && unitOfMeasure.equals(that.unitOfMeasure);
+    }
+
+    private static boolean compareNullable(BigDecimal left, BigDecimal right) {
+        if (left == null && right == null) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        return left.compareTo(right) == 0;
     }
 
     @Override
@@ -98,8 +118,9 @@ public final class SpecificationLine {
         return Objects.hash(
                 materialCode,
                 materialName,
-                quantity.stripTrailingZeros(),
-                unitOfMeasure,
-                consumptionNorm.stripTrailingZeros());
+                color,
+                lengthMm == null ? null : lengthMm.stripTrailingZeros(),
+                lineQuantity.stripTrailingZeros(),
+                unitOfMeasure);
     }
 }

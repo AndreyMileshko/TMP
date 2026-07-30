@@ -107,8 +107,9 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
         }
         String sql =
                 """
-                SELECT order_item_id, order_id, product_code, item_name, comments, status,
-                       active_revision_number, created_at, updated_at
+                SELECT order_item_id, order_id, product_code, item_name, comments,
+                       external_position_number, status, active_revision_number, created_at,
+                       updated_at
                 FROM order_management.order_items
                 WHERE order_id = ?
                 ORDER BY created_at ASC, order_item_id ASC
@@ -248,7 +249,8 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
         List<SpecificationLineDto> lines =
                 jdbc.query(
                         """
-                        SELECT material_code, material_name, quantity, unit_of_measure, consumption_norm
+                        SELECT material_code, material_name, color, length_mm, line_quantity,
+                               unit_of_measure
                         FROM order_management.item_specification_lines
                         WHERE order_item_id = ? AND revision_number = ?
                         ORDER BY line_number ASC
@@ -257,9 +259,10 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                                 SpecificationLineDto.of(
                                         rs.getString("material_code"),
                                         rs.getString("material_name"),
-                                        rs.getBigDecimal("quantity"),
-                                        rs.getString("unit_of_measure"),
-                                        rs.getBigDecimal("consumption_norm")),
+                                        rs.getString("color"),
+                                        rs.getBigDecimal("length_mm"),
+                                        rs.getBigDecimal("line_quantity"),
+                                        rs.getString("unit_of_measure")),
                         orderItemId.value(),
                         revisionNumber.value());
         return Optional.of(ItemSpecificationDto.of(orderItemId, revisionNumber, lines));
@@ -352,6 +355,7 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                 rs.getString("product_code"),
                 rs.getString("item_name"),
                 rs.getString("comments"),
+                rs.getString("external_position_number"),
                 OrderItemStatus.valueOf(rs.getString("status")),
                 active == null ? null : RevisionNumber.of(active),
                 rs.getTimestamp("created_at").toInstant(),

@@ -1,5 +1,7 @@
 package com.tmp.order.application.ui;
 
+import com.tmp.order.testsupport.IntakeContractFixtures;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -134,10 +136,8 @@ class DefaultOrderItemSpecificationEditorQueryServiceTest {
                         itemId,
                         draftNumber,
                         List.of(
-                                SpecificationLine.of(
-                                        "MAT-1", "One", BigDecimal.ONE, "pcs", BigDecimal.ZERO),
-                                SpecificationLine.of(
-                                        "MAT-2", "Two", BigDecimal.TEN, "m", BigDecimal.ONE)));
+                                IntakeContractFixtures.specLine("MAT-1", "One", BigDecimal.ONE, "pcs"),
+                                IntakeContractFixtures.specLine("MAT-2", "Two", BigDecimal.TEN, "m")));
         OrderItemRevision draft =
                 OrderItemRevision.rehydrate(
                         itemId,
@@ -167,16 +167,14 @@ class DefaultOrderItemSpecificationEditorQueryServiceTest {
                         itemId,
                         activeNumber,
                         List.of(
-                                SpecificationLine.of(
-                                        "MAT-A", "A", BigDecimal.ONE, "pcs", BigDecimal.ZERO)),
+                                IntakeContractFixtures.specLine("MAT-A", "A", BigDecimal.ONE, "pcs")),
                         true);
         ItemSpecification draftSpec =
                 ItemSpecification.of(
                         itemId,
                         draftNumber,
                         List.of(
-                                SpecificationLine.of(
-                                        "MAT-D", "D", BigDecimal.TEN, "pcs", BigDecimal.ZERO)));
+                                IntakeContractFixtures.specLine("MAT-D", "D", BigDecimal.TEN, "pcs")));
         OrderItemRevision active =
                 OrderItemRevision.rehydrate(
                         itemId,

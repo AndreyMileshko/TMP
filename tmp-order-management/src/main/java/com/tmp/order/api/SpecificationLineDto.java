@@ -11,36 +11,39 @@ public final class SpecificationLineDto {
 
     private final String materialCode;
     private final String materialName;
-    private final BigDecimal quantity;
+    private final String color;
+    private final BigDecimal lengthMm;
+    private final BigDecimal lineQuantity;
     private final String unitOfMeasure;
-    private final BigDecimal consumptionNorm;
 
     private SpecificationLineDto(
             String materialCode,
             String materialName,
-            BigDecimal quantity,
-            String unitOfMeasure,
-            BigDecimal consumptionNorm) {
+            String color,
+            BigDecimal lengthMm,
+            BigDecimal lineQuantity,
+            String unitOfMeasure) {
         this.materialCode = materialCode;
         this.materialName = materialName;
-        this.quantity = quantity;
+        this.color = color;
+        this.lengthMm = lengthMm;
+        this.lineQuantity = lineQuantity;
         this.unitOfMeasure = unitOfMeasure;
-        this.consumptionNorm = consumptionNorm;
     }
 
     public static SpecificationLineDto of(
             String materialCode,
             String materialName,
-            BigDecimal quantity,
-            String unitOfMeasure,
-            BigDecimal consumptionNorm) {
+            String color,
+            BigDecimal lengthMm,
+            BigDecimal lineQuantity,
+            String unitOfMeasure) {
         Objects.requireNonNull(materialCode, "materialCode");
         Objects.requireNonNull(materialName, "materialName");
-        Objects.requireNonNull(quantity, "quantity");
+        Objects.requireNonNull(lineQuantity, "lineQuantity");
         Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
-        Objects.requireNonNull(consumptionNorm, "consumptionNorm");
         return new SpecificationLineDto(
-                materialCode, materialName, quantity, unitOfMeasure, consumptionNorm);
+                materialCode, materialName, color, lengthMm, lineQuantity, unitOfMeasure);
     }
 
     public String materialCode() {
@@ -51,15 +54,19 @@ public final class SpecificationLineDto {
         return materialName;
     }
 
-    public BigDecimal quantity() {
-        return quantity;
+    public String color() {
+        return color;
+    }
+
+    public BigDecimal lengthMm() {
+        return lengthMm;
+    }
+
+    public BigDecimal lineQuantity() {
+        return lineQuantity;
     }
 
     public String unitOfMeasure() {
         return unitOfMeasure;
-    }
-
-    public BigDecimal consumptionNorm() {
-        return consumptionNorm;
     }
 }

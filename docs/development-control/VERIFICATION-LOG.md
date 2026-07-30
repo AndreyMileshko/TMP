@@ -1840,3 +1840,22 @@ These tasks (password / role / permission-override / audit application services 
 ### Failures
 
 - None.
+
+---
+
+## 2026-07-30 — STAGE5-051 Order Item and Specification Contracts
+
+| Verification | Command | Result |
+|---|---|---|
+| Unit + integration | `mvn -q -pl tmp-order-management -am test` | PASSED (255 tests, 0 skipped, 0 failures) |
+| Module verify | `mvn -q -pl tmp-order-management -am verify` | PASSED |
+| Flyway V9 clean install | `OrderIntakeContractsFlywayTest` | PASSED |
+| Flyway V8→V9 upgrade | `OrderIntakeContractsFlywayTest.v9UpgradePreservesExistingV8SpecificationRows` | PASSED |
+| Incomplete DRAFT approve gate | `OrderApproveDocumentProcessorTest.incompleteCommercialDataIsRejectedWithMissingFields` | PASSED |
+| STAGE5-051 | WORK-QUEUE | DONE |
+| STAGE5-052 | WORK-QUEUE | NOT STARTED |
+| Git | - | NOT EXECUTED |
+
+### Failures
+
+- None.

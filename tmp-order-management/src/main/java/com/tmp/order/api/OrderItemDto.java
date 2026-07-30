@@ -17,6 +17,7 @@ public final class OrderItemDto {
     private final String productCode;
     private final String name;
     private final String comments;
+    private final String externalPositionNumber;
     private final OrderItemStatus status;
     private final RevisionNumber activeRevisionNumber;
     private final Instant createdAt;
@@ -28,6 +29,7 @@ public final class OrderItemDto {
             String productCode,
             String name,
             String comments,
+            String externalPositionNumber,
             OrderItemStatus status,
             RevisionNumber activeRevisionNumber,
             Instant createdAt,
@@ -37,6 +39,7 @@ public final class OrderItemDto {
         this.productCode = productCode;
         this.name = name;
         this.comments = comments;
+        this.externalPositionNumber = externalPositionNumber;
         this.status = status;
         this.activeRevisionNumber = activeRevisionNumber;
         this.createdAt = createdAt;
@@ -49,6 +52,7 @@ public final class OrderItemDto {
             String productCode,
             String name,
             String comments,
+            String externalPositionNumber,
             OrderItemStatus status,
             RevisionNumber activeRevisionNumber,
             Instant createdAt,
@@ -66,6 +70,7 @@ public final class OrderItemDto {
                 productCode,
                 name,
                 comments,
+                externalPositionNumber,
                 status,
                 activeRevisionNumber,
                 createdAt,
@@ -90,6 +95,10 @@ public final class OrderItemDto {
 
     public String comments() {
         return comments;
+    }
+
+    public String externalPositionNumber() {
+        return externalPositionNumber;
     }
 
     public OrderItemStatus status() {

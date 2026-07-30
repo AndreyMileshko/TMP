@@ -9,7 +9,8 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Approves a Draft customer order when at least one ACTIVE item exists (Specification §8.2).
+ * Approves a Draft customer order when at least one ACTIVE item exists and commercial data is
+ * complete (Specification §8.2 / ADR-030).
  *
  * <p>Does not read or write Production Status. Persistence uses optimistic locking via
  * {@link CustomerOrderRepository#save}.
@@ -37,6 +38,15 @@ public final class ApproveOrderUseCase {
                 customerOrderRepository
                         .findById(command.orderId())
                         .orElseThrow(() -> new OrderNotFoundException(command.orderId()));
+        List<String> missingCommercial =
+                existing.commercialData().missingMandatoryFieldsForApproval();
+        if (!missingCommercial.isEmpty()) {
+            throw new OrderApprovalRejectedException(
+                    command.orderId(),
+                    "Order cannot be approved: missing mandatory commercial fields: "
+                            + String.join(", ", missingCommercial),
+                    missingCommercial);
+        }
         List<OrderItem> items = orderItemRepository.findByOrderId(command.orderId());
         boolean hasActiveItem = items.stream().anyMatch(OrderItem::isActive);
         if (!hasActiveItem) {

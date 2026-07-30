@@ -3,7 +3,7 @@
 **Stage:** 5 — Order Management  
 **Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.3)  
 **ADR document:** `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` (v1.5; ADR-028, ADR-029, ADR-030)  
-**Status:** Implementation IN_PROGRESS; STAGE5-050 waiting user retest-2; Order Intake extension tasks STAGE5-051..057 NOT STARTED.
+**Status:** Implementation IN_PROGRESS; STAGE5-050 DONE; STAGE5-051 DONE; Order Intake extension tasks STAGE5-052..057 NOT STARTED.
 
 ---
 
@@ -163,14 +163,13 @@
 ### Core Order Management
 
 `STAGE5-001..STAGE5-049` — реализованы.  
-`STAGE5-050` — Manual Packaged GUI Smoke — Core Order Management: **IN_PROGRESS — WAITING_USER_RETEST-2**.
+`STAGE5-050` — Manual Packaged GUI Smoke — Core Order Management: **DONE (PASS)**.
 
-Успех `STAGE5-050` → `STAGE5-050 = DONE`; Stage 5 остаётся **IN_PROGRESS**. Не закрывает Stage 5, не ставит 100%, не стартует Stage 6.
+Успех `STAGE5-050` → `STAGE5-051` Order Intake contracts. `STAGE5-051` = **DONE**. Stage 5 остаётся **IN_PROGRESS**. Не закрывает Stage 5, не ставит 100%, не стартует Stage 6.
 
 ### Order Intake extension
 
-Строгая последовательность. Пока `STAGE5-050` = `IN_PROGRESS`, задачи `STAGE5-051…057` = **NOT STARTED**.  
-`STAGE5-051` может стать `IN_PROGRESS` **только после** `STAGE5-050 = DONE`.
+Строгая последовательность. `STAGE5-051` = **DONE**. Следующая: `STAGE5-052` = **NOT STARTED**.
 
 | ID | Title |
 | --- | --- |
