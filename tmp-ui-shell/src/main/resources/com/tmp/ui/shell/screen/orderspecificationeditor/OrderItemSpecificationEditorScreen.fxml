@@ -22,30 +22,33 @@
         <Label fx:id="revisionNumberLabel" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
         <Label text="Статус редакции" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
         <Label fx:id="revisionStatusLabel" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
-        <Label text="Количество" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+        <Label text="Количество изделий" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
         <TextField fx:id="orderedQuantityField" GridPane.columnIndex="1" GridPane.rowIndex="2" prefWidth="200"/>
     </GridPane>
     <TableView fx:id="linesTable" prefHeight="240">
         <columns>
-            <TableColumn fx:id="materialCodeColumn" text="Код материала" prefWidth="140"/>
+            <TableColumn fx:id="materialCodeColumn" text="Артикул" prefWidth="120"/>
             <TableColumn fx:id="materialNameColumn" text="Наименование" prefWidth="200"/>
-            <TableColumn fx:id="quantityColumn" text="Количество" prefWidth="100"/>
+            <TableColumn fx:id="colorColumn" text="Цвет" prefWidth="120"/>
+            <TableColumn fx:id="lengthMmColumn" text="Длина, мм" prefWidth="100"/>
+            <TableColumn fx:id="lineQuantityColumn" text="Количество" prefWidth="100"/>
             <TableColumn fx:id="unitOfMeasureColumn" text="Единица измерения" prefWidth="140"/>
-            <TableColumn fx:id="consumptionNormColumn" text="Норма расхода" prefWidth="120"/>
         </columns>
     </TableView>
     <Label text="Строка спецификации"/>
     <GridPane hgap="8" vgap="8">
-        <Label text="Код материала" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+        <Label text="Артикул" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
         <TextField fx:id="materialCodeField" GridPane.columnIndex="1" GridPane.rowIndex="0" prefWidth="200"/>
         <Label text="Наименование" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
         <TextField fx:id="materialNameField" GridPane.columnIndex="1" GridPane.rowIndex="1" prefWidth="200"/>
-        <Label text="Количество" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
-        <TextField fx:id="quantityField" GridPane.columnIndex="1" GridPane.rowIndex="2" prefWidth="200"/>
-        <Label text="Единица измерения" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
-        <TextField fx:id="unitOfMeasureField" GridPane.columnIndex="1" GridPane.rowIndex="3" prefWidth="200"/>
-        <Label text="Норма расхода" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
-        <TextField fx:id="consumptionNormField" GridPane.columnIndex="1" GridPane.rowIndex="4" prefWidth="200"/>
+        <Label text="Цвет" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+        <TextField fx:id="colorField" GridPane.columnIndex="1" GridPane.rowIndex="2" prefWidth="200"/>
+        <Label text="Длина, мм" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+        <TextField fx:id="lengthMmField" GridPane.columnIndex="1" GridPane.rowIndex="3" prefWidth="200"/>
+        <Label text="Количество" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+        <TextField fx:id="lineQuantityField" GridPane.columnIndex="1" GridPane.rowIndex="4" prefWidth="200"/>
+        <Label text="Единица измерения" GridPane.columnIndex="0" GridPane.rowIndex="5"/>
+        <TextField fx:id="unitOfMeasureField" GridPane.columnIndex="1" GridPane.rowIndex="5" prefWidth="200"/>
     </GridPane>
     <HBox spacing="8">
         <Button fx:id="addLineButton" text="Добавить строку"/>

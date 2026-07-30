@@ -3501,3 +3501,40 @@ Order Intake contract alignment in `tmp-order-management`: `externalPositionNumb
 ### Next
 
 `STAGE5-052` Manual Entry UI — NOT STARTED (await user authorization).
+
+---
+
+## STAGE5-052 — Manual Entry UI
+
+**Date:** 2026-07-30  
+**Stage:** 5  
+**Status:** DONE
+
+### Summary
+
+Completed manual entry MVP fields in existing Order Item and Specification JavaFX editors, aligned to STAGE5-051 contracts: `externalPositionNumber`, `productQuantity` (OrderedQuantity), `materialCode`, `materialName`, `color`, `lengthMm`, `lineQuantity`, `unitOfMeasure`.
+
+### Key deliverables
+
+- Extended UI read contract: `OrderItemEditorSnapshot.externalPositionNumber` + mapping in `DefaultOrderItemEditorQueryService`.
+- Order Item editor (`tmp-ui-shell`): new field "Внешний номер позиции", label "Количество изделий", local integer validation `> 0` with Russian field-specific messages, reload mapping of saved value.
+- Specification editor (`tmp-ui-shell`): removed `consumptionNorm`/legacy quantity UI, introduced `color` (nullable), `lengthMm` (nullable + `>0` when present), `lineQuantity` (`>0`), table columns and edit form in Russian.
+- Draft/Approved behavior preserved: Draft editable, Approved read-only via existing flags/permission pattern; no repository calls in controller/view model.
+- Mapping preserves `lineQuantity` as-is; no multiplication by product quantity in save or display path.
+
+### Tests updated
+
+- `tmp-order-management`:
+  - `OrderItemEditorSnapshotTest` (new): value/null behavior for `externalPositionNumber`.
+  - `DefaultOrderItemDocumentUiServiceTest`: query mapping includes `externalPositionNumber`, nullable pass-through.
+- `tmp-ui-shell`:
+  - `OrderItemEditorViewModelTest`: external position mapping/save/null handling, quantity validation cases.
+  - `OrderItemSpecificationEditorViewModelTest`: nullable color/length mapping, line/length validation, line quantity non-multiplication.
+  - `OrderItemListViewModelTest`: adjusted `OrderItemDto.of(...)` invocation to STAGE5-051 signature.
+
+### Boundaries
+
+- No domain model changes.
+- No persistence/Flyway changes.
+- No import/STXT/Firebird implementation.
+- No Stage 6 work.

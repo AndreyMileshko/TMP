@@ -10,30 +10,33 @@ public final class SpecificationLineRow {
 
     private String materialCode;
     private String materialName;
-    private String quantity;
+    private String color;
+    private String lengthMm;
+    private String lineQuantity;
     private String unitOfMeasure;
-    private String consumptionNorm;
 
     public SpecificationLineRow(
             String materialCode,
             String materialName,
-            String quantity,
-            String unitOfMeasure,
-            String consumptionNorm) {
+            String color,
+            String lengthMm,
+            String lineQuantity,
+            String unitOfMeasure) {
         this.materialCode = nullToEmpty(materialCode);
         this.materialName = nullToEmpty(materialName);
-        this.quantity = nullToEmpty(quantity);
+        this.color = nullToEmpty(color);
+        this.lengthMm = nullToEmpty(lengthMm);
+        this.lineQuantity = nullToEmpty(lineQuantity);
         this.unitOfMeasure = nullToEmpty(unitOfMeasure);
-        this.consumptionNorm = nullToEmpty(consumptionNorm);
     }
 
     public static SpecificationLineRow blank() {
-        return new SpecificationLineRow("", "", "", "", "0");
+        return new SpecificationLineRow("", "", "", "", "", "шт");
     }
 
     public SpecificationLineRow copy() {
         return new SpecificationLineRow(
-                materialCode, materialName, quantity, unitOfMeasure, consumptionNorm);
+                materialCode, materialName, color, lengthMm, lineQuantity, unitOfMeasure);
     }
 
     public String materialCode() {
@@ -52,12 +55,28 @@ public final class SpecificationLineRow {
         this.materialName = nullToEmpty(materialName);
     }
 
-    public String quantity() {
-        return quantity;
+    public String color() {
+        return color;
     }
 
-    public void setQuantity(String quantity) {
-        this.quantity = nullToEmpty(quantity);
+    public void setColor(String color) {
+        this.color = nullToEmpty(color);
+    }
+
+    public String lengthMm() {
+        return lengthMm;
+    }
+
+    public void setLengthMm(String lengthMm) {
+        this.lengthMm = nullToEmpty(lengthMm);
+    }
+
+    public String lineQuantity() {
+        return lineQuantity;
+    }
+
+    public void setLineQuantity(String lineQuantity) {
+        this.lineQuantity = nullToEmpty(lineQuantity);
     }
 
     public String unitOfMeasure() {
@@ -68,62 +87,59 @@ public final class SpecificationLineRow {
         this.unitOfMeasure = nullToEmpty(unitOfMeasure);
     }
 
-    public String consumptionNorm() {
-        return consumptionNorm;
+    public String normalizedColor() {
+        String trimmed = color.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
-    public void setConsumptionNorm(String consumptionNorm) {
-        this.consumptionNorm = nullToEmpty(consumptionNorm);
+    public BigDecimal parseLengthMm() {
+        String trimmed = lengthMm.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        BigDecimal value = parseDecimal(trimmed, "Длина, мм");
+        if (value.signum() <= 0) {
+            throw new IllegalArgumentException("Длина должна быть больше нуля или оставлена пустой.");
+        }
+        return value;
     }
 
-    public BigDecimal parseQuantity() {
-        return parsePositive(quantity, "quantity");
-    }
-
-    public BigDecimal parseConsumptionNorm() {
-        return parseNonNegative(consumptionNorm, "consumptionNorm");
+    public BigDecimal parseLineQuantity() {
+        BigDecimal value = parseDecimalRequired(lineQuantity, "Количество строки");
+        if (value.signum() <= 0) {
+            throw new IllegalArgumentException("Количество строки должно быть больше нуля.");
+        }
+        return value;
     }
 
     public void requireValid() {
-        requireNonBlank(materialCode, "materialCode");
-        requireNonBlank(materialName, "materialName");
-        requireNonBlank(unitOfMeasure, "unitOfMeasure");
-        parseQuantity();
-        parseConsumptionNorm();
+        requireNonBlank(materialCode, "Укажите артикул материала.");
+        requireNonBlank(materialName, "Укажите наименование материала.");
+        requireNonBlank(unitOfMeasure, "Укажите единицу измерения.");
+        parseLengthMm();
+        parseLineQuantity();
     }
 
-    private static void requireNonBlank(String value, String field) {
+    private static void requireNonBlank(String value, String message) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(field + " must not be blank");
+            throw new IllegalArgumentException(message);
         }
     }
 
-    private static BigDecimal parsePositive(String raw, String field) {
-        BigDecimal value = parseDecimal(raw, field);
-        if (value.signum() <= 0) {
-            throw new IllegalArgumentException(field + " must be > 0: " + raw);
-        }
-        return value;
-    }
-
-    private static BigDecimal parseNonNegative(String raw, String field) {
-        BigDecimal value = parseDecimal(raw, field);
-        if (value.signum() < 0) {
-            throw new IllegalArgumentException(field + " must be >= 0: " + raw);
-        }
-        return value;
-    }
-
-    private static BigDecimal parseDecimal(String raw, String field) {
-        Objects.requireNonNull(raw, field);
+    private static BigDecimal parseDecimalRequired(String raw, String fieldName) {
+        Objects.requireNonNull(raw, fieldName);
         String trimmed = raw.trim();
         if (trimmed.isEmpty()) {
-            throw new IllegalArgumentException(field + " must not be blank");
+            throw new IllegalArgumentException(fieldName + " обязательно для заполнения.");
         }
+        return parseDecimal(trimmed, fieldName);
+    }
+
+    private static BigDecimal parseDecimal(String trimmed, String fieldName) {
         try {
             return new BigDecimal(trimmed);
         } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException(field + " must be a number: " + trimmed, ex);
+            throw new IllegalArgumentException(fieldName + " должно быть числом.", ex);
         }
     }
 

@@ -1,6 +1,7 @@
 package com.tmp.order.application.ui;
 
 import com.tmp.order.api.OrderItemId;
+import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.order.api.ui.OrderItemEditorSnapshot;
 import com.tmp.order.capability.OrderManagementPermissions;
@@ -20,12 +21,16 @@ import java.util.Optional;
 public final class DefaultOrderItemEditorQueryService implements OrderItemEditorQueryService {
 
     private final OrderItemRepository orderItemRepository;
+    private final OrderQueryService orderQueryService;
     private final AuthorizationService authorization;
 
     public DefaultOrderItemEditorQueryService(
-            OrderItemRepository orderItemRepository, AuthorizationService authorization) {
+            OrderItemRepository orderItemRepository,
+            OrderQueryService orderQueryService,
+            AuthorizationService authorization) {
         this.orderItemRepository =
                 Objects.requireNonNull(orderItemRepository, "orderItemRepository");
+        this.orderQueryService = Objects.requireNonNull(orderQueryService, "orderQueryService");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
     }
 
@@ -46,12 +51,18 @@ public final class DefaultOrderItemEditorQueryService implements OrderItemEditor
                 draft != null
                         ? draft.orderedQuantity()
                         : active != null ? active.orderedQuantity() : BigDecimal.ONE;
+        String externalPositionNumber =
+                orderQueryService
+                        .getOrderItem(item.id())
+                        .map(dto -> dto.externalPositionNumber())
+                        .orElse(commercial.externalPositionNumber());
         return OrderItemEditorSnapshot.of(
                 item.id(),
                 item.orderId(),
                 commercial.productCode().value(),
                 commercial.name(),
                 commercial.comments(),
+                externalPositionNumber,
                 item.status(),
                 active,
                 draft,

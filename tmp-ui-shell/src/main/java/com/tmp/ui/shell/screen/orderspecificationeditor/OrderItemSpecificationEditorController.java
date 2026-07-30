@@ -41,13 +41,16 @@ public final class OrderItemSpecificationEditorController
     private TableColumn<SpecificationLineRow, String> materialNameColumn;
 
     @FXML
-    private TableColumn<SpecificationLineRow, String> quantityColumn;
+    private TableColumn<SpecificationLineRow, String> colorColumn;
+
+    @FXML
+    private TableColumn<SpecificationLineRow, String> lengthMmColumn;
+
+    @FXML
+    private TableColumn<SpecificationLineRow, String> lineQuantityColumn;
 
     @FXML
     private TableColumn<SpecificationLineRow, String> unitOfMeasureColumn;
-
-    @FXML
-    private TableColumn<SpecificationLineRow, String> consumptionNormColumn;
 
     @FXML
     private TextField materialCodeField;
@@ -56,13 +59,16 @@ public final class OrderItemSpecificationEditorController
     private TextField materialNameField;
 
     @FXML
-    private TextField quantityField;
+    private TextField colorField;
+
+    @FXML
+    private TextField lengthMmField;
+
+    @FXML
+    private TextField lineQuantityField;
 
     @FXML
     private TextField unitOfMeasureField;
-
-    @FXML
-    private TextField consumptionNormField;
 
     @FXML
     private Button addLineButton;
@@ -135,30 +141,32 @@ public final class OrderItemSpecificationEditorController
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
                                 cell.getValue().materialName()));
-        quantityColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().quantity()));
+        colorColumn.setCellValueFactory(
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().color()));
+        lengthMmColumn.setCellValueFactory(
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().lengthMm()));
+        lineQuantityColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().lineQuantity()));
         unitOfMeasureColumn.setCellValueFactory(
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
                                 cell.getValue().unitOfMeasure()));
-        consumptionNormColumn.setCellValueFactory(
-                cell ->
-                        new javafx.beans.property.SimpleStringProperty(
-                                cell.getValue().consumptionNorm()));
 
         materialCodeField.textProperty().bindBidirectional(viewModel.editMaterialCodeProperty());
         materialNameField.textProperty().bindBidirectional(viewModel.editMaterialNameProperty());
-        quantityField.textProperty().bindBidirectional(viewModel.editQuantityProperty());
+        colorField.textProperty().bindBidirectional(viewModel.editColorProperty());
+        lengthMmField.textProperty().bindBidirectional(viewModel.editLengthMmProperty());
+        lineQuantityField.textProperty().bindBidirectional(viewModel.editQuantityProperty());
         unitOfMeasureField.textProperty().bindBidirectional(viewModel.editUnitOfMeasureProperty());
-        consumptionNormField
-                .textProperty()
-                .bindBidirectional(viewModel.editConsumptionNormProperty());
 
         materialCodeField.disableProperty().bind(viewModel.editableProperty().not());
         materialNameField.disableProperty().bind(viewModel.editableProperty().not());
-        quantityField.disableProperty().bind(viewModel.editableProperty().not());
+        colorField.disableProperty().bind(viewModel.editableProperty().not());
+        lengthMmField.disableProperty().bind(viewModel.editableProperty().not());
+        lineQuantityField.disableProperty().bind(viewModel.editableProperty().not());
         unitOfMeasureField.disableProperty().bind(viewModel.editableProperty().not());
-        consumptionNormField.disableProperty().bind(viewModel.editableProperty().not());
 
         addLineButton.disableProperty().bind(viewModel.canAddLineProperty().not());
         updateLineButton.disableProperty().bind(viewModel.canUpdateLineProperty().not());

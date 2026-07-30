@@ -57,6 +57,26 @@
 - None.
 
 ---
+
+## 2026-07-30 — STAGE5-052 Manual Entry UI
+
+| Verification | Command | Result |
+|---|---|---|
+| Unit + FX tests | `mvn -q -pl tmp-ui-shell -am test` | PASSED (114 tests, 0 failures, 0 skipped) |
+| Module verify | `mvn -q -pl tmp-ui-shell -am verify` | PASSED |
+| Item editor ViewModel | `OrderItemEditorViewModelTest` | PASSED (17 tests) |
+| Item editor Controller FX | `OrderItemEditorControllerFxTest` | PASSED (1 test) |
+| Specification ViewModel | `OrderItemSpecificationEditorViewModelTest` | PASSED (12 tests) |
+| Specification Controller FX | `OrderItemSpecificationEditorControllerFxTest` | PASSED (1 test) |
+| STAGE5-052 | WORK-QUEUE | DONE |
+| STAGE5-053 | WORK-QUEUE | NOT STARTED |
+| Git | - | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
 ## Previous latest (2026-07-30 Stage 5 Documentation Fix)
 
 **Date:** 2026-07-30  

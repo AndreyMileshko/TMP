@@ -18,7 +18,9 @@ import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.DocumentMetadata;
 import com.tmp.document.api.DocumentStatus;
 import com.tmp.order.api.OrderId;
+import com.tmp.order.api.OrderItemDto;
 import com.tmp.order.api.OrderItemId;
+import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderItemStatus;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
@@ -329,8 +331,24 @@ class DefaultOrderItemDocumentUiServiceTest {
         OrderId orderId = OrderId.generate();
         OrderItem item = activeWithDraft(orderId, itemId);
         when(orderItemRepository.findById(itemId)).thenReturn(Optional.of(item));
+        OrderQueryService orderQueryService = mock(OrderQueryService.class);
+        when(orderQueryService.getOrderItem(itemId))
+                .thenReturn(
+                        Optional.of(
+                                OrderItemDto.of(
+                                        itemId,
+                                        orderId,
+                                        "P-2",
+                                        "Door",
+                                        null,
+                                        "EXT-200",
+                                        OrderItemStatus.ACTIVE,
+                                        RevisionNumber.first(),
+                                        NOW,
+                                        NOW)));
         DefaultOrderItemEditorQueryService query =
-                new DefaultOrderItemEditorQueryService(orderItemRepository, authorization);
+                new DefaultOrderItemEditorQueryService(
+                        orderItemRepository, orderQueryService, authorization);
 
         OrderItemEditorSnapshot snapshot = query.getEditorSnapshot(itemId).orElseThrow();
 
@@ -339,6 +357,25 @@ class DefaultOrderItemDocumentUiServiceTest {
         assertEquals(1, snapshot.activeRevisionNumber().orElseThrow().value());
         assertEquals(2, snapshot.draftRevisionNumber().orElseThrow().value());
         assertEquals(1, snapshot.draftSpecificationLineCount());
+        assertEquals("EXT-200", snapshot.externalPositionNumber());
+        verify(authorization).requirePermission(OrderManagementPermissions.ITEM_VIEW);
+    }
+
+    @Test
+    void editorQueryReturnsNullExternalPositionWhenAbsent() {
+        OrderItemId itemId = OrderItemId.generate();
+        OrderId orderId = OrderId.generate();
+        OrderItem item = activeWithDraft(orderId, itemId, null);
+        when(orderItemRepository.findById(itemId)).thenReturn(Optional.of(item));
+        OrderQueryService orderQueryService = mock(OrderQueryService.class);
+        when(orderQueryService.getOrderItem(itemId)).thenReturn(Optional.empty());
+        DefaultOrderItemEditorQueryService query =
+                new DefaultOrderItemEditorQueryService(
+                        orderItemRepository, orderQueryService, authorization);
+
+        OrderItemEditorSnapshot snapshot = query.getEditorSnapshot(itemId).orElseThrow();
+
+        assertEquals(null, snapshot.externalPositionNumber());
         verify(authorization).requirePermission(OrderManagementPermissions.ITEM_VIEW);
     }
 
@@ -379,6 +416,11 @@ class DefaultOrderItemDocumentUiServiceTest {
     }
 
     private static OrderItem activeWithDraft(OrderId orderId, OrderItemId itemId) {
+        return activeWithDraft(orderId, itemId, "EXT-200");
+    }
+
+    private static OrderItem activeWithDraft(
+            OrderId orderId, OrderItemId itemId, String externalPositionNumber) {
         RevisionNumber activeNumber = RevisionNumber.first();
         RevisionNumber draftNumber = activeNumber.next();
         ItemSpecification activeSpec =
@@ -413,7 +455,7 @@ class DefaultOrderItemDocumentUiServiceTest {
         return OrderItem.rehydrate(
                 itemId,
                 orderId,
-                ItemCommercialData.of(ProductCode.of("P-2"), "Door", null),
+                ItemCommercialData.of(ProductCode.of("P-2"), "Door", null, externalPositionNumber),
                 OrderItemStatus.ACTIVE,
                 activeNumber,
                 draftNumber,

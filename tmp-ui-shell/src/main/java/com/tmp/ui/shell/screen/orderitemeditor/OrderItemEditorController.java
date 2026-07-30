@@ -32,6 +32,9 @@ public final class OrderItemEditorController implements ViewModelAware<OrderItem
     private TextField commentsField;
 
     @FXML
+    private TextField externalPositionNumberField;
+
+    @FXML
     private TextField orderedQuantityField;
 
     @FXML
@@ -90,6 +93,9 @@ public final class OrderItemEditorController implements ViewModelAware<OrderItem
         productCodeField.textProperty().bindBidirectional(viewModel.productCodeProperty());
         nameField.textProperty().bindBidirectional(viewModel.nameProperty());
         commentsField.textProperty().bindBidirectional(viewModel.commentsProperty());
+        externalPositionNumberField
+                .textProperty()
+                .bindBidirectional(viewModel.externalPositionNumberProperty());
         orderedQuantityField.textProperty().bindBidirectional(viewModel.orderedQuantityProperty());
         copyFromRevisionField.textProperty().bindBidirectional(viewModel.copyFromRevisionProperty());
 
@@ -100,6 +106,7 @@ public final class OrderItemEditorController implements ViewModelAware<OrderItem
         productCodeField.disableProperty().bind(viewModel.commercialEditableProperty().not());
         nameField.disableProperty().bind(viewModel.commercialEditableProperty().not());
         commentsField.disableProperty().bind(viewModel.commercialEditableProperty().not());
+        externalPositionNumberField.disableProperty().bind(viewModel.commercialEditableProperty().not());
         orderedQuantityField.disableProperty().bind(viewModel.quantityEditableProperty().not());
 
         saveCommercialButton.disableProperty().bind(viewModel.canSaveCommercialDraftProperty().not());

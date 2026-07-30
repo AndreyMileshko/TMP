@@ -54,9 +54,10 @@ public final class OrderItemSpecificationEditorViewModel {
     private final StringProperty warningMessage = new SimpleStringProperty("");
     private final StringProperty editMaterialCode = new SimpleStringProperty("");
     private final StringProperty editMaterialName = new SimpleStringProperty("");
-    private final StringProperty editQuantity = new SimpleStringProperty("");
+    private final StringProperty editColor = new SimpleStringProperty("");
+    private final StringProperty editLengthMm = new SimpleStringProperty("");
+    private final StringProperty editLineQuantity = new SimpleStringProperty("");
     private final StringProperty editUnitOfMeasure = new SimpleStringProperty("");
-    private final StringProperty editConsumptionNorm = new SimpleStringProperty("0");
     private final BooleanProperty editable = new SimpleBooleanProperty(false);
     private final BooleanProperty dirty = new SimpleBooleanProperty(false);
     private final BooleanProperty canAddLine = new SimpleBooleanProperty(false);
@@ -324,7 +325,15 @@ public final class OrderItemSpecificationEditorViewModel {
     }
 
     public StringProperty editQuantityProperty() {
-        return editQuantity;
+        return editLineQuantity;
+    }
+
+    public StringProperty editColorProperty() {
+        return editColor;
+    }
+
+    public StringProperty editLengthMmProperty() {
+        return editLengthMm;
     }
 
     public StringProperty editUnitOfMeasureProperty() {
@@ -332,7 +341,7 @@ public final class OrderItemSpecificationEditorViewModel {
     }
 
     public StringProperty editConsumptionNormProperty() {
-        return editConsumptionNorm;
+        return editLengthMm;
     }
 
     public BooleanProperty editableProperty() {
@@ -455,9 +464,10 @@ public final class OrderItemSpecificationEditorViewModel {
                     new SpecificationLineRow(
                             view.materialCode(),
                             view.materialName(),
-                            view.quantity().toPlainString(),
-                            view.unitOfMeasure(),
-                            view.consumptionNorm().toPlainString()));
+                            nullToEmpty(view.color()),
+                            view.lengthMm() == null ? "" : view.lengthMm().toPlainString(),
+                            view.lineQuantity().toPlainString(),
+                            view.unitOfMeasure()));
         }
         return rows;
     }
@@ -470,9 +480,10 @@ public final class OrderItemSpecificationEditorViewModel {
                     OrderItemSpecificationLineDraft.of(
                             row.materialCode(),
                             row.materialName(),
-                            row.parseQuantity(),
-                            row.unitOfMeasure(),
-                            row.parseConsumptionNorm()));
+                            row.normalizedColor(),
+                            row.parseLengthMm(),
+                            row.parseLineQuantity(),
+                            row.unitOfMeasure()));
         }
         return drafts;
     }
@@ -481,9 +492,10 @@ public final class OrderItemSpecificationEditorViewModel {
         return new SpecificationLineRow(
                 editMaterialCode.get(),
                 editMaterialName.get(),
-                editQuantity.get(),
-                editUnitOfMeasure.get(),
-                editConsumptionNorm.get());
+                editColor.get(),
+                editLengthMm.get(),
+                editLineQuantity.get(),
+                editUnitOfMeasure.get());
     }
 
     private void onSelectionChanged() {
@@ -497,18 +509,20 @@ public final class OrderItemSpecificationEditorViewModel {
         selectedLine.set(row);
         editMaterialCode.set(row.materialCode());
         editMaterialName.set(row.materialName());
-        editQuantity.set(row.quantity());
+        editColor.set(row.color());
+        editLengthMm.set(row.lengthMm());
+        editLineQuantity.set(row.lineQuantity());
         editUnitOfMeasure.set(row.unitOfMeasure());
-        editConsumptionNorm.set(row.consumptionNorm());
         refreshActionFlags();
     }
 
     private void clearEditFields() {
         editMaterialCode.set("");
         editMaterialName.set("");
-        editQuantity.set("");
+        editColor.set("");
+        editLengthMm.set("");
+        editLineQuantity.set("");
         editUnitOfMeasure.set("");
-        editConsumptionNorm.set("0");
     }
 
     private boolean ensureEditable() {
@@ -616,6 +630,12 @@ public final class OrderItemSpecificationEditorViewModel {
     }
 
     private void showMappedError(Throwable error, OrderUiOperation operation) {
+        if (error instanceof IllegalArgumentException validationError
+                && validationError.getMessage() != null
+                && !validationError.getMessage().isBlank()) {
+            showError(validationError.getMessage());
+            return;
+        }
         showError(OrderUiErrorMapper.text(error, operation));
     }
 
@@ -623,5 +643,9 @@ public final class OrderItemSpecificationEditorViewModel {
         errorMessage.set("");
         successMessage.set("");
         warningMessage.set("");
+    }
+
+    private static String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 }

@@ -21,6 +21,7 @@ public final class OrderItemEditorSnapshot {
     private final String productCode;
     private final String name;
     private final String comments;
+    private final String externalPositionNumber;
     private final OrderItemStatus status;
     private final RevisionView activeRevision;
     private final RevisionView draftRevision;
@@ -32,6 +33,7 @@ public final class OrderItemEditorSnapshot {
             String productCode,
             String name,
             String comments,
+            String externalPositionNumber,
             OrderItemStatus status,
             RevisionView activeRevision,
             RevisionView draftRevision,
@@ -41,6 +43,7 @@ public final class OrderItemEditorSnapshot {
         this.productCode = productCode;
         this.name = name;
         this.comments = comments;
+        this.externalPositionNumber = externalPositionNumber;
         this.status = status;
         this.activeRevision = activeRevision;
         this.draftRevision = draftRevision;
@@ -53,6 +56,7 @@ public final class OrderItemEditorSnapshot {
             String productCode,
             String name,
             String comments,
+            String externalPositionNumber,
             OrderItemStatus status,
             RevisionView activeRevision,
             RevisionView draftRevision,
@@ -69,6 +73,7 @@ public final class OrderItemEditorSnapshot {
                 productCode,
                 name,
                 comments,
+                externalPositionNumber,
                 status,
                 activeRevision,
                 draftRevision,
@@ -93,6 +98,10 @@ public final class OrderItemEditorSnapshot {
 
     public String comments() {
         return comments;
+    }
+
+    public String externalPositionNumber() {
+        return externalPositionNumber;
     }
 
     public OrderItemStatus status() {

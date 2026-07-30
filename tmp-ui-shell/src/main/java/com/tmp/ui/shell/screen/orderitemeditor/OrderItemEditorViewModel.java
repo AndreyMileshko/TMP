@@ -15,6 +15,7 @@ import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
 import com.tmp.ui.shell.order.error.OrderUiOperation;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,6 +54,7 @@ public final class OrderItemEditorViewModel {
     private final StringProperty productCode = new SimpleStringProperty("");
     private final StringProperty name = new SimpleStringProperty("");
     private final StringProperty comments = new SimpleStringProperty("");
+    private final StringProperty externalPositionNumber = new SimpleStringProperty("");
     private final StringProperty orderedQuantity = new SimpleStringProperty("1");
     private final StringProperty activeRevisionText = new SimpleStringProperty("");
     private final StringProperty draftRevisionText = new SimpleStringProperty("");
@@ -131,6 +133,7 @@ public final class OrderItemEditorViewModel {
         productCode.set("");
         name.set("");
         comments.set("");
+        externalPositionNumber.set("");
         orderedQuantity.set("1");
         activeRevisionText.set("");
         draftRevisionText.set("1 (черновик после создания)");
@@ -171,6 +174,7 @@ public final class OrderItemEditorViewModel {
         clearMessages();
         try {
             OrderItemCommercialDraft draft = currentCommercialDraft();
+            validateProductQuantity(orderedQuantity.get());
             if (mode.get() == Mode.CREATE) {
                 if (documentId == null) {
                     documentId =
@@ -300,6 +304,7 @@ public final class OrderItemEditorViewModel {
                 errorMessage.set("Нет черновой редакции для изменения количества");
                 return;
             }
+            validateProductQuantity(orderedQuantity.get());
             if (documentId == null || pendingKind != DocumentKind.REVISION_UPDATE) {
                 documentId =
                         itemDocuments.beginRevisionUpdate(
@@ -446,6 +451,10 @@ public final class OrderItemEditorViewModel {
         return comments;
     }
 
+    public StringProperty externalPositionNumberProperty() {
+        return externalPositionNumber;
+    }
+
     public StringProperty orderedQuantityProperty() {
         return orderedQuantity;
     }
@@ -529,6 +538,7 @@ public final class OrderItemEditorViewModel {
         productCode.set(snapshot.productCode());
         name.set(snapshot.name());
         comments.set(nullToEmpty(snapshot.comments()));
+        externalPositionNumber.set(nullToEmpty(snapshot.externalPositionNumber()));
         orderedQuantity.set(snapshot.orderedQuantity().toPlainString());
         activeRevisionText.set(
                 snapshot.activeRevision()
@@ -638,7 +648,33 @@ public final class OrderItemEditorViewModel {
 
     private OrderItemCommercialDraft currentCommercialDraft() {
         return OrderItemCommercialDraft.of(
-                productCode.get(), name.get(), blankToNull(comments.get()));
+                productCode.get(),
+                name.get(),
+                blankToNull(comments.get()),
+                blankToNull(externalPositionNumber.get()));
+    }
+
+    private void validateProductQuantity(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException("Количество изделий обязательно для заполнения.");
+        }
+        String trimmed = raw.trim();
+        if (!trimmed.matches("-?\\d+")) {
+            if (trimmed.matches("-?\\d+[\\.,]\\d+")) {
+                throw new IllegalArgumentException(
+                        "Количество изделий должно быть целым числом больше нуля.");
+            }
+            throw new IllegalArgumentException("Количество изделий должно быть числом.");
+        }
+        BigDecimal value = new BigDecimal(trimmed);
+        if (value.scale() > 0) {
+            throw new IllegalArgumentException(
+                    "Количество изделий должно быть целым числом больше нуля.");
+        }
+        if (value.signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "Количество изделий должно быть целым числом больше нуля.");
+        }
     }
 
     private Optional<RevisionNumber> parseCopyFrom() {
@@ -669,6 +705,12 @@ public final class OrderItemEditorViewModel {
     }
 
     private void showMappedError(Throwable error, OrderUiOperation operation) {
+        if (error instanceof IllegalArgumentException validationError
+                && validationError.getMessage() != null
+                && !validationError.getMessage().isBlank()) {
+            showError(validationError.getMessage());
+            return;
+        }
         showError(OrderUiErrorMapper.text(error, operation));
     }
 

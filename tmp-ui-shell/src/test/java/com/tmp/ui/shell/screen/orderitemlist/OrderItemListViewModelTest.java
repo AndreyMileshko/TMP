@@ -78,7 +78,7 @@ class OrderItemListViewModelTest {
     private static OrderItemDto item(OrderId orderId, OrderItemId itemId) {
         Instant now = Instant.parse("2026-07-27T10:00:00Z");
         return OrderItemDto.of(
-                itemId, orderId, "P-1", "Panel", null, OrderItemStatus.DRAFT, null, now, now);
+                itemId, orderId, "P-1", "Panel", null, null, OrderItemStatus.DRAFT, null, now, now);
     }
 
     private static final class FakeQuery implements OrderQueryService {

@@ -8606,7 +8606,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-052 — Manual Entry UI
 
-**Status:** NOT STARTED  
+**Status:** DONE
 **Stage:** 5  
 **Depends on:** STAGE5-051  
 **Module:** tmp-ui-shell
@@ -8641,10 +8641,10 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ### Acceptance criteria
 
-- [ ] Ручной ввод создаёт ту же структуру, что импорт;
-- [ ] `lengthMm` опционален;
-- [ ] нет orientation UI;
-- [ ] нет прямых repository вызовов из UI.
+- [x] Ручной ввод создаёт ту же структуру, что импорт;
+- [x] `lengthMm` опционален;
+- [x] нет orientation UI;
+- [x] нет прямых repository вызовов из UI.
 
 ### Required tests
 

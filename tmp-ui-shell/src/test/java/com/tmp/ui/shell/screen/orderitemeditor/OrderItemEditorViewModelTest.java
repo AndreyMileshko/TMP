@@ -69,6 +69,63 @@ class OrderItemEditorViewModelTest {
     }
 
     @Test
+    void externalPositionNumberIsReadFromSnapshotAndShownAfterReopen() {
+        FakeDocs docs = new FakeDocs();
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemId id = OrderItemId.generate();
+        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false, "EXT-55");
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
+        viewModel.openExisting(id);
+        assertEquals("EXT-55", viewModel.externalPositionNumberProperty().get());
+    }
+
+    @Test
+    void nullExternalPositionNumberIsShownAsEmptyField() {
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemId id = OrderItemId.generate();
+        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false, null);
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(new FakeDocs(), query, auth(allItemPerms()));
+        viewModel.openExisting(id);
+        assertEquals("", viewModel.externalPositionNumberProperty().get());
+    }
+
+    @Test
+    void saveCommercialDraftPassesExternalPositionNumberToContract() {
+        FakeDocs docs = new FakeDocs();
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
+        viewModel.openCreate(OrderId.generate());
+        viewModel.productCodeProperty().set("P-1");
+        viewModel.nameProperty().set("Panel");
+        viewModel.externalPositionNumberProperty().set(" EXT-100 ");
+        viewModel.orderedQuantityProperty().set("3");
+
+        viewModel.saveCommercialDraft();
+
+        assertEquals("EXT-100", docs.lastCommercialDraft.externalPositionNumber());
+    }
+
+    @Test
+    void saveCommercialDraftConvertsBlankExternalPositionNumberToNull() {
+        FakeDocs docs = new FakeDocs();
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
+        viewModel.openCreate(OrderId.generate());
+        viewModel.productCodeProperty().set("P-1");
+        viewModel.nameProperty().set("Panel");
+        viewModel.externalPositionNumberProperty().set("   ");
+        viewModel.orderedQuantityProperty().set("3");
+
+        viewModel.saveCommercialDraft();
+
+        assertEquals(null, docs.lastCommercialDraft.externalPositionNumber());
+    }
+
+    @Test
     void draftAndActiveRevisionsDisplayedSeparately() {
         FakeEditorQuery query = new FakeEditorQuery();
         OrderItemId id = OrderItemId.generate();
@@ -241,6 +298,44 @@ class OrderItemEditorViewModelTest {
         }
     }
 
+    @Test
+    void orderedQuantityValidationRejectsInvalidValuesWithRussianMessages() {
+        FakeDocs docs = new FakeDocs();
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
+        viewModel.openCreate(OrderId.generate());
+        viewModel.productCodeProperty().set("P-1");
+        viewModel.nameProperty().set("Panel");
+
+        viewModel.orderedQuantityProperty().set("");
+        viewModel.saveCommercialDraft();
+        assertEquals("Количество изделий обязательно для заполнения.", viewModel.errorMessageProperty().get());
+
+        viewModel.orderedQuantityProperty().set("2.5");
+        viewModel.saveCommercialDraft();
+        assertEquals(
+                "Количество изделий должно быть целым числом больше нуля.",
+                viewModel.errorMessageProperty().get());
+
+        viewModel.orderedQuantityProperty().set("0");
+        viewModel.saveCommercialDraft();
+        assertEquals(
+                "Количество изделий должно быть целым числом больше нуля.",
+                viewModel.errorMessageProperty().get());
+
+        viewModel.orderedQuantityProperty().set("-1");
+        viewModel.saveCommercialDraft();
+        assertEquals(
+                "Количество изделий должно быть целым числом больше нуля.",
+                viewModel.errorMessageProperty().get());
+
+        viewModel.orderedQuantityProperty().set("abc");
+        viewModel.saveCommercialDraft();
+        assertEquals("Количество изделий должно быть числом.", viewModel.errorMessageProperty().get());
+        assertFalse(docs.saveCreateCalled);
+    }
+
     private static Set<PermissionId> allItemPerms() {
         return Set.of(
                 PermissionId.of("order.item.view"),
@@ -258,7 +353,11 @@ class OrderItemEditorViewModelTest {
     }
 
     private static OrderItemEditorSnapshot snapshot(
-            OrderItemId id, OrderItemStatus status, boolean withDraft, boolean withActive) {
+            OrderItemId id,
+            OrderItemStatus status,
+            boolean withDraft,
+            boolean withActive,
+            String externalPositionNumber) {
         OrderItemEditorSnapshot.RevisionView active =
                 withActive
                         ? OrderItemEditorSnapshot.RevisionView.of(
@@ -285,10 +384,16 @@ class OrderItemEditorViewModelTest {
                 "P-1",
                 "Panel",
                 null,
+                externalPositionNumber,
                 status,
                 active,
                 draft,
                 quantity);
+    }
+
+    private static OrderItemEditorSnapshot snapshot(
+            OrderItemId id, OrderItemStatus status, boolean withDraft, boolean withActive) {
+        return snapshot(id, status, withDraft, withActive, null);
     }
 
     private static final class FakeEditorQuery implements OrderItemEditorQueryService {
@@ -312,6 +417,7 @@ class OrderItemEditorViewModelTest {
         private boolean approveCalled;
         private UUID lastDocumentId = UUID.randomUUID();
         private RuntimeException failPost;
+        private OrderItemCommercialDraft lastCommercialDraft;
 
         @Override
         public UUID beginItemCreate(String title, OrderId orderId) {
@@ -365,6 +471,7 @@ class OrderItemEditorViewModelTest {
                 String orderedQuantity,
                 long expectedPayloadRevision) {
             saveCreateCalled = true;
+            lastCommercialDraft = draft;
             return expectedPayloadRevision + 1;
         }
 
@@ -374,6 +481,7 @@ class OrderItemEditorViewModelTest {
                 OrderItemId orderItemId,
                 OrderItemCommercialDraft draft,
                 long expectedPayloadRevision) {
+            lastCommercialDraft = draft;
             return expectedPayloadRevision + 1;
         }
 

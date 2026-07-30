@@ -376,8 +376,11 @@ public class OrderManagementAutoConfiguration {
 
     @Bean
     OrderItemEditorQueryService defaultOrderItemEditorQueryService(
-            OrderItemRepository orderItemRepository, AuthorizationService authorizationService) {
-        return new DefaultOrderItemEditorQueryService(orderItemRepository, authorizationService);
+            OrderItemRepository orderItemRepository,
+            OrderQueryService orderQueryService,
+            AuthorizationService authorizationService) {
+        return new DefaultOrderItemEditorQueryService(
+                orderItemRepository, orderQueryService, authorizationService);
     }
 
     @Bean
