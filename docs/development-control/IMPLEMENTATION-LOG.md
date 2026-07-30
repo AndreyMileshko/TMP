@@ -3265,10 +3265,7 @@ JetBrains JBR 21 used for earlier Stage 5 work does not ship `jpackage.exe`. Tem
 
 **Date:** 2026-07-28  
 **Stage:** 5  
-**Status:** IN_PROGRESS — WAITING_USER_RETEST
-
-### Prepared
-- Verified packaged artifact from STAGE5-049 still present:
+**Status:** IN_PROGRESS — WAITING_USER_RETEST-2
   - `dist\jpackage\TMP\TMP.exe`
   - `dist\jpackage\TMP\runtime\`
   - `dist\jpackage\TMP\app\TMP.cfg`
@@ -3284,7 +3281,38 @@ JetBrains JBR 21 used for earlier Stage 5 work does not ship `jpackage.exe`. Tem
 - Packaging not rebuilt
 
 ### Next
-Await user PASS/FAIL for sections A–H after Stage 5.11D-FIX-1 retest.
+Await user PASS/FAIL after Stage 5.11D-FIX-2 retest.
+
+---
+
+## STAGE 5.11D-FIX-2 — Roles UI selection and permission localization
+
+**Date:** 2026-07-30  
+**Stage:** 5  
+**Status:** DONE (code fixes); STAGE5-050 remains IN_PROGRESS — WAITING_USER_RETEST-2
+
+### Defects fixed
+
+| ID | Issue | Root cause | Fix |
+|---|---|---|---|
+| DEFECT-5 | Role selection cleared by permission checkbox | `togglePermission` called full `refresh()` → `roleList.setAll()` cleared TableView selection → listener called `select(null)` and wiped `selectedRoleId` before restore | In-place role update without `setAll`; `select(null)` ignored; `clearSelection()` only for explicit clear; restore TableView selection after toggle |
+| UI-LOCALIZATION-1 | English permission display names on Roles screen | Capability catalogues used English metadata; existing DB retained English until sync | Russian `displayName` in Order/Security/Sample catalogues; existing `PermissionSynchronizationApplicationService` updates metadata on re-registration |
+
+### Regression tests
+
+- `RoleAdministrationSelectionFxTest` — checkbox ON/OFF keeps TableView selection + selectedRoleId + Update targets selected role
+- `RoleAdministrationViewModelTest.togglePermissionKeepsSelectedRoleIdWithoutFullListReplacement`
+- Order/Security/Sample Russian displayName tests
+- `PermissionSynchronizationPostgresIntegrationIT.resyncUpdatesEnglishDisplayNameToRussianWithoutChangingAssignments`
+- `PermissionSynchronizationApplicationServiceTest.synchronizeUpdatesExistingDisplayNameMetadata`
+
+### Packaging
+
+Rebuilt: `mvn -q -Ppackage clean verify` — BUILD SUCCESS; `dist\jpackage\TMP\TMP.exe` present.
+
+### Next
+
+User manual GUI retest for STAGE5-050 (WAITING_USER_RETEST-2).
 
 ---
 

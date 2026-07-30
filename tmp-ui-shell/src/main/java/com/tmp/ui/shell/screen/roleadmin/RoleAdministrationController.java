@@ -89,6 +89,10 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
             if (syncingSelection) {
                 return;
             }
+            if (selected == null) {
+                // Ignore transient clears caused by list item replacement.
+                return;
+            }
             viewModel.select(selected);
             rebuildPermissionChecks();
         });
@@ -149,22 +153,46 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
         rebuildPermissionChecks();
     }
 
+    static String permissionLabel(PermissionSummary permission) {
+        return permission.displayName() + " (" + permission.permissionId().value() + ")";
+    }
+
     private void rebuildPermissionChecks() {
         permissionBox.getChildren().clear();
         if (viewModel == null) {
             return;
         }
         for (PermissionSummary permission : viewModel.permissionCatalogue()) {
-            CheckBox check = new CheckBox(permission.displayName() + " (" + permission.permissionId().value() + ")");
+            CheckBox check = new CheckBox(permissionLabel(permission));
             PermissionId id = permission.permissionId();
             check.setFocusTraversable(false);
             check.setSelected(viewModel.isPermissionGrantedOnSelected(id));
-            check.setOnAction(e -> {
-                viewModel.togglePermission(id, check.isSelected());
-                restoreTableSelection();
-                rebuildPermissionChecks();
-            });
+            check.setOnAction(e -> onPermissionToggled(check, id));
             permissionBox.getChildren().add(check);
+        }
+    }
+
+    private void onPermissionToggled(CheckBox check, PermissionId id) {
+        boolean intended = check.isSelected();
+        RoleId before = viewModel.selectedRoleId();
+        viewModel.togglePermission(id, intended);
+        restoreTableSelection();
+        // Sync checkbox from ViewModel (handles failure / actual grant state).
+        check.setSelected(viewModel.isPermissionGrantedOnSelected(id));
+        // Refresh labels/counts for the selected role without clearing selection.
+        syncingSelection = true;
+        try {
+            rebuildPermissionChecks();
+        } finally {
+            syncingSelection = false;
+        }
+        restoreTableSelection();
+        if (before != null
+                && (viewModel.selectedRoleId() == null
+                        || !before.equals(viewModel.selectedRoleId())
+                        || roleTable.getSelectionModel().getSelectedItem() == null
+                        || !before.equals(roleTable.getSelectionModel().getSelectedItem().id()))) {
+            restoreTableSelection();
         }
     }
 
@@ -174,6 +202,12 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
         }
         RoleId selectedId = viewModel.selectedRoleId();
         if (selectedId == null) {
+            syncingSelection = true;
+            try {
+                roleTable.getSelectionModel().clearSelection();
+            } finally {
+                syncingSelection = false;
+            }
             return;
         }
         roleTable.getItems().stream()
@@ -183,6 +217,7 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
                     syncingSelection = true;
                     try {
                         roleTable.getSelectionModel().select(role);
+                        roleTable.getFocusModel().focus(roleTable.getItems().indexOf(role));
                     } finally {
                         syncingSelection = false;
                     }

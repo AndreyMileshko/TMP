@@ -59,4 +59,38 @@ class SecurityAdministrationCapabilityTest {
         assertEquals(PermissionId.of("security.users.view"), SecurityPermissions.USERS_VIEW);
         assertEquals(PermissionId.of("security.audit.view"), SecurityPermissions.AUDIT_VIEW);
     }
+
+    @Test
+    void permissionDisplayNamesAreRussianAndIdsUnchanged() {
+        SecurityAdministrationCapability capability = new SecurityAdministrationCapability();
+        var byId = capability.descriptor().permissions().stream()
+                .collect(Collectors.toMap(PermissionDescriptor::permissionId, PermissionDescriptor::displayName));
+
+        assertEquals("Просмотр пользователей", byId.get(SecurityPermissions.USERS_VIEW.value()));
+        assertEquals("Создание пользователей", byId.get(SecurityPermissions.USERS_CREATE.value()));
+        assertEquals("Изменение пользователей", byId.get(SecurityPermissions.USERS_UPDATE.value()));
+        assertEquals("Удаление пользователей", byId.get(SecurityPermissions.USERS_DELETE.value()));
+        assertEquals("Сброс паролей пользователей", byId.get(SecurityPermissions.USERS_RESET_PASSWORD.value()));
+        assertEquals("Просмотр ролей", byId.get(SecurityPermissions.ROLES_VIEW.value()));
+        assertEquals("Создание ролей", byId.get(SecurityPermissions.ROLES_CREATE.value()));
+        assertEquals("Изменение ролей", byId.get(SecurityPermissions.ROLES_UPDATE.value()));
+        assertEquals("Удаление ролей", byId.get(SecurityPermissions.ROLES_DELETE.value()));
+        assertEquals("Назначение и отзыв ролей", byId.get(SecurityPermissions.ROLES_ASSIGN.value()));
+        assertEquals("Управление разрешениями ролей", byId.get(SecurityPermissions.PERMISSIONS_ASSIGN.value()));
+        assertEquals("Просмотр журнала безопасности", byId.get(SecurityPermissions.AUDIT_VIEW.value()));
+
+        for (String displayName : byId.values()) {
+            assertTrue(containsCyrillic(displayName), () -> "Expected Russian display name: " + displayName);
+        }
+    }
+
+    private static boolean containsCyrillic(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (ch >= 'А' && ch <= 'я' || ch == 'ё' || ch == 'Ё') {
+                return true;
+            }
+        }
+        return false;
+    }
 }

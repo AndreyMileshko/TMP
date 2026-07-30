@@ -111,27 +111,35 @@ public final class RoleAdministrationViewModel {
     }
 
     public void select(RoleSummary summary) {
-        this.selected = summary;
-        this.selectedRoleId = summary != null ? summary.id() : null;
-        if (summary != null) {
-            nameInput.set(summary.name());
-            descriptionInput.set(summary.description());
-            selectedRolePermissions.setAll(summary.permissionIds());
-        } else {
-            selectedRolePermissions.clear();
+        if (summary == null) {
+            // TableView may temporarily clear selection when items are replaced.
+            // Do not wipe selectedRoleId here — only explicit clearSelection() does.
+            return;
         }
+        this.selected = summary;
+        this.selectedRoleId = summary.id();
+        nameInput.set(summary.name());
+        descriptionInput.set(summary.description());
+        selectedRolePermissions.setAll(summary.permissionIds());
+    }
+
+    public void clearSelection() {
+        this.selected = null;
+        this.selectedRoleId = null;
+        selectedRolePermissions.clear();
     }
 
     public void refresh() {
         errorMessage.set("");
+        RoleId previouslySelected = selectedRoleId;
         try {
             roleList.setAll(roles.listRoles());
             permissionCatalogue.setAll(roles.listAllPermissionDefinitions());
-            if (selectedRoleId != null) {
+            if (previouslySelected != null) {
                 roleList.stream()
-                        .filter(r -> r.id().equals(selectedRoleId))
+                        .filter(r -> r.id().equals(previouslySelected))
                         .findFirst()
-                        .ifPresentOrElse(this::select, () -> select(null));
+                        .ifPresentOrElse(this::select, this::clearSelection);
             }
         } catch (AccessDeniedException ex) {
             errorMessage.set(ex.getMessage());
@@ -170,7 +178,7 @@ public final class RoleAdministrationViewModel {
         RoleId id = selectedRoleId;
         runAction(() -> {
             roles.deleteRole(id);
-            select(null);
+            clearSelection();
             statusMessage.set(RoleAdministrationMessages.ROLE_DELETED);
             refresh();
         });
@@ -183,13 +191,22 @@ public final class RoleAdministrationViewModel {
         }
         RoleId id = selectedRoleId;
         runAction(() -> {
-            if (grant) {
-                roles.grantPermissionToRole(id, permissionId);
-            } else {
-                roles.revokePermissionFromRole(id, permissionId);
-            }
-            refresh();
+            RoleSummary updated = grant
+                    ? roles.grantPermissionToRole(id, permissionId)
+                    : roles.revokePermissionFromRole(id, permissionId);
+            replaceRoleInList(updated);
+            select(updated);
         });
+    }
+
+    private void replaceRoleInList(RoleSummary updated) {
+        for (int i = 0; i < roleList.size(); i++) {
+            if (roleList.get(i).id().equals(updated.id())) {
+                roleList.set(i, updated);
+                return;
+            }
+        }
+        roleList.add(updated);
     }
 
     public void assignRoleToLogin() {

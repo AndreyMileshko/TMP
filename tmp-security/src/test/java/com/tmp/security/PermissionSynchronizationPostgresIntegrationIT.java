@@ -96,6 +96,58 @@ class PermissionSynchronizationPostgresIntegrationIT {
         assertFalse(permissionDefinitions.findById(PermissionId.of("security.orphan.perm")).orElseThrow().active());
     }
 
+    @Test
+    void resyncUpdatesEnglishDisplayNameToRussianWithoutChangingAssignments() {
+        synchronization.synchronize();
+        jdbcTemplate.update(
+                """
+                UPDATE security.permission_definitions
+                SET display_name = ?
+                WHERE permission_id = ?
+                """,
+                "View users",
+                SecurityPermissions.USERS_VIEW.value());
+        assertEquals(
+                "View users",
+                permissionDefinitions.findById(SecurityPermissions.USERS_VIEW).orElseThrow().displayName());
+
+        Long rolePermsBefore = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM security.role_permissions", Long.class);
+        Long userRolesBefore = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM security.user_roles", Long.class);
+        Long overridesBefore = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM security.user_permission_overrides", Long.class);
+        Long usersViewRoleLinks = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*) FROM security.role_permissions
+                WHERE permission_id = ?
+                """,
+                Long.class,
+                SecurityPermissions.USERS_VIEW.value());
+
+        synchronization.synchronize();
+
+        var updated = permissionDefinitions.findById(SecurityPermissions.USERS_VIEW).orElseThrow();
+        assertEquals(SecurityPermissions.USERS_VIEW, updated.permissionId());
+        assertEquals("Просмотр пользователей", updated.displayName());
+        assertEquals(SecurityAdministrationCapability.ID.value(), updated.ownerCapabilityId());
+        assertTrue(updated.active());
+
+        assertEquals(rolePermsBefore, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM security.role_permissions", Long.class));
+        assertEquals(userRolesBefore, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM security.user_roles", Long.class));
+        assertEquals(overridesBefore, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM security.user_permission_overrides", Long.class));
+        assertEquals(usersViewRoleLinks, jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*) FROM security.role_permissions
+                WHERE permission_id = ?
+                """,
+                Long.class,
+                SecurityPermissions.USERS_VIEW.value()));
+    }
+
     @SpringBootApplication
     @Import({
         com.tmp.infra.db.DatabaseAutoConfiguration.class,

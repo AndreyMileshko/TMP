@@ -94,4 +94,29 @@ class OrderManagementPermissionCatalogTest {
                 OrderManagementCapability.VIEW_ORDERS,
                 capability.descriptor().navigationContributions().get(0).viewId());
     }
+
+    @Test
+    void allThirteenDisplayNamesAreExactRussianAndIdsUnchanged() {
+        var byId = OrderManagementPermissionCatalog.all().stream()
+                .collect(Collectors.toMap(
+                        PermissionDescriptor::permissionId, PermissionDescriptor::displayName));
+
+        assertEquals("Просмотр заказов", byId.get("order.order.view"));
+        assertEquals("Создание заказов", byId.get("order.order.create"));
+        assertEquals("Изменение заказов", byId.get("order.order.edit"));
+        assertEquals("Утверждение заказов", byId.get("order.order.approve"));
+        assertEquals("Отмена заказов", byId.get("order.order.cancel"));
+        assertEquals("Просмотр позиций заказа", byId.get("order.item.view"));
+        assertEquals("Создание позиций заказа", byId.get("order.item.create"));
+        assertEquals("Изменение позиций заказа", byId.get("order.item.edit"));
+        assertEquals("Утверждение позиций заказа", byId.get("order.item.approve"));
+        assertEquals("Отмена позиций заказа", byId.get("order.item.cancel"));
+        assertEquals("Создание редакций позиции заказа", byId.get("order.revision.create"));
+        assertEquals("Изменение редакций позиции заказа", byId.get("order.revision.edit"));
+        assertEquals("Просмотр спецификаций позиции заказа", byId.get("order.specification.view"));
+
+        assertEquals(
+                OrderManagementPermissions.all().stream().map(PermissionId::value).collect(Collectors.toSet()),
+                byId.keySet());
+    }
 }

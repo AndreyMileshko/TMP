@@ -83,8 +83,30 @@ class RoleAdministrationViewModelTest {
         assertEquals("Выберите роль", viewModel.errorMessageProperty().get());
     }
 
+    @Test
+    void togglePermissionKeepsSelectedRoleIdWithoutFullListReplacement() {
+        FakeRoles roles = new FakeRoles();
+        RoleSummary existing = new RoleSummary(
+                RoleId.generate(), "Security Administrator", "admin", Set.of(), 0L,
+                Instant.parse("2026-07-23T04:00:00Z"), Instant.parse("2026-07-23T04:00:00Z"));
+        roles.roles.add(existing);
+        RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
+                roles, new EmptyUsers(), new AllowAll());
+        viewModel.select(existing);
+        int listCallsBeforeToggle = roles.listRolesCalls;
+
+        viewModel.togglePermission(SecurityPermissions.USERS_VIEW, true);
+
+        assertEquals(existing.id(), viewModel.selectedRoleId());
+        assertTrue(viewModel.isPermissionGrantedOnSelected(SecurityPermissions.USERS_VIEW));
+        assertEquals(1, viewModel.roleList().size());
+        assertEquals(existing.id(), viewModel.roleList().get(0).id());
+        assertEquals(listCallsBeforeToggle, roles.listRolesCalls);
+    }
+
     private static class FakeRoles implements RoleAdministrationService {
         private final List<RoleSummary> roles = new ArrayList<>();
+        private int listRolesCalls;
 
         @Override
         public RoleSummary createRole(String name, String description) {
@@ -102,12 +124,36 @@ class RoleAdministrationViewModelTest {
 
         @Override
         public RoleSummary grantPermissionToRole(RoleId roleId, PermissionId permissionId) {
-            return roles.get(0);
+            RoleSummary current = roles.stream().filter(r -> r.id().equals(roleId)).findFirst().orElseThrow();
+            java.util.HashSet<PermissionId> next = new java.util.HashSet<>(current.permissionIds());
+            next.add(permissionId);
+            RoleSummary updated = new RoleSummary(
+                    current.id(),
+                    current.name(),
+                    current.description(),
+                    next,
+                    current.version() + 1,
+                    current.createdAt(),
+                    Instant.parse("2026-07-23T05:00:00Z"));
+            roles.set(roles.indexOf(current), updated);
+            return updated;
         }
 
         @Override
         public RoleSummary revokePermissionFromRole(RoleId roleId, PermissionId permissionId) {
-            return roles.get(0);
+            RoleSummary current = roles.stream().filter(r -> r.id().equals(roleId)).findFirst().orElseThrow();
+            java.util.HashSet<PermissionId> next = new java.util.HashSet<>(current.permissionIds());
+            next.remove(permissionId);
+            RoleSummary updated = new RoleSummary(
+                    current.id(),
+                    current.name(),
+                    current.description(),
+                    next,
+                    current.version() + 1,
+                    current.createdAt(),
+                    Instant.parse("2026-07-23T05:00:00Z"));
+            roles.set(roles.indexOf(current), updated);
+            return updated;
         }
 
         @Override
@@ -117,6 +163,7 @@ class RoleAdministrationViewModelTest {
 
         @Override
         public List<RoleSummary> listRoles() {
+            listRolesCalls++;
             return List.copyOf(roles);
         }
 

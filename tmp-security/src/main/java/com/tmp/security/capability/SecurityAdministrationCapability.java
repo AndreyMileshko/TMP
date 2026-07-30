@@ -39,52 +39,52 @@ public final class SecurityAdministrationCapability implements Capability {
                 .permissions(List.of(
                         PermissionDescriptor.of(
                                 SecurityPermissions.USERS_VIEW.value(),
-                                "View users",
-                                "View Security users"),
+                                "Просмотр пользователей",
+                                "Просмотр пользователей Security"),
                         PermissionDescriptor.of(
                                 SecurityPermissions.USERS_CREATE.value(),
-                                "Create users",
-                                "Create Security users"),
+                                "Создание пользователей",
+                                "Создание пользователей Security"),
                         PermissionDescriptor.of(
                                 SecurityPermissions.USERS_UPDATE.value(),
-                                "Update users",
-                                "Update Security users"),
+                                "Изменение пользователей",
+                                "Изменение пользователей Security"),
                         PermissionDescriptor.of(
                                 SecurityPermissions.USERS_DELETE.value(),
-                                "Delete users",
-                                "Logically delete Security users"),
+                                "Удаление пользователей",
+                                "Логическое удаление пользователей Security"),
                         PermissionDescriptor.of(
                                 SecurityPermissions.USERS_RESET_PASSWORD.value(),
-                                "Reset passwords",
-                                "Administratively reset user passwords"),
+                                "Сброс паролей пользователей",
+                                "Административный сброс паролей пользователей"),
                         PermissionDescriptor.of(
                                 SecurityPermissions.ROLES_VIEW.value(),
-                                "View roles",
-                                "View Security roles"),
+                                "Просмотр ролей",
+                                "Просмотр ролей Security"),
                         PermissionDescriptor.of(
                                 SecurityPermissions.ROLES_CREATE.value(),
-                                "Create roles",
-                                "Create Security roles"),
+                                "Создание ролей",
+                                "Создание ролей Security"),
                         PermissionDescriptor.of(
                                 SecurityPermissions.ROLES_UPDATE.value(),
-                                "Update roles",
-                                "Update Security roles and their permissions"),
+                                "Изменение ролей",
+                                "Изменение ролей Security и их разрешений"),
                         PermissionDescriptor.of(
                                 SecurityPermissions.ROLES_DELETE.value(),
-                                "Delete roles",
-                                "Delete Security roles"),
+                                "Удаление ролей",
+                                "Удаление ролей Security"),
                         PermissionDescriptor.of(
                                 SecurityPermissions.ROLES_ASSIGN.value(),
-                                "Assign roles",
-                                "Assign and revoke roles for users"),
+                                "Назначение и отзыв ролей",
+                                "Назначение и отзыв ролей у пользователей"),
                         PermissionDescriptor.of(
                                 SecurityPermissions.PERMISSIONS_ASSIGN.value(),
-                                "Assign permissions",
-                                "Grant or revoke individual user permissions"),
+                                "Управление разрешениями ролей",
+                                "Назначение и отзыв разрешений ролей и индивидуальных разрешений"),
                         PermissionDescriptor.of(
                                 SecurityPermissions.AUDIT_VIEW.value(),
-                                "View security audit",
-                                "View Security audit events")))
+                                "Просмотр журнала безопасности",
+                                "Просмотр событий журнала безопасности")))
                 .commands(List.of(
                         CommandDescriptor.of(
                                 NAV_USERS, "Users administration", List.of(SecurityPermissions.USERS_VIEW.value())),

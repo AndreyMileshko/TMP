@@ -21,56 +21,56 @@ public final class OrderManagementPermissionCatalog {
             List.of(
                     descriptor(
                             OrderManagementPermissions.ORDER_VIEW,
-                            "View orders",
-                            "View customer orders"),
+                            "Просмотр заказов",
+                            "Просмотр заказов клиентов"),
                     descriptor(
                             OrderManagementPermissions.ORDER_CREATE,
-                            "Create order",
-                            "Create a draft customer order"),
+                            "Создание заказов",
+                            "Создание черновика заказа клиента"),
                     descriptor(
                             OrderManagementPermissions.ORDER_EDIT,
-                            "Edit order",
-                            "Edit commercial fields of a draft customer order"),
+                            "Изменение заказов",
+                            "Изменение коммерческих полей черновика заказа"),
                     descriptor(
                             OrderManagementPermissions.ORDER_APPROVE,
-                            "Approve order",
-                            "Approve a draft customer order"),
+                            "Утверждение заказов",
+                            "Утверждение черновика заказа клиента"),
                     descriptor(
                             OrderManagementPermissions.ORDER_CANCEL,
-                            "Cancel order",
-                            "Cancel a draft customer order"),
+                            "Отмена заказов",
+                            "Отмена черновика заказа клиента"),
                     descriptor(
                             OrderManagementPermissions.ITEM_VIEW,
-                            "View order items",
-                            "View order items and revisions"),
+                            "Просмотр позиций заказа",
+                            "Просмотр позиций заказа и редакций"),
                     descriptor(
                             OrderManagementPermissions.ITEM_CREATE,
-                            "Create order item",
-                            "Create a draft order item"),
+                            "Создание позиций заказа",
+                            "Создание черновика позиции заказа"),
                     descriptor(
                             OrderManagementPermissions.ITEM_EDIT,
-                            "Edit order item",
-                            "Edit commercial fields of a draft order item"),
+                            "Изменение позиций заказа",
+                            "Изменение коммерческих полей черновика позиции заказа"),
                     descriptor(
                             OrderManagementPermissions.ITEM_APPROVE,
-                            "Approve order item revision",
-                            "Approve a draft order item revision"),
+                            "Утверждение позиций заказа",
+                            "Утверждение черновика редакции позиции заказа"),
                     descriptor(
                             OrderManagementPermissions.ITEM_CANCEL,
-                            "Cancel order item",
-                            "Cancel a draft order item"),
+                            "Отмена позиций заказа",
+                            "Отмена черновика позиции заказа"),
                     descriptor(
                             OrderManagementPermissions.REVISION_CREATE,
-                            "Create revision",
-                            "Create a new draft order item revision"),
+                            "Создание редакций позиции заказа",
+                            "Создание новой черновой редакции позиции заказа"),
                     descriptor(
                             OrderManagementPermissions.REVISION_EDIT,
-                            "Edit revision",
-                            "Edit a draft order item revision"),
+                            "Изменение редакций позиции заказа",
+                            "Изменение черновой редакции позиции заказа"),
                     descriptor(
                             OrderManagementPermissions.SPECIFICATION_VIEW,
-                            "View specification",
-                            "View item specification lines"));
+                            "Просмотр спецификаций позиции заказа",
+                            "Просмотр строк спецификации позиции заказа"));
 
     private static final Map<String, PermissionDescriptor> BY_ID =
             DESCRIPTORS.stream()

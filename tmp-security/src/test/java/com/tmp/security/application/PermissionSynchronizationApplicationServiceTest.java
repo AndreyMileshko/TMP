@@ -146,6 +146,35 @@ class PermissionSynchronizationApplicationServiceTest {
                 com.tmp.security.domain.PermissionOwnershipConflictException.class, service::synchronize);
     }
 
+    @Test
+    void synchronizeUpdatesExistingDisplayNameMetadata() {
+        FakeCapabilityEngine engine = new FakeCapabilityEngine();
+        InMemoryPermissionDefinitions definitions = new InMemoryPermissionDefinitions();
+        definitions.save(PermissionDefinition.register(
+                VIEW, CAP_ID.value(), "View users", "old-desc", CLOCK));
+        engine.put(
+                CapabilityDescriptor.builder()
+                        .id(CAP_ID)
+                        .name("Security Administration")
+                        .version(CapabilityVersion.of("1.0.0"))
+                        .description("test")
+                        .permissions(List.of(PermissionDescriptor.of(
+                                VIEW.value(), "Просмотр пользователей", "new-desc")))
+                        .build(),
+                CapabilityLifecycleState.ACTIVE);
+        PermissionSynchronizationApplicationService service =
+                new PermissionSynchronizationApplicationService(engine, definitions, new InMemoryAudit(), CLOCK);
+
+        service.synchronize();
+
+        PermissionDefinition updated = definitions.findById(VIEW).orElseThrow();
+        assertEquals(VIEW, updated.permissionId());
+        assertEquals("Просмотр пользователей", updated.displayName());
+        assertEquals("new-desc", updated.description());
+        assertTrue(updated.active());
+        assertEquals(CAP_ID.value(), updated.ownerCapabilityId());
+    }
+
     private static CapabilityDescriptor descriptor() {
         return CapabilityDescriptor.builder()
                 .id(CAP_ID)

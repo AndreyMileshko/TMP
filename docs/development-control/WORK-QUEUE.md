@@ -8553,7 +8553,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-050 — Manual packaged GUI smoke and Stage 5 close
 
-**Status:** IN_PROGRESS — WAITING_USER_RETEST
+**Status:** IN_PROGRESS — WAITING_USER_RETEST-2
 **Stage:** 5
 **Depends on:** STAGE5-049
 

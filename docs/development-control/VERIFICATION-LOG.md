@@ -2,6 +2,37 @@
 
 ## Latest result
 
+**Date:** 2026-07-30  
+**Scope:** Stage 5.11D-FIX-2 — Roles UI selection and permission localization (`STAGE5-050` retest-2 pending)  
+**Overall:** WAITING_USER_RETEST-2
+
+| Verification | Command / evidence | Result |
+|---|---|---|
+| Security | `mvn -q -pl tmp-security -am test` | PASSED |
+| Order Management | `mvn -q -pl tmp-order-management -am test` | PASSED |
+| UI Shell | `mvn -q -pl tmp-ui-shell -am test` | PASSED |
+| Bootstrap | `mvn -q -pl tmp-bootstrap-app -am test` | PASSED |
+| Architecture Tests | `mvn -q -pl tmp-architecture-tests -am test` | PASSED |
+| Package build | `mvn -q -Ppackage clean verify` | PASSED (EXIT_CODE=0) |
+| PackagingSmokeIT | failsafe `-Ppackage` | PASSED (EXIT_CODE=0) |
+| TMP.exe | `dist\jpackage\TMP\TMP.exe` | PRESENT |
+| DEFECT-5 regression | `RoleAdministrationSelectionFxTest` (ON/OFF) | PASSED |
+| UI-LOCALIZATION-1 | Order/Security/Sample displayName tests + sync IT | PASSED |
+| Manual GUI smoke | User checklist | NOT COMPLETED |
+| STAGE5-048 | WORK-QUEUE | DONE |
+| STAGE5-049 | WORK-QUEUE | DONE |
+| STAGE5-050 | WORK-QUEUE | IN_PROGRESS — WAITING_USER_RETEST-2 |
+| Stage 5 | - | IN_PROGRESS (not closed) |
+| Stage 6 | - | NOT STARTED |
+| Git | - | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+## Previous latest (2026-07-28 Stage 5.11D-FIX-1)
+
 **Date:** 2026-07-28  
 **Scope:** Stage 5.11D-FIX-1 — Manual smoke blocker corrections (`STAGE5-050` retest pending)  
 **Overall:** WAITING_USER_RETEST

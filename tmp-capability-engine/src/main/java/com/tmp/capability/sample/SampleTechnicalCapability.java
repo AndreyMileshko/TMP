@@ -38,7 +38,9 @@ public final class SampleTechnicalCapability implements Capability {
                 .version(VERSION)
                 .description("Technical fixture capability with no business logic")
                 .permissions(List.of(PermissionDescriptor.of(
-                        "sample.technical.view", "View sample technical data", "Technical fixture permission")))
+                        "sample.technical.view",
+                        "Просмотр тестовых технических данных",
+                        "Техническое тестовое разрешение")))
                 .commands(List.of(CommandDescriptor.of(
                         "sample.technical.run", "Run sample technical action", List.of("sample.technical.view"))))
                 .views(List.of(ViewDescriptor.of(
