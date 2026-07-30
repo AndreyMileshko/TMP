@@ -3,6 +3,45 @@
 ## Latest result
 
 **Date:** 2026-07-30  
+**Scope:** STAGE5-050 — Manual Packaged GUI Smoke — Core Order Management  
+**Overall:** PASS (user-confirmed)
+
+| Verification | Evidence | Result |
+|---|---|---|
+| PostgreSQL Docker | Container `tmp-stage5-pg`, volume preserved | PASS |
+| DB connectivity | `jdbc:postgresql://localhost:55432/tmp_gui_stage5` (port 55432 — 54325 unavailable due to Windows reserved port range) | PASS |
+| Packaged app launch | `TMP.exe` | PASS |
+| Admin login | User session | PASS |
+| Russian permission display names | Roles screen — Security Administrator | PASS |
+| Technical permission IDs in parentheses | e.g. `sample.technical.view` | PASS |
+| FIX 2 — role selection on checkbox ON | `sample.technical.view` granted; Security Administrator row stays selected | PASS |
+| FIX 2 — role selection on checkbox OFF | Permission revoked; Security Administrator row stays selected | PASS |
+| Order persistence after restart | TEST-ITEM-CANCEL (DRAFT), TEST-CANCEL-001 (CANCELLED), TEST-002 (APPROVED), TEST-001 (APPROVED) | PASS |
+| Clean shutdown | Application closed without errors | PASS |
+| Production code changed | — | NO |
+| FXML/CSS changed | — | NO |
+| Database migrations created | — | NO |
+| Dependencies changed | — | NO |
+| Automated tests executed | — | NOT REQUIRED (manual smoke) |
+| STAGE5-048 | WORK-QUEUE | DONE |
+| STAGE5-049 | WORK-QUEUE | DONE |
+| STAGE5-050 | WORK-QUEUE | DONE — PASS |
+| STAGE5-051..057 | WORK-QUEUE | NOT STARTED |
+| Stage 5 Core | STATUS | IMPLEMENTED — MANUAL SMOKE PASS |
+| Stage 5 Order Intake Extension | STATUS | NOT STARTED |
+| Stage 5 | STATUS | IN_PROGRESS |
+| Stage 6 | STATUS | NOT STARTED |
+| Active blockers | BLOCKERS | NONE |
+| Git | — | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+## Previous latest (2026-07-30 Stage 5 Documentation Fix)
+
+**Date:** 2026-07-30  
 **Scope:** Stage 5 Documentation Fix — Order Intake Planning Consistency  
 **Overall:** DOCUMENTATION CONSISTENCY CORRECTION ONLY
 
@@ -10,20 +49,8 @@
 |---|---|---|
 | Documentation consistency correction only | Spec §27.7, ADR-030, Manifest, WORK-QUEUE, STATUS, CONTEXT-MAP, BLOCKERS | DONE |
 | Production code changed | — | NO |
-| FXML/CSS changed | — | NO |
-| Database migrations created | — | NO |
-| Dependencies changed | — | NO |
-| Automated tests executed | — | NOT REQUIRED |
-| GUI launched | — | NO |
-| Manual GUI smoke | STAGE5-050 | STILL INCOMPLETE |
-| STAGE5-048 | WORK-QUEUE | DONE |
-| STAGE5-049 | WORK-QUEUE | DONE |
+| Manual GUI smoke | STAGE5-050 | STILL INCOMPLETE (at time of doc fix) |
 | STAGE5-050 | WORK-QUEUE | IN_PROGRESS — WAITING_USER_RETEST-2 |
-| STAGE5-051..057 | WORK-QUEUE | NOT STARTED |
-| Stage 5 Core | STATUS | IMPLEMENTED — WAITING USER RETEST |
-| Stage 5 Order Intake Extension | STATUS | NOT STARTED |
-| Stage 5 | STATUS | IN_PROGRESS |
-| Stage 6 | STATUS | NOT STARTED |
 | Active blockers | BLOCKERS | NONE |
 | Git | — | NOT EXECUTED |
 

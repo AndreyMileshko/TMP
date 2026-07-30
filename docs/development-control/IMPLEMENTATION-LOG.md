@@ -43,6 +43,51 @@ User completes STAGE5-050 GUI retest-2. Do not start STAGE5-051 until STAGE5-050
 
 ---
 
+## STAGE5-050 — Manual packaged GUI smoke (user verification complete)
+
+**Date:** 2026-07-30  
+**Stage:** 5  
+**Status:** DONE — PASS (user-confirmed)
+
+### Result
+
+User completed manual packaged GUI smoke for Core Order Management. Documentation-only closure; no production code changes.
+
+### Verification summary
+
+| Check | Result |
+|---|---|
+| PostgreSQL Docker (`tmp-stage5-pg`, volume preserved) | PASS |
+| DB port `55432` (54325 unavailable — Windows reserved range) | PASS |
+| Database `tmp_gui_stage5` | PASS |
+| `TMP.exe` launch + JDBC connect | PASS |
+| Admin login | PASS |
+| Russian permission display names + technical IDs in parentheses | PASS |
+| Role selection preserved on checkbox ON (`sample.technical.view`) | PASS |
+| Role selection preserved on checkbox OFF | PASS |
+| Order persistence after restart (4 orders) | PASS |
+| Clean application shutdown | PASS |
+
+### Orders confirmed after restart
+
+- TEST-ITEM-CANCEL — DRAFT
+- TEST-CANCEL-001 — CANCELLED
+- TEST-002 — APPROVED
+- TEST-001 — APPROVED
+
+### Files modified
+
+- `docs/development-control/STATUS.md`
+- `docs/development-control/WORK-QUEUE.md`
+- `docs/development-control/IMPLEMENTATION-LOG.md`
+- `docs/development-control/VERIFICATION-LOG.md`
+
+### Next
+
+`STAGE5-051` remains NOT STARTED. Await user authorization before Order Intake implementation.
+
+---
+
 # Entry Template
 
 ## `<TASK-ID>` ? `<title>`

@@ -3,22 +3,21 @@
 **Mode:** Autonomous Cursor Agent  
 **Project status:** IN_PROGRESS  
 **Current Stage:** Stage 5 — Order Management  
-**Current Task:** STAGE5-050 (IN_PROGRESS — WAITING_USER_RETEST-2)  
-**Last completed task:** STAGE5-049  
+**Current Task:** none (no IN_PROGRESS task)  
+**Last completed task:** STAGE5-050  
 **Active blockers:** NONE  
 
 ```text
-STAGE5-050 = IN_PROGRESS — WAITING_USER_RETEST-2
+STAGE5-050 = DONE (manual packaged GUI smoke — PASS)
 STAGE5-051…057 = NOT STARTED
-Stage 5 Core Order Management = IMPLEMENTED — WAITING USER RETEST
+Stage 5 Core Order Management = IMPLEMENTED — MANUAL SMOKE PASS
 Stage 5 Order Intake Extension = NOT STARTED
 Stage 5 = IN_PROGRESS
 Stage 6 = NOT STARTED
 
-Core implementation completed; FIX 2 awaits user retest.
+Core Order Management manual smoke completed by user (2026-07-30).
 Order Intake extension STAGE5-051…057 not started.
-Only one IN_PROGRESS task: STAGE5-050.
-STAGE5-051 cannot start until STAGE5-050 = DONE.
+STAGE5-051 may be authorized next; agent does not start it without user command.
 ```
 
 ---
@@ -44,14 +43,14 @@ STAGE5-051 cannot start until STAGE5-050 = DONE.
 
 | Part | Status |
 |---|---|
-| Core Order Management (`STAGE5-001..049`) | IMPLEMENTED — WAITING USER RETEST (`STAGE5-050`) |
+| Core Order Management (`STAGE5-001..050`) | IMPLEMENTED — MANUAL SMOKE PASS |
 | Order Intake Extension (`STAGE5-051..057`) | NOT STARTED |
 | Stage 5 overall | IN_PROGRESS |
 
-`STAGE5-050` = Manual Packaged GUI Smoke — Core Order Management. Successful completion sets `STAGE5-050 = DONE` and leaves Stage 5 `IN_PROGRESS`. Stage 5 closes only after `STAGE5-051..057` and final intake smoke.
+`STAGE5-050` = Manual Packaged GUI Smoke — Core Order Management — **DONE (PASS)**. Stage 5 remains `IN_PROGRESS`. Stage 5 closes only after `STAGE5-051..057` and final intake smoke (`STAGE5-057`).
 
 ---
 
 **Stage 0–4:** DONE 100%.
 
-**Далее:** пользователь завершает GUI retest FIX 2 для `STAGE5-050`. После `STAGE5-050 = DONE` можно авторизовать `STAGE5-051`. Agent не запускает `TMP.exe`, не закрывает Stage 5, не начинает Stage 6. Git — только пользователь.
+**Далее:** пользователь может авторизовать `STAGE5-051`. Agent не начинает `STAGE5-051` без отдельной команды, не закрывает Stage 5, не начинает Stage 6. Git — только пользователь.

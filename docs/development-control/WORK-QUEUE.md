@@ -8553,7 +8553,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ## STAGE5-050 — Manual Packaged GUI Smoke — Core Order Management
 
-**Status:** IN_PROGRESS — WAITING_USER_RETEST-2
+**Status:** DONE — PASS (user-confirmed 2026-07-30)
 **Stage:** 5
 **Depends on:** STAGE5-049
 
@@ -8564,24 +8564,24 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 - **Required code context:** упакованное приложение.
 - **Files allowed to change:** STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Acceptance criteria:**
-  - [ ] FIX 2 проверен пользователем;
-  - [ ] роль остаётся выделенной после изменения checkbox;
-  - [ ] русские названия разрешений отображаются корректно;
-  - [ ] packaged application запускается;
-  - [ ] данные сохраняются после перезапуска;
-  - [ ] core Order Management smoke completed;
-  - [ ] Stage 5 remains IN_PROGRESS;
-  - [ ] STAGE5-051 remains NOT STARTED until STAGE5-050 is DONE.
-- **Verification commands:** `Manual: packaged app (user-confirmed core checklist)`
+  - [x] FIX 2 проверен пользователем;
+  - [x] роль остаётся выделенной после изменения checkbox;
+  - [x] русские названия разрешений отображаются корректно;
+  - [x] packaged application запускается;
+  - [x] данные сохраняются после перезапуска;
+  - [x] core Order Management smoke completed;
+  - [x] Stage 5 remains IN_PROGRESS;
+  - [x] STAGE5-051 remains NOT STARTED until STAGE5-050 is DONE.
+- **Verification commands:** `Manual: packaged app (user-confirmed core checklist)` — **PASS**
+- **Manual verification notes:** PostgreSQL в Docker (`tmp-stage5-pg`, volume сохранён); порт **55432** (вместо 54325 — Windows reserved port range); БД `tmp_gui_stage5`; JDBC `jdbc:postgresql://localhost:55432/tmp_gui_stage5`; `TMP.exe` запущен; admin login OK; Roles — Security Administrator; русские display names + technical IDs в скобках; checkbox ON/OFF для `sample.technical.view` — выделение роли сохранено; Orders после перезапуска: TEST-ITEM-CANCEL (DRAFT), TEST-CANCEL-001 (CANCELLED), TEST-002 (APPROVED), TEST-001 (APPROVED); приложение закрыто штатно.
 - **Documentation updates:** STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** пользователь не подтвердил smoke.
-- **On success:** `STAGE5-050 = DONE`; Stage 5 остаётся `IN_PROGRESS`; Stage 6 не стартует.
+- **Result:** `STAGE5-050 = DONE`; Stage 5 остаётся `IN_PROGRESS`; Stage 6 не стартует; `STAGE5-051` остаётся `NOT STARTED`.
 
 ---
 
 # Stage 5 Extension — Order Intake MVP
 
-> Strict sequencing: only after `STAGE5-050 = DONE` may `STAGE5-051` become `READY`/`IN_PROGRESS`. While `STAGE5-050` is `IN_PROGRESS`, tasks `STAGE5-051…057` remain `NOT STARTED`. Stage 5 closes only after `STAGE5-057`. Stage 6 remains NOT STARTED.
+> `STAGE5-050 = DONE (PASS)`. Tasks `STAGE5-051…057` remain `NOT STARTED` until user authorizes implementation. Stage 5 closes only after `STAGE5-057`. Stage 6 remains NOT STARTED.
 
 ## STAGE5-051 — Order Item and Specification Contracts
 
