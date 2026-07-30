@@ -8567,3 +8567,385 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 - **Verification commands:** `Manual: packaged app (user-confirmed checklist)`
 - **Documentation updates:** STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** пользователь не подтвердил smoke.
+
+---
+
+# Stage 5 Extension — Order Intake MVP
+
+> Documentation-only planning completed. Tasks `STAGE5-051..057` remain **NOT STARTED** until the user explicitly authorizes implementation. `STAGE5-050` stays `IN_PROGRESS — WAITING_USER_RETEST-2`. Stage 6 remains NOT STARTED.
+
+## STAGE5-051 — Order Item and Specification Contracts
+
+**Status:** NOT STARTED  
+**Stage:** 5  
+**Depends on:** STAGE5-050 (may proceed after user authorizes extension even if STAGE5-050 still waiting retest; must not close STAGE5-050)  
+**Module:** tmp-order-management (+ migration)
+
+### Goal
+
+Привести контракты Order Item и Specification Line к Order Intake MVP: `externalPositionNumber`, `productQuantity`↔`OrderedQuantity`, `color`, `lengthMm`, `lineQuantity`; безопасно удалить/заменить `consumptionNorm`; обновить domain, DTO, payload, Query API, validation, Flyway.
+
+### Allowed context
+
+- Order-Management-Specification §5.2–5.4, §27;
+- ADR-029;
+- `com.tmp.order.domain`, `com.tmp.order.api`, `com.tmp.order.application.payload`, persistence/migrations V6–V8;
+- соответствующие unit/integration tests.
+
+### Forbidden context
+
+- Warehouse / Production / Cutting / Analytics full trees;
+- Firebird;
+- STXT parser implementation;
+- JavaFX UI (кроме чтения контрактов api.ui при совместимости).
+
+### Files allowed to change
+
+- `tmp-order-management` domain/api/application/persistence/resources/db/migration (new V9+ only);
+- related tests in `tmp-order-management`;
+- control docs.
+
+### Implementation steps
+
+1. Добавить `externalPositionNumber` на Item commercial data + persistence + DTO + payloads.
+2. Зафиксировать `OrderedQuantity` как единственный источник `productQuantity` (целые > 0).
+3. Расширить `SpecificationLine`: `color` nullable, `lengthMm` nullable (>0 если задано), `lineQuantity` (бывший quantity).
+4. Удалить/заменить `consumptionNorm` во всех слоях одним согласованным контрактом; миграция данных существующих строк.
+5. Обновить validation и Public Query API без orientation-полей.
+6. Тесты backward compatibility / migration.
+
+### Acceptance criteria
+
+- [ ] Контракты соответствуют Spec §27;
+- [ ] `consumptionNorm` не остаётся параллельным смыслом length/quantity;
+- [ ] permission IDs / role assignments не затронуты;
+- [ ] новые поля покрыты unit + persistence tests.
+
+### Required tests
+
+Domain VO/aggregate tests; payload mapping tests; Flyway/IT for new columns; Query DTO tests.
+
+### Required documentation updates
+
+WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG; Spec sync if names finalized differently.
+
+### Stop conditions
+
+Нельзя удалить `consumptionNorm` без миграции; конфликт с внешним модулем (не ожидается); не решён blocker коммерческого DRAFT, если задача пытается менять `OrderCommercialData` без авторизации.
+
+---
+
+## STAGE5-052 — Manual Entry UI
+
+**Status:** NOT STARTED  
+**Stage:** 5  
+**Depends on:** STAGE5-051  
+**Module:** tmp-ui-shell
+
+### Goal
+
+Ручной ввод MVP-полей позиции и спецификации в JavaFX UI с русскими подписями и валидацией.
+
+### Allowed context
+
+- Spec §27.8;
+- api.ui contracts после STAGE5-051;
+- Order Item / Specification editors в `tmp-ui-shell`.
+
+### Forbidden context
+
+- Import parser; Firebird; domain persistence adapters; Warehouse/Production.
+
+### Files allowed to change
+
+- `tmp-ui-shell` order item / specification FXML, Controller, ViewModel, messages, tests;
+- control docs.
+
+### Implementation steps
+
+1. Поля: внешний номер позиции, количество изделий, цвет, длина мм (optional), количество строки.
+2. Отображение утверждённой спецификации read-only; редактирование только draft.
+3. UI validation (`lengthMm` empty→null; `<=0` error).
+4. Русские labels/messages.
+5. JavaFX/controller tests.
+
+### Acceptance criteria
+
+- [ ] Ручной ввод создаёт ту же структуру, что импорт;
+- [ ] `lengthMm` опционален;
+- [ ] нет orientation UI;
+- [ ] нет прямых repository вызовов из UI.
+
+### Required tests
+
+ViewModel + Controller FX tests for draft edit / approved read-only / validation.
+
+### Required documentation updates
+
+WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+
+### Stop conditions
+
+Контракты STAGE5-051 не готовы; UI invents fields not in API.
+
+---
+
+## STAGE5-053 — Import Core
+
+**Status:** NOT STARTED  
+**Stage:** 5  
+**Depends on:** STAGE5-051; resolution of blocker STAGE5-INTAKE-COMMERCIAL-DRAFT  
+**Module:** tmp-order-management
+
+### Goal
+
+Source-neutral import model, preview/validation, application service, атомарный confirmed import через штатные services, конфликт существующего заказа, метаданные защиты от повторного импорта.
+
+### Allowed context
+
+- Spec §27.4–27.7; ADR-029;
+- Order Management application/document services;
+- security public API for actor identity (audit metadata).
+
+### Forbidden context
+
+- STXT byte parsing details (STAGE5-054); JavaFX; Firebird; direct JDBC inserts bypassing services.
+
+### Files allowed to change
+
+- `tmp-order-management` application/import (+ persistence for import metadata if needed);
+- tests; control docs.
+
+### Implementation steps
+
+1. Source-neutral model + preview/error/warning types.
+2. Validation rules (one order, quantities, length, no double multiply).
+3. Preview path — zero persistence.
+4. Confirm path — single transaction via existing create/update document flows.
+5. Existing orderNumber → controlled conflict.
+6. Import metadata (`sourceType`, file name, checksum, importedAt/By, orderId).
+7. Integration tests (atomic success/rollback, duplicate, conflict).
+
+### Acceptance criteria
+
+- [ ] Preview не пишет в БД;
+- [ ] Confirm атомарный;
+- [ ] Существующий заказ не merge;
+- [ ] Нет SQL leakage в user messages.
+
+### Required tests
+
+Application unit + PostgreSQL IT for atomicity, conflict, duplicate protection.
+
+### Required documentation updates
+
+WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+
+### Stop conditions
+
+Blocker коммерческого DRAFT не решён; попытка прямой записи из адаптера.
+
+---
+
+## STAGE5-054 — STXT File Adapter
+
+**Status:** NOT STARTED  
+**Stage:** 5  
+**Depends on:** STAGE5-053  
+**Module:** tmp-order-management
+
+### Goal
+
+Файловый адаптер: кодировки, разделитель `" / "`, заголовки, decimal comma, мм, nullable length, один заказ в файле → source-neutral model.
+
+### Allowed context
+
+- Spec §27.5; import model from STAGE5-053;
+- fixture based on confirmed format.
+
+### Forbidden context
+
+- Persistence; Document post; JavaFX; Firebird.
+
+### Files allowed to change
+
+- adapter/parser classes + unit fixtures/tests under `tmp-order-management`;
+- control docs.
+
+### Implementation steps
+
+1. Encoding detection Windows-1251 / UTF-8 / UTF-8 BOM.
+2. Header alias mapping; required columns.
+3. Row parse with structural delimiter; preserve `/` inside names.
+4. Size normalization to `lengthMm`.
+5. Multi-orderNumber rejection.
+6. Parser unit tests + fixtures.
+
+### Acceptance criteria
+
+- [ ] Адаптер только строит model/errors;
+- [ ] Пустые строки игнорируются;
+- [ ] Неизвестный header → warning, не silent domain field.
+
+### Required tests
+
+Parser unit tests covering encoding, delimiter, size, multi-order, empty lines.
+
+### Required documentation updates
+
+WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+
+### Stop conditions
+
+Adapter writes DB or calls UI.
+
+---
+
+## STAGE5-055 — Import GUI
+
+**Status:** NOT STARTED  
+**Stage:** 5  
+**Depends on:** STAGE5-052, STAGE5-054  
+**Module:** tmp-ui-shell (+ bootstrap wiring)
+
+### Goal
+
+UI выбора файла, preview, ошибки/предупреждения, confirm/cancel, результат, конфликт существующего заказа; без частичного сохранения.
+
+### Allowed context
+
+- Spec §27.6; public import application API;
+- `tmp-ui-shell`, bootstrap wiring.
+
+### Forbidden context
+
+- Parser internals; Firebird; direct repositories.
+
+### Files allowed to change
+
+- Import screen FXML/Controller/ViewModel/tests;
+- bootstrap screen registration;
+- control docs.
+
+### Implementation steps
+
+1. File chooser + preview binding.
+2. Error/warning presentation (row/column/value/message).
+3. Confirm/cancel; cancel leaves DB unchanged.
+4. Conflict message for existing order.
+5. FX/controller tests.
+
+### Acceptance criteria
+
+- [ ] Confirm только после preview;
+- [ ] Cancel без persistence;
+- [ ] Нет stack trace пользователю.
+
+### Required tests
+
+JavaFX/controller tests for preview/confirm/cancel/conflict.
+
+### Required documentation updates
+
+WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+
+### Stop conditions
+
+UI posts documents bypassing import service.
+
+---
+
+## STAGE5-056 — Automated Verification
+
+**Status:** NOT STARTED  
+**Stage:** 5  
+**Depends on:** STAGE5-055  
+**Module:** multi-module verification
+
+### Goal
+
+Полный автоматический gate Order Intake + regression Stage 5: domain/document/persistence/parser/import/UI/architecture + package build + PackagingSmokeIT.
+
+### Allowed context
+
+- All Stage 5 Order Intake tests; architecture tests; packaging.
+
+### Forbidden context
+
+- New features; Stage 6; manual GUI execution by agent.
+
+### Files allowed to change
+
+- Test fixes only within Order Intake / Stage 5 scope;
+- control docs.
+
+### Implementation steps
+
+1. Run module and reactor tests.
+2. Fix only in-scope failures.
+3. `mvn -Ppackage clean verify`; PackagingSmokeIT = 0 failures/errors/skipped.
+
+### Acceptance criteria
+
+- [ ] All listed gates green;
+- [ ] PackagingSmokeIT executed successfully.
+
+### Required tests
+
+As listed in Manifest §15 / Spec verification.
+
+### Required documentation updates
+
+VERIFICATION-LOG, IMPLEMENTATION-LOG, STATUS, WORK-QUEUE.
+
+### Stop conditions
+
+Failure outside Stage 5 scope; packaging broken.
+
+---
+
+## STAGE5-057 — Manual GUI Smoke (Order Intake)
+
+**Status:** NOT STARTED  
+**Stage:** 5  
+**Depends on:** STAGE5-056  
+**Module:** none (manual)
+
+### Goal
+
+Пользовательский smoke: ручной заказ/позиция/спецификация (linear + non-linear), импорт preview/cancel/confirm, existing order, повторная загрузка, persistence after restart, регрессия Stage 5, русские сообщения.
+
+### Allowed context
+
+- Packaged app; Spec §27 checklist; Manifest exit criteria.
+
+### Forbidden context
+
+- Agent launching TMP.exe; Stage 6; closing STAGE5-050 without user.
+
+### Files allowed to change
+
+- STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG only after user PASS/FAIL.
+
+### Implementation steps
+
+1. Prepare checklist for user.
+2. Wait for user confirmation.
+3. Record result; do not start Stage 6.
+
+### Acceptance criteria
+
+- [ ] User PASS on Order Intake checklist;
+- [ ] Stage 5 close only if STAGE5-050 and STAGE5-057 both confirmed per control rules.
+
+### Required tests
+
+Manual only.
+
+### Required documentation updates
+
+Control docs after user result.
+
+### Stop conditions
+
+User FAIL or incomplete smoke.

@@ -1,8 +1,8 @@
 # Stage 5 Manifest — Order Management
 
 **Stage:** 5 — Order Management
-**Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.2)
-**Status:** Start Gate PASSED (STAGE5-000 → STAGE5-000-FIX); implementation not started.
+**Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.3)
+**Status:** Implementation IN_PROGRESS; STAGE5-050 waiting user retest-2; Order Intake extension tasks STAGE5-051..057 NOT STARTED.
 
 ---
 
@@ -121,16 +121,16 @@
 
 ## 14. UI scope
 
-В `tmp-ui-shell`: навигация, Order list (через paginated Query API), Order editor, Item + Revision editor, Specification editor (read-only после утверждения), обработка ошибок. UI создаёт платформенный документ, сохраняет typed draft payload, запрашивает проведение; прямых мутаций агрегатов нет.
+В `tmp-ui-shell`: навигация, Order list (через paginated Query API), Order editor, Item + Revision editor, Specification editor (read-only после утверждения), обработка ошибок; **расширение Order Intake:** ручной ввод `externalPositionNumber` / количества изделий / `color` / `lengthMm` / `lineQuantity`; экран импорта STXT (выбор файла, preview, confirm/cancel). UI создаёт платформенный документ, сохраняет typed draft payload, запрашивает проведение; прямых мутаций агрегатов нет. Файловый адаптер не вызывается из Controller напрямую для persistence.
 
 ---
 
 ## 15. Testing scope
 
-- Unit: domain (агрегаты, инварианты, active/draft revision, immutability), application (commands/processors), payload use cases.
-- Integration (PostgreSQL Testcontainers): schema/constraints, optimistic lock, revision immutability, payload persistence, document lifecycle (post/unpost-rejected/close/delete), idempotency (повторный post), transaction rollback (сбой в onPost откатывает всё, событие не публикуется), end-to-end документный поток, Query API поиск/пагинация.
-- Architecture tests: границы пакетов; отсутствие production-owned данных; отсутствие внешнего mutating API; payload не в Platform Core; зависимость только от разрешённых публичных API; транзакционная граница.
-- Full reactor `mvn clean verify`; package profile; manual packaged GUI smoke (пользователь).
+- Unit: domain (агрегаты, инварианты, active/draft revision, immutability), application (commands/processors), payload use cases; **Order Intake:** parser, import validation, source-neutral model.
+- Integration (PostgreSQL Testcontainers): schema/constraints, optimistic lock, revision immutability, payload persistence, document lifecycle (post/unpost-rejected/close/delete), idempotency (повторный post), transaction rollback (сбой в onPost откатывает всё, событие не публикуется), end-to-end документный поток, Query API поиск/пагинация; **Order Intake:** atomic import, existing-order conflict, duplicate import metadata, rollback.
+- Architecture tests: границы пакетов; отсутствие production-owned данных; отсутствие внешнего mutating API; payload не в Platform Core; зависимость только от разрешённых публичных API; транзакционная граница; **адаптер источника не пишет в persistence напрямую**.
+- Full reactor `mvn clean verify`; package profile; manual packaged GUI smoke (`STAGE5-050` и `STAGE5-057`).
 
 ---
 
@@ -145,29 +145,45 @@
 - добавление/удаление позиций в/из `APPROVED` заказа;
 - коммерческие статусы `IN_PROGRESS`/`COMPLETED`;
 - compile-time зависимости от будущих Capability;
-- прямые mutating-вызовы между Capability.
+- прямые mutating-вызовы между Capability;
+- **Firebird JDBC / прямое подключение к БД «СуперОкна» / фоновый обмен / plugin framework**;
+- **merge/перезапись существующего заказа при импорте**;
+- **orientation / placement в спецификации**;
+- **фиктивные коммерческие значения (`UNKNOWN`/`N/A`/`IMPORT`)**.
 
 ---
 
 ## 17. Порядок реализации
 
-Определён в `WORK-QUEUE.md` (`STAGE5-001..STAGE5-050`): module bootstrap → architecture boundaries → identifiers/VO → domain aggregates → active/draft revision → immutable specification → repository ports → Query API contracts → paginated search contracts → typed payload models → payload application use cases → payload persistence port → payload DB schema (physical typed tables) → payload persistence adapter → **public `TransactionalEventPublisher` contract and adapter** → processing record & idempotency model → processing record schema → processing persistence adapter → document type registration → document lifecycle policy base → Document Processors (один тип на задачу) → aggregate persistence → aggregate Flyway → Security capabilities → UI (навигация/список/редакторы/спецификация/ошибки) → unit tests → persistence ITs → document lifecycle ITs → idempotency tests → transaction rollback tests → architecture tests → full reactor → packaged verify → manual GUI smoke (`STAGE5-050`).
+Core Stage 5 (`STAGE5-001..STAGE5-050`) — выполнен до manual GUI smoke (`STAGE5-050` ещё IN_PROGRESS — WAITING_USER_RETEST-2).
 
-`TransactionalEventPublisher` (публичный контракт + Spring transaction synchronization adapter + тесты publish-after-commit/no-publish-after-rollback) стоит **до** первого Document Processor.
+**Order Intake extension** (после фактически последнего ID `STAGE5-050`):
 
-Одновременно только одна задача Stage 5 в статусе `READY`. Первой READY-задачей является `STAGE5-001`.
+| ID | Title |
+| --- | --- |
+| STAGE5-051 | Order Item and Specification Contracts |
+| STAGE5-052 | Manual Entry UI |
+| STAGE5-053 | Import Core |
+| STAGE5-054 | STXT File Adapter |
+| STAGE5-055 | Import GUI |
+| STAGE5-056 | Automated Verification |
+| STAGE5-057 | Manual GUI Smoke (Order Intake) |
+
+Порядок: 051 → 052 → 053 → 054 → 055 → 056 → 057. Одновременно только одна READY-задача. Реализация extension **не стартует** без отдельной команды пользователя. STAGE5-050 не закрывается этими задачами автоматически.
+
+`TransactionalEventPublisher` уже реализован ранее.
 
 ---
 
 ## 18. Правила контекста
 
-`CONTEXT-MAP.md` → «Stage 5 — Order Management Context» (в т.ч. группы: document payload model / payload persistence / transactional event publisher / processor lifecycle / processing idempotency / revision draft workflow / query search and pagination). Запрещено загружать полную реализацию Production/Warehouse/Cutting/Analytics.
+`CONTEXT-MAP.md` → «Stage 5 — Order Management Context» (в т.ч. группы: document payload model / payload persistence / transactional event publisher / processor lifecycle / processing idempotency / revision draft workflow / query search and pagination / **order intake import**). Запрещено загружать полную реализацию Production/Warehouse/Cutting/Analytics. Security — только при прямой необходимости permission checks.
 
 ---
 
 ## 19. Verification gates
 
-- Per-task focused tests; integration gate (Testcontainers); document lifecycle gate; idempotency gate; transaction rollback gate; architecture gate; full `mvn clean verify` + `-Ppackage`; manual GUI smoke (`STAGE5-050`).
+- Per-task focused tests; integration gate (Testcontainers); document lifecycle gate; idempotency gate; transaction rollback gate; architecture gate; **Order Intake parser/import gates**; full `mvn clean verify` + `-Ppackage`; manual GUI smoke (`STAGE5-050`, затем `STAGE5-057`).
 
 ---
 
@@ -187,4 +203,9 @@ Stage 5 завершён только когда:
 - capabilities зарегистрированы; UI использует application/document flow;
 - миграции и persistence соответствуют модели; unit/integration/architecture tests проходят;
 - `mvn clean verify` и `-Ppackage` зелёные; packaged GUI smoke подтверждён пользователем;
+- **Order Intake MVP:** ручной ввод и файловый импорт создают одинаковую доменную структуру; preview до persistence; атомарный импорт; конфликт существующего заказа; без Firebird;
 - явная остановка перед Stage 6.
+
+## 21. Open decisions / blockers for Order Intake
+
+- **STAGE5-INTAKE-COMMERCIAL-DRAFT:** текущий `OrderCommercialData` требует non-blank `customerName` (+ `Direction`, `Currency`). Импорт файла без коммерческих полей не может создать DRAFT без изменения контракта или фиктивных значений (запрещены). Нужно решение пользователя до STAGE5-053.

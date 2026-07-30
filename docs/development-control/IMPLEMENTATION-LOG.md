@@ -3316,6 +3316,35 @@ User manual GUI retest for STAGE5-050 (WAITING_USER_RETEST-2).
 
 ---
 
+## STAGE 5 — Order Intake MVP planning (documentation only)
+
+**Date:** 2026-07-30  
+**Stage:** 5  
+**Status:** DONE (documentation + decomposition); implementation NOT STARTED
+
+### Delivered
+
+- Order-Management-Specification → v1.3 (§27 Order Intake MVP; updated Item/Specification attributes)
+- ADR-029 Source-neutral Order Intake Boundary
+- STAGE-5 Manifest updated (extension order STAGE5-051..057; open commercial DRAFT decision)
+- WORK-QUEUE tasks STAGE5-051..057 (NOT STARTED)
+- Control docs + blocker STAGE5-INTAKE-COMMERCIAL-DRAFT
+
+### Explicitly not done
+
+- No Java / FXML / CSS / migration / dependency changes
+- No parser / import GUI / fixtures implementation
+- No TMP.exe launch
+- STAGE5-050 not closed; Stage 5 not closed; Stage 6 not started
+
+### Next
+
+1. User completes STAGE5-050 GUI retest-2  
+2. User answers commercial DRAFT question (blocker)  
+3. User separately authorizes STAGE5-051 implementation
+
+---
+
 ## STAGE 5.11D-FIX-1 — Manual smoke blocker corrections
 
 **Date:** 2026-07-28  

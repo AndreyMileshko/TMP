@@ -1143,6 +1143,45 @@ Document Engine владеет lifecycle и metadata документа. Capabil
 
 ---
 
+# ADR-029
+
+## Название
+
+Source-neutral Order Intake Boundary.
+
+### Статус
+
+Accepted
+
+### Контекст
+
+Order Management должен принимать данные заказа двумя MVP-каналами: ручной ввод и файловая выгрузка расчётной программы. В будущем теоретически возможен адаптер к Firebird «СуперОкна», но вероятность низка и реализация вне MVP. Домен Order Management, Document Processors и Public Query API не должны зависеть от формата файла, кодировки, JDBC Firebird, пути к файлу или схемы внешней СУБД. Прямая запись из UI или парсера в таблицы нарушает ADR-004 / Constitution принцип 28.
+
+### Решение
+
+1. Вводится граница: `External source → source adapter → source-neutral import model → Order Management application services / business documents`.
+2. Source-neutral import model принадлежит Order Management application layer и не содержит зависимостей от `.stxt`, JavaFX, Firebird, JDBC, SQL или имён внешних таблиц.
+3. В MVP реализуется только файловый (STXT) адаптер; он строит import model и не пишет в БД, не проводит документы и не вызывает JavaFX Controller.
+4. Подтверждённый импорт выполняется атомарно через штатные application services и документную модель Order Management.
+5. Будущий Firebird-адаптер (если потребуется) обязан формировать ту же source-neutral модель без изменения домена.
+6. Новый Maven-модуль для границы не требуется, пока ответственность умещается в `tmp-order-management`.
+7. Downstream Capability (Warehouse, Production, Cutting) зависят только от утверждённых агрегатов Order Management, не от канала поступления.
+
+### Последствия
+
+- домен остаётся единым для ручного ввода и импорта;
+- адаптеры сменяемы без изменения агрегатов;
+- запрет прямой persistence из UI/парсера усиливается;
+- Firebird не тянет зависимости и схему в MVP.
+
+### Связанные документы
+
+- Order-Management-Specification.md (§27)
+- TMP-Constitution.md
+- ADR-003, ADR-004, ADR-019, ADR-028
+
+---
+
 # 5. Матрица соответствия спецификациям
 
 Данный раздел показывает, в какой спецификации подробно раскрывается каждое архитектурное решение.
@@ -1177,6 +1216,7 @@ Document Engine владеет lifecycle и metadata документа. Capabil
 | ADR-026 | Cutting-Optimization-Specification.md |
 | ADR-027 | Cutting-Optimization-Specification.md, Production-Specification.md |
 | ADR-028 | Document-Engine-Specification.md, Order-Management-Specification.md |
+| ADR-029 | Order-Management-Specification.md |
 
 > **Architecture Rule**  
 > Настоящий документ фиксирует только архитектурные решения. Подробная реализация и бизнес-логика описываются в соответствующих спецификациях.
@@ -1232,6 +1272,7 @@ Document Engine владеет lifecycle и metadata документа. Capabil
 | 1.1 | Добавлены архитектурные решения ADR-017…ADR-022 по результатам проектирования Order Management, Production и обновления Warehouse. |
 | 1.2 | Добавлены архитектурные решения ADR-023…ADR-027 по результатам проектирования Cutting Optimization и интеграции с Production и Warehouse. |
 | 1.3 | Добавлен ADR-028 (Capability-owned Business Document Payload). Уточнены ADR-003 и ADR-004: единообразное разделение межмодульного взаимодействия на изменения (бизнес-документы), синхронное чтение (Public Query API) и уведомления (Domain Events), согласованное с Constitution принцип 28; Query API и Domain Events не обходят document-driven изменение состояния. |
+| 1.4 | Добавлен ADR-029 (Source-neutral Order Intake Boundary) для файлового импорта MVP и возможного будущего адаптера без изменения домена Order Management. |
 
 ---
 

@@ -1,5 +1,37 @@
 # TMP Development Blockers
 
+## `STAGE5-INTAKE-COMMERCIAL-DRAFT` — Incomplete DRAFT order from file import
+
+**Status:** OPEN  
+**Task:** STAGE5-053 (Import Core); planning for Order Intake MVP  
+**Detected:** 2026-07-30
+
+### Reason
+
+Предпочтительное правило MVP: файловый импорт создаёт `DRAFT`-заказ только с номером, а коммерческие поля пользователь заполняет позже. Текущий доменный контракт этого не допускает.
+
+### Evidence
+
+- `tmp-order-management/.../OrderCommercialData.java` — `customerName` обязателен (non-blank); также обязательны `Direction` и `Currency`.
+- `OrderHeaderDraft` / create-order flow требуют non-blank `customerName` и `orderNumber`.
+- Spec v1.3 §27.7 фиксирует gap; фиктивные значения (`UNKNOWN`/`N/A`/`IMPORT`) запрещены.
+
+### Options
+
+1. Разрешить неполный коммерческий DRAFT: `customerName` (и при необходимости `Direction`/`Currency`) nullable только в `DRAFT`; `ORDER_APPROVE` запрещён до заполнения обязательных полей.
+2. Требовать ввод коммерческих полей в UI **до** подтверждения импорта (импорт не создаёт заказ без коммерции).
+3. Другое явно утверждённое пользователем правило без фиктивных значений.
+
+### Recommendation
+
+Вариант 1 — соответствует предпочтительному процессу §27.7 и сохраняет атомарный import confirm.
+
+### Required user decision
+
+Какой вариант (1 / 2 / 3) утверждаем для STAGE5-053?
+
+---
+
 ## `BLK-001` — `Shell execution environment unavailable`
 
 **Status:** RESOLVED  
