@@ -3,7 +3,24 @@
 ## Latest result
 
 **Date:** 2026-07-30  
-**Scope:** STAGE5-050 — Manual Packaged GUI Smoke — Core Order Management  
+**Scope:** STAGE5-051 — Order Item and Specification Contracts (fix pass)  
+**Overall:** PASS
+
+| Verification | Evidence | Result |
+|---|---|---|
+| Unit tests | `mvn -q -pl tmp-order-management test` | PASS (264 tests, 0 failures, 0 skipped) |
+| Module verify | `mvn -q -pl tmp-order-management verify` | PASS (264 unit + 57 IT) |
+| Incomplete DRAFT Query API | `OrderQueryApiContractTest`, `JdbcOrderQueryReadAdapterIT` | PASS |
+| Flyway V10 constraints | `OrderIntakeConstraintsFlywayTest` | PASS (7 tests) |
+| Architecture rules | `Stage5OrderManagementArchitectureTest` | PASS (24 rules) |
+| STAGE5-051 | WORK-QUEUE | DONE |
+| STAGE5-052 | WORK-QUEUE | NOT STARTED |
+| Git | — | NOT EXECUTED |
+
+---
+
+## 2026-07-30 — STAGE5-050 — Manual Packaged GUI Smoke — Core Order Management
+
 **Overall:** PASS (user-confirmed)
 
 | Verification | Evidence | Result |
@@ -26,9 +43,10 @@
 | STAGE5-048 | WORK-QUEUE | DONE |
 | STAGE5-049 | WORK-QUEUE | DONE |
 | STAGE5-050 | WORK-QUEUE | DONE — PASS |
-| STAGE5-051..057 | WORK-QUEUE | NOT STARTED |
+| STAGE5-051 | WORK-QUEUE | DONE |
+| STAGE5-052..057 | WORK-QUEUE | NOT STARTED |
 | Stage 5 Core | STATUS | IMPLEMENTED — MANUAL SMOKE PASS |
-| Stage 5 Order Intake Extension | STATUS | NOT STARTED |
+| Stage 5 Order Intake Extension | STATUS | IN_PROGRESS |
 | Stage 5 | STATUS | IN_PROGRESS |
 | Stage 6 | STATUS | NOT STARTED |
 | Active blockers | BLOCKERS | NONE |
@@ -1852,6 +1870,27 @@ These tasks (password / role / permission-override / audit application services 
 | Flyway V9 clean install | `OrderIntakeContractsFlywayTest` | PASSED |
 | Flyway V8→V9 upgrade | `OrderIntakeContractsFlywayTest.v9UpgradePreservesExistingV8SpecificationRows` | PASSED |
 | Incomplete DRAFT approve gate | `OrderApproveDocumentProcessorTest.incompleteCommercialDataIsRejectedWithMissingFields` | PASSED |
+| STAGE5-051 | WORK-QUEUE | DONE |
+| STAGE5-052 | WORK-QUEUE | NOT STARTED |
+| Git | - | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+
+## 2026-07-30 — STAGE5-051 fix pass (Query API + V10 constraints)
+
+| Verification | Command | Result |
+|---|---|---|
+| Unit tests | `mvn -q -pl tmp-order-management test` | PASSED (264 tests, 0 failures, 0 skipped) |
+| Module verify (unit + IT) | `mvn -q -pl tmp-order-management verify` | PASSED (264 unit + 57 IT) |
+| Incomplete DRAFT Query API | `OrderQueryApiContractTest.orderDtoAllowsIncompleteDraftCommercialFields` | PASSED |
+| Incomplete DRAFT search | `OrderQueryApiContractTest.orderSummaryDtoAllowsNullCustomerNameForIncompleteDraft` | PASSED |
+| Incomplete DRAFT persistence round-trip | `JdbcOrderQueryReadAdapterIT.incompleteDraftOrderIsReadableViaGetOrderAndSearch` | PASSED |
+| Flyway V10 constraints | `OrderIntakeConstraintsFlywayTest` | PASSED (7 tests) |
+| Architecture rules | `mvn -pl tmp-architecture-tests -am test -Dtest=Stage5OrderManagementArchitectureTest` | PASSED (24 rules) |
 | STAGE5-051 | WORK-QUEUE | DONE |
 | STAGE5-052 | WORK-QUEUE | NOT STARTED |
 | Git | - | NOT EXECUTED |

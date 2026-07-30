@@ -3,7 +3,7 @@
 **Mode:** Autonomous Cursor Agent  
 **Project status:** IN_PROGRESS  
 **Current Stage:** Stage 5 — Order Management  
-**Current Task:** none (no IN_PROGRESS task)  
+**Current Task:** STAGE5-052 — NOT STARTED (await user authorization)  
 **Last completed task:** STAGE5-051  
 **Active blockers:** NONE  
 
@@ -13,13 +13,10 @@ STAGE5-051 = DONE
 STAGE5-052 = NOT STARTED
 STAGE5-053…057 = NOT STARTED
 Stage 5 Core Order Management = IMPLEMENTED — MANUAL SMOKE PASS
-Stage 5 Order Intake Extension = NOT STARTED
+Stage 5 Order Intake Extension = IN_PROGRESS
 Stage 5 = IN_PROGRESS
 Stage 6 = NOT STARTED
-
-Core Order Management manual smoke completed by user (2026-07-30).
-Order Intake extension STAGE5-051…057 not started.
-STAGE5-051 may be authorized next; agent does not start it without user command.
+Active blockers = NONE
 ```
 
 ---
@@ -55,4 +52,4 @@ STAGE5-051 may be authorized next; agent does not start it without user command.
 
 **Stage 0–4:** DONE 100%.
 
-**Далее:** пользователь может авторизовать `STAGE5-051`. Agent не начинает `STAGE5-051` без отдельной команды, не закрывает Stage 5, не начинает Stage 6. Git — только пользователь.
+**Далее:** `STAGE5-052` Manual Entry UI — NOT STARTED (await user authorization). Git — только пользователь.

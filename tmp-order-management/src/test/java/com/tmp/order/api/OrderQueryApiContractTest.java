@@ -159,6 +159,38 @@ class OrderQueryApiContractTest {
     }
 
     @Test
+    void orderDtoAllowsIncompleteDraftCommercialFields() {
+        Instant now = Instant.parse("2026-07-30T10:00:00Z");
+        OrderDto dto =
+                OrderDto.of(
+                        OrderId.generate(),
+                        "ORD-INCOMPLETE",
+                        OrderStatus.DRAFT,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        now,
+                        now);
+        assertEquals(OrderStatus.DRAFT, dto.status());
+        assertEquals(null, dto.customerName());
+        assertEquals(null, dto.direction());
+        assertEquals(null, dto.currency());
+    }
+
+    @Test
+    void orderSummaryDtoAllowsNullCustomerNameForIncompleteDraft() {
+        Instant now = Instant.parse("2026-07-30T10:00:00Z");
+        OrderSummaryDto summary =
+                OrderSummaryDto.of(
+                        OrderId.generate(), "ORD-INCOMPLETE", OrderStatus.DRAFT, null, null, now);
+        assertEquals(null, summary.customerName());
+    }
+
+    @Test
     void orderItemDtoExposesOnlyActiveRevisionPointer() {
         Instant now = Instant.parse("2026-07-25T10:00:00Z");
         OrderItemDto dto = OrderItemDto.of(

@@ -8,6 +8,8 @@ import java.util.Objects;
  *
  * <p>Contains only Order Management commercial data. Does not expose domain aggregates, persistence
  * entities, Production Status, stock or cutting data.
+ *
+ * <p>{@code customerName} may be {@code null} for incomplete commercial DRAFT orders (ADR-030).
  */
 public final class OrderSummaryDto {
 
@@ -43,7 +45,6 @@ public final class OrderSummaryDto {
         Objects.requireNonNull(orderId, "orderId");
         Objects.requireNonNull(orderNumber, "orderNumber");
         Objects.requireNonNull(status, "status");
-        Objects.requireNonNull(customerName, "customerName");
         Objects.requireNonNull(createdAt, "createdAt");
         return new OrderSummaryDto(
                 orderId, orderNumber, status, customerRef, customerName, createdAt);

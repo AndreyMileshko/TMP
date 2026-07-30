@@ -3483,6 +3483,21 @@ Order Intake contract alignment in `tmp-order-management`: `externalPositionNumb
 `mvn -q -pl tmp-order-management -am test` — PASS (255 tests, 0 skipped).  
 `mvn -q -pl tmp-order-management -am verify` — PASS.
 
+### Fix pass (2026-07-30)
+
+**Status:** DONE
+
+**Defects addressed:**
+
+1. **Query API incomplete DRAFT (ADR-030):** `OrderDto` and `OrderSummaryDto` no longer require non-null `customerName` / `direction` / `currency`; incomplete DRAFT orders readable via `getOrder` and search. `ORDER_APPROVE` gate unchanged.
+2. **V10 constraints:** `V10__order_intake_constraints.sql` — pre-flight fractional check; `NUMERIC(19,6)` alignment on payload quantity columns; whole-number CHECK on `ordered_quantity` in revisions and payload tables.
+
+**Key files:** `OrderDto.java`, `OrderSummaryDto.java`, `V10__order_intake_constraints.sql`, `OrderQueryApiContractTest`, `JdbcOrderQueryReadAdapterIT`, `OrderIntakeConstraintsFlywayTest`.
+
+**Removed:** `docs/Input/Test 25062026.stxt` (unused sample).
+
+**Verification:** `mvn -q -pl tmp-order-management test` — PASS (264); `mvn -q -pl tmp-order-management verify` — PASS (264 + 57 IT); `Stage5OrderManagementArchitectureTest` — PASS (24).
+
 ### Next
 
 `STAGE5-052` Manual Entry UI — NOT STARTED (await user authorization).

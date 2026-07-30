@@ -8,6 +8,10 @@ import java.util.Objects;
  *
  * <p>Contains only Order Management commercial header fields. Direction and currency are plain
  * strings so that domain types are not leaked into the public API.
+ *
+ * <p>Per ADR-030, {@code customerName}, {@code direction} and {@code currency} may be {@code null}
+ * while the order is in {@link OrderStatus#DRAFT}. Approval still requires complete commercial data
+ * via {@code ORDER_APPROVE}.
  */
 public final class OrderDto {
 
@@ -67,9 +71,6 @@ public final class OrderDto {
         Objects.requireNonNull(orderId, "orderId");
         Objects.requireNonNull(orderNumber, "orderNumber");
         Objects.requireNonNull(status, "status");
-        Objects.requireNonNull(customerName, "customerName");
-        Objects.requireNonNull(direction, "direction");
-        Objects.requireNonNull(currency, "currency");
         Objects.requireNonNull(createdAt, "createdAt");
         Objects.requireNonNull(updatedAt, "updatedAt");
         return new OrderDto(

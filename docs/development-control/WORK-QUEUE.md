@@ -8599,7 +8599,8 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 - Domain/API/payload/persistence/Query/UI contracts aligned with Spec §5.2–5.4 / §27 and ADR-030.
 - Flyway `V9__order_intake_contracts.sql` applied; V8 upgrade preserves existing specification rows.
 - `ORDER_APPROVE` rejects incomplete commercial data and lists missing fields.
-- Verification: `mvn -q -pl tmp-order-management -am test` and `verify` — PASS (255 tests, 0 skipped).
+- **Fix pass (2026-07-30):** Query API (`OrderDto`, `OrderSummaryDto`) allows nullable commercial fields for incomplete DRAFT per ADR-030; Flyway `V10__order_intake_constraints.sql` — whole-number `ordered_quantity` CHECK constraints, `NUMERIC(19,6)` payload alignment; tests for incomplete DRAFT read/search and V10 constraints.
+- Verification: `mvn -q -pl tmp-order-management test` — PASS (264 unit); `mvn -q -pl tmp-order-management verify` — PASS (264 unit + 57 IT); `Stage5OrderManagementArchitectureTest` — PASS (24 rules).
 
 ---
 

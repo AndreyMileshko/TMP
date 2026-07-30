@@ -3,9 +3,11 @@ package com.tmp.order.persistence;
 import com.tmp.order.testsupport.IntakeContractFixtures;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.api.ItemSpecificationDto;
+import com.tmp.order.api.OrderDto;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderItemDto;
 import com.tmp.order.api.OrderItemId;
@@ -96,6 +98,67 @@ class JdbcOrderQueryReadAdapterIT {
         itemRepository = new JdbcOrderItemRepository(jdbc);
         OrderQueryReadPort readPort = new JdbcOrderQueryReadAdapter(jdbc);
         queries = new DefaultOrderQueryService(readPort, AllowingAuthorization.INSTANCE);
+    }
+
+    @Test
+    void incompleteDraftOrderIsReadableViaGetOrderAndSearch() {
+        Clock clock = Clock.fixed(T1, ZoneOffset.UTC);
+        CustomerOrder incomplete =
+                orderRepository.save(
+                        CustomerOrder.create(
+                                OrderId.generate(),
+                                OrderNumber.of("ORD-INCOMPLETE-Q"),
+                                OrderCommercialData.of(
+                                        null, null, null, null, null, null, null),
+                                clock));
+
+        Optional<OrderDto> loaded = queries.getOrder(incomplete.id());
+        assertTrue(loaded.isPresent());
+        OrderDto dto = loaded.orElseThrow();
+        assertEquals("ORD-INCOMPLETE-Q", dto.orderNumber());
+        assertEquals(OrderStatus.DRAFT, dto.status());
+        assertNull(dto.customerName());
+        assertNull(dto.direction());
+        assertNull(dto.currency());
+
+        PageResult<OrderSummaryDto> search =
+                queries.searchOrders(
+                        OrderSearchCriteria.builder().orderNumber("ORD-INCOMPLETE-Q").build(),
+                        PageRequest.firstPage());
+        assertEquals(1, search.totalElements());
+        assertNull(search.content().getFirst().customerName());
+    }
+
+    @Test
+    void incompleteDraftOrderPersistsCommercialNullsRoundTrip() {
+        Clock clock = Clock.fixed(T2, ZoneOffset.UTC);
+        OrderId orderId =
+                orderRepository
+                        .save(
+                                CustomerOrder.create(
+                                        OrderId.generate(),
+                                        OrderNumber.of("ORD-RT-NULL"),
+                                        OrderCommercialData.of(
+                                                "REF-ONLY",
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null),
+                                        clock))
+                        .id();
+
+        CustomerOrder reloaded = orderRepository.findById(orderId).orElseThrow();
+        assertEquals("REF-ONLY", reloaded.commercialData().customerRef());
+        assertNull(reloaded.commercialData().customerName());
+        assertNull(reloaded.commercialData().direction());
+        assertNull(reloaded.commercialData().currency());
+
+        OrderDto queryView = queries.getOrder(orderId).orElseThrow();
+        assertNull(queryView.customerName());
+        assertNull(queryView.direction());
+        assertNull(queryView.currency());
     }
 
     @Test
