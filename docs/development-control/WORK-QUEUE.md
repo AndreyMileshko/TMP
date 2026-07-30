@@ -7515,7 +7515,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 # Stage 5 — Order Management
 
-> **Обязательно к прочтению перед любой задачей Stage 5:** `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Manifest) и `Order-Management-Specification.md` v1.2. Правила контекста — `CONTEXT-MAP.md` → «Stage 5 — Order Management Context». Границы: Order Management владеет коммерческими данными заказа/позиции/редакции/спецификации и typed payload своих документов (по `DocumentId`, ADR-028); производственное состояние принадлежит Production (не хранится в Stage 5). Изменения — только через Document Engine; проведение атомарно и идемпотентно. Внешним Capability доступны только Public Query API (только active Revision) и Domain Events. Одновременно только одна задача в статусе READY. Git-операции запрещены (выполняет пользователь).
+> **Обязательно к прочтению перед любой задачей Stage 5:** `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Manifest) и `Order-Management-Specification.md` **v1.3**. Правила контекста — `CONTEXT-MAP.md` → «Stage 5 — Order Management Context». Границы: Order Management владеет коммерческими данными заказа/позиции/редакции/спецификации и typed payload своих документов (по `DocumentId`, ADR-028); производственное состояние принадлежит Production (не хранится в Stage 5). Изменения — только через Document Engine; проведение атомарно и идемпотентно. Внешним Capability доступны только Public Query API (только active Revision) и Domain Events. Одновременно только одна задача в статусе `IN_PROGRESS`. `STAGE5-051` нельзя начинать, пока `STAGE5-050` не `DONE`. Git-операции запрещены (выполняет пользователь).
 
 ## STAGE5-000 — Stage 5 Start Gate and Specification Reconciliation
 
@@ -8551,45 +8551,54 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ---
 
-## STAGE5-050 — Manual packaged GUI smoke and Stage 5 close
+## STAGE5-050 — Manual Packaged GUI Smoke — Core Order Management
 
 **Status:** IN_PROGRESS — WAITING_USER_RETEST-2
 **Stage:** 5
 **Depends on:** STAGE5-049
 
-- **Goal:** Пользовательский ручной GUI smoke по чек-листу exit criteria (Manifest §20); закрытие Stage 5; остановка перед Stage 6.
-- **Scope:** ручная проверка; фиксация результата в control docs.
-- **Out of scope:** старт Stage 6; любые Git-операции (выполняет пользователь).
-- **Required documents:** Manifest §20; RUN-DEVELOPMENT.
+- **Goal:** Пользовательский ручной GUI smoke ядра Order Management на packaged application (включая FIX 2).
+- **Scope:** запуск packaged app; вход; права; создание/изменение заказа; позиции; редакции; спецификации; утверждение; отмена; повторный запуск; сохранность данных; FIX 2 (выделение роли после checkbox; русские названия разрешений).
+- **Out of scope:** Order Intake / STXT import; закрытие Stage 5; старт Stage 6; Git (выполняет пользователь).
+- **Required documents:** Manifest §19/§20 (core smoke); RUN-DEVELOPMENT.
 - **Required code context:** упакованное приложение.
 - **Files allowed to change:** STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Acceptance criteria:** пользователь подтвердил GUI smoke; Stage 5 DONE 100%; остановка перед Stage 6.
-- **Verification commands:** `Manual: packaged app (user-confirmed checklist)`
+- **Acceptance criteria:**
+  - [ ] FIX 2 проверен пользователем;
+  - [ ] роль остаётся выделенной после изменения checkbox;
+  - [ ] русские названия разрешений отображаются корректно;
+  - [ ] packaged application запускается;
+  - [ ] данные сохраняются после перезапуска;
+  - [ ] core Order Management smoke completed;
+  - [ ] Stage 5 remains IN_PROGRESS;
+  - [ ] STAGE5-051 remains NOT STARTED until STAGE5-050 is DONE.
+- **Verification commands:** `Manual: packaged app (user-confirmed core checklist)`
 - **Documentation updates:** STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Stop conditions:** пользователь не подтвердил smoke.
+- **On success:** `STAGE5-050 = DONE`; Stage 5 остаётся `IN_PROGRESS`; Stage 6 не стартует.
 
 ---
 
 # Stage 5 Extension — Order Intake MVP
 
-> Documentation-only planning completed. Tasks `STAGE5-051..057` remain **NOT STARTED** until the user explicitly authorizes implementation. `STAGE5-050` stays `IN_PROGRESS — WAITING_USER_RETEST-2`. Stage 6 remains NOT STARTED.
+> Strict sequencing: only after `STAGE5-050 = DONE` may `STAGE5-051` become `READY`/`IN_PROGRESS`. While `STAGE5-050` is `IN_PROGRESS`, tasks `STAGE5-051…057` remain `NOT STARTED`. Stage 5 closes only after `STAGE5-057`. Stage 6 remains NOT STARTED.
 
 ## STAGE5-051 — Order Item and Specification Contracts
 
 **Status:** NOT STARTED  
 **Stage:** 5  
-**Depends on:** STAGE5-050 (may proceed after user authorizes extension even if STAGE5-050 still waiting retest; must not close STAGE5-050)  
+**Depends on:** STAGE5-050 = DONE  
 **Module:** tmp-order-management (+ migration)
 
 ### Goal
 
-Привести контракты Order Item и Specification Line к Order Intake MVP: `externalPositionNumber`, `productQuantity`↔`OrderedQuantity`, `color`, `lengthMm`, `lineQuantity`; безопасно удалить/заменить `consumptionNorm`; обновить domain, DTO, payload, Query API, validation, Flyway.
+Привести контракты Order Item и Specification Line к Order Intake MVP: `externalPositionNumber`, `productQuantity`↔`OrderedQuantity`, `color`, `lengthMm`, `lineQuantity`; безопасно удалить/заменить `consumptionNorm`; разрешить неполный коммерческий DRAFT (ADR-030); обновить domain, DTO, payload, Query API, validation, Flyway.
 
 ### Allowed context
 
-- Order-Management-Specification §5.2–5.4, §27;
-- ADR-029;
-- `com.tmp.order.domain`, `com.tmp.order.api`, `com.tmp.order.application.payload`, persistence/migrations V6–V8;
+- CONTEXT-MAP group `stage5-order-intake-contracts`;
+- Order-Management-Specification §5.2–5.4, §27; ADR-029, ADR-030;
+- `com.tmp.order.domain`, `com.tmp.order.api`, `com.tmp.order.application.payload`, persistence/migrations (latest V8; next free = V9);
 - соответствующие unit/integration tests.
 
 ### Forbidden context
@@ -8597,7 +8606,8 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 - Warehouse / Production / Cutting / Analytics full trees;
 - Firebird;
 - STXT parser implementation;
-- JavaFX UI (кроме чтения контрактов api.ui при совместимости).
+- JavaFX UI (кроме чтения контрактов api.ui при совместимости);
+- starting while STAGE5-050 is still IN_PROGRESS.
 
 ### Files allowed to change
 
@@ -8611,19 +8621,21 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 2. Зафиксировать `OrderedQuantity` как единственный источник `productQuantity` (целые > 0).
 3. Расширить `SpecificationLine`: `color` nullable, `lengthMm` nullable (>0 если задано), `lineQuantity` (бывший quantity).
 4. Удалить/заменить `consumptionNorm` во всех слоях одним согласованным контрактом; миграция данных существующих строк.
-5. Обновить validation и Public Query API без orientation-полей.
-6. Тесты backward compatibility / migration.
+5. Разрешить неполный commercial DRAFT; запретить `ORDER_APPROVE` до заполнения обязательных полей с перечислением отсутствующих.
+6. Обновить validation и Public Query API без orientation-полей.
+7. Тесты backward compatibility / migration.
 
 ### Acceptance criteria
 
-- [ ] Контракты соответствуют Spec §27;
+- [ ] Контракты соответствуют Spec §27 / ADR-030;
 - [ ] `consumptionNorm` не остаётся параллельным смыслом length/quantity;
+- [ ] incomplete DRAFT allowed; placeholders prohibited; approve lists missing fields;
 - [ ] permission IDs / role assignments не затронуты;
 - [ ] новые поля покрыты unit + persistence tests.
 
 ### Required tests
 
-Domain VO/aggregate tests; payload mapping tests; Flyway/IT for new columns; Query DTO tests.
+Domain VO/aggregate tests; payload mapping tests; Flyway/IT for new columns; Query DTO tests; approve-validation tests.
 
 ### Required documentation updates
 
@@ -8631,7 +8643,7 @@ WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG; Spec sync if names fin
 
 ### Stop conditions
 
-Нельзя удалить `consumptionNorm` без миграции; конфликт с внешним модулем (не ожидается); не решён blocker коммерческого DRAFT, если задача пытается менять `OrderCommercialData` без авторизации.
+Нельзя удалить `consumptionNorm` без миграции; конфликт с внешним модулем (не ожидается); STAGE5-050 ещё не DONE.
 
 ---
 
@@ -8648,6 +8660,7 @@ WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG; Spec sync if names fin
 
 ### Allowed context
 
+- CONTEXT-MAP group `stage5-order-intake-manual-ui`;
 - Spec §27.8;
 - api.ui contracts после STAGE5-051;
 - Order Item / Specification editors в `tmp-ui-shell`.
@@ -8694,16 +8707,17 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 **Status:** NOT STARTED  
 **Stage:** 5  
-**Depends on:** STAGE5-051; resolution of blocker STAGE5-INTAKE-COMMERCIAL-DRAFT  
+**Depends on:** STAGE5-051  
 **Module:** tmp-order-management
 
 ### Goal
 
-Source-neutral import model, preview/validation, application service, атомарный confirmed import через штатные services, конфликт существующего заказа, метаданные защиты от повторного импорта.
+Source-neutral import model, preview/validation, application service, атомарный confirmed import через штатные services, конфликт существующего заказа, метаданные защиты от повторного импорта; создание неполного коммерческого DRAFT без placeholders (ADR-030).
 
 ### Allowed context
 
-- Spec §27.4–27.7; ADR-029;
+- CONTEXT-MAP group `stage5-order-import-core`;
+- Spec §27.4–27.7; ADR-029, ADR-030;
 - Order Management application/document services;
 - security public API for actor identity (audit metadata).
 
@@ -8721,21 +8735,22 @@ Source-neutral import model, preview/validation, application service, атома
 1. Source-neutral model + preview/error/warning types.
 2. Validation rules (one order, quantities, length, no double multiply).
 3. Preview path — zero persistence.
-4. Confirm path — single transaction via existing create/update document flows.
+4. Confirm path — single transaction via existing create/update document flows; incomplete DRAFT commercial data allowed.
 5. Existing orderNumber → controlled conflict.
 6. Import metadata (`sourceType`, file name, checksum, importedAt/By, orderId).
-7. Integration tests (atomic success/rollback, duplicate, conflict).
+7. Integration tests (atomic success/rollback, duplicate, conflict, incomplete DRAFT).
 
 ### Acceptance criteria
 
 - [ ] Preview не пишет в БД;
 - [ ] Confirm атомарный;
 - [ ] Существующий заказ не merge;
+- [ ] Incomplete DRAFT without placeholders;
 - [ ] Нет SQL leakage в user messages.
 
 ### Required tests
 
-Application unit + PostgreSQL IT for atomicity, conflict, duplicate protection.
+Application unit + PostgreSQL IT for atomicity, conflict, duplicate protection, incomplete DRAFT.
 
 ### Required documentation updates
 
@@ -8743,7 +8758,7 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 ### Stop conditions
 
-Blocker коммерческого DRAFT не решён; попытка прямой записи из адаптера.
+Попытка прямой записи из адаптера; использование placeholder commercial values.
 
 ---
 
@@ -8760,6 +8775,7 @@ Blocker коммерческого DRAFT не решён; попытка пря�
 
 ### Allowed context
 
+- CONTEXT-MAP group `stage5-order-import-stxt`;
 - Spec §27.5; import model from STAGE5-053;
 - fixture based on confirmed format.
 
@@ -8814,6 +8830,7 @@ UI выбора файла, preview, ошибки/предупреждения, 
 
 ### Allowed context
 
+- CONTEXT-MAP group `stage5-order-import-ui`;
 - Spec §27.6; public import application API;
 - `tmp-ui-shell`, bootstrap wiring.
 
@@ -8868,6 +8885,7 @@ UI posts documents bypassing import service.
 
 ### Allowed context
 
+- CONTEXT-MAP group `stage5-order-intake-verification`;
 - All Stage 5 Order Intake tests; architecture tests; packaging.
 
 ### Forbidden context
@@ -8913,15 +8931,16 @@ Failure outside Stage 5 scope; packaging broken.
 
 ### Goal
 
-Пользовательский smoke: ручной заказ/позиция/спецификация (linear + non-linear), импорт preview/cancel/confirm, existing order, повторная загрузка, persistence after restart, регрессия Stage 5, русские сообщения.
+Пользовательский smoke Order Intake: ручной заказ/позиция/спецификация (linear + non-linear), импорт preview/cancel/confirm, existing order, повторная загрузка, persistence after restart, регрессия Stage 5, русские сообщения. После PASS — финальное закрытие Stage 5 (не раньше).
 
 ### Allowed context
 
+- CONTEXT-MAP group `stage5-order-intake-manual-smoke`;
 - Packaged app; Spec §27 checklist; Manifest exit criteria.
 
 ### Forbidden context
 
-- Agent launching TMP.exe; Stage 6; closing STAGE5-050 without user.
+- Agent launching TMP.exe; Stage 6; closing STAGE5-050 without user; starting Stage 6 before Stage 5 exit criteria.
 
 ### Files allowed to change
 
@@ -8931,12 +8950,14 @@ Failure outside Stage 5 scope; packaging broken.
 
 1. Prepare checklist for user.
 2. Wait for user confirmation.
-3. Record result; do not start Stage 6.
+3. On PASS: close Stage 5 per Manifest §20; do not start Stage 6.
 
 ### Acceptance criteria
 
 - [ ] User PASS on Order Intake checklist;
-- [ ] Stage 5 close only if STAGE5-050 and STAGE5-057 both confirmed per control rules.
+- [ ] STAGE5-050 already DONE;
+- [ ] Stage 5 may be set DONE only after this smoke PASS;
+- [ ] Stage 6 remains NOT STARTED.
 
 ### Required tests
 

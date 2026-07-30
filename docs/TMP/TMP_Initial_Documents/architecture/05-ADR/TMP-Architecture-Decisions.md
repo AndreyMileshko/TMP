@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-005  
 **Status:** Accepted  
-**Version:** 1.3
+**Version:** 1.5
 
 ---
 
@@ -1178,7 +1178,45 @@ Order Management должен принимать данные заказа дв�
 
 - Order-Management-Specification.md (§27)
 - TMP-Constitution.md
-- ADR-003, ADR-004, ADR-019, ADR-028
+- ADR-003, ADR-004, ADR-019, ADR-028, ADR-030
+
+---
+
+# ADR-030
+
+## Название
+
+Incomplete Commercial Data Allowed Only in DRAFT.
+
+### Статус
+
+Accepted
+
+### Контекст
+
+Файловая выгрузка расчётной программы содержит номер заказа, позиции и спецификации, но не содержит полный набор коммерческих реквизитов (`customerName`, `direction`, `currency`, `contractNumber`/`contractRef`, `objectName`/`siteRef`). Для Order Intake MVP импорт должен создавать заказ без фиктивных коммерческих значений. Утверждение заказа без обязательных коммерческих полей недопустимо.
+
+### Решение
+
+1. Заказ в статусе `DRAFT` может временно не содержать обязательные коммерческие поля: `customerName`, `direction`, `currency`, `contractNumber`/`contractRef`, `objectName`/`siteRef`.
+2. Файловый импорт может создать неполный `DRAFT`-заказ.
+3. Фиктивные/заглушечные значения запрещены: `UNKNOWN`, `N/A`, `IMPORT`, `—`, пустые системные stubs.
+4. Пользователь дополняет коммерческие данные вручную.
+5. `ORDER_APPROVE` запрещён, пока обязательные коммерческие поля не заполнены; ошибка утверждения должна перечислять отсутствующие поля.
+6. После утверждения применяются обычные правила неизменяемости заказа.
+
+### Последствия
+
+- импорт не требует placeholder-коммерции;
+- доменная валидация create/update DRAFT ослабляется только для коммерческих полей;
+- approval остаётся строгим gate;
+- blocker `STAGE5-INTAKE-COMMERCIAL-DRAFT` закрыт как RESOLVED.
+
+### Связанные документы
+
+- Order-Management-Specification.md (§27.7)
+- ADR-029
+- `docs/development-control/BLOCKERS.md` (`STAGE5-INTAKE-COMMERCIAL-DRAFT`)
 
 ---
 
@@ -1217,6 +1255,7 @@ Order Management должен принимать данные заказа дв�
 | ADR-027 | Cutting-Optimization-Specification.md, Production-Specification.md |
 | ADR-028 | Document-Engine-Specification.md, Order-Management-Specification.md |
 | ADR-029 | Order-Management-Specification.md |
+| ADR-030 | Order-Management-Specification.md |
 
 > **Architecture Rule**  
 > Настоящий документ фиксирует только архитектурные решения. Подробная реализация и бизнес-логика описываются в соответствующих спецификациях.
@@ -1273,6 +1312,7 @@ Order Management должен принимать данные заказа дв�
 | 1.2 | Добавлены архитектурные решения ADR-023…ADR-027 по результатам проектирования Cutting Optimization и интеграции с Production и Warehouse. |
 | 1.3 | Добавлен ADR-028 (Capability-owned Business Document Payload). Уточнены ADR-003 и ADR-004: единообразное разделение межмодульного взаимодействия на изменения (бизнес-документы), синхронное чтение (Public Query API) и уведомления (Domain Events), согласованное с Constitution принцип 28; Query API и Domain Events не обходят document-driven изменение состояния. |
 | 1.4 | Добавлен ADR-029 (Source-neutral Order Intake Boundary) для файлового импорта MVP и возможного будущего адаптера без изменения домена Order Management. |
+| 1.5 | Добавлен ADR-030 (Incomplete Commercial Data Allowed Only in DRAFT): неполный коммерческий DRAFT разрешён; placeholders запрещены; `ORDER_APPROVE` требует все обязательные коммерческие поля. |
 
 ---
 

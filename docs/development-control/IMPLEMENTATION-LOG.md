@@ -4,6 +4,45 @@
 
 ---
 
+## STAGE 5 — Documentation consistency fix (Order Intake planning)
+
+**Date:** 2026-07-30  
+**Stage:** 5  
+**Status:** DONE (documentation only)
+
+### Result
+
+Documentation consistency correction only:
+
+- corrected Stage 5 task sequencing (`STAGE5-050` sole `IN_PROGRESS`; `STAGE5-051` only after `STAGE5-050 = DONE`);
+- `STAGE5-050` redefined as Core Order Management manual smoke;
+- Stage 5 closure moved after `STAGE5-057`;
+- approved incomplete DRAFT commercial-data rule (ADR-030); blocker resolved;
+- corrected Stage 0–9 sequence (removed Stage 10/11 as approved development stages from STATUS/CONTEXT-MAP);
+- replaced misleading Stage 5 percentage with split status;
+- updated Context Map for Order Intake tasks;
+- synchronized specification, ADR and migration references (latest OM migration = V8; next = V9).
+
+Production functionality was **not** implemented.
+
+### Files modified
+
+- `docs/TMP/.../Order-Management-Specification.md`
+- `docs/TMP/.../05-ADR/TMP-Architecture-Decisions.md`
+- `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md`
+- `docs/development-control/WORK-QUEUE.md`
+- `docs/development-control/STATUS.md`
+- `docs/development-control/CONTEXT-MAP.md`
+- `docs/development-control/BLOCKERS.md`
+- `docs/development-control/IMPLEMENTATION-LOG.md`
+- `docs/development-control/VERIFICATION-LOG.md`
+
+### Next
+
+User completes STAGE5-050 GUI retest-2. Do not start STAGE5-051 until STAGE5-050 = DONE.
+
+---
+
 # Entry Template
 
 ## `<TASK-ID>` ? `<title>`
@@ -3340,8 +3379,8 @@ User manual GUI retest for STAGE5-050 (WAITING_USER_RETEST-2).
 ### Next
 
 1. User completes STAGE5-050 GUI retest-2  
-2. User answers commercial DRAFT question (blocker)  
-3. User separately authorizes STAGE5-051 implementation
+2. Only after STAGE5-050 = DONE may STAGE5-051 start (user authorization still required for extension work)  
+3. Commercial DRAFT rule accepted as ADR-030 (blocker RESOLVED)
 
 ---
 

@@ -2,33 +2,40 @@
 
 ## `STAGE5-INTAKE-COMMERCIAL-DRAFT` — Incomplete DRAFT order from file import
 
-**Status:** OPEN  
+**Status:** RESOLVED — incomplete commercial data is allowed only in DRAFT; approval requires all mandatory commercial fields.  
 **Task:** STAGE5-053 (Import Core); planning for Order Intake MVP  
-**Detected:** 2026-07-30
+**Detected:** 2026-07-30  
+**Resolved:** 2026-07-30
 
 ### Reason
 
-Предпочтительное правило MVP: файловый импорт создаёт `DRAFT`-заказ только с номером, а коммерческие поля пользователь заполняет позже. Текущий доменный контракт этого не допускает.
+Предпочтительное правило MVP: файловый импорт создаёт `DRAFT`-заказ только с номером, а коммерческие поля пользователь заполняет позже. На момент планирования текущий код требовал non-blank `customerName` / `Direction` / `Currency`.
 
 ### Evidence
 
-- `tmp-order-management/.../OrderCommercialData.java` — `customerName` обязателен (non-blank); также обязательны `Direction` и `Currency`.
-- `OrderHeaderDraft` / create-order flow требуют non-blank `customerName` и `orderNumber`.
-- Spec v1.3 §27.7 фиксирует gap; фиктивные значения (`UNKNOWN`/`N/A`/`IMPORT`) запрещены.
+- `OrderCommercialData` / create-order flow (pre-implementation analysis).
+- Spec v1.3 §27.7; ADR-030.
 
-### Options
+### Accepted decision
 
-1. Разрешить неполный коммерческий DRAFT: `customerName` (и при необходимости `Direction`/`Currency`) nullable только в `DRAFT`; `ORDER_APPROVE` запрещён до заполнения обязательных полей.
-2. Требовать ввод коммерческих полей в UI **до** подтверждения импорта (импорт не создаёт заказ без коммерции).
-3. Другое явно утверждённое пользователем правило без фиктивных значений.
+1. `DRAFT` may temporarily omit mandatory commercial fields (`customerName`, `direction`, `currency`, `contractNumber`/`contractRef`, `objectName`/`siteRef`).
+2. File import may create an incomplete `DRAFT` order.
+3. Placeholder values (`UNKNOWN`, `N/A`, `IMPORT`, `—`, empty system stubs) are prohibited.
+4. User completes commercial data manually.
+5. `ORDER_APPROVE` is forbidden until all mandatory commercial fields are filled; the error must list missing fields.
+6. After approval, normal immutability rules apply.
 
-### Recommendation
-
-Вариант 1 — соответствует предпочтительному процессу §27.7 и сохраняет атомарный import confirm.
+Implementation of this domain relaxation belongs to Order Intake contract tasks (after `STAGE5-050 = DONE`), not to documentation alone.
 
 ### Required user decision
 
-Какой вариант (1 / 2 / 3) утверждаем для STAGE5-053?
+None — resolved.
+
+---
+
+## Active blockers
+
+**Active blockers: NONE**
 
 ---
 

@@ -1,7 +1,8 @@
 # Stage 5 Manifest — Order Management
 
-**Stage:** 5 — Order Management
-**Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.3)
+**Stage:** 5 — Order Management  
+**Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.3)  
+**ADR document:** `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` (v1.5; ADR-028, ADR-029, ADR-030)  
 **Status:** Implementation IN_PROGRESS; STAGE5-050 waiting user retest-2; Order Intake extension tasks STAGE5-051..057 NOT STARTED.
 
 ---
@@ -10,21 +11,23 @@
 
 Реализовать Capability Order Management как единственного владельца коммерческого жизненного цикла заказов, позиций, редакций и неизменяемых спецификаций, полностью управляемого через документную модель Document Engine с capability-owned typed payload, с Public Query API (поиск/пагинация) и Domain Events для будущих Capability, без хранения производственного, складского или раскроечного состояния.
 
+Включает расширение Order Intake MVP (ручной ввод + STXT-импорт) после завершения core smoke `STAGE5-050`.
+
 ---
 
 ## 2. Входные условия
 
 - Stage 0–4 завершены (DONE 100%); нет открытых блокеров Stage 0–4.
-- Order Management Specification обновлена до v1.2; Constitution v1.2; ADR v1.3 (ADR-028 добавлен; ADR-003/004 уточнены); documentation gate STAGE5-000-FIX пройден.
-- Подтверждённая транзакционная граница Document Engine (processor внутри транзакции проведения; события после commit) — prerequisite Platform/Document Engine НЕ требуется.
-- Flyway highest version = `V5`; Order Management начинает с `V6`.
-- Reactor: `tmp-platform-core`, `tmp-infra-db`, `tmp-document-engine`, `tmp-capability-engine`, `tmp-security`, `tmp-ui-shell`, `tmp-bootstrap-app`, `tmp-architecture-tests`.
+- Order Management Specification = **v1.3**; Constitution v1.2; ADR = **v1.5** (ADR-028, ADR-029, ADR-030).
+- Подтверждённая транзакционная граница Document Engine (processor внутри транзакции проведения; события после commit).
+- **Фактические миграции Order Management:** `V6`, `V7`, `V8`. Текущая последняя = **V8**. Новые миграции Order Intake начинаются с **V9**.
+- Reactor: `tmp-platform-core`, `tmp-infra-db`, `tmp-document-engine`, `tmp-capability-engine`, `tmp-security`, `tmp-ui-shell`, `tmp-bootstrap-app`, `tmp-architecture-tests`, `tmp-order-management`.
 
 ---
 
 ## 3. Архитектурные границы
 
-- Новый модуль: `tmp-order-management`.
+- Модуль: `tmp-order-management`.
 - Public API package: `com.tmp.order.api` (Query DTO, идентификаторы, события).
 - Внутренние: `com.tmp.order.domain` (+ `...repository`), `com.tmp.order.application`, `com.tmp.order.persistence`, `com.tmp.order.capability`, `com.tmp.order` (auto-config + `PlatformComponent`).
 - Разрешённые зависимости: `com.tmp.core.api..`, `com.tmp.capability.api..`, `com.tmp.document.api..`, `com.tmp.security.api..` (только публичные API). JavaFX запрещён в модуле.
@@ -43,6 +46,8 @@
 
 Границы транзакций: Customer Order — собственная; Order Item + Revisions + Specifications — единая граница агрегата.
 
+**ADR-030:** `DRAFT` может временно не содержать обязательные коммерческие поля; `ORDER_APPROVE` требует их заполнения.
+
 ---
 
 ## 5. Capability-owned document payload
@@ -52,7 +57,7 @@
 - Собственный persistence port и adapter; optimistic locking черновика через `PayloadRevision`.
 - Editable только в Draft-состоянии документа; Immutable после проведения.
 - Не generic JSON в Platform Core; недоступен другим Capability напрямую.
-- Физическая модель (Spec §11.5): `order_document_payload` (общие metadata, ключ `document_id`) + typed-таблицы (`order_create_payload`, `order_update_payload`, `order_status_payload`, `order_item_create_payload`, `order_item_update_payload`, `order_item_status_payload`, `order_item_revision_create_payload`, `order_item_revision_update_payload`, `order_item_revision_approve_payload`) + `order_item_revision_payload_line`; связь через `document_id` (FK), optimistic lock `payload_revision`, каскадное удаление Draft, immutability после проведения; JSON/сериализация запрещены.
+- Физическая модель (Spec §11.5): `order_document_payload` + typed-таблицы + `order_item_revision_payload_line`; связь через `document_id` (FK), optimistic lock `payload_revision`, каскадное удаление Draft, immutability после проведения; JSON/сериализация запрещены.
 - Processing record: `DocumentId + Operation` unique; idempotency guard внутри processor.
 
 ---
@@ -101,7 +106,7 @@
 
 ## 11. Транзакционная граница (public contract)
 
-Зафиксировано публичным контрактом Document Engine (Document Engine Specification v1.1): `DocumentProcessor` вызывается внутри транзакции lifecycle-операции; ошибка processor атомарно откатывает изменения Capability, metadata и lifecycle journal; `DocumentId` доступен через `context.document().id()`. Изменение агрегата + processing record атомарны в этой границе. События после успешного commit публикуются через публичный контракт `TransactionalEventPublisher.publishAfterCommit(DomainEvent)`; Order Management **не импортирует** внутренние классы Document Engine. Публичный `TransactionalEventPublisher` реализуется отдельной prerequisite-задачей очереди **до** первого Document Processor.
+Зафиксировано публичным контрактом Document Engine (Document Engine Specification v1.1): `DocumentProcessor` вызывается внутри транзакции lifecycle-операции; ошибка processor атомарно откатывает изменения Capability, metadata и lifecycle journal; `DocumentId` доступен через `context.document().id()`. Изменение агрегата + processing record атомарны в этой границе. События после успешного commit публикуются через публичный контракт `TransactionalEventPublisher.publishAfterCommit(DomainEvent)`; Order Management **не импортирует** внутренние классы Document Engine.
 
 ---
 
@@ -115,7 +120,7 @@
 
 ## 13. Flyway scope
 
-Единый `classpath:db/migration`. Order Management добавляет `V6__order_management_schema.sql` (+ `V7+` при необходимости, напр. payload/processing). `V1..V5` не изменяются.
+Единый `classpath:db/migration`. Фактически в Order Management: **V6** (payload), **V7** (processing record), **V8** (aggregates). Следующий свободный номер для Order Intake = **V9**. `V1..V5` и существующие `V6..V8` не изменяются на месте.
 
 ---
 
@@ -128,9 +133,9 @@
 ## 15. Testing scope
 
 - Unit: domain (агрегаты, инварианты, active/draft revision, immutability), application (commands/processors), payload use cases; **Order Intake:** parser, import validation, source-neutral model.
-- Integration (PostgreSQL Testcontainers): schema/constraints, optimistic lock, revision immutability, payload persistence, document lifecycle (post/unpost-rejected/close/delete), idempotency (повторный post), transaction rollback (сбой в onPost откатывает всё, событие не публикуется), end-to-end документный поток, Query API поиск/пагинация; **Order Intake:** atomic import, existing-order conflict, duplicate import metadata, rollback.
-- Architecture tests: границы пакетов; отсутствие production-owned данных; отсутствие внешнего mutating API; payload не в Platform Core; зависимость только от разрешённых публичных API; транзакционная граница; **адаптер источника не пишет в persistence напрямую**.
-- Full reactor `mvn clean verify`; package profile; manual packaged GUI smoke (`STAGE5-050` и `STAGE5-057`).
+- Integration (PostgreSQL Testcontainers): schema/constraints, optimistic lock, revision immutability, payload persistence, document lifecycle, idempotency, transaction rollback, Query API; **Order Intake:** atomic import, existing-order conflict, duplicate import metadata, rollback.
+- Architecture tests: границы пакетов; отсутствие production-owned данных; отсутствие внешнего mutating API; payload не в Platform Core; **адаптер источника не пишет в persistence напрямую**.
+- Full reactor `mvn clean verify`; package profile; manual packaged GUI smoke: `STAGE5-050` (core), затем `STAGE5-057` (Order Intake).
 
 ---
 
@@ -149,15 +154,23 @@
 - **Firebird JDBC / прямое подключение к БД «СуперОкна» / фоновый обмен / plugin framework**;
 - **merge/перезапись существующего заказа при импорте**;
 - **orientation / placement в спецификации**;
-- **фиктивные коммерческие значения (`UNKNOWN`/`N/A`/`IMPORT`)**.
+- **фиктивные коммерческие значения (`UNKNOWN`/`N/A`/`IMPORT`/`—`)**.
 
 ---
 
 ## 17. Порядок реализации
 
-Core Stage 5 (`STAGE5-001..STAGE5-050`) — выполнен до manual GUI smoke (`STAGE5-050` ещё IN_PROGRESS — WAITING_USER_RETEST-2).
+### Core Order Management
 
-**Order Intake extension** (после фактически последнего ID `STAGE5-050`):
+`STAGE5-001..STAGE5-049` — реализованы.  
+`STAGE5-050` — Manual Packaged GUI Smoke — Core Order Management: **IN_PROGRESS — WAITING_USER_RETEST-2**.
+
+Успех `STAGE5-050` → `STAGE5-050 = DONE`; Stage 5 остаётся **IN_PROGRESS**. Не закрывает Stage 5, не ставит 100%, не стартует Stage 6.
+
+### Order Intake extension
+
+Строгая последовательность. Пока `STAGE5-050` = `IN_PROGRESS`, задачи `STAGE5-051…057` = **NOT STARTED**.  
+`STAGE5-051` может стать `IN_PROGRESS` **только после** `STAGE5-050 = DONE`.
 
 | ID | Title |
 | --- | --- |
@@ -169,7 +182,7 @@ Core Stage 5 (`STAGE5-001..STAGE5-050`) — выполнен до manual GUI smo
 | STAGE5-056 | Automated Verification |
 | STAGE5-057 | Manual GUI Smoke (Order Intake) |
 
-Порядок: 051 → 052 → 053 → 054 → 055 → 056 → 057. Одновременно только одна READY-задача. Реализация extension **не стартует** без отдельной команды пользователя. STAGE5-050 не закрывается этими задачами автоматически.
+Порядок: 050 DONE → 051 → 052 → 053 → 054 → 055 → 056 → 057. Одновременно только одна задача `IN_PROGRESS`. Финальное закрытие Stage 5 — только после `STAGE5-057` и итоговой ручной проверки.
 
 `TransactionalEventPublisher` уже реализован ранее.
 
@@ -177,13 +190,13 @@ Core Stage 5 (`STAGE5-001..STAGE5-050`) — выполнен до manual GUI smo
 
 ## 18. Правила контекста
 
-`CONTEXT-MAP.md` → «Stage 5 — Order Management Context» (в т.ч. группы: document payload model / payload persistence / transactional event publisher / processor lifecycle / processing idempotency / revision draft workflow / query search and pagination / **order intake import**). Запрещено загружать полную реализацию Production/Warehouse/Cutting/Analytics. Security — только при прямой необходимости permission checks.
+`CONTEXT-MAP.md` → «Stage 5 — Order Management Context» и группы Order Intake (`stage5-order-intake-*`). Запрещено загружать полную реализацию Production/Warehouse/Cutting/Analytics. Security — только при прямой необходимости permission checks.
 
 ---
 
 ## 19. Verification gates
 
-- Per-task focused tests; integration gate (Testcontainers); document lifecycle gate; idempotency gate; transaction rollback gate; architecture gate; **Order Intake parser/import gates**; full `mvn clean verify` + `-Ppackage`; manual GUI smoke (`STAGE5-050`, затем `STAGE5-057`).
+- Per-task focused tests; integration gate (Testcontainers); document lifecycle gate; idempotency gate; transaction rollback gate; architecture gate; **Order Intake parser/import gates**; full `mvn clean verify` + `-Ppackage`; manual GUI smoke (`STAGE5-050` core, затем `STAGE5-057` intake).
 
 ---
 
@@ -193,19 +206,22 @@ Stage 5 завершён только когда:
 
 - UI может создать платформенный документ и сохранить typed draft payload;
 - processor получает `DocumentId` и загружает payload (`onPost` возвращает `void`);
-- payload immutable после проведения; публичный повторный `postDocument` отклоняется lifecycle validation; idempotency guard внутри processor предотвращает повторную/конкурентную обработку (без повторного изменения/события);
-- публичный `TransactionalEventPublisher` реализован; события публикуются только после commit; Order Management не импортирует внутренние классы Document Engine;
+- payload immutable после проведения; публичный повторный `postDocument` отклоняется lifecycle validation; idempotency guard внутри processor предотвращает повторную/конкурентную обработку;
+- публичный `TransactionalEventPublisher` реализован; события публикуются только после commit;
 - unpost проведённого документа отклоняется; delete draft-документа удаляет payload;
 - active Revision не заменяется Draft Revision до утверждения; предыдущие Revision immutable;
-- Query API предоставляет данные (Order/Item/Revision/Specification) с поиском и пагинацией; order list работает только через Query API;
+- Query API предоставляет данные с поиском и пагинацией;
 - Stage 5 не отменяет approved order или active item и не меняет состав approved order;
 - производственное состояние не хранится;
 - capabilities зарегистрированы; UI использует application/document flow;
 - миграции и persistence соответствуют модели; unit/integration/architecture tests проходят;
-- `mvn clean verify` и `-Ppackage` зелёные; packaged GUI smoke подтверждён пользователем;
-- **Order Intake MVP:** ручной ввод и файловый импорт создают одинаковую доменную структуру; preview до persistence; атомарный импорт; конфликт существующего заказа; без Firebird;
+- `mvn clean verify` и `-Ppackage` зелёные;
+- **core** packaged GUI smoke (`STAGE5-050`) подтверждён пользователем;
+- **Order Intake MVP** (`STAGE5-051..057`): ручной ввод и файловый импорт создают одинаковую доменную структуру; preview до persistence; атомарный импорт; конфликт существующего заказа; без Firebird; incomplete DRAFT per ADR-030; итоговый smoke `STAGE5-057` подтверждён;
 - явная остановка перед Stage 6.
 
-## 21. Open decisions / blockers for Order Intake
+`STAGE5-050` сам по себе **не** закрывает Stage 5.
 
-- **STAGE5-INTAKE-COMMERCIAL-DRAFT:** текущий `OrderCommercialData` требует non-blank `customerName` (+ `Direction`, `Currency`). Импорт файла без коммерческих полей не может создать DRAFT без изменения контракта или фиктивных значений (запрещены). Нужно решение пользователя до STAGE5-053.
+## 21. Decisions for Order Intake
+
+- **ADR-030 / бывший blocker `STAGE5-INTAKE-COMMERCIAL-DRAFT`:** RESOLVED — incomplete commercial data allowed only in DRAFT; approval requires all mandatory commercial fields; placeholders prohibited.

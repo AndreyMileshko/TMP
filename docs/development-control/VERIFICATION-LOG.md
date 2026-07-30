@@ -3,6 +3,38 @@
 ## Latest result
 
 **Date:** 2026-07-30  
+**Scope:** Stage 5 Documentation Fix — Order Intake Planning Consistency  
+**Overall:** DOCUMENTATION CONSISTENCY CORRECTION ONLY
+
+| Verification | Evidence | Result |
+|---|---|---|
+| Documentation consistency correction only | Spec §27.7, ADR-030, Manifest, WORK-QUEUE, STATUS, CONTEXT-MAP, BLOCKERS | DONE |
+| Production code changed | — | NO |
+| FXML/CSS changed | — | NO |
+| Database migrations created | — | NO |
+| Dependencies changed | — | NO |
+| Automated tests executed | — | NOT REQUIRED |
+| GUI launched | — | NO |
+| Manual GUI smoke | STAGE5-050 | STILL INCOMPLETE |
+| STAGE5-048 | WORK-QUEUE | DONE |
+| STAGE5-049 | WORK-QUEUE | DONE |
+| STAGE5-050 | WORK-QUEUE | IN_PROGRESS — WAITING_USER_RETEST-2 |
+| STAGE5-051..057 | WORK-QUEUE | NOT STARTED |
+| Stage 5 Core | STATUS | IMPLEMENTED — WAITING USER RETEST |
+| Stage 5 Order Intake Extension | STATUS | NOT STARTED |
+| Stage 5 | STATUS | IN_PROGRESS |
+| Stage 6 | STATUS | NOT STARTED |
+| Active blockers | BLOCKERS | NONE |
+| Git | — | NOT EXECUTED |
+
+### Failures
+
+- None for documentation consistency task.
+
+---
+## Previous latest (2026-07-30 Stage 5 Order Intake MVP planning)
+
+**Date:** 2026-07-30  
 **Scope:** Stage 5 Order Intake MVP — documentation and task decomposition only  
 **Overall:** DOCUMENTATION COMPLETE — IMPLEMENTATION NOT STARTED
 
@@ -23,7 +55,7 @@
 ### Failures
 
 - None for documentation task.
-- Open decision blocker for future STAGE5-053: STAGE5-INTAKE-COMMERCIAL-DRAFT.
+- (Superseded) commercial DRAFT decision later resolved as ADR-030 / RESOLVED blocker.
 
 ---
 ## Previous latest (2026-07-30 Stage 5.11D-FIX-2)

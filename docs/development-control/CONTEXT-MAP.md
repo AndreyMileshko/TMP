@@ -26,20 +26,22 @@ Cursor обновляет реальные пути во время CONTROL-001.
 
 # Stage Context
 
-| Stage | Primary specification | Additional context |
-|---:|---|---|
-| 0 | Architecture Overview; Database Specification; UI/UX bootstrap rules | technology ADR; build rules |
-| 1 | Platform Core Specification | core ADR; Architecture Overview |
-| 2 | Document Engine Specification | Database Specification; document ADR |
-| 3 | Capability Engine Specification | Platform Core public API; capability ADR |
-| 4 | Security Specification | Database Specification; audit and permission ADR |
-| 5 | Order Management Specification (v1.2) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only) |
-| 6 | Warehouse Specification | Order public API; Production contracts; Database Specification |
-| 7 | Production Specification | Order and Warehouse public APIs; Database Specification |
-| 8 | Cutting Optimization Specification | Production contracts; algorithm requirements |
-| 9 | Analytics Specification | Warehouse read-only Public API; Capability Engine registration API; Security permission API; Order Management read-only references; UI/UX report screen rules |
-| 10 | all public contracts only | integration scenarios; no internal implementations unless defect requires it |
-| 11 | release and packaging documents | verification logs and known limitations |
+Утверждённая последовательность стадий разработки:
+
+| Stage | Name | Primary specification | Additional context |
+|---:|---|---|---|
+| 0 | Foundation | Architecture Overview; Database Specification; UI/UX bootstrap rules | technology ADR; build rules |
+| 1 | Platform Core | Platform Core Specification | core ADR; Architecture Overview |
+| 2 | Document Engine | Document Engine Specification | Database Specification; document ADR |
+| 3 | Capability Engine | Capability Engine Specification | Platform Core public API; capability ADR |
+| 4 | Security | Security Specification | Database Specification; audit and permission ADR |
+| 5 | Order Management | Order Management Specification (**v1.3**) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only); ADR v1.5 (ADR-028/029/030); Stage 5 Manifest |
+| 6 | Warehouse | Warehouse Specification | Order public API; Production contracts; Database Specification |
+| 7 | Production | Production Specification | Order and Warehouse public APIs; Database Specification |
+| 8 | Cutting Optimization | Cutting Optimization Specification | Production contracts; algorithm requirements |
+| 9 | Analytics | Analytics Specification | Warehouse read-only Public API; Capability Engine registration API; Security permission API; Order Management read-only references; UI/UX report screen rules |
+
+Нумерация папок архитектурной документации (`00-Constitution` … `14-Analytics`, `15-Database`, …) — структура документов, **не** последовательность Stage.
 
 ---
 
@@ -116,11 +118,13 @@ Read only:
 
 Основные документы:
 
-- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.2);
+- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (**v1.3**);
 - `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Stage Manifest);
 - `docs/TMP/TMP_Initial_Documents/architecture/00-Constitution/TMP-Constitution.md` (v1.2, принцип 28);
-- релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028** (capability-owned business document payload);
+- релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030** (ADR document **v1.5**);
 - Production Specification (v1.1) — **только** разделы владения производственным состоянием, связи с `Order Item ID`/`Revision`, Public API, Domain Events и интеграции с Order Management (для корректной границы; не для реализации Production).
+
+Миграции Order Management (факт): latest = **V8** (`V6` payload, `V7` processing, `V8` aggregates). Order Intake migrations = **V9** и далее.
 
 Разрешённый минимальный code context (публичные API только):
 
@@ -156,12 +160,56 @@ Read only:
 | revision draft workflow | Spec §6/§9.2/§9.3; ADR-018 | `com.tmp.document.api` | `ORDER_ITEM_REVISION_*` payload/processors/домен | — |
 | application commands | Spec §15.2 | — | собственный application/домен/ports | внешний вызов mutating API |
 | domain events | Spec §17; ADR-021; Platform Core Event API | `com.tmp.core.api` (Event API) | собственные события | события Production/Warehouse/Cutting |
-| aggregate persistence & migrations | Spec §19; Database Spec; Flyway (highest = V5 → V6) | `tmp-infra-db` конвенции | adapters, `V6+` миграции | хранение production/warehouse/cutting данных |
+| aggregate persistence & migrations | Spec §19; Database Spec; Flyway (current latest = V8; next = V9+) | `tmp-infra-db` конвенции | adapters, `V9+` миграции для intake | хранение production/warehouse/cutting данных |
 | security capabilities | Spec §18; Security `PermissionId` | `com.tmp.capability.api`, `com.tmp.security.api` | `PermissionDescriptor`/`CapabilityDescriptor` | внутренняя реализация Security |
 | UI | UI/UX Spec (экраны/навигация); Manifest §14 | `com.tmp.order.api` (Query/DTO), `com.tmp.document.api` | `tmp-ui-shell` файлы из задачи | прямые мутации агрегатов из UI |
 | integration & lifecycle & idempotency & rollback tests | Manifest §15; Testcontainers | публичные API участников | собственные тесты | внутренняя реализация других Capability |
 | architecture tests | Manifest §16; ADR-003/004/019/028 | `com.tmp.*.api` | архитектурные правила | — |
 | final verification | Manifest §17/§19/§20; `RUN-DEVELOPMENT.md` | packaged app | — | — |
+
+## Order Intake context groups
+
+### `stage5-order-intake-contracts`
+
+Разрешено: конкретная задача WORK-QUEUE; соответствующий раздел Stage Manifest; релевантные разделы Order Management Specification (§5, §11, §15, §27); Order Item domain model; Specification Line domain model; DTO; document payload; Public Query API; persistence mapping; Flyway migration files (V9+); тесты этих контрактов; ADR-029/ADR-030.
+
+Запрещено: полная загрузка Warehouse, Production, Cutting, Analytics.
+
+### `stage5-order-intake-manual-ui`
+
+Разрешено: Order Management JavaFX screen; Controller; ViewModel; FXML; UI tests; публичные Order Management contracts.
+
+Запрещено: Firebird; STXT parser internals; Warehouse/Production internals; прямые repository вызовы.
+
+### `stage5-order-import-core`
+
+Разрешено: source-neutral import model; import application service; preview model; validation; transaction boundary; duplicate protection; integration tests; Spec §27.4–27.7; ADR-029/030.
+
+Запрещено: STXT byte parsing details; JavaFX; Firebird; direct JDBC inserts bypassing services.
+
+### `stage5-order-import-stxt`
+
+Разрешено: STXT parser; encoding detection; header mapping; parser tests; fixture files; source-neutral import contract.
+
+Запрещено: Persistence; Document post; JavaFX; Firebird.
+
+### `stage5-order-import-ui`
+
+Разрешено: FileChooser integration; import preview screen; Controller; ViewModel; FXML; Russian messages; UI tests; public import application API.
+
+Запрещено: Parser internals; Firebird; direct repositories.
+
+### `stage5-order-intake-verification`
+
+Разрешено: тесты затронутых модулей; architecture tests; package profile; PackagingSmokeIT; verification documents.
+
+Запрещено: New features; Stage 6; agent-run manual GUI.
+
+### `stage5-order-intake-manual-smoke`
+
+Разрешено: manual smoke checklist; packaged launch instructions; expected UI behaviour; verification log.
+
+Запрещено: Agent launching TMP.exe; closing Stage 5 without user; starting Stage 6.
 
 ---
 

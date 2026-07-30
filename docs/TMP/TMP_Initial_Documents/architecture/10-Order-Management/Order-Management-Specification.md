@@ -762,7 +762,7 @@ Order Management предоставляет стабильные `Order Item ID`
 # 25. Связанные документы
 
 * TMP Constitution (v1.2)
-* TMP Architecture Decisions (ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**)
+* TMP Architecture Decisions (ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**)
 * Document Engine Specification
 * Platform Core Specification (Event API)
 * Capability Engine Specification
@@ -781,6 +781,7 @@ Order Management предоставляет стабильные `Order Item ID`
 | 1.2 | Введён capability-owned typed business document payload (ADR-028), связанный по `DocumentId`, versioned, с optimistic locking (`PayloadRevision`) и immutability после проведения; уточнён document lifecycle (`post`/`unpost`=NOT SUPPORTED/`close`/`delete`) и idempotency (processing record `DocumentId + Operation`); подтверждена транзакционная граница Document Engine (processor внутри транзакции проведения, события после commit); модель Revision разделена на active/draft, добавлен документ `ORDER_ITEM_REVISION_UPDATE`, `ORDER_ITEM_UPDATE` ограничен коммерческими полями; безопасный коммерческий lifecycle Stage 5 (запрет `APPROVED→CANCELLED`, `ACTIVE→CANCELLED`, изменения состава утверждённого заказа); расширен Public Query API (`searchOrders`, списки items/revisions, пагинация 50/100 zero-based, стабильная сортировка); уточнены Constitution/ADR-003/ADR-004; определены future integration processes. |
 | 1.2 (rev. STAGE5-000-FIX2) | Определена физическая модель typed payload (§11.5): `order_document_payload` + typed-таблицы + `order_item_revision_payload_line`, связь через `document_id`, FK, optimistic lock `payload_revision`, каскадное удаление Draft, immutability после проведения, без JSON/сериализации. Транзакционное поведение переведено на публичный контракт Document Engine (Document Engine Specification v1.1) и публичный `TransactionalEventPublisher`; Order Management не импортирует внутренние классы Document Engine. Исправлена семантика idempotency: `void onPost`, повторный публичный `postDocument` отклоняется lifecycle validation, guard внутри processor завершается как already processed без возврата результата. |
 | 1.3 | Order Intake MVP: два канала (STXT-файл и ручной ввод); source-neutral import boundary (ADR-029); семантика колонок выгрузки; `externalPositionNumber`; `productQuantity` ↔ `OrderedQuantity`; target-контракт строки спецификации (`color`, `lengthMm`, `lineQuantity`); исключение orientation; план удаления `consumptionNorm`; preview/atomic import; конфликт существующего заказа; защита от повторного импорта; зафиксирован gap неполного DRAFT без `customerName`. |
+| 1.3 (rev. incomplete-DRAFT) | Принято ADR-030: неполные коммерческие данные разрешены только в `DRAFT`; placeholders запрещены; `ORDER_APPROVE` требует все обязательные коммерческие поля с перечислением отсутствующих. |
 
 ---
 
@@ -955,9 +956,16 @@ OrderImportBatch
 
 Файл не содержит заказчика, договора, объекта и прочих коммерческих реквизитов.
 
-**Предпочтительное правило:** импорт создаёт `DRAFT`-заказ с номером; пользователь дополняет коммерческие поля вручную; утверждение запрещено до заполнения обязательных полей.
+**Принятое решение (ADR-030):**
 
-**Текущий факт реализации (анализ):** `OrderCommercialData` требует non-blank `customerName`, а также `Direction` и `Currency`. Неполный черновик без заказчика **сейчас создать нельзя** без фиктивных значений. Фиктивные значения (`UNKNOWN` / `N/A` / `IMPORT`) запрещены. Доменный контракт не меняется в рамках документации — требуется решение пользователя (blocker `STAGE5-INTAKE-COMMERCIAL-DRAFT`).
+1. Заказ в статусе `DRAFT` может временно не содержать: `customerName`, `direction`, `currency`, `contractNumber`/`contractRef`, `objectName`/`siteRef`.
+2. Файловый импорт может создать неполный `DRAFT`-заказ.
+3. Фиктивные значения запрещены: `UNKNOWN`, `N/A`, `IMPORT`, `—`, пустые системные заглушки.
+4. Пользователь дополняет коммерческие данные вручную.
+5. `ORDER_APPROVE` запрещён, пока обязательные коммерческие поля не заполнены; ошибка утверждения должна перечислять отсутствующие обязательные поля.
+6. После утверждения применяются обычные правила неизменяемости заказа.
+
+**Текущий факт реализации (до STAGE5-051):** код ещё требует non-blank `customerName` / `Direction` / `Currency`. Релаксация домена выполняется в `STAGE5-051` (после `STAGE5-050 = DONE`), не placeholder-значениями.
 
 ## 27.8 Ручной ввод
 
@@ -977,6 +985,6 @@ OrderImportBatch
 | SpecificationLine | `materialCode`, `materialName`, `quantity`, `unitOfMeasure`, `consumptionNorm` | добавить `color`, `lengthMm`; переименовать/уточнить `quantity` → `lineQuantity`; удалить/заменить `consumptionNorm` |
 | Public Query / DTO / payload / UI / V6+V8 | содержат `consumptionNorm` | синхронное изменение контрактов в STAGE5-051 |
 | Warehouse/Production/Cutting | не читают `consumptionNorm` | кросс-модульного blocker нет |
-| Create DRAFT Order | `customerName` обязателен | blocker до решения о неполном DRAFT |
+| Create DRAFT Order | `customerName` (и др.) ещё обязателен в коде | ADR-030 принят; реализация релаксации в STAGE5-051 |
 
 Требуются изменения: domain, DTO, document payload, validation, Public Query API, JavaFX UI, новая Flyway-миграция. В этой документации код не меняется.
