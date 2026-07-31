@@ -4,6 +4,51 @@
 
 ---
 
+## STAGE5-055 — Import GUI
+
+**Date:** 2026-07-31  
+**Stage:** 5  
+**Status:** DONE  
+**Module:** `tmp-ui-shell` (+ bootstrap wiring; minimal public STXT UI contract)
+
+### Result
+
+JavaFX Import GUI (Spec §27.6):
+
+- Screen `order.view.order-import`: FileChooser → `StxtOrderFileParser` → `OrderImportService.preview` → display → confirm via `PreparedOrderImportPlan`;
+- UI: file name, preview counts (order number / positions / products / spec lines), errors table, warnings table, buttons Проверить / Импортировать / Отмена;
+- ERROR disables Import; WARNING-only allows Import; Cancel does not persist;
+- Russian user messages; no SQL / stack trace / Java exception text to the user;
+- read-only after import (no edit of imported data on this screen);
+- Order list button «Импорт заказа» (permission `order.order.create`);
+- Public UI contract: `StxtOrderFileParser` + `OrderImportFileParseResult` in `com.tmp.order.api.imports`; facade `DefaultStxtOrderFileParser` delegates to unchanged `StxtFileAdapter`.
+
+Import Core service/model and STXT adapter internals unchanged. Firebird absent. `STAGE5-056` not started. Git not executed.
+
+### Files changed (production)
+
+- `OrderImportViewModel` / `OrderImportController` / `OrderImportScreen.fxml`
+- `UiShellScreens` (import screen id/FXML)
+- Order list: Import button + navigation callback
+- `UiShellAutoConfiguration` screen registration / navigation bridge
+- `StxtOrderFileParser`, `OrderImportFileParseResult`, `DefaultStxtOrderFileParser` (+ AutoConfiguration bean)
+- FX/ViewModel tests + bootstrap wiring test
+- control docs
+
+### Verification
+
+- `OrderImportViewModelTest` — PASS
+- `OrderImportControllerFxTest` — PASS
+- `tmp-ui-shell` SpotBugs — PASS
+- `Stage5OrderManagementArchitectureTest` — PASS
+- `DesktopBootstrapWiringTest` — PASS
+
+### Next
+
+`STAGE5-056` — Automated Verification — NOT STARTED.
+
+---
+
 ## STAGE5-054 — STXT File Adapter
 
 **Date:** 2026-07-31  

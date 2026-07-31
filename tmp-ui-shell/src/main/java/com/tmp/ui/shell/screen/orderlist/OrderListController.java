@@ -26,6 +26,9 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
     private Button createOrderButton;
 
     @FXML
+    private Button importOrderButton;
+
+    @FXML
     private Button openOrderButton;
 
     @FXML
@@ -113,8 +116,10 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
                 .selectedItemProperty()
                 .addListener((obs, oldValue, newValue) -> viewModel.selectedOrderProperty().set(newValue));
         createOrderButton.disableProperty().bind(viewModel.canCreateProperty().not());
+        importOrderButton.disableProperty().bind(viewModel.canImportProperty().not());
         openOrderButton.disableProperty().bind(viewModel.canOpenSelectedProperty().not());
         createOrderButton.setOnAction(e -> viewModel.createOrder());
+        importOrderButton.setOnAction(e -> viewModel.importOrder());
         openOrderButton.setOnAction(e -> viewModel.openSelectedOrder());
         orderNumberFilterField.textProperty().bindBidirectional(viewModel.orderNumberFilterProperty());
         orderStatusFilterField.textProperty().bindBidirectional(viewModel.orderStatusFilterProperty());

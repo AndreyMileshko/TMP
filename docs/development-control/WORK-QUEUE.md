@@ -8848,9 +8848,9 @@ Adapter writes DB or calls UI.
 
 ## STAGE5-055 — Import GUI
 
-**Status:** NOT STARTED  
-**Stage:** 5  
-**Depends on:** STAGE5-052, STAGE5-054  
+**Status:** DONE
+**Stage:** 5
+**Depends on:** STAGE5-052, STAGE5-054
 **Module:** tmp-ui-shell (+ bootstrap wiring)
 
 ### Goal
@@ -8883,9 +8883,9 @@ UI выбора файла, preview, ошибки/предупреждения, 
 
 ### Acceptance criteria
 
-- [ ] Confirm только после preview;
-- [ ] Cancel без persistence;
-- [ ] Нет stack trace пользователю.
+- [x] Confirm только после preview;
+- [x] Cancel без persistence;
+- [x] Нет stack trace пользователю.
 
 ### Required tests
 

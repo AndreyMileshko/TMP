@@ -5,6 +5,8 @@ import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderItemId;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderStatus;
+import com.tmp.order.api.imports.OrderImportService;
+import com.tmp.order.api.imports.StxtOrderFileParser;
 import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
@@ -26,6 +28,7 @@ import com.tmp.ui.shell.screen.audit.SecurityAuditViewModel;
 import com.tmp.ui.shell.screen.login.LoginViewModel;
 import com.tmp.ui.shell.screen.main.MainWindowViewModel;
 import com.tmp.ui.shell.screen.ordereditor.OrderEditorViewModel;
+import com.tmp.ui.shell.screen.orderimport.OrderImportViewModel;
 import com.tmp.ui.shell.screen.orderitemeditor.OrderItemEditorViewModel;
 import com.tmp.ui.shell.screen.orderitemlist.OrderItemListViewModel;
 import com.tmp.ui.shell.screen.orderlist.OrderListViewModel;
@@ -120,6 +123,14 @@ public class UiShellAutoConfiguration {
     }
 
     @Bean
+    OrderImportViewModel orderImportViewModel(
+            OrderImportService orderImportService,
+            StxtOrderFileParser stxtOrderFileParser,
+            AuthorizationService authorizationService) {
+        return new OrderImportViewModel(orderImportService, stxtOrderFileParser, authorizationService);
+    }
+
+    @Bean
     OrderEditorViewModel orderEditorViewModel(
             OrderQueryService orderQueryService,
             OrderDocumentUiService orderDocumentUiService,
@@ -157,6 +168,7 @@ public class UiShellAutoConfiguration {
     OrderScreenNavigationBridge orderScreenNavigationBridge(
             OrderListViewModel orderListViewModel,
             OrderEditorViewModel orderEditorViewModel,
+            OrderImportViewModel orderImportViewModel,
             OrderItemListViewModel orderItemListViewModel,
             OrderItemEditorViewModel orderItemEditorViewModel,
             OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel,
@@ -164,6 +176,7 @@ public class UiShellAutoConfiguration {
         return new OrderScreenNavigationBridge(
                 orderListViewModel,
                 orderEditorViewModel,
+                orderImportViewModel,
                 orderItemListViewModel,
                 orderItemEditorViewModel,
                 orderItemSpecificationEditorViewModel,
@@ -181,6 +194,7 @@ public class UiShellAutoConfiguration {
             SecurityAuditViewModel securityAuditViewModel,
             OrderListViewModel orderListViewModel,
             OrderEditorViewModel orderEditorViewModel,
+            OrderImportViewModel orderImportViewModel,
             OrderItemListViewModel orderItemListViewModel,
             OrderItemEditorViewModel orderItemEditorViewModel,
             OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel) {
@@ -194,6 +208,7 @@ public class UiShellAutoConfiguration {
                 securityAuditViewModel,
                 orderListViewModel,
                 orderEditorViewModel,
+                orderImportViewModel,
                 orderItemListViewModel,
                 orderItemEditorViewModel,
                 orderItemSpecificationEditorViewModel);
@@ -209,6 +224,7 @@ public class UiShellAutoConfiguration {
 
         private final OrderListViewModel orderListViewModel;
         private final OrderEditorViewModel orderEditorViewModel;
+        private final OrderImportViewModel orderImportViewModel;
         private final OrderItemListViewModel orderItemListViewModel;
         private final OrderItemEditorViewModel orderItemEditorViewModel;
         private final OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel;
@@ -217,12 +233,14 @@ public class UiShellAutoConfiguration {
         OrderScreenNavigationBridge(
                 OrderListViewModel orderListViewModel,
                 OrderEditorViewModel orderEditorViewModel,
+                OrderImportViewModel orderImportViewModel,
                 OrderItemListViewModel orderItemListViewModel,
                 OrderItemEditorViewModel orderItemEditorViewModel,
                 OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel,
                 MainWindowViewModel mainWindowViewModel) {
             this.orderListViewModel = orderListViewModel;
             this.orderEditorViewModel = orderEditorViewModel;
+            this.orderImportViewModel = orderImportViewModel;
             this.orderItemListViewModel = orderItemListViewModel;
             this.orderItemEditorViewModel = orderItemEditorViewModel;
             this.orderItemSpecificationEditorViewModel = orderItemSpecificationEditorViewModel;
@@ -235,10 +253,21 @@ public class UiShellAutoConfiguration {
                 orderEditorViewModel.openCreate();
                 mainWindowViewModel.showScreen(UiShellScreens.ORDER_EDITOR_SCREEN_ID);
             }));
+            orderListViewModel.setOnImportOrder(() -> Platform.runLater(() -> {
+                orderImportViewModel.open();
+                mainWindowViewModel.showScreen(UiShellScreens.ORDER_IMPORT_SCREEN_ID);
+            }));
             orderListViewModel.setOnOpenOrder((OrderId orderId) -> Platform.runLater(() -> {
                 orderEditorViewModel.openExisting(orderId);
                 mainWindowViewModel.showScreen(UiShellScreens.ORDER_EDITOR_SCREEN_ID);
             }));
+            orderImportViewModel.setOnCancel(() -> Platform.runLater(() -> {
+                orderListViewModel.refresh();
+                mainWindowViewModel.showScreen(UiShellScreens.ORDER_LIST_SCREEN_ID);
+            }));
+            orderImportViewModel.setOnImportSuccess(() -> {
+                // Stay on import screen to show result; list refresh on cancel/back.
+            });
             orderEditorViewModel.setOnBackToList(() -> Platform.runLater(() -> {
                 orderListViewModel.refresh();
                 mainWindowViewModel.showScreen(UiShellScreens.ORDER_LIST_SCREEN_ID);
@@ -299,6 +328,7 @@ public class UiShellAutoConfiguration {
         private final SecurityAuditViewModel securityAuditViewModel;
         private final OrderListViewModel orderListViewModel;
         private final OrderEditorViewModel orderEditorViewModel;
+        private final OrderImportViewModel orderImportViewModel;
         private final OrderItemListViewModel orderItemListViewModel;
         private final OrderItemEditorViewModel orderItemEditorViewModel;
         private final OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel;
@@ -313,6 +343,7 @@ public class UiShellAutoConfiguration {
                 SecurityAuditViewModel securityAuditViewModel,
                 OrderListViewModel orderListViewModel,
                 OrderEditorViewModel orderEditorViewModel,
+                OrderImportViewModel orderImportViewModel,
                 OrderItemListViewModel orderItemListViewModel,
                 OrderItemEditorViewModel orderItemEditorViewModel,
                 OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel) {
@@ -325,6 +356,7 @@ public class UiShellAutoConfiguration {
             this.securityAuditViewModel = securityAuditViewModel;
             this.orderListViewModel = orderListViewModel;
             this.orderEditorViewModel = orderEditorViewModel;
+            this.orderImportViewModel = orderImportViewModel;
             this.orderItemListViewModel = orderItemListViewModel;
             this.orderItemEditorViewModel = orderItemEditorViewModel;
             this.orderItemSpecificationEditorViewModel = orderItemSpecificationEditorViewModel;
@@ -358,6 +390,10 @@ public class UiShellAutoConfiguration {
                     UiShellScreens.ORDER_EDITOR_SCREEN_ID,
                     UiShellScreens.ORDER_EDITOR_FXML,
                     () -> orderEditorViewModel));
+            navigationService.register(new ScreenRegistration(
+                    UiShellScreens.ORDER_IMPORT_SCREEN_ID,
+                    UiShellScreens.ORDER_IMPORT_FXML,
+                    () -> orderImportViewModel));
             navigationService.register(new ScreenRegistration(
                     UiShellScreens.ORDER_ITEM_LIST_SCREEN_ID,
                     UiShellScreens.ORDER_ITEM_LIST_FXML,

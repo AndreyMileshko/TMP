@@ -3,6 +3,8 @@ package com.tmp.bootstrap;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.tmp.order.api.OrderQueryService;
+import com.tmp.order.api.imports.OrderImportService;
+import com.tmp.order.api.imports.StxtOrderFileParser;
 import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
@@ -11,6 +13,7 @@ import com.tmp.security.api.AuthenticationService;
 import com.tmp.ui.shell.UiShellEntryPoint;
 import com.tmp.ui.shell.navigation.NavigationService;
 import com.tmp.ui.shell.screen.ordereditor.OrderEditorViewModel;
+import com.tmp.ui.shell.screen.orderimport.OrderImportViewModel;
 import com.tmp.ui.shell.screen.orderitemeditor.OrderItemEditorViewModel;
 import com.tmp.ui.shell.screen.orderitemlist.OrderItemListViewModel;
 import com.tmp.ui.shell.screen.orderlist.OrderListViewModel;
@@ -57,5 +60,12 @@ class DesktopBootstrapWiringTest extends AbstractBootstrapPostgresSpringTest {
         assertNotNull(applicationContext.getBean(OrderItemListViewModel.class));
         assertNotNull(applicationContext.getBean(OrderItemEditorViewModel.class));
         assertNotNull(applicationContext.getBean(OrderItemSpecificationEditorViewModel.class));
+    }
+
+    @Test
+    void orderImportScreenIsWiredToImportCoreAndStxtAdapter() {
+        assertNotNull(applicationContext.getBean(OrderImportService.class));
+        assertNotNull(applicationContext.getBean(StxtOrderFileParser.class));
+        assertNotNull(applicationContext.getBean(OrderImportViewModel.class));
     }
 }

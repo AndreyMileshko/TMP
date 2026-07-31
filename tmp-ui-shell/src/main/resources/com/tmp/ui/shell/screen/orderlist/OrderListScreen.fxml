@@ -18,6 +18,7 @@
     <Label fx:id="titleLabel" styleClass="order-list-title"/>
     <HBox spacing="8">
         <Button fx:id="createOrderButton" text="Создать заказ"/>
+        <Button fx:id="importOrderButton" text="Импорт заказа"/>
         <Button fx:id="openOrderButton" text="Открыть"/>
     </HBox>
     <HBox spacing="8">

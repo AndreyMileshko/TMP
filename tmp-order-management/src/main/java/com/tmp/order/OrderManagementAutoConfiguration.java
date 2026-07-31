@@ -4,6 +4,7 @@ import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.TransactionalEventPublisher;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.imports.OrderImportService;
+import com.tmp.order.api.imports.StxtOrderFileParser;
 import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
@@ -11,6 +12,7 @@ import com.tmp.order.api.ui.OrderItemSpecificationEditorQueryService;
 import com.tmp.order.application.imports.DefaultOrderImportService;
 import com.tmp.order.application.imports.OrderImportMetadataRepository;
 import com.tmp.order.application.imports.OrderImportValidator;
+import com.tmp.order.application.imports.stxt.DefaultStxtOrderFileParser;
 import com.tmp.order.application.imports.stxt.StxtFileAdapter;
 import com.tmp.order.application.document.OrderApproveDocumentProcessor;
 import com.tmp.order.application.document.OrderCancelDocumentProcessor;
@@ -412,6 +414,11 @@ public class OrderManagementAutoConfiguration {
     @Bean
     StxtFileAdapter stxtFileAdapter() {
         return new StxtFileAdapter();
+    }
+
+    @Bean
+    StxtOrderFileParser stxtOrderFileParser(StxtFileAdapter stxtFileAdapter) {
+        return new DefaultStxtOrderFileParser(stxtFileAdapter);
     }
 
     @Bean

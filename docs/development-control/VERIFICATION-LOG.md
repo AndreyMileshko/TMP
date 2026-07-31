@@ -3,6 +3,39 @@
 ## Latest result
 
 **Date:** 2026-07-31  
+**Scope:** STAGE5-055 — Import GUI  
+**Overall:** PASS
+
+| Verification | Command / Evidence | Result |
+|---|---|---|
+| ViewModel tests | `OrderImportViewModelTest` | PASS (7) |
+| Controller FX tests | `OrderImportControllerFxTest` | PASS (5) |
+| UI SpotBugs | `mvn -q -pl tmp-ui-shell spotbugs:check` | PASS |
+| Architecture | `Stage5OrderManagementArchitectureTest` | PASS |
+| Bootstrap wiring | `DesktopBootstrapWiringTest` | PASS |
+| Flow | File → STXT public parser → Preview → Confirm | PASS |
+| Import disabled on ERROR | FX + ViewModel | PASS |
+| Import enabled on SUCCESS/WARNING | FX + ViewModel | PASS |
+| Confirm uses Import Core API only | ViewModel / FX | PASS |
+| Import Core internals | — | UNCHANGED |
+| STXT Adapter (`StxtFileAdapter`) | — | UNCHANGED |
+| Firebird | — | ABSENT |
+| STAGE5-055 | WORK-QUEUE | DONE |
+| STAGE5-056 | WORK-QUEUE | NOT STARTED |
+| Stage 5 | STATUS | IN_PROGRESS |
+| Stage 6 | STATUS | NOT STARTED |
+| Active blockers | — | NONE |
+| Git | — | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+
+## 2026-07-31 — STAGE5-054 — STXT File Adapter
+
+**Date:** 2026-07-31  
 **Scope:** STAGE5-054 — STXT File Adapter  
 **Overall:** PASS
 

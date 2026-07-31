@@ -48,6 +48,7 @@ public final class OrderListViewModel {
     private final ObservableList<OrderSummaryDto> orders = FXCollections.observableArrayList();
     private final ObjectProperty<OrderSummaryDto> selectedOrder = new SimpleObjectProperty<>();
     private final BooleanProperty canCreate = new SimpleBooleanProperty(false);
+    private final BooleanProperty canImport = new SimpleBooleanProperty(false);
     private final BooleanProperty canOpenSelected = new SimpleBooleanProperty(false);
     private final StringProperty title = new SimpleStringProperty("Заказы");
     private final StringProperty statusMessage = new SimpleStringProperty("");
@@ -69,6 +70,8 @@ public final class OrderListViewModel {
     private final BooleanProperty canGoNext = new SimpleBooleanProperty(false);
     private Runnable onCreateOrder = () -> {
     };
+    private Runnable onImportOrder = () -> {
+    };
     private Consumer<OrderId> onOpenOrder = id -> {
     };
 
@@ -86,13 +89,19 @@ public final class OrderListViewModel {
         this.onCreateOrder = Objects.requireNonNull(onCreateOrder, "onCreateOrder");
     }
 
+    public void setOnImportOrder(Runnable onImportOrder) {
+        this.onImportOrder = Objects.requireNonNull(onImportOrder, "onImportOrder");
+    }
+
     public void setOnOpenOrder(Consumer<OrderId> onOpenOrder) {
         this.onOpenOrder = Objects.requireNonNull(onOpenOrder, "onOpenOrder");
     }
 
     public void refreshPermissions() {
-        canCreate.set(authorizationService.hasPermission(
-                PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION)));
+        boolean createAllowed = authorizationService.hasPermission(
+                PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION));
+        canCreate.set(createAllowed);
+        canImport.set(createAllowed);
     }
 
     public ObservableList<OrderSummaryDto> orders() {
@@ -107,12 +116,20 @@ public final class OrderListViewModel {
         return canCreate;
     }
 
+    public BooleanProperty canImportProperty() {
+        return canImport;
+    }
+
     public BooleanProperty canOpenSelectedProperty() {
         return canOpenSelected;
     }
 
     public void createOrder() {
         onCreateOrder.run();
+    }
+
+    public void importOrder() {
+        onImportOrder.run();
     }
 
     public void openSelectedOrder() {
