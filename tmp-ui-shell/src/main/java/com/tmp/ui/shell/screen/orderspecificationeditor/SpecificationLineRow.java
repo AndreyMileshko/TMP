@@ -8,6 +8,9 @@ import java.util.Objects;
  */
 public final class SpecificationLineRow {
 
+    /** Default unit of measure for a new manually entered specification line. */
+    public static final String DEFAULT_UNIT_OF_MEASURE = "шт";
+
     private String materialCode;
     private String materialName;
     private String color;
@@ -31,7 +34,7 @@ public final class SpecificationLineRow {
     }
 
     public static SpecificationLineRow blank() {
-        return new SpecificationLineRow("", "", "", "", "", "шт");
+        return new SpecificationLineRow("", "", "", "", "", DEFAULT_UNIT_OF_MEASURE);
     }
 
     public SpecificationLineRow copy() {

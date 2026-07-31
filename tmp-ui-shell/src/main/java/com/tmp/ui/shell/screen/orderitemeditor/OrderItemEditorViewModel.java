@@ -12,10 +12,10 @@ import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
+import com.tmp.ui.shell.order.ProductQuantityUiValidation;
 import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
 import com.tmp.ui.shell.order.error.OrderUiOperation;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -174,7 +174,7 @@ public final class OrderItemEditorViewModel {
         clearMessages();
         try {
             OrderItemCommercialDraft draft = currentCommercialDraft();
-            validateProductQuantity(orderedQuantity.get());
+            ProductQuantityUiValidation.requireValidProductQuantity(orderedQuantity.get());
             if (mode.get() == Mode.CREATE) {
                 if (documentId == null) {
                     documentId =
@@ -304,7 +304,7 @@ public final class OrderItemEditorViewModel {
                 errorMessage.set("Нет черновой редакции для изменения количества");
                 return;
             }
-            validateProductQuantity(orderedQuantity.get());
+            ProductQuantityUiValidation.requireValidProductQuantity(orderedQuantity.get());
             if (documentId == null || pendingKind != DocumentKind.REVISION_UPDATE) {
                 documentId =
                         itemDocuments.beginRevisionUpdate(
@@ -652,29 +652,6 @@ public final class OrderItemEditorViewModel {
                 name.get(),
                 blankToNull(comments.get()),
                 blankToNull(externalPositionNumber.get()));
-    }
-
-    private void validateProductQuantity(String raw) {
-        if (raw == null || raw.isBlank()) {
-            throw new IllegalArgumentException("Количество изделий обязательно для заполнения.");
-        }
-        String trimmed = raw.trim();
-        if (!trimmed.matches("-?\\d+")) {
-            if (trimmed.matches("-?\\d+[\\.,]\\d+")) {
-                throw new IllegalArgumentException(
-                        "Количество изделий должно быть целым числом больше нуля.");
-            }
-            throw new IllegalArgumentException("Количество изделий должно быть числом.");
-        }
-        BigDecimal value = new BigDecimal(trimmed);
-        if (value.scale() > 0) {
-            throw new IllegalArgumentException(
-                    "Количество изделий должно быть целым числом больше нуля.");
-        }
-        if (value.signum() <= 0) {
-            throw new IllegalArgumentException(
-                    "Количество изделий должно быть целым числом больше нуля.");
-        }
     }
 
     private Optional<RevisionNumber> parseCopyFrom() {

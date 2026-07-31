@@ -46,7 +46,7 @@ class OrderItemSpecificationEditorViewModelTest {
         viewModel.editMaterialNameProperty().set("Mat");
         viewModel.editColorProperty().set("Белый");
         viewModel.editLengthMmProperty().set("1500");
-        viewModel.editQuantityProperty().set("2");
+        viewModel.editLineQuantityProperty().set("2");
         viewModel.editUnitOfMeasureProperty().set("pcs");
         viewModel.addLine();
         assertEquals(1, viewModel.lines().size());
@@ -55,7 +55,7 @@ class OrderItemSpecificationEditorViewModelTest {
         viewModel.editMaterialNameProperty().set("Mat updated");
         viewModel.editColorProperty().set("");
         viewModel.editLengthMmProperty().set("");
-        viewModel.editQuantityProperty().set("3");
+        viewModel.editLineQuantityProperty().set("3");
         viewModel.editUnitOfMeasureProperty().set("pcs");
         viewModel.updateSelectedLine();
         assertEquals("Mat updated", viewModel.lines().get(0).materialName());
@@ -64,7 +64,7 @@ class OrderItemSpecificationEditorViewModelTest {
         viewModel.editMaterialNameProperty().set("Second");
         viewModel.editColorProperty().set("Серый");
         viewModel.editLengthMmProperty().set("1200");
-        viewModel.editQuantityProperty().set("1");
+        viewModel.editLineQuantityProperty().set("1");
         viewModel.editUnitOfMeasureProperty().set("m");
         viewModel.addLine();
         viewModel.selectLine(1);
@@ -97,7 +97,7 @@ class OrderItemSpecificationEditorViewModelTest {
         viewModel.editMaterialNameProperty().set("Y");
         viewModel.editColorProperty().set("Черный");
         viewModel.editLengthMmProperty().set("1000");
-        viewModel.editQuantityProperty().set("1");
+        viewModel.editLineQuantityProperty().set("1");
         viewModel.editUnitOfMeasureProperty().set("pcs");
         viewModel.addLine();
         assertEquals(before, viewModel.lines().size());
@@ -119,7 +119,7 @@ class OrderItemSpecificationEditorViewModelTest {
         viewModel.editMaterialNameProperty().set("");
         viewModel.editColorProperty().set("");
         viewModel.editLengthMmProperty().set("");
-        viewModel.editQuantityProperty().set("2");
+        viewModel.editLineQuantityProperty().set("2");
         viewModel.editUnitOfMeasureProperty().set("pcs");
         viewModel.addLine();
         assertTrue(viewModel.lines().isEmpty());
@@ -290,7 +290,7 @@ class OrderItemSpecificationEditorViewModelTest {
         viewModel.editMaterialNameProperty().set("Mat");
         viewModel.editColorProperty().set("   ");
         viewModel.editLengthMmProperty().set("");
-        viewModel.editQuantityProperty().set("2");
+        viewModel.editLineQuantityProperty().set("2");
         viewModel.editUnitOfMeasureProperty().set("шт");
         viewModel.addLine();
         viewModel.saveDraft();
@@ -310,7 +310,7 @@ class OrderItemSpecificationEditorViewModelTest {
         viewModel.open(itemId, revision);
         viewModel.editMaterialCodeProperty().set("M1");
         viewModel.editMaterialNameProperty().set("Mat");
-        viewModel.editQuantityProperty().set("1");
+        viewModel.editLineQuantityProperty().set("1");
         viewModel.editUnitOfMeasureProperty().set("шт");
 
         viewModel.editLengthMmProperty().set("abc");
@@ -324,7 +324,7 @@ class OrderItemSpecificationEditorViewModelTest {
                 viewModel.errorMessageProperty().get());
 
         viewModel.editLengthMmProperty().set("");
-        viewModel.editQuantityProperty().set("0");
+        viewModel.editLineQuantityProperty().set("0");
         viewModel.addLine();
         assertEquals("Количество строки должно быть больше нуля.", viewModel.errorMessageProperty().get());
     }
@@ -343,12 +343,149 @@ class OrderItemSpecificationEditorViewModelTest {
         viewModel.editMaterialCodeProperty().set("M1");
         viewModel.editMaterialNameProperty().set("Mat");
         viewModel.editLengthMmProperty().set("100");
-        viewModel.editQuantityProperty().set("2");
+        viewModel.editLineQuantityProperty().set("2");
         viewModel.editUnitOfMeasureProperty().set("шт");
         viewModel.addLine();
         viewModel.saveDraft();
 
         assertEquals(new BigDecimal("2"), docs.lastSavedLines.get(0).lineQuantity());
+        assertEquals("5", docs.lastOrderedQuantity);
+    }
+
+    @Test
+    void orderedQuantityValidationRejectsInvalidValuesWithoutCallingDocumentService() {
+        FakeDocs docs = new FakeDocs();
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot = draftSnapshot(itemId, revision, List.of());
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(docs, query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+
+        viewModel.orderedQuantityProperty().set("");
+        viewModel.saveDraft();
+        assertEquals(
+                "Количество изделий обязательно для заполнения.",
+                viewModel.errorMessageProperty().get());
+        assertFalse(docs.beginRevisionUpdateCalled);
+        assertFalse(docs.saveRevisionUpdateCalled);
+        assertEquals("", viewModel.orderedQuantityProperty().get());
+
+        viewModel.orderedQuantityProperty().set("abc");
+        viewModel.saveDraft();
+        assertEquals("Количество изделий должно быть числом.", viewModel.errorMessageProperty().get());
+        assertFalse(docs.beginRevisionUpdateCalled);
+        assertFalse(docs.saveRevisionUpdateCalled);
+        assertEquals("abc", viewModel.orderedQuantityProperty().get());
+
+        viewModel.orderedQuantityProperty().set("1.5");
+        viewModel.saveDraft();
+        assertEquals(
+                "Количество изделий должно быть целым числом больше нуля.",
+                viewModel.errorMessageProperty().get());
+        assertFalse(docs.beginRevisionUpdateCalled);
+        assertFalse(docs.saveRevisionUpdateCalled);
+
+        viewModel.orderedQuantityProperty().set("0");
+        viewModel.saveDraft();
+        assertEquals(
+                "Количество изделий должно быть целым числом больше нуля.",
+                viewModel.errorMessageProperty().get());
+        assertFalse(docs.beginRevisionUpdateCalled);
+        assertFalse(docs.saveRevisionUpdateCalled);
+
+        viewModel.orderedQuantityProperty().set("-1");
+        viewModel.saveDraft();
+        assertEquals(
+                "Количество изделий должно быть целым числом больше нуля.",
+                viewModel.errorMessageProperty().get());
+        assertFalse(docs.beginRevisionUpdateCalled);
+        assertFalse(docs.saveRevisionUpdateCalled);
+    }
+
+    @Test
+    void orderedQuantityPositiveIntegerIsPassedUnchangedToContract() {
+        FakeDocs docs = new FakeDocs();
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot = draftSnapshot(itemId, revision, List.of());
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(docs, query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+        viewModel.orderedQuantityProperty().set("2");
+        viewModel.saveDraft();
+
+        assertTrue(docs.beginRevisionUpdateCalled);
+        assertTrue(docs.saveRevisionUpdateCalled);
+        assertEquals("2", docs.lastOrderedQuantity);
+    }
+
+    @Test
+    void newLineFormDefaultsUnitOfMeasureToPiecesAndResetsAfterAdd() {
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot = draftSnapshot(itemId, revision, List.of());
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(new FakeDocs(), query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+
+        assertEquals("шт", viewModel.editUnitOfMeasureProperty().get());
+
+        viewModel.editMaterialCodeProperty().set("M1");
+        viewModel.editMaterialNameProperty().set("Mat");
+        viewModel.editLineQuantityProperty().set("1");
+        viewModel.editUnitOfMeasureProperty().set("м");
+        viewModel.addLine();
+
+        assertEquals("шт", viewModel.editUnitOfMeasureProperty().get());
+        assertEquals("м", viewModel.lines().get(0).unitOfMeasure());
+    }
+
+    @Test
+    void existingLineUnitOfMeasureIsDisplayedWithoutReplacement() {
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot =
+                draftSnapshot(
+                        itemId,
+                        revision,
+                        List.of(
+                                OrderItemSpecificationLineView.of(
+                                        1,
+                                        "M1",
+                                        "Mat",
+                                        null,
+                                        BigDecimal.ONE,
+                                        BigDecimal.ONE,
+                                        "м")));
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(new FakeDocs(), query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+
+        assertEquals("м", viewModel.editUnitOfMeasureProperty().get());
+        assertEquals("м", viewModel.lines().get(0).unitOfMeasure());
+    }
+
+    @Test
+    void publicApiUsesEditLineQuantityAndHasNoConsumptionNormAccessor() {
+        for (java.lang.reflect.Method method :
+                OrderItemSpecificationEditorViewModel.class.getMethods()) {
+            assertFalse(method.getName().equals("editConsumptionNormProperty"));
+            assertFalse(method.getName().equals("editQuantityProperty"));
+        }
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot = draftSnapshot(itemId, revision, List.of());
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(new FakeDocs(), query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+        viewModel.editLineQuantityProperty().set("4");
+        assertEquals("4", viewModel.editLineQuantityProperty().get());
     }
 
     private static Set<PermissionId> allPerms() {
@@ -408,6 +545,7 @@ class OrderItemSpecificationEditorViewModelTest {
         private boolean saveRevisionUpdateCalled;
         private boolean postCalled;
         private List<OrderItemSpecificationLineDraft> lastSavedLines = List.of();
+        private String lastOrderedQuantity;
         private UUID lastDocumentId = UUID.randomUUID();
         private long revision;
 
@@ -483,6 +621,7 @@ class OrderItemSpecificationEditorViewModelTest {
                 List<OrderItemSpecificationLineDraft> specificationLines,
                 long expectedPayloadRevision) {
             saveRevisionUpdateCalled = true;
+            lastOrderedQuantity = orderedQuantity;
             lastSavedLines = new ArrayList<>(specificationLines);
             revision = expectedPayloadRevision + 1;
             return revision;

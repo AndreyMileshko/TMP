@@ -2,19 +2,23 @@
 
 ## Latest result
 
-**Date:** 2026-07-30  
-**Scope:** STAGE5-051 — Order Item and Specification Contracts (fix pass)  
+**Date:** 2026-07-31  
+**Scope:** STAGE5-052 — Manual Entry UI (fix pass)  
 **Overall:** PASS
 
-| Verification | Evidence | Result |
+| Verification | Command / Evidence | Result |
 |---|---|---|
-| Unit tests | `mvn -q -pl tmp-order-management test` | PASS (264 tests, 0 failures, 0 skipped) |
-| Module verify | `mvn -q -pl tmp-order-management verify` | PASS (264 unit + 57 IT) |
-| Incomplete DRAFT Query API | `OrderQueryApiContractTest`, `JdbcOrderQueryReadAdapterIT` | PASS |
-| Flyway V10 constraints | `OrderIntakeConstraintsFlywayTest` | PASS (7 tests) |
-| Architecture rules | `Stage5OrderManagementArchitectureTest` | PASS (24 rules) |
-| STAGE5-051 | WORK-QUEUE | DONE |
-| STAGE5-052 | WORK-QUEUE | NOT STARTED |
+| Unit + FX tests | `mvn -q -pl tmp-ui-shell -am test` | PASS (126 tests, 0 failures, 0 skipped) |
+| Module verify | `mvn -q -pl tmp-ui-shell -am verify` | PASS |
+| ViewModel validation (orderedQuantity) | `OrderItemSpecificationEditorViewModelTest` — empty/abc/1.5/0/-1 reject without document service; `2` accepted | PASS |
+| Default unit «шт» | ViewModel tests for new line / after add / existing unit preserved | PASS |
+| No consumptionNorm accessor | Reflection check: no `editConsumptionNormProperty` / `editQuantityProperty`; uses `editLineQuantityProperty` | PASS |
+| Order Item Controller FX | `OrderItemEditorControllerFxTest` (3) — FXML field, binding, DRAFT editable, ACTIVE disabled, null→empty | PASS |
+| Specification Controller FX | `OrderItemSpecificationEditorControllerFxTest` (6) — columns/fields, DRAFT enabled, APPROVED read-only, invalid save no service, valid save via document service | PASS |
+| APPROVED read-only | Spec FX + ViewModel tests | PASS |
+| Invalid form does not invoke document service | Spec FX + ViewModel tests | PASS |
+| STAGE5-052 | WORK-QUEUE | DONE |
+| STAGE5-053 | WORK-QUEUE | NOT STARTED |
 | Git | — | NOT EXECUTED |
 
 ---

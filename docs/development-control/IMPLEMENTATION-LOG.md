@@ -3538,3 +3538,31 @@ Completed manual entry MVP fields in existing Order Item and Specification JavaF
 - No persistence/Flyway changes.
 - No import/STXT/Firebird implementation.
 - No Stage 6 work.
+
+---
+
+## STAGE5-052 — Manual Entry UI (fix pass)
+
+**Date:** 2026-07-31  
+**Stage:** 5  
+**Status:** DONE
+
+### Summary
+
+Closed review gaps for STAGE5-052 without starting STAGE5-053: local `orderedQuantity` validation in the specification editor, removal of legacy consumption-norm UI aliases, default unit «шт», and real Controller FX scenarios beyond FXML load.
+
+### Changes
+
+- Shared UI helper `ProductQuantityUiValidation` used by Order Item and Specification editors.
+- `OrderItemSpecificationEditorViewModel.saveDraft()` validates product quantity before `beginRevisionUpdate` / `saveRevisionUpdateDraft`.
+- Removed `editConsumptionNormProperty()` and `editQuantityProperty()`; public accessor is `editLineQuantityProperty()`.
+- Default unit of measure for a new line form: `SpecificationLineRow.DEFAULT_UNIT_OF_MEASURE` = «шт» (reset after add/clear; existing row unit preserved).
+- Expanded ViewModel and Controller FX tests for validation, DRAFT/APPROVED, null display, and document-service call/no-call paths.
+
+### Boundaries
+
+- No domain / persistence / Flyway changes.
+- No import / STXT / Firebird.
+- STAGE5-053 not started.
+- Git not executed by agent.
+

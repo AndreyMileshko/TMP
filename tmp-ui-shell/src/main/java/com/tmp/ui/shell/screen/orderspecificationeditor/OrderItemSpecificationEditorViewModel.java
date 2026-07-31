@@ -12,6 +12,7 @@ import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
+import com.tmp.ui.shell.order.ProductQuantityUiValidation;
 import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
 import com.tmp.ui.shell.order.error.OrderUiOperation;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -57,7 +58,8 @@ public final class OrderItemSpecificationEditorViewModel {
     private final StringProperty editColor = new SimpleStringProperty("");
     private final StringProperty editLengthMm = new SimpleStringProperty("");
     private final StringProperty editLineQuantity = new SimpleStringProperty("");
-    private final StringProperty editUnitOfMeasure = new SimpleStringProperty("");
+    private final StringProperty editUnitOfMeasure =
+            new SimpleStringProperty(SpecificationLineRow.DEFAULT_UNIT_OF_MEASURE);
     private final BooleanProperty editable = new SimpleBooleanProperty(false);
     private final BooleanProperty dirty = new SimpleBooleanProperty(false);
     private final BooleanProperty canAddLine = new SimpleBooleanProperty(false);
@@ -231,6 +233,7 @@ public final class OrderItemSpecificationEditorViewModel {
             return;
         }
         try {
+            ProductQuantityUiValidation.requireValidProductQuantity(orderedQuantity.get());
             List<OrderItemSpecificationLineDraft> drafts = toDrafts();
             if (documentId == null) {
                 documentId =
@@ -324,7 +327,7 @@ public final class OrderItemSpecificationEditorViewModel {
         return editMaterialName;
     }
 
-    public StringProperty editQuantityProperty() {
+    public StringProperty editLineQuantityProperty() {
         return editLineQuantity;
     }
 
@@ -338,10 +341,6 @@ public final class OrderItemSpecificationEditorViewModel {
 
     public StringProperty editUnitOfMeasureProperty() {
         return editUnitOfMeasure;
-    }
-
-    public StringProperty editConsumptionNormProperty() {
-        return editLengthMm;
     }
 
     public BooleanProperty editableProperty() {
@@ -453,7 +452,12 @@ public final class OrderItemSpecificationEditorViewModel {
         revisionStatusText.set(revisionStatus.name());
         setOrderedQuantityWithoutDirty(snapshot.orderedQuantity().toPlainString());
         lines.setAll(toRows(snapshot.lines()));
-        selectedIndex.set(lines.isEmpty() ? -1 : 0);
+        if (lines.isEmpty()) {
+            selectedIndex.set(-1);
+            clearEditFields();
+        } else {
+            selectedIndex.set(0);
+        }
         refreshActionFlags();
     }
 
@@ -522,7 +526,7 @@ public final class OrderItemSpecificationEditorViewModel {
         editColor.set("");
         editLengthMm.set("");
         editLineQuantity.set("");
-        editUnitOfMeasure.set("");
+        editUnitOfMeasure.set(SpecificationLineRow.DEFAULT_UNIT_OF_MEASURE);
     }
 
     private boolean ensureEditable() {

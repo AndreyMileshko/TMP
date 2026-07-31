@@ -158,7 +158,7 @@ public final class OrderItemSpecificationEditorController
         materialNameField.textProperty().bindBidirectional(viewModel.editMaterialNameProperty());
         colorField.textProperty().bindBidirectional(viewModel.editColorProperty());
         lengthMmField.textProperty().bindBidirectional(viewModel.editLengthMmProperty());
-        lineQuantityField.textProperty().bindBidirectional(viewModel.editQuantityProperty());
+        lineQuantityField.textProperty().bindBidirectional(viewModel.editLineQuantityProperty());
         unitOfMeasureField.textProperty().bindBidirectional(viewModel.editUnitOfMeasureProperty());
 
         materialCodeField.disableProperty().bind(viewModel.editableProperty().not());

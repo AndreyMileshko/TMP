@@ -8607,8 +8607,8 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 ## STAGE5-052 — Manual Entry UI
 
 **Status:** DONE
-**Stage:** 5  
-**Depends on:** STAGE5-051  
+**Stage:** 5
+**Depends on:** STAGE5-051
 **Module:** tmp-ui-shell
 
 ### Goal
