@@ -4,6 +4,54 @@
 
 ---
 
+## STAGE5-054 — STXT File Adapter
+
+**Date:** 2026-07-31  
+**Stage:** 5  
+**Status:** DONE  
+**Module:** `tmp-order-management`
+
+### Result
+
+STXT file adapter (Spec §27.5 / ADR-029):
+
+- `StxtFileAdapter` + `StxtParseResult` + encoding detector + table parser under `com.tmp.order.application.imports.stxt`;
+- encodings: Windows-1251, UTF-8, UTF-8 BOM; clear encoding failure message;
+- structural delimiter `" / "` (slash inside material names preserved);
+- header alias mapping; missing required header → ERROR; unknown header → WARNING;
+- size normalization (`мм` / decimal comma) → `lengthMm`; blank color/size → null;
+- one order number per file; `lineQuantity` not multiplied by `productQuantity`;
+- SHA-256 `contentChecksum`; `sourceReference` = file name only;
+- no DB writes, Document post, Confirm, JavaFX or Firebird;
+- Spring bean wiring in `OrderManagementAutoConfiguration`;
+- ArchUnit Import Core rule excludes `stxt` package from self-ban.
+
+Import Core model/services unchanged. `STAGE5-055` not started. Git not executed.
+
+### Files changed (production)
+
+- `com.tmp.order.application.imports.stxt.StxtFileAdapter`
+- `com.tmp.order.application.imports.stxt.StxtParseResult`
+- `com.tmp.order.application.imports.stxt.StxtEncodingDetector`
+- `com.tmp.order.application.imports.stxt.StxtTableParser`
+- `OrderManagementAutoConfiguration` (bean)
+- ArchUnit Stage 5 import rule (exclude stxt subject)
+- unit/IT + fixture `stxt/sample-utf8.stxt`
+- control docs
+
+### Verification
+
+- `mvn -q -pl tmp-order-management -am verify` — PASS
+- `StxtFileAdapterTest` — PASS (15)
+- `StxtImportPreviewIntegrationTest` — PASS (1)
+- `Stage5OrderManagementArchitectureTest` — PASS
+
+### Next
+
+`STAGE5-055` — Import GUI — NOT STARTED.
+
+---
+
 ## STAGE5-053 — Import Core (FIX REQUIRED pass)
 
 **Date:** 2026-07-31  

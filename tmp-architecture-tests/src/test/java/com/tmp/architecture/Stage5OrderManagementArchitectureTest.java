@@ -418,6 +418,8 @@ class Stage5OrderManagementArchitectureTest {
                     .that()
                     .resideInAnyPackage(
                             "com.tmp.order.application.imports..", "com.tmp.order.api.imports..")
+                    .and()
+                    .resideOutsideOfPackage("com.tmp.order.application.imports.stxt..")
                     .should()
                     .dependOnClassesThat()
                     .resideInAnyPackage(

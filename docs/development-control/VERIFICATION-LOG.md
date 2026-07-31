@@ -3,6 +3,38 @@
 ## Latest result
 
 **Date:** 2026-07-31  
+**Scope:** STAGE5-054 — STXT File Adapter  
+**Overall:** PASS
+
+| Verification | Command / Evidence | Result |
+|---|---|---|
+| Order Management verify | `mvn -q -pl tmp-order-management -am verify` | PASS (332 unit + 74 IT) |
+| STXT unit | `StxtFileAdapterTest` | PASS (15) |
+| STXT → Preview IT | `StxtImportPreviewIntegrationTest` | PASS (1; no DB writes) |
+| Architecture | `Stage5OrderManagementArchitectureTest` | PASS |
+| Encoding | Windows-1251 / UTF-8 / UTF-8 BOM | PASS |
+| Delimiter `" / "` + slash in name | unit | PASS |
+| Header aliases / unknown / missing | unit | PASS |
+| Multi-order rejection | unit | PASS |
+| lengthMm / null / decimal comma | unit | PASS |
+| Latest migration | V12 | unchanged |
+| Next migration | V13 | — |
+| STAGE5-054 | WORK-QUEUE | DONE |
+| STAGE5-055 | WORK-QUEUE | NOT STARTED |
+| Stage 5 | STATUS | IN_PROGRESS |
+| Stage 6 | STATUS | NOT STARTED |
+| Active blockers | — | NONE |
+| Git | — | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+
+## 2026-07-31 — STAGE5-053 — Import Core (FIX REQUIRED pass)
+
+**Date:** 2026-07-31  
 **Scope:** STAGE5-053 — Import Core (FIX REQUIRED pass)  
 **Overall:** PASS
 

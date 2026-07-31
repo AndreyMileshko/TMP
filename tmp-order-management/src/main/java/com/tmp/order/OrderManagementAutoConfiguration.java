@@ -11,6 +11,7 @@ import com.tmp.order.api.ui.OrderItemSpecificationEditorQueryService;
 import com.tmp.order.application.imports.DefaultOrderImportService;
 import com.tmp.order.application.imports.OrderImportMetadataRepository;
 import com.tmp.order.application.imports.OrderImportValidator;
+import com.tmp.order.application.imports.stxt.StxtFileAdapter;
 import com.tmp.order.application.document.OrderApproveDocumentProcessor;
 import com.tmp.order.application.document.OrderCancelDocumentProcessor;
 import com.tmp.order.application.document.OrderCreateDocumentProcessor;
@@ -406,6 +407,11 @@ public class OrderManagementAutoConfiguration {
     @Bean
     OrderImportValidator orderImportValidator() {
         return new OrderImportValidator();
+    }
+
+    @Bean
+    StxtFileAdapter stxtFileAdapter() {
+        return new StxtFileAdapter();
     }
 
     @Bean

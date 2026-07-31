@@ -8581,7 +8581,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 # Stage 5 Extension — Order Intake MVP
 
-> `STAGE5-050 = DONE (PASS)`. `STAGE5-051..053 = DONE`. `STAGE5-054…057` = NOT STARTED. Stage 5 closes only after `STAGE5-057`. Stage 6 remains NOT STARTED.
+> `STAGE5-050 = DONE (PASS)`. `STAGE5-051..054 = DONE`. `STAGE5-055…057` = NOT STARTED. Stage 5 closes only after `STAGE5-057`. Stage 6 remains NOT STARTED.
 
 ## STAGE5-051 — Order Item and Specification Contracts
 
@@ -8789,9 +8789,9 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 ## STAGE5-054 — STXT File Adapter
 
-**Status:** NOT STARTED  
-**Stage:** 5  
-**Depends on:** STAGE5-053  
+**Status:** DONE
+**Stage:** 5
+**Depends on:** STAGE5-053
 **Module:** tmp-order-management
 
 ### Goal
@@ -8824,9 +8824,9 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 ### Acceptance criteria
 
-- [ ] Адаптер только строит model/errors;
-- [ ] Пустые строки игнорируются;
-- [ ] Неизвестный header → warning, не silent domain field.
+- [x] Адаптер только строит model/errors;
+- [x] Пустые строки игнорируются;
+- [x] Неизвестный header → warning, не silent domain field.
 
 ### Required tests
 
@@ -8839,6 +8839,10 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 ### Stop conditions
 
 Adapter writes DB or calls UI.
+
+### Result
+
+`STAGE5-054 = DONE`. `StxtFileAdapter` → `OrderImportBatch` (SHA-256 checksum, file name as sourceReference). Encoding: Windows-1251 / UTF-8 / UTF-8 BOM. Delimiter `" / "`. Header aliases per Spec §27.5. Adapter validation without persistence. `STAGE5-055` remains NOT STARTED.
 
 ---
 
