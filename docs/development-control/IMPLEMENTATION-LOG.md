@@ -3566,3 +3566,30 @@ Closed review gaps for STAGE5-052 without starting STAGE5-053: local `orderedQua
 - STAGE5-053 not started.
 - Git not executed by agent.
 
+---
+
+## STAGE5-052A — Imported Draft Item Commercial Contract
+
+**Date:** 2026-07-31  
+**Stage:** 5  
+**Status:** DONE
+
+### Summary
+
+Extended ADR-030 incomplete DRAFT to Order Item commercial fields (`productCode`, `name`) so Order Intake can create DRAFT positions without inventing placeholders. Completeness is enforced at `ORDER_ITEM_REVISION_APPROVE` with Russian missing-field labels.
+
+### Key deliverables
+
+- Domain: `ItemCommercialData` nullable `productCode`/`name`, blank→null, placeholder rejection, `missingMandatoryFieldsForApproval()`.
+- `OrderItem.approveDraftRevision` rejects incomplete commercial data before DRAFT→ACTIVE.
+- Contracts: `OrderItemCommercialDraft`, `OrderItemDto`, `OrderItemEditorSnapshot`, UI/document mapping null-safe.
+- Persistence JDBC null mapping; Flyway `V11__order_item_incomplete_draft_contract.sql`.
+- Minimal UI: empty fields for null productCode/name; fill via document flow.
+
+### Boundaries
+
+- No Import Core / STXT / import metadata / Firebird.
+- STAGE5-053 not started.
+- Stage 6 not started.
+- Git not executed by agent.
+

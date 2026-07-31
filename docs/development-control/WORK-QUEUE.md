@@ -8660,11 +8660,71 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 ---
 
+## STAGE5-052A — Imported Draft Item Commercial Contract
+
+**Status:** DONE
+**Stage:** 5
+**Depends on:** STAGE5-052
+**Module:** tmp-order-management (+ migration V11; minimal tmp-ui-shell)
+
+### Goal
+
+Расширить incomplete DRAFT (ADR-030) на коммерческие поля позиции: `productCode` и `name` могут временно отсутствовать (`null`) у позиции в `DRAFT`; placeholders запрещены; перед `ORDER_ITEM_REVISION_APPROVE` поля обязательны; утвержденная позиция всегда полная. Правило доменное (не STXT-специфичное).
+
+### Allowed context
+
+- CONTEXT-MAP group `stage5-order-intake-contracts`;
+- Spec §5.2, §6, §9, §15, §27.4–27.7; ADR-029, ADR-030;
+- ItemCommercialData, OrderItem, drafts/payloads/DTO/Query/UI snapshot, revision approve, persistence, Flyway V11;
+- minimal UI null-safe display for item editor.
+
+### Forbidden context
+
+- Import Core / STXT / FileChooser / Firebird / import metadata;
+- Warehouse / Production / Cutting / Analytics / Stage 6.
+
+### Files allowed to change
+
+- `tmp-order-management` domain/API/payload/query/UI contracts/persistence/Flyway V11/tests;
+- minimal `tmp-ui-shell` item editor null-safe mapping/tests;
+- control docs; ADR-030; OMS §5.2 / §27.7.
+
+### Acceptance criteria
+
+- [x] DRAFT item may have null `productCode` and/or null `name` (no placeholders);
+- [x] blank → null; placeholders rejected;
+- [x] revision approve lists missing «Код изделия» / «Наименование изделия»;
+- [x] APPROVED/ACTIVE item cannot remain incomplete;
+- [x] Query/UI snapshot/DTO tolerate null without NPE;
+- [x] Flyway V11 allows NULL on item product_code/item_name and related payloads;
+- [x] STAGE5-053 remains NOT STARTED.
+
+### Required tests
+
+Domain incompleteness + approve gate; draft/payload/DTO/snapshot; persistence round-trip; Flyway clean + V10→V11; UI null display; regression STAGE5-051/052.
+
+### Required documentation updates
+
+STATUS, WORK-QUEUE, STAGE-5 manifest, IMPLEMENTATION-LOG, VERIFICATION-LOG, ADR-030, OMS.
+
+### Stop conditions
+
+Conflict with Constitution/ADR; need for STXT/import implementation.
+
+### Result
+
+- Item incomplete DRAFT (`productCode`/`name` nullable) aligned with ADR-030 / Spec §5.2 / §27.7.
+- `ORDER_ITEM_REVISION_APPROVE` rejects missing «Код изделия» / «Наименование изделия»; specification still required.
+- Flyway `V11__order_item_incomplete_draft_contract.sql`; Query/UI null-safe.
+- Verification: `tmp-order-management` test+verify PASS; `tmp-ui-shell` test+verify PASS; architecture PASS.
+
+---
+
 ## STAGE5-053 — Import Core
 
-**Status:** NOT STARTED  
-**Stage:** 5  
-**Depends on:** STAGE5-051  
+**Status:** NOT STARTED
+**Stage:** 5
+**Depends on:** STAGE5-052A
 **Module:** tmp-order-management
 
 ### Goal

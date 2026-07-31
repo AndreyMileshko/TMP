@@ -34,7 +34,6 @@ import com.tmp.order.domain.OrderItem;
 import com.tmp.order.domain.OrderItemRevision;
 import com.tmp.order.domain.OrderedQuantity;
 import com.tmp.order.domain.PayloadRevision;
-import com.tmp.order.domain.ProductCode;
 import com.tmp.order.domain.SpecificationLine;
 import com.tmp.order.domain.repository.OrderItemRepository;
 import com.tmp.security.api.AuthorizationService;
@@ -622,7 +621,7 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
     private OrderItemCommercialDraft toCommercialDraft(OrderItemCreatePayload payload) {
         ItemCommercialData commercial = payload.commercialData();
         return OrderItemCommercialDraft.of(
-                commercial.productCode().value(),
+                commercial.productCode() == null ? null : commercial.productCode().value(),
                 commercial.name(),
                 commercial.comments(),
                 commercial.externalPositionNumber());
@@ -631,15 +630,15 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
     private OrderItemCommercialDraft toCommercialDraft(OrderItemUpdatePayload payload) {
         ItemCommercialData commercial = payload.commercialData();
         return OrderItemCommercialDraft.of(
-                commercial.productCode().value(),
+                commercial.productCode() == null ? null : commercial.productCode().value(),
                 commercial.name(),
                 commercial.comments(),
                 commercial.externalPositionNumber());
     }
 
     private static ItemCommercialData toCommercial(OrderItemCommercialDraft draft) {
-        return ItemCommercialData.of(
-                ProductCode.of(draft.productCode()),
+        return ItemCommercialData.ofRaw(
+                draft.productCode(),
                 draft.name(),
                 draft.comments(),
                 draft.externalPositionNumber());

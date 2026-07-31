@@ -59,7 +59,7 @@ public final class DefaultOrderItemEditorQueryService implements OrderItemEditor
         return OrderItemEditorSnapshot.of(
                 item.id(),
                 item.orderId(),
-                commercial.productCode().value(),
+                commercial.productCode() == null ? null : commercial.productCode().value(),
                 commercial.name(),
                 commercial.comments(),
                 externalPositionNumber,

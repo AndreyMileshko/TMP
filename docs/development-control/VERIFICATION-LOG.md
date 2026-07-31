@@ -3,23 +3,43 @@
 ## Latest result
 
 **Date:** 2026-07-31  
-**Scope:** STAGE5-052 — Manual Entry UI (fix pass)  
+**Scope:** STAGE5-052A — Imported Draft Item Commercial Contract  
 **Overall:** PASS
+
+| Verification | Command / Evidence | Result |
+|---|---|---|
+| Order Management unit tests | `mvn -q -pl tmp-order-management -am test` | PASS (284 tests, 0 failures, 0 skipped) |
+| Order Management verify | `mvn -q -pl tmp-order-management -am verify` | PASS (284 unit + 57 IT) |
+| UI Shell unit/FX tests | `mvn -q -pl tmp-ui-shell -am test` | PASS (128 tests, 0 failures, 0 skipped) |
+| UI Shell verify | `mvn -q -pl tmp-ui-shell -am verify` | PASS |
+| Architecture | `mvn -q -pl tmp-architecture-tests -am test` | PASS (`Stage5OrderManagementArchitectureTest` 24 + negative 9) |
+| Domain incomplete DRAFT | `IncompleteDraftItemCommercialDataTest` | PASS |
+| Draft contract | `OrderItemCommercialDraftIncompleteTest` | PASS |
+| Snapshot/DTO null | `OrderItemEditorSnapshotTest`, `OrderQueryApiContractTest` | PASS |
+| Flyway V11 clean + V10→V11 | `OrderItemIncompleteDraftContractFlywayTest` | PASS |
+| UI null display / fill | `OrderItemEditorViewModelTest` | PASS |
+| STAGE5-052A | WORK-QUEUE | DONE |
+| STAGE5-053 | WORK-QUEUE | NOT STARTED |
+| Git | — | NOT EXECUTED |
+
+---
+
+## 2026-07-31 — STAGE5-052 Manual Entry UI (fix pass)
 
 | Verification | Command / Evidence | Result |
 |---|---|---|
 | Unit + FX tests | `mvn -q -pl tmp-ui-shell -am test` | PASS (126 tests, 0 failures, 0 skipped) |
 | Module verify | `mvn -q -pl tmp-ui-shell -am verify` | PASS |
-| ViewModel validation (orderedQuantity) | `OrderItemSpecificationEditorViewModelTest` — empty/abc/1.5/0/-1 reject without document service; `2` accepted | PASS |
-| Default unit «шт» | ViewModel tests for new line / after add / existing unit preserved | PASS |
-| No consumptionNorm accessor | Reflection check: no `editConsumptionNormProperty` / `editQuantityProperty`; uses `editLineQuantityProperty` | PASS |
-| Order Item Controller FX | `OrderItemEditorControllerFxTest` (3) — FXML field, binding, DRAFT editable, ACTIVE disabled, null→empty | PASS |
-| Specification Controller FX | `OrderItemSpecificationEditorControllerFxTest` (6) — columns/fields, DRAFT enabled, APPROVED read-only, invalid save no service, valid save via document service | PASS |
-| APPROVED read-only | Spec FX + ViewModel tests | PASS |
-| Invalid form does not invoke document service | Spec FX + ViewModel tests | PASS |
+| ViewModel validation (orderedQuantity) | Spec ViewModel — empty/abc/1.5/0/-1 reject without document service | PASS |
+| Order Item Controller FX | `OrderItemEditorControllerFxTest` (3) | PASS |
+| Specification Controller FX | `OrderItemSpecificationEditorControllerFxTest` (6) | PASS |
 | STAGE5-052 | WORK-QUEUE | DONE |
 | STAGE5-053 | WORK-QUEUE | NOT STARTED |
 | Git | — | NOT EXECUTED |
+
+### Failures
+
+- None.
 
 ---
 

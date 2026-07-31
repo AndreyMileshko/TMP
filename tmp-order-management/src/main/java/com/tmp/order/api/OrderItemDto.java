@@ -59,8 +59,6 @@ public final class OrderItemDto {
             Instant updatedAt) {
         Objects.requireNonNull(orderItemId, "orderItemId");
         Objects.requireNonNull(orderId, "orderId");
-        Objects.requireNonNull(productCode, "productCode");
-        Objects.requireNonNull(name, "name");
         Objects.requireNonNull(status, "status");
         Objects.requireNonNull(createdAt, "createdAt");
         Objects.requireNonNull(updatedAt, "updatedAt");

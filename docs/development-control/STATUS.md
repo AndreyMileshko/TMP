@@ -4,13 +4,14 @@
 **Project status:** IN_PROGRESS  
 **Current Stage:** Stage 5 — Order Management  
 **Current Task:** STAGE5-053 — NOT STARTED  
-**Last completed task:** STAGE5-052  
+**Last completed task:** STAGE5-052A  
 **Active blockers:** NONE  
 
 ```text
 STAGE5-050 = DONE (manual packaged GUI smoke — PASS)
 STAGE5-051 = DONE
 STAGE5-052 = DONE
+STAGE5-052A = DONE
 STAGE5-053…057 = NOT STARTED
 Stage 5 Core Order Management = IMPLEMENTED — MANUAL SMOKE PASS
 Stage 5 Order Intake Extension = IN_PROGRESS
@@ -43,7 +44,7 @@ Active blockers = NONE
 | Part | Status |
 |---|---|
 | Core Order Management (`STAGE5-001..050`) | IMPLEMENTED — MANUAL SMOKE PASS |
-| Order Intake Extension (`STAGE5-051..057`) | IN_PROGRESS (`STAGE5-051..052` DONE; next `STAGE5-053`) |
+| Order Intake Extension (`STAGE5-051..057`) | IN_PROGRESS (`STAGE5-051..052A` DONE; next `STAGE5-053`) |
 | Stage 5 overall | IN_PROGRESS |
 
 `STAGE5-050` = Manual Packaged GUI Smoke — Core Order Management — **DONE (PASS)**. Stage 5 remains `IN_PROGRESS`. Stage 5 closes only after `STAGE5-051..057` and final intake smoke (`STAGE5-057`).

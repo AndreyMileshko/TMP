@@ -16,7 +16,6 @@ import com.tmp.order.domain.OrderItem;
 import com.tmp.order.domain.OrderItemRevision;
 import com.tmp.order.domain.OrderNumber;
 import com.tmp.order.domain.OrderedQuantity;
-import com.tmp.order.domain.ProductCode;
 import com.tmp.order.domain.SpecificationLine;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -66,8 +65,8 @@ final class OrderAggregateMappers {
         return OrderItem.rehydrate(
                 OrderItemId.of(rs.getObject("order_item_id", UUID.class)),
                 OrderId.of(rs.getObject("order_id", UUID.class)),
-                ItemCommercialData.of(
-                        ProductCode.of(rs.getString("product_code")),
+                ItemCommercialData.ofRaw(
+                        rs.getString("product_code"),
                         rs.getString("item_name"),
                         rs.getString("comments"),
                         rs.getString("external_position_number")),

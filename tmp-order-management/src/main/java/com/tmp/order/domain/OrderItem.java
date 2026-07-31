@@ -8,6 +8,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -223,6 +224,12 @@ public final class OrderItem {
             throw new InvalidOrderStateException(
                     "Cannot approve revision without a non-empty specification: "
                             + id + "/" + draftRevisionNumber);
+        }
+        List<String> missingCommercial = commercialData.missingMandatoryFieldsForApproval();
+        if (!missingCommercial.isEmpty()) {
+            throw new InvalidOrderStateException(
+                    "Order item cannot be approved: missing mandatory commercial fields: "
+                            + String.join(", ", missingCommercial));
         }
         RevisionNumber previousActive = activeRevisionNumber;
         OrderItemRevision approved = draft.approved();

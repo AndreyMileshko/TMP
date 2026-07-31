@@ -63,8 +63,6 @@ public final class OrderItemEditorSnapshot {
             BigDecimal orderedQuantity) {
         Objects.requireNonNull(orderItemId, "orderItemId");
         Objects.requireNonNull(orderId, "orderId");
-        Objects.requireNonNull(productCode, "productCode");
-        Objects.requireNonNull(name, "name");
         Objects.requireNonNull(status, "status");
         Objects.requireNonNull(orderedQuantity, "orderedQuantity");
         return new OrderItemEditorSnapshot(

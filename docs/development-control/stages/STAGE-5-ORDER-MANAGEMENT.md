@@ -2,8 +2,8 @@
 
 **Stage:** 5 — Order Management  
 **Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.3)  
-**ADR document:** `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` (v1.5; ADR-028, ADR-029, ADR-030)  
-**Status:** Implementation IN_PROGRESS; STAGE5-050 DONE; STAGE5-051 DONE; Order Intake extension tasks STAGE5-052..057 NOT STARTED.
+**ADR document:** `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` (v1.6; ADR-028, ADR-029, ADR-030)  
+**Status:** Implementation IN_PROGRESS; STAGE5-050 DONE — PASS; STAGE5-051 DONE; STAGE5-052 DONE; STAGE5-052A DONE; STAGE5-053..057 NOT STARTED.
 
 ---
 
@@ -18,9 +18,9 @@
 ## 2. Входные условия
 
 - Stage 0–4 завершены (DONE 100%); нет открытых блокеров Stage 0–4.
-- Order Management Specification = **v1.3**; Constitution v1.2; ADR = **v1.5** (ADR-028, ADR-029, ADR-030).
+- Order Management Specification = **v1.3**; Constitution v1.2; ADR = **v1.6** (ADR-028, ADR-029, ADR-030).
 - Подтверждённая транзакционная граница Document Engine (processor внутри транзакции проведения; события после commit).
-- **Фактические миграции Order Management:** `V6`, `V7`, `V8`. Текущая последняя = **V8**. Новые миграции Order Intake начинаются с **V9**.
+- **Фактические миграции Order Management:** `V6`…`V11`. Текущая последняя = **V11** (`V11__order_item_incomplete_draft_contract.sql`).
 - Reactor: `tmp-platform-core`, `tmp-infra-db`, `tmp-document-engine`, `tmp-capability-engine`, `tmp-security`, `tmp-ui-shell`, `tmp-bootstrap-app`, `tmp-architecture-tests`, `tmp-order-management`.
 
 ---
@@ -169,19 +169,20 @@
 
 ### Order Intake extension
 
-Строгая последовательность. `STAGE5-051` = **DONE**. Следующая: `STAGE5-052` = **NOT STARTED**.
+Строгая последовательность. `STAGE5-051` = **DONE**. `STAGE5-052` = **DONE**. `STAGE5-052A` = **DONE**. Следующая: `STAGE5-053` = **NOT STARTED**.
 
 | ID | Title |
 | --- | --- |
 | STAGE5-051 | Order Item and Specification Contracts |
 | STAGE5-052 | Manual Entry UI |
+| STAGE5-052A | Imported Draft Item Commercial Contract |
 | STAGE5-053 | Import Core |
 | STAGE5-054 | STXT File Adapter |
 | STAGE5-055 | Import GUI |
 | STAGE5-056 | Automated Verification |
 | STAGE5-057 | Manual GUI Smoke (Order Intake) |
 
-Порядок: 050 DONE → 051 → 052 → 053 → 054 → 055 → 056 → 057. Одновременно только одна задача `IN_PROGRESS`. Финальное закрытие Stage 5 — только после `STAGE5-057` и итоговой ручной проверки.
+Порядок: 050 DONE → 051 → 052 → 052A → 053 → 054 → 055 → 056 → 057. Одновременно только одна задача `IN_PROGRESS`. Финальное закрытие Stage 5 — только после `STAGE5-057` и итоговой ручной проверки.
 
 `TransactionalEventPublisher` уже реализован ранее.
 
@@ -223,4 +224,4 @@ Stage 5 завершён только когда:
 
 ## 21. Decisions for Order Intake
 
-- **ADR-030 / бывший blocker `STAGE5-INTAKE-COMMERCIAL-DRAFT`:** RESOLVED — incomplete commercial data allowed only in DRAFT; approval requires all mandatory commercial fields; placeholders prohibited.
+- **ADR-030 / бывший blocker `STAGE5-INTAKE-COMMERCIAL-DRAFT`:** RESOLVED — incomplete commercial data allowed only in DRAFT (order-level and item-level `productCode`/`name`); approval requires all mandatory commercial fields; placeholders prohibited. Item-level incompleteness gated by `STAGE5-052A` before Import Core.

@@ -191,6 +191,26 @@ class OrderQueryApiContractTest {
     }
 
     @Test
+    void orderItemDtoAllowsNullProductCodeAndNameForIncompleteDraft() {
+        Instant now = Instant.parse("2026-07-31T10:00:00Z");
+        OrderItemDto dto =
+                OrderItemDto.of(
+                        OrderItemId.generate(),
+                        OrderId.generate(),
+                        null,
+                        null,
+                        null,
+                        "EXT-1",
+                        OrderItemStatus.DRAFT,
+                        null,
+                        now,
+                        now);
+        assertEquals(null, dto.productCode());
+        assertEquals(null, dto.name());
+        assertEquals("EXT-1", dto.externalPositionNumber());
+    }
+
+    @Test
     void orderItemDtoExposesOnlyActiveRevisionPointer() {
         Instant now = Instant.parse("2026-07-25T10:00:00Z");
         OrderItemDto dto = OrderItemDto.of(

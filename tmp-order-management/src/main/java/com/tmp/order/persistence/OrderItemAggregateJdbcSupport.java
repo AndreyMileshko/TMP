@@ -173,7 +173,9 @@ final class OrderItemAggregateJdbcSupport {
                 OrderAggregateSql.INSERT_ORDER_ITEM,
                 item.id().value(),
                 item.orderId().value(),
-                item.commercialData().productCode().value(),
+                item.commercialData().productCode() == null
+                        ? null
+                        : item.commercialData().productCode().value(),
                 item.commercialData().name(),
                 item.commercialData().comments(),
                 item.commercialData().externalPositionNumber(),
@@ -189,7 +191,9 @@ final class OrderItemAggregateJdbcSupport {
         int updated =
                 jdbc.update(
                         OrderAggregateSql.UPDATE_ORDER_ITEM,
-                        item.commercialData().productCode().value(),
+                        item.commercialData().productCode() == null
+                                ? null
+                                : item.commercialData().productCode().value(),
                         item.commercialData().name(),
                         item.commercialData().comments(),
                         item.commercialData().externalPositionNumber(),

@@ -57,9 +57,13 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
                 .addListener((obs, oldValue, newValue) -> viewModel.selectedItemProperty().set(newValue));
 
         productCodeColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().productCode()));
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                nullToEmpty(cell.getValue().productCode())));
         nameColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().name()));
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                nullToEmpty(cell.getValue().name())));
         statusColumn.setCellValueFactory(
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
@@ -87,5 +91,9 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
                 },
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
+    }
+
+    private static String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 }

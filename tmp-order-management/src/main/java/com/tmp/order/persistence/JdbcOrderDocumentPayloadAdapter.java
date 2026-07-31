@@ -31,7 +31,6 @@ import com.tmp.order.domain.OrderNumber;
 import com.tmp.order.domain.OrderedQuantity;
 import com.tmp.order.domain.PayloadRevision;
 import com.tmp.order.domain.PayloadSchemaVersion;
-import com.tmp.order.domain.ProductCode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -360,7 +359,7 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
                 payload.documentId().value(),
                 payload.orderId().value(),
                 payload.orderItemId().value(),
-                commercial.productCode().value(),
+                commercial.productCode() == null ? null : commercial.productCode().value(),
                 commercial.name(),
                 commercial.comments(),
                 commercial.externalPositionNumber(),
@@ -395,7 +394,7 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
                 """,
                 payload.documentId().value(),
                 payload.orderItemId().value(),
-                commercial.productCode().value(),
+                commercial.productCode() == null ? null : commercial.productCode().value(),
                 commercial.name(),
                 commercial.comments(),
                 commercial.externalPositionNumber());
@@ -601,8 +600,8 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
     }
 
     private static ItemCommercialData mapItemCommercial(ResultSet rs) throws SQLException {
-        return ItemCommercialData.of(
-                ProductCode.of(rs.getString("product_code")),
+        return ItemCommercialData.ofRaw(
+                rs.getString("product_code"),
                 rs.getString("item_name"),
                 rs.getString("comments"),
                 rs.getString("external_position_number"));

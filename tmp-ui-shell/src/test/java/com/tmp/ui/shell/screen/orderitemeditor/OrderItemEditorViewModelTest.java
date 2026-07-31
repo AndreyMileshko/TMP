@@ -92,6 +92,70 @@ class OrderItemEditorViewModelTest {
     }
 
     @Test
+    void nullProductCodeAndNameAreShownAsEmptyFields() {
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemId id = OrderItemId.generate();
+        query.snapshot =
+                OrderItemEditorSnapshot.of(
+                        id,
+                        OrderId.generate(),
+                        null,
+                        null,
+                        null,
+                        "EXT-IMP",
+                        OrderItemStatus.DRAFT,
+                        OrderItemEditorSnapshot.RevisionView.of(
+                                RevisionNumber.first(),
+                                RevisionStatus.DRAFT,
+                                BigDecimal.ONE,
+                                0),
+                        null,
+                        BigDecimal.ONE);
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(new FakeDocs(), query, auth(allItemPerms()));
+        viewModel.openExisting(id);
+        assertEquals("", viewModel.productCodeProperty().get());
+        assertEquals("", viewModel.nameProperty().get());
+        assertEquals("EXT-IMP", viewModel.externalPositionNumberProperty().get());
+        assertEquals("Позиция", viewModel.titleProperty().get());
+        assertFalse("null".equalsIgnoreCase(viewModel.productCodeProperty().get()));
+        assertFalse("null".equalsIgnoreCase(viewModel.nameProperty().get()));
+    }
+
+    @Test
+    void incompleteDraftCanBeFilledAndSavedThroughDocumentFlow() {
+        FakeDocs docs = new FakeDocs();
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemId id = OrderItemId.generate();
+        query.snapshot =
+                OrderItemEditorSnapshot.of(
+                        id,
+                        OrderId.generate(),
+                        null,
+                        null,
+                        null,
+                        "EXT-IMP",
+                        OrderItemStatus.DRAFT,
+                        OrderItemEditorSnapshot.RevisionView.of(
+                                RevisionNumber.first(),
+                                RevisionStatus.DRAFT,
+                                BigDecimal.ONE,
+                                0),
+                        null,
+                        BigDecimal.ONE);
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
+        viewModel.openExisting(id);
+        viewModel.productCodeProperty().set("P-FILL");
+        viewModel.nameProperty().set("Filled Name");
+        viewModel.saveCommercialDraft();
+
+        assertEquals("P-FILL", docs.lastCommercialDraft.productCode());
+        assertEquals("Filled Name", docs.lastCommercialDraft.name());
+        assertEquals("EXT-IMP", docs.lastCommercialDraft.externalPositionNumber());
+    }
+
+    @Test
     void saveCommercialDraftPassesExternalPositionNumberToContract() {
         FakeDocs docs = new FakeDocs();
         FakeEditorQuery query = new FakeEditorQuery();

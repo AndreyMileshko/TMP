@@ -46,4 +46,24 @@ class OrderItemEditorSnapshotTest {
 
         assertNull(snapshot.externalPositionNumber());
     }
+
+    @Test
+    void snapshotAllowsNullProductCodeAndName() {
+        OrderItemEditorSnapshot snapshot =
+                OrderItemEditorSnapshot.of(
+                        OrderItemId.generate(),
+                        OrderId.generate(),
+                        null,
+                        null,
+                        null,
+                        "EXT-7",
+                        OrderItemStatus.DRAFT,
+                        null,
+                        null,
+                        BigDecimal.ONE);
+
+        assertNull(snapshot.productCode());
+        assertNull(snapshot.name());
+        assertEquals("EXT-7", snapshot.externalPositionNumber());
+    }
 }

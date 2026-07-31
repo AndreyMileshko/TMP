@@ -179,7 +179,7 @@ public final class OrderItemEditorViewModel {
                 if (documentId == null) {
                     documentId =
                             itemDocuments.beginItemCreate(
-                                    "ORDER_ITEM_CREATE " + draft.productCode(), orderId);
+                                    "ORDER_ITEM_CREATE", orderId);
                     payloadRevision = 0L;
                     pendingKind = DocumentKind.ITEM_CREATE;
                 }
@@ -533,10 +533,13 @@ public final class OrderItemEditorViewModel {
         itemStatus = snapshot.status();
         activeRevisionNumber = snapshot.activeRevisionNumber().orElse(null);
         draftRevisionNumber = snapshot.draftRevisionNumber().orElse(null);
-        title.set("Позиция " + snapshot.productCode());
+        title.set(
+                snapshot.productCode() == null || snapshot.productCode().isBlank()
+                        ? "Позиция"
+                        : "Позиция " + snapshot.productCode());
         statusText.set(snapshot.status().name());
-        productCode.set(snapshot.productCode());
-        name.set(snapshot.name());
+        productCode.set(nullToEmpty(snapshot.productCode()));
+        name.set(nullToEmpty(snapshot.name()));
         comments.set(nullToEmpty(snapshot.comments()));
         externalPositionNumber.set(nullToEmpty(snapshot.externalPositionNumber()));
         orderedQuantity.set(snapshot.orderedQuantity().toPlainString());
