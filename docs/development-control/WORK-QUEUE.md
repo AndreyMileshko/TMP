@@ -8581,7 +8581,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 # Stage 5 Extension — Order Intake MVP
 
-> `STAGE5-050 = DONE (PASS)`. `STAGE5-051 = DONE`. Tasks `STAGE5-052…057` = NOT STARTED. Stage 5 closes only after `STAGE5-057`. Stage 6 remains NOT STARTED.
+> `STAGE5-050 = DONE (PASS)`. `STAGE5-051..053 = DONE`. `STAGE5-054…057` = NOT STARTED. Stage 5 closes only after `STAGE5-057`. Stage 6 remains NOT STARTED.
 
 ## STAGE5-051 — Order Item and Specification Contracts
 
@@ -8726,7 +8726,7 @@ Conflict with Constitution/ADR; need for STXT/import implementation.
 
 ## STAGE5-053 — Import Core
 
-**Status:** NOT STARTED
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-052A
 **Module:** tmp-order-management
@@ -8763,11 +8763,11 @@ Source-neutral import model, preview/validation, application service, атома
 
 ### Acceptance criteria
 
-- [ ] Preview не пишет в БД;
-- [ ] Confirm атомарный;
-- [ ] Существующий заказ не merge;
-- [ ] Incomplete DRAFT without placeholders;
-- [ ] Нет SQL leakage в user messages.
+- [x] Preview не пишет в БД;
+- [x] Confirm атомарный;
+- [x] Существующий заказ не merge;
+- [x] Incomplete DRAFT without placeholders;
+- [x] Нет SQL leakage в user messages.
 
 ### Required tests
 
@@ -8780,6 +8780,10 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 ### Stop conditions
 
 Попытка прямой записи из адаптера; использование placeholder commercial values.
+
+### Result
+
+`STAGE5-053 = DONE`. Source-neutral Import Core: preview без persistence, immutable prepared plan, атомарный confirm через `ORDER_CREATE` / `ORDER_ITEM_CREATE` / `ORDER_ITEM_REVISION_UPDATE`, incomplete DRAFT (ADR-030), conflict/duplicate protection, Flyway `V12__order_import_metadata.sql`. `STAGE5-054` остаётся NOT STARTED.
 
 ---
 

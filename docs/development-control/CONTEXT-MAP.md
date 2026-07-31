@@ -124,7 +124,7 @@ Read only:
 - релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030** (ADR document **v1.6**);
 - Production Specification (v1.1) — **только** разделы владения производственным состоянием, связи с `Order Item ID`/`Revision`, Public API, Domain Events и интеграции с Order Management (для корректной границы; не для реализации Production).
 
-Миграции Order Management (факт): latest = **V11** (`V6`…`V10` + `V11__order_item_incomplete_draft_contract.sql`). Next available = **V12**. Current intake task: `STAGE5-052A` = **DONE**; `STAGE5-053` = **NOT STARTED**.
+Миграции Order Management (факт): latest = **V12** (`V6`…`V11` + `V12__order_import_metadata.sql`). Next available = **V13**. Current intake task: `STAGE5-053` = **DONE**; `STAGE5-054` = **NOT STARTED**.
 
 Разрешённый минимальный code context (публичные API только):
 
@@ -160,7 +160,7 @@ Read only:
 | revision draft workflow | Spec §6/§9.2/§9.3; ADR-018 | `com.tmp.document.api` | `ORDER_ITEM_REVISION_*` payload/processors/домен | — |
 | application commands | Spec §15.2 | — | собственный application/домен/ports | внешний вызов mutating API |
 | domain events | Spec §17; ADR-021; Platform Core Event API | `com.tmp.core.api` (Event API) | собственные события | события Production/Warehouse/Cutting |
-| aggregate persistence & migrations | Spec §19; Database Spec; Flyway (current latest = V11; next = V12) | `tmp-infra-db` конвенции | adapters, `V9+` миграции для intake | хранение production/warehouse/cutting данных |
+| aggregate persistence & migrations | Spec §19; Database Spec; Flyway (current latest = V12; next = V13) | `tmp-infra-db` конвенции | adapters, `V9+` миграции для intake | хранение production/warehouse/cutting данных |
 | security capabilities | Spec §18; Security `PermissionId` | `com.tmp.capability.api`, `com.tmp.security.api` | `PermissionDescriptor`/`CapabilityDescriptor` | внутренняя реализация Security |
 | UI | UI/UX Spec (экраны/навигация); Manifest §14 | `com.tmp.order.api` (Query/DTO), `com.tmp.document.api` | `tmp-ui-shell` файлы из задачи | прямые мутации агрегатов из UI |
 | integration & lifecycle & idempotency & rollback tests | Manifest §15; Testcontainers | публичные API участников | собственные тесты | внутренняя реализация других Capability |

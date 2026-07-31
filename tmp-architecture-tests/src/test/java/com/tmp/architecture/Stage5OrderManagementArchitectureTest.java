@@ -412,6 +412,53 @@ class Stage5OrderManagementArchitectureTest {
         };
     }
 
+    @ArchTest
+    static final ArchRule orderImportCoreDoesNotDependOnUiOrFirebirdOrStxtParser =
+            noClasses()
+                    .that()
+                    .resideInAnyPackage(
+                            "com.tmp.order.application.imports..", "com.tmp.order.api.imports..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "javafx..",
+                            "com.tmp.ui..",
+                            "org.firebirdsql..",
+                            "java.sql..",
+                            "com.tmp.order.application.imports.stxt..")
+                    .because(
+                            "Import Core is source-neutral (ADR-029): no JavaFX, UI shell, Firebird, "
+                                    + "JDBC or STXT parser dependencies");
+
+    @ArchTest
+    static final ArchRule orderImportCoreDoesNotUseDocumentOrSecurityInternals =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.order.application.imports..")
+                    .should()
+                    .dependOnClassesThat(
+                            resideInAnyPackage("com.tmp.document..", "com.tmp.security..")
+                                    .and(
+                                            resideOutsideOfPackages(
+                                                    "com.tmp.document.api..",
+                                                    "com.tmp.security.api..")))
+                    .because(
+                            "Import Core may use only public Document Engine and Security APIs");
+
+    @ArchTest
+    static final ArchRule onlyImportMetadataJdbcAdapterTouchesImportMetadataPersistence =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.order.application.imports..")
+                    .and()
+                    .haveSimpleNameNotEndingWith("Repository")
+                    .should()
+                    .dependOnClassesThat()
+                    .areAssignableTo(org.springframework.jdbc.core.JdbcTemplate.class)
+                    .because(
+                            "Only the import metadata persistence adapter may use JDBC; Import Core "
+                                    + "orchestrates business documents through application services");
+
     private static DescribedPredicate<JavaClass> forbiddenForeignBusinessModelClass() {
         return new DescribedPredicate<>("forbidden foreign business model class") {
             @Override

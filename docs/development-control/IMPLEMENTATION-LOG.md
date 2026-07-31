@@ -4,6 +4,49 @@
 
 ---
 
+## STAGE5-053 — Import Core
+
+**Date:** 2026-07-31  
+**Stage:** 5  
+**Status:** DONE  
+**Module:** `tmp-order-management`
+
+### Result
+
+Source-neutral Import Core (ADR-029 / Spec §27.4–27.7):
+
+- immutable `OrderImportBatch` / position / specification line model without STXT/JavaFX/Firebird;
+- preview with counts, errors/warnings, `canConfirm`, immutable `PreparedOrderImportPlan` (only when no errors);
+- preview is read-only (duplicate/conflict checks only; no documents/metadata);
+- atomic confirm via Document Engine flows `ORDER_CREATE` → `ORDER_ITEM_CREATE` → `ORDER_ITEM_REVISION_UPDATE` in one `TransactionTemplate`;
+- incomplete commercial DRAFT without placeholders (ADR-030);
+- controlled conflict / duplicate messages; unique `(source_type, content_checksum)` metadata;
+- Flyway `V12__order_import_metadata.sql`; actor via `AuthenticationService.currentSession().userId()`.
+
+`STAGE5-054` not started. Stage 6 not started. Git not executed.
+
+### Files changed (production)
+
+- `com.tmp.order.api.imports.*` — public import API;
+- `com.tmp.order.application.imports.*` — validator, service, metadata port/model;
+- `JdbcOrderImportMetadataRepository`;
+- `V12__order_import_metadata.sql`;
+- `OrderManagementAutoConfiguration` wiring;
+- unit/IT/Flyway tests; Stage 5 ArchUnit import rules;
+- control docs (STATUS, WORK-QUEUE, CONTEXT-MAP, STAGE-5, IMPLEMENTATION-LOG, VERIFICATION-LOG).
+
+### Verification
+
+- `mvn -q -pl tmp-order-management -am test` — PASS (308 unit);
+- `mvn -q -pl tmp-order-management -am verify` — PASS (308 unit + 71 IT);
+- `mvn -q -pl tmp-architecture-tests -am test -Dtest=Stage5OrderManagementArchitectureTest` — PASS.
+
+### Next
+
+`STAGE5-054` — STXT File Adapter — NOT STARTED.
+
+---
+
 ## STAGE 5 — Documentation consistency fix (Order Intake planning)
 
 **Date:** 2026-07-30  

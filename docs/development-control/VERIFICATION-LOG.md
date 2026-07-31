@@ -3,8 +3,37 @@
 ## Latest result
 
 **Date:** 2026-07-31  
-**Scope:** STAGE5-052A — Imported Draft Item Commercial Contract (fix pass)  
+**Scope:** STAGE5-053 — Import Core  
 **Overall:** PASS
+
+| Verification | Command / Evidence | Result |
+|---|---|---|
+| Order Management unit tests | `mvn -q -pl tmp-order-management -am test` | PASS (308 tests, 0 failures, 0 skipped) |
+| Order Management verify | `mvn -q -pl tmp-order-management -am verify` | PASS (308 unit + 71 IT) |
+| Import Core unit | `DefaultOrderImportServiceTest` | PASS (22) |
+| Import Core IT | `OrderImportCoreIT` | PASS (7) |
+| Flyway V12 | `OrderImportMetadataFlywayTest` | PASS (2; clean→V12, V11→V12, unique checksum) |
+| Architecture | `mvn -q -pl tmp-architecture-tests -am test -Dtest=Stage5OrderManagementArchitectureTest` | PASS (incl. import-core rules) |
+| Preview isolation | IT `previewLeavesNoPersistence` | PASS |
+| Atomic rollback | IT test-only metadata failure decoration | PASS |
+| Conflict / duplicate | IT controlled messages, no SQL leakage | PASS |
+| Incomplete DRAFT | null commercial fields, no placeholders, unit «шт» | PASS |
+| Latest migration | V12 | PASS |
+| Next migration | V13 | — |
+| STAGE5-053 | WORK-QUEUE | DONE |
+| STAGE5-054 | WORK-QUEUE | NOT STARTED |
+| Stage 5 | STATUS | IN_PROGRESS |
+| Stage 6 | STATUS | NOT STARTED |
+| Active blockers | — | NONE |
+| Git | — | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+
+## 2026-07-31 — STAGE5-052A — Imported Draft Item Commercial Contract (fix pass)
 
 | Verification | Command / Evidence | Result |
 |---|---|---|

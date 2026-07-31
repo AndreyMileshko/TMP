@@ -3,10 +3,14 @@ package com.tmp.order;
 import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.TransactionalEventPublisher;
 import com.tmp.order.api.OrderQueryService;
+import com.tmp.order.api.imports.OrderImportService;
 import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.order.api.ui.OrderItemSpecificationEditorQueryService;
+import com.tmp.order.application.imports.DefaultOrderImportService;
+import com.tmp.order.application.imports.OrderImportMetadataRepository;
+import com.tmp.order.application.imports.OrderImportValidator;
 import com.tmp.order.application.document.OrderApproveDocumentProcessor;
 import com.tmp.order.application.document.OrderCancelDocumentProcessor;
 import com.tmp.order.application.document.OrderCreateDocumentProcessor;
@@ -41,9 +45,11 @@ import com.tmp.order.domain.repository.CustomerOrderRepository;
 import com.tmp.order.domain.repository.OrderItemRepository;
 import com.tmp.order.persistence.JdbcCustomerOrderRepository;
 import com.tmp.order.persistence.JdbcOrderDocumentPayloadAdapter;
+import com.tmp.order.persistence.JdbcOrderImportMetadataRepository;
 import com.tmp.order.persistence.JdbcOrderItemRepository;
 import com.tmp.order.persistence.JdbcOrderQueryReadAdapter;
 import com.tmp.order.persistence.JdbcProcessingRecordAdapter;
+import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import jakarta.annotation.PostConstruct;
 import java.time.Clock;
@@ -54,6 +60,7 @@ import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * Registers Order Management Public Query API beans, document processors, and UI-facing
@@ -388,6 +395,42 @@ public class OrderManagementAutoConfiguration {
             OrderItemRepository orderItemRepository, AuthorizationService authorizationService) {
         return new DefaultOrderItemSpecificationEditorQueryService(
                 orderItemRepository, authorizationService);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(OrderImportMetadataRepository.class)
+    OrderImportMetadataRepository orderImportMetadataRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcOrderImportMetadataRepository(jdbcTemplate);
+    }
+
+    @Bean
+    OrderImportValidator orderImportValidator() {
+        return new OrderImportValidator();
+    }
+
+    @Bean
+    OrderImportService orderImportService(
+            OrderImportValidator orderImportValidator,
+            CustomerOrderRepository customerOrderRepository,
+            OrderImportMetadataRepository orderImportMetadataRepository,
+            DocumentEngine documentEngine,
+            DraftPayloadApplicationService draftPayloadApplicationService,
+            ProcessingRecordPort processingRecordPort,
+            AuthenticationService authenticationService,
+            AuthorizationService authorizationService,
+            PlatformTransactionManager transactionManager,
+            Clock clock) {
+        return new DefaultOrderImportService(
+                orderImportValidator,
+                customerOrderRepository,
+                orderImportMetadataRepository,
+                documentEngine,
+                draftPayloadApplicationService,
+                processingRecordPort,
+                authenticationService,
+                authorizationService,
+                transactionManager,
+                clock);
     }
 
     @Bean
