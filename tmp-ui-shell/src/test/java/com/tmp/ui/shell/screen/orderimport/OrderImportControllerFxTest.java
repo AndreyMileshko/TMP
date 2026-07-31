@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportConfirmResult;
+import com.tmp.order.api.imports.OrderImportConflictException;
+import com.tmp.order.api.imports.OrderImportDuplicateException;
 import com.tmp.order.api.imports.OrderImportFileParseResult;
 import com.tmp.order.api.imports.OrderImportPreview;
 import com.tmp.order.api.imports.OrderImportProblem;
@@ -17,9 +19,8 @@ import com.tmp.order.api.imports.StxtOrderFileParser;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.JavaFxTestSupport;
 import com.tmp.ui.shell.UiShellScreens;
-import com.tmp.ui.shell.navigation.NavigationServices;
-import com.tmp.ui.shell.navigation.ScreenRegistration;
 import com.tmp.ui.shell.screen.orderlist.FakeAuthorization;
+import java.io.File;
 import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -31,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
+import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -56,32 +58,60 @@ class OrderImportControllerFxTest {
         assertNotNull(loaded.root.lookup("#importButton"));
         assertNotNull(loaded.root.lookup("#validateButton"));
         assertNotNull(loaded.root.lookup("#cancelButton"));
+        assertNotNull(loaded.root.lookup("#previewErrorCountLabel"));
+        assertNotNull(loaded.root.lookup("#previewWarningCountLabel"));
         assertEquals("Импорт заказа", ((Label) loaded.root.lookup("#titleLabel")).getText());
+        assertEquals("Ошибки: 0", ((Label) loaded.root.lookup("#previewErrorCountLabel")).getText());
     }
 
     @Test
-    void selectFileShowsPreview() throws Exception {
+    void fileChooserSelectionCallsAdapterAndShowsFileName() throws Exception {
+        FakeStxtParser stxt = new FakeStxtParser();
         FakeImportService imports = successService();
-        OrderImportViewModel viewModel = newFakeViewModel(imports, new FakeStxtParser());
+        OrderImportViewModel viewModel = newFakeViewModel(imports, stxt);
+        Loaded loaded = loadScreen(viewModel);
+        File chosen = new File("preview.stxt");
+
+        runFx(() -> {
+            loaded.controller.setFileChooserOpenerForTest(() -> chosen);
+            loaded.controller.chooseFileForTest();
+        });
+
+        assertEquals(1, stxt.parseCalls.get());
+        assertEquals(1, imports.previewCalls.get());
+        assertEquals("preview.stxt", ((TextField) loaded.root.lookup("#fileNameField")).getText());
+        assertEquals("ORD-FX", ((Label) loaded.root.lookup("#previewOrderNumberLabel")).getText());
+        assertEquals("2", ((Label) loaded.root.lookup("#previewPositionCountLabel")).getText());
+        assertEquals("4", ((Label) loaded.root.lookup("#previewSpecificationLineCountLabel")).getText());
+        assertEquals("Ошибки: 0", ((Label) loaded.root.lookup("#previewErrorCountLabel")).getText());
+        assertEquals(
+                "Предупреждения: 0",
+                ((Label) loaded.root.lookup("#previewWarningCountLabel")).getText());
+    }
+
+    @Test
+    void fileChooserCancelDoesNotCallAdapterOrChangePreview() throws Exception {
+        FakeStxtParser stxt = new FakeStxtParser();
+        FakeImportService imports = successService();
+        OrderImportViewModel viewModel = newFakeViewModel(imports, stxt);
         Loaded loaded = loadScreen(viewModel);
 
-        runFx(() -> viewModel.selectFile(Path.of("preview.stxt")));
+        runFx(() -> {
+            loaded.controller.setFileChooserOpenerForTest(() -> null);
+            loaded.controller.chooseFileForTest();
+        });
 
-        TextField fileName = (TextField) loaded.root.lookup("#fileNameField");
-        Label orderNumber = (Label) loaded.root.lookup("#previewOrderNumberLabel");
-        Label positions = (Label) loaded.root.lookup("#previewPositionCountLabel");
-        Label products = (Label) loaded.root.lookup("#previewProductQuantityLabel");
-        Label lines = (Label) loaded.root.lookup("#previewSpecificationLineCountLabel");
-        assertEquals("preview.stxt", fileName.getText());
-        assertEquals("ORD-FX", orderNumber.getText());
-        assertEquals("2", positions.getText());
-        assertEquals("3", products.getText());
-        assertEquals("4", lines.getText());
-        assertEquals(1, imports.previewCalls.get());
+        assertEquals(0, stxt.parseCalls.get());
+        assertEquals(0, imports.previewCalls.get());
+        assertEquals("", ((TextField) loaded.root.lookup("#fileNameField")).getText());
+        assertEquals("", ((Label) loaded.root.lookup("#previewOrderNumberLabel")).getText());
+        assertTrue(((Label) loaded.root.lookup("#errorLabel")).getText().isBlank()
+                || !((Label) loaded.root.lookup("#errorLabel")).isVisible());
+        assertEquals("Ошибки: 0", ((Label) loaded.root.lookup("#previewErrorCountLabel")).getText());
     }
 
     @Test
-    void errorsAreDisplayedAndImportDisabled() throws Exception {
+    void previewErrorShowsProblemsAndDisablesImport() throws Exception {
         FakeStxtParser stxt = new FakeStxtParser();
         stxt.result = OrderImportFileParseResult.of(
                 null,
@@ -108,11 +138,12 @@ class OrderImportControllerFxTest {
         assertEquals(
                 "Файл не содержит обязательную колонку Артикул",
                 errors.getItems().get(0).message());
+        assertEquals("Ошибки: 1", ((Label) loaded.root.lookup("#previewErrorCountLabel")).getText());
         assertTrue(importButton.isDisabled());
     }
 
     @Test
-    void importEnabledOnSuccessPreview() throws Exception {
+    void previewSuccessEnablesImportAndShowsCounters() throws Exception {
         OrderImportViewModel viewModel =
                 newFakeViewModel(successService(), new FakeStxtParser());
         Loaded loaded = loadScreen(viewModel);
@@ -121,17 +152,21 @@ class OrderImportControllerFxTest {
 
         Button importButton = (Button) loaded.root.lookup("#importButton");
         assertFalse(importButton.isDisabled());
+        assertEquals("Ошибки: 0", ((Label) loaded.root.lookup("#previewErrorCountLabel")).getText());
+        assertEquals(
+                "Предупреждения: 0",
+                ((Label) loaded.root.lookup("#previewWarningCountLabel")).getText());
     }
 
     @Test
-    void confirmCallsImportCoreAndShowsResult() throws Exception {
+    void confirmSuccessCallsImportCoreAndShowsResult() throws Exception {
         FakeImportService imports = successService();
         imports.confirmResult = OrderImportConfirmResult.of(
                 OrderId.generate(),
-                "ORD-FX",
+                "26062891",
                 UUID.randomUUID(),
-                2,
-                4,
+                5,
+                20,
                 Instant.parse("2026-07-31T00:00:00Z"));
         OrderImportViewModel viewModel = newFakeViewModel(imports, new FakeStxtParser());
         Loaded loaded = loadScreen(viewModel);
@@ -145,10 +180,65 @@ class OrderImportControllerFxTest {
         assertNotNull(imports.lastConfirmedPlan.get());
         Label success = (Label) loaded.root.lookup("#successLabel");
         assertTrue(success.isVisible());
-        assertTrue(success.getText().contains("ORD-FX"));
-        assertTrue(success.getText().contains("Позиций: 2"));
-        Button importButton = (Button) loaded.root.lookup("#importButton");
-        assertTrue(importButton.isDisabled());
+        assertTrue(success.getText().contains("Заказ 26062891 успешно импортирован."));
+        assertTrue(success.getText().contains("Создано позиций: 5."));
+        assertTrue(success.getText().contains("Строк спецификации: 20."));
+        assertTrue(((Button) loaded.root.lookup("#importButton")).isDisabled());
+    }
+
+    @Test
+    void confirmDuplicateShowsExactMessage() throws Exception {
+        FakeImportService imports = successService();
+        imports.confirmException = new OrderImportDuplicateException();
+        OrderImportViewModel viewModel = newFakeViewModel(imports, new FakeStxtParser());
+        Loaded loaded = loadScreen(viewModel);
+
+        runFx(() -> {
+            viewModel.selectFile(Path.of("ok.stxt"));
+            viewModel.confirmImport();
+        });
+
+        Label error = (Label) loaded.root.lookup("#errorLabel");
+        assertTrue(error.isVisible());
+        assertEquals(OrderImportDuplicateException.USER_MESSAGE, error.getText());
+        assertTrue(((Button) loaded.root.lookup("#importButton")).isDisabled());
+    }
+
+    @Test
+    void confirmConflictShowsExactMessage() throws Exception {
+        FakeImportService imports = successService();
+        imports.confirmException = new OrderImportConflictException();
+        OrderImportViewModel viewModel = newFakeViewModel(imports, new FakeStxtParser());
+        Loaded loaded = loadScreen(viewModel);
+
+        runFx(() -> {
+            viewModel.selectFile(Path.of("ok.stxt"));
+            viewModel.confirmImport();
+        });
+
+        Label error = (Label) loaded.root.lookup("#errorLabel");
+        assertTrue(error.isVisible());
+        assertEquals(OrderImportConflictException.USER_MESSAGE, error.getText());
+    }
+
+    @Test
+    void cancelDoesNotChangePersistedStateAndLeavesImportCoreIdle() throws Exception {
+        FakeImportService imports = successService();
+        FakeStxtParser stxt = new FakeStxtParser();
+        OrderImportViewModel viewModel = newFakeViewModel(imports, stxt);
+        Loaded loaded = loadScreen(viewModel);
+
+        runFx(() -> {
+            viewModel.selectFile(Path.of("ok.stxt"));
+            assertFalse(((Button) loaded.root.lookup("#importButton")).isDisabled());
+            viewModel.cancel();
+        });
+
+        assertEquals(0, imports.confirmCalls.get());
+        assertEquals("", ((TextField) loaded.root.lookup("#fileNameField")).getText());
+        assertEquals("", ((Label) loaded.root.lookup("#previewOrderNumberLabel")).getText());
+        assertEquals("Ошибки: 0", ((Label) loaded.root.lookup("#previewErrorCountLabel")).getText());
+        assertTrue(((Button) loaded.root.lookup("#importButton")).isDisabled());
     }
 
     private static OrderImportViewModel newFakeViewModel(
@@ -172,22 +262,23 @@ class OrderImportControllerFxTest {
     }
 
     private static Loaded loadScreen(OrderImportViewModel viewModel) throws Exception {
-        var navigation = NavigationServices.createDefault();
-        navigation.register(new ScreenRegistration(
-                UiShellScreens.ORDER_IMPORT_SCREEN_ID,
-                UiShellScreens.ORDER_IMPORT_FXML,
-                () -> viewModel));
-
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
         AtomicReference<Parent> rootRef = new AtomicReference<>();
+        AtomicReference<OrderImportController> controllerRef = new AtomicReference<>();
 
         Platform.runLater(() -> {
             try {
-                Parent root = navigation.load(UiShellScreens.ORDER_IMPORT_SCREEN_ID);
+                FXMLLoader loader = new FXMLLoader(
+                        OrderImportController.class.getClassLoader().getResource(
+                                UiShellScreens.ORDER_IMPORT_FXML));
+                Parent root = loader.load();
+                OrderImportController controller = loader.getController();
+                controller.setViewModel(viewModel);
                 Stage stage = new Stage();
                 stage.setScene(new Scene(root));
                 rootRef.set(root);
+                controllerRef.set(controller);
             } catch (Throwable throwable) {
                 error.set(throwable);
             } finally {
@@ -200,7 +291,8 @@ class OrderImportControllerFxTest {
             throw new AssertionError("Order import FX load failed", error.get());
         }
         assertNotNull(rootRef.get());
-        return new Loaded(rootRef.get());
+        assertNotNull(controllerRef.get());
+        return new Loaded(rootRef.get(), controllerRef.get());
     }
 
     private static void runFx(Runnable action) throws Exception {
@@ -221,10 +313,11 @@ class OrderImportControllerFxTest {
         }
     }
 
-    private record Loaded(Parent root) {
+    private record Loaded(Parent root, OrderImportController controller) {
     }
 
     private static final class FakeStxtParser implements StxtOrderFileParser {
+        private final AtomicInteger parseCalls = new AtomicInteger();
         private OrderImportFileParseResult result = OrderImportFileParseResult.of(
                 OrderImportBatch.of("STXT", "sample.stxt", "checksum", "ORD-FX", List.of()),
                 List.of(),
@@ -233,6 +326,7 @@ class OrderImportControllerFxTest {
 
         @Override
         public OrderImportFileParseResult parseFile(Path file) {
+            parseCalls.incrementAndGet();
             return result;
         }
 
@@ -248,6 +342,7 @@ class OrderImportControllerFxTest {
         private final AtomicReference<PreparedOrderImportPlan> lastConfirmedPlan =
                 new AtomicReference<>();
         private OrderImportPreview preview;
+        private RuntimeException confirmException;
         private OrderImportConfirmResult confirmResult;
 
         @Override
@@ -260,6 +355,9 @@ class OrderImportControllerFxTest {
         public OrderImportConfirmResult confirm(PreparedOrderImportPlan plan) {
             confirmCalls.incrementAndGet();
             lastConfirmedPlan.set(plan);
+            if (confirmException != null) {
+                throw confirmException;
+            }
             return Objects.requireNonNull(confirmResult, "confirmResult");
         }
     }

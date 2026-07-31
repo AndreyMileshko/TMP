@@ -3,8 +3,36 @@
 ## Latest result
 
 **Date:** 2026-07-31  
-**Scope:** STAGE5-055 — Import GUI  
+**Scope:** STAGE5-055 — Import GUI (FIX REQUIRED pass)  
 **Overall:** PASS
+
+| Verification | Command / Evidence | Result |
+|---|---|---|
+| Module tests | `mvn -q -pl tmp-ui-shell -am test` | PASS |
+| Module verify | `mvn -q -pl tmp-ui-shell -am verify` | PASS |
+| FileChooser select | FX: adapter called, file name shown | PASS |
+| FileChooser cancel | FX: no adapter, preview unchanged, no error | PASS |
+| Preview SUCCESS | order/positions/lines + counters | PASS |
+| Preview ERROR | errors shown, Import disabled | PASS |
+| Warning state | Import enabled, counter shown | PASS |
+| Confirm SUCCESS | Import Core called, result text | PASS |
+| Confirm DUPLICATE | exact USER_MESSAGE | PASS |
+| Confirm CONFLICT | exact USER_MESSAGE | PASS |
+| Cancel | no confirm, state cleared | PASS |
+| STAGE5-055 | WORK-QUEUE | DONE |
+| STAGE5-056 | WORK-QUEUE | NOT STARTED |
+| Stage 5 | STATUS | IN_PROGRESS |
+| Stage 6 | STATUS | NOT STARTED |
+| Import Core / STXT Adapter | — | UNCHANGED |
+| Git | — | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+
+## 2026-07-31 — STAGE5-055 — Import GUI
 
 | Verification | Command / Evidence | Result |
 |---|---|---|

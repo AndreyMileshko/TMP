@@ -4,6 +4,36 @@
 
 ---
 
+## STAGE5-055 — Import GUI (FIX REQUIRED pass)
+
+**Date:** 2026-07-31  
+**Stage:** 5  
+**Status:** DONE  
+**Module:** `tmp-ui-shell`
+
+### Result
+
+Fix pass for Import GUI review remarks:
+
+1. Confirm errors: duplicate / order conflict / validation show exact Russian user messages (`OrderImportDuplicateException.USER_MESSAGE`, `OrderImportConflictException.USER_MESSAGE`, preview problem text). No generic «Ошибка импорта», no SQL/stack.
+2. Prepared plan gate: Import enabled only when `preparedPlan` present, successful preview without ERROR, and errors empty.
+3. FileChooser Cancel: no adapter call, preview unchanged, no error.
+4. Preview counters: explicit «Ошибки: N» / «Предупреждения: N» (including 0).
+5. Success result format: «Заказ {n} успешно импортирован… Создано позиций… Строк спецификации…».
+
+Import Core and STXT Adapter unchanged. `STAGE5-056` not started. Git not executed.
+
+### Verification
+
+- `mvn -q -pl tmp-ui-shell -am test` — PASS
+- `mvn -q -pl tmp-ui-shell -am verify` — PASS
+
+### Next
+
+`STAGE5-056` — Automated Verification — NOT STARTED.
+
+---
+
 ## STAGE5-055 — Import GUI
 
 **Date:** 2026-07-31  

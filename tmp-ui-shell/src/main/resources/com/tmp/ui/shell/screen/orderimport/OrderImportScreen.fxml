@@ -31,6 +31,10 @@
         <Label fx:id="previewProductQuantityLabel" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
         <Label text="Количество строк спецификации:" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
         <Label fx:id="previewSpecificationLineCountLabel" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+        <Label fx:id="previewErrorCountLabel" GridPane.columnIndex="0" GridPane.rowIndex="4"
+               GridPane.columnSpan="2"/>
+        <Label fx:id="previewWarningCountLabel" GridPane.columnIndex="0" GridPane.rowIndex="5"
+               GridPane.columnSpan="2"/>
     </GridPane>
     <Label text="Ошибки" styleClass="order-import-section"/>
     <TableView fx:id="errorsTable" prefHeight="160">

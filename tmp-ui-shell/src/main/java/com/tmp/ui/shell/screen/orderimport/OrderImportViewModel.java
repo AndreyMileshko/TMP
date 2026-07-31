@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -45,7 +46,6 @@ public final class OrderImportViewModel {
     static final String MSG_PREVIEW_ERRORS = "Импорт невозможен: исправьте ошибки в файле.";
     static final String MSG_PREVIEW_WARNINGS =
             "Проверка завершена с предупреждениями. Импорт разрешён.";
-    static final String MSG_IMPORT_SUCCESS = "Импорт успешно завершён.";
     static final String MSG_CANCELLED = "Импорт отменён. Данные не сохранены.";
     static final String MSG_NO_PLAN = "Сначала выполните проверку файла.";
     static final String MSG_FILE_UNREADABLE = "Не удалось прочитать файл выгрузки.";
@@ -60,6 +60,9 @@ public final class OrderImportViewModel {
     private final StringProperty previewPositionCount = new SimpleStringProperty("");
     private final StringProperty previewProductQuantity = new SimpleStringProperty("");
     private final StringProperty previewSpecificationLineCount = new SimpleStringProperty("");
+    private final StringProperty previewErrorCountText = new SimpleStringProperty("Ошибки: 0");
+    private final StringProperty previewWarningCountText =
+            new SimpleStringProperty("Предупреждения: 0");
     private final StringProperty statusMessage = new SimpleStringProperty("");
     private final StringProperty errorMessage = new SimpleStringProperty("");
     private final StringProperty successMessage = new SimpleStringProperty("");
@@ -72,6 +75,7 @@ public final class OrderImportViewModel {
 
     private Path selectedFile;
     private PreparedOrderImportPlan preparedPlan;
+    private boolean previewSucceededWithoutErrors;
     private Runnable onCancel = () -> {
     };
     private Runnable onImportSuccess = () -> {
@@ -87,6 +91,7 @@ public final class OrderImportViewModel {
         this.authorizationService =
                 Objects.requireNonNull(authorizationService, "authorizationService");
         refreshPermissions();
+        updateImportAvailability();
     }
 
     public void setOnCancel(Runnable onCancel) {
@@ -103,6 +108,7 @@ public final class OrderImportViewModel {
         statusMessage.set("");
         errorMessage.set("");
         successMessage.set("");
+        updateImportAvailability();
     }
 
     public void refreshPermissions() {
@@ -113,11 +119,14 @@ public final class OrderImportViewModel {
             canValidate.set(false);
             canImport.set(false);
             errorMessage.set(OrderUiErrorMapper.ACCESS_DENIED);
+        } else {
+            updateImportAvailability();
         }
     }
 
     /**
      * Remembers the chosen file and runs STXT adapter + Import Core preview. Does not confirm.
+     * FileChooser cancel must not call this method.
      */
     public void selectFile(Path file) {
         Objects.requireNonNull(file, "file");
@@ -141,7 +150,9 @@ public final class OrderImportViewModel {
         }
         if (selectedFile == null) {
             errorMessage.set(MSG_SELECT_FILE);
-            canImport.set(false);
+            preparedPlan = null;
+            previewSucceededWithoutErrors = false;
+            updateImportAvailability();
             return;
         }
         loading.set(true);
@@ -159,15 +170,16 @@ public final class OrderImportViewModel {
             OrderImportPreview preview = orderImportService.preview(batch);
             applyPreview(preview, adapterWarnings);
         } catch (OrderImportConflictException ex) {
-            applyBlockingException(ex.getMessage());
+            applyBlockingException(OrderImportConflictException.USER_MESSAGE);
         } catch (OrderImportDuplicateException ex) {
-            applyBlockingException(ex.getMessage());
+            applyBlockingException(OrderImportDuplicateException.USER_MESSAGE);
         } catch (AccessDeniedException ex) {
             applyBlockingException(OrderUiErrorMapper.text(ex, OrderUiOperation.CREATE));
         } catch (RuntimeException ex) {
             applyBlockingException(safeTechnicalMessage(ex));
         } finally {
             loading.set(false);
+            updateImportAvailability();
         }
     }
 
@@ -180,61 +192,45 @@ public final class OrderImportViewModel {
         if (!canSelectFile.get()) {
             return;
         }
-        if (preparedPlan == null || !canImport.get()) {
+        updateImportAvailability();
+        if (!canImport.get() || preparedPlan == null || !previewSucceededWithoutErrors) {
             errorMessage.set(MSG_NO_PLAN);
+            canImport.set(false);
             return;
         }
+        PreparedOrderImportPlan plan = preparedPlan;
         loading.set(true);
         errorMessage.set("");
         successMessage.set("");
         try {
-            OrderImportConfirmResult result = orderImportService.confirm(preparedPlan);
-            canImport.set(false);
+            OrderImportConfirmResult result = orderImportService.confirm(plan);
+            preparedPlan = null;
+            previewSucceededWithoutErrors = false;
             canValidate.set(false);
             canSelectFile.set(false);
-            preparedPlan = null;
             previewOrderNumber.set(nullToEmpty(result.orderNumber()));
             previewPositionCount.set(Integer.toString(result.createdPositionCount()));
             previewSpecificationLineCount.set(
                     Integer.toString(result.createdSpecificationLineCount()));
-            successMessage.set(
-                    MSG_IMPORT_SUCCESS
-                            + " Номер заказа: "
-                            + result.orderNumber()
-                            + ". Позиций: "
-                            + result.createdPositionCount()
-                            + ". Строк спецификации: "
-                            + result.createdSpecificationLineCount()
-                            + ".");
-            statusMessage.set(MSG_IMPORT_SUCCESS);
+            successMessage.set(formatImportSuccess(result));
+            statusMessage.set("");
+            updateImportAvailability();
             onImportSuccess.run();
         } catch (OrderImportConflictException ex) {
-            canImport.set(false);
-            errorMessage.set(ex.getMessage());
-            statusMessage.set("");
+            applyConfirmFailure(OrderImportConflictException.USER_MESSAGE, List.of());
         } catch (OrderImportDuplicateException ex) {
-            canImport.set(false);
-            errorMessage.set(ex.getMessage());
-            statusMessage.set("");
+            applyConfirmFailure(OrderImportDuplicateException.USER_MESSAGE, List.of());
         } catch (OrderImportValidationException ex) {
-            canImport.set(false);
-            errors.setAll(ex.problems());
-            errorMessage.set(MSG_PREVIEW_ERRORS);
-            statusMessage.set("");
+            applyConfirmFailure(validationUserMessage(ex), ex.problems());
         } catch (OrderImportProcessingException ex) {
-            canImport.set(false);
-            errorMessage.set(ex.getMessage());
-            statusMessage.set("");
+            applyConfirmFailure(OrderImportProcessingException.USER_MESSAGE, List.of());
         } catch (AccessDeniedException ex) {
-            canImport.set(false);
-            errorMessage.set(OrderUiErrorMapper.text(ex, OrderUiOperation.CREATE));
-            statusMessage.set("");
+            applyConfirmFailure(OrderUiErrorMapper.text(ex, OrderUiOperation.CREATE), List.of());
         } catch (RuntimeException ex) {
-            canImport.set(false);
-            errorMessage.set(safeTechnicalMessage(ex));
-            statusMessage.set("");
+            applyConfirmFailure(safeTechnicalMessage(ex), List.of());
         } finally {
             loading.set(false);
+            updateImportAvailability();
         }
     }
 
@@ -244,6 +240,7 @@ public final class OrderImportViewModel {
         statusMessage.set(MSG_CANCELLED);
         errorMessage.set("");
         successMessage.set("");
+        updateImportAvailability();
         onCancel.run();
     }
 
@@ -269,6 +266,14 @@ public final class OrderImportViewModel {
 
     public StringProperty previewSpecificationLineCountProperty() {
         return previewSpecificationLineCount;
+    }
+
+    public StringProperty previewErrorCountTextProperty() {
+        return previewErrorCountText;
+    }
+
+    public StringProperty previewWarningCountTextProperty() {
+        return previewWarningCountText;
     }
 
     public StringProperty statusMessageProperty() {
@@ -315,21 +320,40 @@ public final class OrderImportViewModel {
         return selectedFile;
     }
 
+    boolean previewSucceededWithoutErrorsForTest() {
+        return previewSucceededWithoutErrors;
+    }
+
+    private void applyConfirmFailure(String message, List<OrderImportProblem> problems) {
+        preparedPlan = null;
+        previewSucceededWithoutErrors = false;
+        if (!problems.isEmpty()) {
+            errors.setAll(problems);
+            updateProblemCounters();
+        }
+        errorMessage.set(message);
+        successMessage.set("");
+        statusMessage.set("");
+        canImport.set(false);
+    }
+
     private void applyAdapterFailure(OrderImportFileParseResult parse) {
         preparedPlan = null;
-        canImport.set(false);
+        previewSucceededWithoutErrors = false;
         errors.setAll(parse.errors());
         warnings.setAll(parse.warnings());
         previewOrderNumber.set("");
         previewPositionCount.set("");
         previewProductQuantity.set("");
         previewSpecificationLineCount.set("");
+        updateProblemCounters();
         if (parse.errors().isEmpty()) {
             errorMessage.set(MSG_FILE_UNREADABLE);
         } else {
-            errorMessage.set(MSG_PREVIEW_ERRORS);
+            errorMessage.set(firstProblemOr(parse.errors(), MSG_PREVIEW_ERRORS));
         }
         statusMessage.set("");
+        updateImportAvailability();
     }
 
     private void applyPreview(OrderImportPreview preview, List<OrderImportProblem> adapterWarnings) {
@@ -341,9 +365,10 @@ public final class OrderImportViewModel {
         List<OrderImportProblem> mergedWarnings = new ArrayList<>(adapterWarnings);
         mergedWarnings.addAll(preview.warnings());
         warnings.setAll(mergedWarnings);
-        if (preview.canConfirm()) {
+        updateProblemCounters();
+        if (preview.canConfirm() && preview.preparedPlan().isPresent() && preview.errors().isEmpty()) {
             preparedPlan = preview.preparedPlan().orElse(null);
-            canImport.set(preparedPlan != null);
+            previewSucceededWithoutErrors = preparedPlan != null;
             if (mergedWarnings.isEmpty()) {
                 statusMessage.set(MSG_PREVIEW_OK);
             } else {
@@ -352,23 +377,41 @@ public final class OrderImportViewModel {
             errorMessage.set("");
         } else {
             preparedPlan = null;
-            canImport.set(false);
+            previewSucceededWithoutErrors = false;
             statusMessage.set("");
-            errorMessage.set(MSG_PREVIEW_ERRORS);
+            errorMessage.set(firstProblemOr(preview.errors(), MSG_PREVIEW_ERRORS));
         }
+        updateImportAvailability();
     }
 
     private void applyBlockingException(String message) {
         preparedPlan = null;
-        canImport.set(false);
+        previewSucceededWithoutErrors = false;
         errors.clear();
         warnings.clear();
         previewOrderNumber.set("");
         previewPositionCount.set("");
         previewProductQuantity.set("");
         previewSpecificationLineCount.set("");
+        updateProblemCounters();
         errorMessage.set(message == null || message.isBlank() ? MSG_FILE_UNREADABLE : message);
         statusMessage.set("");
+        updateImportAvailability();
+    }
+
+    private void updateImportAvailability() {
+        boolean allowed = canSelectFile.get();
+        boolean ready =
+                allowed
+                        && preparedPlan != null
+                        && previewSucceededWithoutErrors
+                        && errors.isEmpty();
+        canImport.set(ready);
+    }
+
+    private void updateProblemCounters() {
+        previewErrorCountText.set("Ошибки: " + errors.size());
+        previewWarningCountText.set("Предупреждения: " + warnings.size());
     }
 
     private void clearWorkingState() {
@@ -376,11 +419,11 @@ public final class OrderImportViewModel {
         fileName.set("");
         clearPreviewOnly();
         canValidate.set(false);
-        canImport.set(false);
     }
 
     private void clearPreviewOnly() {
         preparedPlan = null;
+        previewSucceededWithoutErrors = false;
         canImport.set(false);
         errors.clear();
         warnings.clear();
@@ -388,6 +431,39 @@ public final class OrderImportViewModel {
         previewPositionCount.set("");
         previewProductQuantity.set("");
         previewSpecificationLineCount.set("");
+        updateProblemCounters();
+    }
+
+    private static String formatImportSuccess(OrderImportConfirmResult result) {
+        return "Заказ "
+                + result.orderNumber()
+                + " успешно импортирован.\nСоздано позиций: "
+                + result.createdPositionCount()
+                + ".\nСтрок спецификации: "
+                + result.createdSpecificationLineCount()
+                + ".";
+    }
+
+    private static String validationUserMessage(OrderImportValidationException ex) {
+        String fromProblems = firstProblemOr(ex.problems(), null);
+        if (fromProblems != null) {
+            return fromProblems;
+        }
+        String message = ex.getMessage();
+        return message == null || message.isBlank() ? MSG_PREVIEW_ERRORS : message;
+    }
+
+    private static String firstProblemOr(List<OrderImportProblem> problems, String fallback) {
+        if (problems == null || problems.isEmpty()) {
+            return fallback;
+        }
+        String joined = problems.stream()
+                .map(OrderImportProblem::message)
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .collect(Collectors.joining(" "));
+        return joined.isEmpty() ? fallback : problems.get(0).message();
     }
 
     private static String formatQuantity(BigDecimal value) {
@@ -402,8 +478,14 @@ public final class OrderImportViewModel {
     }
 
     private static String safeTechnicalMessage(Throwable error) {
+        if (error instanceof OrderImportConflictException) {
+            return OrderImportConflictException.USER_MESSAGE;
+        }
+        if (error instanceof OrderImportDuplicateException) {
+            return OrderImportDuplicateException.USER_MESSAGE;
+        }
         if (error instanceof OrderImportProcessingException) {
-            return error.getMessage();
+            return OrderImportProcessingException.USER_MESSAGE;
         }
         String simpleName = error.getClass().getSimpleName();
         if (simpleName.contains("Conflict")) {

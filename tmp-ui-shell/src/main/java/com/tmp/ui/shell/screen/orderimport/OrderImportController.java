@@ -5,6 +5,8 @@ import com.tmp.order.api.imports.OrderImportProblemSeverity;
 import com.tmp.ui.shell.navigation.ViewModelAware;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
+import java.util.Objects;
+import java.util.function.Supplier;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
@@ -43,6 +45,12 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
 
     @FXML
     private Label previewSpecificationLineCountLabel;
+
+    @FXML
+    private Label previewErrorCountLabel;
+
+    @FXML
+    private Label previewWarningCountLabel;
 
     @FXML
     private TableView<OrderImportProblem> errorsTable;
@@ -96,6 +104,7 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
     private Label errorLabel;
 
     private OrderImportViewModel viewModel;
+    private Supplier<File> fileChooserOpener = this::showOpenDialog;
 
     @Override
     public void setViewModel(OrderImportViewModel viewModel) {
@@ -110,6 +119,8 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
         previewSpecificationLineCountLabel
                 .textProperty()
                 .bind(viewModel.previewSpecificationLineCountProperty());
+        previewErrorCountLabel.textProperty().bind(viewModel.previewErrorCountTextProperty());
+        previewWarningCountLabel.textProperty().bind(viewModel.previewWarningCountTextProperty());
 
         bindProblemTable(
                 errorsTable,
@@ -160,7 +171,23 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
         viewModel.open();
     }
 
+    /** Test hook: replaces native FileChooser. Cancel is simulated by returning {@code null}. */
+    void setFileChooserOpenerForTest(Supplier<File> fileChooserOpener) {
+        this.fileChooserOpener = Objects.requireNonNull(fileChooserOpener, "fileChooserOpener");
+    }
+
+    void chooseFileForTest() {
+        chooseFile();
+    }
+
     private void chooseFile() {
+        File chosen = fileChooserOpener.get();
+        if (chosen != null) {
+            viewModel.selectFile(chosen.toPath());
+        }
+    }
+
+    private File showOpenDialog() {
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Выбор файла выгрузки");
         chooser.getExtensionFilters().addAll(
@@ -169,10 +196,7 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
         Window window = selectFileButton.getScene() == null
                 ? null
                 : selectFileButton.getScene().getWindow();
-        File chosen = chooser.showOpenDialog(window);
-        if (chosen != null) {
-            viewModel.selectFile(chosen.toPath());
-        }
+        return chooser.showOpenDialog(window);
     }
 
     private static void bindProblemTable(

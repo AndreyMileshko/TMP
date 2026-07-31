@@ -10,10 +10,12 @@ import com.tmp.order.api.OrderId;
 import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportConfirmResult;
 import com.tmp.order.api.imports.OrderImportConflictException;
+import com.tmp.order.api.imports.OrderImportDuplicateException;
 import com.tmp.order.api.imports.OrderImportFileParseResult;
 import com.tmp.order.api.imports.OrderImportPreview;
 import com.tmp.order.api.imports.OrderImportProblem;
 import com.tmp.order.api.imports.OrderImportService;
+import com.tmp.order.api.imports.OrderImportValidationException;
 import com.tmp.order.api.imports.PreparedOrderImportPlan;
 import com.tmp.order.api.imports.StxtOrderFileParser;
 import com.tmp.security.api.PermissionId;
@@ -49,6 +51,8 @@ class OrderImportViewModelTest {
         assertEquals("2", viewModel.previewPositionCountProperty().get());
         assertEquals("3", viewModel.previewProductQuantityProperty().get());
         assertEquals("4", viewModel.previewSpecificationLineCountProperty().get());
+        assertEquals("Ошибки: 0", viewModel.previewErrorCountTextProperty().get());
+        assertEquals("Предупреждения: 0", viewModel.previewWarningCountTextProperty().get());
         assertTrue(viewModel.canImportProperty().get());
         assertEquals(OrderImportViewModel.MSG_PREVIEW_OK, viewModel.statusMessageProperty().get());
     }
@@ -64,7 +68,7 @@ class OrderImportViewModelTest {
     }
 
     @Test
-    void errorStateDisablesImport() {
+    void previewErrorDisablesImportAndShowsCounters() {
         FakeStxtParser stxt = new FakeStxtParser();
         stxt.result = OrderImportFileParseResult.of(
                 null,
@@ -84,16 +88,33 @@ class OrderImportViewModelTest {
         viewModel.selectFile(Path.of("bad.stxt"));
 
         assertFalse(viewModel.canImportProperty().get());
+        assertNull(viewModel.preparedPlanForTest());
+        assertFalse(viewModel.previewSucceededWithoutErrorsForTest());
         assertEquals(1, viewModel.errors().size());
+        assertEquals("Ошибки: 1", viewModel.previewErrorCountTextProperty().get());
+        assertEquals("Предупреждения: 0", viewModel.previewWarningCountTextProperty().get());
         assertEquals(
                 "Файл не содержит обязательную колонку Артикул",
-                viewModel.errors().get(0).message());
-        assertEquals(OrderImportViewModel.MSG_PREVIEW_ERRORS, viewModel.errorMessageProperty().get());
-        assertNull(viewModel.preparedPlanForTest());
+                viewModel.errorMessageProperty().get());
     }
 
     @Test
-    void warningStateAllowsImport() {
+    void previewSuccessEnablesImport() {
+        FakeImportService imports = new FakeImportService();
+        imports.preview = successPreview("ORD-OK", 1, "1", 1);
+        OrderImportViewModel viewModel =
+                new OrderImportViewModel(imports, new FakeStxtParser(), createAuth());
+
+        viewModel.selectFile(Path.of("ok.stxt"));
+
+        assertTrue(viewModel.canImportProperty().get());
+        assertNotNull(viewModel.preparedPlanForTest());
+        assertTrue(viewModel.previewSucceededWithoutErrorsForTest());
+        assertEquals("Ошибки: 0", viewModel.previewErrorCountTextProperty().get());
+    }
+
+    @Test
+    void warningStateAllowsImportAndShowsWarningCounter() {
         FakeImportService imports = new FakeImportService();
         imports.preview = OrderImportPreview.of(
                 "file.stxt",
@@ -118,21 +139,23 @@ class OrderImportViewModelTest {
 
         assertTrue(viewModel.canImportProperty().get());
         assertEquals(1, viewModel.warnings().size());
+        assertEquals("Ошибки: 0", viewModel.previewErrorCountTextProperty().get());
+        assertEquals("Предупреждения: 1", viewModel.previewWarningCountTextProperty().get());
         assertEquals(
                 OrderImportViewModel.MSG_PREVIEW_WARNINGS, viewModel.statusMessageProperty().get());
         assertTrue(viewModel.errorMessageProperty().get().isBlank());
     }
 
     @Test
-    void successStateShowsConfirmResult() {
+    void successStateShowsFormattedConfirmResult() {
         FakeImportService imports = new FakeImportService();
-        imports.preview = successPreview("ORD-OK", 2, "5", 7);
+        imports.preview = successPreview("26062891", 5, "5", 20);
         imports.confirmResult = OrderImportConfirmResult.of(
                 OrderId.generate(),
-                "ORD-OK",
+                "26062891",
                 UUID.randomUUID(),
-                2,
-                7,
+                5,
+                20,
                 Instant.parse("2026-07-31T00:00:00Z"));
         OrderImportViewModel viewModel =
                 new OrderImportViewModel(imports, new FakeStxtParser(), createAuth());
@@ -141,13 +164,70 @@ class OrderImportViewModelTest {
         viewModel.confirmImport();
 
         assertEquals(1, imports.confirmCalls.get());
-        assertNotNull(imports.lastConfirmedPlan.get());
-        assertEquals("ORD-OK", imports.lastConfirmedPlan.get().orderNumber());
         assertFalse(viewModel.canImportProperty().get());
-        assertTrue(viewModel.successMessageProperty().get().contains("ORD-OK"));
-        assertTrue(viewModel.successMessageProperty().get().contains("Позиций: 2"));
-        assertTrue(viewModel.successMessageProperty().get().contains("Строк спецификации: 7"));
-        assertEquals(OrderImportViewModel.MSG_IMPORT_SUCCESS, viewModel.statusMessageProperty().get());
+        assertEquals(
+                "Заказ 26062891 успешно импортирован.\nСоздано позиций: 5.\nСтрок спецификации: 20.",
+                viewModel.successMessageProperty().get());
+    }
+
+    @Test
+    void confirmDuplicateShowsExactUserMessage() {
+        FakeImportService imports = new FakeImportService();
+        imports.preview = successPreview("ORD-DUP", 1, "1", 1);
+        imports.confirmException = new OrderImportDuplicateException();
+        OrderImportViewModel viewModel =
+                new OrderImportViewModel(imports, new FakeStxtParser(), createAuth());
+        viewModel.selectFile(Path.of("dup.stxt"));
+
+        viewModel.confirmImport();
+
+        assertEquals(1, imports.confirmCalls.get());
+        assertFalse(viewModel.canImportProperty().get());
+        assertEquals(
+                OrderImportDuplicateException.USER_MESSAGE, viewModel.errorMessageProperty().get());
+        assertTrue(viewModel.successMessageProperty().get().isBlank());
+    }
+
+    @Test
+    void confirmConflictShowsExactUserMessage() {
+        FakeImportService imports = new FakeImportService();
+        imports.preview = successPreview("ORD-CF", 1, "1", 1);
+        imports.confirmException = new OrderImportConflictException();
+        OrderImportViewModel viewModel =
+                new OrderImportViewModel(imports, new FakeStxtParser(), createAuth());
+        viewModel.selectFile(Path.of("cf.stxt"));
+
+        viewModel.confirmImport();
+
+        assertEquals(
+                OrderImportConflictException.USER_MESSAGE, viewModel.errorMessageProperty().get());
+        assertFalse(viewModel.canImportProperty().get());
+    }
+
+    @Test
+    void confirmValidationShowsPreviewUserMessage() {
+        FakeImportService imports = new FakeImportService();
+        imports.preview = successPreview("ORD-VAL", 1, "1", 1);
+        imports.confirmException = new OrderImportValidationException(List.of(
+                OrderImportProblem.error(
+                        "CODE",
+                        "file",
+                        null,
+                        null,
+                        "orderNumber",
+                        null,
+                        "Файл не содержит обязательную колонку Артикул")));
+        OrderImportViewModel viewModel =
+                new OrderImportViewModel(imports, new FakeStxtParser(), createAuth());
+        viewModel.selectFile(Path.of("val.stxt"));
+
+        viewModel.confirmImport();
+
+        assertEquals(
+                "Файл не содержит обязательную колонку Артикул",
+                viewModel.errorMessageProperty().get());
+        assertEquals(1, viewModel.errors().size());
+        assertFalse(viewModel.errorMessageProperty().get().equals("Ошибка импорта"));
     }
 
     @Test
@@ -168,11 +248,12 @@ class OrderImportViewModelTest {
         assertEquals("", viewModel.fileNameProperty().get());
         assertNull(viewModel.selectedFileForTest());
         assertFalse(viewModel.canImportProperty().get());
+        assertEquals("Ошибки: 0", viewModel.previewErrorCountTextProperty().get());
         assertEquals(OrderImportViewModel.MSG_CANCELLED, viewModel.statusMessageProperty().get());
     }
 
     @Test
-    void conflictShowsRussianMessageWithoutImport() {
+    void conflictOnPreviewShowsRussianMessageWithoutImport() {
         FakeImportService imports = new FakeImportService();
         imports.previewException = new OrderImportConflictException();
         OrderImportViewModel viewModel =
@@ -229,6 +310,7 @@ class OrderImportViewModelTest {
                 new AtomicReference<>();
         private OrderImportPreview preview;
         private RuntimeException previewException;
+        private RuntimeException confirmException;
         private OrderImportConfirmResult confirmResult;
 
         @Override
@@ -244,6 +326,9 @@ class OrderImportViewModelTest {
         public OrderImportConfirmResult confirm(PreparedOrderImportPlan plan) {
             confirmCalls.incrementAndGet();
             lastConfirmedPlan.set(plan);
+            if (confirmException != null) {
+                throw confirmException;
+            }
             return Objects.requireNonNull(confirmResult, "confirmResult");
         }
     }
