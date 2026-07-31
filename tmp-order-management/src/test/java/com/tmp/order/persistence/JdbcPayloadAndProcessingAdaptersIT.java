@@ -4,6 +4,7 @@ import com.tmp.order.testsupport.IntakeContractFixtures;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -316,6 +317,73 @@ class JdbcPayloadAndProcessingAdaptersIT {
         }
 
         throw new IllegalStateException("Unexpected payload type: " + original.getClass().getName());
+    }
+
+    @Test
+    void incompleteItemCreateAndUpdatePayloadRoundTripPreserveNullCommercialFields() {
+        ItemCommercialData incomplete =
+                ItemCommercialData.of(null, null, null, "EXT-PAYLOAD");
+        OrderItemCreatePayload create =
+                OrderItemCreatePayload.create(
+                        DocumentId.generate(),
+                        OrderId.generate(),
+                        OrderItemId.generate(),
+                        incomplete,
+                        OrderedQuantity.of(2),
+                        NOW);
+        payloads.create(create);
+        OrderItemCreatePayload loadedCreate =
+                (OrderItemCreatePayload)
+                        payloads.findByDocumentId(create.documentId()).orElseThrow();
+        assertNull(loadedCreate.commercialData().productCode());
+        assertNull(loadedCreate.commercialData().name());
+        assertEquals("EXT-PAYLOAD", loadedCreate.commercialData().externalPositionNumber());
+
+        OrderItemUpdatePayload update =
+                OrderItemUpdatePayload.create(
+                        DocumentId.generate(),
+                        OrderItemId.generate(),
+                        ItemCommercialData.of(null, null, "comment", null),
+                        NOW);
+        payloads.create(update);
+        OrderItemUpdatePayload loadedUpdate =
+                (OrderItemUpdatePayload)
+                        payloads.findByDocumentId(update.documentId()).orElseThrow();
+        assertNull(loadedUpdate.commercialData().productCode());
+        assertNull(loadedUpdate.commercialData().name());
+        assertEquals("comment", loadedUpdate.commercialData().comments());
+        assertNull(loadedUpdate.commercialData().externalPositionNumber());
+    }
+
+    @Test
+    void completeItemCreateAndUpdatePayloadRoundTripUnchanged() {
+        ItemCommercialData complete =
+                ItemCommercialData.of(ProductCode.of("P-1"), "Item", "n", "EXT-1");
+        OrderItemCreatePayload create =
+                OrderItemCreatePayload.create(
+                        DocumentId.generate(),
+                        OrderId.generate(),
+                        OrderItemId.generate(),
+                        complete,
+                        OrderedQuantity.of(2),
+                        NOW);
+        payloads.create(create);
+        OrderItemCreatePayload loadedCreate =
+                (OrderItemCreatePayload)
+                        payloads.findByDocumentId(create.documentId()).orElseThrow();
+        assertEquals("P-1", loadedCreate.commercialData().productCode().value());
+        assertEquals("Item", loadedCreate.commercialData().name());
+
+        OrderItemUpdatePayload update =
+                OrderItemUpdatePayload.create(
+                        DocumentId.generate(), OrderItemId.generate(), complete, NOW);
+        payloads.create(update);
+        OrderItemUpdatePayload loadedUpdate =
+                (OrderItemUpdatePayload)
+                        payloads.findByDocumentId(update.documentId()).orElseThrow();
+        assertEquals("P-1", loadedUpdate.commercialData().productCode().value());
+        assertEquals("Item", loadedUpdate.commercialData().name());
+        assertEquals("EXT-1", loadedUpdate.commercialData().externalPositionNumber());
     }
 
     @Test

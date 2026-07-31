@@ -3,6 +3,7 @@ package com.tmp.order.persistence;
 import com.tmp.order.testsupport.IntakeContractFixtures;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -22,7 +23,6 @@ import com.tmp.order.api.PageResult;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
 import com.tmp.order.application.query.DefaultOrderQueryService;
-import com.tmp.order.application.query.OrderQueryReadPort;
 import com.tmp.order.domain.CurrencyCode;
 import com.tmp.order.domain.CustomerOrder;
 import com.tmp.order.domain.ItemCommercialData;
@@ -70,6 +70,7 @@ class JdbcOrderQueryReadAdapterIT {
     private static JdbcTemplate jdbc;
     private JdbcCustomerOrderRepository orderRepository;
     private JdbcOrderItemRepository itemRepository;
+    private JdbcOrderQueryReadAdapter readAdapter;
     private DefaultOrderQueryService queries;
 
     @BeforeAll
@@ -96,8 +97,134 @@ class JdbcOrderQueryReadAdapterIT {
         jdbc.update("DELETE FROM order_management.orders");
         orderRepository = new JdbcCustomerOrderRepository(jdbc);
         itemRepository = new JdbcOrderItemRepository(jdbc);
-        OrderQueryReadPort readPort = new JdbcOrderQueryReadAdapter(jdbc);
-        queries = new DefaultOrderQueryService(readPort, AllowingAuthorization.INSTANCE);
+        readAdapter = new JdbcOrderQueryReadAdapter(jdbc);
+        queries = new DefaultOrderQueryService(readAdapter, AllowingAuthorization.INSTANCE);
+    }
+
+    @Test
+    void incompleteDraftItemIsReadableViaFindOrderItemAndFindOrderItems() {
+        Clock clock = Clock.fixed(T1, ZoneOffset.UTC);
+        OrderId orderId =
+                orderRepository
+                        .save(
+                                CustomerOrder.create(
+                                        OrderId.generate(),
+                                        OrderNumber.of("ORD-ITEM-INC"),
+                                        OrderCommercialData.of(
+                                                null, null, null, null, null, null, null),
+                                        clock))
+                        .id();
+        OrderItemId itemId =
+                itemRepository
+                        .save(
+                                OrderItem.create(
+                                        OrderItemId.generate(),
+                                        orderId,
+                                        ItemCommercialData.of(null, null, null, "EXT-IMP-42"),
+                                        OrderedQuantity.of(3),
+                                        clock))
+                        .id();
+
+        Optional<OrderItemDto> byId = readAdapter.findOrderItem(itemId);
+        assertTrue(byId.isPresent());
+        OrderItemDto dto = byId.orElseThrow();
+        assertNull(dto.productCode());
+        assertNull(dto.name());
+        assertEquals("EXT-IMP-42", dto.externalPositionNumber());
+        assertEquals(OrderItemStatus.DRAFT, dto.status());
+        assertFalse("UNKNOWN".equalsIgnoreCase(String.valueOf(dto.productCode())));
+        assertFalse("N/A".equalsIgnoreCase(String.valueOf(dto.name())));
+
+        PageResult<OrderItemDto> page =
+                readAdapter.findOrderItems(orderId, PageRequest.firstPage());
+        assertEquals(1, page.totalElements());
+        OrderItemDto listed = page.content().getFirst();
+        assertNull(listed.productCode());
+        assertNull(listed.name());
+        assertEquals("EXT-IMP-42", listed.externalPositionNumber());
+
+        Optional<OrderItemDto> viaQueryService = queries.getOrderItem(itemId);
+        assertTrue(viaQueryService.isPresent());
+        assertEquals("EXT-IMP-42", viaQueryService.orElseThrow().externalPositionNumber());
+    }
+
+    @Test
+    void incompleteDraftItemAllowsNullExternalPositionNumber() {
+        Clock clock = Clock.fixed(T2, ZoneOffset.UTC);
+        OrderId orderId =
+                orderRepository
+                        .save(
+                                CustomerOrder.create(
+                                        OrderId.generate(),
+                                        OrderNumber.of("ORD-ITEM-NULL-EXT"),
+                                        OrderCommercialData.of(
+                                                null, null, null, null, null, null, null),
+                                        clock))
+                        .id();
+        OrderItemId itemId =
+                itemRepository
+                        .save(
+                                OrderItem.create(
+                                        OrderItemId.generate(),
+                                        orderId,
+                                        ItemCommercialData.of(null, null, null, null),
+                                        OrderedQuantity.of(1),
+                                        clock))
+                        .id();
+
+        OrderItemDto dto = readAdapter.findOrderItem(itemId).orElseThrow();
+        assertNull(dto.productCode());
+        assertNull(dto.name());
+        assertNull(dto.externalPositionNumber());
+
+        OrderItemDto listed =
+                readAdapter
+                        .findOrderItems(orderId, PageRequest.firstPage())
+                        .content()
+                        .getFirst();
+        assertNull(listed.externalPositionNumber());
+    }
+
+    @Test
+    void completeItemRemainsReadableWithoutBehaviorChange() {
+        Clock clock = Clock.fixed(T3, ZoneOffset.UTC);
+        OrderId orderId =
+                orderRepository
+                        .save(
+                                CustomerOrder.create(
+                                        OrderId.generate(),
+                                        OrderNumber.of("ORD-ITEM-FULL"),
+                                        OrderCommercialData.of(
+                                                "C",
+                                                "Customer",
+                                                "CTR",
+                                                "SITE",
+                                                null,
+                                                OrderDirection.PRIVATE,
+                                                CurrencyCode.of("USD")),
+                                        clock))
+                        .id();
+        OrderItemId itemId =
+                itemRepository
+                        .save(
+                                OrderItem.create(
+                                        OrderItemId.generate(),
+                                        orderId,
+                                        ItemCommercialData.of(
+                                                ProductCode.of("P-FULL"),
+                                                "Full Name",
+                                                "note",
+                                                "EXT-FULL"),
+                                        OrderedQuantity.of(2),
+                                        clock))
+                        .id();
+
+        OrderItemDto dto = readAdapter.findOrderItem(itemId).orElseThrow();
+        assertEquals("P-FULL", dto.productCode());
+        assertEquals("Full Name", dto.name());
+        assertEquals("note", dto.comments());
+        assertEquals("EXT-FULL", dto.externalPositionNumber());
+        assertEquals(OrderItemStatus.DRAFT, dto.status());
     }
 
     @Test

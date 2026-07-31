@@ -3,8 +3,36 @@
 ## Latest result
 
 **Date:** 2026-07-31  
-**Scope:** STAGE5-052A — Imported Draft Item Commercial Contract  
+**Scope:** STAGE5-052A — Imported Draft Item Commercial Contract (fix pass)  
 **Overall:** PASS
+
+| Verification | Command / Evidence | Result |
+|---|---|---|
+| Order Management unit tests | `mvn -q -pl tmp-order-management -am test` | PASS (284 tests, 0 failures, 0 skipped) |
+| Order Management verify | `mvn -q -pl tmp-order-management -am verify` | PASS (284 unit + 64 IT) |
+| UI Shell unit/FX tests | `mvn -q -pl tmp-ui-shell -am test` | PASS (128 tests, 0 failures, 0 skipped) |
+| UI Shell verify | `mvn -q -pl tmp-ui-shell -am verify` | PASS |
+| `JdbcOrderQueryReadAdapter.findOrderItem` | `JdbcOrderQueryReadAdapterIT` — incomplete DRAFT + null externalPositionNumber + complete regression | PASS (real JDBC adapter) |
+| `JdbcOrderQueryReadAdapter.findOrderItems` | same IT — list path for incomplete DRAFT | PASS (real JDBC adapter) |
+| Aggregate persistence round-trip | `JdbcAggregatePersistenceIT.incompleteDraftItemCommercialDataRoundTripsAsNullWithoutPlaceholders` | PASS |
+| Create payload round-trip | `JdbcPayloadAndProcessingAdaptersIT.incompleteItemCreateAndUpdatePayloadRoundTripPreserveNullCommercialFields` | PASS |
+| Update payload round-trip | same IT (update branch) | PASS |
+| Incomplete DRAFT without placeholders | Query + aggregate + payload ITs assert null productCode/name and no placeholder strings | PASS |
+| Flyway V11 | still at V11; no new migration for SELECT fix | PASS |
+| STAGE5-052A | WORK-QUEUE | DONE |
+| STAGE5-053 | WORK-QUEUE | NOT STARTED |
+| Stage 5 | STATUS | IN_PROGRESS |
+| Stage 6 | STATUS | NOT STARTED |
+| Active blockers | — | NONE |
+| Git | — | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+
+## 2026-07-31 — STAGE5-052A — Imported Draft Item Commercial Contract (initial)
 
 | Verification | Command / Evidence | Result |
 |---|---|---|
@@ -18,7 +46,7 @@
 | Snapshot/DTO null | `OrderItemEditorSnapshotTest`, `OrderQueryApiContractTest` | PASS |
 | Flyway V11 clean + V10→V11 | `OrderItemIncompleteDraftContractFlywayTest` | PASS |
 | UI null display / fill | `OrderItemEditorViewModelTest` | PASS |
-| STAGE5-052A | WORK-QUEUE | DONE |
+| STAGE5-052A | WORK-QUEUE | DONE (later reopened for fix pass) |
 | STAGE5-053 | WORK-QUEUE | NOT STARTED |
 | Git | — | NOT EXECUTED |
 

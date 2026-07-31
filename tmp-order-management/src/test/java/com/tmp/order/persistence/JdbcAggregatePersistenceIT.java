@@ -4,6 +4,7 @@ import com.tmp.order.testsupport.IntakeContractFixtures;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -296,6 +297,55 @@ class JdbcAggregatePersistenceIT {
         List<OrderItem> byOrder = items.findByOrderId(order.id());
         assertEquals(1, byOrder.size());
         assertEquals(itemId, byOrder.getFirst().id());
+    }
+
+    @Test
+    void incompleteDraftItemCommercialDataRoundTripsAsNullWithoutPlaceholders() {
+        CustomerOrder order =
+                orders.save(
+                        CustomerOrder.create(
+                                OrderId.generate(),
+                                OrderNumber.of("ORD-ITEM-INC"),
+                                OrderCommercialData.of(null, null, null, null, null, null, null),
+                                CLOCK));
+        OrderItem created =
+                OrderItem.create(
+                        OrderItemId.generate(),
+                        order.id(),
+                        ItemCommercialData.of(null, null, null, "EXT-AGG-1"),
+                        OrderedQuantity.of(4),
+                        CLOCK);
+        OrderItem saved = items.save(created);
+        OrderItem loaded = items.findById(saved.id()).orElseThrow();
+
+        assertNull(loaded.commercialData().productCode());
+        assertNull(loaded.commercialData().name());
+        assertEquals("EXT-AGG-1", loaded.commercialData().externalPositionNumber());
+        assertEquals(OrderItemStatus.DRAFT, loaded.status());
+        assertTrue(loaded.commercialData().isProductCodeAbsent());
+        assertTrue(loaded.commercialData().isNameAbsent());
+    }
+
+    @Test
+    void completeItemCommercialDataRoundTripsUnchanged() {
+        CustomerOrder order =
+                orders.save(
+                        CustomerOrder.create(
+                                OrderId.generate(),
+                                OrderNumber.of("ORD-ITEM-FULL"),
+                                commercial(),
+                                CLOCK));
+        OrderItem created =
+                OrderItem.create(
+                        OrderItemId.generate(),
+                        order.id(),
+                        ItemCommercialData.of(ProductCode.of("P-RT"), "Round Trip", "c", "EXT-RT"),
+                        OrderedQuantity.of(1),
+                        CLOCK);
+        OrderItem loaded = items.findById(items.save(created).id()).orElseThrow();
+        assertEquals("P-RT", loaded.commercialData().productCode().value());
+        assertEquals("Round Trip", loaded.commercialData().name());
+        assertEquals("EXT-RT", loaded.commercialData().externalPositionNumber());
     }
 
     @Test

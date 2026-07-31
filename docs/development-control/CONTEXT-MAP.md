@@ -35,7 +35,7 @@ Cursor обновляет реальные пути во время CONTROL-001.
 | 2 | Document Engine | Document Engine Specification | Database Specification; document ADR |
 | 3 | Capability Engine | Capability Engine Specification | Platform Core public API; capability ADR |
 | 4 | Security | Security Specification | Database Specification; audit and permission ADR |
-| 5 | Order Management | Order Management Specification (**v1.3**) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only); ADR v1.5 (ADR-028/029/030); Stage 5 Manifest |
+| 5 | Order Management | Order Management Specification (**v1.3**) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only); ADR v1.6 (ADR-028/029/030); Stage 5 Manifest |
 | 6 | Warehouse | Warehouse Specification | Order public API; Production contracts; Database Specification |
 | 7 | Production | Production Specification | Order and Warehouse public APIs; Database Specification |
 | 8 | Cutting Optimization | Cutting Optimization Specification | Production contracts; algorithm requirements |
@@ -121,10 +121,10 @@ Read only:
 - `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (**v1.3**);
 - `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Stage Manifest);
 - `docs/TMP/TMP_Initial_Documents/architecture/00-Constitution/TMP-Constitution.md` (v1.2, принцип 28);
-- релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030** (ADR document **v1.5**);
+- релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030** (ADR document **v1.6**);
 - Production Specification (v1.1) — **только** разделы владения производственным состоянием, связи с `Order Item ID`/`Revision`, Public API, Domain Events и интеграции с Order Management (для корректной границы; не для реализации Production).
 
-Миграции Order Management (факт): latest = **V8** (`V6` payload, `V7` processing, `V8` aggregates). Order Intake migrations = **V9** и далее.
+Миграции Order Management (факт): latest = **V11** (`V6`…`V10` + `V11__order_item_incomplete_draft_contract.sql`). Next available = **V12**. Current intake task: `STAGE5-052A` = **DONE**; `STAGE5-053` = **NOT STARTED**.
 
 Разрешённый минимальный code context (публичные API только):
 
@@ -160,7 +160,7 @@ Read only:
 | revision draft workflow | Spec §6/§9.2/§9.3; ADR-018 | `com.tmp.document.api` | `ORDER_ITEM_REVISION_*` payload/processors/домен | — |
 | application commands | Spec §15.2 | — | собственный application/домен/ports | внешний вызов mutating API |
 | domain events | Spec §17; ADR-021; Platform Core Event API | `com.tmp.core.api` (Event API) | собственные события | события Production/Warehouse/Cutting |
-| aggregate persistence & migrations | Spec §19; Database Spec; Flyway (current latest = V8; next = V9+) | `tmp-infra-db` конвенции | adapters, `V9+` миграции для intake | хранение production/warehouse/cutting данных |
+| aggregate persistence & migrations | Spec §19; Database Spec; Flyway (current latest = V11; next = V12) | `tmp-infra-db` конвенции | adapters, `V9+` миграции для intake | хранение production/warehouse/cutting данных |
 | security capabilities | Spec §18; Security `PermissionId` | `com.tmp.capability.api`, `com.tmp.security.api` | `PermissionDescriptor`/`CapabilityDescriptor` | внутренняя реализация Security |
 | UI | UI/UX Spec (экраны/навигация); Manifest §14 | `com.tmp.order.api` (Query/DTO), `com.tmp.document.api` | `tmp-ui-shell` файлы из задачи | прямые мутации агрегатов из UI |
 | integration & lifecycle & idempotency & rollback tests | Manifest §15; Testcontainers | публичные API участников | собственные тесты | внутренняя реализация других Capability |

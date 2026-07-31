@@ -8696,12 +8696,15 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - [x] revision approve lists missing «Код изделия» / «Наименование изделия»;
 - [x] APPROVED/ACTIVE item cannot remain incomplete;
 - [x] Query/UI snapshot/DTO tolerate null without NPE;
+- [x] `JdbcOrderQueryReadAdapter.findOrderItem` SELECT includes `external_position_number` (same mapping as `findOrderItems`);
+- [x] JDBC IT: incomplete DRAFT via `findOrderItem`/`findOrderItems` without SQLException/placeholders;
+- [x] JDBC IT: aggregate + create/update payload round-trip preserve null commercial fields;
 - [x] Flyway V11 allows NULL on item product_code/item_name and related payloads;
 - [x] STAGE5-053 remains NOT STARTED.
 
 ### Required tests
 
-Domain incompleteness + approve gate; draft/payload/DTO/snapshot; persistence round-trip; Flyway clean + V10→V11; UI null display; regression STAGE5-051/052.
+Domain incompleteness + approve gate; draft/payload/DTO/snapshot; persistence round-trip; Flyway clean + V10→V11; UI null display; regression STAGE5-051/052; JDBC Query API + aggregate/payload round-trip ITs.
 
 ### Required documentation updates
 
@@ -8716,7 +8719,8 @@ Conflict with Constitution/ADR; need for STXT/import implementation.
 - Item incomplete DRAFT (`productCode`/`name` nullable) aligned with ADR-030 / Spec §5.2 / §27.7.
 - `ORDER_ITEM_REVISION_APPROVE` rejects missing «Код изделия» / «Наименование изделия»; specification still required.
 - Flyway `V11__order_item_incomplete_draft_contract.sql`; Query/UI null-safe.
-- Verification: `tmp-order-management` test+verify PASS; `tmp-ui-shell` test+verify PASS; architecture PASS.
+- Fix pass: `findOrderItem` SELECT aligned with `findOrderItems` (`external_position_number`); real JDBC round-trip ITs.
+- Verification: `tmp-order-management` test+verify PASS; `tmp-ui-shell` test+verify PASS.
 
 ---
 

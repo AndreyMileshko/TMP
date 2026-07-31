@@ -3586,6 +3586,13 @@ Extended ADR-030 incomplete DRAFT to Order Item commercial fields (`productCode`
 - Persistence JDBC null mapping; Flyway `V11__order_item_incomplete_draft_contract.sql`.
 - Minimal UI: empty fields for null productCode/name; fill via document flow.
 
+### Fix pass (2026-07-31)
+
+- Bug: `JdbcOrderQueryReadAdapter.findOrderItem` SELECT omitted `external_position_number` while shared `mapOrderItem` read it → SQLException on single-item read.
+- Fix: added `external_position_number` to `findOrderItem` SELECT (same columns/mapping as `findOrderItems`); no separate mapper; no new Flyway migration.
+- JDBC ITs: Query API incomplete DRAFT (`findOrderItem`/`findOrderItems`, null externalPositionNumber, complete regression); aggregate round-trip; create/update payload round-trip — all via real adapters, not in-memory DTO-only construction.
+- Docs: ADR header Version 1.6; CANCELLED may retain incomplete DRAFT state (not editable); ACTIVE always complete; CONTEXT-MAP V11/V12.
+
 ### Boundaries
 
 - No Import Core / STXT / import metadata / Firebird.

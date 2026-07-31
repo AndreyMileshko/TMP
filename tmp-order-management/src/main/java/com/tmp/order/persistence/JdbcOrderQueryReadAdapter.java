@@ -131,8 +131,9 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
         List<OrderItemDto> rows =
                 jdbc.query(
                         """
-                        SELECT order_item_id, order_id, product_code, item_name, comments, status,
-                               active_revision_number, created_at, updated_at
+                        SELECT order_item_id, order_id, product_code, item_name, comments,
+                               external_position_number, status, active_revision_number, created_at,
+                               updated_at
                         FROM order_management.order_items
                         WHERE order_item_id = ?
                         """,

@@ -3,7 +3,7 @@
 **Mode:** Autonomous Cursor Agent  
 **Project status:** IN_PROGRESS  
 **Current Stage:** Stage 5 — Order Management  
-**Current Task:** STAGE5-053 — NOT STARTED  
+**Current Task:** STAGE5-053 — NOT STARTED (next after STAGE5-052A)  
 **Last completed task:** STAGE5-052A  
 **Active blockers:** NONE  
 
@@ -25,7 +25,7 @@ Active blockers = NONE
 # Stage Progress
 
 | Stage | Name | Status | Progress |
-|---:|---|---|---:|
+|---:|---|---|---|---:|
 | 0 | Development Foundation | DONE | 100% |
 | 1 | Platform Core | DONE | 100% |
 | 2 | Document Engine | DONE | 100% |
