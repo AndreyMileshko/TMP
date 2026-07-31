@@ -1,61 +1,19 @@
 package com.tmp.order.api.imports;
 
-import java.util.Objects;
-
 /**
- * Immutable validated import plan returned by preview when there are no errors. Confirm re-checks
- * critical invariants because database state may have changed after preview.
+ * Opaque prepared import plan produced only by successful {@link OrderImportService#preview}.
+ *
+ * <p>External code cannot construct instances. Confirm accepts only plans minted by Import Core.
  */
-public final class PreparedOrderImportPlan {
+public interface PreparedOrderImportPlan {
 
-    private final OrderImportBatch batch;
+    OrderImportBatch batch();
 
-    private PreparedOrderImportPlan(OrderImportBatch batch) {
-        this.batch = batch;
-    }
+    String sourceType();
 
-    /**
-     * Creates a plan from an already-validated batch snapshot. Callers outside Import Core should
-     * obtain plans only via {@link OrderImportPreview#preparedPlan()}.
-     */
-    public static PreparedOrderImportPlan fromValidatedBatch(OrderImportBatch batch) {
-        Objects.requireNonNull(batch, "batch");
-        return new PreparedOrderImportPlan(batch);
-    }
+    String sourceReference();
 
-    public OrderImportBatch batch() {
-        return batch;
-    }
+    String contentChecksum();
 
-    public String sourceType() {
-        return batch.sourceType();
-    }
-
-    public String sourceReference() {
-        return batch.sourceReference();
-    }
-
-    public String contentChecksum() {
-        return batch.contentChecksum();
-    }
-
-    public String orderNumber() {
-        return batch.orderNumber();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-        if (this == other) {
-            return true;
-        }
-        if (!(other instanceof PreparedOrderImportPlan that)) {
-            return false;
-        }
-        return batch.equals(that.batch);
-    }
-
-    @Override
-    public int hashCode() {
-        return batch.hashCode();
-    }
+    String orderNumber();
 }

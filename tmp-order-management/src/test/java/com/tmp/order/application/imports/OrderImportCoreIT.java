@@ -115,6 +115,7 @@ class OrderImportCoreIT {
     @BeforeEach
     void setUp() {
         failingMetadataToggle.failNextSave.set(false);
+        failingMetadataToggle.skipNextExistsCheck.set(false);
         authenticationService.logout();
         jdbc.update("DELETE FROM order_management.order_import_metadata");
         jdbc.update("DELETE FROM order_management.order_document_processing");
@@ -196,6 +197,7 @@ class OrderImportCoreIT {
         OrderImportBatch batch = sampleBatch("IMP-RB-1", "checksum-rb-1", "rb.stxt");
         PreparedOrderImportPlan plan =
                 orderImportService.preview(batch).preparedPlan().orElseThrow();
+        int documentsBefore = countDocuments();
         failingMetadataToggle.failNextSave.set(true);
 
         RuntimeException thrown =
@@ -206,6 +208,97 @@ class OrderImportCoreIT {
         assertEquals(0, countRevisions());
         assertEquals(0, countSpecLines());
         assertEquals(0, countMetadata());
+        assertEquals(0, countPayloads());
+        assertEquals(0, countProcessing());
+        assertEquals(documentsBefore, countDocuments());
+    }
+
+    @Test
+    void confirmAfterPreviewDuplicateChecksumRaceYieldsControlledDuplicate() {
+        OrderImportBatch batch = sampleBatch("IMP-DUP-RACE-1", "checksum-dup-race", "dup-race.stxt");
+        PreparedOrderImportPlan plan =
+                orderImportService.preview(batch).preparedPlan().orElseThrow();
+
+        OrderId seededOrder = seedExistingOrder("IMP-DUP-RACE-SEED");
+        metadataRepository.save(
+                OrderImportMetadata.of(
+                        UUID.randomUUID(),
+                        "STXT",
+                        "inserted-after-preview.stxt",
+                        "checksum-dup-race",
+                        Instant.now(),
+                        importerUserId,
+                        seededOrder));
+
+        int ordersBefore = countOrders();
+        int itemsBefore = countItems();
+        int revisionsBefore = countRevisions();
+        int linesBefore = countSpecLines();
+        int metadataBefore = countMetadata();
+
+        OrderImportDuplicateException duplicate =
+                assertThrows(
+                        OrderImportDuplicateException.class, () -> orderImportService.confirm(plan));
+        assertEquals(OrderImportDuplicateException.USER_MESSAGE, duplicate.getMessage());
+        assertFalse(duplicate.getMessage().toLowerCase().contains("sql"));
+        assertEquals(ordersBefore, countOrders());
+        assertEquals(itemsBefore, countItems());
+        assertEquals(revisionsBefore, countRevisions());
+        assertEquals(linesBefore, countSpecLines());
+        assertEquals(metadataBefore, countMetadata());
+    }
+
+    @Test
+    void confirmAfterPreviewOrderNumberRaceYieldsControlledConflict() {
+        OrderImportBatch batch = sampleBatch("IMP-NUM-RACE-1", "checksum-num-race", "num-race.stxt");
+        PreparedOrderImportPlan plan =
+                orderImportService.preview(batch).preparedPlan().orElseThrow();
+
+        OrderId existingId = seedExistingOrder("IMP-NUM-RACE-1");
+        String originalCustomer =
+                orders.findById(existingId).orElseThrow().commercialData().customerName();
+        int itemsBefore = countItems();
+        int metadataBefore = countMetadata();
+
+        OrderImportConflictException conflict =
+                assertThrows(
+                        OrderImportConflictException.class, () -> orderImportService.confirm(plan));
+        assertEquals(OrderImportConflictException.USER_MESSAGE, conflict.getMessage());
+        assertFalse(conflict.getMessage().toLowerCase().contains("sql"));
+        assertEquals(
+                originalCustomer,
+                orders.findById(existingId).orElseThrow().commercialData().customerName());
+        assertEquals(itemsBefore, countItems());
+        assertEquals(metadataBefore, countMetadata());
+        assertEquals(1, countOrders());
+    }
+
+    @Test
+    void secondConfirmOfSameChecksumMapsUniqueViolationToControlledDuplicate() {
+        OrderImportBatch batchA = sampleBatch("IMP-UC-1", "checksum-uc-1", "uc-a.stxt");
+        OrderImportBatch batchB = sampleBatch("IMP-UC-2", "checksum-uc-1", "uc-b.stxt");
+        PreparedOrderImportPlan planA =
+                orderImportService.preview(batchA).preparedPlan().orElseThrow();
+        PreparedOrderImportPlan planB =
+                orderImportService.preview(batchB).preparedPlan().orElseThrow();
+
+        orderImportService.confirm(planA);
+        assertEquals(1, countOrders());
+        assertEquals(1, countMetadata());
+
+        // Simulate TOCTOU: pre-check misses existing checksum, unique constraint fires on save.
+        failingMetadataToggle.skipNextExistsCheck.set(true);
+        OrderImportDuplicateException duplicate =
+                assertThrows(
+                        OrderImportDuplicateException.class, () -> orderImportService.confirm(planB));
+        assertEquals(OrderImportDuplicateException.USER_MESSAGE, duplicate.getMessage());
+        assertFalse(
+                duplicate.getCause()
+                        instanceof org.springframework.dao.DataIntegrityViolationException);
+        assertEquals(1, countOrders());
+        assertEquals(1, countMetadata());
+        assertEquals(1, countItems());
+        assertEquals(0, countOrdersWithNumber("IMP-UC-2"));
     }
 
     @Test
@@ -362,6 +455,15 @@ class OrderImportCoreIT {
         return count("SELECT COUNT(*) FROM order_management.orders");
     }
 
+    private int countOrdersWithNumber(String orderNumber) {
+        Integer value =
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM order_management.orders WHERE order_number = ?",
+                        Integer.class,
+                        orderNumber);
+        return value == null ? 0 : value;
+    }
+
     private int countItems() {
         return count("SELECT COUNT(*) FROM order_management.order_items");
     }
@@ -386,6 +488,10 @@ class OrderImportCoreIT {
         return count("SELECT COUNT(*) FROM order_management.order_document_payload");
     }
 
+    private int countDocuments() {
+        return count("SELECT COUNT(*) FROM documents.documents");
+    }
+
     private int count(String sql) {
         Integer value = jdbc.queryForObject(sql, Integer.class);
         return value == null ? 0 : value;
@@ -403,6 +509,7 @@ class OrderImportCoreIT {
 
     static final class FailingMetadataToggle {
         final AtomicBoolean failNextSave = new AtomicBoolean(false);
+        final AtomicBoolean skipNextExistsCheck = new AtomicBoolean(false);
     }
 
     static final class ToggleableOrderImportMetadataRepository
@@ -419,6 +526,9 @@ class OrderImportCoreIT {
 
         @Override
         public boolean existsBySourceTypeAndChecksum(String sourceType, String contentChecksum) {
+            if (toggle.skipNextExistsCheck.compareAndSet(true, false)) {
+                return false;
+            }
             return delegate.existsBySourceTypeAndChecksum(sourceType, contentChecksum);
         }
 

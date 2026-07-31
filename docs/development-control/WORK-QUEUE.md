@@ -8783,7 +8783,7 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 ### Result
 
-`STAGE5-053 = DONE`. Source-neutral Import Core: preview без persistence, immutable prepared plan, атомарный confirm через `ORDER_CREATE` / `ORDER_ITEM_CREATE` / `ORDER_ITEM_REVISION_UPDATE`, incomplete DRAFT (ADR-030), conflict/duplicate protection, Flyway `V12__order_import_metadata.sql`. `STAGE5-054` остаётся NOT STARTED.
+`STAGE5-053 = DONE`. Source-neutral Import Core: preview без persistence, opaque `PreparedOrderImportPlan` (только после preview), атомарный confirm через `ORDER_CREATE` / `ORDER_ITEM_CREATE` / `ORDER_ITEM_REVISION_UPDATE`, incomplete DRAFT (ADR-030), conflict/duplicate protection + confirm-time races, Flyway `V12__order_import_metadata.sql`. FIX pass: opaque plan, confirm races, rollback payload/processing, metadata length/path validation. `STAGE5-054` остаётся NOT STARTED.
 
 ---
 

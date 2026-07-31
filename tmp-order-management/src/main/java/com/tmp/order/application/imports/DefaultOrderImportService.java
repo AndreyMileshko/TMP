@@ -123,7 +123,7 @@ public final class DefaultOrderImportService implements OrderImportService {
         }
 
         PreparedOrderImportPlan plan =
-                errors.isEmpty() ? PreparedOrderImportPlan.fromValidatedBatch(batch) : null;
+                errors.isEmpty() ? new DefaultPreparedOrderImportPlan(batch) : null;
 
         return OrderImportPreview.of(
                 batch.sourceReference(),
@@ -139,6 +139,18 @@ public final class DefaultOrderImportService implements OrderImportService {
     @Override
     public OrderImportConfirmResult confirm(PreparedOrderImportPlan plan) {
         Objects.requireNonNull(plan, "plan");
+        if (!(plan instanceof DefaultPreparedOrderImportPlan)) {
+            throw new OrderImportValidationException(
+                    List.of(
+                            OrderImportProblem.error(
+                                    "IMPORT_PLAN_NOT_FROM_PREVIEW",
+                                    "plan",
+                                    null,
+                                    null,
+                                    "preparedPlan",
+                                    null,
+                                    "План импорта недействителен. Выполните предварительный просмотр.")));
+        }
         authorizationService.requirePermission(OrderManagementPermissions.ORDER_CREATE);
         authorizationService.requirePermission(OrderManagementPermissions.ITEM_CREATE);
         authorizationService.requirePermission(OrderManagementPermissions.REVISION_EDIT);

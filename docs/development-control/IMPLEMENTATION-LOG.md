@@ -4,6 +4,36 @@
 
 ---
 
+## STAGE5-053 — Import Core (FIX REQUIRED pass)
+
+**Date:** 2026-07-31  
+**Stage:** 5  
+**Status:** DONE  
+**Module:** `tmp-order-management`
+
+### Result
+
+Fix pass after STAGE5-053 review:
+
+1. **Opaque PreparedPlan:** `PreparedOrderImportPlan` — public interface only; `DefaultPreparedOrderImportPlan` with package-private constructor; confirm rejects non-core implementations. No public factory.
+2. **Confirm races:** IT for duplicate checksum after preview, orderNumber conflict after preview, unique-constraint TOCTOU → controlled duplicate + full TX rollback.
+3. **Rollback completeness:** failure path asserts zero payloads, processing records, documents delta, aggregates, metadata.
+4. **Validation:** `sourceType` ≤ 64, `contentChecksum` ≤ 128, `sourceReference` ≤ 512; absolute paths rejected before DB.
+
+`STAGE5-054` not started. Git not executed.
+
+### Verification
+
+- `mvn -q -pl tmp-order-management -am test` — PASS
+- `mvn -q -pl tmp-order-management -am verify` — PASS
+- Stage 5 architecture — PASS
+
+### Next
+
+`STAGE5-054` — STXT File Adapter — NOT STARTED.
+
+---
+
 ## STAGE5-053 — Import Core
 
 **Date:** 2026-07-31  

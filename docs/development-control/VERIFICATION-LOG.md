@@ -3,8 +3,37 @@
 ## Latest result
 
 **Date:** 2026-07-31  
-**Scope:** STAGE5-053 — Import Core  
+**Scope:** STAGE5-053 — Import Core (FIX REQUIRED pass)  
 **Overall:** PASS
+
+| Verification | Command / Evidence | Result |
+|---|---|---|
+| Order Management unit tests | `mvn -q -pl tmp-order-management -am test` | PASS (316 tests, 0 failures, 0 skipped) |
+| Order Management verify | `mvn -q -pl tmp-order-management -am verify` | PASS (316 unit + 74 IT) |
+| Import Core unit | `DefaultOrderImportServiceTest` | PASS (30) |
+| Import Core IT | `OrderImportCoreIT` | PASS (10; races + rollback payload/processing) |
+| Flyway V12 | `OrderImportMetadataFlywayTest` | PASS (2) |
+| Architecture | `Stage5OrderManagementArchitectureTest` | PASS |
+| Opaque PreparedPlan | no public factory; confirm rejects foreign impl | PASS |
+| Confirm duplicate race | preview → insert metadata → confirm | PASS |
+| Confirm orderNumber race | preview → seed order → confirm | PASS |
+| Unique constraint TOCTOU | skip exists → DuplicateKey → controlled duplicate | PASS |
+| Rollback payload/processing | assert zero payloads + processing + docs | PASS |
+| Metadata length/path validation | unit ERROR before DB | PASS |
+| STAGE5-053 | WORK-QUEUE | DONE |
+| STAGE5-054 | WORK-QUEUE | NOT STARTED |
+| Stage 5 | STATUS | IN_PROGRESS |
+| Stage 6 | STATUS | NOT STARTED |
+| Active blockers | — | NONE |
+| Git | — | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+
+## 2026-07-31 — STAGE5-053 — Import Core
 
 | Verification | Command / Evidence | Result |
 |---|---|---|

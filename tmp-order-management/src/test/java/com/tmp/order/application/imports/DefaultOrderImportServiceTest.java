@@ -2,6 +2,7 @@ package com.tmp.order.application.imports;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -388,15 +389,47 @@ class DefaultOrderImportServiceTest {
         assertTrue(preview.preparedPlan().isEmpty());
         assertThrows(
                 OrderImportValidationException.class,
-                () ->
-                        service.confirm(
-                                PreparedOrderImportPlan.fromValidatedBatch(
-                                        OrderImportBatch.of(
-                                                "STXT",
-                                                "file.stxt",
-                                                "cs",
-                                                "ORD-1",
-                                                List.of()))));
+                () -> service.confirm(new FakePreparedPlan(validBatch())));
+    }
+
+    @Test
+    void preparedPlanCannotBeCreatedViaPublicApiFactory() {
+        assertTrue(PreparedOrderImportPlan.class.isInterface());
+        assertEquals(0, PreparedOrderImportPlan.class.getConstructors().length);
+        assertEquals(
+                0,
+                java.util.Arrays.stream(PreparedOrderImportPlan.class.getDeclaredMethods())
+                        .filter(method -> java.lang.reflect.Modifier.isStatic(method.getModifiers()))
+                        .filter(method -> java.lang.reflect.Modifier.isPublic(method.getModifiers()))
+                        .count());
+        assertEquals(0, DefaultPreparedOrderImportPlan.class.getConstructors().length);
+        assertTrue(
+                java.util.Arrays.stream(DefaultPreparedOrderImportPlan.class.getDeclaredConstructors())
+                        .noneMatch(ctor -> java.lang.reflect.Modifier.isPublic(ctor.getModifiers())));
+    }
+
+    @Test
+    void confirmRejectsPlanNotMintedByPreview() {
+        assertThrows(
+                OrderImportValidationException.class,
+                () -> service.confirm(new FakePreparedPlan(validBatch())));
+    }
+
+    @Test
+    void previewErrorHasNoPreparedPlan() {
+        OrderImportPreview preview =
+                service.preview(OrderImportBatch.of("STXT", "file.stxt", "cs", "ORD-1", List.of()));
+        assertFalse(preview.canConfirm());
+        assertTrue(preview.preparedPlan().isEmpty());
+    }
+
+    @Test
+    void previewSuccessHasPreparedPlan() {
+        stubPreviewReadOnlyOk();
+        OrderImportPreview preview = service.preview(validBatch());
+        assertTrue(preview.canConfirm());
+        assertTrue(preview.preparedPlan().isPresent());
+        assertInstanceOf(DefaultPreparedOrderImportPlan.class, preview.preparedPlan().orElseThrow());
     }
 
     @Test
@@ -409,6 +442,79 @@ class DefaultOrderImportServiceTest {
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> plan.batch().positions().add(position("9", 1, List.of(line("c", "n", null, null, bd("1"))))));
+    }
+
+    @Test
+    void sourceTypeTooLongIsRejected() {
+        OrderImportPreview preview =
+                service.preview(
+                        OrderImportBatch.of(
+                                "S".repeat(OrderImportValidator.MAX_SOURCE_TYPE_LENGTH + 1),
+                                "file.stxt",
+                                "cs",
+                                "ORD-1",
+                                List.of(position("1", 1, List.of(line("c", "n", null, null, bd("1")))))));
+        assertTrue(hasCode(preview.errors(), OrderImportValidator.CODE_SOURCE_TYPE_TOO_LONG));
+        assertFalse(preview.canConfirm());
+    }
+
+    @Test
+    void contentChecksumTooLongIsRejected() {
+        OrderImportPreview preview =
+                service.preview(
+                        OrderImportBatch.of(
+                                "STXT",
+                                "file.stxt",
+                                "C".repeat(OrderImportValidator.MAX_CONTENT_CHECKSUM_LENGTH + 1),
+                                "ORD-1",
+                                List.of(position("1", 1, List.of(line("c", "n", null, null, bd("1")))))));
+        assertTrue(hasCode(preview.errors(), OrderImportValidator.CODE_CHECKSUM_TOO_LONG));
+    }
+
+    @Test
+    void sourceReferenceTooLongIsRejected() {
+        OrderImportPreview preview =
+                service.preview(
+                        OrderImportBatch.of(
+                                "STXT",
+                                "r".repeat(OrderImportValidator.MAX_SOURCE_REFERENCE_LENGTH + 1),
+                                "cs",
+                                "ORD-1",
+                                List.of(position("1", 1, List.of(line("c", "n", null, null, bd("1")))))));
+        assertTrue(hasCode(preview.errors(), OrderImportValidator.CODE_SOURCE_REFERENCE_TOO_LONG));
+    }
+
+    @Test
+    void absoluteSourceReferenceIsRejected() {
+        OrderImportPreview windows =
+                service.preview(
+                        OrderImportBatch.of(
+                                "STXT",
+                                "C:\\exports\\file.stxt",
+                                "cs",
+                                "ORD-1",
+                                List.of(position("1", 1, List.of(line("c", "n", null, null, bd("1")))))));
+        assertTrue(hasCode(windows.errors(), OrderImportValidator.CODE_SOURCE_REFERENCE_ABSOLUTE_PATH));
+
+        OrderImportPreview unix =
+                service.preview(
+                        OrderImportBatch.of(
+                                "STXT",
+                                "/home/user/file.stxt",
+                                "cs",
+                                "ORD-1",
+                                List.of(position("1", 1, List.of(line("c", "n", null, null, bd("1")))))));
+        assertTrue(hasCode(unix.errors(), OrderImportValidator.CODE_SOURCE_REFERENCE_ABSOLUTE_PATH));
+
+        OrderImportPreview tmp =
+                service.preview(
+                        OrderImportBatch.of(
+                                "STXT",
+                                "/tmp/file.stxt",
+                                "cs",
+                                "ORD-1",
+                                List.of(position("1", 1, List.of(line("c", "n", null, null, bd("1")))))));
+        assertTrue(hasCode(tmp.errors(), OrderImportValidator.CODE_SOURCE_REFERENCE_ABSOLUTE_PATH));
     }
 
     @Test
@@ -475,5 +581,38 @@ class DefaultOrderImportServiceTest {
 
     private static boolean hasCode(List<OrderImportProblem> problems, String code) {
         return problems.stream().anyMatch(problem -> code.equals(problem.code()));
+    }
+
+    private static final class FakePreparedPlan implements PreparedOrderImportPlan {
+        private final OrderImportBatch batch;
+
+        private FakePreparedPlan(OrderImportBatch batch) {
+            this.batch = batch;
+        }
+
+        @Override
+        public OrderImportBatch batch() {
+            return batch;
+        }
+
+        @Override
+        public String sourceType() {
+            return batch.sourceType();
+        }
+
+        @Override
+        public String sourceReference() {
+            return batch.sourceReference();
+        }
+
+        @Override
+        public String contentChecksum() {
+            return batch.contentChecksum();
+        }
+
+        @Override
+        public String orderNumber() {
+            return batch.orderNumber();
+        }
     }
 }
