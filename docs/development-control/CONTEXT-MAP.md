@@ -35,7 +35,7 @@ Cursor обновляет реальные пути во время CONTROL-001.
 | 2 | Document Engine | Document Engine Specification | Database Specification; document ADR |
 | 3 | Capability Engine | Capability Engine Specification | Platform Core public API; capability ADR |
 | 4 | Security | Security Specification | Database Specification; audit and permission ADR |
-| 5 | Order Management | Order Management Specification (**v1.4**) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only); ADR v1.7 (ADR-028/029/030/031); Stage 5 Manifest |
+| 5 | Order Management | Order Management Specification (**v1.5**) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only); ADR v1.8 (ADR-028/029/030/031 final); Stage 5 Manifest |
 | 6 | Warehouse | Warehouse Specification | Order public API; Production contracts; Database Specification |
 | 7 | Production | Production Specification | Order and Warehouse public APIs; Database Specification |
 | 8 | Cutting Optimization | Cutting Optimization Specification | Production contracts; algorithm requirements |
@@ -118,13 +118,13 @@ Read only:
 
 Основные документы:
 
-- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (**v1.4**);
+- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (**v1.5**);
 - `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Stage Manifest);
 - `docs/TMP/TMP_Initial_Documents/architecture/00-Constitution/TMP-Constitution.md` (v1.2, принцип 28);
-- релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**, **ADR-031** (ADR document **v1.7**);
+- релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**, **ADR-031 final** (ADR document **v1.8**);
 - Production Specification (v1.1) — **только** разделы владения производственным состоянием, связи с `Order Item ID`/`Revision`, Public API, Domain Events и интеграции с Order Management (для корректной границы; не для реализации Production).
 
-Миграции Order Management (факт): latest = **V12**. Next available = **V13**. `STAGE5-057` = **DONE**. `STAGE5-058` = **READY** (Imported Order Lifecycle Rules — implementation NOT STARTED). Stage 5 core+intake = **DONE**. Stage 6 = **NOT STARTED**.
+Миграции Order Management (факт): latest = **V12**. Next available = **V13**. `STAGE5-057` = **DONE**. `STAGE5-058` = **READY** (ADR-031 final accepted; implementation NOT STARTED). Stage 5 core+intake = **DONE**. Stage 6 = **NOT STARTED**.
 
 
 
@@ -216,9 +216,9 @@ Read only:
 
 ### `stage5-imported-order-lifecycle` (STAGE5-058)
 
-Разрешено: ADR-031; Spec §8/§9/§13/§27.6/§27.7/§27.10; Manifest §21–22; `OrderOrigin`/`OrderStatus`; import confirm orchestration; Query DTO origin; UI read-only для IMPORTED ACTIVE; Flyway V13+; focused domain/import/UI/architecture tests из задачи WORK-QUEUE.
+Разрешено: ADR-031 **final**; Spec §8/§9/§13/§27.6–27.10; Manifest §21–22; Order/Item/Revision ACTIVE model; import confirm landing; удаление import-metadata protection; UI read-only direct-edit для любого ACTIVE; Revision flow; Flyway V13+; focused tests из WORK-QUEUE.
 
-Запрещено: Stage 6 Warehouse/Production code; Firebird; merge/re-import-as-update; STXT semantics unrelated to landing; Git operations by agent.
+Запрещено: OrderOrigin/ImportMetadata/checksum registry; Stage 6/7 code; Firebird; merge/re-import-as-update; Git by agent.
 
 ---
 

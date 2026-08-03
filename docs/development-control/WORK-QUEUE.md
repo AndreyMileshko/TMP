@@ -9022,79 +9022,74 @@ User FAIL or incomplete smoke — N/A (PASS recorded).
 **Status:** READY  
 **Stage:** 5 (post-closure improvement)  
 **Depends on:** STAGE5-057  
-**Module:** `tmp-order-management` (primary); `tmp-ui-shell` (read-only UI); Flyway `V13+` if needed
+**Module:** `tmp-order-management` (primary); `tmp-ui-shell` (ACTIVE direct-edit read-only); Flyway `V13+` if needed
 
 ### Goal
 
-Реализовать ADR-031: после успешного импорта из расчётной программы заказ является доверенным эталоном и завершается в downstream-ready состоянии (`Order ACTIVE`, items `ACTIVE`, revisions `APPROVED` Immutable spec) с `OrderOrigin = IMPORTED` и полным UI read-only — без старта Stage 6 и без изменения архитектуры вне Scope.
+Реализовать ADR-031 **final**: IMPORT operation создаёт доверенный заказ сразу в uniform `ACTIVE` (Order / Item / Revision / Specification); ACTIVE после импорта **идентичен** ACTIVE после ручного утверждения; дубли только по `orderNumber`; без OrderOrigin/ImportMetadata/checksum protection; изменение ACTIVE только через Revision — без старта Stage 6.
 
 ### Required documents
 
-- `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` — **ADR-031** (также ADR-029/030 уточнения);
-- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` **v1.4** — §8, §9, §13, §27.6/§27.7/§27.10;
-- `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` — §4, §7, §17, §21–22;
-- `docs/development-control/CONTEXT-MAP.md` — Stage 5 context;
-- Constitution принцип 28 / ADR-004 (изменения только через документы) — релевантные абзацы.
+- ADR-031 final (`TMP-Architecture-Decisions.md` v1.8);
+- Order Management Specification **v1.5** — §8, §9, §13, §27.6–27.10;
+- Stage 5 Manifest §4, §7, §21–22;
+- CONTEXT-MAP group `stage5-imported-order-lifecycle`;
+- ADR-029/030 (граница адаптера; commercial gates ручного пути).
 
 ### Required code context
 
-- `com.tmp.order.api.OrderStatus`, `OrderDto`, `OrderQueryService`;
-- `com.tmp.order.domain.CustomerOrder`, `OrderItem`, `OrderItemRevision`;
-- `com.tmp.order.application.imports.DefaultOrderImportService` (+ metadata);
-- Document processors: order/item create + revision update/approve;
-- UI order/item/specification editors in `tmp-ui-shell` (read-only wiring);
-- Existing import IT / UI snapshot contracts.
+- `OrderStatus`, `RevisionStatus`, CustomerOrder / OrderItem / OrderItemRevision;
+- `DefaultOrderImportService` (+ существующие import metadata — к удалению/отключению);
+- Document processors order/item/revision;
+- UI editors (`tmp-ui-shell`) — direct-edit gating по статусу ACTIVE;
+- Import IT / Query DTO contracts.
 
 ### Allowed code scope
 
-- `tmp-order-management/**` (domain, application import/document, persistence, api DTO/events, capability if permission wiring needed);
-- `tmp-ui-shell/**` — только read-only / origin display для imported ACTIVE;
-- `tmp-infra-db` / Flyway migrations **V13+** (origin column, order status enum extension) при необходимости;
-- `tmp-architecture-tests/**` — только если границы затронуты;
+- `tmp-order-management/**` (domain, application import/document, persistence, api, capability if needed);
+- `tmp-ui-shell/**` — read-only direct-edit для любого ACTIVE; Revision flow сохраняется;
+- Flyway **V13+** (OrderStatus.ACTIVE, RevisionStatus APPROVED→ACTIVE, drop/stop import_metadata);
+- `tmp-architecture-tests/**` при необходимости;
 - control docs: STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 ### Forbidden
 
-- Stage 6 Warehouse / Production implementation;
-- Firebird / merge-overwrite existing order / re-import-as-update;
-- изменение STXT parser semantics unrelated to lifecycle landing;
-- введение долгоживущего `OrderStatus.IMPORT`;
-- rename `RevisionStatus.APPROVED` → `ACTIVE`;
-- placeholders / фиктивная коммерция;
-- Git-операции (выполняет пользователь);
-- расширение Scope на полный manual `ORDER_ACTIVATE` UI, если task-size превышен — вынести follow-up READY task, оставив контракт ADR-031.
+- Stage 6/7 implementation;
+- добавление OrderOrigin / creationSource / ImportMetadata / checksum registry / importedAt/By;
+- долгоживущий `OrderStatus.IMPORT`;
+- отдельные правила «только для импортированного ACTIVE»;
+- Firebird / merge / re-import-as-update;
+- Git-операции (пользователь).
 
 ### Implementation requirements
 
-1. Добавить durable `OrderOrigin` (`MANUAL`|`IMPORTED`) на Customer Order; MANUAL на `ORDER_CREATE`; IMPORTED на import confirm.
-2. Расширить `OrderStatus` значением `ACTIVE`.
-3. Изменить import confirm: одна транзакция → Order `ACTIVE` + Items `ACTIVE` + Revisions `APPROVED` + Immutable spec + metadata (эквивалент `IMPORT→ACTIVE`).
-4. Domain guards: IMPORTED ACTIVE — запрет edit / qty / spec / `ORDER_ITEM_REVISION_CREATE`.
-5. Query API: expose `origin` (+ optional `readOnly`); UI read-only для IMPORTED ACTIVE.
-6. ADR-030 commercial gates не блокируют trusted import activation; MANUAL path без регрессии.
-7. Events после commit согласованы со Spec (минимум create + activation-equivalent для items/revisions).
-8. Миграция существующих тестовых DRAFT-import данных — политика в VERIFICATION-LOG (re-import или one-off note); без silent destructive prod migration assumptions.
-9. При нехватке task-size: manual `ORDER_ACTIVATE` (`APPROVED→ACTIVE`) — отдельная follow-up задача со статусом READY; контракт уже в Spec/ADR.
+1. `OrderStatus.ACTIVE`; manual path `DRAFT → APPROVED → ACTIVE` (`ORDER_ACTIVATE` в Scope или follow-up при task-size).
+2. `RevisionStatus`: целевой `DRAFT | ACTIVE` (rename с `APPROVED`).
+3. IMPORT confirm: одна TX → Order/Item/Revision/Specification ACTIVE.
+4. Удалить/отключить checksum/`order_import_metadata` duplicate protection; оставить только `orderNumber` uniqueness.
+5. Uniform ACTIVE: запрет прямого edit; изменение только через Revision (для любого ACTIVE).
+6. UI: direct-edit read-only по статусу ACTIVE (не по каналу создания).
+7. Events/Query без origin fields; Warehouse/Production-ready ACTIVE без knowledge of import.
+8. ADR-030 gates на ручном approve без регрессии.
 
 ### Acceptance criteria
 
-- [ ] ADR-031 отражён в коде: import confirm → IMPORTED + ACTIVE landing;
-- [ ] Manual incomplete DRAFT + approve path без регрессии (ADR-030);
-- [ ] UI: импортированный ACTIVE полностью read-only; попытки мутаций отклоняются доменом;
-- [ ] Новая Revision на IMPORTED ACTIVE запрещена;
-- [ ] Query API возвращает `origin`;
-- [ ] Все verification commands PASS;
-- [ ] Stage 6 остаётся NOT STARTED;
-- [ ] Нет изменений вне Allowed code scope.
+- [ ] Import confirm → ACTIVE на Order/Item/Revision/Spec;
+- [ ] Нет различий поведения ACTIVE (manual vs import) в domain/UI guards;
+- [ ] Нет OrderOrigin / import-metadata business protection;
+- [ ] Дубль только по существующему `orderNumber`;
+- [ ] Новая Revision на ACTIVE разрешена единообразно;
+- [ ] Manual ADR-030 path без регрессии;
+- [ ] Verification commands PASS; Stage 6 NOT STARTED; Scope соблюдён.
 
 ### Required tests
 
-- Domain: origin immutability; IMPORTED ACTIVE rejection of edit/qty/spec/revision-create;
-- Import IT: confirm lands ACTIVE/IMPORTED; atomic rollback; duplicate/conflict unchanged;
-- Manual path regression: DRAFT incomplete → approve still requires commercial fields;
-- Query API: origin exposed; public revisions still only APPROVED;
-- UI/application: read-only flag / snapshots for imported ACTIVE;
-- Architecture: adapter still does not write aggregates directly.
+- Import IT: landing ACTIVE; rollback; orderNumber conflict; **нет** checksum-duplicate path как бизнес-правила;
+- Domain: ACTIVE direct-edit rejected; Revision create→approve works for ACTIVE from both paths;
+- Manual regression: incomplete DRAFT + approve gates;
+- Query: public ACTIVE revision; no origin field;
+- UI: ACTIVE direct-edit read-only;
+- Architecture: adapter не пишет агрегаты напрямую.
 
 ### Verification commands
 
@@ -9104,13 +9099,10 @@ mvn -q -pl tmp-architecture-tests -am test
 mvn -q verify
 ```
 
-(Дополнительно focused IT import/lifecycle — по факту тестовых классов задачи.)
-
 ### Documentation updates
 
-- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG;
-- Spec/ADR уже подготовлены (v1.4 / ADR-031); при уточнении реализации — точечная синхронизация §13 events/permissions.
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG; точечная синхронизация Spec при уточнении event имён.
 
 ### Stop conditions
 
-Blocker if ADR/Spec conflict unresolved; verification failure outside Scope; any attempt to start Stage 6.
+Conflict with ADR-031 final; verification failure outside Scope; start of Stage 6.

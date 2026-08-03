@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-005  
 **Status:** Accepted  
-**Version:** 1.7
+**Version:** 1.8
 
 ---
 
@@ -1230,145 +1230,132 @@ Accepted
 
 ## Название
 
-Imported Order Lifecycle Rules (Trusted Calculation Import).
+Imported Order Lifecycle Rules — Uniform ACTIVE (Trusted Import as Creation Path Only).
 
 ### Статус
 
-Accepted (design baseline for STAGE5-058; production code not changed until STAGE5-058 implementation)
+Accepted (final architecture decision for STAGE5-058; production code unchanged until implementation)
 
 ### Контекст
 
-Order Intake MVP (`STAGE5-051..057`) создаёт импортированный заказ как неполный `DRAFT` (ADR-030): пользователь обязан дополнять коммерческие поля и вручную утверждать позиции/заказ. Новое бизнес-решение: заказ, успешно импортированный из расчётной программы, является **полностью доверенным**; данные выгрузки — эталон. После успешного импорта агрегат должен сразу быть доступен downstream (Warehouse / Production) без ручного approval-gate.
+Ранее рассматривались варианты с `OrderOrigin`, отдельными правилами для импортированного ACTIVE, import metadata / checksum duplicate protection и запретом новой Revision на импорте. Финальное бизнес-решение иное:
 
-Текущая модель статусов:
-
-| Агрегат | Статусы Stage 5 (факт) |
-| --- | --- |
-| Customer Order | `DRAFT` / `APPROVED` / `CANCELLED` |
-| Order Item | `DRAFT` / `ACTIVE` / `CANCELLED` |
-| Order Item Revision | `DRAFT` / `APPROVED` |
-| Item Specification | отдельного статуса нет; immutable после `Revision = APPROVED` |
-
-Нужно согласовать целевой lifecycle импорта с ручным путём, Document Engine, UI read-only, Security, Query API и рисками Stage 6, **не меняя** текущую реализацию импорта до выполнения `STAGE5-058`.
+1. Импортированный из расчётной программы заказ **полностью доверенный** и после успешного импорта сразу `ACTIVE`.
+2. **ACTIVE не зависит от способа создания** — поведение одинаково для ручного и импортного пути.
+3. Импорт — **только способ создания**, не отдельная сущность и не отдельный lifecycle-тип заказа.
+4. Изменение ACTIVE — **только через существующий механизм Revision**.
 
 ### Решение
 
-#### 1. Отличие импортированного заказа от ручного
+#### 1. Единый ACTIVE (главный принцип)
 
-Принят durable признак на агрегате Customer Order:
+Не существует различий между:
 
-```text
-OrderOrigin = MANUAL | IMPORTED
-```
+- `ACTIVE` после ручного `DRAFT → APPROVED → ACTIVE`;
+- `ACTIVE` после import operation.
 
-Правила:
+После перехода в `ACTIVE` применяются **одни и те же** инварианты, UI-правила, Document/Revision flow, Query API и контракты для Warehouse/Production.
 
-1. `OrderOrigin` задаётся **только при создании** и не изменяется.
-2. Ручной `ORDER_CREATE` → `MANUAL`.
-3. Успешный confirm импорта → `IMPORTED`.
-4. Существующие `order_import_metadata` (`sourceType`, checksum, file, importedAt/By, orderId) остаются **аудитом и защитой от дублей** (ADR-029 / Spec §27.6), но **не** являются единственным источником бизнес-правила lifecycle.
-5. `sourceType` в import batch остаётся adapter-level (например `STXT`); не путать с `OrderOrigin`.
-6. Capability metadata / Permission catalog **не** хранят origin и не управляют lifecycle-правилами импорта.
+**Запрещено** вводить признаки или сущности, создающие различие ACTIVE по происхождению:
 
-#### 2. Целевые статусы и семантика «ACTIVE»
+- `OrderOrigin` / `creationSource` / `imported` flag;
+- `ImportMetadata` / отдельные import-сущности;
+- persistent `sourceType`, `importedAt`, `importedBy`, checksum storage как защита или бизнес-атрибут заказа;
+- отдельные permissions / read-only правила «только для импорта».
 
-| Агрегат | Статусы | Семантика «ACTIVE» для импорта |
-| --- | --- | --- |
-| Customer Order | `DRAFT` / `APPROVED` / `ACTIVE` / `CANCELLED` | Downstream-ready; эталон импорта |
-| Order Item | `DRAFT` / `ACTIVE` / `CANCELLED` | Есть утверждённая Revision; доступна другим Capability |
-| Order Item Revision | `DRAFT` / `APPROVED` | Утверждённая Revision = активная эталонная; **отдельный статус `ACTIVE` не вводится** (избежание коллизии с `OrderItemStatus.ACTIVE`) |
-| Item Specification | нет enum-статуса | «ACTIVE» = спецификация текущей `APPROVED` Revision (`activeRevisionNumber`); Immutable |
+(Фактические артефакты Order Intake MVP, противоречащие этому — в т.ч. checksum/`order_import_metadata` — **подлежат удалению или выводу из бизнес-контракта** в `STAGE5-058`, без замены другим origin-маркером.)
 
-`IMPORT` **не** вводится как долгоживущий `OrderStatus`: импорт атомарный, частичного `IMPORT` в БД быть не должно. Концептуальный путь `IMPORT → ACTIVE` реализуется как `(none) → ACTIVE` с `OrderOrigin = IMPORTED` в одной транзакции confirm.
+#### 2. Lifecycle
 
-#### 3. Разрешённые переходы
-
-**Manual (`OrderOrigin = MANUAL`):**
+**Ручной путь:**
 
 ```text
-Order:     DRAFT → APPROVED → ACTIVE
-Item:      DRAFT → ACTIVE
-Revision:  DRAFT → APPROVED
+Order:        DRAFT → APPROVED → ACTIVE
+Order Item:   DRAFT → ACTIVE
+Revision:     DRAFT → ACTIVE
+Specification: становится ACTIVE (Immutable) вместе с ACTIVE Revision
 ```
 
-- `DRAFT → APPROVED` — `ORDER_APPROVE` (коммерческий gate ADR-030; ≥ 1 ACTIVE item).
-- `APPROVED → ACTIVE` — `ORDER_ACTIVATE` (release для Warehouse/Production). В `STAGE5-058` документ и переход **специфицируются**; реализация manual activate может быть тем же task scope или сразу следующим READY-task, но контракт фиксируется здесь.
-- До `ACTIVE` ручной заказ редактируется по текущим правилам Stage 5 (`DRAFT` editable; после item/revision approve — immutability spec).
-
-**Imported (`OrderOrigin = IMPORTED`):**
+**Импорт:**
 
 ```text
-Order:     (none) → ACTIVE
-Item:      (none) → ACTIVE
-Revision:  (none) → APPROVED   // семантически «active / эталон»
-Specification: создаётся сразу Immutable в составе APPROVED Revision
+IMPORT operation (атомарный confirm)
+        ↓
+Order ACTIVE + Order Item ACTIVE + Revision ACTIVE + Specification ACTIVE
 ```
 
-Эквивалент пользовательской модели `IMPORT → ACTIVE`.
+- Долгоживущий `OrderStatus.IMPORT` **не вводится**.
+- `IMPORT operation` — application/document orchestration создания; конечное состояние агрегатов = `ACTIVE`.
+- Статус Revision: целевой enum `DRAFT | ACTIVE` (бывший `APPROVED` переименовывается в `ACTIVE` для единообразия языка статусов). Specification отдельного enum не имеет: «Specification ACTIVE» = спецификация текущей ACTIVE Revision (`activeRevisionNumber`), Immutable.
 
-Confirm импорта в одной транзакции обязан завершиться только этим конечным состоянием (или полным rollback).
+#### 3. Правила импорта
 
-#### 4. Коммерческие поля (уточнение ADR-030)
+1. Импорт создаёт ту же доменную структуру, что и ручной путь: Order → Item → Revision → Specification.
+2. После успешного confirm все перечисленные уровни — `ACTIVE` (доверенный производственный эталон).
+3. Коммерческие completeness-gates ADR-030 применяются к **ручным** переходам (`ORDER_APPROVE`, утверждение Draft Revision). Import operation **не** проходит через `DRAFT`/`APPROVED` и не блокируется отсутствием коммерческих полей, которых нет в выгрузке; placeholders по-прежнему запрещены.
+4. После landing поведение = обычный `ACTIVE` (п.1, п.5).
 
-Для `OrderOrigin = IMPORTED` и статуса `ACTIVE`:
+#### 4. Дублирование
 
-1. Структурные данные выгрузки (номер, позиции, `productQuantity`, строки спецификации) — эталон.
-2. Отсутствие коммерческих реквизитов заказа (`customerName`, …) и позиции (`productCode`, `name`) **допускается** на `ACTIVE` импортированного заказа.
-3. Placeholders по-прежнему запрещены.
-4. ADR-030 commercial completeness gates (`ORDER_APPROVE`, `ORDER_ITEM_REVISION_APPROVE`) применяются к **`MANUAL`** пути; для trusted import activation **не** блокируют перевод в `ACTIVE`.
-5. Обогащение коммерческих полей импортированного `ACTIVE` **запрещено** в `STAGE5-058` (read-only). Будущее controlled enrichment — отдельный ADR/задача.
+**Единственная** проверка при импорте:
 
-#### 5. Изменение импортированного заказа
+```text
+orderNumber uniqueness
+```
 
-Для `OrderOrigin = IMPORTED` и `Order.status = ACTIVE` **запрещено**:
+Если заказ с таким номером уже существует — импорт запрещён (понятное сообщение пользователю).
 
-- редактировать заказ / позицию / спецификацию;
-- менять количество изделий (`OrderedQuantity` / `productQuantity`);
-- менять строки спецификации (`color`, `lengthMm`, `lineQuantity`, материалы);
-- создавать новую Revision (`ORDER_ITEM_REVISION_CREATE`);
-- отменять заказ/позицию существующими Stage 5 cancel-документами (как и для approved/active — без изменений out-of-scope Stage 5).
+**Не создавать** отдельную защиту импорта (checksum, повтор файла, import metadata registry и т.п.).
 
-**Новая Revision:** в `STAGE5-058` — **запрещена**. Причина: эталон расчётной программы; расхождение с выгрузкой недопустимо без отдельного процесса (re-import / controlled revision) — future ADR.
+#### 5. Immutable ACTIVE и Revision flow
 
-#### 6. UI
+`ACTIVE` всегда:
 
-Импортированный `ACTIVE`:
+- не редактируется напрямую пользователем;
+- не изменяется через `ORDER_UPDATE` / `ORDER_ITEM_UPDATE` / правку ACTIVE Specification;
+- является производственным эталоном для Warehouse / Production.
 
-- весь редактор заказа / позиций / спецификации — **read-only**;
-- UI опирается на Query API (`origin`, `status`) и domain rejection, а не только на скрытие кнопок;
-- сообщения пользователю: заказ импортирован из расчётной программы и недоступен для изменения.
+Изменение содержимого ACTIVE:
 
-Ручной путь UI не ломается.
+```text
+только через существующий механизм Revision
+(ORDER_ITEM_REVISION_CREATE → draft update → approve → новая ACTIVE Revision)
+```
 
-#### 7. Document Engine / Security / Query API
+Правило **одинаково** для ACTIVE, полученного вручную и через импорт. Запрет «новой Revision только для импорта» **отменён**.
 
-1. Confirm импорта по-прежнему идёт через штатные application services / документы (ADR-029); допускается внутренний orchestration post существующих типов **или** один атомарный import-activation flow, фиксируемый в Spec §13/§27 при реализации — без прямых SQL-мутаций агрегатов из адаптера.
-2. Domain Events после commit: минимум эквиваленты `OrderCreated` + activation/`OrderApproved`/`OrderItemRevisionApproved` (точный набор — в Spec при реализации; Warehouse должен видеть downstream-ready состояние).
-3. Permissions: отдельное permission для bypass commercial gate **не** вводится; trusted activation — доменное правило `OrderOrigin`, проверяемое в application/domain. Существующие `order.order.*` / `order.item.*` / `order.revision.*` сохраняются; edit/approve/revision.create на IMPORTED ACTIVE отклоняются доменом.
-4. Query API: публично expose `OrderOrigin` (и при необходимости derived `readOnly`); фильтр/сорт по origin — по необходимости реализации; draft revisions по-прежнему не публикуются наружу.
+#### 6. Влияние на модули
 
-#### 8. Out of scope ADR-031 / STAGE5-058
+| Область | Влияние |
+| --- | --- |
+| Order Management | Landing import → ACTIVE; единые инварианты ACTIVE; RevisionStatus → `ACTIVE`; убрать origin/metadata-контракты |
+| Document Engine | Без новых platform lifecycle статусов; import = orchestration штатных/целевых документов Order Management внутри TX |
+| UI | Read-only для **любого** ACTIVE (прямое редактирование); Revision flow доступен как для ручного ACTIVE |
+| Revision flow | Единый; импорт не имеет отдельной ветки |
+| Warehouse (Stage 6) | Потребляет ACTIVE Order/Item + ACTIVE Revision/Spec; **не** знает и **не** должен знать канал создания |
+| Production | То же: ссылка на Order Item + ACTIVE Revision; без import-специфики |
 
-- Stage 6 Warehouse реализация;
-- merge/overwrite существующего заказа;
-- re-import как обновление;
+#### 7. Out of scope
+
+- Реализация Stage 6/7;
 - Firebird adapter;
-- изменение ручного incomplete-DRAFT поведения (кроме фиксации, что оно не применяется к trusted import landing).
+- merge/overwrite / re-import-as-update;
+- изменение Constitution document-driven model.
 
 ### Последствия
 
-- единый домен сохраняется; различается **landing lifecycle** по `OrderOrigin`;
-- ADR-030 сохраняется для MANUAL; для IMPORTED ACTIVE — исключение по commercial completeness;
-- Stage 6 должен потреблять `Order.status = ACTIVE` (+ item `ACTIVE` + approved revision) как готовность к складским операциям;
-- существующие импортированные `DRAFT` в тестовых БД потребуют миграционной политики или повторного импорта после реализации;
-- реализация только в `STAGE5-058` (+ возможные follow-up tasks по task-size); до этого код импорта не менять.
+- упрощение модели: один ACTIVE, два пути **создания**;
+- ADR-030 остаётся gate ручного утверждения; не создаёт «тип» ACTIVE;
+- Warehouse/Production контракты проще и стабильнее;
+- `STAGE5-058` должен привести код и схему к этому решению (включая отказ от checksum-import protection);
+- до `STAGE5-058` DONE текущий код может ещё создавать import-`DRAFT` — это technical debt, не целевой контракт.
 
 ### Связанные документы
 
 - Order-Management-Specification.md (§8, §9, §27)
-- ADR-029, ADR-030
-- `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md`
-- `STAGE5-058` in WORK-QUEUE
+- ADR-029 (граница адаптера сохраняется; persistent import-metadata protection **не** является частью целевого контракта)
+- ADR-030
+- Stage 5 Manifest; `STAGE5-058` WORK-QUEUE
 
 ---
 
@@ -1468,6 +1455,7 @@ Confirm импорта в одной транзакции обязан заве�
 | 1.5 | Добавлен ADR-030 (Incomplete Commercial Data Allowed Only in DRAFT): неполный коммерческий DRAFT разрешён; placeholders запрещены; `ORDER_APPROVE` требует все обязательные коммерческие поля. |
 | 1.6 | Уточнён ADR-030: incomplete DRAFT также для `productCode`/`name` позиции; `ORDER_ITEM_REVISION_APPROVE` требует полноту коммерческих полей позиции; placeholders и искусственные названия запрещены. |
 | 1.7 | Добавлен ADR-031 (Imported Order Lifecycle Rules): `OrderOrigin`, trusted import landing `(none)→ACTIVE`, уточнение ADR-030 для IMPORTED, запрет правок/новой Revision на импортированном ACTIVE, UI read-only; baseline для STAGE5-058 без немедленной смены кода. |
+| 1.8 | **Final** ADR-031: uniform ACTIVE (без различий по способу создания); запрет OrderOrigin/ImportMetadata/checksum protection; дубли только по `orderNumber`; import = creation path → ACTIVE; изменение ACTIVE только через Revision; RevisionStatus целевой `DRAFT\|ACTIVE`. |
 
 ---
 

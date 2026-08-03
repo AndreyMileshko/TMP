@@ -1,8 +1,8 @@
 # Stage 5 Manifest — Order Management
 
 **Stage:** 5 — Order Management  
-**Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.4)  
-**ADR document:** `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` (v1.7; ADR-028, ADR-029, ADR-030, ADR-031)  
+**Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.5)  
+**ADR document:** `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` (v1.8; ADR-028, ADR-029, ADR-030, ADR-031 final)  
 **Status:** Core + Order Intake DONE (`STAGE5-001..057`); post-closure `STAGE5-058` = READY (Imported Order Lifecycle Rules — implementation NOT STARTED). Stage 6 = NOT STARTED.
 
 ---
@@ -18,7 +18,7 @@
 ## 2. Входные условия
 
 - Stage 0–4 завершены (DONE 100%); нет открытых блокеров Stage 0–4.
-- Order Management Specification = **v1.4**; Constitution v1.2; ADR = **v1.7** (ADR-028, ADR-029, ADR-030, ADR-031).
+- Order Management Specification = **v1.5**; Constitution v1.2; ADR = **v1.8** (ADR-028, ADR-029, ADR-030, ADR-031 final).
 - Подтверждённая транзакционная граница Document Engine (processor внутри транзакции проведения; события после commit).
 - **Фактические миграции Order Management:** latest = **V12**. Next available = **V13** (для `STAGE5-058` при необходимости).
 - Reactor: `tmp-platform-core`, `tmp-infra-db`, `tmp-document-engine`, `tmp-capability-engine`, `tmp-security`, `tmp-ui-shell`, `tmp-bootstrap-app`, `tmp-architecture-tests`, `tmp-order-management`.
@@ -39,15 +39,15 @@
 
 ## 4. Реализуемые агрегаты
 
-- **Customer Order** (`OrderId`): `DRAFT`/`APPROVED`/`ACTIVE`/`CANCELLED`; durable `OrderOrigin` = `MANUAL`|`IMPORTED` (ADR-031).
+- **Customer Order** (`OrderId`): `DRAFT`/`APPROVED`/`ACTIVE`/`CANCELLED` (без OrderOrigin / import metadata — ADR-031 final).
 - **Order Item** (`OrderItemId`): `DRAFT`/`ACTIVE`/`CANCELLED`; `activeRevisionNumber`, `draftRevisionNumber`.
-- **Order Item Revision** (`OrderItemId + RevisionNumber`): `DRAFT`/`APPROVED`; active/draft разделены (отдельный Revision status `ACTIVE` не вводится).
-- **Item Specification** (в границе Revision): Immutable после утверждения / сразу Immutable для trusted import.
+- **Order Item Revision** (`OrderItemId + RevisionNumber`): `DRAFT`/`ACTIVE` (бывший `APPROVED` → `ACTIVE`); active/draft разделены.
+- **Item Specification** (в границе Revision): Immutable после ACTIVE Revision / сразу Immutable при IMPORT landing.
 
 Границы транзакций: Customer Order — собственная; Order Item + Revisions + Specifications — единая граница агрегата.
 
-**ADR-030:** для `MANUAL` — `DRAFT` может временно не содержать обязательные коммерческие поля; `ORDER_APPROVE` требует их заполнения.  
-**ADR-031:** успешный импорт → `OrderOrigin=IMPORTED`, Order/Item `ACTIVE`, Revision `APPROVED`, Specification Immutable; UI read-only; новая Revision на IMPORTED запрещена.
+**ADR-030:** ручной `DRAFT` может временно не содержать обязательные коммерческие поля; `ORDER_APPROVE` / ручной revision approve требуют их заполнения.  
+**ADR-031 final:** IMPORT operation → uniform ACTIVE; ACTIVE поведение одинаково; дубли только `orderNumber`; изменение ACTIVE только через Revision; запрет ImportMetadata/checksum/origin.
 
 ---
 
@@ -77,7 +77,7 @@
 
 ## 7. Бизнес-документы
 
-`ORDER_CREATE`, `ORDER_UPDATE`, `ORDER_APPROVE`, `ORDER_ACTIVATE` (ADR-031, manual `APPROVED→ACTIVE`), `ORDER_CANCEL`, `ORDER_ITEM_CREATE`, `ORDER_ITEM_UPDATE`, `ORDER_ITEM_REVISION_UPDATE`, `ORDER_ITEM_REVISION_APPROVE`, `ORDER_ITEM_CANCEL`, `ORDER_ITEM_REVISION_CREATE`. Trusted import activation — orchestration confirm (не отдельный Firebird/SQL path).
+`ORDER_CREATE`, `ORDER_UPDATE`, `ORDER_APPROVE`, `ORDER_ACTIVATE` (ADR-031, `APPROVED→ACTIVE`), `ORDER_CANCEL`, `ORDER_ITEM_CREATE`, `ORDER_ITEM_UPDATE`, `ORDER_ITEM_REVISION_UPDATE`, `ORDER_ITEM_REVISION_APPROVE`, `ORDER_ITEM_CANCEL`, `ORDER_ITEM_REVISION_CREATE`. IMPORT operation — orchestration confirm → ACTIVE (не отдельная import-сущность; не Firebird/SQL path).
 
 Для каждого: typed payload, schema version, application command, affected aggregate, required capability, validation, result, Domain Event, idempotency key (`DocumentId + POST`) и lifecycle policy — Specification §13/§14. `ORDER_ITEM_UPDATE` — только коммерческие поля позиции; `ORDER_ITEM_REVISION_UPDATE` — только Draft Revision.
 
@@ -226,13 +226,13 @@ Stage 5 завершён только когда:
 
 ## 21. Decisions for Order Intake
 
-- **ADR-030 / бывший blocker `STAGE5-INTAKE-COMMERCIAL-DRAFT`:** RESOLVED — incomplete commercial data allowed only in DRAFT for **MANUAL** path (order-level and item-level `productCode`/`name`); approval requires all mandatory commercial fields; placeholders prohibited. Item-level incompleteness gated by `STAGE5-052A` before Import Core.
-- **ADR-031 / STAGE5-058:** trusted calculation import lands on `ACTIVE` with `OrderOrigin=IMPORTED`; read-only; no new Revision; ADR-030 commercial gates do not block imported activation; manual target path `DRAFT→APPROVED→ACTIVE`. Design docs prepared; **code unchanged until STAGE5-058 implementation**.
+- **ADR-030 / бывший blocker `STAGE5-INTAKE-COMMERCIAL-DRAFT`:** RESOLVED — incomplete commercial data allowed only in DRAFT for manual path; approval requires mandatory commercial fields; placeholders prohibited.
+- **ADR-031 final / STAGE5-058:** uniform ACTIVE (no origin/metadata differences); IMPORT operation → ACTIVE; duplicates only by `orderNumber`; ACTIVE changes only via Revision; remove checksum/import-metadata protection from contract. Design finalized; **code unchanged until STAGE5-058 implementation**.
 
 ## 22. Post-closure — STAGE5-058
 
-**Goal:** реализовать ADR-031 без старта Stage 6.
+**Goal:** реализовать ADR-031 final без старта Stage 6.
 
-**Affected modules (planned):** `tmp-order-management` (domain/application/persistence/api), `tmp-ui-shell` (read-only), Flyway `V13+`, tests in `tmp-order-management` / architecture tests as needed.
+**Affected modules (planned):** `tmp-order-management` (domain/application/persistence/api), `tmp-ui-shell` (ACTIVE read-only direct-edit), Flyway `V13+`, tests.
 
-**Forbidden until task IN_PROGRESS:** изменение Import Core / STXT / lifecycle production code «в обход» плана задачи.
+**Forbidden until task IN_PROGRESS:** изменение Import Core / lifecycle production code в обход плана задачи; добавление OrderOrigin/ImportMetadata.

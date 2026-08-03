@@ -17,7 +17,7 @@ STAGE5-054 = DONE
 STAGE5-055 = DONE
 STAGE5-056 = DONE
 STAGE5-057 = DONE (Manual GUI Smoke — PASS; STAGE5-057-SMOKE-001 FIXED AND VERIFIED)
-STAGE5-058 = READY (Imported Order Lifecycle Rules — docs/ADR prepared; implementation NOT STARTED)
+STAGE5-058 = READY (ADR-031 final accepted; Spec v1.5; implementation NOT STARTED)
 Stage 5 Core Order Management = DONE
 Stage 5 Order Intake Extension = DONE
 Stage 5 = DONE (core + intake); post-closure READY task STAGE5-058 scheduled
@@ -53,10 +53,10 @@ Active blockers = NONE
 | Post-closure: Imported Order Lifecycle (`STAGE5-058`) | READY (not started) |
 | Stage 5 overall | DONE |
 
-`STAGE5-057` = **DONE**. ADR-031 Accepted (design baseline). Order Management Spec **v1.4**. `STAGE5-058` = **READY** — реализация не начата. Stage 6 = NOT STARTED.
+`STAGE5-057` = **DONE**. **ADR-031 final** Accepted (uniform ACTIVE). Order Management Spec **v1.5**. ADR **v1.8**. `STAGE5-058` = **READY** — реализация не начата. Stage 6 = NOT STARTED.
 
 ---
 
 **Stage 0–5:** DONE.
 
-**Далее:** выполнить `STAGE5-058` (Imported Order Lifecycle Rules) до старта Stage 6 Start Gate, либо явно перенести после согласования. Git — только пользователь.
+**Далее:** выполнить `STAGE5-058` (ADR-031 final) до старта Stage 6 Start Gate, либо явно перенести. Git — только пользователь.

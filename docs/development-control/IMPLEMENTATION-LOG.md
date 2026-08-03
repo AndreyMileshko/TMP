@@ -4,6 +4,32 @@
 
 ---
 
+## STAGE5-058 — Final Architecture Decision (documentary)
+
+**Date:** 2026-08-03  
+**Stage:** 5 (post-closure)  
+**Status:** READY (implementation NOT STARTED)  
+**Module:** none (documentation only)
+
+### Result
+
+Зафиксировано **финальное** ADR-031:
+
+- uniform ACTIVE (нет различий по способу создания);
+- запрет OrderOrigin / ImportMetadata / checksum duplicate protection;
+- дубли только `orderNumber`;
+- IMPORT operation → Order/Item/Revision/Specification ACTIVE;
+- изменение ACTIVE только через Revision;
+- Spec **v1.5**; ADR **v1.8**; Manifest / WORK-QUEUE / CONTEXT-MAP / STATUS обновлены.
+
+Production code **не изменялся**. Stage 6 = NOT STARTED.
+
+### Supersedes
+
+Interim ADR-031 design with `OrderOrigin` and imported-only revision ban (ADR doc v1.7 / Spec v1.4).
+
+---
+
 ## STAGE5-058 — Documentary preparation (Imported Order Lifecycle Rules)
 
 **Date:** 2026-08-03  
