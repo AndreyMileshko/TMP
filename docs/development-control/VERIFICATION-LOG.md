@@ -3,8 +3,50 @@
 ## Latest result
 
 **Date:** 2026-08-03  
+**Scope:** STAGE5-057 — FIX REQUIRED additional — `STAGE5-057-SMOKE-001`  
+**Overall:** AUTOMATED PASS (awaiting user manual reconfirm; Stage 5 **not** closed)
+
+| Item | Result |
+|---|---|
+| Defect ID | `STAGE5-057-SMOKE-001` |
+| Root cause | Commercial draft UPDATE validated TextField quantity (`8.000000` NUMERIC scale) though payload has no quantity; display used `toPlainString()` |
+| Fix | Skip quantity on ITEM_UPDATE commercial save; format/normalize wholes to `"8"`; `remainder` whole-check; application `parseQuantity` scale-0 for wholes |
+| Focused tests | PASS — Order Management 13 + UI Shell 67 |
+| Import Core / STXT / Domain / Persistence / Flyway | UNCHANGED |
+| STAGE5-057 | IN_PROGRESS (await user) |
+| Stage 5 | IN_PROGRESS (not closed) |
+| Stage 6 | NOT STARTED |
+| Git | NOT EXECUTED |
+
+### Test matrix
+
+| Input / scenario | Expected | Result |
+|---|---|---|
+| `8` | PASS | PASS |
+| `8.000000` | PASS | PASS |
+| `8.0` | PASS | PASS |
+| `8.5` | FAIL | PASS (rejected) |
+| `0` | FAIL | PASS (rejected) |
+| `-1` | FAIL | PASS (rejected) |
+| Imported DRAFT `8.000000` → open → field shows `8` | PASS | PASS |
+| Imported DRAFT → change comment → commercial save | PASS | PASS |
+| Imported DRAFT → field forced `8.000000` → commercial save | PASS | PASS |
+| Imported spec → save unchanged | PASS | PASS |
+| Application `saveItemCreateDraft("8.000000")` | PASS | PASS |
+
+### Manual reconfirm checklist (user)
+
+1. Rebuild/repackage app with this fix (`mvn -Ppackage` if using TMP.exe).
+2. Import STXT → order `26062891` → open item → change comment → «Сохранить коммерческий черновик» → expect SUCCESS.
+3. Confirm STAGE5-057 PASS/FAIL to agent.
+
+---
+
+## Previous latest (2026-08-03 — STAGE5-057 first SMOKE-001 fix)
+
+**Date:** 2026-08-03  
 **Scope:** STAGE5-057 — FIX REQUIRED — `STAGE5-057-SMOKE-001`  
-**Overall:** PASS (defect fixed; Stage 5 **not** closed)
+**Overall:** SUPERSEDED (manual retest still failed on commercial draft path)
 
 | Item | Result |
 |---|---|
@@ -13,7 +55,7 @@
 | Fix | `ProductQuantityUiValidation` — whole if fractional part = 0 |
 | `mvn -pl tmp-ui-shell -am test` (focused) | PASS — 54 tests |
 | Import Core / STXT / Domain / Persistence | UNCHANGED |
-| STAGE5-057 | DONE |
+| STAGE5-057 | was marked DONE; reverted to IN_PROGRESS after retest FAIL |
 | Stage 5 | IN_PROGRESS (not closed) |
 | Stage 6 | NOT STARTED |
 | Git | NOT EXECUTED |

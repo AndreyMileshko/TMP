@@ -646,15 +646,21 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
 
     private static BigDecimal parseQuantity(String orderedQuantity) {
         Objects.requireNonNull(orderedQuantity, "orderedQuantity");
-        String trimmed = orderedQuantity.trim();
+        String trimmed = orderedQuantity.trim().replace(',', '.');
         if (trimmed.isEmpty()) {
             throw new IllegalArgumentException("orderedQuantity must not be blank");
         }
+        final BigDecimal value;
         try {
-            return new BigDecimal(trimmed);
+            value = new BigDecimal(trimmed);
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException("orderedQuantity must be a number: " + trimmed, ex);
         }
+        // Accept mathematical wholes regardless of BigDecimal scale (e.g. 8.000000 from NUMERIC).
+        if (value.remainder(BigDecimal.ONE).signum() == 0) {
+            return value.setScale(0, java.math.RoundingMode.UNNECESSARY);
+        }
+        return value;
     }
 
     private static RuntimeException wrap(String message, RuntimeException cause) {

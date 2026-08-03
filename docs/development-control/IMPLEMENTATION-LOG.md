@@ -4,11 +4,62 @@
 
 ---
 
+## STAGE5-057 — FIX REQUIRED — STAGE5-057-SMOKE-001 (additional)
+
+**Date:** 2026-08-03  
+**Stage:** 5  
+**Status:** IN_PROGRESS (automated fix applied; awaiting user manual confirmation)  
+**Modules:** `tmp-ui-shell`, `tmp-order-management` (application UI only)
+
+### Smoke defect (retest)
+
+**ID:** `STAGE5-057-SMOKE-001`  
+**Symptom (still after first fix):** Import STXT → order `26062891` → open item → change comment → «Сохранить коммерческий черновик» → «Количество изделий должно быть целым числом больше нуля». Field `8.000000` / `8.0` FAIL; `8` PASS.  
+**Cause (full path):**
+
+1. TextField bound to `orderedQuantity` loaded via `BigDecimal.toPlainString()` → keeps NUMERIC scale (`8.000000`).
+2. `OrderItemEditorViewModel.saveCommercialDraft()` for existing DRAFT always called `ProductQuantityUiValidation` **even though** `saveItemUpdateDraft` does **not** send quantity (commercial update payload has no `orderedQuantity`).
+3. First fix changed mathematical whole check, but commercial-draft path still blocked on display leftovers; outbound paths that do send quantity needed canonical normalization.
+
+Validators with the same Russian message:
+
+| Location | Used on commercial draft save? |
+|---|---|
+| `ProductQuantityUiValidation` (UI) | Yes (was incorrectly required for ITEM_UPDATE) |
+| `OrderImportValidator` (Import Core) | No (Integer `productQuantity`; unchanged) |
+
+### Fix
+
+1. **Commercial draft UPDATE:** do not validate/send quantity (quantity belongs to REVISION_UPDATE).
+2. **Display:** `ProductQuantityUiValidation.formatForDisplay` → show `8` for mathematically whole values.
+3. **CREATE / revision / specification save:** `requireValidNormalizedProductQuantity` → canonical `"8"` for `8` / `8.0` / `8.000000`.
+4. **Whole check:** fractional part via `remainder(ONE).signum() == 0` (not scale).
+5. **Application:** `DefaultOrderItemDocumentUiService.parseQuantity` normalizes mathematical wholes to scale 0 before `OrderedQuantity.of`.
+
+### Tests
+
+- `ProductQuantityUiValidationTest` — accept/normalize `8`/`8.0`/`8.000000`; reject `8.5`/`0`/`-1`
+- `OrderItemEditorViewModelTest` — imported DRAFT comment save; scaled leftovers ignored on commercial save; CREATE accepts scaled wholes
+- `OrderItemSpecificationEditorViewModelTest` — imported spec save; normalize scaled wholes
+- `DefaultOrderItemDocumentUiServiceTest.saveItemCreateDraftAcceptsScaledWholeProductQuantity`
+
+Focused: `mvn -pl tmp-ui-shell,tmp-order-management -am test` (selected) — **80 tests PASS** (13 + 67).
+
+### Unchanged
+
+Import Core, STXT Adapter, Domain, Persistence, Flyway — not modified. Stage 6 not started. Git not executed.
+
+### Next
+
+STAGE5-057 stays **IN_PROGRESS** until user reconfirms manual smoke. Stage 5 not closed.
+
+---
+
 ## STAGE5-057 — FIX REQUIRED — STAGE5-057-SMOKE-001
 
 **Date:** 2026-08-03  
 **Stage:** 5  
-**Status:** DONE (defect fixed; Stage 5 **not** closed)  
+**Status:** SUPERSEDED by additional FIX (display/commercial-path) — see entry above  
 **Module:** `tmp-ui-shell`
 
 ### Smoke defect

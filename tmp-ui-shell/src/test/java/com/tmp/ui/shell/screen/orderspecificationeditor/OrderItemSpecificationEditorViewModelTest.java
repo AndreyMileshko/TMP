@@ -430,14 +430,34 @@ class OrderItemSpecificationEditorViewModelTest {
         OrderItemSpecificationEditorViewModel viewModel =
                 new OrderItemSpecificationEditorViewModel(docs, query, auth(allPerms()));
         viewModel.open(itemId, revision);
-        assertEquals("8.000000", viewModel.orderedQuantityProperty().get());
+        assertEquals("8", viewModel.orderedQuantityProperty().get());
 
         viewModel.saveDraft();
 
         assertEquals("", viewModel.errorMessageProperty().get());
         assertTrue(docs.saveRevisionUpdateCalled);
-        assertEquals("8.000000", docs.lastOrderedQuantity);
+        assertEquals("8", docs.lastOrderedQuantity);
         assertEquals(1, docs.lastSavedLines.size());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"8", "8.0", "8.000000"})
+    void specificationSaveNormalizesWholeScaledQuantities(String rawQuantity) {
+        FakeDocs docs = new FakeDocs();
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot = draftSnapshot(itemId, revision, List.of());
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(docs, query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+        viewModel.orderedQuantityProperty().set(rawQuantity);
+        viewModel.saveDraft();
+
+        assertEquals("", viewModel.errorMessageProperty().get());
+        assertTrue(docs.saveRevisionUpdateCalled);
+        assertEquals("8", docs.lastOrderedQuantity);
+        assertEquals("8", viewModel.orderedQuantityProperty().get());
     }
 
     @Test

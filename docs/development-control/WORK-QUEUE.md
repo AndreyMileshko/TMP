@@ -8957,10 +8957,10 @@ Failure outside Stage 5 scope; packaging broken.
 
 ## STAGE5-057 — Manual GUI Smoke (Order Intake)
 
-**Status:** DONE
+**Status:** IN_PROGRESS — FIX REQUIRED (SMOKE-001 additional fix; awaiting user confirmation)
 **Stage:** 5
 **Depends on:** STAGE5-056
-**Module:** none (manual) / FIX REQUIRED: `tmp-ui-shell` validator only
+**Module:** `tmp-ui-shell` + `tmp-order-management` application UI (`DefaultOrderItemDocumentUiService`)
 
 ### Goal
 
@@ -8970,20 +8970,24 @@ Failure outside Stage 5 scope; packaging broken.
 
 - CONTEXT-MAP group `stage5-order-intake-manual-smoke`;
 - Packaged app; Spec §27 checklist; Manifest exit criteria.
+- FIX REQUIRED: UI/application quantity validation path for commercial draft save.
 
 ### Forbidden context
 
 - Agent launching TMP.exe; Stage 6; closing STAGE5-050 without user; starting Stage 6 before Stage 5 exit criteria.
+- Import Core; STXT Adapter; Domain; Persistence; Flyway.
 
 ### Files allowed to change
 
-- STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG only after user PASS/FAIL.
+- STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG;
+- FIX REQUIRED: `tmp-ui-shell` validator/ViewModels/tests; application UI quantity parse in `tmp-order-management`.
 
 ### Implementation steps
 
 1. Prepare checklist for user.
 2. Wait for user confirmation.
 3. On PASS: close Stage 5 per Manifest §20; do not start Stage 6.
+4. On SMOKE defect: fix UI/application validation; keep STAGE5-057 IN_PROGRESS until user reconfirm.
 
 ### Acceptance criteria
 
@@ -8991,15 +8995,18 @@ Failure outside Stage 5 scope; packaging broken.
 - [ ] STAGE5-050 already DONE;
 - [ ] Stage 5 may be set DONE only after this smoke PASS;
 - [ ] Stage 6 remains NOT STARTED.
+- [x] Automated regression for SMOKE-001 additional fix (awaiting user manual confirm).
 
 ### Required tests
 
-Manual only.
+Manual only for Stage close; automated UI/application regression for SMOKE-001.
 
 ### Required documentation updates
 
-Control docs after user result.
+Control docs after user result; interim docs after FIX REQUIRED.
 
 ### Stop conditions
+
+Do not start Stage 6. Do not mark STAGE5-057 DONE without user confirmation after this fix.
 
 User FAIL or incomplete smoke.

@@ -139,6 +139,34 @@ class DefaultOrderItemDocumentUiServiceTest {
     }
 
     @Test
+    void saveItemCreateDraftAcceptsScaledWholeProductQuantity() {
+        UUID documentId = UUID.randomUUID();
+        DocumentId id = DocumentId.of(documentId);
+        OrderId orderId = OrderId.generate();
+        when(draftPayloads.load(id)).thenReturn(Optional.empty());
+        AtomicReference<OrderDocumentPayload> created = new AtomicReference<>();
+        when(draftPayloads.createDraft(any()))
+                .thenAnswer(
+                        invocation -> {
+                            OrderDocumentPayload payload = invocation.getArgument(0);
+                            created.set(payload);
+                            return payload;
+                        });
+
+        service.saveItemCreateDraft(
+                documentId,
+                orderId,
+                Optional.empty(),
+                OrderItemCommercialDraft.of("P-1", "Panel", null),
+                "8.000000",
+                0L);
+
+        OrderItemCreatePayload payload = (OrderItemCreatePayload) created.get();
+        assertEquals(0, new BigDecimal("8").compareTo(payload.orderedQuantity().value()));
+        assertEquals(0, payload.orderedQuantity().value().scale());
+    }
+
+    @Test
     void saveRevisionUpdateDraftPreservesExistingSpecificationLines() {
         UUID documentId = UUID.randomUUID();
         DocumentId id = DocumentId.of(documentId);

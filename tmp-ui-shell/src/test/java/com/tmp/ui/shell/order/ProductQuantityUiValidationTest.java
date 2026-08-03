@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class ProductQuantityUiValidationTest {
@@ -19,9 +20,19 @@ class ProductQuantityUiValidationTest {
         assertDoesNotThrow(() -> ProductQuantityUiValidation.requireValidProductQuantity(raw));
     }
 
+    @ParameterizedTest
+    @CsvSource({"8,8", "8.0,8", "8.000000,8", "8.000,8", " 8.000000 ,8"})
+    void normalizesWholeQuantitiesToCanonicalIntegerString(String raw, String expected) {
+        assertEquals(
+                expected,
+                ProductQuantityUiValidation.requireValidNormalizedProductQuantity(raw));
+    }
+
     @Test
     void acceptsCommaDecimalWholeQuantity() {
-        assertDoesNotThrow(() -> ProductQuantityUiValidation.requireValidProductQuantity("8,000000"));
+        assertEquals(
+                "8",
+                ProductQuantityUiValidation.requireValidNormalizedProductQuantity("8,000000"));
     }
 
     @ParameterizedTest
@@ -66,5 +77,14 @@ class ProductQuantityUiValidationTest {
         assertTrue(ProductQuantityUiValidation.isWholeNumber(new BigDecimal("8.0")));
         assertFalse(ProductQuantityUiValidation.isWholeNumber(new BigDecimal("8.5")));
         assertFalse(ProductQuantityUiValidation.isWholeNumber(new BigDecimal("0.5")));
+    }
+
+    @Test
+    void formatForDisplayStripsFractionalZerosFromWholeQuantities() {
+        assertEquals("8", ProductQuantityUiValidation.formatForDisplay(new BigDecimal("8.000000")));
+        assertEquals("8", ProductQuantityUiValidation.formatForDisplay(new BigDecimal("8.0")));
+        assertEquals("8", ProductQuantityUiValidation.formatForDisplay(new BigDecimal("8")));
+        assertEquals("8.5", ProductQuantityUiValidation.formatForDisplay(new BigDecimal("8.5")));
+        assertEquals("", ProductQuantityUiValidation.formatForDisplay(null));
     }
 }

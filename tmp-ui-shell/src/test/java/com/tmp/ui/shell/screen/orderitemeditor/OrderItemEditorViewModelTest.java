@@ -425,7 +425,8 @@ class OrderItemEditorViewModelTest {
         OrderItemEditorViewModel viewModel =
                 new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
         viewModel.openExisting(id);
-        assertEquals("8.000000", viewModel.orderedQuantityProperty().get());
+        // NUMERIC(19,6) leftovers must not appear as fractional UI text.
+        assertEquals("8", viewModel.orderedQuantityProperty().get());
 
         viewModel.commentsProperty().set("smoke-comment");
         viewModel.saveCommercialDraft();
@@ -433,6 +434,62 @@ class OrderItemEditorViewModelTest {
         assertEquals("", viewModel.errorMessageProperty().get());
         assertTrue(docs.saveUpdateCalled);
         assertEquals("smoke-comment", docs.lastCommercialDraft.comments());
+    }
+
+    @Test
+    void commercialDraftSaveForImportedItemIgnoresScaledQuantityDisplayLeftovers() {
+        FakeDocs docs = new FakeDocs();
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemId id = OrderItemId.generate();
+        BigDecimal importedQuantity = new BigDecimal("8.000000");
+        query.snapshot =
+                OrderItemEditorSnapshot.of(
+                        id,
+                        OrderId.generate(),
+                        null,
+                        null,
+                        "old-comment",
+                        "1",
+                        OrderItemStatus.DRAFT,
+                        null,
+                        OrderItemEditorSnapshot.RevisionView.of(
+                                RevisionNumber.first(),
+                                RevisionStatus.DRAFT,
+                                importedQuantity,
+                                2),
+                        importedQuantity);
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
+        viewModel.openExisting(id);
+        // Simulate user/manual field still holding scaled text after open.
+        viewModel.orderedQuantityProperty().set("8.000000");
+        viewModel.commentsProperty().set("after-import-comment");
+        viewModel.saveCommercialDraft();
+
+        assertEquals("", viewModel.errorMessageProperty().get());
+        assertTrue(
+                viewModel.successMessageProperty().get().contains("Черновик изменения позиции"));
+        assertTrue(docs.saveUpdateCalled);
+        assertEquals("after-import-comment", docs.lastCommercialDraft.comments());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"8", "8.0", "8.000000"})
+    void createCommercialDraftAcceptsWholeScaledQuantities(String rawQuantity) {
+        FakeDocs docs = new FakeDocs();
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
+        viewModel.openCreate(OrderId.generate());
+        viewModel.productCodeProperty().set("P-1");
+        viewModel.nameProperty().set("Panel");
+        viewModel.orderedQuantityProperty().set(rawQuantity);
+        viewModel.saveCommercialDraft();
+
+        assertEquals("", viewModel.errorMessageProperty().get());
+        assertTrue(docs.saveCreateCalled);
+        assertEquals("8", docs.lastOrderedQuantity);
+        assertEquals("8", viewModel.orderedQuantityProperty().get());
     }
 
     private static Set<PermissionId> allItemPerms() {
@@ -518,6 +575,7 @@ class OrderItemEditorViewModelTest {
         private UUID lastDocumentId = UUID.randomUUID();
         private RuntimeException failPost;
         private OrderItemCommercialDraft lastCommercialDraft;
+        private String lastOrderedQuantity;
 
         @Override
         public UUID beginItemCreate(String title, OrderId orderId) {
@@ -572,6 +630,7 @@ class OrderItemEditorViewModelTest {
                 long expectedPayloadRevision) {
             saveCreateCalled = true;
             lastCommercialDraft = draft;
+            lastOrderedQuantity = orderedQuantity;
             return expectedPayloadRevision + 1;
         }
 

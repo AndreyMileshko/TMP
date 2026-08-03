@@ -124,7 +124,8 @@ Read only:
 - релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030** (ADR document **v1.6**);
 - Production Specification (v1.1) — **только** разделы владения производственным состоянием, связи с `Order Item ID`/`Revision`, Public API, Domain Events и интеграции с Order Management (для корректной границы; не для реализации Production).
 
-Миграции Order Management (факт): latest = **V12**. Next available = **V13**. `STAGE5-057` = **DONE** (FIX REQUIRED `STAGE5-057-SMOKE-001`); Stage 5 overall remains **IN_PROGRESS** (not closed).
+Миграции Order Management (факт): latest = **V12**. Next available = **V13**. `STAGE5-057` = **IN_PROGRESS** (FIX REQUIRED `STAGE5-057-SMOKE-001` additional fix applied; awaiting user manual confirmation); Stage 5 overall remains **IN_PROGRESS** (not closed).
+
 
 Разрешённый минимальный code context (публичные API только):
 

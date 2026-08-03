@@ -233,7 +233,10 @@ public final class OrderItemSpecificationEditorViewModel {
             return;
         }
         try {
-            ProductQuantityUiValidation.requireValidProductQuantity(orderedQuantity.get());
+            String quantity =
+                    ProductQuantityUiValidation.requireValidNormalizedProductQuantity(
+                            orderedQuantity.get());
+            orderedQuantity.set(quantity);
             List<OrderItemSpecificationLineDraft> drafts = toDrafts();
             if (documentId == null) {
                 documentId =
@@ -246,7 +249,7 @@ public final class OrderItemSpecificationEditorViewModel {
                             documentId,
                             orderItemId,
                             revisionNumber,
-                            orderedQuantity.get(),
+                            quantity,
                             drafts,
                             payloadRevision);
             clearDirty();
@@ -450,7 +453,8 @@ public final class OrderItemSpecificationEditorViewModel {
         title.set("Спецификация редакции " + revisionNumber.value());
         revisionNumberText.set(Integer.toString(revisionNumber.value()));
         revisionStatusText.set(revisionStatus.name());
-        setOrderedQuantityWithoutDirty(snapshot.orderedQuantity().toPlainString());
+        setOrderedQuantityWithoutDirty(
+                ProductQuantityUiValidation.formatForDisplay(snapshot.orderedQuantity()));
         lines.setAll(toRows(snapshot.lines()));
         if (lines.isEmpty()) {
             selectedIndex.set(-1);

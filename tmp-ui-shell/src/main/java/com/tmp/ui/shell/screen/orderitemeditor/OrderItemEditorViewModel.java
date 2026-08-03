@@ -174,8 +174,12 @@ public final class OrderItemEditorViewModel {
         clearMessages();
         try {
             OrderItemCommercialDraft draft = currentCommercialDraft();
-            ProductQuantityUiValidation.requireValidProductQuantity(orderedQuantity.get());
             if (mode.get() == Mode.CREATE) {
+                // CREATE payload owns orderedQuantity / productQuantity.
+                String quantity =
+                        ProductQuantityUiValidation.requireValidNormalizedProductQuantity(
+                                orderedQuantity.get());
+                orderedQuantity.set(quantity);
                 if (documentId == null) {
                     documentId =
                             itemDocuments.beginItemCreate(
@@ -189,10 +193,13 @@ public final class OrderItemEditorViewModel {
                                 orderId,
                                 Optional.ofNullable(orderItemId),
                                 draft,
-                                orderedQuantity.get(),
+                                quantity,
                                 payloadRevision);
                 showSuccess("Черновик документа позиции сохранён");
             } else {
+                // ITEM_UPDATE commercial draft does not carry orderedQuantity; quantity changes
+                // go through REVISION_UPDATE. Do not reject save based on display scale leftovers
+                // such as "8.000000" from NUMERIC(19,6).
                 if (orderItemId == null || itemStatus != OrderItemStatus.DRAFT) {
                     showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
                     return;
@@ -304,7 +311,10 @@ public final class OrderItemEditorViewModel {
                 errorMessage.set("Нет черновой редакции для изменения количества");
                 return;
             }
-            ProductQuantityUiValidation.requireValidProductQuantity(orderedQuantity.get());
+            String quantity =
+                    ProductQuantityUiValidation.requireValidNormalizedProductQuantity(
+                            orderedQuantity.get());
+            orderedQuantity.set(quantity);
             if (documentId == null || pendingKind != DocumentKind.REVISION_UPDATE) {
                 documentId =
                         itemDocuments.beginRevisionUpdate(
@@ -317,7 +327,7 @@ public final class OrderItemEditorViewModel {
                             documentId,
                             orderItemId,
                             draftRevisionNumber,
-                            orderedQuantity.get(),
+                            quantity,
                             payloadRevision);
             showSuccess("Черновик изменения количества сохранён");
             refreshActionFlags();
@@ -542,14 +552,15 @@ public final class OrderItemEditorViewModel {
         name.set(nullToEmpty(snapshot.name()));
         comments.set(nullToEmpty(snapshot.comments()));
         externalPositionNumber.set(nullToEmpty(snapshot.externalPositionNumber()));
-        orderedQuantity.set(snapshot.orderedQuantity().toPlainString());
+        orderedQuantity.set(ProductQuantityUiValidation.formatForDisplay(snapshot.orderedQuantity()));
         activeRevisionText.set(
                 snapshot.activeRevision()
                         .map(
                                 view ->
                                         view.revisionNumber().value()
                                                 + " / "
-                                                + view.orderedQuantity().toPlainString())
+                                                + ProductQuantityUiValidation.formatForDisplay(
+                                                        view.orderedQuantity()))
                         .orElse("—"));
         draftRevisionText.set(
                 snapshot.draftRevision()
@@ -557,7 +568,8 @@ public final class OrderItemEditorViewModel {
                                 view ->
                                         view.revisionNumber().value()
                                                 + " / "
-                                                + view.orderedQuantity().toPlainString()
+                                                + ProductQuantityUiValidation.formatForDisplay(
+                                                        view.orderedQuantity())
                                                 + " ("
                                                 + view.status().name()
                                                 + ")")
