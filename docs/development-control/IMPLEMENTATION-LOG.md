@@ -4,6 +4,37 @@
 
 ---
 
+## STAGE5-057 — Manual GUI Smoke Completion
+
+**Date:** 2026-08-03  
+**Stage:** 5  
+**Status:** DONE  
+**Module:** none (documentary closure only)
+
+### Result
+
+User Manual GUI Smoke PASS on packaged TMP (Windows / PostgreSQL `tmp-stage5-pg` / DB `tmp_gui_stage5` / admin).
+
+- Import STXT `Альпы 25062026.stxt` → order `26062891` (5 positions, 24 products, 20 spec lines).
+- Persistence after restart verified.
+- Quantity rule verified: `productQuantity` and `lineQuantity` are independent (no `8 × 16`).
+- `STAGE5-057-SMOKE-001` = **FIXED AND VERIFIED** (commercial draft / specification save after import).
+
+### Status transitions
+
+- `STAGE5-057` = DONE  
+- Stage 5 = DONE  
+- Stage 6 = NOT STARTED  
+- STAGE5-058 not created / not implemented  
+
+**Next planned improvement (not a work-queue task):** Imported Order Lifecycle Rules.
+
+### Unchanged in this closure
+
+No production code, lifecycle, Import Core, STXT, UI, Document Engine, Flyway. Git not executed.
+
+---
+
 ## STAGE5-057 — FIX REQUIRED — STAGE5-057-SMOKE-001 (cycle 2)
 
 **Date:** 2026-08-03  

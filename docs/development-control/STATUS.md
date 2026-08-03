@@ -3,8 +3,8 @@
 **Mode:** Autonomous Cursor Agent  
 **Project status:** IN_PROGRESS  
 **Current Stage:** Stage 5 — Order Management  
-**Current Task:** STAGE5-057 — IN_PROGRESS (STAGE5-057-SMOKE-001 fixed in source; awaiting user manual reconfirm)  
-**Last completed task:** STAGE5-056  
+**Current Task:** none (Stage 5 closed)  
+**Last completed task:** STAGE5-057  
 **Active blockers:** NONE  
 
 ```text
@@ -16,12 +16,13 @@ STAGE5-053 = DONE
 STAGE5-054 = DONE
 STAGE5-055 = DONE
 STAGE5-056 = DONE
-STAGE5-057 = IN_PROGRESS — FIX REQUIRED (SMOKE-001 fixed; await user confirm)
-Stage 5 Core Order Management = IMPLEMENTED — MANUAL SMOKE PASS
-Stage 5 Order Intake Extension = IN_PROGRESS (STAGE5-057 pending user reconfirm)
-Stage 5 = IN_PROGRESS
+STAGE5-057 = DONE (Manual GUI Smoke — PASS; STAGE5-057-SMOKE-001 FIXED AND VERIFIED)
+Stage 5 Core Order Management = DONE
+Stage 5 Order Intake Extension = DONE
+Stage 5 = DONE
 Stage 6 = NOT STARTED
 Active blockers = NONE
+Next planned improvement = Imported Order Lifecycle Rules (not scheduled as STAGE5-058; not started)
 ```
 
 ---
@@ -35,7 +36,7 @@ Active blockers = NONE
 | 2 | Document Engine | DONE | 100% |
 | 3 | Capability Engine | DONE | 100% |
 | 4 | Security | DONE | 100% |
-| 5 | Order Management | IN_PROGRESS | split (see below) |
+| 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | NOT STARTED | 0% |
 | 7 | Production | NOT STARTED | 0% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
@@ -47,14 +48,16 @@ Active blockers = NONE
 
 | Part | Status |
 |---|---|
-| Core Order Management (`STAGE5-001..050`) | IMPLEMENTED — MANUAL SMOKE PASS |
-| Order Intake Extension (`STAGE5-051..057`) | `STAGE5-051..056` DONE; `STAGE5-057` IN_PROGRESS |
-| Stage 5 overall | IN_PROGRESS |
+| Core Order Management (`STAGE5-001..050`) | DONE |
+| Order Intake Extension (`STAGE5-051..057`) | DONE |
+| Stage 5 overall | DONE |
 
-`STAGE5-057-SMOKE-001` fixed in source/package rebuild. **STAGE5-057 stays IN_PROGRESS** until user manual confirmation. Stage 5 not closed. Stage 6 = NOT STARTED.
+`STAGE5-057` = **DONE** after Manual GUI Smoke PASS (2026-08-03). `STAGE5-057-SMOKE-001` = **FIXED AND VERIFIED**. Stage 6 = NOT STARTED. STAGE5-058 not created / not current.
+
+**Next planned improvement (not a task):** Imported Order Lifecycle Rules.
 
 ---
 
-**Stage 0–4:** DONE 100%.
+**Stage 0–5:** DONE.
 
-**Далее:** User retests with rebuilt `dist/jpackage/TMP/TMP.exe`. Git — только пользователь.
+**Далее:** Stage 6 remains NOT STARTED until Start Gate. Git — только пользователь.

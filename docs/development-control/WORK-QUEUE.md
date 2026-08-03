@@ -8957,10 +8957,10 @@ Failure outside Stage 5 scope; packaging broken.
 
 ## STAGE5-057 — Manual GUI Smoke (Order Intake)
 
-**Status:** IN_PROGRESS — FIX REQUIRED (STAGE5-057-SMOKE-001 fixed; awaiting user confirmation)
+**Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-056
-**Module:** `tmp-ui-shell` + `tmp-order-management` application UI (`DefaultOrderItemDocumentUiService`)
+**Module:** none (manual) / prior FIX REQUIRED: `tmp-ui-shell` + application UI quantity normalization
 
 ### Goal
 
@@ -8970,17 +8970,18 @@ Failure outside Stage 5 scope; packaging broken.
 
 - CONTEXT-MAP group `stage5-order-intake-manual-smoke`;
 - Packaged app; Spec §27 checklist; Manifest exit criteria.
-- FIX REQUIRED: UI/application quantity validation path for commercial draft save.
+- FIX REQUIRED (completed earlier): UI/application quantity validation path for commercial draft save.
 
 ### Forbidden context
 
-- Agent launching TMP.exe; Stage 6; closing STAGE5-050 without user; starting Stage 6 before Stage 5 exit criteria.
-- Import Core; STXT Adapter; Domain; Persistence; Flyway.
+- Agent launching TMP.exe; Stage 6; starting Stage 6 before Stage 5 exit criteria.
+- Changing Order lifecycle / ACTIVE-DRAFT statuses as part of this smoke closure.
+- Import Core; STXT Adapter; Domain; Persistence; Flyway (for documentary closure).
 
 ### Files allowed to change
 
-- STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG;
-- FIX REQUIRED: `tmp-ui-shell` validator/ViewModels/tests; application UI quantity parse in `tmp-order-management`.
+- STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG after user PASS/FAIL.
+- FIX REQUIRED (already done): `tmp-ui-shell` / application UI quantity path — **not** changed in documentary closure.
 
 ### Implementation steps
 
@@ -8991,22 +8992,25 @@ Failure outside Stage 5 scope; packaging broken.
 
 ### Acceptance criteria
 
-- [ ] User PASS on Order Intake checklist;
-- [ ] STAGE5-050 already DONE;
-- [ ] Stage 5 may be set DONE only after this smoke PASS;
-- [ ] Stage 6 remains NOT STARTED.
-- [x] Automated regression for SMOKE-001 additional fix (awaiting user manual confirm).
+- [x] User PASS on Order Intake checklist (2026-08-03);
+- [x] STAGE5-050 already DONE;
+- [x] Stage 5 set DONE after this smoke PASS;
+- [x] Stage 6 remains NOT STARTED;
+- [x] `STAGE5-057-SMOKE-001` FIXED AND VERIFIED;
+- [x] STAGE5-058 not started / not added as current task.
 
 ### Required tests
 
-Manual only for Stage close; automated UI/application regression for SMOKE-001.
+Manual GUI Smoke — PASS (2026-08-03). Automated SMOKE-001 regression retained from FIX REQUIRED.
 
 ### Required documentation updates
 
-Control docs after user result; interim docs after FIX REQUIRED.
+Control docs after user PASS — completed.
+
+### Result
+
+Manual GUI Smoke PASS. Stage 5 closed. Stage 6 = NOT STARTED. Next planned improvement (not scheduled): Imported Order Lifecycle Rules.
 
 ### Stop conditions
 
-Do not start Stage 6. Do not mark STAGE5-057 DONE without user confirmation after this fix.
-
-User FAIL or incomplete smoke.
+User FAIL or incomplete smoke — N/A (PASS recorded).

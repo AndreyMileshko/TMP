@@ -3,42 +3,54 @@
 ## Latest result
 
 **Date:** 2026-08-03  
-**Scope:** STAGE5-057 — FIX REQUIRED cycle 2 — `STAGE5-057-SMOKE-001 fixed`  
-**Overall:** AUTOMATED PASS + package rebuilt; **awaiting user manual reconfirm**; Stage 5 **not** closed
+**Scope:** STAGE5-057 — Manual GUI Smoke Completion (Order Intake)  
+**Overall:** PASS  
+**Type:** Manual GUI Smoke  
+**Environment:** Windows; packaged TMP; PostgreSQL Docker `tmp-stage5-pg`; DB `tmp_gui_stage5`; user `admin`
 
 | Item | Result |
 |---|---|
-| Defect ID | `STAGE5-057-SMOKE-001` |
-| Error message source | `ProductQuantityUiValidation` only on commercial-draft UI path (Import validator unused here) |
-| Why retest still failed | Stale packaged `TMP.exe` without prior source fixes |
-| Cycle-2 fix | Query-layer scale-0 projection + commercial UPDATE never blocks on quantity + rebuild jpackage |
-| Focused tests | PASS — 26 (order-management) + 72 (ui-shell) |
-| `dist/jpackage/TMP/TMP.exe` | Rebuilt 2026-08-03 14:46 |
-| Import Core / STXT / Domain / Persistence / Flyway | UNCHANGED |
-| STAGE5-057 | IN_PROGRESS (await user) |
-| Stage 5 | IN_PROGRESS (not closed) |
+| STAGE5-057 | DONE |
+| Stage 5 | DONE |
 | Stage 6 | NOT STARTED |
+| STAGE5-058 | NOT CREATED / NOT STARTED |
+| `STAGE5-057-SMOKE-001` | FIXED AND VERIFIED |
+| Production code changed this closure | NONE |
 | Git | NOT EXECUTED |
 
-### Test matrix
+### Smoke steps
 
-| Input / scenario | Expected | Result |
-|---|---|---|
-| `8` | PASS | PASS |
-| `8.0` | PASS | PASS |
-| `8.000000` | PASS | PASS |
-| `8.5` / `0` / `-1` | FAIL | PASS (rejected) |
-| Imported DRAFT open → field shows `8` | PASS | PASS |
-| Imported DRAFT save commercial without quantity change | PASS | PASS |
-| Editor query `8.000000` → snapshot `"8"` scale 0 | PASS | PASS |
+| # | Step | Expected | Actual | Result |
+|---:|---|---|---|---|
+| 1 | PostgreSQL started (`tmp-stage5-pg`) | DB available | Started successfully | PASS |
+| 2 | Launch `TMP.exe` | App starts | Started | PASS |
+| 3 | Login window | Opens | Opened | PASS |
+| 4 | Login as `admin` | Success | Success | PASS |
+| 5 | Open «Заказы» | Section opens | Opened | PASS |
+| 6 | «Импорт заказа» | Button available | Available | PASS |
+| 7 | Import GUI | Opens | Opened | PASS |
+| 8 | Select STXT `Альпы 25062026.stxt` | File selected | Selected | PASS |
+| 9 | Preview | Order `26062891`; 5 positions; 24 products; 20 spec lines; 0 errors; 0 warnings | As expected | PASS |
+| 10 | Confirm import | Order imported; 5 positions; 20 spec lines | «Заказ 26062891 успешно импортирован»; 5 / 20 | PASS |
+| 11 | Open created order | Number / order / items accessible | Verified | PASS |
+| 12 | Item check | `externalPositionNumber`, `productQuantity`, item status, incomplete commercial DRAFT | Verified | PASS |
+| 13 | Specification check | `materialCode`, `materialName`, `color`, `lengthMm`, `lineQuantity`, UoM `шт` | Verified | PASS |
+| 14 | Quantity rule | `productQuantity=8`, `lineQuantity=16`; **not** `8 × 16` | Independent quantities confirmed | PASS |
+| 15 | Restart persistence | Order / items / specification available after app close | Available | PASS |
+| 16 | `STAGE5-057-SMOKE-001` | Imported item save commercial draft + specification save | Opens; commercial draft saves; specification saves | PASS |
 
-### Manual reconfirm (user)
+### Defect closure
 
-1. Launch **rebuilt** `dist/jpackage/TMP/TMP.exe` (timestamp ~14:46).
-2. Import STXT → order `26062891` → open first item.
-3. Expect quantity field **`8`** (not `8.000000`).
-4. «Сохранить коммерческий черновик» without editing quantity → SUCCESS.
-5. Report PASS/FAIL to agent. Do not close Stage 5 until then.
+| Defect ID | Status |
+|---|---|
+| `STAGE5-057-SMOKE-001` | FIXED AND VERIFIED |
+
+Symptom was imported `productQuantity=8.000000` blocking commercial draft save; fix verified in packaged GUI smoke.
+
+### Notes
+
+- Order lifecycle / ACTIVE–DRAFT statuses were **not** changed in this documentary closure.
+- Next planned improvement (not scheduled as STAGE5-058): Imported Order Lifecycle Rules.
 
 ---
 
