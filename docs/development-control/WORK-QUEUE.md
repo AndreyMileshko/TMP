@@ -8581,7 +8581,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 # Stage 5 Extension — Order Intake MVP
 
-> `STAGE5-050 = DONE (PASS)`. `STAGE5-051..054 = DONE`. `STAGE5-055…057` = NOT STARTED. Stage 5 closes only after `STAGE5-057`. Stage 6 remains NOT STARTED.
+> `STAGE5-050..057 = DONE`. Post-closure: `STAGE5-058 = READY` (Imported Order Lifecycle Rules — implementation NOT STARTED). Stage 6 remains NOT STARTED.
 
 ## STAGE5-051 — Order Item and Specification Contracts
 
@@ -9009,8 +9009,108 @@ Control docs after user PASS — completed.
 
 ### Result
 
-Manual GUI Smoke PASS. Stage 5 closed. Stage 6 = NOT STARTED. Next planned improvement (not scheduled): Imported Order Lifecycle Rules.
+Manual GUI Smoke PASS. Stage 5 closed. Stage 6 = NOT STARTED. Next: STAGE5-058 (READY) — Imported Order Lifecycle Rules.
 
 ### Stop conditions
 
 User FAIL or incomplete smoke — N/A (PASS recorded).
+
+---
+
+## STAGE5-058 — Imported Order Lifecycle Rules
+
+**Status:** READY  
+**Stage:** 5 (post-closure improvement)  
+**Depends on:** STAGE5-057  
+**Module:** `tmp-order-management` (primary); `tmp-ui-shell` (read-only UI); Flyway `V13+` if needed
+
+### Goal
+
+Реализовать ADR-031: после успешного импорта из расчётной программы заказ является доверенным эталоном и завершается в downstream-ready состоянии (`Order ACTIVE`, items `ACTIVE`, revisions `APPROVED` Immutable spec) с `OrderOrigin = IMPORTED` и полным UI read-only — без старта Stage 6 и без изменения архитектуры вне Scope.
+
+### Required documents
+
+- `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` — **ADR-031** (также ADR-029/030 уточнения);
+- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` **v1.4** — §8, §9, §13, §27.6/§27.7/§27.10;
+- `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` — §4, §7, §17, §21–22;
+- `docs/development-control/CONTEXT-MAP.md` — Stage 5 context;
+- Constitution принцип 28 / ADR-004 (изменения только через документы) — релевантные абзацы.
+
+### Required code context
+
+- `com.tmp.order.api.OrderStatus`, `OrderDto`, `OrderQueryService`;
+- `com.tmp.order.domain.CustomerOrder`, `OrderItem`, `OrderItemRevision`;
+- `com.tmp.order.application.imports.DefaultOrderImportService` (+ metadata);
+- Document processors: order/item create + revision update/approve;
+- UI order/item/specification editors in `tmp-ui-shell` (read-only wiring);
+- Existing import IT / UI snapshot contracts.
+
+### Allowed code scope
+
+- `tmp-order-management/**` (domain, application import/document, persistence, api DTO/events, capability if permission wiring needed);
+- `tmp-ui-shell/**` — только read-only / origin display для imported ACTIVE;
+- `tmp-infra-db` / Flyway migrations **V13+** (origin column, order status enum extension) при необходимости;
+- `tmp-architecture-tests/**` — только если границы затронуты;
+- control docs: STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
+
+### Forbidden
+
+- Stage 6 Warehouse / Production implementation;
+- Firebird / merge-overwrite existing order / re-import-as-update;
+- изменение STXT parser semantics unrelated to lifecycle landing;
+- введение долгоживущего `OrderStatus.IMPORT`;
+- rename `RevisionStatus.APPROVED` → `ACTIVE`;
+- placeholders / фиктивная коммерция;
+- Git-операции (выполняет пользователь);
+- расширение Scope на полный manual `ORDER_ACTIVATE` UI, если task-size превышен — вынести follow-up READY task, оставив контракт ADR-031.
+
+### Implementation requirements
+
+1. Добавить durable `OrderOrigin` (`MANUAL`|`IMPORTED`) на Customer Order; MANUAL на `ORDER_CREATE`; IMPORTED на import confirm.
+2. Расширить `OrderStatus` значением `ACTIVE`.
+3. Изменить import confirm: одна транзакция → Order `ACTIVE` + Items `ACTIVE` + Revisions `APPROVED` + Immutable spec + metadata (эквивалент `IMPORT→ACTIVE`).
+4. Domain guards: IMPORTED ACTIVE — запрет edit / qty / spec / `ORDER_ITEM_REVISION_CREATE`.
+5. Query API: expose `origin` (+ optional `readOnly`); UI read-only для IMPORTED ACTIVE.
+6. ADR-030 commercial gates не блокируют trusted import activation; MANUAL path без регрессии.
+7. Events после commit согласованы со Spec (минимум create + activation-equivalent для items/revisions).
+8. Миграция существующих тестовых DRAFT-import данных — политика в VERIFICATION-LOG (re-import или one-off note); без silent destructive prod migration assumptions.
+9. При нехватке task-size: manual `ORDER_ACTIVATE` (`APPROVED→ACTIVE`) — отдельная follow-up задача со статусом READY; контракт уже в Spec/ADR.
+
+### Acceptance criteria
+
+- [ ] ADR-031 отражён в коде: import confirm → IMPORTED + ACTIVE landing;
+- [ ] Manual incomplete DRAFT + approve path без регрессии (ADR-030);
+- [ ] UI: импортированный ACTIVE полностью read-only; попытки мутаций отклоняются доменом;
+- [ ] Новая Revision на IMPORTED ACTIVE запрещена;
+- [ ] Query API возвращает `origin`;
+- [ ] Все verification commands PASS;
+- [ ] Stage 6 остаётся NOT STARTED;
+- [ ] Нет изменений вне Allowed code scope.
+
+### Required tests
+
+- Domain: origin immutability; IMPORTED ACTIVE rejection of edit/qty/spec/revision-create;
+- Import IT: confirm lands ACTIVE/IMPORTED; atomic rollback; duplicate/conflict unchanged;
+- Manual path regression: DRAFT incomplete → approve still requires commercial fields;
+- Query API: origin exposed; public revisions still only APPROVED;
+- UI/application: read-only flag / snapshots for imported ACTIVE;
+- Architecture: adapter still does not write aggregates directly.
+
+### Verification commands
+
+```bash
+mvn -q -pl tmp-order-management -am test
+mvn -q -pl tmp-architecture-tests -am test
+mvn -q verify
+```
+
+(Дополнительно focused IT import/lifecycle — по факту тестовых классов задачи.)
+
+### Documentation updates
+
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG;
+- Spec/ADR уже подготовлены (v1.4 / ADR-031); при уточнении реализации — точечная синхронизация §13 events/permissions.
+
+### Stop conditions
+
+Blocker if ADR/Spec conflict unresolved; verification failure outside Scope; any attempt to start Stage 6.

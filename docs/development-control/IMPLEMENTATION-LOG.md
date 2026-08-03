@@ -4,6 +4,31 @@
 
 ---
 
+## STAGE5-058 — Documentary preparation (Imported Order Lifecycle Rules)
+
+**Date:** 2026-08-03  
+**Stage:** 5 (post-closure)  
+**Status:** READY (implementation NOT STARTED)  
+**Module:** none (documentation / ADR / Spec / queue only)
+
+### Result
+
+Подготовлена задача и согласованный дизайн lifecycle для доверенного импорта из расчётной программы.
+
+- Added **ADR-031** (ADR document **v1.7**).
+- Order Management Specification → **v1.4** (§8/§9/§13/§27).
+- Stage 5 Manifest updated (§4, §7, §17, §21–22).
+- WORK-QUEUE: `STAGE5-058` = **READY**.
+- STATUS / CONTEXT-MAP синхронизированы.
+- Production code / Import Core / UI / Flyway **не изменялись**.
+- Stage 6 = **NOT STARTED**.
+
+### Next
+
+Взять `STAGE5-058` в `IN_PROGRESS` только при явном продолжении реализации (не в этой documentary-подготовке).
+
+---
+
 ## STAGE5-057 — Manual GUI Smoke Completion
 
 **Date:** 2026-08-03  

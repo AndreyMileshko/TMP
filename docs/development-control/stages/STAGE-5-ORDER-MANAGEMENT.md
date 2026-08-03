@@ -1,9 +1,9 @@
 # Stage 5 Manifest — Order Management
 
 **Stage:** 5 — Order Management  
-**Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.3)  
-**ADR document:** `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` (v1.6; ADR-028, ADR-029, ADR-030)  
-**Status:** Implementation IN_PROGRESS; STAGE5-050 DONE — PASS; STAGE5-051 DONE; STAGE5-052 DONE; STAGE5-052A DONE; STAGE5-053 DONE; STAGE5-054 DONE; STAGE5-055 DONE; STAGE5-056 DONE; STAGE5-057 NOT STARTED.
+**Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.4)  
+**ADR document:** `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` (v1.7; ADR-028, ADR-029, ADR-030, ADR-031)  
+**Status:** Core + Order Intake DONE (`STAGE5-001..057`); post-closure `STAGE5-058` = READY (Imported Order Lifecycle Rules — implementation NOT STARTED). Stage 6 = NOT STARTED.
 
 ---
 
@@ -18,9 +18,9 @@
 ## 2. Входные условия
 
 - Stage 0–4 завершены (DONE 100%); нет открытых блокеров Stage 0–4.
-- Order Management Specification = **v1.3**; Constitution v1.2; ADR = **v1.6** (ADR-028, ADR-029, ADR-030).
+- Order Management Specification = **v1.4**; Constitution v1.2; ADR = **v1.7** (ADR-028, ADR-029, ADR-030, ADR-031).
 - Подтверждённая транзакционная граница Document Engine (processor внутри транзакции проведения; события после commit).
-- **Фактические миграции Order Management:** `V6`…`V11`. Текущая последняя = **V11** (`V11__order_item_incomplete_draft_contract.sql`).
+- **Фактические миграции Order Management:** latest = **V12**. Next available = **V13** (для `STAGE5-058` при необходимости).
 - Reactor: `tmp-platform-core`, `tmp-infra-db`, `tmp-document-engine`, `tmp-capability-engine`, `tmp-security`, `tmp-ui-shell`, `tmp-bootstrap-app`, `tmp-architecture-tests`, `tmp-order-management`.
 
 ---
@@ -39,14 +39,15 @@
 
 ## 4. Реализуемые агрегаты
 
-- **Customer Order** (`OrderId`): `DRAFT`/`APPROVED`/`CANCELLED`.
+- **Customer Order** (`OrderId`): `DRAFT`/`APPROVED`/`ACTIVE`/`CANCELLED`; durable `OrderOrigin` = `MANUAL`|`IMPORTED` (ADR-031).
 - **Order Item** (`OrderItemId`): `DRAFT`/`ACTIVE`/`CANCELLED`; `activeRevisionNumber`, `draftRevisionNumber`.
-- **Order Item Revision** (`OrderItemId + RevisionNumber`): `DRAFT`/`APPROVED`; active/draft разделены.
-- **Item Specification** (в границе Revision): Immutable после утверждения.
+- **Order Item Revision** (`OrderItemId + RevisionNumber`): `DRAFT`/`APPROVED`; active/draft разделены (отдельный Revision status `ACTIVE` не вводится).
+- **Item Specification** (в границе Revision): Immutable после утверждения / сразу Immutable для trusted import.
 
 Границы транзакций: Customer Order — собственная; Order Item + Revisions + Specifications — единая граница агрегата.
 
-**ADR-030:** `DRAFT` может временно не содержать обязательные коммерческие поля; `ORDER_APPROVE` требует их заполнения.
+**ADR-030:** для `MANUAL` — `DRAFT` может временно не содержать обязательные коммерческие поля; `ORDER_APPROVE` требует их заполнения.  
+**ADR-031:** успешный импорт → `OrderOrigin=IMPORTED`, Order/Item `ACTIVE`, Revision `APPROVED`, Specification Immutable; UI read-only; новая Revision на IMPORTED запрещена.
 
 ---
 
@@ -76,7 +77,7 @@
 
 ## 7. Бизнес-документы
 
-`ORDER_CREATE`, `ORDER_UPDATE`, `ORDER_APPROVE`, `ORDER_CANCEL`, `ORDER_ITEM_CREATE`, `ORDER_ITEM_UPDATE`, `ORDER_ITEM_REVISION_UPDATE`, `ORDER_ITEM_REVISION_APPROVE`, `ORDER_ITEM_CANCEL`, `ORDER_ITEM_REVISION_CREATE`.
+`ORDER_CREATE`, `ORDER_UPDATE`, `ORDER_APPROVE`, `ORDER_ACTIVATE` (ADR-031, manual `APPROVED→ACTIVE`), `ORDER_CANCEL`, `ORDER_ITEM_CREATE`, `ORDER_ITEM_UPDATE`, `ORDER_ITEM_REVISION_UPDATE`, `ORDER_ITEM_REVISION_APPROVE`, `ORDER_ITEM_CANCEL`, `ORDER_ITEM_REVISION_CREATE`. Trusted import activation — orchestration confirm (не отдельный Firebird/SQL path).
 
 Для каждого: typed payload, schema version, application command, affected aggregate, required capability, validation, result, Domain Event, idempotency key (`DocumentId + POST`) и lifecycle policy — Specification §13/§14. `ORDER_ITEM_UPDATE` — только коммерческие поля позиции; `ORDER_ITEM_REVISION_UPDATE` — только Draft Revision.
 
@@ -169,20 +170,21 @@
 
 ### Order Intake extension
 
-Строгая последовательность. `STAGE5-051` = **DONE**. `STAGE5-052` = **DONE**. `STAGE5-052A` = **DONE**. `STAGE5-053` = **DONE**. `STAGE5-054` = **DONE**. `STAGE5-055` = **DONE**. `STAGE5-056` = **DONE**. Следующая: `STAGE5-057` = **NOT STARTED**.
+Строгая последовательность. `STAGE5-051..057` = **DONE**. Stage 5 core+intake closed. Post-closure:
 
-| ID | Title |
-| --- | --- |
-| STAGE5-051 | Order Item and Specification Contracts |
-| STAGE5-052 | Manual Entry UI |
-| STAGE5-052A | Imported Draft Item Commercial Contract |
-| STAGE5-053 | Import Core |
-| STAGE5-054 | STXT File Adapter |
-| STAGE5-055 | Import GUI |
-| STAGE5-056 | Automated Verification |
-| STAGE5-057 | Manual GUI Smoke (Order Intake) |
+| ID | Title | Status |
+| --- | --- | --- |
+| STAGE5-051 | Order Item and Specification Contracts | DONE |
+| STAGE5-052 | Manual Entry UI | DONE |
+| STAGE5-052A | Imported Draft Item Commercial Contract | DONE |
+| STAGE5-053 | Import Core | DONE |
+| STAGE5-054 | STXT File Adapter | DONE |
+| STAGE5-055 | Import GUI | DONE |
+| STAGE5-056 | Automated Verification | DONE |
+| STAGE5-057 | Manual GUI Smoke (Order Intake) | DONE |
+| STAGE5-058 | Imported Order Lifecycle Rules | READY |
 
-Порядок: 050 DONE → 051 → 052 → 052A → 053 → 054 → 055 → 056 → 057. Одновременно только одна задача `IN_PROGRESS`. Финальное закрытие Stage 5 — только после `STAGE5-057` и итоговой ручной проверки.
+Порядок: 050 DONE → 051 → … → 057 DONE → **058 READY**. Одновременно только одна задача `IN_PROGRESS`. `STAGE5-058` не стартует Stage 6.
 
 `TransactionalEventPublisher` уже реализован ранее.
 
@@ -224,4 +226,13 @@ Stage 5 завершён только когда:
 
 ## 21. Decisions for Order Intake
 
-- **ADR-030 / бывший blocker `STAGE5-INTAKE-COMMERCIAL-DRAFT`:** RESOLVED — incomplete commercial data allowed only in DRAFT (order-level and item-level `productCode`/`name`); approval requires all mandatory commercial fields; placeholders prohibited. Item-level incompleteness gated by `STAGE5-052A` before Import Core.
+- **ADR-030 / бывший blocker `STAGE5-INTAKE-COMMERCIAL-DRAFT`:** RESOLVED — incomplete commercial data allowed only in DRAFT for **MANUAL** path (order-level and item-level `productCode`/`name`); approval requires all mandatory commercial fields; placeholders prohibited. Item-level incompleteness gated by `STAGE5-052A` before Import Core.
+- **ADR-031 / STAGE5-058:** trusted calculation import lands on `ACTIVE` with `OrderOrigin=IMPORTED`; read-only; no new Revision; ADR-030 commercial gates do not block imported activation; manual target path `DRAFT→APPROVED→ACTIVE`. Design docs prepared; **code unchanged until STAGE5-058 implementation**.
+
+## 22. Post-closure — STAGE5-058
+
+**Goal:** реализовать ADR-031 без старта Stage 6.
+
+**Affected modules (planned):** `tmp-order-management` (domain/application/persistence/api), `tmp-ui-shell` (read-only), Flyway `V13+`, tests in `tmp-order-management` / architecture tests as needed.
+
+**Forbidden until task IN_PROGRESS:** изменение Import Core / STXT / lifecycle production code «в обход» плана задачи.

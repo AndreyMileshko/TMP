@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-010
 **Status:** Accepted
-**Version:** 1.3
+**Version:** 1.4
 
 ---
 
@@ -16,7 +16,7 @@ Order Management является единственным владельцем 
 
 Order Management **не владеет** производственным состоянием — оно принадлежит Production.
 
-Данные Order Management могут поступать двумя равноправными каналами MVP (файловый импорт выгрузки и ручной ввод). Оба канала обязаны формировать одинаковые доменные объекты и использовать одни и те же application services, документы, статусы, разрешения и правила редакций. Downstream-модули не зависят от способа поступления данных.
+Данные Order Management могут поступать двумя равноправными каналами MVP (файловый импорт выгрузки и ручной ввод). Оба канала обязаны формировать одинаковые доменные объекты и использовать одни и те же application services, документы, разрешения и persistence contracts. **Landing lifecycle** различается по `OrderOrigin` (ADR-031): ручной путь проходит `DRAFT`/`APPROVED` (+ активация); успешный импорт из расчётной программы завершается сразу в downstream-ready `ACTIVE` как доверенный эталон. Downstream-модули зависят от статусов агрегатов и Public Query API, а не от канала поступления.
 
 ---
 
@@ -145,7 +145,7 @@ Order Management **не** владеет и **не** хранит (принад�
 
 Коммерческие поля позиции (наименование, код изделия, комментарии, внешний номер позиции), не входящие в Revision/Specification, изменяются документом `ORDER_ITEM_UPDATE`.
 
-**Incomplete DRAFT (позиция):** в статусе `DRAFT` допускается временное отсутствие `productCode` и/или `name` (`null`). Запрещены placeholders (`UNKNOWN`, `N/A`, `IMPORT`, `—`, «Изделие N» и т.п.). `externalPositionNumber` **не** заменяет `productCode`. `materialName` строки спецификации **не** заменяет наименование Order Item. Перед `ORDER_ITEM_REVISION_APPROVE` обязательны заполненные `productCode` и `name`, непустая спецификация и прочие инварианты утверждения. Позиция в статусе `ACTIVE` всегда имеет `productCode` и `name`. Позиция в статусе `CANCELLED` может хранить последнее состояние ранее неполного `DRAFT` (включая `null` commercial fields); это не разрешает редактировать коммерческие поля в `CANCELLED`.
+**Incomplete DRAFT (позиция):** в статусе `DRAFT` допускается временное отсутствие `productCode` и/или `name` (`null`). Запрещены placeholders (`UNKNOWN`, `N/A`, `IMPORT`, `—`, «Изделие N» и т.п.). `externalPositionNumber` **не** заменяет `productCode`. `materialName` строки спецификации **не** заменяет наименование Order Item. Перед `ORDER_ITEM_REVISION_APPROVE` на **MANUAL** пути обязательны заполненные `productCode` и `name`, непустая спецификация и прочие инварианты утверждения. Позиция `ACTIVE` с parent `OrderOrigin = MANUAL` всегда имеет `productCode` и `name`. Позиция `ACTIVE` на **IMPORTED** заказе может не иметь `productCode`/`name` (ADR-031 trusted import). Позиция в статусе `CANCELLED` может хранить последнее состояние ранее неполного `DRAFT` (включая `null` commercial fields); это не разрешает редактировать коммерческие поля в `CANCELLED`.
 
 **Количество изделий (`productQuantity`):** семантически — число одинаковых копий расчётного изделия для позиции. В текущей модели значение хранится как `OrderedQuantity` на `OrderItemRevision` (единый источник истины). Не дублировать отдельным полем Item с тем же смыслом. UI-подпись: «Количество изделий». Правила: `productQuantity != null`, целое число `> 0`.
 
@@ -238,26 +238,42 @@ Order Management **не** владеет и **не** хранит (принад�
 
 # 8. Коммерческий жизненный цикл Customer Order
 
-## 8.1 Статусы (Stage 5)
+## 8.0 OrderOrigin (ADR-031)
+
+| Значение | Назначение |
+| --- | --- |
+| `MANUAL` | Заказ создан ручным `ORDER_CREATE` |
+| `IMPORTED` | Заказ создан успешным confirm импорта из расчётной программы |
+
+`OrderOrigin` задаётся только при создании и не изменяется. Import metadata (`sourceType`, checksum, …) — аудит и защита от дублей; lifecycle-правила опираются на `OrderOrigin`.
+
+## 8.1 Статусы (Stage 5 + ADR-031)
 
 | Статус | Назначение |
 | --- | --- |
-| `DRAFT` | Черновик заказа |
-| `APPROVED` | Заказ утверждён |
-| `CANCELLED` | Заказ отменён (только из `DRAFT`) |
+| `DRAFT` | Черновик заказа (только `MANUAL`; либо legacy pre-ADR-031 import DRAFT до миграции) |
+| `APPROVED` | Коммерчески утверждён (`MANUAL`); ещё не обязательно released для Warehouse |
+| `ACTIVE` | Downstream-ready (доступен Warehouse/Production); для `IMPORTED` — конечное состояние после успешного импорта |
+| `CANCELLED` | Заказ отменён (только из `DRAFT` в Stage 5) |
 
 Статусы `IN_PROGRESS` и `COMPLETED` **исключены** из Stage 5 (нет самостоятельного коммерческого процесса; производны от производственного состояния, владелец — Production). Перенесены в будущую интеграцию Order↔Production (см. §18). Customer Order не связывается автоматически с `Production Status`.
 
-## 8.2 Transition matrix — Customer Order (Stage 5)
+Долгоживущий статус `IMPORT` **не вводится**: атомарный импорт либо создаёт `ACTIVE`+`IMPORTED`, либо откатывается целиком (концептуальный путь `IMPORT → ACTIVE`).
 
-| From | To | Business document | Required capability | Preconditions | Forbidden conditions | Domain event |
-| --- | --- | --- | --- | --- | --- | --- |
-| (none) | `DRAFT` | `ORDER_CREATE` | `order.order.create` | уникальный номер | дублирующий номер | `OrderCreated` |
-| `DRAFT` | `DRAFT` | `ORDER_UPDATE` | `order.order.edit` | заказ в `DRAFT` | изменение утверждённого/отменённого заказа | `OrderUpdated` |
-| `DRAFT` | `APPROVED` | `ORDER_APPROVE` | `order.order.approve` | ≥ 1 активная позиция | утверждение без активных позиций | `OrderApproved` |
-| `DRAFT` | `CANCELLED` | `ORDER_CANCEL` | `order.order.cancel` | заказ в `DRAFT` | отмена утверждённого заказа (запрещено в Stage 5) | `OrderCancelled` |
+## 8.2 Transition matrix — Customer Order (Stage 5 + ADR-031)
 
-Переход `APPROVED → CANCELLED` **запрещён в Stage 5** и перенесён в будущую интеграционную задачу (компенсационные документы + проверка внешних Capability).
+| From | To | Origin | Business document | Required capability | Preconditions | Forbidden conditions | Domain event |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| (none) | `DRAFT` | `MANUAL` | `ORDER_CREATE` | `order.order.create` | уникальный номер | дублирующий номер | `OrderCreated` |
+| `DRAFT` | `DRAFT` | `MANUAL` | `ORDER_UPDATE` | `order.order.edit` | заказ в `DRAFT` | изменение `APPROVED`/`ACTIVE`/`CANCELLED` | `OrderUpdated` |
+| `DRAFT` | `APPROVED` | `MANUAL` | `ORDER_APPROVE` | `order.order.approve` | ≥ 1 активная позиция; коммерческие поля полны (ADR-030) | утверждение без активных позиций / без коммерции | `OrderApproved` |
+| `APPROVED` | `ACTIVE` | `MANUAL` | `ORDER_ACTIVATE` | `order.order.approve` (или выделенное activate — фиксируется при реализации) | заказ `APPROVED` | активация `DRAFT`/`CANCELLED` | `OrderActivated` (или согласованный event) |
+| (none) | `ACTIVE` | `IMPORTED` | import confirm orchestration (ADR-029/031) | `order.order.create` (+ необходимые item/revision permissions текущего import flow) | валидный batch; нет конфликта номера/дубля | частичный импорт; placeholders | `OrderCreated` + activation-equivalent events |
+| `DRAFT` | `CANCELLED` | `MANUAL` | `ORDER_CANCEL` | `order.order.cancel` | заказ в `DRAFT` | отмена `APPROVED`/`ACTIVE` (запрещено в Stage 5) | `OrderCancelled` |
+
+Переходы `APPROVED → CANCELLED` и `ACTIVE → CANCELLED` **запрещены в Stage 5** и перенесены в будущую интеграционную задачу (компенсационные документы + проверка внешних Capability).
+
+Для `IMPORTED` + `ACTIVE`: любые `ORDER_UPDATE` / enrich commercial **запрещены** (ADR-031).
 
 ---
 
@@ -267,35 +283,39 @@ Order Management **не** владеет и **не** хранит (принад�
 
 | Статус | Назначение |
 | --- | --- |
-| `DRAFT` | Позиция формируется; активная работа с Draft Revision |
+| `DRAFT` | Позиция формируется; активная работа с Draft Revision (`MANUAL`) |
 | `ACTIVE` | Есть ≥ 1 утверждённая Revision; доступна другим Capability |
 | `CANCELLED` | Позиция отменена (только из `DRAFT`) |
 
 Производственные статусы (`NOT_STARTED`, `READY_FOR_PRODUCTION`, `IN_PRODUCTION`, `PARTIALLY_RELEASED`, `RELEASED`) **не являются** статусами Order Item — это `Production Status` во владении Production.
 
-## 9.2 Transition matrix — Order Item (Stage 5)
+## 9.2 Transition matrix — Order Item (Stage 5 + ADR-031)
 
-| From | To | Business document | Required capability | Preconditions | Forbidden conditions | Domain event |
-| --- | --- | --- | --- | --- | --- | --- |
-| (none) | `DRAFT` | `ORDER_ITEM_CREATE` | `order.item.create` | родительский заказ в `DRAFT` | добавление позиции в `APPROVED`/`CANCELLED` заказ | `OrderItemCreated`, `OrderItemRevisionCreated` |
-| `DRAFT` | `DRAFT` | `ORDER_ITEM_UPDATE` (коммерческие поля) / `ORDER_ITEM_REVISION_UPDATE` (draft spec) | `order.item.edit` / `order.revision.edit` | позиция `DRAFT`; для spec — есть Draft Revision | изменение состава через `ORDER_ITEM_UPDATE` | `OrderItemUpdated` / `OrderItemRevisionUpdated` |
-| `DRAFT` | `ACTIVE` | `ORDER_ITEM_REVISION_APPROVE` | `order.item.approve` | Draft Revision валидна | утверждение без спецификации | `OrderItemRevisionApproved` |
-| `ACTIVE` | `ACTIVE` | `ORDER_ITEM_REVISION_CREATE` → `ORDER_ITEM_REVISION_UPDATE`* → `ORDER_ITEM_REVISION_APPROVE` | `order.revision.create`, `order.revision.edit`, `order.item.approve` | текущая Revision `APPROVED`, нет открытой Draft | новая Revision при существующей Draft | `OrderItemRevisionCreated`, `OrderItemRevisionUpdated`*, `OrderItemRevisionApproved` |
-| `DRAFT` | `CANCELLED` | `ORDER_ITEM_CANCEL` | `order.item.cancel` | позиция `DRAFT` | отмена active позиции (запрещено в Stage 5) | `OrderItemCancelled` |
+| From | To | Origin context | Business document | Required capability | Preconditions | Forbidden conditions | Domain event |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| (none) | `DRAFT` | parent `MANUAL` | `ORDER_ITEM_CREATE` | `order.item.create` | родительский заказ в `DRAFT` | добавление позиции в `APPROVED`/`ACTIVE`/`CANCELLED` заказ | `OrderItemCreated`, `OrderItemRevisionCreated` |
+| `DRAFT` | `DRAFT` | `MANUAL` | `ORDER_ITEM_UPDATE` / `ORDER_ITEM_REVISION_UPDATE` | `order.item.edit` / `order.revision.edit` | позиция `DRAFT`; для spec — есть Draft Revision | изменение состава через `ORDER_ITEM_UPDATE` | `OrderItemUpdated` / `OrderItemRevisionUpdated` |
+| `DRAFT` | `ACTIVE` | `MANUAL` | `ORDER_ITEM_REVISION_APPROVE` | `order.item.approve` | Draft Revision валидна; `productCode`/`name` полны (ADR-030) | утверждение без спецификации / без коммерции позиции | `OrderItemRevisionApproved` |
+| `ACTIVE` | `ACTIVE` | parent `MANUAL` only | `ORDER_ITEM_REVISION_CREATE` → `ORDER_ITEM_REVISION_UPDATE`* → `ORDER_ITEM_REVISION_APPROVE` | `order.revision.create`, `order.revision.edit`, `order.item.approve` | текущая Revision `APPROVED`, нет открытой Draft | новая Revision при существующей Draft; **любая новая Revision для `IMPORTED`** | `OrderItemRevisionCreated`, `OrderItemRevisionUpdated`*, `OrderItemRevisionApproved` |
+| (none) | `ACTIVE` | parent `IMPORTED` | import confirm orchestration | как в текущем import permission set | валидная позиция + непустая спецификация batch | placeholders; частичный импорт | `OrderItemCreated`, `OrderItemRevisionCreated`, `OrderItemRevisionApproved` (или equivalent) |
+| `DRAFT` | `CANCELLED` | `MANUAL` | `ORDER_ITEM_CANCEL` | `order.item.cancel` | позиция `DRAFT` | отмена active позиции (запрещено в Stage 5) | `OrderItemCancelled` |
 
 \* `ORDER_ITEM_REVISION_UPDATE` необязателен, применяется при необходимости правок draft.
 
 Переход `ACTIVE → CANCELLED` **запрещён в Stage 5** (перенесён в будущую интеграцию).
 
-## 9.3 Transition matrix — Order Item Revision (Stage 5)
+Для `IMPORTED` parent: позиция после импорта сразу `ACTIVE`; edit quantity/spec/commercial и `ORDER_ITEM_REVISION_CREATE` **запрещены**.
 
-| From | To | Business document | Required capability | Preconditions | Forbidden conditions | Domain event |
-| --- | --- | --- | --- | --- | --- | --- |
-| (none) | `DRAFT` | `ORDER_ITEM_CREATE` (Rev 1) / `ORDER_ITEM_REVISION_CREATE` (Rev N+1) | `order.item.create` / `order.revision.create` | для N+1: предыдущая `APPROVED`, нет Draft | вторая Draft у позиции | `OrderItemRevisionCreated` |
-| `DRAFT` | `DRAFT` | `ORDER_ITEM_REVISION_UPDATE` | `order.revision.edit` | Revision в `DRAFT` | правка утверждённой Revision | `OrderItemRevisionUpdated` |
-| `DRAFT` | `APPROVED` | `ORDER_ITEM_REVISION_APPROVE` | `order.item.approve` | спецификация полна и валидна | утверждение невалидной спецификации | `OrderItemRevisionApproved` |
+## 9.3 Transition matrix — Order Item Revision (Stage 5 + ADR-031)
 
-После `APPROVED` спецификация Immutable; актуальность вычисляется по `activeRevisionNumber`.
+| From | To | Origin context | Business document | Required capability | Preconditions | Forbidden conditions | Domain event |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| (none) | `DRAFT` | `MANUAL` | `ORDER_ITEM_CREATE` (Rev 1) / `ORDER_ITEM_REVISION_CREATE` (Rev N+1) | `order.item.create` / `order.revision.create` | для N+1: предыдущая `APPROVED`, нет Draft; parent не `IMPORTED` ACTIVE | вторая Draft у позиции; revision create на `IMPORTED` | `OrderItemRevisionCreated` |
+| `DRAFT` | `DRAFT` | `MANUAL` | `ORDER_ITEM_REVISION_UPDATE` | `order.revision.edit` | Revision в `DRAFT` | правка утверждённой Revision | `OrderItemRevisionUpdated` |
+| `DRAFT` | `APPROVED` | `MANUAL` | `ORDER_ITEM_REVISION_APPROVE` | `order.item.approve` | спецификация полна и валидна; commercial item полны | утверждение невалидной спецификации | `OrderItemRevisionApproved` |
+| (none) | `APPROVED` | `IMPORTED` | import confirm orchestration | import permission set | спецификация из batch валидна | placeholders; пустая спецификация | `OrderItemRevisionApproved` (с create events) |
+
+После `APPROVED` спецификация Immutable; актуальность вычисляется по `activeRevisionNumber`. Отдельный enum-статус Specification / Revision `ACTIVE` **не вводится**: «ACTIVE specification» = спецификация активной `APPROVED` Revision.
 
 ## 9.4 Разделение жизненных циклов
 
@@ -449,7 +469,8 @@ order_item_revision_payload_line         (строки спецификации 
 | --- | --- | --- | --- | --- | --- | --- |
 | `ORDER_CREATE` | Создание заказа | `createOrder` | Customer Order | `order.order.create` | заказ `DRAFT` | `OrderCreated` |
 | `ORDER_UPDATE` | Изменение заказа (коммерческие поля) | `updateOrder` | Customer Order | `order.order.edit` | обновлён заказ | `OrderUpdated` |
-| `ORDER_APPROVE` | Утверждение заказа | `approveOrder` | Customer Order | `order.order.approve` | заказ `APPROVED` | `OrderApproved` |
+| `ORDER_APPROVE` | Утверждение заказа (`MANUAL` `DRAFT→APPROVED`) | `approveOrder` | Customer Order | `order.order.approve` | заказ `APPROVED` | `OrderApproved` |
+| `ORDER_ACTIVATE` | Release заказа для downstream (`MANUAL` `APPROVED→ACTIVE`; ADR-031) | `activateOrder` | Customer Order | `order.order.approve` (или отдельное — при реализации) | заказ `ACTIVE` | `OrderActivated` (или согласованный) |
 | `ORDER_CANCEL` | Отмена заказа (только из `DRAFT`) | `cancelOrder` | Customer Order | `order.order.cancel` | заказ `CANCELLED` | `OrderCancelled` |
 | `ORDER_ITEM_CREATE` | Создание позиции | `createOrderItem` | Order Item | `order.item.create` | позиция `DRAFT` + Revision 1 `DRAFT` | `OrderItemCreated`, `OrderItemRevisionCreated` |
 | `ORDER_ITEM_UPDATE` | Изменение коммерческих полей позиции | `updateOrderItem` | Order Item | `order.item.edit` | обновлены коммерческие поля | `OrderItemUpdated` |
@@ -784,6 +805,7 @@ Order Management предоставляет стабильные `Order Item ID`
 | 1.2 (rev. STAGE5-000-FIX2) | Определена физическая модель typed payload (§11.5): `order_document_payload` + typed-таблицы + `order_item_revision_payload_line`, связь через `document_id`, FK, optimistic lock `payload_revision`, каскадное удаление Draft, immutability после проведения, без JSON/сериализации. Транзакционное поведение переведено на публичный контракт Document Engine (Document Engine Specification v1.1) и публичный `TransactionalEventPublisher`; Order Management не импортирует внутренние классы Document Engine. Исправлена семантика idempotency: `void onPost`, повторный публичный `postDocument` отклоняется lifecycle validation, guard внутри processor завершается как already processed без возврата результата. |
 | 1.3 | Order Intake MVP: два канала (STXT-файл и ручной ввод); source-neutral import boundary (ADR-029); семантика колонок выгрузки; `externalPositionNumber`; `productQuantity` ↔ `OrderedQuantity`; target-контракт строки спецификации (`color`, `lengthMm`, `lineQuantity`); исключение orientation; план удаления `consumptionNorm`; preview/atomic import; конфликт существующего заказа; защита от повторного импорта; зафиксирован gap неполного DRAFT без `customerName`. |
 | 1.3 (rev. incomplete-DRAFT) | Принято ADR-030: неполные коммерческие данные разрешены только в `DRAFT`; placeholders запрещены; `ORDER_APPROVE` требует все обязательные коммерческие поля с перечислением отсутствующих. |
+| 1.4 | ADR-031 Imported Order Lifecycle Rules: `OrderOrigin`; Order status `ACTIVE`; trusted import landing `(none)→ACTIVE`; Revision остаётся `APPROVED` (семантика эталон/active); Specification без отдельного enum; UI read-only для IMPORTED ACTIVE; запрет edit/qty/spec/new Revision; manual target `DRAFT→APPROVED→ACTIVE` (`ORDER_ACTIVATE`); уточнение ADR-030 для IMPORTED; §27.6/§27.7/§27.10. Реализация кода — STAGE5-058. |
 
 ---
 
@@ -802,7 +824,7 @@ Order Management предоставляет стабильные `Order Item ID`
 Order → Order Item → Item Revision → Specification Lines
 ```
 
-Обязательно общие: доменные правила, application services, бизнес-документы, статусы, разрешения, правила редакций/утверждения, persistence contracts.
+Обязательно общие: доменные правила, application services, бизнес-документы, разрешения и persistence contracts. Landing lifecycle различается по `OrderOrigin` (ADR-031 / §27.10).
 
 ## 27.2 Firebird / БД «СуперОкна»
 
@@ -923,11 +945,17 @@ OrderImportBatch
 → предварительная валидация (без persistence)
 → preview
 → подтверждение пользователя
-→ одна транзакция:
-   DRAFT Order + Items + DRAFT Revisions + Specification lines
+→ одна транзакция (ADR-031):
+   Order ACTIVE (OrderOrigin=IMPORTED)
+   + Items ACTIVE
+   + Revisions APPROVED (эталон / active)
+   + Specification lines Immutable
+   + import metadata
 ```
 
 До подтверждения: заказ, позиции, редакции и строки **не** создаются.
+
+**Baseline до STAGE5-058 (факт реализации STAGE5-057):** confirm ещё создаёт неполный `DRAFT` (ADR-030). Целевое поведение выше — обязательный результат `STAGE5-058`; до его DONE код импорта не менять.
 
 ### Preview (минимум)
 
@@ -958,20 +986,23 @@ OrderImportBatch
 
 Файл не содержит заказчика, договора, объекта и прочих коммерческих реквизитов заказа. Файл также не содержит `productCode` и наименование Order Item.
 
-**Принятое решение (ADR-030):**
+**Ручной путь и legacy incomplete DRAFT (ADR-030) — без изменений для `OrderOrigin = MANUAL`:**
 
 1. Заказ в статусе `DRAFT` может временно не содержать: `customerName`, `direction`, `currency`, `contractNumber`/`contractRef`, `objectName`/`siteRef`.
 2. Позиция в статусе `DRAFT` может временно не содержать: `productCode`, `name` (`null`, без placeholders).
 3. `externalPositionNumber` не заменяет `productCode`. `materialName` строки спецификации не заменяет наименование позиции.
-4. Файловый импорт может создать неполный `DRAFT`-заказ и неполные `DRAFT`-позиции.
-5. Фиктивные значения запрещены: `UNKNOWN`, `N/A`, `IMPORT`, `—`, «Изделие N», пустые системные заглушки.
-6. Пользователь дополняет коммерческие данные вручную.
-7. `ORDER_APPROVE` запрещён, пока обязательные коммерческие поля заказа не заполнены; ошибка утверждения должна перечислять отсутствующие обязательные поля.
-8. `ORDER_ITEM_REVISION_APPROVE` запрещён, пока у позиции не заполнены `productCode` и `name` (и непустая спецификация); ошибка перечисляет «Код изделия» / «Наименование изделия».
-9. После утверждения применяются обычные правила неизменяемости; утверждённая позиция всегда имеет `productCode` и `name`. `CANCELLED` может хранить последнее состояние ранее неполного `DRAFT`; редактирование коммерческих полей в `CANCELLED` запрещено.
-10. Правило доменное для `DRAFT`, независимо от STXT.
+4. Фиктивные значения запрещены: `UNKNOWN`, `N/A`, `IMPORT`, `—`, «Изделие N», пустые системные заглушки.
+5. `ORDER_APPROVE` / `ORDER_ITEM_REVISION_APPROVE` на `MANUAL` требуют полноту обязательных коммерческих полей.
 
-**Реализация:** order-level incompleteness — `STAGE5-051`; item-level incompleteness — `STAGE5-052A` (до Import Core).
+**Trusted import (ADR-031) — целевое правило для `OrderOrigin = IMPORTED`:**
+
+1. Успешный импорт создаёт сразу `Order = ACTIVE`, items `ACTIVE`, revisions `APPROVED` с эталонной спецификацией.
+2. Отсутствие коммерческих реквизитов заказа/позиции на импортированном `ACTIVE` **допускается** (данные выгрузки — эталон структуры и спецификации).
+3. Placeholders по-прежнему запрещены.
+4. Редактирование коммерческих полей, количеств и спецификации импортированного `ACTIVE` **запрещено** (UI read-only + domain rejection).
+5. Создание новой Revision на импортированной ACTIVE позиции **запрещено** в STAGE5-058.
+
+**Реализация landing:** `STAGE5-058`. До DONE сохраняется фактическое поведение incomplete DRAFT import.
 
 ## 27.8 Ручной ввод
 
@@ -980,7 +1011,7 @@ OrderImportBatch
 * позиция: внешний номер позиции, количество изделий;
 * строка спецификации: артикул, наименование, цвет, размер мм (опционально), количество.
 
-Ручной ввод и импорт создают одинаковую доменную структуру.
+Ручной ввод и импорт создают одинаковую доменную структуру; lifecycle landing различается по `OrderOrigin` (ADR-031).
 
 ## 27.9 Анализ текущей реализации (документационный baseline)
 
@@ -992,5 +1023,25 @@ OrderImportBatch
 | Public Query / DTO / payload / UI / V6+V8 | содержат `consumptionNorm` | синхронное изменение контрактов в STAGE5-051 |
 | Warehouse/Production/Cutting | не читают `consumptionNorm` | кросс-модульного blocker нет |
 | Create DRAFT Order | `customerName` (и др.) ещё обязателен в коде | ADR-030 принят; реализация релаксации в STAGE5-051 |
+| Import landing | после STAGE5-057: неполный `DRAFT` | ADR-031 / STAGE5-058: `IMPORTED` → `ACTIVE` + read-only |
 
-Требуются изменения: domain, DTO, document payload, validation, Public Query API, JavaFX UI, новая Flyway-миграция. В этой документации код не меняется.
+Требуются изменения для ADR-031: domain (`OrderOrigin`, `OrderStatus.ACTIVE`), import confirm orchestration, Query DTO, UI read-only, Flyway, tests — только в `STAGE5-058`. В документационной подготовке код не меняется.
+
+## 27.10 Imported Order Lifecycle Rules (ADR-031) — сводка
+
+После успешного импорта (цель STAGE5-058):
+
+```text
+Order:          ACTIVE   (OrderOrigin = IMPORTED)
+Order Item:     ACTIVE
+Revision:       APPROVED (семантически эталон / active)
+Specification:  Immutable активной Revision
+```
+
+UI: импортированный `ACTIVE` — полный read-only.
+
+Запрещено: edit ACTIVE; менять спецификацию; менять количество; создавать новую Revision.
+
+Manual target path: `DRAFT → APPROVED → ACTIVE` (`ORDER_ACTIVATE`).
+
+Imported conceptual path: `IMPORT → ACTIVE` ≡ атомарный `(none) → ACTIVE`.
