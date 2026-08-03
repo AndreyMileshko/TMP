@@ -3,9 +3,41 @@
 ## Latest result
 
 **Date:** 2026-08-03  
+**Scope:** STAGE5-057 — FIX REQUIRED — `STAGE5-057-SMOKE-001`  
+**Overall:** PASS (defect fixed; Stage 5 **not** closed)
+
+| Item | Result |
+|---|---|
+| Defect ID | `STAGE5-057-SMOKE-001` |
+| Root cause | UI validator treated `8.000000` as non-integer (regex/scale) |
+| Fix | `ProductQuantityUiValidation` — whole if fractional part = 0 |
+| `mvn -pl tmp-ui-shell -am test` (focused) | PASS — 54 tests |
+| Import Core / STXT / Domain / Persistence | UNCHANGED |
+| STAGE5-057 | DONE |
+| Stage 5 | IN_PROGRESS (not closed) |
+| Stage 6 | NOT STARTED |
+| Git | NOT EXECUTED |
+
+### Test matrix
+
+| Input / scenario | Expected | Result |
+|---|---|---|
+| `8` | PASS | PASS |
+| `8.000000` | PASS | PASS |
+| `8.0` | PASS | PASS |
+| `8.5` | FAIL | PASS |
+| `0` | FAIL | PASS |
+| `-1` | FAIL | PASS |
+| Imported DRAFT `8.000000` → save comment | PASS | PASS |
+| Imported spec → save unchanged | PASS | PASS |
+
+---
+
+## 2026-08-03 — STAGE5-057 — Manual GUI Smoke (Order Intake) — preparation
+
+**Date:** 2026-08-03  
 **Scope:** STAGE5-057 — Manual GUI Smoke (Order Intake) — preparation  
-**Overall:** WAITING_USER_CONFIRMATION  
-**Performed by (agent):** checklist preparation only — agent did **not** launch `TMP.exe`
+**Overall:** WAITING_USER_CONFIRMATION (superseded by FIX REQUIRED for STAGE5-057-SMOKE-001)
 
 ### Prerequisites confirmed
 

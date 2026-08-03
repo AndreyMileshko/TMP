@@ -400,6 +400,41 @@ class OrderItemEditorViewModelTest {
         assertFalse(docs.saveCreateCalled);
     }
 
+    @Test
+    void importedDraftWithScaledProductQuantityAllowsCommentSave() {
+        FakeDocs docs = new FakeDocs();
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemId id = OrderItemId.generate();
+        BigDecimal importedQuantity = new BigDecimal("8.000000");
+        query.snapshot =
+                OrderItemEditorSnapshot.of(
+                        id,
+                        OrderId.generate(),
+                        null,
+                        null,
+                        "old-comment",
+                        "1",
+                        OrderItemStatus.DRAFT,
+                        null,
+                        OrderItemEditorSnapshot.RevisionView.of(
+                                RevisionNumber.first(),
+                                RevisionStatus.DRAFT,
+                                importedQuantity,
+                                2),
+                        importedQuantity);
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
+        viewModel.openExisting(id);
+        assertEquals("8.000000", viewModel.orderedQuantityProperty().get());
+
+        viewModel.commentsProperty().set("smoke-comment");
+        viewModel.saveCommercialDraft();
+
+        assertEquals("", viewModel.errorMessageProperty().get());
+        assertTrue(docs.saveUpdateCalled);
+        assertEquals("smoke-comment", docs.lastCommercialDraft.comments());
+    }
+
     private static Set<PermissionId> allItemPerms() {
         return Set.of(
                 PermissionId.of("order.item.view"),
@@ -473,6 +508,7 @@ class OrderItemEditorViewModelTest {
         private OrderItemId postResult;
         private String lastBeginType;
         private boolean saveCreateCalled;
+        private boolean saveUpdateCalled;
         private boolean saveRevisionCreateCalled;
         private boolean saveRevisionUpdateCalled;
         private boolean postCalled;
@@ -545,6 +581,7 @@ class OrderItemEditorViewModelTest {
                 OrderItemId orderItemId,
                 OrderItemCommercialDraft draft,
                 long expectedPayloadRevision) {
+            saveUpdateCalled = true;
             lastCommercialDraft = draft;
             return expectedPayloadRevision + 1;
         }

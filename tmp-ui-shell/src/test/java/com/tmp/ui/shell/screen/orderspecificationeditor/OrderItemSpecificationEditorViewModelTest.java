@@ -405,6 +405,42 @@ class OrderItemSpecificationEditorViewModelTest {
     }
 
     @Test
+    void importedSpecificationWithScaledProductQuantityCanSaveUnchanged() {
+        FakeDocs docs = new FakeDocs();
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        BigDecimal importedQuantity = new BigDecimal("8.000000");
+        query.snapshot =
+                OrderItemSpecificationEditorSnapshot.of(
+                        itemId,
+                        revision,
+                        RevisionStatus.DRAFT,
+                        importedQuantity,
+                        false,
+                        List.of(
+                                OrderItemSpecificationLineView.of(
+                                        1,
+                                        "107.225белый",
+                                        "Штапик",
+                                        "Белый",
+                                        new BigDecimal("2066.0"),
+                                        new BigDecimal("16"),
+                                        "шт")));
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(docs, query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+        assertEquals("8.000000", viewModel.orderedQuantityProperty().get());
+
+        viewModel.saveDraft();
+
+        assertEquals("", viewModel.errorMessageProperty().get());
+        assertTrue(docs.saveRevisionUpdateCalled);
+        assertEquals("8.000000", docs.lastOrderedQuantity);
+        assertEquals(1, docs.lastSavedLines.size());
+    }
+
+    @Test
     void orderedQuantityPositiveIntegerIsPassedUnchangedToContract() {
         FakeDocs docs = new FakeDocs();
         FakeSpecQuery query = new FakeSpecQuery();

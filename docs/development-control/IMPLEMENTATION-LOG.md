@@ -4,6 +4,39 @@
 
 ---
 
+## STAGE5-057 — FIX REQUIRED — STAGE5-057-SMOKE-001
+
+**Date:** 2026-08-03  
+**Stage:** 5  
+**Status:** DONE (defect fixed; Stage 5 **not** closed)  
+**Module:** `tmp-ui-shell`
+
+### Smoke defect
+
+**ID:** `STAGE5-057-SMOKE-001`  
+**Symptom:** After STXT import, `productQuantity` shown as `8.000000`; saving DRAFT item/spec failed with «Количество изделий должно быть целым числом больше нуля»; typing `8` worked.  
+**Cause:** `ProductQuantityUiValidation` rejected any string with a decimal point via regex `-?\d+` / scale checks instead of mathematical whole-number integrity.
+
+### Fix
+
+`ProductQuantityUiValidation`: parse `BigDecimal`, accept when `signum() > 0` and `stripTrailingZeros().scale() <= 0` (fractional part is zero). Still reject null/blank, non-numeric, `<= 0`, and true fractions (`8.5`).
+
+### Tests
+
+- `ProductQuantityUiValidationTest` — `8` / `8.0` / `8.000000` PASS; `8.5` / `0` / `-1` FAIL  
+- `OrderItemEditorViewModelTest.importedDraftWithScaledProductQuantityAllowsCommentSave`  
+- `OrderItemSpecificationEditorViewModelTest.importedSpecificationWithScaledProductQuantityCanSaveUnchanged`
+
+### Unchanged
+
+Import Core, STXT Adapter, Domain, Persistence, Flyway — not modified. Stage 6 not started. Git not executed.
+
+### Next
+
+Stage 5 remains IN_PROGRESS (explicitly not closed by this FIX REQUIRED task).
+
+---
+
 ## STAGE5-057 — Manual GUI Smoke (Order Intake) — preparation
 
 **Date:** 2026-08-03  
