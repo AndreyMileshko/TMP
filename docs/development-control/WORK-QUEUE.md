@@ -8903,9 +8903,9 @@ UI posts documents bypassing import service.
 
 ## STAGE5-056 — Automated Verification
 
-**Status:** NOT STARTED  
-**Stage:** 5  
-**Depends on:** STAGE5-055  
+**Status:** DONE
+**Stage:** 5
+**Depends on:** STAGE5-055
 **Module:** multi-module verification
 
 ### Goal
@@ -8934,8 +8934,8 @@ UI posts documents bypassing import service.
 
 ### Acceptance criteria
 
-- [ ] All listed gates green;
-- [ ] PackagingSmokeIT executed successfully.
+- [x] All listed gates green;
+- [x] PackagingSmokeIT executed successfully.
 
 ### Required tests
 
@@ -8953,9 +8953,9 @@ Failure outside Stage 5 scope; packaging broken.
 
 ## STAGE5-057 — Manual GUI Smoke (Order Intake)
 
-**Status:** NOT STARTED  
-**Stage:** 5  
-**Depends on:** STAGE5-056  
+**Status:** NOT STARTED
+**Stage:** 5
+**Depends on:** STAGE5-056
 **Module:** none (manual)
 
 ### Goal

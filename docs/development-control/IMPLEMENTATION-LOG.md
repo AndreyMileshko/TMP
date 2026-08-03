@@ -1,6 +1,56 @@
 # TMP Implementation Log
 
-????? ?????? ??????????? ? ?????. ??????? ?? ??????????????.
+Новые записи добавляются в начало. История не переписывается.
+
+---
+
+## STAGE5-056 — Automated Verification
+
+**Date:** 2026-07-31  
+**Stage:** 5  
+**Status:** DONE  
+**Module:** multi-module verification (Order Intake gate)
+
+### Result
+
+Полный автоматический gate блока Order Intake + regression Stage 5 без новой функциональности.
+
+Проверено существующими тестами и architecture rules:
+
+- Order Contracts / incomplete DRAFT;
+- Manual Entry UI (create/edit DRAFT, APPROVED readonly, validation, Russian messages);
+- Import Core (preview / prepared plan / confirm / duplicate / conflict / rollback / metadata);
+- STXT Adapter (UTF-8 / UTF-8 BOM / Windows-1251 / headers / delimiter / mm / decimal comma);
+- Import GUI (FileChooser / preview / counters / errors / warnings / confirm / duplicate / conflict).
+
+Architecture (добавлены явные правила STAGE5-056):
+
+- Import Core: no JavaFX / STXT parser / Firebird / UI (уже было);
+- STXT Adapter: no UI / persistence / JDBC / Document Engine internals (**новые**);
+- UI shell: no Repository / no JDBC (**новые**).
+
+Packaging: `mvn -Ppackage clean verify` — PASS; `PackagingSmokeIT` = 1/0/0/0; `dist/jpackage/TMP/TMP.exe` present.
+
+Defects found: none. Production code unchanged. `STAGE5-057` not started. Git not executed.
+
+### Verification
+
+- `mvn test` — PASS (EXIT_CODE=0)
+- `mvn verify` — PASS (EXIT_CODE=0)
+- `mvn -Ppackage clean verify` — PASS (EXIT_CODE=0); PackagingSmokeIT executed, not skipped
+
+### Counts (`-Ppackage clean verify` surefire/failsafe XML)
+
+- Surefire (unit): 977 / 0 failures / 0 errors / 0 skipped
+- Failsafe (integration): 117 / 0 / 0 / 0
+- Architecture module surefire: 60 reported (+ Stage4 ArchUnit engine overlap in console)
+- Stage5 ArchRules: 31 (incl. 4 Order Intake boundary rules added)
+- FX tests (ui-shell name match): 37
+- PackagingSmokeIT: 1
+
+### Next
+
+`STAGE5-057` — Manual GUI Smoke (Order Intake) — NOT STARTED (user only).
 
 ---
 
@@ -10,6 +60,7 @@
 **Stage:** 5  
 **Status:** DONE  
 **Module:** `tmp-ui-shell`
+
 
 ### Result
 

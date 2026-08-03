@@ -461,6 +461,59 @@ class Stage5OrderManagementArchitectureTest {
                             "Only the import metadata persistence adapter may use JDBC; Import Core "
                                     + "orchestrates business documents through application services");
 
+    @ArchTest
+    static final ArchRule orderStxtAdapterDoesNotDependOnUiPersistenceOrDocumentInternals =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.order.application.imports.stxt..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "javafx..",
+                            "com.tmp.ui..",
+                            "com.tmp.order.persistence..",
+                            "org.springframework.jdbc..",
+                            "java.sql..",
+                            "org.firebirdsql..")
+                    .because(
+                            "STXT Adapter parses files only (ADR-029): no UI, persistence, JDBC or "
+                                    + "Firebird");
+
+    @ArchTest
+    static final ArchRule orderStxtAdapterUsesOnlyPublicDocumentApiIfAny =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.order.application.imports.stxt..")
+                    .should()
+                    .dependOnClassesThat(
+                            resideInAnyPackage("com.tmp.document..")
+                                    .and(resideOutsideOfPackage("com.tmp.document.api..")))
+                    .because(
+                            "STXT Adapter must not depend on Document Engine internals");
+
+    @ArchTest
+    static final ArchRule uiShellDoesNotDependOnRepositories =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.ui.shell..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleNameEndingWith("Repository")
+                    .because("UI must not access Repository types directly");
+
+    @ArchTest
+    static final ArchRule uiShellDoesNotDependOnJdbc =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.ui.shell..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "org.springframework.jdbc..",
+                            "java.sql..",
+                            "javax.sql..")
+                    .because("UI must not access JDBC directly");
+
     private static DescribedPredicate<JavaClass> forbiddenForeignBusinessModelClass() {
         return new DescribedPredicate<>("forbidden foreign business model class") {
             @Override

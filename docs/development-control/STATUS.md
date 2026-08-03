@@ -3,8 +3,8 @@
 **Mode:** Autonomous Cursor Agent  
 **Project status:** IN_PROGRESS  
 **Current Stage:** Stage 5 — Order Management  
-**Current Task:** STAGE5-056 — NOT STARTED  
-**Last completed task:** STAGE5-055  
+**Current Task:** STAGE5-057 — NOT STARTED  
+**Last completed task:** STAGE5-056  
 **Active blockers:** NONE  
 
 ```text
@@ -15,7 +15,8 @@ STAGE5-052A = DONE
 STAGE5-053 = DONE
 STAGE5-054 = DONE
 STAGE5-055 = DONE
-STAGE5-056…057 = NOT STARTED
+STAGE5-056 = DONE
+STAGE5-057 = NOT STARTED
 Stage 5 Core Order Management = IMPLEMENTED — MANUAL SMOKE PASS
 Stage 5 Order Intake Extension = IN_PROGRESS
 Stage 5 = IN_PROGRESS
@@ -47,7 +48,7 @@ Active blockers = NONE
 | Part | Status |
 |---|---|
 | Core Order Management (`STAGE5-001..050`) | IMPLEMENTED — MANUAL SMOKE PASS |
-| Order Intake Extension (`STAGE5-051..057`) | IN_PROGRESS (`STAGE5-051..055` DONE; next `STAGE5-056`) |
+| Order Intake Extension (`STAGE5-051..057`) | IN_PROGRESS (`STAGE5-051..056` DONE; next `STAGE5-057`) |
 | Stage 5 overall | IN_PROGRESS |
 
 `STAGE5-050` = Manual Packaged GUI Smoke — Core Order Management — **DONE (PASS)**. Stage 5 remains `IN_PROGRESS`. Stage 5 closes only after `STAGE5-051..057` and final intake smoke (`STAGE5-057`).
@@ -56,4 +57,4 @@ Active blockers = NONE
 
 **Stage 0–4:** DONE 100%.
 
-**Далее:** `STAGE5-056` Automated Verification — NOT STARTED. Git — только пользователь.
+**Далее:** `STAGE5-057` Manual GUI Smoke (Order Intake) — NOT STARTED. Git — только пользователь.

@@ -3,6 +3,54 @@
 ## Latest result
 
 **Date:** 2026-07-31  
+**Scope:** STAGE5-056 — Automated Verification  
+**Overall:** PASS
+
+| Verification | Command / Evidence | Result |
+|---|---|---|
+| Reactor unit | `mvn test` | PASS (EXIT_CODE=0) |
+| Reactor verify | `mvn verify` | PASS (EXIT_CODE=0) |
+| Package verify | `mvn -Ppackage clean verify` | PASS (EXIT_CODE=0) |
+| PackagingSmokeIT | failsafe `-Ppackage`: tests=1, failures=0, errors=0, skipped=0 | PASS |
+| App image | `dist/jpackage/TMP/TMP.exe` + runtime + app | PRESENT |
+| Order Contracts | domain/API/Flyway intake + incomplete DRAFT tests | PASS |
+| Manual UI | OrderItem / Specification editor ViewModel + FX | PASS |
+| Import Core | `DefaultOrderImportServiceTest` + `OrderImportCoreIT` | PASS |
+| STXT Adapter | `StxtFileAdapterTest` (UTF-8/BOM/1251/headers/mm/comma) | PASS |
+| Import GUI | `OrderImportViewModelTest` + `OrderImportControllerFxTest` | PASS |
+| Architecture Import Core | no JavaFX/STXT/Firebird/UI | PASS |
+| Architecture STXT | no UI/persistence/JDBC/Document internals | PASS (rules added) |
+| Architecture UI | no Repository / no JDBC | PASS (rules added) |
+| Regression Security | login/roles/permissions FX + Security ITs | PASS |
+| Regression Document Engine | DocumentEngine ITs + bean lookup | PASS |
+| Regression Order Management | create/update/approve/cancel processors + UI | PASS |
+| Surefire total | 977 tests, 0 fail/err/skip | PASS |
+| Failsafe total | 117 tests, 0 fail/err/skip | PASS |
+| FX tests | 37 (ui-shell Fx*/JavaFx*) | PASS |
+| Architecture tests | Stage5 ArchRules=31; module XML=60 | PASS |
+| Packaging tests | PackagingSmokeIT=1 | PASS |
+| Defects | — | NONE |
+| Production code changes | — | NONE |
+| STAGE5-056 | WORK-QUEUE | DONE |
+| STAGE5-057 | WORK-QUEUE | NOT STARTED |
+| Stage 5 | STATUS | IN_PROGRESS |
+| Stage 6 | STATUS | NOT STARTED |
+| Git | — | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+### Notes
+
+- Agent did **not** launch `TMP.exe` (manual packaged GUI = `STAGE5-057`). Automated packaging smoke = `PackagingSmokeIT` + login/security automated tests.
+- Warehouse / Production / Cutting not in scope; not executed as separate gates.
+
+---
+
+## 2026-07-31 — STAGE5-055 — Import GUI (FIX REQUIRED pass)
+
+**Date:** 2026-07-31  
 **Scope:** STAGE5-055 — Import GUI (FIX REQUIRED pass)  
 **Overall:** PASS
 

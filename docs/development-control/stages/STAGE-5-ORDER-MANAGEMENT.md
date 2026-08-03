@@ -3,7 +3,7 @@
 **Stage:** 5 — Order Management  
 **Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.3)  
 **ADR document:** `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` (v1.6; ADR-028, ADR-029, ADR-030)  
-**Status:** Implementation IN_PROGRESS; STAGE5-050 DONE — PASS; STAGE5-051 DONE; STAGE5-052 DONE; STAGE5-052A DONE; STAGE5-053 DONE; STAGE5-054 DONE; STAGE5-055 DONE; STAGE5-056..057 NOT STARTED.
+**Status:** Implementation IN_PROGRESS; STAGE5-050 DONE — PASS; STAGE5-051 DONE; STAGE5-052 DONE; STAGE5-052A DONE; STAGE5-053 DONE; STAGE5-054 DONE; STAGE5-055 DONE; STAGE5-056 DONE; STAGE5-057 NOT STARTED.
 
 ---
 
@@ -169,7 +169,7 @@
 
 ### Order Intake extension
 
-Строгая последовательность. `STAGE5-051` = **DONE**. `STAGE5-052` = **DONE**. `STAGE5-052A` = **DONE**. `STAGE5-053` = **DONE**. `STAGE5-054` = **DONE**. `STAGE5-055` = **DONE**. Следующая: `STAGE5-056` = **NOT STARTED**.
+Строгая последовательность. `STAGE5-051` = **DONE**. `STAGE5-052` = **DONE**. `STAGE5-052A` = **DONE**. `STAGE5-053` = **DONE**. `STAGE5-054` = **DONE**. `STAGE5-055` = **DONE**. `STAGE5-056` = **DONE**. Следующая: `STAGE5-057` = **NOT STARTED**.
 
 | ID | Title |
 | --- | --- |
