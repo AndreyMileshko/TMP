@@ -3,7 +3,7 @@
 **Mode:** Autonomous Cursor Agent  
 **Project status:** IN_PROGRESS  
 **Current Stage:** Stage 5 — Order Management  
-**Current Task:** STAGE5-057 — IN_PROGRESS (FIX REQUIRED retest — STAGE5-057-SMOKE-001; awaiting user manual confirmation)  
+**Current Task:** STAGE5-057 — IN_PROGRESS (STAGE5-057-SMOKE-001 fixed in source; awaiting user manual reconfirm)  
 **Last completed task:** STAGE5-056  
 **Active blockers:** NONE  
 
@@ -16,7 +16,7 @@ STAGE5-053 = DONE
 STAGE5-054 = DONE
 STAGE5-055 = DONE
 STAGE5-056 = DONE
-STAGE5-057 = IN_PROGRESS — FIX REQUIRED (SMOKE-001 additional fix applied; await user confirm)
+STAGE5-057 = IN_PROGRESS — FIX REQUIRED (SMOKE-001 fixed; await user confirm)
 Stage 5 Core Order Management = IMPLEMENTED — MANUAL SMOKE PASS
 Stage 5 Order Intake Extension = IN_PROGRESS (STAGE5-057 pending user reconfirm)
 Stage 5 = IN_PROGRESS
@@ -51,10 +51,10 @@ Active blockers = NONE
 | Order Intake Extension (`STAGE5-051..057`) | `STAGE5-051..056` DONE; `STAGE5-057` IN_PROGRESS |
 | Stage 5 overall | IN_PROGRESS |
 
-`STAGE5-057` remains **IN_PROGRESS** until user manual confirmation after SMOKE-001 additional fix. **Stage 5 is not closed.** Stage 6 = NOT STARTED.
+`STAGE5-057-SMOKE-001` fixed in source/package rebuild. **STAGE5-057 stays IN_PROGRESS** until user manual confirmation. Stage 5 not closed. Stage 6 = NOT STARTED.
 
 ---
 
 **Stage 0–4:** DONE 100%.
 
-**Далее:** User retests packaged/manual GUI smoke for imported order commercial draft save. Git — только пользователь.
+**Далее:** User retests with rebuilt `dist/jpackage/TMP/TMP.exe`. Git — только пользователь.

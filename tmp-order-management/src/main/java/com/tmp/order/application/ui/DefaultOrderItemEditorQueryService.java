@@ -79,7 +79,7 @@ public final class DefaultOrderItemEditorQueryService implements OrderItemEditor
         return OrderItemEditorSnapshot.RevisionView.of(
                 revision.revisionNumber(),
                 revision.status(),
-                revision.orderedQuantity().value(),
+                UiProductQuantityNormalization.forUiContract(revision.orderedQuantity().value()),
                 lineCount);
     }
 }

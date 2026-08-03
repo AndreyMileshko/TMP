@@ -390,6 +390,47 @@ class DefaultOrderItemDocumentUiServiceTest {
     }
 
     @Test
+    void editorQueryNormalizesScaledImportedProductQuantityForUi() {
+        OrderItemId itemId = OrderItemId.generate();
+        OrderId orderId = OrderId.generate();
+        RevisionNumber draftNumber = RevisionNumber.first();
+        OrderItemRevision draft =
+                OrderItemRevision.rehydrate(
+                        itemId,
+                        draftNumber,
+                        RevisionStatus.DRAFT,
+                        OrderedQuantity.of(new BigDecimal("8.000000")),
+                        null,
+                        ItemSpecification.empty(itemId, draftNumber));
+        OrderItem item =
+                OrderItem.rehydrate(
+                        itemId,
+                        orderId,
+                        ItemCommercialData.of(ProductCode.of("P-1"), "Panel", null),
+                        OrderItemStatus.DRAFT,
+                        null,
+                        draftNumber,
+                        Map.of(draftNumber, draft),
+                        0L,
+                        Instant.parse("2026-08-03T00:00:00Z"),
+                        Instant.parse("2026-08-03T00:00:00Z"));
+        when(orderItemRepository.findById(itemId)).thenReturn(Optional.of(item));
+        OrderQueryService orderQueryService = mock(OrderQueryService.class);
+        when(orderQueryService.getOrderItem(itemId)).thenReturn(Optional.empty());
+        DefaultOrderItemEditorQueryService query =
+                new DefaultOrderItemEditorQueryService(
+                        orderItemRepository, orderQueryService, authorization);
+
+        OrderItemEditorSnapshot snapshot = query.getEditorSnapshot(itemId).orElseThrow();
+
+        assertEquals(0, snapshot.orderedQuantity().scale());
+        assertEquals("8", snapshot.orderedQuantity().toPlainString());
+        assertEquals(
+                "8",
+                snapshot.draftRevision().orElseThrow().orderedQuantity().toPlainString());
+    }
+
+    @Test
     void editorQueryReturnsNullExternalPositionWhenAbsent() {
         OrderItemId itemId = OrderItemId.generate();
         OrderId orderId = OrderId.generate();

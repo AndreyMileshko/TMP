@@ -3,15 +3,17 @@
 ## Latest result
 
 **Date:** 2026-08-03  
-**Scope:** STAGE5-057 — FIX REQUIRED additional — `STAGE5-057-SMOKE-001`  
-**Overall:** AUTOMATED PASS (awaiting user manual reconfirm; Stage 5 **not** closed)
+**Scope:** STAGE5-057 — FIX REQUIRED cycle 2 — `STAGE5-057-SMOKE-001 fixed`  
+**Overall:** AUTOMATED PASS + package rebuilt; **awaiting user manual reconfirm**; Stage 5 **not** closed
 
 | Item | Result |
 |---|---|
 | Defect ID | `STAGE5-057-SMOKE-001` |
-| Root cause | Commercial draft UPDATE validated TextField quantity (`8.000000` NUMERIC scale) though payload has no quantity; display used `toPlainString()` |
-| Fix | Skip quantity on ITEM_UPDATE commercial save; format/normalize wholes to `"8"`; `remainder` whole-check; application `parseQuantity` scale-0 for wholes |
-| Focused tests | PASS — Order Management 13 + UI Shell 67 |
+| Error message source | `ProductQuantityUiValidation` only on commercial-draft UI path (Import validator unused here) |
+| Why retest still failed | Stale packaged `TMP.exe` without prior source fixes |
+| Cycle-2 fix | Query-layer scale-0 projection + commercial UPDATE never blocks on quantity + rebuild jpackage |
+| Focused tests | PASS — 26 (order-management) + 72 (ui-shell) |
+| `dist/jpackage/TMP/TMP.exe` | Rebuilt 2026-08-03 14:46 |
 | Import Core / STXT / Domain / Persistence / Flyway | UNCHANGED |
 | STAGE5-057 | IN_PROGRESS (await user) |
 | Stage 5 | IN_PROGRESS (not closed) |
@@ -23,22 +25,20 @@
 | Input / scenario | Expected | Result |
 |---|---|---|
 | `8` | PASS | PASS |
-| `8.000000` | PASS | PASS |
 | `8.0` | PASS | PASS |
-| `8.5` | FAIL | PASS (rejected) |
-| `0` | FAIL | PASS (rejected) |
-| `-1` | FAIL | PASS (rejected) |
-| Imported DRAFT `8.000000` → open → field shows `8` | PASS | PASS |
-| Imported DRAFT → change comment → commercial save | PASS | PASS |
-| Imported DRAFT → field forced `8.000000` → commercial save | PASS | PASS |
-| Imported spec → save unchanged | PASS | PASS |
-| Application `saveItemCreateDraft("8.000000")` | PASS | PASS |
+| `8.000000` | PASS | PASS |
+| `8.5` / `0` / `-1` | FAIL | PASS (rejected) |
+| Imported DRAFT open → field shows `8` | PASS | PASS |
+| Imported DRAFT save commercial without quantity change | PASS | PASS |
+| Editor query `8.000000` → snapshot `"8"` scale 0 | PASS | PASS |
 
-### Manual reconfirm checklist (user)
+### Manual reconfirm (user)
 
-1. Rebuild/repackage app with this fix (`mvn -Ppackage` if using TMP.exe).
-2. Import STXT → order `26062891` → open item → change comment → «Сохранить коммерческий черновик» → expect SUCCESS.
-3. Confirm STAGE5-057 PASS/FAIL to agent.
+1. Launch **rebuilt** `dist/jpackage/TMP/TMP.exe` (timestamp ~14:46).
+2. Import STXT → order `26062891` → open first item.
+3. Expect quantity field **`8`** (not `8.000000`).
+4. «Сохранить коммерческий черновик» without editing quantity → SUCCESS.
+5. Report PASS/FAIL to agent. Do not close Stage 5 until then.
 
 ---
 

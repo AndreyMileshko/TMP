@@ -118,6 +118,40 @@ class DefaultOrderItemSpecificationEditorQueryServiceTest {
     }
 
     @Test
+    void draftSnapshotNormalizesScaledImportedProductQuantity() {
+        OrderItemId itemId = OrderItemId.generate();
+        OrderId orderId = OrderId.generate();
+        RevisionNumber draftNumber = RevisionNumber.first();
+        OrderItemRevision draft =
+                OrderItemRevision.rehydrate(
+                        itemId,
+                        draftNumber,
+                        RevisionStatus.DRAFT,
+                        OrderedQuantity.of(new BigDecimal("8.000000")),
+                        null,
+                        ItemSpecification.empty(itemId, draftNumber));
+        OrderItem item =
+                OrderItem.rehydrate(
+                        itemId,
+                        orderId,
+                        ItemCommercialData.of(ProductCode.of("P-1"), "Panel", null),
+                        OrderItemStatus.DRAFT,
+                        null,
+                        draftNumber,
+                        Map.of(draftNumber, draft),
+                        0L,
+                        NOW,
+                        NOW);
+        when(orderItemRepository.findById(itemId)).thenReturn(Optional.of(item));
+
+        OrderItemSpecificationEditorSnapshot snapshot =
+                service.getSpecificationSnapshot(itemId, draftNumber).orElseThrow();
+
+        assertEquals(0, snapshot.orderedQuantity().scale());
+        assertEquals("8", snapshot.orderedQuantity().toPlainString());
+    }
+
+    @Test
     void missingSpecificationViewIsDenied() {
         OrderItemId itemId = OrderItemId.generate();
         org.mockito.Mockito.doThrow(new AccessDeniedException("denied"))

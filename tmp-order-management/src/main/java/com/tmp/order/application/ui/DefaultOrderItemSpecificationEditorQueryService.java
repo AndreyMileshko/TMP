@@ -74,7 +74,8 @@ public final class DefaultOrderItemSpecificationEditorQueryService
                         item.id(),
                         found.revisionNumber(),
                         found.status(),
-                        found.orderedQuantity().value(),
+                        UiProductQuantityNormalization.forUiContract(
+                                found.orderedQuantity().value()),
                         immutable,
                         lines));
     }

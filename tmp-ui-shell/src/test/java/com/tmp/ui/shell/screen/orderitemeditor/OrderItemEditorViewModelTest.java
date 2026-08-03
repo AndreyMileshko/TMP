@@ -471,6 +471,7 @@ class OrderItemEditorViewModelTest {
                 viewModel.successMessageProperty().get().contains("Черновик изменения позиции"));
         assertTrue(docs.saveUpdateCalled);
         assertEquals("after-import-comment", docs.lastCommercialDraft.comments());
+        assertEquals("8", viewModel.orderedQuantityProperty().get());
     }
 
     @org.junit.jupiter.params.ParameterizedTest

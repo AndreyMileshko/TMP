@@ -198,12 +198,13 @@ public final class OrderItemEditorViewModel {
                 showSuccess("Черновик документа позиции сохранён");
             } else {
                 // ITEM_UPDATE commercial draft does not carry orderedQuantity; quantity changes
-                // go through REVISION_UPDATE. Do not reject save based on display scale leftovers
-                // such as "8.000000" from NUMERIC(19,6).
+                // go through REVISION_UPDATE. Normalize display leftovers such as "8.000000" but
+                // never block commercial save on quantity text.
                 if (orderItemId == null || itemStatus != OrderItemStatus.DRAFT) {
                     showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
                     return;
                 }
+                normalizeQuantityDisplayBestEffort();
                 if (documentId == null || pendingKind != DocumentKind.ITEM_UPDATE) {
                     documentId =
                             itemDocuments.beginItemUpdate(
@@ -667,6 +668,19 @@ public final class OrderItemEditorViewModel {
                 name.get(),
                 blankToNull(comments.get()),
                 blankToNull(externalPositionNumber.get()));
+    }
+
+    private void normalizeQuantityDisplayBestEffort() {
+        String raw = orderedQuantity.get();
+        if (raw == null || raw.isBlank()) {
+            return;
+        }
+        try {
+            orderedQuantity.set(
+                    ProductQuantityUiValidation.requireValidNormalizedProductQuantity(raw));
+        } catch (RuntimeException ignored) {
+            // Quantity is owned by revision update, not commercial ITEM_UPDATE.
+        }
     }
 
     private Optional<RevisionNumber> parseCopyFrom() {

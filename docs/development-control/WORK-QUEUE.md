@@ -8957,7 +8957,7 @@ Failure outside Stage 5 scope; packaging broken.
 
 ## STAGE5-057 — Manual GUI Smoke (Order Intake)
 
-**Status:** IN_PROGRESS — FIX REQUIRED (SMOKE-001 additional fix; awaiting user confirmation)
+**Status:** IN_PROGRESS — FIX REQUIRED (STAGE5-057-SMOKE-001 fixed; awaiting user confirmation)
 **Stage:** 5
 **Depends on:** STAGE5-056
 **Module:** `tmp-ui-shell` + `tmp-order-management` application UI (`DefaultOrderItemDocumentUiService`)

@@ -4,6 +4,57 @@
 
 ---
 
+## STAGE5-057 — FIX REQUIRED — STAGE5-057-SMOKE-001 (cycle 2)
+
+**Date:** 2026-08-03  
+**Stage:** 5  
+**Status:** IN_PROGRESS (`STAGE5-057-SMOKE-001` fixed in source + rebuilt `TMP.exe`; awaiting user manual confirmation)  
+**Modules:** `tmp-ui-shell`, `tmp-order-management` (application UI only)
+
+### Real root cause
+
+Russian message «Количество изделий должно быть целым числом больше нуля» exists only in:
+
+1. `ProductQuantityUiValidation` (UI) — **actual source on commercial draft save**
+2. `OrderImportValidator` (Import Core) — Integer `productQuantity <= 0`; **not on this path**
+
+Flow for imported DRAFT commercial save:
+
+`OrderItemEditorViewModel.saveCommercialDraft()` → `OrderItemDocumentUiService.saveItemUpdateDraft()` → commercial payload only (`OrderItemCommercialDraft` has **no** quantity) → **does not** call `OrderedQuantity`.
+
+Bug: UI still validated TextField quantity on ITEM_UPDATE even though quantity is not in the update payload. Field text came from NUMERIC(19,6) as `8.000000` via `BigDecimal.toPlainString()`. Pattern `8` PASS / `8.0` FAIL matches old digit-only UI check in the **packaged binary** the user was running.
+
+### Why previous fixes did not appear to work
+
+Source was already corrected, but manual smoke used stale `dist/jpackage/TMP/TMP.exe` (jpackage only runs at `pre-integration-test`). Field still showing `8.000000` proves old UI binary. Cycle 2 also hardens application query projection so snapshot quantity is scale-0 (`"8"`) before UI binding.
+
+### Fix (cycle 2)
+
+1. **Application query:** `UiProductQuantityNormalization` — editor/spec snapshots expose wholes at scale 0 (`8.000000` → `8`).
+2. **Application parse:** `DefaultOrderItemDocumentUiService.parseQuantity` uses the same normalization before `OrderedQuantity.of`.
+3. **UI commercial UPDATE:** never blocks on quantity; best-effort display normalize to `"8"`.
+4. **UI CREATE/revision/spec:** normalize `8`/`8.0`/`8.000000` → `"8"`.
+5. **Rebuilt** `dist/jpackage/TMP/TMP.exe` (2026-08-03 14:46).
+
+### Tests
+
+- `Stage5Smoke001ProductQuantityDiagnosticTest` — pins message source; imported DRAFT save without quantity change; `8`/`8.0`/`8.000000` same commercial path
+- `UiProductQuantityNormalizationTest`
+- Editor/spec query tests for scaled import quantity
+- Existing ViewModel / ProductQuantityUiValidation coverage
+
+Focused automated: **98 PASS** (26 OM + 72 UI).
+
+### Unchanged
+
+Import Core, STXT Adapter, Domain semantics, Persistence, Flyway — not modified. Git not executed. Stage 6 not started.
+
+### Next
+
+User retests rebuilt TMP.exe. **Do not** set STAGE5-057 = DONE until user confirms.
+
+---
+
 ## STAGE5-057 — FIX REQUIRED — STAGE5-057-SMOKE-001 (additional)
 
 **Date:** 2026-08-03  
