@@ -8936,6 +8936,10 @@ UI posts documents bypassing import service.
 
 - [x] All listed gates green;
 - [x] PackagingSmokeIT executed successfully.
+- [x] Verification matrix documented;
+- [x] End-to-end Order Intake IT;
+- [x] Packaging smoke: TMP start / login window / admin login / Import GUI open (no import);
+- [x] Flyway V1→V12 clean + V11→V12 upgrade with application start.
 
 ### Required tests
 

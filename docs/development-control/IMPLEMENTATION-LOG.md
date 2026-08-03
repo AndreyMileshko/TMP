@@ -4,11 +4,44 @@
 
 ---
 
+## STAGE5-056 — Automated Verification (FIX REQUIRED pass)
+
+**Date:** 2026-08-03  
+**Stage:** 5  
+**Status:** DONE  
+**Module:** multi-module verification (tests + control docs only)
+
+### Result
+
+FIX REQUIRED pass for STAGE5-056 — усиление automated verification без новой бизнес-функциональности.
+
+Добавлено:
+
+1. **Verification matrix** (Feature → Test Class → Scenario → Result) в VERIFICATION-LOG.
+2. **End-to-end IT** `OrderIntakeStxtEndToEndIT`: STXT fixture → adapter → batch → preview → plan → confirm → DRAFT order/item/revision/spec → Query API + UI editor reads (`productCode`/`name` null; `lineQuantity` not multiplied).
+3. **PackagingSmokeIT** расширен: TMP.exe start + login window title; admin login + Import GUI open via package-profile Spring/JavaFX; без импорта и без мутации orders.
+4. **Flyway bootstrap IT** `OrderIntakeFlywayBootstrapIT`: clean V1→V12 + app start; upgrade V11→V12 с сохранением данных + app start.
+5. **Regression matrix** в VERIFICATION-LOG.
+
+Production (Import Core / STXT / Import GUI / Domain / Persistence) не изменялись. `STAGE5-057` not started. Git not executed.
+
+### Verification
+
+- `mvn test` — PASS
+- `mvn verify` — PASS
+- `mvn -Ppackage clean verify` — PASS; PackagingSmokeIT = 2/0/0/0
+
+### Next
+
+`STAGE5-057` — Manual GUI Smoke (Order Intake) — NOT STARTED.
+
+---
+
 ## STAGE5-056 — Automated Verification
 
 **Date:** 2026-07-31  
 **Stage:** 5  
-**Status:** DONE  
+**Status:** DONE (superseded by FIX REQUIRED pass 2026-08-03)  
 **Module:** multi-module verification (Order Intake gate)
 
 ### Result

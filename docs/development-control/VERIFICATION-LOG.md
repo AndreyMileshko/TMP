@@ -2,9 +2,117 @@
 
 ## Latest result
 
+**Date:** 2026-08-03  
+**Scope:** STAGE5-056 — Automated Verification (FIX REQUIRED pass)  
+**Overall:** PASS
+
+### Commands
+
+| Command | Result |
+|---|---|
+| `mvn test` | PASS (EXIT_CODE=0) |
+| `mvn verify` | PASS (EXIT_CODE=0) |
+| `mvn -Ppackage clean verify` | PASS (EXIT_CODE=0) |
+| Architecture (`tmp-architecture-tests`) | PASS |
+| PackagingSmokeIT | PASS — tests=2, failures=0, errors=0, skipped=0 |
+
+### Counts (`-Ppackage clean verify`)
+
+| Category | Count |
+|---|---:|
+| Surefire (unit) | 977 |
+| Failsafe (integration) | 121 |
+| FX (ui-shell `*Fx*`/`*JavaFx*`) | 37 |
+| Architecture module surefire XML | 60 |
+| PackagingSmokeIT | 2 |
+
+### Verification Matrix (Order Intake)
+
+| Feature | Test Class | Scenario | Result |
+|---|---|---|---|
+| Preview SUCCESS | `OrderImportControllerFxTest` | `previewSuccessEnablesImportAndShowsCounters` | PASS |
+| Preview ERROR | `OrderImportControllerFxTest` | `previewErrorShowsProblemsAndDisablesImport` | PASS |
+| Duplicate | `OrderImportViewModelTest` | `confirmDuplicateShowsExactUserMessage` | PASS |
+| Existing order conflict | `OrderImportViewModelTest` | `confirmConflictShowsExactUserMessage` / `conflictOnPreviewShowsRussianMessageWithoutImport` | PASS |
+| FileChooser Cancel | `OrderImportControllerFxTest` | `fileChooserCancelDoesNotCallAdapterOrChangePreview` | PASS |
+| STXT → Confirm → Query | `OrderIntakeStxtEndToEndIT` | `stxtFixtureThroughConfirmIsReadableAsIncompleteDraft` | PASS |
+| UTF-8 / BOM / 1251 / mm / comma | `StxtFileAdapterTest` | encoding/header/length scenarios | PASS |
+| Import Core preview/confirm/rollback | `DefaultOrderImportServiceTest` / `OrderImportCoreIT` | preview/plan/confirm/duplicate/conflict/rollback | PASS |
+| Manual DRAFT / APPROVED readonly | `OrderItemEditor*Test` / `OrderItemSpecificationEditor*Test` | create/edit/validation/Russian | PASS |
+
+Note: user request named `ImportScreen*Test`; actual classes are `OrderImportControllerFxTest` / `OrderImportViewModelTest`.
+
+### End-to-End scenario
+
+`OrderIntakeStxtEndToEndIT`:
+
+STXT fixture `stxt/sample-utf8.stxt` → `StxtFileAdapter` → `OrderImportBatch` → preview → preparedPlan → confirm → DRAFT order/item/revision/spec lines → `OrderQueryService` + `OrderItemEditorQueryService` + `OrderItemSpecificationEditorQueryService`.
+
+Asserted: orderNumber `26062891`; externalPositionNumber `1`; productQuantity `8`; productCode/name null; materialCode/name/color/lengthMm saved; lineQuantity `16` (not multiplied by productQuantity).
+
+### Packaging Smoke
+
+`PackagingSmokeIT` (`-Ppackage`):
+
+1. App-image artifacts (`TMP.exe`, runtime, `TMP.cfg`, fat jar) — PASS  
+2. TMP.exe starts with Testcontainers Postgres; window title `TOP Manufacturing Platform` (login) — PASS  
+3. Admin login via package-profile Spring `LoginViewModel` — PASS  
+4. Import GUI FXML opens (`#selectFileButton`, `#fileNameField`, `#importButton`); import stays disabled; order count unchanged — PASS  
+
+No real import / no data mutation.
+
+### Flyway verification
+
+`OrderIntakeFlywayBootstrapIT`:
+
+| Path | Check | Result |
+|---|---|---|
+| Clean V1→V12 | migrate all; Spring starts; admin login | PASS |
+| Upgrade V11→V12 | seed order at V11; Spring migrates to V12; data preserved; admin login | PASS |
+
+Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum).
+
+### Regression Matrix
+
+| Area | Feature | Evidence | Result |
+|---|---|---|---|
+| Security | Login | `LoginControllerFxTest` / `LoginViewModelTest` / Security ITs | PASS |
+| Security | Roles | `RoleAdministration*Test` | PASS |
+| Security | Permissions | Security permission ITs / catalogs | PASS |
+| Document Engine | Document creation | `DocumentEnginePostgresIntegrationIT` / bean lookup | PASS |
+| Document Engine | Document processing | Document Engine processor/lifecycle tests | PASS |
+| Order Management | Create Order | `OrderCreateDocumentProcessorTest` / UI | PASS |
+| Order Management | Edit Draft | Order editor / item editor tests | PASS |
+| Order Management | Approve | `OrderApproveDocumentProcessorTest` | PASS |
+| Order Management | Cancel | `OrderCancelDocumentProcessorTest` | PASS |
+| Order Intake | STXT | `StxtFileAdapterTest` | PASS |
+| Order Intake | Preview | Import Core + Import GUI tests | PASS |
+| Order Intake | Confirm | Import Core IT + E2E | PASS |
+| Order Intake | Duplicate | Import Core + ViewModel | PASS |
+| Order Intake | Conflict | Import Core + ViewModel | PASS |
+
+### Status
+
+| Item | Value |
+|---|---|
+| STAGE5-056 | DONE |
+| STAGE5-057 | NOT STARTED |
+| Stage 5 | IN_PROGRESS |
+| Stage 6 | NOT STARTED |
+| Production code changes | NONE (tests + control docs only) |
+| Git | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+
+## 2026-07-31 — STAGE5-056 — Automated Verification (initial)
+
 **Date:** 2026-07-31  
 **Scope:** STAGE5-056 — Automated Verification  
-**Overall:** PASS
+**Overall:** PASS (later FIX REQUIRED for matrices/E2E/packaging/Flyway app-start)
 
 | Verification | Command / Evidence | Result |
 |---|---|---|
