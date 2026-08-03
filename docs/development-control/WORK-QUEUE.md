@@ -8957,7 +8957,7 @@ Failure outside Stage 5 scope; packaging broken.
 
 ## STAGE5-057 — Manual GUI Smoke (Order Intake)
 
-**Status:** NOT STARTED
+**Status:** IN_PROGRESS — WAITING_USER_CONFIRMATION
 **Stage:** 5
 **Depends on:** STAGE5-056
 **Module:** none (manual)

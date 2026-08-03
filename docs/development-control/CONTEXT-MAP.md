@@ -124,7 +124,7 @@ Read only:
 - релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030** (ADR document **v1.6**);
 - Production Specification (v1.1) — **только** разделы владения производственным состоянием, связи с `Order Item ID`/`Revision`, Public API, Domain Events и интеграции с Order Management (для корректной границы; не для реализации Production).
 
-Миграции Order Management (факт): latest = **V12** (`V6`…`V11` + `V12__order_import_metadata.sql`). Next available = **V13**. Current intake task: `STAGE5-056` = **DONE**; `STAGE5-057` = **NOT STARTED**.
+Миграции Order Management (факт): latest = **V12** (`V6`…`V11` + `V12__order_import_metadata.sql`). Next available = **V13**. Current intake task: `STAGE5-057` = **IN_PROGRESS — WAITING_USER_CONFIRMATION**.
 
 Разрешённый минимальный code context (публичные API только):
 

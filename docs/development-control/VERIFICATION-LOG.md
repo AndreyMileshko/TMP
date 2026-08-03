@@ -3,6 +3,72 @@
 ## Latest result
 
 **Date:** 2026-08-03  
+**Scope:** STAGE5-057 — Manual GUI Smoke (Order Intake) — preparation  
+**Overall:** WAITING_USER_CONFIRMATION  
+**Performed by (agent):** checklist preparation only — agent did **not** launch `TMP.exe`
+
+### Prerequisites confirmed
+
+| Item | Status |
+|---|---|
+| STAGE5-050…056 | DONE |
+| STAGE5-057 | IN_PROGRESS — WAITING_USER |
+| Stage 5 | IN_PROGRESS |
+| Stage 6 | NOT STARTED |
+| Code changes | NONE |
+| Git | NOT EXECUTED |
+
+### Launch preparation
+
+| Item | Value |
+|---|---|
+| Executable | `C:\Users\1\Desktop\TMP-Cursor-Autonomous-Development\TMP-Cursor-Autonomous-Development\dist\jpackage\TMP\TMP.exe` |
+| STXT fixture | `...\tmp-order-management\src\test\resources\stxt\sample-utf8.stxt` |
+| Expected order number | `26062891` |
+| Expected positions | `2` |
+| Expected total product qty | `10` (8+2) |
+| Expected spec lines | `3` |
+| Position 1 lineQuantity | `16` and `4` (not × productQuantity) |
+
+Required env (package profile) — reuse Stage 5 GUI DB if still present:
+
+```text
+# Known from STAGE5-050 (adjust if your local DB differs)
+TMP_DB_URL=jdbc:postgresql://localhost:55432/tmp_gui_stage5
+TMP_DB_USERNAME=tmp
+TMP_DB_PASSWORD=<your password>
+TMP_SECURITY_BOOTSTRAP_ADMIN_LOGIN=admin
+TMP_SECURITY_BOOTSTRAP_ADMIN_DISPLAY_NAME=Administrator
+TMP_SECURITY_BOOTSTRAP_ADMIN_PASSWORD=<your admin password>
+```
+
+Docker container historically used: `tmp-stage5-pg` (port **55432**).
+### User checklist (PASS/FAIL per step)
+
+| Step | Expectation | Fact | PASS/FAIL |
+|---:|---|---|---|
+| 1 | TMP starts; login window | _user_ | _user_ |
+| 2 | admin login; permissions work | _user_ | _user_ |
+| 3 | Import GUI opens; controls visible | _user_ | _user_ |
+| 4 | FileChooser; file name shown | _user_ | _user_ |
+| 5 | Preview: order/positions/qty/lines; errors 0 | _user_ | _user_ |
+| 6 | Import success; counts shown | _user_ | _user_ |
+| 7 | DRAFT order/item/spec; lineQuantity not multiplied | _user_ | _user_ |
+| 8 | Restart; data persisted | _user_ | _user_ |
+| R1 | Security: login/roles/permissions | _user_ | _user_ |
+| R2 | Orders: create/edit DRAFT/approve/cancel | _user_ | _user_ |
+| R3 | Revision: APPROVED immutable | _user_ | _user_ |
+
+### Stop rule
+
+On any FAIL: set `STAGE5-057 = BLOCKED`; do not change production code; do not start Stage 6.  
+On all PASS: set `STAGE5-057 = DONE`, Stage 5 = DONE, Stage 6 remains NOT STARTED.
+
+---
+
+## 2026-08-03 — STAGE5-056 — Automated Verification (FIX REQUIRED pass)
+
+**Date:** 2026-08-03  
 **Scope:** STAGE5-056 — Automated Verification (FIX REQUIRED pass)  
 **Overall:** PASS
 

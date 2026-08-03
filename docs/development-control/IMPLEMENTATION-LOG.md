@@ -4,6 +4,28 @@
 
 ---
 
+## STAGE5-057 — Manual GUI Smoke (Order Intake) — preparation
+
+**Date:** 2026-08-03  
+**Stage:** 5  
+**Status:** IN_PROGRESS — WAITING_USER_CONFIRMATION  
+**Module:** none (manual)
+
+### Result
+
+Подготовлен ручной Order Intake smoke checklist. Код не изменялся. `TMP.exe` агентом не запускался.
+
+Packaged app: `dist/jpackage/TMP/TMP.exe` (present).  
+STXT fixture: `tmp-order-management/src/test/resources/stxt/sample-utf8.stxt` (existing; order `26062891`).
+
+Stage 5 remains IN_PROGRESS until user PASS. Stage 6 not started. Git not executed.
+
+### Next
+
+User executes checklist and reports PASS or FAIL (with step/expected/actual if FAIL).
+
+---
+
 ## STAGE5-056 — Automated Verification (FIX REQUIRED pass)
 
 **Date:** 2026-08-03  
