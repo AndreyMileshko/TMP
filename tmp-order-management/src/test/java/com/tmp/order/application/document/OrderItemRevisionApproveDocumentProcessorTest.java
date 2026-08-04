@@ -111,7 +111,7 @@ class OrderItemRevisionApproveDocumentProcessorTest {
 
         OrderItem saved = items.findById(withDraft.id()).orElseThrow();
         assertEquals(RevisionNumber.of(2), saved.activeRevisionNumber().orElseThrow());
-        assertTrue(saved.revision(RevisionNumber.first()).orElseThrow().isApproved());
+        assertTrue(saved.revision(RevisionNumber.first()).orElseThrow().isActive());
         assertTrue(saved.revision(RevisionNumber.first()).orElseThrow().specification().orElseThrow().isImmutable());
     }
 

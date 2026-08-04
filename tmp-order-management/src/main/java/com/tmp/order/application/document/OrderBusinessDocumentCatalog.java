@@ -1,6 +1,7 @@
 package com.tmp.order.application.document;
 
 import com.tmp.order.application.payload.DocumentTypeCode;
+import com.tmp.order.application.payload.OrderActivatePayload;
 import com.tmp.order.application.payload.OrderApprovePayload;
 import com.tmp.order.application.payload.OrderCancelPayload;
 import com.tmp.order.application.payload.OrderCreatePayload;
@@ -47,6 +48,12 @@ public final class OrderBusinessDocumentCatalog {
                             "Order approve",
                             "Approves a Draft customer order",
                             OrderApprovePayload.class,
+                            "order.order.approve"),
+                    descriptor(
+                            DocumentTypeCode.ORDER_ACTIVATE,
+                            "Order activate",
+                            "Activates an Approved customer order to ACTIVE",
+                            OrderActivatePayload.class,
                             "order.order.approve"),
                     descriptor(
                             DocumentTypeCode.ORDER_CANCEL,

@@ -448,18 +448,16 @@ class Stage5OrderManagementArchitectureTest {
                             "Import Core may use only public Document Engine and Security APIs");
 
     @ArchTest
-    static final ArchRule onlyImportMetadataJdbcAdapterTouchesImportMetadataPersistence =
+    static final ArchRule importCoreDoesNotUseJdbcTemplate =
             noClasses()
                     .that()
                     .resideInAPackage("com.tmp.order.application.imports..")
-                    .and()
-                    .haveSimpleNameNotEndingWith("Repository")
                     .should()
                     .dependOnClassesThat()
                     .areAssignableTo(org.springframework.jdbc.core.JdbcTemplate.class)
                     .because(
-                            "Only the import metadata persistence adapter may use JDBC; Import Core "
-                                    + "orchestrates business documents through application services");
+                            "Import Core has no ImportMetadata JDBC path (ADR-031); it orchestrates "
+                                    + "business documents through Document Engine and repositories");
 
     @ArchTest
     static final ArchRule orderStxtAdapterDoesNotDependOnUiPersistenceOrDocumentInternals =

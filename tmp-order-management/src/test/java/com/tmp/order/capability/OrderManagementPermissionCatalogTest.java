@@ -43,7 +43,7 @@ class OrderManagementPermissionCatalogTest {
     @Test
     void everyBusinessDocumentMapsToExistingCapability() {
         List<OrderDocumentTypeDescriptor> documents = OrderBusinessDocumentCatalog.all();
-        assertEquals(10, documents.size());
+        assertEquals(11, documents.size());
         for (OrderDocumentTypeDescriptor document : documents) {
             assertTrue(
                     OrderManagementPermissionCatalog.containsCode(document.requiredCapability()),

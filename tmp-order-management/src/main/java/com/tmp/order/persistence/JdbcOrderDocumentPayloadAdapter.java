@@ -6,6 +6,7 @@ import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
 import com.tmp.order.application.payload.DocumentId;
 import com.tmp.order.application.payload.DocumentTypeCode;
+import com.tmp.order.application.payload.OrderActivatePayload;
 import com.tmp.order.application.payload.OrderApprovePayload;
 import com.tmp.order.application.payload.OrderCancelPayload;
 import com.tmp.order.application.payload.OrderCreatePayload;
@@ -178,6 +179,7 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
             case OrderCreatePayload p -> insertCreate(p);
             case OrderUpdatePayload p -> insertUpdate(p);
             case OrderApprovePayload p -> insertStatus(p.documentId(), p.orderId());
+            case OrderActivatePayload p -> insertStatus(p.documentId(), p.orderId());
             case OrderCancelPayload p -> insertStatus(p.documentId(), p.orderId());
             case OrderItemCreatePayload p -> insertItemCreate(p);
             case OrderItemUpdatePayload p -> insertItemUpdate(p);
@@ -197,7 +199,7 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
             case ORDER_UPDATE -> jdbc.update(
                     "DELETE FROM order_management.order_update_payload WHERE document_id = ?",
                     documentId);
-            case ORDER_APPROVE, ORDER_CANCEL -> jdbc.update(
+            case ORDER_APPROVE, ORDER_ACTIVATE, ORDER_CANCEL -> jdbc.update(
                     "DELETE FROM order_management.order_status_payload WHERE document_id = ?",
                     documentId);
             case ORDER_ITEM_CREATE -> jdbc.update(
@@ -233,6 +235,7 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
             case ORDER_CREATE -> loadCreate(identity, documentId);
             case ORDER_UPDATE -> loadUpdate(identity, documentId);
             case ORDER_APPROVE -> loadApprove(identity, documentId);
+            case ORDER_ACTIVATE -> loadActivate(identity, documentId);
             case ORDER_CANCEL -> loadCancel(identity, documentId);
             case ORDER_ITEM_CREATE -> loadItemCreate(identity, documentId);
             case ORDER_ITEM_UPDATE -> loadItemUpdate(identity, documentId);
@@ -333,6 +336,18 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
             throw new IllegalStateException("Missing order_id for status payload " + documentId);
         }
         return OrderApprovePayload.rehydrate(identity, OrderId.of(orderId));
+    }
+
+    private OrderActivatePayload loadActivate(PayloadIdentity identity, UUID documentId) {
+        UUID orderId =
+                jdbc.queryForObject(
+                        "SELECT order_id FROM order_management.order_status_payload WHERE document_id = ?",
+                        UUID.class,
+                        documentId);
+        if (orderId == null) {
+            throw new IllegalStateException("Missing order_id for status payload " + documentId);
+        }
+        return OrderActivatePayload.rehydrate(identity, OrderId.of(orderId));
     }
 
     private OrderCancelPayload loadCancel(PayloadIdentity identity, UUID documentId) {

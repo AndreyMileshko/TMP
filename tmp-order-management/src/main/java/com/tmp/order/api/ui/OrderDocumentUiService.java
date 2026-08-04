@@ -6,7 +6,7 @@ import java.util.UUID;
 
 /**
  * UI-facing orchestration for order-level document flows ({@code ORDER_CREATE}, {@code
- * ORDER_UPDATE}, {@code ORDER_APPROVE}, {@code ORDER_CANCEL}).
+ * ORDER_UPDATE}, {@code ORDER_APPROVE}, {@code ORDER_ACTIVATE}, {@code ORDER_CANCEL}).
  *
  * <p>Posts only through Document Engine; never mutates aggregates directly.
  */
@@ -17,6 +17,8 @@ public interface OrderDocumentUiService {
     UUID beginOrderUpdate(String title, OrderId orderId);
 
     UUID beginOrderApprove(String title, OrderId orderId);
+
+    UUID beginOrderActivate(String title, OrderId orderId);
 
     UUID beginOrderCancel(String title, OrderId orderId);
 

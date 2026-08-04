@@ -950,7 +950,7 @@ OrderImportBatch
 
 До подтверждения: заказ, позиции, редакции и строки **не** создаются.
 
-**Baseline до STAGE5-058 (факт STAGE5-057):** confirm ещё создаёт неполный `DRAFT` и может использовать checksum metadata. Целевое поведение выше — обязательный результат `STAGE5-058`; до DONE код не менять.
+**Baseline до STAGE5-058 (факт STAGE5-057):** confirm создавал неполный `DRAFT` и мог использовать checksum metadata. **После STAGE5-058:** целевое поведение выше реализовано.
 
 ### Preview (минимум)
 
@@ -1013,9 +1013,9 @@ OrderImportBatch
 | Public Query / DTO / payload / UI / V6+V8 | содержат `consumptionNorm` | синхронное изменение контрактов в STAGE5-051 |
 | Warehouse/Production/Cutting | не читают `consumptionNorm` | кросс-модульного blocker нет |
 | Create DRAFT Order | `customerName` (и др.) ещё обязателен в коде | ADR-030 принят; реализация релаксации в STAGE5-051 |
-| Import landing | после STAGE5-057: неполный `DRAFT` + checksum metadata | ADR-031 final / STAGE5-058: IMPORT → uniform ACTIVE; убрать metadata protection; RevisionStatus → `ACTIVE` |
+| Import landing | STAGE5-058 DONE: IMPORT → uniform ACTIVE; metadata protection removed; RevisionStatus → `ACTIVE` | — |
 
-Требуются изменения для ADR-031 final: domain statuses, import confirm landing, удаление/отключение import-metadata duplicate protection, UI read-only для любого ACTIVE, Revision rename `APPROVED→ACTIVE`, Flyway, tests — только в `STAGE5-058`. В документационной подготовке код не меняется.
+Требуемые изменения ADR-031 final реализованы в `STAGE5-058`: domain statuses, import confirm landing ACTIVE, удаление import-metadata duplicate protection, UI read-only для любого ACTIVE, Revision rename `APPROVED→ACTIVE`, Flyway V13, tests.
 
 ## 27.10 Imported Order Lifecycle Rules (ADR-031 final) — сводка
 

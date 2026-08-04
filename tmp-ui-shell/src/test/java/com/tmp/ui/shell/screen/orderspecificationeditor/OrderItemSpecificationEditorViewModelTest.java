@@ -78,6 +78,29 @@ class OrderItemSpecificationEditorViewModelTest {
     }
 
     @Test
+    void activeRevisionSpecificationIsReadOnly() {
+        FakeSpecQuery query = new FakeSpecQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot =
+                OrderItemSpecificationEditorSnapshot.of(
+                        itemId,
+                        revision,
+                        RevisionStatus.ACTIVE,
+                        BigDecimal.TEN,
+                        true,
+                        List.of(
+                                OrderItemSpecificationLineView.of(
+                                        1, "A", "Active", null, BigDecimal.ONE, BigDecimal.ONE, "pcs")));
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(new FakeDocs(), query, auth(allPerms()));
+        viewModel.open(itemId, revision);
+
+        assertFalse(viewModel.editableProperty().get());
+        assertFalse(viewModel.canSaveDraftProperty().get());
+    }
+
+    @Test
     void approvedScreenIsReadOnly() {
         FakeDocs docs = new FakeDocs();
         FakeSpecQuery query = new FakeSpecQuery();
@@ -572,7 +595,7 @@ class OrderItemSpecificationEditorViewModelTest {
         return OrderItemSpecificationEditorSnapshot.of(
                 itemId,
                 revision,
-                RevisionStatus.APPROVED,
+                RevisionStatus.ACTIVE,
                 BigDecimal.TEN,
                 true,
                 List.of(

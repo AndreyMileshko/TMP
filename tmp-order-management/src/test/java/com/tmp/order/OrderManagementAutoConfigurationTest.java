@@ -11,6 +11,7 @@ import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.order.api.ui.OrderItemSpecificationEditorQueryService;
+import com.tmp.order.application.document.OrderActivateDocumentProcessor;
 import com.tmp.order.application.document.OrderApproveDocumentProcessor;
 import com.tmp.order.application.document.OrderCancelDocumentProcessor;
 import com.tmp.order.application.document.OrderCreateDocumentProcessor;
@@ -118,12 +119,13 @@ class OrderManagementAutoConfigurationTest {
     }
 
     @Test
-    void registersTenOrderManagementDocumentProcessors() {
+    void registersElevenOrderManagementDocumentProcessors() {
         DocumentEngine documentEngine = applicationContext.getBean(DocumentEngine.class);
-        assertEquals(10, documentEngine.status().registeredProcessors());
+        assertEquals(11, documentEngine.status().registeredProcessors());
         assertNotNull(applicationContext.getBean(OrderCreateDocumentProcessor.class));
         assertNotNull(applicationContext.getBean(OrderUpdateDocumentProcessor.class));
         assertNotNull(applicationContext.getBean(OrderApproveDocumentProcessor.class));
+        assertNotNull(applicationContext.getBean(OrderActivateDocumentProcessor.class));
         assertNotNull(applicationContext.getBean(OrderCancelDocumentProcessor.class));
         assertNotNull(applicationContext.getBean(OrderItemCreateDocumentProcessor.class));
         assertNotNull(applicationContext.getBean(OrderItemUpdateDocumentProcessor.class));

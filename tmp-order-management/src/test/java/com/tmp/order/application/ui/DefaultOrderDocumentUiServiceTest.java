@@ -162,6 +162,24 @@ class DefaultOrderDocumentUiServiceTest {
     }
 
     @Test
+    void beginOrderActivateUsesOrderActivateDocumentType() {
+        UUID documentId = UUID.randomUUID();
+        OrderId orderId = OrderId.generate();
+        when(documentEngine.createDocument(any(CreateDocumentCommand.class)))
+                .thenReturn(metadata(documentId, DocumentTypeCode.ORDER_ACTIVATE.name()));
+
+        UUID result = service.beginOrderActivate("Activate order", orderId);
+
+        assertEquals(documentId, result);
+        verify(authorization).requirePermission(OrderManagementPermissions.ORDER_APPROVE);
+        ArgumentCaptor<CreateDocumentCommand> captor =
+                ArgumentCaptor.forClass(CreateDocumentCommand.class);
+        verify(documentEngine).createDocument(captor.capture());
+        assertEquals("ORDER_ACTIVATE", captor.getValue().documentTypeId());
+        verify(draftPayloads).createDraft(any());
+    }
+
+    @Test
     void beginOrderCreateRequiresCreatePermission() {
         when(documentEngine.createDocument(any(CreateDocumentCommand.class)))
                 .thenReturn(metadata(UUID.randomUUID(), DocumentTypeCode.ORDER_CREATE.name()));

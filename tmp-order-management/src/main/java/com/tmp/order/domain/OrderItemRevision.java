@@ -7,10 +7,12 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Order Item Revision entity within the Order Item aggregate boundary (Specification §5.3 / §6).
+ * Order Item Revision entity within the Order Item aggregate boundary (Specification §5.3 / §6 /
+ * ADR-031).
  *
- * <p>After {@link RevisionStatus#APPROVED} the revision is immutable (ADR-018). Item Specification
- * is attached in STAGE5-007; until then the revision may exist without a specification payload.
+ * <p>After {@link RevisionStatus#ACTIVE} the revision is immutable (ADR-018). Item Specification
+ * is attached as part of the revision; until then the revision may exist without a specification
+ * payload.
  */
 public final class OrderItemRevision {
 
@@ -99,13 +101,13 @@ public final class OrderItemRevision {
                 specification);
     }
 
-    OrderItemRevision approved() {
-        requireDraft("approve");
+    OrderItemRevision activated() {
+        requireDraft("activate");
         ItemSpecification frozen = specification == null ? null : specification.frozen();
         return new OrderItemRevision(
                 orderItemId,
                 revisionNumber,
-                RevisionStatus.APPROVED,
+                RevisionStatus.ACTIVE,
                 orderedQuantity,
                 previousRevisionNumber,
                 frozen);
@@ -114,7 +116,7 @@ public final class OrderItemRevision {
     private void requireDraft(String action) {
         if (status != RevisionStatus.DRAFT) {
             throw new InvalidOrderStateException(
-                    "Cannot " + action + " on approved revision "
+                    "Cannot " + action + " on active revision "
                             + orderItemId + "/" + revisionNumber);
         }
     }
@@ -147,7 +149,7 @@ public final class OrderItemRevision {
         return status == RevisionStatus.DRAFT;
     }
 
-    public boolean isApproved() {
-        return status == RevisionStatus.APPROVED;
+    public boolean isActive() {
+        return status == RevisionStatus.ACTIVE;
     }
 }

@@ -3,6 +3,37 @@
 ## Latest result
 
 **Date:** 2026-08-03  
+**Scope:** STAGE5-058 — Imported Order Lifecycle Rules (ADR-031 final)  
+**Overall:** PASS  
+**Type:** Automated unit + integration + architecture  
+**Environment:** Windows; local Maven `.tools/apache-maven-3.9.9`; JDK 21; Testcontainers PostgreSQL 16
+
+| Item | Result |
+|---|---|
+| STAGE5-058 | DONE |
+| Stage 5 | DONE (incl. post-closure 058) |
+| Stage 6 | NOT STARTED |
+| Import confirm → ACTIVE | PASS |
+| Duplicate `orderNumber` only | PASS |
+| ImportMetadata removed | PASS (V13 drop) |
+| `RevisionStatus.ACTIVE` | PASS |
+| UI ACTIVE read-only | PASS (unit/FX) |
+| Git | NOT EXECUTED |
+
+### Commands
+
+| Command | Result |
+|---|---|
+| `mvn -pl tmp-order-management -am test` | PASS |
+| `mvn -pl tmp-ui-shell -am test` | PASS |
+| `mvn -pl tmp-architecture-tests -am test -Dtest=Stage5OrderManagementArchitectureTest` | PASS |
+| `mvn -pl tmp-order-management,tmp-architecture-tests -am verify` | PASS |
+
+---
+
+## Previous result
+
+**Date:** 2026-08-03  
 **Scope:** STAGE5-057 — Manual GUI Smoke Completion (Order Intake)  
 **Overall:** PASS  
 **Type:** Manual GUI Smoke  

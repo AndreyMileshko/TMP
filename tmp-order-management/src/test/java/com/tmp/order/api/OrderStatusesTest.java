@@ -9,7 +9,9 @@ class OrderStatusesTest {
     @Test
     void orderStatusHasExactlyStage5Values() {
         assertArrayEquals(
-                new OrderStatus[] {OrderStatus.DRAFT, OrderStatus.APPROVED, OrderStatus.CANCELLED},
+                new OrderStatus[] {
+                    OrderStatus.DRAFT, OrderStatus.APPROVED, OrderStatus.ACTIVE, OrderStatus.CANCELLED
+                },
                 OrderStatus.values());
     }
 
@@ -25,7 +27,7 @@ class OrderStatusesTest {
     @Test
     void revisionStatusHasExactlyStage5Values() {
         assertArrayEquals(
-                new RevisionStatus[] {RevisionStatus.DRAFT, RevisionStatus.APPROVED},
+                new RevisionStatus[] {RevisionStatus.DRAFT, RevisionStatus.ACTIVE},
                 RevisionStatus.values());
     }
 }

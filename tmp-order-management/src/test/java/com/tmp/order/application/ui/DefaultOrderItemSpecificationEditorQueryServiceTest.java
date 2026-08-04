@@ -84,7 +84,7 @@ class DefaultOrderItemSpecificationEditorQueryServiceTest {
         OrderItemSpecificationEditorSnapshot snapshot =
                 service.getSpecificationSnapshot(itemId, RevisionNumber.first()).orElseThrow();
 
-        assertEquals(RevisionStatus.APPROVED, snapshot.revisionStatus());
+        assertEquals(RevisionStatus.ACTIVE, snapshot.revisionStatus());
         assertTrue(snapshot.immutable());
         assertEquals(1, snapshot.lines().size());
         assertEquals("MAT-A", snapshot.lines().get(0).materialCode());
@@ -213,7 +213,7 @@ class DefaultOrderItemSpecificationEditorQueryServiceTest {
                 OrderItemRevision.rehydrate(
                         itemId,
                         activeNumber,
-                        RevisionStatus.APPROVED,
+                        RevisionStatus.ACTIVE,
                         OrderedQuantity.of(2),
                         null,
                         activeSpec);

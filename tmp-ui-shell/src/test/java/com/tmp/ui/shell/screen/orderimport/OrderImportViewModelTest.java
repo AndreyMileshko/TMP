@@ -10,7 +10,6 @@ import com.tmp.order.api.OrderId;
 import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportConfirmResult;
 import com.tmp.order.api.imports.OrderImportConflictException;
-import com.tmp.order.api.imports.OrderImportDuplicateException;
 import com.tmp.order.api.imports.OrderImportFileParseResult;
 import com.tmp.order.api.imports.OrderImportPreview;
 import com.tmp.order.api.imports.OrderImportProblem;
@@ -23,10 +22,8 @@ import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.screen.orderlist.FakeAuthorization;
 import java.math.BigDecimal;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -153,10 +150,8 @@ class OrderImportViewModelTest {
         imports.confirmResult = OrderImportConfirmResult.of(
                 OrderId.generate(),
                 "26062891",
-                UUID.randomUUID(),
                 5,
-                20,
-                Instant.parse("2026-07-31T00:00:00Z"));
+                20);
         OrderImportViewModel viewModel =
                 new OrderImportViewModel(imports, new FakeStxtParser(), createAuth());
         viewModel.selectFile(Path.of("ok.stxt"));
@@ -168,24 +163,6 @@ class OrderImportViewModelTest {
         assertEquals(
                 "Заказ 26062891 успешно импортирован.\nСоздано позиций: 5.\nСтрок спецификации: 20.",
                 viewModel.successMessageProperty().get());
-    }
-
-    @Test
-    void confirmDuplicateShowsExactUserMessage() {
-        FakeImportService imports = new FakeImportService();
-        imports.preview = successPreview("ORD-DUP", 1, "1", 1);
-        imports.confirmException = new OrderImportDuplicateException();
-        OrderImportViewModel viewModel =
-                new OrderImportViewModel(imports, new FakeStxtParser(), createAuth());
-        viewModel.selectFile(Path.of("dup.stxt"));
-
-        viewModel.confirmImport();
-
-        assertEquals(1, imports.confirmCalls.get());
-        assertFalse(viewModel.canImportProperty().get());
-        assertEquals(
-                OrderImportDuplicateException.USER_MESSAGE, viewModel.errorMessageProperty().get());
-        assertTrue(viewModel.successMessageProperty().get().isBlank());
     }
 
     @Test

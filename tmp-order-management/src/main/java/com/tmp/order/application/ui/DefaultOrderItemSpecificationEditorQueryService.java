@@ -68,7 +68,7 @@ public final class DefaultOrderItemSpecificationEditorQueryService
                             line.lineQuantity(),
                             line.unitOfMeasure()));
         }
-        boolean immutable = found.status() == RevisionStatus.APPROVED || specification.isImmutable();
+        boolean immutable = found.status() == RevisionStatus.ACTIVE || specification.isImmutable();
         return Optional.of(
                 OrderItemSpecificationEditorSnapshot.of(
                         item.id(),

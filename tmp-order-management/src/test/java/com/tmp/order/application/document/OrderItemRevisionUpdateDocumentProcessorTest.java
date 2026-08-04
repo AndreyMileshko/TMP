@@ -156,7 +156,7 @@ class OrderItemRevisionUpdateDocumentProcessorTest {
         assertEquals(
                 activeLines,
                 saved.revision(active).orElseThrow().specification().orElseThrow().lines().size());
-        assertTrue(saved.revision(active).orElseThrow().isApproved());
+        assertTrue(saved.revision(active).orElseThrow().isActive());
     }
 
     @Test

@@ -138,7 +138,7 @@ class AggregatePersistenceAdaptersContractTest {
                 OrderItemRevision.rehydrate(
                         itemId,
                         rev1,
-                        RevisionStatus.APPROVED,
+                        RevisionStatus.ACTIVE,
                         OrderedQuantity.of(5),
                         null,
                         specification);
@@ -161,7 +161,7 @@ class AggregatePersistenceAdaptersContractTest {
         assertEquals(Optional.of(rev1), item.activeRevisionNumber());
         assertTrue(item.draftRevisionNumber().isEmpty());
         assertEquals(1, item.revisions().size());
-        assertEquals(RevisionStatus.APPROVED, item.revision(rev1).orElseThrow().status());
+        assertEquals(RevisionStatus.ACTIVE, item.revision(rev1).orElseThrow().status());
         assertEquals(
                 "MAT-1",
                 item.revision(rev1).orElseThrow().specification().orElseThrow().lines().getFirst()

@@ -3,7 +3,7 @@
 **Stage:** 5 — Order Management  
 **Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.5)  
 **ADR document:** `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` (v1.8; ADR-028, ADR-029, ADR-030, ADR-031 final)  
-**Status:** Core + Order Intake DONE (`STAGE5-001..057`); post-closure `STAGE5-058` = READY (Imported Order Lifecycle Rules — implementation NOT STARTED). Stage 6 = NOT STARTED.
+**Status:** Core + Order Intake DONE (`STAGE5-001..057`); post-closure `STAGE5-058` = DONE (Imported Order Lifecycle Rules — ADR-031 final implemented). Stage 6 = NOT STARTED.
 
 ---
 
@@ -20,7 +20,7 @@
 - Stage 0–4 завершены (DONE 100%); нет открытых блокеров Stage 0–4.
 - Order Management Specification = **v1.5**; Constitution v1.2; ADR = **v1.8** (ADR-028, ADR-029, ADR-030, ADR-031 final).
 - Подтверждённая транзакционная граница Document Engine (processor внутри транзакции проведения; события после commit).
-- **Фактические миграции Order Management:** latest = **V12**. Next available = **V13** (для `STAGE5-058` при необходимости).
+- **Фактические миграции Order Management:** latest = **V13**.
 - Reactor: `tmp-platform-core`, `tmp-infra-db`, `tmp-document-engine`, `tmp-capability-engine`, `tmp-security`, `tmp-ui-shell`, `tmp-bootstrap-app`, `tmp-architecture-tests`, `tmp-order-management`.
 
 ---
@@ -182,9 +182,9 @@
 | STAGE5-055 | Import GUI | DONE |
 | STAGE5-056 | Automated Verification | DONE |
 | STAGE5-057 | Manual GUI Smoke (Order Intake) | DONE |
-| STAGE5-058 | Imported Order Lifecycle Rules | READY |
+| STAGE5-058 | Imported Order Lifecycle Rules | DONE |
 
-Порядок: 050 DONE → 051 → … → 057 DONE → **058 READY**. Одновременно только одна задача `IN_PROGRESS`. `STAGE5-058` не стартует Stage 6.
+Порядок: 050 DONE → 051 → … → 057 DONE → **058 DONE**. Одновременно только одна задача `IN_PROGRESS`. `STAGE5-058` не стартует Stage 6.
 
 `TransactionalEventPublisher` уже реализован ранее.
 
@@ -227,12 +227,12 @@ Stage 5 завершён только когда:
 ## 21. Decisions for Order Intake
 
 - **ADR-030 / бывший blocker `STAGE5-INTAKE-COMMERCIAL-DRAFT`:** RESOLVED — incomplete commercial data allowed only in DRAFT for manual path; approval requires mandatory commercial fields; placeholders prohibited.
-- **ADR-031 final / STAGE5-058:** uniform ACTIVE (no origin/metadata differences); IMPORT operation → ACTIVE; duplicates only by `orderNumber`; ACTIVE changes only via Revision; remove checksum/import-metadata protection from contract. Design finalized; **code unchanged until STAGE5-058 implementation**.
+- **ADR-031 final / STAGE5-058:** uniform ACTIVE implemented; IMPORT operation → ACTIVE; duplicates only by `orderNumber`; ACTIVE changes only via Revision; checksum/import-metadata protection removed (V13).
 
 ## 22. Post-closure — STAGE5-058
 
-**Goal:** реализовать ADR-031 final без старта Stage 6.
+**Status:** DONE.
 
-**Affected modules (planned):** `tmp-order-management` (domain/application/persistence/api), `tmp-ui-shell` (ACTIVE read-only direct-edit), Flyway `V13+`, tests.
+**Goal:** реализовать ADR-031 final без старта Stage 6 — выполнено.
 
-**Forbidden until task IN_PROGRESS:** изменение Import Core / lifecycle production code в обход плана задачи; добавление OrderOrigin/ImportMetadata.
+**Affected modules:** `tmp-order-management`, `tmp-ui-shell`, Flyway `V13`, tests, ADR/Spec sync.

@@ -3,7 +3,6 @@ package com.tmp.ui.shell.screen.orderimport;
 import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportConfirmResult;
 import com.tmp.order.api.imports.OrderImportConflictException;
-import com.tmp.order.api.imports.OrderImportDuplicateException;
 import com.tmp.order.api.imports.OrderImportFileParseResult;
 import com.tmp.order.api.imports.OrderImportPreview;
 import com.tmp.order.api.imports.OrderImportProblem;
@@ -171,8 +170,6 @@ public final class OrderImportViewModel {
             applyPreview(preview, adapterWarnings);
         } catch (OrderImportConflictException ex) {
             applyBlockingException(OrderImportConflictException.USER_MESSAGE);
-        } catch (OrderImportDuplicateException ex) {
-            applyBlockingException(OrderImportDuplicateException.USER_MESSAGE);
         } catch (AccessDeniedException ex) {
             applyBlockingException(OrderUiErrorMapper.text(ex, OrderUiOperation.CREATE));
         } catch (RuntimeException ex) {
@@ -218,8 +215,6 @@ public final class OrderImportViewModel {
             onImportSuccess.run();
         } catch (OrderImportConflictException ex) {
             applyConfirmFailure(OrderImportConflictException.USER_MESSAGE, List.of());
-        } catch (OrderImportDuplicateException ex) {
-            applyConfirmFailure(OrderImportDuplicateException.USER_MESSAGE, List.of());
         } catch (OrderImportValidationException ex) {
             applyConfirmFailure(validationUserMessage(ex), ex.problems());
         } catch (OrderImportProcessingException ex) {
@@ -481,18 +476,12 @@ public final class OrderImportViewModel {
         if (error instanceof OrderImportConflictException) {
             return OrderImportConflictException.USER_MESSAGE;
         }
-        if (error instanceof OrderImportDuplicateException) {
-            return OrderImportDuplicateException.USER_MESSAGE;
-        }
         if (error instanceof OrderImportProcessingException) {
             return OrderImportProcessingException.USER_MESSAGE;
         }
         String simpleName = error.getClass().getSimpleName();
         if (simpleName.contains("Conflict")) {
             return OrderImportConflictException.USER_MESSAGE;
-        }
-        if (simpleName.contains("Duplicate")) {
-            return OrderImportDuplicateException.USER_MESSAGE;
         }
         return OrderImportProcessingException.USER_MESSAGE;
     }

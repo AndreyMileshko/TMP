@@ -509,7 +509,7 @@ class DefaultOrderItemDocumentUiServiceTest {
                 OrderItemRevision.rehydrate(
                         itemId,
                         activeNumber,
-                        RevisionStatus.APPROVED,
+                        RevisionStatus.ACTIVE,
                         OrderedQuantity.of(2),
                         null,
                         activeSpec);

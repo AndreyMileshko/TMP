@@ -103,10 +103,10 @@ class OrderQueryApiContractTest {
         OrderItemRevisionDto dto = OrderItemRevisionDto.of(
                 OrderItemId.generate(),
                 RevisionNumber.first(),
-                RevisionStatus.APPROVED,
+                RevisionStatus.ACTIVE,
                 BigDecimal.TEN,
                 null);
-        assertEquals(RevisionStatus.APPROVED, dto.status());
+        assertEquals(RevisionStatus.ACTIVE, dto.status());
     }
 
     @Test

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.application.payload.DocumentTypeCode;
+import com.tmp.order.application.payload.OrderActivatePayload;
 import com.tmp.order.application.payload.OrderApprovePayload;
 import com.tmp.order.application.payload.OrderCancelPayload;
 import com.tmp.order.application.payload.OrderCreatePayload;
@@ -24,9 +25,9 @@ import org.junit.jupiter.api.Test;
 class OrderBusinessDocumentCatalogTest {
 
     @Test
-    void catalogContainsExactlyTenImmutableDescriptors() {
+    void catalogContainsExactlyElevenImmutableDescriptors() {
         List<OrderDocumentTypeDescriptor> all = OrderBusinessDocumentCatalog.all();
-        assertEquals(10, all.size());
+        assertEquals(11, all.size());
         assertThrows(UnsupportedOperationException.class, () -> all.add(all.getFirst()));
 
         Set<DocumentTypeCode> codes = new HashSet<>();
@@ -36,7 +37,7 @@ class OrderBusinessDocumentCatalogTest {
             assertTrue(descriptor.requiredCapability().startsWith("order."));
             assertEquals(PayloadSchemaVersion.initial(), descriptor.payloadSchemaVersion());
         }
-        assertEquals(10, codes.size());
+        assertEquals(11, codes.size());
     }
 
     @Test
@@ -64,6 +65,14 @@ class OrderBusinessDocumentCatalogTest {
         assertEquals(
                 "order.order.approve",
                 OrderBusinessDocumentCatalog.requireByCode(DocumentTypeCode.ORDER_APPROVE)
+                        .requiredCapability());
+        assertEquals(
+                OrderActivatePayload.class,
+                OrderBusinessDocumentCatalog.requireByCode(DocumentTypeCode.ORDER_ACTIVATE)
+                        .payloadClass());
+        assertEquals(
+                "order.order.approve",
+                OrderBusinessDocumentCatalog.requireByCode(DocumentTypeCode.ORDER_ACTIVATE)
                         .requiredCapability());
         assertEquals(
                 OrderCancelPayload.class,

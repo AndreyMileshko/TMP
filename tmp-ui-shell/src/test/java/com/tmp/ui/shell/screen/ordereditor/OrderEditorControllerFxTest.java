@@ -141,6 +141,11 @@ class OrderEditorControllerFxTest {
         }
 
         @Override
+        public UUID beginOrderActivate(String title, OrderId orderId) {
+            return UUID.randomUUID();
+        }
+
+        @Override
         public UUID beginOrderCancel(String title, OrderId orderId) {
             return UUID.randomUUID();
         }

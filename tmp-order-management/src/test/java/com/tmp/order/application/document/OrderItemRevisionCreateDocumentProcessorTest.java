@@ -128,7 +128,7 @@ class OrderItemRevisionCreateDocumentProcessorTest {
 
         OrderItem saved = items.findById(active.id()).orElseThrow();
         assertEquals(activeBefore, saved.activeRevisionNumber().orElseThrow());
-        assertTrue(saved.revision(activeBefore).orElseThrow().isApproved());
+        assertTrue(saved.revision(activeBefore).orElseThrow().isActive());
     }
 
     @Test

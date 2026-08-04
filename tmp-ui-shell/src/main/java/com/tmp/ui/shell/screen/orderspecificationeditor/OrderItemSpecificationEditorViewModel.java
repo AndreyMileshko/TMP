@@ -544,7 +544,7 @@ public final class OrderItemSpecificationEditorViewModel {
             showError(OrderUiErrorMapper.ACCESS_DENIED);
             return false;
         }
-        if (immutable || revisionStatus == RevisionStatus.APPROVED) {
+        if (immutable || revisionStatus == RevisionStatus.ACTIVE) {
             showError(OrderUiErrorMapper.APPROVED_SPEC_READ_ONLY);
             return false;
         }

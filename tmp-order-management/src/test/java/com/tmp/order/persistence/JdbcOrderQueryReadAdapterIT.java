@@ -397,7 +397,7 @@ class JdbcOrderQueryReadAdapterIT {
 
     @Test
     void getOrderAndItemsAndHideDraftRevision() {
-        OrderId orderId = seedOrder("ORD-Q", "C", "Customer", OrderStatus.APPROVED, T1);
+        OrderId orderId = seedOrder("ORD-Q", "C", "Customer", OrderStatus.ACTIVE, T1);
         OrderItemId itemId = seedItemWithDraftAndApproved(orderId);
 
         assertEquals("ORD-Q", queries.getOrder(orderId).orElseThrow().orderNumber());
@@ -409,7 +409,7 @@ class JdbcOrderQueryReadAdapterIT {
         PageResult<OrderItemRevisionDto> revisions =
                 queries.getOrderItemRevisions(itemId, PageRequest.firstPage());
         assertEquals(1, revisions.totalElements());
-        assertEquals(RevisionStatus.APPROVED, revisions.content().getFirst().status());
+        assertEquals(RevisionStatus.ACTIVE, revisions.content().getFirst().status());
         assertEquals(RevisionNumber.first(), revisions.content().getFirst().revisionNumber());
 
         assertTrue(
@@ -420,12 +420,12 @@ class JdbcOrderQueryReadAdapterIT {
         OrderItemRevisionDto active =
                 queries.getActiveOrderItemRevision(itemId).orElseThrow();
         assertEquals(RevisionNumber.first(), active.revisionNumber());
-        assertEquals(RevisionStatus.APPROVED, active.status());
+        assertEquals(RevisionStatus.ACTIVE, active.status());
     }
 
     @Test
     void draftSpecificationHiddenAndApprovedLinesKeepOrder() {
-        OrderId orderId = seedOrder("ORD-SPEC", "C", "Customer", OrderStatus.APPROVED, T1);
+        OrderId orderId = seedOrder("ORD-SPEC", "C", "Customer", OrderStatus.ACTIVE, T1);
         OrderItemId itemId = seedItemWithDraftAndApproved(orderId);
 
         assertTrue(
@@ -463,6 +463,7 @@ class JdbcOrderQueryReadAdapterIT {
                 switch (status) {
                     case DRAFT -> created;
                     case APPROVED -> created.approve(clock);
+                    case ACTIVE -> created.activateFromImport(clock);
                     case CANCELLED -> created.cancel(clock);
                 };
         return orderRepository.save(withStatus).id();
@@ -493,7 +494,7 @@ class JdbcOrderQueryReadAdapterIT {
                 OrderItemRevision.rehydrate(
                         itemId,
                         rev1,
-                        RevisionStatus.APPROVED,
+                        RevisionStatus.ACTIVE,
                         OrderedQuantity.of(5),
                         null,
                         approvedSpec));

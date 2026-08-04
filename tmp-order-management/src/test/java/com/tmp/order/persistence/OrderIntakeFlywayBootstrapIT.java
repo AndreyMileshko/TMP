@@ -23,7 +23,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * STAGE5-056 — Flyway clean V1→V12 and upgrade V11→V12 with application start verification.
+ * STAGE5-058 — Flyway clean V1→V13 and upgrade V11→V13 with application start verification.
  */
 @Testcontainers
 class OrderIntakeFlywayBootstrapIT {
@@ -31,7 +31,7 @@ class OrderIntakeFlywayBootstrapIT {
     private static final String ADMIN_PASSWORD = "bootstrap-secret-value";
 
     @Test
-    void cleanDatabaseMigratesV1ToV12AndApplicationStarts() {
+    void cleanDatabaseMigratesV1ToV13AndApplicationStarts() {
         try (PostgreSQLContainer<?> container = new PostgreSQLContainer<>("postgres:16-alpine")) {
             container.start();
             Flyway.configure()
@@ -42,10 +42,19 @@ class OrderIntakeFlywayBootstrapIT {
 
             JdbcTemplate jdbc = new JdbcTemplate(dataSource(container));
             assertEquals(
-                    "12",
+                    "13",
                     jdbc.queryForObject(
                             "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1",
                             String.class));
+            assertEquals(
+                    0,
+                    jdbc.queryForObject(
+                            """
+                            SELECT COUNT(*) FROM information_schema.tables
+                            WHERE table_schema = 'order_management'
+                              AND table_name = 'order_import_metadata'
+                            """,
+                            Integer.class));
 
             try (ConfigurableApplicationContext context = startApplication(container)) {
                 assertNotNull(context.getBean(AuthenticationService.class));
@@ -59,7 +68,7 @@ class OrderIntakeFlywayBootstrapIT {
     }
 
     @Test
-    void existingV11DatabaseUpgradesToV12PreservingDataAndApplicationStarts() {
+    void existingV11DatabaseUpgradesToV13PreservingDataAndApplicationStarts() {
         try (PostgreSQLContainer<?> container = new PostgreSQLContainer<>("postgres:16-alpine")) {
             container.start();
             Flyway.configure()
@@ -85,7 +94,7 @@ class OrderIntakeFlywayBootstrapIT {
                 assertNotNull(context.getBean(OrderQueryService.class));
                 JdbcTemplate after = new JdbcTemplate(dataSource(container));
                 assertEquals(
-                        "12",
+                        "13",
                         after.queryForObject(
                                 "SELECT version FROM flyway_schema_history"
                                         + " ORDER BY installed_rank DESC LIMIT 1",
@@ -97,7 +106,7 @@ class OrderIntakeFlywayBootstrapIT {
                                         + " WHERE order_number = 'V11-KEEP-APP'",
                                 Integer.class));
                 assertEquals(
-                        1,
+                        0,
                         after.queryForObject(
                                 """
                                 SELECT COUNT(*) FROM information_schema.tables

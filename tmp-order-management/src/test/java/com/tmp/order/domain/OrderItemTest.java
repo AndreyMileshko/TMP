@@ -84,9 +84,37 @@ class OrderItemTest {
 
     @Test
     void commercialUpdateForbiddenWhenActive() {
+        OrderItem active = approvedItem();
         assertThrows(
                 InvalidOrderStateException.class,
-                () -> approvedItem().updateCommercialData(sampleCommercialData(), CLOCK));
+                () -> active.updateCommercialData(sampleCommercialData(), CLOCK));
+    }
+
+    @Test
+    void activateDraftRevisionForImportWorksWithoutCommercialFields() {
+        OrderItem item = sampleItem();
+        ItemSpecification spec = ItemSpecification.of(
+                item.id(), RevisionNumber.first(), java.util.List.of(sampleLine()));
+        OrderItem withSpec = item.updateDraftSpecification(spec, CLOCK);
+        OrderItem active = withSpec.activateDraftRevisionForImport(CLOCK);
+        assertEquals(OrderItemStatus.ACTIVE, active.status());
+        assertTrue(active.activeRevision().orElseThrow().isActive());
+    }
+
+    @Test
+    void approveDraftRevisionRequiresCommercialCompleteness() {
+        OrderItem incomplete =
+                OrderItem.create(
+                        OrderItemId.generate(),
+                        OrderId.generate(),
+                        ItemCommercialData.of(null, null, null, "EXT-1"),
+                        OrderedQuantity.of(1),
+                        CLOCK);
+        ItemSpecification spec = ItemSpecification.of(
+                incomplete.id(), RevisionNumber.first(), java.util.List.of(sampleLine()));
+        OrderItem withSpec = incomplete.updateDraftSpecification(spec, CLOCK);
+        assertThrows(
+                InvalidOrderStateException.class, () -> withSpec.approveDraftRevision(CLOCK));
     }
 
     @Test
@@ -95,7 +123,7 @@ class OrderItemTest {
         assertEquals(OrderItemStatus.ACTIVE, approved.status());
         assertEquals(1, approved.activeRevisionNumber().orElseThrow().value());
         assertTrue(approved.draftRevisionNumber().isEmpty());
-        assertTrue(approved.activeRevision().orElseThrow().isApproved());
+        assertTrue(approved.activeRevision().orElseThrow().isActive());
     }
 
     @Test
@@ -105,7 +133,7 @@ class OrderItemTest {
         assertEquals(1, withDraft.activeRevisionNumber().orElseThrow().value());
         assertEquals(2, withDraft.draftRevisionNumber().orElseThrow().value());
         assertEquals(
-                RevisionStatus.APPROVED,
+                RevisionStatus.ACTIVE,
                 withDraft.revision(RevisionNumber.first()).orElseThrow().status());
     }
 
@@ -131,8 +159,8 @@ class OrderItemTest {
                 .approveDraftRevision(CLOCK);
         assertEquals(2, approved.activeRevisionNumber().orElseThrow().value());
         assertTrue(approved.draftRevisionNumber().isEmpty());
-        assertTrue(approved.revision(RevisionNumber.first()).orElseThrow().isApproved());
-        assertTrue(approved.revision(RevisionNumber.of(2)).orElseThrow().isApproved());
+        assertTrue(approved.revision(RevisionNumber.first()).orElseThrow().isActive());
+        assertTrue(approved.revision(RevisionNumber.of(2)).orElseThrow().isActive());
     }
 
     @Test

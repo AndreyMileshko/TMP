@@ -50,7 +50,7 @@ class OrderItemRevisionPayloadModelsTest {
                         identity,
                         OrderItemId.generate(),
                         RevisionNumber.first(),
-                        RevisionStatus.APPROVED,
+                        RevisionStatus.ACTIVE,
                         OrderedQuantity.of(1),
                         List.of()));
     }

@@ -9,7 +9,6 @@ import com.tmp.order.api.OrderId;
 import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportConfirmResult;
 import com.tmp.order.api.imports.OrderImportConflictException;
-import com.tmp.order.api.imports.OrderImportDuplicateException;
 import com.tmp.order.api.imports.OrderImportFileParseResult;
 import com.tmp.order.api.imports.OrderImportPreview;
 import com.tmp.order.api.imports.OrderImportProblem;
@@ -23,10 +22,8 @@ import com.tmp.ui.shell.screen.orderlist.FakeAuthorization;
 import java.io.File;
 import java.math.BigDecimal;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -164,10 +161,8 @@ class OrderImportControllerFxTest {
         imports.confirmResult = OrderImportConfirmResult.of(
                 OrderId.generate(),
                 "26062891",
-                UUID.randomUUID(),
                 5,
-                20,
-                Instant.parse("2026-07-31T00:00:00Z"));
+                20);
         OrderImportViewModel viewModel = newFakeViewModel(imports, new FakeStxtParser());
         Loaded loaded = loadScreen(viewModel);
 
@@ -183,24 +178,6 @@ class OrderImportControllerFxTest {
         assertTrue(success.getText().contains("Заказ 26062891 успешно импортирован."));
         assertTrue(success.getText().contains("Создано позиций: 5."));
         assertTrue(success.getText().contains("Строк спецификации: 20."));
-        assertTrue(((Button) loaded.root.lookup("#importButton")).isDisabled());
-    }
-
-    @Test
-    void confirmDuplicateShowsExactMessage() throws Exception {
-        FakeImportService imports = successService();
-        imports.confirmException = new OrderImportDuplicateException();
-        OrderImportViewModel viewModel = newFakeViewModel(imports, new FakeStxtParser());
-        Loaded loaded = loadScreen(viewModel);
-
-        runFx(() -> {
-            viewModel.selectFile(Path.of("ok.stxt"));
-            viewModel.confirmImport();
-        });
-
-        Label error = (Label) loaded.root.lookup("#errorLabel");
-        assertTrue(error.isVisible());
-        assertEquals(OrderImportDuplicateException.USER_MESSAGE, error.getText());
         assertTrue(((Button) loaded.root.lookup("#importButton")).isDisabled());
     }
 

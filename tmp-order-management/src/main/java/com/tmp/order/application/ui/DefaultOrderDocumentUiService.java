@@ -11,6 +11,7 @@ import com.tmp.order.application.document.OrderCreateDocumentProcessor;
 import com.tmp.order.application.payload.DocumentId;
 import com.tmp.order.application.payload.DocumentTypeCode;
 import com.tmp.order.application.payload.DraftPayloadApplicationService;
+import com.tmp.order.application.payload.OrderActivatePayload;
 import com.tmp.order.application.payload.OrderApprovePayload;
 import com.tmp.order.application.payload.OrderCancelPayload;
 import com.tmp.order.application.payload.OrderCreatePayload;
@@ -83,6 +84,17 @@ public final class DefaultOrderDocumentUiService implements OrderDocumentUiServi
         Instant now = clock.instant();
         draftPayloads.createDraft(
                 OrderApprovePayload.create(DocumentId.of(documentId), orderId, now));
+        return documentId;
+    }
+
+    @Override
+    public UUID beginOrderActivate(String title, OrderId orderId) {
+        Objects.requireNonNull(orderId, "orderId");
+        authorization.requirePermission(OrderManagementPermissions.ORDER_APPROVE);
+        UUID documentId = createDocument(DocumentTypeCode.ORDER_ACTIVATE, title);
+        Instant now = clock.instant();
+        draftPayloads.createDraft(
+                OrderActivatePayload.create(DocumentId.of(documentId), orderId, now));
         return documentId;
     }
 
@@ -209,6 +221,7 @@ public final class DefaultOrderDocumentUiService implements OrderDocumentUiServi
             case ORDER_CREATE -> resolveCreatedOrderId(id);
             case ORDER_UPDATE -> ((OrderUpdatePayload) payload).orderId();
             case ORDER_APPROVE -> ((OrderApprovePayload) payload).orderId();
+            case ORDER_ACTIVATE -> ((OrderActivatePayload) payload).orderId();
             case ORDER_CANCEL -> ((OrderCancelPayload) payload).orderId();
             default ->
                     throw new IllegalStateException(
@@ -275,7 +288,7 @@ public final class DefaultOrderDocumentUiService implements OrderDocumentUiServi
                     authorization.requirePermission(OrderManagementPermissions.ORDER_CREATE);
             case ORDER_UPDATE ->
                     authorization.requirePermission(OrderManagementPermissions.ORDER_EDIT);
-            case ORDER_APPROVE ->
+            case ORDER_APPROVE, ORDER_ACTIVATE ->
                     authorization.requirePermission(OrderManagementPermissions.ORDER_APPROVE);
             case ORDER_CANCEL ->
                     authorization.requirePermission(OrderManagementPermissions.ORDER_CANCEL);

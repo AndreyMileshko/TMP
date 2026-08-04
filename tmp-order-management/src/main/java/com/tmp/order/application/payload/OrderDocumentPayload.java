@@ -10,6 +10,7 @@ public sealed interface OrderDocumentPayload
         permits OrderCreatePayload,
                 OrderUpdatePayload,
                 OrderApprovePayload,
+                OrderActivatePayload,
                 OrderCancelPayload,
                 OrderItemCreatePayload,
                 OrderItemUpdatePayload,

@@ -1,7 +1,6 @@
 package com.tmp.order.application.imports.stxt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -14,13 +13,12 @@ import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportPreview;
 import com.tmp.order.api.imports.OrderImportService;
 import com.tmp.order.application.imports.DefaultOrderImportService;
-import com.tmp.order.application.imports.OrderImportMetadataRepository;
 import com.tmp.order.application.imports.OrderImportValidator;
 import com.tmp.order.application.payload.DraftPayloadApplicationService;
 import com.tmp.order.application.processing.ProcessingRecordPort;
 import com.tmp.order.domain.OrderNumber;
 import com.tmp.order.domain.repository.CustomerOrderRepository;
-import com.tmp.security.api.AuthenticationService;
+import com.tmp.order.domain.repository.OrderItemRepository;
 import com.tmp.security.api.AuthorizationService;
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,7 +27,6 @@ import java.time.Clock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
 /**
@@ -37,38 +34,34 @@ import org.springframework.transaction.support.SimpleTransactionStatus;
  */
 class StxtImportPreviewIntegrationTest {
 
-    private OrderImportMetadataRepository importMetadataRepository;
     private CustomerOrderRepository customerOrderRepository;
+    private OrderItemRepository orderItemRepository;
     private DocumentEngine documentEngine;
     private OrderImportService importService;
     private final StxtFileAdapter adapter = new StxtFileAdapter();
 
     @BeforeEach
     void setUp() {
-        importMetadataRepository = mock(OrderImportMetadataRepository.class);
         customerOrderRepository = mock(CustomerOrderRepository.class);
+        orderItemRepository = mock(OrderItemRepository.class);
         documentEngine = mock(DocumentEngine.class);
         DraftPayloadApplicationService draftPayloadApplicationService =
                 mock(DraftPayloadApplicationService.class);
         ProcessingRecordPort processingRecordPort = mock(ProcessingRecordPort.class);
-        AuthenticationService authenticationService = mock(AuthenticationService.class);
         AuthorizationService authorizationService = mock(AuthorizationService.class);
         PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
-        when(transactionManager.getTransaction(any(TransactionDefinition.class)))
-                .thenReturn(new SimpleTransactionStatus());
+        when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
 
-        when(importMetadataRepository.existsBySourceTypeAndChecksum(any(), any())).thenReturn(false);
         when(customerOrderRepository.existsByOrderNumber(any(OrderNumber.class))).thenReturn(false);
 
         importService =
                 new DefaultOrderImportService(
                         new OrderImportValidator(),
                         customerOrderRepository,
-                        importMetadataRepository,
+                        orderItemRepository,
                         documentEngine,
                         draftPayloadApplicationService,
                         processingRecordPort,
-                        authenticationService,
                         authorizationService,
                         transactionManager,
                         Clock.systemUTC());
@@ -101,9 +94,9 @@ class StxtImportPreviewIntegrationTest {
         assertEquals(3, preview.specificationLineCount());
         assertEquals(0, new BigDecimal("10").compareTo(preview.totalProductQuantity()));
 
-        verify(importMetadataRepository, never()).save(any());
         verify(documentEngine, never()).postDocument(any());
         verify(documentEngine, never()).createDocument(any());
+        verify(orderItemRepository, never()).save(any());
         verify(customerOrderRepository, never()).save(any());
     }
 

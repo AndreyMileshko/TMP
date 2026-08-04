@@ -10,10 +10,10 @@ import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.order.api.ui.OrderItemSpecificationEditorQueryService;
 import com.tmp.order.application.imports.DefaultOrderImportService;
-import com.tmp.order.application.imports.OrderImportMetadataRepository;
 import com.tmp.order.application.imports.OrderImportValidator;
 import com.tmp.order.application.imports.stxt.DefaultStxtOrderFileParser;
 import com.tmp.order.application.imports.stxt.StxtFileAdapter;
+import com.tmp.order.application.document.OrderActivateDocumentProcessor;
 import com.tmp.order.application.document.OrderApproveDocumentProcessor;
 import com.tmp.order.application.document.OrderCancelDocumentProcessor;
 import com.tmp.order.application.document.OrderCreateDocumentProcessor;
@@ -30,6 +30,7 @@ import com.tmp.order.application.item.CreateOrderItemRevisionUseCase;
 import com.tmp.order.application.item.CreateOrderItemUseCase;
 import com.tmp.order.application.item.UpdateOrderItemRevisionUseCase;
 import com.tmp.order.application.item.UpdateOrderItemUseCase;
+import com.tmp.order.application.order.ActivateOrderUseCase;
 import com.tmp.order.application.order.ApproveOrderUseCase;
 import com.tmp.order.application.order.CancelOrderUseCase;
 import com.tmp.order.application.order.CreateOrderUseCase;
@@ -48,11 +49,9 @@ import com.tmp.order.domain.repository.CustomerOrderRepository;
 import com.tmp.order.domain.repository.OrderItemRepository;
 import com.tmp.order.persistence.JdbcCustomerOrderRepository;
 import com.tmp.order.persistence.JdbcOrderDocumentPayloadAdapter;
-import com.tmp.order.persistence.JdbcOrderImportMetadataRepository;
 import com.tmp.order.persistence.JdbcOrderItemRepository;
 import com.tmp.order.persistence.JdbcOrderQueryReadAdapter;
 import com.tmp.order.persistence.JdbcProcessingRecordAdapter;
-import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import jakarta.annotation.PostConstruct;
 import java.time.Clock;
@@ -147,6 +146,12 @@ public class OrderManagementAutoConfiguration {
     }
 
     @Bean
+    ActivateOrderUseCase activateOrderUseCase(
+            CustomerOrderRepository customerOrderRepository, Clock clock) {
+        return new ActivateOrderUseCase(customerOrderRepository, clock);
+    }
+
+    @Bean
     CancelOrderUseCase cancelOrderUseCase(
             CustomerOrderRepository customerOrderRepository, Clock clock) {
         return new CancelOrderUseCase(customerOrderRepository, clock);
@@ -235,6 +240,22 @@ public class OrderManagementAutoConfiguration {
                 processingRecordPort,
                 transactionalEventPublisher,
                 approveOrderUseCase,
+                clock);
+    }
+
+    @Bean
+    OrderActivateDocumentProcessor orderActivateDocumentProcessor(
+            OrderDocumentPayloadPort orderDocumentPayloadPort,
+            ProcessingRecordPort processingRecordPort,
+            @Qualifier("transactionalEventPublisher")
+                    TransactionalEventPublisher transactionalEventPublisher,
+            ActivateOrderUseCase activateOrderUseCase,
+            Clock clock) {
+        return new OrderActivateDocumentProcessor(
+                orderDocumentPayloadPort,
+                processingRecordPort,
+                transactionalEventPublisher,
+                activateOrderUseCase,
                 clock);
     }
 
@@ -401,12 +422,6 @@ public class OrderManagementAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(OrderImportMetadataRepository.class)
-    OrderImportMetadataRepository orderImportMetadataRepository(JdbcTemplate jdbcTemplate) {
-        return new JdbcOrderImportMetadataRepository(jdbcTemplate);
-    }
-
-    @Bean
     OrderImportValidator orderImportValidator() {
         return new OrderImportValidator();
     }
@@ -425,22 +440,20 @@ public class OrderManagementAutoConfiguration {
     OrderImportService orderImportService(
             OrderImportValidator orderImportValidator,
             CustomerOrderRepository customerOrderRepository,
-            OrderImportMetadataRepository orderImportMetadataRepository,
+            OrderItemRepository orderItemRepository,
             DocumentEngine documentEngine,
             DraftPayloadApplicationService draftPayloadApplicationService,
             ProcessingRecordPort processingRecordPort,
-            AuthenticationService authenticationService,
             AuthorizationService authorizationService,
             PlatformTransactionManager transactionManager,
             Clock clock) {
         return new DefaultOrderImportService(
                 orderImportValidator,
                 customerOrderRepository,
-                orderImportMetadataRepository,
+                orderItemRepository,
                 documentEngine,
                 draftPayloadApplicationService,
                 processingRecordPort,
-                authenticationService,
                 authorizationService,
                 transactionManager,
                 clock);
@@ -452,6 +465,7 @@ public class OrderManagementAutoConfiguration {
             OrderCreateDocumentProcessor orderCreateDocumentProcessor,
             OrderUpdateDocumentProcessor orderUpdateDocumentProcessor,
             OrderApproveDocumentProcessor orderApproveDocumentProcessor,
+            OrderActivateDocumentProcessor orderActivateDocumentProcessor,
             OrderCancelDocumentProcessor orderCancelDocumentProcessor,
             OrderItemCreateDocumentProcessor orderItemCreateDocumentProcessor,
             OrderItemUpdateDocumentProcessor orderItemUpdateDocumentProcessor,
@@ -464,6 +478,7 @@ public class OrderManagementAutoConfiguration {
                 orderCreateDocumentProcessor,
                 orderUpdateDocumentProcessor,
                 orderApproveDocumentProcessor,
+                orderActivateDocumentProcessor,
                 orderCancelDocumentProcessor,
                 orderItemCreateDocumentProcessor,
                 orderItemUpdateDocumentProcessor,
@@ -474,7 +489,7 @@ public class OrderManagementAutoConfiguration {
     }
 
     /**
-     * Registers the ten Order Management document processors on the Document Engine at startup.
+     * Registers Order Management document processors on the Document Engine at startup.
      */
     static final class OrderDocumentProcessorRegistrar {
 
@@ -482,6 +497,7 @@ public class OrderManagementAutoConfiguration {
         private final OrderCreateDocumentProcessor createProcessor;
         private final OrderUpdateDocumentProcessor updateProcessor;
         private final OrderApproveDocumentProcessor approveProcessor;
+        private final OrderActivateDocumentProcessor activateProcessor;
         private final OrderCancelDocumentProcessor cancelProcessor;
         private final OrderItemCreateDocumentProcessor itemCreateProcessor;
         private final OrderItemUpdateDocumentProcessor itemUpdateProcessor;
@@ -495,6 +511,7 @@ public class OrderManagementAutoConfiguration {
                 OrderCreateDocumentProcessor createProcessor,
                 OrderUpdateDocumentProcessor updateProcessor,
                 OrderApproveDocumentProcessor approveProcessor,
+                OrderActivateDocumentProcessor activateProcessor,
                 OrderCancelDocumentProcessor cancelProcessor,
                 OrderItemCreateDocumentProcessor itemCreateProcessor,
                 OrderItemUpdateDocumentProcessor itemUpdateProcessor,
@@ -506,6 +523,7 @@ public class OrderManagementAutoConfiguration {
             this.createProcessor = Objects.requireNonNull(createProcessor, "createProcessor");
             this.updateProcessor = Objects.requireNonNull(updateProcessor, "updateProcessor");
             this.approveProcessor = Objects.requireNonNull(approveProcessor, "approveProcessor");
+            this.activateProcessor = Objects.requireNonNull(activateProcessor, "activateProcessor");
             this.cancelProcessor = Objects.requireNonNull(cancelProcessor, "cancelProcessor");
             this.itemCreateProcessor =
                     Objects.requireNonNull(itemCreateProcessor, "itemCreateProcessor");
@@ -526,6 +544,7 @@ public class OrderManagementAutoConfiguration {
             createProcessor.register(documentEngine);
             updateProcessor.register(documentEngine);
             approveProcessor.register(documentEngine);
+            activateProcessor.register(documentEngine);
             cancelProcessor.register(documentEngine);
             itemCreateProcessor.register(documentEngine);
             itemUpdateProcessor.register(documentEngine);

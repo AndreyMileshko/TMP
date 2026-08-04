@@ -133,7 +133,7 @@ class OrderItemSpecificationEditorControllerFxTest {
                 OrderItemSpecificationEditorSnapshot.of(
                         itemId,
                         revision,
-                        RevisionStatus.APPROVED,
+                        RevisionStatus.ACTIVE,
                         BigDecimal.TEN,
                         true,
                         List.of(

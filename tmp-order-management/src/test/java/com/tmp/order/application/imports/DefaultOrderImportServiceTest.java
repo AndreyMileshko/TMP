@@ -7,26 +7,49 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.tmp.document.api.CreateDocumentCommand;
 import com.tmp.document.api.DocumentEngine;
+import com.tmp.document.api.DocumentMetadata;
+import com.tmp.document.api.DocumentStatus;
+import com.tmp.order.api.OrderId;
+import com.tmp.order.api.OrderItemId;
+import com.tmp.order.api.OrderItemStatus;
+import com.tmp.order.api.OrderStatus;
+import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.imports.OrderImportBatch;
+import com.tmp.order.api.imports.OrderImportConfirmResult;
 import com.tmp.order.api.imports.OrderImportConflictException;
-import com.tmp.order.api.imports.OrderImportDuplicateException;
 import com.tmp.order.api.imports.OrderImportPosition;
 import com.tmp.order.api.imports.OrderImportPreview;
 import com.tmp.order.api.imports.OrderImportProblem;
 import com.tmp.order.api.imports.OrderImportSpecificationLine;
 import com.tmp.order.api.imports.OrderImportValidationException;
 import com.tmp.order.api.imports.PreparedOrderImportPlan;
+import com.tmp.order.application.payload.DocumentId;
+import com.tmp.order.application.payload.DocumentTypeCode;
 import com.tmp.order.application.payload.DraftPayloadApplicationService;
+import com.tmp.order.application.processing.ProcessingOperation;
+import com.tmp.order.application.processing.ProcessingRecord;
 import com.tmp.order.application.processing.ProcessingRecordPort;
+import com.tmp.order.application.processing.ResultReference;
+import com.tmp.order.domain.CustomerOrder;
+import com.tmp.order.domain.ItemCommercialData;
+import com.tmp.order.domain.ItemSpecification;
+import com.tmp.order.domain.OrderCommercialData;
+import com.tmp.order.domain.OrderItem;
 import com.tmp.order.domain.OrderNumber;
+import com.tmp.order.domain.OrderedQuantity;
 import com.tmp.order.domain.repository.CustomerOrderRepository;
-import com.tmp.security.api.AuthenticationService;
+import com.tmp.order.domain.repository.OrderItemRepository;
+import com.tmp.order.testsupport.IntakeContractFixtures;
 import com.tmp.security.api.AuthorizationService;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -34,12 +57,15 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 @ExtendWith(MockitoExtension.class)
 class DefaultOrderImportServiceTest {
@@ -48,11 +74,10 @@ class DefaultOrderImportServiceTest {
             Clock.fixed(Instant.parse("2026-07-31T04:00:00Z"), ZoneOffset.UTC);
 
     @Mock private CustomerOrderRepository customerOrderRepository;
-    @Mock private OrderImportMetadataRepository importMetadataRepository;
+    @Mock private OrderItemRepository orderItemRepository;
     @Mock private DocumentEngine documentEngine;
     @Mock private DraftPayloadApplicationService draftPayloads;
     @Mock private ProcessingRecordPort processingRecords;
-    @Mock private AuthenticationService authenticationService;
     @Mock private AuthorizationService authorizationService;
     @Mock private PlatformTransactionManager transactionManager;
 
@@ -60,15 +85,17 @@ class DefaultOrderImportServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient()
+                .when(transactionManager.getTransaction(any()))
+                .thenReturn(new SimpleTransactionStatus());
         service =
                 new DefaultOrderImportService(
                         new OrderImportValidator(),
                         customerOrderRepository,
-                        importMetadataRepository,
+                        orderItemRepository,
                         documentEngine,
                         draftPayloads,
                         processingRecords,
-                        authenticationService,
                         authorizationService,
                         transactionManager,
                         CLOCK);
@@ -117,7 +144,7 @@ class DefaultOrderImportServiceTest {
         verify(documentEngine, never()).createDocument(any());
         verify(documentEngine, never()).postDocument(any());
         verifyNoInteractions(draftPayloads);
-        verify(importMetadataRepository, never()).save(any());
+        verify(orderItemRepository, never()).save(any());
         verify(customerOrderRepository, never()).save(any());
     }
 
@@ -366,11 +393,10 @@ class DefaultOrderImportServiceTest {
                 new DefaultOrderImportService(
                         validator,
                         customerOrderRepository,
-                        importMetadataRepository,
+                        orderItemRepository,
                         documentEngine,
                         draftPayloads,
                         processingRecords,
-                        authenticationService,
                         authorizationService,
                         transactionManager,
                         CLOCK);
@@ -519,19 +545,40 @@ class DefaultOrderImportServiceTest {
 
     @Test
     void userMessagesContainNoSqlOrStackTrace() {
-        when(importMetadataRepository.existsBySourceTypeAndChecksum(any(), any())).thenReturn(true);
-        OrderImportDuplicateException duplicate =
-                assertThrows(OrderImportDuplicateException.class, () -> service.preview(validBatch()));
-        assertEquals(OrderImportDuplicateException.USER_MESSAGE, duplicate.getMessage());
-        assertFalse(duplicate.getMessage().toLowerCase().contains("sql"));
-        assertFalse(duplicate.getMessage().contains("Exception"));
-
-        when(importMetadataRepository.existsBySourceTypeAndChecksum(any(), any())).thenReturn(false);
         when(customerOrderRepository.existsByOrderNumber(any(OrderNumber.class))).thenReturn(true);
         OrderImportConflictException conflict =
                 assertThrows(OrderImportConflictException.class, () -> service.preview(validBatch()));
         assertEquals(OrderImportConflictException.USER_MESSAGE, conflict.getMessage());
         assertFalse(conflict.getMessage().toLowerCase().contains("sql"));
+        assertFalse(conflict.getMessage().contains("Exception"));
+    }
+
+    @Test
+    void confirmRejectsDuplicateOrderNumber() {
+        stubPreviewReadOnlyOk();
+        PreparedOrderImportPlan plan = service.preview(validBatch()).preparedPlan().orElseThrow();
+        when(customerOrderRepository.existsByOrderNumber(any(OrderNumber.class))).thenReturn(true);
+        OrderImportConflictException conflict =
+                assertThrows(OrderImportConflictException.class, () -> service.confirm(plan));
+        assertEquals(OrderImportConflictException.USER_MESSAGE, conflict.getMessage());
+        verify(orderItemRepository, never()).save(any());
+    }
+
+    @Test
+    void confirmActivatesOrderAndItemWithoutMetadataCollaborator() {
+        stubPreviewReadOnlyOk();
+        stubConfirmDocumentFlow();
+        PreparedOrderImportPlan plan = service.preview(validBatch()).preparedPlan().orElseThrow();
+
+        OrderImportConfirmResult result = service.confirm(plan);
+
+        assertEquals("26062891", result.orderNumber());
+        assertEquals(1, result.createdPositionCount());
+        assertEquals(1, result.createdSpecificationLineCount());
+        verify(orderItemRepository, atLeastOnce())
+                .save(argThat(item -> item.status() == OrderItemStatus.ACTIVE));
+        verify(customerOrderRepository, atLeastOnce())
+                .save(argThat(order -> order.status() == OrderStatus.ACTIVE));
     }
 
     @Test
@@ -548,8 +595,79 @@ class DefaultOrderImportServiceTest {
     }
 
     private void stubPreviewReadOnlyOk() {
-        when(importMetadataRepository.existsBySourceTypeAndChecksum(any(), any())).thenReturn(false);
         when(customerOrderRepository.existsByOrderNumber(any(OrderNumber.class))).thenReturn(false);
+    }
+
+    private void stubConfirmDocumentFlow() {
+        OrderId orderId = OrderId.generate();
+        OrderItemId itemId = OrderItemId.generate();
+        UUID orderDocId = UUID.randomUUID();
+        UUID itemCreateDocId = UUID.randomUUID();
+        UUID itemUpdateDocId = UUID.randomUUID();
+
+        when(documentEngine.createDocument(any(CreateDocumentCommand.class)))
+                .thenReturn(
+                        metadata(orderDocId, DocumentTypeCode.ORDER_CREATE.name()),
+                        metadata(itemCreateDocId, DocumentTypeCode.ORDER_ITEM_CREATE.name()),
+                        metadata(itemUpdateDocId, DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE.name()));
+        when(processingRecords.findByDocumentIdAndOperation(
+                        DocumentId.of(orderDocId), ProcessingOperation.POST))
+                .thenReturn(
+                        Optional.of(
+                                ProcessingRecord.completedPost(
+                                        DocumentId.of(orderDocId),
+                                        DocumentTypeCode.ORDER_CREATE,
+                                        com.tmp.order.domain.PayloadRevision.initial(),
+                                        CLOCK.instant(),
+                                        ResultReference.of(
+                                                "order:" + orderId.value()))));
+
+        OrderItem draftItem =
+                OrderItem.create(
+                                itemId,
+                                orderId,
+                                ItemCommercialData.of(null, null, null, "1"),
+                                OrderedQuantity.of(8),
+                                CLOCK)
+                        .updateDraftSpecification(
+                                ItemSpecification.of(
+                                        itemId,
+                                        RevisionNumber.first(),
+                                        List.of(
+                                                IntakeContractFixtures.specLine(
+                                                        "107.225",
+                                                        "Штапик",
+                                                        bd("16"),
+                                                        OrderImportDefaults.UNIT_OF_MEASURE))),
+                                CLOCK);
+        CustomerOrder draftOrder =
+                CustomerOrder.create(
+                        orderId,
+                        OrderNumber.of("26062891"),
+                        OrderCommercialData.of(null, null, null, null, null, null, null),
+                        CLOCK);
+
+        when(orderItemRepository.findById(any(OrderItemId.class)))
+                .thenReturn(Optional.of(draftItem));
+        when(customerOrderRepository.findById(any(OrderId.class))).thenReturn(Optional.of(draftOrder));
+        when(orderItemRepository.save(any(OrderItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(customerOrderRepository.save(any(CustomerOrder.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    private static DocumentMetadata metadata(UUID id, String typeId) {
+        return new DocumentMetadata(
+                id,
+                typeId,
+                "DOC-1",
+                "title",
+                DocumentStatus.DRAFT,
+                0L,
+                CLOCK.instant(),
+                CLOCK.instant(),
+                null,
+                null);
     }
 
     private static OrderImportBatch validBatch() {

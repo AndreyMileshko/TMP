@@ -38,13 +38,13 @@ class OrderItemRevisionTest {
         OrderItemRevision approved = OrderItemRevision.createDraft(
                         itemId, number, OrderedQuantity.of(1), null)
                 .withSpecification(spec)
-                .approved();
-        assertTrue(approved.isApproved());
+                .activated();
+        assertTrue(approved.isActive());
         assertTrue(approved.specification().orElseThrow().isImmutable());
         assertThrows(
                 InvalidOrderStateException.class,
                 () -> approved.withOrderedQuantity(OrderedQuantity.of(5)));
-        assertThrows(InvalidOrderStateException.class, approved::approved);
+        assertThrows(InvalidOrderStateException.class, approved::activated);
     }
 
     @Test

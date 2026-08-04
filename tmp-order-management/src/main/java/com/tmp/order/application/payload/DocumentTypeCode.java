@@ -11,6 +11,7 @@ public enum DocumentTypeCode {
     ORDER_CREATE,
     ORDER_UPDATE,
     ORDER_APPROVE,
+    ORDER_ACTIVATE,
     ORDER_CANCEL,
     ORDER_ITEM_CREATE,
     ORDER_ITEM_UPDATE,

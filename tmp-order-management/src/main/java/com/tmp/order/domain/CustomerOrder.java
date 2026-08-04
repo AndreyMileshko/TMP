@@ -7,10 +7,11 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * Customer Order aggregate root (Specification §5.1 / §8).
+ * Customer Order aggregate root (Specification §5.1 / §8 / ADR-031).
  *
- * <p>Commercial lifecycle in Stage 5: {@code DRAFT → APPROVED}, {@code DRAFT → CANCELLED}.
- * {@code APPROVED → CANCELLED}, transitions out of {@code CANCELLED}, and re-approval are forbidden.
+ * <p>Commercial lifecycle in Stage 5: {@code DRAFT → APPROVED → ACTIVE} (manual),
+ * {@code DRAFT → CANCELLED}, and import landing {@code DRAFT → ACTIVE} within IMPORT operation.
+ * {@code APPROVED → CANCELLED}, {@code ACTIVE → CANCELLED}, and re-approval are forbidden.
  * Commercial fields may change only while {@code DRAFT}. State is immutable from outside; all
  * changes go through aggregate methods that return a new instance.
  *
@@ -95,6 +96,10 @@ public final class CustomerOrder {
             throw new InvalidOrderStateException(
                     "Order already approved; re-approval is forbidden: " + id);
         }
+        if (status == OrderStatus.ACTIVE) {
+            throw new InvalidOrderStateException(
+                    "Active order cannot be approved: " + id);
+        }
         if (status == OrderStatus.CANCELLED) {
             throw new InvalidOrderStateException(
                     "Cancelled order cannot be approved: " + id);
@@ -109,15 +114,57 @@ public final class CustomerOrder {
     }
 
     /**
-     * Cancels the order: {@code DRAFT → CANCELLED}. Stage 5 forbids {@code APPROVED → CANCELLED}.
+     * Activates the order on the manual path: {@code APPROVED → ACTIVE}.
+     *
+     * @throws InvalidOrderStateException if the order is not in {@code APPROVED}
+     */
+    public CustomerOrder activate(Clock clock) {
+        Objects.requireNonNull(clock, "clock");
+        if (status == OrderStatus.ACTIVE) {
+            throw new InvalidOrderStateException(
+                    "Order already active; re-activation is forbidden: " + id);
+        }
+        if (status != OrderStatus.APPROVED) {
+            throw new InvalidOrderStateException(
+                    "Order can be activated only from APPROVED, current=" + status + ", id=" + id);
+        }
+        return new CustomerOrder(
+                id, orderNumber, commercialData, OrderStatus.ACTIVE, version, createdAt,
+                clock.instant());
+    }
+
+    /**
+     * Trusted import landing: {@code DRAFT → ACTIVE} without commercial completeness gates
+     * (ADR-031 / Specification §8.2 IMPORT operation).
+     *
+     * @throws InvalidOrderStateException if the order is not in {@code DRAFT}
+     */
+    public CustomerOrder activateFromImport(Clock clock) {
+        Objects.requireNonNull(clock, "clock");
+        if (status == OrderStatus.ACTIVE) {
+            throw new InvalidOrderStateException(
+                    "Order already active; re-activation is forbidden: " + id);
+        }
+        if (status != OrderStatus.DRAFT) {
+            throw new InvalidOrderStateException(
+                    "Import can activate only from DRAFT, current=" + status + ", id=" + id);
+        }
+        return new CustomerOrder(
+                id, orderNumber, commercialData, OrderStatus.ACTIVE, version, createdAt,
+                clock.instant());
+    }
+
+    /**
+     * Cancels the order: {@code DRAFT → CANCELLED}. Stage 5 forbids cancellation of
+     * {@code APPROVED} / {@code ACTIVE}.
      *
      * @throws InvalidOrderStateException if the order is not in {@code DRAFT}
      */
     public CustomerOrder cancel(Clock clock) {
         Objects.requireNonNull(clock, "clock");
-        if (status == OrderStatus.APPROVED) {
+        if (status == OrderStatus.APPROVED || status == OrderStatus.ACTIVE) {
             throw new InvalidOrderStateException(
-                    "Approved order cannot be cancelled in Stage 5: " + id);
+                    "Approved/active order cannot be cancelled in Stage 5: " + id);
         }
         if (status == OrderStatus.CANCELLED) {
             throw new InvalidOrderStateException(
@@ -173,6 +220,10 @@ public final class CustomerOrder {
 
     public boolean isApproved() {
         return status == OrderStatus.APPROVED;
+    }
+
+    public boolean isActive() {
+        return status == OrderStatus.ACTIVE;
     }
 
     public boolean isCancelled() {

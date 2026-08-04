@@ -352,6 +352,18 @@ class OrderItemEditorViewModelTest {
     }
 
     @Test
+    void activeImportedItemCommercialFieldsAreReadOnly() {
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemId id = OrderItemId.generate();
+        query.snapshot = snapshot(id, OrderItemStatus.ACTIVE, false, true, "IMP-1");
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(new FakeDocs(), query, auth(allItemPerms()));
+        viewModel.openExisting(id);
+        assertFalse(viewModel.commercialEditableProperty().get());
+        assertFalse(viewModel.canSaveCommercialDraftProperty().get());
+    }
+
+    @Test
     void viewModelHasNoRepositoryOrJdbcFields() {
         for (Field field : OrderItemEditorViewModel.class.getDeclaredFields()) {
             String name = field.getType().getName();
@@ -519,7 +531,7 @@ class OrderItemEditorViewModelTest {
                 withActive
                         ? OrderItemEditorSnapshot.RevisionView.of(
                                 RevisionNumber.first(),
-                                RevisionStatus.APPROVED,
+                                RevisionStatus.ACTIVE,
                                 BigDecimal.TEN,
                                 1)
                         : null;

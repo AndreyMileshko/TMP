@@ -67,9 +67,9 @@ public final class CreateOrderItemRevisionUseCase {
                                                             + copyFrom
                                                             + " on item "
                                                             + existing.id()));
-            if (!source.isApproved()) {
+            if (!source.isActive()) {
                 throw new InvalidOrderStateException(
-                        "Copy-from revision must be APPROVED: " + copyFrom);
+                        "Copy-from revision must be ACTIVE: " + copyFrom);
             }
             ItemSpecification copied =
                     copySpecification(

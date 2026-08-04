@@ -8581,7 +8581,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 # Stage 5 Extension — Order Intake MVP
 
-> `STAGE5-050..057 = DONE`. Post-closure: `STAGE5-058 = READY` (Imported Order Lifecycle Rules — implementation NOT STARTED). Stage 6 remains NOT STARTED.
+> `STAGE5-050..058 = DONE`. Stage 6 remains NOT STARTED.
 
 ## STAGE5-051 — Order Item and Specification Contracts
 
@@ -9019,10 +9019,10 @@ User FAIL or incomplete smoke — N/A (PASS recorded).
 
 ## STAGE5-058 — Imported Order Lifecycle Rules
 
-**Status:** READY  
+**Status:** DONE  
 **Stage:** 5 (post-closure improvement)  
 **Depends on:** STAGE5-057  
-**Module:** `tmp-order-management` (primary); `tmp-ui-shell` (ACTIVE direct-edit read-only); Flyway `V13+` if needed
+**Module:** `tmp-order-management` (primary); `tmp-ui-shell` (ACTIVE direct-edit read-only); Flyway `V13`
 
 ### Goal
 
@@ -9074,13 +9074,17 @@ User FAIL or incomplete smoke — N/A (PASS recorded).
 
 ### Acceptance criteria
 
-- [ ] Import confirm → ACTIVE на Order/Item/Revision/Spec;
-- [ ] Нет различий поведения ACTIVE (manual vs import) в domain/UI guards;
-- [ ] Нет OrderOrigin / import-metadata business protection;
-- [ ] Дубль только по существующему `orderNumber`;
-- [ ] Новая Revision на ACTIVE разрешена единообразно;
-- [ ] Manual ADR-030 path без регрессии;
-- [ ] Verification commands PASS; Stage 6 NOT STARTED; Scope соблюдён.
+- [x] Import confirm → ACTIVE на Order/Item/Revision/Spec;
+- [x] Нет различий поведения ACTIVE (manual vs import) в domain/UI guards;
+- [x] Нет OrderOrigin / import-metadata business protection;
+- [x] Дубль только по существующему `orderNumber`;
+- [x] Новая Revision на ACTIVE разрешена единообразно;
+- [x] Manual ADR-030 path без регрессии;
+- [x] Verification commands PASS; Stage 6 NOT STARTED; Scope соблюдён.
+
+### Result
+
+ADR-031 final implemented: IMPORT confirm lands uniform ACTIVE via Document Engine create/update docs + trusted domain activation; `ORDER_ACTIVATE` for manual `APPROVED→ACTIVE`; `RevisionStatus.ACTIVE`; Flyway V13; ImportMetadata/checksum removed; UI read-only for any ACTIVE. Stage 6 NOT STARTED. Git by user only.
 
 ### Required tests
 

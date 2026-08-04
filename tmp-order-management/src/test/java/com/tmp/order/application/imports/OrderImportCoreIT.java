@@ -2,7 +2,6 @@ package com.tmp.order.application.imports;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -18,7 +17,6 @@ import com.tmp.order.api.RevisionStatus;
 import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportConfirmResult;
 import com.tmp.order.api.imports.OrderImportConflictException;
-import com.tmp.order.api.imports.OrderImportDuplicateException;
 import com.tmp.order.api.imports.OrderImportPosition;
 import com.tmp.order.api.imports.OrderImportPreview;
 import com.tmp.order.api.imports.OrderImportService;
@@ -27,7 +25,6 @@ import com.tmp.order.api.imports.PreparedOrderImportPlan;
 import com.tmp.order.application.payload.DocumentId;
 import com.tmp.order.application.payload.DocumentTypeCode;
 import com.tmp.order.application.payload.OrderCreatePayload;
-import com.tmp.order.application.payload.OrderDocumentPayloadPort;
 import com.tmp.order.capability.OrderManagementPermissions;
 import com.tmp.order.domain.CustomerOrder;
 import com.tmp.order.domain.OrderCommercialData;
@@ -42,7 +39,6 @@ import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.RoleAdministrationService;
 import com.tmp.security.api.UserAdministrationService;
-import com.tmp.security.api.UserId;
 import com.tmp.security.api.UserSummary;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -58,7 +54,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -69,8 +64,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * STAGE5-053 — Import Core PostgreSQL integration: success, preview isolation, atomic rollback,
- * conflict and duplicate protection.
+ * STAGE5-058 — Import Core PostgreSQL integration: ACTIVE landing, preview isolation, atomic
+ * rollback, order-number conflict protection (no import-metadata).
  */
 @Testcontainers
 @SpringBootTest(classes = OrderImportCoreIT.TestApplication.class)
@@ -104,20 +99,15 @@ class OrderImportCoreIT {
     @Autowired private RoleAdministrationService roleAdministrationService;
     @Autowired private CustomerOrderRepository orders;
     @Autowired private OrderItemRepository items;
-    @Autowired private OrderImportMetadataRepository metadataRepository;
     @Autowired private DocumentEngine documentEngine;
-    @Autowired private OrderDocumentPayloadPort payloads;
+    @Autowired private com.tmp.order.application.payload.OrderDocumentPayloadPort payloads;
     @Autowired private JdbcTemplate jdbc;
-    @Autowired private FailingMetadataToggle failingMetadataToggle;
-
-    private UserId importerUserId;
+    @Autowired private FailingItemSaveToggle failingItemSaveToggle;
 
     @BeforeEach
     void setUp() {
-        failingMetadataToggle.failNextSave.set(false);
-        failingMetadataToggle.skipNextExistsCheck.set(false);
+        failingItemSaveToggle.failNextSave.set(false);
         authenticationService.logout();
-        jdbc.update("DELETE FROM order_management.order_import_metadata");
         jdbc.update("DELETE FROM order_management.order_document_processing");
         jdbc.update("DELETE FROM order_management.order_document_payload");
         jdbc.update("DELETE FROM order_management.item_specification_lines");
@@ -129,15 +119,15 @@ class OrderImportCoreIT {
     }
 
     @Test
-    void confirmCreatesIncompleteDraftStructureThroughDocuments() {
+    void confirmCreatesActiveOrderItemRevisionAndImmutableSpecification() {
         OrderImportBatch batch = sampleBatch("IMP-OK-1", "checksum-ok-1", "file-a.stxt");
         OrderImportPreview preview = orderImportService.preview(batch);
         assertTrue(preview.canConfirm());
         assertEquals(0, countOrders());
         assertEquals(0, countItems());
         assertEquals(0, countSpecLines());
-        assertEquals(0, countMetadata());
         assertEquals(0, countProcessing());
+        assertFalse(importMetadataTableExists());
 
         OrderImportConfirmResult result =
                 orderImportService.confirm(preview.preparedPlan().orElseThrow());
@@ -145,11 +135,9 @@ class OrderImportCoreIT {
         assertEquals("IMP-OK-1", result.orderNumber());
         assertEquals(1, result.createdPositionCount());
         assertEquals(2, result.createdSpecificationLineCount());
-        assertNotNull(result.importMetadataId());
-        assertEquals(importerUserId.value(), loadImportedBy(result.importMetadataId()));
 
         CustomerOrder order = orders.findById(result.orderId()).orElseThrow();
-        assertEquals(OrderStatus.DRAFT, order.status());
+        assertEquals(OrderStatus.ACTIVE, order.status());
         assertNull(order.commercialData().customerName());
         assertNull(order.commercialData().direction());
         assertNull(order.commercialData().currency());
@@ -159,15 +147,15 @@ class OrderImportCoreIT {
         List<OrderItem> orderItems = items.findByOrderId(order.id());
         assertEquals(1, orderItems.size());
         OrderItem item = orderItems.get(0);
-        assertEquals(OrderItemStatus.DRAFT, item.status());
+        assertEquals(OrderItemStatus.ACTIVE, item.status());
         assertEquals("1", item.commercialData().externalPositionNumber());
         assertNull(item.commercialData().productCode());
         assertNull(item.commercialData().name());
-        assertTrue(item.draftRevisionNumber().isPresent());
-        assertTrue(item.activeRevisionNumber().isEmpty());
+        assertTrue(item.activeRevisionNumber().isPresent());
+        assertTrue(item.draftRevisionNumber().isEmpty());
 
-        var revision = item.draftRevision().orElseThrow();
-        assertEquals(RevisionStatus.DRAFT, revision.status());
+        var revision = item.activeRevision().orElseThrow();
+        assertEquals(RevisionStatus.ACTIVE, revision.status());
         assertEquals(0, OrderedQuantity.of(8).value().compareTo(revision.orderedQuantity().value()));
         List<SpecificationLine> lines = revision.specification().orElseThrow().lines();
         assertEquals(2, lines.size());
@@ -175,7 +163,8 @@ class OrderImportCoreIT {
         assertNull(lines.get(0).color());
         assertNull(lines.get(1).lengthMm());
         assertEquals(OrderImportDefaults.UNIT_OF_MEASURE, lines.get(0).unitOfMeasure());
-        assertEquals(1, countMetadata());
+        assertTrue(revision.specification().orElseThrow().isImmutable());
+        assertFalse(importMetadataTableExists());
         assertTrue(countProcessing() >= 3);
     }
 
@@ -187,18 +176,18 @@ class OrderImportCoreIT {
         assertEquals(0, countItems());
         assertEquals(0, countRevisions());
         assertEquals(0, countSpecLines());
-        assertEquals(0, countMetadata());
         assertEquals(0, countProcessing());
         assertEquals(0, countPayloads());
+        assertFalse(importMetadataTableExists());
     }
 
     @Test
-    void confirmRollbackOnTestOnlyMetadataFailureLeavesNoPartialData() {
+    void confirmRollbackOnTestOnlyItemActivationFailureLeavesNoPartialData() {
         OrderImportBatch batch = sampleBatch("IMP-RB-1", "checksum-rb-1", "rb.stxt");
         PreparedOrderImportPlan plan =
                 orderImportService.preview(batch).preparedPlan().orElseThrow();
         int documentsBefore = countDocuments();
-        failingMetadataToggle.failNextSave.set(true);
+        failingItemSaveToggle.failNextSave.set(true);
 
         RuntimeException thrown =
                 assertThrows(RuntimeException.class, () -> orderImportService.confirm(plan));
@@ -207,45 +196,10 @@ class OrderImportCoreIT {
         assertEquals(0, countItems());
         assertEquals(0, countRevisions());
         assertEquals(0, countSpecLines());
-        assertEquals(0, countMetadata());
         assertEquals(0, countPayloads());
         assertEquals(0, countProcessing());
         assertEquals(documentsBefore, countDocuments());
-    }
-
-    @Test
-    void confirmAfterPreviewDuplicateChecksumRaceYieldsControlledDuplicate() {
-        OrderImportBatch batch = sampleBatch("IMP-DUP-RACE-1", "checksum-dup-race", "dup-race.stxt");
-        PreparedOrderImportPlan plan =
-                orderImportService.preview(batch).preparedPlan().orElseThrow();
-
-        OrderId seededOrder = seedExistingOrder("IMP-DUP-RACE-SEED");
-        metadataRepository.save(
-                OrderImportMetadata.of(
-                        UUID.randomUUID(),
-                        "STXT",
-                        "inserted-after-preview.stxt",
-                        "checksum-dup-race",
-                        Instant.now(),
-                        importerUserId,
-                        seededOrder));
-
-        int ordersBefore = countOrders();
-        int itemsBefore = countItems();
-        int revisionsBefore = countRevisions();
-        int linesBefore = countSpecLines();
-        int metadataBefore = countMetadata();
-
-        OrderImportDuplicateException duplicate =
-                assertThrows(
-                        OrderImportDuplicateException.class, () -> orderImportService.confirm(plan));
-        assertEquals(OrderImportDuplicateException.USER_MESSAGE, duplicate.getMessage());
-        assertFalse(duplicate.getMessage().toLowerCase().contains("sql"));
-        assertEquals(ordersBefore, countOrders());
-        assertEquals(itemsBefore, countItems());
-        assertEquals(revisionsBefore, countRevisions());
-        assertEquals(linesBefore, countSpecLines());
-        assertEquals(metadataBefore, countMetadata());
+        assertFalse(importMetadataTableExists());
     }
 
     @Test
@@ -258,7 +212,6 @@ class OrderImportCoreIT {
         String originalCustomer =
                 orders.findById(existingId).orElseThrow().commercialData().customerName();
         int itemsBefore = countItems();
-        int metadataBefore = countMetadata();
 
         OrderImportConflictException conflict =
                 assertThrows(
@@ -269,36 +222,7 @@ class OrderImportCoreIT {
                 originalCustomer,
                 orders.findById(existingId).orElseThrow().commercialData().customerName());
         assertEquals(itemsBefore, countItems());
-        assertEquals(metadataBefore, countMetadata());
         assertEquals(1, countOrders());
-    }
-
-    @Test
-    void secondConfirmOfSameChecksumMapsUniqueViolationToControlledDuplicate() {
-        OrderImportBatch batchA = sampleBatch("IMP-UC-1", "checksum-uc-1", "uc-a.stxt");
-        OrderImportBatch batchB = sampleBatch("IMP-UC-2", "checksum-uc-1", "uc-b.stxt");
-        PreparedOrderImportPlan planA =
-                orderImportService.preview(batchA).preparedPlan().orElseThrow();
-        PreparedOrderImportPlan planB =
-                orderImportService.preview(batchB).preparedPlan().orElseThrow();
-
-        orderImportService.confirm(planA);
-        assertEquals(1, countOrders());
-        assertEquals(1, countMetadata());
-
-        // Simulate TOCTOU: pre-check misses existing checksum, unique constraint fires on save.
-        failingMetadataToggle.skipNextExistsCheck.set(true);
-        OrderImportDuplicateException duplicate =
-                assertThrows(
-                        OrderImportDuplicateException.class, () -> orderImportService.confirm(planB));
-        assertEquals(OrderImportDuplicateException.USER_MESSAGE, duplicate.getMessage());
-        assertFalse(
-                duplicate.getCause()
-                        instanceof org.springframework.dao.DataIntegrityViolationException);
-        assertEquals(1, countOrders());
-        assertEquals(1, countMetadata());
-        assertEquals(1, countItems());
-        assertEquals(0, countOrdersWithNumber("IMP-UC-2"));
     }
 
     @Test
@@ -320,23 +244,7 @@ class OrderImportCoreIT {
                 originalCustomer,
                 orders.findById(existingId).orElseThrow().commercialData().customerName());
         assertEquals(itemsBefore, countItems());
-        assertEquals(0, countMetadata());
-    }
-
-    @Test
-    void duplicateChecksumIsRejectedEvenWithDifferentSourceReference() {
-        OrderImportBatch first = sampleBatch("IMP-DUP-1", "checksum-dup-1", "first.stxt");
-        orderImportService.confirm(orderImportService.preview(first).preparedPlan().orElseThrow());
-        assertEquals(1, countOrders());
-
-        OrderImportBatch second = sampleBatch("IMP-DUP-2", "checksum-dup-1", "second.stxt");
-        OrderImportDuplicateException duplicate =
-                assertThrows(
-                        OrderImportDuplicateException.class,
-                        () -> orderImportService.preview(second));
-        assertEquals(OrderImportDuplicateException.USER_MESSAGE, duplicate.getMessage());
-        assertEquals(1, countOrders());
-        assertEquals(1, countMetadata());
+        assertFalse(importMetadataTableExists());
     }
 
     @Test
@@ -350,32 +258,16 @@ class OrderImportCoreIT {
     }
 
     @Test
-    void metadataUniqueConstraintRaceIsEnforcedAndMappedOnConfirm() {
-        OrderImportBatch batch = sampleBatch("IMP-RACE-1", "checksum-race-1", "race.stxt");
-        OrderImportConfirmResult first =
-                orderImportService.confirm(
-                        orderImportService.preview(batch).preparedPlan().orElseThrow());
+    void duplicateChecksumWithDifferentOrderNumberIsAllowed() {
+        OrderImportBatch first = sampleBatch("IMP-DUP-1", "checksum-shared", "first.stxt");
+        orderImportService.confirm(orderImportService.preview(first).preparedPlan().orElseThrow());
+        assertEquals(1, countOrders());
 
-        assertThrows(
-                DuplicateKeyException.class,
-                () ->
-                        metadataRepository.save(
-                                OrderImportMetadata.of(
-                                        UUID.randomUUID(),
-                                        "STXT",
-                                        "other-name.stxt",
-                                        "checksum-race-1",
-                                        Instant.now(),
-                                        importerUserId,
-                                        first.orderId())));
-
-        OrderImportBatch retry = sampleBatch("IMP-RACE-2", "checksum-race-1", "retry.stxt");
-        OrderImportDuplicateException duplicate =
-                assertThrows(
-                        OrderImportDuplicateException.class,
-                        () -> orderImportService.preview(retry));
-        assertEquals(OrderImportDuplicateException.USER_MESSAGE, duplicate.getMessage());
-        assertFalse(duplicate.getMessage().toLowerCase().contains("sql"));
+        OrderImportBatch second = sampleBatch("IMP-DUP-2", "checksum-shared", "second.stxt");
+        OrderImportPreview preview = orderImportService.preview(second);
+        assertTrue(preview.canConfirm());
+        orderImportService.confirm(preview.preparedPlan().orElseThrow());
+        assertEquals(2, countOrders());
     }
 
     private void ensureImporter() {
@@ -391,7 +283,6 @@ class OrderImportCoreIT {
                                         Login.of("importer"),
                                         DisplayName.of("Importer"),
                                         IMPORTER_PASSWORD.clone()));
-        importerUserId = importer.id();
         roleAdministrationService.grantIndividualPermission(
                 importer.id(), OrderManagementPermissions.ORDER_CREATE);
         roleAdministrationService.grantIndividualPermission(
@@ -451,17 +342,22 @@ class OrderImportCoreIT {
                                                 new BigDecimal("4"))))));
     }
 
-    private int countOrders() {
-        return count("SELECT COUNT(*) FROM order_management.orders");
+    private boolean importMetadataTableExists() {
+        Boolean exists =
+                jdbc.queryForObject(
+                        """
+                        SELECT EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'order_management'
+                              AND table_name = 'order_import_metadata'
+                        )
+                        """,
+                        Boolean.class);
+        return Boolean.TRUE.equals(exists);
     }
 
-    private int countOrdersWithNumber(String orderNumber) {
-        Integer value =
-                jdbc.queryForObject(
-                        "SELECT COUNT(*) FROM order_management.orders WHERE order_number = ?",
-                        Integer.class,
-                        orderNumber);
-        return value == null ? 0 : value;
+    private int countOrders() {
+        return count("SELECT COUNT(*) FROM order_management.orders");
     }
 
     private int countItems() {
@@ -474,10 +370,6 @@ class OrderImportCoreIT {
 
     private int countSpecLines() {
         return count("SELECT COUNT(*) FROM order_management.item_specification_lines");
-    }
-
-    private int countMetadata() {
-        return count("SELECT COUNT(*) FROM order_management.order_import_metadata");
     }
 
     private int countProcessing() {
@@ -497,53 +389,36 @@ class OrderImportCoreIT {
         return value == null ? 0 : value;
     }
 
-    private UUID loadImportedBy(UUID importId) {
-        return jdbc.queryForObject(
-                """
-                SELECT imported_by FROM order_management.order_import_metadata
-                WHERE import_id = ?
-                """,
-                UUID.class,
-                importId);
-    }
-
-    static final class FailingMetadataToggle {
+    static final class FailingItemSaveToggle {
         final AtomicBoolean failNextSave = new AtomicBoolean(false);
-        final AtomicBoolean skipNextExistsCheck = new AtomicBoolean(false);
     }
 
-    static final class ToggleableOrderImportMetadataRepository
-            implements OrderImportMetadataRepository {
+    static final class ToggleableOrderItemRepository implements OrderItemRepository {
 
-        private final OrderImportMetadataRepository delegate;
-        private final FailingMetadataToggle toggle;
+        private final OrderItemRepository delegate;
+        private final FailingItemSaveToggle toggle;
 
-        ToggleableOrderImportMetadataRepository(
-                OrderImportMetadataRepository delegate, FailingMetadataToggle toggle) {
+        ToggleableOrderItemRepository(OrderItemRepository delegate, FailingItemSaveToggle toggle) {
             this.delegate = delegate;
             this.toggle = toggle;
         }
 
         @Override
-        public boolean existsBySourceTypeAndChecksum(String sourceType, String contentChecksum) {
-            if (toggle.skipNextExistsCheck.compareAndSet(true, false)) {
-                return false;
-            }
-            return delegate.existsBySourceTypeAndChecksum(sourceType, contentChecksum);
-        }
-
-        @Override
-        public Optional<OrderImportMetadata> findBySourceTypeAndChecksum(
-                String sourceType, String contentChecksum) {
-            return delegate.findBySourceTypeAndChecksum(sourceType, contentChecksum);
-        }
-
-        @Override
-        public OrderImportMetadata save(OrderImportMetadata metadata) {
+        public OrderItem save(OrderItem item) {
             if (toggle.failNextSave.compareAndSet(true, false)) {
-                throw new IllegalStateException("test-only metadata failure");
+                throw new IllegalStateException("test-only item activation failure");
             }
-            return delegate.save(metadata);
+            return delegate.save(item);
+        }
+
+        @Override
+        public Optional<OrderItem> findById(com.tmp.order.api.OrderItemId id) {
+            return delegate.findById(id);
+        }
+
+        @Override
+        public List<OrderItem> findByOrderId(OrderId orderId) {
+            return delegate.findByOrderId(orderId);
         }
     }
 
@@ -555,24 +430,24 @@ class OrderImportCoreIT {
         com.tmp.capability.CapabilityEngineAutoConfiguration.class,
         com.tmp.security.SecurityAutoConfiguration.class,
         OrderManagementAutoConfiguration.class,
-        TestMetadataConfig.class
+        TestItemFaultConfig.class
     })
     static class TestApplication {}
 
-    static class TestMetadataConfig {
+    static class TestItemFaultConfig {
         @Bean
-        FailingMetadataToggle failingMetadataToggle() {
-            return new FailingMetadataToggle();
+        FailingItemSaveToggle failingItemSaveToggle() {
+            return new FailingItemSaveToggle();
         }
 
         @Bean
-        BeanPostProcessor importMetadataRepositoryFaultInjector(FailingMetadataToggle toggle) {
+        BeanPostProcessor orderItemRepositoryFaultInjector(FailingItemSaveToggle toggle) {
             return new BeanPostProcessor() {
                 @Override
                 public Object postProcessAfterInitialization(Object bean, String beanName) {
-                    if (bean instanceof OrderImportMetadataRepository repository
-                            && !(bean instanceof ToggleableOrderImportMetadataRepository)) {
-                        return new ToggleableOrderImportMetadataRepository(repository, toggle);
+                    if (bean instanceof OrderItemRepository repository
+                            && !(bean instanceof ToggleableOrderItemRepository)) {
+                        return new ToggleableOrderItemRepository(repository, toggle);
                     }
                     return bean;
                 }

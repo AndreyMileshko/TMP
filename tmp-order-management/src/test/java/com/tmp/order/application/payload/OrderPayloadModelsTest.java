@@ -48,13 +48,16 @@ class OrderPayloadModelsTest {
         OrderUpdatePayload update =
                 OrderUpdatePayload.create(documentId, orderId, commercialData(), NOW);
         OrderApprovePayload approve = OrderApprovePayload.create(documentId, orderId, NOW);
+        OrderActivatePayload activate = OrderActivatePayload.create(documentId, orderId, NOW);
         OrderCancelPayload cancel = OrderCancelPayload.create(documentId, orderId, NOW);
 
         assertEquals(DocumentTypeCode.ORDER_UPDATE, update.documentTypeCode());
         assertEquals(DocumentTypeCode.ORDER_APPROVE, approve.documentTypeCode());
+        assertEquals(DocumentTypeCode.ORDER_ACTIVATE, activate.documentTypeCode());
         assertEquals(DocumentTypeCode.ORDER_CANCEL, cancel.documentTypeCode());
         assertEquals(orderId, update.orderId());
         assertEquals(orderId, approve.orderId());
+        assertEquals(orderId, activate.orderId());
         assertEquals(orderId, cancel.orderId());
     }
 
@@ -73,6 +76,9 @@ class OrderPayloadModelsTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> OrderApprovePayload.rehydrate(wrongType, OrderId.generate()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> OrderActivatePayload.rehydrate(wrongType, OrderId.generate()));
     }
 
     @Test
@@ -103,6 +109,7 @@ class OrderPayloadModelsTest {
             OrderCreatePayload.class,
             OrderUpdatePayload.class,
             OrderApprovePayload.class,
+            OrderActivatePayload.class,
             OrderCancelPayload.class,
             PayloadIdentity.class,
             DocumentId.class
@@ -156,6 +163,7 @@ class OrderPayloadModelsTest {
             OrderCreatePayload.class,
             OrderUpdatePayload.class,
             OrderApprovePayload.class,
+            OrderActivatePayload.class,
             OrderCancelPayload.class
         }) {
             for (Field field : type.getDeclaredFields()) {

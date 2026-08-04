@@ -4,6 +4,37 @@
 
 ---
 
+## STAGE5-058 — Imported Order Lifecycle Rules (implementation)
+
+**Date:** 2026-08-03  
+**Stage:** 5 (post-closure)  
+**Status:** DONE  
+**Module:** `tmp-order-management`, `tmp-ui-shell`, Flyway V13
+
+### Result
+
+Реализован ADR-031 final:
+
+- Import confirm → Order / Item / Revision / Specification **ACTIVE** (одна TX);
+- создание через Document Engine (`ORDER_CREATE`, `ORDER_ITEM_CREATE`, `ORDER_ITEM_REVISION_UPDATE`) + trusted domain activation (без commercial-gated `ORDER_APPROVE` / `REVISION_APPROVE` и без фиктивных коммерческих данных);
+- ручной путь: `DRAFT → APPROVED → ACTIVE` (`ORDER_ACTIVATE`); UI «Утвердить» проводит APPROVE затем ACTIVATE;
+- `RevisionStatus.APPROVED` → `ACTIVE`;
+- удалены ImportMetadata / checksum duplicate protection; дубль только `orderNumber`;
+- UI: direct-edit read-only для любого ACTIVE (единый режим);
+- Flyway `V13__order_lifecycle_active.sql`;
+- ACTIVE одинаков независимо от способа создания.
+
+Stage 6 = NOT STARTED. Git-команды агентом не выполнялись.
+
+### Verification
+
+- `mvn -pl tmp-order-management -am test` — PASS
+- `mvn -pl tmp-ui-shell -am test` — PASS
+- `mvn -pl tmp-architecture-tests -am test -Dtest=Stage5OrderManagementArchitectureTest` — PASS
+- `mvn -pl tmp-order-management,tmp-architecture-tests -am verify` — PASS
+
+---
+
 ## STAGE5-058 — Final Architecture Decision (documentary)
 
 **Date:** 2026-08-03  

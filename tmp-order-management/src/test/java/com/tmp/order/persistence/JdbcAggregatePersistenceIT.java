@@ -242,7 +242,7 @@ class JdbcAggregatePersistenceIT {
                 OrderItemRevision.rehydrate(
                         itemId,
                         rev1,
-                        RevisionStatus.APPROVED,
+                        RevisionStatus.ACTIVE,
                         OrderedQuantity.of(10),
                         null,
                         spec1);

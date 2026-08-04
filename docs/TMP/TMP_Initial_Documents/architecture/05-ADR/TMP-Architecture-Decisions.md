@@ -1234,7 +1234,7 @@ Imported Order Lifecycle Rules — Uniform ACTIVE (Trusted Import as Creation Pa
 
 ### Статус
 
-Accepted (final architecture decision for STAGE5-058; production code unchanged until implementation)
+Accepted (final architecture decision for STAGE5-058; **implemented** in STAGE5-058)
 
 ### Контекст
 
@@ -1347,8 +1347,8 @@ orderNumber uniqueness
 - упрощение модели: один ACTIVE, два пути **создания**;
 - ADR-030 остаётся gate ручного утверждения; не создаёт «тип» ACTIVE;
 - Warehouse/Production контракты проще и стабильнее;
-- `STAGE5-058` должен привести код и схему к этому решению (включая отказ от checksum-import protection);
-- до `STAGE5-058` DONE текущий код может ещё создавать import-`DRAFT` — это technical debt, не целевой контракт.
+- `STAGE5-058` реализовал код и схему по этому решению (включая отказ от checksum-import protection);
+- до `STAGE5-058` DONE код мог создавать import-`DRAFT` — technical debt снят.
 
 ### Связанные документы
 

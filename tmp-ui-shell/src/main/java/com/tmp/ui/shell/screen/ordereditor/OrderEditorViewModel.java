@@ -209,7 +209,11 @@ public final class OrderEditorViewModel {
             }
             UUID approveDoc =
                     orderDocuments.beginOrderApprove("ORDER_APPROVE " + orderId.value(), orderId);
-            OrderId result = orderDocuments.postDocument(approveDoc);
+            OrderId approvedId = orderDocuments.postDocument(approveDoc);
+            UUID activateDoc =
+                    orderDocuments.beginOrderActivate(
+                            "ORDER_ACTIVATE " + approvedId.value(), approvedId);
+            OrderId result = orderDocuments.postDocument(activateDoc);
             showSuccess("Заказ утверждён");
             reloadExisting(result);
         } catch (AccessDeniedException ex) {
@@ -381,7 +385,9 @@ public final class OrderEditorViewModel {
 
         boolean draft = orderStatus == OrderStatus.DRAFT;
         boolean readOnlyStatus =
-                orderStatus == OrderStatus.APPROVED || orderStatus == OrderStatus.CANCELLED;
+                orderStatus == OrderStatus.APPROVED
+                        || orderStatus == OrderStatus.ACTIVE
+                        || orderStatus == OrderStatus.CANCELLED;
         boolean hasItemView =
                 authorization.hasPermission(PermissionId.of("order.item.view"));
         fieldsEditable.set(hasView && draft && hasEdit);

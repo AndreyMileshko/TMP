@@ -5,7 +5,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Read-only view of an <strong>approved</strong> order item revision (Specification §15.1.3).
+ * Read-only view of an <strong>ACTIVE</strong> order item revision (Specification §15.1.3 /
+ * ADR-031).
  *
  * <p>The Public Query API never returns draft revisions. Implementations must omit draft revisions
  * from list results and return empty for draft revision lookups.
@@ -32,9 +33,9 @@ public final class OrderItemRevisionDto {
     }
 
     /**
-     * Creates a public revision DTO. {@code status} must be {@link RevisionStatus#APPROVED}.
+     * Creates a public revision DTO. {@code status} must be {@link RevisionStatus#ACTIVE}.
      *
-     * @throws IllegalArgumentException if {@code status} is not {@code APPROVED}
+     * @throws IllegalArgumentException if {@code status} is not {@code ACTIVE}
      */
     public static OrderItemRevisionDto of(
             OrderItemId orderItemId,
@@ -46,9 +47,9 @@ public final class OrderItemRevisionDto {
         Objects.requireNonNull(revisionNumber, "revisionNumber");
         Objects.requireNonNull(status, "status");
         Objects.requireNonNull(orderedQuantity, "orderedQuantity");
-        if (status != RevisionStatus.APPROVED) {
+        if (status != RevisionStatus.ACTIVE) {
             throw new IllegalArgumentException(
-                    "Public Query API may only expose APPROVED revisions, got: " + status);
+                    "Public Query API may only expose ACTIVE revisions, got: " + status);
         }
         return new OrderItemRevisionDto(
                 orderItemId, revisionNumber, status, orderedQuantity, previousRevisionNumber);

@@ -11,6 +11,7 @@ import com.tmp.order.api.OrderItemStatus;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.PageRequest;
+import com.tmp.order.api.RevisionStatus;
 import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportConfirmResult;
 import com.tmp.order.api.imports.OrderImportPreview;
@@ -49,7 +50,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * STAGE5-056 — full Order Intake path: STXT fixture → adapter → preview → confirm → DRAFT
+ * STAGE5-056 — full Order Intake path: STXT fixture → adapter → preview → confirm → ACTIVE
  * structure → Query API / UI editor reads.
  */
 @Testcontainers
@@ -91,7 +92,6 @@ class OrderIntakeStxtEndToEndIT {
     @BeforeEach
     void setUp() {
         authenticationService.logout();
-        jdbc.update("DELETE FROM order_management.order_import_metadata");
         jdbc.update("DELETE FROM order_management.order_document_processing");
         jdbc.update("DELETE FROM order_management.order_document_payload");
         jdbc.update("DELETE FROM order_management.item_specification_lines");
@@ -103,7 +103,7 @@ class OrderIntakeStxtEndToEndIT {
     }
 
     @Test
-    void stxtFixtureThroughConfirmIsReadableAsIncompleteDraft() throws IOException {
+    void stxtFixtureThroughConfirmIsReadableAsActiveOrder() throws IOException {
         byte[] content = readFixture("stxt/sample-utf8.stxt");
         StxtParseResult parseResult = stxtFileAdapter.parse(content, "sample-utf8.stxt");
         assertTrue(parseResult.isSuccessful(), () -> parseResult.errors().toString());
@@ -123,7 +123,7 @@ class OrderIntakeStxtEndToEndIT {
 
         OrderDto order = orderQueryService.getOrder(confirm.orderId()).orElseThrow();
         assertEquals("26062891", order.orderNumber());
-        assertEquals(OrderStatus.DRAFT, order.status());
+        assertEquals(OrderStatus.ACTIVE, order.status());
 
         List<OrderItemDto> items =
                 orderQueryService.getOrderItems(confirm.orderId(), PageRequest.firstPage()).content();
@@ -133,7 +133,7 @@ class OrderIntakeStxtEndToEndIT {
                         .filter(item -> "1".equals(item.externalPositionNumber()))
                         .findFirst()
                         .orElseThrow();
-        assertEquals(OrderItemStatus.DRAFT, firstItem.status());
+        assertEquals(OrderItemStatus.ACTIVE, firstItem.status());
         assertEquals("1", firstItem.externalPositionNumber());
         assertNull(firstItem.productCode());
         assertNull(firstItem.name());
@@ -144,13 +144,16 @@ class OrderIntakeStxtEndToEndIT {
         assertNull(editor.productCode());
         assertNull(editor.name());
         assertEquals(0, new BigDecimal("8").compareTo(editor.orderedQuantity()));
-        assertTrue(editor.draftRevisionNumber().isPresent());
+        assertTrue(editor.activeRevisionNumber().isPresent());
+        assertTrue(editor.draftRevisionNumber().isEmpty());
 
         OrderItemSpecificationEditorSnapshot specification =
                 specificationEditorQueryService
                         .getSpecificationSnapshot(
-                                firstItem.orderItemId(), editor.draftRevisionNumber().orElseThrow())
+                                firstItem.orderItemId(), editor.activeRevisionNumber().orElseThrow())
                         .orElseThrow();
+        assertEquals(RevisionStatus.ACTIVE, specification.revisionStatus());
+        assertTrue(specification.immutable());
         assertEquals(0, new BigDecimal("8").compareTo(specification.orderedQuantity()));
         assertEquals(2, specification.lines().size());
 

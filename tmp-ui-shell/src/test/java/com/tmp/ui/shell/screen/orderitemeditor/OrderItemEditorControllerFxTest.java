@@ -172,7 +172,7 @@ class OrderItemEditorControllerFxTest {
                 withActive
                         ? OrderItemEditorSnapshot.RevisionView.of(
                                 RevisionNumber.first(),
-                                RevisionStatus.APPROVED,
+                                RevisionStatus.ACTIVE,
                                 BigDecimal.TEN,
                                 1)
                         : null;

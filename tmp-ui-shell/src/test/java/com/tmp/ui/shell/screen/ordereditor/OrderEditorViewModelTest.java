@@ -62,7 +62,7 @@ class OrderEditorViewModelTest {
     }
 
     @Test
-    void approvedAndCancelledAreReadOnly() {
+    void approvedAndActiveAreReadOnly() {
         OrderId approvedId = OrderId.generate();
         FakeQuery query = new FakeQuery();
         query.order = order(approvedId, OrderStatus.APPROVED);
@@ -74,11 +74,37 @@ class OrderEditorViewModelTest {
         assertFalse(viewModel.canApproveProperty().get());
         assertFalse(viewModel.canCancelProperty().get());
 
+        OrderId activeId = OrderId.generate();
+        query.order = order(activeId, OrderStatus.ACTIVE);
+        viewModel.openExisting(activeId);
+        assertFalse(viewModel.fieldsEditableProperty().get());
+        assertFalse(viewModel.canSaveDraftProperty().get());
+        assertFalse(viewModel.canApproveProperty().get());
+        assertFalse(viewModel.canCancelProperty().get());
+
         OrderId cancelledId = OrderId.generate();
         query.order = order(cancelledId, OrderStatus.CANCELLED);
         viewModel.openExisting(cancelledId);
         assertFalse(viewModel.fieldsEditableProperty().get());
         assertFalse(viewModel.canCancelProperty().get());
+    }
+
+    @Test
+    void approveOrderPostsApproveThenActivateDocuments() {
+        OrderId id = OrderId.generate();
+        FakeQuery query = new FakeQuery();
+        query.order = order(id, OrderStatus.DRAFT);
+        FakeDocs docs = new FakeDocs();
+        docs.postResult = id;
+        OrderEditorViewModel viewModel =
+                new OrderEditorViewModel(query, docs, auth(allOrderPerms()));
+        viewModel.openExisting(id);
+
+        viewModel.approveOrder();
+
+        assertEquals("ORDER_APPROVE", docs.approveBeginType);
+        assertEquals("ORDER_ACTIVATE", docs.activateBeginType);
+        assertEquals(2, docs.postCalls);
     }
 
     @Test
@@ -290,8 +316,11 @@ class OrderEditorViewModelTest {
 
     private static final class FakeDocs implements OrderDocumentUiService {
         private String lastBeginType;
+        private String approveBeginType;
+        private String activateBeginType;
         private boolean saveCreateCalled;
         private boolean postCalled;
+        private int postCalls;
         private boolean failSave;
         private RuntimeException failSaveException;
         private RuntimeException failPost;
@@ -314,7 +343,15 @@ class OrderEditorViewModelTest {
 
         @Override
         public UUID beginOrderApprove(String title, OrderId orderId) {
+            approveBeginType = "ORDER_APPROVE";
             lastBeginType = "ORDER_APPROVE";
+            return UUID.randomUUID();
+        }
+
+        @Override
+        public UUID beginOrderActivate(String title, OrderId orderId) {
+            activateBeginType = "ORDER_ACTIVATE";
+            lastBeginType = "ORDER_ACTIVATE";
             return UUID.randomUUID();
         }
 
@@ -352,6 +389,7 @@ class OrderEditorViewModelTest {
                 throw failPost;
             }
             postCalled = true;
+            postCalls++;
             return postResult;
         }
 

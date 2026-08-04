@@ -151,7 +151,7 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                 jdbc.queryForObject(
                         """
                         SELECT COUNT(*) FROM order_management.order_item_revisions
-                        WHERE order_item_id = ? AND revision_status = 'APPROVED'
+                        WHERE order_item_id = ? AND revision_status = 'ACTIVE'
                         """,
                         Long.class,
                         orderItemId.value());
@@ -165,7 +165,7 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                         SELECT order_item_id, revision_number, revision_status, ordered_quantity,
                                previous_revision_number
                         FROM order_management.order_item_revisions
-                        WHERE order_item_id = ? AND revision_status = 'APPROVED'
+                        WHERE order_item_id = ? AND revision_status = 'ACTIVE'
                         ORDER BY revision_number ASC
                         LIMIT ? OFFSET ?
                         """,
@@ -188,7 +188,7 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                                previous_revision_number
                         FROM order_management.order_item_revisions
                         WHERE order_item_id = ? AND revision_number = ?
-                          AND revision_status = 'APPROVED'
+                          AND revision_status = 'ACTIVE'
                         """,
                         (rs, rowNum) -> mapRevision(rs),
                         orderItemId.value(),
@@ -210,7 +210,7 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                          AND r.revision_number = i.active_revision_number
                         WHERE i.order_item_id = ?
                           AND i.active_revision_number IS NOT NULL
-                          AND r.revision_status = 'APPROVED'
+                          AND r.revision_status = 'ACTIVE'
                         """,
                         (rs, rowNum) -> mapRevision(rs),
                         orderItemId.value());
@@ -227,7 +227,7 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                         """
                         SELECT COUNT(*) FROM order_management.order_item_revisions
                         WHERE order_item_id = ? AND revision_number = ?
-                          AND revision_status = 'APPROVED'
+                          AND revision_status = 'ACTIVE'
                         """,
                         Integer.class,
                         orderItemId.value(),

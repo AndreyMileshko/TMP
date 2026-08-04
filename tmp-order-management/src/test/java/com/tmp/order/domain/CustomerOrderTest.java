@@ -32,6 +32,20 @@ class CustomerOrderTest {
     }
 
     @Test
+    void activateFromApprovedSucceeds() {
+        CustomerOrder active = sampleOrder().approve(CLOCK).activate(CLOCK);
+        assertEquals(OrderStatus.ACTIVE, active.status());
+        assertTrue(active.isActive());
+    }
+
+    @Test
+    void activateFromImportSkipsApprovedState() {
+        CustomerOrder active = sampleOrder().activateFromImport(CLOCK);
+        assertEquals(OrderStatus.ACTIVE, active.status());
+        assertTrue(active.isActive());
+    }
+
+    @Test
     void cancelFromDraftSucceeds() {
         CustomerOrder cancelled = sampleOrder().cancel(CLOCK);
         assertEquals(OrderStatus.CANCELLED, cancelled.status());
@@ -64,11 +78,16 @@ class CustomerOrderTest {
     }
 
     @Test
-    void approvedCannotBeCancelled() {
+    void approvedAndActiveCannotBeCancelled() {
         CustomerOrder approved = sampleOrder().approve(CLOCK);
-        InvalidOrderStateException ex =
+        InvalidOrderStateException approvedEx =
                 assertThrows(InvalidOrderStateException.class, () -> approved.cancel(CLOCK));
-        assertTrue(ex.getMessage().contains("cannot be cancelled"));
+        assertTrue(approvedEx.getMessage().contains("cannot be cancelled"));
+
+        CustomerOrder active = sampleOrder().activateFromImport(CLOCK);
+        InvalidOrderStateException activeEx =
+                assertThrows(InvalidOrderStateException.class, () -> active.cancel(CLOCK));
+        assertTrue(activeEx.getMessage().contains("cannot be cancelled"));
     }
 
     @Test
