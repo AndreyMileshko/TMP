@@ -3,6 +3,36 @@
 ## Latest result
 
 **Date:** 2026-08-05  
+**Scope:** STAGE5-058 FIX — no direct ACTIVE; Document approve/activate only  
+**Overall:** PASS  
+**Type:** Automated unit + integration + architecture  
+**Environment:** Windows; `.tools/apache-maven-3.9.9`; Docker Desktop; Testcontainers PostgreSQL 16
+
+| Item | Result |
+|---|---|
+| STAGE5-058 | DONE |
+| Stage 6 | NOT STARTED |
+| Confirm → ACTIVE via approve/activate docs | PASS |
+| Direct `activateFromImport` / `activateDraftRevisionForImport` | REMOVED |
+| Placeholder rejection | PASS |
+| E2E STXT→Adapter→Core→Approve→ACTIVE all levels | PASS |
+| UI ACTIVE read-only Order/Item/Spec | PASS |
+| Regression STAGE5-053/054/055 | PASS |
+| ImportMetadata | NOT CREATED |
+| Git | NOT EXECUTED |
+
+### Commands
+
+| Command | Result |
+|---|---|
+| `mvn -pl tmp-order-management -am test -Dtest=CustomerOrderTest,OrderItemTest,DefaultOrderImportServiceTest,StxtFileAdapterTest,StxtImportPreviewIntegrationTest,OrderIntakeStxtEndToEndIT,OrderImportCoreIT -Dsurefire.failIfNoSpecifiedTests=false` | PASS |
+| `mvn -pl tmp-ui-shell,tmp-architecture-tests -am test -Dtest=OrderEditorViewModelTest,OrderItemEditorViewModelTest,OrderItemSpecificationEditorViewModelTest,OrderImportViewModelTest,Stage5OrderManagementArchitectureTest -Dsurefire.failIfNoSpecifiedTests=false` | PASS |
+
+---
+
+## Previous result
+
+**Date:** 2026-08-05  
 **Scope:** STAGE5-058 FIX — Import ACTIVE via Document approve/activate flow  
 **Overall:** PASS  
 **Type:** Automated unit + integration + Flyway + architecture  

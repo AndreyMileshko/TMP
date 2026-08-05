@@ -78,7 +78,7 @@ class OrderItemSpecificationEditorViewModelTest {
     }
 
     @Test
-    void activeRevisionSpecificationIsReadOnly() {
+    void activeSpecificationIsViewOnly() {
         FakeSpecQuery query = new FakeSpecQuery();
         OrderItemId itemId = OrderItemId.generate();
         RevisionNumber revision = RevisionNumber.first();
@@ -96,8 +96,9 @@ class OrderItemSpecificationEditorViewModelTest {
                 new OrderItemSpecificationEditorViewModel(new FakeDocs(), query, auth(allPerms()));
         viewModel.open(itemId, revision);
 
-        assertFalse(viewModel.editableProperty().get());
+        assertFalse(viewModel.editableProperty().get(), "ACTIVE Specification: view only");
         assertFalse(viewModel.canSaveDraftProperty().get());
+        assertFalse(viewModel.canAddLineProperty().get());
     }
 
     @Test

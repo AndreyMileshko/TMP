@@ -77,7 +77,7 @@ class OrderEditorViewModelTest {
         OrderId activeId = OrderId.generate();
         query.order = order(activeId, OrderStatus.ACTIVE);
         viewModel.openExisting(activeId);
-        assertFalse(viewModel.fieldsEditableProperty().get());
+        assertFalse(viewModel.fieldsEditableProperty().get(), "ACTIVE Order: view only");
         assertFalse(viewModel.canSaveDraftProperty().get());
         assertFalse(viewModel.canApproveProperty().get());
         assertFalse(viewModel.canCancelProperty().get());

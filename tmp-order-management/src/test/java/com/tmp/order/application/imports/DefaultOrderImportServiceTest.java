@@ -561,6 +561,29 @@ class DefaultOrderImportServiceTest {
     }
 
     @Test
+    void previewRejectsPlaceholderCommercialValues() {
+        OrderImportBatch batch =
+                OrderImportBatch.of(
+                        "STXT",
+                        "sample.stxt",
+                        "checksum-abc",
+                        "UNKNOWN",
+                        ORDER_DATE,
+                        null,
+                        "N/A",
+                        List.of(
+                                position(
+                                        "1",
+                                        "P-1",
+                                        "Name",
+                                        1,
+                                        List.of(line("c", "n", null, null, bd("1"))))));
+        OrderImportPreview preview = service.preview(batch);
+        assertFalse(preview.canConfirm());
+        assertTrue(hasCode(preview.errors(), OrderImportValidator.CODE_PLACEHOLDER_FORBIDDEN));
+    }
+
+    @Test
     void placeholdersAreNotCreatedInValidBatchCommercialMapping() {
         OrderImportBatch batch = validBatch();
         assertNull(batch.positions().get(0).specificationLines().get(0).color());

@@ -259,7 +259,7 @@ Order Management **не** владеет и **не** хранит (принад�
 | `DRAFT` | `DRAFT` | `ORDER_UPDATE` | `order.order.edit` | заказ в `DRAFT` | изменение `APPROVED`/`ACTIVE`/`CANCELLED` | `OrderUpdated` |
 | `DRAFT` | `APPROVED` | `ORDER_APPROVE` | `order.order.approve` | ≥ 1 ACTIVE item; коммерческие поля полны (ADR-030) | утверждение без активных позиций / без коммерции | `OrderApproved` |
 | `APPROVED` | `ACTIVE` | `ORDER_ACTIVATE` | `order.order.approve` (или отдельное — при реализации) | заказ `APPROVED` | активация `DRAFT`/`CANCELLED` | `OrderActivated` (или согласованный) |
-| (none) | `ACTIVE` | IMPORT operation (confirm) | import permission set текущего flow | валидный batch; **уникальный `orderNumber`** | существующий номер; placeholders; частичный импорт | `OrderCreated` + activation-equivalent events |
+| (none) | `ACTIVE` | IMPORT confirm: create docs → `ORDER_ITEM_REVISION_APPROVE` → `ORDER_APPROVE` (import gates) → `ORDER_ACTIVATE` | import permission set текущего flow | валидный batch; **уникальный `orderNumber`**; Final STXT fields | существующий номер; placeholders; прямая активация агрегата | `OrderCreated` + approve/activate events |
 | `DRAFT` | `CANCELLED` | `ORDER_CANCEL` | `order.order.cancel` | заказ в `DRAFT` | отмена `APPROVED`/`ACTIVE` (запрещено в Stage 5) | `OrderCancelled` |
 
 Переходы `APPROVED → CANCELLED` и `ACTIVE → CANCELLED` **запрещены в Stage 5**.
@@ -988,8 +988,10 @@ OrderImportBatch (один заказ; файл → List<OrderImportBatch>)
 Обязательны (без placeholders):
 
 * Order: номер заказа; дата заказа; клиент;
-* Order Item: `productCode`; `name`; `quantity`;
+* Order Item: `externalPositionNumber`; `productCode`; `name`; `quantity`;
 * Specification: `materialCode`; `materialName`; `unitOfMeasure`; `quantity`.
+
+Placeholders (`UNKNOWN`, `N/A`, `IMPORT`, …) запрещены — импорт отклоняется.
 
 ## 27.7 Коммерческие данные при импорте
 
@@ -1005,9 +1007,11 @@ OrderImportBatch (один заказ; файл → List<OrderImportBatch>)
 
 **IMPORT operation (ADR-031):**
 
-1. Создаёт сразу `ACTIVE` на всех уровнях (Order / Item / Revision / Specification).
-2. Требует поля Final STXT Contract (§27.6); placeholders запрещены.
-3. После создания — обычный `ACTIVE`: прямое редактирование запрещено; изменение только через Revision (одинаково с ручным ACTIVE).
+1. В одной TX проводит штатный Document Engine lifecycle:
+   create → `ORDER_ITEM_REVISION_APPROVE` → `ORDER_APPROVE` (import gates: client + ≥1 ACTIVE item; без полного ADR-030 set) → `ORDER_ACTIVATE`.
+2. Итог: `ACTIVE` на Order / Item / Revision / Specification. Прямая активация агрегатов (`DRAFT → ACTIVE`) **запрещена**.
+3. Требует поля Final STXT Contract (§27.6); placeholders (`UNKNOWN`, `N/A`, …) запрещены — импорт отклоняется.
+4. После создания — обычный `ACTIVE`: прямое редактирование запрещено; изменение только через Revision (одинаково с ручным ACTIVE).
 
 **Реализация:** `STAGE5-058`.
 
@@ -1051,3 +1055,4 @@ OrderImportBatch (один заказ; файл → List<OrderImportBatch>)
 ACTIVE одинаков независимо от источника создания.
 
 Не создавать: OrderOrigin, ImportMetadata, checksum registry, отдельные import-сущности.
+Прямая активация агрегатов в обход Document Engine запрещена.

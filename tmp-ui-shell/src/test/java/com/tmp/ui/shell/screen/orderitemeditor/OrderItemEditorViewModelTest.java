@@ -352,15 +352,16 @@ class OrderItemEditorViewModelTest {
     }
 
     @Test
-    void activeImportedItemCommercialFieldsAreReadOnly() {
+    void activePositionIsViewOnly() {
         FakeEditorQuery query = new FakeEditorQuery();
         OrderItemId id = OrderItemId.generate();
         query.snapshot = snapshot(id, OrderItemStatus.ACTIVE, false, true, "IMP-1");
         OrderItemEditorViewModel viewModel =
                 new OrderItemEditorViewModel(new FakeDocs(), query, auth(allItemPerms()));
         viewModel.openExisting(id);
-        assertFalse(viewModel.commercialEditableProperty().get());
+        assertFalse(viewModel.commercialEditableProperty().get(), "ACTIVE Position: view only");
         assertFalse(viewModel.canSaveCommercialDraftProperty().get());
+        assertFalse(viewModel.canPostCommercialProperty().get());
     }
 
     @Test

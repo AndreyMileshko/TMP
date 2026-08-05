@@ -4,11 +4,38 @@
 
 ---
 
-## STAGE5-058 — FIX REQUIRED: ACTIVE via Document approve/activate flow
+## STAGE5-058 — FIX REQUIRED: remove direct ACTIVE; Document approve/activate only
 
 **Date:** 2026-08-05  
 **Stage:** 5 (post-closure)  
 **Status:** DONE  
+**Module:** `tmp-order-management`, `tmp-ui-shell`
+
+### Defect
+
+Import мог опираться на доменные shortcuts `CustomerOrder.activateFromImport` / `OrderItem.activateDraftRevisionForImport` (`DRAFT → ACTIVE` в обход approve flow). Placeholders не отклонялись на уровне Import Validator.
+
+### Fix
+
+1. Import confirm (одна TX): create docs → `ORDER_ITEM_REVISION_APPROVE` → `ORDER_APPROVE` under `ImportApproveGate` (ADR-031: client + ≥1 ACTIVE item; без полного ADR-030 set — STXT не содержит direction/currency/contract/site) → `ORDER_ACTIVATE`.
+2. Удалены `activateFromImport` / `activateDraftRevisionForImport`.
+3. `OrderImportValidator`: Final STXT поля + запрет placeholders (`UNKNOWN`, `N/A`, …) → импорт отклоняется.
+4. E2E: STXT → Adapter → Core → Approve → ACTIVE Order/Item/Revision/Specification.
+5. UI: ACTIVE Order / Position / Specification — только просмотр (тесты).
+6. ACTIVE одинаков независимо от источника. ImportMetadata не создана. Stage 6 не начат. Git не выполнялся.
+
+### Verification
+
+- Domain/import/STXT unit + `OrderIntakeStxtEndToEndIT` / `OrderImportCoreIT` — PASS
+- UI read-only ViewModel tests + `OrderImportViewModelTest` + architecture — PASS
+
+---
+
+## STAGE5-058 — FIX REQUIRED: ACTIVE via Document approve/activate flow
+
+**Date:** 2026-08-05  
+**Stage:** 5 (post-closure)  
+**Status:** DONE (superseded domain-shortcut removal by FIX above)  
 **Module:** `tmp-order-management`, Flyway V14
 
 ### Defect

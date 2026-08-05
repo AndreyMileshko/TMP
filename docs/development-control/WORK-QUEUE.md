@@ -9086,7 +9086,7 @@ User FAIL or incomplete smoke — N/A (PASS recorded).
 
 ### Result
 
-ADR-031 final + Final STXT Contract + **FIX**: Import confirm uses Document Engine lifecycle (`ORDER_ITEM_REVISION_APPROVE` → `ORDER_APPROVE` import gates → `ORDER_ACTIVATE`) to land uniform ACTIVE — no durable DRAFT import and no direct aggregate activation bypass. Flyway V14 registers `ORDER_ACTIVATE`. Stage 6 NOT STARTED. Git by user only.
+ADR-031 final + Final STXT Contract + **FIX**: Import confirm uses Document Engine lifecycle only (`ORDER_ITEM_REVISION_APPROVE` → `ORDER_APPROVE` import gates → `ORDER_ACTIVATE`). Domain shortcuts `activateFromImport` / `activateDraftRevisionForImport` removed. Placeholder validation rejects import. ACTIVE uniform regardless of creation source. Flyway V14 registers `ORDER_ACTIVATE`. Stage 6 NOT STARTED. Git by user only.
 
 ### Required tests
 

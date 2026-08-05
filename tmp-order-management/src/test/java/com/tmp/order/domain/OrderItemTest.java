@@ -91,14 +91,9 @@ class OrderItemTest {
     }
 
     @Test
-    void activateDraftRevisionForImportWorksWithoutCommercialFields() {
+    void approveDraftRevisionRequiresNonEmptySpecification() {
         OrderItem item = sampleItem();
-        ItemSpecification spec = ItemSpecification.of(
-                item.id(), RevisionNumber.first(), java.util.List.of(sampleLine()));
-        OrderItem withSpec = item.updateDraftSpecification(spec, CLOCK);
-        OrderItem active = withSpec.activateDraftRevisionForImport(CLOCK);
-        assertEquals(OrderItemStatus.ACTIVE, active.status());
-        assertTrue(active.activeRevision().orElseThrow().isActive());
+        assertThrows(InvalidOrderStateException.class, () -> item.approveDraftRevision(CLOCK));
     }
 
     @Test

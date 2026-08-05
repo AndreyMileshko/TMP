@@ -200,23 +200,12 @@ public final class OrderItem {
     }
 
     /**
-     * Approves the current draft revision on the manual path: marks it {@code ACTIVE}
-     * (immutable), requires commercial completeness (ADR-030), assigns it as the active revision,
-     * and transitions the item {@code DRAFT → ACTIVE} on first approval.
+     * Approves the current draft revision via {@code ORDER_ITEM_REVISION_APPROVE}: marks it
+     * {@code ACTIVE} (immutable), requires commercial completeness (productCode + name), assigns
+     * it as the active revision, and transitions the item {@code DRAFT → ACTIVE} on first approval.
+     * Used by both manual UI and Import (no separate import activation path).
      */
     public OrderItem approveDraftRevision(Clock clock) {
-        return activateDraftRevision(clock, true);
-    }
-
-    /**
-     * Trusted import landing for a draft revision: specification required; commercial
-     * completeness not required (ADR-031). Resulting revision/item status is {@code ACTIVE}.
-     */
-    public OrderItem activateDraftRevisionForImport(Clock clock) {
-        return activateDraftRevision(clock, false);
-    }
-
-    private OrderItem activateDraftRevision(Clock clock, boolean requireCommercialCompleteness) {
         Objects.requireNonNull(clock, "clock");
         requireNotCancelled("approve draft revision");
         if (draftRevisionNumber == null) {
@@ -237,13 +226,11 @@ public final class OrderItem {
                     "Cannot approve revision without a non-empty specification: "
                             + id + "/" + draftRevisionNumber);
         }
-        if (requireCommercialCompleteness) {
-            List<String> missingCommercial = commercialData.missingMandatoryFieldsForApproval();
-            if (!missingCommercial.isEmpty()) {
-                throw new InvalidOrderStateException(
-                        "Order item cannot be approved: missing mandatory commercial fields: "
-                                + String.join(", ", missingCommercial));
-            }
+        List<String> missingCommercial = commercialData.missingMandatoryFieldsForApproval();
+        if (!missingCommercial.isEmpty()) {
+            throw new InvalidOrderStateException(
+                    "Order item cannot be approved: missing mandatory commercial fields: "
+                            + String.join(", ", missingCommercial));
         }
         RevisionNumber previousActive = activeRevisionNumber;
         OrderItemRevision activated = draft.activated();

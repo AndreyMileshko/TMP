@@ -5,14 +5,27 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Rejects placeholder commercial values prohibited by ADR-030 (UNKNOWN, N/A, IMPORT, em-dash stubs).
+ * Rejects placeholder commercial values prohibited by ADR-030 / Final STXT Contract (UNKNOWN, N/A,
+ * IMPORT, em-dash stubs).
  */
-final class CommercialPlaceholderValidator {
+public final class CommercialPlaceholderValidator {
 
     private static final Set<String> FORBIDDEN_PLACEHOLDERS =
             Set.of("UNKNOWN", "N/A", "NA", "IMPORT", "—", "-", "NONE", "TBD");
 
     private CommercialPlaceholderValidator() {}
+
+    /** Returns {@code true} when the trimmed value is a forbidden placeholder. */
+    public static boolean isForbiddenPlaceholder(String value) {
+        if (value == null) {
+            return false;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        return FORBIDDEN_PLACEHOLDERS.contains(trimmed.toUpperCase(Locale.ROOT));
+    }
 
     static String normalizeOptional(String value) {
         if (value == null) {
@@ -44,8 +57,7 @@ final class CommercialPlaceholderValidator {
     }
 
     private static void rejectPlaceholder(String trimmed, String field) {
-        String upper = trimmed.toUpperCase(Locale.ROOT);
-        if (FORBIDDEN_PLACEHOLDERS.contains(upper)) {
+        if (isForbiddenPlaceholder(trimmed)) {
             throw new IllegalArgumentException(
                     field + " must not use placeholder value: " + trimmed);
         }

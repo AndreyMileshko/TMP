@@ -463,7 +463,7 @@ class JdbcOrderQueryReadAdapterIT {
                 switch (status) {
                     case DRAFT -> created;
                     case APPROVED -> created.approve(clock);
-                    case ACTIVE -> created.activateFromImport(clock);
+                    case ACTIVE -> created.approve(clock).activate(clock);
                     case CANCELLED -> created.cancel(clock);
                 };
         return orderRepository.save(withStatus).id();

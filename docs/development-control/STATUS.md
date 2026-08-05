@@ -17,7 +17,7 @@ STAGE5-054 = DONE
 STAGE5-055 = DONE
 STAGE5-056 = DONE
 STAGE5-057 = DONE
-STAGE5-058 = DONE (Final STXT Contract + ACTIVE via Document approve/activate flow)
+STAGE5-058 = DONE (ACTIVE via Document approve/activate; no direct aggregate activation)
 Stage 5 Core Order Management = DONE
 Stage 5 Order Intake Extension = DONE
 Stage 5 = DONE (core + intake + post-closure STAGE5-058)
@@ -53,7 +53,7 @@ Active blockers = NONE
 | Post-closure: Imported Order Lifecycle + Final STXT (`STAGE5-058`) | DONE |
 | Stage 5 overall | DONE |
 
-`STAGE5-058` = **DONE**. Import confirm lands uniform **ACTIVE** via Document Engine approve/activate flow (no durable DRAFT import). Final STXT Contract. Flyway latest = **V14**. Stage 6 = NOT STARTED.
+`STAGE5-058` = **DONE**. Import confirm lands uniform **ACTIVE** only via Document Engine: create → `ORDER_ITEM_REVISION_APPROVE` → `ORDER_APPROVE` (import gates per ADR-031) → `ORDER_ACTIVATE`. Direct `DRAFT → ACTIVE` removed. Final STXT validation + placeholders rejected. Flyway latest = **V14**. Stage 6 = NOT STARTED.
 
 ---
 

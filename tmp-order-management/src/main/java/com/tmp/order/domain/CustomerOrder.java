@@ -9,8 +9,8 @@ import java.util.Objects;
 /**
  * Customer Order aggregate root (Specification §5.1 / §8 / ADR-031).
  *
- * <p>Commercial lifecycle in Stage 5: {@code DRAFT → APPROVED → ACTIVE} (manual),
- * {@code DRAFT → CANCELLED}, and import landing {@code DRAFT → ACTIVE} within IMPORT operation.
+ * <p>Commercial lifecycle in Stage 5: {@code DRAFT → APPROVED → ACTIVE} (manual UI and Import via
+ * Document Engine), {@code DRAFT → CANCELLED}. Direct {@code DRAFT → ACTIVE} is forbidden.
  * {@code APPROVED → CANCELLED}, {@code ACTIVE → CANCELLED}, and re-approval are forbidden.
  * Commercial fields may change only while {@code DRAFT}. State is immutable from outside; all
  * changes go through aggregate methods that return a new instance.
@@ -114,7 +114,8 @@ public final class CustomerOrder {
     }
 
     /**
-     * Activates the order on the manual path: {@code APPROVED → ACTIVE}.
+     * Activates the order: {@code APPROVED → ACTIVE} (manual UI and Import via {@code ORDER_ACTIVATE}).
+     * Direct {@code DRAFT → ACTIVE} is forbidden.
      *
      * @throws InvalidOrderStateException if the order is not in {@code APPROVED}
      */
@@ -127,27 +128,6 @@ public final class CustomerOrder {
         if (status != OrderStatus.APPROVED) {
             throw new InvalidOrderStateException(
                     "Order can be activated only from APPROVED, current=" + status + ", id=" + id);
-        }
-        return new CustomerOrder(
-                id, orderNumber, commercialData, OrderStatus.ACTIVE, version, createdAt,
-                clock.instant());
-    }
-
-    /**
-     * Trusted import landing: {@code DRAFT → ACTIVE} without commercial completeness gates
-     * (ADR-031 / Specification §8.2 IMPORT operation).
-     *
-     * @throws InvalidOrderStateException if the order is not in {@code DRAFT}
-     */
-    public CustomerOrder activateFromImport(Clock clock) {
-        Objects.requireNonNull(clock, "clock");
-        if (status == OrderStatus.ACTIVE) {
-            throw new InvalidOrderStateException(
-                    "Order already active; re-activation is forbidden: " + id);
-        }
-        if (status != OrderStatus.DRAFT) {
-            throw new InvalidOrderStateException(
-                    "Import can activate only from DRAFT, current=" + status + ", id=" + id);
         }
         return new CustomerOrder(
                 id, orderNumber, commercialData, OrderStatus.ACTIVE, version, createdAt,

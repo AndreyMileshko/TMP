@@ -51,8 +51,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * STAGE5-056 — full Order Intake path: STXT fixture → adapter → preview → confirm → ACTIVE
- * structure → Query API / UI editor reads.
+ * STAGE5-058 — E2E: STXT → Import Adapter → Import Core → Approve flow → ACTIVE Order / Item /
+ * Revision / Specification.
  */
 @Testcontainers
 @SpringBootTest(classes = OrderIntakeStxtEndToEndIT.TestApplication.class)
@@ -104,7 +104,7 @@ class OrderIntakeStxtEndToEndIT {
     }
 
     @Test
-    void stxtFixtureThroughConfirmIsReadableAsActiveOrder() throws IOException {
+    void stxtThroughApproveFlowLandsActiveOrderItemRevisionAndSpecification() throws IOException {
         byte[] content = readFixture("stxt/sample-utf8.stxt");
         StxtParseResult parseResult = stxtFileAdapter.parse(content, "sample-utf8.stxt");
         assertTrue(parseResult.isSuccessful(), () -> parseResult.errors().toString());
@@ -124,7 +124,7 @@ class OrderIntakeStxtEndToEndIT {
 
         OrderDto order = orderQueryService.getOrder(confirm.orderId()).orElseThrow();
         assertEquals("26062891", order.orderNumber());
-        assertEquals(OrderStatus.ACTIVE, order.status());
+        assertEquals(OrderStatus.ACTIVE, order.status(), "Order must be ACTIVE after approve+activate");
         assertEquals("Альпы ООО", order.customerName());
 
         List<OrderItemDto> items =
@@ -135,7 +135,7 @@ class OrderIntakeStxtEndToEndIT {
                         .filter(item -> "1".equals(item.externalPositionNumber()))
                         .findFirst()
                         .orElseThrow();
-        assertEquals(OrderItemStatus.ACTIVE, firstItem.status());
+        assertEquals(OrderItemStatus.ACTIVE, firstItem.status(), "Item must be ACTIVE after revision approve");
         assertEquals("1", firstItem.externalPositionNumber());
         assertEquals("WHS_60", firstItem.productCode());
         assertEquals("WHS HALO WHS_60 ActivPilot", firstItem.name());
@@ -146,16 +146,20 @@ class OrderIntakeStxtEndToEndIT {
         assertEquals("WHS_60", editor.productCode());
         assertEquals("WHS HALO WHS_60 ActivPilot", editor.name());
         assertEquals(0, new BigDecimal("8").compareTo(editor.orderedQuantity()));
-        assertTrue(editor.activeRevisionNumber().isPresent());
+        assertTrue(editor.activeRevisionNumber().isPresent(), "Revision must be ACTIVE");
         assertTrue(editor.draftRevisionNumber().isEmpty());
+        assertEquals(
+                RevisionStatus.ACTIVE,
+                editor.activeRevision().orElseThrow().status(),
+                "Active revision view must report RevisionStatus.ACTIVE");
 
         OrderItemSpecificationEditorSnapshot specification =
                 specificationEditorQueryService
                         .getSpecificationSnapshot(
                                 firstItem.orderItemId(), editor.activeRevisionNumber().orElseThrow())
                         .orElseThrow();
-        assertEquals(RevisionStatus.ACTIVE, specification.revisionStatus());
-        assertTrue(specification.immutable());
+        assertEquals(RevisionStatus.ACTIVE, specification.revisionStatus(), "Specification ACTIVE with revision");
+        assertTrue(specification.immutable(), "ACTIVE specification must be read-only / immutable");
         assertEquals(0, new BigDecimal("8").compareTo(specification.orderedQuantity()));
         assertEquals(3, specification.lines().size());
 

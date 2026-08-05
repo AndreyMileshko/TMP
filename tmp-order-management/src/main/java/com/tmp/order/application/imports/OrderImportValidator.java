@@ -4,13 +4,15 @@ import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportPosition;
 import com.tmp.order.api.imports.OrderImportProblem;
 import com.tmp.order.api.imports.OrderImportSpecificationLine;
+import com.tmp.order.domain.CommercialPlaceholderValidator;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Structural validation of a source-neutral {@link OrderImportBatch} for ACTIVE import (Final STXT
- * Contract). Does not touch persistence.
+ * Contract). Does not touch persistence. Placeholders ({@code UNKNOWN}, {@code N/A}, …) reject the
+ * import.
  */
 public class OrderImportValidator {
 
@@ -41,6 +43,7 @@ public class OrderImportValidator {
     public static final String CODE_LINE_QUANTITY_NOT_POSITIVE =
             "IMPORT_LINE_QUANTITY_NOT_POSITIVE";
     public static final String CODE_BATCHES_EMPTY = "IMPORT_BATCHES_EMPTY";
+    public static final String CODE_PLACEHOLDER_FORBIDDEN = "IMPORT_PLACEHOLDER_FORBIDDEN";
 
     public static final int MAX_SOURCE_TYPE_LENGTH = 64;
     public static final int MAX_CONTENT_CHECKSUM_LENGTH = 128;
@@ -173,6 +176,15 @@ public class OrderImportValidator {
                             "orderNumber",
                             batch.orderNumber(),
                             "Номер заказа не задан."));
+        } else {
+            rejectPlaceholder(
+                    batch.orderNumber(),
+                    location,
+                    null,
+                    null,
+                    "orderNumber",
+                    "Номер заказа не должен быть заглушкой.",
+                    problems);
         }
         if (batch.orderDate() == null) {
             problems.add(
@@ -195,6 +207,15 @@ public class OrderImportValidator {
                             "customerName",
                             batch.customerName(),
                             "Клиент не задан."));
+        } else {
+            rejectPlaceholder(
+                    batch.customerName(),
+                    location,
+                    null,
+                    null,
+                    "customerName",
+                    "Клиент не должен быть заглушкой.",
+                    problems);
         }
         if (batch.positions().isEmpty()) {
             problems.add(
@@ -230,6 +251,15 @@ public class OrderImportValidator {
                             "externalPositionNumber",
                             position.externalPositionNumber(),
                             "Внешний номер позиции не задан."));
+        } else {
+            rejectPlaceholder(
+                    position.externalPositionNumber(),
+                    location,
+                    positionIndex,
+                    null,
+                    "externalPositionNumber",
+                    "Внешний номер позиции не должен быть заглушкой.",
+                    problems);
         }
         if (isBlank(position.productCode())) {
             problems.add(
@@ -241,6 +271,15 @@ public class OrderImportValidator {
                             "productCode",
                             position.productCode(),
                             "Код изделия не задан."));
+        } else {
+            rejectPlaceholder(
+                    position.productCode(),
+                    location,
+                    positionIndex,
+                    null,
+                    "productCode",
+                    "Код изделия не должен быть заглушкой.",
+                    problems);
         }
         if (isBlank(position.name())) {
             problems.add(
@@ -252,6 +291,15 @@ public class OrderImportValidator {
                             "name",
                             position.name(),
                             "Наименование изделия не задано."));
+        } else {
+            rejectPlaceholder(
+                    position.name(),
+                    location,
+                    positionIndex,
+                    null,
+                    "name",
+                    "Наименование изделия не должно быть заглушкой.",
+                    problems);
         }
         Integer productQuantity = position.quantity();
         if (productQuantity == null) {
@@ -314,6 +362,15 @@ public class OrderImportValidator {
                             "materialCode",
                             line.materialCode(),
                             "Артикул материала не задан."));
+        } else {
+            rejectPlaceholder(
+                    line.materialCode(),
+                    location,
+                    positionIndex,
+                    lineIndex,
+                    "materialCode",
+                    "Артикул материала не должен быть заглушкой.",
+                    problems);
         }
         if (isBlank(line.materialName())) {
             problems.add(
@@ -325,6 +382,15 @@ public class OrderImportValidator {
                             "materialName",
                             line.materialName(),
                             "Наименование материала не задано."));
+        } else {
+            rejectPlaceholder(
+                    line.materialName(),
+                    location,
+                    positionIndex,
+                    lineIndex,
+                    "materialName",
+                    "Наименование материала не должно быть заглушкой.",
+                    problems);
         }
         if (isBlank(line.unitOfMeasure())) {
             problems.add(
@@ -336,6 +402,15 @@ public class OrderImportValidator {
                             "unitOfMeasure",
                             line.unitOfMeasure(),
                             "Единица измерения не задана."));
+        } else {
+            rejectPlaceholder(
+                    line.unitOfMeasure(),
+                    location,
+                    positionIndex,
+                    lineIndex,
+                    "unitOfMeasure",
+                    "Единица измерения не должна быть заглушкой.",
+                    problems);
         }
         BigDecimal lengthMm = line.length();
         if (lengthMm != null && lengthMm.signum() <= 0) {
@@ -370,6 +445,27 @@ public class OrderImportValidator {
                             "quantity",
                             lineQuantity.toPlainString(),
                             "Количество строки спецификации должно быть больше нуля."));
+        }
+    }
+
+    private static void rejectPlaceholder(
+            String value,
+            String location,
+            Integer positionIndex,
+            Integer lineIndex,
+            String field,
+            String message,
+            List<OrderImportProblem> problems) {
+        if (CommercialPlaceholderValidator.isForbiddenPlaceholder(value)) {
+            problems.add(
+                    OrderImportProblem.error(
+                            CODE_PLACEHOLDER_FORBIDDEN,
+                            location,
+                            positionIndex,
+                            lineIndex,
+                            field,
+                            value,
+                            message));
         }
     }
 
