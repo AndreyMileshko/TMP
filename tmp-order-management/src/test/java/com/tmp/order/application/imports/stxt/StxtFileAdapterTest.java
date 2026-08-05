@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportPosition;
 import com.tmp.order.api.imports.OrderImportProblem;
-import com.tmp.order.api.imports.OrderImportProblemSeverity;
 import com.tmp.order.api.imports.OrderImportSpecificationLine;
 import java.io.IOException;
 import java.io.InputStream;
@@ -182,7 +181,7 @@ class StxtFileAdapterTest {
     }
 
     @Test
-    void unknownSpecHeaderColumnIsWarningNotError() {
+    void trailingExtraSpecFieldsAreIgnoredWithFixedLayout() {
         String content =
                 """
                 Номер заказа: ORD-1
@@ -194,21 +193,28 @@ class StxtFileAdapterTest {
                 Наименование изделия: Изделие
                 Кол-во изд.: 1
 
-                Артикул / Наименование / Цвет / Размер / Единица измерения / Кол-во позиции на 1 изделие / Лишнее
+                Артикул / Наименование / Цвет / Размер / Единица измерения / Кол-во позиции на 1 изделие
                 CODE / Материал /  / 12,5мм. / шт / 5 / X
                 """;
-        StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "unknown.stxt");
+        StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "extra.stxt");
 
-        assertTrue(result.isSuccessful());
-        assertFalse(result.warnings().isEmpty());
-        assertTrue(
-                result.warnings().stream()
-                        .anyMatch(p -> StxtBlockParser.CODE_SPEC_HEADER_UNKNOWN.equals(p.code())));
-        assertEquals(OrderImportProblemSeverity.WARNING, result.warnings().get(0).severity());
+        assertTrue(result.isSuccessful(), () -> result.errors().toString());
+        assertEquals(1, result.batch().orElseThrow().specificationLineCount());
+        assertEquals(
+                0,
+                new BigDecimal("5")
+                        .compareTo(
+                                result.batch()
+                                        .orElseThrow()
+                                        .positions()
+                                        .get(0)
+                                        .specificationLines()
+                                        .get(0)
+                                        .quantity()));
     }
 
     @Test
-    void missingRequiredSpecHeaderIsError() {
+    void incompleteSpecRowWithoutSixFieldsIsError() {
         String content =
                 """
                 Номер заказа: 26062891
@@ -220,16 +226,84 @@ class StxtFileAdapterTest {
                 Наименование изделия: Изделие
                 Кол-во изд.: 1
 
-                Артикул / Наименование / Цвет / Кол-во позиции на 1 изделие
                 CODE / Name / Белый / 1
                 """;
-        StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "headers.stxt");
+        StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "short-row.stxt");
 
         assertTrue(result.hasErrors());
         assertTrue(result.batches().isEmpty());
         assertTrue(
                 result.errors().stream()
-                        .anyMatch(p -> StxtBlockParser.CODE_SPEC_HEADER_MISSING.equals(p.code())));
+                        .anyMatch(p -> StxtBlockParser.CODE_COLUMN_COUNT.equals(p.code())
+                                || StxtBlockParser.CODE_NO_SPEC_LINES.equals(p.code())));
+    }
+
+    @Test
+    void repeatedOrderHeaderMergesItemsIntoOneBatch() {
+        String content =
+                """
+                Номер заказа: 25096190
+                Дата заказа: 23.09.2025
+                Дата готовности: 14.10.2025
+                Клиент: Парус ООО
+                Изделие: 2
+                Код изделия: 25096190/2
+                Наименование изделия: 1
+                WHS HALO
+                WHS_60
+                ActivPilot
+                Кол-во изд.: 1
+                Артикул / Наименование / Цвет / Размер / Единица измерения / Кол-во позиции на 1 изделие
+                101315белый / Рама 58/60 WHS60 / Белый / 796,0мм. / м. / 2
+
+                Номер заказа: 25096190
+                Дата заказа: 23.09.2025
+                Дата готовности: 14.10.2025
+                Клиент: Парус ООО
+                Изделие: 3
+                Код изделия: 25096190/3
+                Наименование изделия: 1
+                WHS HALO
+                WHS_60
+                ActivPilot
+                Кол-во изд.: 1
+                Артикул / Наименование / Цвет / Размер / Единица измерения / Кол-во позиции на 1 изделие
+                200.001 / Стеклопакет / Белый / 606,0 x 996,0мм. / кв.м. / 1
+                """;
+        StxtParseResult result =
+                adapter.parse(content.getBytes(StandardCharsets.UTF_8), "repeated-header.stxt");
+
+        assertTrue(result.isSuccessful(), () -> result.errors().toString());
+        assertEquals(1, result.batches().size());
+        OrderImportBatch batch = result.batches().get(0);
+        assertEquals("25096190", batch.orderNumber());
+        assertEquals(2, batch.positionCount());
+        assertEquals("2", batch.positions().get(0).externalPositionNumber());
+        assertEquals("3", batch.positions().get(1).externalPositionNumber());
+        assertEquals("WHS HALO WHS_60 ActivPilot", batch.positions().get(0).name());
+        assertEquals("шт.", batch.positions().get(1).specificationLines().get(0).unitOfMeasure());
+    }
+
+    @Test
+    void finalExportFormatFixtureParsesWithOrdersItemsAndZeroErrors() throws IOException {
+        StxtParseResult result =
+                adapter.parse(readFixture("stxt/final-export-format.stxt"), "final-export-format.stxt");
+
+        assertTrue(result.isSuccessful(), () -> result.errors().toString());
+        assertTrue(result.batches().size() > 0, "orders > 0");
+        int positions =
+                result.batches().stream().mapToInt(OrderImportBatch::positionCount).sum();
+        assertTrue(positions > 0, "positions > 0");
+        int productQty =
+                result.batches().stream()
+                        .flatMap(batch -> batch.positions().stream())
+                        .mapToInt(OrderImportPosition::quantity)
+                        .sum();
+        assertTrue(productQty > 0, "product quantities > 0");
+        assertEquals(0, result.errors().size());
+        assertTrue(
+                result.batches().stream()
+                        .noneMatch(batch -> "UNKNOWN".equalsIgnoreCase(batch.orderNumber())));
     }
 
     @Test

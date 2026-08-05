@@ -9086,7 +9086,7 @@ User FAIL or incomplete smoke — N/A (PASS recorded).
 
 ### Result
 
-ADR-031 final + Final STXT Contract + **FIX**: Import confirm uses Document Engine lifecycle only (`ORDER_ITEM_REVISION_APPROVE` → `ORDER_APPROVE` import gates → `ORDER_ACTIVATE`). Domain shortcuts `activateFromImport` / `activateDraftRevisionForImport` removed. Placeholder validation rejects import. ACTIVE uniform regardless of creation source. Flyway V14 registers `ORDER_ACTIVATE`. Stage 6 NOT STARTED. Git by user only.
+ADR-031 final + Final STXT Contract + Document approve/activate + **FIX (parser):** SuperOkna `Итоговый формат выгрузки.stxt` accepted as block format — merge repeated `Номер заказа:` headers per item into one Order; multiline product name when value after colon is a stub number; SPEC fixed 6-field layout (header optional, not tabular column search); empty SPEC name falls back to article code. Preview: orders/positions/product qty > 0, errors = 0. No ImportMetadata / sourceType / creationSource. Stage 6 NOT STARTED. Git by user only.
 
 ### Required tests
 

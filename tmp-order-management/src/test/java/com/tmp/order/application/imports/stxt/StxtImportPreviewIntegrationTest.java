@@ -113,6 +113,25 @@ class StxtImportPreviewIntegrationTest {
         verify(customerOrderRepository, never()).save(any());
     }
 
+    @Test
+    void finalExportFormatPreviewShowsOrdersPositionsProductsAndZeroErrors() throws IOException {
+        byte[] content = readFixture("stxt/final-export-format.stxt");
+        StxtParseResult parseResult = adapter.parse(content, "final-export-format.stxt");
+        assertTrue(parseResult.isSuccessful(), () -> parseResult.errors().toString());
+        assertTrue(parseResult.batches().size() > 0);
+
+        OrderImportPreview preview = importService.preview(parseResult.batches());
+        assertEquals(0, preview.errorCount(), () -> preview.errors().toString());
+        assertTrue(preview.canConfirm());
+        assertTrue(preview.orderCount() > 0, "orders > 0");
+        assertTrue(preview.positionCount() > 0, "positions > 0");
+        assertTrue(preview.totalProductQuantity().signum() > 0, "product qty > 0");
+
+        verify(documentEngine, never()).postDocument(any());
+        verify(orderItemRepository, never()).save(any());
+        verify(customerOrderRepository, never()).save(any());
+    }
+
     private static byte[] readFixture(String classpath) throws IOException {
         try (InputStream in =
                 StxtImportPreviewIntegrationTest.class

@@ -17,7 +17,7 @@ STAGE5-054 = DONE
 STAGE5-055 = DONE
 STAGE5-056 = DONE
 STAGE5-057 = DONE
-STAGE5-058 = DONE (ACTIVE via Document approve/activate; no direct aggregate activation)
+STAGE5-058 = DONE (Final STXT block parser accepts SuperOkna export)
 Stage 5 Core Order Management = DONE
 Stage 5 Order Intake Extension = DONE
 Stage 5 = DONE (core + intake + post-closure STAGE5-058)
@@ -53,7 +53,7 @@ Active blockers = NONE
 | Post-closure: Imported Order Lifecycle + Final STXT (`STAGE5-058`) | DONE |
 | Stage 5 overall | DONE |
 
-`STAGE5-058` = **DONE**. Import confirm lands uniform **ACTIVE** only via Document Engine: create → `ORDER_ITEM_REVISION_APPROVE` → `ORDER_APPROVE` (import gates per ADR-031) → `ORDER_ACTIVATE`. Direct `DRAFT → ACTIVE` removed. Final STXT validation + placeholders rejected. Flyway latest = **V14**. Stage 6 = NOT STARTED.
+`STAGE5-058` = **DONE**. Final STXT block parser accepts SuperOkna export (`Итоговый формат выгрузки.stxt`): repeated order headers merged; multiline names; fixed SPEC fields. Import → Document approve/activate → uniform ACTIVE. Stage 6 = NOT STARTED.
 
 ---
 

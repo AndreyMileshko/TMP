@@ -3,6 +3,32 @@
 ## Latest result
 
 **Date:** 2026-08-05  
+**Scope:** STAGE5-058 FIX — Final STXT Parser Contract (SuperOkna block export)  
+**Overall:** PASS  
+**Type:** Automated unit + preview integration  
+**Environment:** Windows; `.tools/apache-maven-3.9.9`
+
+| Item | Result |
+|---|---|
+| STAGE5-058 | DONE |
+| Final export fixture parse (0 errors) | PASS |
+| Repeated order header → multi-item merge | PASS |
+| Preview orders/positions/qty > 0, errors = 0 | PASS |
+| ImportMetadata / creationSource | NOT ADDED |
+| Stage 6 | NOT STARTED |
+| Git | NOT EXECUTED |
+
+### Commands
+
+| Command | Result |
+|---|---|
+| `mvn -pl tmp-order-management -am test -Dtest=StxtFileAdapterTest,StxtImportPreviewIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false` | PASS (22 tests) |
+
+---
+
+## Previous result
+
+**Date:** 2026-08-05  
 **Scope:** STAGE5-058 — FINAL ARCHITECTURE VERIFICATION (read-only audit)  
 **Overall:** PASS  
 **Type:** Code + documentation architecture verification (no functional changes)  

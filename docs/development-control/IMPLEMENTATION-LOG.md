@@ -4,6 +4,39 @@
 
 ---
 
+## STAGE5-058 — FIX REQUIRED: Final STXT Parser Contract Mismatch
+
+**Date:** 2026-08-05  
+**Stage:** 5 (post-closure)  
+**Status:** DONE  
+**Module:** `tmp-order-management` (`StxtBlockParser` / adapter)
+
+### Defect
+
+Ручная проверка `docs/Input/Итоговый формат выгрузки.stxt` → Preview fail. Причины в block parser:
+
+1. SuperOkna повторяет `Номер заказа:` перед **каждым** изделием — parser отклонял как duplicate.
+2. `Наименование изделия: 1` + multiline body не собиралось (value после `:` блокировал continuation).
+3. SPEC требовал/валидировал табличный header layout; не-mm size и пустое наименование роняли строки.
+
+### Fix (`StxtBlockParser`)
+
+- Merge сегментов с одинаковым `orderNumber` (конфликт только при расхождении header fields).
+- Всегда собирать multiline name после label; normalize убирает leading number-only line.
+- SPEC: фиксированный порядок 6 полей; header опционален; non-mm size → `length=null`; пустое name → fallback на артикул.
+- Сохранены: multi-order, multi-item, qty = норма на 1 изд., `@`/`#` skip, `кв.м.` → `шт.`.
+
+Fixture: `stxt/final-export-format.stxt`. Preview: orders/positions/product qty > 0, errors = 0.
+
+Не добавлено: ImportMetadata, sourceType persistence, creationSource. Stage 6 не начат. Git не выполнялся.
+
+### Verification
+
+- `StxtFileAdapterTest` (20) — PASS  
+- `StxtImportPreviewIntegrationTest` (2, incl. final export preview) — PASS
+
+---
+
 ## STAGE5-058 — FIX REQUIRED: remove direct ACTIVE; Document approve/activate only
 
 **Date:** 2026-08-05  

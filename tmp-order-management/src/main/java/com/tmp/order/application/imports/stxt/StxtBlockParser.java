@@ -111,22 +111,34 @@ final class StxtBlockParser {
             return ParsedFile.empty(errors, warnings);
         }
 
-        List<OrderImportBatch> batches = new ArrayList<>();
-        Map<String, Integer> seenOrderNumbers = new LinkedHashMap<>();
+        // SuperOkna repeats the ORDER header before every ITEM. Parse each segment, then merge by
+        // orderNumber into one batch (multiple positions). Conflict if header fields disagree.
+        Map<String, MutableOrder> orders = new LinkedHashMap<>();
         for (int o = 0; o < orderStarts.size(); o++) {
             int start = orderStarts.get(o);
             int end = o + 1 < orderStarts.size() ? orderStarts.get(o + 1) : lines.size();
-            OrderImportBatch batch =
-                    parseOrderBlock(
-                            lines.subList(start, end),
+            parseOrderSegment(
+                    lines.subList(start, end),
+                    orders,
+                    errors,
+                    warnings);
+        }
+
+        List<OrderImportBatch> batches = new ArrayList<>();
+        for (MutableOrder order : orders.values()) {
+            if (order.failed || order.positions.isEmpty()) {
+                continue;
+            }
+            batches.add(
+                    OrderImportBatch.of(
+                            SOURCE_TYPE,
                             sourceReference,
                             contentChecksum,
-                            errors,
-                            warnings,
-                            seenOrderNumbers);
-            if (batch != null) {
-                batches.add(batch);
-            }
+                            order.orderNumber,
+                            order.orderDate,
+                            order.readyDate,
+                            order.customerName,
+                            List.copyOf(order.positions)));
         }
 
         if (batches.isEmpty()) {
@@ -135,13 +147,11 @@ final class StxtBlockParser {
         return new ParsedFile(batches, errors, warnings);
     }
 
-    private static OrderImportBatch parseOrderBlock(
+    private static void parseOrderSegment(
             List<IndexedLine> block,
-            String sourceReference,
-            String contentChecksum,
+            Map<String, MutableOrder> orders,
             List<OrderImportProblem> errors,
-            List<OrderImportProblem> warnings,
-            Map<String, Integer> seenOrderNumbers) {
+            List<OrderImportProblem> warnings) {
         String orderNumber = null;
         LocalDate orderDate = null;
         LocalDate readyDate = null;
@@ -209,22 +219,9 @@ final class StxtBlockParser {
                             "Номер заказа",
                             orderNumber,
                             "Не задан номер заказа."));
-            return null;
+            return;
         }
         String trimmedOrder = orderNumber.trim();
-        if (seenOrderNumbers.containsKey(trimmedOrder)) {
-            errors.add(
-                    fieldError(
-                            CODE_DUPLICATE_ORDER_IN_FILE,
-                            orderLine,
-                            "Номер заказа",
-                            trimmedOrder,
-                            "Номер заказа «"
-                                    + trimmedOrder
-                                    + "» повторяется в файле."));
-            return null;
-        }
-        seenOrderNumbers.put(trimmedOrder, orderLine);
 
         if (!orderDateInvalid && orderDate == null) {
             errors.add(
@@ -253,7 +250,7 @@ final class StxtBlockParser {
                             "Изделие",
                             null,
                             "В заказе «" + trimmedOrder + "» нет изделий."));
-            return null;
+            return;
         }
 
         List<OrderImportPosition> positions = new ArrayList<>();
@@ -267,23 +264,56 @@ final class StxtBlockParser {
             }
         }
 
-        if (positions.isEmpty()
-                || orderDateInvalid
-                || readyDateInvalid
-                || orderDate == null
-                || isBlank(customerName)) {
-            return null;
+        boolean headerFailed =
+                orderDateInvalid
+                        || readyDateInvalid
+                        || orderDate == null
+                        || isBlank(customerName);
+        MutableOrder existing = orders.get(trimmedOrder);
+        if (existing == null) {
+            MutableOrder created = new MutableOrder();
+            created.orderNumber = trimmedOrder;
+            created.orderDate = orderDate;
+            created.readyDate = readyDate;
+            created.customerName = customerName == null ? null : customerName.trim();
+            created.failed = headerFailed || positions.isEmpty();
+            created.positions.addAll(positions);
+            orders.put(trimmedOrder, created);
+            return;
         }
 
-        return OrderImportBatch.of(
-                SOURCE_TYPE,
-                sourceReference,
-                contentChecksum,
-                trimmedOrder,
-                orderDate,
-                readyDate,
-                customerName.trim(),
-                positions);
+        if (!Objects.equals(existing.orderDate, orderDate)
+                || !Objects.equals(existing.readyDate, readyDate)
+                || !Objects.equals(
+                        existing.customerName,
+                        customerName == null ? null : customerName.trim())) {
+            errors.add(
+                    fieldError(
+                            CODE_DUPLICATE_ORDER_IN_FILE,
+                            orderLine,
+                            "Номер заказа",
+                            trimmedOrder,
+                            "Номер заказа «"
+                                    + trimmedOrder
+                                    + "» повторяется с отличающимися полями заголовка."));
+            existing.failed = true;
+            return;
+        }
+        existing.positions.addAll(positions);
+        if (headerFailed) {
+            existing.failed = true;
+        } else if (!existing.positions.isEmpty()) {
+            existing.failed = false;
+        }
+    }
+
+    private static final class MutableOrder {
+        private String orderNumber;
+        private LocalDate orderDate;
+        private LocalDate readyDate;
+        private String customerName;
+        private boolean failed;
+        private final List<OrderImportPosition> positions = new ArrayList<>();
     }
 
     private static OrderImportPosition parseItemBlock(
@@ -320,8 +350,14 @@ final class StxtBlockParser {
             }
         }
 
-        if (nameLabelIndex >= 0 && rawName == null) {
-            rawName = collectMultilineName(block, nameLabelIndex + 1);
+        if (nameLabelIndex >= 0) {
+            String continuation = collectMultilineName(block, nameLabelIndex + 1);
+            if (continuation != null) {
+                rawName =
+                        rawName == null
+                                ? continuation
+                                : rawName + "\n" + continuation;
+            }
         }
 
         String name = normalizeProductName(rawName);
@@ -384,26 +420,26 @@ final class StxtBlockParser {
             failed = true;
         }
 
-        int specHeaderIndex = findSpecHeaderIndex(block);
+        int specStartIndex = findSpecStartIndex(block);
         List<OrderImportSpecificationLine> lines = new ArrayList<>();
-        if (specHeaderIndex < 0) {
+        if (specStartIndex < 0) {
             errors.add(
                     fieldError(
-                            CODE_SPEC_HEADER_MISSING,
+                            CODE_NO_SPEC_LINES,
                             itemLine,
-                            "Артикул",
+                            "спецификация",
                             null,
-                            "Не найден заголовок спецификации."));
+                            "Спецификация изделия пуста."));
             failed = true;
         } else {
             lines =
                     parseSpecificationLines(
-                            block.subList(specHeaderIndex, block.size()), errors, warnings);
+                            block.subList(specStartIndex, block.size()), errors, warnings);
             if (lines.isEmpty()) {
                 errors.add(
                         fieldError(
                                 CODE_NO_SPEC_LINES,
-                                block.get(specHeaderIndex).number(),
+                                block.get(specStartIndex).number(),
                                 "спецификация",
                                 null,
                                 "Спецификация изделия пуста."));
@@ -475,6 +511,30 @@ final class StxtBlockParser {
         return String.join(" ", lines).replaceAll("\\s+", " ").trim();
     }
 
+    private static int findSpecStartIndex(List<IndexedLine> block) {
+        int header = findSpecHeaderIndex(block);
+        if (header >= 0) {
+            return header;
+        }
+        for (int i = 0; i < block.size(); i++) {
+            String text = block.get(i).text();
+            if (parseLabel(text) != null) {
+                continue;
+            }
+            if (looksLikeSpecDataRow(text)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean looksLikeSpecDataRow(String text) {
+        if (isBlank(text) || isSpecHeaderLine(text)) {
+            return false;
+        }
+        return splitFields(text).size() >= 6;
+    }
+
     private static int findSpecHeaderIndex(List<IndexedLine> block) {
         for (int i = 0; i < block.size(); i++) {
             if (isSpecHeaderLine(block.get(i).text())) {
@@ -485,9 +545,6 @@ final class StxtBlockParser {
     }
 
     private static boolean isSpecHeaderLine(String text) {
-        if (isBlank(text) || !text.contains(DELIMITER.trim()) && !text.contains("/")) {
-            // still allow header without spaces around slash after normalize
-        }
         List<String> cells = splitFields(text);
         if (cells.size() < 3) {
             return false;
@@ -501,55 +558,22 @@ final class StxtBlockParser {
         return recognized >= 3 && HEADER_ALIASES.containsKey(normalizeHeader(cells.get(0)));
     }
 
+    /**
+     * Parses specification rows with fixed Final STXT field order:
+     * Артикул / Наименование / Цвет / Размер / Единица измерения / Кол-во позиции.
+     * Optional header row is skipped when present; missing header is not an error.
+     */
     private static List<OrderImportSpecificationLine> parseSpecificationLines(
             List<IndexedLine> block,
             List<OrderImportProblem> errors,
             List<OrderImportProblem> warnings) {
-        IndexedLine headerLine = block.get(0);
-        List<String> headerCells = splitFields(headerLine.text());
-        Map<SpecColumn, Integer> columnIndex = new LinkedHashMap<>();
-        for (int i = 0; i < headerCells.size(); i++) {
-            String rawHeader = headerCells.get(i);
-            SpecColumn column = HEADER_ALIASES.get(normalizeHeader(rawHeader));
-            if (column == null) {
-                warnings.add(
-                        OrderImportProblem.warning(
-                                CODE_SPEC_HEADER_UNKNOWN,
-                                rowLocation(headerLine.number()),
-                                null,
-                                null,
-                                rawHeader.trim(),
-                                rawHeader,
-                                "Неизвестная колонка «"
-                                        + rawHeader.trim()
-                                        + "» проигнорирована."));
-                continue;
-            }
-            if (!columnIndex.containsKey(column)) {
-                columnIndex.put(column, i);
-            }
-        }
-        for (SpecColumn required : requiredSpecColumns()) {
-            if (!columnIndex.containsKey(required)) {
-                errors.add(
-                        OrderImportProblem.error(
-                                CODE_SPEC_HEADER_MISSING,
-                                rowLocation(headerLine.number()),
-                                null,
-                                null,
-                                required.displayName(),
-                                null,
-                                "Отсутствует обязательная колонка «"
-                                        + required.displayName()
-                                        + "»."));
-            }
-        }
-        if (!columnIndex.keySet().containsAll(requiredSpecColumns())) {
-            return List.of();
+        int start = 0;
+        if (!block.isEmpty() && isSpecHeaderLine(block.get(0).text())) {
+            start = 1;
         }
 
         List<OrderImportSpecificationLine> lines = new ArrayList<>();
-        for (int i = 1; i < block.size(); i++) {
+        for (int i = start; i < block.size(); i++) {
             IndexedLine line = block.get(i);
             String text = line.text();
             if (isBlank(text)) {
@@ -558,8 +582,10 @@ final class StxtBlockParser {
             if (parseLabel(text) != null) {
                 break;
             }
-            OrderImportSpecificationLine parsed =
-                    mapSpecRow(line.number(), splitFields(text), columnIndex, errors);
+            if (isSpecHeaderLine(text)) {
+                continue;
+            }
+            OrderImportSpecificationLine parsed = mapSpecRowFixed(line.number(), splitFields(text), errors);
             if (parsed != null) {
                 lines.add(parsed);
             }
@@ -567,13 +593,9 @@ final class StxtBlockParser {
         return lines;
     }
 
-    private static OrderImportSpecificationLine mapSpecRow(
-            int lineNumber,
-            List<String> cells,
-            Map<SpecColumn, Integer> columnIndex,
-            List<OrderImportProblem> errors) {
-        int maxIndex = columnIndex.values().stream().mapToInt(Integer::intValue).max().orElse(0);
-        if (cells.size() <= maxIndex) {
+    private static OrderImportSpecificationLine mapSpecRowFixed(
+            int lineNumber, List<String> cells, List<OrderImportProblem> errors) {
+        if (cells.size() < 6) {
             errors.add(
                     OrderImportProblem.error(
                             CODE_COLUMN_COUNT,
@@ -582,16 +604,16 @@ final class StxtBlockParser {
                             null,
                             null,
                             String.join(DELIMITER, cells),
-                            "В строке недостаточно колонок."));
+                            "В строке спецификации ожидается 6 полей через « / »."));
             return null;
         }
 
-        String rawCode = cell(cells, columnIndex, SpecColumn.MATERIAL_CODE);
-        String rawName = cell(cells, columnIndex, SpecColumn.MATERIAL_NAME);
-        String rawColor = cell(cells, columnIndex, SpecColumn.COLOR);
-        String rawSize = cell(cells, columnIndex, SpecColumn.SIZE);
-        String rawUnit = cell(cells, columnIndex, SpecColumn.UNIT);
-        String rawQty = cell(cells, columnIndex, SpecColumn.QUANTITY);
+        String rawCode = cells.get(0);
+        String rawName = cells.get(1);
+        String rawColor = cells.get(2);
+        String rawSize = cells.get(3);
+        String rawUnit = cells.get(4);
+        String rawQty = cells.get(5);
 
         boolean failed = false;
         if (isBlank(rawCode)) {
@@ -604,7 +626,12 @@ final class StxtBlockParser {
                             "Не задан артикул."));
             failed = true;
         }
-        if (isBlank(rawName)) {
+        String effectiveName = rawName;
+        if (isBlank(effectiveName) && !isBlank(rawCode)) {
+            // SuperOkna may emit empty name with a present article code (e.g. area rows).
+            effectiveName = rawCode;
+        }
+        if (isBlank(effectiveName)) {
             errors.add(
                     fieldError(
                             CODE_MATERIAL_NAME_REQUIRED,
@@ -665,7 +692,7 @@ final class StxtBlockParser {
         }
 
         String materialCode = rawCode.trim();
-        String materialName = rawName.trim();
+        String materialName = effectiveName.trim();
         String color = isBlank(rawColor) ? null : rawColor.trim();
         String unit = rawUnit.trim();
         BigDecimal length = null;
@@ -679,22 +706,8 @@ final class StxtBlockParser {
             unit = UNIT_PIECE_AFTER_SQ_M;
         } else if (sizeText != null) {
             LengthParse lengthParse = parseLength(sizeText);
-            if (lengthParse.errorCode() != null) {
-                // Dimensional text (e.g. "a x b") without кв.м. → length null, keep name as-is.
-                if (!looksLikeDimensionPair(sizeText)) {
-                    errors.add(
-                            fieldError(
-                                    lengthParse.errorCode(),
-                                    lineNumber,
-                                    SpecColumn.SIZE.displayName(),
-                                    rawSize,
-                                    lengthParse.message()));
-                    return null;
-                }
-                length = null;
-            } else {
-                length = lengthParse.value();
-            }
+            // Non-mm SuperOkna size text (e.g. "2,0000компл.") → length null, do not reject row.
+            length = lengthParse.errorCode() == null ? lengthParse.value() : null;
         }
 
         return OrderImportSpecificationLine.of(
