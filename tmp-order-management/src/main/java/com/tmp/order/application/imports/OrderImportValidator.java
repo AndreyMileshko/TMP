@@ -9,7 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Structural validation of a source-neutral {@link OrderImportBatch}. Does not touch persistence.
+ * Structural validation of a source-neutral {@link OrderImportBatch} for ACTIVE import (Final STXT
+ * Contract). Does not touch persistence.
  */
 public class OrderImportValidator {
 
@@ -22,18 +23,24 @@ public class OrderImportValidator {
     public static final String CODE_CHECKSUM_REQUIRED = "IMPORT_CHECKSUM_REQUIRED";
     public static final String CODE_CHECKSUM_TOO_LONG = "IMPORT_CHECKSUM_TOO_LONG";
     public static final String CODE_ORDER_NUMBER_REQUIRED = "IMPORT_ORDER_NUMBER_REQUIRED";
+    public static final String CODE_ORDER_DATE_REQUIRED = "IMPORT_ORDER_DATE_REQUIRED";
+    public static final String CODE_CUSTOMER_REQUIRED = "IMPORT_CUSTOMER_REQUIRED";
     public static final String CODE_POSITIONS_EMPTY = "IMPORT_POSITIONS_EMPTY";
     public static final String CODE_EXTERNAL_POSITION_REQUIRED = "IMPORT_EXTERNAL_POSITION_REQUIRED";
+    public static final String CODE_PRODUCT_CODE_REQUIRED = "IMPORT_PRODUCT_CODE_REQUIRED";
+    public static final String CODE_PRODUCT_NAME_REQUIRED = "IMPORT_PRODUCT_NAME_REQUIRED";
     public static final String CODE_PRODUCT_QUANTITY_REQUIRED = "IMPORT_PRODUCT_QUANTITY_REQUIRED";
     public static final String CODE_PRODUCT_QUANTITY_NOT_POSITIVE =
             "IMPORT_PRODUCT_QUANTITY_NOT_POSITIVE";
     public static final String CODE_SPECIFICATION_EMPTY = "IMPORT_SPECIFICATION_EMPTY";
     public static final String CODE_MATERIAL_CODE_REQUIRED = "IMPORT_MATERIAL_CODE_REQUIRED";
     public static final String CODE_MATERIAL_NAME_REQUIRED = "IMPORT_MATERIAL_NAME_REQUIRED";
+    public static final String CODE_UNIT_REQUIRED = "IMPORT_UNIT_REQUIRED";
     public static final String CODE_LENGTH_MM_NOT_POSITIVE = "IMPORT_LENGTH_MM_NOT_POSITIVE";
     public static final String CODE_LINE_QUANTITY_REQUIRED = "IMPORT_LINE_QUANTITY_REQUIRED";
     public static final String CODE_LINE_QUANTITY_NOT_POSITIVE =
             "IMPORT_LINE_QUANTITY_NOT_POSITIVE";
+    public static final String CODE_BATCHES_EMPTY = "IMPORT_BATCHES_EMPTY";
 
     public static final int MAX_SOURCE_TYPE_LENGTH = 64;
     public static final int MAX_CONTENT_CHECKSUM_LENGTH = 128;
@@ -53,11 +60,37 @@ public class OrderImportValidator {
                             "Пакет импорта не задан."));
             return problems;
         }
+        validateBatch(batch, "batch", problems);
+        return problems;
+    }
+
+    public List<OrderImportProblem> validateAll(List<OrderImportBatch> batches) {
+        List<OrderImportProblem> problems = new ArrayList<>();
+        if (batches == null || batches.isEmpty()) {
+            problems.add(
+                    OrderImportProblem.error(
+                            CODE_BATCHES_EMPTY,
+                            "file",
+                            null,
+                            null,
+                            "batches",
+                            null,
+                            "Список заказов для импорта пуст."));
+            return problems;
+        }
+        for (int i = 0; i < batches.size(); i++) {
+            validateBatch(batches.get(i), "order[" + i + "]", problems);
+        }
+        return problems;
+    }
+
+    private void validateBatch(
+            OrderImportBatch batch, String location, List<OrderImportProblem> problems) {
         if (isBlank(batch.sourceType())) {
             problems.add(
                     OrderImportProblem.error(
                             CODE_SOURCE_TYPE_REQUIRED,
-                            "batch",
+                            location,
                             null,
                             null,
                             "sourceType",
@@ -67,7 +100,7 @@ public class OrderImportValidator {
             problems.add(
                     OrderImportProblem.error(
                             CODE_SOURCE_TYPE_TOO_LONG,
-                            "batch",
+                            location,
                             null,
                             null,
                             "sourceType",
@@ -78,7 +111,7 @@ public class OrderImportValidator {
             problems.add(
                     OrderImportProblem.error(
                             CODE_SOURCE_REFERENCE_REQUIRED,
-                            "batch",
+                            location,
                             null,
                             null,
                             "sourceReference",
@@ -90,7 +123,7 @@ public class OrderImportValidator {
                 problems.add(
                         OrderImportProblem.error(
                                 CODE_SOURCE_REFERENCE_TOO_LONG,
-                                "batch",
+                                location,
                                 null,
                                 null,
                                 "sourceReference",
@@ -101,7 +134,7 @@ public class OrderImportValidator {
                 problems.add(
                         OrderImportProblem.error(
                                 CODE_SOURCE_REFERENCE_ABSOLUTE_PATH,
-                                "batch",
+                                location,
                                 null,
                                 null,
                                 "sourceReference",
@@ -113,7 +146,7 @@ public class OrderImportValidator {
             problems.add(
                     OrderImportProblem.error(
                             CODE_CHECKSUM_REQUIRED,
-                            "batch",
+                            location,
                             null,
                             null,
                             "contentChecksum",
@@ -123,7 +156,7 @@ public class OrderImportValidator {
             problems.add(
                     OrderImportProblem.error(
                             CODE_CHECKSUM_TOO_LONG,
-                            "batch",
+                            location,
                             null,
                             null,
                             "contentChecksum",
@@ -134,34 +167,59 @@ public class OrderImportValidator {
             problems.add(
                     OrderImportProblem.error(
                             CODE_ORDER_NUMBER_REQUIRED,
-                            "batch",
+                            location,
                             null,
                             null,
                             "orderNumber",
                             batch.orderNumber(),
                             "Номер заказа не задан."));
         }
+        if (batch.orderDate() == null) {
+            problems.add(
+                    OrderImportProblem.error(
+                            CODE_ORDER_DATE_REQUIRED,
+                            location,
+                            null,
+                            null,
+                            "orderDate",
+                            null,
+                            "Дата заказа не задана."));
+        }
+        if (isBlank(batch.customerName())) {
+            problems.add(
+                    OrderImportProblem.error(
+                            CODE_CUSTOMER_REQUIRED,
+                            location,
+                            null,
+                            null,
+                            "customerName",
+                            batch.customerName(),
+                            "Клиент не задан."));
+        }
         if (batch.positions().isEmpty()) {
             problems.add(
                     OrderImportProblem.error(
                             CODE_POSITIONS_EMPTY,
-                            "batch",
+                            location,
                             null,
                             null,
                             "positions",
                             null,
                             "Список позиций импорта пуст."));
-            return problems;
+            return;
         }
         for (int positionIndex = 0; positionIndex < batch.positions().size(); positionIndex++) {
-            validatePosition(batch.positions().get(positionIndex), positionIndex, problems);
+            validatePosition(
+                    batch.positions().get(positionIndex), location, positionIndex, problems);
         }
-        return problems;
     }
 
     private void validatePosition(
-            OrderImportPosition position, int positionIndex, List<OrderImportProblem> problems) {
-        String location = "position[" + positionIndex + "]";
+            OrderImportPosition position,
+            String batchLocation,
+            int positionIndex,
+            List<OrderImportProblem> problems) {
+        String location = batchLocation + ".position[" + positionIndex + "]";
         if (isBlank(position.externalPositionNumber())) {
             problems.add(
                     OrderImportProblem.error(
@@ -173,7 +231,29 @@ public class OrderImportValidator {
                             position.externalPositionNumber(),
                             "Внешний номер позиции не задан."));
         }
-        Integer productQuantity = position.productQuantity();
+        if (isBlank(position.productCode())) {
+            problems.add(
+                    OrderImportProblem.error(
+                            CODE_PRODUCT_CODE_REQUIRED,
+                            location,
+                            positionIndex,
+                            null,
+                            "productCode",
+                            position.productCode(),
+                            "Код изделия не задан."));
+        }
+        if (isBlank(position.name())) {
+            problems.add(
+                    OrderImportProblem.error(
+                            CODE_PRODUCT_NAME_REQUIRED,
+                            location,
+                            positionIndex,
+                            null,
+                            "name",
+                            position.name(),
+                            "Наименование изделия не задано."));
+        }
+        Integer productQuantity = position.quantity();
         if (productQuantity == null) {
             problems.add(
                     OrderImportProblem.error(
@@ -181,7 +261,7 @@ public class OrderImportValidator {
                             location,
                             positionIndex,
                             null,
-                            "productQuantity",
+                            "quantity",
                             null,
                             "Количество изделий не задано."));
         } else if (productQuantity <= 0) {
@@ -191,7 +271,7 @@ public class OrderImportValidator {
                             location,
                             positionIndex,
                             null,
-                            "productQuantity",
+                            "quantity",
                             String.valueOf(productQuantity),
                             "Количество изделий должно быть целым числом больше нуля."));
         }
@@ -212,6 +292,7 @@ public class OrderImportValidator {
                     position.specificationLines().get(lineIndex),
                     positionIndex,
                     lineIndex,
+                    location,
                     problems);
         }
     }
@@ -220,8 +301,9 @@ public class OrderImportValidator {
             OrderImportSpecificationLine line,
             int positionIndex,
             int lineIndex,
+            String positionLocation,
             List<OrderImportProblem> problems) {
-        String location = "position[" + positionIndex + "].line[" + lineIndex + "]";
+        String location = positionLocation + ".line[" + lineIndex + "]";
         if (isBlank(line.materialCode())) {
             problems.add(
                     OrderImportProblem.error(
@@ -244,7 +326,18 @@ public class OrderImportValidator {
                             line.materialName(),
                             "Наименование материала не задано."));
         }
-        BigDecimal lengthMm = line.lengthMm();
+        if (isBlank(line.unitOfMeasure())) {
+            problems.add(
+                    OrderImportProblem.error(
+                            CODE_UNIT_REQUIRED,
+                            location,
+                            positionIndex,
+                            lineIndex,
+                            "unitOfMeasure",
+                            line.unitOfMeasure(),
+                            "Единица измерения не задана."));
+        }
+        BigDecimal lengthMm = line.length();
         if (lengthMm != null && lengthMm.signum() <= 0) {
             problems.add(
                     OrderImportProblem.error(
@@ -252,11 +345,11 @@ public class OrderImportValidator {
                             location,
                             positionIndex,
                             lineIndex,
-                            "lengthMm",
+                            "length",
                             lengthMm.toPlainString(),
                             "Длина в миллиметрах должна быть больше нуля."));
         }
-        BigDecimal lineQuantity = line.lineQuantity();
+        BigDecimal lineQuantity = line.quantity();
         if (lineQuantity == null) {
             problems.add(
                     OrderImportProblem.error(
@@ -264,7 +357,7 @@ public class OrderImportValidator {
                             location,
                             positionIndex,
                             lineIndex,
-                            "lineQuantity",
+                            "quantity",
                             null,
                             "Количество строки спецификации не задано."));
         } else if (lineQuantity.signum() <= 0) {
@@ -274,7 +367,7 @@ public class OrderImportValidator {
                             location,
                             positionIndex,
                             lineIndex,
-                            "lineQuantity",
+                            "quantity",
                             lineQuantity.toPlainString(),
                             "Количество строки спецификации должно быть больше нуля."));
         }
@@ -286,7 +379,7 @@ public class OrderImportValidator {
 
     /**
      * Rejects absolute filesystem paths. Import Core accepts logical source references (e.g. file
-     * names) only; STAGE5-054 must not pass absolute paths.
+     * names) only.
      */
     static boolean looksLikeAbsolutePath(String reference) {
         String value = reference.trim();

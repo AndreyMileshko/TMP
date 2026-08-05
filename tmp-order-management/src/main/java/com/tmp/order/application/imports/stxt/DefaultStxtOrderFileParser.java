@@ -29,7 +29,7 @@ public final class DefaultStxtOrderFileParser implements StxtOrderFileParser {
 
     private static OrderImportFileParseResult toPublic(StxtParseResult result) {
         return OrderImportFileParseResult.of(
-                result.batch().orElse(null),
+                result.batches(),
                 result.errors(),
                 result.warnings(),
                 result.detectedEncoding().orElse(null));

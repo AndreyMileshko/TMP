@@ -9017,16 +9017,16 @@ User FAIL or incomplete smoke — N/A (PASS recorded).
 
 ---
 
-## STAGE5-058 — Imported Order Lifecycle Rules
+## STAGE5-058 — Imported Order Lifecycle + Final STXT Contract
 
 **Status:** DONE  
 **Stage:** 5 (post-closure improvement)  
 **Depends on:** STAGE5-057  
-**Module:** `tmp-order-management` (primary); `tmp-ui-shell` (ACTIVE direct-edit read-only); Flyway `V13`
+**Module:** `tmp-order-management` (primary); `tmp-ui-shell` (ACTIVE direct-edit read-only + multi-order preview); Flyway `V13`
 
 ### Goal
 
-Реализовать ADR-031 **final**: IMPORT operation создаёт доверенный заказ сразу в uniform `ACTIVE` (Order / Item / Revision / Specification); ACTIVE после импорта **идентичен** ACTIVE после ручного утверждения; дубли только по `orderNumber`; без OrderOrigin/ImportMetadata/checksum protection; изменение ACTIVE только через Revision — без старта Stage 6.
+Реализовать ADR-031 **final** (uniform ACTIVE) **и** финальный STXT Contract: block format `ORDER → ITEM → SPECIFICATION`; несколько заказов в одном файле; поля заказа/изделия/спецификации; нормализация имени; исключение `@`/`#`; обработка `кв.м.`; quantity = норма расхода на 1 изделие; дубли только по `orderNumber`; без OrderOrigin/ImportMetadata/checksum storage — без старта Stage 6.
 
 ### Required documents
 
@@ -9080,11 +9080,13 @@ User FAIL or incomplete smoke — N/A (PASS recorded).
 - [x] Дубль только по существующему `orderNumber`;
 - [x] Новая Revision на ACTIVE разрешена единообразно;
 - [x] Manual ADR-030 path без регрессии;
+- [x] Final STXT Contract: multi-order; name normalize; `@`/`#` skip; `кв.м.`; quantity без умножения;
+- [x] ACTIVE import validation: order number/date/client; item productCode/name/quantity; spec code/name/unit/quantity;
 - [x] Verification commands PASS; Stage 6 NOT STARTED; Scope соблюдён.
 
 ### Result
 
-ADR-031 final implemented: IMPORT confirm lands uniform ACTIVE via Document Engine create/update docs + trusted domain activation; `ORDER_ACTIVATE` for manual `APPROVED→ACTIVE`; `RevisionStatus.ACTIVE`; Flyway V13; ImportMetadata/checksum removed; UI read-only for any ACTIVE. Stage 6 NOT STARTED. Git by user only.
+ADR-031 final + Final STXT Contract: block parser (`StxtBlockParser`); multi-order atomic confirm → uniform ACTIVE; productCode/name/customer filled from STXT; `кв.м.` transform; no ImportMetadata; UI multi-order preview. Stage 6 NOT STARTED. Git by user only.
 
 ### Required tests
 

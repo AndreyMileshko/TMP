@@ -7,8 +7,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Preview of a source-neutral import batch. Produced without persistence. A prepared plan is
- * present only when there are no ERROR-level problems ({@link #canConfirm()}).
+ * Preview of a source-neutral import (one or more orders). Produced without persistence. A prepared
+ * plan is present only when there are no ERROR-level problems ({@link #canConfirm()}).
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP",
@@ -17,6 +17,7 @@ public final class OrderImportPreview {
 
     private final String sourceReference;
     private final String orderNumber;
+    private final int orderCount;
     private final int positionCount;
     private final BigDecimal totalProductQuantity;
     private final int specificationLineCount;
@@ -27,6 +28,7 @@ public final class OrderImportPreview {
     private OrderImportPreview(
             String sourceReference,
             String orderNumber,
+            int orderCount,
             int positionCount,
             BigDecimal totalProductQuantity,
             int specificationLineCount,
@@ -35,6 +37,7 @@ public final class OrderImportPreview {
             PreparedOrderImportPlan preparedPlan) {
         this.sourceReference = sourceReference;
         this.orderNumber = orderNumber;
+        this.orderCount = orderCount;
         this.positionCount = positionCount;
         this.totalProductQuantity = totalProductQuantity;
         this.specificationLineCount = specificationLineCount;
@@ -46,6 +49,28 @@ public final class OrderImportPreview {
     public static OrderImportPreview of(
             String sourceReference,
             String orderNumber,
+            int positionCount,
+            BigDecimal totalProductQuantity,
+            int specificationLineCount,
+            List<OrderImportProblem> errors,
+            List<OrderImportProblem> warnings,
+            PreparedOrderImportPlan preparedPlan) {
+        return of(
+                sourceReference,
+                orderNumber,
+                1,
+                positionCount,
+                totalProductQuantity,
+                specificationLineCount,
+                errors,
+                warnings,
+                preparedPlan);
+    }
+
+    public static OrderImportPreview of(
+            String sourceReference,
+            String orderNumber,
+            int orderCount,
             int positionCount,
             BigDecimal totalProductQuantity,
             int specificationLineCount,
@@ -68,6 +93,7 @@ public final class OrderImportPreview {
         return new OrderImportPreview(
                 sourceReference,
                 orderNumber,
+                orderCount,
                 positionCount,
                 totalProductQuantity,
                 specificationLineCount,
@@ -82,6 +108,10 @@ public final class OrderImportPreview {
 
     public String orderNumber() {
         return orderNumber;
+    }
+
+    public int orderCount() {
+        return orderCount;
     }
 
     public int positionCount() {

@@ -7,6 +7,9 @@ import java.util.Objects;
 
 /**
  * One calculation position inside a source-neutral {@link OrderImportBatch}.
+ *
+ * <p>Final STXT Contract: {@code externalPositionNumber} («Изделие»), {@code productCode}
+ * («Код изделия»), {@code name} («Наименование изделия»), {@code quantity} («Кол-во изд.»).
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP",
@@ -14,21 +17,40 @@ import java.util.Objects;
 public final class OrderImportPosition {
 
     private final String externalPositionNumber;
-    private final Integer productQuantity;
+    private final String productCode;
+    private final String name;
+    private final Integer quantity;
     private final List<OrderImportSpecificationLine> specificationLines;
 
     private OrderImportPosition(
             String externalPositionNumber,
-            Integer productQuantity,
+            String productCode,
+            String name,
+            Integer quantity,
             List<OrderImportSpecificationLine> specificationLines) {
         this.externalPositionNumber = externalPositionNumber;
-        this.productQuantity = productQuantity;
+        this.productCode = productCode;
+        this.name = name;
+        this.quantity = quantity;
         this.specificationLines = specificationLines;
+    }
+
+    /**
+     * @deprecated use {@link #of(String, String, String, Integer, List)}
+     */
+    @Deprecated
+    public static OrderImportPosition of(
+            String externalPositionNumber,
+            Integer productQuantity,
+            List<OrderImportSpecificationLine> specificationLines) {
+        return of(externalPositionNumber, null, null, productQuantity, specificationLines);
     }
 
     public static OrderImportPosition of(
             String externalPositionNumber,
-            Integer productQuantity,
+            String productCode,
+            String name,
+            Integer quantity,
             List<OrderImportSpecificationLine> specificationLines) {
         Objects.requireNonNull(specificationLines, "specificationLines");
         List<OrderImportSpecificationLine> copy = new ArrayList<>(specificationLines.size());
@@ -36,15 +58,41 @@ public final class OrderImportPosition {
             copy.add(Objects.requireNonNull(line, "specificationLine"));
         }
         return new OrderImportPosition(
-                externalPositionNumber, productQuantity, List.copyOf(copy));
+                externalPositionNumber,
+                blankToNull(productCode),
+                blankToNull(name),
+                quantity,
+                List.copyOf(copy));
+    }
+
+    private static String blankToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     public String externalPositionNumber() {
         return externalPositionNumber;
     }
 
+    public String productCode() {
+        return productCode;
+    }
+
+    public String name() {
+        return name;
+    }
+
+    /** Ordered product copies («Кол-во изд.»). */
+    public Integer quantity() {
+        return quantity;
+    }
+
+    /** Alias for {@link #quantity()} (legacy import callers). */
     public Integer productQuantity() {
-        return productQuantity;
+        return quantity;
     }
 
     public List<OrderImportSpecificationLine> specificationLines() {
@@ -60,12 +108,15 @@ public final class OrderImportPosition {
             return false;
         }
         return Objects.equals(externalPositionNumber, that.externalPositionNumber)
-                && Objects.equals(productQuantity, that.productQuantity)
+                && Objects.equals(productCode, that.productCode)
+                && Objects.equals(name, that.name)
+                && Objects.equals(quantity, that.quantity)
                 && specificationLines.equals(that.specificationLines);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(externalPositionNumber, productQuantity, specificationLines);
+        return Objects.hash(
+                externalPositionNumber, productCode, name, quantity, specificationLines);
     }
 }

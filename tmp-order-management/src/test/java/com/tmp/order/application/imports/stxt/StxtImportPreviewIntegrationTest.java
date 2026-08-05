@@ -1,6 +1,7 @@
 package com.tmp.order.application.imports.stxt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -12,6 +13,7 @@ import com.tmp.document.api.DocumentEngine;
 import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportPreview;
 import com.tmp.order.api.imports.OrderImportService;
+import com.tmp.order.api.imports.OrderImportSpecificationLine;
 import com.tmp.order.application.imports.DefaultOrderImportService;
 import com.tmp.order.application.imports.OrderImportValidator;
 import com.tmp.order.application.payload.DraftPayloadApplicationService;
@@ -24,6 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -75,8 +78,11 @@ class StxtImportPreviewIntegrationTest {
         assertTrue(parseResult.isSuccessful(), () -> parseResult.errors().toString());
         OrderImportBatch batch = parseResult.batch().orElseThrow();
         assertEquals("26062891", batch.orderNumber());
+        assertEquals(LocalDate.of(2026, 6, 25), batch.orderDate());
+        assertEquals("Альпы ООО", batch.customerName());
         assertEquals(2, batch.positionCount());
-        assertEquals(3, batch.specificationLineCount());
+        assertEquals(4, batch.specificationLineCount());
+        assertEquals("WHS HALO WHS_60 ActivPilot", batch.positions().get(0).name());
         assertEquals(
                 "Штапик черный 8 мм/38.39.40",
                 batch.positions().get(0).specificationLines().get(0).materialName());
@@ -84,14 +90,21 @@ class StxtImportPreviewIntegrationTest {
                 0,
                 new BigDecimal("2066.0")
                         .compareTo(batch.positions().get(0).specificationLines().get(0).lengthMm()));
-        assertEquals(null, batch.positions().get(1).specificationLines().get(0).lengthMm());
+        assertNull(batch.positions().get(1).specificationLines().get(0).lengthMm());
+        OrderImportSpecificationLine sqmLine =
+                batch.positions().get(0).specificationLines().stream()
+                        .filter(line -> "200.001".equals(line.materialCode()))
+                        .findFirst()
+                        .orElseThrow();
+        assertNull(sqmLine.lengthMm());
+        assertEquals("шт.", sqmLine.unitOfMeasure());
 
         OrderImportPreview preview = importService.preview(batch);
         assertTrue(preview.errors().isEmpty(), () -> preview.errors().toString());
         assertTrue(preview.canConfirm());
         assertEquals("26062891", preview.orderNumber());
         assertEquals(2, preview.positionCount());
-        assertEquals(3, preview.specificationLineCount());
+        assertEquals(4, preview.specificationLineCount());
         assertEquals(0, new BigDecimal("10").compareTo(preview.totalProductQuantity()));
 
         verify(documentEngine, never()).postDocument(any());

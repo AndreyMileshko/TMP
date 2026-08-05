@@ -2,6 +2,36 @@
 
 ## Latest result
 
+**Date:** 2026-08-05  
+**Scope:** STAGE5-058 — Imported Order Lifecycle + Final STXT Contract  
+**Overall:** PASS  
+**Type:** Automated unit + integration + architecture  
+**Environment:** Windows; local Maven `.tools/apache-maven-3.9.9`; JDK; Docker Desktop; Testcontainers PostgreSQL 16
+
+| Item | Result |
+|---|---|
+| STAGE5-058 | DONE |
+| Stage 5 | DONE (incl. post-closure 058) |
+| Stage 6 | NOT STARTED |
+| Final STXT multi-order / name / @# / кв.м. / qty | PASS (`StxtFileAdapterTest`) |
+| Import → ACTIVE + productCode/name/qty norm | PASS (`OrderIntakeStxtEndToEndIT`) |
+| Duplicate `orderNumber` only | PASS |
+| ImportMetadata not created | PASS (confirmed by scope) |
+| Git | NOT EXECUTED |
+
+### Commands
+
+| Command | Result |
+|---|---|
+| `mvn -pl tmp-order-management -am test -Dtest=StxtFileAdapterTest,StxtImportPreviewIntegrationTest,DefaultOrderImportServiceTest` | PASS |
+| `mvn -pl tmp-ui-shell -am test -Dtest=OrderImportViewModelTest,OrderImportControllerFxTest` | PASS |
+| `mvn -pl tmp-order-management -am test -Dtest=OrderIntakeStxtEndToEndIT,OrderImportCoreIT` | PASS |
+| `mvn -pl tmp-architecture-tests -am test -Dtest=Stage5OrderManagementArchitectureTest` | PASS |
+
+---
+
+## Previous result
+
 **Date:** 2026-08-03  
 **Scope:** STAGE5-058 — Imported Order Lifecycle Rules (ADR-031 final)  
 **Overall:** PASS  
@@ -10,7 +40,7 @@
 
 | Item | Result |
 |---|---|
-| STAGE5-058 | DONE |
+| STAGE5-058 | DONE (lifecycle portion; later extended 2026-08-05) |
 | Stage 5 | DONE (incl. post-closure 058) |
 | Stage 6 | NOT STARTED |
 | Import confirm → ACTIVE | PASS |
@@ -31,7 +61,7 @@
 
 ---
 
-## Previous result
+## Previous result (STAGE5-057)
 
 **Date:** 2026-08-03  
 **Scope:** STAGE5-057 — Manual GUI Smoke Completion (Order Intake)  

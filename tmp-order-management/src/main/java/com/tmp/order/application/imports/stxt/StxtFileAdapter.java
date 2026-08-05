@@ -11,15 +11,16 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * STXT file adapter (Specification §27.5 / ADR-029).
+ * STXT file adapter (Final STXT Contract / ADR-029).
  *
- * <p>Reads SuperOkna export bytes, detects encoding, parses with delimiter {@code " / "}, and
- * builds a source-neutral {@link com.tmp.order.api.imports.OrderImportBatch}. Does not write to
- * the database, create orders, post documents, call Confirm, or use JavaFX / Firebird.
+ * <p>Reads SuperOkna export bytes, detects encoding, parses ORDER/ITEM/SPECIFICATION blocks, and
+ * builds source-neutral {@link com.tmp.order.api.imports.OrderImportBatch} list (one batch per
+ * order). Does not write to the database, create orders, post documents, call Confirm, or use
+ * JavaFX / Firebird. Checksum is ephemeral only (not persisted).
  */
 public final class StxtFileAdapter {
 
-    public static final String SOURCE_TYPE = StxtTableParser.SOURCE_TYPE;
+    public static final String SOURCE_TYPE = StxtBlockParser.SOURCE_TYPE;
 
     /**
      * Parses STXT file bytes.
@@ -36,10 +37,10 @@ public final class StxtFileAdapter {
 
         if (content.length == 0) {
             return StxtParseResult.of(
-                    null,
+                    List.of(),
                     List.of(
                             OrderImportProblem.error(
-                                    StxtTableParser.CODE_FILE_EMPTY,
+                                    StxtBlockParser.CODE_FILE_EMPTY,
                                     "file",
                                     null,
                                     null,
@@ -53,10 +54,10 @@ public final class StxtFileAdapter {
         var decoded = StxtEncodingDetector.decode(content);
         if (decoded.isEmpty()) {
             return StxtParseResult.of(
-                    null,
+                    List.of(),
                     List.of(
                             OrderImportProblem.error(
-                                    StxtTableParser.CODE_ENCODING,
+                                    StxtBlockParser.CODE_ENCODING,
                                     "file",
                                     null,
                                     null,
@@ -69,10 +70,10 @@ public final class StxtFileAdapter {
         }
 
         String checksum = sha256Hex(content);
-        StxtTableParser.ParsedTable parsed =
-                StxtTableParser.parse(decoded.get().text(), reference, checksum);
+        StxtBlockParser.ParsedFile parsed =
+                StxtBlockParser.parse(decoded.get().text(), reference, checksum);
         return StxtParseResult.of(
-                parsed.batch(),
+                parsed.batches(),
                 parsed.errors(),
                 parsed.warnings(),
                 decoded.get().encodingName());
@@ -91,10 +92,10 @@ public final class StxtFileAdapter {
             content = Files.readAllBytes(file);
         } catch (IOException ex) {
             return StxtParseResult.of(
-                    null,
+                    List.of(),
                     List.of(
                             OrderImportProblem.error(
-                                    StxtTableParser.CODE_ENCODING,
+                                    StxtBlockParser.CODE_ENCODING,
                                     "file",
                                     null,
                                     null,

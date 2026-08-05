@@ -3,7 +3,7 @@
 **Stage:** 5 — Order Management  
 **Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.5)  
 **ADR document:** `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` (v1.8; ADR-028, ADR-029, ADR-030, ADR-031 final)  
-**Status:** Core + Order Intake DONE (`STAGE5-001..057`); post-closure `STAGE5-058` = DONE (Imported Order Lifecycle Rules — ADR-031 final implemented). Stage 6 = NOT STARTED.
+**Status:** Core + Order Intake DONE (`STAGE5-001..057`); post-closure `STAGE5-058` = DONE (Imported Order Lifecycle + Final STXT Contract). Stage 6 = NOT STARTED.
 
 ---
 
@@ -227,7 +227,7 @@ Stage 5 завершён только когда:
 ## 21. Decisions for Order Intake
 
 - **ADR-030 / бывший blocker `STAGE5-INTAKE-COMMERCIAL-DRAFT`:** RESOLVED — incomplete commercial data allowed only in DRAFT for manual path; approval requires mandatory commercial fields; placeholders prohibited.
-- **ADR-031 final / STAGE5-058:** uniform ACTIVE implemented; IMPORT operation → ACTIVE; duplicates only by `orderNumber`; ACTIVE changes only via Revision; checksum/import-metadata protection removed (V13).
+- **ADR-031 final / STAGE5-058:** uniform ACTIVE implemented; IMPORT operation → ACTIVE; duplicates only by `orderNumber`; ACTIVE changes only via Revision; checksum/import-metadata protection removed (V13); **Final STXT Contract** (block ORDER→ITEM→SPEC, multi-order, name normalize, `@`/`#`, `кв.м.`, qty = norm per 1 product).
 
 ## 22. Post-closure — STAGE5-058
 

@@ -1,6 +1,5 @@
 package com.tmp.ui.shell.screen.orderimport;
 
-import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportConfirmResult;
 import com.tmp.order.api.imports.OrderImportConflictException;
 import com.tmp.order.api.imports.OrderImportFileParseResult;
@@ -160,13 +159,12 @@ public final class OrderImportViewModel {
         statusMessage.set("");
         try {
             OrderImportFileParseResult parse = stxtOrderFileParser.parseFile(selectedFile);
-            if (parse.hasErrors() || parse.batch().isEmpty()) {
+            if (parse.hasErrors() || parse.batches().isEmpty()) {
                 applyAdapterFailure(parse);
                 return;
             }
-            OrderImportBatch batch = parse.batch().orElseThrow();
             List<OrderImportProblem> adapterWarnings = new ArrayList<>(parse.warnings());
-            OrderImportPreview preview = orderImportService.preview(batch);
+            OrderImportPreview preview = orderImportService.preview(parse.batches());
             applyPreview(preview, adapterWarnings);
         } catch (OrderImportConflictException ex) {
             applyBlockingException(OrderImportConflictException.USER_MESSAGE);
@@ -430,6 +428,15 @@ public final class OrderImportViewModel {
     }
 
     private static String formatImportSuccess(OrderImportConfirmResult result) {
+        if (result.createdOrderCount() > 1) {
+            return "Заказы "
+                    + result.orderNumber()
+                    + " успешно импортированы.\nСоздано позиций: "
+                    + result.createdPositionCount()
+                    + ".\nСтрок спецификации: "
+                    + result.createdSpecificationLineCount()
+                    + ".";
+        }
         return "Заказ "
                 + result.orderNumber()
                 + " успешно импортирован.\nСоздано позиций: "

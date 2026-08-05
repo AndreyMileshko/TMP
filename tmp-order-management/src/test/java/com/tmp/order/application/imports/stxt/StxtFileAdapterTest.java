@@ -2,77 +2,173 @@ package com.tmp.order.application.imports.stxt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportPosition;
 import com.tmp.order.api.imports.OrderImportProblem;
 import com.tmp.order.api.imports.OrderImportProblemSeverity;
 import com.tmp.order.api.imports.OrderImportSpecificationLine;
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class StxtFileAdapterTest {
 
     private static final Charset WINDOWS_1251 = Charset.forName("Windows-1251");
-    private static final String HEADER =
-            "Счет / Изделие / Кол-во изд. / Артикул / Наименование / Цвет / Размер / Кол-во позиции";
 
     private final StxtFileAdapter adapter = new StxtFileAdapter();
 
     @Test
-    void parsesUtf8SampleWithSlashInsideNameAndDecimalComma() {
-        String content =
-                HEADER
-                        + "\n"
-                        + "26062891 / 1 / 8 / 107.225белый / Штапик черный 8 мм/38.39.40 / Белый / 2066,0мм. / 16\n";
-        StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "sample.stxt");
+    void parsesMultipleOrdersInOneFile() throws IOException {
+        StxtParseResult result =
+                adapter.parse(readFixture("stxt/multi-order.stxt"), "multi-order.stxt");
 
-        assertTrue(result.isSuccessful());
-        assertEquals(StxtEncodingDetector.NAME_UTF8, result.detectedEncoding().orElseThrow());
-        OrderImportBatch batch = result.batch().orElseThrow();
-        assertEquals("STXT", batch.sourceType());
-        assertEquals("sample.stxt", batch.sourceReference());
-        assertEquals("26062891", batch.orderNumber());
-        assertEquals(1, batch.positionCount());
+        assertTrue(result.isSuccessful(), () -> result.errors().toString());
+        assertEquals(2, result.batches().size());
+        assertEquals("25096190", result.batches().get(0).orderNumber());
+        assertEquals("25096053", result.batches().get(1).orderNumber());
+    }
 
-        OrderImportPosition position = batch.positions().get(0);
-        assertEquals("1", position.externalPositionNumber());
-        assertEquals(8, position.productQuantity());
-        OrderImportSpecificationLine line = position.specificationLines().get(0);
-        assertEquals("107.225белый", line.materialCode());
-        assertEquals("Штапик черный 8 мм/38.39.40", line.materialName());
-        assertEquals("Белый", line.color());
-        assertEquals(0, new BigDecimal("2066.0").compareTo(line.lengthMm()));
+    @Test
+    void parsesMultipleItemsInOneOrder() throws IOException {
+        OrderImportBatch batch = parseSampleBatch();
+
+        assertEquals(2, batch.positionCount());
+        assertEquals("1", batch.positions().get(0).externalPositionNumber());
+        assertEquals("2", batch.positions().get(1).externalPositionNumber());
+    }
+
+    @Test
+    void parsesMultipleSpecificationLines() throws IOException {
+        OrderImportBatch batch = parseSampleBatch();
+
+        assertEquals(3, batch.positions().get(0).specificationLines().size());
+        assertEquals(1, batch.positions().get(1).specificationLines().size());
+        assertEquals(4, batch.specificationLineCount());
+    }
+
+    @Test
+    void normalizesProductNameRemovingLeadingNumberOnlyLine() throws IOException {
+        OrderImportBatch batch = parseSampleBatch();
+        OrderImportPosition whs =
+                batch.positions().stream()
+                        .filter(position -> "WHS_60".equals(position.productCode()))
+                        .findFirst()
+                        .orElseThrow();
+
+        assertEquals("WHS HALO WHS_60 ActivPilot", whs.name());
+    }
+
+    @Test
+    void skipsAtCommandLines() throws IOException {
+        OrderImportBatch batch = parseSampleBatch();
+        List<String> materialCodes =
+                batch.positions().get(0).specificationLines().stream()
+                        .map(OrderImportSpecificationLine::materialCode)
+                        .toList();
+
+        assertEquals(List.of("107.225белый", "108.100", "200.001"), materialCodes);
+    }
+
+    @Test
+    void skipsHashCommentLines() throws IOException {
+        OrderImportBatch batch = parseSampleBatch();
+
+        assertFalse(
+                batch.positions().get(0).specificationLines().stream()
+                        .anyMatch(line -> line.materialCode().contains("#")));
+    }
+
+    @Test
+    void squareMeterUnitAppendsSizeToNameAndUsesPieceUnit() throws IOException {
+        OrderImportBatch batch = parseSampleBatch();
+        OrderImportSpecificationLine sqm =
+                batch.positions().get(0).specificationLines().stream()
+                        .filter(line -> "200.001".equals(line.materialCode()))
+                        .findFirst()
+                        .orElseThrow();
+
+        assertNull(sqm.lengthMm());
+        assertEquals(StxtBlockParser.UNIT_PIECE_AFTER_SQ_M, sqm.unitOfMeasure());
+        assertTrue(sqm.materialName().contains("596,0 x 976,0мм."));
+    }
+
+    @Test
+    void doesNotMultiplyLineQuantityByProductQuantity() throws IOException {
+        OrderImportBatch batch = parseSampleBatch();
+        OrderImportSpecificationLine line = batch.positions().get(0).specificationLines().get(0);
+
+        assertEquals(8, batch.positions().get(0).productQuantity());
         assertEquals(0, new BigDecimal("16").compareTo(line.lineQuantity()));
+    }
+
+    @Test
+    void parsesUtf8SampleWithCommercialHeaderAndSpecDetails() throws IOException {
+        OrderImportBatch batch = parseSampleBatch();
+
+        assertEquals("26062891", batch.orderNumber());
+        assertEquals(LocalDate.of(2026, 6, 25), batch.orderDate());
+        assertEquals(LocalDate.of(2026, 7, 1), batch.readyDate());
+        assertEquals("Альпы ООО", batch.customerName());
+        assertEquals("WHS_60", batch.positions().get(0).productCode());
+
+        OrderImportSpecificationLine firstLine = batch.positions().get(0).specificationLines().get(0);
+        assertEquals("107.225белый", firstLine.materialCode());
+        assertEquals("Штапик черный 8 мм/38.39.40", firstLine.materialName());
+        assertEquals("Белый", firstLine.color());
+        assertEquals(0, new BigDecimal("2066.0").compareTo(firstLine.lengthMm()));
+        assertEquals("шт.", firstLine.unitOfMeasure());
     }
 
     @Test
     void parsesWindows1251() {
         String content =
-                HEADER
-                        + "\n"
-                        + "26062891 / 1 / 8 / 107.225белый / Штапик черный 8 мм/38.39.40 / Белый / 2066,0мм. / 16\n";
+                """
+                Номер заказа: 26062891
+                Дата заказа: 25.06.2026
+                Клиент: Альпы ООО
+
+                Изделие: 1
+                Код изделия: WHS_60
+                Наименование изделия: Штапик черный 8 мм/38.39.40
+                Кол-во изд.: 1
+
+                Артикул / Наименование / Цвет / Размер / Единица измерения / Кол-во позиции на 1 изделие
+                107.225белый / Штапик черный 8 мм/38.39.40 / Белый / 2066,0мм. / шт. / 16
+                """;
         StxtParseResult result = adapter.parse(content.getBytes(WINDOWS_1251), "cp1251.stxt");
 
         assertTrue(result.isSuccessful());
         assertEquals(StxtEncodingDetector.NAME_WINDOWS_1251, result.detectedEncoding().orElseThrow());
         assertEquals(
                 "Штапик черный 8 мм/38.39.40",
-                result.batch().orElseThrow().positions().get(0).specificationLines().get(0).materialName());
+                result.batch().orElseThrow().positions().get(0).name());
     }
 
     @Test
     void parsesUtf8Bom() {
         String body =
-                HEADER
-                        + "\n"
-                        + "26062891 / 1 / 8 / A1 / Деталь / Белый / 100мм / 2\n";
+                """
+                Номер заказа: 26062891
+                Дата заказа: 25.06.2026
+                Клиент: Клиент
+
+                Изделие: 1
+                Код изделия: A1
+                Наименование изделия: Деталь
+                Кол-во изд.: 2
+
+                Артикул / Наименование / Цвет / Размер / Единица измерения / Кол-во позиции на 1 изделие
+                A1 / Деталь / Белый / 100мм / шт / 2
+                """;
         byte[] bom = new byte[] {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
         byte[] text = body.getBytes(StandardCharsets.UTF_8);
         byte[] content = new byte[bom.length + text.length];
@@ -86,126 +182,80 @@ class StxtFileAdapterTest {
     }
 
     @Test
-    void ignoresEmptyLines() {
+    void unknownSpecHeaderColumnIsWarningNotError() {
         String content =
-                HEADER
-                        + "\n\n"
-                        + "26062891 / 1 / 1 / A / Name /  / 10мм / 1\n"
-                        + "\n"
-                        + "26062891 / 1 / 1 / B / Other /  /  / 2\n\n";
-        StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "empty-lines.stxt");
-        assertTrue(result.isSuccessful());
-        assertEquals(1, result.batch().orElseThrow().positionCount());
-        assertEquals(2, result.batch().orElseThrow().specificationLineCount());
-    }
+                """
+                Номер заказа: ORD-1
+                Дата заказа: 25.06.2026
+                Клиент: Клиент
 
-    @Test
-    void blankColorAndBlankLengthBecomeNull() {
-        String content =
-                HEADER
-                        + "\n"
-                        + "26062891 / 1 / 1 / A / Name /  /  / 1\n";
-        StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "nulls.stxt");
-        assertTrue(result.isSuccessful());
-        OrderImportSpecificationLine line =
-                result.batch().orElseThrow().positions().get(0).specificationLines().get(0);
-        assertNull(line.color());
-        assertNull(line.lengthMm());
-        assertEquals(0, BigDecimal.ONE.compareTo(line.lineQuantity()));
-    }
+                Изделие: 1
+                Код изделия: P-1
+                Наименование изделия: Изделие
+                Кол-во изд.: 1
 
-    @Test
-    void doesNotMultiplyLineQuantityByProductQuantity() {
-        String content =
-                HEADER
-                        + "\n"
-                        + "26062891 / 1 / 8 / A / Name / Белый / 100мм / 16\n";
-        StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "qty.stxt");
-        assertEquals(
-                0,
-                new BigDecimal("16")
-                        .compareTo(
-                                result.batch()
-                                        .orElseThrow()
-                                        .positions()
-                                        .get(0)
-                                        .specificationLines()
-                                        .get(0)
-                                        .lineQuantity()));
-    }
-
-    @Test
-    void acceptsHeaderAliases() {
-        String content =
-                "Счёт / Позиция / Количество изделий / Код материала / Название / Цвет / Длина / Количество\n"
-                        + "ORD-1 / 10 / 3 / CODE / Материал /  / 12,5мм. / 5\n";
-        StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "aliases.stxt");
-        assertTrue(result.isSuccessful());
-        OrderImportBatch batch = result.batch().orElseThrow();
-        assertEquals("ORD-1", batch.orderNumber());
-        assertEquals("10", batch.positions().get(0).externalPositionNumber());
-        assertEquals(3, batch.positions().get(0).productQuantity());
-        assertEquals(
-                0,
-                new BigDecimal("12.5")
-                        .compareTo(batch.positions().get(0).specificationLines().get(0).lengthMm()));
-    }
-
-    @Test
-    void unknownHeaderIsWarningNotDomainField() {
-        String content =
-                "Счет / Изделие / Кол-во изд. / Артикул / Наименование / Цвет / Размер / Кол-во позиции / Лишнее\n"
-                        + "26062891 / 1 / 1 / A / Name / Белый / 10мм / 1 / X\n";
+                Артикул / Наименование / Цвет / Размер / Единица измерения / Кол-во позиции на 1 изделие / Лишнее
+                CODE / Материал /  / 12,5мм. / шт / 5 / X
+                """;
         StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "unknown.stxt");
+
         assertTrue(result.isSuccessful());
         assertFalse(result.warnings().isEmpty());
         assertTrue(
                 result.warnings().stream()
-                        .anyMatch(p -> StxtTableParser.CODE_HEADER_UNKNOWN.equals(p.code())));
+                        .anyMatch(p -> StxtBlockParser.CODE_SPEC_HEADER_UNKNOWN.equals(p.code())));
         assertEquals(OrderImportProblemSeverity.WARNING, result.warnings().get(0).severity());
     }
 
     @Test
-    void missingRequiredHeaderIsError() {
+    void missingRequiredSpecHeaderIsError() {
         String content =
-                "Счет / Изделие / Кол-во изд. / Артикул / Наименование / Цвет / Кол-во позиции\n"
-                        + "26062891 / 1 / 1 / A / Name / Белый / 1\n";
-        StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "headers.stxt");
-        assertTrue(result.hasErrors());
-        assertTrue(result.batch().isEmpty());
-        assertTrue(
-                result.errors().stream()
-                        .anyMatch(p -> StxtTableParser.CODE_HEADER_MISSING.equals(p.code())));
-    }
+                """
+                Номер заказа: 26062891
+                Дата заказа: 25.06.2026
+                Клиент: Клиент
 
-    @Test
-    void multipleOrdersRejectedWithoutBatch() {
-        String content =
-                HEADER
-                        + "\n"
-                        + "26062891 / 1 / 1 / A / Name / Белый / 10мм / 1\n"
-                        + "99999999 / 2 / 1 / B / Other / Белый / 10мм / 1\n";
-        StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "multi.stxt");
+                Изделие: 1
+                Код изделия: P-1
+                Наименование изделия: Изделие
+                Кол-во изд.: 1
+
+                Артикул / Наименование / Цвет / Кол-во позиции на 1 изделие
+                CODE / Name / Белый / 1
+                """;
+        StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "headers.stxt");
+
         assertTrue(result.hasErrors());
-        assertTrue(result.batch().isEmpty());
+        assertTrue(result.batches().isEmpty());
         assertTrue(
                 result.errors().stream()
-                        .anyMatch(p -> StxtTableParser.CODE_MULTIPLE_ORDERS.equals(p.code())));
+                        .anyMatch(p -> StxtBlockParser.CODE_SPEC_HEADER_MISSING.equals(p.code())));
     }
 
     @Test
     void invalidProductQuantityIsError() {
         String content =
-                HEADER
-                        + "\n"
-                        + "26062891 / 1 / 0 / A / Name / Белый / 10мм / 1\n";
+                """
+                Номер заказа: 26062891
+                Дата заказа: 25.06.2026
+                Клиент: Клиент
+
+                Изделие: 1
+                Код изделия: P-1
+                Наименование изделия: Изделие
+                Кол-во изд.: 0
+
+                Артикул / Наименование / Цвет / Размер / Единица измерения / Кол-во позиции на 1 изделие
+                CODE / Name / Белый / 10мм / шт / 1
+                """;
         StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "bad-qty.stxt");
+
         assertTrue(result.hasErrors());
         assertTrue(
                 result.errors().stream()
                         .anyMatch(
                                 p ->
-                                        StxtTableParser.CODE_PRODUCT_QUANTITY_NOT_POSITIVE.equals(
+                                        StxtBlockParser.CODE_PRODUCT_QUANTITY_NOT_POSITIVE.equals(
                                                 p.code())));
         assertProblemHasRowColumnValue(result.errors().get(0));
     }
@@ -213,16 +263,27 @@ class StxtFileAdapterTest {
     @Test
     void invalidLineQuantityIsError() {
         String content =
-                HEADER
-                        + "\n"
-                        + "26062891 / 1 / 1 / A / Name / Белый / 10мм / -2\n";
+                """
+                Номер заказа: 26062891
+                Дата заказа: 25.06.2026
+                Клиент: Клиент
+
+                Изделие: 1
+                Код изделия: P-1
+                Наименование изделия: Изделие
+                Кол-во изд.: 1
+
+                Артикул / Наименование / Цвет / Размер / Единица измерения / Кол-во позиции на 1 изделие
+                CODE / Name / Белый / 10мм / шт / -2
+                """;
         StxtParseResult result = adapter.parse(content.getBytes(StandardCharsets.UTF_8), "bad-line.stxt");
+
         assertTrue(result.hasErrors());
         assertTrue(
                 result.errors().stream()
                         .anyMatch(
                                 p ->
-                                        StxtTableParser.CODE_LINE_QUANTITY_NOT_POSITIVE.equals(
+                                        StxtBlockParser.CODE_LINE_QUANTITY_NOT_POSITIVE.equals(
                                                 p.code())));
     }
 
@@ -230,14 +291,14 @@ class StxtFileAdapterTest {
     void emptyFileIsError() {
         StxtParseResult result = adapter.parse(new byte[0], "empty.stxt");
         assertTrue(result.hasErrors());
-        assertEquals(StxtTableParser.CODE_FILE_EMPTY, result.errors().get(0).code());
+        assertEquals(StxtBlockParser.CODE_FILE_EMPTY, result.errors().get(0).code());
         assertUserSafe(result.errors().get(0));
     }
 
     @Test
     void splitFieldsKeepsSlashInsideName() {
         List<String> fields =
-                StxtTableParser.splitFields(
+                StxtBlockParser.splitFields(
                         "26062891 / 1 / 8 / 107.225белый / Штапик черный 8 мм/38.39.40 / Белый / 2066,0мм. / 16");
         assertEquals(8, fields.size());
         assertEquals("Штапик черный 8 мм/38.39.40", fields.get(4));
@@ -248,13 +309,29 @@ class StxtFileAdapterTest {
         assertEquals(
                 0,
                 new BigDecimal("2066.0")
-                        .compareTo(StxtTableParser.parseLengthMm("2066,0мм.").value()));
+                        .compareTo(StxtBlockParser.parseLengthMm("2066,0мм.").value()));
         assertEquals(
                 0,
-                new BigDecimal("555.5").compareTo(StxtTableParser.parseLengthMm("555,5мм.").value()));
-        assertNull(StxtTableParser.parseLengthMm("  ").value());
-        assertNull(StxtTableParser.parseLengthMm(null).value());
-        assertNotNull(StxtTableParser.parseLengthMm("abc").errorCode());
+                new BigDecimal("555.5").compareTo(StxtBlockParser.parseLengthMm("555,5мм.").value()));
+        assertNull(StxtBlockParser.parseLengthMm("  ").value());
+        assertNull(StxtBlockParser.parseLengthMm(null).value());
+        assertNotNull(StxtBlockParser.parseLengthMm("abc").errorCode());
+    }
+
+    private OrderImportBatch parseSampleBatch() throws IOException {
+        StxtParseResult result =
+                adapter.parse(readFixture("stxt/sample-utf8.stxt"), "sample-utf8.stxt");
+        assertTrue(result.isSuccessful(), () -> result.errors().toString());
+        return result.batch().orElseThrow();
+    }
+
+    private static byte[] readFixture(String classpath) throws IOException {
+        try (InputStream in = StxtFileAdapterTest.class.getClassLoader().getResourceAsStream(classpath)) {
+            if (in == null) {
+                throw new IOException("Missing fixture: " + classpath);
+            }
+            return in.readAllBytes();
+        }
     }
 
     private static void assertProblemHasRowColumnValue(OrderImportProblem problem) {

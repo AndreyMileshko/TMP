@@ -4,6 +4,44 @@
 
 ---
 
+## STAGE5-058 — Final STXT Contract + Imported Order Lifecycle (completion)
+
+**Date:** 2026-08-05  
+**Stage:** 5 (post-closure)  
+**Status:** DONE  
+**Module:** `tmp-order-management`, `tmp-ui-shell`
+
+### Result
+
+Доведён STAGE5-058 до Final STXT Contract поверх уже реализованного uniform ACTIVE (ADR-031):
+
+1. **STXT Contract:** `ORDER BLOCK → ITEM BLOCK → SPECIFICATION LINES`; несколько заказов в одном файле.
+2. **Parsing:** «Номер заказа:» / «Изделие:»; поля заказа (номер, дата, готовность, клиент); изделия (`externalPositionNumber`, `productCode`, `name`, `quantity`); спецификация с `unitOfMeasure`.
+3. **Нормализация имени:** collapse whitespace; удаление первой number-only строки.
+4. **Исключения:** строки `@` / `#` не импортируются.
+5. **`кв.м.`:** размер → в наименование; `length=null`; единица `шт.`; quantity без изменений.
+6. **quantity:** норма расхода на 1 изделие; без умножения на item quantity.
+7. **Validation:** ACTIVE import требует order number/date/client; item productCode/name/quantity; spec code/name/unit/quantity; placeholders запрещены.
+8. **Lifecycle:** STXT → Import Core → ACTIVE Order/Item/Revision/Specification; ACTIVE одинаков независимо от источника; дубль только `orderNumber`.
+9. **Не создано:** ImportMetadata / sourceType persistence / checksum storage / Stage 6.
+
+### Key code
+
+- `StxtBlockParser`, `StxtFileAdapter` (multi-batch);
+- `OrderImportBatch`/`Position`/`SpecificationLine` (новые поля);
+- `DefaultOrderImportService.preview(List)` + atomic multi-order confirm;
+- fixtures `stxt/sample-utf8.stxt`, `stxt/multi-order.stxt`.
+
+### Verification
+
+- `StxtFileAdapterTest`, `StxtImportPreviewIntegrationTest`, `DefaultOrderImportServiceTest` — PASS
+- UI `OrderImportViewModelTest`, `OrderImportControllerFxTest` — PASS
+- `OrderIntakeStxtEndToEndIT`, `OrderImportCoreIT` — PASS (Docker)
+- `Stage5OrderManagementArchitectureTest` — PASS
+- Git-команды агентом **не** выполнялись.
+
+---
+
 ## STAGE5-058 — Imported Order Lifecycle Rules (implementation)
 
 **Date:** 2026-08-03  

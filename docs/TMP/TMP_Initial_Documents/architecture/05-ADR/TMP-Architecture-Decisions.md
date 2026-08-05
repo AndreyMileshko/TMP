@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-005  
 **Status:** Accepted  
-**Version:** 1.8
+**Version:** 1.9
 
 ---
 
@@ -1292,8 +1292,9 @@ Order ACTIVE + Order Item ACTIVE + Revision ACTIVE + Specification ACTIVE
 
 1. Импорт создаёт ту же доменную структуру, что и ручной путь: Order → Item → Revision → Specification.
 2. После успешного confirm все перечисленные уровни — `ACTIVE` (доверенный производственный эталон).
-3. Коммерческие completeness-gates ADR-030 применяются к **ручным** переходам (`ORDER_APPROVE`, утверждение Draft Revision). Import operation **не** проходит через `DRAFT`/`APPROVED` и не блокируется отсутствием коммерческих полей, которых нет в выгрузке; placeholders по-прежнему запрещены.
+3. **Final STXT Contract (STAGE5-058):** выгрузка содержит номер/дату/клиента заказа и `productCode`/`name`/quantity изделия; ACTIVE import **требует** эти поля (placeholders запрещены). Коммерческие completeness-gates ADR-030 (`direction`/`currency`/`contractRef`/`siteRef` и т.п.) по-прежнему относятся к **ручным** переходам `ORDER_APPROVE` / утверждению Draft Revision и **не** блокируют import landing.
 4. После landing поведение = обычный `ACTIVE` (п.1, п.5).
+5. Файл может содержать **несколько** заказов; каждый становится отдельным Order (атомарно в одной confirm TX).
 
 #### 4. Дублирование
 
@@ -1456,6 +1457,7 @@ orderNumber uniqueness
 | 1.6 | Уточнён ADR-030: incomplete DRAFT также для `productCode`/`name` позиции; `ORDER_ITEM_REVISION_APPROVE` требует полноту коммерческих полей позиции; placeholders и искусственные названия запрещены. |
 | 1.7 | Добавлен ADR-031 (Imported Order Lifecycle Rules): `OrderOrigin`, trusted import landing `(none)→ACTIVE`, уточнение ADR-030 для IMPORTED, запрет правок/новой Revision на импортированном ACTIVE, UI read-only; baseline для STAGE5-058 без немедленной смены кода. |
 | 1.8 | **Final** ADR-031: uniform ACTIVE (без различий по способу создания); запрет OrderOrigin/ImportMetadata/checksum protection; дубли только по `orderNumber`; import = creation path → ACTIVE; изменение ACTIVE только через Revision; RevisionStatus целевой `DRAFT\|ACTIVE`. |
+| 1.9 | STAGE5-058 Final STXT Contract: block format ORDER→ITEM→SPEC; multi-order file; import validation requires order number/date/client and item productCode/name/quantity; `@`/`#` skip; `кв.м.` transform; quantity = норма расхода на 1 изделие. |
 
 ---
 

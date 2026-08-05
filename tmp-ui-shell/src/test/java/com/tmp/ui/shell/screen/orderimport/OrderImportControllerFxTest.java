@@ -22,6 +22,7 @@ import com.tmp.ui.shell.screen.orderlist.FakeAuthorization;
 import java.io.File;
 import java.math.BigDecimal;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
@@ -111,7 +112,7 @@ class OrderImportControllerFxTest {
     void previewErrorShowsProblemsAndDisablesImport() throws Exception {
         FakeStxtParser stxt = new FakeStxtParser();
         stxt.result = OrderImportFileParseResult.of(
-                null,
+                List.of(),
                 List.of(OrderImportProblem.error(
                         "MISSING_COLUMN",
                         "header",
@@ -296,7 +297,7 @@ class OrderImportControllerFxTest {
     private static final class FakeStxtParser implements StxtOrderFileParser {
         private final AtomicInteger parseCalls = new AtomicInteger();
         private OrderImportFileParseResult result = OrderImportFileParseResult.of(
-                OrderImportBatch.of("STXT", "sample.stxt", "checksum", "ORD-FX", List.of()),
+                List.of(testBatch("ORD-FX")),
                 List.of(),
                 List.of(),
                 "UTF-8");
@@ -329,6 +330,12 @@ class OrderImportControllerFxTest {
         }
 
         @Override
+        public OrderImportPreview preview(List<OrderImportBatch> batches) {
+            previewCalls.incrementAndGet();
+            return Objects.requireNonNull(preview, "preview");
+        }
+
+        @Override
         public OrderImportConfirmResult confirm(PreparedOrderImportPlan plan) {
             confirmCalls.incrementAndGet();
             lastConfirmedPlan.set(plan);
@@ -347,8 +354,13 @@ class OrderImportControllerFxTest {
         }
 
         @Override
+        public List<OrderImportBatch> batches() {
+            return List.of(batch());
+        }
+
+        @Override
         public OrderImportBatch batch() {
-            return OrderImportBatch.of("STXT", "file.stxt", "cs", orderNumber, List.of());
+            return testBatch(orderNumber);
         }
 
         @Override
@@ -370,5 +382,17 @@ class OrderImportControllerFxTest {
         public String orderNumber() {
             return orderNumber;
         }
+    }
+
+    private static OrderImportBatch testBatch(String orderNumber) {
+        return OrderImportBatch.of(
+                "STXT",
+                "file.stxt",
+                "cs",
+                orderNumber,
+                LocalDate.of(2026, 6, 25),
+                null,
+                "Test Client",
+                List.of());
     }
 }

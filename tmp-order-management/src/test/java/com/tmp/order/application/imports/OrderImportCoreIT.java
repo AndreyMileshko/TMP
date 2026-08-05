@@ -42,6 +42,7 @@ import com.tmp.security.api.UserAdministrationService;
 import com.tmp.security.api.UserSummary;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -138,7 +139,7 @@ class OrderImportCoreIT {
 
         CustomerOrder order = orders.findById(result.orderId()).orElseThrow();
         assertEquals(OrderStatus.ACTIVE, order.status());
-        assertNull(order.commercialData().customerName());
+        assertEquals("Import Customer", order.commercialData().customerName());
         assertNull(order.commercialData().direction());
         assertNull(order.commercialData().currency());
         assertNull(order.commercialData().contractRef());
@@ -149,8 +150,8 @@ class OrderImportCoreIT {
         OrderItem item = orderItems.get(0);
         assertEquals(OrderItemStatus.ACTIVE, item.status());
         assertEquals("1", item.commercialData().externalPositionNumber());
-        assertNull(item.commercialData().productCode());
-        assertNull(item.commercialData().name());
+        assertEquals("107.225", item.commercialData().productCode().value());
+        assertEquals("Штапик product", item.commercialData().name());
         assertTrue(item.activeRevisionNumber().isPresent());
         assertTrue(item.draftRevisionNumber().isEmpty());
 
@@ -323,9 +324,14 @@ class OrderImportCoreIT {
                 sourceReference,
                 checksum,
                 orderNumber,
+                LocalDate.of(2026, 6, 25),
+                null,
+                "Import Customer",
                 List.of(
                         OrderImportPosition.of(
                                 "1",
+                                "107.225",
+                                "Штапик product",
                                 8,
                                 List.of(
                                         OrderImportSpecificationLine.of(
@@ -333,12 +339,14 @@ class OrderImportCoreIT {
                                                 "Штапик",
                                                 null,
                                                 new BigDecimal("2066"),
+                                                "шт",
                                                 new BigDecimal("16")),
                                         OrderImportSpecificationLine.of(
                                                 "200.1",
                                                 "Профиль",
                                                 " ",
                                                 null,
+                                                "шт",
                                                 new BigDecimal("4"))))));
     }
 

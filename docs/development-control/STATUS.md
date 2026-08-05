@@ -17,7 +17,7 @@ STAGE5-054 = DONE
 STAGE5-055 = DONE
 STAGE5-056 = DONE
 STAGE5-057 = DONE (Manual GUI Smoke — PASS; STAGE5-057-SMOKE-001 FIXED AND VERIFIED)
-STAGE5-058 = DONE (Imported Order Lifecycle Rules — ADR-031 final implemented)
+STAGE5-058 = DONE (Imported Order Lifecycle + Final STXT Contract)
 Stage 5 Core Order Management = DONE
 Stage 5 Order Intake Extension = DONE
 Stage 5 = DONE (core + intake + post-closure STAGE5-058)
@@ -50,10 +50,10 @@ Active blockers = NONE
 |---|---|
 | Core Order Management (`STAGE5-001..050`) | DONE |
 | Order Intake Extension (`STAGE5-051..057`) | DONE |
-| Post-closure: Imported Order Lifecycle (`STAGE5-058`) | DONE |
+| Post-closure: Imported Order Lifecycle + Final STXT (`STAGE5-058`) | DONE |
 | Stage 5 overall | DONE |
 
-`STAGE5-057` = **DONE**. **ADR-031 final** Accepted and **implemented** (uniform ACTIVE). Order Management Spec **v1.5**. ADR **v1.8**. Flyway latest = **V13**. `STAGE5-058` = **DONE**. Stage 6 = NOT STARTED.
+`STAGE5-057` = **DONE**. **ADR-031 final** + **Final STXT Contract** implemented (uniform ACTIVE; block STXT; multi-order). Order Management Spec **v1.6**. ADR **v1.9**. Flyway latest = **V13**. `STAGE5-058` = **DONE**. Stage 6 = NOT STARTED.
 
 ---
 

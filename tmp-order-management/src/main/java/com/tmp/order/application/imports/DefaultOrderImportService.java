@@ -38,16 +38,19 @@ import com.tmp.order.domain.OrderCommercialData;
 import com.tmp.order.domain.OrderItem;
 import com.tmp.order.domain.OrderNumber;
 import com.tmp.order.domain.OrderedQuantity;
+import com.tmp.order.domain.ProductCode;
 import com.tmp.order.domain.repository.CustomerOrderRepository;
 import com.tmp.order.domain.repository.OrderItemRepository;
 import com.tmp.security.api.AuthorizationService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -55,7 +58,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Default Import Core: source-neutral preview without persistence and atomic confirm through
  * Document Engine business documents, landing Order/Item/Revision/Specification as ACTIVE
- * (ADR-031).
+ * (ADR-031 / Final STXT Contract). Multi-order files are confirmed in one transaction.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -100,9 +103,15 @@ public final class DefaultOrderImportService implements OrderImportService {
     @Override
     public OrderImportPreview preview(OrderImportBatch batch) {
         Objects.requireNonNull(batch, "batch");
+        return preview(List.of(batch));
+    }
+
+    @Override
+    public OrderImportPreview preview(List<OrderImportBatch> batches) {
+        Objects.requireNonNull(batches, "batches");
         authorizationService.requirePermission(OrderManagementPermissions.ORDER_CREATE);
 
-        List<OrderImportProblem> structural = validator.validate(batch);
+        List<OrderImportProblem> structural = validator.validateAll(batches);
         List<OrderImportProblem> errors = new ArrayList<>();
         List<OrderImportProblem> warnings = new ArrayList<>();
         for (OrderImportProblem problem : structural) {
@@ -114,18 +123,35 @@ public final class DefaultOrderImportService implements OrderImportService {
         }
 
         if (errors.isEmpty()) {
-            assertOrderNumberAvailable(batch);
+            assertOrderNumbersAvailable(batches);
         }
 
+        int positionCount = 0;
+        int specCount = 0;
+        BigDecimal totalQty = BigDecimal.ZERO;
+        for (OrderImportBatch batch : batches) {
+            positionCount += batch.positionCount();
+            specCount += batch.specificationLineCount();
+            totalQty = totalQty.add(batch.totalProductQuantity());
+        }
+        String orderNumbers =
+                batches.stream()
+                        .map(OrderImportBatch::orderNumber)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.joining(", "));
+        String sourceReference =
+                batches.isEmpty() ? null : batches.get(0).sourceReference();
+
         PreparedOrderImportPlan plan =
-                errors.isEmpty() ? new DefaultPreparedOrderImportPlan(batch) : null;
+                errors.isEmpty() ? new DefaultPreparedOrderImportPlan(batches) : null;
 
         return OrderImportPreview.of(
-                batch.sourceReference(),
-                batch.orderNumber(),
-                batch.positionCount(),
-                batch.totalProductQuantity(),
-                batch.specificationLineCount(),
+                sourceReference,
+                orderNumbers,
+                batches.size(),
+                positionCount,
+                totalQty,
+                specCount,
                 errors,
                 warnings,
                 plan);
@@ -150,8 +176,8 @@ public final class DefaultOrderImportService implements OrderImportService {
         authorizationService.requirePermission(OrderManagementPermissions.ITEM_CREATE);
         authorizationService.requirePermission(OrderManagementPermissions.REVISION_EDIT);
 
-        OrderImportBatch batch = plan.batch();
-        List<OrderImportProblem> structural = validator.validate(batch);
+        List<OrderImportBatch> batches = plan.batches();
+        List<OrderImportProblem> structural = validator.validateAll(batches);
         List<OrderImportProblem> errors =
                 structural.stream()
                         .filter(problem -> problem.severity() == OrderImportProblemSeverity.ERROR)
@@ -161,7 +187,7 @@ public final class DefaultOrderImportService implements OrderImportService {
         }
 
         try {
-            return transactionTemplate.execute(status -> executeConfirm(batch));
+            return transactionTemplate.execute(status -> executeConfirm(batches));
         } catch (OrderImportConflictException | OrderImportValidationException controlled) {
             throw controlled;
         } catch (RuntimeException ex) {
@@ -169,70 +195,79 @@ public final class DefaultOrderImportService implements OrderImportService {
         }
     }
 
-    private OrderImportConfirmResult executeConfirm(OrderImportBatch batch) {
-        assertOrderNumberAvailable(batch);
+    private OrderImportConfirmResult executeConfirm(List<OrderImportBatch> batches) {
+        assertOrderNumbersAvailable(batches);
 
         Instant now = clock.instant();
-        OrderNumber orderNumber = OrderNumber.of(batch.orderNumber().trim());
-        OrderId orderId;
-        try {
-            orderId = postOrderCreate(orderNumber, now);
-        } catch (DuplicateOrderNumberException duplicate) {
-            throw new OrderImportConflictException();
-        } catch (DataIntegrityViolationException integrity) {
-            if (isOrderNumberUniqueViolation(integrity)) {
+        List<OrderImportConfirmResult.ImportedOrder> imported = new ArrayList<>();
+        int totalPositions = 0;
+        int totalLines = 0;
+
+        for (OrderImportBatch batch : batches) {
+            OrderNumber orderNumber = OrderNumber.of(batch.orderNumber().trim());
+            OrderId orderId;
+            try {
+                orderId = postOrderCreate(orderNumber, batch.customerName(), now);
+            } catch (DuplicateOrderNumberException duplicate) {
                 throw new OrderImportConflictException();
+            } catch (DataIntegrityViolationException integrity) {
+                if (isOrderNumberUniqueViolation(integrity)) {
+                    throw new OrderImportConflictException();
+                }
+                throw integrity;
             }
-            throw integrity;
-        }
 
-        int lineCount = 0;
-        List<OrderItemId> createdItemIds = new ArrayList<>();
-        for (OrderImportPosition position : batch.positions()) {
-            lineCount += position.specificationLines().size();
-            createdItemIds.add(postItemWithSpecification(orderId, position, now));
-        }
+            List<OrderItemId> createdItemIds = new ArrayList<>();
+            for (OrderImportPosition position : batch.positions()) {
+                totalLines += position.specificationLines().size();
+                createdItemIds.add(postItemWithSpecification(orderId, position, now));
+            }
+            totalPositions += batch.positionCount();
 
-        for (OrderItemId itemId : createdItemIds) {
-            OrderItem item =
-                    orderItemRepository
-                            .findById(itemId)
+            for (OrderItemId itemId : createdItemIds) {
+                OrderItem item =
+                        orderItemRepository
+                                .findById(itemId)
+                                .orElseThrow(
+                                        () ->
+                                                new OrderImportProcessingException(
+                                                        new IllegalStateException(
+                                                                "Imported order item missing: "
+                                                                        + itemId)));
+                orderItemRepository.save(item.activateDraftRevisionForImport(clock));
+            }
+
+            CustomerOrder order =
+                    customerOrderRepository
+                            .findById(orderId)
                             .orElseThrow(
                                     () ->
                                             new OrderImportProcessingException(
                                                     new IllegalStateException(
-                                                            "Imported order item missing: "
-                                                                    + itemId)));
-            orderItemRepository.save(item.activateDraftRevisionForImport(clock));
+                                                            "Imported order missing: " + orderId)));
+            customerOrderRepository.save(order.activateFromImport(clock));
+            imported.add(
+                    OrderImportConfirmResult.ImportedOrder.of(orderId, orderNumber.value()));
         }
 
-        CustomerOrder order =
-                customerOrderRepository
-                        .findById(orderId)
-                        .orElseThrow(
-                                () ->
-                                        new OrderImportProcessingException(
-                                                new IllegalStateException(
-                                                        "Imported order missing: " + orderId)));
-        customerOrderRepository.save(order.activateFromImport(clock));
-
-        return OrderImportConfirmResult.of(
-                orderId, orderNumber.value(), batch.positionCount(), lineCount);
+        return OrderImportConfirmResult.of(imported, totalPositions, totalLines);
     }
 
-    private void assertOrderNumberAvailable(OrderImportBatch batch) {
-        if (batch.orderNumber() != null && !batch.orderNumber().trim().isEmpty()) {
-            OrderNumber orderNumber = OrderNumber.of(batch.orderNumber().trim());
-            if (customerOrderRepository.existsByOrderNumber(orderNumber)) {
-                throw new OrderImportConflictException();
+    private void assertOrderNumbersAvailable(List<OrderImportBatch> batches) {
+        for (OrderImportBatch batch : batches) {
+            if (batch.orderNumber() != null && !batch.orderNumber().trim().isEmpty()) {
+                OrderNumber orderNumber = OrderNumber.of(batch.orderNumber().trim());
+                if (customerOrderRepository.existsByOrderNumber(orderNumber)) {
+                    throw new OrderImportConflictException();
+                }
             }
         }
     }
 
-    private OrderId postOrderCreate(OrderNumber orderNumber, Instant now) {
+    private OrderId postOrderCreate(OrderNumber orderNumber, String customerName, Instant now) {
         UUID documentId = createDocument(DocumentTypeCode.ORDER_CREATE, "import-order-create");
         OrderCommercialData commercial =
-                OrderCommercialData.of(null, null, null, null, null, null, null);
+                OrderCommercialData.of(null, customerName, null, null, null, null, null);
         draftPayloads.createDraft(
                 OrderCreatePayload.create(
                         DocumentId.of(documentId), orderNumber, commercial, now));
@@ -243,10 +278,13 @@ public final class DefaultOrderImportService implements OrderImportService {
     private OrderItemId postItemWithSpecification(
             OrderId orderId, OrderImportPosition position, Instant now) {
         OrderItemId orderItemId = OrderItemId.generate();
-        OrderedQuantity quantity = OrderedQuantity.of(position.productQuantity().longValue());
+        OrderedQuantity quantity = OrderedQuantity.of(position.quantity().longValue());
         ItemCommercialData commercial =
                 ItemCommercialData.of(
-                        null, null, null, position.externalPositionNumber().trim());
+                        ProductCode.of(position.productCode().trim()),
+                        position.name().trim(),
+                        null,
+                        position.externalPositionNumber().trim());
 
         UUID createDocId = createDocument(DocumentTypeCode.ORDER_ITEM_CREATE, "import-item-create");
         draftPayloads.createDraft(
@@ -279,15 +317,19 @@ public final class DefaultOrderImportService implements OrderImportService {
         List<OrderItemRevisionPayloadLine> result = new ArrayList<>(lines.size());
         int lineNumber = 1;
         for (OrderImportSpecificationLine line : lines) {
+            String unit =
+                    line.unitOfMeasure() == null || line.unitOfMeasure().isBlank()
+                            ? OrderImportDefaults.UNIT_OF_MEASURE
+                            : line.unitOfMeasure().trim();
             result.add(
                     OrderItemRevisionPayloadLine.of(
                             lineNumber++,
                             line.materialCode().trim(),
                             line.materialName().trim(),
                             line.color(),
-                            line.lengthMm(),
-                            line.lineQuantity(),
-                            OrderImportDefaults.UNIT_OF_MEASURE));
+                            line.length(),
+                            line.quantity(),
+                            unit));
         }
         return result;
     }

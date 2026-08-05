@@ -119,11 +119,12 @@ class OrderIntakeStxtEndToEndIT {
                 orderImportService.confirm(preview.preparedPlan().orElseThrow());
         assertEquals("26062891", confirm.orderNumber());
         assertEquals(2, confirm.createdPositionCount());
-        assertEquals(3, confirm.createdSpecificationLineCount());
+        assertEquals(4, confirm.createdSpecificationLineCount());
 
         OrderDto order = orderQueryService.getOrder(confirm.orderId()).orElseThrow();
         assertEquals("26062891", order.orderNumber());
         assertEquals(OrderStatus.ACTIVE, order.status());
+        assertEquals("Альпы ООО", order.customerName());
 
         List<OrderItemDto> items =
                 orderQueryService.getOrderItems(confirm.orderId(), PageRequest.firstPage()).content();
@@ -135,14 +136,14 @@ class OrderIntakeStxtEndToEndIT {
                         .orElseThrow();
         assertEquals(OrderItemStatus.ACTIVE, firstItem.status());
         assertEquals("1", firstItem.externalPositionNumber());
-        assertNull(firstItem.productCode());
-        assertNull(firstItem.name());
+        assertEquals("WHS_60", firstItem.productCode());
+        assertEquals("WHS HALO WHS_60 ActivPilot", firstItem.name());
 
         OrderItemEditorSnapshot editor =
                 itemEditorQueryService.getEditorSnapshot(firstItem.orderItemId()).orElseThrow();
         assertEquals("1", editor.externalPositionNumber());
-        assertNull(editor.productCode());
-        assertNull(editor.name());
+        assertEquals("WHS_60", editor.productCode());
+        assertEquals("WHS HALO WHS_60 ActivPilot", editor.name());
         assertEquals(0, new BigDecimal("8").compareTo(editor.orderedQuantity()));
         assertTrue(editor.activeRevisionNumber().isPresent());
         assertTrue(editor.draftRevisionNumber().isEmpty());
@@ -155,7 +156,7 @@ class OrderIntakeStxtEndToEndIT {
         assertEquals(RevisionStatus.ACTIVE, specification.revisionStatus());
         assertTrue(specification.immutable());
         assertEquals(0, new BigDecimal("8").compareTo(specification.orderedQuantity()));
-        assertEquals(2, specification.lines().size());
+        assertEquals(3, specification.lines().size());
 
         OrderItemSpecificationLineView line = specification.lines().get(0);
         assertEquals("107.225белый", line.materialCode());
@@ -163,6 +164,7 @@ class OrderIntakeStxtEndToEndIT {
         assertEquals("Белый", line.color());
         assertEquals(0, new BigDecimal("2066.0").compareTo(line.lengthMm()));
         assertEquals(0, new BigDecimal("16").compareTo(line.lineQuantity()));
+        assertEquals("шт.", line.unitOfMeasure());
         assertEquals(
                 0,
                 new BigDecimal("16")

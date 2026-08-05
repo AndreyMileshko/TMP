@@ -5,38 +5,62 @@ import java.util.Objects;
 
 /**
  * One specification line of an import position. Blank {@code color} is normalized to {@code null}.
- * {@code unitOfMeasure} is not part of the source-neutral model; Import Core applies domain default
- * «шт» when mapping to business documents.
+ * {@code quantity} is consumption per one product copy (never multiplied by item quantity).
+ * Domain maps {@code length} → {@code lengthMm} and {@code quantity} → {@code lineQuantity}.
  */
 public final class OrderImportSpecificationLine {
 
     private final String materialCode;
     private final String materialName;
     private final String color;
-    private final BigDecimal lengthMm;
-    private final BigDecimal lineQuantity;
+    private final BigDecimal length;
+    private final String unitOfMeasure;
+    private final BigDecimal quantity;
 
     private OrderImportSpecificationLine(
             String materialCode,
             String materialName,
             String color,
-            BigDecimal lengthMm,
-            BigDecimal lineQuantity) {
+            BigDecimal length,
+            String unitOfMeasure,
+            BigDecimal quantity) {
         this.materialCode = materialCode;
         this.materialName = materialName;
         this.color = color;
-        this.lengthMm = lengthMm;
-        this.lineQuantity = lineQuantity;
+        this.length = length;
+        this.unitOfMeasure = unitOfMeasure;
+        this.quantity = quantity;
     }
 
+    /**
+     * Creates a line. Prefer the overload that includes {@code unitOfMeasure}.
+     *
+     * @deprecated use {@link #of(String, String, String, BigDecimal, String, BigDecimal)}
+     */
+    @Deprecated
     public static OrderImportSpecificationLine of(
             String materialCode,
             String materialName,
             String color,
             BigDecimal lengthMm,
             BigDecimal lineQuantity) {
+        return of(materialCode, materialName, color, lengthMm, null, lineQuantity);
+    }
+
+    public static OrderImportSpecificationLine of(
+            String materialCode,
+            String materialName,
+            String color,
+            BigDecimal length,
+            String unitOfMeasure,
+            BigDecimal quantity) {
         return new OrderImportSpecificationLine(
-                materialCode, materialName, normalizeBlankToNull(color), lengthMm, lineQuantity);
+                materialCode,
+                materialName,
+                normalizeBlankToNull(color),
+                length,
+                normalizeBlankToNull(unitOfMeasure),
+                quantity);
     }
 
     private static String normalizeBlankToNull(String value) {
@@ -60,13 +84,35 @@ public final class OrderImportSpecificationLine {
         return color;
     }
 
-    /** Nullable when length is not applicable. */
-    public BigDecimal lengthMm() {
-        return lengthMm;
+    /**
+     * Nullable size/length from source «Размер». Mapped to domain {@code lengthMm} when numeric
+     * mm; null after {@code кв.м.} transform.
+     */
+    public BigDecimal length() {
+        return length;
     }
 
+    /** Alias for {@link #length()} (legacy import callers). */
+    public BigDecimal lengthMm() {
+        return length;
+    }
+
+    /** Unit of measure from source; required for ACTIVE import validation. */
+    public String unitOfMeasure() {
+        return unitOfMeasure;
+    }
+
+    /**
+     * Consumption per one product copy (source «Кол-во позиции на 1 изделие»). Never multiplied by
+     * Order Item quantity.
+     */
+    public BigDecimal quantity() {
+        return quantity;
+    }
+
+    /** Alias for {@link #quantity()} (legacy import callers). */
     public BigDecimal lineQuantity() {
-        return lineQuantity;
+        return quantity;
     }
 
     @Override
@@ -80,8 +126,9 @@ public final class OrderImportSpecificationLine {
         return Objects.equals(materialCode, that.materialCode)
                 && Objects.equals(materialName, that.materialName)
                 && Objects.equals(color, that.color)
-                && compareNullable(lengthMm, that.lengthMm)
-                && compareNullable(lineQuantity, that.lineQuantity);
+                && compareNullable(length, that.length)
+                && Objects.equals(unitOfMeasure, that.unitOfMeasure)
+                && compareNullable(quantity, that.quantity);
     }
 
     private static boolean compareNullable(BigDecimal left, BigDecimal right) {
@@ -100,7 +147,8 @@ public final class OrderImportSpecificationLine {
                 materialCode,
                 materialName,
                 color,
-                lengthMm == null ? null : lengthMm.stripTrailingZeros(),
-                lineQuantity == null ? null : lineQuantity.stripTrailingZeros());
+                length == null ? null : length.stripTrailingZeros(),
+                unitOfMeasure,
+                quantity == null ? null : quantity.stripTrailingZeros());
     }
 }

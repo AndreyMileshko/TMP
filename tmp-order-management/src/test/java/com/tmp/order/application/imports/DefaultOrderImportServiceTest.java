@@ -54,6 +54,7 @@ import com.tmp.security.api.AuthorizationService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -72,6 +73,8 @@ class DefaultOrderImportServiceTest {
 
     private static final Clock CLOCK =
             Clock.fixed(Instant.parse("2026-07-31T04:00:00Z"), ZoneOffset.UTC);
+    private static final LocalDate ORDER_DATE = LocalDate.of(2026, 6, 25);
+    private static final String CUSTOMER = "Test Client";
 
     @Mock private CustomerOrderRepository customerOrderRepository;
     @Mock private OrderItemRepository orderItemRepository;
@@ -119,15 +122,22 @@ class DefaultOrderImportServiceTest {
                         "sample.stxt",
                         "checksum-1",
                         "26062891",
+                        ORDER_DATE,
+                        null,
+                        CUSTOMER,
                         List.of(
                                 position(
                                         "1",
+                                        "P-1",
+                                        "Name1",
                                         8,
                                         List.of(
                                                 line("A1", "Name1", "White", bd("10"), bd("16")),
                                                 line("A2", "Name2", null, null, bd("4")))),
                                 position(
                                         "2",
+                                        "P-2",
+                                        "NameB",
                                         3,
                                         List.of(line("B1", "NameB", " ", bd("20"), bd("2"))))));
         OrderImportPreview preview = service.preview(batch);
@@ -152,20 +162,16 @@ class DefaultOrderImportServiceTest {
     void blankOrderNumberIsRejected() {
         OrderImportPreview preview =
                 service.preview(
-                        OrderImportBatch.of(
-                                "STXT",
-                                "file.stxt",
-                                "cs",
+                        batch(
                                 "  ",
-                                List.of(position("1", 1, List.of(line("c", "n", null, null, bd("1")))))));
+                                List.of(position("1", "P-1", "Name", 1, List.of(line("c", "n", null, null, bd("1")))))));
         assertFalse(preview.canConfirm());
         assertTrue(hasCode(preview.errors(), OrderImportValidator.CODE_ORDER_NUMBER_REQUIRED));
     }
 
     @Test
     void emptyPositionsRejected() {
-        OrderImportPreview preview =
-                service.preview(OrderImportBatch.of("STXT", "file.stxt", "cs", "ORD-1", List.of()));
+        OrderImportPreview preview = service.preview(batch("ORD-1", List.of()));
         assertTrue(hasCode(preview.errors(), OrderImportValidator.CODE_POSITIONS_EMPTY));
     }
 
@@ -173,14 +179,13 @@ class DefaultOrderImportServiceTest {
     void blankExternalPositionNumberRejected() {
         OrderImportPreview preview =
                 service.preview(
-                        OrderImportBatch.of(
-                                "STXT",
-                                "file.stxt",
-                                "cs",
+                        batch(
                                 "ORD-1",
                                 List.of(
                                         position(
                                                 " ",
+                                                "P-1",
+                                                "Name",
                                                 1,
                                                 List.of(line("c", "n", null, null, bd("1")))))));
         assertTrue(
@@ -191,14 +196,13 @@ class DefaultOrderImportServiceTest {
     void zeroProductQuantityRejected() {
         OrderImportPreview preview =
                 service.preview(
-                        OrderImportBatch.of(
-                                "STXT",
-                                "file.stxt",
-                                "cs",
+                        batch(
                                 "ORD-1",
                                 List.of(
                                         position(
                                                 "1",
+                                                "P-1",
+                                                "Name",
                                                 0,
                                                 List.of(line("c", "n", null, null, bd("1")))))));
         assertTrue(
@@ -211,14 +215,13 @@ class DefaultOrderImportServiceTest {
     void negativeProductQuantityRejected() {
         OrderImportPreview preview =
                 service.preview(
-                        OrderImportBatch.of(
-                                "STXT",
-                                "file.stxt",
-                                "cs",
+                        batch(
                                 "ORD-1",
                                 List.of(
                                         position(
                                                 "1",
+                                                "P-1",
+                                                "Name",
                                                 -2,
                                                 List.of(line("c", "n", null, null, bd("1")))))));
         assertTrue(
@@ -231,12 +234,9 @@ class DefaultOrderImportServiceTest {
     void emptySpecificationRejected() {
         OrderImportPreview preview =
                 service.preview(
-                        OrderImportBatch.of(
-                                "STXT",
-                                "file.stxt",
-                                "cs",
+                        batch(
                                 "ORD-1",
-                                List.of(OrderImportPosition.of("1", 1, List.of()))));
+                                List.of(OrderImportPosition.of("1", "P-1", "Name", 1, List.of()))));
         assertTrue(hasCode(preview.errors(), OrderImportValidator.CODE_SPECIFICATION_EMPTY));
     }
 
@@ -244,14 +244,13 @@ class DefaultOrderImportServiceTest {
     void blankMaterialCodeRejected() {
         OrderImportPreview preview =
                 service.preview(
-                        OrderImportBatch.of(
-                                "STXT",
-                                "file.stxt",
-                                "cs",
+                        batch(
                                 "ORD-1",
                                 List.of(
                                         position(
                                                 "1",
+                                                "P-1",
+                                                "Name",
                                                 1,
                                                 List.of(line(" ", "Name", null, null, bd("1")))))));
         assertTrue(hasCode(preview.errors(), OrderImportValidator.CODE_MATERIAL_CODE_REQUIRED));
@@ -261,14 +260,13 @@ class DefaultOrderImportServiceTest {
     void blankMaterialNameRejected() {
         OrderImportPreview preview =
                 service.preview(
-                        OrderImportBatch.of(
-                                "STXT",
-                                "file.stxt",
-                                "cs",
+                        batch(
                                 "ORD-1",
                                 List.of(
                                         position(
                                                 "1",
+                                                "P-1",
+                                                "Name",
                                                 1,
                                                 List.of(line("CODE", " ", null, null, bd("1")))))));
         assertTrue(hasCode(preview.errors(), OrderImportValidator.CODE_MATERIAL_NAME_REQUIRED));
@@ -279,14 +277,13 @@ class DefaultOrderImportServiceTest {
         stubPreviewReadOnlyOk();
         OrderImportPreview preview =
                 service.preview(
-                        OrderImportBatch.of(
-                                "STXT",
-                                "file.stxt",
-                                "cs",
+                        batch(
                                 "ORD-1",
                                 List.of(
                                         position(
                                                 "1",
+                                                "P-1",
+                                                "Name",
                                                 1,
                                                 List.of(line("CODE", "Name", null, null, bd("1")))))));
         assertTrue(preview.canConfirm());
@@ -296,14 +293,13 @@ class DefaultOrderImportServiceTest {
     void nonPositiveLengthMmRejected() {
         OrderImportPreview preview =
                 service.preview(
-                        OrderImportBatch.of(
-                                "STXT",
-                                "file.stxt",
-                                "cs",
+                        batch(
                                 "ORD-1",
                                 List.of(
                                         position(
                                                 "1",
+                                                "P-1",
+                                                "Name",
                                                 1,
                                                 List.of(
                                                         line(
@@ -319,14 +315,13 @@ class DefaultOrderImportServiceTest {
     void nonPositiveLineQuantityRejected() {
         OrderImportPreview preview =
                 service.preview(
-                        OrderImportBatch.of(
-                                "STXT",
-                                "file.stxt",
-                                "cs",
+                        batch(
                                 "ORD-1",
                                 List.of(
                                         position(
                                                 "1",
+                                                "P-1",
+                                                "Name",
                                                 1,
                                                 List.of(
                                                         line(
@@ -349,14 +344,13 @@ class DefaultOrderImportServiceTest {
     void lineQuantityNotMultipliedByProductQuantity() {
         stubPreviewReadOnlyOk();
         OrderImportBatch batch =
-                OrderImportBatch.of(
-                        "STXT",
-                        "file.stxt",
-                        "cs",
+                batch(
                         "ORD-1",
                         List.of(
                                 position(
                                         "1",
+                                        "P-1",
+                                        "Name",
                                         8,
                                         List.of(line("CODE", "Name", null, null, bd("16"))))));
         OrderImportPreview preview = service.preview(batch);
@@ -375,8 +369,8 @@ class DefaultOrderImportServiceTest {
         OrderImportValidator validator =
                 new OrderImportValidator() {
                     @Override
-                    public List<OrderImportProblem> validate(OrderImportBatch batch) {
-                        List<OrderImportProblem> problems = new ArrayList<>(super.validate(batch));
+                    public List<OrderImportProblem> validateAll(List<OrderImportBatch> batches) {
+                        List<OrderImportProblem> problems = new ArrayList<>(super.validateAll(batches));
                         problems.add(
                                 OrderImportProblem.warning(
                                         "IMPORT_UNKNOWN_COLUMN",
@@ -409,8 +403,7 @@ class DefaultOrderImportServiceTest {
 
     @Test
     void errorsBlockConfirm() {
-        OrderImportPreview preview =
-                service.preview(OrderImportBatch.of("STXT", "file.stxt", "cs", "ORD-1", List.of()));
+        OrderImportPreview preview = service.preview(batch("ORD-1", List.of()));
         assertFalse(preview.canConfirm());
         assertTrue(preview.preparedPlan().isEmpty());
         assertThrows(
@@ -443,8 +436,7 @@ class DefaultOrderImportServiceTest {
 
     @Test
     void previewErrorHasNoPreparedPlan() {
-        OrderImportPreview preview =
-                service.preview(OrderImportBatch.of("STXT", "file.stxt", "cs", "ORD-1", List.of()));
+        OrderImportPreview preview = service.preview(batch("ORD-1", List.of()));
         assertFalse(preview.canConfirm());
         assertTrue(preview.preparedPlan().isEmpty());
     }
@@ -467,19 +459,19 @@ class DefaultOrderImportServiceTest {
         assertEquals(original.positions(), plan.batch().positions());
         assertThrows(
                 UnsupportedOperationException.class,
-                () -> plan.batch().positions().add(position("9", 1, List.of(line("c", "n", null, null, bd("1"))))));
+                () -> plan.batch().positions().add(position("9", "P-9", "Name", 1, List.of(line("c", "n", null, null, bd("1"))))));
     }
 
     @Test
     void sourceTypeTooLongIsRejected() {
         OrderImportPreview preview =
                 service.preview(
-                        OrderImportBatch.of(
+                        batch(
                                 "S".repeat(OrderImportValidator.MAX_SOURCE_TYPE_LENGTH + 1),
                                 "file.stxt",
                                 "cs",
                                 "ORD-1",
-                                List.of(position("1", 1, List.of(line("c", "n", null, null, bd("1")))))));
+                                List.of(position("1", "P-1", "Name", 1, List.of(line("c", "n", null, null, bd("1")))))));
         assertTrue(hasCode(preview.errors(), OrderImportValidator.CODE_SOURCE_TYPE_TOO_LONG));
         assertFalse(preview.canConfirm());
     }
@@ -488,12 +480,12 @@ class DefaultOrderImportServiceTest {
     void contentChecksumTooLongIsRejected() {
         OrderImportPreview preview =
                 service.preview(
-                        OrderImportBatch.of(
+                        batch(
                                 "STXT",
                                 "file.stxt",
                                 "C".repeat(OrderImportValidator.MAX_CONTENT_CHECKSUM_LENGTH + 1),
                                 "ORD-1",
-                                List.of(position("1", 1, List.of(line("c", "n", null, null, bd("1")))))));
+                                List.of(position("1", "P-1", "Name", 1, List.of(line("c", "n", null, null, bd("1")))))));
         assertTrue(hasCode(preview.errors(), OrderImportValidator.CODE_CHECKSUM_TOO_LONG));
     }
 
@@ -501,12 +493,12 @@ class DefaultOrderImportServiceTest {
     void sourceReferenceTooLongIsRejected() {
         OrderImportPreview preview =
                 service.preview(
-                        OrderImportBatch.of(
+                        batch(
                                 "STXT",
                                 "r".repeat(OrderImportValidator.MAX_SOURCE_REFERENCE_LENGTH + 1),
                                 "cs",
                                 "ORD-1",
-                                List.of(position("1", 1, List.of(line("c", "n", null, null, bd("1")))))));
+                                List.of(position("1", "P-1", "Name", 1, List.of(line("c", "n", null, null, bd("1")))))));
         assertTrue(hasCode(preview.errors(), OrderImportValidator.CODE_SOURCE_REFERENCE_TOO_LONG));
     }
 
@@ -514,32 +506,32 @@ class DefaultOrderImportServiceTest {
     void absoluteSourceReferenceIsRejected() {
         OrderImportPreview windows =
                 service.preview(
-                        OrderImportBatch.of(
+                        batch(
                                 "STXT",
                                 "C:\\exports\\file.stxt",
                                 "cs",
                                 "ORD-1",
-                                List.of(position("1", 1, List.of(line("c", "n", null, null, bd("1")))))));
+                                List.of(position("1", "P-1", "Name", 1, List.of(line("c", "n", null, null, bd("1")))))));
         assertTrue(hasCode(windows.errors(), OrderImportValidator.CODE_SOURCE_REFERENCE_ABSOLUTE_PATH));
 
         OrderImportPreview unix =
                 service.preview(
-                        OrderImportBatch.of(
+                        batch(
                                 "STXT",
                                 "/home/user/file.stxt",
                                 "cs",
                                 "ORD-1",
-                                List.of(position("1", 1, List.of(line("c", "n", null, null, bd("1")))))));
+                                List.of(position("1", "P-1", "Name", 1, List.of(line("c", "n", null, null, bd("1")))))));
         assertTrue(hasCode(unix.errors(), OrderImportValidator.CODE_SOURCE_REFERENCE_ABSOLUTE_PATH));
 
         OrderImportPreview tmp =
                 service.preview(
-                        OrderImportBatch.of(
+                        batch(
                                 "STXT",
                                 "/tmp/file.stxt",
                                 "cs",
                                 "ORD-1",
-                                List.of(position("1", 1, List.of(line("c", "n", null, null, bd("1")))))));
+                                List.of(position("1", "P-1", "Name", 1, List.of(line("c", "n", null, null, bd("1")))))));
         assertTrue(hasCode(tmp.errors(), OrderImportValidator.CODE_SOURCE_REFERENCE_ABSOLUTE_PATH));
     }
 
@@ -676,21 +668,51 @@ class DefaultOrderImportServiceTest {
                 "sample.stxt",
                 "checksum-abc",
                 "26062891",
+                ORDER_DATE,
+                null,
+                CUSTOMER,
                 List.of(
                         position(
                                 "1",
+                                "107.225",
+                                "Штапик",
                                 8,
                                 List.of(line("107.225", "Штапик", null, bd("2066"), bd("16"))))));
     }
 
+    private static OrderImportBatch batch(String orderNumber, List<OrderImportPosition> positions) {
+        return batch("STXT", "file.stxt", "cs", orderNumber, positions);
+    }
+
+    private static OrderImportBatch batch(
+            String sourceType,
+            String sourceReference,
+            String checksum,
+            String orderNumber,
+            List<OrderImportPosition> positions) {
+        return OrderImportBatch.of(
+                sourceType,
+                sourceReference,
+                checksum,
+                orderNumber,
+                ORDER_DATE,
+                null,
+                CUSTOMER,
+                positions);
+    }
+
     private static OrderImportPosition position(
-            String external, Integer qty, List<OrderImportSpecificationLine> lines) {
-        return OrderImportPosition.of(external, qty, lines);
+            String external,
+            String productCode,
+            String name,
+            Integer qty,
+            List<OrderImportSpecificationLine> lines) {
+        return OrderImportPosition.of(external, productCode, name, qty, lines);
     }
 
     private static OrderImportSpecificationLine line(
             String code, String name, String color, BigDecimal length, BigDecimal qty) {
-        return OrderImportSpecificationLine.of(code, name, color, length, qty);
+        return OrderImportSpecificationLine.of(code, name, color, length, "шт", qty);
     }
 
     private static BigDecimal bd(String value) {
@@ -706,6 +728,11 @@ class DefaultOrderImportServiceTest {
 
         private FakePreparedPlan(OrderImportBatch batch) {
             this.batch = batch;
+        }
+
+        @Override
+        public List<OrderImportBatch> batches() {
+            return List.of(batch);
         }
 
         @Override

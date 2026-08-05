@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-010
 **Status:** Accepted
-**Version:** 1.5
+**Version:** 1.6
 
 ---
 
@@ -145,7 +145,7 @@ Order Management **не** владеет и **не** хранит (принад�
 
 Коммерческие поля позиции (наименование, код изделия, комментарии, внешний номер позиции), не входящие в Revision/Specification, изменяются документом `ORDER_ITEM_UPDATE`.
 
-**Incomplete DRAFT (позиция):** в статусе `DRAFT` допускается временное отсутствие `productCode` и/или `name` (`null`). Запрещены placeholders (`UNKNOWN`, `N/A`, `IMPORT`, `—`, «Изделие N» и т.п.). `externalPositionNumber` **не** заменяет `productCode`. `materialName` строки спецификации **не** заменяет наименование Order Item. Перед ручным `ORDER_ITEM_REVISION_APPROVE` обязательны заполненные `productCode` и `name`, непустая спецификация и прочие инварианты утверждения. Позиция `ACTIVE`, полученная ручным утверждением, имеет `productCode` и `name`. Import operation может создать `ACTIVE` без коммерческих полей выгрузки (их нет в источнике); после создания поведение такой позиции = обычный `ACTIVE` (ADR-031). Позиция в статусе `CANCELLED` может хранить последнее состояние ранее неполного `DRAFT` (включая `null` commercial fields); это не разрешает редактировать коммерческие поля в `CANCELLED`.
+**Incomplete DRAFT (позиция):** в статусе `DRAFT` допускается временное отсутствие `productCode` и/или `name` (`null`). Запрещены placeholders (`UNKNOWN`, `N/A`, `IMPORT`, `—`, «Изделие N» и т.п.). `externalPositionNumber` **не** заменяет `productCode`. `materialName` строки спецификации **не** заменяет наименование Order Item. Перед ручным `ORDER_ITEM_REVISION_APPROVE` обязательны заполненные `productCode` и `name`, непустая спецификация и прочие инварианты утверждения. Позиция `ACTIVE`, полученная ручным утверждением, имеет `productCode` и `name`. Import (Final STXT Contract) заполняет `productCode` и `name` из выгрузки и создаёт `ACTIVE` сразу; после создания поведение = обычный `ACTIVE` (ADR-031). Позиция в статусе `CANCELLED` может хранить последнее состояние ранее неполного `DRAFT` (включая `null` commercial fields); это не разрешает редактировать коммерческие поля в `CANCELLED`.
 
 **Количество изделий (`productQuantity`):** семантически — число одинаковых копий расчётного изделия для позиции. В текущей модели значение хранится как `OrderedQuantity` на `OrderItemRevision` (единый источник истины). Не дублировать отдельным полем Item с тем же смыслом. UI-подпись: «Количество изделий». Правила: `productQuantity != null`, целое число `> 0`.
 
@@ -802,6 +802,7 @@ Order Management предоставляет стабильные `Order Item ID`
 | 1.3 (rev. incomplete-DRAFT) | Принято ADR-030: неполные коммерческие данные разрешены только в `DRAFT`; placeholders запрещены; `ORDER_APPROVE` требует все обязательные коммерческие поля с перечислением отсутствующих. |
 | 1.4 | ADR-031 (interim): `OrderOrigin`; import landing; imported-specific read-only / no new Revision — **superseded by 1.5**. |
 | 1.5 | **Final ADR-031:** uniform ACTIVE; запрет OrderOrigin/ImportMetadata/checksum duplicate protection; дубли только `orderNumber`; import operation → Order/Item/Revision/Specification ACTIVE; изменение ACTIVE только через Revision; RevisionStatus целевой `DRAFT\|ACTIVE`; §8/§9/§27. Реализация — STAGE5-058. |
+| 1.6 | **Final STXT Contract (STAGE5-058):** §27 block format ORDER→ITEM→SPEC; multi-order; productCode/name/client/date; `@`/`#` skip; `кв.м.`; quantity = норма расхода на 1 изделие; ACTIVE одинаков независимо от источника. |
 
 ---
 
@@ -834,133 +835,137 @@ External source → source adapter → source-neutral import model → Order Man
 
 В MVP реализуется только файловый адаптер. Будущий Firebird-адаптер должен формировать ту же source-neutral модель без изменения домена.
 
-## 27.3 Формат выгрузки (предварительный)
+## 27.3 Финальный STXT Contract (STAGE5-058)
 
-Колонки:
-
-```text
-Счет / Изделие / Кол-во изд. / Артикул / Наименование / Цвет / Размер / Кол-во позиции
-```
-
-Пример:
+Файл может содержать **несколько** заказов. Структура блоков:
 
 ```text
-26062891 / 1 / 8 / 107.225белый / Штапик черный 8 мм/38.39.40 / Белый / 2066,0мм. / 16
+ORDER BLOCK
+    ITEM BLOCK
+        SPECIFICATION LINES
 ```
 
-Поле «Расположение» исключено и не учитывается TMP.
+### Заказ
 
-| Колонка | Смысл | Домен |
-| --- | --- | --- |
-| Счет | Номер заказа | `OrderNumber` (не отдельный `invoiceNumber`) |
-| Изделие | Внешний номер расчётной позиции | `externalPositionNumber` на Order Item |
-| Кол-во изд. | Число копий изделия | `productQuantity` → `OrderedQuantity` Revision |
-| Артикул | Код материала | `materialCode` |
-| Наименование | Название материала | `materialName` |
-| Цвет | Цвет | `color` (nullable) |
-| Размер | Длина одной детали, мм | `lengthMm` (nullable) |
-| Кол-во позиции | Итоговое число одинаковых элементов строки для позиции | `lineQuantity` (не умножать на Кол-во изд.) |
+Начало блока: строка с меткой «Номер заказа:».
 
-Пример: `Кол-во изд. = 8`, `Кол-во позиции = 16` → сохранить `lineQuantity = 16` без `16 × 8`.
+Поля:
+
+| Метка | Домен / import model |
+| --- | --- |
+| Номер заказа | `orderNumber` |
+| Дата заказа | обязательна для ACTIVE import (валидация; отдельного persistent `orderDate` в агрегате нет — `createdAt` остаётся системным) |
+| Дата готовности | опциональна (парсится, не персистится в MVP) |
+| Клиент | `customerName` |
+
+Несколько различных номеров в одном файле → **несколько** Order (пример: `25096190` и `25096053`).
+
+### Изделие
+
+Начало блока: «Изделие:».
+
+| Метка | Поле |
+| --- | --- |
+| Изделие | `externalPositionNumber` |
+| Код изделия | `productCode` |
+| Наименование изделия | `name` (нормализация: убрать переносы/лишние пробелы; если первая отдельная строка — только число, удалить её) |
+| Кол-во изд. | `quantity` → `OrderedQuantity` |
+
+### Спецификация
+
+Колонки (разделитель `" / "`):
+
+```text
+Артикул / Наименование / Цвет / Размер / Единица измерения / Кол-во позиции на 1 изделие
+```
+
+Сохранять: `materialCode`, `materialName`, `color`, `length` (→ domain `lengthMm`), `unitOfMeasure`, `quantity` (→ domain `lineQuantity`).
+
+**Важно:** `quantity` = расход на **одну** копию изделия. **Не** умножать на `OrderItem.quantity`.
+
+Строки, начинающиеся с `@` или `#`, **не импортировать** (команды/комментарии СуперОкна).
+
+### Обработка `кв.м.`
+
+Если `unitOfMeasure = «кв.м.»` (и нормализованные варианты):
+
+- артикул — оставить;
+- наименование — добавить текст размера;
+- цвет — оставить;
+- размер/`length` — `null`;
+- единица — `шт.`;
+- количество — оставить.
+
+### Устаревший tabular MVP
+
+Предыдущий flat-header формат «Счет / Изделие / …» **заменён** финальным block contract. Адаптер ожидает «Номер заказа:».
 
 ## 27.4 Source-neutral import model
 
 Внутренняя модель не зависит от `.stxt`, JavaFX, Firebird, JDBC, пути файла, SQL и имён таблиц расчётной программы.
 
-Смысловая структура (имена Java-классов уточняются в реализации):
+Смысловая структура:
 
 ```text
-OrderImportBatch
-├── sourceType
-├── sourceReference
-├── orderNumber
+OrderImportBatch (один заказ; файл → List<OrderImportBatch>)
+├── sourceType / sourceReference / contentChecksum (эфемерно; не persistence)
+├── orderNumber, orderDate, readyDate?, customerName
 ├── positions[]
-│   ├── externalPositionNumber
-│   ├── productQuantity
+│   ├── externalPositionNumber, productCode, name, quantity
 │   └── specificationLines[]
-│       ├── materialCode
-│       ├── materialName
-│       ├── color
-│       ├── lengthMm
-│       └── lineQuantity
+│       ├── materialCode, materialName, color
+│       ├── length, unitOfMeasure, quantity
 ```
 
 Граница размещается внутри `tmp-order-management` (application/import), без нового Maven-модуля, пока не доказана необходимость.
 
-## 27.5 Файловый адаптер MVP
+## 27.5 Файловый адаптер (Final STXT Contract)
 
 Ответственность:
 
-* чтение файла; определение кодировки; разбор заголовков/строк; преобразование значений; предварительные ошибки; построение source-neutral model.
+* чтение файла; определение кодировки; разбор ORDER/ITEM/SPEC блоков; нормализация имени; исключение `@`/`#`; преобразование `кв.м.`; построение source-neutral model (несколько batches).
 
 Запрещено адаптеру:
 
-* писать в таблицы; создавать/проводить заказ; утверждать редакции; обращаться к JavaFX Controller; изменять существующий заказ.
+* писать в таблицы; создавать/проводить заказ; утверждать редакции; обращаться к JavaFX Controller; изменять существующий заказ; хранить checksum/ImportMetadata.
 
 ### Кодировки
 
-Поддержка: Windows-1251, UTF-8, UTF-8 with BOM. Повреждённый текст не сохранять. При невозможности определить кодировку — понятная ошибка пользователю.
+Поддержка: Windows-1251, UTF-8, UTF-8 with BOM.
 
-### Разделитель
+### Разделитель спецификации
 
-Структурный разделитель: `" / "` (пробел-слэш-пробел). Нельзя split по каждому `/` (наименование может содержать `/`).
+Структурный разделитель колонок: `" / "` (пробел-слэш-пробел). Нельзя split по каждому `/`.
 
 ### Пустые строки
 
-Игнорировать.
-
-### Заголовки
-
-Сопоставление по нормализованным именам колонок (не только по индексу). Допустимые алиасы:
-
-* Счет / Счёт / Номер счета / Заказ
-* Изделие / Позиция / Номер изделия
-* Кол-во изд. / Количество изделий
-* Артикул / Код материала
-* Наименование / Название
-* Цвет
-* Размер / Размер, мм / Длина / Длина, мм
-* Кол-во позиции / Количество позиции / Количество
-
-Отсутствие обязательной колонки — ошибка предварительной проверки. Неизвестная колонка — предупреждение; в домен не записывать автоматически.
-
-### Размер
-
-Из `2066,0мм.` / `555,5мм.`: trim; удалить `мм`/`мм.`; `,` → `.`; число в мм без пересчёта. Пусто → `lengthMm = null`. Некорректное непустое — ошибка строки.
-
-### Один заказ в файле
-
-Один уникальный `Счет`. Несколько различных номеров — останов импорта без частичного создания.
+Игнорировать при сканировании структуры.
 
 ## 27.6 Пользовательский процесс импорта
 
 ```text
 Выбор файла
-→ чтение / кодировка / структура
-→ source-neutral model
+→ чтение / кодировка / структура (ORDER/ITEM/SPEC, возможно несколько заказов)
+→ source-neutral model (List<OrderImportBatch>)
 → предварительная валидация (без persistence)
 → preview
 → подтверждение пользователя
 → IMPORT operation (одна транзакция, ADR-031):
-   Order ACTIVE
-   + Items ACTIVE
-   + Revisions ACTIVE
-   + Specification ACTIVE (Immutable)
+   для каждого заказа файла:
+     Order ACTIVE + Items ACTIVE + Revisions ACTIVE + Specification ACTIVE
 ```
 
 До подтверждения: заказ, позиции, редакции и строки **не** создаются.
 
-**Baseline до STAGE5-058 (факт STAGE5-057):** confirm создавал неполный `DRAFT` и мог использовать checksum metadata. **После STAGE5-058:** целевое поведение выше реализовано.
-
 ### Preview (минимум)
 
-Имя файла; номер заказа; число расчётных позиций; суммарное количество изделий; число строк спецификации; число ошибок; число предупреждений.
+Имя файла; номер(а) заказа; число заказов; число расчётных позиций; суммарное количество изделий; число строк спецификации; число ошибок; число предупреждений.
 
-Ошибка строки: номер строки; колонка; исходное значение; понятное описание. Без Java/SQL exception и stack trace как пользовательского текста.
+Ошибка строки: номер строки; колонка/поле; исходное значение; понятное описание. Без Java/SQL exception и stack trace как пользовательского текста.
 
 ### Атомарность
 
-Полностью либо никак. Ошибка на любой позиции при подтверждённом импорте откатывает всю транзакцию. Только штатные application services / документы Order Management. Adapter не пишет в таблицы напрямую (ADR-029).
+Полностью либо никак (все заказы файла в одной TX). Ошибка на любом заказе/позиции откатывает всю транзакцию. Только штатные application services / документы Order Management. Adapter не пишет в таблицы напрямую (ADR-029).
 
 ### Дублирование (единственная проверка)
 
@@ -973,11 +978,21 @@ OrderImportBatch
 
 Без merge, автосравнения, замены позиций, новой редакции «поверх» импорта, частичного обновления.
 
-**Запрещено** как отдельная защита импорта: `ImportMetadata`, persistent `sourceType`/`importedAt`/`importedBy`, checksum storage, registry повторных файлов (ADR-031). Исторические артефакты MVP удаляются/выводятся из контракта в `STAGE5-058`.
+**Запрещено** как отдельная защита импорта: `ImportMetadata`, persistent `sourceType`/`importedAt`/`importedBy`, checksum storage, registry повторных файлов (ADR-031).
+
+### ACTIVE import validation (Final STXT Contract)
+
+Обязательны (без placeholders):
+
+* Order: номер заказа; дата заказа; клиент;
+* Order Item: `productCode`; `name`; `quantity`;
+* Specification: `materialCode`; `materialName`; `unitOfMeasure`; `quantity`.
 
 ## 27.7 Коммерческие данные при импорте
 
-Файл не содержит заказчика, договора, объекта и прочих коммерческих реквизитов заказа. Файл также не содержит `productCode` и наименование Order Item.
+**Final STXT Contract** содержит клиента и коммерческие поля изделия (`productCode`, `name`). Они заполняются при import landing.
+
+Поля, которых нет в выгрузке (`direction`, `currency`, `contractRef`, `siteRef` и т.п.), остаются незаполненными и **не** блокируют IMPORT → ACTIVE.
 
 **Ручной путь (ADR-030):**
 
@@ -988,9 +1003,8 @@ OrderImportBatch
 **IMPORT operation (ADR-031):**
 
 1. Создаёт сразу `ACTIVE` на всех уровнях (Order / Item / Revision / Specification).
-2. Отсутствие коммерческих полей, которых нет в выгрузке, не блокирует import landing.
-3. Placeholders запрещены.
-4. После создания — обычный `ACTIVE`: прямое редактирование запрещено; изменение только через Revision (одинаково с ручным ACTIVE).
+2. Требует поля Final STXT Contract (§27.6); placeholders запрещены.
+3. После создания — обычный `ACTIVE`: прямое редактирование запрещено; изменение только через Revision (одинаково с ручным ACTIVE).
 
 **Реализация:** `STAGE5-058`.
 
@@ -1013,15 +1027,15 @@ OrderImportBatch
 | Public Query / DTO / payload / UI / V6+V8 | содержат `consumptionNorm` | синхронное изменение контрактов в STAGE5-051 |
 | Warehouse/Production/Cutting | не читают `consumptionNorm` | кросс-модульного blocker нет |
 | Create DRAFT Order | `customerName` (и др.) ещё обязателен в коде | ADR-030 принят; реализация релаксации в STAGE5-051 |
-| Import landing | STAGE5-058 DONE: IMPORT → uniform ACTIVE; metadata protection removed; RevisionStatus → `ACTIVE` | — |
+| Import landing | STAGE5-058 DONE: Final STXT Contract + IMPORT → uniform ACTIVE; multi-order; metadata protection removed | — |
 
-Требуемые изменения ADR-031 final реализованы в `STAGE5-058`: domain statuses, import confirm landing ACTIVE, удаление import-metadata duplicate protection, UI read-only для любого ACTIVE, Revision rename `APPROVED→ACTIVE`, Flyway V13, tests.
+Требуемые изменения ADR-031 final + Final STXT Contract реализованы в `STAGE5-058`: domain statuses, block STXT parser, multi-order confirm, import validation (number/date/client/productCode/name/unit/quantity), удаление import-metadata duplicate protection, UI read-only для любого ACTIVE, Revision rename `APPROVED→ACTIVE`, Flyway V13, tests.
 
 ## 27.10 Imported Order Lifecycle Rules (ADR-031 final) — сводка
 
 ```text
 Ручной:   DRAFT → APPROVED → ACTIVE
-Импорт:   IMPORT operation → ACTIVE
+Импорт:   STXT → Import Core → IMPORT operation → ACTIVE
 
 После ACTIVE:
   Order / Item / Revision / Specification — единое поведение
@@ -1030,5 +1044,7 @@ OrderImportBatch
 ```
 
 Дубли: только `orderNumber` uniqueness.
+
+ACTIVE одинаков независимо от источника создания.
 
 Не создавать: OrderOrigin, ImportMetadata, checksum registry, отдельные import-сущности.
