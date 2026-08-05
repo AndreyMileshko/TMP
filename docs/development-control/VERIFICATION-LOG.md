@@ -3,6 +3,26 @@
 ## Latest result
 
 **Date:** 2026-08-05  
+**Scope:** STAGE5-058 — FINAL ARCHITECTURE VERIFICATION (read-only audit)  
+**Overall:** PASS  
+**Type:** Code + documentation architecture verification (no functional changes)  
+**Environment:** Windows; repository inspection only
+
+| Item | Result |
+|---|---|
+| STAGE5-058 | DONE |
+| Lifecycle Import→create→approve→ACTIVE | PASS (Document Engine only) |
+| No direct ACTIVE assignment | PASS |
+| ACTIVE parity (manual = imported) | PASS |
+| ImportMetadata | DROPPED (V13); unused |
+| Stage 6 | NOT STARTED |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result
+
+**Date:** 2026-08-05  
 **Scope:** STAGE5-058 FIX — no direct ACTIVE; Document approve/activate only  
 **Overall:** PASS  
 **Type:** Automated unit + integration + architecture  
