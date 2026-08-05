@@ -950,12 +950,15 @@ OrderImportBatch (один заказ; файл → List<OrderImportBatch>)
 → предварительная валидация (без persistence)
 → preview
 → подтверждение пользователя
-→ IMPORT operation (одна транзакция, ADR-031):
-   для каждого заказа файла:
-     Order ACTIVE + Items ACTIVE + Revisions ACTIVE + Specification ACTIVE
+→ IMPORT operation (одна транзакция, ADR-031), штатный Document Engine lifecycle:
+   ORDER_CREATE + ORDER_ITEM_CREATE + ORDER_ITEM_REVISION_UPDATE
+   → ORDER_ITEM_REVISION_APPROVE (Item/Revision/Specification ACTIVE)
+   → ORDER_APPROVE (import gates: client + ≥1 ACTIVE item; без полного ADR-030 set)
+   → ORDER_ACTIVATE
+   → Order ACTIVE
 ```
 
-До подтверждения: заказ, позиции, редакции и строки **не** создаются.
+До подтверждения: заказ, позиции, редакции и строки **не** создаются. Итоговый статус импорта — **ACTIVE**, не долгоживущий DRAFT. Прямая активация агрегатов в обход Document Engine запрещена.
 
 ### Preview (минимум)
 

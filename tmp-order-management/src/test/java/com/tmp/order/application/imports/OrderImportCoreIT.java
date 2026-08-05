@@ -166,7 +166,7 @@ class OrderImportCoreIT {
         assertEquals(OrderImportDefaults.UNIT_OF_MEASURE, lines.get(0).unitOfMeasure());
         assertTrue(revision.specification().orElseThrow().isImmutable());
         assertFalse(importMetadataTableExists());
-        assertTrue(countProcessing() >= 3);
+        assertTrue(countProcessing() >= 6);
     }
 
     @Test
@@ -290,6 +290,10 @@ class OrderImportCoreIT {
                 importer.id(), OrderManagementPermissions.ITEM_CREATE);
         roleAdministrationService.grantIndividualPermission(
                 importer.id(), OrderManagementPermissions.REVISION_EDIT);
+        roleAdministrationService.grantIndividualPermission(
+                importer.id(), OrderManagementPermissions.ITEM_APPROVE);
+        roleAdministrationService.grantIndividualPermission(
+                importer.id(), OrderManagementPermissions.ORDER_APPROVE);
         authenticationService.logout();
         authenticationService.login(Login.of("importer"), IMPORTER_PASSWORD.clone());
     }

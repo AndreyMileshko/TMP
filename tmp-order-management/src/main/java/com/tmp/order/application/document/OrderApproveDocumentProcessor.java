@@ -6,6 +6,7 @@ import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentProcessorRegistration;
 import com.tmp.document.api.TransactionalEventPublisher;
 import com.tmp.order.api.event.OrderApproved;
+import com.tmp.order.application.imports.ImportApproveGate;
 import com.tmp.order.application.order.ApproveOrderCommand;
 import com.tmp.order.application.order.ApproveOrderUseCase;
 import com.tmp.order.application.payload.DocumentTypeCode;
@@ -20,6 +21,9 @@ import java.util.Objects;
 
 /**
  * Document processor for {@code ORDER_APPROVE} (Specification §13 / §14).
+ *
+ * <p>Manual posts use full ADR-030 commercial gates. Import Core posts under
+ * {@link ImportApproveGate} and uses import landing rules (client + ACTIVE item).
  */
 public final class OrderApproveDocumentProcessor extends AbstractOrderDocumentProcessor {
 
@@ -52,8 +56,11 @@ public final class OrderApproveDocumentProcessor extends AbstractOrderDocumentPr
     protected ResultReference executeBusinessAction(
             DocumentOperationContext context, OrderDocumentPayload payload) {
         OrderApprovePayload approvePayload = (OrderApprovePayload) payload;
+        ApproveOrderCommand command = new ApproveOrderCommand(approvePayload.orderId());
         CustomerOrder order =
-                approveOrderUseCase.execute(new ApproveOrderCommand(approvePayload.orderId()));
+                ImportApproveGate.isActive()
+                        ? approveOrderUseCase.executeForImport(command)
+                        : approveOrderUseCase.execute(command);
         return ResultReference.of(RESULT_PREFIX + order.id().value());
     }
 

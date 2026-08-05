@@ -7,8 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -20,10 +18,6 @@ import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.DocumentMetadata;
 import com.tmp.document.api.DocumentStatus;
 import com.tmp.order.api.OrderId;
-import com.tmp.order.api.OrderItemId;
-import com.tmp.order.api.OrderItemStatus;
-import com.tmp.order.api.OrderStatus;
-import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportConfirmResult;
 import com.tmp.order.api.imports.OrderImportConflictException;
@@ -40,16 +34,9 @@ import com.tmp.order.application.processing.ProcessingOperation;
 import com.tmp.order.application.processing.ProcessingRecord;
 import com.tmp.order.application.processing.ProcessingRecordPort;
 import com.tmp.order.application.processing.ResultReference;
-import com.tmp.order.domain.CustomerOrder;
-import com.tmp.order.domain.ItemCommercialData;
-import com.tmp.order.domain.ItemSpecification;
-import com.tmp.order.domain.OrderCommercialData;
-import com.tmp.order.domain.OrderItem;
 import com.tmp.order.domain.OrderNumber;
-import com.tmp.order.domain.OrderedQuantity;
 import com.tmp.order.domain.repository.CustomerOrderRepository;
 import com.tmp.order.domain.repository.OrderItemRepository;
-import com.tmp.order.testsupport.IntakeContractFixtures;
 import com.tmp.security.api.AuthorizationService;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -557,7 +544,7 @@ class DefaultOrderImportServiceTest {
     }
 
     @Test
-    void confirmActivatesOrderAndItemWithoutMetadataCollaborator() {
+    void confirmPostsApproveAndActivateDocumentsWithoutDirectAggregateActivation() {
         stubPreviewReadOnlyOk();
         stubConfirmDocumentFlow();
         PreparedOrderImportPlan plan = service.preview(validBatch()).preparedPlan().orElseThrow();
@@ -567,10 +554,10 @@ class DefaultOrderImportServiceTest {
         assertEquals("26062891", result.orderNumber());
         assertEquals(1, result.createdPositionCount());
         assertEquals(1, result.createdSpecificationLineCount());
-        verify(orderItemRepository, atLeastOnce())
-                .save(argThat(item -> item.status() == OrderItemStatus.ACTIVE));
-        verify(customerOrderRepository, atLeastOnce())
-                .save(argThat(order -> order.status() == OrderStatus.ACTIVE));
+        // create + item create + rev update + rev approve + order approve + order activate
+        verify(documentEngine, org.mockito.Mockito.times(6)).postDocument(any());
+        verify(orderItemRepository, never()).save(any());
+        verify(customerOrderRepository, never()).save(any());
     }
 
     @Test
@@ -592,16 +579,23 @@ class DefaultOrderImportServiceTest {
 
     private void stubConfirmDocumentFlow() {
         OrderId orderId = OrderId.generate();
-        OrderItemId itemId = OrderItemId.generate();
         UUID orderDocId = UUID.randomUUID();
         UUID itemCreateDocId = UUID.randomUUID();
         UUID itemUpdateDocId = UUID.randomUUID();
+        UUID revApproveDocId = UUID.randomUUID();
+        UUID orderApproveDocId = UUID.randomUUID();
+        UUID orderActivateDocId = UUID.randomUUID();
 
         when(documentEngine.createDocument(any(CreateDocumentCommand.class)))
                 .thenReturn(
                         metadata(orderDocId, DocumentTypeCode.ORDER_CREATE.name()),
                         metadata(itemCreateDocId, DocumentTypeCode.ORDER_ITEM_CREATE.name()),
-                        metadata(itemUpdateDocId, DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE.name()));
+                        metadata(itemUpdateDocId, DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE.name()),
+                        metadata(
+                                revApproveDocId,
+                                DocumentTypeCode.ORDER_ITEM_REVISION_APPROVE.name()),
+                        metadata(orderApproveDocId, DocumentTypeCode.ORDER_APPROVE.name()),
+                        metadata(orderActivateDocId, DocumentTypeCode.ORDER_ACTIVATE.name()));
         when(processingRecords.findByDocumentIdAndOperation(
                         DocumentId.of(orderDocId), ProcessingOperation.POST))
                 .thenReturn(
@@ -613,39 +607,6 @@ class DefaultOrderImportServiceTest {
                                         CLOCK.instant(),
                                         ResultReference.of(
                                                 "order:" + orderId.value()))));
-
-        OrderItem draftItem =
-                OrderItem.create(
-                                itemId,
-                                orderId,
-                                ItemCommercialData.of(null, null, null, "1"),
-                                OrderedQuantity.of(8),
-                                CLOCK)
-                        .updateDraftSpecification(
-                                ItemSpecification.of(
-                                        itemId,
-                                        RevisionNumber.first(),
-                                        List.of(
-                                                IntakeContractFixtures.specLine(
-                                                        "107.225",
-                                                        "Штапик",
-                                                        bd("16"),
-                                                        OrderImportDefaults.UNIT_OF_MEASURE))),
-                                CLOCK);
-        CustomerOrder draftOrder =
-                CustomerOrder.create(
-                        orderId,
-                        OrderNumber.of("26062891"),
-                        OrderCommercialData.of(null, null, null, null, null, null, null),
-                        CLOCK);
-
-        when(orderItemRepository.findById(any(OrderItemId.class)))
-                .thenReturn(Optional.of(draftItem));
-        when(customerOrderRepository.findById(any(OrderId.class))).thenReturn(Optional.of(draftOrder));
-        when(orderItemRepository.save(any(OrderItem.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(customerOrderRepository.save(any(CustomerOrder.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     private static DocumentMetadata metadata(UUID id, String typeId) {

@@ -23,8 +23,11 @@ import com.tmp.order.application.order.DuplicateOrderNumberException;
 import com.tmp.order.application.payload.DocumentId;
 import com.tmp.order.application.payload.DocumentTypeCode;
 import com.tmp.order.application.payload.DraftPayloadApplicationService;
+import com.tmp.order.application.payload.OrderActivatePayload;
+import com.tmp.order.application.payload.OrderApprovePayload;
 import com.tmp.order.application.payload.OrderCreatePayload;
 import com.tmp.order.application.payload.OrderItemCreatePayload;
+import com.tmp.order.application.payload.OrderItemRevisionApprovePayload;
 import com.tmp.order.application.payload.OrderItemRevisionPayloadLine;
 import com.tmp.order.application.payload.OrderItemRevisionUpdatePayload;
 import com.tmp.order.application.processing.ProcessingOperation;
@@ -32,15 +35,12 @@ import com.tmp.order.application.processing.ProcessingRecord;
 import com.tmp.order.application.processing.ProcessingRecordPort;
 import com.tmp.order.application.processing.ResultReference;
 import com.tmp.order.capability.OrderManagementPermissions;
-import com.tmp.order.domain.CustomerOrder;
 import com.tmp.order.domain.ItemCommercialData;
 import com.tmp.order.domain.OrderCommercialData;
-import com.tmp.order.domain.OrderItem;
 import com.tmp.order.domain.OrderNumber;
 import com.tmp.order.domain.OrderedQuantity;
 import com.tmp.order.domain.ProductCode;
 import com.tmp.order.domain.repository.CustomerOrderRepository;
-import com.tmp.order.domain.repository.OrderItemRepository;
 import com.tmp.security.api.AuthorizationService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
@@ -56,9 +56,10 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Default Import Core: source-neutral preview without persistence and atomic confirm through
- * Document Engine business documents, landing Order/Item/Revision/Specification as ACTIVE
- * (ADR-031 / Final STXT Contract). Multi-order files are confirmed in one transaction.
+ * Default Import Core: preview without persistence; atomic confirm through Document Engine:
+ * create docs → {@code ORDER_ITEM_REVISION_APPROVE} → {@code ORDER_APPROVE} (import gates) →
+ * {@code ORDER_ACTIVATE} → uniform ACTIVE (ADR-031 / Final STXT Contract). No direct aggregate
+ * activation bypass.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -67,7 +68,6 @@ public final class DefaultOrderImportService implements OrderImportService {
 
     private final OrderImportValidator validator;
     private final CustomerOrderRepository customerOrderRepository;
-    private final OrderItemRepository orderItemRepository;
     private final DocumentEngine documentEngine;
     private final DraftPayloadApplicationService draftPayloads;
     private final ProcessingRecordPort processingRecords;
@@ -78,7 +78,6 @@ public final class DefaultOrderImportService implements OrderImportService {
     public DefaultOrderImportService(
             OrderImportValidator validator,
             CustomerOrderRepository customerOrderRepository,
-            OrderItemRepository orderItemRepository,
             DocumentEngine documentEngine,
             DraftPayloadApplicationService draftPayloads,
             ProcessingRecordPort processingRecords,
@@ -88,8 +87,6 @@ public final class DefaultOrderImportService implements OrderImportService {
         this.validator = Objects.requireNonNull(validator, "validator");
         this.customerOrderRepository =
                 Objects.requireNonNull(customerOrderRepository, "customerOrderRepository");
-        this.orderItemRepository =
-                Objects.requireNonNull(orderItemRepository, "orderItemRepository");
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
         this.draftPayloads = Objects.requireNonNull(draftPayloads, "draftPayloads");
         this.processingRecords = Objects.requireNonNull(processingRecords, "processingRecords");
@@ -98,6 +95,32 @@ public final class DefaultOrderImportService implements OrderImportService {
         Objects.requireNonNull(transactionManager, "transactionManager");
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.clock = Objects.requireNonNull(clock, "clock");
+    }
+
+    /**
+     * Backward-compatible constructor retained for tests that still pass an unused item
+     * repository.
+     */
+    public DefaultOrderImportService(
+            OrderImportValidator validator,
+            CustomerOrderRepository customerOrderRepository,
+            com.tmp.order.domain.repository.OrderItemRepository orderItemRepository,
+            DocumentEngine documentEngine,
+            DraftPayloadApplicationService draftPayloads,
+            ProcessingRecordPort processingRecords,
+            AuthorizationService authorizationService,
+            PlatformTransactionManager transactionManager,
+            Clock clock) {
+        this(
+                validator,
+                customerOrderRepository,
+                documentEngine,
+                draftPayloads,
+                processingRecords,
+                authorizationService,
+                transactionManager,
+                clock);
+        Objects.requireNonNull(orderItemRepository, "orderItemRepository");
     }
 
     @Override
@@ -175,6 +198,8 @@ public final class DefaultOrderImportService implements OrderImportService {
         authorizationService.requirePermission(OrderManagementPermissions.ORDER_CREATE);
         authorizationService.requirePermission(OrderManagementPermissions.ITEM_CREATE);
         authorizationService.requirePermission(OrderManagementPermissions.REVISION_EDIT);
+        authorizationService.requirePermission(OrderManagementPermissions.ITEM_APPROVE);
+        authorizationService.requirePermission(OrderManagementPermissions.ORDER_APPROVE);
 
         List<OrderImportBatch> batches = plan.batches();
         List<OrderImportProblem> structural = validator.validateAll(batches);
@@ -225,27 +250,12 @@ public final class DefaultOrderImportService implements OrderImportService {
             totalPositions += batch.positionCount();
 
             for (OrderItemId itemId : createdItemIds) {
-                OrderItem item =
-                        orderItemRepository
-                                .findById(itemId)
-                                .orElseThrow(
-                                        () ->
-                                                new OrderImportProcessingException(
-                                                        new IllegalStateException(
-                                                                "Imported order item missing: "
-                                                                        + itemId)));
-                orderItemRepository.save(item.activateDraftRevisionForImport(clock));
+                postRevisionApprove(itemId, now);
             }
 
-            CustomerOrder order =
-                    customerOrderRepository
-                            .findById(orderId)
-                            .orElseThrow(
-                                    () ->
-                                            new OrderImportProcessingException(
-                                                    new IllegalStateException(
-                                                            "Imported order missing: " + orderId)));
-            customerOrderRepository.save(order.activateFromImport(clock));
+            postOrderApproveForImport(orderId, now);
+            postOrderActivate(orderId, now);
+
             imported.add(
                     OrderImportConfirmResult.ImportedOrder.of(orderId, orderNumber.value()));
         }
@@ -310,6 +320,38 @@ public final class DefaultOrderImportService implements OrderImportService {
                         now));
         documentEngine.postDocument(updateDocId);
         return orderItemId;
+    }
+
+    private void postRevisionApprove(OrderItemId orderItemId, Instant now) {
+        UUID documentId =
+                createDocument(
+                        DocumentTypeCode.ORDER_ITEM_REVISION_APPROVE, "import-revision-approve");
+        draftPayloads.createDraft(
+                OrderItemRevisionApprovePayload.create(
+                        DocumentId.of(documentId),
+                        orderItemId,
+                        RevisionNumber.first(),
+                        now));
+        documentEngine.postDocument(documentId);
+    }
+
+    private void postOrderApproveForImport(OrderId orderId, Instant now) {
+        UUID documentId = createDocument(DocumentTypeCode.ORDER_APPROVE, "import-order-approve");
+        draftPayloads.createDraft(
+                OrderApprovePayload.create(DocumentId.of(documentId), orderId, now));
+        ImportApproveGate.enter();
+        try {
+            documentEngine.postDocument(documentId);
+        } finally {
+            ImportApproveGate.exit();
+        }
+    }
+
+    private void postOrderActivate(OrderId orderId, Instant now) {
+        UUID documentId = createDocument(DocumentTypeCode.ORDER_ACTIVATE, "import-order-activate");
+        draftPayloads.createDraft(
+                OrderActivatePayload.create(DocumentId.of(documentId), orderId, now));
+        documentEngine.postDocument(documentId);
     }
 
     private static List<OrderItemRevisionPayloadLine> toPayloadLines(

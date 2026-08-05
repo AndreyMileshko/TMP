@@ -1279,14 +1279,19 @@ Specification: становится ACTIVE (Immutable) вместе с ACTIVE Re
 **Импорт:**
 
 ```text
-IMPORT operation (атомарный confirm)
-        ↓
-Order ACTIVE + Order Item ACTIVE + Revision ACTIVE + Specification ACTIVE
+STXT → Import Core confirm (одна TX)
+  ORDER_CREATE / ITEM_CREATE / REVISION_UPDATE
+  → ORDER_ITEM_REVISION_APPROVE  (Item + Revision + Specification ACTIVE)
+  → ORDER_APPROVE (import gates: client + ≥1 ACTIVE item)
+  → ORDER_ACTIVATE
+  → Order ACTIVE
 ```
 
 - Долгоживущий `OrderStatus.IMPORT` **не вводится**.
-- `IMPORT operation` — application/document orchestration создания; конечное состояние агрегатов = `ACTIVE`.
-- Статус Revision: целевой enum `DRAFT | ACTIVE` (бывший `APPROVED` переименовывается в `ACTIVE` для единообразия языка статусов). Specification отдельного enum не имеет: «Specification ACTIVE» = спецификация текущей ACTIVE Revision (`activeRevisionNumber`), Immutable.
+- Долгоживущий import-`DRAFT` **не допускается**; промежуточный DRAFT существует только внутри TX до approve/activate.
+- Прямая активация агрегатов в обход Document Engine **запрещена**.
+- `IMPORT operation` — orchestration через существующие документы; конечное состояние = `ACTIVE`.
+- Статус Revision: целевой enum `DRAFT | ACTIVE`. Specification «ACTIVE» = спецификация текущей ACTIVE Revision, Immutable.
 
 #### 3. Правила импорта
 

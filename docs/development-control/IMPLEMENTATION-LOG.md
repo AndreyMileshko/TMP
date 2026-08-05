@@ -4,11 +4,42 @@
 
 ---
 
-## STAGE5-058 — Final STXT Contract + Imported Order Lifecycle (completion)
+## STAGE5-058 — FIX REQUIRED: ACTIVE via Document approve/activate flow
 
 **Date:** 2026-08-05  
 **Stage:** 5 (post-closure)  
 **Status:** DONE  
+**Module:** `tmp-order-management`, Flyway V14
+
+### Defect
+
+После Final STXT Contract confirm всё ещё мог оставлять долгоживущий DRAFT / опирался на прямой `activateFromImport` / `activateDraftRevisionForImport` в обход Document Engine.
+
+### Fix
+
+Import confirm (одна TX на файл):
+
+1. `ORDER_CREATE` + `ORDER_ITEM_CREATE` + `ORDER_ITEM_REVISION_UPDATE`
+2. `ORDER_ITEM_REVISION_APPROVE` → Item / Revision / Specification **ACTIVE**
+3. `ORDER_APPROVE` under `ImportApproveGate` → `ApproveOrderUseCase.executeForImport` (client + ≥1 ACTIVE item; без полного ADR-030 commercial set)
+4. `ORDER_ACTIVATE` → Order **ACTIVE**
+
+Flyway `V14__order_activate_document_type.sql` — `ORDER_ACTIVATE` в CHECK payload/processing.
+
+ACTIVE imported = ACTIVE manual (UI read-only по статусу). ImportMetadata не создана. Stage 6 не начат. Git не выполнялся.
+
+### Verification
+
+- `DefaultOrderImportServiceTest`, `OrderImportCoreIT`, `OrderIntakeStxtEndToEndIT` (incl. multi-order ACTIVE) — PASS
+- STXT adapter unit tests — PASS
+
+---
+
+## STAGE5-058 — Final STXT Contract + Imported Order Lifecycle (completion)
+
+**Date:** 2026-08-05  
+**Stage:** 5 (post-closure)  
+**Status:** DONE (superseded lifecycle portion by FIX above)  
 **Module:** `tmp-order-management`, `tmp-ui-shell`
 
 ### Result

@@ -1,6 +1,7 @@
 package com.tmp.order.application.imports;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -172,6 +173,36 @@ class OrderIntakeStxtEndToEndIT {
                 "lineQuantity must not be multiplied by productQuantity");
     }
 
+    @Test
+    void multiOrderStxtFixtureLandsAllOrdersActive() throws IOException {
+        byte[] content = readFixture("stxt/multi-order.stxt");
+        StxtParseResult parseResult = stxtFileAdapter.parse(content, "multi-order.stxt");
+        assertTrue(parseResult.isSuccessful(), () -> parseResult.errors().toString());
+        assertEquals(2, parseResult.batches().size());
+
+        OrderImportPreview preview = orderImportService.preview(parseResult.batches());
+        assertTrue(preview.canConfirm(), () -> preview.errors().toString());
+
+        OrderImportConfirmResult confirm =
+                orderImportService.confirm(preview.preparedPlan().orElseThrow());
+        assertEquals(2, confirm.createdOrderCount());
+        assertTrue(confirm.orderNumber().contains("25096190"));
+        assertTrue(confirm.orderNumber().contains("25096053"));
+
+        for (OrderImportConfirmResult.ImportedOrder imported : confirm.orders()) {
+            OrderDto order = orderQueryService.getOrder(imported.orderId()).orElseThrow();
+            assertEquals(OrderStatus.ACTIVE, order.status());
+            List<OrderItemDto> items =
+                    orderQueryService
+                            .getOrderItems(imported.orderId(), PageRequest.firstPage())
+                            .content();
+            assertFalse(items.isEmpty());
+            for (OrderItemDto item : items) {
+                assertEquals(OrderItemStatus.ACTIVE, item.status());
+            }
+        }
+    }
+
     private void ensureImporter() {
         authenticationService.login(Login.of("admin"), "bootstrap-secret-value".toCharArray());
         UserSummary importer =
@@ -198,6 +229,10 @@ class OrderIntakeStxtEndToEndIT {
                 importer.id(), OrderManagementPermissions.REVISION_CREATE);
         roleAdministrationService.grantIndividualPermission(
                 importer.id(), OrderManagementPermissions.REVISION_EDIT);
+        roleAdministrationService.grantIndividualPermission(
+                importer.id(), OrderManagementPermissions.ITEM_APPROVE);
+        roleAdministrationService.grantIndividualPermission(
+                importer.id(), OrderManagementPermissions.ORDER_APPROVE);
         roleAdministrationService.grantIndividualPermission(
                 importer.id(), OrderManagementPermissions.SPECIFICATION_VIEW);
         authenticationService.logout();

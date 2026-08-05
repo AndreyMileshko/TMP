@@ -3,8 +3,36 @@
 ## Latest result
 
 **Date:** 2026-08-05  
-**Scope:** STAGE5-058 — Imported Order Lifecycle + Final STXT Contract  
+**Scope:** STAGE5-058 FIX — Import ACTIVE via Document approve/activate flow  
 **Overall:** PASS  
+**Type:** Automated unit + integration + Flyway + architecture  
+**Environment:** Windows; `.tools/apache-maven-3.9.9`; Docker Desktop; Testcontainers PostgreSQL 16
+
+| Item | Result |
+|---|---|
+| STAGE5-058 | DONE |
+| Stage 6 | NOT STARTED |
+| Confirm → ACTIVE Order/Item/Revision/Spec | PASS |
+| Multi-order ACTIVE | PASS |
+| No direct aggregate activation bypass | PASS |
+| Flyway V14 ORDER_ACTIVATE | PASS |
+| ImportMetadata | NOT CREATED |
+| Git | NOT EXECUTED |
+
+### Commands
+
+| Command | Result |
+|---|---|
+| `mvn -pl tmp-order-management -am test -Dtest=DefaultOrderImportServiceTest,OrderIntakeStxtEndToEndIT,OrderImportCoreIT` | PASS |
+| `mvn -pl tmp-order-management,tmp-ui-shell,tmp-architecture-tests -am test -Dtest=OrderImportMetadataFlywayTest,OrderIntakeFlywayBootstrapIT,OrderImportViewModelTest,Stage5OrderManagementArchitectureTest,DefaultOrderImportServiceTest` | PASS |
+
+---
+
+## Previous result
+
+**Date:** 2026-08-05  
+**Scope:** STAGE5-058 — Imported Order Lifecycle + Final STXT Contract  
+**Overall:** PASS (lifecycle fixed same day via Document approve flow)  
 **Type:** Automated unit + integration + architecture  
 **Environment:** Windows; local Maven `.tools/apache-maven-3.9.9`; JDK; Docker Desktop; Testcontainers PostgreSQL 16
 
@@ -30,7 +58,7 @@
 
 ---
 
-## Previous result
+## Previous result (2026-08-03 lifecycle baseline)
 
 **Date:** 2026-08-03  
 **Scope:** STAGE5-058 — Imported Order Lifecycle Rules (ADR-031 final)  

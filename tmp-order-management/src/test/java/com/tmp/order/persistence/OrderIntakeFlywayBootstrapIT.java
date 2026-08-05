@@ -23,7 +23,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * STAGE5-058 — Flyway clean V1→V13 and upgrade V11→V13 with application start verification.
+ * STAGE5-058 — Flyway clean V1→V14 and upgrade V11→V14 with application start verification.
  */
 @Testcontainers
 class OrderIntakeFlywayBootstrapIT {
@@ -31,7 +31,7 @@ class OrderIntakeFlywayBootstrapIT {
     private static final String ADMIN_PASSWORD = "bootstrap-secret-value";
 
     @Test
-    void cleanDatabaseMigratesV1ToV13AndApplicationStarts() {
+    void cleanDatabaseMigratesV1ToV14AndApplicationStarts() {
         try (PostgreSQLContainer<?> container = new PostgreSQLContainer<>("postgres:16-alpine")) {
             container.start();
             Flyway.configure()
@@ -42,7 +42,7 @@ class OrderIntakeFlywayBootstrapIT {
 
             JdbcTemplate jdbc = new JdbcTemplate(dataSource(container));
             assertEquals(
-                    "13",
+                    "14",
                     jdbc.queryForObject(
                             "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1",
                             String.class));
@@ -68,7 +68,7 @@ class OrderIntakeFlywayBootstrapIT {
     }
 
     @Test
-    void existingV11DatabaseUpgradesToV13PreservingDataAndApplicationStarts() {
+    void existingV11DatabaseUpgradesToV14PreservingDataAndApplicationStarts() {
         try (PostgreSQLContainer<?> container = new PostgreSQLContainer<>("postgres:16-alpine")) {
             container.start();
             Flyway.configure()
@@ -94,7 +94,7 @@ class OrderIntakeFlywayBootstrapIT {
                 assertNotNull(context.getBean(OrderQueryService.class));
                 JdbcTemplate after = new JdbcTemplate(dataSource(container));
                 assertEquals(
-                        "13",
+                        "14",
                         after.queryForObject(
                                 "SELECT version FROM flyway_schema_history"
                                         + " ORDER BY installed_rank DESC LIMIT 1",

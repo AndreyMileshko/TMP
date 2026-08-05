@@ -8,7 +8,7 @@
 **Active blockers:** NONE  
 
 ```text
-STAGE5-050 = DONE (manual packaged GUI smoke — PASS)
+STAGE5-050 = DONE
 STAGE5-051 = DONE
 STAGE5-052 = DONE
 STAGE5-052A = DONE
@@ -16,8 +16,8 @@ STAGE5-053 = DONE
 STAGE5-054 = DONE
 STAGE5-055 = DONE
 STAGE5-056 = DONE
-STAGE5-057 = DONE (Manual GUI Smoke — PASS; STAGE5-057-SMOKE-001 FIXED AND VERIFIED)
-STAGE5-058 = DONE (Imported Order Lifecycle + Final STXT Contract)
+STAGE5-057 = DONE
+STAGE5-058 = DONE (Final STXT Contract + ACTIVE via Document approve/activate flow)
 Stage 5 Core Order Management = DONE
 Stage 5 Order Intake Extension = DONE
 Stage 5 = DONE (core + intake + post-closure STAGE5-058)
@@ -53,7 +53,7 @@ Active blockers = NONE
 | Post-closure: Imported Order Lifecycle + Final STXT (`STAGE5-058`) | DONE |
 | Stage 5 overall | DONE |
 
-`STAGE5-057` = **DONE**. **ADR-031 final** + **Final STXT Contract** implemented (uniform ACTIVE; block STXT; multi-order). Order Management Spec **v1.6**. ADR **v1.9**. Flyway latest = **V13**. `STAGE5-058` = **DONE**. Stage 6 = NOT STARTED.
+`STAGE5-058` = **DONE**. Import confirm lands uniform **ACTIVE** via Document Engine approve/activate flow (no durable DRAFT import). Final STXT Contract. Flyway latest = **V14**. Stage 6 = NOT STARTED.
 
 ---
 

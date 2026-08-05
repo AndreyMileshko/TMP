@@ -38,9 +38,9 @@ class OrderImportMetadataFlywayTest {
     }
 
     @Test
-    void cleanDatabaseMigratesToV13AndDropsImportMetadataTable() throws Exception {
+    void cleanDatabaseMigratesToV14AndDropsImportMetadataTable() throws Exception {
         assertEquals(
-                "13",
+                "14",
                 jdbc.queryForObject(
                         "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1",
                         String.class));
@@ -48,7 +48,7 @@ class OrderImportMetadataFlywayTest {
     }
 
     @Test
-    void v12DatabaseUpgradesToV13DroppingImportMetadata() throws Exception {
+    void v12DatabaseUpgradesToV14DroppingImportMetadata() throws Exception {
         try (PostgreSQLContainer<?> upgradeContainer = new PostgreSQLContainer<>("postgres:16-alpine")) {
             upgradeContainer.start();
             JdbcTemplate upgradeJdbc = new JdbcTemplate(dataSource(upgradeContainer));
@@ -75,7 +75,7 @@ class OrderImportMetadataFlywayTest {
                     .migrate();
 
             assertEquals(
-                    "13",
+                    "14",
                     upgradeJdbc.queryForObject(
                             "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1",
                             String.class));

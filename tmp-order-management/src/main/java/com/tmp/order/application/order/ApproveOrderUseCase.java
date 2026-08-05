@@ -1,5 +1,6 @@
 package com.tmp.order.application.order;
 
+import com.tmp.order.api.OrderId;
 import com.tmp.order.domain.CustomerOrder;
 import com.tmp.order.domain.OrderItem;
 import com.tmp.order.domain.repository.CustomerOrderRepository;
@@ -47,12 +48,37 @@ public final class ApproveOrderUseCase {
                             + String.join(", ", missingCommercial),
                     missingCommercial);
         }
-        List<OrderItem> items = orderItemRepository.findByOrderId(command.orderId());
+        return approveWithActiveItemGuard(existing, command.orderId());
+    }
+
+    /**
+     * Import landing approve {@code DRAFT → APPROVED}: requires client ({@code customerName}) and ≥1
+     * ACTIVE item. Does not apply full ADR-030 commercial gates (direction/currency/contract/site).
+     * Import Core validates Final STXT Contract fields before confirm.
+     */
+    public CustomerOrder executeForImport(ApproveOrderCommand command) {
+        Objects.requireNonNull(command, "command");
+        CustomerOrder existing =
+                customerOrderRepository
+                        .findById(command.orderId())
+                        .orElseThrow(() -> new OrderNotFoundException(command.orderId()));
+        String customerName = existing.commercialData().customerName();
+        if (customerName == null || customerName.isBlank()) {
+            throw new OrderApprovalRejectedException(
+                    command.orderId(),
+                    "Order cannot be approved for import: missing mandatory commercial fields: "
+                            + "customerName",
+                    List.of("customerName"));
+        }
+        return approveWithActiveItemGuard(existing, command.orderId());
+    }
+
+    private CustomerOrder approveWithActiveItemGuard(CustomerOrder existing, OrderId orderId) {
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
         boolean hasActiveItem = items.stream().anyMatch(OrderItem::isActive);
         if (!hasActiveItem) {
             throw new OrderApprovalRejectedException(
-                    command.orderId(),
-                    "Order cannot be approved without at least one ACTIVE item");
+                    orderId, "Order cannot be approved without at least one ACTIVE item");
         }
         CustomerOrder approved = existing.approve(clock);
         return customerOrderRepository.save(approved);

@@ -9022,7 +9022,7 @@ User FAIL or incomplete smoke — N/A (PASS recorded).
 **Status:** DONE  
 **Stage:** 5 (post-closure improvement)  
 **Depends on:** STAGE5-057  
-**Module:** `tmp-order-management` (primary); `tmp-ui-shell` (ACTIVE direct-edit read-only + multi-order preview); Flyway `V13`
+**Module:** `tmp-order-management` (primary); `tmp-ui-shell`; Flyway `V13`+`V14`
 
 ### Goal
 
@@ -9086,7 +9086,7 @@ User FAIL or incomplete smoke — N/A (PASS recorded).
 
 ### Result
 
-ADR-031 final + Final STXT Contract: block parser (`StxtBlockParser`); multi-order atomic confirm → uniform ACTIVE; productCode/name/customer filled from STXT; `кв.м.` transform; no ImportMetadata; UI multi-order preview. Stage 6 NOT STARTED. Git by user only.
+ADR-031 final + Final STXT Contract + **FIX**: Import confirm uses Document Engine lifecycle (`ORDER_ITEM_REVISION_APPROVE` → `ORDER_APPROVE` import gates → `ORDER_ACTIVATE`) to land uniform ACTIVE — no durable DRAFT import and no direct aggregate activation bypass. Flyway V14 registers `ORDER_ACTIVATE`. Stage 6 NOT STARTED. Git by user only.
 
 ### Required tests
 
