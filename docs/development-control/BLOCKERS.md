@@ -35,13 +35,13 @@ None — resolved.
 
 ## Active blockers
 
-**Active blockers: BLK-018**
+**Active blockers: NONE**
 
 ---
 
 ## `BLK-018` — `Maven command unavailable for required verification`
 
-**Status:** OPEN  
+**Status:** RESOLVED  
 **Task:** `STAGE6-001`  
 **Detected:** 2026-08-06
 
@@ -64,9 +64,17 @@ None — resolved.
 
 Вариант 1: установить/подключить Maven в `PATH`, после чего повторно запустить verification STAGE6-001.
 
-### Required user decision
+### Resolution
 
-Можете установить Maven (или дать путь к `mvn.cmd`) для повторного запуска `mvn validate` и architecture tests?
+Найден локальный Maven в IntelliJ:
+`C:\Program Files\JetBrains\IntelliJIdea2025.2\plugins\maven\lib\maven3\bin\mvn.cmd`.
+
+Verification успешно выполнен этим бинарником:
+
+- `mvn.cmd -version` — PASS (Maven 3.9.9, Java 21.0.11)
+- `mvn.cmd validate` — PASS
+- `mvn.cmd test` — PASS
+- `mvn.cmd test -pl tmp-architecture-tests -am` — PASS
 
 ---
 

@@ -473,14 +473,16 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 
 | Verification | Command | Result |
 |---|---|---|
-| Reactor validation | `mvn validate` | BLOCKED (`mvn` command not found) |
-| Architecture tests | `mvn -q -pl tmp-architecture-tests -am test` | BLOCKED (`mvn` command not found) |
-| STAGE6-001 | WORK-QUEUE | BLOCKED |
+| Maven availability | `C:\Program Files\JetBrains\IntelliJIdea2025.2\plugins\maven\lib\maven3\bin\mvn.cmd -version` | PASSED (Apache Maven 3.9.9, Java 21.0.11) |
+| Reactor validation | `C:\Program Files\JetBrains\IntelliJIdea2025.2\plugins\maven\lib\maven3\bin\mvn.cmd validate` | PASSED |
+| Reactor tests | `C:\Program Files\JetBrains\IntelliJIdea2025.2\plugins\maven\lib\maven3\bin\mvn.cmd test` | PASSED |
+| Architecture tests | `C:\Program Files\JetBrains\IntelliJIdea2025.2\plugins\maven\lib\maven3\bin\mvn.cmd test -pl tmp-architecture-tests -am` | PASSED |
+| STAGE6-001 | WORK-QUEUE | DONE |
 | Git | - | NOT EXECUTED |
 
 ### Failures
 
-- `mvn` is not installed or not available in PATH on current host (`where.exe mvn` returns not found).
+- None.
 
 ---
 

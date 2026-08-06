@@ -1391,7 +1391,7 @@ User completed manual packaged GUI smoke for Core Order Management. Documentatio
 
 **Date:** 2026-07-17  
 **Stage:** Stage 0 ? Development Foundation  
-**Status:** BLOCKED
+**Status:** DONE
 
 ### Result
 
@@ -4529,7 +4529,8 @@ Created the initial `tmp-warehouse` module foundation and connected it to the ro
 - No Production/Cutting/Order Management internals changed.
 - Git commands not executed by agent.
 
-### Blocker
+### Build verification unblock
 
-- Required verification commands cannot run on this host because `mvn` command is unavailable in PATH.
+- Resolved environment blocker by running verification with local Maven binary:
+  `C:\Program Files\JetBrains\IntelliJIdea2025.2\plugins\maven\lib\maven3\bin\mvn.cmd`.
 
