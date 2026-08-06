@@ -2,12 +2,13 @@
 -- Upgrade from V12. Existing aggregate data preserved where possible.
 
 -- RevisionStatus: APPROVED → ACTIVE (language alignment with Order/Item ACTIVE).
+-- Drop legacy constraint first so ACTIVE is allowed during data migration.
+ALTER TABLE order_management.order_item_revisions
+    DROP CONSTRAINT chk_order_item_revisions_status;
+
 UPDATE order_management.order_item_revisions
 SET revision_status = 'ACTIVE'
 WHERE revision_status = 'APPROVED';
-
-ALTER TABLE order_management.order_item_revisions
-    DROP CONSTRAINT chk_order_item_revisions_status;
 
 ALTER TABLE order_management.order_item_revisions
     ADD CONSTRAINT chk_order_item_revisions_status

@@ -1,0 +1,13 @@
+17:01:20.133 [main] INFO  com.tmp.bootstrap.DesktopBootstrap - Starting DesktopBootstrap using Java 21.0.11 with PID 14260 (C:\Users\1\Desktop\TMP-Cursor-Autonomous-Development\TMP-Cursor-Autonomous-Development\dist\jpackage\TMP\app\tmp-bootstrap-app-0.1.0-SNAPSHOT.jar started by 1 in C:\Users\1\Desktop\TMP-Cursor-Autonomous-Development\TMP-Cursor-Autonomous-Development\dist\jpackage\TMP)
+17:01:20.140 [main] INFO  com.tmp.bootstrap.DesktopBootstrap - The following 1 profile is active: "package"
+17:01:21.931 [main] INFO  com.zaxxer.hikari.HikariDataSource - tmp-package-pool - Starting...
+17:01:22.320 [main] INFO  com.zaxxer.hikari.pool.HikariPool - tmp-package-pool - Added connection org.postgresql.jdbc.PgConnection@315c081
+17:01:22.323 [main] INFO  com.zaxxer.hikari.HikariDataSource - tmp-package-pool - Start completed.
+17:01:22.373 [main] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:55432/tmp_gui_stage5 (PostgreSQL 16.14)
+17:01:22.485 [main] INFO  o.f.core.internal.command.DbValidate - Successfully validated 14 migrations (execution time 00:00.064s)
+17:01:22.512 [main] INFO  o.f.core.internal.command.DbMigrate - Current version of schema "public": 12
+17:01:22.542 [main] INFO  o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "13 - order lifecycle active"
+17:01:22.645 [main] INFO  o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "14 - order activate document type"
+17:01:22.694 [main] INFO  o.f.core.internal.command.DbMigrate - Successfully applied 2 migrations to schema "public", now at version v14 (execution time 00:00.080s)
+17:01:23.514 [main] INFO  com.tmp.bootstrap.DesktopBootstrap - Started DesktopBootstrap in 4.262 seconds (process running for 5.168)
+17:01:23.606 [JavaFX-Launcher] WARN  javafx - Unsupported JavaFX configuration: classes were loaded from 'unnamed module @424e1977'
