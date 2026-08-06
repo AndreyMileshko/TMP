@@ -4,6 +4,62 @@
 
 ---
 
+## STAGE6-000 — Stage 6 Start Gate — Material Handling Documentation
+
+**Date:** 2026-08-06  
+**Stage:** 6 (Start Gate — documentation only)  
+**Status:** DONE  
+**Module:** documentation only (no production code)
+
+### Summary
+
+Зафиксировано финальное архитектурное решение **Material Responsibility Decision (ADR-032)**: в текущей версии TMP **отсутствует отдельный Material Master**.
+
+### Decision
+
+**Order Management:**
+
+- владеет заказом, позициями, редакциями, спецификациями;
+- определяет, **какие материалы нужны для изготовления изделия** (строки ACTIVE Specification);
+- **не** владеет складскими остатками, партиями, ячейками, движениями, резервированием.
+
+**Warehouse:**
+
+- использует материалы из Order Management Specification (MaterialReference);
+- хранит только **складское состояние**;
+- **не** создаёт/изменяет спецификацию; **не** выполняет Material Mapping.
+
+**Material Mapping:**
+
+- пользовательское сопоставление внешних наименований (СуперОкна) → нормализованные значения TMP;
+- отсутствие mapping **не блокирует** импорт;
+- Production использует нормализованные данные.
+
+**Production interaction:**
+
+```text
+OM: ACTIVE Order → Item → Revision → Specification
+  → Production: query orders/items/spec → расчёт потребности
+  → Warehouse: availability / reservation
+```
+
+### Updated documents
+
+- `TMP-Architecture-Decisions.md` — ADR-032 (v1.10)
+- `Warehouse-Specification.md` — v1.2 (§10, Rule 6, Public API)
+- `Order-Management-Specification.md` — v1.8 (§20, §28)
+- `STAGE-6-WAREHOUSE.md` — Start Gate + readiness
+- `STATUS.md`, `WORK-QUEUE.md`, `TMP-PROJECT-READINESS-REVIEW.md`
+
+### Boundaries
+
+- Production code **не изменялся**
+- Новые модули **не создавались**
+- Stage 6 implementation = **NOT STARTED**
+- Git — только пользователь
+
+---
+
 ## Stage 5 — FINAL CLOSURE
 
 **Date:** 2026-08-06  

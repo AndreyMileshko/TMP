@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-010
 **Status:** Accepted
-**Version:** 1.7
+**Version:** 1.8
 
 ---
 
@@ -10,11 +10,15 @@
 
 Order Management — функциональная область TOP Manufacturing Platform (TMP), отвечающая за коммерческий жизненный цикл заказов клиентов, позиций заказов, редакций позиций и неизменяемых спецификаций изделий.
 
-Order Management является единственным владельцем заказов клиентов, позиций заказов, редакций позиций и их спецификаций, а также владельцем строго типизированного бизнес-содержимого (payload) своих документов.
+Order Management является единственным владельцом заказов клиентов, позиций заказов, редакций позиций и их спецификаций, а также владельцем строго типизированного бизнес-содержимого (payload) своих документов.
+
+Order Management определяет **какие материалы нужны для изготовления изделия** через Item Specification (строки ACTIVE Revision). Отдельный Material Master в текущей версии TMP **не создаётся** (ADR-032).
 
 Главным объектом платформы является **позиция заказа (Order Item)**. Источником данных для Production, Warehouse, Cutting, Procurement является позиция заказа в конкретной **утверждённой (active) Revision** (`Order Item ID` + `Revision`).
 
 Order Management **не владеет** производственным состоянием — оно принадлежит Production.
+
+Order Management **не владеет** складскими остатками, партиями хранения, ячейками, движениями материалов и резервированием — они принадлежат Warehouse.
 
 Данные Order Management могут поступать двумя равноправными каналами MVP (файловый импорт выгрузки и ручной ввод). Оба канала обязаны формировать одинаковые доменные объекты и использовать одни и те же application services, документы, разрешения, правила редакций и persistence contracts. Импорт — **только способ создания**. После перехода в `ACTIVE` поведение **идентично** независимо от канала (ADR-031). Downstream-модули зависят от статусов агрегатов и Public Query API, а не от способа поступления данных.
 
@@ -45,7 +49,7 @@ Order Management является единственным владельцем 
 * Customer Order, коммерческих данных;
 * Order Item, признака активности позиции;
 * Order Item Revision, номера редакции, признаков active/draft;
-* Item Specification (состав изделия, нормы);
+* Item Specification (состав изделия, нормы, **материалы в контексте спецификации**: `materialCode`, `materialName`, `color`, `lengthMm`, `lineQuantity`, `unitOfMeasure`);
 * количества изделий в Revision (ordered quantity);
 * связей между редакциями;
 * типизированного payload своих документов (по `DocumentId`);
@@ -694,8 +698,19 @@ Optimistic locking, общие технические поля, schema-per-modul
 
 Order Management предоставляет стабильные `Order Item ID`, `Revision`, Query DTO и Domain Events. Другие Capability не изменяют данные Order Management.
 
-* **Production:** Query (`getOrderItemRevision`, `getActiveOrderItemRevision`, `getItemSpecification`); событие `OrderItemRevisionApproved`; связь по `Order Item ID + Revision`; не изменяет Order Management.
-* **Warehouse:** Query по active Revision; не изменяет позицию/спецификацию.
+### Production interaction (ADR-032)
+
+```text
+1. Order Management создаёт ACTIVE: Order → Item → Revision → Specification
+2. Production запрашивает Order Management: какие заказы доступны для производства
+3. Production получает: изделия, количество, ACTIVE Specification
+4. Production рассчитывает потребность материалов (с учётом Material Mapping)
+5. Production запрашивает Warehouse: доступность материалов
+6. Warehouse отвечает: наличие, доступность, возможность резервирования
+```
+
+* **Production:** Query (`getOrderItemRevision`, `getActiveOrderItemRevision`, `getItemSpecification`); событие `OrderItemRevisionApproved`; связь по `Order Item ID + Revision`; рассчитывает потребность; использует **нормализованные** данные материалов; не изменяет Order Management.
+* **Warehouse:** получает MaterialReference через запрос Production; хранит только складское состояние; **не** читает Specification напрямую; **не** выполняет Material Mapping; не изменяет позицию/спецификацию.
 * **Cutting Optimization:** Query по active Revision; Cutting Plan вне Order Management.
 * **Procurement/Analytics:** read-only использование; проекции/решения принадлежат им.
 
@@ -750,7 +765,8 @@ Order Management предоставляет стабильные `Order Item ID`
 * прямое подключение к Firebird / БД «СуперОкна»;
 * фоновый опрос, расписания обмена, двусторонний обмен;
 * plugin framework / универсальная интеграционная платформа;
-* окончательная классификация материалов `LINEAR` / `NON_LINEAR` (справочник материалов).
+* отдельный Material Master / каталог материалов (ADR-032: **не создаётся** в текущей архитектуре);
+* Material Mapping — отдельный пользовательский механизм (см. §28), не блокирующий импорт.
 
 Изменение характеристик активной позиции выполняется новой Revision (в рамках Stage 5).
 
@@ -774,13 +790,15 @@ Order Management предоставляет стабильные `Order Item ID`
 - **AR-014** Адаптер источника не пишет в БД и не проводит документы напрямую (ADR-029).
 - **AR-015** `lineQuantity` из выгрузки не умножается повторно на `productQuantity`.
 - **AR-016** Orientation / placement не входят в модель спецификации TMP.
+- **AR-017** Материалы определяются через Item Specification; отдельный Material Master не создаётся (ADR-032).
+- **AR-018** Material Mapping настраивается пользователем; отсутствие сопоставления не блокирует импорт; Warehouse не выполняет mapping.
 
 ---
 
 # 25. Связанные документы
 
 * TMP Constitution (v1.2)
-* TMP Architecture Decisions (ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**)
+* TMP Architecture Decisions (ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**, **ADR-031**, **ADR-032**)
 * Document Engine Specification
 * Platform Core Specification (Event API)
 * Capability Engine Specification
@@ -804,6 +822,73 @@ Order Management предоставляет стабильные `Order Item ID`
 | 1.5 | **Final ADR-031:** uniform ACTIVE; запрет OrderOrigin/ImportMetadata/checksum duplicate protection; дубли только `orderNumber`; import operation → Order/Item/Revision/Specification ACTIVE; изменение ACTIVE только через Revision; RevisionStatus целевой `DRAFT\|ACTIVE`; §8/§9/§27. Реализация — STAGE5-058. |
 | 1.6 | **Final STXT Contract (STAGE5-058):** §27 block format ORDER→ITEM→SPEC; multi-order; productCode/name/client/date; `@`/`#` skip; `кв.м.`; quantity = норма расхода на 1 изделие; ACTIVE одинаков независимо от источника. |
 | 1.7 | **Stage 5 Final Closure (2026-08-06):** Stage 5 = DONE; STAGE5-057/058 = DONE; STAGE5-058 Manual GUI Smoke PASS; Stage 6 = NOT STARTED. Зафиксированы итоговые правила §27 (trusted import → ACTIVE; read-only ACTIVE; Revision N+1). |
+| 1.8 | **Stage 6 Start Gate (ADR-032):** финальное решение — нет Material Master; материалы в контексте Specification; Material Mapping; Production → Warehouse interaction; §28. |
+
+---
+
+# 28. Material Responsibility and Mapping (ADR-032)
+
+## 28.1 Ответственность Order Management
+
+Order Management определяет **какие материалы нужны для изготовления изделия** через строки Item Specification (ACTIVE Revision).
+
+Order Management владеет:
+
+- заказом;
+- позициями заказа;
+- редакциями;
+- спецификациями изделий;
+- материалами **в контексте спецификации** (`materialCode`, `materialName`, `color`, `lengthMm`, `lineQuantity`, `unitOfMeasure`).
+
+Order Management **не** владеет:
+
+- складскими остатками;
+- партиями хранения;
+- ячейками;
+- движениями материалов;
+- резервированием.
+
+## 28.2 Отсутствие Material Master
+
+В текущей версии TMP **отдельный Material Master / модуль управления материалами не создаётся**. Решение финальное для текущей архитектуры.
+
+Материал определяется через:
+
+- данные ACTIVE Specification;
+- механизм Material Mapping (нормализация внешних наименований).
+
+## 28.3 Material Mapping
+
+**Назначение:** сопоставление внешнего наименования материала из расчётной программы (СуперОкна) с нормализованным значением TMP.
+
+**Пример:**
+
+```text
+Вход:        "Профиль VEKA 103.211 Белый"
+Сопоставление → "VEKA 103.211 WHITE"
+```
+
+**Правила:**
+
+- сопоставление настраивается **пользователем**;
+- отсутствие сопоставления **не блокирует** импорт STXT;
+- Warehouse **не** отвечает за сопоставление;
+- Production использует **нормализованные** данные при расчёте потребности и запросах к Warehouse.
+
+## 28.4 Данные для Warehouse (Stage 6 readiness)
+
+Warehouse получает из ACTIVE Specification (через Production) без отдельного каталога материалов:
+
+| Поле | Назначение |
+|------|------------|
+| `materialCode` | Код / артикул |
+| `materialName` | Наименование |
+| `color` | Цвет (nullable) |
+| `unitOfMeasure` | Единица измерения |
+| `lengthMm` | Длина, мм (nullable) |
+| `lineQuantity` | Количество (норма на 1 изделие) |
+
+Warehouse **не требует** отдельного каталога материалов.
 
 ---
 

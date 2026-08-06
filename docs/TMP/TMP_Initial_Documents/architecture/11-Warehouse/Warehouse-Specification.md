@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.1
+**Version:** 1.2
 
 ---
 
@@ -102,6 +102,8 @@ Warehouse не отвечает за:
 - создание и изменение позиций заказов;
 - формирование спецификаций изделий;
 - изменение спецификаций;
+- создание или изменение Material Master / каталога материалов;
+- сопоставление внешних наименований материалов (Material Mapping);
 - расчёт производственной потребности;
 - определение состава изделия;
 - формирование карт раскроя;
@@ -218,13 +220,12 @@ class StorageCell {
     +active
 }
 
-class Material {
-    +id
-    +code
-    +name
+class MaterialReference {
+    +materialCode
+    +materialName
     +color
-    +baseUnit
-    +active
+    +unitOfMeasure
+    +lengthMm
 }
 
 class Batch {
@@ -258,7 +259,7 @@ class WarehouseMovement {
 Warehouse "1" --> "*" StorageCell
 Warehouse "1" --> "*" StockPosition
 StorageCell "1" --> "*" StockPosition
-Material "1" --> "*" StockPosition
+MaterialReference "1" --> "*" StockPosition
 Batch "0..1" --> "*" StockPosition
 WarehouseOperation "1" --> "*" WarehouseMovement
 WarehouseMovement --> StockPosition
@@ -407,35 +408,32 @@ Storage Cell — самостоятельный бизнес-объект Wareho
 
 ---
 
-# 10. Material
+# 10. Material (из Specification)
 
-Material — единый мастер-объект платформы.
+В текущей версии TMP **отсутствует отдельный Material Master** (ADR-032). Решение финальное для текущей архитектуры.
 
-Warehouse использует Material, но не является владельцем его мастер-данных.
+Warehouse **использует материалы, определённые в Order Management Specification** (строки ACTIVE Item Specification). Warehouse **хранит только складское состояние** материалов и **не** создаёт, **не** изменяет и **не** владеет данными спецификации.
 
-Warehouse хранит только ссылку на Material и связанные с ним складские данные.
+Material identity для складского учёта — **MaterialReference**: составной идентификатор из полей спецификации, переданных Production или другим инициатором операции.
 
 ---
 
-## 10.1 Используемые атрибуты Material
+## 10.1 MaterialReference (идентификатор материала для Warehouse)
 
-| Атрибут | Описание |
-|----------|----------|
-| ID | Уникальный идентификатор |
-| Код | Код материала |
-| Наименование | Наименование |
-| Тип | Тип материала |
-| Цвет | Цвет материала |
-| Базовая единица | Единица складского учёта |
-| Дополнительные единицы | Пользовательские единицы |
-| Партийный учёт | Признак обязательного Batch |
-| Стратегия партии | Правило выбора Batch |
-| Активность | Возможность использования |
+| Атрибут | Источник | Описание |
+|----------|----------|----------|
+| materialCode | ACTIVE Specification | Код / артикул материала |
+| materialName | ACTIVE Specification | Наименование материала |
+| color | ACTIVE Specification | Цвет (nullable) |
+| unitOfMeasure | ACTIVE Specification | Единица измерения строки спецификации |
+| lengthMm | ACTIVE Specification | Длина одной детали, мм (nullable) |
 
-Материалы различных цветов являются различными объектами Material, если они не являются взаимозаменяемыми.
+Материалы с одинаковым `materialCode`, но разным `color`, рассматриваются как **различные** MaterialReference, если они не взаимозаменяемы по бизнес-правилам Production.
 
-> **Architecture Rule**  
-> Цвет является атрибутом Material, а не Stock Position.
+> **Architecture Rule (ADR-032)**  
+> Цвет входит в MaterialReference (идентичность потребности из Specification), а не в Stock Position как отдельный master-атрибут.
+
+Warehouse получает MaterialReference **только** как часть уже рассчитанного запроса Production (или другого разрешённого инициатора). Warehouse **не** читает Specification напрямую и **не** выполняет Material Mapping.
 
 ---
 
@@ -443,20 +441,19 @@ Warehouse хранит только ссылку на Material и связанн
 
 Warehouse не может:
 
-- создавать Material;
-- изменять мастер-данные Material;
-- изменять спецификации изделий;
+- создавать или изменять Item Specification;
+- создавать Material Master или каталог материалов;
+- выполнять Material Mapping (сопоставление внешних наименований);
 - самостоятельно определять взаимозаменяемость материалов;
-- использовать неактивный Material в новых операциях.
+- определять, какие материалы нужны производству.
 
 ---
 
 # 11. Единицы измерения
 
-Каждый Material имеет:
+Единица измерения материала для складской операции определяется **MaterialReference** (`unitOfMeasure` из Specification или нормализованного запроса Production).
 
-- одну обязательную базовую единицу;
-- ноль или более дополнительных единиц отображения.
+Stock Position и Warehouse Movement всегда хранят количество в **базовой единице складского учёта** для данной MaterialReference. Правила пересчёта из дополнительных единиц (хлыст, упаковка, бухта) задаются конфигурацией Warehouse или передаются Production в запросе — **не** отдельным master-объектом Material.
 
 Stock Position и Warehouse Movement всегда хранят количество только в базовой единице.
 
@@ -482,13 +479,13 @@ Stock Position и Warehouse Movement всегда хранят количест�
 ## 11.1 Правила пересчёта
 
 - коэффициент пересчёта должен быть положительным;
-- итоговое количество хранится только в базовой единице;
-- правила округления определяются Material;
+- итоговое количество хранится только в базовой единице складского учёта;
+- правила округления определяются конфигурацией Warehouse или запросом инициатора;
 - Warehouse не хранит параллельные остатки в нескольких единицах;
 - изменение коэффициента не изменяет историю Warehouse Movement.
 
 > **Architecture Rule**  
-> Источником истины количества всегда является базовая единица Material.
+> Источником истины количества всегда является базовая единица складского учёта для MaterialReference.
 
 ---
 
@@ -508,7 +505,7 @@ Warehouse является владельцем складской части Ba
 |----------|----------|
 | Batch ID | Уникальный идентификатор |
 | Batch Number | Номер партии |
-| Material | Материал |
+| MaterialReference | Идентификатор материала (из Specification) |
 | Receipt Date | Дата поступления |
 | Supplier Batch | Номер партии поставщика (при наличии) |
 | Expiration Date | Срок годности (при наличии) |
@@ -534,14 +531,7 @@ Batch не хранит остаток.
 
 ## 12.3 Стратегии выбора партии
 
-Material определяет стратегию выбора партии.
-
-Поддерживаются:
-
-- FIFO;
-- FEFO;
-- LIFO;
-- Manual.
+Стратегия выбора партии (FIFO / FEFO / LIFO / Manual) задаётся конфигурацией Warehouse для MaterialReference или в запросе операции.
 
 Warehouse использует стратегию только при автоматическом выборе партии.
 
@@ -565,7 +555,7 @@ Stock Position не является журналом операций.
 
 - Warehouse;
 - Storage Cell;
-- Material;
+- MaterialReference;
 - Batch (если используется);
 - Stock State.
 
@@ -579,7 +569,7 @@ Stock Position не является журналом операций.
 |----------|----------|
 | Warehouse | Склад |
 | Storage Cell | Ячейка |
-| Material | Материал |
+| MaterialReference | Материал (идентичность из Specification) |
 | Batch | Партия |
 | Stock State | Состояние |
 | Quantity | Количество |
@@ -819,7 +809,7 @@ Warehouse Movement не используется как источник тек�
 |----------|----------|
 | Movement ID | Уникальный идентификатор |
 | Warehouse Operation | Операция-владелец |
-| Material | Материал |
+| MaterialReference | Материал (идентичность из Specification) |
 | Warehouse | Склад |
 | Storage Cell | Ячейка |
 | Batch | Партия |
@@ -936,7 +926,8 @@ AVAILABLE
 
 Передача между складами:
 
-- не изменяет Material;
+- не изменяет Item Specification;
+- не изменяет MaterialReference;
 - не изменяет Batch;
 - не изменяет количество;
 - изменяет Warehouse;
@@ -1207,10 +1198,10 @@ AVAILABLE
 
 # 25. Public API
 
-Warehouse предоставляет следующий Public API.
+Warehouse предоставляет следующий Public API. Все операции используют **MaterialReference** (поля из ACTIVE Specification / нормализованный запрос Production), а не UUID master-объекта Material.
 
 ```text
-getStock(materialId)
+getStock(materialReference)
 ```
 
 Получение текущего остатка материала.
@@ -1218,7 +1209,7 @@ getStock(materialId)
 ---
 
 ```text
-getAvailableStock(materialId)
+getAvailableStock(materialReference)
 ```
 
 Получение количества материала, доступного для использования.
@@ -1594,9 +1585,11 @@ Warehouse не участвует в расчёте карты раскроя.
 
 ## Rule 6
 
-Order Management является владельцем Material как мастер-данных платформы.
+Order Management определяет материалы **в контексте Item Specification** (ACTIVE Revision).
 
-Warehouse использует Material только как ссылочный объект.
+Warehouse использует MaterialReference из Specification (через запрос Production) и хранит только **складское состояние** материалов.
+
+Warehouse **не** создаёт Material Master, **не** изменяет спецификацию и **не** выполняет Material Mapping (ADR-032).
 
 ---
 
@@ -1673,5 +1666,17 @@ Warehouse является единственным владельцем скл�
 
 Warehouse никогда не определяет производственную потребность, не участвует в расчёте карт раскроя и не изменяет производственные данные других Capability.
 
+Warehouse **не** владеет материалами как master-данными и **не** изменяет спецификации изделий.
+
 Все взаимодействие с другими Capability выполняется исключительно посредством Public API и Domain Events.
+
+---
+
+## История документа
+
+| Версия | Изменение |
+|--------|-----------|
+| 1.0 | Базовая спецификация Warehouse. |
+| 1.1 | Интеграция с Production и Cutting Optimization. |
+| 1.2 | **Stage 6 Start Gate (ADR-032):** отказ от Material Master; MaterialReference из Specification; Warehouse хранит только складское состояние; Rule 6 обновлён; Public API — `materialReference` вместо `materialId`. |
 

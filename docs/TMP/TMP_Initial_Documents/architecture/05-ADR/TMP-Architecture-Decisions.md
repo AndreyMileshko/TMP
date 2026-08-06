@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-005  
 **Status:** Accepted  
-**Version:** 1.9
+**Version:** 1.10
 
 ---
 
@@ -1365,6 +1365,82 @@ orderNumber uniqueness
 
 ---
 
+# ADR-032
+
+## Название
+
+Material Responsibility Decision — No Separate Material Master.
+
+### Статус
+
+Accepted (Stage 6 Start Gate, 2026-08-06)
+
+### Контекст
+
+Ранее Warehouse Specification §10 и Rule 6 описывали Material как «единый мастер-объект платформы», владельцем которого является Order Management. Stage 5 MVP реализовал материалы только как атрибуты строк ACTIVE Specification (`materialCode`, `materialName`, `color`, `lengthMm`, `lineQuantity`, `unitOfMeasure`) без отдельного каталога, UUID или модуля Material Master.
+
+Перед Stage 6 Warehouse требовалось финальное решение о владении материалами и отсутствии отдельного справочника.
+
+### Решение
+
+1. **Отдельный Material Master / модуль управления материалами в текущей версии TMP не создаётся.** Решение финальное для текущей архитектуры.
+
+2. **Order Management** определяет, какие материалы нужны для изготовления изделия, через Item Specification (ACTIVE Revision). Order Management владеет:
+   - заказом;
+   - позициями заказа;
+   - редакциями;
+   - спецификациями изделий;
+   - материалами **в контексте спецификации изделия**.
+
+   Order Management **не** владеет: складскими остатками, партиями хранения, ячейками, движениями материалов, резервированием.
+
+3. **Warehouse** использует материалы, определённые в Order Management Specification. Warehouse хранит только **складское состояние** материалов (Stock Position, Batch, Movement, Reservation, Warehouse Operation). Warehouse **не** создаёт и **не** изменяет данные спецификации; **не** владеет мастер-данными материалов; **не** выполняет сопоставление материалов.
+
+4. **Material Mapping** — пользовательский механизм сопоставления внешнего наименования материала из расчётной программы (СуперОкна) с нормализованным значением TMP. Пример:
+
+   ```text
+   "Профиль VEKA 103.211 Белый"  →  "VEKA 103.211 WHITE"
+   ```
+
+   Правила:
+   - сопоставление настраивается пользователем;
+   - отсутствие сопоставления **не блокирует** импорт;
+   - Warehouse **не** отвечает за сопоставление;
+   - Production использует нормализованные данные.
+
+5. **Production interaction (целевой поток):**
+
+   ```text
+   Order Management: ACTIVE Order → Item → Revision → Specification
+           ↓ (Public Query API)
+   Production: доступные заказы → изделия → количество → ACTIVE Specification
+           ↓ (расчёт потребности)
+   Production → Warehouse: запрос доступности / резервирования
+           ↓
+   Warehouse: наличие, доступность, возможность резервирования
+   ```
+
+6. **Material identity для Warehouse** — составной идентификатор из полей ACTIVE Specification: `materialCode`, `materialName`, `color`, `unitOfMeasure` (и `lengthMm` где применимо). Отдельный каталог материалов **не требуется**.
+
+7. Warehouse Public API оперирует **MaterialReference** (поля спецификации / нормализованный запрос Production), а не UUID master-объекта Material.
+
+### Последствия
+
+- Supersedes интерпретацию Warehouse Specification §10 «Material — единый мастер-объект» и Rule 6 «Order Management — владелец Material master»;
+- Stage 6 Warehouse стартует без Material catalog; потребление из ACTIVE Specification;
+- в ADR-006 и ADR-012 термин «Material» означает material identity из спецификации или запроса Production, а не master-entity;
+- реализация Material Mapping — отдельная задача (не Warehouse; scope уточняется при планировании Stage 6+);
+- Production Specification Rule 7 (OM владеет Specification) остаётся в силе и дополняется настоящим ADR.
+
+### Связанные документы
+
+- Order-Management-Specification.md (§3, §20, §28)
+- Warehouse-Specification.md (§4, §10, §23, Rule 6)
+- Stage 6 Manifest (`STAGE-6-WAREHOUSE.md`)
+- ADR-031
+
+---
+
 # 5. Матрица соответствия спецификациям
 
 Данный раздел показывает, в какой спецификации подробно раскрывается каждое архитектурное решение.
@@ -1402,6 +1478,7 @@ orderNumber uniqueness
 | ADR-029 | Order-Management-Specification.md |
 | ADR-030 | Order-Management-Specification.md |
 | ADR-031 | Order-Management-Specification.md |
+| ADR-032 | Order-Management-Specification.md, Warehouse-Specification.md |
 
 > **Architecture Rule**  
 > Настоящий документ фиксирует только архитектурные решения. Подробная реализация и бизнес-логика описываются в соответствующих спецификациях.
@@ -1463,6 +1540,7 @@ orderNumber uniqueness
 | 1.7 | Добавлен ADR-031 (Imported Order Lifecycle Rules): `OrderOrigin`, trusted import landing `(none)→ACTIVE`, уточнение ADR-030 для IMPORTED, запрет правок/новой Revision на импортированном ACTIVE, UI read-only; baseline для STAGE5-058 без немедленной смены кода. |
 | 1.8 | **Final** ADR-031: uniform ACTIVE (без различий по способу создания); запрет OrderOrigin/ImportMetadata/checksum protection; дубли только по `orderNumber`; import = creation path → ACTIVE; изменение ACTIVE только через Revision; RevisionStatus целевой `DRAFT\|ACTIVE`. |
 | 1.9 | STAGE5-058 Final STXT Contract: block format ORDER→ITEM→SPEC; multi-order file; import validation requires order number/date/client and item productCode/name/quantity; `@`/`#` skip; `кв.м.` transform; quantity = норма расхода на 1 изделие. |
+| 1.10 | Добавлен ADR-032 (Material Responsibility — No Separate Material Master): финальное решение об отсутствии Material Master; материалы определяются через Specification; Material Mapping; Warehouse хранит только складское состояние; Production → Warehouse interaction. |
 
 ---
 

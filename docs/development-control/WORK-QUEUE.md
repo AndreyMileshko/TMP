@@ -9145,3 +9145,57 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 ### Git
 
 Все Git-операции выполняет пользователь. Agent Git-команды не выполнял.
+
+---
+
+# Stage 6 — Warehouse
+
+> **Start Gate (2026-08-06):** ADR-032 Material Responsibility documented. **Stage 6 code = NOT STARTED.** Первая implementation-задача появится только после явного решения пользователя и декомпозиции Manifest.
+
+## STAGE6-000 — Stage 6 Start Gate — Material Handling Documentation
+
+**Status:** DONE  
+**Stage:** 6  
+**Date:** 2026-08-06  
+**Depends on:** Stage 5 = DONE  
+**Module:** documentation only (no production code)
+
+### Goal
+
+Зафиксировать финальное архитектурное решение: в TMP **нет отдельного Material Master**; материалы определяются через Item Specification; Material Mapping; Warehouse хранит только складское состояние; Production → Warehouse interaction.
+
+### Required documents
+
+- ADR-032 (Material Responsibility Decision)
+- Warehouse-Specification.md v1.2
+- Order-Management-Specification.md v1.8 (§28)
+- STAGE-6-WAREHOUSE.md
+- STATUS.md; WORK-QUEUE.md; IMPLEMENTATION-LOG.md
+
+### Allowed code scope
+
+none
+
+### Forbidden
+
+- production code changes;
+- new modules;
+- Git operations by agent;
+- starting Stage 6 implementation tasks.
+
+### Acceptance criteria
+
+- [x] ADR-032 создан и Accepted;
+- [x] Warehouse Spec: убраны формулировки Material Master / Warehouse владеет Material;
+- [x] Order Management Spec: §28 Material Responsibility and Mapping;
+- [x] Stage 6 Manifest: readiness + interaction schema;
+- [x] STATUS / WORK-QUEUE / IMPLEMENTATION-LOG синхронизированы;
+- [x] Stage 6 code = NOT STARTED.
+
+### Result
+
+Material Master **не создаётся** (финальное решение). Warehouse получает `materialCode`, `materialName`, `color`, `unitOfMeasure`, `lengthMm`, `lineQuantity` из ACTIVE Specification через Production. Stage 6 implementation **NOT STARTED**.
+
+### Next on success
+
+Ожидание явного решения пользователя на декомпозицию Stage 6 implementation queue (`STAGE6-001+`).

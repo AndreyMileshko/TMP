@@ -1,10 +1,10 @@
 # TMP Development Status
 
 **Mode:** Autonomous Cursor Agent  
-**Project status:** STAGE_COMPLETE (Stage 0–5)  
-**Current Stage:** Stage 5 — Order Management  
+**Project status:** STAGE_COMPLETE (Stage 0–5); Stage 6 Start Gate documented  
+**Current Stage:** Stage 5 — Order Management (closed); Stage 6 — Warehouse (NOT STARTED)  
 **Current Task:** none  
-**Last completed task:** STAGE5-058 (Stage 5 Final Closure)  
+**Last completed task:** STAGE6-000 (Stage 6 Start Gate — Material Handling Documentation)  
 **Active blockers:** NONE  
 
 ```text
@@ -21,7 +21,8 @@ STAGE5-058 = DONE
 Stage 5 Core Order Management = DONE
 Stage 5 Order Intake Extension = DONE
 Stage 5 = DONE
-Stage 6 = NOT STARTED
+STAGE6-000 = DONE (Start Gate documentation only)
+Stage 6 = NOT STARTED (code)
 Active blockers = NONE
 ```
 
@@ -63,4 +64,25 @@ Active blockers = NONE
 - ACTIVE read-only; changes only via Revision
 - Stage 6 = **NOT STARTED** (Warehouse / Production / Cutting / Analytics not started)
 
-**Далее:** Stage 6 Start Gate только по явному решению пользователя. Git — только пользователь.
+**Далее:** Stage 6 implementation — только по явному решению пользователя после Start Gate. Git — только пользователь.
+
+---
+
+## Stage 6 — Start Gate (2026-08-06)
+
+| Item | Status |
+|---|---|
+| ADR-032 Material Responsibility — No Separate Material Master | **Accepted** |
+| Warehouse Specification v1.2 | **Updated** |
+| Order Management Specification v1.8 (§28) | **Updated** |
+| Stage 6 Manifest | **Updated** |
+| Material Master | **Not created** (final decision) |
+| Stage 6 code | **NOT STARTED** |
+
+### Material Handling Decision (summary)
+
+- Нет отдельного Material Master.
+- Order Management: материалы в контексте ACTIVE Specification.
+- Warehouse: только складское состояние; MaterialReference из Specification.
+- Material Mapping: пользовательское сопоставление внешних наименований; не блокирует импорт; не Warehouse.
+- Production → Warehouse: Production рассчитывает потребность; Warehouse отвечает по наличию/резервированию.
