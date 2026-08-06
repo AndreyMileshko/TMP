@@ -8615,7 +8615,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 Ручной ввод MVP-полей позиции и спецификации в JavaFX UI с русскими подписями и валидацией.
 
-### Allowed context
+### Required Context
 
 - CONTEXT-MAP group `stage5-order-intake-manual-ui`;
 - Spec §27.8;
@@ -8671,7 +8671,7 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 Расширить incomplete DRAFT (ADR-030) на коммерческие поля позиции: `productCode` и `name` могут временно отсутствовать (`null`) у позиции в `DRAFT`; placeholders запрещены; перед `ORDER_ITEM_REVISION_APPROVE` поля обязательны; утвержденная позиция всегда полная. Правило доменное (не STXT-специфичное).
 
-### Allowed context
+### Required Context
 
 - CONTEXT-MAP group `stage5-order-intake-contracts`;
 - Spec §5.2, §6, §9, §15, §27.4–27.7; ADR-029, ADR-030;
@@ -8735,7 +8735,7 @@ Conflict with Constitution/ADR; need for STXT/import implementation.
 
 Source-neutral import model, preview/validation, application service, атомарный confirmed import через штатные services, конфликт существующего заказа, метаданные защиты от повторного импорта; создание неполного коммерческого DRAFT без placeholders (ADR-030).
 
-### Allowed context
+### Required Context
 
 - CONTEXT-MAP group `stage5-order-import-core`;
 - Spec §27.4–27.7; ADR-029, ADR-030;
@@ -8798,7 +8798,7 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 Файловый адаптер: кодировки, разделитель `" / "`, заголовки, decimal comma, мм, nullable length, один заказ в файле → source-neutral model.
 
-### Allowed context
+### Required Context
 
 - CONTEXT-MAP group `stage5-order-import-stxt`;
 - Spec §27.5; import model from STAGE5-053;
@@ -8857,7 +8857,7 @@ Adapter writes DB or calls UI.
 
 UI выбора файла, preview, ошибки/предупреждения, confirm/cancel, результат, конфликт существующего заказа; без частичного сохранения.
 
-### Allowed context
+### Required Context
 
 - CONTEXT-MAP group `stage5-order-import-ui`;
 - Spec §27.6; public import application API;
@@ -8912,7 +8912,7 @@ UI posts documents bypassing import service.
 
 Полный автоматический gate Order Intake + regression Stage 5: domain/document/persistence/parser/import/UI/architecture + package build + PackagingSmokeIT.
 
-### Allowed context
+### Required Context
 
 - CONTEXT-MAP group `stage5-order-intake-verification`;
 - All Stage 5 Order Intake tests; architecture tests; packaging.
@@ -8966,7 +8966,7 @@ Failure outside Stage 5 scope; packaging broken.
 
 Пользовательский smoke Order Intake: ручной заказ/позиция/спецификация (linear + non-linear), импорт preview/cancel/confirm, existing order, повторная загрузка, persistence after restart, регрессия Stage 5, русские сообщения. После PASS — финальное закрытие Stage 5 (не раньше).
 
-### Allowed context
+### Required Context
 
 - CONTEXT-MAP group `stage5-order-intake-manual-smoke`;
 - Packaged app; Spec §27 checklist; Manifest exit criteria.
@@ -9166,7 +9166,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 Создать каркас Warehouse capability и базовые module boundaries.
 
-### Allowed context
+### Required Context
 
 - `docs/development-control/stages/STAGE-6-WAREHOUSE.md`
 - `docs/TMP/TMP_Initial_Documents/architecture/11-Warehouse/Warehouse-Specification.md`
@@ -9204,7 +9204,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 Реализовать доменную модель: `Warehouse`, `StorageCell`, `StockPosition`, `WarehouseOperation`, `WarehouseMovement`.
 
-### Allowed context
+### Required Context
 
 - `Warehouse-Specification.md` sections 1-10, 20-21
 - `TMP-Code-Quality-Standards.md`
@@ -9237,7 +9237,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 Добавить persistence schema для Warehouse v1.0.
 
-### Allowed context
+### Required Context
 
 - `Warehouse-Specification.md` sections 5-10, 19
 - `TMP-Database-Specification.md`
@@ -9271,7 +9271,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 Реализовать lifecycle и правила `StockPosition`.
 
-### Allowed context
+### Required Context
 
 - `Warehouse-Specification.md` sections 6-8
 - STAGE6-002 domain contracts
@@ -9304,7 +9304,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 Реализовать неизменяемый журнал `WarehouseMovement`.
 
-### Allowed context
+### Required Context
 
 - `Warehouse-Specification.md` section 9
 - STAGE6-003 schema
@@ -9338,7 +9338,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 Собрать orchestration `WarehouseOperation` как единственный write path.
 
-### Allowed context
+### Required Context
 
 - `Warehouse-Specification.md` section 10
 - STAGE6-004 and STAGE6-005 outputs
@@ -9372,7 +9372,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 Реализовать операцию поступления `Receipt`.
 
-### Allowed context
+### Required Context
 
 - `Warehouse-Specification.md` section 12
 - STAGE6-006 operation contracts
