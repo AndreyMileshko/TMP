@@ -9150,14 +9150,14 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 # Stage 6 — Warehouse
 
-**Status:** NOT STARTED  
+**Status:** BLOCKED  
 **Stage goal:** Implement Warehouse v1.0 strictly by `Warehouse-Specification.md` v1.3.
 
 > Stage 6 implementation decomposition prepared. No Stage 6 production development started in this planning update.
 
 ## STAGE6-001 — Warehouse module foundation
 
-**Status:** READY  
+**Status:** BLOCKED  
 **Stage:** 6  
 **Depends on:** Stage 5 = DONE  
 **Module:** `tmp-warehouse`
@@ -9192,6 +9192,10 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 - module compile/test command;
 - architecture tests for module boundaries.
+
+### Blocker
+
+- Local environment cannot execute required verification commands because `mvn` command is unavailable in PATH.
 
 ## STAGE6-002 — Warehouse domain model
 

@@ -469,6 +469,21 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 
 ---
 
+## 2026-08-06 — STAGE6-001 Warehouse Module Foundation
+
+| Verification | Command | Result |
+|---|---|---|
+| Reactor validation | `mvn validate` | BLOCKED (`mvn` command not found) |
+| Architecture tests | `mvn -q -pl tmp-architecture-tests -am test` | BLOCKED (`mvn` command not found) |
+| STAGE6-001 | WORK-QUEUE | BLOCKED |
+| Git | - | NOT EXECUTED |
+
+### Failures
+
+- `mvn` is not installed or not available in PATH on current host (`where.exe mvn` returns not found).
+
+---
+
 ## 2026-07-31 — STAGE5-056 — Automated Verification (initial)
 
 **Date:** 2026-07-31  

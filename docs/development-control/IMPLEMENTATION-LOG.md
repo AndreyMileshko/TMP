@@ -4497,3 +4497,39 @@ Extended ADR-030 incomplete DRAFT to Order Item commercial fields (`productCode`
 - Stage 6 not started.
 - Git not executed by agent.
 
+---
+
+## STAGE6-001 — Warehouse Module Foundation
+
+**Date:** 2026-08-06  
+**Stage:** 6  
+**Status:** BLOCKED
+
+### Summary
+
+Created the initial `tmp-warehouse` module foundation and connected it to the root Maven reactor without implementing Warehouse business behavior.
+
+### Key deliverables
+
+- Added `tmp-warehouse` to root `pom.xml` modules list and dependencyManagement.
+- Created `tmp-warehouse/pom.xml` as a standalone Stage 6 module.
+- Created package boundaries in `com.tmp.warehouse`:
+  - `domain`
+  - `application`
+  - `api`
+  - `infrastructure`
+- Added `package-info.java` markers only; no domain entities, no API implementation, no persistence tables.
+
+### Boundaries
+
+- No Warehouse business logic implemented.
+- No Warehouse domain entities created.
+- No DB tables/migrations created.
+- No API endpoints/handlers implemented.
+- No Production/Cutting/Order Management internals changed.
+- Git commands not executed by agent.
+
+### Blocker
+
+- Required verification commands cannot run on this host because `mvn` command is unavailable in PATH.
+

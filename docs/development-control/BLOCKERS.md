@@ -35,7 +35,38 @@ None — resolved.
 
 ## Active blockers
 
-**Active blockers: NONE**
+**Active blockers: BLK-018**
+
+---
+
+## `BLK-018` — `Maven command unavailable for required verification`
+
+**Status:** OPEN  
+**Task:** `STAGE6-001`  
+**Detected:** 2026-08-06
+
+### Reason
+
+Обязательные команды verification для STAGE6-001 не могут быть выполнены, потому что `mvn` недоступна в текущем локальном окружении.
+
+### Evidence
+
+- Document/file/check: `mvn validate` → `CommandNotFoundException` (`mvn` not recognized).
+- Document/file/check: `mvn -q -pl tmp-architecture-tests -am test` → `CommandNotFoundException`.
+- Document/file/check: `where.exe mvn` → executable not found.
+
+### Options
+
+1. Установить Maven и добавить его в `PATH`, затем повторить verification-команды.
+2. Указать путь к уже установленному `mvn.cmd`, чтобы запускать проверки через абсолютный путь.
+
+### Recommendation
+
+Вариант 1: установить/подключить Maven в `PATH`, после чего повторно запустить verification STAGE6-001.
+
+### Required user decision
+
+Можете установить Maven (или дать путь к `mvn.cmd`) для повторного запуска `mvn validate` и architecture tests?
 
 ---
 
