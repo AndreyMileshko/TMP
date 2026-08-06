@@ -22,7 +22,7 @@ Stage 5 Core Order Management = DONE
 Stage 5 Order Intake Extension = DONE
 Stage 5 = DONE
 STAGE6-000 = DONE (Start Gate documentation only)
-STAGE6-001..014 implementation queue = READY
+STAGE6-001..015 implementation queue = READY
 Stage 6 = READY (implementation NOT STARTED)
 Active blockers = NONE
 ```

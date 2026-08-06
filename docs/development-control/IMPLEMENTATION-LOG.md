@@ -4,6 +4,38 @@
 
 ---
 
+## STAGE6-PREPARATION-002 — Stage 6 Preparation completed
+
+**Date:** 2026-08-06  
+**Stage:** 6 (preparation only)  
+**Status:** DONE  
+**Module:** documentation only (no production code)
+
+### Summary
+
+Подготовлена детальная рабочая очередь реализации Warehouse в `WORK-QUEUE.md` с задачами `STAGE6-001..015` в нормализованном формате: ID, название, цель, описание, required context, allowed files, forbidden scope, implementation steps, verification, tests.
+
+### Scope confirmation
+
+- Stage 5 remains DONE.
+- Stage 6 remains READY and NOT STARTED.
+- Для `STAGE6-012` зафиксирован reservation information link без `RESERVED` stock state.
+- Ограничения подтверждены: без Material Master, Batch, FIFO, FEFO, complex reservation.
+
+### Updated documents
+
+- `docs/development-control/WORK-QUEUE.md`
+- `docs/development-control/STATUS.md`
+- `docs/development-control/IMPLEMENTATION-LOG.md`
+
+### Boundaries
+
+- Stage 6 code implementation не начата.
+- Production code не изменялся.
+- Git операции агентом не выполнялись.
+
+---
+
 ## STAGE6-PLANNING — Stage 6 Implementation Planning Package
 
 **Date:** 2026-08-06  

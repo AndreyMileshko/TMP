@@ -9625,3 +9625,189 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 - UI viewmodel/component tests;
 - integration tests with mocked warehouse API.
+
+---
+
+## Stage 6 — Detailed Implementation Queue (Normalized)
+
+> Этот блок заменяет предыдущую черновую декомпозицию Stage 6 и является рабочей очередью исполнения.
+
+### STAGE6-001
+- **ID:** `STAGE6-001`
+- **Название:** Warehouse Module Foundation
+- **Цель:** Создать базовый модуль Warehouse без бизнес-логики.
+- **Описание:** Подготовить модуль, структуру пакетов и подключение к сборке.
+- **Required Context:** `STAGE-6-WAREHOUSE.md`, `STAGE-6-WAREHOUSE-CONTEXT-RULES.md`, `Warehouse-Specification.md`, `TMP-Architecture-Overview.md`
+- **Allowed Files:** `tmp-warehouse/**`, root module descriptors, `docs/development-control/*`
+- **Forbidden Scope:** полный проект; Production; Cutting Optimization; внутренние Order Management детали
+- **Implementation Steps:** создать модуль -> создать package boundaries -> подключить в сборку -> синхронизировать control docs
+- **Verification:** module compile PASS; architecture boundaries PASS
+- **Tests:** unit smoke; module integration smoke
+
+### STAGE6-002
+- **ID:** `STAGE6-002`
+- **Название:** Warehouse Domain Model
+- **Цель:** Создать `Warehouse`, `Storage Cell`, `Stock Position`, `Warehouse Operation`, `Warehouse Movement`.
+- **Описание:** Определить доменные сущности, value objects и инварианты.
+- **Required Context:** `Warehouse-Specification.md` (§1-10, §20-21), `TMP-Code-Quality-Standards.md`, `STAGE-6-WAREHOUSE-CONTEXT-RULES.md`
+- **Allowed Files:** `tmp-warehouse/src/main/**/domain/**`, `tmp-warehouse/src/test/**/domain/**`, `docs/development-control/*`
+- **Forbidden Scope:** внутренние модели Production/Cutting/Order Management
+- **Implementation Steps:** описать сущности -> зафиксировать инварианты -> определить доменные контракты
+- **Verification:** invariants PASS; mutation rules PASS
+- **Tests:** unit domain tests; integration domain-service tests
+
+### STAGE6-003
+- **ID:** `STAGE6-003`
+- **Название:** Warehouse Database
+- **Цель:** Создать schema, migrations, tables.
+- **Описание:** Ввести persistence-слой для Warehouse core.
+- **Required Context:** `Warehouse-Specification.md` (§5-10, §19), `TMP-Database-Specification.md`, migration conventions
+- **Allowed Files:** `tmp-warehouse/src/main/resources/db/**`, `tmp-warehouse/**/persistence/**`, `tmp-warehouse/src/test/**/persistence/**`, `docs/development-control/*`
+- **Forbidden Scope:** массовые изменения БД за пределами Warehouse
+- **Implementation Steps:** проектирование таблиц -> constraints -> migrations -> wiring persistence
+- **Verification:** migration apply PASS; schema constraints PASS
+- **Tests:** migration tests; persistence integration tests
+
+### STAGE6-004
+- **ID:** `STAGE6-004`
+- **Название:** Stock Position
+- **Цель:** Реализовать хранение остатков и изменение через Operation.
+- **Описание:** Реализация модели остатков с запретом прямых мутаций.
+- **Required Context:** `Warehouse-Specification.md` (§6-8), outputs `STAGE6-002..003`, context rules
+- **Allowed Files:** `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/application/**`, `tmp-warehouse/**/persistence/**`, `docs/development-control/*`
+- **Forbidden Scope:** `RESERVED` stock state; direct stock mutation; complex reservation logic
+- **Implementation Steps:** реализовать stock model -> привязать к operation path -> закрыть direct writes
+- **Verification:** stock lifecycle PASS; operation-only mutation PASS
+- **Tests:** unit stock rules; integration stock operation tests
+
+### STAGE6-005
+- **ID:** `STAGE6-005`
+- **Название:** Warehouse Movement
+- **Цель:** Реализовать immutable history.
+- **Описание:** История изменений остатков и состояний через неизменяемые записи.
+- **Required Context:** `Warehouse-Specification.md` (§9), outputs `STAGE6-003..004`
+- **Allowed Files:** `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/application/**`, `tmp-warehouse/**/persistence/**`, `docs/development-control/*`
+- **Forbidden Scope:** update/delete для movement
+- **Implementation Steps:** определить movement model -> интегрировать генерацию в operation -> запретить изменение/удаление
+- **Verification:** immutability PASS; movement-on-change PASS
+- **Tests:** unit immutability tests; integration movement history tests
+
+### STAGE6-006
+- **ID:** `STAGE6-006`
+- **Название:** Warehouse Operation
+- **Цель:** Реализовать механизм операций и проверки.
+- **Описание:** Единый write path для складских изменений.
+- **Required Context:** `Warehouse-Specification.md` (§10), outputs `STAGE6-004..005`
+- **Allowed Files:** `tmp-warehouse/**/application/**`, `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/api/**`, `docs/development-control/*`
+- **Forbidden Scope:** обход operation orchestration
+- **Implementation Steps:** operation command model -> validations -> stock + movement execution
+- **Verification:** operation flow PASS; validation handling PASS
+- **Tests:** unit validation tests; integration transaction tests
+
+### STAGE6-007
+- **ID:** `STAGE6-007`
+- **Название:** Receipt
+- **Цель:** Реализовать операцию поступления.
+- **Описание:** Увеличение остатков через `WarehouseOperation`.
+- **Required Context:** `Warehouse-Specification.md` (§12), outputs `STAGE6-006`
+- **Allowed Files:** `tmp-warehouse/**/application/**`, `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/api/**`, `docs/development-control/*`
+- **Forbidden Scope:** supplier/procurement/price logic
+- **Implementation Steps:** receipt request -> operation execution -> movement creation
+- **Verification:** stock increase PASS; movement persisted PASS
+- **Tests:** unit receipt tests; integration receipt tests
+
+### STAGE6-008
+- **ID:** `STAGE6-008`
+- **Название:** Move
+- **Цель:** Реализовать внутреннее перемещение.
+- **Описание:** Перемещение между ячейками без изменения общего количества.
+- **Required Context:** `Warehouse-Specification.md` (§13.1), outputs `STAGE6-006`
+- **Allowed Files:** `tmp-warehouse/**/application/**`, `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/api/**`, `docs/development-control/*`
+- **Forbidden Scope:** transfer/WMS логика
+- **Implementation Steps:** move command -> source validation -> source/destination updates + movement
+- **Verification:** quantity conservation PASS; insufficient stock rejection PASS
+- **Tests:** unit move tests; integration move workflow tests
+
+### STAGE6-009
+- **ID:** `STAGE6-009`
+- **Название:** Transfer
+- **Цель:** Реализовать межскладской transfer.
+- **Описание:** Два этапа: ship и receive через `IN_TRANSIT`.
+- **Required Context:** `Warehouse-Specification.md` (§13.2), outputs `STAGE6-006`
+- **Allowed Files:** `tmp-warehouse/**/application/**`, `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/api/**`, `docs/development-control/*`
+- **Forbidden Scope:** advanced logistics и маршрутизация
+- **Implementation Steps:** ship stage -> receive stage -> audit movement for both stages
+- **Verification:** `AVAILABLE -> IN_TRANSIT -> AVAILABLE` PASS
+- **Tests:** unit transition tests; integration ship/receive tests
+
+### STAGE6-010
+- **ID:** `STAGE6-010`
+- **Название:** Consumption
+- **Цель:** Реализовать списание.
+- **Описание:** Warehouse исполняет списание по входным данным Production.
+- **Required Context:** `Warehouse-Specification.md` (§14-15), Production public API contracts (read-only), context rules
+- **Allowed Files:** `tmp-warehouse/**`, production API contracts (read-only), `docs/development-control/*`
+- **Forbidden Scope:** расчёты Production; алгоритмы Cutting Optimization
+- **Implementation Steps:** consumption command -> availability validation -> stock decrease + movement
+- **Verification:** consumption flow PASS; production ownership preserved PASS
+- **Tests:** unit consumption tests; integration production-like input tests
+
+### STAGE6-011
+- **ID:** `STAGE6-011`
+- **Название:** Inventory / Adjustment
+- **Цель:** Реализовать inventory и adjustment v1.0.
+- **Описание:** Операции сверки и корректировки остатков с аудитом.
+- **Required Context:** `Warehouse-Specification.md` (§11, §19), outputs `STAGE6-004..006`
+- **Allowed Files:** `tmp-warehouse/**/application/**`, `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/api/**`, `docs/development-control/*`
+- **Forbidden Scope:** batch/fifo/fefo и сложные инвентаризационные стратегии
+- **Implementation Steps:** inventory command -> adjustment command -> movement фиксация
+- **Verification:** reconciliation PASS; audit traceability PASS
+- **Tests:** unit inventory/adjustment tests; integration inventory workflow tests
+
+### STAGE6-012
+- **ID:** `STAGE6-012`
+- **Название:** Reservation Information Link
+- **Цель:** Реализовать информационную reservation связь.
+- **Описание:** Reservation link без изменения `Stock Position`.
+- **Required Context:** `Warehouse-Specification.md` (§8, §17), outputs `STAGE6-004..006`
+- **Allowed Files:** `tmp-warehouse/**/application/**`, `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/api/**`, `tmp-warehouse/**/persistence/**`, `docs/development-control/*`
+- **Forbidden Scope:** создание `RESERVED` stock state; complex reservation engine
+- **Implementation Steps:** reservation link model -> create/query link use-cases -> guard against stock mutation
+- **Verification:** reservation link PASS; no stock or movement mutation PASS
+- **Tests:** unit reservation tests; integration reservation use-case tests
+
+### STAGE6-013
+- **ID:** `STAGE6-013`
+- **Название:** Public API
+- **Цель:** Реализовать минимальный Public API.
+- **Описание:** API для stock, availability, reservation link и execution операций.
+- **Required Context:** `Warehouse-Specification.md` (§17), `TMP-Architecture-Overview.md`, outputs `STAGE6-006..012`
+- **Allowed Files:** `tmp-warehouse-api/**`, `tmp-warehouse/**/api/**`, API tests, `docs/development-control/*`
+- **Forbidden Scope:** раскрытие internal persistence/domain деталей
+- **Implementation Steps:** contracts -> adapters/controllers -> error mapping
+- **Verification:** API contracts PASS; integration behavior PASS
+- **Tests:** unit contract tests; integration API tests
+
+### STAGE6-014
+- **ID:** `STAGE6-014`
+- **Название:** Security Integration
+- **Цель:** Интегрировать Warehouse с Security capability.
+- **Описание:** Подключить `WAREHOUSE_*` permissions.
+- **Required Context:** `Warehouse-Specification.md` (§18), security public contracts, outputs `STAGE6-013`
+- **Allowed Files:** `tmp-warehouse/**/security/**`, allowed `tmp-security/**` extension points, security tests, `docs/development-control/*`
+- **Forbidden Scope:** изменения security core вне extension points
+- **Implementation Steps:** permission mapping -> operation/api guards -> auth error alignment
+- **Verification:** authorized PASS; unauthorized denied PASS
+- **Tests:** unit permission tests; integration authorization tests
+
+### STAGE6-015
+- **ID:** `STAGE6-015`
+- **Название:** Warehouse UI
+- **Цель:** Реализовать базовый UI Warehouse.
+- **Описание:** UI для просмотра остатков и операций v1.0 через Public API.
+- **Required Context:** `Warehouse-Specification.md` (§11-18), UI architecture rules, outputs `STAGE6-013..014`
+- **Allowed Files:** `tmp-ui-shell/**/warehouse/**`, limited shared UI components, UI tests, `docs/development-control/*`
+- **Forbidden Scope:** бизнес-логика склада в UI; прямой доступ к внутренним warehouse сервисам
+- **Implementation Steps:** screens/viewmodels -> API integration -> permission/error states
+- **Verification:** UI scenarios PASS; permission/error state PASS
+- **Tests:** unit/viewmodel tests; integration UI tests
