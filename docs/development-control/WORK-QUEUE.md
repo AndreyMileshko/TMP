@@ -9150,88 +9150,478 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 # Stage 6 — Warehouse
 
-> **Start Gate (2026-08-06):** ADR-032 Material Responsibility documented. **Stage 6 code = NOT STARTED.** Первая implementation-задача появится только после явного решения пользователя и декомпозиции Manifest.
+**Status:** NOT STARTED  
+**Stage goal:** Implement Warehouse v1.0 strictly by `Warehouse-Specification.md` v1.3.
 
-## STAGE6-000 — Stage 6 Start Gate — Material Handling Documentation
+> Stage 6 implementation decomposition prepared. No Stage 6 production development started in this planning update.
 
-**Status:** DONE  
+## STAGE6-001 — Warehouse module foundation
+
+**Status:** READY  
 **Stage:** 6  
-**Date:** 2026-08-06  
 **Depends on:** Stage 5 = DONE  
-**Module:** documentation only (no production code)
+**Module:** `tmp-warehouse`
 
 ### Goal
 
-Зафиксировать финальное архитектурное решение: в TMP **нет отдельного Material Master**; материалы определяются через Item Specification; Material Mapping; Warehouse хранит только складское состояние; Production → Warehouse interaction.
+Создать каркас Warehouse capability и базовые module boundaries.
 
-### Required documents
+### Allowed context
 
-- ADR-032 (Material Responsibility Decision)
-- Warehouse-Specification.md v1.2
-- Order-Management-Specification.md v1.8 (§28)
-- STAGE-6-WAREHOUSE.md
-- STATUS.md; WORK-QUEUE.md; IMPLEMENTATION-LOG.md
+- `docs/development-control/stages/STAGE-6-WAREHOUSE.md`
+- `docs/TMP/TMP_Initial_Documents/architecture/11-Warehouse/Warehouse-Specification.md`
+- `docs/TMP/TMP_Initial_Documents/architecture/TMP-Architecture-Overview.md`
+- `tmp-*-api` public contracts (read-only)
 
-### Allowed code scope
+### Mutable files
 
-none
-
-### Forbidden
-
-- production code changes;
-- new modules;
-- Git operations by agent;
-- starting Stage 6 implementation tasks.
-
-### Acceptance criteria
-
-- [x] ADR-032 создан и Accepted;
-- [x] Warehouse Spec: убраны формулировки Material Master / Warehouse владеет Material;
-- [x] Order Management Spec: §28 Material Responsibility and Mapping;
-- [x] Stage 6 Manifest: readiness + interaction schema;
-- [x] STATUS / WORK-QUEUE / IMPLEMENTATION-LOG синхронизированы;
-- [x] Stage 6 code = NOT STARTED.
-
-### Result
-
-Material Master **не создаётся** (финальное решение). Warehouse получает `materialCode`, `materialName`, `color`, `unitOfMeasure`, `lengthMm`, `lineQuantity` из ACTIVE Specification через Production. Stage 6 implementation **NOT STARTED**.
-
-### Next on success
-
-Ожидание явного решения пользователя на декомпозицию Stage 6 implementation queue (`STAGE6-001+`).
-
-## STAGE6-001 — Stage 6 Start Gate — Warehouse Specification Simplification
-
-**Status:** DONE  
-**Stage:** 6  
-**Date:** 2026-08-06  
-**Depends on:** STAGE6-000  
-**Module:** documentation only (no production code)
-
-### Goal
-
-Обновить `Warehouse-Specification.md` по финальному набору правил Start Gate: Warehouse-only state, без партий, без `RESERVED` state, reservation как информационная связь, минимальный API.
-
-### Required documents
-
-- `docs/TMP/TMP_Initial_Documents/architecture/11-Warehouse/Warehouse-Specification.md` (v1.3)
+- `tmp-warehouse/**`
+- root build/module descriptor files (только подключение нового модуля)
 - `docs/development-control/STATUS.md`
 - `docs/development-control/WORK-QUEUE.md`
 - `docs/development-control/IMPLEMENTATION-LOG.md`
+- `docs/development-control/VERIFICATION-LOG.md`
 
-### Allowed code scope
+### Completion criteria
 
-none
+- warehouse module подключен и компилируется;
+- выделены package boundaries: domain/application/infrastructure/api;
+- cross-module dependencies соответствуют Architecture rules.
 
-### Acceptance criteria
+### Tests
 
-- [x] `Warehouse-Specification.md` upgraded to **v1.3**;
-- [x] `Batch`, `Supplier Batch`, `FIFO`, `FEFO` removed from spec;
-- [x] stock states simplified (`AVAILABLE`, `IN_TRANSIT`, `BLOCKED`, optional `SCRAPPED`);
-- [x] reservation changed to informational link (no stock mutation);
-- [x] minimal API and security capabilities aligned with Stage 6 Start Gate;
-- [x] Stage 6 implementation code remains **NOT STARTED**.
+- module compile/test command;
+- architecture tests for module boundaries.
 
-### Result
+## STAGE6-002 — Warehouse domain model
 
-Warehouse architecture documentation updated and simplified per Stage 6 Start Gate decision set. No production code changes. Git not executed by agent.
+**Status:** READY  
+**Stage:** 6  
+**Depends on:** STAGE6-001  
+**Module:** `tmp-warehouse`
+
+### Goal
+
+Реализовать доменную модель: `Warehouse`, `StorageCell`, `StockPosition`, `WarehouseOperation`, `WarehouseMovement`.
+
+### Allowed context
+
+- `Warehouse-Specification.md` sections 1-10, 20-21
+- `TMP-Code-Quality-Standards.md`
+- existing domain patterns from prior stages (read-only)
+
+### Mutable files
+
+- `tmp-warehouse/src/main/**/domain/**`
+- `tmp-warehouse/src/test/**/domain/**`
+- `STATUS.md`, `WORK-QUEUE.md`, `IMPLEMENTATION-LOG.md`, `VERIFICATION-LOG.md`
+
+### Completion criteria
+
+- инварианты спецификации зафиксированы в домене;
+- запрещены прямые мутации `StockPosition` вне `WarehouseOperation`;
+- `WarehouseMovement` immutable.
+
+### Tests
+
+- domain unit tests for invariants and state transitions.
+
+## STAGE6-003 — Database schema
+
+**Status:** READY  
+**Stage:** 6  
+**Depends on:** STAGE6-002  
+**Module:** `tmp-warehouse`
+
+### Goal
+
+Добавить persistence schema для Warehouse v1.0.
+
+### Allowed context
+
+- `Warehouse-Specification.md` sections 5-10, 19
+- `TMP-Database-Specification.md`
+- existing migration conventions
+
+### Mutable files
+
+- `tmp-warehouse/src/main/resources/db/**`
+- `tmp-warehouse/src/main/**/persistence/**`
+- `tmp-warehouse/src/test/**/persistence/**`
+- control docs (`STATUS.md`, `WORK-QUEUE.md`, logs)
+
+### Completion criteria
+
+- таблицы/связи для warehouse core model созданы;
+- ограничения на negative quantity и referential integrity реализованы;
+- migration проходит в test profile.
+
+### Tests
+
+- migration/integration persistence tests.
+
+## STAGE6-004 — Stock Position
+
+**Status:** READY  
+**Stage:** 6  
+**Depends on:** STAGE6-003  
+**Module:** `tmp-warehouse`
+
+### Goal
+
+Реализовать lifecycle и правила `StockPosition`.
+
+### Allowed context
+
+- `Warehouse-Specification.md` sections 6-8
+- STAGE6-002 domain contracts
+
+### Mutable files
+
+- `tmp-warehouse/**/domain/**`
+- `tmp-warehouse/**/application/**`
+- related tests
+- control docs
+
+### Completion criteria
+
+- `StockPosition` определяется комбинацией warehouse/cell/material/state/quantity;
+- отрицательное количество невозможно;
+- reservation link не изменяет stock.
+
+### Tests
+
+- unit + service tests for stock rules.
+
+## STAGE6-005 — Warehouse Movement
+
+**Status:** READY  
+**Stage:** 6  
+**Depends on:** STAGE6-004  
+**Module:** `tmp-warehouse`
+
+### Goal
+
+Реализовать неизменяемый журнал `WarehouseMovement`.
+
+### Allowed context
+
+- `Warehouse-Specification.md` section 9
+- STAGE6-003 schema
+
+### Mutable files
+
+- `tmp-warehouse/**/domain/**`
+- `tmp-warehouse/**/persistence/**`
+- `tmp-warehouse/**/application/**`
+- related tests and control docs
+
+### Completion criteria
+
+- каждое изменение количества/состояния создаёт movement;
+- update/delete movement запрещены;
+- доступна последовательность для аудита.
+
+### Tests
+
+- persistence integration tests;
+- application tests for movement creation.
+
+## STAGE6-006 — Warehouse Operation
+
+**Status:** READY  
+**Stage:** 6  
+**Depends on:** STAGE6-005  
+**Module:** `tmp-warehouse`
+
+### Goal
+
+Собрать orchestration `WarehouseOperation` как единственный write path.
+
+### Allowed context
+
+- `Warehouse-Specification.md` section 10
+- STAGE6-004 and STAGE6-005 outputs
+
+### Mutable files
+
+- `tmp-warehouse/**/application/**`
+- `tmp-warehouse/**/domain/**`
+- `tmp-warehouse/**/api/**`
+- related tests and control docs
+
+### Completion criteria
+
+- write-сценарии только через operation service;
+- validation + stock update + movement creation в одной операции;
+- прямой bypass stock mutation отсутствует.
+
+### Tests
+
+- application service tests;
+- transaction boundary integration tests.
+
+## STAGE6-007 — Receipt
+
+**Status:** READY  
+**Stage:** 6  
+**Depends on:** STAGE6-006  
+**Module:** `tmp-warehouse`
+
+### Goal
+
+Реализовать операцию поступления `Receipt`.
+
+### Allowed context
+
+- `Warehouse-Specification.md` section 12
+- STAGE6-006 operation contracts
+
+### Mutable files
+
+- `tmp-warehouse/**/application/**`
+- `tmp-warehouse/**/domain/**`
+- `tmp-warehouse/**/api/**`
+- tests and control docs
+
+### Completion criteria
+
+- поступление увеличивает остаток через `WarehouseOperation`;
+- фиксируется `WarehouseMovement`;
+- supplier/procurement data в scope не добавляются.
+
+### Tests
+
+- receipt unit and integration tests.
+
+## STAGE6-008 — Move
+
+**Status:** READY  
+**Stage:** 6  
+**Depends on:** STAGE6-007  
+**Module:** `tmp-warehouse`
+
+### Goal
+
+Реализовать внутреннее перемещение `Move` между storage cells.
+
+### Allowed context
+
+- `Warehouse-Specification.md` section 13.1
+- STAGE6-006 operation contracts
+
+### Mutable files
+
+- `tmp-warehouse/**/application/**`
+- `tmp-warehouse/**/domain/**`
+- `tmp-warehouse/**/api/**`
+- tests and control docs
+
+### Completion criteria
+
+- перенос между ячейками без изменения общего количества;
+- корректные движения для source/destination;
+- запрет move при недостатке остатка.
+
+### Tests
+
+- move operation tests including insufficient stock.
+
+## STAGE6-009 — Transfer
+
+**Status:** READY  
+**Stage:** 6  
+**Depends on:** STAGE6-008  
+**Module:** `tmp-warehouse`
+
+### Goal
+
+Реализовать межскладской transfer с состоянием `IN_TRANSIT`.
+
+### Allowed context
+
+- `Warehouse-Specification.md` section 13.2
+- STAGE6-006 operation contracts
+
+### Mutable files
+
+- `tmp-warehouse/**/application/**`
+- `tmp-warehouse/**/domain/**`
+- `tmp-warehouse/**/api/**`
+- tests and control docs
+
+### Completion criteria
+
+- двухэтапный flow: ship (`AVAILABLE -> IN_TRANSIT`) и receive (`IN_TRANSIT -> AVAILABLE`);
+- movement history фиксирует оба этапа;
+- инварианты количества сохранены.
+
+### Tests
+
+- transfer workflow integration tests.
+
+## STAGE6-010 — Consumption
+
+**Status:** READY  
+**Stage:** 6  
+**Depends on:** STAGE6-009  
+**Module:** `tmp-warehouse`
+
+### Goal
+
+Реализовать списание `Consumption` по входу от Production.
+
+### Allowed context
+
+- `Warehouse-Specification.md` sections 14-15
+- production public contracts (read-only)
+
+### Mutable files
+
+- `tmp-warehouse/**/application/**`
+- `tmp-warehouse/**/domain/**`
+- integration adapters and tests
+- control docs
+
+### Completion criteria
+
+- consumption уменьшает остаток только через operation flow;
+- source of truth по "what/how much" остаётся в Production;
+- movement создаётся обязательно.
+
+### Tests
+
+- consumption unit/integration tests with production-like requests.
+
+## STAGE6-011 — Inventory
+
+**Status:** READY  
+**Stage:** 6  
+**Depends on:** STAGE6-010  
+**Module:** `tmp-warehouse`
+
+### Goal
+
+Реализовать inventory/adjustment операции v1.0.
+
+### Allowed context
+
+- `Warehouse-Specification.md` sections 11, 19
+- existing stock/movement rules
+
+### Mutable files
+
+- `tmp-warehouse/**/application/**`
+- `tmp-warehouse/**/domain/**`
+- `tmp-warehouse/**/api/**`
+- tests and control docs
+
+### Completion criteria
+
+- inventory reconciliation корректирует `StockPosition` через operation;
+- adjustment создаёт auditable movements;
+- negative stock rules не нарушаются.
+
+### Tests
+
+- inventory and adjustment integration tests.
+
+## STAGE6-012 — Public API
+
+**Status:** READY  
+**Stage:** 6  
+**Depends on:** STAGE6-011  
+**Module:** `tmp-warehouse-api`, `tmp-warehouse`
+
+### Goal
+
+Реализовать минимальный публичный API Warehouse.
+
+### Allowed context
+
+- `Warehouse-Specification.md` section 17
+- API patterns from existing capabilities
+
+### Mutable files
+
+- `tmp-warehouse-api/**`
+- `tmp-warehouse/**/api/**`
+- contract tests and control docs
+
+### Completion criteria
+
+- доступны контракты: stock query, availability check, reservation link, execute operation;
+- API не раскрывает внутренние persistence детали;
+- backward compatibility внутри Stage 6 preserved.
+
+### Tests
+
+- api contract tests;
+- integration tests for main endpoints/services.
+
+## STAGE6-013 — Security integration
+
+**Status:** READY  
+**Stage:** 6  
+**Depends on:** STAGE6-012  
+**Module:** `tmp-warehouse`, `tmp-security`
+
+### Goal
+
+Интегрировать Warehouse с Security capability permissions.
+
+### Allowed context
+
+- `Warehouse-Specification.md` section 18
+- security public contracts and existing permission model
+
+### Mutable files
+
+- `tmp-warehouse/**/security/**`
+- `tmp-security/**` (только разрешённые extension points)
+- security tests and control docs
+
+### Completion criteria
+
+- permissions `WAREHOUSE_*` подключены к операциям и read access;
+- unauthorized access correctly denied;
+- audit/reasonable error responses preserved.
+
+### Tests
+
+- security integration tests;
+- authorization tests per operation type.
+
+## STAGE6-014 — UI
+
+**Status:** READY  
+**Stage:** 6  
+**Depends on:** STAGE6-013  
+**Module:** `tmp-ui-shell`
+
+### Goal
+
+Добавить базовый UI для Warehouse v1.0 операций и просмотра остатков.
+
+### Allowed context
+
+- `Warehouse-Specification.md` sections 11-18
+- UI architecture constraints from prior stages
+- public API contracts from STAGE6-012
+
+### Mutable files
+
+- `tmp-ui-shell/**/warehouse/**`
+- shared UI components (точечно)
+- ui tests and control docs
+
+### Completion criteria
+
+- UI покрывает stock view + операции v1.0 по scope Stage 6;
+- UI не содержит business logic склада;
+- ошибки/permission states отображаются корректно.
+
+### Tests
+
+- UI viewmodel/component tests;
+- integration tests with mocked warehouse API.

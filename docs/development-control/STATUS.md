@@ -1,10 +1,10 @@
 # TMP Development Status
 
 **Mode:** Autonomous Cursor Agent  
-**Project status:** STAGE_COMPLETE (Stage 0–5); Stage 6 Start Gate documented  
-**Current Stage:** Stage 5 — Order Management (closed); Stage 6 — Warehouse (NOT STARTED)  
+**Project status:** STAGE_COMPLETE (Stage 0-5); Stage 6 planning ready, implementation not started  
+**Current Stage:** Stage 5 - DONE; Stage 6 - READY (implementation NOT STARTED)  
 **Current Task:** none  
-**Last completed task:** STAGE6-000 (Stage 6 Start Gate — Material Handling Documentation)  
+**Last completed task:** STAGE6-PLANNING (Stage 6 implementation decomposition)  
 **Active blockers:** NONE  
 
 ```text
@@ -22,7 +22,8 @@ Stage 5 Core Order Management = DONE
 Stage 5 Order Intake Extension = DONE
 Stage 5 = DONE
 STAGE6-000 = DONE (Start Gate documentation only)
-Stage 6 = NOT STARTED (code)
+STAGE6-001..014 implementation queue = READY
+Stage 6 = READY (implementation NOT STARTED)
 Active blockers = NONE
 ```
 
@@ -38,7 +39,7 @@ Active blockers = NONE
 | 3 | Capability Engine | DONE | 100% |
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
-| 6 | Warehouse | NOT STARTED | 0% |
+| 6 | Warehouse | READY | 0% |
 | 7 | Production | NOT STARTED | 0% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |

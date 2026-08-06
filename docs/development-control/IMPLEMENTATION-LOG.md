@@ -4,6 +4,39 @@
 
 ---
 
+## STAGE6-PLANNING — Stage 6 Implementation Planning Package
+
+**Date:** 2026-08-06  
+**Stage:** 6 (planning only)  
+**Status:** DONE  
+**Module:** documentation only (no production code)
+
+### Summary
+
+Подготовлен пакет планирования Stage 6 Warehouse по `Warehouse-Specification.md` v1.3: обновлен Stage Manifest, сформирована очередь задач `STAGE6-001..014`, синхронизированы `WORK-QUEUE.md` и `STATUS.md`.
+
+### Scope confirmation
+
+- Stage 5 остается DONE.
+- Stage 6 переведен в READY (planning), implementation remains NOT STARTED.
+- Stage 6 queue декомпозирована на небольшие задачи с goal/context/mutable files/completion criteria/tests.
+- Ограничения подтверждены: без Material Master, Batch, FIFO, FEFO, WMS и сложных резервов.
+
+### Updated documents
+
+- `docs/development-control/stages/STAGE-6-WAREHOUSE.md`
+- `docs/development-control/WORK-QUEUE.md`
+- `docs/development-control/STATUS.md`
+- `docs/development-control/IMPLEMENTATION-LOG.md`
+
+### Boundaries
+
+- Production code не изменялся.
+- Разработка Stage 6 не начиналась.
+- Git операции агентом не выполнялись.
+
+---
+
 ## STAGE6-001 — Stage 6 Start Gate — Warehouse Documentation Update
 
 **Date:** 2026-08-06  
