@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-010
 **Status:** Accepted
-**Version:** 1.6
+**Version:** 1.7
 
 ---
 
@@ -803,6 +803,7 @@ Order Management предоставляет стабильные `Order Item ID`
 | 1.4 | ADR-031 (interim): `OrderOrigin`; import landing; imported-specific read-only / no new Revision — **superseded by 1.5**. |
 | 1.5 | **Final ADR-031:** uniform ACTIVE; запрет OrderOrigin/ImportMetadata/checksum duplicate protection; дубли только `orderNumber`; import operation → Order/Item/Revision/Specification ACTIVE; изменение ACTIVE только через Revision; RevisionStatus целевой `DRAFT\|ACTIVE`; §8/§9/§27. Реализация — STAGE5-058. |
 | 1.6 | **Final STXT Contract (STAGE5-058):** §27 block format ORDER→ITEM→SPEC; multi-order; productCode/name/client/date; `@`/`#` skip; `кв.м.`; quantity = норма расхода на 1 изделие; ACTIVE одинаков независимо от источника. |
+| 1.7 | **Stage 5 Final Closure (2026-08-06):** Stage 5 = DONE; STAGE5-057/058 = DONE; STAGE5-058 Manual GUI Smoke PASS; Stage 6 = NOT STARTED. Зафиксированы итоговые правила §27 (trusted import → ACTIVE; read-only ACTIVE; Revision N+1). |
 
 ---
 
@@ -1038,23 +1039,29 @@ Placeholders (`UNKNOWN`, `N/A`, `IMPORT`, …) запрещены — импор
 | Create DRAFT Order | `customerName` (и др.) ещё обязателен в коде | ADR-030 принят; реализация релаксации в STAGE5-051 |
 | Import landing | STAGE5-058 DONE: Final STXT Contract + IMPORT → uniform ACTIVE; multi-order; metadata protection removed | — |
 
-Требуемые изменения ADR-031 final + Final STXT Contract реализованы в `STAGE5-058`: domain statuses, block STXT parser, multi-order confirm, import validation (number/date/client/productCode/name/unit/quantity), удаление import-metadata duplicate protection, UI read-only для любого ACTIVE, Revision rename `APPROVED→ACTIVE`, Flyway V13, tests.
+Требуемые изменения ADR-031 final + Final STXT Contract реализованы в `STAGE5-058`: domain statuses, block STXT parser, multi-order confirm, import validation (number/date/client/productCode/name/unit/quantity), удаление import-metadata duplicate protection, UI read-only для любого ACTIVE, Revision rename `APPROVED→ACTIVE`, Flyway V13+V14, tests. Stage 5 Final Closure 2026-08-06.
 
 ## 27.10 Imported Order Lifecycle Rules (ADR-031 final) — сводка
 
+Импортированные заказы из расчётной программы являются **доверенными**.
+
 ```text
 Ручной:   DRAFT → APPROVED → ACTIVE
-Импорт:   STXT → Import Core → IMPORT operation → ACTIVE
+Импорт:   STXT → Import Core → Approve flow (Document Engine) → ACTIVE
+
+После успешного импорта:
+  Order / Order Item / Revision / Specification = ACTIVE
 
 После ACTIVE:
-  Order / Item / Revision / Specification — единое поведение
-  прямое редактирование запрещено
-  изменение только через Revision
+  единое поведение независимо от канала создания
+  прямое редактирование запрещено (только просмотр)
+  изменение только через Revision N+1
 ```
 
 Дубли: только `orderNumber` uniqueness.
 
-ACTIVE одинаков независимо от источника создания.
+Не существует / не создавать: `ImportMetadata`, `sourceType`, `creationSource`, OrderOrigin, checksum registry, отдельный import lifecycle.
 
-Не создавать: OrderOrigin, ImportMetadata, checksum registry, отдельные import-сущности.
 Прямая активация агрегатов в обход Document Engine запрещена.
+
+**Stage 5:** DONE (2026-08-06). **Stage 6:** NOT STARTED.

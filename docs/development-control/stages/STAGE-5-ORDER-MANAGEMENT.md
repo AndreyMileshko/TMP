@@ -1,9 +1,10 @@
 # Stage 5 Manifest — Order Management
 
 **Stage:** 5 — Order Management  
-**Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.5)  
+**Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (v1.7)  
 **ADR document:** `docs/TMP/TMP_Initial_Documents/architecture/05-ADR/TMP-Architecture-Decisions.md` (v1.8; ADR-028, ADR-029, ADR-030, ADR-031 final)  
-**Status:** Core + Order Intake DONE (`STAGE5-001..057`); post-closure `STAGE5-058` = DONE (Imported Order Lifecycle + Final STXT Contract). Stage 6 = NOT STARTED.
+**Status:** **DONE** (Stage 5 Final Closure 2026-08-06). Core + Order Intake (`STAGE5-001..057`) + post-closure `STAGE5-058` (Imported Order Lifecycle + Final STXT Contract + Manual GUI Smoke PASS). Stage 6 = **NOT STARTED**.
+
 
 ---
 
@@ -18,9 +19,9 @@
 ## 2. Входные условия
 
 - Stage 0–4 завершены (DONE 100%); нет открытых блокеров Stage 0–4.
-- Order Management Specification = **v1.5**; Constitution v1.2; ADR = **v1.8** (ADR-028, ADR-029, ADR-030, ADR-031 final).
+- Order Management Specification = **v1.7**; Constitution v1.2; ADR = **v1.8** (ADR-028, ADR-029, ADR-030, ADR-031 final).
 - Подтверждённая транзакционная граница Document Engine (processor внутри транзакции проведения; события после commit).
-- **Фактические миграции Order Management:** latest = **V13**.
+- **Фактические миграции Order Management:** latest = **V14**.
 - Reactor: `tmp-platform-core`, `tmp-infra-db`, `tmp-document-engine`, `tmp-capability-engine`, `tmp-security`, `tmp-ui-shell`, `tmp-bootstrap-app`, `tmp-architecture-tests`, `tmp-order-management`.
 
 ---
@@ -166,7 +167,7 @@
 `STAGE5-001..STAGE5-049` — реализованы.  
 `STAGE5-050` — Manual Packaged GUI Smoke — Core Order Management: **DONE (PASS)**.
 
-Успех `STAGE5-050` → `STAGE5-051` Order Intake contracts. `STAGE5-051` = **DONE**. Stage 5 остаётся **IN_PROGRESS**. Не закрывает Stage 5, не ставит 100%, не стартует Stage 6.
+Успех `STAGE5-050` → `STAGE5-051` Order Intake contracts. `STAGE5-051..058` = **DONE**. Stage 5 = **DONE** (Final Closure 2026-08-06). Stage 6 = **NOT STARTED**.
 
 ### Order Intake extension
 
@@ -220,9 +221,10 @@ Stage 5 завершён только когда:
 - `mvn clean verify` и `-Ppackage` зелёные;
 - **core** packaged GUI smoke (`STAGE5-050`) подтверждён пользователем;
 - **Order Intake MVP** (`STAGE5-051..057`): ручной ввод и файловый импорт создают одинаковую доменную структуру; preview до persistence; атомарный импорт; конфликт существующего заказа; без Firebird; incomplete DRAFT per ADR-030; итоговый smoke `STAGE5-057` подтверждён;
+- **Post-closure `STAGE5-058`:** uniform ACTIVE import lifecycle + Final STXT Contract; Manual GUI Smoke PASS (2026-08-06);
 - явная остановка перед Stage 6.
 
-`STAGE5-050` сам по себе **не** закрывает Stage 5.
+**Exit criteria выполнены. Stage 5 = DONE.** Stage 6 Start Gate — только по явному решению пользователя.
 
 ## 21. Decisions for Order Intake
 
@@ -231,8 +233,10 @@ Stage 5 завершён только когда:
 
 ## 22. Post-closure — STAGE5-058
 
-**Status:** DONE.
+**Status:** DONE (includes Manual GUI Smoke PASS 2026-08-06).
 
-**Goal:** реализовать ADR-031 final без старта Stage 6 — выполнено.
+**Goal:** реализовать ADR-031 final + Final STXT Contract без старта Stage 6 — выполнено.
 
-**Affected modules:** `tmp-order-management`, `tmp-ui-shell`, Flyway `V13`, tests, ADR/Spec sync.
+**Affected modules:** `tmp-order-management`, `tmp-ui-shell`, Flyway `V13`+`V14`, tests, ADR/Spec sync.
+
+**Stage 5 Final Closure:** 2026-08-06. Stage 6 = NOT STARTED.

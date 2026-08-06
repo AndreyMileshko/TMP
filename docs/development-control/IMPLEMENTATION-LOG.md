@@ -4,6 +4,66 @@
 
 ---
 
+## Stage 5 — FINAL CLOSURE
+
+**Date:** 2026-08-06  
+**Stage:** 5  
+**Status:** DONE  
+**Module:** documentation only (no production code)
+
+### Summary
+
+Formal closure of Stage 5 — Order Management after successful completion of `STAGE5-057` and `STAGE5-058` (including Manual GUI Smoke PASS).
+
+### Delivered functionality (Stage 5)
+
+**Order Management**
+
+- создание заказа;
+- создание позиций заказа;
+- управление редакциями;
+- управление спецификациями;
+- approve lifecycle.
+
+**STAGE5-058 — Imported Order Lifecycle**
+
+Импортированные заказы из расчётной программы — доверенные. После успешного импорта:
+
+| Aggregate | Status |
+|---|---|
+| Order | ACTIVE |
+| Order Item | ACTIVE |
+| Revision | ACTIVE |
+| Specification | ACTIVE |
+
+ACTIVE одинаков независимо от способа создания. Не существует: `ImportMetadata`, `sourceType`, `creationSource`, отдельного import lifecycle.
+
+**STXT Import Contract**
+
+Один файл → несколько заказов. Структура: Order → Item → Specification. Multi-order / multi-item / spec per item.
+
+Импорт полей: номер/даты/клиент; изделие (номер, код, наименование, кол-во); спецификация (артикул, наименование, цвет, размер, единица, кол-во позиции).
+
+Количество изделий = копии; количество позиции = норма на 1 копию; TMP **не** умножает. `@`/`#` не импортируются; `кв.м.` → размер в наименование, единица `шт.`, количество сохраняется.
+
+**Lifecycle**
+
+- Manual: DRAFT → APPROVED → ACTIVE  
+- Import: STXT → Import Core → Approve flow → ACTIVE  
+- ACTIVE: read-only; изменения только через Revision  
+
+**Not started:** Warehouse, Production, Cutting Optimization, Analytics, Stage 6.
+
+### Code / schema
+
+Не изменялись в рамках Final Closure.
+
+### Git
+
+Git-команды агентом не выполнялись.
+
+---
+
 ## STAGE5-058 — FIX REQUIRED: Final STXT Parser Contract Mismatch
 
 **Date:** 2026-08-05  

@@ -1,10 +1,10 @@
 # TMP Development Status
 
 **Mode:** Autonomous Cursor Agent  
-**Project status:** IN_PROGRESS  
-**Current Stage:** Stage 5 — Order Management (post-closure improvement DONE)  
+**Project status:** STAGE_COMPLETE (Stage 0–5)  
+**Current Stage:** Stage 5 — Order Management  
 **Current Task:** none  
-**Last completed task:** STAGE5-058  
+**Last completed task:** STAGE5-058 (Stage 5 Final Closure)  
 **Active blockers:** NONE  
 
 ```text
@@ -17,10 +17,10 @@ STAGE5-054 = DONE
 STAGE5-055 = DONE
 STAGE5-056 = DONE
 STAGE5-057 = DONE
-STAGE5-058 = DONE (Final STXT block parser accepts SuperOkna export)
+STAGE5-058 = DONE
 Stage 5 Core Order Management = DONE
 Stage 5 Order Intake Extension = DONE
-Stage 5 = DONE (core + intake + post-closure STAGE5-058)
+Stage 5 = DONE
 Stage 6 = NOT STARTED
 Active blockers = NONE
 ```
@@ -36,7 +36,7 @@ Active blockers = NONE
 | 2 | Document Engine | DONE | 100% |
 | 3 | Capability Engine | DONE | 100% |
 | 4 | Security | DONE | 100% |
-| 5 | Order Management | DONE | 100% (+ post-closure STAGE5-058 DONE) |
+| 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | NOT STARTED | 0% |
 | 7 | Production | NOT STARTED | 0% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
@@ -44,19 +44,23 @@ Active blockers = NONE
 
 ---
 
-## Stage 5 detail
+## Stage 5 — Final Closure (2026-08-06)
 
 | Part | Status |
 |---|---|
 | Core Order Management (`STAGE5-001..050`) | DONE |
 | Order Intake Extension (`STAGE5-051..057`) | DONE |
-| Post-closure: Imported Order Lifecycle + Final STXT (`STAGE5-058`) | DONE |
-| Stage 5 overall | DONE |
+| Imported Order Lifecycle + Final STXT (`STAGE5-058`) | DONE |
+| STAGE5-058 Manual GUI Smoke | PASS |
+| Stage 5 overall | **DONE** |
 
-`STAGE5-058` = **DONE**. Final STXT block parser accepts SuperOkna export (`Итоговый формат выгрузки.stxt`): repeated order headers merged; multiline names; fixed SPEC fields. Import → Document approve/activate → uniform ACTIVE. Stage 6 = NOT STARTED.
+### Delivered functionality
 
----
-
-**Stage 0–5:** DONE (включая post-closure `STAGE5-058`).
+- Order create / Item create / Revision management / Specification management / approve lifecycle
+- STXT import (multi-order, multi-item, specification per item)
+- Import → Document approve/activate → uniform `ACTIVE` (Order / Item / Revision / Specification)
+- No `ImportMetadata` / `sourceType` / `creationSource` / separate import lifecycle
+- ACTIVE read-only; changes only via Revision
+- Stage 6 = **NOT STARTED** (Warehouse / Production / Cutting / Analytics not started)
 
 **Далее:** Stage 6 Start Gate только по явному решению пользователя. Git — только пользователь.

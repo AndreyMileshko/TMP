@@ -2,6 +2,50 @@
 
 ## Latest result
 
+**Date:** 2026-08-06  
+**Scope:** STAGE5-058 Manual GUI Smoke + Stage 5 Final Closure  
+**Overall:** PASS  
+**Type:** Manual packaged GUI smoke (user-confirmed) + documentation closure  
+**Environment:** Windows; packaged TMP; PostgreSQL Docker `tmp-stage5-pg`; DB `tmp_gui_stage5`
+
+| Item | Result |
+|---|---|
+| Stage 5 | DONE |
+| STAGE5-057 | DONE |
+| STAGE5-058 | DONE |
+| Stage 6 | NOT STARTED |
+| Git | NOT EXECUTED |
+
+### STAGE5-058 Manual GUI Smoke
+
+| Check | Result |
+|---|---|
+| запуск приложения | PASS |
+| авторизация | PASS |
+| импорт STXT | PASS |
+| Preview | PASS |
+| импорт нескольких заказов | PASS |
+| импорт нескольких изделий | PASS |
+| создание ACTIVE Order | PASS |
+| создание ACTIVE Position | PASS |
+| создание ACTIVE Revision | PASS |
+| создание ACTIVE Specification | PASS |
+| duplicate order check | PASS |
+| ACTIVE read-only | PASS |
+| создание Revision N+1 | PASS |
+| сохранение после перезапуска | PASS |
+
+### Closure notes
+
+- Imported orders land uniform ACTIVE via Document Engine approve/activate flow.
+- No ImportMetadata / sourceType / creationSource.
+- Code / schema / Import Core / STXT Adapter / UI not changed by this documentary closure.
+- Warehouse / Production / Cutting / Analytics not started.
+
+---
+
+## Previous result
+
 **Date:** 2026-08-05  
 **Scope:** STAGE5-058 FIX — Final STXT Parser Contract (SuperOkna block export)  
 **Overall:** PASS  

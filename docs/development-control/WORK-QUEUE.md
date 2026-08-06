@@ -8581,7 +8581,7 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 # Stage 5 Extension — Order Intake MVP
 
-> `STAGE5-050..058 = DONE`. Stage 6 remains NOT STARTED.
+> `STAGE5-050..058 = DONE`. Stage 5 Final Closure 2026-08-06. Stage 6 remains NOT STARTED.
 
 ## STAGE5-051 — Order Item and Specification Contracts
 
@@ -9009,7 +9009,7 @@ Control docs after user PASS — completed.
 
 ### Result
 
-Manual GUI Smoke PASS. Stage 5 closed. Stage 6 = NOT STARTED. Next: STAGE5-058 (READY) — Imported Order Lifecycle Rules.
+Manual GUI Smoke PASS (2026-08-03). Stage 5 core+intake closed pending post-closure `STAGE5-058`. Stage 6 = NOT STARTED.
 
 ### Stop conditions
 
@@ -9020,7 +9020,7 @@ User FAIL or incomplete smoke — N/A (PASS recorded).
 ## STAGE5-058 — Imported Order Lifecycle + Final STXT Contract
 
 **Status:** DONE  
-**Stage:** 5 (post-closure improvement)  
+**Stage:** 5 (post-closure improvement; Stage 5 Final Closure 2026-08-06)  
 **Depends on:** STAGE5-057  
 **Module:** `tmp-order-management` (primary); `tmp-ui-shell`; Flyway `V13`+`V14`
 
@@ -9086,7 +9086,7 @@ User FAIL or incomplete smoke — N/A (PASS recorded).
 
 ### Result
 
-ADR-031 final + Final STXT Contract + Document approve/activate + **FIX (parser):** SuperOkna `Итоговый формат выгрузки.stxt` accepted as block format — merge repeated `Номер заказа:` headers per item into one Order; multiline product name when value after colon is a stub number; SPEC fixed 6-field layout (header optional, not tabular column search); empty SPEC name falls back to article code. Preview: orders/positions/product qty > 0, errors = 0. No ImportMetadata / sourceType / creationSource. Stage 6 NOT STARTED. Git by user only.
+ADR-031 final + Final STXT Contract + Document approve/activate + parser FIX (SuperOkna block export). No ImportMetadata / sourceType / creationSource. STAGE5-058 Manual GUI Smoke = **PASS** (2026-08-06). Stage 5 = **DONE**. Stage 6 = **NOT STARTED**. Git by user only.
 
 ### Required tests
 
@@ -9112,3 +9112,36 @@ mvn -q verify
 ### Stop conditions
 
 Conflict with ADR-031 final; verification failure outside Scope; start of Stage 6.
+
+---
+
+## Stage 5 — FINAL CLOSURE
+
+**Status:** DONE  
+**Date:** 2026-08-06  
+**Depends on:** STAGE5-057 DONE, STAGE5-058 DONE (+ Manual GUI Smoke PASS)
+
+### Fixed status
+
+| Item | Status |
+|---|---|
+| Stage 5 — Order Management | DONE |
+| STAGE5-057 | DONE |
+| STAGE5-058 | DONE |
+| Stage 6 | NOT STARTED |
+
+### Delivered (summary)
+
+Order Management: create order; create items; revisions; specifications; approve lifecycle.  
+Import: trusted STXT → Import Core → Approve flow → uniform ACTIVE (Order/Item/Revision/Specification).  
+No ImportMetadata / sourceType / creationSource / separate import lifecycle.  
+STXT: multi-order file; Order→Item→Specification; qty = copies / norm per 1 copy (no multiply); `@`/`#` skip; `кв.м.` → `шт.` with size moved to name.  
+ACTIVE: read-only; changes only via Revision N+1.
+
+### Out of scope (unchanged / not started)
+
+Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Warehouse / Production / Cutting / Analytics / Stage 6 = NOT STARTED.
+
+### Git
+
+Все Git-операции выполняет пользователь. Agent Git-команды не выполнял.
