@@ -4,6 +4,43 @@
 
 ---
 
+## STAGE6-001 — Stage 6 Start Gate — Warehouse Documentation Update
+
+**Date:** 2026-08-06  
+**Stage:** 6 (Start Gate — documentation only)  
+**Status:** DONE  
+**Module:** documentation only (no production code)
+
+### Summary
+
+Обновлена `Warehouse-Specification.md` до версии **1.3** по решению Stage 6 Start Gate.
+
+### Decision recorded
+
+- Warehouse отвечает только за складское состояние материалов.
+- Warehouse владеет: `Warehouse`, `Storage Cell`, `Stock Position`, `Warehouse Operation`, `Warehouse Movement`.
+- Warehouse не владеет заказами/позициями/спецификациями и не рассчитывает потребность.
+- Materials определяются через `Specification` Order Management.
+- Material Mapping зафиксирован как пользовательское сопоставление; не является складской операцией.
+- Модель Batch/партии/FIFO/FEFO/Supplier Batch исключена из версии 1.0.
+- Reservation заменён на информационную связь без изменения `Stock Position` и без `Warehouse Movement`.
+- `Warehouse Operation` зафиксирован как единственный механизм изменения склада.
+
+### Updated documents
+
+- `docs/TMP/TMP_Initial_Documents/architecture/11-Warehouse/Warehouse-Specification.md`
+- `docs/development-control/STATUS.md`
+- `docs/development-control/WORK-QUEUE.md`
+- `docs/development-control/IMPLEMENTATION-LOG.md`
+
+### Boundaries
+
+- Production code **не изменялся**
+- Stage 6 implementation **не начат**
+- Git операции агентом **не выполнялись**
+
+---
+
 ## STAGE6-000 — Stage 6 Start Gate — Material Handling Documentation
 
 **Date:** 2026-08-06  

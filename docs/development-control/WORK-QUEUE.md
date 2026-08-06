@@ -9199,3 +9199,39 @@ Material Master **не создаётся** (финальное решение).
 ### Next on success
 
 Ожидание явного решения пользователя на декомпозицию Stage 6 implementation queue (`STAGE6-001+`).
+
+## STAGE6-001 — Stage 6 Start Gate — Warehouse Specification Simplification
+
+**Status:** DONE  
+**Stage:** 6  
+**Date:** 2026-08-06  
+**Depends on:** STAGE6-000  
+**Module:** documentation only (no production code)
+
+### Goal
+
+Обновить `Warehouse-Specification.md` по финальному набору правил Start Gate: Warehouse-only state, без партий, без `RESERVED` state, reservation как информационная связь, минимальный API.
+
+### Required documents
+
+- `docs/TMP/TMP_Initial_Documents/architecture/11-Warehouse/Warehouse-Specification.md` (v1.3)
+- `docs/development-control/STATUS.md`
+- `docs/development-control/WORK-QUEUE.md`
+- `docs/development-control/IMPLEMENTATION-LOG.md`
+
+### Allowed code scope
+
+none
+
+### Acceptance criteria
+
+- [x] `Warehouse-Specification.md` upgraded to **v1.3**;
+- [x] `Batch`, `Supplier Batch`, `FIFO`, `FEFO` removed from spec;
+- [x] stock states simplified (`AVAILABLE`, `IN_TRANSIT`, `BLOCKED`, optional `SCRAPPED`);
+- [x] reservation changed to informational link (no stock mutation);
+- [x] minimal API and security capabilities aligned with Stage 6 Start Gate;
+- [x] Stage 6 implementation code remains **NOT STARTED**.
+
+### Result
+
+Warehouse architecture documentation updated and simplified per Stage 6 Start Gate decision set. No production code changes. Git not executed by agent.
