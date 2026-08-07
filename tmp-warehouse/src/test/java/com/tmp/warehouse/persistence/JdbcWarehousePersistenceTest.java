@@ -5,17 +5,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.warehouse.domain.MaterialReference;
+import com.tmp.warehouse.domain.StockPositionId;
 import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
 import com.tmp.warehouse.domain.StorageCell;
 import com.tmp.warehouse.domain.StorageCellId;
 import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
+import com.tmp.warehouse.domain.WarehouseMovement;
+import com.tmp.warehouse.domain.WarehouseMovementId;
 import com.tmp.warehouse.domain.WarehouseOperationId;
 import com.tmp.warehouse.domain.WarehouseOperationType;
+import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.OptimisticLockException;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.StockPositionRow;
-import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseMovementRow;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseOperationRow;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseOperationStatus;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseRow;
@@ -51,6 +54,7 @@ class JdbcWarehousePersistenceTest {
     private static JdbcTemplate jdbc;
     private JdbcWarehouseCatalogRepository catalog;
     private JdbcWarehouseStockRepository stock;
+    private WarehouseMovementRepository movements;
 
     @BeforeAll
     static void migrate() {
@@ -77,6 +81,7 @@ class JdbcWarehousePersistenceTest {
         jdbc.update("DELETE FROM warehouse.warehouses");
         catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);
         stock = new JdbcWarehouseStockRepository(jdbc, CLOCK);
+        movements = new JdbcWarehouseMovementRepository(jdbc);
     }
 
     @Test
@@ -119,12 +124,16 @@ class JdbcWarehousePersistenceTest {
                 positionId, StockQuantity.of(new BigDecimal("15.000000")), StockState.AVAILABLE, 0L);
         assertEquals(1L, updated.version());
 
-        WarehouseMovementRow movement = stock.insertMovement(
-                UUID.randomUUID(),
-                positionId,
-                WarehouseOperationType.RECEIPT,
-                new BigDecimal("2.500000"));
-        List<WarehouseMovementRow> history = stock.findMovementsByStockPosition(positionId);
+        WarehouseMovement movement =
+                movements.append(
+                        WarehouseMovement.record(
+                                WarehouseMovementId.generate(),
+                                StockPositionId.of(positionId),
+                                WarehouseOperationType.RECEIPT,
+                                new BigDecimal("2.500000"),
+                                CLOCK.instant()));
+        List<WarehouseMovement> history =
+                movements.findHistoryByStockPosition(StockPositionId.of(positionId));
         assertEquals(1, history.size());
         assertEquals(0, history.get(0).quantityDelta().compareTo(movement.quantityDelta()));
 

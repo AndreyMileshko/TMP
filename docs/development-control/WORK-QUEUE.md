@@ -9299,9 +9299,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-005 — Warehouse Movement
 
-**Status:** READY  
-**Stage:** 6  
-**Depends on:** STAGE6-004  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-004
 **Module:** `tmp-warehouse`
 
 ### Goal
@@ -9687,6 +9687,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-005
 - **ID:** `STAGE6-005`
+- **Status:** DONE
 - **Название:** Warehouse Movement
 - **Цель:** Реализовать immutable history.
 - **Описание:** История изменений остатков и состояний через неизменяемые записи.

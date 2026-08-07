@@ -1,119 +1,71 @@
 package com.tmp.warehouse.domain;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;
 
 /**
  * Immutable warehouse movement history record (Specification §9).
  *
- * <p>Created when stock quantity and/or state changes. Never updated or deleted after creation.
+ * <p>Append-only audit entry for a stock change: references the affected {@link StockPosition},
+ * records operation type and quantity delta. Never updated or deleted after creation.
  */
 public final class WarehouseMovement {
 
     private final WarehouseMovementId id;
-    private final WarehouseOperationId operationId;
-    private final WarehouseId warehouseId;
-    private final StorageCellId storageCellId;
-    private final MaterialReference material;
-    private final StockState previousState;
-    private final StockState newState;
-    private final StockQuantity previousQuantity;
-    private final StockQuantity newQuantity;
-    private final Instant occurredAt;
+    private final StockPositionId stockPositionId;
+    private final WarehouseOperationType operationType;
+    private final BigDecimal quantityDelta;
+    private final Instant createdAt;
 
     private WarehouseMovement(
             WarehouseMovementId id,
-            WarehouseOperationId operationId,
-            WarehouseId warehouseId,
-            StorageCellId storageCellId,
-            MaterialReference material,
-            StockState previousState,
-            StockState newState,
-            StockQuantity previousQuantity,
-            StockQuantity newQuantity,
-            Instant occurredAt) {
+            StockPositionId stockPositionId,
+            WarehouseOperationType operationType,
+            BigDecimal quantityDelta,
+            Instant createdAt) {
         this.id = id;
-        this.operationId = operationId;
-        this.warehouseId = warehouseId;
-        this.storageCellId = storageCellId;
-        this.material = material;
-        this.previousState = previousState;
-        this.newState = newState;
-        this.previousQuantity = previousQuantity;
-        this.newQuantity = newQuantity;
-        this.occurredAt = occurredAt;
+        this.stockPositionId = stockPositionId;
+        this.operationType = operationType;
+        this.quantityDelta = quantityDelta;
+        this.createdAt = createdAt;
     }
 
+    /**
+     * Records a new immutable movement. Intended for append-only persistence.
+     */
     public static WarehouseMovement record(
             WarehouseMovementId id,
-            WarehouseOperationId operationId,
-            WarehouseId warehouseId,
-            StorageCellId storageCellId,
-            MaterialReference material,
-            StockState previousState,
-            StockState newState,
-            StockQuantity previousQuantity,
-            StockQuantity newQuantity,
-            Instant occurredAt) {
+            StockPositionId stockPositionId,
+            WarehouseOperationType operationType,
+            BigDecimal quantityDelta,
+            Instant createdAt) {
         Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(operationId, "operationId");
-        Objects.requireNonNull(warehouseId, "warehouseId");
-        Objects.requireNonNull(storageCellId, "storageCellId");
-        Objects.requireNonNull(material, "material");
-        Objects.requireNonNull(newState, "newState");
-        Objects.requireNonNull(newQuantity, "newQuantity");
-        Objects.requireNonNull(occurredAt, "occurredAt");
-        return new WarehouseMovement(
-                id,
-                operationId,
-                warehouseId,
-                storageCellId,
-                material,
-                previousState,
-                newState,
-                previousQuantity,
-                newQuantity,
-                occurredAt);
+        Objects.requireNonNull(stockPositionId, "stockPositionId");
+        Objects.requireNonNull(operationType, "operationType");
+        Objects.requireNonNull(quantityDelta, "quantityDelta");
+        Objects.requireNonNull(createdAt, "createdAt");
+        return new WarehouseMovement(id, stockPositionId, operationType, quantityDelta, createdAt);
     }
 
     public WarehouseMovementId id() {
         return id;
     }
 
-    public WarehouseOperationId operationId() {
-        return operationId;
+    public StockPositionId stockPositionId() {
+        return stockPositionId;
     }
 
-    public WarehouseId warehouseId() {
-        return warehouseId;
+    public WarehouseOperationType operationType() {
+        return operationType;
     }
 
-    public StorageCellId storageCellId() {
-        return storageCellId;
+    public BigDecimal quantityDelta() {
+        return quantityDelta;
     }
 
-    public MaterialReference material() {
-        return material;
-    }
-
-    public StockState previousState() {
-        return previousState;
-    }
-
-    public StockState newState() {
-        return newState;
-    }
-
-    public StockQuantity previousQuantity() {
-        return previousQuantity;
-    }
-
-    public StockQuantity newQuantity() {
-        return newQuantity;
-    }
-
-    public Instant occurredAt() {
-        return occurredAt;
+    public Instant createdAt() {
+        return createdAt;
     }
 
     @Override
@@ -136,12 +88,14 @@ public final class WarehouseMovement {
     public String toString() {
         return "WarehouseMovement{id="
                 + id
-                + ", operationId="
-                + operationId
-                + ", newState="
-                + newState
-                + ", newQuantity="
-                + newQuantity
+                + ", stockPositionId="
+                + stockPositionId
+                + ", operationType="
+                + operationType
+                + ", quantityDelta="
+                + quantityDelta
+                + ", createdAt="
+                + createdAt
                 + '}';
     }
 }

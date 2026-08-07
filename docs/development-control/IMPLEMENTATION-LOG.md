@@ -4,6 +4,34 @@
 
 ---
 
+## STAGE6-005 — Warehouse Movement Persistence
+
+**Date:** 2026-08-07  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-warehouse`
+
+### Summary
+
+Реализован append-only persistence `WarehouseMovement` между domain и `warehouse.warehouse_movements`: repository port, JDBC adapter, domain ↔ row mapping. Movement immutable (no update/delete). Без Warehouse Operation execution, Receipt/Move/Transfer и REST/UI/Events.
+
+### Key deliverables
+
+- Domain `WarehouseMovement` aligned with persistence: id, stockPositionId, operationType, quantityDelta, createdAt
+- `WarehouseMovementRepository` port: append / findHistoryByStockPosition (no update/delete)
+- `JdbcWarehouseMovementRepository` + `WarehouseMovementRow.fromDomain` / `toDomain`
+- Unit tests: movement creation, immutability, append-only repository contract
+- Integration tests: append + ordered history read from PostgreSQL
+
+### Boundaries
+
+- Only Warehouse Movement persistence
+- No operation orchestration or business flows
+- No REST API, UI, Events
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-004 — Stock Position Persistence
 
 **Date:** 2026-08-07  

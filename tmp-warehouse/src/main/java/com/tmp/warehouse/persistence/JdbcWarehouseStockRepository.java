@@ -9,11 +9,9 @@ import com.tmp.warehouse.domain.WarehouseOperationId;
 import com.tmp.warehouse.domain.WarehouseOperationType;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.OptimisticLockException;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.StockPositionRow;
-import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseMovementRow;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseOperationRow;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseOperationStatus;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -28,7 +26,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
 /**
- * JDBC access for stock positions, immutable movements and operation records.
+ * JDBC access for stock positions and operation records (STAGE6-003 low-level layer).
+ *
+ * <p>Domain-facing movement persistence is provided by {@link JdbcWarehouseMovementRepository}.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -37,8 +37,6 @@ public final class JdbcWarehouseStockRepository {
 
     private static final RowMapper<StockPositionRow> POSITION_MAPPER =
             JdbcWarehouseStockRepository::mapPosition;
-    private static final RowMapper<WarehouseMovementRow> MOVEMENT_MAPPER =
-            JdbcWarehouseStockRepository::mapMovement;
     private static final RowMapper<WarehouseOperationRow> OPERATION_MAPPER =
             JdbcWarehouseStockRepository::mapOperation;
 
@@ -172,44 +170,6 @@ public final class JdbcWarehouseStockRepository {
         }
     }
 
-    public WarehouseMovementRow insertMovement(WarehouseMovementRow row) {
-        Objects.requireNonNull(row, "row");
-        jdbcTemplate.update(
-                """
-                INSERT INTO warehouse.warehouse_movements (
-                    id, stock_position_id, operation_type, quantity_delta, created_at)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                row.id(),
-                row.stockPositionId(),
-                row.operationType().name(),
-                row.quantityDelta(),
-                Timestamp.from(row.createdAt()));
-        return row;
-    }
-
-    public WarehouseMovementRow insertMovement(
-            UUID id,
-            UUID stockPositionId,
-            WarehouseOperationType operationType,
-            BigDecimal quantityDelta) {
-        return insertMovement(new WarehouseMovementRow(
-                id, stockPositionId, operationType, quantityDelta, clock.instant()));
-    }
-
-    public List<WarehouseMovementRow> findMovementsByStockPosition(UUID stockPositionId) {
-        Objects.requireNonNull(stockPositionId, "stockPositionId");
-        return jdbcTemplate.query(
-                """
-                SELECT id, stock_position_id, operation_type, quantity_delta, created_at
-                FROM warehouse.warehouse_movements
-                WHERE stock_position_id = ?
-                ORDER BY created_at, id
-                """,
-                MOVEMENT_MAPPER,
-                stockPositionId);
-    }
-
     public WarehouseOperationRow insertOperation(WarehouseOperationRow row) {
         Objects.requireNonNull(row, "row");
         jdbcTemplate.update(
@@ -262,15 +222,6 @@ public final class JdbcWarehouseStockRepository {
                 rs.getLong("version"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant());
-    }
-
-    private static WarehouseMovementRow mapMovement(ResultSet rs, int rowNum) throws SQLException {
-        return new WarehouseMovementRow(
-                rs.getObject("id", UUID.class),
-                rs.getObject("stock_position_id", UUID.class),
-                WarehouseOperationType.valueOf(rs.getString("operation_type")),
-                rs.getBigDecimal("quantity_delta"),
-                rs.getTimestamp("created_at").toInstant());
     }
 
     private static WarehouseOperationRow mapOperation(ResultSet rs, int rowNum) throws SQLException {

@@ -9,6 +9,8 @@ import com.tmp.warehouse.domain.StorageCell;
 import com.tmp.warehouse.domain.StorageCellId;
 import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
+import com.tmp.warehouse.domain.WarehouseMovement;
+import com.tmp.warehouse.domain.WarehouseMovementId;
 import com.tmp.warehouse.domain.WarehouseOperationId;
 import com.tmp.warehouse.domain.WarehouseOperationType;
 import java.math.BigDecimal;
@@ -165,6 +167,25 @@ public final class WarehousePersistenceModels {
             Objects.requireNonNull(operationType, "operationType");
             Objects.requireNonNull(quantityDelta, "quantityDelta");
             Objects.requireNonNull(createdAt, "createdAt");
+        }
+
+        public static WarehouseMovementRow fromDomain(WarehouseMovement movement) {
+            Objects.requireNonNull(movement, "movement");
+            return new WarehouseMovementRow(
+                    movement.id().value(),
+                    movement.stockPositionId().value(),
+                    movement.operationType(),
+                    movement.quantityDelta(),
+                    movement.createdAt());
+        }
+
+        public WarehouseMovement toDomain() {
+            return WarehouseMovement.record(
+                    WarehouseMovementId.of(id),
+                    StockPositionId.of(stockPositionId),
+                    operationType,
+                    quantityDelta,
+                    createdAt);
         }
     }
 

@@ -5,40 +5,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.math.BigDecimal;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
 class WarehouseMovementTest {
 
     @Test
-    void movementIsImmutableHistoryRecord() {
+    void movementRecordsStockPositionReferenceOperationTypeDeltaAndCreatedAt() {
         WarehouseMovementId id = WarehouseMovementId.generate();
-        WarehouseOperationId operationId = WarehouseOperationId.generate();
-        WarehouseId warehouseId = WarehouseId.generate();
-        StorageCellId cellId = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("VEKA-103.211");
-        Instant occurredAt = Instant.parse("2026-08-07T06:00:00Z");
+        StockPositionId stockPositionId = StockPositionId.generate();
+        Instant createdAt = Instant.parse("2026-08-07T06:00:00Z");
+        BigDecimal quantityDelta = new BigDecimal("2.500000");
 
         WarehouseMovement movement =
                 WarehouseMovement.record(
                         id,
-                        operationId,
-                        warehouseId,
-                        cellId,
-                        material,
-                        StockState.AVAILABLE,
-                        StockState.IN_TRANSIT,
-                        StockQuantity.of(10),
-                        StockQuantity.of(4),
-                        occurredAt);
+                        stockPositionId,
+                        WarehouseOperationType.RECEIPT,
+                        quantityDelta,
+                        createdAt);
 
         assertEquals(id, movement.id());
-        assertEquals(operationId, movement.operationId());
-        assertEquals(StockState.AVAILABLE, movement.previousState());
-        assertEquals(StockState.IN_TRANSIT, movement.newState());
-        assertEquals(StockQuantity.of(10), movement.previousQuantity());
-        assertEquals(StockQuantity.of(4), movement.newQuantity());
-        assertEquals(occurredAt, movement.occurredAt());
+        assertEquals(stockPositionId, movement.stockPositionId());
+        assertEquals(WarehouseOperationType.RECEIPT, movement.operationType());
+        assertEquals(0, movement.quantityDelta().compareTo(quantityDelta));
+        assertEquals(createdAt, movement.createdAt());
     }
 
     @Test
