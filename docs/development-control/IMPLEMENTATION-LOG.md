@@ -4503,7 +4503,7 @@ Extended ADR-030 incomplete DRAFT to Order Item commercial fields (`productCode`
 
 **Date:** 2026-08-06  
 **Stage:** 6  
-**Status:** BLOCKED
+**Status:** DONE
 
 ### Summary
 
@@ -4533,4 +4533,39 @@ Created the initial `tmp-warehouse` module foundation and connected it to the ro
 
 - Resolved environment blocker by running verification with local Maven binary:
   `C:\Program Files\JetBrains\IntelliJIdea2025.2\plugins\maven\lib\maven3\bin\mvn.cmd`.
+
+---
+
+## STAGE6-002 — Warehouse Domain Model
+
+**Date:** 2026-08-07  
+**Stage:** 6  
+**Status:** DONE
+
+### Summary
+
+Implemented Warehouse domain model in `com.tmp.warehouse.domain` only: warehouse/cell stock ownership, operation write-path for stock changes, and immutable movement history. No persistence, API, services or Material Master.
+
+### Key deliverables
+
+- Entities: `Warehouse`, `StorageCell`, `StockPosition`, `WarehouseOperation`, `WarehouseMovement`
+- Supporting types: IDs, `MaterialReference`, `StockQuantity`, `StockState`, `WarehouseOperationType`, `InvalidWarehouseStateException`
+- Domain unit tests (18) covering code/reference invariants, stock states, operation-only mutation path, movement immutability
+
+### Invariants fixed in domain
+
+- Warehouse/StorageCell code mandatory; warehouse may be inactive; cell belongs to warehouse
+- Stock states only `AVAILABLE` / `IN_TRANSIT` / `BLOCKED` (no `RESERVED`)
+- Non-negative quantity
+- `StockPosition.applyChange` package-private; public write collaborator is `WarehouseOperation`
+- `WarehouseMovement` immutable (no public mutators)
+- `WarehouseOperation.describe` creates description without executing Receipt/Move/Transfer flows
+
+### Boundaries
+
+- Only domain layer
+- No repositories/services/controllers/REST/migrations
+- No Material Master / Batch / FIFO / FEFO / reservation stock state
+- No Spring / DB / UI dependencies in domain
+- Git commands not executed by agent.
 

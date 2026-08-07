@@ -15,7 +15,15 @@
     <packaging>jar</packaging>
 
     <description>
-        Warehouse capability module foundation for Stage 6.
-        Contains package boundaries only; no business logic or API implementation.
+        Warehouse capability module for Stage 6. Domain model owns warehouse stock state;
+        no Material Master, Batch, FIFO/FEFO or reservation stock state.
     </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 </project>

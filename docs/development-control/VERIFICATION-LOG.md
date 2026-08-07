@@ -486,6 +486,22 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 
 ---
 
+## 2026-08-07 — STAGE6-002 Warehouse Domain Model
+
+| Verification | Command | Result |
+|---|---|---|
+| Warehouse domain unit tests | `mvn.cmd -pl tmp-warehouse test` | PASSED (18 tests, 0 failures) |
+| Architecture tests | `mvn.cmd -pl tmp-architecture-tests -am install -DskipTests` then `mvn.cmd -pl tmp-architecture-tests test` | PASSED (70 tests, 0 failures) |
+| Full reactor tests | `mvn.cmd test` (Docker Desktop started; `DOCKER_HOST=npipe:////./pipe/docker_engine`) | PASSED |
+| STAGE6-002 | WORK-QUEUE | DONE |
+| Git | - | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+
 ## 2026-07-31 — STAGE5-056 — Automated Verification (initial)
 
 **Date:** 2026-07-31  

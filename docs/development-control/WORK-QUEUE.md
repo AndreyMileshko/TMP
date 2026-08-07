@@ -9199,7 +9199,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-002 — Warehouse domain model
 
-**Status:** READY  
+**Status:** DONE  
 **Stage:** 6  
 **Depends on:** STAGE6-001  
 **Module:** `tmp-warehouse`
