@@ -1,6 +1,8 @@
 package com.tmp.warehouse.persistence;
 
 import com.tmp.warehouse.domain.MaterialReference;
+import com.tmp.warehouse.domain.StockPosition;
+import com.tmp.warehouse.domain.StockPositionId;
 import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
 import com.tmp.warehouse.domain.StorageCell;
@@ -121,6 +123,32 @@ public final class WarehousePersistenceModels {
             Objects.requireNonNull(stockState, "stockState");
             Objects.requireNonNull(createdAt, "createdAt");
             Objects.requireNonNull(updatedAt, "updatedAt");
+        }
+
+        public static StockPositionRow fromDomain(
+                StockPosition position, Instant createdAt, Instant updatedAt) {
+            Objects.requireNonNull(position, "position");
+            return new StockPositionRow(
+                    position.id().value(),
+                    position.warehouseId(),
+                    position.storageCellId(),
+                    position.material(),
+                    position.quantity(),
+                    position.stockState(),
+                    position.version(),
+                    createdAt,
+                    updatedAt);
+        }
+
+        public StockPosition toDomain() {
+            return StockPosition.rehydrate(
+                    StockPositionId.of(id),
+                    warehouseId,
+                    storageCellId,
+                    materialReference,
+                    stockState,
+                    quantity,
+                    version);
         }
     }
 

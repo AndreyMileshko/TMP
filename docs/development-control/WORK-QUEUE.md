@@ -9266,9 +9266,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-004 — Stock Position
 
-**Status:** READY  
-**Stage:** 6  
-**Depends on:** STAGE6-003  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-003
 **Module:** `tmp-warehouse`
 
 ### Goal
@@ -9674,6 +9674,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-004
 - **ID:** `STAGE6-004`
+- **Status:** DONE
 - **Название:** Stock Position
 - **Цель:** Реализовать хранение остатков и изменение через Operation.
 - **Описание:** Реализация модели остатков с запретом прямых мутаций.

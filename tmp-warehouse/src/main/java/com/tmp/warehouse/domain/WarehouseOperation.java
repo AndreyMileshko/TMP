@@ -72,7 +72,8 @@ public final class WarehouseOperation {
      */
     public StockPosition createPosition(StockState state) {
         Objects.requireNonNull(state, "state");
-        return StockPosition.of(warehouseId, storageCellId, material, state, quantity);
+        return StockPosition.of(
+                StockPositionId.generate(), warehouseId, storageCellId, material, state, quantity);
     }
 
     private void requireMatchingPosition(StockPosition position) {

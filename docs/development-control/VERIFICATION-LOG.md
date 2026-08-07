@@ -3,6 +3,39 @@
 ## Latest result
 
 **Date:** 2026-08-07  
+**Scope:** STAGE6-004 — Stock Position Persistence  
+**Overall:** PASS  
+**Type:** Automated unit + persistence IT + architecture + full reactor  
+**Environment:** Windows; `.tools/apache-maven-3.9.9`; Docker Desktop (`DOCKER_HOST=npipe:////./pipe/docker_engine`)
+
+| Item | Result |
+|---|---|
+| STAGE6-004 | DONE |
+| Flyway V15 apply (PostgreSQL Testcontainers) | PASS |
+| Stock Position unit tests | PASS (5) |
+| Stock Position repository IT | PASS (4) |
+| Warehouse module tests | PASS (31) |
+| Architecture tests (`tmp-architecture-tests`) | PASS (60) |
+| Full reactor `mvn test` | PASS |
+| Git | NOT EXECUTED |
+
+### Commands
+
+| Command | Result |
+|---|---|
+| `mvn -pl tmp-warehouse -am test` | PASS |
+| `mvn -pl tmp-architecture-tests test` | PASS |
+| `mvn test` | PASS (BUILD SUCCESS) |
+
+### Failures
+
+- None.
+
+---
+
+## Previous result
+
+**Date:** 2026-08-07  
 **Scope:** STAGE6-003 — Warehouse Database Schema  
 **Overall:** PASS  
 **Type:** Automated Flyway + persistence IT + architecture + full reactor  

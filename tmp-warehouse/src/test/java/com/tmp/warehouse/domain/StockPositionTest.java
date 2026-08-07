@@ -15,22 +15,26 @@ import org.junit.jupiter.api.Test;
 class StockPositionTest {
 
     @Test
-    void stockPositionHoldsWarehouseCellMaterialStateAndQuantity() {
+    void stockPositionCreationHoldsWarehouseCellMaterialStateAndQuantity() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellId = StorageCellId.generate();
         MaterialReference material = MaterialReference.of("VEKA-103.211");
+        StockPositionId id = StockPositionId.generate();
         StockPosition position =
                 StockPosition.of(
+                        id,
                         warehouseId,
                         cellId,
                         material,
                         StockState.AVAILABLE,
                         StockQuantity.of(10));
+        assertEquals(id, position.id());
         assertEquals(warehouseId, position.warehouseId());
         assertEquals(cellId, position.storageCellId());
         assertEquals(material, position.material());
         assertEquals(StockState.AVAILABLE, position.stockState());
         assertEquals(StockQuantity.of(10), position.quantity());
+        assertEquals(0L, position.version());
     }
 
     @Test
@@ -38,6 +42,37 @@ class StockPositionTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> StockQuantity.of(BigDecimal.valueOf(-1)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> StockPosition.of(
+                        WarehouseId.generate(),
+                        StorageCellId.generate(),
+                        MaterialReference.of("MAT-1"),
+                        StockState.AVAILABLE,
+                        StockQuantity.of(BigDecimal.valueOf(-5))));
+    }
+
+    @Test
+    void stateChangeThroughOperationPathUpdatesStockState() {
+        WarehouseOperation operation =
+                WarehouseOperation.describe(
+                        WarehouseOperationId.generate(),
+                        WarehouseOperationType.ADJUSTMENT,
+                        MaterialReference.of("ALU-6060"),
+                        WarehouseId.generate(),
+                        StorageCellId.generate(),
+                        StockQuantity.of(8));
+        StockPosition initial = operation.createPosition(StockState.AVAILABLE);
+        StockPosition blocked =
+                operation.applyTo(initial, StockState.BLOCKED, StockQuantity.of(8));
+        StockPosition inTransit =
+                operation.applyTo(blocked, StockState.IN_TRANSIT, StockQuantity.of(8));
+
+        assertEquals(StockState.AVAILABLE, initial.stockState());
+        assertEquals(StockState.BLOCKED, blocked.stockState());
+        assertEquals(StockState.IN_TRANSIT, inTransit.stockState());
+        assertEquals(initial.id(), blocked.id());
+        assertEquals(initial.id(), inTransit.id());
     }
 
     @Test

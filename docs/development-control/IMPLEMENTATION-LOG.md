@@ -4,6 +4,35 @@
 
 ---
 
+## STAGE6-004 — Stock Position Persistence
+
+**Date:** 2026-08-07  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-warehouse`
+
+### Summary
+
+Реализован persistence Stock Position между domain и `warehouse.stock_positions`: repository port, JDBC adapter, mapping domain ↔ row. Без Warehouse Operation execution, Movement, Reservation, REST/UI/Events.
+
+### Key deliverables
+
+- `StockPositionId` + domain `StockPosition` with technical id/version and rehydrate
+- `StockPositionRepository` domain port: create / findById / findByNaturalKey / updateQuantity / updateState
+- `JdbcStockPositionRepository` + `StockPositionRow.fromDomain` / `toDomain`
+- Domain rules: quantity >= 0; states AVAILABLE / IN_TRANSIT / BLOCKED only (no RESERVED)
+- Unit tests: create, negative quantity rejected, state change
+- Integration tests: save/read DB, quantity/state updates, optimistic lock, state mapping
+
+### Boundaries
+
+- Only Stock Position persistence path
+- No Receipt/Move/Transfer/Consumption/Reservation
+- No REST API, UI, Events
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-003 — Warehouse Database Schema
 
 **Date:** 2026-08-07  

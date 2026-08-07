@@ -142,6 +142,36 @@ public final class JdbcWarehouseStockRepository {
                 warehouseId.value());
     }
 
+    public Optional<StockPositionRow> findPositionByNaturalKey(
+            WarehouseId warehouseId,
+            StorageCellId storageCellId,
+            MaterialReference materialReference,
+            StockState stockState) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        Objects.requireNonNull(storageCellId, "storageCellId");
+        Objects.requireNonNull(materialReference, "materialReference");
+        Objects.requireNonNull(stockState, "stockState");
+        try {
+            return Optional.ofNullable(jdbcTemplate.queryForObject(
+                    """
+                    SELECT id, warehouse_id, storage_cell_id, material_reference, quantity,
+                           stock_state, version, created_at, updated_at
+                    FROM warehouse.stock_positions
+                    WHERE warehouse_id = ?
+                      AND storage_cell_id = ?
+                      AND material_reference = ?
+                      AND stock_state = ?
+                    """,
+                    POSITION_MAPPER,
+                    warehouseId.value(),
+                    storageCellId.value(),
+                    materialReference.materialCode(),
+                    stockState.name()));
+        } catch (EmptyResultDataAccessException ex) {
+            return Optional.empty();
+        }
+    }
+
     public WarehouseMovementRow insertMovement(WarehouseMovementRow row) {
         Objects.requireNonNull(row, "row");
         jdbcTemplate.update(

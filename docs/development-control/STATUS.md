@@ -4,8 +4,9 @@
 **Project status:** Stage 6 implementation in progress  
 **Current Stage:** Stage 6 - IN PROGRESS  
 **Current Task:** none  
-**Last completed task:** STAGE6-003 (Warehouse Database Schema)  
+**Last completed task:** STAGE6-004 (Stock Position Persistence)  
 **Active blockers:** NONE  
+
 
 ```text
 STAGE5-050 = DONE
@@ -25,7 +26,8 @@ STAGE6-000 = DONE (Start Gate documentation only)
 STAGE6-001 = DONE
 STAGE6-002 = DONE
 STAGE6-003 = DONE
-STAGE6-004..015 implementation queue = READY
+STAGE6-004 = DONE
+STAGE6-005..015 implementation queue = READY
 Stage 6 = IN PROGRESS
 Active blockers = NONE
 ```
@@ -42,7 +44,7 @@ Active blockers = NONE
 | 3 | Capability Engine | DONE | 100% |
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
-| 6 | Warehouse | IN PROGRESS | 20% |
+| 6 | Warehouse | IN PROGRESS | 27% |
 | 7 | Production | NOT STARTED | 0% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
@@ -81,7 +83,7 @@ Active blockers = NONE
 | Order Management Specification v1.8 (§28) | **Updated** |
 | Stage 6 Manifest | **Updated** |
 | Material Master | **Not created** (final decision) |
-| Stage 6 code | **NOT STARTED** |
+| Stage 6 code | **IN PROGRESS** (`STAGE6-001..004` DONE) |
 
 ### Material Handling Decision (summary)
 
@@ -89,11 +91,11 @@ Active blockers = NONE
 - Order Management: материалы в контексте ACTIVE Specification.
 - Warehouse: только складское состояние; MaterialReference из Specification.
 - Material Mapping: пользовательское сопоставление внешних наименований; не блокирует импорт; не Warehouse.
-- Production → Warehouse: Production рассчитывает потребность; Warehouse отвечает по наличию/резервированию.
+- Production → Warehouse: Production создает потребность; Warehouse отвечает по наличию/резервированию.
 
 ### Warehouse doc refresh (2026-08-06)
 
 - Warehouse spec упрощён до модели Stage 6 Start Gate (v1.3).
 - Batch / FIFO / FEFO / Supplier Batch исключены из Warehouse v1.0.
 - Reservation зафиксирован как информационная связь без изменения `Stock Position`.
-- Stage 6 code remains **NOT STARTED**.
+- Stage 6 implementation: foundation + domain + schema + Stock Position persistence DONE.
