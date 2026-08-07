@@ -3,6 +3,37 @@
 ## Latest result
 
 **Date:** 2026-08-07  
+**Scope:** STAGE6-008 — Internal Material Move  
+**Overall:** PASS  
+**Type:** Automated unit + integration + architecture  
+**Environment:** Windows; `.tools/apache-maven-3.9.9`; Docker Desktop (`DOCKER_HOST=npipe:////./pipe/docker_engine`)
+
+| Item | Result |
+|---|---|
+| STAGE6-008 | DONE |
+| Move unit tests | PASS (5) |
+| Move integration tests | PASS (1) |
+| Warehouse module tests | PASS |
+| Architecture tests (`tmp-architecture-tests`) | PASS |
+| Git | NOT EXECUTED |
+
+### Commands
+
+| Command | Result |
+|---|---|
+| `mvn -pl tmp-warehouse -am test -Dtest=WarehouseMoveServiceTest,WarehouseMoveServiceIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false` | PASS |
+| `mvn -pl tmp-warehouse -am test` | PASS (BUILD SUCCESS) |
+| `mvn -pl tmp-architecture-tests -am test` | PASS (BUILD SUCCESS) |
+
+### Failures
+
+None.
+
+---
+
+## Previous result
+
+**Date:** 2026-08-07  
 **Scope:** STAGE6-007 — Warehouse Receipt Operation  
 **Overall:** PASS  
 **Type:** Automated unit + integration + architecture + full reactor  

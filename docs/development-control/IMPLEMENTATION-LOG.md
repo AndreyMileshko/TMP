@@ -4,6 +4,34 @@
 
 ---
 
+## STAGE6-008 — Internal Material Move
+
+**Date:** 2026-08-07  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-warehouse`
+
+### Summary
+
+Реализовано внутреннее перемещение `Move` поверх `WarehouseOperationEngine`: Material + Quantity + source/destination cells одного Warehouse → MOVE Operation → Movements (source −qty, destination +qty) → Stock Position updates. Количество/материал/склад не меняются; новый Stock Position создаётся только при отсутствии остатка в destination. Без Transfer/Consumption/Adjustment/Inventory/Reservation, REST/UI/Events.
+
+### Key deliverables
+
+- `MoveRequest` — positive quantity; source/destination warehouse + cell
+- `WarehouseMoveService.move` — same-warehouse / distinct-cell validation; delegates to engine
+- `WarehouseOperationEngine.move` — atomic dual-leg stock update + two MOVE movements
+- Unit: success, insufficient stock, different warehouses
+- Integration: operation/movements/stock persisted
+
+### Boundaries
+
+- Only Internal Move (§13.1)
+- Uses existing Operation Engine (no direct stock mutation)
+- No schema migration (destination encoded via movements)
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-007 — Warehouse Receipt Operation
 
 **Date:** 2026-08-07  

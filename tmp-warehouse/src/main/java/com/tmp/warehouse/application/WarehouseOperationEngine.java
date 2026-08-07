@@ -27,7 +27,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Warehouse Operation Engine — sole orchestration write path for stock changes (Specification §10).
  *
  * <p>Creates DRAFT operations, executes them atomically (Movement + Stock Position), and records
- * COMPLETED or FAILED. Business operations such as Receipt use this engine; they do not bypass it.
+ * COMPLETED or FAILED. Business operations such as Receipt and Move use this engine; they do not
+ * bypass it. Internal Move uses {@link #move} (dual-leg source/destination update in one
+ * transaction).
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -98,6 +100,8 @@ public final class WarehouseOperationEngine {
      * Executes a DRAFT operation atomically: updates Stock Position via the operation write path,
      * appends Warehouse Movement, and marks the operation COMPLETED. On failure marks FAILED and
      * leaves stock/movement unchanged (transaction rollback).
+     *
+     * <p>MOVE drafts must not use this path; use {@link #move} instead.
      */
     public WarehouseOperation execute(WarehouseOperationId id) {
         Objects.requireNonNull(id, "id");
@@ -109,6 +113,10 @@ public final class WarehouseOperationEngine {
                                         new NoSuchElementException(
                                                 "Warehouse operation not found: " + id));
         current.ensureDraft();
+        if (current.type() == WarehouseOperationType.MOVE) {
+            throw new InvalidWarehouseStateException(
+                    "MOVE operations must be executed via move(): operationId=" + id);
+        }
 
         try {
             WarehouseOperation completed =
@@ -123,6 +131,11 @@ public final class WarehouseOperationEngine {
                                                                         "Warehouse operation not found: "
                                                                                 + id));
                                 locked.ensureDraft();
+                                if (locked.type() == WarehouseOperationType.MOVE) {
+                                    throw new InvalidWarehouseStateException(
+                                            "MOVE operations must be executed via move(): operationId="
+                                                    + id);
+                                }
                                 applyStockAndMovement(locked);
                                 return operations.update(locked.complete());
                             });
@@ -136,6 +149,83 @@ public final class WarehouseOperationEngine {
             }
             throw new InvalidWarehouseStateException(
                     "Warehouse operation execution failed: operationId=" + id, ex);
+        }
+    }
+
+    /**
+     * Executes an internal Move: one MOVE operation, source (−qty) and destination (+qty)
+     * movements, stock updates in a single transaction. Quantity on the operation is the moved
+     * amount; material and warehouse are unchanged.
+     */
+    public WarehouseOperation move(
+            MaterialReference material,
+            WarehouseId warehouseId,
+            StorageCellId sourceCellId,
+            StorageCellId destinationCellId,
+            StockQuantity quantity) {
+        Objects.requireNonNull(material, "material");
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        Objects.requireNonNull(sourceCellId, "sourceCellId");
+        Objects.requireNonNull(destinationCellId, "destinationCellId");
+        Objects.requireNonNull(quantity, "quantity");
+        if (quantity.value().signum() <= 0) {
+            throw new IllegalArgumentException("Move quantity must be positive: " + quantity.value());
+        }
+        if (sourceCellId.equals(destinationCellId)) {
+            throw new InvalidWarehouseStateException(
+                    "Internal move requires distinct source and destination cells: cellId="
+                            + sourceCellId);
+        }
+
+        WarehouseOperationId operationId = WarehouseOperationId.generate();
+        try {
+            WarehouseOperation completed =
+                    transactionTemplate.execute(
+                            status -> {
+                                StockPosition source =
+                                        stockPositions
+                                                .findByNaturalKey(
+                                                        warehouseId,
+                                                        sourceCellId,
+                                                        material,
+                                                        StockState.AVAILABLE)
+                                                .orElseThrow(
+                                                        () ->
+                                                                new InvalidWarehouseStateException(
+                                                                        "Insufficient stock for move: no AVAILABLE position at source cell="
+                                                                                + sourceCellId));
+                                if (source.quantity().value().compareTo(quantity.value()) < 0) {
+                                    throw new InvalidWarehouseStateException(
+                                            "Insufficient stock for move: available="
+                                                    + source.quantity().value()
+                                                    + ", requested="
+                                                    + quantity.value());
+                                }
+
+                                WarehouseOperation draft =
+                                        operations.create(
+                                                WarehouseOperation.draft(
+                                                        operationId,
+                                                        WarehouseOperationType.MOVE,
+                                                        material,
+                                                        warehouseId,
+                                                        sourceCellId,
+                                                        StockState.AVAILABLE,
+                                                        quantity));
+
+                                applyMoveLegs(draft, source, destinationCellId, quantity);
+                                return operations.update(draft.complete());
+                            });
+            return Objects.requireNonNull(completed, "transaction returned null");
+        } catch (RuntimeException ex) {
+            markFailedBestEffort(operationId);
+            if (ex instanceof InvalidWarehouseStateException
+                    || ex instanceof IllegalArgumentException
+                    || ex instanceof NoSuchElementException) {
+                throw ex;
+            }
+            throw new InvalidWarehouseStateException(
+                    "Warehouse move execution failed: operationId=" + operationId, ex);
         }
     }
 
@@ -172,6 +262,76 @@ public final class WarehouseOperationEngine {
                         resulting.id(),
                         operation.type(),
                         quantityDelta,
+                        clock.instant()));
+    }
+
+    private void applyMoveLegs(
+            WarehouseOperation operation,
+            StockPosition sourceBefore,
+            StorageCellId destinationCellId,
+            StockQuantity moveQuantity) {
+        StockQuantity sourceAfter =
+                StockQuantity.of(sourceBefore.quantity().value().subtract(moveQuantity.value()));
+        StockPosition sourceChanged =
+                operation.applyTo(sourceBefore, StockState.AVAILABLE, sourceAfter);
+        StockPosition sourceUpdated =
+                stockPositions.updateQuantityAndState(
+                        sourceChanged.id(),
+                        sourceChanged.quantity(),
+                        sourceChanged.stockState(),
+                        sourceBefore.version());
+        movements.append(
+                WarehouseMovement.record(
+                        WarehouseMovementId.generate(),
+                        sourceUpdated.id(),
+                        WarehouseOperationType.MOVE,
+                        moveQuantity.value().negate(),
+                        clock.instant()));
+
+        Optional<StockPosition> destinationExisting =
+                stockPositions.findByNaturalKey(
+                        operation.warehouseId(),
+                        destinationCellId,
+                        operation.material(),
+                        StockState.AVAILABLE);
+        StockPosition destinationUpdated;
+        if (destinationExisting.isEmpty()) {
+            StockPosition created =
+                    StockPosition.of(
+                            operation.warehouseId(),
+                            destinationCellId,
+                            operation.material(),
+                            StockState.AVAILABLE,
+                            moveQuantity);
+            destinationUpdated = stockPositions.create(created);
+        } else {
+            StockPosition before = destinationExisting.get();
+            StockQuantity destinationAfter =
+                    StockQuantity.of(before.quantity().value().add(moveQuantity.value()));
+            WarehouseOperation destinationWrite =
+                    WarehouseOperation.draft(
+                            operation.id(),
+                            WarehouseOperationType.MOVE,
+                            operation.material(),
+                            operation.warehouseId(),
+                            destinationCellId,
+                            StockState.AVAILABLE,
+                            destinationAfter);
+            StockPosition changed =
+                    destinationWrite.applyTo(before, StockState.AVAILABLE, destinationAfter);
+            destinationUpdated =
+                    stockPositions.updateQuantityAndState(
+                            changed.id(),
+                            changed.quantity(),
+                            changed.stockState(),
+                            before.version());
+        }
+        movements.append(
+                WarehouseMovement.record(
+                        WarehouseMovementId.generate(),
+                        destinationUpdated.id(),
+                        WarehouseOperationType.MOVE,
+                        moveQuantity.value(),
                         clock.instant()));
     }
 

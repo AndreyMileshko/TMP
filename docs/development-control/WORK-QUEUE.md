@@ -9400,7 +9400,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-008 — Move
 
-**Status:** READY  
+**Status:** DONE  
 **Stage:** 6  
 **Depends on:** STAGE6-007  
 **Module:** `tmp-warehouse`
