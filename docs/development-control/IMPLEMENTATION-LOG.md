@@ -4,6 +4,35 @@
 
 ---
 
+## STAGE6-006 — Warehouse Operation Engine
+
+**Date:** 2026-08-07  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-warehouse`
+
+### Summary
+
+Реализован Warehouse Operation Engine как единственный write path: создание DRAFT, проверка состояния, атомарное выполнение (Stock Position через WarehouseOperation + Warehouse Movement), фиксация COMPLETED/FAILED. Без Receipt/Move/Transfer/Consumption/Adjustment/Inventory, REST/UI/Events, Material Master, Batch, RESERVED.
+
+### Key deliverables
+
+- Domain lifecycle: `WarehouseOperationStatus` (DRAFT / COMPLETED / FAILED), `WarehouseOperation.draft/complete/fail/ensureDraft`
+- `WarehouseOperationEngine`: create / canExecute / execute (transactional)
+- `WarehouseOperationRepository` + `JdbcWarehouseOperationRepository`
+- Flyway `V16__warehouse_operation_engine.sql`: status CREATED→DRAFT, payload columns
+- Unit: create, success, failure→FAILED, no re-execute
+- Integration: operation persisted, movement created, stock changed
+
+### Boundaries
+
+- Only Operation Engine
+- No business warehouse processes
+- No REST API, UI, Events
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-005 — Warehouse Movement Persistence
 
 **Date:** 2026-08-07  
