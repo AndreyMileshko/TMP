@@ -1,17 +1,21 @@
 package com.tmp.warehouse.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
 class WarehouseOperationTest {
 
     @Test
-    void describeCreatesOperationWithoutExecutionSideEffects() {
+    void describeCreatesDraftOperationWithoutExecutionSideEffects() {
         WarehouseOperation operation = sampleOperation();
         assertEquals(WarehouseOperationType.RECEIPT, operation.type());
         assertEquals(StockQuantity.of(5), operation.quantity());
+        assertEquals(WarehouseOperationStatus.DRAFT, operation.status());
+        assertTrue(operation.isExecutable());
     }
 
     @Test
@@ -39,6 +43,28 @@ class WarehouseOperationTest {
         assertThrows(
                 InvalidWarehouseStateException.class,
                 () -> operation.applyTo(other, StockState.AVAILABLE, StockQuantity.of(2)));
+    }
+
+    @Test
+    void completeTransitionsDraftToCompleted() {
+        WarehouseOperation completed = sampleOperation().complete();
+        assertEquals(WarehouseOperationStatus.COMPLETED, completed.status());
+        assertFalse(completed.isExecutable());
+    }
+
+    @Test
+    void failTransitionsDraftToFailed() {
+        WarehouseOperation failed = sampleOperation().fail();
+        assertEquals(WarehouseOperationStatus.FAILED, failed.status());
+        assertFalse(failed.isExecutable());
+    }
+
+    @Test
+    void completedOperationCannotBeExecutedAgain() {
+        WarehouseOperation completed = sampleOperation().complete();
+        assertThrows(InvalidWarehouseStateException.class, completed::ensureDraft);
+        assertThrows(InvalidWarehouseStateException.class, completed::complete);
+        assertThrows(InvalidWarehouseStateException.class, completed::fail);
     }
 
     private static WarehouseOperation sampleOperation() {

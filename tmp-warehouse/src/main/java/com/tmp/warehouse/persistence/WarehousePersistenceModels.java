@@ -11,7 +11,9 @@ import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseMovement;
 import com.tmp.warehouse.domain.WarehouseMovementId;
+import com.tmp.warehouse.domain.WarehouseOperation;
 import com.tmp.warehouse.domain.WarehouseOperationId;
+import com.tmp.warehouse.domain.WarehouseOperationStatus;
 import com.tmp.warehouse.domain.WarehouseOperationType;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -189,16 +191,15 @@ public final class WarehousePersistenceModels {
         }
     }
 
-    public enum WarehouseOperationStatus {
-        CREATED,
-        COMPLETED,
-        FAILED
-    }
-
     public record WarehouseOperationRow(
             WarehouseOperationId id,
             WarehouseOperationType operationType,
             WarehouseOperationStatus status,
+            WarehouseId warehouseId,
+            StorageCellId storageCellId,
+            MaterialReference materialReference,
+            StockQuantity quantity,
+            StockState stockState,
             long version,
             Instant createdAt,
             Instant updatedAt) {
@@ -207,8 +208,43 @@ public final class WarehousePersistenceModels {
             Objects.requireNonNull(id, "id");
             Objects.requireNonNull(operationType, "operationType");
             Objects.requireNonNull(status, "status");
+            Objects.requireNonNull(warehouseId, "warehouseId");
+            Objects.requireNonNull(storageCellId, "storageCellId");
+            Objects.requireNonNull(materialReference, "materialReference");
+            Objects.requireNonNull(quantity, "quantity");
+            Objects.requireNonNull(stockState, "stockState");
             Objects.requireNonNull(createdAt, "createdAt");
             Objects.requireNonNull(updatedAt, "updatedAt");
+        }
+
+        public static WarehouseOperationRow fromDomain(
+                WarehouseOperation operation, Instant createdAt, Instant updatedAt) {
+            Objects.requireNonNull(operation, "operation");
+            return new WarehouseOperationRow(
+                    operation.id(),
+                    operation.type(),
+                    operation.status(),
+                    operation.warehouseId(),
+                    operation.storageCellId(),
+                    operation.material(),
+                    operation.quantity(),
+                    operation.stockState(),
+                    operation.version(),
+                    createdAt,
+                    updatedAt);
+        }
+
+        public WarehouseOperation toDomain() {
+            return WarehouseOperation.rehydrate(
+                    id,
+                    operationType,
+                    status,
+                    materialReference,
+                    warehouseId,
+                    storageCellId,
+                    stockState,
+                    quantity,
+                    version);
         }
     }
 }

@@ -9333,9 +9333,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-006 — Warehouse Operation
 
-**Status:** READY  
-**Stage:** 6  
-**Depends on:** STAGE6-005  
+**Status:** IN_PROGRESS
+**Stage:** 6
+**Depends on:** STAGE6-005
 **Module:** `tmp-warehouse`
 
 ### Goal

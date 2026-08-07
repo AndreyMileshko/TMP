@@ -8,4 +8,8 @@ public final class InvalidWarehouseStateException extends RuntimeException {
     public InvalidWarehouseStateException(String message) {
         super(message);
     }
+
+    public InvalidWarehouseStateException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

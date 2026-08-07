@@ -79,6 +79,18 @@ public final class JdbcStockPositionRepository implements StockPositionRepositor
                 .toDomain();
     }
 
+    @Override
+    public StockPosition updateQuantityAndState(
+            StockPositionId id,
+            StockQuantity quantity,
+            StockState stockState,
+            long expectedVersion) {
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(quantity, "quantity");
+        Objects.requireNonNull(stockState, "stockState");
+        return stock.updatePosition(id.value(), quantity, stockState, expectedVersion).toDomain();
+    }
+
     private StockPositionRow requireRow(StockPositionId id) {
         return stock.findPositionById(id.value())
                 .orElseThrow(() -> new NoSuchElementException("Stock position not found: " + id));

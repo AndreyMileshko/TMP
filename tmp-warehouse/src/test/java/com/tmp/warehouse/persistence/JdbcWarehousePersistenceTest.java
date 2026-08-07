@@ -15,12 +15,12 @@ import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseMovement;
 import com.tmp.warehouse.domain.WarehouseMovementId;
 import com.tmp.warehouse.domain.WarehouseOperationId;
+import com.tmp.warehouse.domain.WarehouseOperationStatus;
 import com.tmp.warehouse.domain.WarehouseOperationType;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.OptimisticLockException;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.StockPositionRow;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseOperationRow;
-import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseOperationStatus;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseRow;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -138,9 +138,22 @@ class JdbcWarehousePersistenceTest {
         assertEquals(0, history.get(0).quantityDelta().compareTo(movement.quantityDelta()));
 
         WarehouseOperationId operationId = WarehouseOperationId.generate();
-        WarehouseOperationRow operation = stock.insertOperation(
-                operationId, WarehouseOperationType.RECEIPT, WarehouseOperationStatus.CREATED);
-        assertEquals(WarehouseOperationStatus.CREATED, operation.status());
+        Instant now = CLOCK.instant();
+        WarehouseOperationRow operation =
+                stock.insertOperation(
+                        new WarehouseOperationRow(
+                                operationId,
+                                WarehouseOperationType.RECEIPT,
+                                WarehouseOperationStatus.DRAFT,
+                                warehouseId,
+                                cellId,
+                                MaterialReference.of("MAT-2"),
+                                StockQuantity.of(1L),
+                                StockState.AVAILABLE,
+                                0L,
+                                now,
+                                now));
+        assertEquals(WarehouseOperationStatus.DRAFT, operation.status());
         assertEquals(
                 operationId,
                 stock.findOperationById(operationId).orElseThrow().id());

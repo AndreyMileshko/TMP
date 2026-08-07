@@ -6,11 +6,11 @@ import com.tmp.warehouse.domain.StockState;
 import com.tmp.warehouse.domain.StorageCellId;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseOperationId;
+import com.tmp.warehouse.domain.WarehouseOperationStatus;
 import com.tmp.warehouse.domain.WarehouseOperationType;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.OptimisticLockException;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.StockPositionRow;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseOperationRow;
-import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseOperationStatus;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -26,9 +26,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
 /**
- * JDBC access for stock positions and operation records (STAGE6-003 low-level layer).
+ * JDBC access for stock positions and operation records (STAGE6-003 / STAGE6-006).
  *
  * <p>Domain-facing movement persistence is provided by {@link JdbcWarehouseMovementRepository}.
+ * Domain-facing operation persistence is provided by {@link JdbcWarehouseOperationRepository}.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -175,24 +176,43 @@ public final class JdbcWarehouseStockRepository {
         jdbcTemplate.update(
                 """
                 INSERT INTO warehouse.warehouse_operations (
-                    id, operation_type, status, version, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    id, operation_type, status, warehouse_id, storage_cell_id, material_reference,
+                    quantity, stock_state, version, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 row.id().value(),
                 row.operationType().name(),
                 row.status().name(),
+                row.warehouseId().value(),
+                row.storageCellId().value(),
+                row.materialReference().materialCode(),
+                row.quantity().value(),
+                row.stockState().name(),
                 row.version(),
                 Timestamp.from(row.createdAt()),
                 Timestamp.from(row.updatedAt()));
         return row;
     }
 
-    public WarehouseOperationRow insertOperation(
-            WarehouseOperationId id,
-            WarehouseOperationType operationType,
-            WarehouseOperationStatus status) {
+    public WarehouseOperationRow updateOperation(WarehouseOperationRow row, long expectedVersion) {
+        Objects.requireNonNull(row, "row");
         Instant now = clock.instant();
-        return insertOperation(new WarehouseOperationRow(id, operationType, status, 0L, now, now));
+        long nextVersion = expectedVersion + 1;
+        int updated = jdbcTemplate.update(
+                """
+                UPDATE warehouse.warehouse_operations
+                SET status = ?, version = ?, updated_at = ?
+                WHERE id = ? AND version = ?
+                """,
+                row.status().name(),
+                nextVersion,
+                Timestamp.from(now),
+                row.id().value(),
+                expectedVersion);
+        if (updated == 0) {
+            throw new OptimisticLockException("Warehouse operation version conflict: " + row.id());
+        }
+        return findOperationById(row.id()).orElseThrow();
     }
 
     public Optional<WarehouseOperationRow> findOperationById(WarehouseOperationId id) {
@@ -200,7 +220,8 @@ public final class JdbcWarehouseStockRepository {
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(
                     """
-                    SELECT id, operation_type, status, version, created_at, updated_at
+                    SELECT id, operation_type, status, warehouse_id, storage_cell_id,
+                           material_reference, quantity, stock_state, version, created_at, updated_at
                     FROM warehouse.warehouse_operations
                     WHERE id = ?
                     """,
@@ -229,6 +250,11 @@ public final class JdbcWarehouseStockRepository {
                 WarehouseOperationId.of(rs.getObject("id", UUID.class)),
                 WarehouseOperationType.valueOf(rs.getString("operation_type")),
                 WarehouseOperationStatus.valueOf(rs.getString("status")),
+                WarehouseId.of(rs.getObject("warehouse_id", UUID.class)),
+                StorageCellId.of(rs.getObject("storage_cell_id", UUID.class)),
+                MaterialReference.of(rs.getString("material_reference")),
+                StockQuantity.of(rs.getBigDecimal("quantity")),
+                StockState.valueOf(rs.getString("stock_state")),
                 rs.getLong("version"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant());

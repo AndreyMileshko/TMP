@@ -43,4 +43,14 @@ public interface StockPositionRepository {
      * ({@code AVAILABLE}, {@code IN_TRANSIT}, {@code BLOCKED} — never {@code RESERVED}).
      */
     StockPosition updateState(StockPositionId id, StockState stockState, long expectedVersion);
+
+    /**
+     * Updates quantity and stock state in a single optimistic-lock version bump. Used by the
+     * Warehouse Operation Engine write path.
+     */
+    StockPosition updateQuantityAndState(
+            StockPositionId id,
+            StockQuantity quantity,
+            StockState stockState,
+            long expectedVersion);
 }

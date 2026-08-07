@@ -3,7 +3,7 @@
 **Mode:** Autonomous Cursor Agent  
 **Project status:** Stage 6 implementation in progress  
 **Current Stage:** Stage 6 - IN PROGRESS  
-**Current Task:** none  
+**Current Task:** STAGE6-006 (Warehouse Operation Engine) — IN_PROGRESS  
 **Last completed task:** STAGE6-005 (Warehouse Movement)  
 **Active blockers:** NONE  
 
@@ -28,7 +28,8 @@ STAGE6-002 = DONE
 STAGE6-003 = DONE
 STAGE6-004 = DONE
 STAGE6-005 = DONE
-STAGE6-006..015 implementation queue = READY
+STAGE6-006 = IN_PROGRESS
+STAGE6-007..015 implementation queue = READY
 Stage 6 = IN PROGRESS
 Active blockers = NONE
 ```
