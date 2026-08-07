@@ -9367,7 +9367,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-007 — Receipt
 
-**Status:** IN_PROGRESS  
+**Status:** DONE  
 **Stage:** 6  
 **Depends on:** STAGE6-006  
 **Module:** `tmp-warehouse`

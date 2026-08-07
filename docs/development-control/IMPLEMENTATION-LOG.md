@@ -4,6 +4,32 @@
 
 ---
 
+## STAGE6-007 — Warehouse Receipt Operation
+
+**Date:** 2026-08-07  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-warehouse`
+
+### Summary
+
+Реализована операция поступления `Receipt` поверх `WarehouseOperationEngine`: Material + Quantity + Warehouse + Storage Cell → RECEIPT Operation → Movement (quantityDelta > 0) → create/update AVAILABLE Stock Position (old + receipt). Без supplier/procurement/price, Move/Transfer/REST/UI/Events.
+
+### Key deliverables
+
+- `ReceiptRequest` — positive quantity validation
+- `WarehouseReceiptService.receive` — target qty = existing + receipt; engine create(RECEIPT)+execute
+- Unit: operation RECEIPT, movement delta > 0, quantity increase, reject non-positive
+- Integration: operation/movement/stock persisted
+
+### Boundaries
+
+- Only Receipt
+- Uses existing Operation Engine (no direct stock mutation)
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-006 — Warehouse Operation Engine
 
 **Date:** 2026-08-07  

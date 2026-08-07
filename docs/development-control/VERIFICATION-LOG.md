@@ -3,6 +3,37 @@
 ## Latest result
 
 **Date:** 2026-08-07  
+**Scope:** STAGE6-007 — Warehouse Receipt Operation  
+**Overall:** PASS  
+**Type:** Automated unit + integration + architecture + full reactor  
+**Environment:** Windows; `.tools/apache-maven-3.9.9`; Docker Desktop (`DOCKER_HOST=npipe:////./pipe/docker_engine`)
+
+| Item | Result |
+|---|---|
+| STAGE6-007 | DONE |
+| Receipt unit tests | PASS (4) |
+| Receipt integration tests | PASS (2) |
+| Warehouse module tests | PASS (50) |
+| Architecture tests (`tmp-architecture-tests`) | PASS (70) |
+| Full reactor `mvn test` | PASS |
+| Git | NOT EXECUTED |
+
+### Commands
+
+| Command | Result |
+|---|---|
+| `mvn -pl tmp-warehouse -am test` | PASS |
+| `mvn test` | PASS (BUILD SUCCESS) |
+
+### Failures
+
+None.
+
+---
+
+## Previous result
+
+**Date:** 2026-08-07  
 **Scope:** STAGE6-006 — Warehouse Operation Engine  
 **Overall:** PASS  
 **Type:** Automated unit + integration + architecture + full reactor  
