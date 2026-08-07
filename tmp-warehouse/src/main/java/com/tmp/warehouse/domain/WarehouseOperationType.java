@@ -1,14 +1,16 @@
 package com.tmp.warehouse.domain;
 
 /**
- * Warehouse operation types supported in v1.0 (description level).
+ * Warehouse operation types supported in v1.0.
  *
- * <p>Execution of these operations is out of scope for the domain model foundation task.
+ * <p>Inter-warehouse Transfer is modeled as two stages: {@link #TRANSFER_SEND} ({@code AVAILABLE →
+ * IN_TRANSIT}) and {@link #TRANSFER_RECEIVE} ({@code IN_TRANSIT → AVAILABLE}).
  */
 public enum WarehouseOperationType {
     RECEIPT,
     MOVE,
-    TRANSFER,
+    TRANSFER_SEND,
+    TRANSFER_RECEIVE,
     RESERVATION,
     CONSUMPTION,
     ADJUSTMENT,

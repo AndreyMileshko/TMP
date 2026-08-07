@@ -9433,7 +9433,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-009 — Transfer
 
-**Status:** READY  
+**Status:** DONE  
 **Stage:** 6  
 **Depends on:** STAGE6-008  
 **Module:** `tmp-warehouse`

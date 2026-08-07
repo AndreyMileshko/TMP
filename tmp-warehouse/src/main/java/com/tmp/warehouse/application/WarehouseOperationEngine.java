@@ -27,9 +27,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Warehouse Operation Engine — sole orchestration write path for stock changes (Specification §10).
  *
  * <p>Creates DRAFT operations, executes them atomically (Movement + Stock Position), and records
- * COMPLETED or FAILED. Business operations such as Receipt and Move use this engine; they do not
- * bypass it. Internal Move uses {@link #move} (dual-leg source/destination update in one
- * transaction).
+ * COMPLETED or FAILED. Business operations such as Receipt, Move and Transfer use this engine; they
+ * do not bypass it. Internal Move uses {@link #move}; Transfer uses {@link #transferSend} / {@link
+ * #transferReceive}.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -101,7 +101,8 @@ public final class WarehouseOperationEngine {
      * appends Warehouse Movement, and marks the operation COMPLETED. On failure marks FAILED and
      * leaves stock/movement unchanged (transaction rollback).
      *
-     * <p>MOVE drafts must not use this path; use {@link #move} instead.
+     * <p>MOVE and Transfer stage drafts must not use this path; use {@link #move}, {@link
+     * #transferSend} or {@link #transferReceive} instead.
      */
     public WarehouseOperation execute(WarehouseOperationId id) {
         Objects.requireNonNull(id, "id");
@@ -113,10 +114,7 @@ public final class WarehouseOperationEngine {
                                         new NoSuchElementException(
                                                 "Warehouse operation not found: " + id));
         current.ensureDraft();
-        if (current.type() == WarehouseOperationType.MOVE) {
-            throw new InvalidWarehouseStateException(
-                    "MOVE operations must be executed via move(): operationId=" + id);
-        }
+        rejectSpecializedExecute(current);
 
         try {
             WarehouseOperation completed =
@@ -131,11 +129,7 @@ public final class WarehouseOperationEngine {
                                                                         "Warehouse operation not found: "
                                                                                 + id));
                                 locked.ensureDraft();
-                                if (locked.type() == WarehouseOperationType.MOVE) {
-                                    throw new InvalidWarehouseStateException(
-                                            "MOVE operations must be executed via move(): operationId="
-                                                    + id);
-                                }
+                                rejectSpecializedExecute(locked);
                                 applyStockAndMovement(locked);
                                 return operations.update(locked.complete());
                             });
@@ -149,6 +143,148 @@ public final class WarehouseOperationEngine {
             }
             throw new InvalidWarehouseStateException(
                     "Warehouse operation execution failed: operationId=" + id, ex);
+        }
+    }
+
+    /**
+     * Transfer send: decreases source AVAILABLE and increases source IN_TRANSIT by the same
+     * quantity (Specification §13.2 stage 1).
+     */
+    public WarehouseOperation transferSend(
+            MaterialReference material,
+            WarehouseId sourceWarehouseId,
+            StorageCellId sourceCellId,
+            StockQuantity quantity) {
+        Objects.requireNonNull(material, "material");
+        Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+        Objects.requireNonNull(sourceCellId, "sourceCellId");
+        Objects.requireNonNull(quantity, "quantity");
+        requirePositiveQuantity(quantity, "Transfer send");
+
+        WarehouseOperationId operationId = WarehouseOperationId.generate();
+        try {
+            WarehouseOperation completed =
+                    transactionTemplate.execute(
+                            status -> {
+                                StockPosition available =
+                                        requireAvailableStock(
+                                                sourceWarehouseId,
+                                                sourceCellId,
+                                                material,
+                                                quantity,
+                                                "transfer send");
+
+                                WarehouseOperation draft =
+                                        operations.create(
+                                                WarehouseOperation.draft(
+                                                        operationId,
+                                                        WarehouseOperationType.TRANSFER_SEND,
+                                                        material,
+                                                        sourceWarehouseId,
+                                                        sourceCellId,
+                                                        StockState.IN_TRANSIT,
+                                                        quantity));
+
+                                applyQuantityDelta(
+                                        available,
+                                        StockState.AVAILABLE,
+                                        quantity.value().negate(),
+                                        WarehouseOperationType.TRANSFER_SEND);
+                                applyInTransitIncrease(
+                                        sourceWarehouseId,
+                                        sourceCellId,
+                                        material,
+                                        quantity,
+                                        WarehouseOperationType.TRANSFER_SEND);
+                                return operations.update(draft.complete());
+                            });
+            return Objects.requireNonNull(completed, "transaction returned null");
+        } catch (RuntimeException ex) {
+            markFailedBestEffort(operationId);
+            rethrowOperationFailure(ex, "Warehouse transfer send failed: operationId=" + operationId);
+            throw new AssertionError("unreachable");
+        }
+    }
+
+    /**
+     * Transfer receive: decreases source IN_TRANSIT and increases destination AVAILABLE by the same
+     * quantity (Specification §13.2 stage 2).
+     */
+    public WarehouseOperation transferReceive(
+            MaterialReference material,
+            WarehouseId sourceWarehouseId,
+            StorageCellId sourceCellId,
+            WarehouseId destinationWarehouseId,
+            StorageCellId destinationCellId,
+            StockQuantity quantity) {
+        Objects.requireNonNull(material, "material");
+        Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+        Objects.requireNonNull(sourceCellId, "sourceCellId");
+        Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+        Objects.requireNonNull(destinationCellId, "destinationCellId");
+        Objects.requireNonNull(quantity, "quantity");
+        requirePositiveQuantity(quantity, "Transfer receive");
+        if (sourceWarehouseId.equals(destinationWarehouseId)) {
+            throw new InvalidWarehouseStateException(
+                    "Transfer receive requires distinct warehouses: warehouseId="
+                            + sourceWarehouseId);
+        }
+
+        WarehouseOperationId operationId = WarehouseOperationId.generate();
+        try {
+            WarehouseOperation completed =
+                    transactionTemplate.execute(
+                            status -> {
+                                StockPosition inTransit =
+                                        stockPositions
+                                                .findByNaturalKey(
+                                                        sourceWarehouseId,
+                                                        sourceCellId,
+                                                        material,
+                                                        StockState.IN_TRANSIT)
+                                                .orElseThrow(
+                                                        () ->
+                                                                new InvalidWarehouseStateException(
+                                                                        "Insufficient IN_TRANSIT stock for transfer receive: cell="
+                                                                                + sourceCellId));
+                                if (inTransit.quantity().value().compareTo(quantity.value()) < 0) {
+                                    throw new InvalidWarehouseStateException(
+                                            "Insufficient IN_TRANSIT stock for transfer receive: available="
+                                                    + inTransit.quantity().value()
+                                                    + ", requested="
+                                                    + quantity.value());
+                                }
+
+                                WarehouseOperation draft =
+                                        operations.create(
+                                                WarehouseOperation.draft(
+                                                        operationId,
+                                                        WarehouseOperationType.TRANSFER_RECEIVE,
+                                                        material,
+                                                        destinationWarehouseId,
+                                                        destinationCellId,
+                                                        StockState.AVAILABLE,
+                                                        quantity));
+
+                                applyQuantityDelta(
+                                        inTransit,
+                                        StockState.IN_TRANSIT,
+                                        quantity.value().negate(),
+                                        WarehouseOperationType.TRANSFER_RECEIVE);
+                                applyDestinationAvailableIncrease(
+                                        destinationWarehouseId,
+                                        destinationCellId,
+                                        material,
+                                        quantity,
+                                        WarehouseOperationType.TRANSFER_RECEIVE);
+                                return operations.update(draft.complete());
+                            });
+            return Objects.requireNonNull(completed, "transaction returned null");
+        } catch (RuntimeException ex) {
+            markFailedBestEffort(operationId);
+            rethrowOperationFailure(
+                    ex, "Warehouse transfer receive failed: operationId=" + operationId);
+            throw new AssertionError("unreachable");
         }
     }
 
@@ -168,9 +304,7 @@ public final class WarehouseOperationEngine {
         Objects.requireNonNull(sourceCellId, "sourceCellId");
         Objects.requireNonNull(destinationCellId, "destinationCellId");
         Objects.requireNonNull(quantity, "quantity");
-        if (quantity.value().signum() <= 0) {
-            throw new IllegalArgumentException("Move quantity must be positive: " + quantity.value());
-        }
+        requirePositiveQuantity(quantity, "Move");
         if (sourceCellId.equals(destinationCellId)) {
             throw new InvalidWarehouseStateException(
                     "Internal move requires distinct source and destination cells: cellId="
@@ -183,24 +317,12 @@ public final class WarehouseOperationEngine {
                     transactionTemplate.execute(
                             status -> {
                                 StockPosition source =
-                                        stockPositions
-                                                .findByNaturalKey(
-                                                        warehouseId,
-                                                        sourceCellId,
-                                                        material,
-                                                        StockState.AVAILABLE)
-                                                .orElseThrow(
-                                                        () ->
-                                                                new InvalidWarehouseStateException(
-                                                                        "Insufficient stock for move: no AVAILABLE position at source cell="
-                                                                                + sourceCellId));
-                                if (source.quantity().value().compareTo(quantity.value()) < 0) {
-                                    throw new InvalidWarehouseStateException(
-                                            "Insufficient stock for move: available="
-                                                    + source.quantity().value()
-                                                    + ", requested="
-                                                    + quantity.value());
-                                }
+                                        requireAvailableStock(
+                                                warehouseId,
+                                                sourceCellId,
+                                                material,
+                                                quantity,
+                                                "move");
 
                                 WarehouseOperation draft =
                                         operations.create(
@@ -219,13 +341,8 @@ public final class WarehouseOperationEngine {
             return Objects.requireNonNull(completed, "transaction returned null");
         } catch (RuntimeException ex) {
             markFailedBestEffort(operationId);
-            if (ex instanceof InvalidWarehouseStateException
-                    || ex instanceof IllegalArgumentException
-                    || ex instanceof NoSuchElementException) {
-                throw ex;
-            }
-            throw new InvalidWarehouseStateException(
-                    "Warehouse move execution failed: operationId=" + operationId, ex);
+            rethrowOperationFailure(ex, "Warehouse move execution failed: operationId=" + operationId);
+            throw new AssertionError("unreachable");
         }
     }
 
@@ -270,23 +387,11 @@ public final class WarehouseOperationEngine {
             StockPosition sourceBefore,
             StorageCellId destinationCellId,
             StockQuantity moveQuantity) {
-        StockQuantity sourceAfter =
-                StockQuantity.of(sourceBefore.quantity().value().subtract(moveQuantity.value()));
-        StockPosition sourceChanged =
-                operation.applyTo(sourceBefore, StockState.AVAILABLE, sourceAfter);
-        StockPosition sourceUpdated =
-                stockPositions.updateQuantityAndState(
-                        sourceChanged.id(),
-                        sourceChanged.quantity(),
-                        sourceChanged.stockState(),
-                        sourceBefore.version());
-        movements.append(
-                WarehouseMovement.record(
-                        WarehouseMovementId.generate(),
-                        sourceUpdated.id(),
-                        WarehouseOperationType.MOVE,
-                        moveQuantity.value().negate(),
-                        clock.instant()));
+        applyQuantityDelta(
+                sourceBefore,
+                StockState.AVAILABLE,
+                moveQuantity.value().negate(),
+                WarehouseOperationType.MOVE);
 
         Optional<StockPosition> destinationExisting =
                 stockPositions.findByNaturalKey(
@@ -333,6 +438,140 @@ public final class WarehouseOperationEngine {
                         WarehouseOperationType.MOVE,
                         moveQuantity.value(),
                         clock.instant()));
+    }
+
+    private void applyInTransitIncrease(
+            WarehouseId warehouseId,
+            StorageCellId cellId,
+            MaterialReference material,
+            StockQuantity quantity,
+            WarehouseOperationType operationType) {
+        Optional<StockPosition> existing =
+                stockPositions.findByNaturalKey(
+                        warehouseId, cellId, material, StockState.IN_TRANSIT);
+        if (existing.isEmpty()) {
+            StockPosition created =
+                    StockPosition.of(
+                            warehouseId, cellId, material, StockState.IN_TRANSIT, quantity);
+            StockPosition persisted = stockPositions.create(created);
+            movements.append(
+                    WarehouseMovement.record(
+                            WarehouseMovementId.generate(),
+                            persisted.id(),
+                            operationType,
+                            quantity.value(),
+                            clock.instant()));
+            return;
+        }
+        applyQuantityDelta(existing.get(), StockState.IN_TRANSIT, quantity.value(), operationType);
+    }
+
+    private void applyDestinationAvailableIncrease(
+            WarehouseId warehouseId,
+            StorageCellId cellId,
+            MaterialReference material,
+            StockQuantity quantity,
+            WarehouseOperationType operationType) {
+        Optional<StockPosition> existing =
+                stockPositions.findByNaturalKey(
+                        warehouseId, cellId, material, StockState.AVAILABLE);
+        if (existing.isEmpty()) {
+            StockPosition created =
+                    StockPosition.of(
+                            warehouseId, cellId, material, StockState.AVAILABLE, quantity);
+            StockPosition persisted = stockPositions.create(created);
+            movements.append(
+                    WarehouseMovement.record(
+                            WarehouseMovementId.generate(),
+                            persisted.id(),
+                            operationType,
+                            quantity.value(),
+                            clock.instant()));
+            return;
+        }
+        applyQuantityDelta(existing.get(), StockState.AVAILABLE, quantity.value(), operationType);
+    }
+
+    private void applyQuantityDelta(
+            StockPosition before,
+            StockState state,
+            BigDecimal delta,
+            WarehouseOperationType operationType) {
+        StockQuantity after = StockQuantity.of(before.quantity().value().add(delta));
+        WarehouseOperation write =
+                WarehouseOperation.draft(
+                        WarehouseOperationId.generate(),
+                        operationType,
+                        before.material(),
+                        before.warehouseId(),
+                        before.storageCellId(),
+                        state,
+                        after);
+        StockPosition changed = write.applyTo(before, state, after);
+        StockPosition updated =
+                stockPositions.updateQuantityAndState(
+                        changed.id(), changed.quantity(), changed.stockState(), before.version());
+        movements.append(
+                WarehouseMovement.record(
+                        WarehouseMovementId.generate(),
+                        updated.id(),
+                        operationType,
+                        delta,
+                        clock.instant()));
+    }
+
+    private StockPosition requireAvailableStock(
+            WarehouseId warehouseId,
+            StorageCellId cellId,
+            MaterialReference material,
+            StockQuantity quantity,
+            String action) {
+        StockPosition available =
+                stockPositions
+                        .findByNaturalKey(warehouseId, cellId, material, StockState.AVAILABLE)
+                        .orElseThrow(
+                                () ->
+                                        new InvalidWarehouseStateException(
+                                                "Insufficient stock for "
+                                                        + action
+                                                        + ": no AVAILABLE position at cell="
+                                                        + cellId));
+        if (available.quantity().value().compareTo(quantity.value()) < 0) {
+            throw new InvalidWarehouseStateException(
+                    "Insufficient stock for "
+                            + action
+                            + ": available="
+                            + available.quantity().value()
+                            + ", requested="
+                            + quantity.value());
+        }
+        return available;
+    }
+
+    private static void requirePositiveQuantity(StockQuantity quantity, String label) {
+        if (quantity.value().signum() <= 0) {
+            throw new IllegalArgumentException(label + " quantity must be positive: " + quantity.value());
+        }
+    }
+
+    private static void rejectSpecializedExecute(WarehouseOperation operation) {
+        WarehouseOperationType type = operation.type();
+        if (type == WarehouseOperationType.MOVE
+                || type == WarehouseOperationType.TRANSFER_SEND
+                || type == WarehouseOperationType.TRANSFER_RECEIVE) {
+            throw new InvalidWarehouseStateException(
+                    type + " operations must be executed via dedicated engine methods: operationId="
+                            + operation.id());
+        }
+    }
+
+    private static void rethrowOperationFailure(RuntimeException ex, String wrappedMessage) {
+        if (ex instanceof InvalidWarehouseStateException
+                || ex instanceof IllegalArgumentException
+                || ex instanceof NoSuchElementException) {
+            throw ex;
+        }
+        throw new InvalidWarehouseStateException(wrappedMessage, ex);
     }
 
     private void markFailedBestEffort(WarehouseOperationId id) {

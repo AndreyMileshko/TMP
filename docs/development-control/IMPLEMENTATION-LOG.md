@@ -4,6 +4,34 @@
 
 ---
 
+## STAGE6-009 — Inter-Warehouse Transfer
+
+**Date:** 2026-08-07  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-warehouse`
+
+### Summary
+
+Реализован двухэтапный межскладской Transfer поверх `WarehouseOperationEngine`: Send (`AVAILABLE → IN_TRANSIT` на источнике) и Receive (`IN_TRANSIT → AVAILABLE` на назначении). Типы операций `TRANSFER_SEND` / `TRANSFER_RECEIVE`. Количество и материал не меняются; same-warehouse Transfer запрещён. Без Consumption/Adjustment/Inventory/Reservation, REST/UI/Events.
+
+### Key deliverables
+
+- `TransferSendRequest` / `TransferReceiveRequest`
+- `WarehouseTransferService.send` / `receive`
+- `WarehouseOperationEngine.transferSend` / `transferReceive`
+- Domain/schema: `TRANSFER` → `TRANSFER_SEND` + `TRANSFER_RECEIVE` (`V17__warehouse_transfer_operations.sql`)
+- Unit: send, receive, insufficient stock, same warehouse
+- Integration: operations/movements/stock persisted for full ship→receive
+
+### Boundaries
+
+- Only Transfer (§13.2)
+- Uses existing Operation Engine (no direct stock mutation)
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-008 — Internal Material Move
 
 **Date:** 2026-08-07  

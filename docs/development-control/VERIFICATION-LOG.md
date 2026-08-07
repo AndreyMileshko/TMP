@@ -3,6 +3,39 @@
 ## Latest result
 
 **Date:** 2026-08-07  
+**Scope:** STAGE6-009 — Inter-Warehouse Transfer  
+**Overall:** PASS  
+**Type:** Automated unit + integration + architecture + full reactor  
+**Environment:** Windows; `.tools/apache-maven-3.9.9`; Docker Desktop (`DOCKER_HOST=npipe:////./pipe/docker_engine`)
+
+| Item | Result |
+|---|---|
+| STAGE6-009 | DONE |
+| Transfer unit tests | PASS (5) |
+| Transfer integration tests | PASS (1) |
+| Warehouse module tests | PASS |
+| Architecture tests (`tmp-architecture-tests`) | PASS |
+| Full reactor `mvn test` | PASS |
+| Git | NOT EXECUTED |
+
+### Commands
+
+| Command | Result |
+|---|---|
+| `mvn -pl tmp-warehouse -am test -Dtest=WarehouseTransferServiceTest,WarehouseTransferServiceIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false` | PASS |
+| `mvn -pl tmp-warehouse -am test` | PASS |
+| `mvn -pl tmp-architecture-tests -am test` | PASS |
+| `mvn test` | PASS (BUILD SUCCESS) |
+
+### Failures
+
+None.
+
+---
+
+## Previous result
+
+**Date:** 2026-08-07  
 **Scope:** STAGE6-008 — Internal Material Move  
 **Overall:** PASS  
 **Type:** Automated unit + integration + architecture  
