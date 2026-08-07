@@ -9232,9 +9232,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-003 — Database schema
 
-**Status:** READY  
-**Stage:** 6  
-**Depends on:** STAGE6-002  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-002
 **Module:** `tmp-warehouse`
 
 ### Goal

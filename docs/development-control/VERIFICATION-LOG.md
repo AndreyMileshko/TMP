@@ -2,6 +2,38 @@
 
 ## Latest result
 
+**Date:** 2026-08-07  
+**Scope:** STAGE6-003 — Warehouse Database Schema  
+**Overall:** PASS  
+**Type:** Automated Flyway + persistence IT + architecture + full reactor  
+**Environment:** Windows; `.tools/apache-maven-3.9.9`; Docker Desktop (`DOCKER_HOST=npipe:////./pipe/docker_engine`)
+
+| Item | Result |
+|---|---|
+| STAGE6-003 | DONE |
+| Flyway V15 apply (PostgreSQL Testcontainers) | PASS |
+| Warehouse schema/constraint tests | PASS (5) |
+| Warehouse JDBC persistence tests | PASS (3) |
+| Warehouse module tests (domain + persistence) | PASS (26) |
+| Architecture tests (`tmp-architecture-tests`) | PASS (70) |
+| Full reactor `mvn test` | PASS |
+| Git | NOT EXECUTED |
+
+### Commands
+
+| Command | Result |
+|---|---|
+| `mvn -pl tmp-warehouse -am test` | PASS |
+| `mvn test` | PASS (BUILD SUCCESS) |
+
+### Failures
+
+- None.
+
+---
+
+## Previous result
+
 **Date:** 2026-08-06  
 **Scope:** STAGE5-058 Manual GUI Smoke + Stage 5 Final Closure  
 **Overall:** PASS  

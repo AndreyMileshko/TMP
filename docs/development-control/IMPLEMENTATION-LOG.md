@@ -4,6 +4,33 @@
 
 ---
 
+## STAGE6-003 — Warehouse Database Schema
+
+**Date:** 2026-08-07  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-warehouse`
+
+### Summary
+
+Добавлен persistence-слой Warehouse: Flyway `V15__warehouse_schema.sql` (schema `warehouse`) и JDBC-репозитории для доступа к данным. Без API, Material Master, Batch, Reservation и execution операций.
+
+### Key deliverables
+
+- Migration `tmp-warehouse/src/main/resources/db/migration/V15__warehouse_schema.sql`
+- Tables: `warehouses`, `storage_cells`, `stock_positions`, `warehouse_movements`, `warehouse_operations`
+- JDBC: `JdbcWarehouseCatalogRepository`, `JdbcWarehouseStockRepository`, `WarehousePersistenceModels`
+- Constraints: unique warehouse code; cell FK to warehouse; stock cell+warehouse composite FK; quantity >= 0; stock states AVAILABLE/IN_TRANSIT/BLOCKED only (no RESERVED)
+- Tests: `WarehouseSchemaFlywayTest`, `JdbcWarehousePersistenceTest`
+
+### Boundaries
+
+- Only persistence/schema in `tmp-warehouse`
+- No operation execution, Public API, UI, Production/Cutting
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-PREPARATION-002 — Stage 6 Preparation completed
 
 **Date:** 2026-08-06  
