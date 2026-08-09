@@ -15,8 +15,7 @@ import java.util.Objects;
  *
  * <p>Flow: Consumption Request → Warehouse Operation (CONSUMPTION) → Warehouse Movement (negative
  * quantityDelta) → Stock Position update. Production defines what and how much to consume; Warehouse
- * validates availability and records history. Does not implement Adjustment / Inventory /
- * Reservation.
+ * validates availability and records history. Does not implement Reservation.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",

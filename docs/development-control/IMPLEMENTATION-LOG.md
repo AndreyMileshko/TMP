@@ -4,6 +4,34 @@
 
 ---
 
+## STAGE6-011 — Inventory and Adjustment
+
+**Date:** 2026-08-09  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-warehouse`
+
+### Summary
+
+Реализованы Adjustment и Inventory reconciliation поверх `WarehouseOperationEngine`: Adjustment Request → ADJUSTMENT Operation → Warehouse Movement → Stock Position; Inventory Count → Difference → Adjustment Operation. Без Reservation/Public API/UI, Batch, Material Master.
+
+### Key deliverables
+
+- `AdjustmentRequest` — non-zero signed `quantityDelta`
+- `WarehouseAdjustmentService.adjust` — target = current + delta; rejects negative result; engine create(ADJUSTMENT)+execute
+- `InventoryCountRequest` — counted absolute quantity
+- `WarehouseInventoryService.reconcile` — difference → Adjustment when non-zero; no-op when counts match
+- Unit: positive/negative adjustment, negative stock rejected, inventory short count / matching count
+- Integration: operation/movement/stock persisted for adjustment and inventory flow
+
+### Boundaries
+
+- Only Adjustment + Inventory (§11)
+- Uses existing Operation Engine (no direct stock mutation)
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-010 — Material Consumption
 
 **Date:** 2026-08-07  
