@@ -4,6 +4,32 @@
 
 ---
 
+## STAGE6-010 — Material Consumption
+
+**Date:** 2026-08-07  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-warehouse`
+
+### Summary
+
+Реализовано списание `Consumption` поверх `WarehouseOperationEngine`: Consumption Request → CONSUMPTION Operation → Warehouse Movement (negative quantityDelta) → Stock Position decrease. Production определяет материал и количество; Warehouse проверяет наличие и фиксирует историю. Без Adjustment/Inventory/Reservation, REST/UI/Events.
+
+### Key deliverables
+
+- `ConsumptionRequest` — positive quantity; material + warehouse + cell
+- `WarehouseConsumptionService.consume` — availability validation; target qty = existing − consumption; engine create(CONSUMPTION)+execute
+- Unit: success, insufficient stock, missing stock, zero/negative quantity
+- Integration: operation/movement/stock persisted
+
+### Boundaries
+
+- Only Consumption (§14)
+- Uses existing Operation Engine (no direct stock mutation)
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-009 — Inter-Warehouse Transfer
 
 **Date:** 2026-08-07  

@@ -9466,7 +9466,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-010 — Consumption
 
-**Status:** READY  
+**Status:** DONE  
 **Stage:** 6  
 **Depends on:** STAGE6-009  
 **Module:** `tmp-warehouse`

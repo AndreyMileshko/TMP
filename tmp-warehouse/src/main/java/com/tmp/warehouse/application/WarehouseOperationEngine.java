@@ -27,9 +27,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Warehouse Operation Engine — sole orchestration write path for stock changes (Specification §10).
  *
  * <p>Creates DRAFT operations, executes them atomically (Movement + Stock Position), and records
- * COMPLETED or FAILED. Business operations such as Receipt, Move and Transfer use this engine; they
- * do not bypass it. Internal Move uses {@link #move}; Transfer uses {@link #transferSend} / {@link
- * #transferReceive}.
+ * COMPLETED or FAILED. Business operations such as Receipt, Consumption, Move and Transfer use this
+ * engine; they do not bypass it. Receipt and Consumption use {@link #create} + {@link #execute};
+ * internal Move uses {@link #move}; Transfer uses {@link #transferSend} / {@link #transferReceive}.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",

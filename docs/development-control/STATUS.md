@@ -4,7 +4,7 @@
 **Project status:** Stage 6 implementation in progress  
 **Current Stage:** Stage 6 - IN PROGRESS  
 **Current Task:** none  
-**Last completed task:** STAGE6-009 (Inter-Warehouse Transfer)  
+**Last completed task:** STAGE6-010 (Material Consumption)  
 **Active blockers:** NONE  
 
 
@@ -32,7 +32,8 @@ STAGE6-006 = DONE
 STAGE6-007 = DONE
 STAGE6-008 = DONE
 STAGE6-009 = DONE
-STAGE6-010..015 implementation queue = READY
+STAGE6-010 = DONE
+STAGE6-011..015 implementation queue = READY
 Stage 6 = IN PROGRESS
 Active blockers = NONE
 ```
@@ -49,7 +50,7 @@ Active blockers = NONE
 | 3 | Capability Engine | DONE | 100% |
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
-| 6 | Warehouse | IN PROGRESS | 60% |
+| 6 | Warehouse | IN PROGRESS | 67% |
 | 7 | Production | NOT STARTED | 0% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
@@ -103,4 +104,4 @@ Active blockers = NONE
 - Warehouse spec упрощён до модели Stage 6 Start Gate (v1.3).
 - Batch / FIFO / FEFO / Supplier Batch исключены из Warehouse v1.0.
 - Reservation зафиксирован как информационная связь без изменения `Stock Position`.
-- Stage 6 implementation: foundation + domain + schema + Stock Position + Movement + Operation Engine + Receipt + Move + Transfer DONE.
+- Stage 6 implementation: foundation + domain + schema + Stock Position + Movement + Operation Engine + Receipt + Move + Transfer + Consumption DONE.
