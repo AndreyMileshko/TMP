@@ -92,9 +92,15 @@ class WarehouseSecurityAuthorizationTest {
         assertThrows(
                 AccessDeniedException.class,
                 () -> denied.checkAvailability("ALU-6060", BigDecimal.ONE));
+        assertThrows(AccessDeniedException.class, () -> denied.listWarehouses());
+        assertThrows(
+                AccessDeniedException.class,
+                () -> denied.getStockByWarehouse(UUID.randomUUID()));
 
         assertDoesNotThrow(() -> allowed.getStock("ALU-6060"));
         assertDoesNotThrow(() -> allowed.checkAvailability("ALU-6060", BigDecimal.ONE));
+        assertDoesNotThrow(() -> allowed.listWarehouses());
+        assertDoesNotThrow(() -> allowed.getStockByWarehouse(UUID.randomUUID()));
     }
 
     @Test
@@ -174,6 +180,8 @@ class WarehouseSecurityAuthorizationTest {
                                         ReservationTargetTypeView.ORDER,
                                         "26096190",
                                         BigDecimal.TEN)));
+        assertThrows(
+                AccessDeniedException.class, () -> api.listReservationLinks("ALU-6060"));
     }
 
     @Test
@@ -225,6 +233,7 @@ class WarehouseSecurityAuthorizationTest {
     private DefaultWarehouseApi api(Set<PermissionId> granted) {
         return new DefaultWarehouseApi(
                 new FixedAuthorization(granted),
+                () -> List.of(),
                 stockPositions,
                 reservationLinks,
                 receipts,
@@ -309,6 +318,13 @@ class WarehouseSecurityAuthorizationTest {
         @Override
         public List<StockPosition> findByMaterial(MaterialReference material) {
             return byId.values().stream().filter(p -> p.material().equals(material)).toList();
+        }
+
+        @Override
+        public List<StockPosition> findByWarehouse(WarehouseId warehouseId) {
+            return byId.values().stream()
+                    .filter(p -> p.warehouseId().equals(warehouseId))
+                    .toList();
         }
 
         @Override

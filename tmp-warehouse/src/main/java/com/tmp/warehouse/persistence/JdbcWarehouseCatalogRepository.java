@@ -4,6 +4,7 @@ import com.tmp.warehouse.domain.StorageCell;
 import com.tmp.warehouse.domain.StorageCellId;
 import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
+import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.OptimisticLockException;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.StorageCellRow;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseRow;
@@ -26,7 +27,7 @@ import org.springframework.jdbc.core.RowMapper;
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
         justification = "Stores Spring-managed JdbcTemplate and Clock injected by the container.")
-public final class JdbcWarehouseCatalogRepository {
+public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRepository {
 
     private static final RowMapper<WarehouseRow> WAREHOUSE_MAPPER =
             JdbcWarehouseCatalogRepository::mapWarehouse;
@@ -39,6 +40,21 @@ public final class JdbcWarehouseCatalogRepository {
     public JdbcWarehouseCatalogRepository(JdbcTemplate jdbcTemplate, Clock clock) {
         this.jdbcTemplate = Objects.requireNonNull(jdbcTemplate, "jdbcTemplate");
         this.clock = Objects.requireNonNull(clock, "clock");
+    }
+
+    @Override
+    public List<Warehouse> findAll() {
+        return jdbcTemplate
+                .query(
+                        """
+                        SELECT id, code, name, active, version, created_at, updated_at
+                        FROM warehouse.warehouses
+                        ORDER BY code
+                        """,
+                        WAREHOUSE_MAPPER)
+                .stream()
+                .map(WarehouseRow::toDomain)
+                .toList();
     }
 
     public WarehouseRow insert(Warehouse warehouse) {

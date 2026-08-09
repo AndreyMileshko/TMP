@@ -2,7 +2,6 @@ package com.tmp.warehouse.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.security.api.PermissionId;
@@ -60,13 +59,16 @@ class WarehousePermissionCatalogTest {
     }
 
     @Test
-    void capabilityDescriptorExposesPermissionCatalog() {
+    void capabilityDescriptorExposesPermissionCatalogAndNavigation() {
         WarehouseCapability capability = new WarehouseCapability();
         assertEquals(WarehouseCapability.ID, capability.descriptor().id());
         assertEquals(8, capability.descriptor().permissions().size());
-        assertTrue(capability.descriptor().navigationContributions().isEmpty());
-        assertTrue(capability.descriptor().views().isEmpty());
-        assertTrue(capability.descriptor().commands().isEmpty());
+        assertEquals(1, capability.descriptor().navigationContributions().size());
+        assertEquals(1, capability.descriptor().views().size());
+        assertEquals(1, capability.descriptor().commands().size());
+        assertEquals(
+                WarehouseCapability.VIEW_WAREHOUSE,
+                capability.descriptor().navigationContributions().get(0).viewId());
         assertEquals(
                 WarehousePermissions.all().stream().map(PermissionId::value).collect(Collectors.toSet()),
                 capability.descriptor().permissions().stream()

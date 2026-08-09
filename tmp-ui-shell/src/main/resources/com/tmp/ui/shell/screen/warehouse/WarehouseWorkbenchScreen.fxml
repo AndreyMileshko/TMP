@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<HBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.tmp.ui.shell.screen.warehouse.WarehouseWorkbenchController"
+      spacing="12">
+    <padding>
+        <Insets top="16" right="16" bottom="16" left="16"/>
+    </padding>
+
+    <VBox spacing="8" prefWidth="220">
+        <Label text="Склад" styleClass="warehouse-nav-title"/>
+        <ListView fx:id="sectionList" prefHeight="220"/>
+        <Button fx:id="warehousesButton" text="Список складов" maxWidth="Infinity"/>
+        <Button fx:id="stockButton" text="Остатки" maxWidth="Infinity"/>
+        <Button fx:id="receiptButton" text="Поступление" maxWidth="Infinity"/>
+        <Button fx:id="moveButton" text="Перемещение" maxWidth="Infinity"/>
+        <Button fx:id="transferButton" text="Межскладское" maxWidth="Infinity"/>
+        <Button fx:id="consumptionButton" text="Списание" maxWidth="Infinity"/>
+        <Button fx:id="adjustmentButton" text="Корректировка" maxWidth="Infinity"/>
+        <Button fx:id="reservationsButton" text="Инф. связи" maxWidth="Infinity"/>
+    </VBox>
+
+    <VBox spacing="12" HBox.hgrow="ALWAYS">
+        <Label fx:id="titleLabel" styleClass="warehouse-title"/>
+        <Label fx:id="loadingLabel" text="Загрузка..." visible="false" managed="false"/>
+
+        <VBox fx:id="warehousesPane" spacing="8">
+            <TableView fx:id="warehousesTable" prefHeight="360">
+                <columns>
+                    <TableColumn fx:id="warehouseCodeColumn" text="Код" prefWidth="120"/>
+                    <TableColumn fx:id="warehouseNameColumn" text="Название" prefWidth="220"/>
+                    <TableColumn fx:id="warehouseActiveColumn" text="Активность" prefWidth="120"/>
+                </columns>
+            </TableView>
+        </VBox>
+
+        <VBox fx:id="stockPane" spacing="8" visible="false" managed="false">
+            <HBox spacing="8">
+                <TextField fx:id="stockWarehouseIdField" promptText="ID склада" prefWidth="260"/>
+                <TextField fx:id="stockMaterialField" promptText="Материал" prefWidth="160"/>
+                <Button fx:id="loadStockButton" text="Загрузить"/>
+            </HBox>
+            <TableView fx:id="stockTable" prefHeight="360">
+                <columns>
+                    <TableColumn fx:id="stockMaterialColumn" text="Материал" prefWidth="140"/>
+                    <TableColumn fx:id="stockWarehouseColumn" text="Склад" prefWidth="220"/>
+                    <TableColumn fx:id="stockCellColumn" text="Ячейка" prefWidth="220"/>
+                    <TableColumn fx:id="stockQuantityColumn" text="Количество" prefWidth="100"/>
+                    <TableColumn fx:id="stockStateColumn" text="Состояние" prefWidth="120"/>
+                </columns>
+            </TableView>
+        </VBox>
+
+        <VBox fx:id="receiptPane" spacing="8" visible="false" managed="false">
+            <TextField fx:id="receiptMaterialField" promptText="Материал"/>
+            <TextField fx:id="receiptQuantityField" promptText="Количество"/>
+            <TextField fx:id="receiptWarehouseIdField" promptText="Склад (UUID)"/>
+            <TextField fx:id="receiptCellIdField" promptText="Ячейка (UUID)"/>
+            <Button fx:id="submitReceiptButton" text="Создать поступление"/>
+        </VBox>
+
+        <VBox fx:id="movePane" spacing="8" visible="false" managed="false">
+            <TextField fx:id="moveMaterialField" promptText="Материал"/>
+            <TextField fx:id="moveQuantityField" promptText="Количество"/>
+            <TextField fx:id="moveSourceWarehouseIdField" promptText="Источник: склад (UUID)"/>
+            <TextField fx:id="moveSourceCellIdField" promptText="Источник: ячейка (UUID)"/>
+            <TextField fx:id="moveDestWarehouseIdField" promptText="Назначение: склад (UUID)"/>
+            <TextField fx:id="moveDestCellIdField" promptText="Назначение: ячейка (UUID)"/>
+            <Button fx:id="submitMoveButton" text="Выполнить перемещение"/>
+        </VBox>
+
+        <VBox fx:id="transferPane" spacing="8" visible="false" managed="false">
+            <TextField fx:id="transferSourceWarehouseIdField" promptText="Склад источник (UUID)"/>
+            <TextField fx:id="transferDestWarehouseIdField" promptText="Склад назначения (UUID)"/>
+            <TextField fx:id="transferMaterialField" promptText="Материал"/>
+            <TextField fx:id="transferQuantityField" promptText="Количество"/>
+            <TextField fx:id="transferSourceCellIdField" promptText="Ячейка источник (UUID)"/>
+            <Button fx:id="submitTransferButton" text="Отправить (Transfer Send)"/>
+        </VBox>
+
+        <VBox fx:id="consumptionPane" spacing="8" visible="false" managed="false">
+            <TextField fx:id="consumptionMaterialField" promptText="Материал"/>
+            <TextField fx:id="consumptionQuantityField" promptText="Количество"/>
+            <TextField fx:id="consumptionWarehouseIdField" promptText="Склад (UUID)"/>
+            <TextField fx:id="consumptionCellIdField" promptText="Ячейка (UUID)"/>
+            <TextField fx:id="consumptionBasisField" promptText="Основание"/>
+            <Button fx:id="submitConsumptionButton" text="Списать"/>
+        </VBox>
+
+        <VBox fx:id="adjustmentPane" spacing="8" visible="false" managed="false">
+            <TextField fx:id="adjustmentMaterialField" promptText="Материал"/>
+            <TextField fx:id="adjustmentQuantityDeltaField" promptText="Количество изменения (+/-)"/>
+            <TextField fx:id="adjustmentWarehouseIdField" promptText="Склад (UUID)"/>
+            <TextField fx:id="adjustmentCellIdField" promptText="Ячейка (UUID)"/>
+            <TextField fx:id="adjustmentReasonField" promptText="Причина"/>
+            <Button fx:id="submitAdjustmentButton" text="Выполнить корректировку"/>
+        </VBox>
+
+        <VBox fx:id="reservationsPane" spacing="8" visible="false" managed="false">
+            <HBox spacing="8">
+                <TextField fx:id="reservationFilterMaterialField" promptText="Материал для поиска" prefWidth="200"/>
+                <Button fx:id="loadReservationsButton" text="Показать связи"/>
+            </HBox>
+            <TableView fx:id="reservationsTable" prefHeight="220">
+                <columns>
+                    <TableColumn fx:id="reservationMaterialColumn" text="Материал" prefWidth="160"/>
+                    <TableColumn fx:id="reservationOrderColumn" text="Заказ" prefWidth="200"/>
+                    <TableColumn fx:id="reservationQuantityColumn" text="Количество" prefWidth="120"/>
+                </columns>
+            </TableView>
+            <Label text="Создать информационную связь"/>
+            <TextField fx:id="reservationMaterialField" promptText="Материал"/>
+            <TextField fx:id="reservationOrderRefField" promptText="Заказ"/>
+            <TextField fx:id="reservationQuantityField" promptText="Количество"/>
+            <Button fx:id="submitReservationButton" text="Создать связь"/>
+        </VBox>
+
+        <Label fx:id="statusLabel" wrapText="true"/>
+        <Label fx:id="errorLabel" styleClass="warehouse-error" visible="false" managed="false" wrapText="true"/>
+    </VBox>
+</HBox>

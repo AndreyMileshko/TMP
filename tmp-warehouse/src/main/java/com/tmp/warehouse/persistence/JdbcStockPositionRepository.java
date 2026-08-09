@@ -69,6 +69,14 @@ public final class JdbcStockPositionRepository implements StockPositionRepositor
     }
 
     @Override
+    public List<StockPosition> findByWarehouse(WarehouseId warehouseId) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        return stock.findPositionsByWarehouse(warehouseId).stream()
+                .map(StockPositionRow::toDomain)
+                .toList();
+    }
+
+    @Override
     public StockPosition updateQuantity(
             StockPositionId id, StockQuantity quantity, long expectedVersion) {
         Objects.requireNonNull(id, "id");

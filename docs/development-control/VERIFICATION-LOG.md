@@ -3,35 +3,36 @@
 ## Latest result
 
 **Date:** 2026-08-09  
-**Scope:** STAGE6-014 — Warehouse Security Integration  
+**Scope:** STAGE6-015 — Warehouse UI  
 **Overall:** PASS  
 **Type:** Automated unit + integration + architecture  
-**Environment:** Windows; IntelliJ-bundled Maven; Docker Desktop (`DOCKER_HOST=npipe:////./pipe/docker_engine`)
+**Environment:** Windows; `.tools/apache-maven-3.9.9`; Docker Desktop (`DOCKER_HOST=npipe:////./pipe/docker_engine`)
 
 | Item | Result |
 |---|---|
-| STAGE6-014 | DONE |
-| Permission catalog unit tests | PASS (6) |
-| Authorization guard unit tests | PASS (7) |
-| Warehouse module tests | PASS (110) |
-| Architecture tests (`tmp-architecture-tests`) | PASS (70) |
+| STAGE6-015 | DONE |
+| Warehouse UI ViewModel tests | PASS (8) |
+| Warehouse UI error mapper tests | PASS (2) |
+| Warehouse module tests | PASS |
+| Bootstrap wiring / context smoke | PASS |
+| Architecture tests (`tmp-architecture-tests`, 72) | PASS |
 | Git | NOT EXECUTED |
 
 ### Commands
 
 | Command | Result |
 |---|---|
-| `mvn -pl tmp-warehouse -am test -Dtest=WarehousePermissionCatalogTest,WarehouseSecurityAuthorizationTest,...` | PASS (26) |
-| `mvn -pl tmp-warehouse -am test` | PASS (110 warehouse tests) |
-| `mvn -pl tmp-architecture-tests -am test` | PASS (70) |
+| `mvn -pl tmp-warehouse,tmp-ui-shell -am test` | PASS |
+| `mvn -pl tmp-bootstrap-app,tmp-architecture-tests -am test` (focused + full arch) | PASS |
+| `mvn -pl tmp-architecture-tests -am test` | PASS (72) |
 
 ### Failures
 
-None.
+None (resolved during task: TransactionTemplate bean clash; capability count 4→5; Stage4 package existence rule updated for Stage 6 warehouse).
 
 ---
 
-## STAGE6-013 — Warehouse Public API
+## STAGE6-014 — Warehouse Security Integration
 
 **Date:** 2026-08-09  
 **Scope:** STAGE6-012 — Information Reservation Link  

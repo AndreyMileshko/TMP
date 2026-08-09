@@ -327,6 +327,13 @@ class WarehouseTransferServiceTest {
         }
 
         @Override
+        public List<StockPosition> findByWarehouse(WarehouseId warehouseId) {
+            return byId.values().stream()
+                    .filter(p -> p.warehouseId().equals(warehouseId))
+                    .toList();
+        }
+
+        @Override
         public StockPosition updateQuantity(
                 StockPositionId id, StockQuantity quantity, long expectedVersion) {
             return updateQuantityAndState(id, quantity, byId.get(id).stockState(), expectedVersion);

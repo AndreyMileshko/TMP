@@ -115,6 +115,7 @@ class WarehouseApiIntegrationTest {
         api =
                 new DefaultWarehouseApi(
                         AllowingAuthorization.INSTANCE,
+                        catalog,
                         stockPositions,
                         new WarehouseReservationLinkService(
                                 new JdbcMaterialReservationLinkRepository(jdbc), CLOCK),

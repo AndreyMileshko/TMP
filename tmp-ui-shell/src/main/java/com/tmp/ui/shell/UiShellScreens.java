@@ -21,6 +21,8 @@ public final class UiShellScreens {
             "com/tmp/ui/shell/screen/orderspecificationeditor/OrderItemSpecificationEditorScreen.fxml";
     public static final String ORDER_IMPORT_FXML =
             "com/tmp/ui/shell/screen/orderimport/OrderImportScreen.fxml";
+    public static final String WAREHOUSE_WORKBENCH_FXML =
+            "com/tmp/ui/shell/screen/warehouse/WarehouseWorkbenchScreen.fxml";
 
     public static final String MAIN_SCREEN_ID = "main";
     public static final String ACCESS_DENIED_SCREEN_ID = "access-denied";
@@ -37,6 +39,15 @@ public final class UiShellScreens {
     public static final String ORDER_ITEM_SPECIFICATION_EDITOR_SCREEN_ID =
             "order.view.order-item-specification-editor";
     public static final String ORDER_IMPORT_SCREEN_ID = "order.view.order-import";
+    /** Must match Warehouse Capability {@code viewId} ({@code warehouse.view.workbench}). */
+    public static final String WAREHOUSE_WORKBENCH_SCREEN_ID = "warehouse.view.workbench";
+    public static final String WAREHOUSE_VIEW_PERMISSION = "warehouse.stock.view";
+    public static final String WAREHOUSE_RECEIPT_PERMISSION = "warehouse.receipt.create";
+    public static final String WAREHOUSE_MOVE_PERMISSION = "warehouse.move.create";
+    public static final String WAREHOUSE_TRANSFER_PERMISSION = "warehouse.transfer.create";
+    public static final String WAREHOUSE_RESERVATION_PERMISSION = "warehouse.reservation.create";
+    public static final String WAREHOUSE_CONSUMPTION_PERMISSION = "warehouse.consumption.create";
+    public static final String WAREHOUSE_ADJUSTMENT_PERMISSION = "warehouse.adjustment.create";
     public static final String ORDER_CREATE_PERMISSION = "order.order.create";
     public static final String ORDER_ITEM_VIEW_PERMISSION = "order.item.view";
     public static final String ORDER_ITEM_CREATE_PERMISSION = "order.item.create";

@@ -9811,6 +9811,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-015
 - **ID:** `STAGE6-015`
+- **Status:** DONE
 - **Название:** Warehouse UI
 - **Цель:** Реализовать базовый UI Warehouse.
 - **Описание:** UI для просмотра остатков и операций v1.0 через Public API.

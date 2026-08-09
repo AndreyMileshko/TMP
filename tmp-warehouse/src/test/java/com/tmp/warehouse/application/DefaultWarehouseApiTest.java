@@ -79,6 +79,7 @@ class DefaultWarehouseApiTest {
         api =
                 new DefaultWarehouseApi(
                         AllowingAuthorization.INSTANCE,
+                        () -> List.of(),
                         stockPositions,
                         new WarehouseReservationLinkService(links, CLOCK),
                         new WarehouseReceiptService(engine, stockPositions),
@@ -271,6 +272,13 @@ class DefaultWarehouseApiTest {
         @Override
         public List<StockPosition> findByMaterial(MaterialReference material) {
             return byId.values().stream().filter(p -> p.material().equals(material)).toList();
+        }
+
+        @Override
+        public List<StockPosition> findByWarehouse(WarehouseId warehouseId) {
+            return byId.values().stream()
+                    .filter(p -> p.warehouseId().equals(warehouseId))
+                    .toList();
         }
 
         @Override

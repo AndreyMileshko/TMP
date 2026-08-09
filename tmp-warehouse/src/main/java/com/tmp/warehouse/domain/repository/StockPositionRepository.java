@@ -39,6 +39,11 @@ public interface StockPositionRepository {
     List<StockPosition> findByMaterial(MaterialReference material);
 
     /**
+     * Returns all stock positions for the given warehouse (read-only query).
+     */
+    List<StockPosition> findByWarehouse(WarehouseId warehouseId);
+
+    /**
      * Updates quantity for an existing position. Rejects negative quantities via
      * {@link StockQuantity}. Uses optimistic locking on {@code expectedVersion}.
      */

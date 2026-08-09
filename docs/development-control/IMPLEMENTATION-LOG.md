@@ -4,6 +4,48 @@
 
 ---
 
+## STAGE6-015 — Warehouse UI
+
+**Date:** 2026-08-09  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-ui-shell`, `tmp-warehouse`, `tmp-bootstrap-app`
+
+### Summary
+
+Реализован Warehouse UI v1.0 как workbench с восемью Capability-gated секциями. Все чтение/запись только через Public API (`WarehouseApi`). Бизнес-логика склада в UI отсутствует; прямая мутация Stock Position / Movement запрещена.
+
+### Key deliverables
+
+- UI: `WarehouseWorkbench` (FXML + Controller + ViewModel) — 8 секций
+- `WarehouseUiErrorMapper`, `WarehouseSection`
+- API extensions for UI reads: `listWarehouses`, `getStockByWarehouse`, `listReservationLinks`
+- Spring wiring: `WarehouseAutoConfiguration` (Public API + services), bootstrap screen registration
+- Capability navigation: `warehouse.nav.workbench` → `warehouse.view.workbench`
+- Tests: ViewModel/capability/API call tests; Stage 6 architecture boundaries
+
+### Screens (sections)
+
+| Section | Capability |
+|---|---|
+| Список складов | WAREHOUSE_VIEW |
+| Остатки склада | WAREHOUSE_VIEW |
+| Поступление | WAREHOUSE_RECEIPT |
+| Перемещение | WAREHOUSE_MOVE |
+| Межскладское перемещение | WAREHOUSE_TRANSFER |
+| Списание | WAREHOUSE_CONSUMPTION |
+| Корректировка | WAREHOUSE_ADJUSTMENT |
+| Информационные связи | WAREHOUSE_RESERVATION |
+
+### Boundaries
+
+- UI → `com.tmp.warehouse.api` only
+- No WMS / barcodes / terminals / placement optimization
+- Основание/причина списания и корректировки — UI validation fields (не персистятся в v1.0 API)
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-014 — Warehouse Security Integration
 
 **Date:** 2026-08-09  

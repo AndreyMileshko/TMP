@@ -10,9 +10,11 @@ import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
 import com.tmp.warehouse.domain.StorageCellId;
+import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseOperation;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
+import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.security.WarehousePermissions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
@@ -33,6 +35,7 @@ import java.util.UUID;
 public final class DefaultWarehouseApi implements WarehouseApi {
 
     private final AuthorizationService authorization;
+    private final WarehouseCatalogRepository warehouses;
     private final StockPositionRepository stockPositions;
     private final WarehouseReservationLinkService reservationLinks;
     private final WarehouseReceiptService receipts;
@@ -43,6 +46,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
 
     public DefaultWarehouseApi(
             AuthorizationService authorization,
+            WarehouseCatalogRepository warehouses,
             StockPositionRepository stockPositions,
             WarehouseReservationLinkService reservationLinks,
             WarehouseReceiptService receipts,
@@ -51,6 +55,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             WarehouseConsumptionService consumptions,
             WarehouseAdjustmentService adjustments) {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
+        this.warehouses = Objects.requireNonNull(warehouses, "warehouses");
         this.stockPositions = Objects.requireNonNull(stockPositions, "stockPositions");
         this.reservationLinks = Objects.requireNonNull(reservationLinks, "reservationLinks");
         this.receipts = Objects.requireNonNull(receipts, "receipts");
@@ -58,6 +63,12 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         this.transfers = Objects.requireNonNull(transfers, "transfers");
         this.consumptions = Objects.requireNonNull(consumptions, "consumptions");
         this.adjustments = Objects.requireNonNull(adjustments, "adjustments");
+    }
+
+    @Override
+    public List<WarehouseView> listWarehouses() {
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        return warehouses.findAll().stream().map(this::toWarehouseView).toList();
     }
 
     @Override
@@ -83,6 +94,15 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                         view ->
                                 view.warehouseId().equals(wh.value())
                                         && view.storageCellId().equals(cell.value()))
+                .toList();
+    }
+
+    @Override
+    public List<StockView> getStockByWarehouse(UUID warehouseId) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        return stockPositions.findByWarehouse(WarehouseId.of(warehouseId)).stream()
+                .map(this::toStockView)
                 .toList();
     }
 
@@ -118,6 +138,15 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                         toTarget(command.targetType(), command.targetReference()),
                         StockQuantity.of(command.quantity()));
         return toReservationLinkView(link);
+    }
+
+    @Override
+    public List<ReservationLinkView> listReservationLinks(String materialCode) {
+        Objects.requireNonNull(materialCode, "materialCode");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_RESERVATION);
+        return reservationLinks.findByMaterial(MaterialReference.of(materialCode)).stream()
+                .map(DefaultWarehouseApi::toReservationLinkView)
+                .toList();
     }
 
     @Override
@@ -193,6 +222,11 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             case ADJUSTMENT ->
                     authorization.requirePermission(WarehousePermissions.WAREHOUSE_ADJUSTMENT);
         }
+    }
+
+    private WarehouseView toWarehouseView(Warehouse warehouse) {
+        return new WarehouseView(
+                warehouse.id().value(), warehouse.code(), warehouse.name(), warehouse.active());
     }
 
     private StockView toStockView(StockPosition position) {

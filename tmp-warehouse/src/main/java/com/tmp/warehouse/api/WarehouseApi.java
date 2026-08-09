@@ -16,6 +16,13 @@ import java.util.UUID;
 public interface WarehouseApi {
 
     /**
+     * Returns all warehouses (code, name, active).
+     *
+     * @return warehouse views ordered by code; empty when none
+     */
+    List<WarehouseView> listWarehouses();
+
+    /**
      * Returns current stock positions for the given material reference.
      *
      * @param materialCode material reference from Specification context
@@ -29,6 +36,11 @@ public interface WarehouseApi {
     List<StockView> getStock(String materialCode, UUID warehouseId, UUID storageCellId);
 
     /**
+     * Returns all stock positions for a warehouse.
+     */
+    List<StockView> getStockByWarehouse(UUID warehouseId);
+
+    /**
      * Checks whether AVAILABLE stock for the material covers the requested quantity.
      */
     AvailabilityResult checkAvailability(String materialCode, BigDecimal quantity);
@@ -39,9 +51,24 @@ public interface WarehouseApi {
     ReservationLinkView createReservationLink(CreateReservationLinkCommand command);
 
     /**
+     * Returns informational reservation links for a material reference.
+     */
+    List<ReservationLinkView> listReservationLinks(String materialCode);
+
+    /**
      * Executes a Warehouse Operation (Receipt / Move / Transfer / Consumption / Adjustment).
      */
     OperationResult executeWarehouseOperation(ExecuteOperationCommand command);
+
+    /** Public warehouse catalogue snapshot. */
+    record WarehouseView(UUID warehouseId, String code, String name, boolean active) {
+
+        public WarehouseView {
+            Objects.requireNonNull(warehouseId, "warehouseId");
+            Objects.requireNonNull(code, "code");
+            Objects.requireNonNull(name, "name");
+        }
+    }
 
     /** Public stock snapshot — not a domain StockPosition. */
     record StockView(
