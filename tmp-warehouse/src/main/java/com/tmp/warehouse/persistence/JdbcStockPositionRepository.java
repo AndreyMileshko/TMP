@@ -10,6 +10,7 @@ import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.StockPositionRow;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -57,6 +58,14 @@ public final class JdbcStockPositionRepository implements StockPositionRepositor
             StockState stockState) {
         return stock.findPositionByNaturalKey(warehouseId, storageCellId, material, stockState)
                 .map(StockPositionRow::toDomain);
+    }
+
+    @Override
+    public List<StockPosition> findByMaterial(MaterialReference material) {
+        Objects.requireNonNull(material, "material");
+        return stock.findPositionsByMaterial(material).stream()
+                .map(StockPositionRow::toDomain)
+                .toList();
     }
 
     @Override

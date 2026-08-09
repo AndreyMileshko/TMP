@@ -219,6 +219,13 @@ class WarehouseReceiptServiceTest {
         }
 
         @Override
+        public List<StockPosition> findByMaterial(MaterialReference material) {
+            return byId.values().stream()
+                    .filter(p -> p.material().equals(material))
+                    .toList();
+        }
+
+        @Override
         public StockPosition updateQuantity(
                 StockPositionId id, StockQuantity quantity, long expectedVersion) {
             return updateQuantityAndState(id, quantity, byId.get(id).stockState(), expectedVersion);

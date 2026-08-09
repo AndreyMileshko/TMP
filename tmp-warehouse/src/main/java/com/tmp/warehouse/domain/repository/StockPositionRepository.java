@@ -7,6 +7,7 @@ import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
 import com.tmp.warehouse.domain.StorageCellId;
 import com.tmp.warehouse.domain.WarehouseId;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -31,6 +32,11 @@ public interface StockPositionRepository {
             StorageCellId storageCellId,
             MaterialReference material,
             StockState stockState);
+
+    /**
+     * Returns all stock positions for the given material reference (read-only query).
+     */
+    List<StockPosition> findByMaterial(MaterialReference material);
 
     /**
      * Updates quantity for an existing position. Rejects negative quantities via

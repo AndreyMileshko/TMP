@@ -9785,6 +9785,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-013
 - **ID:** `STAGE6-013`
+- **Status:** DONE
 - **Название:** Public API
 - **Цель:** Реализовать минимальный Public API.
 - **Описание:** API для stock, availability, reservation link и execution операций.

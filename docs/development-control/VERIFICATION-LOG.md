@@ -3,6 +3,38 @@
 ## Latest result
 
 **Date:** 2026-08-09  
+**Scope:** STAGE6-013 — Warehouse Public API  
+**Overall:** PASS  
+**Type:** Automated unit + integration + architecture  
+**Environment:** Windows; IntelliJ-bundled Maven; Docker Desktop (`DOCKER_HOST=npipe:////./pipe/docker_engine`)
+
+| Item | Result |
+|---|---|
+| STAGE6-013 | DONE |
+| API contract unit tests | PASS (5) |
+| DefaultWarehouseApi unit tests | PASS (6) |
+| Warehouse API integration tests | PASS (3) |
+| Warehouse module tests | PASS (97) |
+| Architecture tests (`tmp-architecture-tests`) | PASS (70) |
+| Git | NOT EXECUTED |
+
+### Commands
+
+| Command | Result |
+|---|---|
+| `mvn -pl tmp-warehouse -am test -Dtest=WarehouseApiContractTest,DefaultWarehouseApiTest,WarehouseApiIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false` | PASS |
+| `mvn -pl tmp-warehouse -am test` | PASS (97 tests) |
+| `mvn -pl tmp-architecture-tests -am test` | PASS (70 tests) |
+
+### Failures
+
+None.
+
+---
+
+## STAGE6-012 — Information Reservation Link
+
+**Date:** 2026-08-09  
 **Scope:** STAGE6-012 — Information Reservation Link  
 **Overall:** PASS  
 **Type:** Automated unit + integration + architecture + full reactor  

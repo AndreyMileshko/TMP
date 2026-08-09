@@ -141,6 +141,20 @@ public final class JdbcWarehouseStockRepository {
                 warehouseId.value());
     }
 
+    public List<StockPositionRow> findPositionsByMaterial(MaterialReference materialReference) {
+        Objects.requireNonNull(materialReference, "materialReference");
+        return jdbcTemplate.query(
+                """
+                SELECT id, warehouse_id, storage_cell_id, material_reference, quantity,
+                       stock_state, version, created_at, updated_at
+                FROM warehouse.stock_positions
+                WHERE material_reference = ?
+                ORDER BY warehouse_id, storage_cell_id, stock_state
+                """,
+                POSITION_MAPPER,
+                materialReference.materialCode());
+    }
+
     public Optional<StockPositionRow> findPositionByNaturalKey(
             WarehouseId warehouseId,
             StorageCellId storageCellId,

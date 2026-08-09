@@ -4,6 +4,34 @@
 
 ---
 
+## STAGE6-013 — Warehouse Public API
+
+**Date:** 2026-08-09  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-warehouse`
+
+### Summary
+
+Реализован минимальный Public API Warehouse (Specification §17): `getStock`, `checkAvailability`, `createReservationLink`, `executeWarehouseOperation`. API отдаёт DTO/views, не доменные агрегаты; не позволяет прямую мутацию Stock Position / Movement. Бизнес-логика операций не изменялась — адаптер делегирует существующим application-сервисам.
+
+### Key deliverables
+
+- `com.tmp.warehouse.api.WarehouseApi` — контракт + nested DTOs/commands/results
+- `DefaultWarehouseApi` — application adapter (mapping + orchestration)
+- Read extension: `StockPositionRepository.findByMaterial` + JDBC query
+- Unit: contract/DTO tests + mapping/orchestration tests
+- Integration: API receipt/availability/reservation/consumption against PostgreSQL
+
+### Boundaries
+
+- No UI, Security, Events
+- No direct Stock/Movement mutation through API
+- Reservation link remains informational
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-012 — Information Reservation Link
 
 **Date:** 2026-08-09  
