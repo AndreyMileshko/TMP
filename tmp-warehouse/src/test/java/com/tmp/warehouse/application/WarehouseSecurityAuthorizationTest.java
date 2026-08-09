@@ -1,21 +1,14 @@
 package com.tmp.warehouse.application;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.tmp.warehouse.api.WarehouseApi;
-import com.tmp.warehouse.api.WarehouseApi.AvailabilityStatus;
-import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
-import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
-import com.tmp.warehouse.api.WarehouseApi.OperationKind;
-import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
-import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
-import com.tmp.warehouse.api.WarehouseApi.StockStateView;
-import com.tmp.warehouse.api.WarehouseApi.StockView;
+import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
+import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
+import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
+import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.MaterialReservationLink;
 import com.tmp.warehouse.domain.MaterialReservationLinkId;
@@ -33,6 +26,7 @@ import com.tmp.warehouse.domain.repository.MaterialReservationLinkRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
+import com.tmp.warehouse.security.WarehousePermissions;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -52,174 +46,218 @@ import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Unit tests: Public API mapping and orchestration without leaking domain types.
+ * Authorization guards on Public API and Inventory (Specification §18).
  */
-class DefaultWarehouseApiTest {
+class WarehouseSecurityAuthorizationTest {
 
     private static final Clock CLOCK =
-            Clock.fixed(Instant.parse("2026-08-09T16:00:00Z"), ZoneOffset.UTC);
+            Clock.fixed(Instant.parse("2026-08-09T17:00:00Z"), ZoneOffset.UTC);
 
     private InMemoryStockPositionRepository stockPositions;
-    private InMemoryReservationLinkRepository links;
-    private DefaultWarehouseApi api;
+    private WarehouseOperationEngine engine;
+    private WarehouseReservationLinkService reservationLinks;
+    private WarehouseReceiptService receipts;
+    private WarehouseMoveService moves;
+    private WarehouseTransferService transfers;
+    private WarehouseConsumptionService consumptions;
+    private WarehouseAdjustmentService adjustments;
 
     @BeforeEach
     void setUp() {
         stockPositions = new InMemoryStockPositionRepository();
-        links = new InMemoryReservationLinkRepository();
         InMemoryOperationRepository operations = new InMemoryOperationRepository();
         InMemoryMovementRepository movements = new InMemoryMovementRepository();
-        WarehouseOperationEngine engine =
+        engine =
                 new WarehouseOperationEngine(
                         operations,
                         stockPositions,
                         movements,
                         new TransactionTemplate(new PassthroughTransactionManager()),
                         CLOCK);
-        api =
-                new DefaultWarehouseApi(
-                        AllowingAuthorization.INSTANCE,
-                        stockPositions,
-                        new WarehouseReservationLinkService(links, CLOCK),
-                        new WarehouseReceiptService(engine, stockPositions),
-                        new WarehouseMoveService(engine),
-                        new WarehouseTransferService(engine),
-                        new WarehouseConsumptionService(engine, stockPositions),
-                        new WarehouseAdjustmentService(engine, stockPositions));
-    }
-
-    private enum AllowingAuthorization implements AuthorizationService {
-        INSTANCE;
-
-        @Override
-        public boolean hasPermission(PermissionId permissionId) {
-            return true;
-        }
-
-        @Override
-        public void requirePermission(PermissionId permissionId) {
-            // allow all for Public API mapping unit tests
-        }
-
-        @Override
-        public Set<PermissionId> effectivePermissions() {
-            return Set.of();
-        }
+        reservationLinks =
+                new WarehouseReservationLinkService(new InMemoryReservationLinkRepository(), CLOCK);
+        receipts = new WarehouseReceiptService(engine, stockPositions);
+        moves = new WarehouseMoveService(engine);
+        transfers = new WarehouseTransferService(engine);
+        consumptions = new WarehouseConsumptionService(engine, stockPositions);
+        adjustments = new WarehouseAdjustmentService(engine, stockPositions);
     }
 
     @Test
-    void getStockMapsDomainPositionsToPublicViews() {
-        WarehouseId warehouseId = WarehouseId.generate();
-        StorageCellId cellId = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("VEKA 103.211");
-        stockPositions.create(
-                StockPosition.of(
-                        warehouseId, cellId, material, StockState.AVAILABLE, StockQuantity.of(25L)));
+    void viewOperationsRequireWarehouseView() {
+        DefaultWarehouseApi denied = api(Set.of());
+        DefaultWarehouseApi allowed = api(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
 
-        List<StockView> views = api.getStock("VEKA 103.211");
-
-        assertEquals(1, views.size());
-        StockView view = views.get(0);
-        assertEquals("VEKA 103.211", view.materialCode());
-        assertEquals(warehouseId.value(), view.warehouseId());
-        assertEquals(cellId.value(), view.storageCellId());
-        assertEquals(0, view.quantity().compareTo(BigDecimal.valueOf(25L)));
-        assertEquals(StockStateView.AVAILABLE, view.stockState());
-    }
-
-    @Test
-    void getStockFiltersByWarehouseAndCell() {
-        WarehouseId warehouseId = WarehouseId.generate();
-        StorageCellId cellA = StorageCellId.generate();
-        StorageCellId cellB = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("ALU-6060");
-        stockPositions.create(
-                StockPosition.of(
-                        warehouseId, cellA, material, StockState.AVAILABLE, StockQuantity.of(10L)));
-        stockPositions.create(
-                StockPosition.of(
-                        warehouseId, cellB, material, StockState.AVAILABLE, StockQuantity.of(5L)));
-
-        List<StockView> filtered = api.getStock("ALU-6060", warehouseId.value(), cellA.value());
-
-        assertEquals(1, filtered.size());
-        assertEquals(cellA.value(), filtered.get(0).storageCellId());
-    }
-
-    @Test
-    void checkAvailabilitySumsAvailableStockOnly() {
-        WarehouseId warehouseId = WarehouseId.generate();
-        StorageCellId cellA = StorageCellId.generate();
-        StorageCellId cellB = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("ALU-6060");
-        stockPositions.create(
-                StockPosition.of(
-                        warehouseId, cellA, material, StockState.AVAILABLE, StockQuantity.of(40L)));
-        stockPositions.create(
-                StockPosition.of(
-                        warehouseId, cellB, material, StockState.BLOCKED, StockQuantity.of(100L)));
-
-        WarehouseApi.AvailabilityResult ok = api.checkAvailability("ALU-6060", BigDecimal.valueOf(30));
-        assertEquals(AvailabilityStatus.AVAILABLE, ok.status());
-        assertTrue(ok.isAvailable());
-        assertEquals(0, ok.availableQuantity().compareTo(BigDecimal.valueOf(40L)));
-
-        WarehouseApi.AvailabilityResult shortfall =
-                api.checkAvailability("ALU-6060", BigDecimal.valueOf(50));
-        assertEquals(AvailabilityStatus.INSUFFICIENT, shortfall.status());
-        assertFalse(shortfall.isAvailable());
-    }
-
-    @Test
-    void createReservationLinkReturnsPublicViewWithoutStockMutation() {
-        ReservationLinkView view =
-                api.createReservationLink(
-                        new CreateReservationLinkCommand(
-                                "VEKA 103.211",
-                                ReservationTargetTypeView.ORDER,
-                                "26096190",
-                                BigDecimal.valueOf(200)));
-
-        assertEquals("VEKA 103.211", view.materialCode());
-        assertEquals(ReservationTargetTypeView.ORDER, view.targetType());
-        assertEquals("26096190", view.targetReference());
-        assertEquals(0, view.quantity().compareTo(BigDecimal.valueOf(200)));
-        assertTrue(api.getStock("VEKA 103.211").isEmpty());
-        assertEquals(1, links.size());
-    }
-
-    @Test
-    void executeReceiptReturnsCompletedOperationResult() {
-        WarehouseId warehouseId = WarehouseId.generate();
-        StorageCellId cellId = StorageCellId.generate();
-
-        WarehouseApi.OperationResult result =
-                api.executeWarehouseOperation(
-                        ExecuteOperationCommand.receipt(
-                                "ALU-6060", BigDecimal.TEN, warehouseId.value(), cellId.value()));
-
-        assertEquals(OperationKind.RECEIPT, result.kind());
-        assertEquals("COMPLETED", result.status());
-        assertEquals("ALU-6060", result.materialCode());
-        assertEquals(1, api.getStock("ALU-6060").size());
-    }
-
-    @Test
-    void executeMoveRequiresDestinationFields() {
-        UUID warehouseId = UUID.randomUUID();
-        UUID cellId = UUID.randomUUID();
+        assertThrows(AccessDeniedException.class, () -> denied.getStock("ALU-6060"));
         assertThrows(
-                IllegalArgumentException.class,
+                AccessDeniedException.class,
+                () -> denied.checkAvailability("ALU-6060", BigDecimal.ONE));
+
+        assertDoesNotThrow(() -> allowed.getStock("ALU-6060"));
+        assertDoesNotThrow(() -> allowed.checkAvailability("ALU-6060", BigDecimal.ONE));
+    }
+
+    @Test
+    void receiptIsDeniedWithoutReceiptPermission() {
+        DefaultWarehouseApi api = api(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
+        assertThrows(
+                AccessDeniedException.class,
                 () ->
                         api.executeWarehouseOperation(
-                                new ExecuteOperationCommand(
-                                        OperationKind.MOVE,
+                                ExecuteOperationCommand.receipt(
+                                        "ALU-6060",
+                                        BigDecimal.TEN,
+                                        UUID.randomUUID(),
+                                        UUID.randomUUID())));
+    }
+
+    @Test
+    void receiptSucceedsWithReceiptPermission() {
+        DefaultWarehouseApi api = api(Set.of(WarehousePermissions.WAREHOUSE_RECEIPT));
+        assertDoesNotThrow(
+                () ->
+                        api.executeWarehouseOperation(
+                                ExecuteOperationCommand.receipt(
+                                        "ALU-6060",
+                                        BigDecimal.TEN,
+                                        UUID.randomUUID(),
+                                        UUID.randomUUID())));
+    }
+
+    @Test
+    void moveTransferConsumptionAdjustmentReservationAreDeniedWithoutMatchingPermission() {
+        DefaultWarehouseApi api = api(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
+        UUID warehouseId = UUID.randomUUID();
+        UUID cellId = UUID.randomUUID();
+        UUID destWarehouse = UUID.randomUUID();
+        UUID destCell = UUID.randomUUID();
+
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        api.executeWarehouseOperation(
+                                ExecuteOperationCommand.move(
                                         "ALU-6060",
                                         BigDecimal.ONE,
                                         warehouseId,
                                         cellId,
-                                        null,
-                                        null)));
+                                        destWarehouse,
+                                        destCell)));
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        api.executeWarehouseOperation(
+                                ExecuteOperationCommand.transferSend(
+                                        "ALU-6060",
+                                        BigDecimal.ONE,
+                                        warehouseId,
+                                        cellId,
+                                        destWarehouse)));
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        api.executeWarehouseOperation(
+                                ExecuteOperationCommand.consumption(
+                                        "ALU-6060", BigDecimal.ONE, warehouseId, cellId)));
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        api.executeWarehouseOperation(
+                                ExecuteOperationCommand.adjustment(
+                                        "ALU-6060", BigDecimal.ONE, warehouseId, cellId)));
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        api.createReservationLink(
+                                new CreateReservationLinkCommand(
+                                        "ALU-6060",
+                                        ReservationTargetTypeView.ORDER,
+                                        "26096190",
+                                        BigDecimal.TEN)));
+    }
+
+    @Test
+    void reservationSucceedsWithReservationPermission() {
+        DefaultWarehouseApi api = api(Set.of(WarehousePermissions.WAREHOUSE_RESERVATION));
+        assertDoesNotThrow(
+                () ->
+                        api.createReservationLink(
+                                new CreateReservationLinkCommand(
+                                        "ALU-6060",
+                                        ReservationTargetTypeView.ORDER,
+                                        "26096190",
+                                        BigDecimal.TEN)));
+    }
+
+    @Test
+    void inventoryIsDeniedWithoutInventoryPermission() {
+        WarehouseInventoryService inventory =
+                new WarehouseInventoryService(
+                        new FixedAuthorization(Set.of()), adjustments, stockPositions);
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        inventory.reconcile(
+                                new InventoryCountRequest(
+                                        MaterialReference.of("ALU-6060"),
+                                        StockQuantity.of(1L),
+                                        WarehouseId.generate(),
+                                        StorageCellId.generate())));
+    }
+
+    @Test
+    void inventorySucceedsWithInventoryPermissionWhenCountMatchesEmptyStock() {
+        WarehouseInventoryService inventory =
+                new WarehouseInventoryService(
+                        new FixedAuthorization(Set.of(WarehousePermissions.WAREHOUSE_INVENTORY)),
+                        adjustments,
+                        stockPositions);
+        assertDoesNotThrow(
+                () ->
+                        inventory.reconcile(
+                                new InventoryCountRequest(
+                                        MaterialReference.of("ALU-6060"),
+                                        StockQuantity.of(0L),
+                                        WarehouseId.generate(),
+                                        StorageCellId.generate())));
+    }
+
+    private DefaultWarehouseApi api(Set<PermissionId> granted) {
+        return new DefaultWarehouseApi(
+                new FixedAuthorization(granted),
+                stockPositions,
+                reservationLinks,
+                receipts,
+                moves,
+                transfers,
+                consumptions,
+                adjustments);
+    }
+
+    private static final class FixedAuthorization implements AuthorizationService {
+        private final Set<PermissionId> allowed;
+
+        private FixedAuthorization(Set<PermissionId> allowed) {
+            this.allowed = Set.copyOf(allowed);
+        }
+
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return allowed.contains(permissionId);
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {
+            if (!hasPermission(permissionId)) {
+                throw new AccessDeniedException(
+                        "Access denied for permission: " + permissionId.value());
+            }
+        }
+
+        @Override
+        public Set<PermissionId> effectivePermissions() {
+            return allowed;
+        }
     }
 
     private static final class PassthroughTransactionManager
@@ -310,10 +348,6 @@ class DefaultWarehouseApiTest {
             implements MaterialReservationLinkRepository {
         private final Map<MaterialReservationLinkId, MaterialReservationLink> byId =
                 new ConcurrentHashMap<>();
-
-        int size() {
-            return byId.size();
-        }
 
         @Override
         public MaterialReservationLink create(MaterialReservationLink link) {

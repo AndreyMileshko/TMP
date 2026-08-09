@@ -3,18 +3,17 @@
 ## Latest result
 
 **Date:** 2026-08-09  
-**Scope:** STAGE6-013 — Warehouse Public API  
+**Scope:** STAGE6-014 — Warehouse Security Integration  
 **Overall:** PASS  
 **Type:** Automated unit + integration + architecture  
 **Environment:** Windows; IntelliJ-bundled Maven; Docker Desktop (`DOCKER_HOST=npipe:////./pipe/docker_engine`)
 
 | Item | Result |
 |---|---|
-| STAGE6-013 | DONE |
-| API contract unit tests | PASS (5) |
-| DefaultWarehouseApi unit tests | PASS (6) |
-| Warehouse API integration tests | PASS (3) |
-| Warehouse module tests | PASS (97) |
+| STAGE6-014 | DONE |
+| Permission catalog unit tests | PASS (6) |
+| Authorization guard unit tests | PASS (7) |
+| Warehouse module tests | PASS (110) |
 | Architecture tests (`tmp-architecture-tests`) | PASS (70) |
 | Git | NOT EXECUTED |
 
@@ -22,9 +21,9 @@
 
 | Command | Result |
 |---|---|
-| `mvn -pl tmp-warehouse -am test -Dtest=WarehouseApiContractTest,DefaultWarehouseApiTest,WarehouseApiIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false` | PASS |
-| `mvn -pl tmp-warehouse -am test` | PASS (97 tests) |
-| `mvn -pl tmp-architecture-tests -am test` | PASS (70 tests) |
+| `mvn -pl tmp-warehouse -am test -Dtest=WarehousePermissionCatalogTest,WarehouseSecurityAuthorizationTest,...` | PASS (26) |
+| `mvn -pl tmp-warehouse -am test` | PASS (110 warehouse tests) |
+| `mvn -pl tmp-architecture-tests -am test` | PASS (70) |
 
 ### Failures
 
@@ -32,7 +31,7 @@ None.
 
 ---
 
-## STAGE6-012 — Information Reservation Link
+## STAGE6-013 — Warehouse Public API
 
 **Date:** 2026-08-09  
 **Scope:** STAGE6-012 — Information Reservation Link  

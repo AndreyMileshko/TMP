@@ -3,6 +3,8 @@ package com.tmp.warehouse.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.security.api.AuthorizationService;
+import com.tmp.security.api.PermissionId;
 import com.tmp.warehouse.api.WarehouseApi.AvailabilityStatus;
 import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
@@ -36,6 +38,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
@@ -111,6 +114,7 @@ class WarehouseApiIntegrationTest {
                         CLOCK);
         api =
                 new DefaultWarehouseApi(
+                        AllowingAuthorization.INSTANCE,
                         stockPositions,
                         new WarehouseReservationLinkService(
                                 new JdbcMaterialReservationLinkRepository(jdbc), CLOCK),
@@ -119,6 +123,25 @@ class WarehouseApiIntegrationTest {
                         new WarehouseTransferService(engine),
                         new WarehouseConsumptionService(engine, stockPositions),
                         new WarehouseAdjustmentService(engine, stockPositions));
+    }
+
+    private enum AllowingAuthorization implements AuthorizationService {
+        INSTANCE;
+
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return true;
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {
+            // allow all for Public API persistence integration tests
+        }
+
+        @Override
+        public Set<PermissionId> effectivePermissions() {
+            return Set.of();
+        }
     }
 
     @Test

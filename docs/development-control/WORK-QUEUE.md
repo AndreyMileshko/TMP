@@ -9798,6 +9798,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-014
 - **ID:** `STAGE6-014`
+- **Status:** DONE
 - **Название:** Security Integration
 - **Цель:** Интегрировать Warehouse с Security capability.
 - **Описание:** Подключить `WAREHOUSE_*` permissions.

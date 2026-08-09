@@ -4,6 +4,48 @@
 
 ---
 
+## STAGE6-014 — Warehouse Security Integration
+
+**Date:** 2026-08-09  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-warehouse`
+
+### Summary
+
+Интегрированы `WAREHOUSE_*` permissions с существующей Security Capability. Warehouse декларирует permissions через Capability SPI; проверка доступа идёт через публичный `AuthorizationService`. Пользователи, роли и собственные permission tables не создавались; Security architecture не изменялась.
+
+### Key deliverables
+
+- `WarehousePermissions` — 8 `PermissionId` (`WAREHOUSE_*` → `<area>.<resource>.<action>`)
+- `WarehousePermissionCatalog` — `PermissionDescriptor` metadata (RU display names)
+- `WarehouseCapability` — Capability contribution (permissions only)
+- `WarehouseAutoConfiguration` — Spring bean registration for Capability Engine discovery
+- Guards: `DefaultWarehouseApi` + `WarehouseInventoryService`
+- Tests: catalog registration + authorization allow/deny
+
+### Permission mapping (Spec §18 → PermissionId)
+
+| Logical | PermissionId |
+|---|---|
+| WAREHOUSE_VIEW | warehouse.stock.view |
+| WAREHOUSE_RECEIPT | warehouse.receipt.create |
+| WAREHOUSE_MOVE | warehouse.move.create |
+| WAREHOUSE_TRANSFER | warehouse.transfer.create |
+| WAREHOUSE_RESERVATION | warehouse.reservation.create |
+| WAREHOUSE_CONSUMPTION | warehouse.consumption.create |
+| WAREHOUSE_ADJUSTMENT | warehouse.adjustment.create |
+| WAREHOUSE_INVENTORY | warehouse.inventory.create |
+
+### Boundaries
+
+- No users/roles/permission tables in Warehouse
+- No Security core changes
+- No UI
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-013 — Warehouse Public API
 
 **Date:** 2026-08-09  

@@ -3,6 +3,8 @@ package com.tmp.warehouse.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.security.api.AuthorizationService;
+import com.tmp.security.api.PermissionId;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockPositionId;
@@ -26,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,7 +61,28 @@ class WarehouseInventoryServiceTest {
                         CLOCK);
         WarehouseAdjustmentService adjustments =
                 new WarehouseAdjustmentService(engine, stockPositions);
-        inventory = new WarehouseInventoryService(adjustments, stockPositions);
+        inventory =
+                new WarehouseInventoryService(
+                        AllowingAuthorization.INSTANCE, adjustments, stockPositions);
+    }
+
+    private enum AllowingAuthorization implements AuthorizationService {
+        INSTANCE;
+
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return true;
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {
+            // allow all for inventory unit tests
+        }
+
+        @Override
+        public Set<PermissionId> effectivePermissions() {
+            return Set.of();
+        }
     }
 
     @Test

@@ -3,6 +3,8 @@ package com.tmp.warehouse.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.security.api.AuthorizationService;
+import com.tmp.security.api.PermissionId;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockQuantity;
@@ -28,6 +30,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
@@ -102,7 +105,28 @@ class WarehouseAdjustmentServiceIntegrationTest {
                         new TransactionTemplate(new DataSourceTransactionManager(dataSource)),
                         CLOCK);
         adjustments = new WarehouseAdjustmentService(engine, stockPositions);
-        inventory = new WarehouseInventoryService(adjustments, stockPositions);
+        inventory =
+                new WarehouseInventoryService(
+                        AllowingAuthorization.INSTANCE, adjustments, stockPositions);
+    }
+
+    private enum AllowingAuthorization implements AuthorizationService {
+        INSTANCE;
+
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return true;
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {
+            // allow all for adjustment/inventory integration tests
+        }
+
+        @Override
+        public Set<PermissionId> effectivePermissions() {
+            return Set.of();
+        }
     }
 
     @Test
