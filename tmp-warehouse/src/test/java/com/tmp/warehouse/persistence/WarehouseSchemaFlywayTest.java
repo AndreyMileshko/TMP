@@ -62,7 +62,8 @@ class WarehouseSchemaFlywayTest {
                         "storage_cells",
                         "stock_positions",
                         "warehouse_movements",
-                        "warehouse_operations")),
+                        "warehouse_operations",
+                        "material_reservation_links")),
                 () -> "Missing warehouse tables: " + tables);
 
         Integer reservedState = jdbc.queryForObject(
@@ -74,18 +75,17 @@ class WarehouseSchemaFlywayTest {
                 Integer.class);
         assertEquals(0, reservedState, "RESERVED stock state must not exist in schema");
 
-        Integer batchTables = jdbc.queryForObject(
+        Integer forbiddenTables = jdbc.queryForObject(
                 """
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = 'warehouse'
                   AND (
                     table_name ILIKE '%batch%'
                     OR table_name ILIKE '%material_master%'
-                    OR table_name ILIKE '%reservation%'
                   )
                 """,
                 Integer.class);
-        assertEquals(0, batchTables);
+        assertEquals(0, forbiddenTables);
     }
 
     @Test

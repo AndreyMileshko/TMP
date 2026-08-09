@@ -4,6 +4,33 @@
 
 ---
 
+## STAGE6-012 — Information Reservation Link
+
+**Date:** 2026-08-09  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-warehouse`
+
+### Summary
+
+Реализована информационная связь `MaterialReservationLink` (Material + Order/Production reference + Quantity) без изменения `Stock Position`, без `Warehouse Movement` и без `StockState.RESERVED`. Снятие резерва не реализовано. Persistence: `warehouse.material_reservation_links` (V18).
+
+### Key deliverables
+
+- Domain: `MaterialReservationLink`, `MaterialReservationLinkId`, `ReservationTargetReference`, `ReservationTargetType`
+- `MaterialReservationLinkRepository` + `JdbcMaterialReservationLinkRepository`
+- `WarehouseReservationLinkService` — create / findById / findByMaterial / findByTarget
+- Flyway `V18__warehouse_reservation_links.sql`
+- Unit + integration tests; schema still rejects RESERVED stock state
+
+### Boundaries
+
+- Informational only (§8)
+- No stock/movement mutation; no release workflow; no allocation engine
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-011 — Inventory and Adjustment
 
 **Date:** 2026-08-09  

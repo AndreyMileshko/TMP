@@ -9781,6 +9781,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 - **Implementation Steps:** reservation link model -> create/query link use-cases -> guard against stock mutation
 - **Verification:** reservation link PASS; no stock or movement mutation PASS
 - **Tests:** unit reservation tests; integration reservation use-case tests
+- **Status:** DONE
 
 ### STAGE6-013
 - **ID:** `STAGE6-013`

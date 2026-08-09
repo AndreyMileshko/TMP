@@ -3,18 +3,18 @@
 ## Latest result
 
 **Date:** 2026-08-09  
-**Scope:** STAGE6-011 — Inventory and Adjustment  
+**Scope:** STAGE6-012 — Information Reservation Link  
 **Overall:** PASS  
 **Type:** Automated unit + integration + architecture + full reactor  
 **Environment:** Windows; `.tools/apache-maven-3.9.9`; Docker Desktop (`DOCKER_HOST=npipe:////./pipe/docker_engine`)
 
 | Item | Result |
 |---|---|
-| STAGE6-011 | DONE |
-| Adjustment unit tests | PASS (4) |
-| Inventory unit tests | PASS (2) |
-| Adjustment/Inventory integration tests | PASS (2) |
-| Warehouse module tests | PASS (76) |
+| STAGE6-012 | DONE |
+| Domain unit tests | PASS (3) |
+| Reservation service unit tests | PASS (3) |
+| Reservation integration tests | PASS (1) |
+| Warehouse module tests | PASS (83) |
 | Architecture tests (`tmp-architecture-tests`) | PASS |
 | Full reactor `mvn test` | PASS |
 | Git | NOT EXECUTED |
@@ -23,7 +23,7 @@
 
 | Command | Result |
 |---|---|
-| `mvn -pl tmp-warehouse -am test -Dtest=WarehouseAdjustmentServiceTest,WarehouseInventoryServiceTest,WarehouseAdjustmentServiceIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false` | PASS |
+| `mvn -pl tmp-warehouse -am test -Dtest=MaterialReservationLinkTest,WarehouseReservationLinkServiceTest,WarehouseReservationLinkServiceIntegrationTest,WarehouseSchemaFlywayTest -Dsurefire.failIfNoSpecifiedTests=false` | PASS |
 | `mvn -pl tmp-warehouse -am test` | PASS |
 | `mvn -pl tmp-architecture-tests -am test` | PASS |
 | `mvn test` | PASS (BUILD SUCCESS) |
@@ -34,7 +34,7 @@ None.
 
 ---
 
-## STAGE6-010 — Material Consumption
+## STAGE6-011 — Inventory and Adjustment
 
 **Date:** 2026-08-07  
 **Scope:** STAGE6-010 — Material Consumption  
