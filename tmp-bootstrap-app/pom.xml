@@ -127,6 +127,12 @@
                                 </goals>
                                 <configuration>
                                     <target>
+                                        <exec executable="cmd" failonerror="false" osfamily="windows">
+                                            <arg value="/c"/>
+                                            <arg value="taskkill /F /IM TMP.exe /T &gt;NUL 2&gt;&amp;1"/>
+                                        </exec>
+                                        <sleep seconds="1"/>
+                                        <delete dir="${project.basedir}/../dist/jpackage" quiet="true" failonerror="false"/>
                                         <delete dir="${project.basedir}/../dist/jpackage" quiet="true"/>
                                         <mkdir dir="${project.build.directory}/jpackage-input"/>
                                         <copy file="${project.build.directory}/${project.build.finalName}.jar"
@@ -163,8 +169,11 @@
                                         <argument>org.springframework.boot.loader.launch.JarLauncher</argument>
                                         <argument>--dest</argument>
                                         <argument>${project.basedir}/../dist/jpackage</argument>
+                                        <argument>--win-console</argument>
                                         <argument>--java-options</argument>
                                         <argument>-Dspring.profiles.active=package</argument>
+                                        <argument>--java-options</argument>
+                                        <argument>-XX:+ShowCodeDetailsInExceptionMessages</argument>
                                     </arguments>
                                 </configuration>
                             </execution>
