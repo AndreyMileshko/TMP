@@ -4,6 +4,33 @@
 
 ---
 
+## Stage 6 Warehouse — Final Closure Audit
+
+**Date:** 2026-08-10  
+**Stage:** 6  
+**Status:** DONE  
+**Type:** Documentation closure only (no code / DB / API changes)
+
+### Summary
+
+Финальный аудит Stage 6 Warehouse после `STAGE6-017`. Manual GUI verification PASS по 10 сценариям. Создан `Warehouse-Final-Verification.md`. Security Specification дополнен 16 Warehouse permissions. Warehouse Specification §18 синхронизирован с реализацией (`PermissionId` codes).
+
+### Documentation changes
+
+- `docs/development-control/Warehouse-Final-Verification.md` — created
+- `docs/development-control/VERIFICATION-LOG.md` — Warehouse Manual Verification PASS
+- `docs/development-control/STATUS.md` — Stage 6 Final Closure section
+- `docs/development-control/stages/STAGE-6-WAREHOUSE.md` — status DONE
+- `Security-Specification.md` — Warehouse capability permissions (16)
+- `Warehouse-Specification.md` — §18 updated to canonical permission codes
+
+### Boundaries
+
+- Production code, database schema, API contracts not modified
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-017 — Warehouse structure permissions security fix
 
 **Date:** 2026-08-10  

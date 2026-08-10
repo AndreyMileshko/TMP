@@ -59,6 +59,13 @@ public interface WarehouseApi {
     List<StockView> getStockByWarehouse(UUID warehouseId);
 
     /**
+     * Resolves extended MaterialReference display information for Warehouse UI and operations.
+     *
+     * <p>Does not create or mutate material master data.
+     */
+    MaterialReferenceDisplayView getMaterialReferenceDisplay(String materialCode);
+
+    /**
      * Checks whether AVAILABLE stock for the material covers the requested quantity.
      */
     AvailabilityResult checkAvailability(String materialCode, BigDecimal quantity);
@@ -116,20 +123,83 @@ public interface WarehouseApi {
         }
     }
 
+    /** Extended MaterialReference display snapshot for Warehouse reads. */
+    record MaterialReferenceDisplayView(
+            String article,
+            String materialName,
+            String color,
+            String size,
+            String unitOfMeasure) {
+
+        public MaterialReferenceDisplayView {
+            Objects.requireNonNull(article, "article");
+            Objects.requireNonNull(materialName, "materialName");
+            Objects.requireNonNull(color, "color");
+            Objects.requireNonNull(size, "size");
+            Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
+        }
+
+        /** Backward-compatible alias for {@link #article()}. */
+        public String materialCode() {
+            return article;
+        }
+    }
+
     /** Public stock snapshot — not a domain StockPosition. */
     record StockView(
+            String article,
+            String materialName,
+            String color,
+            String size,
+            String unitOfMeasure,
+            String warehouse,
+            String storageCell,
+            BigDecimal quantity,
+            StockStateView stockState,
             String materialCode,
             UUID warehouseId,
-            UUID storageCellId,
-            BigDecimal quantity,
-            StockStateView stockState) {
+            UUID storageCellId) {
 
         public StockView {
+            Objects.requireNonNull(article, "article");
+            Objects.requireNonNull(materialName, "materialName");
+            Objects.requireNonNull(color, "color");
+            Objects.requireNonNull(size, "size");
+            Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
+            Objects.requireNonNull(warehouse, "warehouse");
+            Objects.requireNonNull(storageCell, "storageCell");
+            Objects.requireNonNull(quantity, "quantity");
+            Objects.requireNonNull(stockState, "stockState");
             Objects.requireNonNull(materialCode, "materialCode");
             Objects.requireNonNull(warehouseId, "warehouseId");
             Objects.requireNonNull(storageCellId, "storageCellId");
-            Objects.requireNonNull(quantity, "quantity");
-            Objects.requireNonNull(stockState, "stockState");
+        }
+
+        public static StockView of(
+                String article,
+                String materialName,
+                String color,
+                String size,
+                String unitOfMeasure,
+                String warehouse,
+                String storageCell,
+                BigDecimal quantity,
+                StockStateView stockState,
+                UUID warehouseId,
+                UUID storageCellId) {
+            return new StockView(
+                    article,
+                    materialName,
+                    color,
+                    size,
+                    unitOfMeasure,
+                    warehouse,
+                    storageCell,
+                    quantity,
+                    stockState,
+                    article,
+                    warehouseId,
+                    storageCellId);
         }
     }
 

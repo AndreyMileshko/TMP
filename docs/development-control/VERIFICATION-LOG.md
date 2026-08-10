@@ -3,6 +3,43 @@
 ## Latest result
 
 **Date:** 2026-08-10  
+**Scope:** Stage 6 Warehouse — Final Closure Manual Verification  
+**Overall:** PASS  
+**Type:** Manual GUI verification (user-confirmed) + documentation closure  
+**Environment:** Windows; packaged TMP; PostgreSQL Docker
+
+| Item | Result |
+|---|---|
+| Stage 6 Warehouse | DONE |
+| STAGE6-001..015 | DONE |
+| Git | NOT EXECUTED |
+
+### Warehouse Manual Verification
+
+| Scenario | Result |
+|---|---|
+| Create Warehouse | PASS |
+| Create Storage Cell | PASS |
+| Receipt | PASS |
+| Move | PASS |
+| Transfer Send | PASS |
+| Transfer Receive | PASS |
+| Consumption | PASS |
+| Adjustment | PASS |
+| Reservation Link | PASS |
+| Security Roles | PASS |
+
+### Closure notes
+
+- Code / DB / API not changed by this documentary closure.
+- Security Specification and Warehouse Specification §18 synchronized with 16 Warehouse permissions.
+- `Warehouse-Final-Verification.md` created.
+
+---
+
+## Previous result
+
+**Date:** 2026-08-10  
 **Scope:** STAGE6-017 — Warehouse structure permissions security fix  
 **Overall:** PASS  
 **Type:** Automated unit + integration  

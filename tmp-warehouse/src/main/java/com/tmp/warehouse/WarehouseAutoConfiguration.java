@@ -2,7 +2,9 @@ package com.tmp.warehouse;
 
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.warehouse.api.WarehouseApi;
+import com.tmp.warehouse.application.CodeOnlyMaterialReferenceDisplayPort;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
+import com.tmp.warehouse.application.port.MaterialReferenceDisplayPort;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
 import com.tmp.warehouse.application.WarehouseConsumptionService;
 import com.tmp.warehouse.application.WarehouseInventoryService;
@@ -146,10 +148,23 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
+    CodeOnlyMaterialReferenceDisplayPort codeOnlyMaterialReferenceDisplayPort() {
+        return new CodeOnlyMaterialReferenceDisplayPort();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(MaterialReferenceDisplayPort.class)
+    MaterialReferenceDisplayPort materialReferenceDisplayPort(
+            CodeOnlyMaterialReferenceDisplayPort codeOnlyMaterialReferenceDisplayPort) {
+        return codeOnlyMaterialReferenceDisplayPort;
+    }
+
+    @Bean
     WarehouseApi warehouseApi(
             AuthorizationService authorizationService,
             WarehouseCatalogRepository warehouseCatalogRepository,
             StockPositionRepository stockPositionRepository,
+            MaterialReferenceDisplayPort materialReferenceDisplayPort,
             WarehouseReservationLinkService warehouseReservationLinkService,
             WarehouseReceiptService warehouseReceiptService,
             WarehouseMoveService warehouseMoveService,
@@ -160,6 +175,7 @@ public class WarehouseAutoConfiguration {
                 authorizationService,
                 warehouseCatalogRepository,
                 stockPositionRepository,
+                materialReferenceDisplayPort,
                 warehouseReservationLinkService,
                 warehouseReceiptService,
                 warehouseMoveService,

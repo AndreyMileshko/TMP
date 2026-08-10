@@ -11,8 +11,10 @@ import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
+import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
+import com.tmp.warehouse.api.WarehouseApiTestFixtures;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -31,19 +33,75 @@ class WarehouseApiContractTest {
                 () ->
                         new StockView(
                                 null,
-                                warehouseId,
-                                cellId,
+                                "Name",
+                                "",
+                                "",
+                                "",
+                                "WH",
+                                "A-01",
                                 BigDecimal.ONE,
-                                StockStateView.AVAILABLE));
+                                StockStateView.AVAILABLE,
+                                "MAT-1",
+                                warehouseId,
+                                cellId));
         assertThrows(
                 NullPointerException.class,
                 () ->
                         new StockView(
                                 "MAT-1",
-                                warehouseId,
-                                cellId,
+                                "Name",
+                                "",
+                                "",
+                                "",
+                                "WH",
+                                "A-01",
                                 BigDecimal.ONE,
-                                null));
+                                null,
+                                "MAT-1",
+                                warehouseId,
+                                cellId));
+    }
+
+    @Test
+    void stockViewExposesExtendedMaterialFields() {
+        UUID warehouseId = UUID.randomUUID();
+        UUID cellId = UUID.randomUUID();
+        StockView view =
+                WarehouseApiTestFixtures.stockView(
+                        "VEKA-103.211",
+                        "Профиль VEKA Softline",
+                        "Белый",
+                        "6000 мм",
+                        "шт",
+                        "WH-1 — Main",
+                        "A-01",
+                        BigDecimal.valueOf(100),
+                        warehouseId,
+                        cellId);
+        assertEquals("VEKA-103.211", view.article());
+        assertEquals("VEKA-103.211", view.materialCode());
+        assertEquals("Профиль VEKA Softline", view.materialName());
+        assertEquals("Белый", view.color());
+        assertEquals("6000 мм", view.size());
+        assertEquals("шт", view.unitOfMeasure());
+        assertEquals("WH-1 — Main", view.warehouse());
+        assertEquals("A-01", view.storageCell());
+    }
+
+    @Test
+    void materialReferenceDisplayViewExposesFields() {
+        MaterialReferenceDisplayView view =
+                new MaterialReferenceDisplayView(
+                        "VEKA-103.211",
+                        "Профиль VEKA Softline",
+                        "Белый",
+                        "6000 мм",
+                        "шт");
+        assertEquals("VEKA-103.211", view.article());
+        assertEquals("Профиль VEKA Softline", view.materialName());
+        assertEquals("Белый", view.color());
+        assertEquals("6000 мм", view.size());
+        assertEquals("шт", view.unitOfMeasure());
     }
 
     @Test

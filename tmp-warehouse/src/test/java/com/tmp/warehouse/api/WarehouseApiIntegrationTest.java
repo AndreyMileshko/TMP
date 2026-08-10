@@ -13,6 +13,7 @@ import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
+import com.tmp.warehouse.application.FixedMaterialReferenceDisplayPort;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
 import com.tmp.warehouse.application.WarehouseConsumptionService;
 import com.tmp.warehouse.application.WarehouseMoveService;
@@ -117,6 +118,7 @@ class WarehouseApiIntegrationTest {
                         AllowingAuthorization.INSTANCE,
                         catalog,
                         stockPositions,
+                        new FixedMaterialReferenceDisplayPort(),
                         new WarehouseReservationLinkService(
                                 new JdbcMaterialReservationLinkRepository(jdbc), CLOCK),
                         new WarehouseReceiptService(engine, stockPositions),

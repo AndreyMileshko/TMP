@@ -12,10 +12,12 @@ import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
+import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
+import com.tmp.warehouse.application.FixedMaterialReferenceDisplayPort;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.MaterialReservationLink;
 import com.tmp.warehouse.domain.MaterialReservationLinkId;
@@ -81,6 +83,13 @@ class DefaultWarehouseApiTest {
                         AllowingAuthorization.INSTANCE,
                         new EmptyWarehouseCatalog(),
                         stockPositions,
+                        new FixedMaterialReferenceDisplayPort()
+                                .register(
+                                        "VEKA 103.211",
+                                        "Профиль VEKA Softline",
+                                        "Белый",
+                                        "6000 мм",
+                                        "шт"),
                         new WarehouseReservationLinkService(links, CLOCK),
                         new WarehouseReceiptService(engine, stockPositions),
                         new WarehouseMoveService(engine),
@@ -133,6 +142,16 @@ class DefaultWarehouseApiTest {
     }
 
     @Test
+    void getMaterialReferenceDisplayMapsPortFields() {
+        MaterialReferenceDisplayView view = api.getMaterialReferenceDisplay("VEKA 103.211");
+        assertEquals("VEKA 103.211", view.article());
+        assertEquals("Профиль VEKA Softline", view.materialName());
+        assertEquals("Белый", view.color());
+        assertEquals("6000 мм", view.size());
+        assertEquals("шт", view.unitOfMeasure());
+    }
+
+    @Test
     void getStockMapsDomainPositionsToPublicViews() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellId = StorageCellId.generate();
@@ -146,6 +165,11 @@ class DefaultWarehouseApiTest {
         assertEquals(1, views.size());
         StockView view = views.get(0);
         assertEquals("VEKA 103.211", view.materialCode());
+        assertEquals("VEKA 103.211", view.article());
+        assertEquals("Профиль VEKA Softline", view.materialName());
+        assertEquals("Белый", view.color());
+        assertEquals("6000 мм", view.size());
+        assertEquals("шт", view.unitOfMeasure());
         assertEquals(warehouseId.value(), view.warehouseId());
         assertEquals(cellId.value(), view.storageCellId());
         assertEquals(0, view.quantity().compareTo(BigDecimal.valueOf(25L)));

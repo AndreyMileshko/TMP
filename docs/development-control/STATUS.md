@@ -113,3 +113,29 @@ Active blockers = NONE
 - Batch / FIFO / FEFO / Supplier Batch исключены из Warehouse v1.0.
 - Reservation зафиксирован как информационная связь без изменения `Stock Position`.
 - Stage 6 implementation: foundation + domain + schema + Stock Position + Movement + Operation Engine + Receipt + Move + Transfer + Consumption + Adjustment/Inventory + informational Reservation Link + Public API + Security Integration + Warehouse UI DONE.
+
+---
+
+## Stage 6 — Final Closure (2026-08-10)
+
+| Part | Status |
+|---|---|
+| Core Warehouse (`STAGE6-001..015`) | DONE |
+| UI + Security UX fix (`STAGE6-016`) | DONE |
+| Structure permissions fix (`STAGE6-017`) | DONE |
+| Warehouse Manual Verification | PASS |
+| Stage 6 Warehouse overall | **DONE** |
+
+### Delivered functionality
+
+- Warehouse / Storage Cell catalogue; Stock Position; immutable Warehouse Movement
+- Operations v1.0: Receipt, Move, Transfer (send/receive), Consumption, Adjustment, Inventory
+- Informational Reservation Link (no stock state change)
+- Public API; 16 Warehouse permissions; Warehouse Workbench UI
+- Security Roles UI integration for warehouse permissions
+
+### Manual verification scenarios (PASS)
+
+Create Warehouse, Create Storage Cell, Receipt, Move, Transfer Send, Transfer Receive, Consumption, Adjustment, Reservation Link, Security Roles.
+
+**Далее:** Stage 7 Production — только по Start Gate. Git — только пользователь.

@@ -128,6 +128,42 @@ Security только регистрирует их.
 
 ---
 
+# Warehouse Capability — зарегистрированные права
+
+Warehouse Capability объявляет 16 прав в формате `<area>.<resource>.<action>`.
+
+## Операции и просмотр остатков
+
+```text
+warehouse.stock.view
+warehouse.receipt.create
+warehouse.move.create
+warehouse.transfer.create
+warehouse.reservation.create
+warehouse.consumption.create
+warehouse.adjustment.create
+warehouse.inventory.create
+```
+
+## Управление складской структурой
+
+```text
+warehouse.warehouse.view
+warehouse.warehouse.create
+warehouse.warehouse.update
+warehouse.warehouse.delete
+warehouse.storage-cell.view
+warehouse.storage-cell.create
+warehouse.storage-cell.update
+warehouse.storage-cell.delete
+```
+
+Примечание: идентификатор ресурса ячейки хранения использует дефис (`storage-cell`), так как формат `PermissionId` допускает только символы `[a-z0-9-]` (underscore запрещён).
+
+После регистрации идентификаторы прав изменять запрещено.
+
+---
+
 # Проверка доступа
 
 Проверка обязательна:

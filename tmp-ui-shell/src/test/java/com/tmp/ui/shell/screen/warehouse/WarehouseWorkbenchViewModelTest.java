@@ -20,6 +20,7 @@ import com.tmp.warehouse.api.WarehouseApi.OperationResult;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
+import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
@@ -142,17 +143,24 @@ class WarehouseWorkbenchViewModelTest {
         api.stockByWarehouse.put(
                 warehouseId,
                 List.of(
-                        new StockView(
+                        StockView.of(
                                 "ALU-6060",
-                                warehouseId,
-                                UUID.randomUUID(),
+                                "Алюминий",
+                                "Серый",
+                                "6000 мм",
+                                "шт",
+                                "WH-1 — Main",
+                                "A-01",
                                 BigDecimal.TEN,
-                                StockStateView.AVAILABLE)));
+                                StockStateView.AVAILABLE,
+                                warehouseId,
+                                UUID.randomUUID())));
         viewModel.loadWarehouses();
         viewModel.stockWarehouseProperty().set(WarehouseChoice.from(api.warehouses.get(0)));
         viewModel.loadStock();
         assertEquals(1, viewModel.stockRows().size());
-        assertEquals("ALU-6060", viewModel.stockRows().get(0).materialCode());
+        assertEquals("ALU-6060", viewModel.stockRows().get(0).article());
+        assertEquals("Алюминий", viewModel.stockRows().get(0).materialName());
         assertEquals(1, api.getStockByWarehouseCalls);
     }
 
@@ -295,6 +303,33 @@ class WarehouseWorkbenchViewModelTest {
     }
 
     @Test
+    void refreshReceiptMaterialDisplayUsesPublicApi() {
+        api.materialDisplays.put(
+                "VEKA-103.211",
+                new MaterialReferenceDisplayView(
+                        "VEKA-103.211",
+                        "Профиль VEKA Softline",
+                        "Белый",
+                        "6000 мм",
+                        "шт"));
+        viewModel.receiptMaterialProperty().set("VEKA-103.211");
+        viewModel.refreshReceiptMaterialDisplay();
+        assertTrue(viewModel.receiptMaterialDisplayProperty().get().contains("Профиль VEKA Softline"));
+        assertEquals(1, api.getMaterialReferenceDisplayCalls);
+    }
+
+    @Test
+    void formatMaterialDisplayBuildsReadableDescription() {
+        MaterialReferenceDisplayView display =
+                new MaterialReferenceDisplayView(
+                        "VEKA-103.211", "Профиль VEKA Softline", "Белый", "6000 мм", "шт");
+        String formatted = WarehouseWorkbenchViewModel.formatMaterialDisplay(display);
+        assertTrue(formatted.contains("VEKA-103.211"));
+        assertTrue(formatted.contains("Профиль VEKA Softline"));
+        assertTrue(formatted.contains("Белый"));
+    }
+
+    @Test
     void accessDeniedFromApiIsMapped() {
         api.denyNext = true;
         viewModel.loadWarehouses();
@@ -343,6 +378,9 @@ class WarehouseWorkbenchViewModelTest {
         private int listWarehousesCalls;
         private int getStockByWarehouseCalls;
         private int listReservationCalls;
+        private int getMaterialReferenceDisplayCalls;
+        private final java.util.Map<String, MaterialReferenceDisplayView> materialDisplays =
+                new java.util.HashMap<>();
         private boolean denyNext;
 
         @Override
@@ -399,6 +437,18 @@ class WarehouseWorkbenchViewModelTest {
         public List<StockView> getStockByWarehouse(UUID warehouseId) {
             getStockByWarehouseCalls++;
             return stockByWarehouse.getOrDefault(warehouseId, List.of());
+        }
+
+        @Override
+        public MaterialReferenceDisplayView getMaterialReferenceDisplay(String materialCode) {
+            getMaterialReferenceDisplayCalls++;
+            if (denyNext) {
+                denyNext = false;
+                throw new AccessDeniedException("denied");
+            }
+            return materialDisplays.getOrDefault(
+                    materialCode,
+                    new MaterialReferenceDisplayView(materialCode, "", "", "", ""));
         }
 
         @Override

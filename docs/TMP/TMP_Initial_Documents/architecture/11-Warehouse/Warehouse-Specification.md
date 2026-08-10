@@ -331,16 +331,31 @@ executeWarehouseOperation(request)
 
 Warehouse использует существующую Security Capability.
 
-Capability permissions:
+Capability permissions (идентификаторы `PermissionId`):
 
-- `WAREHOUSE_VIEW`
-- `WAREHOUSE_RECEIPT`
-- `WAREHOUSE_MOVE`
-- `WAREHOUSE_TRANSFER`
-- `WAREHOUSE_RESERVATION`
-- `WAREHOUSE_CONSUMPTION`
-- `WAREHOUSE_ADJUSTMENT`
-- `WAREHOUSE_INVENTORY`
+**Операции и просмотр остатков**
+
+- `warehouse.stock.view` — просмотр складов, ячеек, остатков
+- `warehouse.receipt.create` — Receipt
+- `warehouse.move.create` — Move
+- `warehouse.transfer.create` — Transfer
+- `warehouse.reservation.create` — информационное Reservation Link
+- `warehouse.consumption.create` — Consumption
+- `warehouse.adjustment.create` — Adjustment
+- `warehouse.inventory.create` — Inventory
+
+**Управление складской структурой**
+
+- `warehouse.warehouse.view`
+- `warehouse.warehouse.create`
+- `warehouse.warehouse.update`
+- `warehouse.warehouse.delete`
+- `warehouse.storage-cell.view`
+- `warehouse.storage-cell.create`
+- `warehouse.storage-cell.update`
+- `warehouse.storage-cell.delete`
+
+Примечание: код ячейки хранения — `storage-cell` (дефис), не `storage_cell`; формат `PermissionId` не допускает underscore.
 
 ---
 
@@ -402,3 +417,4 @@ Warehouse выполняет только складскую часть опер
 | 1.1 | Интеграция с Production и Cutting Optimization. |
 | 1.2 | Stage 6 Start Gate: Warehouse только складское состояние; без Material Master. |
 | 1.3 | Упрощение модели Stage 6 Start Gate: исключены Batch/FIFO/FEFO/Supplier Batch; Reservation как информационная связь; упрощённые Stock State; минимальный API; подтверждена граница Warehouse-only state. |
+| 1.3.1 | Stage 6 Final Closure: §18 — canonical `PermissionId` codes (16 permissions incl. structure management). |

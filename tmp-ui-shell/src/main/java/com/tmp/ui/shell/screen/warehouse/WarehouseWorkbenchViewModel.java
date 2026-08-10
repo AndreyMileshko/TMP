@@ -12,7 +12,9 @@ import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
+import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
+import com.tmp.warehouse.application.MaterialDisplayFormatting;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -98,17 +100,20 @@ public final class WarehouseWorkbenchViewModel {
     private final StringProperty stockMaterialCode = new SimpleStringProperty("");
 
     private final StringProperty receiptMaterial = new SimpleStringProperty("");
+    private final StringProperty receiptMaterialDisplay = new SimpleStringProperty("");
     private final StringProperty receiptQuantity = new SimpleStringProperty("");
     private final ObjectProperty<WarehouseChoice> receiptWarehouse = new SimpleObjectProperty<>();
     private final ObjectProperty<StorageCellChoice> receiptCell = new SimpleObjectProperty<>();
 
     private final StringProperty moveMaterial = new SimpleStringProperty("");
+    private final StringProperty moveMaterialDisplay = new SimpleStringProperty("");
     private final StringProperty moveQuantity = new SimpleStringProperty("");
     private final ObjectProperty<WarehouseChoice> moveSourceWarehouse = new SimpleObjectProperty<>();
     private final ObjectProperty<StorageCellChoice> moveSourceCell = new SimpleObjectProperty<>();
     private final ObjectProperty<StorageCellChoice> moveDestCell = new SimpleObjectProperty<>();
 
     private final StringProperty transferMaterial = new SimpleStringProperty("");
+    private final StringProperty transferMaterialDisplay = new SimpleStringProperty("");
     private final StringProperty transferQuantity = new SimpleStringProperty("");
     private final ObjectProperty<WarehouseChoice> transferSourceWarehouse =
             new SimpleObjectProperty<>();
@@ -118,6 +123,7 @@ public final class WarehouseWorkbenchViewModel {
             new SimpleObjectProperty<>();
 
     private final StringProperty transferReceiveMaterial = new SimpleStringProperty("");
+    private final StringProperty transferReceiveMaterialDisplay = new SimpleStringProperty("");
     private final StringProperty transferReceiveQuantity = new SimpleStringProperty("");
     private final ObjectProperty<WarehouseChoice> transferReceiveSourceWarehouse =
             new SimpleObjectProperty<>();
@@ -129,6 +135,7 @@ public final class WarehouseWorkbenchViewModel {
             new SimpleObjectProperty<>();
 
     private final StringProperty consumptionMaterial = new SimpleStringProperty("");
+    private final StringProperty consumptionMaterialDisplay = new SimpleStringProperty("");
     private final StringProperty consumptionQuantity = new SimpleStringProperty("");
     private final ObjectProperty<WarehouseChoice> consumptionWarehouse =
             new SimpleObjectProperty<>();
@@ -136,6 +143,7 @@ public final class WarehouseWorkbenchViewModel {
     private final StringProperty consumptionBasis = new SimpleStringProperty("");
 
     private final StringProperty adjustmentMaterial = new SimpleStringProperty("");
+    private final StringProperty adjustmentMaterialDisplay = new SimpleStringProperty("");
     private final StringProperty adjustmentQuantityDelta = new SimpleStringProperty("");
     private final ObjectProperty<WarehouseChoice> adjustmentWarehouse =
             new SimpleObjectProperty<>();
@@ -665,6 +673,14 @@ public final class WarehouseWorkbenchViewModel {
         return receiptMaterial;
     }
 
+    public StringProperty receiptMaterialDisplayProperty() {
+        return receiptMaterialDisplay;
+    }
+
+    public void refreshReceiptMaterialDisplay() {
+        refreshMaterialDisplay(receiptMaterial.get(), receiptMaterialDisplay);
+    }
+
     public StringProperty receiptQuantityProperty() {
         return receiptQuantity;
     }
@@ -679,6 +695,14 @@ public final class WarehouseWorkbenchViewModel {
 
     public StringProperty moveMaterialProperty() {
         return moveMaterial;
+    }
+
+    public StringProperty moveMaterialDisplayProperty() {
+        return moveMaterialDisplay;
+    }
+
+    public void refreshMoveMaterialDisplay() {
+        refreshMaterialDisplay(moveMaterial.get(), moveMaterialDisplay);
     }
 
     public StringProperty moveQuantityProperty() {
@@ -701,6 +725,14 @@ public final class WarehouseWorkbenchViewModel {
         return transferMaterial;
     }
 
+    public StringProperty transferMaterialDisplayProperty() {
+        return transferMaterialDisplay;
+    }
+
+    public void refreshTransferMaterialDisplay() {
+        refreshMaterialDisplay(transferMaterial.get(), transferMaterialDisplay);
+    }
+
     public StringProperty transferQuantityProperty() {
         return transferQuantity;
     }
@@ -719,6 +751,14 @@ public final class WarehouseWorkbenchViewModel {
 
     public StringProperty transferReceiveMaterialProperty() {
         return transferReceiveMaterial;
+    }
+
+    public StringProperty transferReceiveMaterialDisplayProperty() {
+        return transferReceiveMaterialDisplay;
+    }
+
+    public void refreshTransferReceiveMaterialDisplay() {
+        refreshMaterialDisplay(transferReceiveMaterial.get(), transferReceiveMaterialDisplay);
     }
 
     public StringProperty transferReceiveQuantityProperty() {
@@ -745,6 +785,14 @@ public final class WarehouseWorkbenchViewModel {
         return consumptionMaterial;
     }
 
+    public StringProperty consumptionMaterialDisplayProperty() {
+        return consumptionMaterialDisplay;
+    }
+
+    public void refreshConsumptionMaterialDisplay() {
+        refreshMaterialDisplay(consumptionMaterial.get(), consumptionMaterialDisplay);
+    }
+
     public StringProperty consumptionQuantityProperty() {
         return consumptionQuantity;
     }
@@ -763,6 +811,14 @@ public final class WarehouseWorkbenchViewModel {
 
     public StringProperty adjustmentMaterialProperty() {
         return adjustmentMaterial;
+    }
+
+    public StringProperty adjustmentMaterialDisplayProperty() {
+        return adjustmentMaterialDisplay;
+    }
+
+    public void refreshAdjustmentMaterialDisplay() {
+        refreshMaterialDisplay(adjustmentMaterial.get(), adjustmentMaterialDisplay);
     }
 
     public StringProperty adjustmentQuantityDeltaProperty() {
@@ -795,6 +851,34 @@ public final class WarehouseWorkbenchViewModel {
 
     public StringProperty reservationFilterMaterialProperty() {
         return reservationFilterMaterial;
+    }
+
+    private void refreshMaterialDisplay(String rawCode, StringProperty target) {
+        String code = blankToNull(rawCode);
+        if (code == null) {
+            target.set("");
+            return;
+        }
+        if (!canView.get()) {
+            target.set("");
+            return;
+        }
+        try {
+            MaterialReferenceDisplayView display = warehouseApi.getMaterialReferenceDisplay(code);
+            target.set(formatMaterialDisplay(display));
+        } catch (RuntimeException ex) {
+            target.set("");
+        }
+    }
+
+    static String formatMaterialDisplay(MaterialReferenceDisplayView display) {
+        String description =
+                MaterialDisplayFormatting.formatDescription(
+                        display.materialName(), display.color(), display.size(), display.unitOfMeasure());
+        if (description.isBlank()) {
+            return display.article();
+        }
+        return display.article() + " — " + description;
     }
 
     private void onSectionOpened(WarehouseSection value) {

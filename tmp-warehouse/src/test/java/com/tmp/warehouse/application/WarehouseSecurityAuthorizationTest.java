@@ -9,6 +9,7 @@ import com.tmp.security.api.PermissionId;
 import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
+import com.tmp.warehouse.application.FixedMaterialReferenceDisplayPort;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.MaterialReservationLink;
 import com.tmp.warehouse.domain.MaterialReservationLinkId;
@@ -272,6 +273,7 @@ class WarehouseSecurityAuthorizationTest {
                 new FixedAuthorization(granted),
                 new EmptyWarehouseCatalog(),
                 stockPositions,
+                new FixedMaterialReferenceDisplayPort(),
                 reservationLinks,
                 receipts,
                 moves,

@@ -63,14 +63,18 @@
         <VBox fx:id="stockPane" spacing="8" visible="false" managed="false">
             <HBox spacing="8">
                 <ComboBox fx:id="stockWarehouseCombo" promptText="Склад" prefWidth="260"/>
-                <TextField fx:id="stockMaterialField" promptText="Материал" prefWidth="160"/>
+                <TextField fx:id="stockMaterialField" promptText="Артикул (опционально)" prefWidth="160"/>
                 <Button fx:id="loadStockButton" text="Загрузить"/>
             </HBox>
             <TableView fx:id="stockTable" prefHeight="360">
                 <columns>
-                    <TableColumn fx:id="stockMaterialColumn" text="Материал" prefWidth="140"/>
-                    <TableColumn fx:id="stockWarehouseColumn" text="Склад" prefWidth="220"/>
-                    <TableColumn fx:id="stockCellColumn" text="Ячейка" prefWidth="140"/>
+                    <TableColumn fx:id="stockArticleColumn" text="Артикул" prefWidth="120"/>
+                    <TableColumn fx:id="stockMaterialNameColumn" text="Наименование" prefWidth="180"/>
+                    <TableColumn fx:id="stockColorColumn" text="Цвет" prefWidth="100"/>
+                    <TableColumn fx:id="stockSizeColumn" text="Размер" prefWidth="100"/>
+                    <TableColumn fx:id="stockUnitColumn" text="Ед. изм." prefWidth="80"/>
+                    <TableColumn fx:id="stockWarehouseColumn" text="Склад" prefWidth="160"/>
+                    <TableColumn fx:id="stockCellColumn" text="Ячейка" prefWidth="100"/>
                     <TableColumn fx:id="stockQuantityColumn" text="Количество" prefWidth="100"/>
                     <TableColumn fx:id="stockStateColumn" text="Состояние" prefWidth="120"/>
                 </columns>
@@ -78,7 +82,8 @@
         </VBox>
 
         <VBox fx:id="receiptPane" spacing="8" visible="false" managed="false">
-            <TextField fx:id="receiptMaterialField" promptText="Материал"/>
+            <TextField fx:id="receiptMaterialField" promptText="Артикул"/>
+            <Label fx:id="receiptMaterialDisplayLabel" wrapText="true" styleClass="warehouse-material-display"/>
             <TextField fx:id="receiptQuantityField" promptText="Количество"/>
             <ComboBox fx:id="receiptWarehouseCombo" promptText="Склад" maxWidth="Infinity"/>
             <ComboBox fx:id="receiptCellCombo" promptText="Ячейка" maxWidth="Infinity"/>
@@ -86,7 +91,8 @@
         </VBox>
 
         <VBox fx:id="movePane" spacing="8" visible="false" managed="false">
-            <TextField fx:id="moveMaterialField" promptText="Материал"/>
+            <TextField fx:id="moveMaterialField" promptText="Артикул"/>
+            <Label fx:id="moveMaterialDisplayLabel" wrapText="true" styleClass="warehouse-material-display"/>
             <TextField fx:id="moveQuantityField" promptText="Количество"/>
             <ComboBox fx:id="moveSourceWarehouseCombo" promptText="Источник: склад" maxWidth="Infinity"/>
             <ComboBox fx:id="moveSourceCellCombo" promptText="Источник: ячейка" maxWidth="Infinity"/>
@@ -99,12 +105,14 @@
             <ComboBox fx:id="transferSourceWarehouseCombo" promptText="Откуда: склад" maxWidth="Infinity"/>
             <ComboBox fx:id="transferSourceCellCombo" promptText="Откуда: ячейка" maxWidth="Infinity"/>
             <ComboBox fx:id="transferDestWarehouseCombo" promptText="Куда: склад" maxWidth="Infinity"/>
-            <TextField fx:id="transferMaterialField" promptText="Материал"/>
+            <TextField fx:id="transferMaterialField" promptText="Артикул"/>
+            <Label fx:id="transferMaterialDisplayLabel" wrapText="true" styleClass="warehouse-material-display"/>
             <TextField fx:id="transferQuantityField" promptText="Количество"/>
             <Button fx:id="submitTransferSendButton" text="Отправить (Transfer Send)"/>
             <Separator/>
             <Label text="Transfer Receive — получение"/>
-            <TextField fx:id="transferReceiveMaterialField" promptText="Материал"/>
+            <TextField fx:id="transferReceiveMaterialField" promptText="Артикул"/>
+            <Label fx:id="transferReceiveMaterialDisplayLabel" wrapText="true" styleClass="warehouse-material-display"/>
             <TextField fx:id="transferReceiveQuantityField" promptText="Количество"/>
             <ComboBox fx:id="transferReceiveSourceWarehouseCombo" promptText="Источник: склад (IN_TRANSIT)" maxWidth="Infinity"/>
             <ComboBox fx:id="transferReceiveSourceCellCombo" promptText="Источник: ячейка" maxWidth="Infinity"/>
@@ -114,7 +122,8 @@
         </VBox>
 
         <VBox fx:id="consumptionPane" spacing="8" visible="false" managed="false">
-            <TextField fx:id="consumptionMaterialField" promptText="Материал"/>
+            <TextField fx:id="consumptionMaterialField" promptText="Артикул"/>
+            <Label fx:id="consumptionMaterialDisplayLabel" wrapText="true" styleClass="warehouse-material-display"/>
             <TextField fx:id="consumptionQuantityField" promptText="Количество"/>
             <TextField fx:id="consumptionBasisField" promptText="Основание"/>
             <ComboBox fx:id="consumptionWarehouseCombo" promptText="Склад" maxWidth="Infinity"/>
@@ -123,7 +132,8 @@
         </VBox>
 
         <VBox fx:id="adjustmentPane" spacing="8" visible="false" managed="false">
-            <TextField fx:id="adjustmentMaterialField" promptText="Материал"/>
+            <TextField fx:id="adjustmentMaterialField" promptText="Артикул"/>
+            <Label fx:id="adjustmentMaterialDisplayLabel" wrapText="true" styleClass="warehouse-material-display"/>
             <TextField fx:id="adjustmentQuantityDeltaField" promptText="Количество изменения (+/-)"/>
             <TextField fx:id="adjustmentReasonField" promptText="Причина"/>
             <ComboBox fx:id="adjustmentWarehouseCombo" promptText="Склад" maxWidth="Infinity"/>

@@ -39,6 +39,7 @@ import com.tmp.order.application.payload.DraftPayloadApplicationService;
 import com.tmp.order.application.payload.OrderDocumentPayloadPort;
 import com.tmp.order.application.processing.ProcessingRecordPort;
 import com.tmp.order.application.query.DefaultOrderQueryService;
+import com.tmp.order.application.query.MaterialReferenceDisplayReadPort;
 import com.tmp.order.application.query.OrderQueryReadPort;
 import com.tmp.order.application.ui.DefaultOrderDocumentUiService;
 import com.tmp.order.application.ui.DefaultOrderItemDocumentUiService;
@@ -50,6 +51,7 @@ import com.tmp.order.domain.repository.OrderItemRepository;
 import com.tmp.order.persistence.JdbcCustomerOrderRepository;
 import com.tmp.order.persistence.JdbcOrderDocumentPayloadAdapter;
 import com.tmp.order.persistence.JdbcOrderItemRepository;
+import com.tmp.order.persistence.JdbcMaterialReferenceDisplayReadAdapter;
 import com.tmp.order.persistence.JdbcOrderQueryReadAdapter;
 import com.tmp.order.persistence.JdbcProcessingRecordAdapter;
 import com.tmp.security.api.AuthorizationService;
@@ -86,6 +88,11 @@ public class OrderManagementAutoConfiguration {
     @Bean
     OrderQueryReadPort orderQueryReadPort(JdbcTemplate jdbcTemplate) {
         return new JdbcOrderQueryReadAdapter(jdbcTemplate);
+    }
+
+    @Bean
+    MaterialReferenceDisplayReadPort materialReferenceDisplayReadPort(JdbcTemplate jdbcTemplate) {
+        return new JdbcMaterialReferenceDisplayReadAdapter(jdbcTemplate);
     }
 
     @Bean

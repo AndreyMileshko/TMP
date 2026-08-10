@@ -3,13 +3,15 @@ package com.tmp.warehouse.application;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.warehouse.api.WarehouseApi;
-import com.tmp.warehouse.domain.MaterialReference;
+import com.tmp.warehouse.application.port.MaterialReferenceDisplay;
+import com.tmp.warehouse.application.port.MaterialReferenceDisplayPort;
 import com.tmp.warehouse.domain.MaterialReservationLink;
 import com.tmp.warehouse.domain.ReservationTargetReference;
 import com.tmp.warehouse.domain.ReservationTargetType;
 import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
+import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.StorageCell;
 import com.tmp.warehouse.domain.StorageCellId;
 import com.tmp.warehouse.domain.Warehouse;
@@ -40,6 +42,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     private final AuthorizationService authorization;
     private final WarehouseCatalogRepository warehouses;
     private final StockPositionRepository stockPositions;
+    private final MaterialReferenceDisplayPort materialDisplay;
     private final WarehouseReservationLinkService reservationLinks;
     private final WarehouseReceiptService receipts;
     private final WarehouseMoveService moves;
@@ -51,6 +54,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             AuthorizationService authorization,
             WarehouseCatalogRepository warehouses,
             StockPositionRepository stockPositions,
+            MaterialReferenceDisplayPort materialDisplay,
             WarehouseReservationLinkService reservationLinks,
             WarehouseReceiptService receipts,
             WarehouseMoveService moves,
@@ -60,6 +64,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.warehouses = Objects.requireNonNull(warehouses, "warehouses");
         this.stockPositions = Objects.requireNonNull(stockPositions, "stockPositions");
+        this.materialDisplay = Objects.requireNonNull(materialDisplay, "materialDisplay");
         this.reservationLinks = Objects.requireNonNull(reservationLinks, "reservationLinks");
         this.receipts = Objects.requireNonNull(receipts, "receipts");
         this.moves = Objects.requireNonNull(moves, "moves");
@@ -160,6 +165,13 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         return stockPositions.findByWarehouse(WarehouseId.of(warehouseId)).stream()
                 .map(this::toStockView)
                 .toList();
+    }
+
+    @Override
+    public MaterialReferenceDisplayView getMaterialReferenceDisplay(String materialCode) {
+        Objects.requireNonNull(materialCode, "materialCode");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        return toMaterialReferenceDisplayView(materialDisplay.resolve(materialCode));
     }
 
     @Override
@@ -307,12 +319,46 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     }
 
     private StockView toStockView(StockPosition position) {
-        return new StockView(
-                position.material().materialCode(),
-                position.warehouseId().value(),
-                position.storageCellId().value(),
+        MaterialReferenceDisplay display =
+                materialDisplay.resolve(position.material().materialCode());
+        return StockView.of(
+                display.article(),
+                display.materialName(),
+                display.color(),
+                display.size(),
+                display.unitOfMeasure(),
+                resolveWarehouseLabel(position.warehouseId()),
+                resolveStorageCellLabel(position.warehouseId(), position.storageCellId()),
                 position.quantity().value(),
-                StockStateView.valueOf(position.stockState().name()));
+                StockStateView.valueOf(position.stockState().name()),
+                position.warehouseId().value(),
+                position.storageCellId().value());
+    }
+
+    private String resolveWarehouseLabel(WarehouseId warehouseId) {
+        return warehouses.findAll().stream()
+                .filter(warehouse -> warehouse.id().equals(warehouseId))
+                .findFirst()
+                .map(warehouse -> warehouse.code() + " — " + warehouse.name())
+                .orElse(warehouseId.value().toString());
+    }
+
+    private String resolveStorageCellLabel(WarehouseId warehouseId, StorageCellId storageCellId) {
+        return warehouses.findStorageCellsByWarehouse(warehouseId).stream()
+                .filter(cell -> cell.id().equals(storageCellId))
+                .findFirst()
+                .map(StorageCell::code)
+                .orElse(storageCellId.value().toString());
+    }
+
+    private static MaterialReferenceDisplayView toMaterialReferenceDisplayView(
+            MaterialReferenceDisplay display) {
+        return new MaterialReferenceDisplayView(
+                display.article(),
+                display.materialName(),
+                display.color(),
+                display.size(),
+                display.unitOfMeasure());
     }
 
     private static ReservationLinkView toReservationLinkView(MaterialReservationLink link) {
