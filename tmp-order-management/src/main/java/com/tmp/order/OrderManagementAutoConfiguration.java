@@ -2,6 +2,7 @@ package com.tmp.order;
 
 import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.TransactionalEventPublisher;
+import com.tmp.order.api.MaterialReferenceDisplayQuery;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.imports.OrderImportService;
 import com.tmp.order.api.imports.StxtOrderFileParser;
@@ -38,6 +39,7 @@ import com.tmp.order.application.order.UpdateOrderUseCase;
 import com.tmp.order.application.payload.DraftPayloadApplicationService;
 import com.tmp.order.application.payload.OrderDocumentPayloadPort;
 import com.tmp.order.application.processing.ProcessingRecordPort;
+import com.tmp.order.application.query.DefaultMaterialReferenceDisplayQuery;
 import com.tmp.order.application.query.DefaultOrderQueryService;
 import com.tmp.order.application.query.MaterialReferenceDisplayReadPort;
 import com.tmp.order.application.query.OrderQueryReadPort;
@@ -93,6 +95,13 @@ public class OrderManagementAutoConfiguration {
     @Bean
     MaterialReferenceDisplayReadPort materialReferenceDisplayReadPort(JdbcTemplate jdbcTemplate) {
         return new JdbcMaterialReferenceDisplayReadAdapter(jdbcTemplate);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(MaterialReferenceDisplayQuery.class)
+    MaterialReferenceDisplayQuery materialReferenceDisplayQuery(
+            MaterialReferenceDisplayReadPort materialReferenceDisplayReadPort) {
+        return new DefaultMaterialReferenceDisplayQuery(materialReferenceDisplayReadPort);
     }
 
     @Bean

@@ -14,7 +14,7 @@ import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
-import com.tmp.warehouse.application.MaterialDisplayFormatting;
+import com.tmp.warehouse.api.MaterialDisplayFormatting;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -859,7 +859,7 @@ public final class WarehouseWorkbenchViewModel {
             target.set("");
             return;
         }
-        if (!canView.get()) {
+        if (!canShowMaterialDisplay()) {
             target.set("");
             return;
         }
@@ -908,7 +908,7 @@ public final class WarehouseWorkbenchViewModel {
     }
 
     private void ensureWarehouseChoicesLoaded() {
-        if (!warehouseChoices.isEmpty() || !canView.get()) {
+        if (!warehouseChoices.isEmpty() || !canLoadOperationCatalogue()) {
             return;
         }
         try {
@@ -940,7 +940,7 @@ public final class WarehouseWorkbenchViewModel {
             ObjectProperty<StorageCellChoice> selected) {
         selected.set(null);
         target.clear();
-        if (warehouse == null || !canView.get()) {
+        if (warehouse == null || !canLoadOperationCatalogue()) {
             return;
         }
         try {
@@ -966,6 +966,20 @@ public final class WarehouseWorkbenchViewModel {
 
     private void rememberCell(StorageCellView cell) {
         cellLabels.put(cell.storageCellId(), cell.code());
+    }
+
+    private boolean canLoadOperationCatalogue() {
+        return canView.get()
+                || canReceipt.get()
+                || canMove.get()
+                || canTransfer.get()
+                || canConsumption.get()
+                || canAdjustment.get()
+                || canReservation.get();
+    }
+
+    private boolean canShowMaterialDisplay() {
+        return canLoadOperationCatalogue();
     }
 
     private void run(String successMessage, Runnable action) {

@@ -75,7 +75,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
 
     @Override
     public List<WarehouseView> listWarehouses() {
-        requireStockOrStructureView(WarehousePermissions.WAREHOUSE_STRUCTURE_VIEW);
+        requireCatalogueListAccess(WarehousePermissions.WAREHOUSE_STRUCTURE_VIEW);
         return warehouses.findAll().stream().map(this::toWarehouseView).toList();
     }
 
@@ -100,8 +100,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     @Override
     public List<StorageCellView> listStorageCells(UUID warehouseId) {
         Objects.requireNonNull(warehouseId, "warehouseId");
-        requireStockOrStructureView(
-                WarehousePermissions.STORAGE_CELL_VIEW);
+        requireCatalogueListAccess(WarehousePermissions.STORAGE_CELL_VIEW);
         return warehouses.findStorageCellsByWarehouse(WarehouseId.of(warehouseId)).stream()
                 .map(this::toStorageCellView)
                 .toList();
@@ -170,7 +169,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     @Override
     public MaterialReferenceDisplayView getMaterialReferenceDisplay(String materialCode) {
         Objects.requireNonNull(materialCode, "materialCode");
-        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        requireMaterialDisplayAccess();
         return toMaterialReferenceDisplayView(materialDisplay.resolve(materialCode));
     }
 
@@ -292,14 +291,39 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         }
     }
 
+    private static final List<PermissionId> OPERATION_PERMISSIONS =
+            List.of(
+                    WarehousePermissions.WAREHOUSE_RECEIPT,
+                    WarehousePermissions.WAREHOUSE_MOVE,
+                    WarehousePermissions.WAREHOUSE_TRANSFER,
+                    WarehousePermissions.WAREHOUSE_RESERVATION,
+                    WarehousePermissions.WAREHOUSE_CONSUMPTION,
+                    WarehousePermissions.WAREHOUSE_ADJUSTMENT,
+                    WarehousePermissions.WAREHOUSE_INVENTORY);
+
+    private boolean hasAnyOperationPermission() {
+        return OPERATION_PERMISSIONS.stream().anyMatch(authorization::hasPermission);
+    }
+
     /**
-     * Catalogue list reads remain available to stock operators ({@code warehouse.stock.view}) and to
-     * structure administrators ({@code warehouse.warehouse.view} / {@code
-     * warehouse.storage-cell.view}).
+     * Catalogue list reads for operation forms: stock view, structure view, or any warehouse
+     * operation permission ({@code warehouse.receipt.create}, {@code warehouse.move.create}, …).
      */
-    private void requireStockOrStructureView(PermissionId structureViewPermission) {
+    private void requireCatalogueListAccess(PermissionId structureViewPermission) {
         if (authorization.hasPermission(WarehousePermissions.WAREHOUSE_VIEW)
-                || authorization.hasPermission(structureViewPermission)) {
+                || authorization.hasPermission(structureViewPermission)
+                || hasAnyOperationPermission()) {
+            return;
+        }
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+    }
+
+    /**
+     * Material display for operation forms: stock view or any warehouse operation permission.
+     */
+    private void requireMaterialDisplayAccess() {
+        if (authorization.hasPermission(WarehousePermissions.WAREHOUSE_VIEW)
+                || hasAnyOperationPermission()) {
             return;
         }
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);

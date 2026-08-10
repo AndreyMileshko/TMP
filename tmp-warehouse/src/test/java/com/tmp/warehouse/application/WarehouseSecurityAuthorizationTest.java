@@ -111,6 +111,32 @@ class WarehouseSecurityAuthorizationTest {
     }
 
     @Test
+    void catalogueListAllowedWithReceiptPermissionWithoutStockView() {
+        DefaultWarehouseApi api = api(Set.of(WarehousePermissions.WAREHOUSE_RECEIPT));
+        assertDoesNotThrow(api::listWarehouses);
+        assertDoesNotThrow(() -> api.listStorageCells(UUID.randomUUID()));
+    }
+
+    @Test
+    void getMaterialReferenceDisplayAllowedWithReceiptPermissionWithoutStockView() {
+        DefaultWarehouseApi api = api(Set.of(WarehousePermissions.WAREHOUSE_RECEIPT));
+        assertDoesNotThrow(() -> api.getMaterialReferenceDisplay("ALU-6060"));
+    }
+
+    @Test
+    void operationsDoNotRequireMaterialDisplayOrStockView() {
+        DefaultWarehouseApi api = api(Set.of(WarehousePermissions.WAREHOUSE_RECEIPT));
+        assertDoesNotThrow(
+                () ->
+                        api.executeWarehouseOperation(
+                                ExecuteOperationCommand.receipt(
+                                        "ALU-6060",
+                                        BigDecimal.TEN,
+                                        UUID.randomUUID(),
+                                        UUID.randomUUID())));
+    }
+
+    @Test
     void createWarehouseRequiresStructureCreatePermission() {
         DefaultWarehouseApi stockOnly = api(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
         DefaultWarehouseApi createAllowed =

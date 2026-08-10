@@ -1,4 +1,4 @@
-package com.tmp.warehouse.application;
+package com.tmp.warehouse.api;
 
 import java.math.BigDecimal;
 import java.util.Objects;

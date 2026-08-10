@@ -330,6 +330,75 @@ class WarehouseWorkbenchViewModelTest {
     }
 
     @Test
+    void receiptOperatorWithoutStockViewCanLoadCatalogueAndSubmitReceipt() {
+        UUID warehouseId = UUID.randomUUID();
+        UUID cellId = UUID.randomUUID();
+        WarehouseView warehouse = new WarehouseView(warehouseId, "WH-1", "Main", true);
+        StorageCellView cell = new StorageCellView(cellId, warehouseId, "A-01", true);
+        api.warehouses.add(warehouse);
+        api.cellsByWarehouse.put(warehouseId, new ArrayList<>(List.of(cell)));
+        api.materialDisplays.put(
+                "ALU-6060",
+                new MaterialReferenceDisplayView(
+                        "ALU-6060", "Алюминий", "Серый", "6000 мм", "шт"));
+
+        auth.allowed = Set.of(UiShellScreens.WAREHOUSE_RECEIPT_PERMISSION);
+        viewModel.refreshPermissions();
+        assertFalse(viewModel.canViewProperty().get());
+        assertTrue(viewModel.canReceiptProperty().get());
+
+        viewModel.selectSection(WarehouseSection.RECEIPT);
+        assertEquals(1, api.listWarehousesCalls);
+        assertFalse(viewModel.warehouseChoices().isEmpty());
+
+        viewModel.receiptWarehouseProperty().set(WarehouseChoice.from(warehouse));
+        assertEquals(1, api.listStorageCellsCalls);
+        assertFalse(viewModel.receiptCellChoices().isEmpty());
+
+        viewModel.receiptMaterialProperty().set("ALU-6060");
+        viewModel.refreshReceiptMaterialDisplay();
+        assertTrue(viewModel.receiptMaterialDisplayProperty().get().contains("Алюминий"));
+        assertEquals(1, api.getMaterialReferenceDisplayCalls);
+
+        viewModel.receiptQuantityProperty().set("10");
+        viewModel.receiptCellProperty().set(StorageCellChoice.from(cell));
+        viewModel.submitReceipt();
+        assertEquals(1, api.executeCalls.size());
+        assertEquals(OperationKind.RECEIPT, api.executeCalls.get(0).kind());
+    }
+
+    @Test
+    void stockViewRetainsExtendedDisplayFields() {
+        UUID warehouseId = UUID.randomUUID();
+        UUID cellId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.stockByWarehouse.put(
+                warehouseId,
+                List.of(
+                        StockView.of(
+                                "ALU-6060",
+                                "Алюминий",
+                                "Серый",
+                                "6000 мм",
+                                "шт",
+                                "WH-1 — Main",
+                                "A-01",
+                                BigDecimal.TEN,
+                                StockStateView.AVAILABLE,
+                                warehouseId,
+                                cellId)));
+        viewModel.loadWarehouses();
+        viewModel.stockWarehouseProperty().set(WarehouseChoice.from(api.warehouses.get(0)));
+        viewModel.loadStock();
+        StockView row = viewModel.stockRows().get(0);
+        assertEquals("ALU-6060", row.article());
+        assertEquals("Алюминий", row.materialName());
+        assertEquals("Серый", row.color());
+        assertEquals("6000 мм", row.size());
+        assertEquals("шт", row.unitOfMeasure());
+    }
+
+    @Test
     void accessDeniedFromApiIsMapped() {
         api.denyNext = true;
         viewModel.loadWarehouses();
@@ -376,6 +445,7 @@ class WarehouseWorkbenchViewModelTest {
                 new CopyOnWriteArrayList<>();
         private final List<ReservationLinkView> links = new CopyOnWriteArrayList<>();
         private int listWarehousesCalls;
+        private int listStorageCellsCalls;
         private int getStockByWarehouseCalls;
         private int listReservationCalls;
         private int getMaterialReferenceDisplayCalls;
@@ -405,6 +475,7 @@ class WarehouseWorkbenchViewModelTest {
 
         @Override
         public List<StorageCellView> listStorageCells(UUID warehouseId) {
+            listStorageCellsCalls++;
             return List.copyOf(cellsByWarehouse.getOrDefault(warehouseId, List.of()));
         }
 

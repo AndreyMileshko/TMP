@@ -1,7 +1,7 @@
 package com.tmp.bootstrap;
 
 import com.tmp.order.api.MaterialReferenceDisplayDto;
-import com.tmp.order.application.query.MaterialReferenceDisplayReadPort;
+import com.tmp.order.api.MaterialReferenceDisplayQuery;
 import com.tmp.warehouse.application.CodeOnlyMaterialReferenceDisplayPort;
 import com.tmp.warehouse.application.port.MaterialReferenceDisplay;
 import com.tmp.warehouse.application.port.MaterialReferenceDisplayPort;
@@ -18,12 +18,12 @@ public class WarehouseMaterialDisplayConfiguration {
 
     @Bean
     @Primary
-    @ConditionalOnBean(MaterialReferenceDisplayReadPort.class)
+    @ConditionalOnBean(MaterialReferenceDisplayQuery.class)
     MaterialReferenceDisplayPort specificationBackedMaterialReferenceDisplayPort(
-            MaterialReferenceDisplayReadPort readPort,
+            MaterialReferenceDisplayQuery displayQuery,
             CodeOnlyMaterialReferenceDisplayPort fallback) {
         return materialCode ->
-                readPort.findByMaterialCode(materialCode)
+                displayQuery.findByMaterialCode(materialCode)
                         .map(WarehouseMaterialDisplayConfiguration::toDisplay)
                         .orElseGet(() -> fallback.resolve(materialCode));
     }
