@@ -49,7 +49,11 @@ class WarehouseWorkbenchViewModelTest {
                 UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION,
                 UiShellScreens.WAREHOUSE_CONSUMPTION_PERMISSION,
                 UiShellScreens.WAREHOUSE_ADJUSTMENT_PERMISSION,
-                UiShellScreens.WAREHOUSE_RESERVATION_PERMISSION));
+                UiShellScreens.WAREHOUSE_RESERVATION_PERMISSION,
+                UiShellScreens.WAREHOUSE_STRUCTURE_CREATE_PERMISSION,
+                UiShellScreens.WAREHOUSE_STORAGE_CELL_CREATE_PERMISSION,
+                UiShellScreens.WAREHOUSE_STRUCTURE_DELETE_PERMISSION,
+                UiShellScreens.WAREHOUSE_STORAGE_CELL_DELETE_PERMISSION));
         viewModel = new WarehouseWorkbenchViewModel(api, auth);
     }
 
@@ -74,6 +78,38 @@ class WarehouseWorkbenchViewModelTest {
         assertEquals("WH-NEW", api.createWarehouseCalls.get(0).code());
         assertEquals(1, viewModel.warehouses().size());
         assertTrue(viewModel.statusMessageProperty().get().contains("Склад создан"));
+    }
+
+    @Test
+    void operatorWithoutStructureCreateDoesNotCreateWarehouse() {
+        auth.allowed =
+                Set.of(
+                        UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                        UiShellScreens.WAREHOUSE_RECEIPT_PERMISSION);
+        viewModel.refreshPermissions();
+        assertFalse(viewModel.canCreateWarehouseProperty().get());
+        assertFalse(viewModel.canCreateStorageCellProperty().get());
+        viewModel.newWarehouseCodeProperty().set("WH-X");
+        viewModel.newWarehouseNameProperty().set("X");
+        viewModel.createWarehouse();
+        assertEquals(0, api.createWarehouseCalls.size());
+        assertEquals(WarehouseUiErrorMapper.ACCESS_DENIED, viewModel.errorMessageProperty().get());
+    }
+
+    @Test
+    void structureAdministratorSeesCreateCapabilities() {
+        auth.allowed =
+                Set.of(
+                        UiShellScreens.WAREHOUSE_STRUCTURE_CREATE_PERMISSION,
+                        UiShellScreens.WAREHOUSE_STORAGE_CELL_CREATE_PERMISSION,
+                        UiShellScreens.WAREHOUSE_STRUCTURE_DELETE_PERMISSION,
+                        UiShellScreens.WAREHOUSE_STORAGE_CELL_DELETE_PERMISSION);
+        viewModel.refreshPermissions();
+        assertTrue(viewModel.canCreateWarehouseProperty().get());
+        assertTrue(viewModel.canCreateStorageCellProperty().get());
+        assertTrue(viewModel.canDeleteWarehouseProperty().get());
+        assertTrue(viewModel.canDeleteStorageCellProperty().get());
+        assertFalse(viewModel.canViewProperty().get());
     }
 
     @Test

@@ -38,7 +38,15 @@ public final class WarehouseAdminNavigationAccessEnsure {
                     UiShellScreens.WAREHOUSE_RESERVATION_PERMISSION,
                     UiShellScreens.WAREHOUSE_CONSUMPTION_PERMISSION,
                     UiShellScreens.WAREHOUSE_ADJUSTMENT_PERMISSION,
-                    "warehouse.inventory.create");
+                    "warehouse.inventory.create",
+                    UiShellScreens.WAREHOUSE_STRUCTURE_VIEW_PERMISSION,
+                    UiShellScreens.WAREHOUSE_STRUCTURE_CREATE_PERMISSION,
+                    UiShellScreens.WAREHOUSE_STRUCTURE_UPDATE_PERMISSION,
+                    UiShellScreens.WAREHOUSE_STRUCTURE_DELETE_PERMISSION,
+                    UiShellScreens.WAREHOUSE_STORAGE_CELL_VIEW_PERMISSION,
+                    UiShellScreens.WAREHOUSE_STORAGE_CELL_CREATE_PERMISSION,
+                    UiShellScreens.WAREHOUSE_STORAGE_CELL_UPDATE_PERMISSION,
+                    UiShellScreens.WAREHOUSE_STORAGE_CELL_DELETE_PERMISSION);
 
     private final EventBus eventBus;
     private final SystemRolePermissionEnsureService systemRolePermissionEnsureService;

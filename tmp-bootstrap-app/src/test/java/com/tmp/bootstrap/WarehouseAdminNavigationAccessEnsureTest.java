@@ -35,7 +35,15 @@ class WarehouseAdminNavigationAccessEnsureTest {
         assertTrue(ensureService.permissions.contains(
                 PermissionId.of(UiShellScreens.WAREHOUSE_VIEW_PERMISSION)));
         assertTrue(ensureService.permissions.contains(PermissionId.of("warehouse.inventory.create")));
-        assertEquals(8, ensureService.permissions.size());
+        assertTrue(ensureService.permissions.contains(
+                PermissionId.of(UiShellScreens.WAREHOUSE_STRUCTURE_CREATE_PERMISSION)));
+        assertTrue(ensureService.permissions.contains(
+                PermissionId.of(UiShellScreens.WAREHOUSE_STORAGE_CELL_CREATE_PERMISSION)));
+        assertTrue(ensureService.permissions.contains(
+                PermissionId.of(UiShellScreens.WAREHOUSE_STRUCTURE_DELETE_PERMISSION)));
+        assertTrue(ensureService.permissions.contains(
+                PermissionId.of(UiShellScreens.WAREHOUSE_STORAGE_CELL_DELETE_PERMISSION)));
+        assertEquals(16, ensureService.permissions.size());
     }
 
     private static final class CapturingEnsure implements SystemRolePermissionEnsureService {

@@ -3,6 +3,31 @@
 ## Latest result
 
 **Date:** 2026-08-10  
+**Scope:** STAGE6-017 — Warehouse structure permissions security fix  
+**Overall:** PASS  
+**Type:** Automated unit + integration  
+**Environment:** Windows; Maven `.tools/apache-maven-3.9.9`; JDK 21; Docker Desktop
+
+| Item | Result |
+|---|---|
+| STAGE6-017 | DONE |
+| `mvn -pl :tmp-warehouse,:tmp-ui-shell,:tmp-bootstrap-app -am test` | PASS |
+| WarehousePermissionCatalogTest | PASS |
+| WarehouseSecurityAuthorizationTest (structure create/view) | PASS |
+| WarehouseWorkbenchViewModelTest (operator vs admin create flags) | PASS |
+| WarehouseAdminNavigationAccessEnsureTest (16 permissions) | PASS |
+| Flyway migration for permissions | NOT REQUIRED (Capability sync) |
+| Git | NOT EXECUTED |
+
+### Failures
+
+None.
+
+---
+
+## STAGE6-016 — Warehouse UI + Security Roles UI final UX fix
+
+**Date:** 2026-08-10  
 **Scope:** STAGE6-016 — Warehouse UI + Security Roles UI final UX fix  
 **Overall:** PASS  
 **Type:** Automated unit + integration + architecture + package  

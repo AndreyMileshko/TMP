@@ -48,6 +48,17 @@ public final class UiShellScreens {
     public static final String WAREHOUSE_RESERVATION_PERMISSION = "warehouse.reservation.create";
     public static final String WAREHOUSE_CONSUMPTION_PERMISSION = "warehouse.consumption.create";
     public static final String WAREHOUSE_ADJUSTMENT_PERMISSION = "warehouse.adjustment.create";
+    public static final String WAREHOUSE_STRUCTURE_VIEW_PERMISSION = "warehouse.warehouse.view";
+    public static final String WAREHOUSE_STRUCTURE_CREATE_PERMISSION = "warehouse.warehouse.create";
+    public static final String WAREHOUSE_STRUCTURE_UPDATE_PERMISSION = "warehouse.warehouse.update";
+    public static final String WAREHOUSE_STRUCTURE_DELETE_PERMISSION = "warehouse.warehouse.delete";
+    public static final String WAREHOUSE_STORAGE_CELL_VIEW_PERMISSION = "warehouse.storage-cell.view";
+    public static final String WAREHOUSE_STORAGE_CELL_CREATE_PERMISSION =
+            "warehouse.storage-cell.create";
+    public static final String WAREHOUSE_STORAGE_CELL_UPDATE_PERMISSION =
+            "warehouse.storage-cell.update";
+    public static final String WAREHOUSE_STORAGE_CELL_DELETE_PERMISSION =
+            "warehouse.storage-cell.delete";
     public static final String ORDER_CREATE_PERMISSION = "order.order.create";
     public static final String ORDER_ITEM_VIEW_PERMISSION = "order.item.view";
     public static final String ORDER_ITEM_CREATE_PERMISSION = "order.item.create";

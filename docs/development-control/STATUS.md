@@ -1,10 +1,10 @@
 # TMP Development Status
 
 **Mode:** Autonomous Cursor Agent  
-**Project status:** Stage 6 complete (UX fix DONE)  
+**Project status:** Stage 6 complete (structure permissions security fix DONE)  
 **Current Stage:** Stage 6 - DONE  
 **Current Task:** none  
-**Last completed task:** STAGE6-016 (Warehouse UI + Security Roles UI final UX fix)  
+**Last completed task:** STAGE6-017 (Warehouse structure permissions security fix)  
 **Active blockers:** NONE  
 **Stage 6 Warehouse:** DONE  
 
@@ -40,6 +40,7 @@ STAGE6-013 = DONE (Warehouse Public API)
 STAGE6-014 = DONE (Warehouse Security Integration)
 STAGE6-015 = DONE (Warehouse UI)
 STAGE6-016 = DONE (Warehouse UI + Security Roles UI final UX fix)
+STAGE6-017 = DONE (Warehouse structure permissions security fix)
 Stage 6 = DONE
 Stage 6 Warehouse = DONE
 Active blockers = NONE

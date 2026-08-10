@@ -4,6 +4,37 @@
 
 ---
 
+## STAGE6-017 — Warehouse structure permissions security fix
+
+**Date:** 2026-08-10  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-warehouse`, `tmp-ui-shell`, `tmp-bootstrap-app`
+
+### Summary
+
+Добавлены Capability управления складской структурой (склад / ячейка). Создание склада и ячейки больше не завязано на `warehouse.stock.view`; operation permissions не изменялись. Permissions синхронизируются через Capability catalog (Flyway не требуется).
+
+### Changes
+
+- `WarehousePermissions` / `WarehousePermissionCatalog`: +8 structure capabilities (всего 16)
+- `DefaultWarehouseApi`: create → structure create; list warehouse/cell → stock.view OR structure view
+- Warehouse UI: create buttons gated/hidden by create permissions; delete flags exposed
+- Security Administrator ensure includes all 16 warehouse permissions
+- Tests: catalog, API auth, ViewModel operator vs administrator, bootstrap ensure
+
+### Note on storage-cell codes
+
+`PermissionId` format allows `[a-z0-9-]`, not underscore. Codes are `warehouse.storage-cell.*` (not `warehouse.storage_cell.*`).
+
+### Boundaries
+
+- Domain / Operation Engine / Stock / Movement / Transfer / Consumption / Reservation not changed
+- Existing operation permission codes unchanged
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-016 — Warehouse UI + Security Roles UI final UX fix
 
 **Date:** 2026-08-10  

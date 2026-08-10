@@ -1,6 +1,7 @@
 package com.tmp.warehouse.application;
 
 import com.tmp.security.api.AuthorizationService;
+import com.tmp.security.api.PermissionId;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.MaterialReservationLink;
@@ -69,14 +70,14 @@ public final class DefaultWarehouseApi implements WarehouseApi {
 
     @Override
     public List<WarehouseView> listWarehouses() {
-        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        requireStockOrStructureView(WarehousePermissions.WAREHOUSE_STRUCTURE_VIEW);
         return warehouses.findAll().stream().map(this::toWarehouseView).toList();
     }
 
     @Override
     public WarehouseView createWarehouse(CreateWarehouseCommand command) {
         Objects.requireNonNull(command, "command");
-        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_STRUCTURE_CREATE);
         Warehouse warehouse =
                 Warehouse.of(
                         WarehouseId.generate(),
@@ -94,7 +95,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     @Override
     public List<StorageCellView> listStorageCells(UUID warehouseId) {
         Objects.requireNonNull(warehouseId, "warehouseId");
-        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        requireStockOrStructureView(
+                WarehousePermissions.STORAGE_CELL_VIEW);
         return warehouses.findStorageCellsByWarehouse(WarehouseId.of(warehouseId)).stream()
                 .map(this::toStorageCellView)
                 .toList();
@@ -103,7 +105,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     @Override
     public StorageCellView createStorageCell(CreateStorageCellCommand command) {
         Objects.requireNonNull(command, "command");
-        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        authorization.requirePermission(WarehousePermissions.STORAGE_CELL_CREATE);
         WarehouseId warehouseId = WarehouseId.of(command.warehouseId());
         boolean warehouseExists =
                 warehouses.findAll().stream().anyMatch(w -> w.id().equals(warehouseId));
@@ -276,6 +278,19 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             case ADJUSTMENT ->
                     authorization.requirePermission(WarehousePermissions.WAREHOUSE_ADJUSTMENT);
         }
+    }
+
+    /**
+     * Catalogue list reads remain available to stock operators ({@code warehouse.stock.view}) and to
+     * structure administrators ({@code warehouse.warehouse.view} / {@code
+     * warehouse.storage-cell.view}).
+     */
+    private void requireStockOrStructureView(PermissionId structureViewPermission) {
+        if (authorization.hasPermission(WarehousePermissions.WAREHOUSE_VIEW)
+                || authorization.hasPermission(structureViewPermission)) {
+            return;
+        }
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
     }
 
     private WarehouseView toWarehouseView(Warehouse warehouse) {

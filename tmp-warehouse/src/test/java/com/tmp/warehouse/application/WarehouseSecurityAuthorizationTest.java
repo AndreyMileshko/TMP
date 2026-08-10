@@ -104,6 +104,43 @@ class WarehouseSecurityAuthorizationTest {
     }
 
     @Test
+    void listWarehousesAllowedWithStructureViewWithoutStockView() {
+        DefaultWarehouseApi api = api(Set.of(WarehousePermissions.WAREHOUSE_STRUCTURE_VIEW));
+        assertDoesNotThrow(api::listWarehouses);
+    }
+
+    @Test
+    void createWarehouseRequiresStructureCreatePermission() {
+        DefaultWarehouseApi stockOnly = api(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
+        DefaultWarehouseApi createAllowed =
+                api(Set.of(WarehousePermissions.WAREHOUSE_STRUCTURE_CREATE));
+
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        stockOnly.createWarehouse(
+                                new com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand(
+                                        "WH-1", "Main", true)));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () ->
+                        createAllowed.createWarehouse(
+                                new com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand(
+                                        "WH-1", "Main", true)));
+    }
+
+    @Test
+    void createStorageCellRequiresStructureCreatePermission() {
+        DefaultWarehouseApi stockOnly = api(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        stockOnly.createStorageCell(
+                                new com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand(
+                                        UUID.randomUUID(), "A-01", true)));
+    }
+
+    @Test
     void receiptIsDeniedWithoutReceiptPermission() {
         DefaultWarehouseApi api = api(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
         assertThrows(

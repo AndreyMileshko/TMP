@@ -10,7 +10,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Immutable set of Warehouse {@link PermissionDescriptor}s (Specification §18).
+ * Immutable set of Warehouse {@link PermissionDescriptor}s (Specification §18 + structure
+ * management).
  *
  * <p>Duplicates are rejected at class initialization. Descriptors are metadata only — they do not
  * grant permissions to users or roles.
@@ -50,7 +51,39 @@ public final class WarehousePermissionCatalog {
                     descriptor(
                             WarehousePermissions.WAREHOUSE_INVENTORY,
                             "Инвентаризация",
-                            "Инвентаризация и сверка остатков"));
+                            "Инвентаризация и сверка остатков"),
+                    descriptor(
+                            WarehousePermissions.WAREHOUSE_STRUCTURE_VIEW,
+                            "Просмотр структуры склада",
+                            "Просмотр складской структуры (склады)"),
+                    descriptor(
+                            WarehousePermissions.WAREHOUSE_STRUCTURE_CREATE,
+                            "Создание склада",
+                            "Создание склада в каталоге"),
+                    descriptor(
+                            WarehousePermissions.WAREHOUSE_STRUCTURE_UPDATE,
+                            "Изменение склада",
+                            "Изменение склада в каталоге"),
+                    descriptor(
+                            WarehousePermissions.WAREHOUSE_STRUCTURE_DELETE,
+                            "Удаление склада",
+                            "Удаление склада из каталога"),
+                    descriptor(
+                            WarehousePermissions.STORAGE_CELL_VIEW,
+                            "Просмотр ячеек хранения",
+                            "Просмотр ячеек хранения"),
+                    descriptor(
+                            WarehousePermissions.STORAGE_CELL_CREATE,
+                            "Создание ячейки хранения",
+                            "Создание ячейки хранения в каталоге"),
+                    descriptor(
+                            WarehousePermissions.STORAGE_CELL_UPDATE,
+                            "Изменение ячейки хранения",
+                            "Изменение ячейки хранения в каталоге"),
+                    descriptor(
+                            WarehousePermissions.STORAGE_CELL_DELETE,
+                            "Удаление ячейки хранения",
+                            "Удаление ячейки хранения из каталога"));
 
     private static final Map<String, PermissionDescriptor> BY_ID =
             DESCRIPTORS.stream()

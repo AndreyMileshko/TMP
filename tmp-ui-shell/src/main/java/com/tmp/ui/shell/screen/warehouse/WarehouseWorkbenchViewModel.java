@@ -56,6 +56,10 @@ public final class WarehouseWorkbenchViewModel {
     private final BooleanProperty canConsumption = new SimpleBooleanProperty(false);
     private final BooleanProperty canAdjustment = new SimpleBooleanProperty(false);
     private final BooleanProperty canReservation = new SimpleBooleanProperty(false);
+    private final BooleanProperty canCreateWarehouse = new SimpleBooleanProperty(false);
+    private final BooleanProperty canCreateStorageCell = new SimpleBooleanProperty(false);
+    private final BooleanProperty canDeleteWarehouse = new SimpleBooleanProperty(false);
+    private final BooleanProperty canDeleteStorageCell = new SimpleBooleanProperty(false);
 
     private final ObservableList<WarehouseView> warehouses = FXCollections.observableArrayList();
     private final ObservableList<StorageCellView> warehouseCells = FXCollections.observableArrayList();
@@ -203,6 +207,10 @@ public final class WarehouseWorkbenchViewModel {
         canConsumption.set(has(UiShellScreens.WAREHOUSE_CONSUMPTION_PERMISSION));
         canAdjustment.set(has(UiShellScreens.WAREHOUSE_ADJUSTMENT_PERMISSION));
         canReservation.set(has(UiShellScreens.WAREHOUSE_RESERVATION_PERMISSION));
+        canCreateWarehouse.set(has(UiShellScreens.WAREHOUSE_STRUCTURE_CREATE_PERMISSION));
+        canCreateStorageCell.set(has(UiShellScreens.WAREHOUSE_STORAGE_CELL_CREATE_PERMISSION));
+        canDeleteWarehouse.set(has(UiShellScreens.WAREHOUSE_STRUCTURE_DELETE_PERMISSION));
+        canDeleteStorageCell.set(has(UiShellScreens.WAREHOUSE_STORAGE_CELL_DELETE_PERMISSION));
     }
 
     public void selectSection(WarehouseSection value) {
@@ -239,7 +247,7 @@ public final class WarehouseWorkbenchViewModel {
     }
 
     public void createWarehouse() {
-        if (!canView.get()) {
+        if (!canCreateWarehouse.get()) {
             deny();
             return;
         }
@@ -261,7 +269,7 @@ public final class WarehouseWorkbenchViewModel {
     }
 
     public void createStorageCell() {
-        if (!canView.get()) {
+        if (!canCreateStorageCell.get()) {
             deny();
             return;
         }
@@ -551,6 +559,22 @@ public final class WarehouseWorkbenchViewModel {
 
     public BooleanProperty canReservationProperty() {
         return canReservation;
+    }
+
+    public BooleanProperty canCreateWarehouseProperty() {
+        return canCreateWarehouse;
+    }
+
+    public BooleanProperty canCreateStorageCellProperty() {
+        return canCreateStorageCell;
+    }
+
+    public BooleanProperty canDeleteWarehouseProperty() {
+        return canDeleteWarehouse;
+    }
+
+    public BooleanProperty canDeleteStorageCellProperty() {
+        return canDeleteStorageCell;
     }
 
     public ObservableList<WarehouseView> warehouses() {

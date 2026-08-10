@@ -331,7 +331,9 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
         bindText(newWarehouseNameField, viewModel.newWarehouseNameProperty());
         newWarehouseActiveCheck.selectedProperty().bindBidirectional(
                 viewModel.newWarehouseActiveProperty());
-        createWarehouseButton.disableProperty().bind(viewModel.canViewProperty().not());
+        createWarehouseButton.disableProperty().bind(viewModel.canCreateWarehouseProperty().not());
+        createWarehouseButton.visibleProperty().bind(viewModel.canCreateWarehouseProperty());
+        createWarehouseButton.managedProperty().bind(viewModel.canCreateWarehouseProperty());
         createWarehouseButton.setOnAction(e -> viewModel.createWarehouse());
 
         newCellWarehouseCombo.setItems(viewModel.warehouseChoices());
@@ -339,7 +341,9 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
                 viewModel.newCellWarehouseProperty());
         bindText(newCellCodeField, viewModel.newCellCodeProperty());
         newCellActiveCheck.selectedProperty().bindBidirectional(viewModel.newCellActiveProperty());
-        createCellButton.disableProperty().bind(viewModel.canViewProperty().not());
+        createCellButton.disableProperty().bind(viewModel.canCreateStorageCellProperty().not());
+        createCellButton.visibleProperty().bind(viewModel.canCreateStorageCellProperty());
+        createCellButton.managedProperty().bind(viewModel.canCreateStorageCellProperty());
         createCellButton.setOnAction(e -> viewModel.createStorageCell());
         cellCodeColumn.setCellValueFactory(
                 cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().code()));

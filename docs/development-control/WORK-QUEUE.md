@@ -9912,3 +9912,69 @@ mvn package
 - STATUS;
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
+
+---
+
+## STAGE6-017 — Warehouse structure permissions security fix
+
+**Status:** DONE  
+**Stage:** 6  
+**Depends on:** STAGE6-016  
+**Module:** `tmp-warehouse` (security catalogue + Public API guards); `tmp-ui-shell` (UI permission checks); `tmp-bootstrap-app` (Security Admin ensure)
+
+### Goal
+
+Добавить Capability для управления складской структурой (склад / ячейка) и закрыть UI/API create отдельными правами, не меняя operation permissions.
+
+### Required documents
+
+- `Security-Specification.md` (PermissionId format);
+- `Warehouse-Specification.md` (§18);
+- user Stage 6 final security fix brief.
+
+### Allowed code scope
+
+- `tmp-warehouse/src/main/java/com/tmp/warehouse/security/**`;
+- `tmp-warehouse/src/main/java/com/tmp/warehouse/application/DefaultWarehouseApi.java` (permission guards only);
+- `tmp-warehouse/src/test/java/com/tmp/warehouse/**` related tests;
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/UiShellScreens.java`;
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/warehouse/**`;
+- `tmp-ui-shell/src/test/java/com/tmp/ui/shell/screen/warehouse/**`;
+- `tmp-bootstrap-app/src/main/java/com/tmp/bootstrap/WarehouseAdminNavigationAccessEnsure.java`;
+- `tmp-bootstrap-app/src/test/java/com/tmp/bootstrap/WarehouseAdminNavigationAccessEnsureTest.java`;
+- `docs/development-control/*`.
+
+### Forbidden
+
+- Warehouse Domain / Operation Engine / Stock Position / Movement / Transfer / Consumption / Reservation;
+- изменение существующих operation permission codes;
+- Git операции.
+
+### Implementation requirements
+
+- Register structure capabilities: `warehouse.warehouse.{view,create,update,delete}` and `warehouse.storage-cell.{view,create,update,delete}` (hyphen required by PermissionId);
+- Gate `createWarehouse` / `createStorageCell` on create permissions (API + UI);
+- Roles list receives new permissions via Capability sync (no Flyway);
+- Keep operation permissions unchanged.
+
+### Acceptance criteria
+
+- [x] 8 structure capabilities registered;
+- [x] create warehouse/cell requires structure create permissions;
+- [x] operator with `stock.view` + `receipt.create` cannot create warehouse;
+- [x] structure admin create/delete flags visible in ViewModel;
+- [x] existing operation permissions unchanged;
+- [x] no Flyway migration (permissions via Capability sync).
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-warehouse,:tmp-ui-shell,:tmp-bootstrap-app -am test
+```
+
+### Documentation updates
+
+- WORK-QUEUE;
+- STATUS;
+- IMPLEMENTATION-LOG;
+- VERIFICATION-LOG.
