@@ -3,11 +3,14 @@ package com.tmp.ui.shell.screen.warehouse;
 import com.tmp.ui.shell.navigation.ViewModelAware;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
+import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TableColumn;
@@ -16,8 +19,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
 
 /**
- * Warehouse workbench FXML controller. Binds eight Capability-gated sections to
- * {@link WarehouseWorkbenchViewModel}.
+ * Warehouse workbench FXML controller. Navigation is left ListView only.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
@@ -29,30 +31,6 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
 
     @FXML
     private ListView<WarehouseSection> sectionList;
-
-    @FXML
-    private Button warehousesButton;
-
-    @FXML
-    private Button stockButton;
-
-    @FXML
-    private Button receiptButton;
-
-    @FXML
-    private Button moveButton;
-
-    @FXML
-    private Button transferButton;
-
-    @FXML
-    private Button consumptionButton;
-
-    @FXML
-    private Button adjustmentButton;
-
-    @FXML
-    private Button reservationsButton;
 
     @FXML
     private VBox warehousesPane;
@@ -76,6 +54,9 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private VBox adjustmentPane;
 
     @FXML
+    private VBox inventoryPane;
+
+    @FXML
     private VBox reservationsPane;
 
     @FXML
@@ -91,7 +72,40 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private TableColumn<WarehouseView, String> warehouseActiveColumn;
 
     @FXML
-    private TextField stockWarehouseIdField;
+    private TextField newWarehouseCodeField;
+
+    @FXML
+    private TextField newWarehouseNameField;
+
+    @FXML
+    private CheckBox newWarehouseActiveCheck;
+
+    @FXML
+    private Button createWarehouseButton;
+
+    @FXML
+    private ComboBox<WarehouseChoice> newCellWarehouseCombo;
+
+    @FXML
+    private TextField newCellCodeField;
+
+    @FXML
+    private CheckBox newCellActiveCheck;
+
+    @FXML
+    private Button createCellButton;
+
+    @FXML
+    private TableView<StorageCellView> cellsTable;
+
+    @FXML
+    private TableColumn<StorageCellView, String> cellCodeColumn;
+
+    @FXML
+    private TableColumn<StorageCellView, String> cellActiveColumn;
+
+    @FXML
+    private ComboBox<WarehouseChoice> stockWarehouseCombo;
 
     @FXML
     private TextField stockMaterialField;
@@ -124,10 +138,10 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private TextField receiptQuantityField;
 
     @FXML
-    private TextField receiptWarehouseIdField;
+    private ComboBox<WarehouseChoice> receiptWarehouseCombo;
 
     @FXML
-    private TextField receiptCellIdField;
+    private ComboBox<StorageCellChoice> receiptCellCombo;
 
     @FXML
     private Button submitReceiptButton;
@@ -139,19 +153,25 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private TextField moveQuantityField;
 
     @FXML
-    private TextField moveSourceWarehouseIdField;
+    private ComboBox<WarehouseChoice> moveSourceWarehouseCombo;
 
     @FXML
-    private TextField moveSourceCellIdField;
+    private ComboBox<StorageCellChoice> moveSourceCellCombo;
 
     @FXML
-    private TextField moveDestWarehouseIdField;
-
-    @FXML
-    private TextField moveDestCellIdField;
+    private ComboBox<StorageCellChoice> moveDestCellCombo;
 
     @FXML
     private Button submitMoveButton;
+
+    @FXML
+    private ComboBox<WarehouseChoice> transferSourceWarehouseCombo;
+
+    @FXML
+    private ComboBox<StorageCellChoice> transferSourceCellCombo;
+
+    @FXML
+    private ComboBox<WarehouseChoice> transferDestWarehouseCombo;
 
     @FXML
     private TextField transferMaterialField;
@@ -160,16 +180,28 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private TextField transferQuantityField;
 
     @FXML
-    private TextField transferSourceWarehouseIdField;
+    private Button submitTransferSendButton;
 
     @FXML
-    private TextField transferSourceCellIdField;
+    private TextField transferReceiveMaterialField;
 
     @FXML
-    private TextField transferDestWarehouseIdField;
+    private TextField transferReceiveQuantityField;
 
     @FXML
-    private Button submitTransferButton;
+    private ComboBox<WarehouseChoice> transferReceiveSourceWarehouseCombo;
+
+    @FXML
+    private ComboBox<StorageCellChoice> transferReceiveSourceCellCombo;
+
+    @FXML
+    private ComboBox<WarehouseChoice> transferReceiveDestWarehouseCombo;
+
+    @FXML
+    private ComboBox<StorageCellChoice> transferReceiveDestCellCombo;
+
+    @FXML
+    private Button submitTransferReceiveButton;
 
     @FXML
     private TextField consumptionMaterialField;
@@ -178,10 +210,10 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private TextField consumptionQuantityField;
 
     @FXML
-    private TextField consumptionWarehouseIdField;
+    private ComboBox<WarehouseChoice> consumptionWarehouseCombo;
 
     @FXML
-    private TextField consumptionCellIdField;
+    private ComboBox<StorageCellChoice> consumptionCellCombo;
 
     @FXML
     private TextField consumptionBasisField;
@@ -196,16 +228,19 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private TextField adjustmentQuantityDeltaField;
 
     @FXML
-    private TextField adjustmentWarehouseIdField;
+    private ComboBox<WarehouseChoice> adjustmentWarehouseCombo;
 
     @FXML
-    private TextField adjustmentCellIdField;
+    private ComboBox<StorageCellChoice> adjustmentCellCombo;
 
     @FXML
     private TextField adjustmentReasonField;
 
     @FXML
     private Button submitAdjustmentButton;
+
+    @FXML
+    private Button openAdjustmentFromInventoryButton;
 
     @FXML
     private TextField reservationFilterMaterialField;
@@ -283,24 +318,6 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
             showPane(newValue);
         });
 
-        warehousesButton.disableProperty().bind(viewModel.canViewProperty().not());
-        stockButton.disableProperty().bind(viewModel.canViewProperty().not());
-        receiptButton.disableProperty().bind(viewModel.canReceiptProperty().not());
-        moveButton.disableProperty().bind(viewModel.canMoveProperty().not());
-        transferButton.disableProperty().bind(viewModel.canTransferProperty().not());
-        consumptionButton.disableProperty().bind(viewModel.canConsumptionProperty().not());
-        adjustmentButton.disableProperty().bind(viewModel.canAdjustmentProperty().not());
-        reservationsButton.disableProperty().bind(viewModel.canReservationProperty().not());
-
-        warehousesButton.setOnAction(e -> viewModel.selectSection(WarehouseSection.WAREHOUSES));
-        stockButton.setOnAction(e -> viewModel.selectSection(WarehouseSection.STOCK));
-        receiptButton.setOnAction(e -> viewModel.selectSection(WarehouseSection.RECEIPT));
-        moveButton.setOnAction(e -> viewModel.selectSection(WarehouseSection.MOVE));
-        transferButton.setOnAction(e -> viewModel.selectSection(WarehouseSection.TRANSFER));
-        consumptionButton.setOnAction(e -> viewModel.selectSection(WarehouseSection.CONSUMPTION));
-        adjustmentButton.setOnAction(e -> viewModel.selectSection(WarehouseSection.ADJUSTMENT));
-        reservationsButton.setOnAction(e -> viewModel.selectSection(WarehouseSection.RESERVATIONS));
-
         warehouseCodeColumn.setCellValueFactory(
                 cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().code()));
         warehouseNameColumn.setCellValueFactory(
@@ -310,17 +327,39 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
                         cell.getValue().active() ? "Активен" : "Неактивен"));
         warehousesTable.setItems(viewModel.warehouses());
 
-        stockWarehouseIdField.textProperty().bindBidirectional(viewModel.stockWarehouseIdProperty());
+        bindText(newWarehouseCodeField, viewModel.newWarehouseCodeProperty());
+        bindText(newWarehouseNameField, viewModel.newWarehouseNameProperty());
+        newWarehouseActiveCheck.selectedProperty().bindBidirectional(
+                viewModel.newWarehouseActiveProperty());
+        createWarehouseButton.disableProperty().bind(viewModel.canViewProperty().not());
+        createWarehouseButton.setOnAction(e -> viewModel.createWarehouse());
+
+        newCellWarehouseCombo.setItems(viewModel.warehouseChoices());
+        newCellWarehouseCombo.valueProperty().bindBidirectional(
+                viewModel.newCellWarehouseProperty());
+        bindText(newCellCodeField, viewModel.newCellCodeProperty());
+        newCellActiveCheck.selectedProperty().bindBidirectional(viewModel.newCellActiveProperty());
+        createCellButton.disableProperty().bind(viewModel.canViewProperty().not());
+        createCellButton.setOnAction(e -> viewModel.createStorageCell());
+        cellCodeColumn.setCellValueFactory(
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().code()));
+        cellActiveColumn.setCellValueFactory(
+                cell -> new javafx.beans.property.SimpleStringProperty(
+                        cell.getValue().active() ? "Активна" : "Неактивна"));
+        cellsTable.setItems(viewModel.warehouseCells());
+
+        stockWarehouseCombo.setItems(viewModel.warehouseChoices());
+        stockWarehouseCombo.valueProperty().bindBidirectional(viewModel.stockWarehouseProperty());
         stockMaterialField.textProperty().bindBidirectional(viewModel.stockMaterialCodeProperty());
         loadStockButton.setOnAction(e -> viewModel.loadStock());
         stockMaterialColumn.setCellValueFactory(
                 cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().materialCode()));
         stockWarehouseColumn.setCellValueFactory(
                 cell -> new javafx.beans.property.SimpleStringProperty(
-                        cell.getValue().warehouseId().toString()));
+                        viewModel.warehouseLabel(cell.getValue().warehouseId())));
         stockCellColumn.setCellValueFactory(
                 cell -> new javafx.beans.property.SimpleStringProperty(
-                        cell.getValue().storageCellId().toString()));
+                        viewModel.cellLabel(cell.getValue().storageCellId())));
         stockQuantityColumn.setCellValueFactory(
                 cell -> new javafx.beans.property.SimpleStringProperty(
                         cell.getValue().quantity().toPlainString()));
@@ -331,43 +370,83 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
 
         bindText(receiptMaterialField, viewModel.receiptMaterialProperty());
         bindText(receiptQuantityField, viewModel.receiptQuantityProperty());
-        bindText(receiptWarehouseIdField, viewModel.receiptWarehouseIdProperty());
-        bindText(receiptCellIdField, viewModel.receiptCellIdProperty());
+        bindWarehouseCombo(receiptWarehouseCombo, viewModel);
+        receiptWarehouseCombo.valueProperty().bindBidirectional(
+                viewModel.receiptWarehouseProperty());
+        receiptCellCombo.setItems(viewModel.receiptCellChoices());
+        receiptCellCombo.valueProperty().bindBidirectional(viewModel.receiptCellProperty());
         submitReceiptButton.disableProperty().bind(viewModel.canReceiptProperty().not());
         submitReceiptButton.setOnAction(e -> viewModel.submitReceipt());
 
         bindText(moveMaterialField, viewModel.moveMaterialProperty());
         bindText(moveQuantityField, viewModel.moveQuantityProperty());
-        bindText(moveSourceWarehouseIdField, viewModel.moveSourceWarehouseIdProperty());
-        bindText(moveSourceCellIdField, viewModel.moveSourceCellIdProperty());
-        bindText(moveDestWarehouseIdField, viewModel.moveDestWarehouseIdProperty());
-        bindText(moveDestCellIdField, viewModel.moveDestCellIdProperty());
+        bindWarehouseCombo(moveSourceWarehouseCombo, viewModel);
+        moveSourceWarehouseCombo.valueProperty().bindBidirectional(
+                viewModel.moveSourceWarehouseProperty());
+        moveSourceCellCombo.setItems(viewModel.moveSourceCellChoices());
+        moveSourceCellCombo.valueProperty().bindBidirectional(viewModel.moveSourceCellProperty());
+        moveDestCellCombo.setItems(viewModel.moveDestCellChoices());
+        moveDestCellCombo.valueProperty().bindBidirectional(viewModel.moveDestCellProperty());
         submitMoveButton.disableProperty().bind(viewModel.canMoveProperty().not());
         submitMoveButton.setOnAction(e -> viewModel.submitMove());
 
+        bindWarehouseCombo(transferSourceWarehouseCombo, viewModel);
+        transferSourceWarehouseCombo.valueProperty().bindBidirectional(
+                viewModel.transferSourceWarehouseProperty());
+        transferSourceCellCombo.setItems(viewModel.transferSendCellChoices());
+        transferSourceCellCombo.valueProperty().bindBidirectional(
+                viewModel.transferSourceCellProperty());
+        bindWarehouseCombo(transferDestWarehouseCombo, viewModel);
+        transferDestWarehouseCombo.valueProperty().bindBidirectional(
+                viewModel.transferDestWarehouseProperty());
         bindText(transferMaterialField, viewModel.transferMaterialProperty());
         bindText(transferQuantityField, viewModel.transferQuantityProperty());
-        bindText(transferSourceWarehouseIdField, viewModel.transferSourceWarehouseIdProperty());
-        bindText(transferSourceCellIdField, viewModel.transferSourceCellIdProperty());
-        bindText(transferDestWarehouseIdField, viewModel.transferDestWarehouseIdProperty());
-        submitTransferButton.disableProperty().bind(viewModel.canTransferProperty().not());
-        submitTransferButton.setOnAction(e -> viewModel.submitTransferSend());
+        submitTransferSendButton.disableProperty().bind(viewModel.canTransferProperty().not());
+        submitTransferSendButton.setOnAction(e -> viewModel.submitTransferSend());
+
+        bindText(transferReceiveMaterialField, viewModel.transferReceiveMaterialProperty());
+        bindText(transferReceiveQuantityField, viewModel.transferReceiveQuantityProperty());
+        bindWarehouseCombo(transferReceiveSourceWarehouseCombo, viewModel);
+        transferReceiveSourceWarehouseCombo.valueProperty().bindBidirectional(
+                viewModel.transferReceiveSourceWarehouseProperty());
+        transferReceiveSourceCellCombo.setItems(viewModel.transferReceiveSourceCellChoices());
+        transferReceiveSourceCellCombo.valueProperty().bindBidirectional(
+                viewModel.transferReceiveSourceCellProperty());
+        bindWarehouseCombo(transferReceiveDestWarehouseCombo, viewModel);
+        transferReceiveDestWarehouseCombo.valueProperty().bindBidirectional(
+                viewModel.transferReceiveDestWarehouseProperty());
+        transferReceiveDestCellCombo.setItems(viewModel.transferReceiveDestCellChoices());
+        transferReceiveDestCellCombo.valueProperty().bindBidirectional(
+                viewModel.transferReceiveDestCellProperty());
+        submitTransferReceiveButton.disableProperty().bind(viewModel.canTransferProperty().not());
+        submitTransferReceiveButton.setOnAction(e -> viewModel.submitTransferReceive());
 
         bindText(consumptionMaterialField, viewModel.consumptionMaterialProperty());
         bindText(consumptionQuantityField, viewModel.consumptionQuantityProperty());
-        bindText(consumptionWarehouseIdField, viewModel.consumptionWarehouseIdProperty());
-        bindText(consumptionCellIdField, viewModel.consumptionCellIdProperty());
         bindText(consumptionBasisField, viewModel.consumptionBasisProperty());
+        bindWarehouseCombo(consumptionWarehouseCombo, viewModel);
+        consumptionWarehouseCombo.valueProperty().bindBidirectional(
+                viewModel.consumptionWarehouseProperty());
+        consumptionCellCombo.setItems(viewModel.consumptionCellChoices());
+        consumptionCellCombo.valueProperty().bindBidirectional(
+                viewModel.consumptionCellProperty());
         submitConsumptionButton.disableProperty().bind(viewModel.canConsumptionProperty().not());
         submitConsumptionButton.setOnAction(e -> viewModel.submitConsumption());
 
         bindText(adjustmentMaterialField, viewModel.adjustmentMaterialProperty());
         bindText(adjustmentQuantityDeltaField, viewModel.adjustmentQuantityDeltaProperty());
-        bindText(adjustmentWarehouseIdField, viewModel.adjustmentWarehouseIdProperty());
-        bindText(adjustmentCellIdField, viewModel.adjustmentCellIdProperty());
         bindText(adjustmentReasonField, viewModel.adjustmentReasonProperty());
+        bindWarehouseCombo(adjustmentWarehouseCombo, viewModel);
+        adjustmentWarehouseCombo.valueProperty().bindBidirectional(
+                viewModel.adjustmentWarehouseProperty());
+        adjustmentCellCombo.setItems(viewModel.adjustmentCellChoices());
+        adjustmentCellCombo.valueProperty().bindBidirectional(viewModel.adjustmentCellProperty());
         submitAdjustmentButton.disableProperty().bind(viewModel.canAdjustmentProperty().not());
         submitAdjustmentButton.setOnAction(e -> viewModel.submitAdjustment());
+
+        openAdjustmentFromInventoryButton.disableProperty().bind(
+                viewModel.canAdjustmentProperty().not());
+        openAdjustmentFromInventoryButton.setOnAction(e -> viewModel.openAdjustmentFromInventory());
 
         bindText(reservationFilterMaterialField, viewModel.reservationFilterMaterialProperty());
         bindText(reservationMaterialField, viewModel.reservationMaterialProperty());
@@ -395,6 +474,11 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
         field.textProperty().bindBidirectional(property);
     }
 
+    private static void bindWarehouseCombo(
+            ComboBox<WarehouseChoice> combo, WarehouseWorkbenchViewModel viewModel) {
+        combo.setItems(viewModel.warehouseChoices());
+    }
+
     private void showPane(WarehouseSection section) {
         warehousesPane.setVisible(section == WarehouseSection.WAREHOUSES);
         warehousesPane.setManaged(section == WarehouseSection.WAREHOUSES);
@@ -410,6 +494,8 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
         consumptionPane.setManaged(section == WarehouseSection.CONSUMPTION);
         adjustmentPane.setVisible(section == WarehouseSection.ADJUSTMENT);
         adjustmentPane.setManaged(section == WarehouseSection.ADJUSTMENT);
+        inventoryPane.setVisible(section == WarehouseSection.INVENTORY);
+        inventoryPane.setManaged(section == WarehouseSection.INVENTORY);
         reservationsPane.setVisible(section == WarehouseSection.RESERVATIONS);
         reservationsPane.setManaged(section == WarehouseSection.RESERVATIONS);
     }

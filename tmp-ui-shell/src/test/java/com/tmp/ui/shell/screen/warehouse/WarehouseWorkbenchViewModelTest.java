@@ -12,6 +12,8 @@ import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.AvailabilityResult;
 import com.tmp.warehouse.api.WarehouseApi.AvailabilityStatus;
 import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
+import com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand;
+import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
@@ -19,6 +21,7 @@ import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
+import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -62,6 +65,32 @@ class WarehouseWorkbenchViewModelTest {
     }
 
     @Test
+    void createsWarehouseThroughPublicApi() {
+        viewModel.newWarehouseCodeProperty().set("WH-NEW");
+        viewModel.newWarehouseNameProperty().set("Новый");
+        viewModel.newWarehouseActiveProperty().set(true);
+        viewModel.createWarehouse();
+        assertEquals(1, api.createWarehouseCalls.size());
+        assertEquals("WH-NEW", api.createWarehouseCalls.get(0).code());
+        assertEquals(1, viewModel.warehouses().size());
+        assertTrue(viewModel.statusMessageProperty().get().contains("Склад создан"));
+    }
+
+    @Test
+    void createsStorageCellThroughPublicApi() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        viewModel.loadWarehouses();
+        viewModel.newCellWarehouseProperty().set(WarehouseChoice.from(api.warehouses.get(0)));
+        viewModel.newCellCodeProperty().set("A-01");
+        viewModel.newCellActiveProperty().set(true);
+        viewModel.createStorageCell();
+        assertEquals(1, api.createCellCalls.size());
+        assertEquals("A-01", api.createCellCalls.get(0).code());
+        assertEquals(1, viewModel.warehouseCells().size());
+    }
+
+    @Test
     void deniesWarehouseListWithoutViewCapability() {
         auth.allowed = Set.of();
         viewModel.refreshPermissions();
@@ -73,6 +102,7 @@ class WarehouseWorkbenchViewModelTest {
     @Test
     void loadsStockByWarehouseThroughPublicApi() {
         UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
         api.stockByWarehouse.put(
                 warehouseId,
                 List.of(
@@ -82,7 +112,8 @@ class WarehouseWorkbenchViewModelTest {
                                 UUID.randomUUID(),
                                 BigDecimal.TEN,
                                 StockStateView.AVAILABLE)));
-        viewModel.stockWarehouseIdProperty().set(warehouseId.toString());
+        viewModel.loadWarehouses();
+        viewModel.stockWarehouseProperty().set(WarehouseChoice.from(api.warehouses.get(0)));
         viewModel.loadStock();
         assertEquals(1, viewModel.stockRows().size());
         assertEquals("ALU-6060", viewModel.stockRows().get(0).materialCode());
@@ -90,63 +121,107 @@ class WarehouseWorkbenchViewModelTest {
     }
 
     @Test
-    void receiptCallsExecuteWarehouseOperation() {
+    void receiptCallsExecuteWarehouseOperationWithChoices() {
         UUID warehouseId = UUID.randomUUID();
         UUID cellId = UUID.randomUUID();
+        WarehouseView warehouse = new WarehouseView(warehouseId, "WH-1", "Main", true);
+        StorageCellView cell = new StorageCellView(cellId, warehouseId, "A-01", true);
+        api.warehouses.add(warehouse);
+        api.cellsByWarehouse.put(warehouseId, new ArrayList<>(List.of(cell)));
+        viewModel.loadWarehouses();
         viewModel.receiptMaterialProperty().set("ALU-6060");
         viewModel.receiptQuantityProperty().set("12.5");
-        viewModel.receiptWarehouseIdProperty().set(warehouseId.toString());
-        viewModel.receiptCellIdProperty().set(cellId.toString());
+        viewModel.receiptWarehouseProperty().set(WarehouseChoice.from(warehouse));
+        viewModel.receiptCellProperty().set(StorageCellChoice.from(cell));
         viewModel.submitReceipt();
         assertEquals(1, api.executeCalls.size());
         ExecuteOperationCommand command = api.executeCalls.get(0);
         assertEquals(OperationKind.RECEIPT, command.kind());
-        assertEquals("ALU-6060", command.materialCode());
-        assertEquals(0, command.quantity().compareTo(new BigDecimal("12.5")));
+        assertEquals(warehouseId, command.warehouseId());
+        assertEquals(cellId, command.storageCellId());
         assertTrue(viewModel.statusMessageProperty().get().contains("Поступление"));
     }
 
     @Test
-    void moveTransferConsumptionAdjustmentCallPublicApiWithCapabilities() {
+    void moveUsesSameWarehouseForDestination() {
         UUID wh = UUID.randomUUID();
         UUID cell = UUID.randomUUID();
-        UUID destWh = UUID.randomUUID();
         UUID destCell = UUID.randomUUID();
-
+        WarehouseView warehouse = new WarehouseView(wh, "WH-1", "Main", true);
+        api.warehouses.add(warehouse);
+        viewModel.loadWarehouses();
         viewModel.moveMaterialProperty().set("M1");
         viewModel.moveQuantityProperty().set("1");
-        viewModel.moveSourceWarehouseIdProperty().set(wh.toString());
-        viewModel.moveSourceCellIdProperty().set(cell.toString());
-        viewModel.moveDestWarehouseIdProperty().set(destWh.toString());
-        viewModel.moveDestCellIdProperty().set(destCell.toString());
+        viewModel.moveSourceWarehouseProperty().set(WarehouseChoice.from(warehouse));
+        viewModel.moveSourceCellProperty().set(new StorageCellChoice(cell, wh, "A-01", true));
+        viewModel.moveDestCellProperty().set(new StorageCellChoice(destCell, wh, "B-01", true));
         viewModel.submitMove();
+        assertEquals(1, api.executeCalls.size());
+        assertEquals(OperationKind.MOVE, api.executeCalls.get(0).kind());
+        assertEquals(wh, api.executeCalls.get(0).warehouseId());
+        assertEquals(wh, api.executeCalls.get(0).destinationWarehouseId());
+        assertEquals(destCell, api.executeCalls.get(0).destinationStorageCellId());
+    }
+
+    @Test
+    void transferSendAndReceiveCallPublicApi() {
+        UUID wh = UUID.randomUUID();
+        UUID destWh = UUID.randomUUID();
+        UUID cell = UUID.randomUUID();
+        UUID destCell = UUID.randomUUID();
+        WarehouseView source = new WarehouseView(wh, "WH-S", "Source", true);
+        WarehouseView destination = new WarehouseView(destWh, "WH-D", "Dest", true);
+        api.warehouses.add(source);
+        api.warehouses.add(destination);
+        viewModel.loadWarehouses();
 
         viewModel.transferMaterialProperty().set("M1");
         viewModel.transferQuantityProperty().set("2");
-        viewModel.transferSourceWarehouseIdProperty().set(wh.toString());
-        viewModel.transferSourceCellIdProperty().set(cell.toString());
-        viewModel.transferDestWarehouseIdProperty().set(destWh.toString());
+        viewModel.transferSourceWarehouseProperty().set(WarehouseChoice.from(source));
+        viewModel.transferSourceCellProperty().set(new StorageCellChoice(cell, wh, "A-01", true));
+        viewModel.transferDestWarehouseProperty().set(WarehouseChoice.from(destination));
         viewModel.submitTransferSend();
+
+        viewModel.transferReceiveMaterialProperty().set("M1");
+        viewModel.transferReceiveQuantityProperty().set("2");
+        viewModel.transferReceiveSourceWarehouseProperty().set(WarehouseChoice.from(source));
+        viewModel.transferReceiveSourceCellProperty()
+                .set(new StorageCellChoice(cell, wh, "A-01", true));
+        viewModel.transferReceiveDestWarehouseProperty().set(WarehouseChoice.from(destination));
+        viewModel.transferReceiveDestCellProperty()
+                .set(new StorageCellChoice(destCell, destWh, "B-01", true));
+        viewModel.submitTransferReceive();
+
+        assertEquals(2, api.executeCalls.size());
+        assertEquals(OperationKind.TRANSFER_SEND, api.executeCalls.get(0).kind());
+        assertEquals(OperationKind.TRANSFER_RECEIVE, api.executeCalls.get(1).kind());
+    }
+
+    @Test
+    void consumptionAndAdjustmentUseWarehouseAndCellChoices() {
+        UUID wh = UUID.randomUUID();
+        UUID cell = UUID.randomUUID();
+        WarehouseView warehouse = new WarehouseView(wh, "WH-1", "Main", true);
+        api.warehouses.add(warehouse);
+        viewModel.loadWarehouses();
 
         viewModel.consumptionMaterialProperty().set("M1");
         viewModel.consumptionQuantityProperty().set("3");
-        viewModel.consumptionWarehouseIdProperty().set(wh.toString());
-        viewModel.consumptionCellIdProperty().set(cell.toString());
+        viewModel.consumptionWarehouseProperty().set(WarehouseChoice.from(warehouse));
+        viewModel.consumptionCellProperty().set(new StorageCellChoice(cell, wh, "A-01", true));
         viewModel.consumptionBasisProperty().set("Производство");
         viewModel.submitConsumption();
 
         viewModel.adjustmentMaterialProperty().set("M1");
         viewModel.adjustmentQuantityDeltaProperty().set("-1");
-        viewModel.adjustmentWarehouseIdProperty().set(wh.toString());
-        viewModel.adjustmentCellIdProperty().set(cell.toString());
+        viewModel.adjustmentWarehouseProperty().set(WarehouseChoice.from(warehouse));
+        viewModel.adjustmentCellProperty().set(new StorageCellChoice(cell, wh, "A-01", true));
         viewModel.adjustmentReasonProperty().set("Инвентаризация");
         viewModel.submitAdjustment();
 
-        assertEquals(4, api.executeCalls.size());
-        assertEquals(OperationKind.MOVE, api.executeCalls.get(0).kind());
-        assertEquals(OperationKind.TRANSFER_SEND, api.executeCalls.get(1).kind());
-        assertEquals(OperationKind.CONSUMPTION, api.executeCalls.get(2).kind());
-        assertEquals(OperationKind.ADJUSTMENT, api.executeCalls.get(3).kind());
+        assertEquals(2, api.executeCalls.size());
+        assertEquals(OperationKind.CONSUMPTION, api.executeCalls.get(0).kind());
+        assertEquals(OperationKind.ADJUSTMENT, api.executeCalls.get(1).kind());
         assertTrue(viewModel.statusMessageProperty().get().contains("причина=Инвентаризация"));
     }
 
@@ -173,6 +248,14 @@ class WarehouseWorkbenchViewModelTest {
         viewModel.selectSection(WarehouseSection.RECEIPT);
         assertEquals(WarehouseUiErrorMapper.ACCESS_DENIED, viewModel.errorMessageProperty().get());
         assertEquals(WarehouseSection.WAREHOUSES, viewModel.sectionProperty().get());
+    }
+
+    @Test
+    void inventorySectionNavigatesToAdjustment() {
+        viewModel.selectSection(WarehouseSection.INVENTORY);
+        assertEquals(WarehouseSection.INVENTORY, viewModel.sectionProperty().get());
+        viewModel.openAdjustmentFromInventory();
+        assertEquals(WarehouseSection.ADJUSTMENT, viewModel.sectionProperty().get());
     }
 
     @Test
@@ -209,10 +292,16 @@ class WarehouseWorkbenchViewModelTest {
 
     private static final class FakeWarehouseApi implements WarehouseApi {
         private final List<WarehouseView> warehouses = new ArrayList<>();
+        private final java.util.Map<UUID, List<StorageCellView>> cellsByWarehouse =
+                new java.util.HashMap<>();
         private final java.util.Map<UUID, List<StockView>> stockByWarehouse =
                 new java.util.HashMap<>();
         private final List<ExecuteOperationCommand> executeCalls = new CopyOnWriteArrayList<>();
         private final List<CreateReservationLinkCommand> createReservationCalls =
+                new CopyOnWriteArrayList<>();
+        private final List<CreateWarehouseCommand> createWarehouseCalls =
+                new CopyOnWriteArrayList<>();
+        private final List<CreateStorageCellCommand> createCellCalls =
                 new CopyOnWriteArrayList<>();
         private final List<ReservationLinkView> links = new CopyOnWriteArrayList<>();
         private int listWarehousesCalls;
@@ -228,6 +317,36 @@ class WarehouseWorkbenchViewModelTest {
                 throw new AccessDeniedException("denied");
             }
             return List.copyOf(warehouses);
+        }
+
+        @Override
+        public WarehouseView createWarehouse(CreateWarehouseCommand command) {
+            createWarehouseCalls.add(command);
+            WarehouseView view =
+                    new WarehouseView(
+                            UUID.randomUUID(), command.code(), command.name(), command.active());
+            warehouses.add(view);
+            return view;
+        }
+
+        @Override
+        public List<StorageCellView> listStorageCells(UUID warehouseId) {
+            return List.copyOf(cellsByWarehouse.getOrDefault(warehouseId, List.of()));
+        }
+
+        @Override
+        public StorageCellView createStorageCell(CreateStorageCellCommand command) {
+            createCellCalls.add(command);
+            StorageCellView view =
+                    new StorageCellView(
+                            UUID.randomUUID(),
+                            command.warehouseId(),
+                            command.code(),
+                            command.active());
+            cellsByWarehouse
+                    .computeIfAbsent(command.warehouseId(), key -> new ArrayList<>())
+                    .add(view);
+            return view;
         }
 
         @Override

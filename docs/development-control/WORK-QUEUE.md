@@ -9150,7 +9150,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 # Stage 6 — Warehouse
 
-**Status:** IN PROGRESS  
+**Status:** DONE  
 **Stage goal:** Implement Warehouse v1.0 strictly by `Warehouse-Specification.md` v1.3.
 
 > Stage 6 implementation decomposition prepared. No Stage 6 production development started in this planning update.
@@ -9532,7 +9532,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-012 — Public API
 
-**Status:** READY  
+**Status:** DONE  
 **Stage:** 6  
 **Depends on:** STAGE6-011  
 **Module:** `tmp-warehouse-api`, `tmp-warehouse`
@@ -9565,7 +9565,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-013 — Security integration
 
-**Status:** READY  
+**Status:** DONE  
 **Stage:** 6  
 **Depends on:** STAGE6-012  
 **Module:** `tmp-warehouse`, `tmp-security`
@@ -9598,7 +9598,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-014 — UI
 
-**Status:** READY  
+**Status:** DONE  
 **Stage:** 6  
 **Depends on:** STAGE6-013  
 **Module:** `tmp-ui-shell`
@@ -9638,6 +9638,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-001
 - **ID:** `STAGE6-001`
+- **Status:** DONE
 - **Название:** Warehouse Module Foundation
 - **Цель:** Создать базовый модуль Warehouse без бизнес-логики.
 - **Описание:** Подготовить модуль, структуру пакетов и подключение к сборке.
@@ -9650,6 +9651,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-002
 - **ID:** `STAGE6-002`
+- **Status:** DONE
 - **Название:** Warehouse Domain Model
 - **Цель:** Создать `Warehouse`, `Storage Cell`, `Stock Position`, `Warehouse Operation`, `Warehouse Movement`.
 - **Описание:** Определить доменные сущности, value objects и инварианты.
@@ -9662,6 +9664,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-003
 - **ID:** `STAGE6-003`
+- **Status:** DONE
 - **Название:** Warehouse Database
 - **Цель:** Создать schema, migrations, tables.
 - **Описание:** Ввести persistence-слой для Warehouse core.
@@ -9700,6 +9703,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-006
 - **ID:** `STAGE6-006`
+- **Status:** DONE
 - **Название:** Warehouse Operation
 - **Цель:** Реализовать механизм операций и проверки.
 - **Описание:** Единый write path для складских изменений.
@@ -9712,6 +9716,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-007
 - **ID:** `STAGE6-007`
+- **Status:** DONE
 - **Название:** Receipt
 - **Цель:** Реализовать операцию поступления.
 - **Описание:** Увеличение остатков через `WarehouseOperation`.
@@ -9724,6 +9729,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-008
 - **ID:** `STAGE6-008`
+- **Status:** DONE
 - **Название:** Move
 - **Цель:** Реализовать внутреннее перемещение.
 - **Описание:** Перемещение между ячейками без изменения общего количества.
@@ -9736,6 +9742,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-009
 - **ID:** `STAGE6-009`
+- **Status:** DONE
 - **Название:** Transfer
 - **Цель:** Реализовать межскладской transfer.
 - **Описание:** Два этапа: ship и receive через `IN_TRANSIT`.
@@ -9748,6 +9755,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-010
 - **ID:** `STAGE6-010`
+- **Status:** DONE
 - **Название:** Consumption
 - **Цель:** Реализовать списание.
 - **Описание:** Warehouse исполняет списание по входным данным Production.
@@ -9760,6 +9768,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-011
 - **ID:** `STAGE6-011`
+- **Status:** DONE
 - **Название:** Inventory / Adjustment
 - **Цель:** Реализовать inventory и adjustment v1.0.
 - **Описание:** Операции сверки и корректировки остатков с аудитом.
@@ -9772,6 +9781,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### STAGE6-012
 - **ID:** `STAGE6-012`
+- **Status:** DONE
 - **Название:** Reservation Information Link
 - **Цель:** Реализовать информационную reservation связь.
 - **Описание:** Reservation link без изменения `Stock Position`.
@@ -9781,7 +9791,6 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 - **Implementation Steps:** reservation link model -> create/query link use-cases -> guard against stock mutation
 - **Verification:** reservation link PASS; no stock or movement mutation PASS
 - **Tests:** unit reservation tests; integration reservation use-case tests
-- **Status:** DONE
 
 ### STAGE6-013
 - **ID:** `STAGE6-013`
@@ -9821,3 +9830,85 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 - **Implementation Steps:** screens/viewmodels -> API integration -> permission/error states
 - **Verification:** UI scenarios PASS; permission/error state PASS
 - **Tests:** unit/viewmodel tests; integration UI tests
+
+## STAGE6-016 — Warehouse UI + Security Roles UI final UX fix
+
+**Status:** DONE  
+**Stage:** 6  
+**Depends on:** STAGE6-015  
+**Module:** `tmp-ui-shell` (primary); additive Public API catalogue methods in `tmp-warehouse` only as required for create warehouse/cell via API (no DB bypass)
+
+### Goal
+
+Исправить UX Warehouse UI и Security Roles UI по результатам ручной проверки Stage 6: создание склада/ячеек, выпадающие списки вместо UUID, Transfer Receive, убрать дубли навигации, простой Inventory, layout Roles.
+
+### Required documents
+
+- `Warehouse-Specification.md` (§5, §11–§18);
+- user Stage 6 final UX fix brief (this task);
+- Security Roles UI existing contracts (no Security model/PermissionId changes).
+
+### Required code context
+
+- `tmp-ui-shell/**/warehouse/**`;
+- `tmp-ui-shell/**/roleadmin/**`;
+- `com.tmp.warehouse.api.WarehouseApi`;
+- `WarehouseCatalogRepository` / `JdbcWarehouseCatalogRepository` (existing insert/list cells).
+
+### Allowed code scope
+
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/warehouse/**`;
+- `tmp-ui-shell/src/main/resources/com/tmp/ui/shell/screen/warehouse/**`;
+- `tmp-ui-shell/src/test/java/com/tmp/ui/shell/screen/warehouse/**`;
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/roleadmin/**`;
+- `tmp-ui-shell/src/main/resources/com/tmp/ui/shell/screen/roleadmin/**`;
+- `tmp-ui-shell/src/test/java/com/tmp/ui/shell/screen/roleadmin/**`;
+- `tmp-warehouse/src/main/java/com/tmp/warehouse/api/WarehouseApi.java` (additive catalogue create/list only);
+- `tmp-warehouse/src/main/java/com/tmp/warehouse/application/DefaultWarehouseApi.java`;
+- `tmp-warehouse/src/main/java/com/tmp/warehouse/domain/repository/WarehouseCatalogRepository.java`;
+- `tmp-warehouse/src/main/java/com/tmp/warehouse/persistence/JdbcWarehouseCatalogRepository.java` (wire port methods);
+- `tmp-warehouse/src/test/java/com/tmp/warehouse/**` tests for additive API;
+- `docs/development-control/*`.
+
+### Forbidden
+
+- изменение доменной модели Warehouse / Security;
+- изменение PermissionId / Security модели;
+- изменение БД / Flyway;
+- обход через прямой JDBC из UI;
+- Git операции;
+- архитектурный рефакторинг вне UX fix.
+
+### Implementation requirements
+
+- Warehouse: create warehouse + create/list cells via Public API; ComboBox for warehouse/cell on operation forms; Transfer Receive; remove duplicate nav buttons; simple Inventory section without model expansion.
+- Roles: fixed min-height roles table, selectable rows, permissions below in scrollable area.
+
+### Acceptance criteria
+
+- [x] Можно создать склад и ячейку через UI (Public API);
+- [x] UUID-поля заменены выпадающими списками на Receipt/Move/Transfer/Consumption/Adjustment/Stock;
+- [x] Transfer Receive доступен;
+- [x] Дублирующие кнопки навигации удалены (осталось левое меню);
+- [x] Roles: таблица ролей выбираема, permissions ниже;
+- [x] `mvn test` и `mvn package` PASS.
+
+### Required tests
+
+- Warehouse workbench ViewModel tests (create, dropdowns, transfer receive);
+- Roles UI selection/layout regression tests;
+- Warehouse API / architecture tests.
+
+### Verification commands
+
+```bash
+mvn test
+mvn package
+```
+
+### Documentation updates
+
+- WORK-QUEUE;
+- STATUS;
+- IMPLEMENTATION-LOG;
+- VERIFICATION-LOG.

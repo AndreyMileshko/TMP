@@ -2,6 +2,32 @@
 
 ## Latest result
 
+**Date:** 2026-08-10  
+**Scope:** STAGE6-016 — Warehouse UI + Security Roles UI final UX fix  
+**Overall:** PASS  
+**Type:** Automated unit + integration + architecture + package  
+**Environment:** Windows; Maven `C:\Users\1\Desktop\Warehouse\.tools\apache-maven-3.9.6`; JDK 21
+
+| Item | Result |
+|---|---|
+| STAGE6-016 | DONE |
+| `mvn test` | PASS (1171 tests, 0 failures) |
+| Warehouse UI ViewModel tests | PASS (13) |
+| Roles UI FX / ViewModel tests | PASS |
+| Warehouse API / architecture tests | PASS |
+| `mvn package` | PASS |
+| jpackage app-image (`-Ppackage`, spotbugs skip on verify gate) | PASS → `dist/jpackage/TMP` |
+| Manual GUI full interactive scenario | Operator checklist remaining (automated UX coverage PASS) |
+| Git | NOT EXECUTED |
+
+### Failures
+
+None.
+
+---
+
+## STAGE6-015 — Warehouse UI
+
 **Date:** 2026-08-09  
 **Scope:** STAGE6-015 — Warehouse UI  
 **Overall:** PASS  

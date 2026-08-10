@@ -57,6 +57,23 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
                 .toList();
     }
 
+    @Override
+    public Warehouse save(Warehouse warehouse) {
+        return insert(warehouse).toDomain();
+    }
+
+    @Override
+    public StorageCell save(StorageCell cell) {
+        return insert(cell).toDomain();
+    }
+
+    @Override
+    public List<StorageCell> findStorageCellsByWarehouse(WarehouseId warehouseId) {
+        return findStorageCellsByWarehouseRows(warehouseId).stream()
+                .map(StorageCellRow::toDomain)
+                .toList();
+    }
+
     public WarehouseRow insert(Warehouse warehouse) {
         Objects.requireNonNull(warehouse, "warehouse");
         Instant now = clock.instant();
@@ -206,7 +223,7 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
         }
     }
 
-    public List<StorageCellRow> findStorageCellsByWarehouse(WarehouseId warehouseId) {
+    public List<StorageCellRow> findStorageCellsByWarehouseRows(WarehouseId warehouseId) {
         Objects.requireNonNull(warehouseId, "warehouseId");
         return jdbcTemplate.query(
                 """

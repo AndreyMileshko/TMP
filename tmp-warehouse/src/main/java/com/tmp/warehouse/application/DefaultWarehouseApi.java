@@ -9,6 +9,7 @@ import com.tmp.warehouse.domain.ReservationTargetType;
 import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
+import com.tmp.warehouse.domain.StorageCell;
 import com.tmp.warehouse.domain.StorageCellId;
 import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
@@ -21,6 +22,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 
 /**
  * Default Public API adapter for Warehouse (Specification §17 / §18).
@@ -69,6 +71,58 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public List<WarehouseView> listWarehouses() {
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
         return warehouses.findAll().stream().map(this::toWarehouseView).toList();
+    }
+
+    @Override
+    public WarehouseView createWarehouse(CreateWarehouseCommand command) {
+        Objects.requireNonNull(command, "command");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        Warehouse warehouse =
+                Warehouse.of(
+                        WarehouseId.generate(),
+                        command.code(),
+                        command.name(),
+                        command.active());
+        try {
+            return toWarehouseView(warehouses.save(warehouse));
+        } catch (DataIntegrityViolationException ex) {
+            throw new IllegalArgumentException(
+                    "Warehouse code already exists: " + command.code().trim(), ex);
+        }
+    }
+
+    @Override
+    public List<StorageCellView> listStorageCells(UUID warehouseId) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        return warehouses.findStorageCellsByWarehouse(WarehouseId.of(warehouseId)).stream()
+                .map(this::toStorageCellView)
+                .toList();
+    }
+
+    @Override
+    public StorageCellView createStorageCell(CreateStorageCellCommand command) {
+        Objects.requireNonNull(command, "command");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        WarehouseId warehouseId = WarehouseId.of(command.warehouseId());
+        boolean warehouseExists =
+                warehouses.findAll().stream().anyMatch(w -> w.id().equals(warehouseId));
+        if (!warehouseExists) {
+            throw new IllegalArgumentException("Warehouse not found: " + command.warehouseId());
+        }
+        StorageCell cell =
+                StorageCell.of(
+                        StorageCellId.generate(),
+                        warehouseId,
+                        command.code(),
+                        command.active());
+        try {
+            return toStorageCellView(warehouses.save(cell));
+        } catch (DataIntegrityViolationException ex) {
+            throw new IllegalArgumentException(
+                    "Storage cell code already exists in warehouse: " + command.code().trim(),
+                    ex);
+        }
     }
 
     @Override
@@ -227,6 +281,14 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     private WarehouseView toWarehouseView(Warehouse warehouse) {
         return new WarehouseView(
                 warehouse.id().value(), warehouse.code(), warehouse.name(), warehouse.active());
+    }
+
+    private StorageCellView toStorageCellView(StorageCell cell) {
+        return new StorageCellView(
+                cell.id().value(),
+                cell.warehouseId().value(),
+                cell.code(),
+                cell.active());
     }
 
     private StockView toStockView(StockPosition position) {

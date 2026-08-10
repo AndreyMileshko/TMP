@@ -11,6 +11,7 @@ public enum WarehouseSection {
     TRANSFER("Межскладское перемещение"),
     CONSUMPTION("Списание"),
     ADJUSTMENT("Корректировка"),
+    INVENTORY("Инвентаризация"),
     RESERVATIONS("Информационные связи");
 
     private final String title;

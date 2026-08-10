@@ -23,6 +23,24 @@ public interface WarehouseApi {
     List<WarehouseView> listWarehouses();
 
     /**
+     * Creates a warehouse in the catalogue.
+     *
+     * @param command code, name, active flag
+     * @return created warehouse view
+     */
+    WarehouseView createWarehouse(CreateWarehouseCommand command);
+
+    /**
+     * Returns storage cells for a warehouse ordered by code.
+     */
+    List<StorageCellView> listStorageCells(UUID warehouseId);
+
+    /**
+     * Creates a storage cell in the catalogue for an existing warehouse.
+     */
+    StorageCellView createStorageCell(CreateStorageCellCommand command);
+
+    /**
      * Returns current stock positions for the given material reference.
      *
      * @param materialCode material reference from Specification context
@@ -67,6 +85,34 @@ public interface WarehouseApi {
             Objects.requireNonNull(warehouseId, "warehouseId");
             Objects.requireNonNull(code, "code");
             Objects.requireNonNull(name, "name");
+        }
+    }
+
+    /** Public storage cell catalogue snapshot. */
+    record StorageCellView(UUID storageCellId, UUID warehouseId, String code, boolean active) {
+
+        public StorageCellView {
+            Objects.requireNonNull(storageCellId, "storageCellId");
+            Objects.requireNonNull(warehouseId, "warehouseId");
+            Objects.requireNonNull(code, "code");
+        }
+    }
+
+    /** Create warehouse catalogue command. */
+    record CreateWarehouseCommand(String code, String name, boolean active) {
+
+        public CreateWarehouseCommand {
+            Objects.requireNonNull(code, "code");
+            Objects.requireNonNull(name, "name");
+        }
+    }
+
+    /** Create storage cell catalogue command. */
+    record CreateStorageCellCommand(UUID warehouseId, String code, boolean active) {
+
+        public CreateStorageCellCommand {
+            Objects.requireNonNull(warehouseId, "warehouseId");
+            Objects.requireNonNull(code, "code");
         }
     }
 

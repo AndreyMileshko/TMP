@@ -79,7 +79,7 @@ class DefaultWarehouseApiTest {
         api =
                 new DefaultWarehouseApi(
                         AllowingAuthorization.INSTANCE,
-                        () -> List.of(),
+                        new EmptyWarehouseCatalog(),
                         stockPositions,
                         new WarehouseReservationLinkService(links, CLOCK),
                         new WarehouseReceiptService(engine, stockPositions),
@@ -87,6 +87,30 @@ class DefaultWarehouseApiTest {
                         new WarehouseTransferService(engine),
                         new WarehouseConsumptionService(engine, stockPositions),
                         new WarehouseAdjustmentService(engine, stockPositions));
+    }
+
+    private static final class EmptyWarehouseCatalog
+            implements com.tmp.warehouse.domain.repository.WarehouseCatalogRepository {
+        @Override
+        public List<com.tmp.warehouse.domain.Warehouse> findAll() {
+            return List.of();
+        }
+
+        @Override
+        public com.tmp.warehouse.domain.Warehouse save(com.tmp.warehouse.domain.Warehouse warehouse) {
+            throw new UnsupportedOperationException("not used in unit test");
+        }
+
+        @Override
+        public com.tmp.warehouse.domain.StorageCell save(com.tmp.warehouse.domain.StorageCell cell) {
+            throw new UnsupportedOperationException("not used in unit test");
+        }
+
+        @Override
+        public List<com.tmp.warehouse.domain.StorageCell> findStorageCellsByWarehouse(
+                WarehouseId warehouseId) {
+            return List.of();
+        }
     }
 
     private enum AllowingAuthorization implements AuthorizationService {

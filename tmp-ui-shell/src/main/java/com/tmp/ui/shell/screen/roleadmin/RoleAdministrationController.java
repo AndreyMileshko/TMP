@@ -76,6 +76,9 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
     @Override
     public void setViewModel(RoleAdministrationViewModel viewModel) {
         this.viewModel = viewModel;
+        roleTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        roleTable.getSelectionModel().setSelectionMode(javafx.scene.control.SelectionMode.SINGLE);
+        roleTable.setPlaceholder(new Label("Нет ролей"));
         nameColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(cell.getValue().name()));
         descriptionColumn.setCellValueFactory(cell ->

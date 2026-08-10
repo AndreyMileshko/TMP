@@ -233,7 +233,7 @@ class WarehouseSecurityAuthorizationTest {
     private DefaultWarehouseApi api(Set<PermissionId> granted) {
         return new DefaultWarehouseApi(
                 new FixedAuthorization(granted),
-                () -> List.of(),
+                new EmptyWarehouseCatalog(),
                 stockPositions,
                 reservationLinks,
                 receipts,
@@ -241,6 +241,30 @@ class WarehouseSecurityAuthorizationTest {
                 transfers,
                 consumptions,
                 adjustments);
+    }
+
+    private static final class EmptyWarehouseCatalog
+            implements com.tmp.warehouse.domain.repository.WarehouseCatalogRepository {
+        @Override
+        public java.util.List<com.tmp.warehouse.domain.Warehouse> findAll() {
+            return java.util.List.of();
+        }
+
+        @Override
+        public com.tmp.warehouse.domain.Warehouse save(com.tmp.warehouse.domain.Warehouse warehouse) {
+            throw new UnsupportedOperationException("not used in authorization test");
+        }
+
+        @Override
+        public com.tmp.warehouse.domain.StorageCell save(com.tmp.warehouse.domain.StorageCell cell) {
+            throw new UnsupportedOperationException("not used in authorization test");
+        }
+
+        @Override
+        public java.util.List<com.tmp.warehouse.domain.StorageCell> findStorageCellsByWarehouse(
+                WarehouseId warehouseId) {
+            return java.util.List.of();
+        }
     }
 
     private static final class FixedAuthorization implements AuthorizationService {

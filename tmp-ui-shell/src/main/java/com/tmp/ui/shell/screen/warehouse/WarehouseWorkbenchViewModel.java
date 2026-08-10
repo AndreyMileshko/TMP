@@ -6,14 +6,20 @@ import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
+import com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand;
+import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
+import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import javafx.beans.property.BooleanProperty;
@@ -27,9 +33,6 @@ import javafx.collections.ObservableList;
 
 /**
  * Warehouse workbench ViewModel. All reads/writes go through {@link WarehouseApi} only.
- *
- * <p>Exposes eight capability-gated sections matching Warehouse UI v1.0 screens. Does not mutate
- * Stock Position or Movement directly.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
@@ -55,47 +58,93 @@ public final class WarehouseWorkbenchViewModel {
     private final BooleanProperty canReservation = new SimpleBooleanProperty(false);
 
     private final ObservableList<WarehouseView> warehouses = FXCollections.observableArrayList();
+    private final ObservableList<StorageCellView> warehouseCells = FXCollections.observableArrayList();
+    private final ObservableList<WarehouseChoice> warehouseChoices =
+            FXCollections.observableArrayList();
     private final ObservableList<StockView> stockRows = FXCollections.observableArrayList();
     private final ObservableList<ReservationLinkView> reservationLinks =
             FXCollections.observableArrayList();
 
-    private final StringProperty stockWarehouseId = new SimpleStringProperty("");
+    private final ObservableList<StorageCellChoice> receiptCellChoices =
+            FXCollections.observableArrayList();
+    private final ObservableList<StorageCellChoice> moveSourceCellChoices =
+            FXCollections.observableArrayList();
+    private final ObservableList<StorageCellChoice> moveDestCellChoices =
+            FXCollections.observableArrayList();
+    private final ObservableList<StorageCellChoice> transferSendCellChoices =
+            FXCollections.observableArrayList();
+    private final ObservableList<StorageCellChoice> transferReceiveSourceCellChoices =
+            FXCollections.observableArrayList();
+    private final ObservableList<StorageCellChoice> transferReceiveDestCellChoices =
+            FXCollections.observableArrayList();
+    private final ObservableList<StorageCellChoice> consumptionCellChoices =
+            FXCollections.observableArrayList();
+    private final ObservableList<StorageCellChoice> adjustmentCellChoices =
+            FXCollections.observableArrayList();
+
+    private final StringProperty newWarehouseCode = new SimpleStringProperty("");
+    private final StringProperty newWarehouseName = new SimpleStringProperty("");
+    private final BooleanProperty newWarehouseActive = new SimpleBooleanProperty(true);
+    private final StringProperty newCellCode = new SimpleStringProperty("");
+    private final BooleanProperty newCellActive = new SimpleBooleanProperty(true);
+    private final ObjectProperty<WarehouseChoice> newCellWarehouse =
+            new SimpleObjectProperty<>();
+
+    private final ObjectProperty<WarehouseChoice> stockWarehouse = new SimpleObjectProperty<>();
     private final StringProperty stockMaterialCode = new SimpleStringProperty("");
 
     private final StringProperty receiptMaterial = new SimpleStringProperty("");
     private final StringProperty receiptQuantity = new SimpleStringProperty("");
-    private final StringProperty receiptWarehouseId = new SimpleStringProperty("");
-    private final StringProperty receiptCellId = new SimpleStringProperty("");
+    private final ObjectProperty<WarehouseChoice> receiptWarehouse = new SimpleObjectProperty<>();
+    private final ObjectProperty<StorageCellChoice> receiptCell = new SimpleObjectProperty<>();
 
     private final StringProperty moveMaterial = new SimpleStringProperty("");
     private final StringProperty moveQuantity = new SimpleStringProperty("");
-    private final StringProperty moveSourceWarehouseId = new SimpleStringProperty("");
-    private final StringProperty moveSourceCellId = new SimpleStringProperty("");
-    private final StringProperty moveDestWarehouseId = new SimpleStringProperty("");
-    private final StringProperty moveDestCellId = new SimpleStringProperty("");
+    private final ObjectProperty<WarehouseChoice> moveSourceWarehouse = new SimpleObjectProperty<>();
+    private final ObjectProperty<StorageCellChoice> moveSourceCell = new SimpleObjectProperty<>();
+    private final ObjectProperty<StorageCellChoice> moveDestCell = new SimpleObjectProperty<>();
 
     private final StringProperty transferMaterial = new SimpleStringProperty("");
     private final StringProperty transferQuantity = new SimpleStringProperty("");
-    private final StringProperty transferSourceWarehouseId = new SimpleStringProperty("");
-    private final StringProperty transferSourceCellId = new SimpleStringProperty("");
-    private final StringProperty transferDestWarehouseId = new SimpleStringProperty("");
+    private final ObjectProperty<WarehouseChoice> transferSourceWarehouse =
+            new SimpleObjectProperty<>();
+    private final ObjectProperty<StorageCellChoice> transferSourceCell =
+            new SimpleObjectProperty<>();
+    private final ObjectProperty<WarehouseChoice> transferDestWarehouse =
+            new SimpleObjectProperty<>();
+
+    private final StringProperty transferReceiveMaterial = new SimpleStringProperty("");
+    private final StringProperty transferReceiveQuantity = new SimpleStringProperty("");
+    private final ObjectProperty<WarehouseChoice> transferReceiveSourceWarehouse =
+            new SimpleObjectProperty<>();
+    private final ObjectProperty<StorageCellChoice> transferReceiveSourceCell =
+            new SimpleObjectProperty<>();
+    private final ObjectProperty<WarehouseChoice> transferReceiveDestWarehouse =
+            new SimpleObjectProperty<>();
+    private final ObjectProperty<StorageCellChoice> transferReceiveDestCell =
+            new SimpleObjectProperty<>();
 
     private final StringProperty consumptionMaterial = new SimpleStringProperty("");
     private final StringProperty consumptionQuantity = new SimpleStringProperty("");
-    private final StringProperty consumptionWarehouseId = new SimpleStringProperty("");
-    private final StringProperty consumptionCellId = new SimpleStringProperty("");
+    private final ObjectProperty<WarehouseChoice> consumptionWarehouse =
+            new SimpleObjectProperty<>();
+    private final ObjectProperty<StorageCellChoice> consumptionCell = new SimpleObjectProperty<>();
     private final StringProperty consumptionBasis = new SimpleStringProperty("");
 
     private final StringProperty adjustmentMaterial = new SimpleStringProperty("");
     private final StringProperty adjustmentQuantityDelta = new SimpleStringProperty("");
-    private final StringProperty adjustmentWarehouseId = new SimpleStringProperty("");
-    private final StringProperty adjustmentCellId = new SimpleStringProperty("");
+    private final ObjectProperty<WarehouseChoice> adjustmentWarehouse =
+            new SimpleObjectProperty<>();
+    private final ObjectProperty<StorageCellChoice> adjustmentCell = new SimpleObjectProperty<>();
     private final StringProperty adjustmentReason = new SimpleStringProperty("");
 
     private final StringProperty reservationMaterial = new SimpleStringProperty("");
     private final StringProperty reservationOrderRef = new SimpleStringProperty("");
     private final StringProperty reservationQuantity = new SimpleStringProperty("");
     private final StringProperty reservationFilterMaterial = new SimpleStringProperty("");
+
+    private final Map<UUID, String> warehouseLabels = new HashMap<>();
+    private final Map<UUID, String> cellLabels = new HashMap<>();
 
     public WarehouseWorkbenchViewModel(
             WarehouseApi warehouseApi, AuthorizationService authorizationService) {
@@ -108,6 +157,41 @@ public final class WarehouseWorkbenchViewModel {
                 onSectionOpened(newValue);
             }
         });
+        receiptWarehouse.addListener(
+                (obs, oldValue, newValue) -> reloadCells(newValue, receiptCellChoices, receiptCell));
+        moveSourceWarehouse.addListener((obs, oldValue, newValue) -> {
+            reloadCells(newValue, moveSourceCellChoices, moveSourceCell);
+            reloadCells(newValue, moveDestCellChoices, moveDestCell);
+        });
+        transferSourceWarehouse.addListener(
+                (obs, oldValue, newValue) ->
+                        reloadCells(newValue, transferSendCellChoices, transferSourceCell));
+        transferReceiveSourceWarehouse.addListener(
+                (obs, oldValue, newValue) ->
+                        reloadCells(
+                                newValue,
+                                transferReceiveSourceCellChoices,
+                                transferReceiveSourceCell));
+        transferReceiveDestWarehouse.addListener(
+                (obs, oldValue, newValue) ->
+                        reloadCells(
+                                newValue,
+                                transferReceiveDestCellChoices,
+                                transferReceiveDestCell));
+        consumptionWarehouse.addListener(
+                (obs, oldValue, newValue) ->
+                        reloadCells(newValue, consumptionCellChoices, consumptionCell));
+        adjustmentWarehouse.addListener(
+                (obs, oldValue, newValue) ->
+                        reloadCells(newValue, adjustmentCellChoices, adjustmentCell));
+        newCellWarehouse.addListener(
+                (obs, oldValue, newValue) -> {
+                    if (newValue != null) {
+                        loadCellsForWarehousePane(newValue.id());
+                    } else {
+                        warehouseCells.clear();
+                    }
+                });
         refreshPermissions();
     }
 
@@ -145,10 +229,55 @@ public final class WarehouseWorkbenchViewModel {
             return;
         }
         run("Список складов загружен", () -> {
-            warehouses.setAll(warehouseApi.listWarehouses());
+            List<WarehouseView> listed = warehouseApi.listWarehouses();
+            warehouses.setAll(listed);
+            refreshWarehouseChoices(listed);
             if (warehouses.isEmpty()) {
                 statusMessage.set("Склады не найдены");
             }
+        });
+    }
+
+    public void createWarehouse() {
+        if (!canView.get()) {
+            deny();
+            return;
+        }
+        run("Склад создан", () -> {
+            WarehouseView created =
+                    warehouseApi.createWarehouse(
+                            new CreateWarehouseCommand(
+                                    requireText(newWarehouseCode.get(), "код склада"),
+                                    requireText(newWarehouseName.get(), "название склада"),
+                                    newWarehouseActive.get()));
+            statusMessage.set("Склад создан: " + created.code());
+            newWarehouseCode.set("");
+            newWarehouseName.set("");
+            newWarehouseActive.set(true);
+            List<WarehouseView> listed = warehouseApi.listWarehouses();
+            warehouses.setAll(listed);
+            refreshWarehouseChoices(listed);
+        });
+    }
+
+    public void createStorageCell() {
+        if (!canView.get()) {
+            deny();
+            return;
+        }
+        run("Ячейка создана", () -> {
+            WarehouseChoice warehouse = requireChoice(newCellWarehouse.get(), "склад");
+            StorageCellView created =
+                    warehouseApi.createStorageCell(
+                            new CreateStorageCellCommand(
+                                    warehouse.id(),
+                                    requireText(newCellCode.get(), "код ячейки"),
+                                    newCellActive.get()));
+            statusMessage.set("Ячейка создана: " + created.code());
+            newCellCode.set("");
+            newCellActive.set(true);
+            loadCellsForWarehousePane(warehouse.id());
+            rememberCell(created);
         });
     }
 
@@ -157,18 +286,22 @@ public final class WarehouseWorkbenchViewModel {
             deny();
             return;
         }
-        String warehouseRaw = blankToNull(stockWarehouseId.get());
+        WarehouseChoice warehouse = stockWarehouse.get();
         String materialRaw = blankToNull(stockMaterialCode.get());
-        if (warehouseRaw == null && materialRaw == null) {
+        if (warehouse == null && materialRaw == null) {
             errorMessage.set("Укажите склад или материал для загрузки остатков.");
             return;
         }
         run("Остатки загружены", () -> {
-            if (warehouseRaw != null) {
-                UUID warehouseId = parseUuid(warehouseRaw, "склад");
-                stockRows.setAll(warehouseApi.getStockByWarehouse(warehouseId));
+            ensureWarehouseChoicesLoaded();
+            if (warehouse != null) {
+                stockRows.setAll(warehouseApi.getStockByWarehouse(warehouse.id()));
+                loadCellLabels(warehouse.id());
             } else {
                 stockRows.setAll(warehouseApi.getStock(materialRaw));
+                for (StockView row : stockRows) {
+                    loadCellLabels(row.warehouseId());
+                }
             }
             if (stockRows.isEmpty()) {
                 statusMessage.set("Остатки не найдены");
@@ -182,13 +315,15 @@ public final class WarehouseWorkbenchViewModel {
             return;
         }
         run("Поступление выполнено", () -> {
+            WarehouseChoice warehouse = requireChoice(receiptWarehouse.get(), "склад");
+            StorageCellChoice cell = requireChoice(receiptCell.get(), "ячейка");
             OperationResult result =
                     warehouseApi.executeWarehouseOperation(
                             ExecuteOperationCommand.receipt(
                                     requireText(receiptMaterial.get(), "материал"),
                                     parsePositiveDecimal(receiptQuantity.get(), "количество"),
-                                    parseUuid(receiptWarehouseId.get(), "склад"),
-                                    parseUuid(receiptCellId.get(), "ячейка")));
+                                    warehouse.id(),
+                                    cell.id()));
             statusMessage.set(
                     "Поступление выполнено: operationId=" + result.operationId());
         });
@@ -200,15 +335,18 @@ public final class WarehouseWorkbenchViewModel {
             return;
         }
         run("Перемещение выполнено", () -> {
+            WarehouseChoice warehouse = requireChoice(moveSourceWarehouse.get(), "склад источник");
+            StorageCellChoice sourceCell = requireChoice(moveSourceCell.get(), "ячейка источник");
+            StorageCellChoice destCell = requireChoice(moveDestCell.get(), "ячейка назначения");
             OperationResult result =
                     warehouseApi.executeWarehouseOperation(
                             ExecuteOperationCommand.move(
                                     requireText(moveMaterial.get(), "материал"),
                                     parsePositiveDecimal(moveQuantity.get(), "количество"),
-                                    parseUuid(moveSourceWarehouseId.get(), "склад источник"),
-                                    parseUuid(moveSourceCellId.get(), "ячейка источник"),
-                                    parseUuid(moveDestWarehouseId.get(), "склад назначения"),
-                                    parseUuid(moveDestCellId.get(), "ячейка назначения")));
+                                    warehouse.id(),
+                                    sourceCell.id(),
+                                    warehouse.id(),
+                                    destCell.id()));
             statusMessage.set("Перемещение выполнено: operationId=" + result.operationId());
         });
     }
@@ -219,16 +357,51 @@ public final class WarehouseWorkbenchViewModel {
             return;
         }
         run("Межскладское перемещение (отправка) выполнено", () -> {
+            WarehouseChoice source =
+                    requireChoice(transferSourceWarehouse.get(), "склад источник");
+            StorageCellChoice sourceCell =
+                    requireChoice(transferSourceCell.get(), "ячейка источник");
+            WarehouseChoice destination =
+                    requireChoice(transferDestWarehouse.get(), "склад назначения");
             OperationResult result =
                     warehouseApi.executeWarehouseOperation(
                             ExecuteOperationCommand.transferSend(
                                     requireText(transferMaterial.get(), "материал"),
                                     parsePositiveDecimal(transferQuantity.get(), "количество"),
-                                    parseUuid(transferSourceWarehouseId.get(), "склад источник"),
-                                    parseUuid(transferSourceCellId.get(), "ячейка источник"),
-                                    parseUuid(transferDestWarehouseId.get(), "склад назначения")));
+                                    source.id(),
+                                    sourceCell.id(),
+                                    destination.id()));
             statusMessage.set(
                     "Межскладская отправка выполнена: operationId=" + result.operationId());
+        });
+    }
+
+    public void submitTransferReceive() {
+        if (!canTransfer.get()) {
+            deny();
+            return;
+        }
+        run("Межскладское перемещение (приём) выполнено", () -> {
+            WarehouseChoice source =
+                    requireChoice(transferReceiveSourceWarehouse.get(), "склад источник");
+            StorageCellChoice sourceCell =
+                    requireChoice(transferReceiveSourceCell.get(), "ячейка источник");
+            WarehouseChoice destination =
+                    requireChoice(transferReceiveDestWarehouse.get(), "склад назначения");
+            StorageCellChoice destCell =
+                    requireChoice(transferReceiveDestCell.get(), "ячейка назначения");
+            OperationResult result =
+                    warehouseApi.executeWarehouseOperation(
+                            ExecuteOperationCommand.transferReceive(
+                                    requireText(transferReceiveMaterial.get(), "материал"),
+                                    parsePositiveDecimal(
+                                            transferReceiveQuantity.get(), "количество"),
+                                    source.id(),
+                                    sourceCell.id(),
+                                    destination.id(),
+                                    destCell.id()));
+            statusMessage.set(
+                    "Межскладской приём выполнен: operationId=" + result.operationId());
         });
     }
 
@@ -239,13 +412,15 @@ public final class WarehouseWorkbenchViewModel {
         }
         run("Списание выполнено", () -> {
             String basis = requireText(consumptionBasis.get(), "основание");
+            WarehouseChoice warehouse = requireChoice(consumptionWarehouse.get(), "склад");
+            StorageCellChoice cell = requireChoice(consumptionCell.get(), "ячейка");
             OperationResult result =
                     warehouseApi.executeWarehouseOperation(
                             ExecuteOperationCommand.consumption(
                                     requireText(consumptionMaterial.get(), "материал"),
                                     parsePositiveDecimal(consumptionQuantity.get(), "количество"),
-                                    parseUuid(consumptionWarehouseId.get(), "склад"),
-                                    parseUuid(consumptionCellId.get(), "ячейка")));
+                                    warehouse.id(),
+                                    cell.id()));
             statusMessage.set(
                     "Списание выполнено: operationId="
                             + result.operationId()
@@ -261,20 +436,26 @@ public final class WarehouseWorkbenchViewModel {
         }
         run("Корректировка выполнена", () -> {
             String reason = requireText(adjustmentReason.get(), "причина");
+            WarehouseChoice warehouse = requireChoice(adjustmentWarehouse.get(), "склад");
+            StorageCellChoice cell = requireChoice(adjustmentCell.get(), "ячейка");
             OperationResult result =
                     warehouseApi.executeWarehouseOperation(
                             ExecuteOperationCommand.adjustment(
                                     requireText(adjustmentMaterial.get(), "материал"),
                                     parseNonZeroDecimal(
                                             adjustmentQuantityDelta.get(), "количество изменения"),
-                                    parseUuid(adjustmentWarehouseId.get(), "склад"),
-                                    parseUuid(adjustmentCellId.get(), "ячейка")));
+                                    warehouse.id(),
+                                    cell.id()));
             statusMessage.set(
                     "Корректировка выполнена: operationId="
                             + result.operationId()
                             + "; причина="
                             + reason);
         });
+    }
+
+    public void openAdjustmentFromInventory() {
+        selectSection(WarehouseSection.ADJUSTMENT);
     }
 
     public void loadReservationLinks() {
@@ -308,6 +489,20 @@ public final class WarehouseWorkbenchViewModel {
             reservationFilterMaterial.set(created.materialCode());
             reservationLinks.setAll(warehouseApi.listReservationLinks(created.materialCode()));
         });
+    }
+
+    public String warehouseLabel(UUID warehouseId) {
+        if (warehouseId == null) {
+            return "";
+        }
+        return warehouseLabels.getOrDefault(warehouseId, warehouseId.toString());
+    }
+
+    public String cellLabel(UUID cellId) {
+        if (cellId == null) {
+            return "";
+        }
+        return cellLabels.getOrDefault(cellId, cellId.toString());
     }
 
     public ObjectProperty<WarehouseSection> sectionProperty() {
@@ -362,6 +557,14 @@ public final class WarehouseWorkbenchViewModel {
         return warehouses;
     }
 
+    public ObservableList<StorageCellView> warehouseCells() {
+        return warehouseCells;
+    }
+
+    public ObservableList<WarehouseChoice> warehouseChoices() {
+        return warehouseChoices;
+    }
+
     public ObservableList<StockView> stockRows() {
         return stockRows;
     }
@@ -370,8 +573,64 @@ public final class WarehouseWorkbenchViewModel {
         return reservationLinks;
     }
 
-    public StringProperty stockWarehouseIdProperty() {
-        return stockWarehouseId;
+    public ObservableList<StorageCellChoice> receiptCellChoices() {
+        return receiptCellChoices;
+    }
+
+    public ObservableList<StorageCellChoice> moveSourceCellChoices() {
+        return moveSourceCellChoices;
+    }
+
+    public ObservableList<StorageCellChoice> moveDestCellChoices() {
+        return moveDestCellChoices;
+    }
+
+    public ObservableList<StorageCellChoice> transferSendCellChoices() {
+        return transferSendCellChoices;
+    }
+
+    public ObservableList<StorageCellChoice> transferReceiveSourceCellChoices() {
+        return transferReceiveSourceCellChoices;
+    }
+
+    public ObservableList<StorageCellChoice> transferReceiveDestCellChoices() {
+        return transferReceiveDestCellChoices;
+    }
+
+    public ObservableList<StorageCellChoice> consumptionCellChoices() {
+        return consumptionCellChoices;
+    }
+
+    public ObservableList<StorageCellChoice> adjustmentCellChoices() {
+        return adjustmentCellChoices;
+    }
+
+    public StringProperty newWarehouseCodeProperty() {
+        return newWarehouseCode;
+    }
+
+    public StringProperty newWarehouseNameProperty() {
+        return newWarehouseName;
+    }
+
+    public BooleanProperty newWarehouseActiveProperty() {
+        return newWarehouseActive;
+    }
+
+    public StringProperty newCellCodeProperty() {
+        return newCellCode;
+    }
+
+    public BooleanProperty newCellActiveProperty() {
+        return newCellActive;
+    }
+
+    public ObjectProperty<WarehouseChoice> newCellWarehouseProperty() {
+        return newCellWarehouse;
+    }
+
+    public ObjectProperty<WarehouseChoice> stockWarehouseProperty() {
+        return stockWarehouse;
     }
 
     public StringProperty stockMaterialCodeProperty() {
@@ -386,12 +645,12 @@ public final class WarehouseWorkbenchViewModel {
         return receiptQuantity;
     }
 
-    public StringProperty receiptWarehouseIdProperty() {
-        return receiptWarehouseId;
+    public ObjectProperty<WarehouseChoice> receiptWarehouseProperty() {
+        return receiptWarehouse;
     }
 
-    public StringProperty receiptCellIdProperty() {
-        return receiptCellId;
+    public ObjectProperty<StorageCellChoice> receiptCellProperty() {
+        return receiptCell;
     }
 
     public StringProperty moveMaterialProperty() {
@@ -402,20 +661,16 @@ public final class WarehouseWorkbenchViewModel {
         return moveQuantity;
     }
 
-    public StringProperty moveSourceWarehouseIdProperty() {
-        return moveSourceWarehouseId;
+    public ObjectProperty<WarehouseChoice> moveSourceWarehouseProperty() {
+        return moveSourceWarehouse;
     }
 
-    public StringProperty moveSourceCellIdProperty() {
-        return moveSourceCellId;
+    public ObjectProperty<StorageCellChoice> moveSourceCellProperty() {
+        return moveSourceCell;
     }
 
-    public StringProperty moveDestWarehouseIdProperty() {
-        return moveDestWarehouseId;
-    }
-
-    public StringProperty moveDestCellIdProperty() {
-        return moveDestCellId;
+    public ObjectProperty<StorageCellChoice> moveDestCellProperty() {
+        return moveDestCell;
     }
 
     public StringProperty transferMaterialProperty() {
@@ -426,16 +681,40 @@ public final class WarehouseWorkbenchViewModel {
         return transferQuantity;
     }
 
-    public StringProperty transferSourceWarehouseIdProperty() {
-        return transferSourceWarehouseId;
+    public ObjectProperty<WarehouseChoice> transferSourceWarehouseProperty() {
+        return transferSourceWarehouse;
     }
 
-    public StringProperty transferSourceCellIdProperty() {
-        return transferSourceCellId;
+    public ObjectProperty<StorageCellChoice> transferSourceCellProperty() {
+        return transferSourceCell;
     }
 
-    public StringProperty transferDestWarehouseIdProperty() {
-        return transferDestWarehouseId;
+    public ObjectProperty<WarehouseChoice> transferDestWarehouseProperty() {
+        return transferDestWarehouse;
+    }
+
+    public StringProperty transferReceiveMaterialProperty() {
+        return transferReceiveMaterial;
+    }
+
+    public StringProperty transferReceiveQuantityProperty() {
+        return transferReceiveQuantity;
+    }
+
+    public ObjectProperty<WarehouseChoice> transferReceiveSourceWarehouseProperty() {
+        return transferReceiveSourceWarehouse;
+    }
+
+    public ObjectProperty<StorageCellChoice> transferReceiveSourceCellProperty() {
+        return transferReceiveSourceCell;
+    }
+
+    public ObjectProperty<WarehouseChoice> transferReceiveDestWarehouseProperty() {
+        return transferReceiveDestWarehouse;
+    }
+
+    public ObjectProperty<StorageCellChoice> transferReceiveDestCellProperty() {
+        return transferReceiveDestCell;
     }
 
     public StringProperty consumptionMaterialProperty() {
@@ -446,12 +725,12 @@ public final class WarehouseWorkbenchViewModel {
         return consumptionQuantity;
     }
 
-    public StringProperty consumptionWarehouseIdProperty() {
-        return consumptionWarehouseId;
+    public ObjectProperty<WarehouseChoice> consumptionWarehouseProperty() {
+        return consumptionWarehouse;
     }
 
-    public StringProperty consumptionCellIdProperty() {
-        return consumptionCellId;
+    public ObjectProperty<StorageCellChoice> consumptionCellProperty() {
+        return consumptionCell;
     }
 
     public StringProperty consumptionBasisProperty() {
@@ -466,12 +745,12 @@ public final class WarehouseWorkbenchViewModel {
         return adjustmentQuantityDelta;
     }
 
-    public StringProperty adjustmentWarehouseIdProperty() {
-        return adjustmentWarehouseId;
+    public ObjectProperty<WarehouseChoice> adjustmentWarehouseProperty() {
+        return adjustmentWarehouse;
     }
 
-    public StringProperty adjustmentCellIdProperty() {
-        return adjustmentCellId;
+    public ObjectProperty<StorageCellChoice> adjustmentCellProperty() {
+        return adjustmentCell;
     }
 
     public StringProperty adjustmentReasonProperty() {
@@ -500,7 +779,9 @@ public final class WarehouseWorkbenchViewModel {
         statusMessage.set("");
         switch (value) {
             case WAREHOUSES -> loadWarehouses();
-            case STOCK, RECEIPT, MOVE, TRANSFER, CONSUMPTION, ADJUSTMENT, RESERVATIONS -> {
+            case STOCK, RECEIPT, MOVE, TRANSFER, CONSUMPTION, ADJUSTMENT, INVENTORY ->
+                    ensureWarehouseChoicesLoaded();
+            case RESERVATIONS -> {
                 // forms load on demand
             }
         }
@@ -508,7 +789,7 @@ public final class WarehouseWorkbenchViewModel {
 
     private boolean isSectionAllowed(WarehouseSection value) {
         return switch (value) {
-            case WAREHOUSES, STOCK -> canView.get();
+            case WAREHOUSES, STOCK, INVENTORY -> canView.get();
             case RECEIPT -> canReceipt.get();
             case MOVE -> canMove.get();
             case TRANSFER -> canTransfer.get();
@@ -516,6 +797,67 @@ public final class WarehouseWorkbenchViewModel {
             case ADJUSTMENT -> canAdjustment.get();
             case RESERVATIONS -> canReservation.get();
         };
+    }
+
+    private void ensureWarehouseChoicesLoaded() {
+        if (!warehouseChoices.isEmpty() || !canView.get()) {
+            return;
+        }
+        try {
+            refreshWarehouseChoices(warehouseApi.listWarehouses());
+        } catch (RuntimeException ex) {
+            errorMessage.set(WarehouseUiErrorMapper.text(ex));
+        }
+    }
+
+    private void refreshWarehouseChoices(List<WarehouseView> listed) {
+        warehouseChoices.setAll(listed.stream().map(WarehouseChoice::from).toList());
+        warehouseLabels.clear();
+        for (WarehouseView view : listed) {
+            warehouseLabels.put(view.warehouseId(), view.code() + " — " + view.name());
+        }
+    }
+
+    private void loadCellsForWarehousePane(UUID warehouseId) {
+        List<StorageCellView> cells = warehouseApi.listStorageCells(warehouseId);
+        warehouseCells.setAll(cells);
+        for (StorageCellView cell : cells) {
+            rememberCell(cell);
+        }
+    }
+
+    private void reloadCells(
+            WarehouseChoice warehouse,
+            ObservableList<StorageCellChoice> target,
+            ObjectProperty<StorageCellChoice> selected) {
+        selected.set(null);
+        target.clear();
+        if (warehouse == null || !canView.get()) {
+            return;
+        }
+        try {
+            List<StorageCellView> cells = warehouseApi.listStorageCells(warehouse.id());
+            target.setAll(cells.stream().map(StorageCellChoice::from).toList());
+            for (StorageCellView cell : cells) {
+                rememberCell(cell);
+            }
+        } catch (RuntimeException ex) {
+            errorMessage.set(WarehouseUiErrorMapper.text(ex));
+        }
+    }
+
+    private void loadCellLabels(UUID warehouseId) {
+        try {
+            for (StorageCellView cell : warehouseApi.listStorageCells(warehouseId)) {
+                rememberCell(cell);
+            }
+        } catch (RuntimeException ignored) {
+            // keep UUID fallback in table
+        }
+    }
+
+    private void rememberCell(StorageCellView cell) {
+        cellLabels.put(cell.storageCellId(), cell.code());
     }
 
     private void run(String successMessage, Runnable action) {
@@ -547,21 +889,19 @@ public final class WarehouseWorkbenchViewModel {
         return authorizationService.hasPermission(PermissionId.of(permission));
     }
 
+    private static <T> T requireChoice(T value, String field) {
+        if (value == null) {
+            throw new IllegalArgumentException("Выберите " + field);
+        }
+        return value;
+    }
+
     private static String requireText(String raw, String field) {
         String value = blankToNull(raw);
         if (value == null) {
             throw new IllegalArgumentException(field + " must not be blank");
         }
         return value;
-    }
-
-    private static UUID parseUuid(String raw, String field) {
-        String value = requireText(raw, field);
-        try {
-            return UUID.fromString(value);
-        } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("Некорректный UUID для поля \"" + field + "\"");
-        }
     }
 
     private static BigDecimal parsePositiveDecimal(String raw, String field) {

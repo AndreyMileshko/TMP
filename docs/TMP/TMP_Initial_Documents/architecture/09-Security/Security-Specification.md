@@ -105,7 +105,7 @@ Security не содержит предметной бизнес-логики и
 ```text
 order.view
 order.create
-warehouse.issue
+warehouse.stock.view
 production.release
 cutting.generate
 ```

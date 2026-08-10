@@ -9,6 +9,7 @@ import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.RoleAdministrationService;
 import com.tmp.security.api.SecuredOperationDemo;
+import com.tmp.security.api.SystemRolePermissionEnsureService;
 import com.tmp.security.api.UserAdministrationService;
 import com.tmp.security.application.AuditQueryApplicationService;
 import com.tmp.security.application.AuthenticationApplicationService;
@@ -18,6 +19,7 @@ import com.tmp.security.application.DefaultAuditQueryService;
 import com.tmp.security.application.DefaultAuthenticationService;
 import com.tmp.security.application.DefaultAuthorizationService;
 import com.tmp.security.application.DefaultRoleAdministrationService;
+import com.tmp.security.application.DefaultSystemRolePermissionEnsureService;
 import com.tmp.security.application.DefaultUserAdministrationService;
 import com.tmp.security.application.PasswordApplicationService;
 import com.tmp.security.application.PermissionOverrideApplicationService;
@@ -322,6 +324,12 @@ public class SecurityAutoConfiguration {
     @Bean
     SecuredOperationDemo securedOperationDemo(AuthorizationService authorizationService) {
         return new SecuredOperationDemo(authorizationService);
+    }
+
+    @Bean
+    SystemRolePermissionEnsureService systemRolePermissionEnsureService(
+            RoleRepository roleRepository, Clock clock) {
+        return new DefaultSystemRolePermissionEnsureService(roleRepository, clock);
     }
 
     @Bean

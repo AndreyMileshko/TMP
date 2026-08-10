@@ -240,4 +240,28 @@ class WarehouseApiIntegrationTest {
                 0,
                 api.getStock("ALU-6060").get(0).quantity().compareTo(BigDecimal.valueOf(50)));
     }
+
+    @Test
+    void createWarehouseAndStorageCellThroughPublicApi() {
+        WarehouseApi.WarehouseView warehouse =
+                api.createWarehouse(
+                        new WarehouseApi.CreateWarehouseCommand("WH-API-3", "Created", true));
+        assertEquals("WH-API-3", warehouse.code());
+        assertTrue(warehouse.active());
+
+        WarehouseApi.StorageCellView cell =
+                api.createStorageCell(
+                        new WarehouseApi.CreateStorageCellCommand(
+                                warehouse.warehouseId(), "Z-01", true));
+        assertEquals("Z-01", cell.code());
+        assertEquals(warehouse.warehouseId(), cell.warehouseId());
+
+        List<WarehouseApi.StorageCellView> cells =
+                api.listStorageCells(warehouse.warehouseId());
+        assertEquals(1, cells.size());
+        assertEquals("Z-01", cells.get(0).code());
+
+        List<WarehouseApi.WarehouseView> warehouses = api.listWarehouses();
+        assertTrue(warehouses.stream().anyMatch(view -> view.code().equals("WH-API-3")));
+    }
 }

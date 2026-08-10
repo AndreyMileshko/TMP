@@ -4,6 +4,59 @@
 
 ---
 
+## STAGE6-016 — Warehouse UI + Security Roles UI final UX fix
+
+**Date:** 2026-08-10  
+**Stage:** 6  
+**Status:** DONE  
+**Module:** `tmp-ui-shell`, `tmp-warehouse` (additive Public API catalogue only)
+
+### Summary
+
+Исправлены UX-проблемы ручной проверки Stage 6: создание склада/ячеек через Public API, ComboBox вместо UUID, Transfer Receive, одна навигация (левое меню), простой экран Инвентаризация, layout Roles с фиксированной высотой таблицы и scrollable permissions.
+
+### Changes
+
+- Warehouse Public API: `createWarehouse`, `createStorageCell`, `listStorageCells` (+ DTOs)
+- `WarehouseCatalogRepository` / JDBC: `save` warehouse/cell, list cells by warehouse
+- Warehouse workbench UI: create forms, dropdowns, Transfer Receive, Inventory hint, nav dedupe
+- Roles UI: minHeight role table, ScrollPane for permissions, selection mode SINGLE
+- Tests updated for API + ViewModel + Roles FX lookup via ScrollPane content
+
+### Boundaries
+
+- Domain model / Security model / PermissionId / DB schema not changed
+- Git commands not executed by agent
+
+---
+
+## Stage 6 — Warehouse documentation finalization
+
+**Date:** 2026-08-10  
+**Stage:** 6  
+**Status:** DONE  
+**Type:** Documentation only
+
+### Summary
+
+Stage 6 Warehouse implementation completed.
+
+Документационные расхождения после Warehouse Final Audit (`Warehouse-Readiness-Review.md`, verdict `READY_TO_CLOSE`) закрыты: статусы Stage 6 в control docs выровнены, устаревший пример `warehouse.issue` в Security Specification заменён на актуальный permission id.
+
+### Changes
+
+- `WORK-QUEUE.md`: STAGE6-012..014 READY → DONE; Stage 6 section status → DONE
+- `STATUS.md`: явное `Stage 6 Warehouse = DONE`
+- `Security-Specification.md`: пример `warehouse.issue` → `warehouse.stock.view` (WAREHOUSE_VIEW)
+- `VERIFICATION-LOG.md`: запись Final Audit
+
+### Boundaries
+
+- Код / SQL / API / UI / Warehouse logic не изменялись
+- Git commands not executed by agent
+
+---
+
 ## STAGE6-015 — Warehouse UI
 
 **Date:** 2026-08-09  

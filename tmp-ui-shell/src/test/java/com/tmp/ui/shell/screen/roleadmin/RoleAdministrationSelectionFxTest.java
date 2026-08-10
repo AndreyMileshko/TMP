@@ -153,7 +153,13 @@ class RoleAdministrationSelectionFxTest {
                 Stage stage = new Stage();
                 stage.setScene(new Scene(root));
                 table.set((TableView<RoleSummary>) root.lookup("#roleTable"));
-                permissionBox.set((VBox) root.lookup("#permissionBox"));
+                javafx.scene.control.ScrollPane scroll =
+                        (javafx.scene.control.ScrollPane) root.lookup("#permissionScroll");
+                if (scroll != null && scroll.getContent() instanceof VBox box) {
+                    permissionBox.set(box);
+                } else {
+                    permissionBox.set((VBox) root.lookup("#permissionBox"));
+                }
                 updateButton.set((Button) root.lookup("#updateButton"));
             } catch (Throwable throwable) {
                 error.set(throwable);
