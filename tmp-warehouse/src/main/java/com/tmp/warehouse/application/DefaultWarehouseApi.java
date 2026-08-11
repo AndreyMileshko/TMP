@@ -6,17 +6,19 @@ import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.application.port.MaterialReferenceDisplay;
 import com.tmp.warehouse.application.port.MaterialReferenceDisplayPort;
 import com.tmp.warehouse.domain.MaterialReservationLink;
+import com.tmp.warehouse.domain.MaterialReference;
+import com.tmp.warehouse.domain.MaterialReferenceId;
 import com.tmp.warehouse.domain.ReservationTargetReference;
 import com.tmp.warehouse.domain.ReservationTargetType;
 import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
-import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.StorageCell;
 import com.tmp.warehouse.domain.StorageCellId;
 import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseOperation;
+import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.security.WarehousePermissions;
@@ -42,6 +44,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     private final AuthorizationService authorization;
     private final WarehouseCatalogRepository warehouses;
     private final StockPositionRepository stockPositions;
+    private final MaterialReferenceRepository materials;
     private final MaterialReferenceDisplayPort materialDisplay;
     private final WarehouseReservationLinkService reservationLinks;
     private final WarehouseReceiptService receipts;
@@ -54,6 +57,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             AuthorizationService authorization,
             WarehouseCatalogRepository warehouses,
             StockPositionRepository stockPositions,
+            MaterialReferenceRepository materials,
             MaterialReferenceDisplayPort materialDisplay,
             WarehouseReservationLinkService reservationLinks,
             WarehouseReceiptService receipts,
@@ -64,6 +68,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.warehouses = Objects.requireNonNull(warehouses, "warehouses");
         this.stockPositions = Objects.requireNonNull(stockPositions, "stockPositions");
+        this.materials = Objects.requireNonNull(materials, "materials");
         this.materialDisplay = Objects.requireNonNull(materialDisplay, "materialDisplay");
         this.reservationLinks = Objects.requireNonNull(reservationLinks, "reservationLinks");
         this.receipts = Objects.requireNonNull(receipts, "receipts");
@@ -132,11 +137,18 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     }
 
     @Override
+    public List<MaterialReferenceView> listMaterialReferences() {
+        requireMaterialDisplayAccess();
+        return materials.findAll().stream().map(this::toMaterialReferenceView).toList();
+    }
+
+    @Override
     public List<StockView> getStock(String materialCode) {
         Objects.requireNonNull(materialCode, "materialCode");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
-        MaterialReference material = MaterialReference.of(materialCode);
-        return stockPositions.findByMaterial(material).stream().map(this::toStockView).toList();
+        return stockPositions.findByArticle(materialCode.trim()).stream()
+                .map(this::toStockView)
+                .toList();
     }
 
     @Override
@@ -147,8 +159,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
         WarehouseId wh = WarehouseId.of(warehouseId);
         StorageCellId cell = StorageCellId.of(storageCellId);
-        MaterialReference material = MaterialReference.of(materialCode);
-        return stockPositions.findByMaterial(material).stream()
+        return stockPositions.findByArticle(materialCode.trim()).stream()
                 .map(this::toStockView)
                 .filter(
                         view ->
@@ -170,7 +181,12 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public MaterialReferenceDisplayView getMaterialReferenceDisplay(String materialCode) {
         Objects.requireNonNull(materialCode, "materialCode");
         requireMaterialDisplayAccess();
-        return toMaterialReferenceDisplayView(materialDisplay.resolve(materialCode));
+        return materials.findByNaturalKey(materialCode, "", "", "")
+                .map(material -> toMaterialReferenceDisplayView(material))
+                .orElseGet(
+                        () ->
+                                toMaterialReferenceDisplayView(
+                                        materialDisplay.resolve(materialCode)));
     }
 
     @Override
@@ -182,7 +198,13 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             throw new IllegalArgumentException(
                     "Requested quantity must be positive: " + quantity);
         }
-        MaterialReference material = MaterialReference.of(materialCode);
+        MaterialReference material =
+                materials
+                        .findByNaturalKey(materialCode, "", "", "")
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Material reference not found: " + materialCode));
         BigDecimal available =
                 stockPositions.findByMaterial(material).stream()
                         .filter(position -> position.stockState() == StockState.AVAILABLE)
@@ -192,16 +214,17 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 available.compareTo(quantity) >= 0
                         ? AvailabilityStatus.AVAILABLE
                         : AvailabilityStatus.INSUFFICIENT;
-        return new AvailabilityResult(status, material.materialCode(), quantity, available);
+        return new AvailabilityResult(status, material.article(), quantity, available);
     }
 
     @Override
     public ReservationLinkView createReservationLink(CreateReservationLinkCommand command) {
         Objects.requireNonNull(command, "command");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_RESERVATION);
+        MaterialReference material = requireMaterial(command.materialReferenceId());
         MaterialReservationLink link =
                 reservationLinks.createLink(
-                        MaterialReference.of(command.materialCode()),
+                        material,
                         toTarget(command.targetType(), command.targetReference()),
                         StockQuantity.of(command.quantity()));
         return toReservationLinkView(link);
@@ -211,7 +234,14 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public List<ReservationLinkView> listReservationLinks(String materialCode) {
         Objects.requireNonNull(materialCode, "materialCode");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_RESERVATION);
-        return reservationLinks.findByMaterial(MaterialReference.of(materialCode)).stream()
+        MaterialReference material =
+                materials
+                        .findByNaturalKey(materialCode, "", "", "")
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Material reference not found: " + materialCode));
+        return reservationLinks.findByMaterial(material).stream()
                 .map(DefaultWarehouseApi::toReservationLinkView)
                 .toList();
     }
@@ -225,57 +255,68 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                     case RECEIPT ->
                             receipts.receive(
                                     new ReceiptRequest(
-                                            MaterialReference.of(command.materialCode()),
+                                            requireText(command.materialCode(), "article"),
+                                            requireText(command.materialName(), "name"),
+                                            normalize(command.color()),
+                                            normalize(command.size()),
+                                            normalize(command.unitOfMeasure()),
                                             StockQuantity.of(command.quantity()),
                                             WarehouseId.of(command.warehouseId()),
                                             StorageCellId.of(command.storageCellId())));
                     case MOVE ->
                             moves.move(
                                     new MoveRequest(
-                                            MaterialReference.of(command.materialCode()),
+                                            requireMaterial(command.materialReferenceId()),
                                             StockQuantity.of(command.quantity()),
                                             WarehouseId.of(command.warehouseId()),
                                             StorageCellId.of(command.storageCellId()),
-                                            WarehouseId.of(
-                                                    requireDestinationWarehouse(command)),
-                                            StorageCellId.of(
-                                                    requireDestinationCell(command))));
+                                            WarehouseId.of(requireDestinationWarehouse(command)),
+                                            StorageCellId.of(requireDestinationCell(command))));
                     case TRANSFER_SEND ->
                             transfers.send(
                                     new TransferSendRequest(
-                                            MaterialReference.of(command.materialCode()),
+                                            requireMaterial(command.materialReferenceId()),
                                             StockQuantity.of(command.quantity()),
                                             WarehouseId.of(command.warehouseId()),
                                             StorageCellId.of(command.storageCellId()),
-                                            WarehouseId.of(
-                                                    requireDestinationWarehouse(command))));
+                                            WarehouseId.of(requireDestinationWarehouse(command))));
                     case TRANSFER_RECEIVE ->
                             transfers.receive(
                                     new TransferReceiveRequest(
-                                            MaterialReference.of(command.materialCode()),
+                                            requireMaterial(command.materialReferenceId()),
                                             StockQuantity.of(command.quantity()),
                                             WarehouseId.of(command.warehouseId()),
                                             StorageCellId.of(command.storageCellId()),
-                                            WarehouseId.of(
-                                                    requireDestinationWarehouse(command)),
-                                            StorageCellId.of(
-                                                    requireDestinationCell(command))));
+                                            WarehouseId.of(requireDestinationWarehouse(command)),
+                                            StorageCellId.of(requireDestinationCell(command))));
                     case CONSUMPTION ->
                             consumptions.consume(
                                     new ConsumptionRequest(
-                                            MaterialReference.of(command.materialCode()),
+                                            requireMaterial(command.materialReferenceId()),
                                             StockQuantity.of(command.quantity()),
                                             WarehouseId.of(command.warehouseId()),
                                             StorageCellId.of(command.storageCellId())));
                     case ADJUSTMENT ->
                             adjustments.adjust(
                                     new AdjustmentRequest(
-                                            MaterialReference.of(command.materialCode()),
+                                            requireMaterial(command.materialReferenceId()),
                                             command.quantity(),
                                             WarehouseId.of(command.warehouseId()),
                                             StorageCellId.of(command.storageCellId())));
                 };
         return toOperationResult(command.kind(), completed);
+    }
+
+    private MaterialReference requireMaterial(UUID materialReferenceId) {
+        if (materialReferenceId == null) {
+            throw new IllegalArgumentException("materialReferenceId is required");
+        }
+        return materials
+                .findById(MaterialReferenceId.of(materialReferenceId))
+                .orElseThrow(
+                        () ->
+                                new IllegalArgumentException(
+                                        "Material reference not found: " + materialReferenceId));
     }
 
     private void requireOperationPermission(OperationKind kind) {
@@ -305,10 +346,6 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         return OPERATION_PERMISSIONS.stream().anyMatch(authorization::hasPermission);
     }
 
-    /**
-     * Catalogue list reads for operation forms: stock view, structure view, or any warehouse
-     * operation permission ({@code warehouse.receipt.create}, {@code warehouse.move.create}, …).
-     */
     private void requireCatalogueListAccess(PermissionId structureViewPermission) {
         if (authorization.hasPermission(WarehousePermissions.WAREHOUSE_VIEW)
                 || authorization.hasPermission(structureViewPermission)
@@ -318,9 +355,6 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
     }
 
-    /**
-     * Material display for operation forms: stock view or any warehouse operation permission.
-     */
     private void requireMaterialDisplayAccess() {
         if (authorization.hasPermission(WarehousePermissions.WAREHOUSE_VIEW)
                 || hasAnyOperationPermission()) {
@@ -342,15 +376,25 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 cell.active());
     }
 
+    private MaterialReferenceView toMaterialReferenceView(MaterialReference material) {
+        return new MaterialReferenceView(
+                material.id().value(),
+                material.article(),
+                material.name(),
+                material.color(),
+                material.size(),
+                material.unitOfMeasure());
+    }
+
     private StockView toStockView(StockPosition position) {
-        MaterialReferenceDisplay display =
-                materialDisplay.resolve(position.material().materialCode());
+        MaterialReference material = position.material();
         return StockView.of(
-                display.article(),
-                display.materialName(),
-                display.color(),
-                display.size(),
-                display.unitOfMeasure(),
+                material.id().value(),
+                material.article(),
+                material.name(),
+                material.color(),
+                material.size(),
+                material.unitOfMeasure(),
                 resolveWarehouseLabel(position.warehouseId()),
                 resolveStorageCellLabel(position.warehouseId(), position.storageCellId()),
                 position.quantity().value(),
@@ -385,10 +429,21 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 display.unitOfMeasure());
     }
 
+    private static MaterialReferenceDisplayView toMaterialReferenceDisplayView(
+            MaterialReference material) {
+        return new MaterialReferenceDisplayView(
+                material.article(),
+                material.name(),
+                material.color(),
+                material.size(),
+                material.unitOfMeasure());
+    }
+
     private static ReservationLinkView toReservationLinkView(MaterialReservationLink link) {
         return new ReservationLinkView(
                 link.id().value(),
-                link.material().materialCode(),
+                link.material().id().value(),
+                link.material().article(),
                 ReservationTargetTypeView.valueOf(link.target().type().name()),
                 link.target().reference(),
                 link.quantity().value(),
@@ -401,7 +456,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 operation.id().value(),
                 kind,
                 operation.status().name(),
-                operation.material().materialCode(),
+                operation.material().id().value(),
+                operation.material().article(),
                 operation.warehouseId().value(),
                 operation.storageCellId().value(),
                 operation.quantity().value());
@@ -429,5 +485,16 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                     "destinationStorageCellId is required for " + command.kind());
         }
         return destination;
+    }
+
+    private static String requireText(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+        return value.trim();
+    }
+
+    private static String normalize(String value) {
+        return value == null ? "" : value.trim();
     }
 }

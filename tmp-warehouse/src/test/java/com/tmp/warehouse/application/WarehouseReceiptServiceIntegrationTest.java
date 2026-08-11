@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.warehouse.domain.MaterialReference;
+import com.tmp.warehouse.testsupport.WarehouseJdbcTestSupport;
 import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
@@ -15,10 +16,12 @@ import com.tmp.warehouse.domain.WarehouseMovement;
 import com.tmp.warehouse.domain.WarehouseOperation;
 import com.tmp.warehouse.domain.WarehouseOperationStatus;
 import com.tmp.warehouse.domain.WarehouseOperationType;
+import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
+import com.tmp.warehouse.persistence.JdbcStockPositionRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
-import com.tmp.warehouse.persistence.JdbcStockPositionRepository;
+import com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseOperationRepository;
@@ -59,6 +62,7 @@ class WarehouseReceiptServiceIntegrationTest {
 
     private JdbcWarehouseCatalogRepository catalog;
     private WarehouseOperationRepository operations;
+    private MaterialReferenceRepository materials;
     private StockPositionRepository stockPositions;
     private WarehouseMovementRepository movements;
     private WarehouseReceiptService receipts;
@@ -87,8 +91,10 @@ class WarehouseReceiptServiceIntegrationTest {
         jdbc.update("DELETE FROM warehouse.stock_positions");
         jdbc.update("DELETE FROM warehouse.storage_cells");
         jdbc.update("DELETE FROM warehouse.warehouses");
+        jdbc.update("DELETE FROM warehouse.material_references");
 
         JdbcWarehouseStockRepository stockJdbc = new JdbcWarehouseStockRepository(jdbc, CLOCK);
+        materials = new JdbcMaterialReferenceRepository(jdbc, CLOCK);
         catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);
         operations = new JdbcWarehouseOperationRepository(stockJdbc, CLOCK);
         stockPositions = new JdbcStockPositionRepository(stockJdbc);
@@ -100,7 +106,7 @@ class WarehouseReceiptServiceIntegrationTest {
                         movements,
                         new TransactionTemplate(new DataSourceTransactionManager(dataSource)),
                         CLOCK);
-        receipts = new WarehouseReceiptService(engine, stockPositions);
+        receipts = new WarehouseReceiptService(engine, stockPositions, materials);
     }
 
     @Test
@@ -110,14 +116,19 @@ class WarehouseReceiptServiceIntegrationTest {
         catalog.insert(Warehouse.create(warehouseId, "WH-RCV-1", "Receipt"));
         catalog.insert(StorageCell.create(cellId, warehouseId, "R-01"));
 
-        MaterialReference material = MaterialReference.of("ALU-6060");
         WarehouseOperation completed =
                 receipts.receive(
                         new ReceiptRequest(
-                                material,
+                                "ALU-6060",
+                                "ALU-6060",
+                                "",
+                                "",
+                                "",
                                 StockQuantity.of(new BigDecimal("12.500000")),
                                 warehouseId,
                                 cellId));
+
+        MaterialReference material = materials.findAll().get(0);
 
         assertEquals(WarehouseOperationType.RECEIPT, completed.type());
         assertEquals(WarehouseOperationStatus.COMPLETED, completed.status());
@@ -145,7 +156,8 @@ class WarehouseReceiptServiceIntegrationTest {
         catalog.insert(Warehouse.create(warehouseId, "WH-RCV-2", "Receipt Add"));
         catalog.insert(StorageCell.create(cellId, warehouseId, "R-02"));
 
-        MaterialReference material = MaterialReference.of("VEKA-103.211");
+        MaterialReference material =
+                materials.create(MaterialReference.legacyArticle("VEKA-103.211"));
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,
@@ -155,7 +167,15 @@ class WarehouseReceiptServiceIntegrationTest {
                         StockQuantity.of(20L)));
 
         receipts.receive(
-                new ReceiptRequest(material, StockQuantity.of(5L), warehouseId, cellId));
+                new ReceiptRequest(
+                        "VEKA-103.211",
+                        "VEKA-103.211",
+                        "",
+                        "",
+                        "",
+                        StockQuantity.of(5L),
+                        warehouseId,
+                        cellId));
 
         StockPosition position =
                 stockPositions

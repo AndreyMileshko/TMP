@@ -62,6 +62,11 @@ final class WarehouseWorkbenchUiTestSupport {
         }
 
         @Override
+        public List<MaterialReferenceView> listMaterialReferences() {
+            return List.of();
+        }
+
+        @Override
         public MaterialReferenceDisplayView getMaterialReferenceDisplay(String materialCode) {
             return new MaterialReferenceDisplayView(materialCode, "", "", "", "");
         }

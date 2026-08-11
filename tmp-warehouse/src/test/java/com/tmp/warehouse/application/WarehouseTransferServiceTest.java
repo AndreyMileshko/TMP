@@ -66,7 +66,7 @@ class WarehouseTransferServiceTest {
         WarehouseId source = WarehouseId.generate();
         WarehouseId destination = WarehouseId.generate();
         StorageCellId sourceCell = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("VEKA-103.211");
+        MaterialReference material = MaterialReference.legacyArticle("VEKA-103.211");
         stockPositions.create(
                 StockPosition.of(
                         source, sourceCell, material, StockState.AVAILABLE, StockQuantity.of(100L)));
@@ -110,7 +110,7 @@ class WarehouseTransferServiceTest {
         WarehouseId destination = WarehouseId.generate();
         StorageCellId sourceCell = StorageCellId.generate();
         StorageCellId destinationCell = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("ALU-6060");
+        MaterialReference material = MaterialReference.legacyArticle("ALU-6060");
         stockPositions.create(
                 StockPosition.of(
                         source, sourceCell, material, StockState.IN_TRANSIT, StockQuantity.of(40L)));
@@ -161,7 +161,7 @@ class WarehouseTransferServiceTest {
         WarehouseId source = WarehouseId.generate();
         WarehouseId destination = WarehouseId.generate();
         StorageCellId sourceCell = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("MAT-1");
+        MaterialReference material = MaterialReference.legacyArticle("MAT-1");
         stockPositions.create(
                 StockPosition.of(
                         source, sourceCell, material, StockState.AVAILABLE, StockQuantity.of(5L)));
@@ -194,7 +194,7 @@ class WarehouseTransferServiceTest {
     void sameWarehouseOnSendRejected() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellId = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("MAT-1");
+        MaterialReference material = MaterialReference.legacyArticle("MAT-1");
         stockPositions.create(
                 StockPosition.of(
                         warehouseId, cellId, material, StockState.AVAILABLE, StockQuantity.of(10L)));
@@ -217,7 +217,7 @@ class WarehouseTransferServiceTest {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId sourceCell = StorageCellId.generate();
         StorageCellId destinationCell = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("MAT-1");
+        MaterialReference material = MaterialReference.legacyArticle("MAT-1");
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,
@@ -323,6 +323,13 @@ class WarehouseTransferServiceTest {
         public List<StockPosition> findByMaterial(MaterialReference material) {
             return byId.values().stream()
                     .filter(p -> p.material().equals(material))
+                    .toList();
+        }
+
+        @Override
+        public List<StockPosition> findByArticle(String article) {
+            return byId.values().stream()
+                    .filter(p -> p.material().article().equals(article))
                     .toList();
         }
 

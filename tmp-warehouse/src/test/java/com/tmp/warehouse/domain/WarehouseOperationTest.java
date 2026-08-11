@@ -37,7 +37,7 @@ class WarehouseOperationTest {
                 StockPosition.of(
                         WarehouseId.generate(),
                         StorageCellId.generate(),
-                        MaterialReference.of("OTHER"),
+                        MaterialReference.legacyArticle("OTHER"),
                         StockState.AVAILABLE,
                         StockQuantity.of(1));
         assertThrows(
@@ -71,7 +71,7 @@ class WarehouseOperationTest {
         return WarehouseOperation.describe(
                 WarehouseOperationId.generate(),
                 WarehouseOperationType.RECEIPT,
-                MaterialReference.of("VEKA-103.211"),
+                MaterialReference.legacyArticle("VEKA-103.211"),
                 WarehouseId.generate(),
                 StorageCellId.generate(),
                 StockQuantity.of(5));

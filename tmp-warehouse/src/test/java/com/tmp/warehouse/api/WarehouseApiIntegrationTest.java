@@ -25,10 +25,12 @@ import com.tmp.warehouse.domain.StorageCell;
 import com.tmp.warehouse.domain.StorageCellId;
 import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
+import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
+import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
-import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
+import com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository;
 import com.tmp.warehouse.persistence.JdbcStockPositionRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
@@ -70,6 +72,7 @@ class WarehouseApiIntegrationTest {
     private static JdbcTemplate jdbc;
 
     private JdbcWarehouseCatalogRepository catalog;
+    private MaterialReferenceRepository materials;
     private StockPositionRepository stockPositions;
     private WarehouseOperationRepository operations;
     private WarehouseMovementRepository movements;
@@ -100,8 +103,10 @@ class WarehouseApiIntegrationTest {
         jdbc.update("DELETE FROM warehouse.stock_positions");
         jdbc.update("DELETE FROM warehouse.storage_cells");
         jdbc.update("DELETE FROM warehouse.warehouses");
+        jdbc.update("DELETE FROM warehouse.material_references");
 
         JdbcWarehouseStockRepository stockJdbc = new JdbcWarehouseStockRepository(jdbc, CLOCK);
+        materials = new JdbcMaterialReferenceRepository(jdbc, CLOCK);
         catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);
         operations = new JdbcWarehouseOperationRepository(stockJdbc, CLOCK);
         stockPositions = new JdbcStockPositionRepository(stockJdbc);
@@ -118,10 +123,11 @@ class WarehouseApiIntegrationTest {
                         AllowingAuthorization.INSTANCE,
                         catalog,
                         stockPositions,
+                        materials,
                         new FixedMaterialReferenceDisplayPort(),
                         new WarehouseReservationLinkService(
                                 new JdbcMaterialReservationLinkRepository(jdbc), CLOCK),
-                        new WarehouseReceiptService(engine, stockPositions),
+                        new WarehouseReceiptService(engine, stockPositions, materials),
                         new WarehouseMoveService(engine),
                         new WarehouseTransferService(engine),
                         new WarehouseConsumptionService(engine, stockPositions),
@@ -158,6 +164,10 @@ class WarehouseApiIntegrationTest {
                 api.executeWarehouseOperation(
                         ExecuteOperationCommand.receipt(
                                 "ALU-6060",
+                                "ALU-6060",
+                                "",
+                                "",
+                                "",
                                 BigDecimal.valueOf(100),
                                 warehouseId.value(),
                                 cellId.value()));
@@ -189,10 +199,12 @@ class WarehouseApiIntegrationTest {
 
     @Test
     void createReservationLinkDoesNotTouchStockOrMovements() {
+        var material =
+                materials.create(com.tmp.warehouse.domain.MaterialReference.legacyArticle("VEKA 103.211"));
         WarehouseApi.ReservationLinkView link =
                 api.createReservationLink(
                         new CreateReservationLinkCommand(
-                                "VEKA 103.211",
+                                material.id().value(),
                                 ReservationTargetTypeView.ORDER,
                                 "26096190",
                                 BigDecimal.valueOf(200)));
@@ -221,17 +233,22 @@ class WarehouseApiIntegrationTest {
         catalog.insert(Warehouse.create(warehouseId, "WH-API-2", "API Consume"));
         catalog.insert(StorageCell.create(cellId, warehouseId, "C-01"));
 
-        api.executeWarehouseOperation(
-                ExecuteOperationCommand.receipt(
-                        "ALU-6060",
-                        BigDecimal.valueOf(80),
-                        warehouseId.value(),
-                        cellId.value()));
+        WarehouseApi.OperationResult receipt =
+                api.executeWarehouseOperation(
+                        ExecuteOperationCommand.receipt(
+                                "ALU-6060",
+                                "ALU-6060",
+                                "",
+                                "",
+                                "",
+                                BigDecimal.valueOf(80),
+                                warehouseId.value(),
+                                cellId.value()));
 
         WarehouseApi.OperationResult consumed =
                 api.executeWarehouseOperation(
                         ExecuteOperationCommand.consumption(
-                                "ALU-6060",
+                                receipt.materialReferenceId(),
                                 BigDecimal.valueOf(30),
                                 warehouseId.value(),
                                 cellId.value()));

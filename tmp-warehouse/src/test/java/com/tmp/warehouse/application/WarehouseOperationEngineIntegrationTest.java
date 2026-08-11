@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.warehouse.domain.MaterialReference;
+import com.tmp.warehouse.testsupport.WarehouseJdbcTestSupport;
 import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
@@ -87,6 +88,7 @@ class WarehouseOperationEngineIntegrationTest {
         jdbc.update("DELETE FROM warehouse.stock_positions");
         jdbc.update("DELETE FROM warehouse.storage_cells");
         jdbc.update("DELETE FROM warehouse.warehouses");
+        jdbc.update("DELETE FROM warehouse.material_references");
 
         JdbcWarehouseStockRepository stockJdbc = new JdbcWarehouseStockRepository(jdbc, CLOCK);
         catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);
@@ -109,7 +111,7 @@ class WarehouseOperationEngineIntegrationTest {
         catalog.insert(Warehouse.create(warehouseId, "WH-OP-1", "Operation Engine"));
         catalog.insert(StorageCell.create(cellId, warehouseId, "OP-01"));
 
-        MaterialReference material = MaterialReference.of("ALU-6060");
+        MaterialReference material = WarehouseJdbcTestSupport.persistLegacyArticle(jdbc, CLOCK, "ALU-6060");
         WarehouseOperation draft =
                 engine.create(
                         WarehouseOperationType.ADJUSTMENT,
@@ -150,7 +152,7 @@ class WarehouseOperationEngineIntegrationTest {
         catalog.insert(Warehouse.create(warehouseId, "WH-OP-2", "Update Stock"));
         catalog.insert(StorageCell.create(cellId, warehouseId, "OP-02"));
 
-        MaterialReference material = MaterialReference.of("VEKA-103.211");
+        MaterialReference material = WarehouseJdbcTestSupport.persistLegacyArticle(jdbc, CLOCK, "VEKA-103.211");
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,

@@ -24,7 +24,7 @@ public final class CodeOnlyMaterialReferenceDisplayPort implements MaterialRefer
 
     @Override
     public MaterialReferenceDisplay resolve(String materialCode) {
-        String article = MaterialReference.of(materialCode).materialCode();
+        String article = MaterialReference.legacyArticle(materialCode).article();
         if (warnedCodes.add(article)) {
             LOG.warn("{}: materialCode={}", UNAVAILABLE_MESSAGE, article);
         }

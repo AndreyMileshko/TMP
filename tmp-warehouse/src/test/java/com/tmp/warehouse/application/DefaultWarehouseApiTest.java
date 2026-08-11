@@ -31,6 +31,7 @@ import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseMovement;
 import com.tmp.warehouse.domain.WarehouseOperation;
 import com.tmp.warehouse.domain.WarehouseOperationId;
+import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.MaterialReservationLinkRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
@@ -51,6 +52,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.SimpleTransactionStatus;
+import com.tmp.warehouse.testsupport.InMemoryMaterialReferenceRepository;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -61,12 +63,14 @@ class DefaultWarehouseApiTest {
     private static final Clock CLOCK =
             Clock.fixed(Instant.parse("2026-08-09T16:00:00Z"), ZoneOffset.UTC);
 
+    private InMemoryMaterialReferenceRepository materials;
     private InMemoryStockPositionRepository stockPositions;
     private InMemoryReservationLinkRepository links;
     private DefaultWarehouseApi api;
 
     @BeforeEach
     void setUp() {
+        materials = new InMemoryMaterialReferenceRepository();
         stockPositions = new InMemoryStockPositionRepository();
         links = new InMemoryReservationLinkRepository();
         InMemoryOperationRepository operations = new InMemoryOperationRepository();
@@ -83,6 +87,7 @@ class DefaultWarehouseApiTest {
                         AllowingAuthorization.INSTANCE,
                         new EmptyWarehouseCatalog(),
                         stockPositions,
+                        materials,
                         new FixedMaterialReferenceDisplayPort()
                                 .register(
                                         "VEKA 103.211",
@@ -91,7 +96,7 @@ class DefaultWarehouseApiTest {
                                         "6000 мм",
                                         "шт"),
                         new WarehouseReservationLinkService(links, CLOCK),
-                        new WarehouseReceiptService(engine, stockPositions),
+                        new WarehouseReceiptService(engine, stockPositions, materials),
                         new WarehouseMoveService(engine),
                         new WarehouseTransferService(engine),
                         new WarehouseConsumptionService(engine, stockPositions),
@@ -155,7 +160,14 @@ class DefaultWarehouseApiTest {
     void getStockMapsDomainPositionsToPublicViews() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellId = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("VEKA 103.211");
+        MaterialReference material =
+                materials.create(
+                        MaterialReference.create(
+                                "VEKA 103.211",
+                                "Профиль VEKA Softline",
+                                "Белый",
+                                "6000 мм",
+                                "шт"));
         stockPositions.create(
                 StockPosition.of(
                         warehouseId, cellId, material, StockState.AVAILABLE, StockQuantity.of(25L)));
@@ -181,7 +193,7 @@ class DefaultWarehouseApiTest {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellA = StorageCellId.generate();
         StorageCellId cellB = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("ALU-6060");
+        MaterialReference material = materials.create(MaterialReference.legacyArticle("ALU-6060"));
         stockPositions.create(
                 StockPosition.of(
                         warehouseId, cellA, material, StockState.AVAILABLE, StockQuantity.of(10L)));
@@ -200,7 +212,7 @@ class DefaultWarehouseApiTest {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellA = StorageCellId.generate();
         StorageCellId cellB = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("ALU-6060");
+        MaterialReference material = materials.create(MaterialReference.legacyArticle("ALU-6060"));
         stockPositions.create(
                 StockPosition.of(
                         warehouseId, cellA, material, StockState.AVAILABLE, StockQuantity.of(40L)));
@@ -221,10 +233,11 @@ class DefaultWarehouseApiTest {
 
     @Test
     void createReservationLinkReturnsPublicViewWithoutStockMutation() {
+        MaterialReference material = materials.create(MaterialReference.legacyArticle("VEKA 103.211"));
         ReservationLinkView view =
                 api.createReservationLink(
                         new CreateReservationLinkCommand(
-                                "VEKA 103.211",
+                                material.id().value(),
                                 ReservationTargetTypeView.ORDER,
                                 "26096190",
                                 BigDecimal.valueOf(200)));
@@ -245,7 +258,14 @@ class DefaultWarehouseApiTest {
         WarehouseApi.OperationResult result =
                 api.executeWarehouseOperation(
                         ExecuteOperationCommand.receipt(
-                                "ALU-6060", BigDecimal.TEN, warehouseId.value(), cellId.value()));
+                                "ALU-6060",
+                                "ALU-6060",
+                                "",
+                                "",
+                                "",
+                                BigDecimal.TEN,
+                                warehouseId.value(),
+                                cellId.value()));
 
         assertEquals(OperationKind.RECEIPT, result.kind());
         assertEquals("COMPLETED", result.status());
@@ -257,18 +277,24 @@ class DefaultWarehouseApiTest {
     void executeMoveRequiresDestinationFields() {
         UUID warehouseId = UUID.randomUUID();
         UUID cellId = UUID.randomUUID();
+        UUID materialReferenceId = UUID.randomUUID();
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
                         api.executeWarehouseOperation(
                                 new ExecuteOperationCommand(
                                         OperationKind.MOVE,
-                                        "ALU-6060",
+                                        null,
                                         BigDecimal.ONE,
                                         warehouseId,
                                         cellId,
                                         null,
-                                        null)));
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        materialReferenceId)));
     }
 
     private static final class PassthroughTransactionManager
@@ -320,6 +346,13 @@ class DefaultWarehouseApiTest {
         @Override
         public List<StockPosition> findByMaterial(MaterialReference material) {
             return byId.values().stream().filter(p -> p.material().equals(material)).toList();
+        }
+
+        @Override
+        public List<StockPosition> findByArticle(String article) {
+            return byId.values().stream()
+                    .filter(p -> p.material().article().equals(article))
+                    .toList();
         }
 
         @Override

@@ -41,7 +41,12 @@ public interface WarehouseApi {
     StorageCellView createStorageCell(CreateStorageCellCommand command);
 
     /**
-     * Returns current stock positions for the given material reference.
+     * Returns warehouse-owned material references for selection in operations.
+     */
+    List<MaterialReferenceView> listMaterialReferences();
+
+    /**
+     * Returns current stock positions for the given material article (any color/size/unit variant).
      *
      * @param materialCode material reference from Specification context
      * @return stock views (material, warehouse, cell, quantity, state); empty when none
@@ -123,6 +128,30 @@ public interface WarehouseApi {
         }
     }
 
+    /** Warehouse-owned material reference snapshot. */
+    record MaterialReferenceView(
+            UUID materialReferenceId,
+            String article,
+            String name,
+            String color,
+            String size,
+            String unitOfMeasure) {
+
+        public MaterialReferenceView {
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            Objects.requireNonNull(article, "article");
+            Objects.requireNonNull(name, "name");
+            Objects.requireNonNull(color, "color");
+            Objects.requireNonNull(size, "size");
+            Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
+        }
+
+        /** Backward-compatible alias for {@link #article()}. */
+        public String materialCode() {
+            return article;
+        }
+    }
+
     /** Extended MaterialReference display snapshot for Warehouse reads. */
     record MaterialReferenceDisplayView(
             String article,
@@ -147,6 +176,7 @@ public interface WarehouseApi {
 
     /** Public stock snapshot — not a domain StockPosition. */
     record StockView(
+            UUID materialReferenceId,
             String article,
             String materialName,
             String color,
@@ -161,6 +191,7 @@ public interface WarehouseApi {
             UUID storageCellId) {
 
         public StockView {
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
             Objects.requireNonNull(article, "article");
             Objects.requireNonNull(materialName, "materialName");
             Objects.requireNonNull(color, "color");
@@ -176,6 +207,7 @@ public interface WarehouseApi {
         }
 
         public static StockView of(
+                UUID materialReferenceId,
                 String article,
                 String materialName,
                 String color,
@@ -188,6 +220,7 @@ public interface WarehouseApi {
                 UUID warehouseId,
                 UUID storageCellId) {
             return new StockView(
+                    materialReferenceId,
                     article,
                     materialName,
                     color,
@@ -238,13 +271,13 @@ public interface WarehouseApi {
     }
 
     record CreateReservationLinkCommand(
-            String materialCode,
+            UUID materialReferenceId,
             ReservationTargetTypeView targetType,
             String targetReference,
             BigDecimal quantity) {
 
         public CreateReservationLinkCommand {
-            Objects.requireNonNull(materialCode, "materialCode");
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
             Objects.requireNonNull(targetType, "targetType");
             Objects.requireNonNull(targetReference, "targetReference");
             Objects.requireNonNull(quantity, "quantity");
@@ -253,6 +286,7 @@ public interface WarehouseApi {
 
     record ReservationLinkView(
             UUID linkId,
+            UUID materialReferenceId,
             String materialCode,
             ReservationTargetTypeView targetType,
             String targetReference,
@@ -261,6 +295,7 @@ public interface WarehouseApi {
 
         public ReservationLinkView {
             Objects.requireNonNull(linkId, "linkId");
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
             Objects.requireNonNull(materialCode, "materialCode");
             Objects.requireNonNull(targetType, "targetType");
             Objects.requireNonNull(targetReference, "targetReference");
@@ -289,14 +324,10 @@ public interface WarehouseApi {
      * <p>Field usage by kind:
      *
      * <ul>
-     *   <li>RECEIPT / CONSUMPTION — warehouseId, storageCellId, quantity (positive)
-     *   <li>MOVE — warehouseId/storageCellId = source; destinationWarehouseId/destinationStorageCellId
-     *       = destination; quantity positive
-     *   <li>TRANSFER_SEND — warehouseId/storageCellId = source; destinationWarehouseId required;
-     *       quantity positive
-     *   <li>TRANSFER_RECEIVE — warehouseId/storageCellId = source IN_TRANSIT; destination* =
-     *       receive location; quantity positive
-     *   <li>ADJUSTMENT — warehouseId, storageCellId; quantity is signed delta (non-zero)
+     *   <li>RECEIPT — materialCode = article; materialName/color/size/unitOfMeasure required;
+     *       warehouseId, storageCellId, quantity (positive)
+     *   <li>MOVE / CONSUMPTION / ADJUSTMENT / TRANSFER_* — materialReferenceId required;
+     *       warehouseId, storageCellId, quantity
      * </ul>
      */
     record ExecuteOperationCommand(
@@ -306,30 +337,46 @@ public interface WarehouseApi {
             UUID warehouseId,
             UUID storageCellId,
             UUID destinationWarehouseId,
-            UUID destinationStorageCellId) {
+            UUID destinationStorageCellId,
+            String materialName,
+            String color,
+            String size,
+            String unitOfMeasure,
+            UUID materialReferenceId) {
 
         public ExecuteOperationCommand {
             Objects.requireNonNull(kind, "kind");
-            Objects.requireNonNull(materialCode, "materialCode");
             Objects.requireNonNull(quantity, "quantity");
             Objects.requireNonNull(warehouseId, "warehouseId");
             Objects.requireNonNull(storageCellId, "storageCellId");
         }
 
         public static ExecuteOperationCommand receipt(
-                String materialCode, BigDecimal quantity, UUID warehouseId, UUID storageCellId) {
+                String article,
+                String name,
+                String color,
+                String size,
+                String unitOfMeasure,
+                BigDecimal quantity,
+                UUID warehouseId,
+                UUID storageCellId) {
             return new ExecuteOperationCommand(
                     OperationKind.RECEIPT,
-                    materialCode,
+                    article,
                     quantity,
                     warehouseId,
                     storageCellId,
                     null,
+                    null,
+                    name,
+                    color,
+                    size,
+                    unitOfMeasure,
                     null);
         }
 
         public static ExecuteOperationCommand move(
-                String materialCode,
+                UUID materialReferenceId,
                 BigDecimal quantity,
                 UUID sourceWarehouseId,
                 UUID sourceCellId,
@@ -337,32 +384,42 @@ public interface WarehouseApi {
                 UUID destinationCellId) {
             return new ExecuteOperationCommand(
                     OperationKind.MOVE,
-                    materialCode,
+                    null,
                     quantity,
                     sourceWarehouseId,
                     sourceCellId,
                     destinationWarehouseId,
-                    destinationCellId);
+                    destinationCellId,
+                    null,
+                    null,
+                    null,
+                    null,
+                    materialReferenceId);
         }
 
         public static ExecuteOperationCommand transferSend(
-                String materialCode,
+                UUID materialReferenceId,
                 BigDecimal quantity,
                 UUID sourceWarehouseId,
                 UUID sourceCellId,
                 UUID destinationWarehouseId) {
             return new ExecuteOperationCommand(
                     OperationKind.TRANSFER_SEND,
-                    materialCode,
+                    null,
                     quantity,
                     sourceWarehouseId,
                     sourceCellId,
                     destinationWarehouseId,
-                    null);
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    materialReferenceId);
         }
 
         public static ExecuteOperationCommand transferReceive(
-                String materialCode,
+                UUID materialReferenceId,
                 BigDecimal quantity,
                 UUID sourceWarehouseId,
                 UUID sourceCellId,
@@ -370,36 +427,57 @@ public interface WarehouseApi {
                 UUID destinationCellId) {
             return new ExecuteOperationCommand(
                     OperationKind.TRANSFER_RECEIVE,
-                    materialCode,
+                    null,
                     quantity,
                     sourceWarehouseId,
                     sourceCellId,
                     destinationWarehouseId,
-                    destinationCellId);
+                    destinationCellId,
+                    null,
+                    null,
+                    null,
+                    null,
+                    materialReferenceId);
         }
 
         public static ExecuteOperationCommand consumption(
-                String materialCode, BigDecimal quantity, UUID warehouseId, UUID storageCellId) {
+                UUID materialReferenceId,
+                BigDecimal quantity,
+                UUID warehouseId,
+                UUID storageCellId) {
             return new ExecuteOperationCommand(
                     OperationKind.CONSUMPTION,
-                    materialCode,
+                    null,
                     quantity,
                     warehouseId,
                     storageCellId,
                     null,
-                    null);
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    materialReferenceId);
         }
 
         public static ExecuteOperationCommand adjustment(
-                String materialCode, BigDecimal quantityDelta, UUID warehouseId, UUID storageCellId) {
+                UUID materialReferenceId,
+                BigDecimal quantityDelta,
+                UUID warehouseId,
+                UUID storageCellId) {
             return new ExecuteOperationCommand(
                     OperationKind.ADJUSTMENT,
-                    materialCode,
+                    null,
                     quantityDelta,
                     warehouseId,
                     storageCellId,
                     null,
-                    null);
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    materialReferenceId);
         }
     }
 
@@ -407,6 +485,7 @@ public interface WarehouseApi {
             UUID operationId,
             OperationKind kind,
             String status,
+            UUID materialReferenceId,
             String materialCode,
             UUID warehouseId,
             UUID storageCellId,
@@ -416,6 +495,7 @@ public interface WarehouseApi {
             Objects.requireNonNull(operationId, "operationId");
             Objects.requireNonNull(kind, "kind");
             Objects.requireNonNull(status, "status");
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
             Objects.requireNonNull(materialCode, "materialCode");
             Objects.requireNonNull(warehouseId, "warehouseId");
             Objects.requireNonNull(storageCellId, "storageCellId");

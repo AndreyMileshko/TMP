@@ -44,6 +44,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.SimpleTransactionStatus;
+import com.tmp.warehouse.testsupport.InMemoryMaterialReferenceRepository;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -54,6 +55,7 @@ class WarehouseSecurityAuthorizationTest {
     private static final Clock CLOCK =
             Clock.fixed(Instant.parse("2026-08-09T17:00:00Z"), ZoneOffset.UTC);
 
+    private InMemoryMaterialReferenceRepository materials;
     private InMemoryStockPositionRepository stockPositions;
     private WarehouseOperationEngine engine;
     private WarehouseReservationLinkService reservationLinks;
@@ -65,6 +67,7 @@ class WarehouseSecurityAuthorizationTest {
 
     @BeforeEach
     void setUp() {
+        materials = new InMemoryMaterialReferenceRepository();
         stockPositions = new InMemoryStockPositionRepository();
         InMemoryOperationRepository operations = new InMemoryOperationRepository();
         InMemoryMovementRepository movements = new InMemoryMovementRepository();
@@ -77,7 +80,7 @@ class WarehouseSecurityAuthorizationTest {
                         CLOCK);
         reservationLinks =
                 new WarehouseReservationLinkService(new InMemoryReservationLinkRepository(), CLOCK);
-        receipts = new WarehouseReceiptService(engine, stockPositions);
+        receipts = new WarehouseReceiptService(engine, stockPositions, materials);
         moves = new WarehouseMoveService(engine);
         transfers = new WarehouseTransferService(engine);
         consumptions = new WarehouseConsumptionService(engine, stockPositions);
@@ -86,6 +89,7 @@ class WarehouseSecurityAuthorizationTest {
 
     @Test
     void viewOperationsRequireWarehouseView() {
+        materials.create(MaterialReference.legacyArticle("ALU-6060"));
         DefaultWarehouseApi denied = api(Set.of());
         DefaultWarehouseApi allowed = api(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
 
@@ -131,6 +135,10 @@ class WarehouseSecurityAuthorizationTest {
                         api.executeWarehouseOperation(
                                 ExecuteOperationCommand.receipt(
                                         "ALU-6060",
+                                        "ALU-6060",
+                                        "",
+                                        "",
+                                        "",
                                         BigDecimal.TEN,
                                         UUID.randomUUID(),
                                         UUID.randomUUID())));
@@ -176,6 +184,10 @@ class WarehouseSecurityAuthorizationTest {
                         api.executeWarehouseOperation(
                                 ExecuteOperationCommand.receipt(
                                         "ALU-6060",
+                                        "ALU-6060",
+                                        "",
+                                        "",
+                                        "",
                                         BigDecimal.TEN,
                                         UUID.randomUUID(),
                                         UUID.randomUUID())));
@@ -189,6 +201,10 @@ class WarehouseSecurityAuthorizationTest {
                         api.executeWarehouseOperation(
                                 ExecuteOperationCommand.receipt(
                                         "ALU-6060",
+                                        "ALU-6060",
+                                        "",
+                                        "",
+                                        "",
                                         BigDecimal.TEN,
                                         UUID.randomUUID(),
                                         UUID.randomUUID())));
@@ -202,12 +218,13 @@ class WarehouseSecurityAuthorizationTest {
         UUID destWarehouse = UUID.randomUUID();
         UUID destCell = UUID.randomUUID();
 
+        UUID materialId = materials.create(MaterialReference.legacyArticle("ALU-6060")).id().value();
         assertThrows(
                 AccessDeniedException.class,
                 () ->
                         api.executeWarehouseOperation(
                                 ExecuteOperationCommand.move(
-                                        "ALU-6060",
+                                        materialId,
                                         BigDecimal.ONE,
                                         warehouseId,
                                         cellId,
@@ -218,7 +235,7 @@ class WarehouseSecurityAuthorizationTest {
                 () ->
                         api.executeWarehouseOperation(
                                 ExecuteOperationCommand.transferSend(
-                                        "ALU-6060",
+                                        materialId,
                                         BigDecimal.ONE,
                                         warehouseId,
                                         cellId,
@@ -228,34 +245,36 @@ class WarehouseSecurityAuthorizationTest {
                 () ->
                         api.executeWarehouseOperation(
                                 ExecuteOperationCommand.consumption(
-                                        "ALU-6060", BigDecimal.ONE, warehouseId, cellId)));
+                                        materialId, BigDecimal.ONE, warehouseId, cellId)));
         assertThrows(
                 AccessDeniedException.class,
                 () ->
                         api.executeWarehouseOperation(
                                 ExecuteOperationCommand.adjustment(
-                                        "ALU-6060", BigDecimal.ONE, warehouseId, cellId)));
+                                        materialId, BigDecimal.ONE, warehouseId, cellId)));
         assertThrows(
                 AccessDeniedException.class,
                 () ->
                         api.createReservationLink(
                                 new CreateReservationLinkCommand(
-                                        "ALU-6060",
+                                        materialId,
                                         ReservationTargetTypeView.ORDER,
                                         "26096190",
                                         BigDecimal.TEN)));
+        materials.create(MaterialReference.legacyArticle("RES-LINK"));
         assertThrows(
-                AccessDeniedException.class, () -> api.listReservationLinks("ALU-6060"));
+                AccessDeniedException.class, () -> api.listReservationLinks("RES-LINK"));
     }
 
     @Test
     void reservationSucceedsWithReservationPermission() {
+        MaterialReference material = materials.create(MaterialReference.legacyArticle("ALU-6060"));
         DefaultWarehouseApi api = api(Set.of(WarehousePermissions.WAREHOUSE_RESERVATION));
         assertDoesNotThrow(
                 () ->
                         api.createReservationLink(
                                 new CreateReservationLinkCommand(
-                                        "ALU-6060",
+                                        material.id().value(),
                                         ReservationTargetTypeView.ORDER,
                                         "26096190",
                                         BigDecimal.TEN)));
@@ -271,7 +290,7 @@ class WarehouseSecurityAuthorizationTest {
                 () ->
                         inventory.reconcile(
                                 new InventoryCountRequest(
-                                        MaterialReference.of("ALU-6060"),
+                                        MaterialReference.legacyArticle("ALU-6060"),
                                         StockQuantity.of(1L),
                                         WarehouseId.generate(),
                                         StorageCellId.generate())));
@@ -288,7 +307,7 @@ class WarehouseSecurityAuthorizationTest {
                 () ->
                         inventory.reconcile(
                                 new InventoryCountRequest(
-                                        MaterialReference.of("ALU-6060"),
+                                        MaterialReference.legacyArticle("ALU-6060"),
                                         StockQuantity.of(0L),
                                         WarehouseId.generate(),
                                         StorageCellId.generate())));
@@ -299,6 +318,7 @@ class WarehouseSecurityAuthorizationTest {
                 new FixedAuthorization(granted),
                 new EmptyWarehouseCatalog(),
                 stockPositions,
+                materials,
                 new FixedMaterialReferenceDisplayPort(),
                 reservationLinks,
                 receipts,
@@ -407,6 +427,13 @@ class WarehouseSecurityAuthorizationTest {
         @Override
         public List<StockPosition> findByMaterial(MaterialReference material) {
             return byId.values().stream().filter(p -> p.material().equals(material)).toList();
+        }
+
+        @Override
+        public List<StockPosition> findByArticle(String article) {
+            return byId.values().stream()
+                    .filter(p -> p.material().article().equals(article))
+                    .toList();
         }
 
         @Override

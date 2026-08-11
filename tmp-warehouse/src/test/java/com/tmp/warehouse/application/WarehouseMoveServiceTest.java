@@ -66,7 +66,7 @@ class WarehouseMoveServiceTest {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId sourceCell = StorageCellId.generate();
         StorageCellId destinationCell = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("VEKA 103.211 WHITE");
+        MaterialReference material = MaterialReference.legacyArticle("VEKA 103.211 WHITE");
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,
@@ -121,7 +121,7 @@ class WarehouseMoveServiceTest {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId sourceCell = StorageCellId.generate();
         StorageCellId destinationCell = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("ALU-6060");
+        MaterialReference material = MaterialReference.legacyArticle("ALU-6060");
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,
@@ -162,7 +162,7 @@ class WarehouseMoveServiceTest {
         WarehouseId destinationWarehouse = WarehouseId.generate();
         StorageCellId sourceCell = StorageCellId.generate();
         StorageCellId destinationCell = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("ALU-6060");
+        MaterialReference material = MaterialReference.legacyArticle("ALU-6060");
         stockPositions.create(
                 StockPosition.of(
                         sourceWarehouse,
@@ -198,7 +198,7 @@ class WarehouseMoveServiceTest {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId sourceCell = StorageCellId.generate();
         StorageCellId destinationCell = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("VEKA-103.211");
+        MaterialReference material = MaterialReference.legacyArticle("VEKA-103.211");
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,
@@ -244,7 +244,7 @@ class WarehouseMoveServiceTest {
                 IllegalArgumentException.class,
                 () ->
                         new MoveRequest(
-                                MaterialReference.of("MAT-1"),
+                                MaterialReference.legacyArticle("MAT-1"),
                                 StockQuantity.of(0),
                                 WarehouseId.generate(),
                                 StorageCellId.generate(),
@@ -335,6 +335,13 @@ class WarehouseMoveServiceTest {
         public List<StockPosition> findByMaterial(MaterialReference material) {
             return byId.values().stream()
                     .filter(p -> p.material().equals(material))
+                    .toList();
+        }
+
+        @Override
+        public List<StockPosition> findByArticle(String article) {
+            return byId.values().stream()
+                    .filter(p -> p.material().article().equals(article))
                     .toList();
         }
 

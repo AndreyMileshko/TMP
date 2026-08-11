@@ -22,6 +22,7 @@ public final class WarehouseApiTestFixtures {
             UUID warehouseId,
             UUID storageCellId) {
         return StockView.of(
+                UUID.randomUUID(),
                 article,
                 materialName,
                 color,

@@ -45,6 +45,7 @@ class JdbcStockPositionRepositoryTest {
 
     private static JdbcTemplate jdbc;
     private JdbcWarehouseCatalogRepository catalog;
+    private JdbcMaterialReferenceRepository materials;
     private StockPositionRepository stockPositions;
 
     @BeforeAll
@@ -70,9 +71,15 @@ class JdbcStockPositionRepositoryTest {
         jdbc.update("DELETE FROM warehouse.stock_positions");
         jdbc.update("DELETE FROM warehouse.storage_cells");
         jdbc.update("DELETE FROM warehouse.warehouses");
+        jdbc.update("DELETE FROM warehouse.material_references");
         catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);
+        materials = new JdbcMaterialReferenceRepository(jdbc, CLOCK);
         stockPositions =
                 new JdbcStockPositionRepository(new JdbcWarehouseStockRepository(jdbc, CLOCK));
+    }
+
+    private MaterialReference persistMaterial(MaterialReference material) {
+        return materials.create(material);
     }
 
     @Test
@@ -83,7 +90,7 @@ class JdbcStockPositionRepositoryTest {
         catalog.insert(StorageCell.create(cellId, warehouseId, "A-10"));
 
         StockPositionId id = StockPositionId.generate();
-        MaterialReference material = MaterialReference.of("VEKA-103.211");
+        MaterialReference material = persistMaterial(MaterialReference.legacyArticle("VEKA-103.211"));
         StockPosition created =
                 stockPositions.create(
                         StockPosition.of(
@@ -120,12 +127,13 @@ class JdbcStockPositionRepositoryTest {
         catalog.insert(StorageCell.create(cellId, warehouseId, "B-20"));
 
         StockPositionId id = StockPositionId.generate();
+        MaterialReference steel = persistMaterial(MaterialReference.legacyArticle("STEEL-S235"));
         stockPositions.create(
                 StockPosition.of(
                         id,
                         warehouseId,
                         cellId,
-                        MaterialReference.of("STEEL-S235"),
+                        steel,
                         StockState.AVAILABLE,
                         StockQuantity.of(10L)));
 
@@ -151,7 +159,7 @@ class JdbcStockPositionRepositoryTest {
                         .findByNaturalKey(
                                 warehouseId,
                                 cellId,
-                                MaterialReference.of("STEEL-S235"),
+                                steel,
                                 StockState.AVAILABLE)
                         .isEmpty());
         assertTrue(
@@ -159,7 +167,7 @@ class JdbcStockPositionRepositoryTest {
                         .findByNaturalKey(
                                 warehouseId,
                                 cellId,
-                                MaterialReference.of("STEEL-S235"),
+                                steel,
                                 StockState.BLOCKED)
                         .isPresent());
     }
@@ -171,12 +179,13 @@ class JdbcStockPositionRepositoryTest {
         catalog.insert(Warehouse.create(warehouseId, "WH-SP-3", "Stock Lock"));
         catalog.insert(StorageCell.create(cellId, warehouseId, "C-30"));
         StockPositionId id = StockPositionId.generate();
+        MaterialReference alu = persistMaterial(MaterialReference.legacyArticle("ALU"));
         stockPositions.create(
                 StockPosition.of(
                         id,
                         warehouseId,
                         cellId,
-                        MaterialReference.of("ALU"),
+                        alu,
                         StockState.AVAILABLE,
                         StockQuantity.of(1L)));
         stockPositions.updateQuantity(id, StockQuantity.of(2L), 0L);
@@ -195,13 +204,15 @@ class JdbcStockPositionRepositoryTest {
 
         for (StockState state : StockState.values()) {
             StockPositionId id = StockPositionId.generate();
+            MaterialReference stateMaterial =
+                    persistMaterial(MaterialReference.legacyArticle("MAT-" + state.name()));
             StockPosition saved =
                     stockPositions.create(
                             StockPosition.of(
                                     id,
                                     warehouseId,
                                     cellId,
-                                    MaterialReference.of("MAT-" + state.name()),
+                                    stateMaterial,
                                     state,
                                     StockQuantity.zero()));
             assertEquals(state, stockPositions.findById(saved.id()).orElseThrow().stockState());

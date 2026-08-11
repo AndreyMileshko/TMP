@@ -79,9 +79,14 @@ class JdbcWarehousePersistenceTest {
         jdbc.update("DELETE FROM warehouse.stock_positions");
         jdbc.update("DELETE FROM warehouse.storage_cells");
         jdbc.update("DELETE FROM warehouse.warehouses");
+        jdbc.update("DELETE FROM warehouse.material_references");
         catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);
         stock = new JdbcWarehouseStockRepository(jdbc, CLOCK);
         movements = new JdbcWarehouseMovementRepository(jdbc);
+    }
+
+    private MaterialReference persistMaterial(MaterialReference material) {
+        return new JdbcMaterialReferenceRepository(jdbc, CLOCK).create(material);
     }
 
     @Test
@@ -109,11 +114,12 @@ class JdbcWarehousePersistenceTest {
         catalog.insert(StorageCell.create(cellId, warehouseId, "B-01"));
 
         UUID positionId = UUID.randomUUID();
+        MaterialReference material = persistMaterial(MaterialReference.legacyArticle("ALU-6060"));
         StockPositionRow position = stock.insertPosition(
                 positionId,
                 warehouseId,
                 cellId,
-                MaterialReference.of("ALU-6060"),
+                material,
                 StockQuantity.of(new BigDecimal("12.500000")),
                 StockState.AVAILABLE);
 
@@ -139,6 +145,7 @@ class JdbcWarehousePersistenceTest {
 
         WarehouseOperationId operationId = WarehouseOperationId.generate();
         Instant now = CLOCK.instant();
+        MaterialReference operationMaterial = persistMaterial(MaterialReference.legacyArticle("MAT-2"));
         WarehouseOperationRow operation =
                 stock.insertOperation(
                         new WarehouseOperationRow(
@@ -147,7 +154,7 @@ class JdbcWarehousePersistenceTest {
                                 WarehouseOperationStatus.DRAFT,
                                 warehouseId,
                                 cellId,
-                                MaterialReference.of("MAT-2"),
+                                operationMaterial,
                                 StockQuantity.of(1L),
                                 StockState.AVAILABLE,
                                 0L,
@@ -166,11 +173,12 @@ class JdbcWarehousePersistenceTest {
         catalog.insert(Warehouse.create(warehouseId, "WH-3", "Lock"));
         catalog.insert(StorageCell.create(cellId, warehouseId, "C-01"));
         UUID positionId = UUID.randomUUID();
+        MaterialReference steel = persistMaterial(MaterialReference.legacyArticle("STEEL"));
         stock.insertPosition(
                 positionId,
                 warehouseId,
                 cellId,
-                MaterialReference.of("STEEL"),
+                steel,
                 StockQuantity.of(1L),
                 StockState.AVAILABLE);
         stock.updatePosition(positionId, StockQuantity.of(2L), StockState.AVAILABLE, 0L);

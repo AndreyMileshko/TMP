@@ -21,6 +21,7 @@ import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
+import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
@@ -144,6 +145,7 @@ class WarehouseWorkbenchViewModelTest {
                 warehouseId,
                 List.of(
                         StockView.of(
+                                UUID.randomUUID(),
                                 "ALU-6060",
                                 "Алюминий",
                                 "Серый",
@@ -173,7 +175,8 @@ class WarehouseWorkbenchViewModelTest {
         api.warehouses.add(warehouse);
         api.cellsByWarehouse.put(warehouseId, new ArrayList<>(List.of(cell)));
         viewModel.loadWarehouses();
-        viewModel.receiptMaterialProperty().set("ALU-6060");
+        viewModel.receiptArticleProperty().set("ALU-6060");
+        viewModel.receiptNameProperty().set("ALU-6060");
         viewModel.receiptQuantityProperty().set("12.5");
         viewModel.receiptWarehouseProperty().set(WarehouseChoice.from(warehouse));
         viewModel.receiptCellProperty().set(StorageCellChoice.from(cell));
@@ -193,8 +196,12 @@ class WarehouseWorkbenchViewModelTest {
         UUID destCell = UUID.randomUUID();
         WarehouseView warehouse = new WarehouseView(wh, "WH-1", "Main", true);
         api.warehouses.add(warehouse);
+        UUID materialId = UUID.randomUUID();
+        api.materialReferences.add(
+                new MaterialReferenceView(
+                        materialId, "M1", "Material 1", "", "", ""));
         viewModel.loadWarehouses();
-        viewModel.moveMaterialProperty().set("M1");
+        viewModel.moveMaterialProperty().set(MaterialChoice.from(api.materialReferences.get(0)));
         viewModel.moveQuantityProperty().set("1");
         viewModel.moveSourceWarehouseProperty().set(WarehouseChoice.from(warehouse));
         viewModel.moveSourceCellProperty().set(new StorageCellChoice(cell, wh, "A-01", true));
@@ -217,16 +224,17 @@ class WarehouseWorkbenchViewModelTest {
         WarehouseView destination = new WarehouseView(destWh, "WH-D", "Dest", true);
         api.warehouses.add(source);
         api.warehouses.add(destination);
+        MaterialChoice material = api.addMaterial("M1");
         viewModel.loadWarehouses();
 
-        viewModel.transferMaterialProperty().set("M1");
+        viewModel.transferMaterialProperty().set(material);
         viewModel.transferQuantityProperty().set("2");
         viewModel.transferSourceWarehouseProperty().set(WarehouseChoice.from(source));
         viewModel.transferSourceCellProperty().set(new StorageCellChoice(cell, wh, "A-01", true));
         viewModel.transferDestWarehouseProperty().set(WarehouseChoice.from(destination));
         viewModel.submitTransferSend();
 
-        viewModel.transferReceiveMaterialProperty().set("M1");
+        viewModel.transferReceiveMaterialProperty().set(material);
         viewModel.transferReceiveQuantityProperty().set("2");
         viewModel.transferReceiveSourceWarehouseProperty().set(WarehouseChoice.from(source));
         viewModel.transferReceiveSourceCellProperty()
@@ -247,16 +255,17 @@ class WarehouseWorkbenchViewModelTest {
         UUID cell = UUID.randomUUID();
         WarehouseView warehouse = new WarehouseView(wh, "WH-1", "Main", true);
         api.warehouses.add(warehouse);
+        MaterialChoice material = api.addMaterial("M1");
         viewModel.loadWarehouses();
 
-        viewModel.consumptionMaterialProperty().set("M1");
+        viewModel.consumptionMaterialProperty().set(material);
         viewModel.consumptionQuantityProperty().set("3");
         viewModel.consumptionWarehouseProperty().set(WarehouseChoice.from(warehouse));
         viewModel.consumptionCellProperty().set(new StorageCellChoice(cell, wh, "A-01", true));
         viewModel.consumptionBasisProperty().set("Производство");
         viewModel.submitConsumption();
 
-        viewModel.adjustmentMaterialProperty().set("M1");
+        viewModel.adjustmentMaterialProperty().set(material);
         viewModel.adjustmentQuantityDeltaProperty().set("-1");
         viewModel.adjustmentWarehouseProperty().set(WarehouseChoice.from(warehouse));
         viewModel.adjustmentCellProperty().set(new StorageCellChoice(cell, wh, "A-01", true));
@@ -271,6 +280,9 @@ class WarehouseWorkbenchViewModelTest {
 
     @Test
     void reservationSectionUsesListAndCreateThroughPublicApi() {
+        api.materialReferences.add(
+                new MaterialReferenceView(
+                        UUID.randomUUID(), "ALU-6060", "ALU-6060", "", "", ""));
         viewModel.reservationFilterMaterialProperty().set("ALU-6060");
         viewModel.loadReservationLinks();
         assertEquals(1, api.listReservationCalls);
@@ -303,27 +315,16 @@ class WarehouseWorkbenchViewModelTest {
     }
 
     @Test
-    void refreshReceiptMaterialDisplayUsesPublicApi() {
-        api.materialDisplays.put(
-                "VEKA-103.211",
-                new MaterialReferenceDisplayView(
+    void formatMaterialDisplayBuildsReadableDescription() {
+        MaterialReferenceView view =
+                new MaterialReferenceView(
+                        UUID.randomUUID(),
                         "VEKA-103.211",
                         "Профиль VEKA Softline",
                         "Белый",
                         "6000 мм",
-                        "шт"));
-        viewModel.receiptMaterialProperty().set("VEKA-103.211");
-        viewModel.refreshReceiptMaterialDisplay();
-        assertTrue(viewModel.receiptMaterialDisplayProperty().get().contains("Профиль VEKA Softline"));
-        assertEquals(1, api.getMaterialReferenceDisplayCalls);
-    }
-
-    @Test
-    void formatMaterialDisplayBuildsReadableDescription() {
-        MaterialReferenceDisplayView display =
-                new MaterialReferenceDisplayView(
-                        "VEKA-103.211", "Профиль VEKA Softline", "Белый", "6000 мм", "шт");
-        String formatted = WarehouseWorkbenchViewModel.formatMaterialDisplay(display);
+                        "шт");
+        String formatted = WarehouseWorkbenchViewModel.formatMaterialDisplay(view);
         assertTrue(formatted.contains("VEKA-103.211"));
         assertTrue(formatted.contains("Профиль VEKA Softline"));
         assertTrue(formatted.contains("Белый"));
@@ -337,10 +338,6 @@ class WarehouseWorkbenchViewModelTest {
         StorageCellView cell = new StorageCellView(cellId, warehouseId, "A-01", true);
         api.warehouses.add(warehouse);
         api.cellsByWarehouse.put(warehouseId, new ArrayList<>(List.of(cell)));
-        api.materialDisplays.put(
-                "ALU-6060",
-                new MaterialReferenceDisplayView(
-                        "ALU-6060", "Алюминий", "Серый", "6000 мм", "шт"));
 
         auth.allowed = Set.of(UiShellScreens.WAREHOUSE_RECEIPT_PERMISSION);
         viewModel.refreshPermissions();
@@ -355,11 +352,8 @@ class WarehouseWorkbenchViewModelTest {
         assertEquals(1, api.listStorageCellsCalls);
         assertFalse(viewModel.receiptCellChoices().isEmpty());
 
-        viewModel.receiptMaterialProperty().set("ALU-6060");
-        viewModel.refreshReceiptMaterialDisplay();
-        assertTrue(viewModel.receiptMaterialDisplayProperty().get().contains("Алюминий"));
-        assertEquals(1, api.getMaterialReferenceDisplayCalls);
-
+        viewModel.receiptArticleProperty().set("ALU-6060");
+        viewModel.receiptNameProperty().set("Алюминий");
         viewModel.receiptQuantityProperty().set("10");
         viewModel.receiptCellProperty().set(StorageCellChoice.from(cell));
         viewModel.submitReceipt();
@@ -376,6 +370,7 @@ class WarehouseWorkbenchViewModelTest {
                 warehouseId,
                 List.of(
                         StockView.of(
+                                UUID.randomUUID(),
                                 "ALU-6060",
                                 "Алюминий",
                                 "Серый",
@@ -448,9 +443,8 @@ class WarehouseWorkbenchViewModelTest {
         private int listStorageCellsCalls;
         private int getStockByWarehouseCalls;
         private int listReservationCalls;
-        private int getMaterialReferenceDisplayCalls;
-        private final java.util.Map<String, MaterialReferenceDisplayView> materialDisplays =
-                new java.util.HashMap<>();
+        private final List<MaterialReferenceView> materialReferences = new ArrayList<>();
+        private int listMaterialReferencesCalls;
         private boolean denyNext;
 
         @Override
@@ -510,16 +504,27 @@ class WarehouseWorkbenchViewModelTest {
             return stockByWarehouse.getOrDefault(warehouseId, List.of());
         }
 
+        private MaterialChoice addMaterial(String article) {
+            MaterialReferenceView view =
+                    new MaterialReferenceView(
+                            UUID.randomUUID(), article, article, "", "", "");
+            materialReferences.add(view);
+            return MaterialChoice.from(view);
+        }
+
         @Override
-        public MaterialReferenceDisplayView getMaterialReferenceDisplay(String materialCode) {
-            getMaterialReferenceDisplayCalls++;
+        public List<MaterialReferenceView> listMaterialReferences() {
+            listMaterialReferencesCalls++;
             if (denyNext) {
                 denyNext = false;
                 throw new AccessDeniedException("denied");
             }
-            return materialDisplays.getOrDefault(
-                    materialCode,
-                    new MaterialReferenceDisplayView(materialCode, "", "", "", ""));
+            return List.copyOf(materialReferences);
+        }
+
+        @Override
+        public MaterialReferenceDisplayView getMaterialReferenceDisplay(String materialCode) {
+            return new MaterialReferenceDisplayView(materialCode, materialCode, "", "", "");
         }
 
         @Override
@@ -534,7 +539,8 @@ class WarehouseWorkbenchViewModelTest {
             ReservationLinkView view =
                     new ReservationLinkView(
                             UUID.randomUUID(),
-                            command.materialCode(),
+                            command.materialReferenceId(),
+                            "MAT",
                             command.targetType(),
                             command.targetReference(),
                             command.quantity(),
@@ -558,7 +564,10 @@ class WarehouseWorkbenchViewModelTest {
                     UUID.randomUUID(),
                     command.kind(),
                     "COMPLETED",
-                    command.materialCode(),
+                    command.materialReferenceId() != null
+                            ? command.materialReferenceId()
+                            : UUID.randomUUID(),
+                    command.materialCode() != null ? command.materialCode() : "MAT",
                     command.warehouseId(),
                     command.storageCellId(),
                     command.quantity());

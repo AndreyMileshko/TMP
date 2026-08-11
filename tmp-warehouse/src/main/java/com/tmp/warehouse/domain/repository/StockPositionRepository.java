@@ -39,6 +39,11 @@ public interface StockPositionRepository {
     List<StockPosition> findByMaterial(MaterialReference material);
 
     /**
+     * Returns all stock positions whose material article matches (any color/size/unit variant).
+     */
+    List<StockPosition> findByArticle(String article);
+
+    /**
      * Returns all stock positions for the given warehouse (read-only query).
      */
     List<StockPosition> findByWarehouse(WarehouseId warehouseId);

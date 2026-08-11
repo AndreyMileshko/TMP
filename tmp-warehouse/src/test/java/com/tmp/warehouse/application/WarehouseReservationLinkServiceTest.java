@@ -36,7 +36,7 @@ class WarehouseReservationLinkServiceTest {
 
     @Test
     void createLinkStoresInformationalBindingWithoutStockSideEffects() {
-        MaterialReference material = MaterialReference.of("VEKA 103.211 WHITE");
+        MaterialReference material = MaterialReference.legacyArticle("VEKA 103.211 WHITE");
         ReservationTargetReference order = ReservationTargetReference.order("26096190");
 
         MaterialReservationLink created =
@@ -51,11 +51,11 @@ class WarehouseReservationLinkServiceTest {
 
     @Test
     void findByTargetReturnsOrderBinding() {
-        MaterialReference material = MaterialReference.of("ALU-6060");
+        MaterialReference material = MaterialReference.legacyArticle("ALU-6060");
         ReservationTargetReference order = ReservationTargetReference.order("ORD-100");
         service.createLink(material, order, StockQuantity.of(50L));
         service.createLink(
-                MaterialReference.of("OTHER"),
+                MaterialReference.legacyArticle("OTHER"),
                 ReservationTargetReference.order("ORD-OTHER"),
                 StockQuantity.of(10L));
 
@@ -69,7 +69,7 @@ class WarehouseReservationLinkServiceTest {
 
     @Test
     void findByMaterialReturnsAllLinksForMaterial() {
-        MaterialReference material = MaterialReference.of("VEKA 103.211 WHITE");
+        MaterialReference material = MaterialReference.legacyArticle("VEKA 103.211 WHITE");
         service.createLink(
                 material, ReservationTargetReference.order("A"), StockQuantity.of(100L));
         service.createLink(

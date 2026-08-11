@@ -72,6 +72,7 @@ class JdbcWarehouseMovementRepositoryTest {
         jdbc.update("DELETE FROM warehouse.stock_positions");
         jdbc.update("DELETE FROM warehouse.storage_cells");
         jdbc.update("DELETE FROM warehouse.warehouses");
+        jdbc.update("DELETE FROM warehouse.material_references");
 
         JdbcWarehouseStockRepository stockJdbc = new JdbcWarehouseStockRepository(jdbc, CLOCK);
         stockPositions = new JdbcStockPositionRepository(stockJdbc);
@@ -87,12 +88,15 @@ class JdbcWarehouseMovementRepositoryTest {
                 .insert(StorageCell.create(cellId, warehouseId, "A-01"));
 
         StockPositionId positionId = StockPositionId.generate();
+        MaterialReference material =
+                new JdbcMaterialReferenceRepository(jdbc, CLOCK)
+                        .create(MaterialReference.legacyArticle("ALU-6060"));
         stockPositions.create(
                 StockPosition.of(
                         positionId,
                         warehouseId,
                         cellId,
-                        MaterialReference.of("ALU-6060"),
+                        material,
                         StockState.AVAILABLE,
                         StockQuantity.of(10L)));
 

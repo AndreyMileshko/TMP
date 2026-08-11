@@ -65,7 +65,7 @@ class WarehouseAdjustmentServiceTest {
     void positiveAdjustmentIncreasesStockAndRecordsPositiveMovement() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellId = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("VEKA 103.211 WHITE");
+        MaterialReference material = MaterialReference.legacyArticle("VEKA 103.211 WHITE");
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,
@@ -99,7 +99,7 @@ class WarehouseAdjustmentServiceTest {
     void negativeAdjustmentDecreasesStockAndRecordsNegativeMovement() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellId = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("ALU-6060");
+        MaterialReference material = MaterialReference.legacyArticle("ALU-6060");
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,
@@ -132,7 +132,7 @@ class WarehouseAdjustmentServiceTest {
     void adjustmentRejectsNegativeResultingStock() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellId = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("MAT-NEG");
+        MaterialReference material = MaterialReference.legacyArticle("MAT-NEG");
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,
@@ -163,7 +163,7 @@ class WarehouseAdjustmentServiceTest {
                 IllegalArgumentException.class,
                 () ->
                         new AdjustmentRequest(
-                                MaterialReference.of("MAT-1"),
+                                MaterialReference.legacyArticle("MAT-1"),
                                 BigDecimal.ZERO,
                                 WarehouseId.generate(),
                                 StorageCellId.generate()));
@@ -252,6 +252,13 @@ class WarehouseAdjustmentServiceTest {
         public List<StockPosition> findByMaterial(MaterialReference material) {
             return byId.values().stream()
                     .filter(p -> p.material().equals(material))
+                    .toList();
+        }
+
+        @Override
+        public List<StockPosition> findByArticle(String article) {
+            return byId.values().stream()
+                    .filter(p -> p.material().article().equals(article))
                     .toList();
         }
 

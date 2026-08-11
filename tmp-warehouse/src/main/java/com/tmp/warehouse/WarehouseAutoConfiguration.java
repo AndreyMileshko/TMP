@@ -13,11 +13,13 @@ import com.tmp.warehouse.application.WarehouseOperationEngine;
 import com.tmp.warehouse.application.WarehouseReceiptService;
 import com.tmp.warehouse.application.WarehouseReservationLinkService;
 import com.tmp.warehouse.application.WarehouseTransferService;
+import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.MaterialReservationLinkRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
+import com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
 import com.tmp.warehouse.persistence.JdbcStockPositionRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
@@ -65,6 +67,12 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
+    MaterialReferenceRepository materialReferenceRepository(
+            JdbcTemplate jdbcTemplate, Clock clock) {
+        return new JdbcMaterialReferenceRepository(jdbcTemplate, clock);
+    }
+
+    @Bean
     StockPositionRepository stockPositionRepository(JdbcWarehouseStockRepository stockRepository) {
         return new JdbcStockPositionRepository(stockRepository);
     }
@@ -103,8 +111,10 @@ public class WarehouseAutoConfiguration {
     @Bean
     WarehouseReceiptService warehouseReceiptService(
             WarehouseOperationEngine warehouseOperationEngine,
-            StockPositionRepository stockPositionRepository) {
-        return new WarehouseReceiptService(warehouseOperationEngine, stockPositionRepository);
+            StockPositionRepository stockPositionRepository,
+            MaterialReferenceRepository materialReferenceRepository) {
+        return new WarehouseReceiptService(
+                warehouseOperationEngine, stockPositionRepository, materialReferenceRepository);
     }
 
     @Bean
@@ -164,6 +174,7 @@ public class WarehouseAutoConfiguration {
             AuthorizationService authorizationService,
             WarehouseCatalogRepository warehouseCatalogRepository,
             StockPositionRepository stockPositionRepository,
+            MaterialReferenceRepository materialReferenceRepository,
             MaterialReferenceDisplayPort materialReferenceDisplayPort,
             WarehouseReservationLinkService warehouseReservationLinkService,
             WarehouseReceiptService warehouseReceiptService,
@@ -175,6 +186,7 @@ public class WarehouseAutoConfiguration {
                 authorizationService,
                 warehouseCatalogRepository,
                 stockPositionRepository,
+                materialReferenceRepository,
                 materialReferenceDisplayPort,
                 warehouseReservationLinkService,
                 warehouseReceiptService,

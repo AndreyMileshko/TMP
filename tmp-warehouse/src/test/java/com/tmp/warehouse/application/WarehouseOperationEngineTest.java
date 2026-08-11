@@ -132,7 +132,7 @@ class WarehouseOperationEngineTest {
     private WarehouseOperation createSampleDraft() {
         return engine.create(
                 WarehouseOperationType.ADJUSTMENT,
-                MaterialReference.of("VEKA-103.211"),
+                MaterialReference.legacyArticle("VEKA-103.211"),
                 WarehouseId.generate(),
                 StorageCellId.generate(),
                 StockState.AVAILABLE,
@@ -227,6 +227,13 @@ class WarehouseOperationEngineTest {
         public List<StockPosition> findByMaterial(MaterialReference material) {
             return byId.values().stream()
                     .filter(p -> p.material().equals(material))
+                    .toList();
+        }
+
+        @Override
+        public List<StockPosition> findByArticle(String article) {
+            return byId.values().stream()
+                    .filter(p -> p.material().article().equals(article))
                     .toList();
         }
 

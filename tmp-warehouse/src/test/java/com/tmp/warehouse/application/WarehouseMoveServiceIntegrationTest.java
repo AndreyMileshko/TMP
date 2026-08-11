@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.warehouse.domain.MaterialReference;
+import com.tmp.warehouse.testsupport.WarehouseJdbcTestSupport;
 import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
@@ -87,6 +88,7 @@ class WarehouseMoveServiceIntegrationTest {
         jdbc.update("DELETE FROM warehouse.stock_positions");
         jdbc.update("DELETE FROM warehouse.storage_cells");
         jdbc.update("DELETE FROM warehouse.warehouses");
+        jdbc.update("DELETE FROM warehouse.material_references");
 
         JdbcWarehouseStockRepository stockJdbc = new JdbcWarehouseStockRepository(jdbc, CLOCK);
         catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);
@@ -112,7 +114,7 @@ class WarehouseMoveServiceIntegrationTest {
         catalog.insert(StorageCell.create(sourceCell, warehouseId, "A-01"));
         catalog.insert(StorageCell.create(destinationCell, warehouseId, "B-05"));
 
-        MaterialReference material = MaterialReference.of("VEKA 103.211 WHITE");
+        MaterialReference material = WarehouseJdbcTestSupport.persistLegacyArticle(jdbc, CLOCK, "VEKA 103.211 WHITE");
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,

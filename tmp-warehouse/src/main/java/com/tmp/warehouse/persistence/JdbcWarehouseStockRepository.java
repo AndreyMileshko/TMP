@@ -36,6 +36,14 @@ import org.springframework.jdbc.core.RowMapper;
         justification = "Stores Spring-managed JdbcTemplate and Clock injected by the container.")
 public final class JdbcWarehouseStockRepository {
 
+    private static final String POSITION_SELECT =
+            """
+            SELECT sp.id, sp.warehouse_id, sp.storage_cell_id, sp.quantity, sp.stock_state,
+                   sp.version, sp.created_at, sp.updated_at,
+                   mr.id AS material_id, mr.article, mr.name, mr.color, mr.size,
+                   mr.unit_of_measure
+            """;
+
     private static final RowMapper<StockPositionRow> POSITION_MAPPER =
             JdbcWarehouseStockRepository::mapPosition;
     private static final RowMapper<WarehouseOperationRow> OPERATION_MAPPER =
@@ -54,14 +62,14 @@ public final class JdbcWarehouseStockRepository {
         jdbcTemplate.update(
                 """
                 INSERT INTO warehouse.stock_positions (
-                    id, warehouse_id, storage_cell_id, material_reference, quantity, stock_state,
+                    id, warehouse_id, storage_cell_id, material_reference_id, quantity, stock_state,
                     version, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 row.id(),
                 row.warehouseId().value(),
                 row.storageCellId().value(),
-                row.materialReference().materialCode(),
+                row.materialReference().id().value(),
                 row.quantity().value(),
                 row.stockState().name(),
                 row.version(),
@@ -114,12 +122,12 @@ public final class JdbcWarehouseStockRepository {
         Objects.requireNonNull(id, "id");
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(
-                    """
-                    SELECT id, warehouse_id, storage_cell_id, material_reference, quantity,
-                           stock_state, version, created_at, updated_at
-                    FROM warehouse.stock_positions
-                    WHERE id = ?
-                    """,
+                    POSITION_SELECT
+                            + """
+                            FROM warehouse.stock_positions sp
+                            JOIN warehouse.material_references mr ON sp.material_reference_id = mr.id
+                            WHERE sp.id = ?
+                            """,
                     POSITION_MAPPER,
                     id));
         } catch (EmptyResultDataAccessException ex) {
@@ -130,13 +138,13 @@ public final class JdbcWarehouseStockRepository {
     public List<StockPositionRow> findPositionsByWarehouse(WarehouseId warehouseId) {
         Objects.requireNonNull(warehouseId, "warehouseId");
         return jdbcTemplate.query(
-                """
-                SELECT id, warehouse_id, storage_cell_id, material_reference, quantity,
-                       stock_state, version, created_at, updated_at
-                FROM warehouse.stock_positions
-                WHERE warehouse_id = ?
-                ORDER BY material_reference, stock_state
-                """,
+                POSITION_SELECT
+                        + """
+                        FROM warehouse.stock_positions sp
+                        JOIN warehouse.material_references mr ON sp.material_reference_id = mr.id
+                        WHERE sp.warehouse_id = ?
+                        ORDER BY mr.article, mr.color, mr.size, mr.unit_of_measure, sp.stock_state
+                        """,
                 POSITION_MAPPER,
                 warehouseId.value());
     }
@@ -144,15 +152,29 @@ public final class JdbcWarehouseStockRepository {
     public List<StockPositionRow> findPositionsByMaterial(MaterialReference materialReference) {
         Objects.requireNonNull(materialReference, "materialReference");
         return jdbcTemplate.query(
-                """
-                SELECT id, warehouse_id, storage_cell_id, material_reference, quantity,
-                       stock_state, version, created_at, updated_at
-                FROM warehouse.stock_positions
-                WHERE material_reference = ?
-                ORDER BY warehouse_id, storage_cell_id, stock_state
-                """,
+                POSITION_SELECT
+                        + """
+                        FROM warehouse.stock_positions sp
+                        JOIN warehouse.material_references mr ON sp.material_reference_id = mr.id
+                        WHERE sp.material_reference_id = ?
+                        ORDER BY sp.warehouse_id, sp.storage_cell_id, sp.stock_state
+                        """,
                 POSITION_MAPPER,
-                materialReference.materialCode());
+                materialReference.id().value());
+    }
+
+    public List<StockPositionRow> findPositionsByArticle(String article) {
+        Objects.requireNonNull(article, "article");
+        return jdbcTemplate.query(
+                POSITION_SELECT
+                        + """
+                        FROM warehouse.stock_positions sp
+                        JOIN warehouse.material_references mr ON sp.material_reference_id = mr.id
+                        WHERE mr.article = ?
+                        ORDER BY sp.warehouse_id, sp.storage_cell_id, sp.stock_state
+                        """,
+                POSITION_MAPPER,
+                article.trim());
     }
 
     public Optional<StockPositionRow> findPositionByNaturalKey(
@@ -166,19 +188,19 @@ public final class JdbcWarehouseStockRepository {
         Objects.requireNonNull(stockState, "stockState");
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(
-                    """
-                    SELECT id, warehouse_id, storage_cell_id, material_reference, quantity,
-                           stock_state, version, created_at, updated_at
-                    FROM warehouse.stock_positions
-                    WHERE warehouse_id = ?
-                      AND storage_cell_id = ?
-                      AND material_reference = ?
-                      AND stock_state = ?
-                    """,
+                    POSITION_SELECT
+                            + """
+                            FROM warehouse.stock_positions sp
+                            JOIN warehouse.material_references mr ON sp.material_reference_id = mr.id
+                            WHERE sp.warehouse_id = ?
+                              AND sp.storage_cell_id = ?
+                              AND sp.material_reference_id = ?
+                              AND sp.stock_state = ?
+                            """,
                     POSITION_MAPPER,
                     warehouseId.value(),
                     storageCellId.value(),
-                    materialReference.materialCode(),
+                    materialReference.id().value(),
                     stockState.name()));
         } catch (EmptyResultDataAccessException ex) {
             return Optional.empty();
@@ -190,7 +212,7 @@ public final class JdbcWarehouseStockRepository {
         jdbcTemplate.update(
                 """
                 INSERT INTO warehouse.warehouse_operations (
-                    id, operation_type, status, warehouse_id, storage_cell_id, material_reference,
+                    id, operation_type, status, warehouse_id, storage_cell_id, material_reference_id,
                     quantity, stock_state, version, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -199,7 +221,7 @@ public final class JdbcWarehouseStockRepository {
                 row.status().name(),
                 row.warehouseId().value(),
                 row.storageCellId().value(),
-                row.materialReference().materialCode(),
+                row.materialReference().id().value(),
                 row.quantity().value(),
                 row.stockState().name(),
                 row.version(),
@@ -234,10 +256,13 @@ public final class JdbcWarehouseStockRepository {
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(
                     """
-                    SELECT id, operation_type, status, warehouse_id, storage_cell_id,
-                           material_reference, quantity, stock_state, version, created_at, updated_at
-                    FROM warehouse.warehouse_operations
-                    WHERE id = ?
+                    SELECT wo.id, wo.operation_type, wo.status, wo.warehouse_id, wo.storage_cell_id,
+                           wo.quantity, wo.stock_state, wo.version, wo.created_at, wo.updated_at,
+                           mr.id AS material_id, mr.article, mr.name, mr.color, mr.size,
+                           mr.unit_of_measure
+                    FROM warehouse.warehouse_operations wo
+                    JOIN warehouse.material_references mr ON wo.material_reference_id = mr.id
+                    WHERE wo.id = ?
                     """,
                     OPERATION_MAPPER,
                     id.value()));
@@ -251,7 +276,14 @@ public final class JdbcWarehouseStockRepository {
                 rs.getObject("id", UUID.class),
                 WarehouseId.of(rs.getObject("warehouse_id", UUID.class)),
                 StorageCellId.of(rs.getObject("storage_cell_id", UUID.class)),
-                MaterialReference.of(rs.getString("material_reference")),
+                MaterialReference.rehydrate(
+                        com.tmp.warehouse.domain.MaterialReferenceId.of(
+                                rs.getObject("material_id", UUID.class)),
+                        rs.getString("article"),
+                        rs.getString("name"),
+                        rs.getString("color"),
+                        rs.getString("size"),
+                        rs.getString("unit_of_measure")),
                 StockQuantity.of(rs.getBigDecimal("quantity")),
                 StockState.valueOf(rs.getString("stock_state")),
                 rs.getLong("version"),
@@ -266,7 +298,14 @@ public final class JdbcWarehouseStockRepository {
                 WarehouseOperationStatus.valueOf(rs.getString("status")),
                 WarehouseId.of(rs.getObject("warehouse_id", UUID.class)),
                 StorageCellId.of(rs.getObject("storage_cell_id", UUID.class)),
-                MaterialReference.of(rs.getString("material_reference")),
+                MaterialReference.rehydrate(
+                        com.tmp.warehouse.domain.MaterialReferenceId.of(
+                                rs.getObject("material_id", UUID.class)),
+                        rs.getString("article"),
+                        rs.getString("name"),
+                        rs.getString("color"),
+                        rs.getString("size"),
+                        rs.getString("unit_of_measure")),
                 StockQuantity.of(rs.getBigDecimal("quantity")),
                 StockState.valueOf(rs.getString("stock_state")),
                 rs.getLong("version"),

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.warehouse.domain.MaterialReference;
+import com.tmp.warehouse.domain.MaterialReferenceId;
 import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockPositionId;
 import com.tmp.warehouse.domain.StockQuantity;
@@ -16,6 +17,7 @@ import com.tmp.warehouse.domain.WarehouseOperation;
 import com.tmp.warehouse.domain.WarehouseOperationId;
 import com.tmp.warehouse.domain.WarehouseOperationStatus;
 import com.tmp.warehouse.domain.WarehouseOperationType;
+import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
@@ -42,6 +44,7 @@ class WarehouseReceiptServiceTest {
 
     private InMemoryOperationRepository operations;
     private InMemoryStockPositionRepository stockPositions;
+    private InMemoryMaterialReferenceRepository materials;
     private InMemoryMovementRepository movements;
     private WarehouseReceiptService receipts;
 
@@ -49,6 +52,7 @@ class WarehouseReceiptServiceTest {
     void setUp() {
         operations = new InMemoryOperationRepository();
         stockPositions = new InMemoryStockPositionRepository();
+        materials = new InMemoryMaterialReferenceRepository();
         movements = new InMemoryMovementRepository();
         WarehouseOperationEngine engine =
                 new WarehouseOperationEngine(
@@ -57,7 +61,7 @@ class WarehouseReceiptServiceTest {
                         movements,
                         new TransactionTemplate(new PassthroughTransactionManager()),
                         CLOCK);
-        receipts = new WarehouseReceiptService(engine, stockPositions);
+        receipts = new WarehouseReceiptService(engine, stockPositions, materials);
     }
 
     @Test
@@ -76,13 +80,14 @@ class WarehouseReceiptServiceTest {
     void receiptCreatesPositiveQuantityMovement() {
         ReceiptRequest request = sampleRequest(StockQuantity.of(8));
         WarehouseOperation completed = receipts.receive(request);
+        MaterialReference material = materials.findAll().get(0);
 
         StockPosition position =
                 stockPositions
                         .findByNaturalKey(
                                 request.warehouseId(),
                                 request.storageCellId(),
-                                request.material(),
+                                material,
                                 StockState.AVAILABLE)
                         .orElseThrow();
         List<WarehouseMovement> history = movements.findHistoryByStockPosition(position.id());
@@ -97,7 +102,7 @@ class WarehouseReceiptServiceTest {
     void receiptIncreasesStockQuantity() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellId = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("VEKA-103.211");
+        MaterialReference material = materials.create(MaterialReference.legacyArticle("VEKA-103.211"));
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,
@@ -107,7 +112,15 @@ class WarehouseReceiptServiceTest {
                         StockQuantity.of(10)));
 
         receipts.receive(
-                new ReceiptRequest(material, StockQuantity.of(4), warehouseId, cellId));
+                new ReceiptRequest(
+                        "VEKA-103.211",
+                        "VEKA-103.211",
+                        "",
+                        "",
+                        "",
+                        StockQuantity.of(4),
+                        warehouseId,
+                        cellId));
 
         StockPosition position =
                 stockPositions
@@ -122,7 +135,11 @@ class WarehouseReceiptServiceTest {
                 IllegalArgumentException.class,
                 () ->
                         new ReceiptRequest(
-                                MaterialReference.of("MAT-1"),
+                                "MAT-1",
+                                "MAT-1",
+                                "",
+                                "",
+                                "",
                                 StockQuantity.of(0),
                                 WarehouseId.generate(),
                                 StorageCellId.generate()));
@@ -133,7 +150,11 @@ class WarehouseReceiptServiceTest {
 
     private static ReceiptRequest sampleRequest(StockQuantity quantity) {
         return new ReceiptRequest(
-                MaterialReference.of("ALU-6060"),
+                "ALU-6060",
+                "ALU-6060",
+                "",
+                "",
+                "",
                 quantity,
                 WarehouseId.generate(),
                 StorageCellId.generate());
@@ -153,6 +174,38 @@ class WarehouseReceiptServiceTest {
 
         @Override
         public void rollback(org.springframework.transaction.TransactionStatus status) {}
+    }
+
+    private static final class InMemoryMaterialReferenceRepository
+            implements MaterialReferenceRepository {
+
+        private final Map<MaterialReferenceId, MaterialReference> byId = new ConcurrentHashMap<>();
+
+        @Override
+        public MaterialReference create(MaterialReference material) {
+            byId.put(material.id(), material);
+            return material;
+        }
+
+        @Override
+        public Optional<MaterialReference> findById(MaterialReferenceId id) {
+            return Optional.ofNullable(byId.get(id));
+        }
+
+        @Override
+        public Optional<MaterialReference> findByNaturalKey(
+                String article, String color, String size, String unitOfMeasure) {
+            return byId.values().stream()
+                    .filter(
+                            material ->
+                                    material.matchesNaturalKey(article, color, size, unitOfMeasure))
+                    .findFirst();
+        }
+
+        @Override
+        public List<MaterialReference> findAll() {
+            return List.copyOf(byId.values());
+        }
     }
 
     private static final class InMemoryOperationRepository implements WarehouseOperationRepository {
@@ -222,6 +275,13 @@ class WarehouseReceiptServiceTest {
         public List<StockPosition> findByMaterial(MaterialReference material) {
             return byId.values().stream()
                     .filter(p -> p.material().equals(material))
+                    .toList();
+        }
+
+        @Override
+        public List<StockPosition> findByArticle(String article) {
+            return byId.values().stream()
+                    .filter(p -> p.material().article().equals(article))
                     .toList();
         }
 

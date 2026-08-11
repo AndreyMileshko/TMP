@@ -12,7 +12,7 @@ import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
-import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
+import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.MaterialDisplayFormatting;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
@@ -99,21 +99,25 @@ public final class WarehouseWorkbenchViewModel {
     private final ObjectProperty<WarehouseChoice> stockWarehouse = new SimpleObjectProperty<>();
     private final StringProperty stockMaterialCode = new SimpleStringProperty("");
 
-    private final StringProperty receiptMaterial = new SimpleStringProperty("");
-    private final StringProperty receiptMaterialDisplay = new SimpleStringProperty("");
+    private final ObservableList<MaterialChoice> materialChoices =
+            FXCollections.observableArrayList();
+
+    private final StringProperty receiptArticle = new SimpleStringProperty("");
+    private final StringProperty receiptName = new SimpleStringProperty("");
+    private final StringProperty receiptColor = new SimpleStringProperty("");
+    private final StringProperty receiptSize = new SimpleStringProperty("");
+    private final StringProperty receiptUnit = new SimpleStringProperty("");
     private final StringProperty receiptQuantity = new SimpleStringProperty("");
     private final ObjectProperty<WarehouseChoice> receiptWarehouse = new SimpleObjectProperty<>();
     private final ObjectProperty<StorageCellChoice> receiptCell = new SimpleObjectProperty<>();
 
-    private final StringProperty moveMaterial = new SimpleStringProperty("");
-    private final StringProperty moveMaterialDisplay = new SimpleStringProperty("");
+    private final ObjectProperty<MaterialChoice> moveMaterial = new SimpleObjectProperty<>();
     private final StringProperty moveQuantity = new SimpleStringProperty("");
     private final ObjectProperty<WarehouseChoice> moveSourceWarehouse = new SimpleObjectProperty<>();
     private final ObjectProperty<StorageCellChoice> moveSourceCell = new SimpleObjectProperty<>();
     private final ObjectProperty<StorageCellChoice> moveDestCell = new SimpleObjectProperty<>();
 
-    private final StringProperty transferMaterial = new SimpleStringProperty("");
-    private final StringProperty transferMaterialDisplay = new SimpleStringProperty("");
+    private final ObjectProperty<MaterialChoice> transferMaterial = new SimpleObjectProperty<>();
     private final StringProperty transferQuantity = new SimpleStringProperty("");
     private final ObjectProperty<WarehouseChoice> transferSourceWarehouse =
             new SimpleObjectProperty<>();
@@ -122,8 +126,7 @@ public final class WarehouseWorkbenchViewModel {
     private final ObjectProperty<WarehouseChoice> transferDestWarehouse =
             new SimpleObjectProperty<>();
 
-    private final StringProperty transferReceiveMaterial = new SimpleStringProperty("");
-    private final StringProperty transferReceiveMaterialDisplay = new SimpleStringProperty("");
+    private final ObjectProperty<MaterialChoice> transferReceiveMaterial = new SimpleObjectProperty<>();
     private final StringProperty transferReceiveQuantity = new SimpleStringProperty("");
     private final ObjectProperty<WarehouseChoice> transferReceiveSourceWarehouse =
             new SimpleObjectProperty<>();
@@ -134,16 +137,14 @@ public final class WarehouseWorkbenchViewModel {
     private final ObjectProperty<StorageCellChoice> transferReceiveDestCell =
             new SimpleObjectProperty<>();
 
-    private final StringProperty consumptionMaterial = new SimpleStringProperty("");
-    private final StringProperty consumptionMaterialDisplay = new SimpleStringProperty("");
+    private final ObjectProperty<MaterialChoice> consumptionMaterial = new SimpleObjectProperty<>();
     private final StringProperty consumptionQuantity = new SimpleStringProperty("");
     private final ObjectProperty<WarehouseChoice> consumptionWarehouse =
             new SimpleObjectProperty<>();
     private final ObjectProperty<StorageCellChoice> consumptionCell = new SimpleObjectProperty<>();
     private final StringProperty consumptionBasis = new SimpleStringProperty("");
 
-    private final StringProperty adjustmentMaterial = new SimpleStringProperty("");
-    private final StringProperty adjustmentMaterialDisplay = new SimpleStringProperty("");
+    private final ObjectProperty<MaterialChoice> adjustmentMaterial = new SimpleObjectProperty<>();
     private final StringProperty adjustmentQuantityDelta = new SimpleStringProperty("");
     private final ObjectProperty<WarehouseChoice> adjustmentWarehouse =
             new SimpleObjectProperty<>();
@@ -336,10 +337,15 @@ public final class WarehouseWorkbenchViewModel {
             OperationResult result =
                     warehouseApi.executeWarehouseOperation(
                             ExecuteOperationCommand.receipt(
-                                    requireText(receiptMaterial.get(), "материал"),
+                                    requireText(receiptArticle.get(), "артикул"),
+                                    requireText(receiptName.get(), "наименование"),
+                                    blankToNull(receiptColor.get()) == null ? "" : receiptColor.get().trim(),
+                                    blankToNull(receiptSize.get()) == null ? "" : receiptSize.get().trim(),
+                                    blankToNull(receiptUnit.get()) == null ? "" : receiptUnit.get().trim(),
                                     parsePositiveDecimal(receiptQuantity.get(), "количество"),
                                     warehouse.id(),
                                     cell.id()));
+            loadMaterialChoices();
             statusMessage.set(
                     "Поступление выполнено: operationId=" + result.operationId());
         });
@@ -351,13 +357,14 @@ public final class WarehouseWorkbenchViewModel {
             return;
         }
         run("Перемещение выполнено", () -> {
+            MaterialChoice material = requireChoice(moveMaterial.get(), "материал");
             WarehouseChoice warehouse = requireChoice(moveSourceWarehouse.get(), "склад источник");
             StorageCellChoice sourceCell = requireChoice(moveSourceCell.get(), "ячейка источник");
             StorageCellChoice destCell = requireChoice(moveDestCell.get(), "ячейка назначения");
             OperationResult result =
                     warehouseApi.executeWarehouseOperation(
                             ExecuteOperationCommand.move(
-                                    requireText(moveMaterial.get(), "материал"),
+                                    material.id(),
                                     parsePositiveDecimal(moveQuantity.get(), "количество"),
                                     warehouse.id(),
                                     sourceCell.id(),
@@ -373,6 +380,7 @@ public final class WarehouseWorkbenchViewModel {
             return;
         }
         run("Межскладское перемещение (отправка) выполнено", () -> {
+            MaterialChoice material = requireChoice(transferMaterial.get(), "материал");
             WarehouseChoice source =
                     requireChoice(transferSourceWarehouse.get(), "склад источник");
             StorageCellChoice sourceCell =
@@ -382,7 +390,7 @@ public final class WarehouseWorkbenchViewModel {
             OperationResult result =
                     warehouseApi.executeWarehouseOperation(
                             ExecuteOperationCommand.transferSend(
-                                    requireText(transferMaterial.get(), "материал"),
+                                    material.id(),
                                     parsePositiveDecimal(transferQuantity.get(), "количество"),
                                     source.id(),
                                     sourceCell.id(),
@@ -398,6 +406,7 @@ public final class WarehouseWorkbenchViewModel {
             return;
         }
         run("Межскладское перемещение (приём) выполнено", () -> {
+            MaterialChoice material = requireChoice(transferReceiveMaterial.get(), "материал");
             WarehouseChoice source =
                     requireChoice(transferReceiveSourceWarehouse.get(), "склад источник");
             StorageCellChoice sourceCell =
@@ -409,7 +418,7 @@ public final class WarehouseWorkbenchViewModel {
             OperationResult result =
                     warehouseApi.executeWarehouseOperation(
                             ExecuteOperationCommand.transferReceive(
-                                    requireText(transferReceiveMaterial.get(), "материал"),
+                                    material.id(),
                                     parsePositiveDecimal(
                                             transferReceiveQuantity.get(), "количество"),
                                     source.id(),
@@ -427,13 +436,14 @@ public final class WarehouseWorkbenchViewModel {
             return;
         }
         run("Списание выполнено", () -> {
+            MaterialChoice material = requireChoice(consumptionMaterial.get(), "материал");
             String basis = requireText(consumptionBasis.get(), "основание");
             WarehouseChoice warehouse = requireChoice(consumptionWarehouse.get(), "склад");
             StorageCellChoice cell = requireChoice(consumptionCell.get(), "ячейка");
             OperationResult result =
                     warehouseApi.executeWarehouseOperation(
                             ExecuteOperationCommand.consumption(
-                                    requireText(consumptionMaterial.get(), "материал"),
+                                    material.id(),
                                     parsePositiveDecimal(consumptionQuantity.get(), "количество"),
                                     warehouse.id(),
                                     cell.id()));
@@ -451,13 +461,14 @@ public final class WarehouseWorkbenchViewModel {
             return;
         }
         run("Корректировка выполнена", () -> {
+            MaterialChoice material = requireChoice(adjustmentMaterial.get(), "материал");
             String reason = requireText(adjustmentReason.get(), "причина");
             WarehouseChoice warehouse = requireChoice(adjustmentWarehouse.get(), "склад");
             StorageCellChoice cell = requireChoice(adjustmentCell.get(), "ячейка");
             OperationResult result =
                     warehouseApi.executeWarehouseOperation(
                             ExecuteOperationCommand.adjustment(
-                                    requireText(adjustmentMaterial.get(), "материал"),
+                                    material.id(),
                                     parseNonZeroDecimal(
                                             adjustmentQuantityDelta.get(), "количество изменения"),
                                     warehouse.id(),
@@ -494,10 +505,25 @@ public final class WarehouseWorkbenchViewModel {
             return;
         }
         run("Информационная связь создана", () -> {
+            UUID materialReferenceId =
+                    warehouseApi.listMaterialReferences().stream()
+                            .filter(
+                                    material ->
+                                            material.article()
+                                                    .equals(
+                                                            requireText(
+                                                                    reservationMaterial.get(),
+                                                                    "материал")))
+                            .map(MaterialReferenceView::materialReferenceId)
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalArgumentException(
+                                                    "Material reference not found"));
             ReservationLinkView created =
                     warehouseApi.createReservationLink(
                             new CreateReservationLinkCommand(
-                                    requireText(reservationMaterial.get(), "материал"),
+                                    materialReferenceId,
                                     ReservationTargetTypeView.ORDER,
                                     requireText(reservationOrderRef.get(), "заказ"),
                                     parsePositiveDecimal(reservationQuantity.get(), "количество")));
@@ -669,16 +695,24 @@ public final class WarehouseWorkbenchViewModel {
         return stockMaterialCode;
     }
 
-    public StringProperty receiptMaterialProperty() {
-        return receiptMaterial;
+    public StringProperty receiptArticleProperty() {
+        return receiptArticle;
     }
 
-    public StringProperty receiptMaterialDisplayProperty() {
-        return receiptMaterialDisplay;
+    public StringProperty receiptNameProperty() {
+        return receiptName;
     }
 
-    public void refreshReceiptMaterialDisplay() {
-        refreshMaterialDisplay(receiptMaterial.get(), receiptMaterialDisplay);
+    public StringProperty receiptColorProperty() {
+        return receiptColor;
+    }
+
+    public StringProperty receiptSizeProperty() {
+        return receiptSize;
+    }
+
+    public StringProperty receiptUnitProperty() {
+        return receiptUnit;
     }
 
     public StringProperty receiptQuantityProperty() {
@@ -693,16 +727,8 @@ public final class WarehouseWorkbenchViewModel {
         return receiptCell;
     }
 
-    public StringProperty moveMaterialProperty() {
+    public ObjectProperty<MaterialChoice> moveMaterialProperty() {
         return moveMaterial;
-    }
-
-    public StringProperty moveMaterialDisplayProperty() {
-        return moveMaterialDisplay;
-    }
-
-    public void refreshMoveMaterialDisplay() {
-        refreshMaterialDisplay(moveMaterial.get(), moveMaterialDisplay);
     }
 
     public StringProperty moveQuantityProperty() {
@@ -721,16 +747,8 @@ public final class WarehouseWorkbenchViewModel {
         return moveDestCell;
     }
 
-    public StringProperty transferMaterialProperty() {
+    public ObjectProperty<MaterialChoice> transferMaterialProperty() {
         return transferMaterial;
-    }
-
-    public StringProperty transferMaterialDisplayProperty() {
-        return transferMaterialDisplay;
-    }
-
-    public void refreshTransferMaterialDisplay() {
-        refreshMaterialDisplay(transferMaterial.get(), transferMaterialDisplay);
     }
 
     public StringProperty transferQuantityProperty() {
@@ -749,16 +767,8 @@ public final class WarehouseWorkbenchViewModel {
         return transferDestWarehouse;
     }
 
-    public StringProperty transferReceiveMaterialProperty() {
+    public ObjectProperty<MaterialChoice> transferReceiveMaterialProperty() {
         return transferReceiveMaterial;
-    }
-
-    public StringProperty transferReceiveMaterialDisplayProperty() {
-        return transferReceiveMaterialDisplay;
-    }
-
-    public void refreshTransferReceiveMaterialDisplay() {
-        refreshMaterialDisplay(transferReceiveMaterial.get(), transferReceiveMaterialDisplay);
     }
 
     public StringProperty transferReceiveQuantityProperty() {
@@ -781,16 +791,8 @@ public final class WarehouseWorkbenchViewModel {
         return transferReceiveDestCell;
     }
 
-    public StringProperty consumptionMaterialProperty() {
+    public ObjectProperty<MaterialChoice> consumptionMaterialProperty() {
         return consumptionMaterial;
-    }
-
-    public StringProperty consumptionMaterialDisplayProperty() {
-        return consumptionMaterialDisplay;
-    }
-
-    public void refreshConsumptionMaterialDisplay() {
-        refreshMaterialDisplay(consumptionMaterial.get(), consumptionMaterialDisplay);
     }
 
     public StringProperty consumptionQuantityProperty() {
@@ -809,16 +811,8 @@ public final class WarehouseWorkbenchViewModel {
         return consumptionBasis;
     }
 
-    public StringProperty adjustmentMaterialProperty() {
+    public ObjectProperty<MaterialChoice> adjustmentMaterialProperty() {
         return adjustmentMaterial;
-    }
-
-    public StringProperty adjustmentMaterialDisplayProperty() {
-        return adjustmentMaterialDisplay;
-    }
-
-    public void refreshAdjustmentMaterialDisplay() {
-        refreshMaterialDisplay(adjustmentMaterial.get(), adjustmentMaterialDisplay);
     }
 
     public StringProperty adjustmentQuantityDeltaProperty() {
@@ -853,32 +847,32 @@ public final class WarehouseWorkbenchViewModel {
         return reservationFilterMaterial;
     }
 
-    private void refreshMaterialDisplay(String rawCode, StringProperty target) {
-        String code = blankToNull(rawCode);
-        if (code == null) {
-            target.set("");
-            return;
-        }
-        if (!canShowMaterialDisplay()) {
-            target.set("");
+    private void loadMaterialChoices() {
+        if (!canLoadOperationCatalogue()) {
             return;
         }
         try {
-            MaterialReferenceDisplayView display = warehouseApi.getMaterialReferenceDisplay(code);
-            target.set(formatMaterialDisplay(display));
+            materialChoices.setAll(
+                    warehouseApi.listMaterialReferences().stream()
+                            .map(MaterialChoice::from)
+                            .toList());
         } catch (RuntimeException ex) {
-            target.set("");
+            errorMessage.set(WarehouseUiErrorMapper.text(ex));
         }
     }
 
-    static String formatMaterialDisplay(MaterialReferenceDisplayView display) {
+    public ObservableList<MaterialChoice> materialChoices() {
+        return materialChoices;
+    }
+
+    static String formatMaterialDisplay(MaterialReferenceView view) {
         String description =
                 MaterialDisplayFormatting.formatDescription(
-                        display.materialName(), display.color(), display.size(), display.unitOfMeasure());
+                        view.name(), view.color(), view.size(), view.unitOfMeasure());
         if (description.isBlank()) {
-            return display.article();
+            return view.article();
         }
-        return display.article() + " — " + description;
+        return view.article() + " — " + description;
     }
 
     private void onSectionOpened(WarehouseSection value) {
@@ -887,8 +881,10 @@ public final class WarehouseWorkbenchViewModel {
         statusMessage.set("");
         switch (value) {
             case WAREHOUSES -> loadWarehouses();
-            case STOCK, RECEIPT, MOVE, TRANSFER, CONSUMPTION, ADJUSTMENT, INVENTORY ->
+            case STOCK, RECEIPT, MOVE, TRANSFER, CONSUMPTION, ADJUSTMENT, INVENTORY -> {
                     ensureWarehouseChoicesLoaded();
+                    loadMaterialChoices();
+                }
             case RESERVATIONS -> {
                 // forms load on demand
             }
@@ -976,10 +972,6 @@ public final class WarehouseWorkbenchViewModel {
                 || canConsumption.get()
                 || canAdjustment.get()
                 || canReservation.get();
-    }
-
-    private boolean canShowMaterialDisplay() {
-        return canLoadOperationCatalogue();
     }
 
     private void run(String successMessage, Runnable action) {

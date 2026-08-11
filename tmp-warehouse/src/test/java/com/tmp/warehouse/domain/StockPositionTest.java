@@ -18,7 +18,7 @@ class StockPositionTest {
     void stockPositionCreationHoldsWarehouseCellMaterialStateAndQuantity() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellId = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("VEKA-103.211");
+        MaterialReference material = MaterialReference.legacyArticle("VEKA-103.211");
         StockPositionId id = StockPositionId.generate();
         StockPosition position =
                 StockPosition.of(
@@ -47,7 +47,7 @@ class StockPositionTest {
                 () -> StockPosition.of(
                         WarehouseId.generate(),
                         StorageCellId.generate(),
-                        MaterialReference.of("MAT-1"),
+                        MaterialReference.legacyArticle("MAT-1"),
                         StockState.AVAILABLE,
                         StockQuantity.of(BigDecimal.valueOf(-5))));
     }
@@ -58,7 +58,7 @@ class StockPositionTest {
                 WarehouseOperation.describe(
                         WarehouseOperationId.generate(),
                         WarehouseOperationType.ADJUSTMENT,
-                        MaterialReference.of("ALU-6060"),
+                        MaterialReference.legacyArticle("ALU-6060"),
                         WarehouseId.generate(),
                         StorageCellId.generate(),
                         StockQuantity.of(8));

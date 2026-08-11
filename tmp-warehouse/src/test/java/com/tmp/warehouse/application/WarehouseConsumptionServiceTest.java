@@ -65,7 +65,7 @@ class WarehouseConsumptionServiceTest {
     void successfulConsumptionDecreasesStockAndRecordsNegativeMovement() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellId = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("VEKA 103.211 WHITE");
+        MaterialReference material = MaterialReference.legacyArticle("VEKA 103.211 WHITE");
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,
@@ -100,7 +100,7 @@ class WarehouseConsumptionServiceTest {
     void insufficientStockRejected() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellId = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("ALU-6060");
+        MaterialReference material = MaterialReference.legacyArticle("ALU-6060");
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,
@@ -129,7 +129,7 @@ class WarehouseConsumptionServiceTest {
     void missingStockRejected() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellId = StorageCellId.generate();
-        MaterialReference material = MaterialReference.of("UNKNOWN-MAT");
+        MaterialReference material = MaterialReference.legacyArticle("UNKNOWN-MAT");
 
         assertThrows(
                 InvalidWarehouseStateException.class,
@@ -151,7 +151,7 @@ class WarehouseConsumptionServiceTest {
                 IllegalArgumentException.class,
                 () ->
                         new ConsumptionRequest(
-                                MaterialReference.of("MAT-1"),
+                                MaterialReference.legacyArticle("MAT-1"),
                                 StockQuantity.of(0),
                                 WarehouseId.generate(),
                                 StorageCellId.generate()));
@@ -163,7 +163,7 @@ class WarehouseConsumptionServiceTest {
                 IllegalArgumentException.class,
                 () ->
                         new ConsumptionRequest(
-                                MaterialReference.of("MAT-1"),
+                                MaterialReference.legacyArticle("MAT-1"),
                                 StockQuantity.of(BigDecimal.valueOf(-1)),
                                 WarehouseId.generate(),
                                 StorageCellId.generate()));
@@ -252,6 +252,13 @@ class WarehouseConsumptionServiceTest {
         public List<StockPosition> findByMaterial(MaterialReference material) {
             return byId.values().stream()
                     .filter(p -> p.material().equals(material))
+                    .toList();
+        }
+
+        @Override
+        public List<StockPosition> findByArticle(String article) {
+            return byId.values().stream()
+                    .filter(p -> p.material().article().equals(article))
                     .toList();
         }
 

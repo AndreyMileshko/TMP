@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.warehouse.domain.MaterialReference;
+import com.tmp.warehouse.testsupport.WarehouseJdbcTestSupport;
 import com.tmp.warehouse.domain.MaterialReservationLink;
 import com.tmp.warehouse.domain.ReservationTargetReference;
 import com.tmp.warehouse.domain.StockQuantity;
@@ -72,7 +73,7 @@ class WarehouseReservationLinkServiceIntegrationTest {
 
     @Test
     void createAndReadPersistsInformationalLinkWithoutStockOrMovementRows() {
-        MaterialReference material = MaterialReference.of("VEKA 103.211 WHITE");
+        MaterialReference material = WarehouseJdbcTestSupport.persistLegacyArticle(jdbc, CLOCK, "VEKA 103.211 WHITE");
         ReservationTargetReference order = ReservationTargetReference.order("26096190");
 
         MaterialReservationLink created =

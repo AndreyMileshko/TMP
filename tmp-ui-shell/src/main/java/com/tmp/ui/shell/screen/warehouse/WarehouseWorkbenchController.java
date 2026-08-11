@@ -144,10 +144,19 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private TableColumn<StockView, String> stockStateColumn;
 
     @FXML
-    private TextField receiptMaterialField;
+    private TextField receiptArticleField;
 
     @FXML
-    private Label receiptMaterialDisplayLabel;
+    private TextField receiptNameField;
+
+    @FXML
+    private TextField receiptColorField;
+
+    @FXML
+    private TextField receiptSizeField;
+
+    @FXML
+    private TextField receiptUnitField;
 
     @FXML
     private TextField receiptQuantityField;
@@ -162,10 +171,7 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private Button submitReceiptButton;
 
     @FXML
-    private TextField moveMaterialField;
-
-    @FXML
-    private Label moveMaterialDisplayLabel;
+    private ComboBox<MaterialChoice> moveMaterialCombo;
 
     @FXML
     private TextField moveQuantityField;
@@ -192,10 +198,7 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private ComboBox<WarehouseChoice> transferDestWarehouseCombo;
 
     @FXML
-    private TextField transferMaterialField;
-
-    @FXML
-    private Label transferMaterialDisplayLabel;
+    private ComboBox<MaterialChoice> transferMaterialCombo;
 
     @FXML
     private TextField transferQuantityField;
@@ -204,10 +207,7 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private Button submitTransferSendButton;
 
     @FXML
-    private TextField transferReceiveMaterialField;
-
-    @FXML
-    private Label transferReceiveMaterialDisplayLabel;
+    private ComboBox<MaterialChoice> transferReceiveMaterialCombo;
 
     @FXML
     private TextField transferReceiveQuantityField;
@@ -228,10 +228,7 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private Button submitTransferReceiveButton;
 
     @FXML
-    private TextField consumptionMaterialField;
-
-    @FXML
-    private Label consumptionMaterialDisplayLabel;
+    private ComboBox<MaterialChoice> consumptionMaterialCombo;
 
     @FXML
     private TextField consumptionQuantityField;
@@ -249,10 +246,7 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private Button submitConsumptionButton;
 
     @FXML
-    private TextField adjustmentMaterialField;
-
-    @FXML
-    private Label adjustmentMaterialDisplayLabel;
+    private ComboBox<MaterialChoice> adjustmentMaterialCombo;
 
     @FXML
     private TextField adjustmentQuantityDeltaField;
@@ -408,9 +402,11 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
                         cell.getValue().stockState().name()));
         stockTable.setItems(viewModel.stockRows());
 
-        bindText(receiptMaterialField, viewModel.receiptMaterialProperty());
-        bindMaterialDisplay(receiptMaterialField, receiptMaterialDisplayLabel, viewModel::refreshReceiptMaterialDisplay);
-        receiptMaterialDisplayLabel.textProperty().bind(viewModel.receiptMaterialDisplayProperty());
+        bindText(receiptArticleField, viewModel.receiptArticleProperty());
+        bindText(receiptNameField, viewModel.receiptNameProperty());
+        bindText(receiptColorField, viewModel.receiptColorProperty());
+        bindText(receiptSizeField, viewModel.receiptSizeProperty());
+        bindText(receiptUnitField, viewModel.receiptUnitProperty());
         bindText(receiptQuantityField, viewModel.receiptQuantityProperty());
         bindWarehouseCombo(receiptWarehouseCombo, viewModel);
         receiptWarehouseCombo.valueProperty().bindBidirectional(
@@ -420,9 +416,8 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
         submitReceiptButton.disableProperty().bind(viewModel.canReceiptProperty().not());
         submitReceiptButton.setOnAction(e -> viewModel.submitReceipt());
 
-        bindText(moveMaterialField, viewModel.moveMaterialProperty());
-        bindMaterialDisplay(moveMaterialField, moveMaterialDisplayLabel, viewModel::refreshMoveMaterialDisplay);
-        moveMaterialDisplayLabel.textProperty().bind(viewModel.moveMaterialDisplayProperty());
+        bindMaterialCombo(moveMaterialCombo, viewModel);
+        moveMaterialCombo.valueProperty().bindBidirectional(viewModel.moveMaterialProperty());
         bindText(moveQuantityField, viewModel.moveQuantityProperty());
         bindWarehouseCombo(moveSourceWarehouseCombo, viewModel);
         moveSourceWarehouseCombo.valueProperty().bindBidirectional(
@@ -443,21 +438,15 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
         bindWarehouseCombo(transferDestWarehouseCombo, viewModel);
         transferDestWarehouseCombo.valueProperty().bindBidirectional(
                 viewModel.transferDestWarehouseProperty());
-        bindText(transferMaterialField, viewModel.transferMaterialProperty());
-        bindMaterialDisplay(
-                transferMaterialField, transferMaterialDisplayLabel, viewModel::refreshTransferMaterialDisplay);
-        transferMaterialDisplayLabel.textProperty().bind(viewModel.transferMaterialDisplayProperty());
+        bindMaterialCombo(transferMaterialCombo, viewModel);
+        transferMaterialCombo.valueProperty().bindBidirectional(viewModel.transferMaterialProperty());
         bindText(transferQuantityField, viewModel.transferQuantityProperty());
         submitTransferSendButton.disableProperty().bind(viewModel.canTransferProperty().not());
         submitTransferSendButton.setOnAction(e -> viewModel.submitTransferSend());
 
-        bindText(transferReceiveMaterialField, viewModel.transferReceiveMaterialProperty());
-        bindMaterialDisplay(
-                transferReceiveMaterialField,
-                transferReceiveMaterialDisplayLabel,
-                viewModel::refreshTransferReceiveMaterialDisplay);
-        transferReceiveMaterialDisplayLabel.textProperty().bind(
-                viewModel.transferReceiveMaterialDisplayProperty());
+        bindMaterialCombo(transferReceiveMaterialCombo, viewModel);
+        transferReceiveMaterialCombo.valueProperty().bindBidirectional(
+                viewModel.transferReceiveMaterialProperty());
         bindText(transferReceiveQuantityField, viewModel.transferReceiveQuantityProperty());
         bindWarehouseCombo(transferReceiveSourceWarehouseCombo, viewModel);
         transferReceiveSourceWarehouseCombo.valueProperty().bindBidirectional(
@@ -474,12 +463,8 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
         submitTransferReceiveButton.disableProperty().bind(viewModel.canTransferProperty().not());
         submitTransferReceiveButton.setOnAction(e -> viewModel.submitTransferReceive());
 
-        bindText(consumptionMaterialField, viewModel.consumptionMaterialProperty());
-        bindMaterialDisplay(
-                consumptionMaterialField,
-                consumptionMaterialDisplayLabel,
-                viewModel::refreshConsumptionMaterialDisplay);
-        consumptionMaterialDisplayLabel.textProperty().bind(viewModel.consumptionMaterialDisplayProperty());
+        bindMaterialCombo(consumptionMaterialCombo, viewModel);
+        consumptionMaterialCombo.valueProperty().bindBidirectional(viewModel.consumptionMaterialProperty());
         bindText(consumptionQuantityField, viewModel.consumptionQuantityProperty());
         bindText(consumptionBasisField, viewModel.consumptionBasisProperty());
         bindWarehouseCombo(consumptionWarehouseCombo, viewModel);
@@ -491,12 +476,8 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
         submitConsumptionButton.disableProperty().bind(viewModel.canConsumptionProperty().not());
         submitConsumptionButton.setOnAction(e -> viewModel.submitConsumption());
 
-        bindText(adjustmentMaterialField, viewModel.adjustmentMaterialProperty());
-        bindMaterialDisplay(
-                adjustmentMaterialField,
-                adjustmentMaterialDisplayLabel,
-                viewModel::refreshAdjustmentMaterialDisplay);
-        adjustmentMaterialDisplayLabel.textProperty().bind(viewModel.adjustmentMaterialDisplayProperty());
+        bindMaterialCombo(adjustmentMaterialCombo, viewModel);
+        adjustmentMaterialCombo.valueProperty().bindBidirectional(viewModel.adjustmentMaterialProperty());
         bindText(adjustmentQuantityDeltaField, viewModel.adjustmentQuantityDeltaProperty());
         bindText(adjustmentReasonField, viewModel.adjustmentReasonProperty());
         bindWarehouseCombo(adjustmentWarehouseCombo, viewModel);
@@ -545,6 +526,11 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
             }
         });
         displayLabel.setWrapText(true);
+    }
+
+    private static void bindMaterialCombo(
+            ComboBox<MaterialChoice> combo, WarehouseWorkbenchViewModel viewModel) {
+        combo.setItems(viewModel.materialChoices());
     }
 
     private static void bindWarehouseCombo(

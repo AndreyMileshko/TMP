@@ -3,21 +3,106 @@ package com.tmp.warehouse.domain;
 import java.util.Objects;
 
 /**
- * Material reference used by Warehouse stock state.
+ * Warehouse-owned material reference used by stock state.
  *
- * <p>Warehouse does not own a Material Master. Material identity is taken from Order Management
- * Specification context (material code as the stable reference key).
+ * <p>Identity is {@link MaterialReferenceId}. Business uniqueness is {@code article + color + size
+ * + unitOfMeasure}; {@code name} is descriptive only.
  */
 public final class MaterialReference {
 
-    private final String materialCode;
+    private final MaterialReferenceId id;
+    private final String article;
+    private final String name;
+    private final String color;
+    private final String size;
+    private final String unitOfMeasure;
 
-    private MaterialReference(String materialCode) {
-        this.materialCode = materialCode;
+    private MaterialReference(
+            MaterialReferenceId id,
+            String article,
+            String name,
+            String color,
+            String size,
+            String unitOfMeasure) {
+        this.id = Objects.requireNonNull(id, "id");
+        this.article = article;
+        this.name = name;
+        this.color = color;
+        this.size = size;
+        this.unitOfMeasure = unitOfMeasure;
     }
 
-    public static MaterialReference of(String materialCode) {
-        return new MaterialReference(requireNonBlank(materialCode, "materialCode"));
+    public static MaterialReference create(
+            String article,
+            String name,
+            String color,
+            String size,
+            String unitOfMeasure) {
+        return new MaterialReference(
+                MaterialReferenceId.generate(),
+                requireNonBlank(article, "article"),
+                requireNonBlank(name, "name"),
+                normalize(color),
+                normalize(size),
+                normalize(unitOfMeasure));
+    }
+
+    public static MaterialReference rehydrate(
+            MaterialReferenceId id,
+            String article,
+            String name,
+            String color,
+            String size,
+            String unitOfMeasure) {
+        return new MaterialReference(
+                id,
+                requireNonBlank(article, "article"),
+                requireNonBlank(name, "name"),
+                normalize(color),
+                normalize(size),
+                normalize(unitOfMeasure));
+    }
+
+    /** Legacy migrated material identified only by article with empty variant fields. */
+    public static MaterialReference legacyArticle(String article) {
+        return create(article, article, "", "", "");
+    }
+
+    public MaterialReferenceId id() {
+        return id;
+    }
+
+    public String article() {
+        return article;
+    }
+
+    public String name() {
+        return name;
+    }
+
+    public String color() {
+        return color;
+    }
+
+    public String size() {
+        return size;
+    }
+
+    public String unitOfMeasure() {
+        return unitOfMeasure;
+    }
+
+    /** Backward-compatible alias for {@link #article()}. */
+    public String materialCode() {
+        return article;
+    }
+
+    public boolean matchesNaturalKey(
+            String articleValue, String colorValue, String sizeValue, String unitValue) {
+        return this.article.equals(requireNonBlank(articleValue, "article"))
+                && this.color.equals(normalize(colorValue))
+                && this.size.equals(normalize(sizeValue))
+                && this.unitOfMeasure.equals(normalize(unitValue));
     }
 
     private static String requireNonBlank(String value, String field) {
@@ -29,8 +114,11 @@ public final class MaterialReference {
         return trimmed;
     }
 
-    public String materialCode() {
-        return materialCode;
+    private static String normalize(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim();
     }
 
     @Override
@@ -41,16 +129,16 @@ public final class MaterialReference {
         if (!(other instanceof MaterialReference that)) {
             return false;
         }
-        return materialCode.equals(that.materialCode);
+        return id.equals(that.id);
     }
 
     @Override
     public int hashCode() {
-        return materialCode.hashCode();
+        return id.hashCode();
     }
 
     @Override
     public String toString() {
-        return materialCode;
+        return article;
     }
 }

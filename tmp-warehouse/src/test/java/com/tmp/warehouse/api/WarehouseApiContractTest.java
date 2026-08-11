@@ -9,12 +9,12 @@ import com.tmp.warehouse.api.WarehouseApi.AvailabilityResult;
 import com.tmp.warehouse.api.WarehouseApi.AvailabilityStatus;
 import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
+import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
+import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
-import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
-import com.tmp.warehouse.api.WarehouseApiTestFixtures;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -28,10 +28,12 @@ class WarehouseApiContractTest {
     void stockViewRejectsNullFields() {
         UUID warehouseId = UUID.randomUUID();
         UUID cellId = UUID.randomUUID();
+        UUID materialReferenceId = UUID.randomUUID();
         assertThrows(
                 NullPointerException.class,
                 () ->
                         new StockView(
+                                materialReferenceId,
                                 null,
                                 "Name",
                                 "",
@@ -48,6 +50,7 @@ class WarehouseApiContractTest {
                 NullPointerException.class,
                 () ->
                         new StockView(
+                                materialReferenceId,
                                 "MAT-1",
                                 "Name",
                                 "",
@@ -86,6 +89,23 @@ class WarehouseApiContractTest {
         assertEquals("шт", view.unitOfMeasure());
         assertEquals("WH-1 — Main", view.warehouse());
         assertEquals("A-01", view.storageCell());
+        assertTrue(view.materialReferenceId() != null);
+    }
+
+    @Test
+    void materialReferenceViewExposesFields() {
+        UUID id = UUID.randomUUID();
+        MaterialReferenceView view =
+                new MaterialReferenceView(
+                        id,
+                        "VEKA-103.211",
+                        "Профиль VEKA Softline",
+                        "Белый",
+                        "6000 мм",
+                        "шт");
+        assertEquals(id, view.materialReferenceId());
+        assertEquals("VEKA-103.211", view.article());
+        assertEquals("Профиль VEKA Softline", view.name());
     }
 
     @Test
@@ -139,6 +159,7 @@ class WarehouseApiContractTest {
                 () ->
                         new WarehouseApi.ReservationLinkView(
                                 UUID.randomUUID(),
+                                UUID.randomUUID(),
                                 "MAT-1",
                                 ReservationTargetTypeView.ORDER,
                                 "26096190",
@@ -152,15 +173,24 @@ class WarehouseApiContractTest {
         UUID cellId = UUID.randomUUID();
         UUID destinationWarehouse = UUID.randomUUID();
         UUID destinationCell = UUID.randomUUID();
+        UUID materialReferenceId = UUID.randomUUID();
 
         ExecuteOperationCommand receipt =
-                ExecuteOperationCommand.receipt("ALU-6060", BigDecimal.TEN, warehouseId, cellId);
+                ExecuteOperationCommand.receipt(
+                        "ALU-6060",
+                        "ALU-6060",
+                        "",
+                        "",
+                        "",
+                        BigDecimal.TEN,
+                        warehouseId,
+                        cellId);
         assertEquals(OperationKind.RECEIPT, receipt.kind());
         assertEquals(warehouseId, receipt.warehouseId());
 
         ExecuteOperationCommand move =
                 ExecuteOperationCommand.move(
-                        "ALU-6060",
+                        materialReferenceId,
                         BigDecimal.ONE,
                         warehouseId,
                         cellId,
@@ -171,12 +201,16 @@ class WarehouseApiContractTest {
 
         ExecuteOperationCommand transferSend =
                 ExecuteOperationCommand.transferSend(
-                        "ALU-6060", BigDecimal.ONE, warehouseId, cellId, destinationWarehouse);
+                        materialReferenceId,
+                        BigDecimal.ONE,
+                        warehouseId,
+                        cellId,
+                        destinationWarehouse);
         assertEquals(OperationKind.TRANSFER_SEND, transferSend.kind());
 
         ExecuteOperationCommand transferReceive =
                 ExecuteOperationCommand.transferReceive(
-                        "ALU-6060",
+                        materialReferenceId,
                         BigDecimal.ONE,
                         warehouseId,
                         cellId,
@@ -186,12 +220,12 @@ class WarehouseApiContractTest {
 
         ExecuteOperationCommand consumption =
                 ExecuteOperationCommand.consumption(
-                        "ALU-6060", BigDecimal.ONE, warehouseId, cellId);
+                        materialReferenceId, BigDecimal.ONE, warehouseId, cellId);
         assertEquals(OperationKind.CONSUMPTION, consumption.kind());
 
         ExecuteOperationCommand adjustment =
                 ExecuteOperationCommand.adjustment(
-                        "ALU-6060", BigDecimal.valueOf(-2), warehouseId, cellId);
+                        materialReferenceId, BigDecimal.valueOf(-2), warehouseId, cellId);
         assertEquals(OperationKind.ADJUSTMENT, adjustment.kind());
         assertEquals(0, adjustment.quantity().compareTo(BigDecimal.valueOf(-2)));
     }
@@ -201,11 +235,13 @@ class WarehouseApiContractTest {
         UUID operationId = UUID.randomUUID();
         UUID warehouseId = UUID.randomUUID();
         UUID cellId = UUID.randomUUID();
+        UUID materialReferenceId = UUID.randomUUID();
         WarehouseApi.OperationResult result =
                 new WarehouseApi.OperationResult(
                         operationId,
                         OperationKind.RECEIPT,
                         "COMPLETED",
+                        materialReferenceId,
                         "ALU-6060",
                         warehouseId,
                         cellId,
@@ -213,5 +249,6 @@ class WarehouseApiContractTest {
         assertEquals(operationId, result.operationId());
         assertEquals("COMPLETED", result.status());
         assertEquals(OperationKind.RECEIPT, result.kind());
+        assertEquals(materialReferenceId, result.materialReferenceId());
     }
 }

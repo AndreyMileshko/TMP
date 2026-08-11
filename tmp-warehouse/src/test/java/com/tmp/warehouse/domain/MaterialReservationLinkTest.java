@@ -15,7 +15,7 @@ class MaterialReservationLinkTest {
         MaterialReservationLink link =
                 MaterialReservationLink.create(
                         MaterialReservationLinkId.generate(),
-                        MaterialReference.of("VEKA 103.211 WHITE"),
+                        MaterialReference.legacyArticle("VEKA 103.211 WHITE"),
                         ReservationTargetReference.order("26096190"),
                         StockQuantity.of(200L),
                         CREATED_AT);
@@ -34,7 +34,7 @@ class MaterialReservationLinkTest {
                 () ->
                         MaterialReservationLink.create(
                                 MaterialReservationLinkId.generate(),
-                                MaterialReference.of("ALU-6060"),
+                                MaterialReference.legacyArticle("ALU-6060"),
                                 ReservationTargetReference.order("1"),
                                 StockQuantity.of(0),
                                 CREATED_AT));
