@@ -58,6 +58,7 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
     private WarehouseReceiptService receipts;
     private WarehouseMoveService moves;
     private WarehouseTransferService transfers;
+    private WarehouseConsumptionService consumptions;
 
     private WarehouseId warehouseId;
     private StorageCellId cellA;
@@ -106,6 +107,7 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
         receipts = new WarehouseReceiptService(engine, stockPositions, materials);
         moves = new WarehouseMoveService(engine);
         transfers = new WarehouseTransferService(engine);
+        consumptions = new WarehouseConsumptionService(engine, stockPositions);
 
         JdbcWarehouseCatalogRepository catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);
         warehouseId = WarehouseId.generate();
@@ -229,6 +231,39 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
 
         assertEquals(countAfterReceipt, materials.findAll().size());
         assertEquals(material.id(), materials.findById(material.id()).orElseThrow().id());
+    }
+
+    @Test
+    void differentUnitOfMeasureCreatesSeparateMaterialReference() {
+        receipts.receive(receipt("VEKA-103.211", "Профиль", "Белый", "6000 мм", "м", 300));
+        receipts.receive(receipt("VEKA-103.211", "Профиль", "Белый", "6000 мм", "шт", 50));
+
+        assertEquals(2, materials.findAll().size());
+    }
+
+    @Test
+    void consumptionDoesNotCreateMaterialReference() {
+        MaterialReference material =
+                receipts
+                        .receive(
+                                receipt(
+                                        "CONSUME-MAT",
+                                        "Consume material",
+                                        "Белый",
+                                        "6000",
+                                        "шт",
+                                        100))
+                        .material();
+        int countAfterReceipt = materials.findAll().size();
+
+        consumptions.consume(
+                new ConsumptionRequest(
+                        material,
+                        StockQuantity.of(10),
+                        warehouseId,
+                        cellA));
+
+        assertEquals(countAfterReceipt, materials.findAll().size());
     }
 
     private ReceiptRequest receipt(
