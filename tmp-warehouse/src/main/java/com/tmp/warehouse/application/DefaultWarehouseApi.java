@@ -153,9 +153,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public List<StockView> getStock(String materialCode) {
         Objects.requireNonNull(materialCode, "materialCode");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
-        return stockPositions.findByArticle(materialCode.trim()).stream()
-                .map(this::toStockView)
-                .toList();
+        return toPositiveQuantityStockViews(stockPositions.findByArticle(materialCode.trim()));
     }
 
     @Override
@@ -166,8 +164,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
         WarehouseId wh = WarehouseId.of(warehouseId);
         StorageCellId cell = StorageCellId.of(storageCellId);
-        return stockPositions.findByArticle(materialCode.trim()).stream()
-                .map(this::toStockView)
+        return toPositiveQuantityStockViews(stockPositions.findByArticle(materialCode.trim()))
+                .stream()
                 .filter(
                         view ->
                                 view.warehouseId().equals(wh.value())
@@ -179,9 +177,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public List<StockView> getStockByWarehouse(UUID warehouseId) {
         Objects.requireNonNull(warehouseId, "warehouseId");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
-        return stockPositions.findByWarehouse(WarehouseId.of(warehouseId)).stream()
-                .map(this::toStockView)
-                .toList();
+        return toPositiveQuantityStockViews(
+                stockPositions.findByWarehouse(WarehouseId.of(warehouseId)));
     }
 
     @Override
@@ -391,6 +388,13 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 material.color(),
                 material.size(),
                 material.unitOfMeasure());
+    }
+
+    private List<StockView> toPositiveQuantityStockViews(List<StockPosition> positions) {
+        return positions.stream()
+                .filter(position -> position.quantity().value().signum() > 0)
+                .map(this::toStockView)
+                .toList();
     }
 
     private StockView toStockView(StockPosition position) {

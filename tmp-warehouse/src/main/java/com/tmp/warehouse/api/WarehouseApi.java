@@ -55,18 +55,25 @@ public interface WarehouseApi {
     /**
      * Returns current stock positions for the given material article (any color/size/unit variant).
      *
+     * <p>Zero-quantity positions are excluded from the view (including {@code IN_TRANSIT = 0}).
+     * Physical Stock Position rows are not deleted.
+     *
      * @param materialCode material reference from Specification context
-     * @return stock views (material, warehouse, cell, quantity, state); empty when none
+     * @return stock views with {@code quantity > 0}; empty when none
      */
     List<StockView> getStock(String materialCode);
 
     /**
      * Returns stock for material filtered by warehouse and storage cell (Specification §17).
+     *
+     * <p>Zero-quantity positions are excluded from the view.
      */
     List<StockView> getStock(String materialCode, UUID warehouseId, UUID storageCellId);
 
     /**
-     * Returns all stock positions for a warehouse.
+     * Returns stock positions for a warehouse with {@code quantity > 0}.
+     *
+     * <p>Zero-quantity positions (any state) are hidden from the Stock View only.
      */
     List<StockView> getStockByWarehouse(UUID warehouseId);
 

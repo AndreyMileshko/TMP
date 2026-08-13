@@ -208,6 +208,61 @@ class DefaultWarehouseApiTest {
     }
 
     @Test
+    void getStockExcludesZeroQuantityPositionsRegardlessOfState() {
+        WarehouseId warehouseId = WarehouseId.generate();
+        StorageCellId cellA = StorageCellId.generate();
+        StorageCellId cellB = StorageCellId.generate();
+        StorageCellId cellC = StorageCellId.generate();
+        MaterialReference material =
+                materials.create(
+                        MaterialReference.create(
+                                "VEKA-103.211", "Профиль", "Белый", "6000", "шт."));
+        stockPositions.create(
+                StockPosition.of(
+                        warehouseId,
+                        cellA,
+                        material,
+                        StockState.AVAILABLE,
+                        StockQuantity.of(100L)));
+        stockPositions.create(
+                StockPosition.of(
+                        warehouseId, cellB, material, StockState.AVAILABLE, StockQuantity.zero()));
+        stockPositions.create(
+                StockPosition.of(
+                        warehouseId, cellC, material, StockState.IN_TRANSIT, StockQuantity.zero()));
+
+        List<StockView> byArticle = api.getStock("VEKA-103.211");
+        List<StockView> byWarehouse = api.getStockByWarehouse(warehouseId.value());
+
+        assertEquals(1, byArticle.size());
+        assertEquals(0, byArticle.get(0).quantity().compareTo(BigDecimal.valueOf(100L)));
+        assertEquals(StockStateView.AVAILABLE, byArticle.get(0).stockState());
+        assertEquals(1, byWarehouse.size());
+        assertEquals(cellA.value(), byWarehouse.get(0).storageCellId());
+        assertEquals(3, stockPositions.findByWarehouse(warehouseId).size());
+    }
+
+    @Test
+    void getStockIncludesPositiveQuantityInTransit() {
+        WarehouseId warehouseId = WarehouseId.generate();
+        StorageCellId cellId = StorageCellId.generate();
+        MaterialReference material = materials.create(MaterialReference.legacyArticle("IN-TRANSIT-1"));
+        stockPositions.create(
+                StockPosition.of(
+                        warehouseId,
+                        cellId,
+                        material,
+                        StockState.IN_TRANSIT,
+                        StockQuantity.of(7L)));
+
+        List<StockView> views = api.getStock("IN-TRANSIT-1");
+
+        assertEquals(1, views.size());
+        assertEquals(StockStateView.IN_TRANSIT, views.get(0).stockState());
+        assertEquals(0, views.get(0).quantity().compareTo(BigDecimal.valueOf(7L)));
+    }
+
+    @Test
     void checkAvailabilitySumsAvailableStockOnly() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellA = StorageCellId.generate();
