@@ -177,6 +177,7 @@ class WarehouseWorkbenchViewModelTest {
         viewModel.loadWarehouses();
         viewModel.receiptArticleProperty().set("ALU-6060");
         viewModel.receiptNameProperty().set("ALU-6060");
+        viewModel.receiptUnitProperty().set("шт.");
         viewModel.receiptQuantityProperty().set("12.5");
         viewModel.receiptWarehouseProperty().set(WarehouseChoice.from(warehouse));
         viewModel.receiptCellProperty().set(StorageCellChoice.from(cell));
@@ -520,6 +521,11 @@ class WarehouseWorkbenchViewModelTest {
                 throw new AccessDeniedException("denied");
             }
             return List.copyOf(materialReferences);
+        }
+
+        @Override
+        public List<String> listUnitOfMeasures() {
+            return List.of("шт.", "м.", "кв.м.", "компл.", "л.", "гр.", "кг.");
         }
 
         @Override

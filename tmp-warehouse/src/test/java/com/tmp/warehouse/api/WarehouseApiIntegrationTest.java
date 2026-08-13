@@ -167,7 +167,7 @@ class WarehouseApiIntegrationTest {
                                 "ALU-6060",
                                 "",
                                 "",
-                                "",
+                                "шт.",
                                 BigDecimal.valueOf(100),
                                 warehouseId.value(),
                                 cellId.value()));
@@ -240,7 +240,7 @@ class WarehouseApiIntegrationTest {
                                 "ALU-6060",
                                 "",
                                 "",
-                                "",
+                                "шт.",
                                 BigDecimal.valueOf(80),
                                 warehouseId.value(),
                                 cellId.value()));

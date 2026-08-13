@@ -46,6 +46,13 @@ public interface WarehouseApi {
     List<MaterialReferenceView> listMaterialReferences();
 
     /**
+     * Returns fixed warehouse unit-of-measure codes for Receipt ComboBox selection.
+     *
+     * <p>Canonical codes only (e.g. {@code шт.}, {@code м.}). No conversion between units.
+     */
+    List<String> listUnitOfMeasures();
+
+    /**
      * Returns current stock positions for the given material article (any color/size/unit variant).
      *
      * @param materialCode material reference from Specification context

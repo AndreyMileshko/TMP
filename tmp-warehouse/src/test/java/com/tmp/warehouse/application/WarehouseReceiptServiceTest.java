@@ -102,7 +102,9 @@ class WarehouseReceiptServiceTest {
     void receiptIncreasesStockQuantity() {
         WarehouseId warehouseId = WarehouseId.generate();
         StorageCellId cellId = StorageCellId.generate();
-        MaterialReference material = materials.create(MaterialReference.legacyArticle("VEKA-103.211"));
+        MaterialReference material =
+                materials.create(
+                        MaterialReference.create("VEKA-103.211", "VEKA-103.211", "", "", "шт."));
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,
@@ -117,7 +119,7 @@ class WarehouseReceiptServiceTest {
                         "VEKA-103.211",
                         "",
                         "",
-                        "",
+                        "шт.",
                         StockQuantity.of(4),
                         warehouseId,
                         cellId));
@@ -139,7 +141,7 @@ class WarehouseReceiptServiceTest {
                                 "MAT-1",
                                 "",
                                 "",
-                                "",
+                                "шт.",
                                 StockQuantity.of(0),
                                 WarehouseId.generate(),
                                 StorageCellId.generate()));
@@ -154,7 +156,7 @@ class WarehouseReceiptServiceTest {
                 "ALU-6060",
                 "",
                 "",
-                "",
+                "шт.",
                 quantity,
                 WarehouseId.generate(),
                 StorageCellId.generate());

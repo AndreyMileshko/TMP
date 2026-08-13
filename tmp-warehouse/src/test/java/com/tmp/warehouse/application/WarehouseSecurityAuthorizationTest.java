@@ -138,7 +138,7 @@ class WarehouseSecurityAuthorizationTest {
                                         "ALU-6060",
                                         "",
                                         "",
-                                        "",
+                                        "шт.",
                                         BigDecimal.TEN,
                                         UUID.randomUUID(),
                                         UUID.randomUUID())));
@@ -187,7 +187,7 @@ class WarehouseSecurityAuthorizationTest {
                                         "ALU-6060",
                                         "",
                                         "",
-                                        "",
+                                        "шт.",
                                         BigDecimal.TEN,
                                         UUID.randomUUID(),
                                         UUID.randomUUID())));
@@ -204,7 +204,7 @@ class WarehouseSecurityAuthorizationTest {
                                         "ALU-6060",
                                         "",
                                         "",
-                                        "",
+                                        "шт.",
                                         BigDecimal.TEN,
                                         UUID.randomUUID(),
                                         UUID.randomUUID())));

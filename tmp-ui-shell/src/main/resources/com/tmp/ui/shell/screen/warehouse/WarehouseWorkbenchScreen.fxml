@@ -86,7 +86,7 @@
             <TextField fx:id="receiptNameField" promptText="Наименование"/>
             <TextField fx:id="receiptColorField" promptText="Цвет"/>
             <TextField fx:id="receiptSizeField" promptText="Размер"/>
-            <TextField fx:id="receiptUnitField" promptText="Ед. изм."/>
+            <ComboBox fx:id="receiptUnitCombo" promptText="Ед. изм." maxWidth="Infinity"/>
             <TextField fx:id="receiptQuantityField" promptText="Количество"/>
             <ComboBox fx:id="receiptWarehouseCombo" promptText="Склад" maxWidth="Infinity"/>
             <ComboBox fx:id="receiptCellCombo" promptText="Ячейка" maxWidth="Infinity"/>

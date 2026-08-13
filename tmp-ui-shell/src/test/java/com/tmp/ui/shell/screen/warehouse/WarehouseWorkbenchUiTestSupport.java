@@ -67,6 +67,11 @@ final class WarehouseWorkbenchUiTestSupport {
         }
 
         @Override
+        public List<String> listUnitOfMeasures() {
+            return List.of("шт.", "м.", "кв.м.", "компл.", "л.", "гр.", "кг.");
+        }
+
+        @Override
         public MaterialReferenceDisplayView getMaterialReferenceDisplay(String materialCode) {
             return new MaterialReferenceDisplayView(materialCode, "", "", "", "");
         }

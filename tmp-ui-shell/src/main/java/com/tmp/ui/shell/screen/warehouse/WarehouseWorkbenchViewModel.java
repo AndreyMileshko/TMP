@@ -101,6 +101,8 @@ public final class WarehouseWorkbenchViewModel {
 
     private final ObservableList<MaterialChoice> materialChoices =
             FXCollections.observableArrayList();
+    private final ObservableList<String> unitOfMeasureChoices =
+            FXCollections.observableArrayList();
 
     private final StringProperty receiptArticle = new SimpleStringProperty("");
     private final StringProperty receiptName = new SimpleStringProperty("");
@@ -341,7 +343,7 @@ public final class WarehouseWorkbenchViewModel {
                                     requireText(receiptName.get(), "наименование"),
                                     blankToNull(receiptColor.get()) == null ? "" : receiptColor.get().trim(),
                                     blankToNull(receiptSize.get()) == null ? "" : receiptSize.get().trim(),
-                                    blankToNull(receiptUnit.get()) == null ? "" : receiptUnit.get().trim(),
+                                    requireText(receiptUnit.get(), "единица измерения"),
                                     parsePositiveDecimal(receiptQuantity.get(), "количество"),
                                     warehouse.id(),
                                     cell.id()));
@@ -861,8 +863,27 @@ public final class WarehouseWorkbenchViewModel {
         }
     }
 
+    private void loadUnitOfMeasureChoices() {
+        if (!canReceipt.get()) {
+            return;
+        }
+        try {
+            List<String> units = warehouseApi.listUnitOfMeasures();
+            unitOfMeasureChoices.setAll(units);
+            if (blankToNull(receiptUnit.get()) == null && !units.isEmpty()) {
+                receiptUnit.set(units.get(0));
+            }
+        } catch (RuntimeException ex) {
+            errorMessage.set(WarehouseUiErrorMapper.text(ex));
+        }
+    }
+
     public ObservableList<MaterialChoice> materialChoices() {
         return materialChoices;
+    }
+
+    public ObservableList<String> unitOfMeasureChoices() {
+        return unitOfMeasureChoices;
     }
 
     static String formatMaterialDisplay(MaterialReferenceView view) {
@@ -884,6 +905,9 @@ public final class WarehouseWorkbenchViewModel {
             case STOCK, RECEIPT, MOVE, TRANSFER, CONSUMPTION, ADJUSTMENT, INVENTORY -> {
                     ensureWarehouseChoicesLoaded();
                     loadMaterialChoices();
+                    if (value == WarehouseSection.RECEIPT) {
+                        loadUnitOfMeasureChoices();
+                    }
                 }
             case RESERVATIONS -> {
                 // forms load on demand

@@ -75,7 +75,7 @@ class WarehouseApiContractTest {
                         "Профиль VEKA Softline",
                         "Белый",
                         "6000 мм",
-                        "шт",
+                        "шт.",
                         "WH-1 — Main",
                         "A-01",
                         BigDecimal.valueOf(100),
@@ -86,7 +86,7 @@ class WarehouseApiContractTest {
         assertEquals("Профиль VEKA Softline", view.materialName());
         assertEquals("Белый", view.color());
         assertEquals("6000 мм", view.size());
-        assertEquals("шт", view.unitOfMeasure());
+        assertEquals("шт.", view.unitOfMeasure());
         assertEquals("WH-1 — Main", view.warehouse());
         assertEquals("A-01", view.storageCell());
         assertTrue(view.materialReferenceId() != null);
@@ -102,7 +102,7 @@ class WarehouseApiContractTest {
                         "Профиль VEKA Softline",
                         "Белый",
                         "6000 мм",
-                        "шт");
+                        "шт.");
         assertEquals(id, view.materialReferenceId());
         assertEquals("VEKA-103.211", view.article());
         assertEquals("Профиль VEKA Softline", view.name());
@@ -116,12 +116,12 @@ class WarehouseApiContractTest {
                         "Профиль VEKA Softline",
                         "Белый",
                         "6000 мм",
-                        "шт");
+                        "шт.");
         assertEquals("VEKA-103.211", view.article());
         assertEquals("Профиль VEKA Softline", view.materialName());
         assertEquals("Белый", view.color());
         assertEquals("6000 мм", view.size());
-        assertEquals("шт", view.unitOfMeasure());
+        assertEquals("шт.", view.unitOfMeasure());
     }
 
     @Test
@@ -181,7 +181,7 @@ class WarehouseApiContractTest {
                         "ALU-6060",
                         "",
                         "",
-                        "",
+                        "шт.",
                         BigDecimal.TEN,
                         warehouseId,
                         cellId);

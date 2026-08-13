@@ -15,6 +15,7 @@ import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
 import com.tmp.warehouse.domain.StorageCell;
 import com.tmp.warehouse.domain.StorageCellId;
+import com.tmp.warehouse.domain.UnitOfMeasure;
 import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseOperation;
@@ -140,6 +141,12 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public List<MaterialReferenceView> listMaterialReferences() {
         requireMaterialDisplayAccess();
         return materials.findAll().stream().map(this::toMaterialReferenceView).toList();
+    }
+
+    @Override
+    public List<String> listUnitOfMeasures() {
+        requireMaterialDisplayAccess();
+        return UnitOfMeasure.codes();
     }
 
     @Override

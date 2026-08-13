@@ -6,7 +6,8 @@ import java.util.Objects;
  * Warehouse-owned material reference used by stock state.
  *
  * <p>Identity is {@link MaterialReferenceId}. Business uniqueness is {@code article + color + size
- * + unitOfMeasure}; {@code name} is descriptive only.
+ * + unitOfMeasure}; {@code name} is descriptive only. {@code unitOfMeasure} is restricted to {@link
+ * UnitOfMeasure} canonical codes (empty only for legacy migrated rows).
  */
 public final class MaterialReference {
 
@@ -44,7 +45,7 @@ public final class MaterialReference {
                 requireNonBlank(name, "name"),
                 normalize(color),
                 normalize(size),
-                normalize(unitOfMeasure));
+                UnitOfMeasure.requireCode(unitOfMeasure));
     }
 
     public static MaterialReference rehydrate(
@@ -60,12 +61,14 @@ public final class MaterialReference {
                 requireNonBlank(name, "name"),
                 normalize(color),
                 normalize(size),
-                normalize(unitOfMeasure));
+                UnitOfMeasure.requirePersistedOrLegacyEmpty(unitOfMeasure));
     }
 
     /** Legacy migrated material identified only by article with empty variant fields. */
     public static MaterialReference legacyArticle(String article) {
-        return create(article, article, "", "", "");
+        String code = requireNonBlank(article, "article");
+        return new MaterialReference(
+                MaterialReferenceId.generate(), code, code, "", "", "");
     }
 
     public MaterialReferenceId id() {
@@ -102,7 +105,7 @@ public final class MaterialReference {
         return this.article.equals(requireNonBlank(articleValue, "article"))
                 && this.color.equals(normalize(colorValue))
                 && this.size.equals(normalize(sizeValue))
-                && this.unitOfMeasure.equals(normalize(unitValue));
+                && this.unitOfMeasure.equals(UnitOfMeasure.normalizeForKey(unitValue));
     }
 
     private static String requireNonBlank(String value, String field) {

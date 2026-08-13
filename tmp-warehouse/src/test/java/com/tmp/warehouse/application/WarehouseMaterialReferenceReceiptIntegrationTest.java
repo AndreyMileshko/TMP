@@ -1,6 +1,7 @@
 package com.tmp.warehouse.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.StockPosition;
@@ -120,7 +121,7 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
 
     @Test
     void receiptCreatesNewMaterialReference() {
-        receipts.receive(receipt("VEKA-103.211", "Профиль VEKA Softline", "Белый", "6000", "шт", 100));
+        receipts.receive(receipt("VEKA-103.211", "Профиль VEKA Softline", "Белый", "6000", "шт.", 100));
 
         List<MaterialReference> all = materials.findAll();
         assertEquals(1, all.size());
@@ -129,13 +130,13 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
         assertEquals("Профиль VEKA Softline", created.name());
         assertEquals("Белый", created.color());
         assertEquals("6000", created.size());
-        assertEquals("шт", created.unitOfMeasure());
+        assertEquals("шт.", created.unitOfMeasure());
     }
 
     @Test
     void repeatedReceiptSameNaturalKeyIncreasesStockWithoutNewMaterial() {
-        receipts.receive(receipt("TEST-PROFILE-001", "Тестовый профиль", "Белый", "6000", "шт", 100));
-        receipts.receive(receipt("TEST-PROFILE-001", "Тестовый профиль", "Белый", "6000", "шт", 50));
+        receipts.receive(receipt("TEST-PROFILE-001", "Тестовый профиль", "Белый", "6000", "шт.", 100));
+        receipts.receive(receipt("TEST-PROFILE-001", "Тестовый профиль", "Белый", "6000", "шт.", 50));
 
         assertEquals(1, materials.findAll().size());
         StockPosition position =
@@ -151,17 +152,17 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
 
     @Test
     void differentColorCreatesSeparateMaterialReference() {
-        receipts.receive(receipt("VEKA-103.211", "Профиль VEKA Softline", "Белый", "6000", "шт", 10));
+        receipts.receive(receipt("VEKA-103.211", "Профиль VEKA Softline", "Белый", "6000", "шт.", 10));
         receipts.receive(
-                receipt("VEKA-103.211", "Профиль VEKA Softline", "Антрацит", "6000", "шт", 20));
+                receipt("VEKA-103.211", "Профиль VEKA Softline", "Антрацит", "6000", "шт.", 20));
 
         assertEquals(2, materials.findAll().size());
     }
 
     @Test
     void differentSizeCreatesSeparateMaterialReference() {
-        receipts.receive(receipt("VEKA-103.211", "Профиль", "Белый", "6000", "шт", 10));
-        receipts.receive(receipt("VEKA-103.211", "Профиль", "Белый", "3000", "шт", 20));
+        receipts.receive(receipt("VEKA-103.211", "Профиль", "Белый", "6000", "шт.", 10));
+        receipts.receive(receipt("VEKA-103.211", "Профиль", "Белый", "3000", "шт.", 20));
 
         assertEquals(2, materials.findAll().size());
     }
@@ -176,7 +177,7 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
                                         "Move material",
                                         "Белый",
                                         "6000",
-                                        "шт",
+                                        "шт.",
                                         10))
                         .material();
         int countAfterReceipt = materials.findAll().size();
@@ -203,7 +204,7 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
                                         "Transfer material",
                                         "Белый",
                                         "6000",
-                                        "шт",
+                                        "шт.",
                                         10))
                         .material();
         int countAfterReceipt = materials.findAll().size();
@@ -235,10 +236,26 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
 
     @Test
     void differentUnitOfMeasureCreatesSeparateMaterialReference() {
-        receipts.receive(receipt("VEKA-103.211", "Профиль", "Белый", "6000 мм", "м", 300));
-        receipts.receive(receipt("VEKA-103.211", "Профиль", "Белый", "6000 мм", "шт", 50));
+        receipts.receive(receipt("VEKA-103.211", "Профиль", "Белый", "6000 мм", "м.", 300));
+        receipts.receive(receipt("VEKA-103.211", "Профиль", "Белый", "6000 мм", "шт.", 50));
 
         assertEquals(2, materials.findAll().size());
+    }
+
+    @Test
+    void metersAliasIsNormalizedToCanonicalUnit() {
+        receipts.receive(receipt("VEKA-103.211", "Профиль", "Белый", "6000 мм", "метры", 10));
+
+        assertEquals(1, materials.findAll().size());
+        assertEquals("м.", materials.findAll().get(0).unitOfMeasure());
+    }
+
+    @Test
+    void unsupportedUnitOfMeasureIsRejected() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> receipts.receive(receipt("VEKA-103.211", "Профиль", "Белый", "6000 мм", "футы", 10)));
+        assertEquals(0, materials.findAll().size());
     }
 
     @Test
@@ -251,7 +268,7 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
                                         "Consume material",
                                         "Белый",
                                         "6000",
-                                        "шт",
+                                        "шт.",
                                         100))
                         .material();
         int countAfterReceipt = materials.findAll().size();

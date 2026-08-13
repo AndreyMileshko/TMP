@@ -156,7 +156,7 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private TextField receiptSizeField;
 
     @FXML
-    private TextField receiptUnitField;
+    private ComboBox<String> receiptUnitCombo;
 
     @FXML
     private TextField receiptQuantityField;
@@ -406,7 +406,8 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
         bindText(receiptNameField, viewModel.receiptNameProperty());
         bindText(receiptColorField, viewModel.receiptColorProperty());
         bindText(receiptSizeField, viewModel.receiptSizeProperty());
-        bindText(receiptUnitField, viewModel.receiptUnitProperty());
+        receiptUnitCombo.setItems(viewModel.unitOfMeasureChoices());
+        receiptUnitCombo.valueProperty().bindBidirectional(viewModel.receiptUnitProperty());
         bindText(receiptQuantityField, viewModel.receiptQuantityProperty());
         bindWarehouseCombo(receiptWarehouseCombo, viewModel);
         receiptWarehouseCombo.valueProperty().bindBidirectional(

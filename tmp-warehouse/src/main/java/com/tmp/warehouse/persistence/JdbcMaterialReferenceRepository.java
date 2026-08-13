@@ -2,6 +2,7 @@ package com.tmp.warehouse.persistence;
 
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.MaterialReferenceId;
+import com.tmp.warehouse.domain.UnitOfMeasure;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.sql.ResultSet;
@@ -76,20 +77,11 @@ public final class JdbcMaterialReferenceRepository implements MaterialReferenceR
     @Override
     public Optional<MaterialReference> findByNaturalKey(
             String article, String color, String size, String unitOfMeasure) {
-        MaterialReference probe =
-                MaterialReference.legacyArticle(article);
-        String normalizedColor = probe.color();
-        String normalizedSize = probe.size();
-        String normalizedUnit = probe.unitOfMeasure();
-        if (color != null) {
-            normalizedColor = color.trim();
-        }
-        if (size != null) {
-            normalizedSize = size.trim();
-        }
-        if (unitOfMeasure != null) {
-            normalizedUnit = unitOfMeasure.trim();
-        }
+        Objects.requireNonNull(article, "article");
+        String normalizedArticle = article.trim();
+        String normalizedColor = color == null ? "" : color.trim();
+        String normalizedSize = size == null ? "" : size.trim();
+        String normalizedUnit = UnitOfMeasure.normalizeForKey(unitOfMeasure);
         try {
             return Optional.ofNullable(
                     jdbcTemplate.queryForObject(
@@ -102,7 +94,7 @@ public final class JdbcMaterialReferenceRepository implements MaterialReferenceR
                               AND unit_of_measure = ?
                             """,
                             MATERIAL_MAPPER,
-                            probe.article(),
+                            normalizedArticle,
                             normalizedColor,
                             normalizedSize,
                             normalizedUnit));

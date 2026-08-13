@@ -94,7 +94,7 @@ class DefaultWarehouseApiTest {
                                         "Профиль VEKA Softline",
                                         "Белый",
                                         "6000 мм",
-                                        "шт"),
+                                        "шт."),
                         new WarehouseReservationLinkService(links, CLOCK),
                         new WarehouseReceiptService(engine, stockPositions, materials),
                         new WarehouseMoveService(engine),
@@ -153,7 +153,7 @@ class DefaultWarehouseApiTest {
         assertEquals("Профиль VEKA Softline", view.materialName());
         assertEquals("Белый", view.color());
         assertEquals("6000 мм", view.size());
-        assertEquals("шт", view.unitOfMeasure());
+        assertEquals("шт.", view.unitOfMeasure());
     }
 
     @Test
@@ -167,7 +167,7 @@ class DefaultWarehouseApiTest {
                                 "Профиль VEKA Softline",
                                 "Белый",
                                 "6000 мм",
-                                "шт"));
+                                "шт."));
         stockPositions.create(
                 StockPosition.of(
                         warehouseId, cellId, material, StockState.AVAILABLE, StockQuantity.of(25L)));
@@ -181,7 +181,7 @@ class DefaultWarehouseApiTest {
         assertEquals("Профиль VEKA Softline", view.materialName());
         assertEquals("Белый", view.color());
         assertEquals("6000 мм", view.size());
-        assertEquals("шт", view.unitOfMeasure());
+        assertEquals("шт.", view.unitOfMeasure());
         assertEquals(warehouseId.value(), view.warehouseId());
         assertEquals(cellId.value(), view.storageCellId());
         assertEquals(0, view.quantity().compareTo(BigDecimal.valueOf(25L)));
@@ -262,7 +262,7 @@ class DefaultWarehouseApiTest {
                                 "ALU-6060",
                                 "",
                                 "",
-                                "",
+                                "шт.",
                                 BigDecimal.TEN,
                                 warehouseId.value(),
                                 cellId.value()));
