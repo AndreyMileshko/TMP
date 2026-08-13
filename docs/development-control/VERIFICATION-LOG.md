@@ -2,6 +2,50 @@
 
 ## Latest result
 
+**Date:** 2026-08-13  
+**Scope:** STAGE6-FINAL — Warehouse Closure Audit  
+**Overall:** PASS  
+**Type:** Documentation audit + focused automated verification (no code / DB / API / UI changes)  
+**Environment:** Windows; Maven `.tools/apache-maven-3.9.9`; JDK 21; Docker Desktop
+
+| Item | Result |
+|---|---|
+| Stage 6 Warehouse | DONE |
+| STAGE6-001..017 | DONE |
+| STAGE6-019 Material Reference | DONE |
+| STAGE6-019 FIX Unit Of Measure | DONE |
+| STAGE6-020 Stock View zero filter | DONE |
+| STAGE6-FINAL Closure Audit | DONE |
+| Warehouse Final Verification | PASS |
+| Git | NOT EXECUTED |
+| Product code changed | NO |
+
+### Focused automated verification
+
+| Suite | Result |
+|---|---|
+| `Stage6WarehouseArchitectureTest` | PASS (2) |
+| `UnitOfMeasureTest` / `MaterialReferenceTest` | PASS |
+| `DefaultWarehouseApiTest` (incl. zero-qty filter) | PASS |
+| `WarehouseMaterialReferenceReceiptIntegrationTest` | PASS |
+| `WarehousePermissionCatalogTest` / `WarehouseSecurityAuthorizationTest` | PASS |
+| `WarehouseWorkbenchViewModelTest` | PASS (18) |
+| `DesktopBootstrapWiringTest` / `WarehouseAdminNavigationAccessEnsureTest` | PASS |
+
+### Full `mvn test` note (tmp-warehouse)
+
+Full module suite: 150 tests — **2 failures + 3 errors** in outdated schema/UoM tests (`WarehouseSchemaFlywayTest`, `WarehouseReceiptServiceIntegrationTest`, `WarehouseApiIntegrationTest`). Documented as test debt in `Warehouse-Final-Verification.md`. Not fixed in this documentary audit (code changes forbidden).
+
+### Closure notes
+
+- `Warehouse-Final-Verification.md` updated for post-017 Material Reference / UoM / Stock View.
+- `STATUS.md` — Stage 6 Warehouse = DONE; STAGE6-FINAL recorded.
+- Architecture: Warehouse does not depend on Order Management / Production / Cutting.
+
+---
+
+## Previous result
+
 **Date:** 2026-08-10  
 **Scope:** Stage 6 Warehouse — Final Closure Manual Verification  
 **Overall:** PASS  

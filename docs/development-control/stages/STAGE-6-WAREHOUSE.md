@@ -2,7 +2,7 @@
 
 **Stage:** 6 — Warehouse  
 **Primary specification:** `docs/TMP/TMP_Initial_Documents/architecture/11-Warehouse/Warehouse-Specification.md` (v1.3)  
-**Status:** **DONE** (Stage 6 Final Closure 2026-08-10). Core (`STAGE6-001..015`) + post-closure `STAGE6-016..017` + Manual Verification PASS.
+**Status:** **DONE** (Stage 6 Final Closure Audit 2026-08-13). Core (`STAGE6-001..015`) + post-closure `STAGE6-016..017` + Material Reference (`STAGE6-019`) + Unit Of Measure (`STAGE6-019 FIX`) + Stock View zero filter (`STAGE6-020`) + `STAGE6-FINAL` verification PASS.
 
 ---
 

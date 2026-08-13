@@ -1,82 +1,159 @@
 # Warehouse Final Verification
 
-**Date:** 2026-08-10  
+**Date:** 2026-08-13  
 **Stage:** 6 — Warehouse  
-**Audit type:** Final closure (documentation only; no code / DB / API changes)
+**Audit type:** STAGE6-FINAL — Warehouse Closure Audit (documentation only; no code / DB / API / UI changes)
 
 ---
 
 ## Scope
 
-Stage 6 Warehouse v1.0 per `Warehouse-Specification.md` v1.3:
+Реализованный Warehouse Stage 6 v1.0:
 
-- Module `tmp-warehouse` with domain, persistence, application, API, security
-- Public API module contracts
-- UI workbench in `tmp-ui-shell`
-- Integration with Security Capability (16 permissions)
-- Post-closure fixes: `STAGE6-016` (UI/UX), `STAGE6-017` (structure permissions)
+- Модуль `tmp-warehouse` (API → Application → Domain → Persistence)
+- Public API (`WarehouseApi`) + UI Workbench в `tmp-ui-shell`
+- Security: 16 Warehouse permissions
+- Material Reference (warehouse-owned, без Material Master)
+- Unit Of Measure — фиксированный справочник
+- Stock View: расширенные поля + скрытие `quantity = 0`
 
-**In scope:** `STAGE6-001..015` (core delivery) + manual verification of end-to-end warehouse scenarios.
+**Включено:** `STAGE6-001..017`, `STAGE6-019` (Material Reference), `STAGE6-019 FIX` (Unit Of Measure), `STAGE6-020` (zero-quantity Stock View filter).
 
-**Out of scope (v1.0):** Batch, FIFO/FEFO, WMS, barcode, Material Master, complex reservation engine, Production/Cutting integration runtime.
+**Вне scope v1.0:** Material Master, FIFO/FEFO, партии, серийные номера, WMS, штрихкодирование, конвертация единиц, Production/Cutting runtime.
 
 ---
 
 ## Architecture
 
-| Element | Specification | Implementation | Match |
-|---|---|---|---|
-| Module | `tmp-warehouse` capability | `tmp-warehouse`, `WarehouseAutoConfiguration` | PASS |
-| Domain model | Warehouse, Storage Cell, Stock Position, Warehouse Operation, Warehouse Movement | `com.tmp.warehouse.domain.*` | PASS |
-| Write path | Only via Warehouse Operation | `WarehouseOperationEngine`, operation services | PASS |
-| Stock Position key | Warehouse + Cell + Material + State + Quantity | `StockPosition` aggregate | PASS |
-| Movement | Immutable, append-only | No update/delete in repository | PASS |
-| Stock states | AVAILABLE, IN_TRANSIT, BLOCKED; no RESERVED | `StockState` enum (3 values) | PASS |
-| Reservation | Informational link; no stock change | `MaterialReservationLink`, `WarehouseReservationLinkService` | PASS |
-| Material source | Specification / MaterialReference | `MaterialReference` from spec context | PASS |
-| DB schema | Flyway migrations | `V15__warehouse_schema.sql` + subsequent | PASS |
+| Проверка | Результат |
+|---|---|
+| Warehouse — отдельный доменный модуль `tmp-warehouse` | PASS |
+| Слои: API → Application → Domain → Persistence | PASS |
+| `tmp-warehouse` pom: нет зависимости от Order Management | PASS |
+| Нет зависимости от Production / Cutting | PASS |
+| ArchUnit: UI Shell → только `com.tmp.warehouse.api` | PASS (`Stage6WarehouseArchitectureTest`) |
+| ArchUnit: Warehouse без JavaFX | PASS |
 
-Package boundaries: domain / application / persistence / api / security — aligned with Architecture Overview.
+Структура пакетов:
 
----
+```text
+com.tmp.warehouse.api
+        ↓
+com.tmp.warehouse.application
+        ↓
+com.tmp.warehouse.domain
+        ↓
+com.tmp.warehouse.persistence
+```
 
-## Operations
-
-| Operation | Spec § | Service | Verified |
-|---|---|---|---|
-| Receipt | §12 | `WarehouseReceiptService` | Manual PASS |
-| Move (internal) | §13.1 | `WarehouseMoveService` | Manual PASS |
-| Transfer Send | §13.2 | `WarehouseTransferService` | Manual PASS |
-| Transfer Receive | §13.2 | `WarehouseTransferService` | Manual PASS |
-| Consumption | §14 | `WarehouseConsumptionService` | Manual PASS |
-| Adjustment | §11 | `WarehouseAdjustmentService` | Manual PASS |
-| Inventory | §11 | `WarehouseInventoryService` | Manual PASS |
-| Reservation Link | §8 | `WarehouseReservationLinkService` | Manual PASS |
-
-Public API (`WarehouseApi`): stock query, availability check, reservation link, execute operation, warehouse/cell catalogue — implemented in `DefaultWarehouseApi`.
-
-Automated verification: module tests PASS across `STAGE6-001..017` (see `VERIFICATION-LOG.md`).
+Bootstrap использует Public API / auto-configuration; UI не зависит от application/domain/persistence/security internals.
 
 ---
 
-## Security
+## Material Reference Model
 
-Warehouse Capability registers **16 permissions** via `WarehousePermissionCatalog`:
+Warehouse временно владеет `MaterialReference` (ADR: без отдельного Material Master).
 
-**Operations and stock view**
+| Поле | Назначение |
+|---|---|
+| `article` | артикул производителя |
+| `name` | человекочитаемое описание |
+| `color` | цвет |
+| `size` | размер / характеристика |
+| `unitOfMeasure` | единица хранения (из справочника) |
+
+**Уникальность (natural key):**
+
+```text
+article + color + size + unitOfMeasure
+```
+
+`name` **не** участвует в уникальности.
+
+Создание нового MaterialReference — только через Receipt (find-or-create). Move / Transfer / Consumption / Adjustment / Inventory используют существующий.
+
+---
+
+## Quantity Model
+
+Количество хранится **в той единице измерения**, которую пользователь указал при Receipt.
+
+Примеры:
+
+| Материал | Размер | Ед. | Количество на складе |
+|---|---|---|---|
+| Профиль | 6000 мм | м. | 300 м. |
+| Крепёж | 4.8x16 | шт. | 1000 шт. |
+| Уплотнитель | Бухта 500 м | м. | 500 м. |
+
+**Не реализовано:**
+
+- автоматический пересчёт;
+- базовая единица;
+- коэффициенты конвертации;
+- расчёт метров из штук / площади.
+
+---
+
+## Unit Of Measure
+
+Фиксированный справочник `UnitOfMeasure` (canonical codes):
+
+```text
+шт.
+м.
+кв.м.
+компл.
+л.
+гр.
+кг.
+```
+
+| Правило | Статус |
+|---|---|
+| Свободный текстовый ввод в Receipt UI запрещён (ComboBox) | PASS |
+| Domain отклоняет неизвестные значения | PASS |
+| Известные алиасы (`м`, `метры`) нормализуются в `м.` | PASS |
+| Пересчёт единиц не реализован | PASS |
+| DB CHECK constraint (V20) | PASS |
+
+---
+
+## Operations Verification
+
+| Operation | Service | Status |
+|---|---|---|
+| Receipt | `WarehouseReceiptService` | PASS |
+| Move | `WarehouseMoveService` | PASS |
+| Transfer Send | `WarehouseTransferService` | PASS |
+| Transfer Receive | `WarehouseTransferService` | PASS |
+| Consumption | `WarehouseConsumptionService` | PASS |
+| Adjustment | `WarehouseAdjustmentService` | PASS |
+| Inventory | `WarehouseInventoryService` | PASS |
+| Reservation Link | `WarehouseReservationLinkService` | PASS |
+
+Ручная проверка операций (ранее, 2026-08-10 + последующие GUI-сессии STAGE6-019/020): PASS.
+
+---
+
+## Security Verification
+
+Каталог: `WarehousePermissions` — **16** permissions.
+
+**Операционные:**
 
 ```text
 warehouse.stock.view
 warehouse.receipt.create
 warehouse.move.create
 warehouse.transfer.create
-warehouse.reservation.create
 warehouse.consumption.create
 warehouse.adjustment.create
 warehouse.inventory.create
+warehouse.reservation.create
 ```
 
-**Structure management**
+**Структурные:**
 
 ```text
 warehouse.warehouse.view
@@ -89,72 +166,107 @@ warehouse.storage-cell.update
 warehouse.storage-cell.delete
 ```
 
-Structure create/update/delete separated from operation permissions (`STAGE6-017`). Security Specification and Warehouse Specification §18 updated to list all 16 codes.
+Модель доступа:
 
-**Note:** Storage cell resource id uses hyphen (`storage-cell`), not underscore (`storage_cell`), because `PermissionId` allows `[a-z0-9-]` only.
+- **Warehouse Operator** (операционные permissions) — Receipt / Move / Transfer / Consumption / Adjustment / Stock View; без create/update/delete структуры.
+- **Warehouse Administrator** — структурные permissions (+ при назначении операционных — полный доступ).
+- Роли назначаются через Security Roles UI; permissions синхронизируются Capability Engine.
 
-Authorization enforced at API layer; UI gates commands by permission flags.
-
----
-
-## UI
-
-Warehouse Workbench (`WarehouseWorkbenchViewModel` + FXML):
-
-- Warehouse and Storage Cell catalogue (create gated by structure permissions)
-- Stock view by material / warehouse
-- Operation forms: Receipt, Move, Transfer (send + receive), Consumption, Adjustment, Inventory
-- Reservation link creation
-- Error mapping for access denied and validation failures
-- Navigation via left menu (`warehouse.nav.workbench`)
-
-Security Roles UI: all 16 warehouse permissions assignable to roles (`STAGE6-016`).
+Авторизация на Public API; UI гейтит команды по permission flags.
 
 ---
 
-## Manual Tests
+## UI Verification
 
-**Overall:** PASS (user-confirmed, 2026-08-10)
+Экран: Warehouse Workbench (`Склад`).
 
-| Scenario | Result |
+| Раздел | Содержание |
 |---|---|
-| Create Warehouse | PASS |
-| Create Storage Cell | PASS |
-| Receipt | PASS |
-| Move | PASS |
-| Transfer Send | PASS |
-| Transfer Receive | PASS |
-| Consumption | PASS |
-| Adjustment | PASS |
-| Reservation Link | PASS |
-| Security Roles | PASS |
+| Склады / Ячейки | каталог структуры |
+| Остатки склада | Stock View |
+| Receipt | артикул, наименование, цвет, размер, ComboBox ед. изм., количество |
+| Move / Transfer / Consumption / Adjustment | выбор MaterialReference с полным описанием |
+| Reservation | информационная связь |
 
-Record also appended to `VERIFICATION-LOG.md`.
+**Stock View колонки:**
+
+Артикул · Наименование · Цвет · Размер · Ед. изм. · Склад · Ячейка · Количество · Состояние
+
+**Фильтрация нулевых остатков (STAGE6-020):**
+
+- Показываются только позиции с `quantity > 0`
+- Скрываются `AVAILABLE = 0`, `IN_TRANSIT = 0`, `BLOCKED = 0`
+- Физические `Stock Position` **не** удаляются (только read-path filter в `DefaultWarehouseApi`)
+
+---
+
+## Automated Tests (STAGE6-FINAL audit)
+
+### Full suite command
+
+```text
+mvn -pl tmp-warehouse,tmp-ui-shell,tmp-bootstrap-app,tmp-architecture-tests -am test
+```
+
+**tmp-warehouse full suite:** FAIL — 150 run, **2 failures + 3 errors** (устаревшие тесты после Material Reference / UoM; код продукта не менялся в этом аудите):
+
+| Test | Issue |
+|---|---|
+| `WarehouseSchemaFlywayTest` (3) | SQL ещё использует колонку `material_reference` (VARCHAR) вместо `material_reference_id` |
+| `WarehouseReceiptServiceIntegrationTest` | blank `unitOfMeasure` после введения обязательного справочника |
+| `WarehouseApiIntegrationTest` | lookup legacy article без unit после модели V19/V20 |
+
+Upstream modules в том же прогоне до `tmp-warehouse`: PASS (platform, infra, document, capability, security, order-management).
+
+### Focused verification suite (closure evidence)
+
+```text
+mvn -pl tmp-warehouse,tmp-ui-shell,tmp-bootstrap-app,tmp-architecture-tests -am test
+  -Dtest=Stage6WarehouseArchitectureTest,WarehouseWorkbenchViewModelTest,
+         DesktopBootstrapWiringTest,WarehouseAdminNavigationAccessEnsureTest,
+         UnitOfMeasureTest,MaterialReferenceTest,DefaultWarehouseApiTest,
+         WarehouseMaterialReferenceReceiptIntegrationTest,
+         WarehousePermissionCatalogTest,WarehouseSecurityAuthorizationTest
+```
+
+| Module | Result |
+|---|---|
+| tmp-warehouse (focused) | PASS |
+| tmp-ui-shell (`WarehouseWorkbenchViewModelTest` 18) | PASS |
+| tmp-bootstrap-app (wiring + admin nav) | PASS |
+| tmp-architecture-tests (`Stage6WarehouseArchitectureTest` 2) | PASS |
+| **Overall focused** | **BUILD SUCCESS** |
 
 ---
 
 ## Known Limitations
 
-1. **v1.0 scope:** No batch/partition tracking, FIFO/FEFO, supplier batch, WMS, barcode scanning.
-2. **Reservation:** Informational link only; no `RESERVED` stock state; no automated release workflow.
-3. **Production integration:** Consumption API exists; full Production capability not yet implemented (Stage 7).
-4. **Cutting integration:** Not implemented (Stage 8).
-5. **Permission id format:** `warehouse.storage-cell.*` (hyphen) — not `warehouse.storage_cell.*` (underscore).
-6. **Warehouse Spec §18:** Updated from logical `WAREHOUSE_*` names to canonical `PermissionId` codes during this closure.
-7. **Post-core tasks:** `STAGE6-016` and `STAGE6-017` completed after `STAGE6-015`; documented separately in WORK-QUEUE.
+1. Нет Material Master / Material Catalog / Material Service.
+2. Нет FIFO / FEFO.
+3. Нет партий (batch / lot).
+4. Нет серийных номеров.
+5. Нет WMS / адресного хранения сверх Warehouse + Storage Cell.
+6. Нет штрихкодирования.
+7. Нет автоматической конвертации единиц измерения.
+8. Reservation — информационная связь; нет состояния `RESERVED`.
+9. Production / Cutting integration runtime — вне Stage 6.
+10. Full `mvn test` по `tmp-warehouse` содержит 5 устаревших тестов схемы/UoM (см. выше) — технический долг тестов, не дефект runtime.
 
 ---
 
 ## Final Status
 
-**Final Status:** DONE
+**Stage 6 Warehouse = DONE**
 
 | Check | Result |
 |---|---|
-| `STATUS.md` — Stage 6 Warehouse = DONE | PASS |
-| `WORK-QUEUE.md` — STAGE6-001..015 = DONE | PASS |
-| Warehouse Specification ↔ implementation | PASS (§18 synchronized) |
-| Security Specification — 16 Warehouse permissions | PASS (added at closure) |
-| Manual verification | PASS |
-| Code / DB / API changed in this audit | NO |
-| Git operations | NOT EXECUTED |
+| Architecture boundaries | PASS |
+| Material Reference model | PASS |
+| Unit Of Measure reference | PASS |
+| Quantity model (no conversion) | PASS |
+| Operations | PASS |
+| Stock View + zero filter | PASS |
+| Security (16 permissions) | PASS |
+| Focused automated verification | PASS |
+| Code / DB / API / UI changed in this audit | **NO** |
+| Git operations | **NOT EXECUTED** |

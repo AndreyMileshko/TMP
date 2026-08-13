@@ -1,10 +1,10 @@
 # TMP Development Status
 
 **Mode:** Autonomous Cursor Agent  
-**Project status:** Stage 6 complete (structure permissions security fix DONE)  
+**Project status:** Stage 6 complete (Warehouse Closure Audit DONE)  
 **Current Stage:** Stage 6 - DONE  
 **Current Task:** none  
-**Last completed task:** STAGE6-017 (Warehouse structure permissions security fix)  
+**Last completed task:** STAGE6-FINAL (Warehouse Closure Audit)  
 **Active blockers:** NONE  
 **Stage 6 Warehouse:** DONE  
 
@@ -41,6 +41,10 @@ STAGE6-014 = DONE (Warehouse Security Integration)
 STAGE6-015 = DONE (Warehouse UI)
 STAGE6-016 = DONE (Warehouse UI + Security Roles UI final UX fix)
 STAGE6-017 = DONE (Warehouse structure permissions security fix)
+STAGE6-019 = DONE (Warehouse Material Reference Management)
+STAGE6-019-FIX = DONE (Warehouse Unit Of Measure Reference)
+STAGE6-020 = DONE (Warehouse Stock View Zero Quantity Filtering)
+STAGE6-FINAL = DONE (Warehouse Closure Audit)
 Stage 6 = DONE
 Stage 6 Warehouse = DONE
 Active blockers = NONE
@@ -97,13 +101,13 @@ Active blockers = NONE
 | Order Management Specification v1.8 (§28) | **Updated** |
 | Stage 6 Manifest | **Updated** |
 | Material Master | **Not created** (final decision) |
-| Stage 6 code | **DONE** (`STAGE6-001..015` DONE) |
+| Stage 6 code | **DONE** (`STAGE6-001..020` + FINAL) |
 
 ### Material Handling Decision (summary)
 
 - Нет отдельного Material Master.
 - Order Management: материалы в контексте ACTIVE Specification.
-- Warehouse: только складское состояние; MaterialReference из Specification.
+- Warehouse: warehouse-owned Material Reference (article/name/color/size/unit); без Material Master.
 - Material Mapping: пользовательское сопоставление внешних наименований; не блокирует импорт; не Warehouse.
 - Production → Warehouse: Production создает потребность; Warehouse отвечает по наличию/резервированию.
 
@@ -116,14 +120,18 @@ Active blockers = NONE
 
 ---
 
-## Stage 6 — Final Closure (2026-08-10)
+## Stage 6 — Final Closure (2026-08-13)
 
 | Part | Status |
 |---|---|
 | Core Warehouse (`STAGE6-001..015`) | DONE |
 | UI + Security UX fix (`STAGE6-016`) | DONE |
 | Structure permissions fix (`STAGE6-017`) | DONE |
-| Warehouse Manual Verification | PASS |
+| Material Reference (`STAGE6-019`) | DONE |
+| Unit Of Measure reference (`STAGE6-019 FIX`) | DONE |
+| Stock View zero filter (`STAGE6-020`) | DONE |
+| Warehouse Closure Audit (`STAGE6-FINAL`) | DONE |
+| Warehouse Final Verification | PASS |
 | Stage 6 Warehouse overall | **DONE** |
 
 ### Delivered functionality
@@ -131,11 +139,13 @@ Active blockers = NONE
 - Warehouse / Storage Cell catalogue; Stock Position; immutable Warehouse Movement
 - Operations v1.0: Receipt, Move, Transfer (send/receive), Consumption, Adjustment, Inventory
 - Informational Reservation Link (no stock state change)
+- Warehouse-owned Material Reference + fixed Unit Of Measure list
+- Stock View with extended material fields; zero-quantity rows hidden
 - Public API; 16 Warehouse permissions; Warehouse Workbench UI
 - Security Roles UI integration for warehouse permissions
 
 ### Manual verification scenarios (PASS)
 
-Create Warehouse, Create Storage Cell, Receipt, Move, Transfer Send, Transfer Receive, Consumption, Adjustment, Reservation Link, Security Roles.
+Create Warehouse, Create Storage Cell, Receipt (full material fields + UoM ComboBox), Move, Transfer Send, Transfer Receive, Consumption, Adjustment, Reservation Link, Security Roles, Stock View (no zero rows).
 
 **Далее:** Stage 7 Production — только по Start Gate. Git — только пользователь.
