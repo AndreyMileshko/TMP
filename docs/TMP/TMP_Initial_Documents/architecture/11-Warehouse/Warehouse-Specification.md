@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.4
+**Version:** 1.5
 
 ---
 
@@ -281,9 +281,9 @@ Production:
 - получает ACTIVE Order / Order Items / current immutable Specification из Order Management;
 - рассчитывает плановую потребность (Specification и опционально Cutting Plan как рекомендация);
 - формирует редактируемый шаблон перемещения;
-- инициирует создание Warehouse-owned Transfer draft/document через штатный контракт;
+- инициирует создание Warehouse-owned Transfer через Warehouse Application/Document commands;
 - может инициировать подтверждение получения (receive) из UI Production;
-- при выпуске запрашивает Consumption фактического количества.
+- при выпуске инициирует Warehouse-owned Consumption фактического количества (не через Public Query API).
 
 Warehouse:
 
@@ -320,32 +320,50 @@ Warehouse не использует:
 
 ---
 
-# 17. Public API (минимальный)
+# 17. Межмодульные и application-контракты Warehouse
 
-Минимальный API Warehouse:
+Разделение соответствует Constitution принцип 28, ADR-003 и ADR-004.
 
-- получение остатков;
-- проверка доступности;
-- создание информационной привязки материала (reservation link);
-- создание/проведение Warehouse Operation / business documents (Receipt, Move, Transfer send/receive, Consumption, …).
+## 17.1 Warehouse Public Query API (read-only)
 
-Пример контрактов:
+Только чтение. Не изменяет Stock Position и не проводит документы.
 
 ```text
 getStock(material, warehouse, cell)
 checkAvailability(request)
-createReservationLink(request)
-createTransferDraft(request)          // в т.ч. по инициации из Production template
-postTransferSend(documentId)
-postTransferReceive(documentId)       // может инициироваться из UI Production
-createConsumptionDraft(request)       // фактические количества из Production Release
-postConsumption(documentId)
-executeWarehouseOperation(request)    // обобщённый путь Stage 6, если используется
+getMaterialAvailability(request)
+getTransferStatus(documentId / transferRef)
+getReservationLink(request)   // информационное чтение, если требуется
 ```
 
-Mutating операции остаются во владении Warehouse (document-driven). Другие Capability не обходят Warehouse Public/document контракт.
+## 17.2 Warehouse Application / Document Commands (mutating, Warehouse-owned)
 
----
+Изменяющие операции **не** являются Public Query API и **не** являются mutating Public API чужого Capability.
+
+Они выполняются как:
+
+- Warehouse Application Use Cases;
+- Warehouse Document Commands / Document Engine lifecycle;
+- Warehouse-owned business documents / operations.
+
+Примеры:
+
+```text
+createTransferDraft(request)     // в т.ч. по инициации из Production UI template
+postTransferSend(documentId)
+postTransferReceive(documentId)  // может инициироваться из Production UI «Подтвердить получение»
+createConsumptionDraft(request)  // фактические количества из Production Release orchestration
+postConsumption(documentId)
+createReservationLink(request)   // informational write, всё ещё Warehouse-owned
+executeWarehouseOperation(...)   // обобщённый путь Stage 6, если используется
+```
+
+Production UI может **инициировать** пользовательский workflow, но:
+
+- владельцем Transfer / Consumption остаётся Warehouse;
+- Stock Position изменяет только Warehouse;
+- Production не описывает эти команды как свой mutating Public API.
+
 # 18. Security
 
 Warehouse использует существующую Security Capability.
@@ -438,3 +456,4 @@ Warehouse выполняет только складскую часть опер
 | 1.3 | Упрощение модели Stage 6 Start Gate: исключены Batch/FIFO/FEFO/Supplier Batch; Reservation как информационная связь; упрощённые Stock State; минимальный API; подтверждена граница Warehouse-only state. |
 | 1.3.1 | Stage 6 Final Closure: §18 — canonical `PermissionId` codes (16 permissions incl. structure management). |
 | 1.4 | Stage 7 docs alignment (ADR-035): Production инициирует Transfer template/receive confirmation и actual Consumption; Warehouse остаётся владельцем документов и Stock Position; без возврата Batch/FIFO/FEFO. |
+| 1.5 | Corrective pass: §17 разделён на Public Query API и Warehouse Application/Document Commands (Constitution принцип 28). |

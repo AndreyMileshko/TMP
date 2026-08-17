@@ -46,7 +46,23 @@ None — resolved.
 
 ### Reason
 
-Production Release и связанный Warehouse Consumption должны проводиться атомарно: запрещены состояния «материал списан без Release» и «Release проведён без Consumption».
+Production Release и Warehouse Consumption **не могут быть реализованы**, пока не определено, как гарантировать согласованное выполнение:
+
+```text
+Production Release = success
+Warehouse Consumption = success
+```
+
+либо:
+
+```text
+оба = failure / rollback
+```
+
+Промежуточные состояния недопустимы:
+
+- материал списан, но Production Release не зафиксирован;
+- Production Release проведён, но Warehouse Consumption не выполнен.
 
 Публичный контракт Document Engine гарантирует атомарность **одной** lifecycle-операции документа и его Document Processor. Явной платформенной гарантии атомарного проведения **двух** документов разных Capability в одной транзакции в текущей DE Spec нет.
 

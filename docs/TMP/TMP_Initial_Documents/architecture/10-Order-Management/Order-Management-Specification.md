@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-010
 **Status:** Accepted
-**Version:** 1.9
+**Version:** 1.10
 
 ---
 
@@ -14,7 +14,7 @@ Order Management является единственным владельцом 
 
 Order Management определяет **какие материалы нужны для изготовления изделия** через Item Specification (строки ACTIVE Revision). Отдельный Material Master в текущей версии TMP **не создаётся** (ADR-032).
 
-Главным объектом платформы является **позиция заказа (Order Item)**. Order Management владеет внутренней моделью Revision. Для **Production-facing** контракта (ADR-033) downstream получает `ACTIVE Order → Order Item → current immutable Specification` и **не обязан** хранить или требовать `Order Item Revision` в своём состоянии. Warehouse и Cutting читают актуальные данные через Public Query API; Revision остаётся внутренней/исторической моделью Order Management.
+Главным объектом платформы является **позиция заказа (Order Item)**. Order Management владеет внутренней моделью Revision. Для **Production-facing** контракта (ADR-033) downstream получает `ACTIVE Order → Order Item → current immutable Specification` + stable opaque `Specification ID` и **не обязан** хранить или требовать `Order Item Revision` в своём состоянии. Warehouse и Cutting читают актуальные данные через Public Query API; Revision остаётся внутренней/исторической моделью Order Management.
 
 Order Management **не владеет** производственным состоянием — оно принадлежит Production.
 
@@ -161,7 +161,8 @@ Order Management **не** владеет и **не** хранит (принад�
 
 ## 5.4 Item Specification (значимый объект в границе Revision)
 
-* **id:** привязан к `OrderItemId` + `RevisionNumber`.
+* **id (внутренний/композитный):** привязан к `OrderItemId` + `RevisionNumber`.
+* **`SpecificationId` (stable opaque):** публичный стабильный идентификатор immutable Specification для downstream (Production и др.). Не раскрывает номер Revision. После утверждения Revision значение `SpecificationId` неизменяемо.
 * **Состав строки (MVP target):** `materialCode`, `materialName`, `color` (nullable), `lengthMm` (nullable), `lineQuantity` (> 0), `unitOfMeasure`.
 * **Не содержит:** складских остатков, партий, резервов, производственных количеств, `orientation` / `placement` / направления детали, поля `consumptionNorm` как замены длине или количеству.
 * **Инвариант:** после утверждения Revision Immutable (ADR-018).
@@ -332,7 +333,7 @@ Production lifecycle не входит в Stage 5.
 
 # 10. Производственное состояние (внешнее)
 
-Производственное состояние принадлежит Production и связывается им с `Order Item ID` (и `Order ID`). Order Management не хранит `Production Status`, производственные количества и документы Production; при необходимости читает состояние через Production Public Query API. Общий производственный статус заказа вычисляется Production и не хранится Order Management (ADR-020, ADR-033).
+Производственное состояние принадлежит Production и связывается им с `Order Item ID`, `Order ID` и зафиксированным `Specification ID` (Production Specification Reference). Order Management не хранит `Production Status`, производственные количества и документы Production; при необходимости читает состояние через Production Public Query API. Общий производственный статус заказа вычисляется Production и не хранится Order Management (ADR-020, ADR-033).
 
 ---
 
@@ -553,10 +554,15 @@ getOrderItemRevisions(orderItemId, pageRequest)
 getOrderItemRevision(orderItemId, revisionNumber)
 getActiveOrderItemRevision(orderItemId)
 getItemSpecification(orderItemId, revisionNumber)
-getCurrentItemSpecification(orderItemId)   // current immutable Specification без требования к caller хранить Revision
+getCurrentItemSpecification(orderItemId)   // current Spec + SpecificationId; без требования к caller хранить Revision
+getSpecificationById(specificationId)      // чтение immutable Specification по стабильному ID
 ```
 
-Production-facing convenience: `getCurrentItemSpecification(orderItemId)` (или эквивалент поверх `getActiveOrderItemRevision`) возвращает действующую Specification ACTIVE Item. Callers Production **не** обязаны сохранять revision number в Production state.
+Production-facing convenience:
+
+* `getCurrentItemSpecification(orderItemId)` возвращает действующую Specification ACTIVE Item **и** `SpecificationId`.
+* Production при Launch сохраняет `SpecificationId` и далее читает `getSpecificationById(specificationId)`.
+* Callers Production **не** обязаны сохранять revision number в Production state.
 ### 15.1.1 Order search criteria
 
 Минимальные фильтры (только существующие в модели поля):
@@ -712,7 +718,7 @@ Order Management предоставляет стабильные `Order ID`, `Or
 6. Warehouse отвечает владением складскими данными и документами
 ```
 
-* **Production:** Query (`getOrder`, `getOrderItems`, `getCurrentItemSpecification` / active Specification); связь состояния по `Order Item ID`; **не** хранит Order Item Revision в Production state; не обязан потреблять `OrderItemRevisionApproved` для state; не изменяет Order Management.
+* **Production:** Query (`getOrder`, `getOrderItems`, `getCurrentItemSpecification`, `getSpecificationById`); при Launch фиксирует `SpecificationId`; связь состояния по `Order Item ID` + `Specification ID`; **не** хранит Order Item Revision; не обязан потреблять `OrderItemRevisionApproved` для state; не изменяет Order Management.
 * **Warehouse:** получает MaterialReference через запрос Production; хранит только складское состояние; **не** читает Specification напрямую; **не** выполняет Material Mapping; не изменяет позицию/спецификацию.
 * **Cutting Optimization:** Query по ACTIVE данным; Cutting Plan вне Order Management; без Cutting Plan Revision (ADR-034).
 * **Procurement/Analytics:** read-only использование; проекции/решения принадлежат им.
@@ -805,7 +811,7 @@ Order Management предоставляет стабильные `Order ID`, `Or
 * Platform Core Specification (Event API)
 * Capability Engine Specification
 * Security Specification
-* Production Specification (v2.0)
+* Production Specification (v2.1)
 * Warehouse / Cutting Optimization / Procurement Specifications
 
 ---
@@ -826,6 +832,7 @@ Order Management предоставляет стабильные `Order ID`, `Or
 | 1.7 | **Stage 5 Final Closure (2026-08-06):** Stage 5 = DONE; STAGE5-057/058 = DONE; STAGE5-058 Manual GUI Smoke PASS; Stage 6 = NOT STARTED. Зафиксированы итоговые правила §27 (trusted import → ACTIVE; read-only ACTIVE; Revision N+1). |
 | 1.8 | **Stage 6 Start Gate (ADR-032):** финальное решение — нет Material Master; материалы в контексте Specification; Material Mapping; Production → Warehouse interaction; §28. |
 | 1.9 | **Stage 7 docs alignment (ADR-033):** Production-facing contract без обязательного Order Item Revision в состоянии Production; `getCurrentItemSpecification`; §10/§15/§17/§20 обновлены; внутренняя Revision-модель OM и Stage 5 lifecycle сохранены. |
+| 1.10 | **Corrective pass:** публичный stable `SpecificationId`; `getSpecificationById`; Production фиксирует Specification Reference при Launch без возврата Revision в Production contract. |
 ---
 
 # 28. Material Responsibility and Mapping (ADR-032)

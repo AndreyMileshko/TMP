@@ -2,10 +2,10 @@
 
 **Mode:** Autonomous Cursor Agent  
 **Project status:** Stage 6 complete (Warehouse Closure Audit DONE)  
-**Current Stage:** Stage 6 - DONE  
+**Current Stage:** Stage 6 - DONE (Stage 7 Start Gate pending; implementation NOT STARTED)  
 **Current Task:** none  
 **Last completed task:** STAGE6-FINAL (Warehouse Closure Audit)  
-**Active blockers:** NONE  
+**Active blockers:** `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` (OPEN)  
 **Stage 6 Warehouse:** DONE  
 
 
@@ -47,7 +47,8 @@ STAGE6-020 = DONE (Warehouse Stock View Zero Quantity Filtering)
 STAGE6-FINAL = DONE (Warehouse Closure Audit)
 Stage 6 = DONE
 Stage 6 Warehouse = DONE
-Active blockers = NONE
+Active blockers = BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY (OPEN)
+Stage 7 Production = NOT STARTED / 0%
 ```
 
 ---
@@ -148,4 +149,4 @@ Active blockers = NONE
 
 Create Warehouse, Create Storage Cell, Receipt (full material fields + UoM ComboBox), Move, Transfer Send, Transfer Receive, Consumption, Adjustment, Reservation Link, Security Roles, Stock View (no zero rows).
 
-**Далее:** Stage 7 Production — документация модели обновлена (Production Spec v2.0, ADR-033…035); Stage 7 остаётся **NOT STARTED / 0%**; реализация только после Start Gate (включая `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY`). Git — только пользователь.
+**Далее:** Stage 7 Production — документация модели обновлена (Production Spec **v2.1**, ADR-033…035); Stage 7 = **NOT STARTED / 0%**; active blocker `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY`; реализация только после Start Gate. Git — только пользователь.

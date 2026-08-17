@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-012  
 **Status:** Accepted  
-**Version:** 2.0
+**Version:** 2.1
 
 ---
 
@@ -31,7 +31,8 @@ Production отвечает за:
 - инициирование создания Warehouse-owned Transfer через штатный контракт Warehouse;
 - подтверждение физического получения материалов в UI Production с фактическим изменением склада только через Warehouse;
 - выпуск изделий с фиксацией план/факт расхода материалов;
-- опциональную ссылку на Cutting Plan ID (рекомендательный источник);
+- фиксацию Production Specification Reference (`Specification ID`) при принятии в производство;
+- набор ссылок MaterialReference → Cutting Plan ID (0..N на Order Item);
 - Public Query API производственного состояния;
 - Domain Events о завершённых изменениях собственного состояния;
 - Security permissions бизнес-действий Production;
@@ -60,14 +61,14 @@ Production не отвечает за:
 2. Пользователь работает с заказом целиком; принятие и отмена — по всему заказу (ADR-033).
 3. Отдельный Production Order не создаётся.
 4. Общий производственный статус заказа вычисляется и не хранится как отдельный источник истины (ADR-020).
-5. Downstream-контракт Production использует `ACTIVE Order` → Order Items → current immutable Specification; **без** зависимости от Order Item Revision в состоянии и документах Production (ADR-033).
+5. Downstream-контракт Production использует `ACTIVE Order` → Order Items → current immutable Specification + stable `Specification ID`; **без** зависимости от Order Item Revision в состоянии и документах Production (ADR-033).
 6. Все значимые изменения производственного состояния выполняются через бизнес-документы Production.
 7. Проверка материалов — пользовательская команда/расчёт, не бизнес-документ и не prerequisite принятия в производство.
-8. Specification — нормативная основа состава изделия; Production не хранит копию Specification.
+8. Specification — нормативная основа состава изделия; Production не хранит копию содержимого Specification, но после Launch хранит стабильный `Specification ID` (Production Specification Reference).
 9. Cutting Plan необязателен и носит рекомендательный характер (ADR-024, ADR-034).
 10. При отсутствии Cutting Plan потребность полностью определяется по Specification.
 11. Для длинномерных материалов связанный Cutting Plan — рекомендуемый/default источник плановой потребности; мастер может скорректировать шаблон перемещения и фактический расход (ADR-034, ADR-035).
-12. Production хранит ссылку на `Cutting Plan ID` (не на Revision Cutting Plan).
+12. Production хранит связи `MaterialReference → Cutting Plan ID` (0..N на Order Item; не одно поле на всю позицию; не Revision Cutting Plan).
 13. Production не управляет lifecycle Cutting Plan.
 14. Warehouse — единственный владелец Stock Position, Warehouse Movement и Warehouse Operation.
 15. Выпуск проводится только вместе с успешным фактическим Warehouse Consumption со склада производства (атомарная orchestration — §21).
@@ -86,7 +87,8 @@ Production является владельцем:
 - производственного статуса Order Item;
 - количеств launched / in-production / released по Order Item;
 - документов Production и результатов обработки их строк;
-- опциональных ссылок на использованный `Cutting Plan ID`;
+- Production Specification Reference (`Specification ID`) по каждому принятому Order Item;
+- набора связей MaterialReference → Cutting Plan ID;
 - plan/fact строк расхода материалов в Production Release;
 - настроек Production;
 - истории изменения собственного производственного состояния.
@@ -110,16 +112,29 @@ Production не владеет:
 
 Основной объект Production — **производственное состояние Order Item**.
 
-Идентификация:
+Идентификация состояния:
 
 ```text
 Order ID
 Order Item ID
+Specification ID   // Production Specification Reference (opaque)
 ```
 
-Production **не** хранит и **не** требует `Order Item Revision` в своём состоянии, документах или Public Query API.
+Production **не** хранит и **не** требует `Order Item Revision` / revision number в своём состоянии, документах или Public Query API.
 
-Владелец Order Item и его внутренней модели Revision — Order Management. Production получает актуальное действующее изделие и его **current immutable Specification** через Public Query API Order Management.
+Владелец Order Item, внутренней Revision и содержимого Specification — Order Management.
+
+### Production Specification Reference
+
+При команде **Принять в производство** для каждой позиции Production фиксирует стабильный opaque `Specification ID`, полученный из Order Management Public Query API вместе с current immutable Specification.
+
+Правила:
+
+1. `Specification ID` однозначно адресует конкретную immutable Specification в OM.
+2. Production **не копирует** содержимое Specification.
+3. После Launch все операции Production по этой позиции (проверка материалов, transfer template, release, plan/fact, audit) используют **зафиксированный** `Specification ID`, а не «текущую» Specification заказа.
+4. Если позже в OM появится новая current Specification, уже запущенное Production **не** переключается на неё автоматически.
+5. Это не возвращает Order Item Revision в Production contract.
 
 ## 5.2 Хранимые атрибуты Order Item Production State
 
@@ -127,23 +142,29 @@ Production **не** хранит и **не** требует `Order Item Revision
 |----------|----------|
 | Order ID | Идентификатор заказа |
 | Order Item ID | Идентификатор позиции |
+| Specification ID | Production Specification Reference (зафиксирован при Launch) |
 | Production Status | Текущий производственный статус позиции |
-| Ordered Quantity | Количество изделий позиции (из OM Query на момент принятия / актуализации) |
+| Ordered Quantity | Количество изделий позиции на момент принятия |
 | Launched Quantity | Количество, принятое в производство по позиции |
 | Active Production Quantity | Количество в активном производстве |
 | Released Quantity | Накопленный выпуск |
-| Optional Cutting Plan ID | Ссылка на использованную карту (если выбрана) |
+| Cutting Plan Links | Набор `MaterialReference → CuttingPlanId` (0..N) |
 | Last Material Check At | Время последней проверки материалов |
-| Last Status Changed At | Время последнего изменения статуса |
+| Last Status Changed At | Дата и время последнего изменения статуса |
 
-Вычисляемые величины (не отдельные источники истины):
+### 5.2.1 Cutting Plan Links (cardinality)
 
 ```text
-Remaining Quantity = Ordered Quantity − Released Quantity
+Order Item
+  → 0..N  (MaterialReference → CuttingPlanId)
+
+1 Cutting Plan
+  → N Order Item
 ```
 
-> **Architecture Rule**  
-> Production не дублирует коммерческие, конструктивные и складские данные.
+Одно поле `Optional Cutting Plan ID` на всю позицию **запрещено**, если у позиции несколько длинномерных материалов.
+
+Связь many-to-many ограничена material identity: для каждого длинномерного материала — не более одной активной ссылки на Cutting Plan в Production state / Launch document.
 
 ## 5.3 Order Production View (вычисляемый)
 
@@ -170,7 +191,10 @@ Production получает:
 ACTIVE Order
 → Order Items
 → current immutable Specification
+→ Specification ID (stable opaque)
 ```
+
+После Launch Production продолжает читать содержимое **только** по зафиксированному `Specification ID`.
 
 ---
 
@@ -274,7 +298,8 @@ Document-driven модель сохраняется. Пользователь н
 - Order ID;
 - Order Item ID;
 - количество изделий (полное количество позиции на момент принятия);
-- опциональный `Cutting Plan ID`;
+- `Specification ID` (фиксируется при проведении);
+- набор `MaterialReference → CuttingPlanId` (0..N);
 - статус обработки строки.
 
 ## 10.2 Проверки перед проведением
@@ -282,13 +307,16 @@ Document-driven модель сохраняется. Пользователь н
 - заказ `ACTIVE` в Order Management;
 - заказ ещё не принят в производство (позиции в `NOT_STARTED`);
 - корректность количеств;
-- при указании Cutting Plan — существование карты у Cutting Optimization (если Stage 8 доступен); отсутствие карты не блокирует запуск.
+- при указании Cutting Plan links — существование карт у Cutting Optimization (если Stage 8 доступен); отсутствие карт не блокирует запуск;
+- фиксация Specification ID для каждой строки.
 
 Проверка материалов **не** является prerequisite.
 
 ## 10.3 После проведения
 
 - позиции → `IN_PRODUCTION`;
+- сохраняется Production Specification Reference (`Specification ID`) на позицию;
+- сохраняются Cutting Plan Links (если заданы);
 - увеличивается `Launched Quantity` / `Active Production Quantity`;
 - публикуется Domain Event `OrderAcceptedIntoProduction` (после commit);
 - Order Production View → «В ПРОИЗВОДСТВЕ».
@@ -323,7 +351,7 @@ Production не хранит и не рассчитывает складские
 
 # 12. Расчёт потребности материалов
 
-Нормативная основа — Specification.
+Нормативная основа — **зафиксированная** Specification по `Specification ID` (после Launch), а не автоматически сменившаяся current Specification OM.
 
 | Материал | Правило |
 |----------|---------|
@@ -504,19 +532,20 @@ Production **не** изменяет lifecycle Order Management.
 
 # 17. Cutting Plan integration
 
-Cutting Plan — самостоятельный документ Cutting Optimization (ADR-034).
+Cutting Plan — самостоятельный документ Cutting Optimization (ADR-034). Подробная функциональность Stage 8 сохранена в Cutting Optimization Specification.
 
-Правила для Production v1.0:
+Правила для Production:
 
 1. рекомендательный характер;
 2. не обязателен для работы Production;
-3. без карты — работа полностью по Specification;
+3. без карты — работа полностью по зафиксированной Specification;
 4. Production не создаёт / не редактирует / не пересчитывает карту;
-5. может хранить ссылку на `Cutting Plan ID`;
-6. карта может включать позиции одного или нескольких заказов;
-7. связь однозначна через Order ID / Order Item ID;
-8. **нет** модели Cutting Plan Revision;
-9. Production **не** управляет lifecycle карты (`IN_USE` / `COMPLETED` и события для этого **не** являются частью Production v1.0).
+5. хранит **набор** связей `MaterialReference → CuttingPlanId` (0..N на Order Item);
+6. один Cutting Plan может охватывать несколько Order / Order Item;
+7. одна Order Item может ссылаться на несколько Cutting Plan (разные длинномерные материалы);
+8. связь трассируема через Order ID / Order Item ID / MaterialReference;
+9. **нет** модели Cutting Plan Revision;
+10. Production **не** управляет lifecycle карты.
 
 Stage 8 может определить собственные статусы Cutting Plan независимо.
 
@@ -543,9 +572,9 @@ Mutating methods **не** входят во внешний межмодульн�
 acceptOrderIntoProduction(orderId)          // → Production Launch
 checkMaterialAvailability(orderId)          // команда/расчёт
 prepareMaterialTransferTemplate(orderId)
-confirmMaterialTransferCreate(template)     // → инициирует Warehouse Transfer
-confirmMaterialReceipt(transferRef)         // → инициирует Warehouse receive
-releaseProducts(request)                    // → Production Release (+ Warehouse Consumption)
+confirmMaterialTransferCreate(template)     // → Warehouse Application/Document: Transfer
+confirmMaterialReceipt(transferRef)         // → Warehouse Application/Document: receive
+releaseProducts(request)                    // → Production Release (+ Warehouse-owned Consumption)
 cancelOrderProduction(orderId)              // → Production Cancellation
 ```
 
@@ -573,7 +602,7 @@ Production может подписаться на:
 - `WarehouseDocumentPosted` / связанные события Warehouse (информационно);
 - при наличии Stage 8 — события о доступных Cutting Plan (информационно).
 
-Production **не** обязан подписываться на `Order Item Revision Approved` для поддержания собственного состояния: связь состояния — по `Order Item ID`; актуальная Specification читается через OM Query при необходимости.
+Production **не** обязан подписываться на `Order Item Revision Approved` для поддержания собственного состояния: связь состояния — по `Order Item ID` + зафиксированный `Specification ID`; содержимое Specification читается через OM Query **по Specification ID**, а не по «текущей» Specification.
 
 Ни один внешний Capability не изменяет документы Production напрямую.
 
@@ -663,7 +692,7 @@ Document-driven invariants:
 - позиции/изделия;
 - общий производственный статус (Order Production View);
 - состояние материалов;
-- наличие связанного Cutting Plan;
+- наличие связанных Cutting Plan (по материалам);
 - краткую историю действий.
 
 Команды:
@@ -691,10 +720,10 @@ Document-driven invariants:
 
 1. Production не изменяет данные Order Management.
 2. Production не изменяет Specification.
-3. Production state идентифицируется `Order ID` + `Order Item ID` без Order Item Revision.
+3. Production state идентифицируется `Order ID` + `Order Item ID` + `Specification ID` без Order Item Revision.
 4. Order-level production status не хранится как источник истины.
 5. Production не изменяет Cutting Plan и не управляет его lifecycle.
-6. При отсутствии Cutting Plan потребность — по Specification.
+6. При отсутствии Cutting Plan потребность — по зафиксированной Specification; Cutting Plan links — 0..N по MaterialReference.
 7. Проведённые документы Production immutable.
 8. Active production quantity и released quantity не отрицательны; released не превышает ordered.
 9. Warehouse никогда не изменяет производственное состояние Production.
@@ -720,7 +749,7 @@ Warehouse — единственный владелец складских ос�
 
 ## Rule 4
 
-Cutting Optimization — единственный владелец Cutting Plan. Production может хранить только `Cutting Plan ID`.
+Cutting Optimization — единственный владелец Cutting Plan. Production может хранить только набор `MaterialReference → Cutting Plan ID`.
 
 ## Rule 5
 
@@ -767,6 +796,7 @@ Order Management — владелец Order / Order Item / Revision / Specificat
 |--------|-----------|
 | 1.1 | Предыдущая модель: item/revision-centric launch, READY_FOR_PRODUCTION, партии, Revision Cutting Plan, lifecycle-события Cutting, mutating Public API. |
 | 2.0 | Новая согласованная модель Stage 7: order-level UX + item-owned state; без Order Item Revision в Production contract; Cutting Plan как рекомендация без Revision; editable transfer + plan/fact; Public Query vs Application API; Start Gate атомарности Release/Consumption (ADR-033…035). |
+| 2.1 | Corrective pass: Production Specification Reference (`Specification ID`); Cutting Plan links 0..N by MaterialReference; restored detailed Cutting Spec alignment; Warehouse Query vs Document commands. |
 
 ---
 

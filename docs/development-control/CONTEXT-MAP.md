@@ -35,10 +35,10 @@ Cursor обновляет реальные пути во время CONTROL-001.
 | 2 | Document Engine | Document Engine Specification | Database Specification; document ADR |
 | 3 | Capability Engine | Capability Engine Specification | Platform Core public API; capability ADR |
 | 4 | Security | Security Specification | Database Specification; audit and permission ADR |
-| 5 | Order Management | Order Management Specification (**v1.7**) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only); ADR v1.8 (ADR-028/029/030/031 final); Stage 5 Manifest |
-| 6 | Warehouse | Warehouse Specification | Order public API; Production contracts; Database Specification |
-| 7 | Production | Production Specification | Order and Warehouse public APIs; Database Specification |
-| 8 | Cutting Optimization | Cutting Optimization Specification | Production contracts; algorithm requirements |
+| 5 | Order Management | Order Management Specification (**v1.10**) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only); ADR v1.12 (incl. ADR-028…035); Stage 5 Manifest |
+| 6 | Warehouse | Warehouse Specification (**v1.5**) | Order public Query API; Production contracts; Database Specification |
+| 7 | Production | Production Specification (**v2.1**) | OM Public Query (`SpecificationId`); Warehouse Query + Document commands; Document Engine; ADR-033…035; Stage 7 Manifest; Cutting Spec только для Cutting Plan integration |
+| 8 | Cutting Optimization | Cutting Optimization Specification (**v1.1**) | Production contracts; algorithm requirements; ADR-034 |
 | 9 | Analytics | Analytics Specification | Warehouse read-only Public API; Capability Engine registration API; Security permission API; Order Management read-only references; UI/UX report screen rules |
 
 Нумерация папок архитектурной документации (`00-Constitution` … `14-Analytics`, `15-Database`, …) — структура документов, **не** последовательность Stage.
@@ -118,13 +118,13 @@ Read only:
 
 Основные документы:
 
-- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (**v1.7**);
+- `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (**v1.10**);
 - `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Stage Manifest);
 - `docs/TMP/TMP_Initial_Documents/architecture/00-Constitution/TMP-Constitution.md` (v1.2, принцип 28);
-- релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**, **ADR-031 final**, **ADR-032**, **ADR-033** (ADR document **v1.11**);
-- Production Specification (**v2.0**) — **только** границы владения: item-owned Production state, Production-facing contract без Order Item Revision, Public Query API / Domain Events и интеграция с Order Management (не для реализации Production до Stage 7 Start Gate).
+- релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**, **ADR-031 final**, **ADR-032**, **ADR-033** (ADR document **v1.12**);
+- Production Specification (**v2.1**) — **только** границы владения: item-owned Production state, `SpecificationId` reference, Production-facing contract без Order Item Revision, Public Query API / Domain Events (не для реализации Production до Stage 7 Start Gate).
 
-Миграции Order Management (факт): latest = **V14**. `STAGE5-057` = **DONE**. `STAGE5-058` = **DONE**. Stage 5 = **DONE** (Final Closure 2026-08-06). Stage 6 = **DONE**. Stage 7 = **NOT STARTED** (docs updated; Start Gate pending).
+Миграции Order Management (факт): latest = **V14**. `STAGE5-057` = **DONE**. `STAGE5-058` = **DONE**. Stage 5 = **DONE** (Final Closure 2026-08-06). Stage 6 = **DONE**. Stage 7 = **NOT STARTED / 0%** (docs updated; Start Gate pending; active blocker `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY`).
 
 
 
@@ -218,6 +218,40 @@ Read only:
 Разрешено: ADR-031 **final**; Spec §8/§9/§13/§27.6–27.10; Manifest §21–22; Order/Item/Revision ACTIVE model; import confirm landing; удаление import-metadata protection; UI read-only direct-edit для любого ACTIVE; Revision flow; Flyway V13+; focused tests из WORK-QUEUE.
 
 Запрещено: OrderOrigin/ImportMetadata/checksum registry; Stage 6/7 code; Firebird; merge/re-import-as-update; Git by agent.
+
+---
+
+# Stage 7 — Production Context
+
+Основные документы (минимальный набор):
+
+- `docs/development-control/stages/STAGE-7-PRODUCTION.md`;
+- `docs/TMP/TMP_Initial_Documents/architecture/12-Production/12-Production-Specification.md` (**v2.1**);
+- релевантные ADR текущей задачи (обычно ADR-033 / ADR-034 / ADR-035; не весь ADR-файл без нужды);
+- Order Management Public Query contract (`SpecificationId`, ACTIVE Order/Item) — только нужные разделы Spec;
+- Warehouse: Public Query API + Application/Document commands boundary — только нужные разделы Spec;
+- Document Engine transactional contract — для задач Release/Consumption / documents;
+- Security — только при security task;
+- `docs/development-control/BLOCKERS.md` — при Start Gate / atomicity.
+
+### Правила загрузки
+
+1. Не загружать весь Warehouse / Order Management / Cutting код для каждой Production task.
+2. Cutting Optimization Specification (**v1.1**, detailed) — только для задач, реально связанных с Cutting Plan integration.
+3. Не начинать implementation tasks, пока `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` OPEN.
+4. Stage 7 = NOT STARTED / 0% до Start Gate PASS.
+
+### `stage7-production-domain`
+
+Разрешено: Production Spec v2.1; Stage 7 Manifest; ADR-033…035; OM Query (`getCurrentItemSpecification` / `getSpecificationById`); Warehouse Query + document command contracts; Document Engine TX contract.
+
+Запрещено: MES; Production Order; Material Master; Cutting Plan Revision; полная загрузка Stage 5/6 implementation; Stage 8 implementation.
+
+### `stage7-cutting-integration`
+
+Разрешено: Cutting Optimization Spec v1.1 (нужные разделы); Production Spec § Cutting Plan links; ADR-034.
+
+Запрещено: реализация Stage 8; возврат Cutting Plan Revision; управление lifecycle Cutting Plan из Production.
 
 ---
 
