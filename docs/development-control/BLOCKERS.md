@@ -42,7 +42,7 @@ None — resolved.
 **Status:** OPEN (Stage 7 Start Gate — documentation only; Stage 7 implementation NOT STARTED)  
 **Detected:** 2026-08-17  
 **Stage:** 7 Production  
-**Related:** Production Specification v2.0 §21; ADR-035; Document Engine Specification (Transactional contract)
+**Related:** Production Specification v2.1 §21; ADR-035; Document Engine Specification (Transactional contract)
 
 ### Reason
 
@@ -69,7 +69,7 @@ Warehouse Consumption = success
 ### Evidence
 
 - Document Engine Specification: processor внутри TX соответствующей lifecycle-операции; partial apply исключён **для одного** документа.
-- Constitution принцип 19 / 28; ADR-035; Production Spec v2.0 §21.
+- Constitution принцип 19 / 28; ADR-035; Production Spec v2.1 §21.
 
 ### Options (Start Gate)
 

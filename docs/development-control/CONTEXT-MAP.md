@@ -38,7 +38,7 @@ Cursor обновляет реальные пути во время CONTROL-001.
 | 5 | Order Management | Order Management Specification (**v1.10**) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only); ADR v1.12 (incl. ADR-028…035); Stage 5 Manifest |
 | 6 | Warehouse | Warehouse Specification (**v1.5**) | Order public Query API; Production contracts; Database Specification |
 | 7 | Production | Production Specification (**v2.1**) | OM Public Query (`SpecificationId`); Warehouse Query + Document commands; Document Engine; ADR-033…035; Stage 7 Manifest; Cutting Spec только для Cutting Plan integration |
-| 8 | Cutting Optimization | Cutting Optimization Specification (**v1.1**) | Production contracts; algorithm requirements; ADR-034 |
+| 8 | Cutting Optimization | Cutting Optimization Specification (**v1.2**) | Production contracts; algorithm requirements; ADR-034 |
 | 9 | Analytics | Analytics Specification | Warehouse read-only Public API; Capability Engine registration API; Security permission API; Order Management read-only references; UI/UX report screen rules |
 
 Нумерация папок архитектурной документации (`00-Constitution` … `14-Analytics`, `15-Database`, …) — структура документов, **не** последовательность Stage.
@@ -237,7 +237,7 @@ Read only:
 ### Правила загрузки
 
 1. Не загружать весь Warehouse / Order Management / Cutting код для каждой Production task.
-2. Cutting Optimization Specification (**v1.1**, detailed) — только для задач, реально связанных с Cutting Plan integration.
+2. Cutting Optimization Specification (**v1.2**, detailed) — только для задач, реально связанных с Cutting Plan integration.
 3. Не начинать implementation tasks, пока `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` OPEN.
 4. Stage 7 = NOT STARTED / 0% до Start Gate PASS.
 

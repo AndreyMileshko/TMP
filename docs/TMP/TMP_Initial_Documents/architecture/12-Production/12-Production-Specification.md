@@ -592,7 +592,7 @@ Production публикует только завершённые бизнес-�
 | `ProductionReleased` | после Production Release |
 | `OrderProductionCancelled` | после Production Cancellation |
 
-События `ProductionLaunchStarted` / `ProductionLaunchCompleted` как обязательный механизм управления lifecycle Cutting Plan **не используются** в Production v2.0.
+События `ProductionLaunchStarted` / `ProductionLaunchCompleted` как обязательный механизм управления lifecycle Cutting Plan **не используются** в Production v2.1.
 
 ## 19.1 Подписки
 

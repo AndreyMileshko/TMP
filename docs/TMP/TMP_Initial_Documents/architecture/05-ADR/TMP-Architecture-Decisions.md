@@ -699,7 +699,7 @@ Accepted
 - значительно упрощается Warehouse;
 - появляется возможность независимого планирования изделий.
 
-> **Уточнение (ADR-033):** пользовательский workflow Production v2.0 работает с заказом целиком (принятие/отмена/агрегированный статус), но **хранимое** производственное состояние остаётся item-owned. ADR-017 не superseded.
+> **Уточнение (ADR-033):** пользовательский workflow Production v2.1 работает с заказом целиком (принятие/отмена/агрегированный статус), но **хранимое** производственное состояние остаётся item-owned. ADR-017 не superseded.
 
 ### Связанные документы
 
@@ -1566,12 +1566,12 @@ Accepted
 ### Последствия
 
 - Warehouse Spec integration уточняется без переделки Stage 6 core;
-- Production Spec v2.0 §13–§15, §21;
+- Production Spec v2.1 §13–§15, §21;
 - Security: переиспользование Warehouse permissions где возможно.
 
 ### Связанные документы
 
-- Production-Specification.md (v2.0)
+- Production-Specification.md (v2.1)
 - Warehouse-Specification.md
 - Document-Engine-Specification.md
 - ADR-010, ADR-032, ADR-034

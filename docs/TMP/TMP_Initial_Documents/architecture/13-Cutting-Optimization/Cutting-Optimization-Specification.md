@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-013  
 **Status:** Accepted  
-**Version:** 1.1
+**Version:** 1.2
 
 ---
 
@@ -441,7 +441,7 @@ ARCHIVED
 
 Обратные переходы отсутствуют.
 
-Статусы `IN_USE` / `COMPLETED`, ранее управлявшиеся событиями Production, **не являются** обязательной частью контракта v1.1 (ADR-034). Production не переводит статусы карты. При необходимости Stage 8 может ввести собственные информационные статусы без жёсткой связки с Production.
+Статусы `IN_USE` и `COMPLETED` **больше не используются**. Они относились к отменённой модели, в которой lifecycle карты управлялся событиями Production. Production не управляет lifecycle Cutting Plan.
 
 ---
 
@@ -472,15 +472,7 @@ ARCHIVED
 - карта становится доступной Production;
 - карта может экспортироваться.
 
----
-
-## Информационные статусы использования (необязательно)
-
-Capability **не обязан** переводить карту в `IN_USE` / `COMPLETED` по событиям Production.
-
 Production может хранить ссылку на `Cutting Plan ID` и использовать утверждённую карту как рекомендательный источник плановой потребности длинномерного материала.
-
-Жёсткая lifecycle-связь Production ↔ Cutting Plan в v1.1 не требуется.
 
 ---
 
@@ -536,12 +528,9 @@ Cutting Plan №3
 
 При утверждении карты Capability выполняет проверку.
 
-Суммарное количество изделий одной позиции заказа, включённое в карты со статусами:
+Суммарное количество изделий одной позиции заказа, включённое в карты со статусом `APPROVED`, не может превышать количество изделий позиции заказа.
 
-- APPROVED;
-- IN_USE;
-
-не может превышать количество изделий позиции заказа.
+Карты `DRAFT` и `ARCHIVED` в эту сумму не входят.
 
 Проверка выполняется отдельно для каждой включённой Order Item.
 
@@ -749,9 +738,35 @@ Cutting Plan никогда не зависит от конкретного фо
 
 ---
 
-# Public API
+# Межмодульные и application-контракты Cutting Optimization
 
-Capability предоставляет следующий Public API.
+Разделение соответствует Constitution принцип 28, ADR-003 и ADR-004.
+
+Межмодульный Public Query API предназначен только для чтения. Изменяющие операции не являются Public Query API.
+
+Пользовательский интерфейс Cutting Optimization вызывает внутренние Application Use Cases. Пользователь работает обычными командами («Создать карту», «Рассчитать», «Сохранить», «Утвердить», «Архивировать», «Экспортировать») и не обязан вручную оперировать техническими document commands.
+
+## Public Query API (read-only)
+
+Только чтение. Не изменяет Cutting Plan и не проводит документы.
+
+```text
+getCuttingPlan(cuttingPlanId)
+```
+
+Получение Cutting Plan по идентификатору.
+
+---
+
+## Application / Document Commands
+
+Изменяющие и прикладные операции Cutting Optimization. Это:
+
+- Cutting Optimization Application Use Cases;
+- Cutting Document Commands / Document Engine lifecycle;
+- собственные документы владельца данных.
+
+Они **не** являются межмодульным Public Query API.
 
 ```text
 createCuttingPlan(request)
@@ -802,14 +817,6 @@ archiveCuttingPlan(cuttingPlanId)
 ---
 
 ```text
-getCuttingPlan(cuttingPlanId)
-```
-
-Получение утверждённых карт для выбранной производственной партии.
-
----
-
-```text
 saveCuttingPlanDraft(cuttingPlanId, draftData)
 ```
 
@@ -832,9 +839,14 @@ exportCuttingPlan(cuttingPlanId, providerCode)
 
 Экспорт карты.
 
+---
+
 ```text
 generatePrintForm(cuttingPlanId, templateCode)
 ```
+
+Формирование печатной формы.
+
 ---
 
 # Domain Events
@@ -1161,12 +1173,13 @@ Capability Cutting Optimization предоставляет единый меха
 - экспорта карт;
 - предоставления технологических данных Production.
 
-Capability является независимым платформенным компонентом и взаимодействует с другими Capability исключительно посредством Public API и Domain Events.
+Capability является независимым платформенным компонентом и взаимодействует с другими Capability исключительно посредством Public Query API, Domain Events и собственных бизнес-документов (Constitution принцип 28).
 
 ---
 
 # Appendix A. Cutting Plan Lifecycle
 
+```text
 ┌────────────┐
 │   DRAFT    │
 └─────┬──────┘
@@ -1176,11 +1189,11 @@ Capability является независимым платформенным к
 └─────┬──────┘
       ▼
 ┌────────────┐
-└─────┬──────┘
-      ▼
-┌────────────┐
 │ ARCHIVED   │
 └────────────┘
+```
+
+Промежуточные статусы отсутствуют. `IN_USE`, `COMPLETED` и Cutting Plan Revision не входят в lifecycle.
 
 ---
 
@@ -1190,3 +1203,4 @@ Capability является независимым платформенным к
 |--------|-----------|
 | 1.0 | Подробная принятая спецификация Stage 8: Cutting Plan, Source Bar, Cut Piece, Calculation Result, параметры/стратегии, ручное редактирование, проверки, API, Security, Audit, invariants. |
 | 1.1 | ADR-034 / Stage 7 alignment: удалена модель Cutting Plan Revision; новый расчёт = новый Cutting Plan; Production не управляет lifecycle; рекомендательный характер; связь Order ID / Order Item ID; multi-order / multi-item; без обязательных IN_USE/COMPLETED по событиям Production. Подробный Stage 8 scope сохранён. |
+| 1.2 | Cleanup: рабочий lifecycle только `DRAFT → APPROVED → ARCHIVED`; остаточный `IN_USE` убран из контроля количества; Public Query API отделён от Application/Document Commands. |
