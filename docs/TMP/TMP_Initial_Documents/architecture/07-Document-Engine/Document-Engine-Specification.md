@@ -1,6 +1,6 @@
 # Document Engine Specification
 
-**Document ID:** TMP-SPEC-007 **Status:** Accepted **Version:** 1.1
+**Document ID:** TMP-SPEC-007 **Status:** Accepted **Version:** 1.2
 
 ------------------------------------------------------------------------
 
@@ -111,6 +111,25 @@ Document Processor.
 
 ------------------------------------------------------------------------
 
+# Multi-document / ambient transaction contract
+
+Публичный lifecycle contract Document Engine использует **REQUIRED** semantics.
+
+1. Lifecycle operation без внешней совместимой транзакции открывает собственную транзакцию.
+2. Lifecycle operation внутри существующей совместимой транзакции присоединяется к ней и не открывает независимую транзакцию.
+3. REQUIRED является обязательным semantics публичного lifecycle contract (create/post/unpost/close/delete). Lifecycle operations не используют REQUIRES_NEW для проведения документа или выполнения processor.
+4. Document Processor выполняется внутри той же транзакции, к которой присоединилась (или которую открыла) lifecycle operation.
+5. Несколько document lifecycle operations могут быть атомарно скоординированы внешним application use case одной общей ACID-транзакцией, если участники используют один совместимый transaction manager / database transaction boundary.
+6. Document Engine не знает бизнес-смысла orchestration и не предоставляет business-specific orchestrator.
+7. Rollback внешней транзакции откатывает все присоединившиеся изменения: document metadata, lifecycle journal и capability-owned изменения, выполненные processor-ами внутри этой транзакции.
+8. After-commit publication привязана к финальному outer commit: события публикуются только после успешного commit внешней транзакции и не публикуются после rollback.
+
+Данный контракт не гарантирует атомарность разных баз данных, внешних сервисов, message brokers или удалённых HTTP services. Distributed transaction / 2PC / Saga не входят в Document Engine.
+
+См. ADR-036.
+
+------------------------------------------------------------------------
+
 # Публичный after-commit механизм
 
 Публикация доменных событий после успешного commit выполняется через публичный контракт платформы:
@@ -136,6 +155,7 @@ public interface TransactionalEventPublisher {
 | --- | --- |
 | 1.0 | Базовая спецификация Document Engine: назначение, ответственность, компоненты, жизненный цикл, правила. |
 | 1.1 | Зафиксирован транзакционный контракт lifecycle-операций (`DocumentId` в operation context; вызов Document Processor внутри транзакции; атомарный откат изменений Capability, metadata и lifecycle journal при ошибке processor; загрузка capability-owned payload по `DocumentId`; владение metadata/lifecycle против typed business payload) и публичный after-commit контракт `TransactionalEventPublisher`. |
+| 1.2 | Зафиксирован multi-document / ambient transaction contract: REQUIRED joins существующую совместимую TX; несколько lifecycle operations могут быть атомарно скоординированы внешним application use case; Document Engine не знает смысла orchestration; rollback внешней TX откатывает все присоединившиеся document/capability changes; after-commit привязан к outer commit (ADR-036). |
 
 ------------------------------------------------------------------------
 
@@ -145,3 +165,4 @@ public interface TransactionalEventPublisher {
 -   TMP Architecture Overview
 -   Platform Core Specification
 -   TMP Architecture Decisions
+-   ADR-036

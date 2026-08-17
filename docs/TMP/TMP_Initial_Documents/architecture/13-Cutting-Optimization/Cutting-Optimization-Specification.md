@@ -681,11 +681,15 @@ Capability использует Order Management исключительно ка
 
 ## Cutting Plan
 
-Cutting Plan является источником истины только для определения потребности в исходном длинномерном материале.
+Cutting Plan является технологическим рекомендательным/default источником плановой потребности длинномерного материала.
 
-Cutting Plan не изменяет изделие.
+Specification остаётся нормативной основой изделия.
 
-Он определяет способ использования исходного материала.
+Фактическое складское движение определяется Production/Warehouse plan/fact (ADR-034, ADR-035).
+
+Cutting Plan не изменяет изделие и не является источником истины для состава изделия.
+
+Он определяет рекомендуемый способ использования исходного материала.
 
 ---
 
@@ -859,10 +863,14 @@ Capability публикует только события, представля�
 
 Карта утверждена.
 
-После публикации события:
+Правильная последовательность:
 
-- карта становится доступной Production;
-- резервируется количество изделий производственной партии.
+1. проводится бизнес-документ утверждения Cutting Plan;
+2. внутри той же транзакции выполняются все Cutting-owned business changes, включая контроль/резервирование количества изделий карты;
+3. commit;
+4. `CuttingPlanApproved` публикуется after-commit как уведомление о завершённом изменении.
+
+Domain Event не является командой изменения состояния. После публикации события карта уже утверждена и доступна Production только как уведомление.
 
 ---
 
@@ -890,7 +898,7 @@ Capability публикует только события, представля�
 
 Capability может подписываться на события других Capability информативно.
 
-В версии 1.1 **не требуется** обязательная подписка на `ProductionLaunchStarted` / `ProductionLaunchCompleted` для управления lifecycle карты (ADR-034).
+В версии 1.2 **не требуется** обязательная подписка на `ProductionLaunchStarted` / `ProductionLaunchCompleted` для управления lifecycle карты (ADR-034).
 
 Ни один Capability не изменяет документы Cutting Optimization напрямую.
 
@@ -1203,4 +1211,4 @@ Capability является независимым платформенным к
 |--------|-----------|
 | 1.0 | Подробная принятая спецификация Stage 8: Cutting Plan, Source Bar, Cut Piece, Calculation Result, параметры/стратегии, ручное редактирование, проверки, API, Security, Audit, invariants. |
 | 1.1 | ADR-034 / Stage 7 alignment: удалена модель Cutting Plan Revision; новый расчёт = новый Cutting Plan; Production не управляет lifecycle; рекомендательный характер; связь Order ID / Order Item ID; multi-order / multi-item; без обязательных IN_USE/COMPLETED по событиям Production. Подробный Stage 8 scope сохранён. |
-| 1.2 | Cleanup: рабочий lifecycle только `DRAFT → APPROVED → ARCHIVED`; остаточный `IN_USE` убран из контроля количества; Public Query API отделён от Application/Document Commands. |
+| 1.2 | Cleanup: рабочий lifecycle только `DRAFT → APPROVED → ARCHIVED`; остаточный `IN_USE` убран из контроля количества; Public Query API отделён от Application/Document Commands. Corrective wording: Cutting Plan — рекомендательный/default источник плановой потребности; `CuttingPlanApproved` — after-commit уведомление, не команда изменения состояния. |

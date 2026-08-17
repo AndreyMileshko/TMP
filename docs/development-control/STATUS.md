@@ -1,12 +1,14 @@
 # TMP Development Status
 
 **Mode:** Autonomous Cursor Agent  
-**Project status:** Stage 6 complete (Warehouse Closure Audit DONE)  
-**Current Stage:** Stage 6 - DONE (Stage 7 Start Gate pending; implementation NOT STARTED)  
+**Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation NOT STARTED  
+**Current Stage:** Stage 7 - NOT STARTED / 0% (Start Gate PASSED)  
 **Current Task:** none  
-**Last completed task:** STAGE6-FINAL (Warehouse Closure Audit)  
-**Active blockers:** `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` (OPEN)  
+**Last completed task:** STAGE7-000 (Stage 7 Start Gate / Release↔Consumption atomicity proof)  
+**Active blockers:** NONE  
 **Stage 6 Warehouse:** DONE  
+**Stage 7 Production:** NOT STARTED / 0%  
+**Stage 7 Start Gate:** PASSED
 
 
 ```text
@@ -47,8 +49,10 @@ STAGE6-020 = DONE (Warehouse Stock View Zero Quantity Filtering)
 STAGE6-FINAL = DONE (Warehouse Closure Audit)
 Stage 6 = DONE
 Stage 6 Warehouse = DONE
-Active blockers = BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY (OPEN)
+STAGE7-000 = DONE (Start Gate; BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY RESOLVED)
+Active blockers = NONE
 Stage 7 Production = NOT STARTED / 0%
+Stage 7 Start Gate = PASSED
 ```
 
 ---
@@ -149,4 +153,20 @@ Stage 7 Production = NOT STARTED / 0%
 
 Create Warehouse, Create Storage Cell, Receipt (full material fields + UoM ComboBox), Move, Transfer Send, Transfer Receive, Consumption, Adjustment, Reservation Link, Security Roles, Stock View (no zero rows).
 
-**Далее:** Stage 7 Production — документация модели обновлена (Production Spec **v2.1**, ADR-033…035); Stage 7 = **NOT STARTED / 0%**; active blocker `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY`; реализация только после Start Gate. Git — только пользователь.
+**Далее:** Stage 7 Start Gate **PASSED** (ADR-036, DE Spec v1.2, Production Spec v2.2 §21). Stage 7 = **NOT STARTED / 0%**. Active blockers = NONE. Первая implementation task `STAGE7-001` = READY. Git — только пользователь.
+
+---
+
+## Stage 7 — Start Gate (2026-08-17)
+
+| Item | Status |
+|---|---|
+| `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` | **RESOLVED** |
+| ADR-036 Shared ACID Transaction | **Accepted** |
+| Document Engine Specification v1.2 | **Updated** |
+| Production Specification v2.2 §21 | **Updated** |
+| ADR-035 | Accepted, not superseded; atomicity → ADR-036 |
+| `DocumentEngineMultiDocumentTransactionIT` | **PASS** |
+| Stage 7 Start Gate | **PASSED** |
+| Stage 7 implementation | **NOT STARTED / 0%** |
+| Production production-code | **NONE** |

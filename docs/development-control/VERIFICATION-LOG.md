@@ -2,6 +2,51 @@
 
 ## Latest result
 
+**Date:** 2026-08-17  
+**Scope:** STAGE7-000 — Stage 7 Start Gate / Release↔Consumption atomicity proof  
+**Overall:** PASS  
+**Type:** Focused Document Engine multi-document transaction IT + Document Engine verify + architecture tests + validate  
+**Environment:** Windows; Maven `.tools/apache-maven-3.9.9`; JDK 21; Docker Desktop
+
+| Item | Result |
+|---|---|
+| `DocumentEngineMultiDocumentTransactionIT` | PASS (5 tests) |
+| `tmp-document-engine` surefire | PASS (40 tests) |
+| `tmp-document-engine` failsafe | PASS (15 tests) |
+| `mvn -pl :tmp-document-engine -am verify` | PASS |
+| `mvn validate` | PASS |
+| Architecture tests (`mvn -pl :tmp-architecture-tests test` after install `-DskipTests`) | PASS (72 tests) |
+| Stage 7 Start Gate | PASSED |
+| Stage 7 implementation | NOT STARTED / 0% |
+| `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` | RESOLVED |
+| Production production-code | NONE |
+| Git | NOT EXECUTED |
+
+### Atomicity cases
+
+| Case | Result |
+|---|---|
+| Success: two documents + journals + side effects commit together | PASS |
+| Failure of second document rolls back first document and all side effects | PASS |
+| After-commit events only after outer commit | PASS |
+| After-commit events absent after rollback of second document | PASS |
+| REQUIRED / no REQUIRES_NEW / shared DataSourceTransactionManager | PASS |
+
+### Commands
+
+```bash
+mvn -pl :tmp-document-engine -am verify
+mvn validate
+mvn -pl :tmp-architecture-tests -am install -DskipTests -Dcheckstyle.skip=true -Dspotbugs.skip=true
+mvn -pl :tmp-architecture-tests test
+```
+
+Full reactor `mvn test` / `mvn verify` не объявлен PASS: известный Warehouse test debt (`WarehouseSchemaFlywayTest`, `WarehouseReceiptServiceIntegrationTest`, `WarehouseApiIntegrationTest`) блокирует `-am test` до architecture-tests. Это pre-existing Stage 6 debt, не регрессия данной задачи.
+
+---
+
+## Previous result
+
 **Date:** 2026-08-13  
 **Scope:** STAGE6-FINAL — Warehouse Closure Audit  
 **Overall:** PASS  

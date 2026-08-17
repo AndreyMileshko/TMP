@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.5
+**Version:** 1.6
 
 ---
 
@@ -296,7 +296,7 @@ Warehouse:
 
 Production не создаёт вторую складскую модель и не пишет в таблицы Warehouse напрямую.
 
-Атомарность связки Production Release + Warehouse Consumption — требование Production Spec §21 / ADR-035 (Start Gate Stage 7).
+Атомарность связки Production Release + Warehouse Consumption — ADR-035 (бизнес-граница) и ADR-036 (механизм: общая локальная ACID-транзакция).
 
 ---
 
@@ -457,3 +457,4 @@ Warehouse выполняет только складскую часть опер
 | 1.3.1 | Stage 6 Final Closure: §18 — canonical `PermissionId` codes (16 permissions incl. structure management). |
 | 1.4 | Stage 7 docs alignment (ADR-035): Production инициирует Transfer template/receive confirmation и actual Consumption; Warehouse остаётся владельцем документов и Stock Position; без возврата Batch/FIFO/FEFO. |
 | 1.5 | Corrective pass: §17 разделён на Public Query API и Warehouse Application/Document Commands (Constitution принцип 28). |
+| 1.6 | §15: атомарность Release + Consumption ссылается на ADR-036 (механизм) при сохранении ADR-035 (бизнес-граница). |

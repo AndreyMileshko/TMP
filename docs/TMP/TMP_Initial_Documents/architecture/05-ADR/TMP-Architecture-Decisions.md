@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-005  
 **Status:** Accepted  
-**Version:** 1.12
+**Version:** 1.13
 
 ---
 
@@ -1561,20 +1561,68 @@ Accepted
 4. Production Release хранит **plan и fact** расхода; Warehouse Consumption (Warehouse-owned document) списывает фактическое количество со склада производства.
 5. Warehouse Public Query API — только чтение; mutating операции не являются Public Query API (Constitution принцип 28 / ADR-003 / ADR-004).
 6. Недостаток материала на складе производства блокирует проведение Release; отрицательные остатки запрещены; Specification/Cutting Plan из-за факта не изменяются.
-7. Проведение Release и связанного Consumption должно быть атомарным (единая TX orchestration); до подтверждения возможности Document Engine — Start Gate blocker Stage 7.
+7. Проведение Release и связанного Consumption должно быть атомарным (единая TX orchestration). Механизм атомарности — ADR-036. Данный ADR остаётся принятой бизнес-границей и **не** supersede.
 
 ### Последствия
 
 - Warehouse Spec integration уточняется без переделки Stage 6 core;
-- Production Spec v2.1 §13–§15, §21;
-- Security: переиспользование Warehouse permissions где возможно.
+- Production Spec v2.2 §13–§15, §21;
+- Security: переиспользование Warehouse permissions где возможно;
+- atomicity mechanism → ADR-036.
 
 ### Связанные документы
 
-- Production-Specification.md (v2.1)
+- Production-Specification.md (v2.2)
 - Warehouse-Specification.md
-- Document-Engine-Specification.md
-- ADR-010, ADR-032, ADR-034
+- Document-Engine-Specification.md (v1.2)
+- ADR-010, ADR-032, ADR-034, ADR-036
+
+---
+
+# ADR-036
+
+## Название
+
+Shared ACID Transaction for Cross-Capability Document Orchestration.
+
+### Статус
+
+Accepted
+
+### Контекст
+
+Одна бизнес-операция TMP может требовать проведения нескольких бизнес-документов разных Capability — в частности Production Release и Warehouse Consumption. Document Engine гарантирует атомарность одной lifecycle-операции документа и его processor. Без явного контракта оставалась неопределённость: можно ли атомарно провести два таких документа в одной локальной транзакции модульного монолита, не вводя Saga, eventual consistency или distributed transaction.
+
+Constitution принцип 19 требует, чтобы бизнес-операция выполнялась полностью либо не выполнялась вовсе, если иное явно не определено спецификацией. Принципы 15, 18, 21 и 28 требуют сохранить ownership: единая database transaction не означает общую модель владения данными.
+
+### Решение
+
+1. TMP является модульным монолитом с общей локальной transaction infrastructure для business persistence.
+2. Если одна бизнес-операция требует атомарного проведения документов нескольких Capability, application orchestrator может открыть одну общую ACID-транзакцию.
+3. Document Engine lifecycle operations обязаны присоединяться к существующей совместимой транзакции через REQUIRED semantics. При отсутствии внешней транзакции lifecycle operation открывает собственную.
+4. Каждый Document Processor остаётся владельцем логики своей Capability и выполняется внутри той же транзакции, к которой присоединилась lifecycle operation.
+5. Capability ownership не меняется. Production владеет Production-документами и production state; Warehouse владеет Consumption, Movement и Stock Position; Document Engine владеет metadata и lifecycle journal.
+6. Межмодульные изменения по-прежнему выполняются только через бизнес-документы владельцев данных. Никакая Capability не получает прямой repository/table access другой Capability.
+7. Ошибка любого участника общей операции приводит к rollback всей транзакции, включая document metadata, lifecycle journal и capability-owned изменения всех участников.
+8. After-commit Domain Events публикуются только после общего успешного commit внешней транзакции и не публикуются после rollback, даже если внутренняя lifecycle operation уже вернула успех внутри ещё не зафиксированной транзакции.
+9. Общая транзакция допускается только если участники используют один совместимый transaction manager / database transaction boundary.
+10. Данный ADR **не** гарантирует атомарность разных баз данных, внешних сервисов, message brokers или удалённых HTTP services.
+11. Distributed transaction / 2PC / Saga в текущую архитектуру не вводятся. Document Engine не предоставляет business-specific orchestrator и не знает смысла конкретной orchestration.
+
+### Последствия
+
+- Production Release и Warehouse Consumption проводятся в одной локальной ACID-транзакции application orchestrator (Production Spec §21).
+- Document Engine Specification фиксирует multi-document / ambient transaction contract (v1.2).
+- ADR-035 остаётся бизнес-границей Release/Consumption; данный ADR задаёт только механизм атомарности.
+- Stage 7 Start Gate atomicity считается доказанным при наличии integration proof на общей PostgreSQL transaction.
+
+### Связанные документы
+
+- Document-Engine-Specification.md (v1.2)
+- Production-Specification.md (v2.2)
+- Warehouse-Specification.md
+- TMP-Constitution.md (принципы 15, 18, 19, 21, 28)
+- ADR-004, ADR-028, ADR-035
 
 ---
 
@@ -1619,6 +1667,7 @@ Accepted
 | ADR-033 | Production-Specification.md, Order-Management-Specification.md |
 | ADR-034 | Cutting-Optimization-Specification.md, Production-Specification.md |
 | ADR-035 | Production-Specification.md, Warehouse-Specification.md, Document-Engine-Specification.md |
+| ADR-036 | Document-Engine-Specification.md, Production-Specification.md, Warehouse-Specification.md |
 
 > **Architecture Rule**  
 > Настоящий документ фиксирует только архитектурные решения. Подробная реализация и бизнес-логика описываются в соответствующих спецификациях.
@@ -1683,6 +1732,7 @@ Accepted
 | 1.10 | Добавлен ADR-032 (Material Responsibility — No Separate Material Master): финальное решение об отсутствии Material Master; материалы определяются через Specification; Material Mapping; Warehouse хранит только складское состояние; Production → Warehouse interaction. |
 | 1.11 | Stage 7 Production model: ADR-033 (order-level UX + item-owned state, без OM Revision в Production contract); ADR-034 (Cutting Plan без Revision, рекомендательный характер; supersede ADR-023/025/026/027); ADR-035 (editable transfer template + plan/fact Consumption); уточнены ADR-031/032 Production-facing формулировки. |
 | 1.12 | Corrective pass Stage 7 docs: Specification ID reference; Cutting Plan 0..N by material; ADR-034 не уничтожает detailed Cutting scope; ADR-035 Query vs Document boundary. |
+| 1.13 | ADR-036: shared ACID transaction for cross-capability document orchestration; ADR-035 уточнён ссылкой на механизм атомарности без supersede. |
 
 ---
 

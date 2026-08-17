@@ -4,6 +4,50 @@
 
 ---
 
+## STAGE7-000 — Stage 7 Start Gate / Release↔Consumption atomicity proof
+
+**Date:** 2026-08-17  
+**Stage:** 7  
+**Status:** DONE  
+**Type:** Documentation + focused Document Engine integration proof (no Production implementation)
+
+### Summary
+
+Закрыт Start Gate blocker `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY`. Empirical proof: две lifecycle-операции Document Engine в одной внешней ACID-транзакции либо обе commit, либо обе rollback, включая capability-owned JDBC side effects и after-commit events. Принят ADR-036. Production implementation не начиналась.
+
+### Proof
+
+- Transaction mechanism: local Spring JDBC ACID transaction (`DataSourceTransactionManager`)
+- Propagation: `REQUIRED` (class-level `@Transactional` on Document Engine; no `REQUIRES_NEW` for create/post/processor)
+- Test: `DocumentEngineMultiDocumentTransactionIT`
+- Result: PASS
+
+### Documentation changes
+
+- ADR-036 Accepted; ADR-035 linked, not superseded
+- Document Engine Specification v1.2
+- Production Specification v2.2 §21
+- Warehouse Specification v1.6 pointer
+- Cutting Optimization Specification v1.2 residual wording
+- STAGE-7 Manifest Start Gate PASSED / implementation 0%
+- WORK-QUEUE Stage 7 decomposition prepared; `STAGE7-001` READY
+
+### Code
+
+- Production implementation: NONE
+- Document Engine production code: NONE
+- Test-only: `DocumentEngineMultiDocumentTransactionIT`, `JdbcSideEffectDocumentProcessor`
+
+### Boundaries
+
+- Platform Core unchanged
+- Warehouse business implementation unchanged
+- No Saga / eventual consistency / 2PC
+- Git commands not executed by agent
+
+---
+
+
 ## Stage 6 Warehouse — Final Closure Audit
 
 **Date:** 2026-08-10  

@@ -2,34 +2,37 @@
 
 ## Source
 
-- Production Specification **v2.1** (TMP-SPEC-012)
-- ADR-033, ADR-034, ADR-035 (и действующие ADR-017…022, 024, 028, 031, 032)
+- Production Specification **v2.2** (TMP-SPEC-012)
+- ADR-033, ADR-034, ADR-035, **ADR-036** (и действующие ADR-017…022, 024, 028, 031, 032)
+- Document Engine Specification **v1.2** (multi-document / ambient transaction contract)
 - Order Management Public Query API (ACTIVE Order → Item → Specification + `SpecificationId`)
 - Warehouse Public Query API + Warehouse Application/Document Commands (Stage 6 ownership unchanged)
-- Document Engine transactional contract
 - Database Specification
 - Security Specification (permission contribution model)
 - Cutting Optimization Specification — только для задач Cutting Plan integration (Stage 8 NOT STARTED)
 
 ## Status
 
-**NOT STARTED / 0%** — documentation updated; Start Gate not passed.
+**START GATE PASSED**  
+**Stage 7 implementation NOT STARTED / 0%**
 
-**Active blocker:** `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` (OPEN)
+Production functionality is **not** DONE. No mutating Stage 7 implementation task has been executed.
 
-Implementation must not begin until Start Gate closes open blockers.
+**Active blockers:** NONE
 
 ## Start Gate (required before READY tasks)
 
-| Item | Requirement |
-|------|-------------|
-| Docs alignment | Production Spec v2.1 + ADR-033…035 accepted |
-| OM contract | Production-facing read without Order Item Revision; stable `SpecificationId` |
-| Spec freeze | Launch фиксирует Production Specification Reference |
-| Warehouse contract | Query API read-only; Transfer/Consumption = Warehouse-owned document commands |
-| Cutting | 0..N MaterialReference→CuttingPlanId; no Revision Cutting Plan; Stage 8 NOT STARTED |
-| Atomicity | `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` resolved |
-| No MES | Manifest domains contain no routes/stages/work centers |
+| Item | Requirement | Result |
+|------|-------------|--------|
+| Docs alignment | Production Spec v2.2 + ADR-033…036 accepted | PASS |
+| OM contract | Production-facing read without Order Item Revision; stable `SpecificationId` | PASS |
+| Spec freeze | Launch фиксирует Production Specification Reference | PASS (docs) |
+| Warehouse contract | Query API read-only; Transfer/Consumption = Warehouse-owned document commands | PASS |
+| Cutting | 0..N MaterialReference→CuttingPlanId; no Revision Cutting Plan; Stage 8 NOT STARTED | PASS |
+| Atomicity | `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` resolved | **PASS** |
+| No MES | Manifest domains contain no routes/stages/work centers | PASS |
+
+Atomicity evidence: outer shared ACID transaction; Document Engine REQUIRED joins ambient TX; ADR-036; Document Engine Specification v1.2; integration test `DocumentEngineMultiDocumentTransactionIT`.
 
 ## Planning domains
 
@@ -45,7 +48,7 @@ Implementation must not begin until Start Gate closes open blockers.
 10. receipt confirmation (Production UI → Warehouse receive);
 11. Production Release;
 12. plan/fact material consumption;
-13. Warehouse Consumption integration (document-owned; atomicity Start Gate);
+13. Warehouse Consumption integration (document-owned; atomicity ADR-036);
 14. whole-order Production Cancellation;
 15. documents + processors + domain events;
 16. persistence and migrations;
@@ -72,7 +75,7 @@ Implementation must not begin until Start Gate closes open blockers.
 - Specification Reference frozen at Launch;
 - Cutting Plan links support 0..N by material;
 - Order Management and Warehouse boundaries preserved (Query vs Document);
-- Release/Consumption atomicity proven;
+- Release/Consumption atomicity proven (ADR-036) and implemented;
 - no MES; no Production Order; Cutting optional;
 - Constitution and Accepted ADR satisfied;
 - Stage 7 closure audit PASS.

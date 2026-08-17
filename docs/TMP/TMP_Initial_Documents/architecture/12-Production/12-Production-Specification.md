@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-012  
 **Status:** Accepted  
-**Version:** 2.1
+**Version:** 2.2
 
 ---
 
@@ -592,7 +592,7 @@ Production публикует только завершённые бизнес-�
 | `ProductionReleased` | после Production Release |
 | `OrderProductionCancelled` | после Production Cancellation |
 
-События `ProductionLaunchStarted` / `ProductionLaunchCompleted` как обязательный механизм управления lifecycle Cutting Plan **не используются** в Production v2.1.
+События `ProductionLaunchStarted` / `ProductionLaunchCompleted` как обязательный механизм управления lifecycle Cutting Plan **не используются** в Production v2.2.
 
 ## 19.1 Подписки
 
@@ -639,27 +639,37 @@ Document-driven invariants:
 - Production business document проводится целиком или не проводится;
 - запрещены состояния «материал списан, но Release не зафиксирован» и «Release проведён, но Consumption не выполнен».
 
-### Требуемая orchestration-модель
+### Orchestration-модель
 
-Проведение Production Release и связанного Warehouse Consumption должно выполняться в **одной согласованной транзакционной границе**, в которой:
+Production application orchestration открывает одну локальную ACID-транзакцию и внутри неё проводит Warehouse-owned Consumption и Production-owned Release (ADR-036).
 
-1. создаётся/проводится Warehouse-owned Consumption (фактические количества, склад производства);
-2. проводится Production Release с plan/fact;
-3. при любой ошибке откатываются оба изменения;
-4. Domain Events публикуются только after-commit.
+```text
+Production application orchestration
+        │
+        ▼
+single ACID transaction
+        │
+        ├── Warehouse Consumption document
+        │       └── Warehouse stock changes
+        │
+        └── Production Release document
+                └── Production state changes
+```
 
-Взаимодействие остаётся document-driven: Production не пишет в таблицы Warehouse; Warehouse остаётся владельцем Stock Position.
+Последовательность внутри одной транзакции:
 
-### Start Gate
+1. создаётся Warehouse-owned Consumption document;
+2. заполняются фактические количества;
+3. проводится Warehouse Consumption через Warehouse-owned Application/Document command;
+4. проводится Production Release через Production-owned document command;
+5. при любой ошибке любого участника откатывается вся транзакция;
+6. Domain Events публикуются только after-commit общего успешного commit.
 
-Публичный контракт Document Engine фиксирует атомарность **одной** lifecycle-операции документа и его processor. Явной платформенной гарантии атомарного проведения **двух** документов разных Capability в одной TX в текущей DE Spec **нет**.
+Оба документа проводятся в одной транзакции. Production **не** становится владельцем Warehouse Consumption и **не** пишет в таблицы Warehouse. Warehouse command применяет только Warehouse business rules. Production command применяет только Production business rules. Application orchestration задаёт atomic application boundary, но не присваивает себе ownership данных другой Capability.
 
-Поэтому до начала реализации Stage 7 требуется Start Gate решение:
+Rollback включает Stock Position, Warehouse Movement, Warehouse Consumption payload/state, Warehouse document metadata и lifecycle journal, Production state, Production Release payload/state, Production document metadata и Production lifecycle journal.
 
-- подтвердить, что orchestration через один outer transaction + `DocumentEngine.post` с `Propagation.REQUIRED` обеспечивает атомарность обоих документов; **или**
-- принять отдельный ADR / расширение Document Engine для multi-document orchestration.
-
-До закрытия этого пункта реализация mutating Stage 7 **не начинается**. См. `BLOCKERS.md` → `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY`.
+Механизм атомарности — ADR-036 / Document Engine Specification v1.2 (REQUIRED joins ambient transaction). ADR-035 остаётся бизнес-границей.
 
 ---
 
@@ -797,6 +807,7 @@ Order Management — владелец Order / Order Item / Revision / Specificat
 | 1.1 | Предыдущая модель: item/revision-centric launch, READY_FOR_PRODUCTION, партии, Revision Cutting Plan, lifecycle-события Cutting, mutating Public API. |
 | 2.0 | Новая согласованная модель Stage 7: order-level UX + item-owned state; без Order Item Revision в Production contract; Cutting Plan как рекомендация без Revision; editable transfer + plan/fact; Public Query vs Application API; Start Gate атомарности Release/Consumption (ADR-033…035). |
 | 2.1 | Corrective pass: Production Specification Reference (`Specification ID`); Cutting Plan links 0..N by MaterialReference; restored detailed Cutting Spec alignment; Warehouse Query vs Document commands. |
+| 2.2 | Нормативное уточнение §21: shared ACID transaction для Production Release + Warehouse Consumption (ADR-036); ownership без изменений. |
 
 ---
 

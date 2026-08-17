@@ -35,14 +35,17 @@ None — resolved.
 
 ## Active blockers
 
-**Active blockers:**
+**Active blockers:** NONE
+
+---
 
 ### `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` — Cross-capability atomicity for Production Release + Warehouse Consumption
 
-**Status:** OPEN (Stage 7 Start Gate — documentation only; Stage 7 implementation NOT STARTED)  
+**Status:** RESOLVED  
 **Detected:** 2026-08-17  
+**Resolved:** 2026-08-17  
 **Stage:** 7 Production  
-**Related:** Production Specification v2.1 §21; ADR-035; Document Engine Specification (Transactional contract)
+**Related:** Production Specification v2.2 §21; ADR-035; ADR-036; Document Engine Specification v1.2
 
 ### Reason
 
@@ -84,6 +87,26 @@ Warehouse Consumption = success
 ### Required user decision
 
 Выбрать и принять один из вариантов атомарности (или эквивалентный ADR) до Start Gate PASS.
+
+### Resolution
+
+Выбран вариант 1: **outer shared ACID transaction**.
+
+- Document Engine lifecycle operations присоединяются к ambient transaction через **REQUIRED** (class-level `@Transactional`, без `REQUIRES_NEW` для create/post/processor).
+- Общий `PlatformTransactionManager` / `DataSource` (Spring `DataSourceTransactionManager` + JDBC `DataSource`).
+- ADR-036 Accepted: Shared ACID Transaction for Cross-Capability Document Orchestration.
+- Document Engine Specification **v1.2** — раздел Multi-document / ambient transaction contract.
+- Production Specification **v2.2** §21 — orchestration model.
+- ADR-035 не supersede; atomicity mechanism → ADR-036.
+- Integration test: `DocumentEngineMultiDocumentTransactionIT`
+  - `successCommitsBothDocumentsJournalsAndSideEffects`
+  - `secondDocumentFailureRollsBackFirstDocumentAndAllSideEffects`
+  - `afterCommitEventsPublishOnlyAfterOuterCommit`
+  - `afterCommitEventsAreNotPublishedWhenSecondDocumentRollsBack`
+- Verification command: `mvn -pl :tmp-document-engine -am verify`
+- Result: **PASS** (surefire 40, failsafe 15 including the 5 multi-document cases).
+
+Production implementation не начиналась. Warehouse core не переделывался. Platform Core не изменялся. Saga / eventual consistency / 2PC не введены.
 
 ---
 

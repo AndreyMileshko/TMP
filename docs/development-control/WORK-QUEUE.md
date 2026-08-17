@@ -9978,3 +9978,840 @@ mvn -pl :tmp-warehouse,:tmp-ui-shell,:tmp-bootstrap-app -am test
 - STATUS;
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
+
+---
+
+# Stage 7 — Production
+
+> **Обязательно к прочтению перед любой задачей Stage 7:** `docs/development-control/stages/STAGE-7-PRODUCTION.md` и Production Specification **v2.2**. Правила контекста — `CONTEXT-MAP.md` → «Stage 7 — Production Context». Start Gate PASSED (`STAGE7-000`). Atomicity = ADR-036. Одновременно только одна задача `IN_PROGRESS`. Git-операции запрещены (выполняет пользователь).
+
+## STAGE7-000 — Stage 7 Start Gate and Release/Consumption atomicity proof
+
+**Status:** DONE  
+**Stage:** 7  
+**Depends on:** Stage 6 = DONE  
+**Module:** documentation + `tmp-document-engine` test-only
+
+### Goal
+
+Доказать атомарность multi-document orchestration в одной локальной ACID-транзакции, принять ADR-036, закрыть `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` и пройти Stage 7 Start Gate без Production implementation.
+
+### Required documents
+
+- Constitution принципы 15, 18, 19, 21, 28;
+- ADR-035; Document Engine Specification; Production Spec §21; STAGE-7 Manifest; BLOCKERS.md.
+
+### Allowed code scope
+
+- `tmp-document-engine/src/test/**` only;
+- architecture/control documentation listed in the Start Gate brief.
+
+### Forbidden
+
+- Production implementation;
+- Warehouse business rewrite;
+- Platform Core changes;
+- Saga / eventual consistency / 2PC;
+- Git commit / push.
+
+### Acceptance criteria
+
+- [x] REQUIRED ambient TX confirmed in code and IT;
+- [x] success + rollback-on-second-document + after-commit cases PASS;
+- [x] ADR-036 Accepted; DE Spec v1.2; Production Spec v2.2 §21;
+- [x] blocker RESOLVED; Start Gate PASSED; Stage 7 implementation 0%.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-document-engine -am verify
+mvn validate
+mvn -pl :tmp-architecture-tests -am test
+```
+
+---
+
+## STAGE7-001 — Production module foundation
+
+**Status:** READY  
+**Stage:** 7  
+**Depends on:** STAGE7-000  
+**Module:** `tmp-production` (new)
+
+### Goal
+
+Создать Maven-модуль Production capability с package boundaries и подключением в reactor без бизнес-логики выпуска.
+
+### Required documents
+
+- `STAGE-7-PRODUCTION.md` (planning domain 1);
+- Production Specification v2.2 §1–§2;
+- Database Specification (Schema per Module);
+- root `pom.xml` conventions.
+
+### Required code context
+
+- root `pom.xml`;
+- существующие capability modules только как образец структуры.
+
+### Allowed code scope
+
+- `tmp-production/**` bootstrap only;
+- root reactor `pom.xml` (подключение модуля);
+- control docs (`STATUS`, `WORK-QUEUE`, `IMPLEMENTATION-LOG`, `VERIFICATION-LOG`).
+
+### Forbidden
+
+- domain aggregates; documents; processors; UI; Warehouse/OM/Cutting internals; Git.
+
+### Implementation requirements
+
+- модуль компилируется; пакеты domain/application/infrastructure/api выделены;
+- зависимости только на публичные API.
+
+### Acceptance criteria
+
+- [ ] `tmp-production` подключён в reactor и компилируется;
+- [ ] package boundaries соответствуют Architecture rules;
+- [ ] Production business documents ещё не реализованы.
+
+### Required tests
+
+- module compile;
+- architecture test: Production не зависит от внутренних пакетов других Capability.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+mvn -pl :tmp-architecture-tests -am test
+```
+
+---
+
+## STAGE7-002 — Production identifiers and item-owned state model
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-001  
+**Module:** `tmp-production`
+
+### Goal
+
+Реализовать идентификаторы и item-owned production state domain без persistence и без документов.
+
+### Required documents
+
+- Production Spec v2.2 §3–§8;
+- ADR-033.
+
+### Allowed code scope
+
+- `tmp-production/src/main/**/domain/**`;
+- `tmp-production/src/test/**/domain/**`;
+- control docs.
+
+### Forbidden
+
+- persistence; documents; Warehouse/OM writes; UI.
+
+### Acceptance criteria
+
+- [ ] item-owned state model соответствует spec;
+- [ ] order-level view не хранится как агрегат;
+- [ ] нет Production Order entity.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-003 — Production persistence schema
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-002  
+**Module:** `tmp-production`, `tmp-infra-db` (Flyway only)
+
+### Goal
+
+Создать схему `production` и таблицы item-owned state / specification reference.
+
+### Required documents
+
+- Production Spec v2.2 persistence;
+- Database Specification (Flyway, schema per module).
+
+### Allowed code scope
+
+- Flyway migration for `production` schema;
+- Production persistence ports/adapters for state only;
+- control docs.
+
+### Forbidden
+
+- document processors; Warehouse tables; OM tables.
+
+### Acceptance criteria
+
+- [ ] schema применяется Flyway;
+- [ ] Production не пишет в warehouse/order_management.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production,:tmp-infra-db -am test
+```
+
+---
+
+## STAGE7-004 — Production Launch document
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-003  
+**Module:** `tmp-production`
+
+### Goal
+
+Проведение whole-order Production Launch через Production-owned document и processor.
+
+### Required documents
+
+- Production Spec v2.2 Launch / documents;
+- Document Engine public API; ADR-028; DE Spec v1.2.
+
+### Allowed code scope
+
+- Production Launch payload/processor/application command;
+- related tests;
+- control docs.
+
+### Forbidden
+
+- Release/Consumption; Warehouse mutations; Cutting implementation.
+
+### Acceptance criteria
+
+- [ ] Launch проводит item-owned state в производство.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-005 — Specification Reference freeze
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-004  
+**Module:** `tmp-production`
+
+### Goal
+
+Зафиксировать immutable Production Specification Reference (`SpecificationId`) на Launch через OM Public Query.
+
+### Required documents
+
+- Production Spec v2.2 Specification Reference;
+- OM Public Query contract (`SpecificationId`).
+
+### Allowed code scope
+
+- Production Launch/state persistence for specification reference;
+- OM public query usage only;
+- tests; control docs.
+
+### Forbidden
+
+- Order Item Revision internals; mutating OM.
+
+### Acceptance criteria
+
+- [ ] Launch читает Specification по Public Query и сохраняет `SpecificationId`.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-006 — Computed Order Production View
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-002  
+**Module:** `tmp-production`
+
+### Goal
+
+Вычисляемое order-level Production View из item-owned state.
+
+### Required documents
+
+- Production Spec v2.2 Production View.
+
+### Allowed code scope
+
+- query/application view;
+- tests; control docs.
+
+### Forbidden
+
+- хранение order-level production aggregate; UI.
+
+### Acceptance criteria
+
+- [ ] view вычисляется; stored state остаётся item-owned.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-007 — Material availability via Warehouse Query
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-005  
+**Module:** `tmp-production`
+
+### Goal
+
+Команда проверки наличия материалов через Warehouse Public Query API.
+
+### Required documents
+
+- Production Spec v2.2 material availability;
+- Warehouse Spec Public Query only.
+
+### Allowed code scope
+
+- Production application using Warehouse Query API;
+- tests; control docs.
+
+### Forbidden
+
+- Warehouse document commands; stock mutation; Warehouse internals.
+
+### Acceptance criteria
+
+- [ ] проверка читает Warehouse Query.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-008 — Cutting Plan references 0..N
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-005  
+**Module:** `tmp-production`
+
+### Goal
+
+Хранение 0..N Cutting Plan references by MaterialReference без управления lifecycle Cutting Plan.
+
+### Required documents
+
+- Production Spec Cutting Plan links;
+- ADR-034.
+
+### Allowed code scope
+
+- Production state fields/tables for CuttingPlanId links;
+- tests; control docs.
+
+### Forbidden
+
+- Stage 8 runtime; Cutting Plan Revision.
+
+### Acceptance criteria
+
+- [ ] 0..N ссылок по материалу;
+- [ ] Cutting Plan — рекомендация, не источник истины изделия.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-009 — Editable material transfer template
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-007  
+**Module:** `tmp-production`
+
+### Goal
+
+Редактируемый шаблон перемещения материалов (Production-owned template, не складской документ).
+
+### Required documents
+
+- Production Spec transfer template; ADR-035.
+
+### Allowed code scope
+
+- template model/application;
+- tests; control docs.
+
+### Forbidden
+
+- создание Warehouse Transfer; stock mutation.
+
+### Acceptance criteria
+
+- [ ] шаблон редактируемый;
+- [ ] Warehouse document ещё не создаётся.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-010 — Warehouse Transfer command integration
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-009  
+**Module:** `tmp-production`
+
+### Goal
+
+Инициировать Warehouse-owned Transfer через Warehouse Application/Document commands.
+
+### Required documents
+
+- Production Spec transfer/receive;
+- Warehouse Application/Document command contracts.
+
+### Allowed code scope
+
+- Production orchestrator calling Warehouse public application/document commands;
+- tests; control docs.
+
+### Forbidden
+
+- Warehouse table access; rewriting Warehouse Operation Engine.
+
+### Acceptance criteria
+
+- [ ] Transfer остаётся Warehouse-owned;
+- [ ] Production не пишет Stock Position.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-011 — Receipt confirmation initiation
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-010  
+**Module:** `tmp-production`
+
+### Goal
+
+Команда «Подтвердить получение» инициирует Warehouse receive, не выполняя складскую логику в Production.
+
+### Required documents
+
+- Production Spec receipt confirmation; ADR-035.
+
+### Allowed code scope
+
+- Production application initiation of Warehouse receive command;
+- tests; control docs.
+
+### Forbidden
+
+- Warehouse internals; stock writes from Production.
+
+### Acceptance criteria
+
+- [ ] receive выполняет Warehouse-owned operation.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-012 — Production Release document and plan/fact
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-005  
+**Module:** `tmp-production`
+
+### Goal
+
+Production-owned Release document с plan/fact расхода без Warehouse Consumption orchestration.
+
+### Required documents
+
+- Production Spec §15;
+- ADR-028; Document Engine public API.
+
+### Allowed code scope
+
+- Release payload/processor/state changes;
+- tests; control docs.
+
+### Forbidden
+
+- Warehouse Consumption call; stock mutation.
+
+### Acceptance criteria
+
+- [ ] Release хранит plan/fact;
+- [ ] Warehouse Consumption ещё не проводится в этой задаче.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-013 — Atomic Release + Consumption orchestration
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-012, STAGE7-010  
+**Module:** `tmp-production`
+
+### Goal
+
+Application-level use case проводит Warehouse Consumption и Production Release в одной внешней ACID-транзакции (ADR-036).
+
+### Required documents
+
+- Production Spec v2.2 §21;
+- ADR-036; ADR-035;
+- Document Engine Spec v1.2;
+- Warehouse Application/Document Consumption command contract only.
+
+### Allowed code scope
+
+- Production application orchestrator;
+- integration tests of the orchestration boundary;
+- control docs.
+
+### Forbidden
+
+- Production writing Warehouse tables;
+- Saga / 2PC / REQUIRES_NEW compensation;
+- rewriting Warehouse core;
+- Platform Core changes.
+
+### Acceptance criteria
+
+- [ ] outer TX: Consumption then Release;
+- [ ] failure of either rolls back both;
+- [ ] ownership preserved;
+- [ ] after-commit events only after outer commit.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+mvn -pl :tmp-document-engine -am test
+```
+
+---
+
+## STAGE7-014 — Production Cancellation
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-004  
+**Module:** `tmp-production`
+
+### Goal
+
+Whole-order Production Cancellation через Production-owned document.
+
+### Required documents
+
+- Production Spec cancellation.
+
+### Allowed code scope
+
+- cancellation document/processor/state;
+- tests; control docs.
+
+### Forbidden
+
+- automatic material return; Warehouse stock writes.
+
+### Acceptance criteria
+
+- [ ] отмена заказа целиком;
+- [ ] материалы автоматически не возвращаются.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-015 — Production domain events
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-004  
+**Module:** `tmp-production`
+
+### Goal
+
+Публикация Production Domain Events только через публичный `TransactionalEventPublisher` after-commit.
+
+### Required documents
+
+- Production Spec §19;
+- Document Engine Spec v1.2 after-commit;
+- ADR-021.
+
+### Allowed code scope
+
+- event types + publisher usage in processors;
+- tests; control docs.
+
+### Forbidden
+
+- import внутренних классов Document Engine;
+- using events as commands.
+
+### Acceptance criteria
+
+- [ ] события после commit;
+- [ ] rollback не публикует события.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-016 — Production security permissions
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-001  
+**Module:** `tmp-production`
+
+### Goal
+
+Зарегистрировать Production permissions и переиспользовать Warehouse permissions для складских шагов.
+
+### Required documents
+
+- Production Spec §20;
+- Security public `PermissionId` contract.
+
+### Allowed code scope
+
+- capability permission contribution;
+- tests; control docs.
+
+### Forbidden
+
+- Security core rewrite.
+
+### Acceptance criteria
+
+- [ ] permissions соответствуют spec.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-017 — Production workbench UI
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-006, STAGE7-013, STAGE7-016  
+**Module:** `tmp-ui-shell`
+
+### Goal
+
+Простой order-centric Production workbench без бизнес-логики в UI.
+
+### Required documents
+
+- Production Spec UI/workflow;
+- UI/UX screens rules.
+
+### Allowed code scope
+
+- `tmp-ui-shell` Production screens/viewmodels/fxml;
+- Production public/application API usage;
+- tests; control docs.
+
+### Forbidden
+
+- business logic in UI; direct repository access; Warehouse internals.
+
+### Acceptance criteria
+
+- [ ] order-centric UX;
+- [ ] mutating actions идут через application/documents.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-ui-shell,:tmp-production -am test
+```
+
+---
+
+## STAGE7-018 — Production integration tests with OM and Warehouse
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-013, STAGE7-011  
+**Module:** `tmp-production`
+
+### Goal
+
+Integration tests Launch/Transfer/Release+Consumption границ с публичными контрактами OM и Warehouse.
+
+### Required documents
+
+- Production Spec integration;
+- STAGE-7 Manifest exit criteria.
+
+### Allowed code scope
+
+- `tmp-production/src/test/**` integration tests;
+- control docs.
+
+### Forbidden
+
+- new production features; Warehouse internals.
+
+### Acceptance criteria
+
+- [ ] Release+Consumption atomicity covered at Production boundary;
+- [ ] OM/Warehouse ownership preserved.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am verify
+```
+
+---
+
+## STAGE7-019 — Production architecture tests
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-001  
+**Module:** `tmp-architecture-tests`
+
+### Goal
+
+ArchUnit правила границ Production.
+
+### Required documents
+
+- ADR-003/004/019/028/036;
+- STAGE-7 Manifest.
+
+### Allowed code scope
+
+- `tmp-architecture-tests` Production rules;
+- control docs.
+
+### Forbidden
+
+- production business code.
+
+### Acceptance criteria
+
+- [ ] Production не зависит от внутренних пакетов Warehouse/OM/Cutting;
+- [ ] UI не содержит Production domain.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-architecture-tests -am test
+```
+
+---
+
+## STAGE7-020 — Stage 7 final closure audit
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-017, STAGE7-018, STAGE7-019  
+**Module:** documentation
+
+### Goal
+
+Closure audit Stage 7 без отметки DONE при открытых дефектах.
+
+### Required documents
+
+- STAGE-7 Manifest exit criteria;
+- Production Spec v2.2.
+
+### Allowed code scope
+
+- control docs; verification docs.
+
+### Forbidden
+
+- new features; Git.
+
+### Acceptance criteria
+
+- [ ] exit criteria выполнены;
+- [ ] нет OPEN blockers Stage 7.
+
+### Verification commands
+
+```bash
+mvn verify
+```
+
