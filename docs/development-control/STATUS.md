@@ -148,4 +148,4 @@ Active blockers = NONE
 
 Create Warehouse, Create Storage Cell, Receipt (full material fields + UoM ComboBox), Move, Transfer Send, Transfer Receive, Consumption, Adjustment, Reservation Link, Security Roles, Stock View (no zero rows).
 
-**Далее:** Stage 7 Production — только по Start Gate. Git — только пользователь.
+**Далее:** Stage 7 Production — документация модели обновлена (Production Spec v2.0, ADR-033…035); Stage 7 остаётся **NOT STARTED / 0%**; реализация только после Start Gate (включая `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY`). Git — только пользователь.

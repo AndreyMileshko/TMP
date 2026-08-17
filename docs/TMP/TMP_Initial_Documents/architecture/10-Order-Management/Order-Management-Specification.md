@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-010
 **Status:** Accepted
-**Version:** 1.8
+**Version:** 1.9
 
 ---
 
@@ -14,7 +14,7 @@ Order Management является единственным владельцом 
 
 Order Management определяет **какие материалы нужны для изготовления изделия** через Item Specification (строки ACTIVE Revision). Отдельный Material Master в текущей версии TMP **не создаётся** (ADR-032).
 
-Главным объектом платформы является **позиция заказа (Order Item)**. Источником данных для Production, Warehouse, Cutting, Procurement является позиция заказа в конкретной **утверждённой (active) Revision** (`Order Item ID` + `Revision`).
+Главным объектом платформы является **позиция заказа (Order Item)**. Order Management владеет внутренней моделью Revision. Для **Production-facing** контракта (ADR-033) downstream получает `ACTIVE Order → Order Item → current immutable Specification` и **не обязан** хранить или требовать `Order Item Revision` в своём состоянии. Warehouse и Cutting читают актуальные данные через Public Query API; Revision остаётся внутренней/исторической моделью Order Management.
 
 Order Management **не владеет** производственным состоянием — оно принадлежит Production.
 
@@ -58,7 +58,7 @@ Order Management является единственным владельцем 
 
 Order Management **не** владеет и **не** хранит (принадлежит другим Capability):
 
-* Production State, `Production Status`, launched/active/released quantity, производственные партии и документы Production — **Production**;
+* Production State, `Production Status`, launched/active/released quantity и документы Production — **Production** (item-owned; order view вычисляется);
 * Stock Position, резервы, складские движения и документы — **Warehouse**;
 * Cutting Plan, Source Bar, Cut Piece и внутренние данные раскроя — **Cutting Optimization**;
 * аналитические проекции — **Analytics**;
@@ -67,7 +67,7 @@ Order Management **не** владеет и **не** хранит (принад�
 | Данные | Владелец |
 |---|---|
 | Customer Order, Order Item, Revision, Specification, ordered quantity, typed payload, processing record | Order Management |
-| Production Status, launched/active/released quantity, производственные партии/документы | Production |
+| Production Status, launched/active/released quantity, документы Production | Production |
 | Stock Position, резервы, складские движения | Warehouse |
 | Cutting Plan и его внутренние данные | Cutting Optimization |
 | Document lifecycle и metadata | Document Engine |
@@ -80,9 +80,9 @@ Order Management **не** владеет и **не** хранит (принад�
 # 4. Основные архитектурные принципы
 
 1. Главным объектом платформы является позиция заказа (ADR-017).
-2. Другие Capability работают с конкретной утверждённой (active) Revision позиции.
+2. Другие Capability читают актуальные утверждённые данные позиции через Public Query API. Production-facing контракт не требует хранения Order Item Revision в состоянии Production (ADR-033).
 3. Спецификация active Revision — единственный источник состава изделия; после утверждения Immutable (ADR-018).
-4. Изменение изделия выполняется новой Revision.
+4. Изменение изделия выполняется новой Revision (внутренняя модель OM).
 5. Любое изменение агрегатов выполняется только через бизнес-документ Document Engine (ADR-004, Constitution принцип 28).
 6. Изменяющие операции не являются внешним Public API; другие Capability используют только Public Query API и Domain Events (ADR-003).
 7. Document Engine владеет lifecycle/metadata документа; Order Management владеет типизированным payload, связанным по `DocumentId` (ADR-028).
@@ -190,9 +190,10 @@ Order Management **не** владеет и **не** хранит (принад�
 Для позиции различаются:
 
 * **`activeRevision`** — последняя утверждённая Revision:
-  * доступна другим Capability (Production, Warehouse, Cutting);
   * Immutable;
-  * сохраняется и доступна по точному `RevisionNumber`;
+  * доступна через Public Query API как источник current immutable Specification;
+  * Production-facing consumers могут получать Specification без хранения номера Revision в своём состоянии (ADR-033);
+  * сохраняется и доступна по точному `RevisionNumber` для истории OM;
   * является единственной Revision, возвращаемой во внешний Public Query API как производственная спецификация.
 * **`draftRevision`** — необязательная Revision в разработке:
   * не заменяет `activeRevision` до утверждения;
@@ -230,7 +231,7 @@ Order Management **не** владеет и **не** хранит (принад�
 6. сохраняет предыдущую active Revision без изменений;
 7. публикует `OrderItemRevisionApproved` (после commit).
 
-Другие Capability всегда ссылаются на `OrderItemId` + `RevisionNumber`. Смена `activeRevision` не делает предыдущую Revision недействительной для уже начатых внешних процессов, которые работают по конкретному номеру Revision.
+Другие Capability получают актуальные данные через Public Query API. Production связывает собственное состояние с `Order Item ID` (ADR-033) и читает current immutable Specification без обязательного хранения номера Revision. Историческая адресация `OrderItemId` + `RevisionNumber` остаётся валидной внутри Order Management и для audit/history query. Смена `activeRevision` не делает предыдущую Revision недействительной для уже зафиксированной истории OM.
 
 ---
 
@@ -331,7 +332,7 @@ Production lifecycle не входит в Stage 5.
 
 # 10. Производственное состояние (внешнее)
 
-Производственное состояние принадлежит Production и связывается им с `Order Item ID` + `Revision`. Order Management не хранит `Production Status`, производственные количества и партии; при необходимости читает состояние через Production Public API. Завершённость производства заказа вычисляется владельцем состояния и не хранится Order Management (ADR-020).
+Производственное состояние принадлежит Production и связывается им с `Order Item ID` (и `Order ID`). Order Management не хранит `Production Status`, производственные количества и документы Production; при необходимости читает состояние через Production Public Query API. Общий производственный статус заказа вычисляется Production и не хранится Order Management (ADR-020, ADR-033).
 
 ---
 
@@ -552,8 +553,10 @@ getOrderItemRevisions(orderItemId, pageRequest)
 getOrderItemRevision(orderItemId, revisionNumber)
 getActiveOrderItemRevision(orderItemId)
 getItemSpecification(orderItemId, revisionNumber)
+getCurrentItemSpecification(orderItemId)   // current immutable Specification без требования к caller хранить Revision
 ```
 
+Production-facing convenience: `getCurrentItemSpecification(orderItemId)` (или эквивалент поверх `getActiveOrderItemRevision`) возвращает действующую Specification ACTIVE Item. Callers Production **не** обязаны сохранять revision number в Production state.
 ### 15.1.1 Order search criteria
 
 Минимальные фильтры (только существующие в модели поля):
@@ -634,7 +637,7 @@ Idempotency guard применяется в той же согласованно
 
 # 17. Domain Events
 
-Публикуются только после commit (ADR-021) через публичный контракт `TransactionalEventPublisher.publishAfterCommit(DomainEvent)`; Order Management не импортирует внутренние классы Document Engine. `OrderItemRevisionApproved` потребляется Production (Production Spec §16). События Production/Warehouse/Cutting Order Management не публикует.
+Публикуются только после commit (ADR-021) через публичный контракт `TransactionalEventPublisher.publishAfterCommit(DomainEvent)`; Order Management не импортирует внутренние классы Document Engine. `OrderItemRevisionApproved` остаётся событием OM для подписчиков, которым нужна история Revision; Production **не обязан** подписываться на него для поддержания item production state (ADR-033). События Production/Warehouse/Cutting Order Management не публикует.
 
 | Event type | Source operation | Moment | Minimal payload | Consumers | Idempotency id |
 | --- | --- | --- | --- | --- | --- |
@@ -646,7 +649,7 @@ Idempotency guard применяется в той же согласованно
 | `OrderItemUpdated` | `updateOrderItem` | после commit | eventId, orderItemId, actor | внутренние | `orderItemId`+eventId |
 | `OrderItemRevisionCreated` | `createOrderItem` (Rev1)/`createOrderItemRevision` | после commit | eventId, orderItemId, revision, actor | внутренние | `orderItemId`+revision+eventId |
 | `OrderItemRevisionUpdated` | `updateOrderItemRevision` | после commit | eventId, orderItemId, revision, actor | внутренние | `orderItemId`+revision+eventId |
-| `OrderItemRevisionApproved` | `approveOrderItemRevision` | после commit | eventId, orderId, orderItemId, revision, actor, correlationId | **Production**, Warehouse, Cutting | `orderItemId`+revision+eventId |
+| `OrderItemRevisionApproved` | `approveOrderItemRevision` | после commit | eventId, orderId, orderItemId, revision, actor, correlationId | Warehouse, Cutting; Production — optional (не требуется для item state, ADR-033) | `orderItemId`+revision+eventId |
 | `OrderItemCancelled` | `cancelOrderItem` | после commit | eventId, orderId, orderItemId, actor | внутренние | `orderItemId`+eventId |
 
 Отдельные события `ItemSpecificationCreated/Approved` не публикуются: спецификация создаётся и замораживается вместе с Revision (представлено `OrderItemRevisionCreated`/`OrderItemRevisionApproved`).
@@ -690,32 +693,31 @@ Optimistic locking, общие технические поля, schema-per-modul
 
 ## 19.1 Явно запрещено хранить
 
-`Production Status`, launched/active/released quantity, производственные партии/документы, Warehouse Stock Position, резервы, складские движения, Cutting Plan internals, generic domain JSON в Platform Core.
+`Production Status`, launched/active/released quantity, документы Production, Warehouse Stock Position, резервы, складские движения, Cutting Plan internals, generic domain JSON в Platform Core.
 
 ---
 
 # 20. Интеграция с будущими Capability
 
-Order Management предоставляет стабильные `Order Item ID`, `Revision`, Query DTO и Domain Events. Другие Capability не изменяют данные Order Management.
+Order Management предоставляет стабильные `Order ID`, `Order Item ID`, current immutable Specification через Public Query API и Domain Events. Другие Capability не изменяют данные Order Management. Внутренняя Revision-модель сохраняется.
 
-### Production interaction (ADR-032)
+### Production interaction (ADR-032, ADR-033)
 
 ```text
-1. Order Management создаёт ACTIVE: Order → Item → Revision → Specification
-2. Production запрашивает Order Management: какие заказы доступны для производства
-3. Production получает: изделия, количество, ACTIVE Specification
-4. Production рассчитывает потребность материалов (с учётом Material Mapping)
-5. Production запрашивает Warehouse: доступность материалов
-6. Warehouse отвечает: наличие, доступность, возможность резервирования
+1. Order Management создаёт ACTIVE: Order → Item → (internal Revision) → Specification
+2. Production запрашивает Order Management: какие ACTIVE заказы доступны
+3. Production получает: Order Items, количество, current immutable Specification
+4. Production рассчитывает потребность материалов (с учётом Material Mapping вне Warehouse/Production ownership)
+5. Production запрашивает Warehouse: доступность / инициирует Transfer / Consumption
+6. Warehouse отвечает владением складскими данными и документами
 ```
 
-* **Production:** Query (`getOrderItemRevision`, `getActiveOrderItemRevision`, `getItemSpecification`); событие `OrderItemRevisionApproved`; связь по `Order Item ID + Revision`; рассчитывает потребность; использует **нормализованные** данные материалов; не изменяет Order Management.
+* **Production:** Query (`getOrder`, `getOrderItems`, `getCurrentItemSpecification` / active Specification); связь состояния по `Order Item ID`; **не** хранит Order Item Revision в Production state; не обязан потреблять `OrderItemRevisionApproved` для state; не изменяет Order Management.
 * **Warehouse:** получает MaterialReference через запрос Production; хранит только складское состояние; **не** читает Specification напрямую; **не** выполняет Material Mapping; не изменяет позицию/спецификацию.
-* **Cutting Optimization:** Query по active Revision; Cutting Plan вне Order Management.
+* **Cutting Optimization:** Query по ACTIVE данным; Cutting Plan вне Order Management; без Cutting Plan Revision (ADR-034).
 * **Procurement/Analytics:** read-only использование; проекции/решения принадлежат им.
 
-Для межмодульного Public Query API доступна только active Revision.
-
+Для межмодульного Public Query API доступна только active Revision / current Specification; draft недоступен другим Capability.
 ---
 
 # 21. Инварианты
@@ -798,12 +800,12 @@ Order Management предоставляет стабильные `Order Item ID`
 # 25. Связанные документы
 
 * TMP Constitution (v1.2)
-* TMP Architecture Decisions (ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**, **ADR-031**, **ADR-032**)
+* TMP Architecture Decisions (ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**, **ADR-031**, **ADR-032**, **ADR-033**)
 * Document Engine Specification
 * Platform Core Specification (Event API)
 * Capability Engine Specification
 * Security Specification
-* Production Specification (v1.1)
+* Production Specification (v2.0)
 * Warehouse / Cutting Optimization / Procurement Specifications
 
 ---
@@ -823,7 +825,7 @@ Order Management предоставляет стабильные `Order Item ID`
 | 1.6 | **Final STXT Contract (STAGE5-058):** §27 block format ORDER→ITEM→SPEC; multi-order; productCode/name/client/date; `@`/`#` skip; `кв.м.`; quantity = норма расхода на 1 изделие; ACTIVE одинаков независимо от источника. |
 | 1.7 | **Stage 5 Final Closure (2026-08-06):** Stage 5 = DONE; STAGE5-057/058 = DONE; STAGE5-058 Manual GUI Smoke PASS; Stage 6 = NOT STARTED. Зафиксированы итоговые правила §27 (trusted import → ACTIVE; read-only ACTIVE; Revision N+1). |
 | 1.8 | **Stage 6 Start Gate (ADR-032):** финальное решение — нет Material Master; материалы в контексте Specification; Material Mapping; Production → Warehouse interaction; §28. |
-
+| 1.9 | **Stage 7 docs alignment (ADR-033):** Production-facing contract без обязательного Order Item Revision в состоянии Production; `getCurrentItemSpecification`; §10/§15/§17/§20 обновлены; внутренняя Revision-модель OM и Stage 5 lifecycle сохранены. |
 ---
 
 # 28. Material Responsibility and Mapping (ADR-032)

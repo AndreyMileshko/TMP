@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-005  
 **Status:** Accepted  
-**Version:** 1.10
+**Version:** 1.11
 
 ---
 
@@ -693,17 +693,20 @@ Accepted
 ### Последствия
 
 - упрощается архитектура Capability;
-- исчезает необходимость хранить производственные данные заказа;
-- появляется возможность независимого управления изделиями;
+- исчезает необходимость хранить производственные данные заказа как источник истины;
+- появляется возможность независимого управления состоянием изделий;
 - значительно упрощается Production;
 - значительно упрощается Warehouse;
 - появляется возможность независимого планирования изделий.
+
+> **Уточнение (ADR-033):** пользовательский workflow Production v2.0 работает с заказом целиком (принятие/отмена/агрегированный статус), но **хранимое** производственное состояние остаётся item-owned. ADR-017 не superseded.
 
 ### Связанные документы
 
 - Order-Management-Specification.md
 - Production-Specification.md
 - Warehouse-Specification.md
+- ADR-033
 
 ---
 
@@ -927,7 +930,7 @@ Cutting Plan является независимым технологическ�
 
 ### Статус
 
-Accepted
+Superseded (заменён ADR-034)
 
 ### Контекст
 
@@ -957,6 +960,7 @@ Cutting Plan:
 
 - Cutting-Optimization-Specification.md
 - Production-Specification.md
+- ADR-034
 
 ---
 
@@ -992,6 +996,7 @@ Accepted
 
 - Cutting-Optimization-Specification.md
 - Production-Specification.md
+- ADR-034
 
 ---
 
@@ -1003,7 +1008,7 @@ Accepted
 
 ### Статус
 
-Accepted
+Superseded (заменён ADR-034)
 
 ### Контекст
 
@@ -1025,11 +1030,17 @@ Accepted
 - Warehouse получает единственный источник потребности;
 - сохраняется неизменяемость Specification.
 
+### Примечание о замене
+
+Строгий безусловный приоритет Cutting Plan как источника фактической складской потребности заменён рекомендательной/default моделью с возможностью корректировки plan/fact (ADR-034, ADR-035).
+
 ### Связанные документы
 
 - Cutting-Optimization-Specification.md
 - Production-Specification.md
 - Warehouse-Specification.md
+- ADR-034
+- ADR-035
 
 ---
 
@@ -1041,7 +1052,7 @@ Cutting Plan является Immutable-документом.
 
 ### Статус
 
-Accepted
+Superseded (заменён ADR-034)
 
 ### Контекст
 
@@ -1064,6 +1075,7 @@ Accepted
 ### Связанные документы
 
 - Cutting-Optimization-Specification.md
+- ADR-034
 
 ---
 
@@ -1075,7 +1087,7 @@ Production использует только утверждённые Revision C
 
 ### Статус
 
-Accepted
+Superseded (заменён ADR-034)
 
 ### Контекст
 
@@ -1096,6 +1108,7 @@ Production использует исключительно Revision Cutting Plan
 
 - Production-Specification.md
 - Cutting-Optimization-Specification.md
+- ADR-034
 
 ---
 
@@ -1338,8 +1351,8 @@ orderNumber uniqueness
 | Document Engine | Без новых platform lifecycle статусов; import = orchestration штатных/целевых документов Order Management внутри TX |
 | UI | Read-only для **любого** ACTIVE (прямое редактирование); Revision flow доступен как для ручного ACTIVE |
 | Revision flow | Единый; импорт не имеет отдельной ветки |
-| Warehouse (Stage 6) | Потребляет ACTIVE Order/Item + ACTIVE Revision/Spec; **не** знает и **не** должен знать канал создания |
-| Production | То же: ссылка на Order Item + ACTIVE Revision; без import-специфики |
+| Warehouse (Stage 6) | Потребляет ACTIVE Order/Item + current immutable Specification через утверждённые контракты; **не** знает и **не** должен знать канал создания |
+| Production | Downstream-контракт: ACTIVE Order → Order Item → current immutable Specification; **без** зависимости от Order Item Revision в состоянии Production (ADR-033); без import-специфики. Внутренняя Revision-модель OM сохраняется |
 
 #### 7. Out of scope
 
@@ -1408,16 +1421,16 @@ Accepted (Stage 6 Start Gate, 2026-08-06)
    - Warehouse **не** отвечает за сопоставление;
    - Production использует нормализованные данные.
 
-5. **Production interaction (целевой поток):**
+5. **Production interaction (целевой поток; уточнено ADR-033):**
 
    ```text
-   Order Management: ACTIVE Order → Item → Revision → Specification
-           ↓ (Public Query API)
-   Production: доступные заказы → изделия → количество → ACTIVE Specification
+   Order Management: ACTIVE Order → Order Item → current immutable Specification
+           ↓ (Public Query API; Revision — внутренняя модель OM)
+   Production: доступные заказы → изделия → количество → Specification
            ↓ (расчёт потребности)
-   Production → Warehouse: запрос доступности / резервирования
+   Production → Warehouse: запрос доступности / инициирование Transfer / Consumption
            ↓
-   Warehouse: наличие, доступность, возможность резервирования
+   Warehouse: наличие, доступность; владеет складскими документами и Stock Position
    ```
 
 6. **Material identity для Warehouse** — составной идентификатор из полей ACTIVE Specification: `materialCode`, `materialName`, `color`, `unitOfMeasure` (и `lengthMm` где применимо). Отдельный каталог материалов **не требуется**.
@@ -1429,8 +1442,9 @@ Accepted (Stage 6 Start Gate, 2026-08-06)
 - Supersedes интерпретацию Warehouse Specification §10 «Material — единый мастер-объект» и Rule 6 «Order Management — владелец Material master»;
 - Stage 6 Warehouse стартует без Material catalog; потребление из ACTIVE Specification;
 - в ADR-006 и ADR-012 термин «Material» означает material identity из спецификации или запроса Production, а не master-entity;
-- реализация Material Mapping — отдельная задача (не Warehouse; scope уточняется при планировании Stage 6+);
-- Production Specification Rule 7 (OM владеет Specification) остаётся в силе и дополняется настоящим ADR.
+- реализация Material Mapping — отдельная задача (не Warehouse; вне Production);
+- Production Specification: OM владеет Specification; Production-facing path не требует Order Item Revision (ADR-033);
+- основной принцип No Separate Material Master сохраняется.
 
 ### Связанные документы
 
@@ -1438,6 +1452,125 @@ Accepted (Stage 6 Start Gate, 2026-08-06)
 - Warehouse-Specification.md (§4, §10, §23, Rule 6)
 - Stage 6 Manifest (`STAGE-6-WAREHOUSE.md`)
 - ADR-031
+- ADR-033
+
+---
+
+# ADR-033
+
+## Название
+
+Production Order-Level Workflow with Item-Owned State.
+
+### Статус
+
+Accepted
+
+### Контекст
+
+Пользователю удобно принимать и отменять производство **заказа целиком**, видеть общий статус заказа и не работать с техническими Revision. При этом Constitution и ADR-017 требуют, чтобы хранимое производственное состояние оставалось привязанным к Order Item, а вычисляемые агрегаты заказа не становились отдельным источником истины (ADR-020).
+
+Старая Production Spec v1.1 связывала состояние с Order Item Revision и допускала partial launch / READY_FOR_PRODUCTION как persisted status, что усложняло UX и протекало во внешний контракт.
+
+### Решение
+
+1. **Пользовательский workflow — order-level:** команды «Принять в производство» и «Отменить производство заказа» применяются ко всему ACTIVE Order.
+2. **Хранимое состояние — item-owned:** Production хранит статус и количества по `Order Item ID` (вместе с `Order ID`).
+3. **Order Production View вычисляется** из item states и не хранится как источник истины.
+4. **Отдельный Production Order не создаётся.**
+5. **Downstream-контракт Production не зависит от Order Item Revision:** Production получает `ACTIVE Order → Order Item → current immutable Specification` через Public Query API Order Management. Внутренняя Revision-модель OM сохраняется и не обязана протекать в Production state / documents.
+6. **`READY_FOR_PRODUCTION` не обязателен** как persisted status; проверка материалов не является prerequisite принятия в производство.
+7. Частичный запуск отдельных позиций не является основным UX; частичный выпуск количеств во времени допускается.
+
+### Последствия
+
+- ADR-017 сохраняется (Order Item — единица производственного состояния);
+- ADR-018 / внутренняя Revision OM сохраняются;
+- ADR-020 усиливается для order-level view;
+- Production Specification v2.0 и Stage 7 Manifest следуют этой модели;
+- Stage 5 код не переписывается этим ADR; меняется межмодульный контракт документации.
+
+### Связанные документы
+
+- Production-Specification.md (v2.0)
+- Order-Management-Specification.md (Production-facing contract)
+- ADR-017, ADR-018, ADR-020, ADR-031, ADR-032
+
+---
+
+# ADR-034
+
+## Название
+
+Cutting Plan as Independent Non-Revision Recommendation.
+
+### Статус
+
+Accepted
+
+### Контекст
+
+Модель Cutting Plan Revision и жёсткий lifecycle `APPROVED → IN_USE → COMPLETED`, управляемый событиями Production, усложняет Stage 7/8 и противоречит принятой простой модели: карта рекомендательна, Production независим от Stage 8, новый расчёт = новый документ.
+
+### Решение
+
+1. Cutting Plan — самостоятельный бизнес-документ Cutting Optimization (независимость ADR-023 сохраняется по смыслу).
+2. **Модели Cutting Plan Revision нет.** Каждый Cutting Plan — отдельный документ. После утверждения/использования карта не редактируется; другой расчёт = **новый Cutting Plan**.
+3. Cutting Plan **необязателен** (ADR-024 сохраняется).
+4. Карта может включать позиции одного или нескольких заказов; связь явная через Order ID / Order Item ID.
+5. Для длинномерных материалов Cutting Plan — **рекомендуемый/default** источник плановой потребности; не безусловный источник фактического складского движения. Мастер может скорректировать шаблон перемещения и факт.
+6. Production может хранить только ссылку на `Cutting Plan ID` и **не управляет** lifecycle Cutting Plan.
+7. События Production не обязаны переводить карту в `IN_USE` / `COMPLETED`.
+
+### Последствия
+
+- Supersedes ADR-023, ADR-025, ADR-026, ADR-027;
+- Cutting Optimization Specification обновляется без Revision-модели;
+- Production v2.0 не зависит от runtime Stage 8.
+
+### Связанные документы
+
+- Cutting-Optimization-Specification.md
+- Production-Specification.md
+- ADR-024
+
+---
+
+# ADR-035
+
+## Название
+
+Production Material Transfer and Plan/Fact Consumption.
+
+### Статус
+
+Accepted
+
+### Контекст
+
+Пассивная рекомендация перемещения без пользовательского шаблона и отсутствие явного plan/fact при выпуске не соответствуют согласованному UX мастера производства. Нужна чёткая граница: Production инициирует, Warehouse владеет складом и документами.
+
+### Решение
+
+1. Production формирует **редактируемый шаблон** перемещения материалов (не пассивный-only Public API recommendation).
+2. После подтверждения создаётся **Warehouse-owned** Transfer (send → IN_TRANSIT → receive); Production не владеет складским документом и не меняет Stock Position.
+3. Команда «Подтвердить получение» может быть в UI Production, но receive выполняет Warehouse.
+4. Production Release хранит **plan и fact** расхода; Warehouse Consumption списывает фактическое количество со склада производства.
+5. Недостаток материала на складе производства блокирует проведение Release; отрицательные остатки запрещены; Specification/Cutting Plan из-за факта не изменяются.
+6. Проведение Release и связанного Consumption должно быть атомарным (единая TX orchestration); до подтверждения возможности Document Engine — Start Gate blocker Stage 7.
+
+### Последствия
+
+- Warehouse Spec integration уточняется без переделки Stage 6 core;
+- Production Spec v2.0 §13–§15, §21;
+- Security: переиспользование Warehouse permissions где возможно.
+
+### Связанные документы
+
+- Production-Specification.md (v2.0)
+- Warehouse-Specification.md
+- Document-Engine-Specification.md
+- ADR-010, ADR-032, ADR-034
 
 ---
 
@@ -1469,16 +1602,19 @@ Accepted (Stage 6 Start Gate, 2026-08-06)
 | ADR-020 | Order-Management-Specification.md, Production-Specification.md |
 | ADR-021 | Document-Engine-Specification.md |
 | ADR-022 | Platform-Core-Specification.md |
-| ADR-023 | Cutting-Optimization-Specification.md |
+| ADR-023 | Cutting-Optimization-Specification.md (**Superseded → ADR-034**) |
 | ADR-024 | Cutting-Optimization-Specification.md, Production-Specification.md |
-| ADR-025 | Cutting-Optimization-Specification.md, Production-Specification.md, Warehouse-Specification.md |
-| ADR-026 | Cutting-Optimization-Specification.md |
-| ADR-027 | Cutting-Optimization-Specification.md, Production-Specification.md |
+| ADR-025 | Cutting-Optimization-Specification.md, Production-Specification.md, Warehouse-Specification.md (**Superseded → ADR-034**) |
+| ADR-026 | Cutting-Optimization-Specification.md (**Superseded → ADR-034**) |
+| ADR-027 | Cutting-Optimization-Specification.md, Production-Specification.md (**Superseded → ADR-034**) |
 | ADR-028 | Document-Engine-Specification.md, Order-Management-Specification.md |
 | ADR-029 | Order-Management-Specification.md |
 | ADR-030 | Order-Management-Specification.md |
 | ADR-031 | Order-Management-Specification.md |
-| ADR-032 | Order-Management-Specification.md, Warehouse-Specification.md |
+| ADR-032 | Order-Management-Specification.md, Warehouse-Specification.md, Production-Specification.md |
+| ADR-033 | Production-Specification.md, Order-Management-Specification.md |
+| ADR-034 | Cutting-Optimization-Specification.md, Production-Specification.md |
+| ADR-035 | Production-Specification.md, Warehouse-Specification.md, Document-Engine-Specification.md |
 
 > **Architecture Rule**  
 > Настоящий документ фиксирует только архитектурные решения. Подробная реализация и бизнес-логика описываются в соответствующих спецификациях.
@@ -1541,6 +1677,7 @@ Accepted (Stage 6 Start Gate, 2026-08-06)
 | 1.8 | **Final** ADR-031: uniform ACTIVE (без различий по способу создания); запрет OrderOrigin/ImportMetadata/checksum protection; дубли только по `orderNumber`; import = creation path → ACTIVE; изменение ACTIVE только через Revision; RevisionStatus целевой `DRAFT\|ACTIVE`. |
 | 1.9 | STAGE5-058 Final STXT Contract: block format ORDER→ITEM→SPEC; multi-order file; import validation requires order number/date/client and item productCode/name/quantity; `@`/`#` skip; `кв.м.` transform; quantity = норма расхода на 1 изделие. |
 | 1.10 | Добавлен ADR-032 (Material Responsibility — No Separate Material Master): финальное решение об отсутствии Material Master; материалы определяются через Specification; Material Mapping; Warehouse хранит только складское состояние; Production → Warehouse interaction. |
+| 1.11 | Stage 7 Production model: ADR-033 (order-level UX + item-owned state, без OM Revision в Production contract); ADR-034 (Cutting Plan без Revision, рекомендательный характер; supersede ADR-023/025/026/027); ADR-035 (editable transfer template + plan/fact Consumption); уточнены ADR-031/032 Production-facing формулировки. |
 
 ---
 

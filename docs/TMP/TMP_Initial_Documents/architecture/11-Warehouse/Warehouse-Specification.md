@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.3
+**Version:** 1.4
 
 ---
 
@@ -264,9 +264,13 @@ AVAILABLE
 Production определяет:
 
 - что списывать;
-- сколько списывать.
+- сколько списывать (**фактическое** количество из Production Release plan/fact).
 
 Warehouse выполняет операцию и фиксирует результат в `Warehouse Movement`.
+
+Списание материалов для выпуска изделий допускается только со склада производства.
+
+Отрицательные остатки запрещены. При недостатке материала операция Consumption не проводится.
 
 ---
 
@@ -274,16 +278,25 @@ Warehouse выполняет операцию и фиксирует резуль
 
 Production:
 
-- получает заказ из Order Management;
-- получает Specification;
-- рассчитывает потребность.
+- получает ACTIVE Order / Order Items / current immutable Specification из Order Management;
+- рассчитывает плановую потребность (Specification и опционально Cutting Plan как рекомендация);
+- формирует редактируемый шаблон перемещения;
+- инициирует создание Warehouse-owned Transfer draft/document через штатный контракт;
+- может инициировать подтверждение получения (receive) из UI Production;
+- при выпуске запрашивает Consumption фактического количества.
 
 Warehouse:
 
-- проверяет наличие;
-- выполняет складские операции.
+- остаётся владельцем Transfer / Consumption documents и Stock Position;
+- выполняет send (основной склад → IN_TRANSIT);
+- выполняет receive (IN_TRANSIT → склад производства);
+- проверяет наличие и выполняет Consumption;
+- не рассчитывает производственную потребность;
+- не изменяет производственное состояние Production.
 
-Warehouse не рассчитывает потребность.
+Production не создаёт вторую складскую модель и не пишет в таблицы Warehouse напрямую.
+
+Атомарность связки Production Release + Warehouse Consumption — требование Production Spec §21 / ADR-035 (Start Gate Stage 7).
 
 ---
 
@@ -291,18 +304,18 @@ Warehouse не рассчитывает потребность.
 
 Cutting Optimization:
 
-- рассчитывает необходимый исходный материал.
+- рассчитывает рекомендуемую плановую потребность длинномерного материала.
 
 Warehouse:
 
 - проверяет наличие;
-- выдает материал.
+- выдаёт материал по своим операциям.
 
 Warehouse не использует:
 
 - `Source Bar`;
 - `Cut Piece`;
-- `Batch Allocation`;
+- внутренние allocation-структуры раскроя;
 - алгоритмы раскроя.
 
 ---
@@ -314,7 +327,7 @@ Warehouse не использует:
 - получение остатков;
 - проверка доступности;
 - создание информационной привязки материала (reservation link);
-- выполнение `Warehouse Operation`.
+- создание/проведение Warehouse Operation / business documents (Receipt, Move, Transfer send/receive, Consumption, …).
 
 Пример контрактов:
 
@@ -322,11 +335,17 @@ Warehouse не использует:
 getStock(material, warehouse, cell)
 checkAvailability(request)
 createReservationLink(request)
-executeWarehouseOperation(request)
+createTransferDraft(request)          // в т.ч. по инициации из Production template
+postTransferSend(documentId)
+postTransferReceive(documentId)       // может инициироваться из UI Production
+createConsumptionDraft(request)       // фактические количества из Production Release
+postConsumption(documentId)
+executeWarehouseOperation(request)    // обобщённый путь Stage 6, если используется
 ```
 
----
+Mutating операции остаются во владении Warehouse (document-driven). Другие Capability не обходят Warehouse Public/document контракт.
 
+---
 # 18. Security
 
 Warehouse использует существующую Security Capability.
@@ -405,7 +424,7 @@ Warehouse выполняет только складскую часть опер
 
 ## Rule 4
 
-Все взаимодействия между Capability выполняются через Public API и Domain Events.
+Все взаимодействия между Capability выполняются через бизнес-документы владельца данных, Public Query API и Domain Events (Constitution принцип 28).
 
 ---
 
@@ -418,3 +437,4 @@ Warehouse выполняет только складскую часть опер
 | 1.2 | Stage 6 Start Gate: Warehouse только складское состояние; без Material Master. |
 | 1.3 | Упрощение модели Stage 6 Start Gate: исключены Batch/FIFO/FEFO/Supplier Batch; Reservation как информационная связь; упрощённые Stock State; минимальный API; подтверждена граница Warehouse-only state. |
 | 1.3.1 | Stage 6 Final Closure: §18 — canonical `PermissionId` codes (16 permissions incl. structure management). |
+| 1.4 | Stage 7 docs alignment (ADR-035): Production инициирует Transfer template/receive confirmation и actual Consumption; Warehouse остаётся владельцем документов и Stock Position; без возврата Batch/FIFO/FEFO. |

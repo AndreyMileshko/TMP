@@ -121,11 +121,10 @@ Read only:
 - `docs/TMP/TMP_Initial_Documents/architecture/10-Order-Management/Order-Management-Specification.md` (**v1.7**);
 - `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Stage Manifest);
 - `docs/TMP/TMP_Initial_Documents/architecture/00-Constitution/TMP-Constitution.md` (v1.2, принцип 28);
-- релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**, **ADR-031 final** (ADR document **v1.8**);
-- Production Specification (v1.1) — **только** разделы владения производственным состоянием, связи с `Order Item ID`/`Revision`, Public API, Domain Events и интеграции с Order Management (для корректной границы; не для реализации Production).
+- релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**, **ADR-031 final**, **ADR-032**, **ADR-033** (ADR document **v1.11**);
+- Production Specification (**v2.0**) — **только** границы владения: item-owned Production state, Production-facing contract без Order Item Revision, Public Query API / Domain Events и интеграция с Order Management (не для реализации Production до Stage 7 Start Gate).
 
-Миграции Order Management (факт): latest = **V14**. `STAGE5-057` = **DONE**. `STAGE5-058` = **DONE**. Stage 5 = **DONE** (Final Closure 2026-08-06). Stage 6 = **NOT STARTED**.
-
+Миграции Order Management (факт): latest = **V14**. `STAGE5-057` = **DONE**. `STAGE5-058` = **DONE**. Stage 5 = **DONE** (Final Closure 2026-08-06). Stage 6 = **DONE**. Stage 7 = **NOT STARTED** (docs updated; Start Gate pending).
 
 
 

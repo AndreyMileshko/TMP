@@ -35,7 +35,43 @@ None — resolved.
 
 ## Active blockers
 
-**Active blockers: NONE**
+**Active blockers:**
+
+### `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` — Cross-capability atomicity for Production Release + Warehouse Consumption
+
+**Status:** OPEN (Stage 7 Start Gate — documentation only; Stage 7 implementation NOT STARTED)  
+**Detected:** 2026-08-17  
+**Stage:** 7 Production  
+**Related:** Production Specification v2.0 §21; ADR-035; Document Engine Specification (Transactional contract)
+
+### Reason
+
+Production Release и связанный Warehouse Consumption должны проводиться атомарно: запрещены состояния «материал списан без Release» и «Release проведён без Consumption».
+
+Публичный контракт Document Engine гарантирует атомарность **одной** lifecycle-операции документа и его Document Processor. Явной платформенной гарантии атомарного проведения **двух** документов разных Capability в одной транзакции в текущей DE Spec нет.
+
+### Evidence
+
+- Document Engine Specification: processor внутри TX соответствующей lifecycle-операции; partial apply исключён **для одного** документа.
+- Constitution принцип 19 / 28; ADR-035; Production Spec v2.0 §21.
+
+### Options (Start Gate)
+
+1. Подтвердить empirically/архитектурно, что outer application TX + `DocumentEngine.post` с `Propagation.REQUIRED` атомарно охватывает Warehouse Consumption и Production Release; зафиксировать это в DE Spec или ADR.
+2. Принять отдельный ADR / расширение Document Engine для multi-document orchestration между Capability.
+3. Иное решение пользователя — только через новый ADR; обходные «eventual consistency» алгоритмы без явного принятия запрещены.
+
+### Recommendation
+
+Закрыть пункт на Start Gate Stage 7 до появления READY implementation tasks. До закрытия не начинать mutating Stage 7.
+
+### Required user decision
+
+Выбрать и принять один из вариантов атомарности (или эквивалентный ADR) до Start Gate PASS.
+
+---
+
+**Other active blockers: NONE**
 
 ---
 
