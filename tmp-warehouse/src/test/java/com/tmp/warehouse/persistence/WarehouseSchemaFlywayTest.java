@@ -60,6 +60,7 @@ class WarehouseSchemaFlywayTest {
                 tables.containsAll(List.of(
                         "warehouses",
                         "storage_cells",
+                        "material_references",
                         "stock_positions",
                         "warehouse_movements",
                         "warehouse_operations",
@@ -137,18 +138,20 @@ class WarehouseSchemaFlywayTest {
                 cellId,
                 warehouseId);
 
+        UUID materialId = insertMaterialReference("MAT-1");
         assertThrows(
                 DataIntegrityViolationException.class,
                 () -> jdbc.update(
                         """
                         INSERT INTO warehouse.stock_positions (
-                            id, warehouse_id, storage_cell_id, material_reference, quantity,
+                            id, warehouse_id, storage_cell_id, material_reference_id, quantity,
                             stock_state, version, created_at, updated_at)
-                        VALUES (?, ?, ?, 'MAT-1', 1, 'AVAILABLE', 0, NOW(), NOW())
+                        VALUES (?, ?, ?, ?, 1, 'AVAILABLE', 0, NOW(), NOW())
                         """,
                         UUID.randomUUID(),
                         otherWarehouseId,
-                        cellId));
+                        cellId,
+                        materialId));
     }
 
     @Test
@@ -170,31 +173,35 @@ class WarehouseSchemaFlywayTest {
                 cellId,
                 warehouseId);
 
+        UUID negativeMaterialId = insertMaterialReference("MAT-NEG");
         assertThrows(
                 DataIntegrityViolationException.class,
                 () -> jdbc.update(
                         """
                         INSERT INTO warehouse.stock_positions (
-                            id, warehouse_id, storage_cell_id, material_reference, quantity,
+                            id, warehouse_id, storage_cell_id, material_reference_id, quantity,
                             stock_state, version, created_at, updated_at)
-                        VALUES (?, ?, ?, 'MAT-NEG', -1, 'AVAILABLE', 0, NOW(), NOW())
+                        VALUES (?, ?, ?, ?, -1, 'AVAILABLE', 0, NOW(), NOW())
                         """,
                         UUID.randomUUID(),
                         warehouseId,
-                        cellId));
+                        cellId,
+                        negativeMaterialId));
 
+        UUID reservedMaterialId = insertMaterialReference("MAT-RES");
         assertThrows(
                 DataIntegrityViolationException.class,
                 () -> jdbc.update(
                         """
                         INSERT INTO warehouse.stock_positions (
-                            id, warehouse_id, storage_cell_id, material_reference, quantity,
+                            id, warehouse_id, storage_cell_id, material_reference_id, quantity,
                             stock_state, version, created_at, updated_at)
-                        VALUES (?, ?, ?, 'MAT-RES', 1, 'RESERVED', 0, NOW(), NOW())
+                        VALUES (?, ?, ?, ?, 1, 'RESERVED', 0, NOW(), NOW())
                         """,
                         UUID.randomUUID(),
                         warehouseId,
-                        cellId));
+                        cellId,
+                        reservedMaterialId));
     }
 
     @Test
@@ -216,16 +223,18 @@ class WarehouseSchemaFlywayTest {
                 """,
                 cellId,
                 warehouseId);
+        UUID materialId = insertMaterialReference("MAT-M");
         jdbc.update(
                 """
                 INSERT INTO warehouse.stock_positions (
-                    id, warehouse_id, storage_cell_id, material_reference, quantity,
+                    id, warehouse_id, storage_cell_id, material_reference_id, quantity,
                     stock_state, version, created_at, updated_at)
-                VALUES (?, ?, ?, 'MAT-M', 10, 'AVAILABLE', 0, NOW(), NOW())
+                VALUES (?, ?, ?, ?, 10, 'AVAILABLE', 0, NOW(), NOW())
                 """,
                 positionId,
                 warehouseId,
-                cellId);
+                cellId,
+                materialId);
 
         jdbc.update(
                 """
@@ -247,5 +256,19 @@ class WarehouseSchemaFlywayTest {
                         """,
                         UUID.randomUUID(),
                         UUID.randomUUID()));
+    }
+
+    private UUID insertMaterialReference(String article) {
+        UUID materialId = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO warehouse.material_references (
+                    id, article, name, color, size, unit_of_measure, created_at, updated_at)
+                VALUES (?, ?, ?, '', '', '', NOW(), NOW())
+                """,
+                materialId,
+                article,
+                article);
+        return materialId;
     }
 }

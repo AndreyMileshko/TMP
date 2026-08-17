@@ -4,11 +4,12 @@
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation NOT STARTED  
 **Current Stage:** Stage 7 - NOT STARTED / 0% (Start Gate PASSED)  
 **Current Task:** none  
-**Last completed task:** STAGE7-000 (Stage 7 Start Gate / Release↔Consumption atomicity proof)  
+**Last completed task:** STAGE7-000A (Restore Green Reactor Baseline)  
 **Active blockers:** NONE  
 **Stage 6 Warehouse:** DONE  
 **Stage 7 Production:** NOT STARTED / 0%  
-**Stage 7 Start Gate:** PASSED
+**Stage 7 Start Gate:** PASSED  
+**First READY implementation task:** STAGE7-001
 
 
 ```text
@@ -50,9 +51,11 @@ STAGE6-FINAL = DONE (Warehouse Closure Audit)
 Stage 6 = DONE
 Stage 6 Warehouse = DONE
 STAGE7-000 = DONE (Start Gate; BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY RESOLVED)
+STAGE7-000A = DONE (Restore Green Reactor Baseline; Warehouse test debt)
 Active blockers = NONE
 Stage 7 Production = NOT STARTED / 0%
 Stage 7 Start Gate = PASSED
+First READY implementation task = STAGE7-001
 ```
 
 ---
@@ -153,7 +156,7 @@ Stage 7 Start Gate = PASSED
 
 Create Warehouse, Create Storage Cell, Receipt (full material fields + UoM ComboBox), Move, Transfer Send, Transfer Receive, Consumption, Adjustment, Reservation Link, Security Roles, Stock View (no zero rows).
 
-**Далее:** Stage 7 Start Gate **PASSED** (ADR-036, DE Spec v1.2, Production Spec v2.2 §21). Stage 7 = **NOT STARTED / 0%**. Active blockers = NONE. Первая implementation task `STAGE7-001` = READY. Git — только пользователь.
+**Далее:** Stage 7 Start Gate **PASSED**. Green reactor baseline restored (`STAGE7-000A`). Stage 7 = **NOT STARTED / 0%**. Active blockers = NONE. Первая implementation task `STAGE7-001` = READY. Git — только пользователь.
 
 ---
 

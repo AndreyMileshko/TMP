@@ -81,23 +81,25 @@ class JdbcMaterialReferenceDisplayReadAdapterIT {
         jdbc.update(
                 """
                 INSERT INTO order_management.orders
-                    (order_id, order_number, status, customer_ref, customer_name, direction, currency, created_at)
-                VALUES (?, 'ORD-1', 'ACTIVE', 'C-1', 'Customer', 'INBOUND', 'RUB', NOW())
+                    (order_id, order_number, customer_name, direction, currency, status, version,
+                     created_at, updated_at)
+                VALUES (?, 'ORD-1', 'Customer', 'PRIVATE', 'RUB', 'ACTIVE', 0, NOW(), NOW())
                 """,
                 orderId);
         jdbc.update(
                 """
                 INSERT INTO order_management.order_items
-                    (order_item_id, order_id, item_number, status, active_revision_number, created_at)
-                VALUES (?, ?, 1, 'ACTIVE', 1, NOW())
+                    (order_item_id, order_id, product_code, item_name, status, active_revision_number,
+                     version, created_at, updated_at)
+                VALUES (?, ?, 'P-1', 'Item', 'ACTIVE', 1, 0, NOW(), NOW())
                 """,
                 orderItemId,
                 orderId);
         jdbc.update(
                 """
                 INSERT INTO order_management.order_item_revisions
-                    (order_item_id, revision_number, revision_status, ordered_quantity, created_at)
-                VALUES (?, 1, 'ACTIVE', 1, NOW())
+                    (order_item_id, revision_number, revision_status, ordered_quantity)
+                VALUES (?, 1, 'ACTIVE', 1)
                 """,
                 orderItemId);
         jdbc.update(

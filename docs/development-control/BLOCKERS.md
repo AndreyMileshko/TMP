@@ -72,7 +72,7 @@ Warehouse Consumption = success
 ### Evidence
 
 - Document Engine Specification: processor внутри TX соответствующей lifecycle-операции; partial apply исключён **для одного** документа.
-- Constitution принцип 19 / 28; ADR-035; Production Spec v2.1 §21.
+- Constitution принцип 19 / 28; ADR-035; Production Spec v2.2 §21.
 
 ### Options (Start Gate)
 
@@ -86,7 +86,7 @@ Warehouse Consumption = success
 
 ### Required user decision
 
-Выбрать и принять один из вариантов атомарности (или эквивалентный ADR) до Start Gate PASS.
+None — resolved by ADR-036 / option 1.
 
 ### Resolution
 

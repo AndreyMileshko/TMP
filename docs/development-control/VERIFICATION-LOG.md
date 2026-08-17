@@ -3,6 +3,51 @@
 ## Latest result
 
 **Date:** 2026-08-17  
+**Scope:** STAGE7-000A — Restore Green Reactor Baseline + Stage 7 queue hygiene  
+**Overall:** PASS (test baseline) / verify partial  
+**Type:** Warehouse test debt remediation + WORK-QUEUE dependency audit; no Production code  
+**Environment:** Windows; Maven `.tools/apache-maven-3.9.9`; JDK 21; Docker Desktop
+
+| Item | Result |
+|---|---|
+| Stage 7 queue dependency audit | PASS |
+| STAGE7-015A / STAGE7-016A added | PASS |
+| STAGE7-000A | DONE |
+| `WarehouseSchemaFlywayTest` | PASS (was 2 failures + 1 error) |
+| `WarehouseReceiptServiceIntegrationTest` | PASS (was 1 error) |
+| `WarehouseApiIntegrationTest` | PASS (was 1 error) |
+| `mvn -pl :tmp-warehouse -am test` | PASS (151 tests) |
+| `mvn test` | PASS (full reactor) |
+| `mvn verify` | FAIL — pre-existing SpotBugs 4× NP in `WarehouseOperationEngine` (production code; not STAGE7-000A scope) |
+| `JdbcMaterialReferenceDisplayReadAdapterIT` (discovered during verify) | PASS after test fixture sync |
+| Stage 7 Start Gate | PASSED |
+| Stage 7 implementation | NOT STARTED / 0% |
+| STAGE7-001 | READY |
+| Production production-code | NONE |
+| tmp-production module | NOT CREATED |
+| Git | NOT EXECUTED |
+
+### Warehouse root causes (test-only)
+
+| Issue | Classification |
+|---|---|
+| `stock_positions.material_reference` column removed in V19 | test-only / schema drift |
+| Receipt requires non-blank `unitOfMeasure` (V20) | test-only / UoM contract |
+| `checkAvailability(article)` vs receipt with UoM natural key | test-only / split test setup |
+
+### Commands
+
+```bash
+mvn -pl :tmp-warehouse -am test
+mvn test
+mvn verify
+```
+
+---
+
+## Previous result
+
+**Date:** 2026-08-17  
 **Scope:** STAGE7-000 — Stage 7 Start Gate / Release↔Consumption atomicity proof  
 **Overall:** PASS  
 **Type:** Focused Document Engine multi-document transaction IT + Document Engine verify + architecture tests + validate  

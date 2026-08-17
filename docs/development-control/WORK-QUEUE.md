@@ -10031,11 +10031,64 @@ mvn -pl :tmp-architecture-tests -am test
 
 ---
 
+## STAGE7-000A — Restore Green Reactor Baseline
+
+**Status:** DONE  
+**Stage:** 7  
+**Depends on:** STAGE7-000  
+**Module:** `tmp-warehouse` (test-only)
+
+### Goal
+
+Устранить известный pre-existing Stage 6 Warehouse test debt и восстановить green reactor baseline до первой Production implementation task.
+
+### Required documents
+
+- Warehouse Specification v1.6;
+- Material Reference / Unit Of Measure sections;
+- Warehouse Public Query / Application-Document contracts.
+
+### Allowed code scope
+
+- `tmp-warehouse/src/test/**` only (known failing tests);
+- control docs.
+
+### Forbidden
+
+- Production implementation;
+- Warehouse product code changes (unless real defect → blocker);
+- ослабление assertions ради green;
+- Git.
+
+### Scope (known debt only)
+
+- `WarehouseSchemaFlywayTest`;
+- `WarehouseReceiptServiceIntegrationTest`;
+- `WarehouseApiIntegrationTest`.
+
+### Acceptance criteria
+
+- [x] 2 failures + 3 errors reproduced and root-caused;
+- [x] fixes are test-only aligned with current schema/UoM/API model;
+- [x] `mvn -pl :tmp-warehouse -am test` PASS;
+- [x] full reactor `mvn test` PASS;
+- [x] no new OPEN blocker.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-warehouse -am test
+mvn test
+mvn verify
+```
+
+---
+
 ## STAGE7-001 — Production module foundation
 
 **Status:** READY  
 **Stage:** 7  
-**Depends on:** STAGE7-000  
+**Depends on:** STAGE7-000A  
 **Module:** `tmp-production` (new)
 
 ### Goal
@@ -10322,7 +10375,7 @@ mvn -pl :tmp-production -am test
 **Status:** PLANNED  
 **Stage:** 7  
 **Depends on:** STAGE7-005  
-**Module:** `tmp-production`
+**Module:** `tmp-production` + `tmp-infra-db` (Flyway only, when schema change required)
 
 ### Goal
 
@@ -10335,12 +10388,18 @@ mvn -pl :tmp-production -am test
 
 ### Allowed code scope
 
-- Production state fields/tables for CuttingPlanId links;
+- Production state fields/tables for CuttingPlanId links (production-owned schema only);
+- Flyway migrations in `tmp-infra-db` for `production` schema Cutting Plan link columns/tables;
 - tests; control docs.
 
 ### Forbidden
 
-- Stage 8 runtime; Cutting Plan Revision.
+- Cutting Optimization tables/schema;
+- writes to Stage 8 schema;
+- Cutting Plan Revision;
+- Cutting lifecycle management;
+- Warehouse/OM schema changes;
+- Stage 8 runtime.
 
 ### Acceptance criteria
 
@@ -10359,7 +10418,7 @@ mvn -pl :tmp-production -am test
 
 **Status:** PLANNED  
 **Stage:** 7  
-**Depends on:** STAGE7-007  
+**Depends on:** STAGE7-007, STAGE7-008  
 **Module:** `tmp-production`
 
 ### Goal
@@ -10382,6 +10441,7 @@ mvn -pl :tmp-production -am test
 ### Acceptance criteria
 
 - [ ] шаблон редактируемый;
+- [ ] шаблон может использовать MaterialReference → CuttingPlanId для длинномерного материала;
 - [ ] Warehouse document ещё не создаётся.
 
 ### Verification commands
@@ -10592,12 +10652,12 @@ mvn -pl :tmp-production -am test
 
 **Status:** PLANNED  
 **Stage:** 7  
-**Depends on:** STAGE7-004  
+**Depends on:** STAGE7-013, STAGE7-014  
 **Module:** `tmp-production`
 
 ### Goal
 
-Публикация Production Domain Events только через публичный `TransactionalEventPublisher` after-commit.
+Публикация Production Domain Events только через публичный `TransactionalEventPublisher` after-commit для событий, соответствующих реализованным document/processors.
 
 ### Required documents
 
@@ -10618,7 +10678,68 @@ mvn -pl :tmp-production -am test
 ### Acceptance criteria
 
 - [ ] события после commit;
-- [ ] rollback не публикует события.
+- [ ] rollback не публикует события;
+- [ ] покрыты минимум: `OrderAcceptedIntoProduction`, `ProductionReleased`, `OrderProductionCancelled`.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
+## STAGE7-015A — Production Audit and History
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-007, STAGE7-010, STAGE7-011, STAGE7-013, STAGE7-014, STAGE7-015  
+**Module:** `tmp-production`
+
+### Goal
+
+Реализовать Production-owned immutable audit/history значимых бизнес-действий согласно Production Spec §22 и данные для истории заказа.
+
+### Required documents
+
+- Production Spec §22;
+- ADR-021 (immutable event history principle);
+- Security Specification — только граница: Security Audit ≠ Production business history owner.
+
+### Allowed code scope
+
+- Production-owned append-only history store/adapter;
+- platform primitives при сохранении Production ownership;
+- tests; control docs.
+
+### Forbidden
+
+- Security Audit as owner of Production business history;
+- Analytics capability;
+- cross-capability hidden storage without blocker;
+- Warehouse/OM internal writes.
+
+### Implementation requirements
+
+Обязательные события истории:
+
+- принятие заказа в производство;
+- проверка материалов;
+- создание перемещения из Production;
+- подтверждение получения;
+- выпуск;
+- plan/fact deviation;
+- отмена производства.
+
+History append-only / immutable. Фильтрация минимум по Order ID. Technical intermediate steps не засоряют историю.
+
+### Acceptance criteria
+
+- [ ] значимые действия фиксируются;
+- [ ] rollback не оставляет ложной успешной записи;
+- [ ] история фильтруется минимум по Order ID;
+- [ ] пользовательские technical intermediate steps не засоряют историю;
+- [ ] plan/fact deviation отражается в истории выпуска.
 
 ### Verification commands
 
@@ -10665,11 +10786,68 @@ mvn -pl :tmp-production -am test
 
 ---
 
+## STAGE7-016A — Production Public Query API
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-006, STAGE7-007, STAGE7-015A, STAGE7-016  
+**Module:** `tmp-production`
+
+### Goal
+
+Реализовать read-only Production-facing Public Query contract (Production Spec §18.1).
+
+### Required documents
+
+- Production Spec §18;
+- Security public authorization contract (`production.view`).
+
+### Allowed code scope
+
+- `com.tmp.production.api` read-only query interfaces + DTOs;
+- query application services;
+- contract/unit/integration tests;
+- control docs.
+
+### Forbidden
+
+- create/update/post/cancel methods;
+- persistence exposure in DTOs;
+- internal Warehouse/OM/Cutting implementation access;
+- stored order-level status as source of truth.
+
+### Implementation requirements
+
+Минимальные операции:
+
+- `getOrderProductionView(orderId)`;
+- `getItemProductionState(orderItemId)`;
+- `getMaterialAvailabilityResult(orderId)`;
+- `listProductionHistory(orderId)`.
+
+History читается из Production-owned history. Order-level status вычисляется.
+
+### Acceptance criteria
+
+- [ ] API read-only;
+- [ ] DTO не раскрывают persistence;
+- [ ] history из Production-owned store;
+- [ ] permission `production.view` через Security contract;
+- [ ] contract/unit/integration tests PASS.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+---
+
 ## STAGE7-017 — Production workbench UI
 
 **Status:** PLANNED  
 **Stage:** 7  
-**Depends on:** STAGE7-006, STAGE7-013, STAGE7-016  
+**Depends on:** STAGE7-011, STAGE7-013, STAGE7-014, STAGE7-016, STAGE7-016A  
 **Module:** `tmp-ui-shell`
 
 ### Goal
@@ -10693,7 +10871,13 @@ mvn -pl :tmp-production -am test
 
 ### Acceptance criteria
 
-- [ ] order-centric UX;
+- [ ] order-centric экран;
+- [ ] все 6 основных команд присутствуют: Принять в производство; Проверить наличие материалов; Создать перемещение материалов; Подтвердить получение; Выпустить изделия; Отменить производство заказа;
+- [ ] состояние кнопок определяется lifecycle + permissions;
+- [ ] UI не содержит business logic;
+- [ ] нет прямого доступа к repositories;
+- [ ] история заказа отображается через Production read contract;
+- [ ] Cutting Plan показывается как optional reference (Stage 8 не требуется);
 - [ ] mutating actions идут через application/documents.
 
 ### Verification commands
@@ -10708,12 +10892,12 @@ mvn -pl :tmp-ui-shell,:tmp-production -am test
 
 **Status:** PLANNED  
 **Stage:** 7  
-**Depends on:** STAGE7-013, STAGE7-011  
+**Depends on:** STAGE7-013, STAGE7-011, STAGE7-014  
 **Module:** `tmp-production`
 
 ### Goal
 
-Integration tests Launch/Transfer/Release+Consumption границ с публичными контрактами OM и Warehouse.
+Integration tests Launch/Transfer/Receipt/Release+Consumption границ с публичными контрактами OM и Warehouse, плюс boundary test whole-order Production Cancellation.
 
 ### Required documents
 
@@ -10731,7 +10915,11 @@ Integration tests Launch/Transfer/Release+Consumption границ с публи
 
 ### Acceptance criteria
 
+- [ ] Launch covered;
+- [ ] Transfer covered;
+- [ ] Receipt covered;
 - [ ] Release+Consumption atomicity covered at Production boundary;
+- [ ] whole-order Production Cancellation covered (not unit-only);
 - [ ] OM/Warehouse ownership preserved.
 
 ### Verification commands
@@ -10784,7 +10972,7 @@ mvn -pl :tmp-architecture-tests -am test
 
 **Status:** PLANNED  
 **Stage:** 7  
-**Depends on:** STAGE7-017, STAGE7-018, STAGE7-019  
+**Depends on:** STAGE7-014, STAGE7-015, STAGE7-015A, STAGE7-016A, STAGE7-017, STAGE7-018, STAGE7-019  
 **Module:** documentation
 
 ### Goal

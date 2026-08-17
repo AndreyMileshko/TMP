@@ -123,7 +123,7 @@ class WarehouseReceiptServiceIntegrationTest {
                                 "ALU-6060",
                                 "",
                                 "",
-                                "",
+                                "шт.",
                                 StockQuantity.of(new BigDecimal("12.500000")),
                                 warehouseId,
                                 cellId));
@@ -157,7 +157,9 @@ class WarehouseReceiptServiceIntegrationTest {
         catalog.insert(StorageCell.create(cellId, warehouseId, "R-02"));
 
         MaterialReference material =
-                materials.create(MaterialReference.legacyArticle("VEKA-103.211"));
+                materials.create(
+                        MaterialReference.create(
+                                "VEKA-103.211", "VEKA-103.211", "", "", "шт."));
         stockPositions.create(
                 StockPosition.of(
                         warehouseId,
@@ -172,7 +174,7 @@ class WarehouseReceiptServiceIntegrationTest {
                         "VEKA-103.211",
                         "",
                         "",
-                        "",
+                        "шт.",
                         StockQuantity.of(5L),
                         warehouseId,
                         cellId));

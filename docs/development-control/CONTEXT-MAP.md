@@ -253,6 +253,18 @@ Read only:
 
 Запрещено: реализация Stage 8; возврат Cutting Plan Revision; управление lifecycle Cutting Plan из Production.
 
+### `stage7-audit-history`
+
+Разрешено: Production Spec §22; ADR-021; Production-owned history store; platform primitives при сохранении Production ownership.
+
+Запрещено: Security Audit as Production business history owner; Analytics capability; cross-capability hidden storage.
+
+### `stage7-public-query-api`
+
+Разрешено: Production Spec §18; Security `production.view`; Production read DTOs/application services; related tests.
+
+Запрещено: mutating Public API; persistence exposure; internal Warehouse/OM/Cutting implementation access.
+
 ---
 
 # Stage 9 — Analytics Context

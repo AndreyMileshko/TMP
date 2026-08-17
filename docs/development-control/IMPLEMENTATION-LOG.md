@@ -4,6 +4,56 @@
 
 ---
 
+## STAGE7-000A — Restore Green Reactor Baseline
+
+**Date:** 2026-08-17  
+**Stage:** 7  
+**Status:** DONE  
+**Type:** Pre-implementation baseline / Warehouse test debt + queue hygiene (no Production implementation)
+
+### Summary
+
+Исправлен dependency graph Stage 7, добавлены задачи Audit/History и Public Query API, устранён известный Warehouse test debt (5 failing/error cases), восстановлен green `mvn test` baseline. Production implementation не начиналась.
+
+### Queue audit
+
+- STAGE7-009 → depends on STAGE7-007 + STAGE7-008
+- STAGE7-015 → depends on STAGE7-013 + STAGE7-014; events list clarified
+- STAGE7-015A added (Production Audit/History)
+- STAGE7-016A added (Production Public Query API)
+- STAGE7-017 → depends on STAGE7-011, STAGE7-013, STAGE7-014, STAGE7-016, STAGE7-016A; acceptance criteria expanded
+- STAGE7-018 → Production Cancellation boundary test required
+- STAGE7-020 → depends on STAGE7-014, STAGE7-015, STAGE7-015A, STAGE7-016A, STAGE7-017, STAGE7-018, STAGE7-019
+- STAGE7-008 persistence scope clarified (production Flyway only when needed)
+- STAGE7-001 → depends on STAGE7-000A
+
+### Warehouse test debt (test-only fixes)
+
+| Test | Root cause | Fix |
+|---|---|---|
+| `WarehouseSchemaFlywayTest` (2 failures + 1 error) | SQL used dropped column `material_reference`; schema now uses `material_reference_id` FK | Insert via `material_references` helper |
+| `WarehouseReceiptServiceIntegrationTest` (1 error) | Receipt missing required `unitOfMeasure` after V20 | Pass canonical UoM `шт.`; align pre-seeded material natural key |
+| `WarehouseApiIntegrationTest` (1 error) | `checkAvailability(materialCode)` uses legacy empty-UoM natural key; receipt creates UoM material | Split availability into dedicated test with `legacyArticle` setup |
+
+### Additional verify discovery (test-only, outside original 3-test list)
+
+- `JdbcMaterialReferenceDisplayReadAdapterIT` — fixture SQL out of sync with OM schema (`version`, column names); updated test inserts only.
+
+### Verification
+
+- `mvn -pl :tmp-warehouse -am test` — PASS
+- `mvn test` — PASS
+- `mvn verify` — FAIL (pre-existing SpotBugs: 4× NP in `WarehouseOperationEngine` production code; not introduced by this task; out of STAGE7-000A scope)
+
+### Unchanged
+
+- Start Gate PASSED; ADR-036 Accepted; atomicity blocker RESOLVED
+- No `tmp-production`; Stage 7 implementation 0%
+- STAGE7-001 = READY
+- Git not executed
+
+---
+
 ## STAGE7-000 — Stage 7 Start Gate / Release↔Consumption atomicity proof
 
 **Date:** 2026-08-17  

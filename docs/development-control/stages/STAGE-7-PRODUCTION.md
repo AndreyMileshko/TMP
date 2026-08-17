@@ -51,12 +51,14 @@ Atomicity evidence: outer shared ACID transaction; Document Engine REQUIRED join
 13. Warehouse Consumption integration (document-owned; atomicity ADR-036);
 14. whole-order Production Cancellation;
 15. documents + processors + domain events;
-16. persistence and migrations;
-17. Security permissions for business actions;
-18. simple Production workbench UI (order-centric);
-19. integration tests with Order Management + Warehouse;
-20. optional future Cutting contract without Stage 8 runtime dependency;
-21. final closure audit.
+16. Production audit/history (Production-owned, Spec §22);
+17. Production Public Query API (read-only, Spec §18);
+18. persistence and migrations;
+19. Security permissions for business actions;
+20. simple Production workbench UI (order-centric);
+21. integration tests with Order Management + Warehouse;
+22. optional future Cutting contract without Stage 8 runtime dependency;
+23. final closure audit.
 
 ## Explicitly out of scope (v1.0)
 
@@ -76,6 +78,7 @@ Atomicity evidence: outer shared ACID transaction; Document Engine REQUIRED join
 - Cutting Plan links support 0..N by material;
 - Order Management and Warehouse boundaries preserved (Query vs Document);
 - Release/Consumption atomicity proven (ADR-036) and implemented;
+- Production business history and Public Query API implemented (Spec §18, §22);
 - no MES; no Production Order; Cutting optional;
 - Constitution and Accepted ADR satisfied;
 - Stage 7 closure audit PASS.

@@ -21,6 +21,10 @@ import com.tmp.warehouse.application.WarehouseOperationEngine;
 import com.tmp.warehouse.application.WarehouseReceiptService;
 import com.tmp.warehouse.application.WarehouseReservationLinkService;
 import com.tmp.warehouse.application.WarehouseTransferService;
+import com.tmp.warehouse.domain.MaterialReference;
+import com.tmp.warehouse.domain.StockPosition;
+import com.tmp.warehouse.domain.StockQuantity;
+import com.tmp.warehouse.domain.StockState;
 import com.tmp.warehouse.domain.StorageCell;
 import com.tmp.warehouse.domain.StorageCellId;
 import com.tmp.warehouse.domain.Warehouse;
@@ -187,6 +191,23 @@ class WarehouseApiIntegrationTest {
         assertEquals(1, stock.size());
         assertEquals(StockStateView.AVAILABLE, stock.get(0).stockState());
         assertEquals(0, stock.get(0).quantity().compareTo(BigDecimal.valueOf(100)));
+    }
+
+    @Test
+    void checkAvailabilityThroughPublicApiUsesLegacyMaterialReferenceKey() {
+        WarehouseId warehouseId = WarehouseId.generate();
+        StorageCellId cellId = StorageCellId.generate();
+        catalog.insert(Warehouse.create(warehouseId, "WH-API-AVL", "Availability"));
+        catalog.insert(StorageCell.create(cellId, warehouseId, "AV-01"));
+
+        MaterialReference material = materials.create(MaterialReference.legacyArticle("ALU-6060"));
+        stockPositions.create(
+                StockPosition.of(
+                        warehouseId,
+                        cellId,
+                        material,
+                        StockState.AVAILABLE,
+                        StockQuantity.of(100L)));
 
         WarehouseApi.AvailabilityResult available =
                 api.checkAvailability("ALU-6060", BigDecimal.valueOf(40));
