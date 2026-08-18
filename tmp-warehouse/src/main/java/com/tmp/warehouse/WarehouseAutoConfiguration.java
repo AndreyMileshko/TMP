@@ -2,9 +2,11 @@ package com.tmp.warehouse;
 
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.warehouse.api.WarehouseApi;
+import com.tmp.warehouse.api.WarehouseCommandApi;
+import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tmp.warehouse.application.CodeOnlyMaterialReferenceDisplayPort;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
-import com.tmp.warehouse.application.port.MaterialReferenceDisplayPort;
+import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
 import com.tmp.warehouse.application.WarehouseConsumptionService;
 import com.tmp.warehouse.application.WarehouseInventoryService;
@@ -25,6 +27,8 @@ import com.tmp.warehouse.persistence.JdbcStockPositionRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseOperationRepository;
+import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
+import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseStockRepository;
 import com.tmp.warehouse.security.WarehouseCapability;
 import java.time.Clock;
@@ -123,9 +127,20 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
+    TransferOperationContextRepository transferOperationContextRepository(
+            JdbcTemplate jdbcTemplate) {
+        return new JdbcTransferOperationContextRepository(jdbcTemplate);
+    }
+
+    @Bean
     WarehouseTransferService warehouseTransferService(
-            WarehouseOperationEngine warehouseOperationEngine) {
-        return new WarehouseTransferService(warehouseOperationEngine);
+            WarehouseOperationEngine warehouseOperationEngine,
+            WarehouseOperationRepository warehouseOperationRepository,
+            TransferOperationContextRepository transferOperationContextRepository) {
+        return new WarehouseTransferService(
+                warehouseOperationEngine,
+                warehouseOperationRepository,
+                transferOperationContextRepository);
     }
 
     @Bean
@@ -157,7 +172,7 @@ public class WarehouseAutoConfiguration {
         return new WarehouseReservationLinkService(materialReservationLinkRepository, clock);
     }
 
-    @Bean
+    @Bean("warehouseMaterialDisplayFallback")
     CodeOnlyMaterialReferenceDisplayPort codeOnlyMaterialReferenceDisplayPort() {
         return new CodeOnlyMaterialReferenceDisplayPort();
     }
@@ -181,7 +196,9 @@ public class WarehouseAutoConfiguration {
             WarehouseMoveService warehouseMoveService,
             WarehouseTransferService warehouseTransferService,
             WarehouseConsumptionService warehouseConsumptionService,
-            WarehouseAdjustmentService warehouseAdjustmentService) {
+            WarehouseAdjustmentService warehouseAdjustmentService,
+            WarehouseOperationRepository warehouseOperationRepository,
+            TransferOperationContextRepository transferOperationContextRepository) {
         return new DefaultWarehouseApi(
                 authorizationService,
                 warehouseCatalogRepository,
@@ -193,7 +210,19 @@ public class WarehouseAutoConfiguration {
                 warehouseMoveService,
                 warehouseTransferService,
                 warehouseConsumptionService,
-                warehouseAdjustmentService);
+                warehouseAdjustmentService,
+                warehouseOperationRepository,
+                transferOperationContextRepository);
+    }
+
+    @Bean
+    WarehouseQueryApi warehouseQueryApi(WarehouseApi warehouseApi) {
+        return warehouseApi;
+    }
+
+    @Bean
+    WarehouseCommandApi warehouseCommandApi(WarehouseApi warehouseApi) {
+        return warehouseApi;
     }
 
     @Bean

@@ -58,7 +58,7 @@ class WarehouseTransferServiceTest {
                         movements,
                         new TransactionTemplate(new PassthroughTransactionManager()),
                         CLOCK);
-        transfers = new WarehouseTransferService(engine);
+        transfers = new WarehouseTransferService(engine, operations, new com.tmp.warehouse.testsupport.InMemoryTransferOperationContextRepository());
     }
 
     @Test

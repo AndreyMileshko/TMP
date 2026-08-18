@@ -32,6 +32,21 @@ class Stage6WarehouseArchitectureTest {
                                     + "no application/persistence/domain/security internals");
 
     @ArchTest
+    static final ArchRule externalModulesUseOnlyWarehousePublicApi =
+            noClasses()
+                    .that()
+                    .resideInAnyPackage("com.tmp.ui.shell..", "com.tmp.order..", "com.tmp.bootstrap..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.warehouse.application..",
+                            "com.tmp.warehouse.persistence..",
+                            "com.tmp.warehouse.domain..",
+                            "com.tmp.warehouse.security..")
+                    .because(
+                            "Cross-capability modules must use com.tmp.warehouse.api public contracts only");
+
+    @ArchTest
     static final ArchRule warehouseDomainHasNoJavaFx =
             noClasses()
                     .that()

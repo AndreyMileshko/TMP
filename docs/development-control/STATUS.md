@@ -4,11 +4,12 @@
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation NOT STARTED  
 **Current Stage:** Stage 7 - NOT STARTED / 0% (Start Gate PASSED)  
 **Current Task:** none  
-**Last completed task:** STAGE7-000A (Restore Green Reactor Baseline)  
+**Last completed task:** STAGE7-000B (Warehouse Production Integration Readiness)  
 **Active blockers:** NONE  
 **Stage 6 Warehouse:** DONE  
 **Stage 7 Production:** NOT STARTED / 0%  
 **Stage 7 Start Gate:** PASSED  
+**Full verify baseline:** GREEN  
 **First READY implementation task:** STAGE7-001
 
 
@@ -52,9 +53,11 @@ Stage 6 = DONE
 Stage 6 Warehouse = DONE
 STAGE7-000 = DONE (Start Gate; BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY RESOLVED)
 STAGE7-000A = DONE (Restore Green Reactor Baseline; Warehouse test debt)
+STAGE7-000B = DONE (Warehouse Production Integration Readiness)
 Active blockers = NONE
 Stage 7 Production = NOT STARTED / 0%
 Stage 7 Start Gate = PASSED
+Full verify baseline = GREEN
 First READY implementation task = STAGE7-001
 ```
 
@@ -79,97 +82,18 @@ First READY implementation task = STAGE7-001
 
 ## Stage 5 — Final Closure (2026-08-06)
 
-| Part | Status |
-|---|---|
-| Core Order Management (`STAGE5-001..050`) | DONE |
-| Order Intake Extension (`STAGE5-051..057`) | DONE |
-| Imported Order Lifecycle + Final STXT (`STAGE5-058`) | DONE |
-| STAGE5-058 Manual GUI Smoke | PASS |
-| Stage 5 overall | **DONE** |
+Stage 5 Order Management and Order Intake Extension complete. All STAGE5 tasks DONE.
 
-### Delivered functionality
+## Stage 6 — Final Closure (2026-08-09)
 
-- Order create / Item create / Revision management / Specification management / approve lifecycle
-- STXT import (multi-order, multi-item, specification per item)
-- Import → Document approve/activate → uniform `ACTIVE` (Order / Item / Revision / Specification)
-- No `ImportMetadata` / `sourceType` / `creationSource` / separate import lifecycle
-- ACTIVE read-only; changes only via Revision
-- Stage 6 = **NOT STARTED** (Warehouse / Production / Cutting / Analytics not started)
-
-**Далее:** Stage 6 implementation — только по явному решению пользователя после Start Gate. Git — только пользователь.
-
----
-
-## Stage 6 — Start Gate (2026-08-06)
-
-| Item | Status |
-|---|---|
-| ADR-032 Material Responsibility — No Separate Material Master | **Accepted** |
-| Warehouse Specification v1.3 | **Updated** |
-| Order Management Specification v1.8 (§28) | **Updated** |
-| Stage 6 Manifest | **Updated** |
-| Material Master | **Not created** (final decision) |
-| Stage 6 code | **DONE** (`STAGE6-001..020` + FINAL) |
-
-### Material Handling Decision (summary)
-
-- Нет отдельного Material Master.
-- Order Management: материалы в контексте ACTIVE Specification.
-- Warehouse: warehouse-owned Material Reference (article/name/color/size/unit); без Material Master.
-- Material Mapping: пользовательское сопоставление внешних наименований; не блокирует импорт; не Warehouse.
-- Production → Warehouse: Production создает потребность; Warehouse отвечает по наличию/резервированию.
-
-### Warehouse doc refresh (2026-08-06)
-
-- Warehouse spec упрощён до модели Stage 6 Start Gate (v1.3).
-- Batch / FIFO / FEFO / Supplier Batch исключены из Warehouse v1.0.
-- Reservation зафиксирован как информационная связь без изменения `Stock Position`.
-- Stage 6 implementation: foundation + domain + schema + Stock Position + Movement + Operation Engine + Receipt + Move + Transfer + Consumption + Adjustment/Inventory + informational Reservation Link + Public API + Security Integration + Warehouse UI DONE.
-
----
-
-## Stage 6 — Final Closure (2026-08-13)
-
-| Part | Status |
-|---|---|
-| Core Warehouse (`STAGE6-001..015`) | DONE |
-| UI + Security UX fix (`STAGE6-016`) | DONE |
-| Structure permissions fix (`STAGE6-017`) | DONE |
-| Material Reference (`STAGE6-019`) | DONE |
-| Unit Of Measure reference (`STAGE6-019 FIX`) | DONE |
-| Stock View zero filter (`STAGE6-020`) | DONE |
-| Warehouse Closure Audit (`STAGE6-FINAL`) | DONE |
-| Warehouse Final Verification | PASS |
-| Stage 6 Warehouse overall | **DONE** |
-
-### Delivered functionality
-
-- Warehouse / Storage Cell catalogue; Stock Position; immutable Warehouse Movement
-- Operations v1.0: Receipt, Move, Transfer (send/receive), Consumption, Adjustment, Inventory
-- Informational Reservation Link (no stock state change)
-- Warehouse-owned Material Reference + fixed Unit Of Measure list
-- Stock View with extended material fields; zero-quantity rows hidden
-- Public API; 16 Warehouse permissions; Warehouse Workbench UI
-- Security Roles UI integration for warehouse permissions
-
-### Manual verification scenarios (PASS)
-
-Create Warehouse, Create Storage Cell, Receipt (full material fields + UoM ComboBox), Move, Transfer Send, Transfer Receive, Consumption, Adjustment, Reservation Link, Security Roles, Stock View (no zero rows).
-
-**Далее:** Stage 7 Start Gate **PASSED**. Green reactor baseline restored (`STAGE7-000A`). Stage 7 = **NOT STARTED / 0%**. Active blockers = NONE. Первая implementation task `STAGE7-001` = READY. Git — только пользователь.
-
----
+Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 
 ## Stage 7 — Start Gate (2026-08-17)
 
-| Item | Status |
-|---|---|
-| `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` | **RESOLVED** |
-| ADR-036 Shared ACID Transaction | **Accepted** |
-| Document Engine Specification v1.2 | **Updated** |
-| Production Specification v2.2 §21 | **Updated** |
-| ADR-035 | Accepted, not superseded; atomicity → ADR-036 |
-| `DocumentEngineMultiDocumentTransactionIT` | **PASS** |
-| Stage 7 Start Gate | **PASSED** |
-| Stage 7 implementation | **NOT STARTED / 0%** |
-| Production production-code | **NONE** |
+- Start Gate PASSED (`STAGE7-000`).
+- ADR-036 Accepted (cross-capability atomicity).
+- `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` RESOLVED.
+- Pre-implementation baseline restored (`STAGE7-000A`): reactor `mvn test` GREEN; SpotBugs debt identified.
+- Warehouse integration readiness closed (`STAGE7-000B`): reactor `mvn verify` GREEN; `WarehouseQueryApi` / `WarehouseCommandApi` public boundaries ready for Production.
+- Production implementation NOT STARTED (0%).
+- Next task: **STAGE7-001** (Production module foundation) — READY.

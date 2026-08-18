@@ -3,8 +3,10 @@ package com.tmp.warehouse.application;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.warehouse.api.WarehouseApi;
-import com.tmp.warehouse.application.port.MaterialReferenceDisplay;
-import com.tmp.warehouse.application.port.MaterialReferenceDisplayPort;
+import com.tmp.warehouse.api.WarehouseCommandApi;
+import com.tmp.warehouse.api.WarehouseQueryApi;
+import com.tmp.warehouse.api.MaterialReferenceDisplay;
+import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
 import com.tmp.warehouse.domain.MaterialReservationLink;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.MaterialReferenceId;
@@ -21,7 +23,11 @@ import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseOperation;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
+import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
+import com.tmp.warehouse.domain.WarehouseOperationStatus;
+import com.tmp.warehouse.domain.WarehouseOperationType;
+import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import com.tmp.warehouse.security.WarehousePermissions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
@@ -53,6 +59,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     private final WarehouseTransferService transfers;
     private final WarehouseConsumptionService consumptions;
     private final WarehouseAdjustmentService adjustments;
+    private final WarehouseOperationRepository operations;
+    private final TransferOperationContextRepository transferContexts;
 
     public DefaultWarehouseApi(
             AuthorizationService authorization,
@@ -65,7 +73,9 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             WarehouseMoveService moves,
             WarehouseTransferService transfers,
             WarehouseConsumptionService consumptions,
-            WarehouseAdjustmentService adjustments) {
+            WarehouseAdjustmentService adjustments,
+            WarehouseOperationRepository operations,
+            TransferOperationContextRepository transferContexts) {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.warehouses = Objects.requireNonNull(warehouses, "warehouses");
         this.stockPositions = Objects.requireNonNull(stockPositions, "stockPositions");
@@ -77,6 +87,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         this.transfers = Objects.requireNonNull(transfers, "transfers");
         this.consumptions = Objects.requireNonNull(consumptions, "consumptions");
         this.adjustments = Objects.requireNonNull(adjustments, "adjustments");
+        this.operations = Objects.requireNonNull(operations, "operations");
+        this.transferContexts = Objects.requireNonNull(transferContexts, "transferContexts");
     }
 
     @Override
@@ -194,7 +206,46 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     }
 
     @Override
-    public AvailabilityResult checkAvailability(String materialCode, BigDecimal quantity) {
+    public List<StockView> getStockByMaterialReferenceId(UUID materialReferenceId) {
+        Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        MaterialReference material = requireMaterial(materialReferenceId);
+        return toPositiveQuantityStockViews(stockPositions.findByMaterial(material));
+    }
+
+    @Override
+    public AvailabilityResult checkAvailability(MaterialIdentityRequest identity, BigDecimal quantity) {
+        Objects.requireNonNull(identity, "identity");
+        MaterialReference material = requireMaterialByIdentity(identity);
+        return availabilityForMaterial(material, null, quantity);
+    }
+
+    @Override
+    public AvailabilityResult checkAvailability(
+            MaterialIdentityRequest identity, UUID warehouseId, BigDecimal quantity) {
+        Objects.requireNonNull(identity, "identity");
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        MaterialReference material = requireMaterialByIdentity(identity);
+        return availabilityForMaterial(material, WarehouseId.of(warehouseId), quantity);
+    }
+
+    @Override
+    public AvailabilityResult checkAvailability(UUID materialReferenceId, BigDecimal quantity) {
+        MaterialReference material = requireMaterial(materialReferenceId);
+        return availabilityForMaterial(material, null, quantity);
+    }
+
+    @Override
+    public AvailabilityResult checkAvailability(
+            UUID materialReferenceId, UUID warehouseId, BigDecimal quantity) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        MaterialReference material = requireMaterial(materialReferenceId);
+        return availabilityForMaterial(material, WarehouseId.of(warehouseId), quantity);
+    }
+
+    @Override
+    public AvailabilityResult checkAvailabilityByLegacyArticle(
+            String materialCode, BigDecimal quantity) {
         Objects.requireNonNull(materialCode, "materialCode");
         Objects.requireNonNull(quantity, "quantity");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
@@ -209,9 +260,131 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                                 () ->
                                         new IllegalArgumentException(
                                                 "Material reference not found: " + materialCode));
+        return availabilityForMaterial(material, null, quantity);
+    }
+
+    @Override
+    public TransferStatusView getTransferStatus(UUID operationId) {
+        Objects.requireNonNull(operationId, "operationId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        WarehouseOperation operation =
+                operations
+                        .findById(com.tmp.warehouse.domain.WarehouseOperationId.of(operationId))
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Warehouse operation not found: " + operationId));
+        if (operation.type() != WarehouseOperationType.TRANSFER_SEND
+                && operation.type() != WarehouseOperationType.TRANSFER_RECEIVE) {
+            throw new IllegalArgumentException(
+                    "Not a transfer operation: " + operationId + ", type=" + operation.type());
+        }
+        var context = transferContexts.findByOperationId(operation.id());
+        return new TransferStatusView(
+                operation.id().value(),
+                OperationKind.valueOf(operation.type().name()),
+                operation.status().name(),
+                operation.material().id().value(),
+                operation.quantity().value(),
+                operation.warehouseId().value(),
+                operation.storageCellId().value(),
+                context.map(ctx -> ctx.destinationWarehouseId().value()).orElse(null),
+                context.map(ctx -> ctx.destinationStorageCellId().value()).orElse(null));
+    }
+
+    @Override
+    public OperationResult receive(ReceiptCommand command) {
+        Objects.requireNonNull(command, "command");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_RECEIPT);
+        WarehouseOperation completed =
+                receipts.receive(
+                        new ReceiptRequest(
+                                command.article(),
+                                command.name(),
+                                normalize(command.color()),
+                                normalize(command.size()),
+                                normalize(command.unitOfMeasure()),
+                                StockQuantity.of(command.quantity()),
+                                WarehouseId.of(command.warehouseId()),
+                                StorageCellId.of(command.storageCellId())));
+        return toOperationResult(OperationKind.RECEIPT, completed);
+    }
+
+    @Override
+    public OperationResult consume(ConsumptionCommand command) {
+        Objects.requireNonNull(command, "command");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_CONSUMPTION);
+        WarehouseOperation completed =
+                consumptions.consume(
+                        new ConsumptionRequest(
+                                requireMaterial(command.materialReferenceId()),
+                                StockQuantity.of(command.quantity()),
+                                WarehouseId.of(command.warehouseId()),
+                                StorageCellId.of(command.storageCellId())));
+        return toOperationResult(OperationKind.CONSUMPTION, completed);
+    }
+
+    @Override
+    public TransferRequestView createTransferDraft(CreateTransferDraftCommand command) {
+        Objects.requireNonNull(command, "command");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
+        WarehouseOperation draft =
+                transfers.createDraft(
+                        new WarehouseTransferService.TransferDraftRequest(
+                                requireMaterial(command.materialReferenceId()),
+                                StockQuantity.of(command.quantity()),
+                                WarehouseId.of(command.sourceWarehouseId()),
+                                StorageCellId.of(command.sourceStorageCellId()),
+                                WarehouseId.of(command.destinationWarehouseId()),
+                                StorageCellId.of(command.destinationStorageCellId())));
+        return new TransferRequestView(
+                draft.id().value(),
+                draft.status().name(),
+                draft.material().id().value(),
+                draft.quantity().value(),
+                draft.warehouseId().value(),
+                draft.storageCellId().value(),
+                command.destinationWarehouseId(),
+                command.destinationStorageCellId());
+    }
+
+    @Override
+    public OperationResult sendTransfer(UUID transferDraftOperationId) {
+        Objects.requireNonNull(transferDraftOperationId, "transferDraftOperationId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
+        WarehouseOperation completed =
+                transfers.sendDraft(
+                        com.tmp.warehouse.domain.WarehouseOperationId.of(
+                                transferDraftOperationId));
+        return toOperationResult(OperationKind.TRANSFER_SEND, completed);
+    }
+
+    @Override
+    public OperationResult receiveTransfer(UUID sendOperationId) {
+        Objects.requireNonNull(sendOperationId, "sendOperationId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
+        WarehouseOperation completed =
+                transfers.receiveFromSend(
+                        com.tmp.warehouse.domain.WarehouseOperationId.of(sendOperationId));
+        return toOperationResult(OperationKind.TRANSFER_RECEIVE, completed);
+    }
+
+    private AvailabilityResult availabilityForMaterial(
+            MaterialReference material, WarehouseId warehouseScope, BigDecimal quantity) {
+        Objects.requireNonNull(material, "material");
+        Objects.requireNonNull(quantity, "quantity");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        if (quantity.signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "Requested quantity must be positive: " + quantity);
+        }
         BigDecimal available =
                 stockPositions.findByMaterial(material).stream()
                         .filter(position -> position.stockState() == StockState.AVAILABLE)
+                        .filter(
+                                position ->
+                                        warehouseScope == null
+                                                || position.warehouseId().equals(warehouseScope))
                         .map(position -> position.quantity().value())
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
         AvailabilityStatus status =
@@ -219,6 +392,20 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                         ? AvailabilityStatus.AVAILABLE
                         : AvailabilityStatus.INSUFFICIENT;
         return new AvailabilityResult(status, material.article(), quantity, available);
+    }
+
+    private MaterialReference requireMaterialByIdentity(MaterialIdentityRequest identity) {
+        return materials
+                .findByNaturalKey(
+                        identity.article(),
+                        identity.color(),
+                        identity.size(),
+                        identity.unitOfMeasure())
+                .orElseThrow(
+                        () ->
+                                new IllegalArgumentException(
+                                        "Material reference not found for identity: "
+                                                + identity.article()));
     }
 
     @Override

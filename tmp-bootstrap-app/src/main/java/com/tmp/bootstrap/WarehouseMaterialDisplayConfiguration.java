@@ -2,9 +2,9 @@ package com.tmp.bootstrap;
 
 import com.tmp.order.api.MaterialReferenceDisplayDto;
 import com.tmp.order.api.MaterialReferenceDisplayQuery;
-import com.tmp.warehouse.application.CodeOnlyMaterialReferenceDisplayPort;
-import com.tmp.warehouse.application.port.MaterialReferenceDisplay;
-import com.tmp.warehouse.application.port.MaterialReferenceDisplayPort;
+import com.tmp.warehouse.api.MaterialReferenceDisplay;
+import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,7 +21,8 @@ public class WarehouseMaterialDisplayConfiguration {
     @ConditionalOnBean(MaterialReferenceDisplayQuery.class)
     MaterialReferenceDisplayPort specificationBackedMaterialReferenceDisplayPort(
             MaterialReferenceDisplayQuery displayQuery,
-            CodeOnlyMaterialReferenceDisplayPort fallback) {
+            @Qualifier("warehouseMaterialDisplayFallback")
+                    MaterialReferenceDisplayPort fallback) {
         return materialCode ->
                 displayQuery.findByMaterialCode(materialCode)
                         .map(WarehouseMaterialDisplayConfiguration::toDisplay)

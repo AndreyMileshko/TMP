@@ -1,4 +1,4 @@
-package com.tmp.warehouse.application.port;
+package com.tmp.warehouse.api;
 
 import java.util.Objects;
 

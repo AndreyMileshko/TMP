@@ -4,6 +4,59 @@
 
 ---
 
+## STAGE7-000B — Warehouse Production Integration Readiness
+
+**Date:** 2026-08-17  
+**Stage:** 7  
+**Status:** DONE  
+**Type:** Pre-implementation corrective / Stage 6 integration readiness (no Production module)
+
+### Summary
+
+Закрыты оставшиеся Warehouse readiness defects перед STAGE7-001: green full reactor verify, явные public Query/Command boundaries, exact MaterialReference availability, Transfer draft lifecycle, Consumption command boundary для ADR-036.
+
+### SpotBugs (`WarehouseOperationEngine`)
+
+| Bug | Method | Fix |
+|---|---|---|
+| NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE | execute, transferSend, transferReceive, move | `requireTransactionResult()` helper throws `InvalidWarehouseStateException` when `TransactionTemplate.execute()` returns null |
+
+Suppression used: **NO**.
+
+### Public API boundaries
+
+- **Query:** `com.tmp.warehouse.api.WarehouseQueryApi` — read-only (stock, availability, transfer status).
+- **Command:** `com.tmp.warehouse.api.WarehouseCommandApi` — receive, consume, transfer draft/send/receive, catalogue/reservation commands.
+- **UI aggregate:** `WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi`.
+- **Display port moved to API:** `MaterialReferenceDisplayPort`, `MaterialReferenceDisplay` in `com.tmp.warehouse.api`.
+
+### Transfer draft lifecycle
+
+- `createTransferDraft` → DRAFT (no stock mutation);
+- `sendTransfer` → AVAILABLE → IN_TRANSIT;
+- `receiveTransfer` → IN_TRANSIT → AVAILABLE at destination;
+- Flyway V21 `warehouse_transfer_operation_context`.
+
+### Material identity / availability
+
+- Primary: `materialReferenceId` or `MaterialIdentityRequest` (article+color+size+unitOfMeasure).
+- Legacy: `checkAvailabilityByLegacyArticle` for empty-variant migrated rows only.
+- Integration tests: receipt→availability, variant isolation, warehouse split, legacy separation.
+
+### Architecture / bootstrap
+
+- `Stage6WarehouseArchitectureTest.externalModulesUseOnlyWarehousePublicApi`.
+- `WarehouseMaterialDisplayConfiguration` uses `@Qualifier("warehouseMaterialDisplayFallback") MaterialReferenceDisplayPort`.
+- `PlatformCoreIntegrationIT` capability count updated (6 incl. Warehouse).
+
+### Boundaries
+
+- No `tmp-production` module.
+- No Production domain/documents/persistence/UI.
+- Git not executed.
+
+---
+
 ## STAGE7-000A — Restore Green Reactor Baseline
 
 **Date:** 2026-08-17  

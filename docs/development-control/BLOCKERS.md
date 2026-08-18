@@ -39,6 +39,37 @@ None — resolved.
 
 ---
 
+### `BLK-STAGE7-WAREHOUSE-INTEGRATION-READINESS` — Warehouse public contracts and verify baseline before Production
+
+**Status:** RESOLVED  
+**Detected:** 2026-08-17  
+**Resolved:** 2026-08-17  
+**Stage:** 7 Production (pre-implementation)  
+**Task:** STAGE7-000B  
+**Related:** Warehouse Specification v1.6; Production Specification v2.2 §11, §13–§15; ADR-036
+
+### Reason
+
+Before first Production implementation task:
+
+1. full reactor `mvn verify` failed (4× SpotBugs NP in `WarehouseOperationEngine`);
+2. actual Warehouse API mixed read and write without explicit Query/Command boundary;
+3. MaterialReference availability identity and Transfer draft lifecycle required verification for Stage 7.
+
+### Resolution
+
+- SpotBugs NP fixed via explicit transaction-result null guard (no suppressions).
+- Split public surface: `WarehouseQueryApi` (read-only) + `WarehouseCommandApi` (mutating).
+- Exact availability via `materialReferenceId` / `MaterialIdentityRequest`; legacy article path isolated.
+- Transfer draft → send → receive lifecycle; draft does not mutate stock.
+- `WarehouseCommandApi.consume` joins outer transaction (ADR-036) — integration test added.
+- ArchUnit rule: cross-capability modules must not import Warehouse internals.
+- Full reactor `mvn verify` PASS.
+
+`STAGE7-001` unblocked (READY). Atomicity blocker remains RESOLVED (not reopened).
+
+---
+
 ### `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` — Cross-capability atomicity for Production Release + Warehouse Consumption
 
 **Status:** RESOLVED  

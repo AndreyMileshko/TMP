@@ -1,4 +1,4 @@
-package com.tmp.warehouse.application.port;
+package com.tmp.warehouse.api;
 
 /**
  * Resolves extended MaterialReference display information for Warehouse reads.

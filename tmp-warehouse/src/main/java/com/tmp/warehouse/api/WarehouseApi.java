@@ -7,102 +7,125 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Minimal Public API of Warehouse for inter-Capability interaction (Specification §17).
+ * Combined Warehouse public surface for Stage 6 UI bootstrap.
  *
- * <p>Exposes stock reads, availability checks, informational reservation links, and Warehouse
- * Operation execution. Does not expose domain aggregates, persistence entities, Stock Position
- * mutation, or direct Movement creation.
+ * <p>Cross-capability integration must depend on {@link WarehouseQueryApi} and {@link
+ * WarehouseCommandApi} separately rather than this aggregate.
  */
-public interface WarehouseApi {
+public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
 
-    /**
-     * Returns all warehouses (code, name, active).
-     *
-     * @return warehouse views ordered by code; empty when none
-     */
-    List<WarehouseView> listWarehouses();
+    /** Normalized material identity for exact availability queries. */
+    record MaterialIdentityRequest(String article, String color, String size, String unitOfMeasure) {
 
-    /**
-     * Creates a warehouse in the catalogue.
-     *
-     * @param command code, name, active flag
-     * @return created warehouse view
-     */
-    WarehouseView createWarehouse(CreateWarehouseCommand command);
+        public MaterialIdentityRequest {
+            java.util.Objects.requireNonNull(article, "article");
+            color = color == null ? "" : color.trim();
+            size = size == null ? "" : size.trim();
+            unitOfMeasure = unitOfMeasure == null ? "" : unitOfMeasure.trim();
+        }
 
-    /**
-     * Returns storage cells for a warehouse ordered by code.
-     */
-    List<StorageCellView> listStorageCells(UUID warehouseId);
+        public static MaterialIdentityRequest of(
+                String article, String color, String size, String unitOfMeasure) {
+            return new MaterialIdentityRequest(article, color, size, unitOfMeasure);
+        }
+    }
 
-    /**
-     * Creates a storage cell in the catalogue for an existing warehouse.
-     */
-    StorageCellView createStorageCell(CreateStorageCellCommand command);
+    record ReceiptCommand(
+            String article,
+            String name,
+            String color,
+            String size,
+            String unitOfMeasure,
+            java.math.BigDecimal quantity,
+            UUID warehouseId,
+            UUID storageCellId) {
 
-    /**
-     * Returns warehouse-owned material references for selection in operations.
-     */
-    List<MaterialReferenceView> listMaterialReferences();
+        public ReceiptCommand {
+            java.util.Objects.requireNonNull(article, "article");
+            java.util.Objects.requireNonNull(name, "name");
+            java.util.Objects.requireNonNull(quantity, "quantity");
+            java.util.Objects.requireNonNull(warehouseId, "warehouseId");
+            java.util.Objects.requireNonNull(storageCellId, "storageCellId");
+        }
+    }
 
-    /**
-     * Returns fixed warehouse unit-of-measure codes for Receipt ComboBox selection.
-     *
-     * <p>Canonical codes only (e.g. {@code шт.}, {@code м.}). No conversion between units.
-     */
-    List<String> listUnitOfMeasures();
+    record ConsumptionCommand(
+            UUID materialReferenceId,
+            java.math.BigDecimal quantity,
+            UUID warehouseId,
+            UUID storageCellId) {
 
-    /**
-     * Returns current stock positions for the given material article (any color/size/unit variant).
-     *
-     * <p>Zero-quantity positions are excluded from the view (including {@code IN_TRANSIT = 0}).
-     * Physical Stock Position rows are not deleted.
-     *
-     * @param materialCode material reference from Specification context
-     * @return stock views with {@code quantity > 0}; empty when none
-     */
-    List<StockView> getStock(String materialCode);
+        public ConsumptionCommand {
+            java.util.Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            java.util.Objects.requireNonNull(quantity, "quantity");
+            java.util.Objects.requireNonNull(warehouseId, "warehouseId");
+            java.util.Objects.requireNonNull(storageCellId, "storageCellId");
+        }
+    }
 
-    /**
-     * Returns stock for material filtered by warehouse and storage cell (Specification §17).
-     *
-     * <p>Zero-quantity positions are excluded from the view.
-     */
-    List<StockView> getStock(String materialCode, UUID warehouseId, UUID storageCellId);
+    record CreateTransferDraftCommand(
+            UUID materialReferenceId,
+            java.math.BigDecimal quantity,
+            UUID sourceWarehouseId,
+            UUID sourceStorageCellId,
+            UUID destinationWarehouseId,
+            UUID destinationStorageCellId) {
 
-    /**
-     * Returns stock positions for a warehouse with {@code quantity > 0}.
-     *
-     * <p>Zero-quantity positions (any state) are hidden from the Stock View only.
-     */
-    List<StockView> getStockByWarehouse(UUID warehouseId);
+        public CreateTransferDraftCommand {
+            java.util.Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            java.util.Objects.requireNonNull(quantity, "quantity");
+            java.util.Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+            java.util.Objects.requireNonNull(sourceStorageCellId, "sourceStorageCellId");
+            java.util.Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+            java.util.Objects.requireNonNull(destinationStorageCellId, "destinationStorageCellId");
+        }
+    }
 
-    /**
-     * Resolves extended MaterialReference display information for Warehouse UI and operations.
-     *
-     * <p>Does not create or mutate material master data.
-     */
-    MaterialReferenceDisplayView getMaterialReferenceDisplay(String materialCode);
+    record TransferRequestView(
+            UUID operationId,
+            String status,
+            UUID materialReferenceId,
+            java.math.BigDecimal quantity,
+            UUID sourceWarehouseId,
+            UUID sourceStorageCellId,
+            UUID destinationWarehouseId,
+            UUID destinationStorageCellId) {
 
-    /**
-     * Checks whether AVAILABLE stock for the material covers the requested quantity.
-     */
-    AvailabilityResult checkAvailability(String materialCode, BigDecimal quantity);
+        public TransferRequestView {
+            java.util.Objects.requireNonNull(operationId, "operationId");
+            java.util.Objects.requireNonNull(status, "status");
+            java.util.Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            java.util.Objects.requireNonNull(quantity, "quantity");
+            java.util.Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+            java.util.Objects.requireNonNull(sourceStorageCellId, "sourceStorageCellId");
+            java.util.Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+            java.util.Objects.requireNonNull(destinationStorageCellId, "destinationStorageCellId");
+        }
+    }
 
-    /**
-     * Creates an informational reservation link. Does not change Stock Position or Movement.
-     */
-    ReservationLinkView createReservationLink(CreateReservationLinkCommand command);
+    record TransferStatusView(
+            UUID operationId,
+            OperationKind kind,
+            String status,
+            UUID materialReferenceId,
+            java.math.BigDecimal quantity,
+            UUID warehouseId,
+            UUID storageCellId,
+            UUID destinationWarehouseId,
+            UUID destinationStorageCellId) {
 
-    /**
-     * Returns informational reservation links for a material reference.
-     */
-    List<ReservationLinkView> listReservationLinks(String materialCode);
+        public TransferStatusView {
+            java.util.Objects.requireNonNull(operationId, "operationId");
+            java.util.Objects.requireNonNull(kind, "kind");
+            java.util.Objects.requireNonNull(status, "status");
+        }
+    }
 
-    /**
-     * Executes a Warehouse Operation (Receipt / Move / Transfer / Consumption / Adjustment).
-     */
-    OperationResult executeWarehouseOperation(ExecuteOperationCommand command);
+    /** @deprecated Use {@link WarehouseQueryApi#checkAvailabilityByLegacyArticle} */
+    @Deprecated
+    default AvailabilityResult checkAvailability(String materialCode, java.math.BigDecimal quantity) {
+        return checkAvailabilityByLegacyArticle(materialCode, quantity);
+    }
 
     /** Public warehouse catalogue snapshot. */
     record WarehouseView(UUID warehouseId, String code, String name, boolean active) {

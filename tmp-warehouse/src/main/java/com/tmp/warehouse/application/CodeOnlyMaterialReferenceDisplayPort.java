@@ -1,7 +1,7 @@
 package com.tmp.warehouse.application;
 
-import com.tmp.warehouse.application.port.MaterialReferenceDisplay;
-import com.tmp.warehouse.application.port.MaterialReferenceDisplayPort;
+import com.tmp.warehouse.api.MaterialReferenceDisplay;
+import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
 import com.tmp.warehouse.domain.MaterialReference;
 import java.util.Objects;
 import java.util.Set;

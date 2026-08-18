@@ -57,6 +57,8 @@ class WarehouseSecurityAuthorizationTest {
 
     private InMemoryMaterialReferenceRepository materials;
     private InMemoryStockPositionRepository stockPositions;
+    private InMemoryOperationRepository operations;
+    private com.tmp.warehouse.testsupport.InMemoryTransferOperationContextRepository transferContexts;
     private WarehouseOperationEngine engine;
     private WarehouseReservationLinkService reservationLinks;
     private WarehouseReceiptService receipts;
@@ -69,7 +71,8 @@ class WarehouseSecurityAuthorizationTest {
     void setUp() {
         materials = new InMemoryMaterialReferenceRepository();
         stockPositions = new InMemoryStockPositionRepository();
-        InMemoryOperationRepository operations = new InMemoryOperationRepository();
+        operations = new InMemoryOperationRepository();
+        transferContexts = new com.tmp.warehouse.testsupport.InMemoryTransferOperationContextRepository();
         InMemoryMovementRepository movements = new InMemoryMovementRepository();
         engine =
                 new WarehouseOperationEngine(
@@ -82,7 +85,7 @@ class WarehouseSecurityAuthorizationTest {
                 new WarehouseReservationLinkService(new InMemoryReservationLinkRepository(), CLOCK);
         receipts = new WarehouseReceiptService(engine, stockPositions, materials);
         moves = new WarehouseMoveService(engine);
-        transfers = new WarehouseTransferService(engine);
+        transfers = new WarehouseTransferService(engine, operations, transferContexts);
         consumptions = new WarehouseConsumptionService(engine, stockPositions);
         adjustments = new WarehouseAdjustmentService(engine, stockPositions);
     }
@@ -96,14 +99,14 @@ class WarehouseSecurityAuthorizationTest {
         assertThrows(AccessDeniedException.class, () -> denied.getStock("ALU-6060"));
         assertThrows(
                 AccessDeniedException.class,
-                () -> denied.checkAvailability("ALU-6060", BigDecimal.ONE));
+                () -> denied.checkAvailabilityByLegacyArticle("ALU-6060", BigDecimal.ONE));
         assertThrows(AccessDeniedException.class, () -> denied.listWarehouses());
         assertThrows(
                 AccessDeniedException.class,
                 () -> denied.getStockByWarehouse(UUID.randomUUID()));
 
         assertDoesNotThrow(() -> allowed.getStock("ALU-6060"));
-        assertDoesNotThrow(() -> allowed.checkAvailability("ALU-6060", BigDecimal.ONE));
+        assertDoesNotThrow(() -> allowed.checkAvailabilityByLegacyArticle("ALU-6060", BigDecimal.ONE));
         assertDoesNotThrow(() -> allowed.listWarehouses());
         assertDoesNotThrow(() -> allowed.getStockByWarehouse(UUID.randomUUID()));
     }
@@ -325,7 +328,9 @@ class WarehouseSecurityAuthorizationTest {
                 moves,
                 transfers,
                 consumptions,
-                adjustments);
+                adjustments,
+                operations,
+                transferContexts);
     }
 
     private static final class EmptyWarehouseCatalog

@@ -10084,11 +10084,82 @@ mvn verify
 
 ---
 
+## STAGE7-000B — Warehouse Production Integration Readiness
+
+**Status:** DONE  
+**Stage:** 7  
+**Depends on:** STAGE7-000A  
+**Type:** pre-implementation corrective / Stage 6 integration readiness  
+**Module:** `tmp-warehouse`, `tmp-architecture-tests`, `tmp-bootstrap-app` (bootstrap wiring only), `tmp-ui-shell` (test fakes only)
+
+### Goal
+
+Закрыть оставшиеся Warehouse readiness defects перед первой Production implementation task: green reactor `mvn verify`, фактические public Query/Command boundaries, exact MaterialReference availability, Transfer draft lifecycle, Consumption command boundary для ADR-036.
+
+### Required documents
+
+- Warehouse Specification v1.6;
+- Production Specification v2.2 §11, §13–§15, §21;
+- TMP Constitution (capability ownership; Public Query API; document-driven mutation; atomicity);
+- ADR-003, ADR-004, ADR-019, ADR-035, ADR-036.
+
+### Required code context
+
+- `com.tmp.warehouse.api.WarehouseQueryApi`;
+- `com.tmp.warehouse.api.WarehouseCommandApi`;
+- `com.tmp.warehouse.api.WarehouseApi` (Stage 6 UI aggregate only);
+- `DefaultWarehouseApi`, `WarehouseOperationEngine`, `WarehouseTransferService`, `WarehouseConsumptionService`;
+- `MaterialReference`, `MaterialReferenceRepository`, `StockPositionRepository`;
+- existing Warehouse API/integration tests.
+
+### Allowed code scope
+
+- `tmp-warehouse/**` (public API split, SpotBugs fix, transfer draft, tests);
+- `tmp-architecture-tests/**` (Warehouse boundary ArchUnit);
+- `tmp-bootstrap-app/**` (MaterialReferenceDisplayPort wiring via public API only);
+- `tmp-ui-shell/src/test/**` (WarehouseApi test fakes);
+- control docs.
+
+### Forbidden
+
+- `tmp-production` creation;
+- Production domain/documents/persistence/UI;
+- Stage 8;
+- изменение Production Specification;
+- изменение ADR-033…036;
+- Git.
+
+### Acceptance criteria
+
+- [x] 4 SpotBugs NP в `WarehouseOperationEngine` устранены без suppressions;
+- [x] `mvn verify` PASS (full reactor);
+- [x] `WarehouseQueryApi` read-only; mutating operations в `WarehouseCommandApi`;
+- [x] Stage 6 UI работает через `WarehouseApi`;
+- [x] availability по `materialReferenceId` / `MaterialIdentityRequest`;
+- [x] variant isolation + legacy path separation;
+- [x] Transfer: create draft → send → receive; draft не меняет stock;
+- [x] Consumption через `WarehouseCommandApi.consume`; outer TX join проверен;
+- [x] ArchUnit запрещает cross-capability imports Warehouse internals;
+- [x] `BLK-STAGE7-WAREHOUSE-INTEGRATION-READINESS` RESOLVED;
+- [x] STAGE7-001 = READY.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-warehouse -am test
+mvn -pl :tmp-warehouse -am verify
+mvn -pl :tmp-architecture-tests -am test
+mvn test
+mvn verify
+```
+
+---
+
 ## STAGE7-001 — Production module foundation
 
 **Status:** READY  
 **Stage:** 7  
-**Depends on:** STAGE7-000A  
+**Depends on:** STAGE7-000B  
 **Module:** `tmp-production` (new)
 
 ### Goal
@@ -10349,14 +10420,20 @@ mvn -pl :tmp-production -am test
 - Production Spec v2.2 material availability;
 - Warehouse Spec Public Query only.
 
+### Required code context
+
+- `com.tmp.warehouse.api.WarehouseQueryApi` (`checkAvailability`, `checkAvailabilityByLegacyArticle`, `getStockByMaterialReferenceId`);
+- `WarehouseApi.MaterialIdentityRequest`.
+
 ### Allowed code scope
 
-- Production application using Warehouse Query API;
+- Production application using `WarehouseQueryApi` only;
 - tests; control docs.
 
 ### Forbidden
 
-- Warehouse document commands; stock mutation; Warehouse internals.
+- `WarehouseCommandApi`; Warehouse document commands; stock mutation;
+- imports `com.tmp.warehouse.application..`, `domain..`, `persistence..`, `security..`.
 
 ### Acceptance criteria
 
@@ -10468,13 +10545,19 @@ mvn -pl :tmp-production -am test
 - Production Spec transfer/receive;
 - Warehouse Application/Document command contracts.
 
+### Required code context
+
+- `com.tmp.warehouse.api.WarehouseCommandApi` (`createTransferDraft`, `sendTransfer`, `receiveTransfer`, `getTransferStatus` via `WarehouseQueryApi`);
+- Production Spec transfer/receive workflow.
+
 ### Allowed code scope
 
-- Production orchestrator calling Warehouse public application/document commands;
+- Production orchestrator calling `WarehouseCommandApi` / `WarehouseQueryApi`;
 - tests; control docs.
 
 ### Forbidden
 
+- `WarehouseTransferService`, `WarehouseOperationEngine`, repositories;
 - Warehouse table access; rewriting Warehouse Operation Engine.
 
 ### Acceptance criteria
@@ -10505,9 +10588,14 @@ mvn -pl :tmp-production -am test
 
 - Production Spec receipt confirmation; ADR-035.
 
+### Required code context
+
+- `com.tmp.warehouse.api.WarehouseCommandApi.receiveTransfer`;
+- `com.tmp.warehouse.api.WarehouseQueryApi.getTransferStatus`.
+
 ### Allowed code scope
 
-- Production application initiation of Warehouse receive command;
+- Production application initiation of `WarehouseCommandApi.receiveTransfer`;
 - tests; control docs.
 
 ### Forbidden
@@ -10582,14 +10670,21 @@ Application-level use case проводит Warehouse Consumption и Production 
 - Document Engine Spec v1.2;
 - Warehouse Application/Document Consumption command contract only.
 
+### Required code context
+
+- `com.tmp.warehouse.api.WarehouseCommandApi.consume`;
+- Document Engine public API;
+- outer application transaction (ADR-036).
+
 ### Allowed code scope
 
-- Production application orchestrator;
+- Production application orchestrator calling `WarehouseCommandApi.consume` inside outer TX;
 - integration tests of the orchestration boundary;
 - control docs.
 
 ### Forbidden
 
+- `WarehouseConsumptionService`, `WarehouseOperationEngine`, repositories;
 - Production writing Warehouse tables;
 - Saga / 2PC / REQUIRES_NEW compensation;
 - rewriting Warehouse core;
@@ -10904,6 +10999,13 @@ Integration tests Launch/Transfer/Receipt/Release+Consumption границ с п
 - Production Spec integration;
 - STAGE-7 Manifest exit criteria.
 
+### Required code context
+
+- `com.tmp.order.api.*` public Query contracts;
+- `com.tmp.warehouse.api.WarehouseQueryApi`;
+- `com.tmp.warehouse.api.WarehouseCommandApi`;
+- Production orchestrators under test.
+
 ### Allowed code scope
 
 - `tmp-production/src/test/**` integration tests;
@@ -10911,7 +11013,8 @@ Integration tests Launch/Transfer/Receipt/Release+Consumption границ с п
 
 ### Forbidden
 
-- new production features; Warehouse internals.
+- new production features;
+- imports Warehouse/OM application, domain, persistence internals.
 
 ### Acceptance criteria
 

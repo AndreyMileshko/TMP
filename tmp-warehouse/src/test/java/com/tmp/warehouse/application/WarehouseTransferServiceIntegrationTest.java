@@ -102,7 +102,7 @@ class WarehouseTransferServiceIntegrationTest {
                         movements,
                         new TransactionTemplate(new DataSourceTransactionManager(dataSource)),
                         CLOCK);
-        transfers = new WarehouseTransferService(engine);
+        transfers = new WarehouseTransferService(engine, operations, new com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository(jdbc));
     }
 
     @Test

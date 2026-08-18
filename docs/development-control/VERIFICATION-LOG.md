@@ -3,10 +3,58 @@
 ## Latest result
 
 **Date:** 2026-08-17  
+**Scope:** STAGE7-000B — Warehouse Production Integration Readiness  
+**Overall:** PASS (full reactor verify GREEN)  
+**Type:** Warehouse public API boundaries + SpotBugs + integration readiness; no Production code  
+**Environment:** Windows; Maven `.tools/apache-maven-3.9.9`; JDK 21; Docker Desktop
+
+| Item | Result |
+|---|---|
+| SpotBugs 4× NP `WarehouseOperationEngine` | FIXED (0 bugs; no suppressions) |
+| `WarehouseQueryApi` read-only boundary | PASS |
+| `WarehouseCommandApi` mutating boundary | PASS |
+| Material identity availability tests (A–D) | PASS |
+| Transfer draft → send → receive | PASS |
+| Consumption outer TX join (ADR-036) | PASS |
+| `Stage6WarehouseArchitectureTest` | PASS |
+| `mvn -pl :tmp-warehouse -am test` | PASS (159 tests) |
+| `mvn -pl :tmp-warehouse -am verify` | PASS (SpotBugs 0) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS |
+| `mvn test` | PASS |
+| `mvn verify` | PASS (full reactor) |
+| `BLK-STAGE7-WAREHOUSE-INTEGRATION-READINESS` | RESOLVED |
+| Stage 7 Start Gate | PASSED |
+| Stage 7 implementation | NOT STARTED / 0% |
+| STAGE7-001 | READY |
+| Production production-code | NONE |
+| tmp-production module | NOT CREATED |
+| Git | NOT EXECUTED |
+
+### SpotBugs findings (before fix)
+
+| Bug | Class | Method | Cause | Classification |
+|---|---|---|---|---|
+| NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE | WarehouseOperationEngine | execute | `TransactionTemplate.execute()` nullable return | real defect (missing null guard) |
+| NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE | WarehouseOperationEngine | transferSend | same | real defect |
+| NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE | WarehouseOperationEngine | transferReceive | same | real defect |
+| NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE | WarehouseOperationEngine | move | same | real defect |
+
+### Commands
+
+```bash
+mvn -pl :tmp-warehouse -am test
+mvn -pl :tmp-warehouse -am verify
+mvn -pl :tmp-architecture-tests -am test
+mvn test
+mvn verify
+```
+
+---
+
+## Previous result — STAGE7-000A (2026-08-17)
+
 **Scope:** STAGE7-000A — Restore Green Reactor Baseline + Stage 7 queue hygiene  
 **Overall:** PASS (test baseline) / verify partial  
-**Type:** Warehouse test debt remediation + WORK-QUEUE dependency audit; no Production code  
-**Environment:** Windows; Maven `.tools/apache-maven-3.9.9`; JDK 21; Docker Desktop
 
 | Item | Result |
 |---|---|
@@ -18,24 +66,11 @@
 | `WarehouseApiIntegrationTest` | PASS (was 1 error) |
 | `mvn -pl :tmp-warehouse -am test` | PASS (151 tests) |
 | `mvn test` | PASS (full reactor) |
-| `mvn verify` | FAIL — pre-existing SpotBugs 4× NP in `WarehouseOperationEngine` (production code; not STAGE7-000A scope) |
-| `JdbcMaterialReferenceDisplayReadAdapterIT` (discovered during verify) | PASS after test fixture sync |
+| `mvn verify` | FAIL — SpotBugs 4× NP in `WarehouseOperationEngine` |
 | Stage 7 Start Gate | PASSED |
-| Stage 7 implementation | NOT STARTED / 0% |
-| STAGE7-001 | READY |
-| Production production-code | NONE |
-| tmp-production module | NOT CREATED |
 | Git | NOT EXECUTED |
 
-### Warehouse root causes (test-only)
-
-| Issue | Classification |
-|---|---|
-| `stock_positions.material_reference` column removed in V19 | test-only / schema drift |
-| Receipt requires non-blank `unitOfMeasure` (V20) | test-only / UoM contract |
-| `checkAvailability(article)` vs receipt with UoM natural key | test-only / split test setup |
-
-### Commands
+### Commands (STAGE7-000A)
 
 ```bash
 mvn -pl :tmp-warehouse -am test

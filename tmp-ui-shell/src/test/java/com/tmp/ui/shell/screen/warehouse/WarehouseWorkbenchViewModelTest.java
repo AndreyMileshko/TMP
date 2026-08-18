@@ -24,6 +24,8 @@ import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
+import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -561,6 +563,119 @@ class WarehouseWorkbenchViewModelTest {
             return links.stream()
                     .filter(link -> link.materialCode().equals(materialCode))
                     .toList();
+        }
+
+        @Override
+        public List<StockView> getStockByMaterialReferenceId(UUID materialReferenceId) {
+            return List.of();
+        }
+
+        @Override
+        public AvailabilityResult checkAvailability(
+                WarehouseApi.MaterialIdentityRequest identity, BigDecimal quantity) {
+            return checkAvailability(identity.article(), quantity);
+        }
+
+        @Override
+        public AvailabilityResult checkAvailability(
+                WarehouseApi.MaterialIdentityRequest identity, UUID warehouseId, BigDecimal quantity) {
+            return checkAvailability(identity.article(), quantity);
+        }
+
+        @Override
+        public AvailabilityResult checkAvailability(UUID materialReferenceId, BigDecimal quantity) {
+            return new AvailabilityResult(
+                    AvailabilityStatus.AVAILABLE, materialReferenceId.toString(), quantity, quantity);
+        }
+
+        @Override
+        public AvailabilityResult checkAvailability(
+                UUID materialReferenceId, UUID warehouseId, BigDecimal quantity) {
+            return checkAvailability(materialReferenceId, quantity);
+        }
+
+        @Override
+        public AvailabilityResult checkAvailabilityByLegacyArticle(
+                String materialCode, BigDecimal quantity) {
+            return checkAvailability(materialCode, quantity);
+        }
+
+        @Override
+        public TransferStatusView getTransferStatus(UUID operationId) {
+            return new TransferStatusView(
+                    operationId,
+                    OperationKind.TRANSFER_SEND,
+                    "COMPLETED",
+                    UUID.randomUUID(),
+                    BigDecimal.ONE,
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    UUID.randomUUID());
+        }
+
+        @Override
+        public OperationResult receive(WarehouseApi.ReceiptCommand command) {
+            return executeWarehouseOperation(
+                    ExecuteOperationCommand.receipt(
+                            command.article(),
+                            command.name(),
+                            command.color(),
+                            command.size(),
+                            command.unitOfMeasure(),
+                            command.quantity(),
+                            command.warehouseId(),
+                            command.storageCellId()));
+        }
+
+        @Override
+        public OperationResult consume(WarehouseApi.ConsumptionCommand command) {
+            return executeWarehouseOperation(
+                    ExecuteOperationCommand.consumption(
+                            command.materialReferenceId(),
+                            command.quantity(),
+                            command.warehouseId(),
+                            command.storageCellId()));
+        }
+
+        @Override
+        public TransferRequestView createTransferDraft(
+                WarehouseApi.CreateTransferDraftCommand command) {
+            return new TransferRequestView(
+                    UUID.randomUUID(),
+                    "DRAFT",
+                    command.materialReferenceId(),
+                    command.quantity(),
+                    command.sourceWarehouseId(),
+                    command.sourceStorageCellId(),
+                    command.destinationWarehouseId(),
+                    command.destinationStorageCellId());
+        }
+
+        @Override
+        public OperationResult sendTransfer(UUID transferDraftOperationId) {
+            return new OperationResult(
+                    transferDraftOperationId,
+                    OperationKind.TRANSFER_SEND,
+                    "COMPLETED",
+                    UUID.randomUUID(),
+                    "MAT",
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    BigDecimal.ONE);
+        }
+
+        @Override
+        public OperationResult receiveTransfer(UUID sendOperationId) {
+            return new OperationResult(
+                    sendOperationId,
+                    OperationKind.TRANSFER_RECEIVE,
+                    "COMPLETED",
+                    UUID.randomUUID(),
+                    "MAT",
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    BigDecimal.ONE);
         }
 
         @Override

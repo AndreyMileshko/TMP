@@ -75,6 +75,7 @@ class DefaultWarehouseApiTest {
         links = new InMemoryReservationLinkRepository();
         InMemoryOperationRepository operations = new InMemoryOperationRepository();
         InMemoryMovementRepository movements = new InMemoryMovementRepository();
+        var transferContexts = new com.tmp.warehouse.testsupport.InMemoryTransferOperationContextRepository();
         WarehouseOperationEngine engine =
                 new WarehouseOperationEngine(
                         operations,
@@ -98,9 +99,11 @@ class DefaultWarehouseApiTest {
                         new WarehouseReservationLinkService(links, CLOCK),
                         new WarehouseReceiptService(engine, stockPositions, materials),
                         new WarehouseMoveService(engine),
-                        new WarehouseTransferService(engine),
+                        new WarehouseTransferService(engine, operations, transferContexts),
                         new WarehouseConsumptionService(engine, stockPositions),
-                        new WarehouseAdjustmentService(engine, stockPositions));
+                        new WarehouseAdjustmentService(engine, stockPositions),
+                        operations,
+                        transferContexts);
     }
 
     private static final class EmptyWarehouseCatalog
@@ -275,13 +278,13 @@ class DefaultWarehouseApiTest {
                 StockPosition.of(
                         warehouseId, cellB, material, StockState.BLOCKED, StockQuantity.of(100L)));
 
-        WarehouseApi.AvailabilityResult ok = api.checkAvailability("ALU-6060", BigDecimal.valueOf(30));
+        WarehouseApi.AvailabilityResult ok = api.checkAvailabilityByLegacyArticle("ALU-6060", BigDecimal.valueOf(30));
         assertEquals(AvailabilityStatus.AVAILABLE, ok.status());
         assertTrue(ok.isAvailable());
         assertEquals(0, ok.availableQuantity().compareTo(BigDecimal.valueOf(40L)));
 
         WarehouseApi.AvailabilityResult shortfall =
-                api.checkAvailability("ALU-6060", BigDecimal.valueOf(50));
+                api.checkAvailabilityByLegacyArticle("ALU-6060", BigDecimal.valueOf(50));
         assertEquals(AvailabilityStatus.INSUFFICIENT, shortfall.status());
         assertFalse(shortfall.isAvailable());
     }

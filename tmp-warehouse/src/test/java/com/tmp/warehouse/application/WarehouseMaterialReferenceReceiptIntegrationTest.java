@@ -107,7 +107,7 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
                         CLOCK);
         receipts = new WarehouseReceiptService(engine, stockPositions, materials);
         moves = new WarehouseMoveService(engine);
-        transfers = new WarehouseTransferService(engine);
+        transfers = new WarehouseTransferService(engine, operations, new com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository(jdbc));
         consumptions = new WarehouseConsumptionService(engine, stockPositions);
 
         JdbcWarehouseCatalogRepository catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);

@@ -101,6 +101,7 @@ class WarehouseApiIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM warehouse.transfer_operation_context");
         jdbc.update("DELETE FROM warehouse.material_reservation_links");
         jdbc.update("DELETE FROM warehouse.warehouse_movements");
         jdbc.update("DELETE FROM warehouse.warehouse_operations");
@@ -115,6 +116,7 @@ class WarehouseApiIntegrationTest {
         operations = new JdbcWarehouseOperationRepository(stockJdbc, CLOCK);
         stockPositions = new JdbcStockPositionRepository(stockJdbc);
         movements = new JdbcWarehouseMovementRepository(jdbc);
+        var transferContexts = new com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository(jdbc);
         WarehouseOperationEngine engine =
                 new WarehouseOperationEngine(
                         operations,
@@ -133,9 +135,11 @@ class WarehouseApiIntegrationTest {
                                 new JdbcMaterialReservationLinkRepository(jdbc), CLOCK),
                         new WarehouseReceiptService(engine, stockPositions, materials),
                         new WarehouseMoveService(engine),
-                        new WarehouseTransferService(engine),
+                        new WarehouseTransferService(engine, operations, transferContexts),
                         new WarehouseConsumptionService(engine, stockPositions),
-                        new WarehouseAdjustmentService(engine, stockPositions));
+                        new WarehouseAdjustmentService(engine, stockPositions),
+                        operations,
+                        transferContexts);
     }
 
     private enum AllowingAuthorization implements AuthorizationService {

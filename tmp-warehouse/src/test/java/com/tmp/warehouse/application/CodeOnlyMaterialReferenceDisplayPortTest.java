@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.tmp.warehouse.application.port.MaterialReferenceDisplay;
+import com.tmp.warehouse.api.MaterialReferenceDisplay;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

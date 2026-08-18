@@ -14,7 +14,9 @@ import com.tmp.warehouse.api.WarehouseApi.OperationResult;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
-import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
+import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
+import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
+import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
@@ -89,6 +91,71 @@ final class WarehouseWorkbenchUiTestSupport {
         @Override
         public List<ReservationLinkView> listReservationLinks(String materialCode) {
             return List.of();
+        }
+
+        @Override
+        public List<StockView> getStockByMaterialReferenceId(UUID materialReferenceId) {
+            return List.of();
+        }
+
+        @Override
+        public AvailabilityResult checkAvailability(
+                WarehouseApi.MaterialIdentityRequest identity, BigDecimal quantity) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public AvailabilityResult checkAvailability(
+                WarehouseApi.MaterialIdentityRequest identity, UUID warehouseId, BigDecimal quantity) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public AvailabilityResult checkAvailability(UUID materialReferenceId, BigDecimal quantity) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public AvailabilityResult checkAvailability(
+                UUID materialReferenceId, UUID warehouseId, BigDecimal quantity) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public AvailabilityResult checkAvailabilityByLegacyArticle(
+                String materialCode, BigDecimal quantity) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TransferStatusView getTransferStatus(UUID operationId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public OperationResult receive(WarehouseApi.ReceiptCommand command) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public OperationResult consume(WarehouseApi.ConsumptionCommand command) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TransferRequestView createTransferDraft(
+                WarehouseApi.CreateTransferDraftCommand command) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public OperationResult sendTransfer(UUID transferDraftOperationId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public OperationResult receiveTransfer(UUID sendOperationId) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

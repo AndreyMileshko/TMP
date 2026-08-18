@@ -118,7 +118,7 @@ public final class WarehouseOperationEngine {
         rejectSpecializedExecute(current);
 
         try {
-            WarehouseOperation completed =
+            return requireTransactionResult(
                     transactionTemplate.execute(
                             status -> {
                                 WarehouseOperation locked =
@@ -133,8 +133,8 @@ public final class WarehouseOperationEngine {
                                 rejectSpecializedExecute(locked);
                                 applyStockAndMovement(locked);
                                 return operations.update(locked.complete());
-                            });
-            return Objects.requireNonNull(completed, "transaction returned null");
+                            }),
+                    "Warehouse operation execution returned null: operationId=" + id);
         } catch (RuntimeException ex) {
             markFailedBestEffort(id);
             if (ex instanceof InvalidWarehouseStateException
@@ -164,7 +164,7 @@ public final class WarehouseOperationEngine {
 
         WarehouseOperationId operationId = WarehouseOperationId.generate();
         try {
-            WarehouseOperation completed =
+            return requireTransactionResult(
                     transactionTemplate.execute(
                             status -> {
                                 StockPosition available =
@@ -198,8 +198,8 @@ public final class WarehouseOperationEngine {
                                         quantity,
                                         WarehouseOperationType.TRANSFER_SEND);
                                 return operations.update(draft.complete());
-                            });
-            return Objects.requireNonNull(completed, "transaction returned null");
+                            }),
+                    "Warehouse transfer send returned null: operationId=" + operationId);
         } catch (RuntimeException ex) {
             markFailedBestEffort(operationId);
             rethrowOperationFailure(ex, "Warehouse transfer send failed: operationId=" + operationId);
@@ -233,7 +233,7 @@ public final class WarehouseOperationEngine {
 
         WarehouseOperationId operationId = WarehouseOperationId.generate();
         try {
-            WarehouseOperation completed =
+            return requireTransactionResult(
                     transactionTemplate.execute(
                             status -> {
                                 StockPosition inTransit =
@@ -279,8 +279,8 @@ public final class WarehouseOperationEngine {
                                         quantity,
                                         WarehouseOperationType.TRANSFER_RECEIVE);
                                 return operations.update(draft.complete());
-                            });
-            return Objects.requireNonNull(completed, "transaction returned null");
+                            }),
+                    "Warehouse transfer receive returned null: operationId=" + operationId);
         } catch (RuntimeException ex) {
             markFailedBestEffort(operationId);
             rethrowOperationFailure(
@@ -314,7 +314,7 @@ public final class WarehouseOperationEngine {
 
         WarehouseOperationId operationId = WarehouseOperationId.generate();
         try {
-            WarehouseOperation completed =
+            return requireTransactionResult(
                     transactionTemplate.execute(
                             status -> {
                                 StockPosition source =
@@ -338,8 +338,8 @@ public final class WarehouseOperationEngine {
 
                                 applyMoveLegs(draft, source, destinationCellId, quantity);
                                 return operations.update(draft.complete());
-                            });
-            return Objects.requireNonNull(completed, "transaction returned null");
+                            }),
+                    "Warehouse move returned null: operationId=" + operationId);
         } catch (RuntimeException ex) {
             markFailedBestEffort(operationId);
             rethrowOperationFailure(ex, "Warehouse move execution failed: operationId=" + operationId);
@@ -584,5 +584,71 @@ public final class WarehouseOperationEngine {
         } catch (RuntimeException ignored) {
             // Best-effort failure recording; original execution error is rethrown by caller.
         }
+    }
+
+    /**
+     * Executes transfer send for an existing DRAFT {@link WarehouseOperationType#TRANSFER_SEND}.
+     * Does not mutate stock until invoked.
+     */
+    public WarehouseOperation executeTransferSendDraft(WarehouseOperationId id) {
+        Objects.requireNonNull(id, "id");
+        WarehouseOperation draft =
+                operations
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Warehouse operation not found: " + id));
+        draft.ensureDraft();
+        if (draft.type() != WarehouseOperationType.TRANSFER_SEND) {
+            throw new InvalidWarehouseStateException(
+                    "Operation is not a TRANSFER_SEND draft: operationId=" + id);
+        }
+        try {
+            return requireTransactionResult(
+                    transactionTemplate.execute(
+                            status -> {
+                                WarehouseOperation locked =
+                                        operations
+                                                .findById(id)
+                                                .orElseThrow(
+                                                        () ->
+                                                                new NoSuchElementException(
+                                                                        "Warehouse operation not found: "
+                                                                                + id));
+                                locked.ensureDraft();
+                                StockPosition available =
+                                        requireAvailableStock(
+                                                locked.warehouseId(),
+                                                locked.storageCellId(),
+                                                locked.material(),
+                                                locked.quantity(),
+                                                "transfer send");
+                                applyQuantityDelta(
+                                        available,
+                                        StockState.AVAILABLE,
+                                        locked.quantity().value().negate(),
+                                        WarehouseOperationType.TRANSFER_SEND);
+                                applyInTransitIncrease(
+                                        locked.warehouseId(),
+                                        locked.storageCellId(),
+                                        locked.material(),
+                                        locked.quantity(),
+                                        WarehouseOperationType.TRANSFER_SEND);
+                                return operations.update(locked.complete());
+                            }),
+                    "Warehouse transfer send draft returned null: operationId=" + id);
+        } catch (RuntimeException ex) {
+            markFailedBestEffort(id);
+            rethrowOperationFailure(ex, "Warehouse transfer send failed: operationId=" + id);
+            throw new AssertionError("unreachable");
+        }
+    }
+
+    private static <T> T requireTransactionResult(T result, String message) {
+        if (result == null) {
+            throw new InvalidWarehouseStateException(message);
+        }
+        return result;
     }
 }
