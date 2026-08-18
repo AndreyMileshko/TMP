@@ -58,7 +58,8 @@ class WarehouseTransferServiceTest {
                         movements,
                         new TransactionTemplate(new PassthroughTransactionManager()),
                         CLOCK);
-        transfers = new WarehouseTransferService(engine, operations, new com.tmp.warehouse.testsupport.InMemoryTransferOperationContextRepository());
+        transfers = new WarehouseTransferService(
+                engine, operations, new com.tmp.warehouse.testsupport.InMemoryTransferOperationContextRepository(), new TransactionTemplate(new PassthroughTransactionManager()));
     }
 
     @Test
@@ -238,6 +239,74 @@ class WarehouseTransferServiceTest {
                                         warehouseId,
                                         destinationCell)));
         assertTrue(movements.all.isEmpty());
+    }
+
+    @Test
+    void zeroQuantityDraftIsRejectedWithoutPersistence() {
+        WarehouseId source = WarehouseId.generate();
+        WarehouseId destination = WarehouseId.generate();
+        StorageCellId sourceCell = StorageCellId.generate();
+        StorageCellId destinationCell = StorageCellId.generate();
+        MaterialReference material = MaterialReference.legacyArticle("ZERO-T");
+        stockPositions.create(
+                StockPosition.of(
+                        source, sourceCell, material, StockState.AVAILABLE, StockQuantity.of(10L)));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        transfers.createDraft(
+                                new WarehouseTransferService.TransferDraftRequest(
+                                        material,
+                                        StockQuantity.of(0L),
+                                        source,
+                                        sourceCell,
+                                        destination,
+                                        destinationCell)));
+        assertTrue(movements.all.isEmpty());
+        assertEquals(
+                StockQuantity.of(10L),
+                stockPositions
+                        .findByNaturalKey(source, sourceCell, material, StockState.AVAILABLE)
+                        .orElseThrow()
+                        .quantity());
+    }
+
+    @Test
+    void sequentialDuplicateReceiveFromSendIsRejected() {
+        WarehouseId source = WarehouseId.generate();
+        WarehouseId destination = WarehouseId.generate();
+        StorageCellId sourceCell = StorageCellId.generate();
+        StorageCellId destinationCell = StorageCellId.generate();
+        MaterialReference material = MaterialReference.legacyArticle("DUP-T");
+        stockPositions.create(
+                StockPosition.of(
+                        source, sourceCell, material, StockState.AVAILABLE, StockQuantity.of(20L)));
+
+        WarehouseOperation draft =
+                transfers.createDraft(
+                        new WarehouseTransferService.TransferDraftRequest(
+                                material,
+                                StockQuantity.of(8L),
+                                source,
+                                sourceCell,
+                                destination,
+                                destinationCell));
+        WarehouseOperation sent = transfers.sendDraft(draft.id());
+        WarehouseOperation received = transfers.receiveFromSend(sent.id());
+        assertEquals(WarehouseOperationType.TRANSFER_RECEIVE, received.type());
+
+        int movementsAfterFirstReceive = movements.all.size();
+        assertThrows(
+                InvalidWarehouseStateException.class, () -> transfers.receiveFromSend(sent.id()));
+        assertEquals(movementsAfterFirstReceive, movements.all.size());
+        assertEquals(
+                StockQuantity.of(8L),
+                stockPositions
+                        .findByNaturalKey(
+                                destination, destinationCell, material, StockState.AVAILABLE)
+                        .orElseThrow()
+                        .quantity());
     }
 
     private static final class PassthroughTransactionManager

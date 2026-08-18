@@ -2,42 +2,34 @@
 
 ## Latest result
 
-**Date:** 2026-08-17  
-**Scope:** STAGE7-000B — Warehouse Production Integration Readiness  
+**Date:** 2026-08-18  
+**Scope:** STAGE7-000C — Warehouse Transfer Integrity  
 **Overall:** PASS (full reactor verify GREEN)  
-**Type:** Warehouse public API boundaries + SpotBugs + integration readiness; no Production code  
+**Type:** Transfer exactly-once receive + positive quantity + logical status; no Production code  
 **Environment:** Windows; Maven `.tools/apache-maven-3.9.9`; JDK 21; Docker Desktop
 
 | Item | Result |
 |---|---|
-| SpotBugs 4× NP `WarehouseOperationEngine` | FIXED (0 bugs; no suppressions) |
-| `WarehouseQueryApi` read-only boundary | PASS |
-| `WarehouseCommandApi` mutating boundary | PASS |
-| Material identity availability tests (A–D) | PASS |
-| Transfer draft → send → receive | PASS |
-| Consumption outer TX join (ADR-036) | PASS |
-| `Stage6WarehouseArchitectureTest` | PASS |
-| `mvn -pl :tmp-warehouse -am test` | PASS (159 tests) |
+| CASE A one-time receive | PASS |
+| CASE B sequential duplicate receive | PASS |
+| CASE C same-material A/B isolation | PASS |
+| CASE D concurrent duplicate receive | PASS (1 success / 1 reject) |
+| Unique index two sends sharing receive | PASS |
+| Receive failure rollback / retry | PASS |
+| Zero quantity draft rejected | PASS |
+| Logical status DRAFT / SENT / RECEIVED | PASS |
+| `mvn -pl :tmp-warehouse -am test` | PASS (170 tests) |
 | `mvn -pl :tmp-warehouse -am verify` | PASS (SpotBugs 0) |
 | `mvn -pl :tmp-architecture-tests -am test` | PASS |
 | `mvn test` | PASS |
 | `mvn verify` | PASS (full reactor) |
-| `BLK-STAGE7-WAREHOUSE-INTEGRATION-READINESS` | RESOLVED |
 | Stage 7 Start Gate | PASSED |
 | Stage 7 implementation | NOT STARTED / 0% |
+| STAGE7-000C | DONE |
 | STAGE7-001 | READY |
 | Production production-code | NONE |
 | tmp-production module | NOT CREATED |
 | Git | NOT EXECUTED |
-
-### SpotBugs findings (before fix)
-
-| Bug | Class | Method | Cause | Classification |
-|---|---|---|---|---|
-| NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE | WarehouseOperationEngine | execute | `TransactionTemplate.execute()` nullable return | real defect (missing null guard) |
-| NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE | WarehouseOperationEngine | transferSend | same | real defect |
-| NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE | WarehouseOperationEngine | transferReceive | same | real defect |
-| NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE | WarehouseOperationEngine | move | same | real defect |
 
 ### Commands
 
@@ -48,6 +40,22 @@ mvn -pl :tmp-architecture-tests -am test
 mvn test
 mvn verify
 ```
+
+---
+
+## Previous result — STAGE7-000B (2026-08-17)
+
+**Scope:** STAGE7-000B — Warehouse Production Integration Readiness  
+**Overall:** PASS (full reactor verify GREEN)  
+
+| Item | Result |
+|---|---|
+| SpotBugs 4× NP `WarehouseOperationEngine` | FIXED (0 bugs; no suppressions) |
+| `WarehouseQueryApi` read-only boundary | PASS |
+| `WarehouseCommandApi` mutating boundary | PASS |
+| `mvn verify` | PASS (full reactor) |
+| STAGE7-001 | READY (later blocked by STAGE7-000C, then unblocked) |
+| Git | NOT EXECUTED |
 
 ---
 

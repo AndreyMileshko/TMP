@@ -10155,11 +10155,66 @@ mvn verify
 
 ---
 
+## STAGE7-000C — Warehouse Transfer Integrity
+
+**Status:** DONE  
+**Stage:** 7  
+**Depends on:** STAGE7-000B  
+**Type:** pre-implementation corrective  
+**Module:** `tmp-warehouse`
+
+### Goal
+
+Закрыть correctness defects Transfer lifecycle: exactly-once receive, positive Transfer quantity, logical transfer status, и зафиксировать 1 template → N Warehouse lines для STAGE7-010.
+
+### Required documents
+
+- Warehouse Specification v1.7;
+- Production Specification v2.2 §13 (grouping only; spec not changed);
+- ADR-036 (REQUIRED / no REQUIRES_NEW).
+
+### Allowed code scope
+
+- `tmp-warehouse/**` (Transfer context, receive once, quantity, status, tests);
+- Warehouse Specification v1.6 → v1.7 (invariants only);
+- control docs (`WORK-QUEUE`, `STATUS`, `IMPLEMENTATION-LOG`, `VERIFICATION-LOG`).
+
+### Forbidden
+
+- `tmp-production`;
+- Query/Command boundary redesign;
+- MaterialReference availability redesign;
+- Production Specification / ADR-033…036;
+- Git.
+
+### Acceptance criteria
+
+- [x] один TRANSFER_SEND received максимум один раз;
+- [x] duplicate receive не меняет stock и не создаёт movement;
+- [x] два transfer одного material: receive A не потребляет IN_TRANSIT B;
+- [x] concurrency защищена transaction/database invariant;
+- [x] failure receive не оставляет received marker;
+- [x] transfer quantity = 0 rejected before persistence;
+- [x] TransferStatus: DRAFT / SENT / RECEIVED;
+- [x] STAGE7-010 содержит logical grouping 1 template → N lines.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-warehouse -am test
+mvn -pl :tmp-warehouse -am verify
+mvn -pl :tmp-architecture-tests -am test
+mvn test
+mvn verify
+```
+
+---
+
 ## STAGE7-001 — Production module foundation
 
 **Status:** READY  
 **Stage:** 7  
-**Depends on:** STAGE7-000B  
+**Depends on:** STAGE7-000C  
 **Module:** `tmp-production` (new)
 
 ### Goal
@@ -10560,10 +10615,27 @@ mvn -pl :tmp-production -am test
 - `WarehouseTransferService`, `WarehouseOperationEngine`, repositories;
 - Warehouse table access; rewriting Warehouse Operation Engine.
 
+### Implementation requirements
+
+Warehouse остаётся line-operation based:
+
+```text
+1 Production Material Transfer Template (Production-owned)
+  → 1 logical Production transfer reference (Production-owned grouping)
+  → 1..N Warehouse-owned transfer line/operation references
+     (WarehouseCommandApi.createTransferDraft per material line)
+```
+
+Пользователь в UI видит одно перемещение заказа. Production хранит grouping/traceability (Order ID / template ID / line → Warehouse operation id). Warehouse не владеет Order ID.
+
 ### Acceptance criteria
 
 - [ ] Transfer остаётся Warehouse-owned;
-- [ ] Production не пишет Stock Position.
+- [ ] Production не пишет Stock Position;
+- [ ] все строки одного подтверждённого Production template трассируются как одна пользовательская операция;
+- [ ] для каждой строки сохраняется Warehouse transfer reference;
+- [ ] Order ID / Production template ID восстанавливаются из Production-owned данных;
+- [ ] Warehouse operations не становятся Production-owned.
 
 ### Verification commands
 

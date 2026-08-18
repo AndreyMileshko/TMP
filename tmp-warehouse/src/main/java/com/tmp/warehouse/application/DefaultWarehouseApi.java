@@ -17,6 +17,7 @@ import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
 import com.tmp.warehouse.domain.StorageCell;
 import com.tmp.warehouse.domain.StorageCellId;
+import com.tmp.warehouse.domain.TransferOperationContext;
 import com.tmp.warehouse.domain.UnitOfMeasure;
 import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
@@ -279,17 +280,28 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             throw new IllegalArgumentException(
                     "Not a transfer operation: " + operationId + ", type=" + operation.type());
         }
-        var context = transferContexts.findByOperationId(operation.id());
+        var context =
+                operation.type() == WarehouseOperationType.TRANSFER_RECEIVE
+                        ? transferContexts.findByReceiveOperationId(operation.id())
+                        : transferContexts.findByOperationId(operation.id());
+        UUID receiveOperationId =
+                context.map(ctx -> ctx.receiveOperationId())
+                        .map(com.tmp.warehouse.domain.WarehouseOperationId::value)
+                        .orElse(
+                                operation.type() == WarehouseOperationType.TRANSFER_RECEIVE
+                                        ? operation.id().value()
+                                        : null);
         return new TransferStatusView(
                 operation.id().value(),
                 OperationKind.valueOf(operation.type().name()),
-                operation.status().name(),
+                logicalTransferStatus(operation, context.orElse(null)),
                 operation.material().id().value(),
                 operation.quantity().value(),
                 operation.warehouseId().value(),
                 operation.storageCellId().value(),
                 context.map(ctx -> ctx.destinationWarehouseId().value()).orElse(null),
-                context.map(ctx -> ctx.destinationStorageCellId().value()).orElse(null));
+                context.map(ctx -> ctx.destinationStorageCellId().value()).orElse(null),
+                receiveOperationId);
     }
 
     @Override
@@ -496,6 +508,25 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                                             StorageCellId.of(command.storageCellId())));
                 };
         return toOperationResult(command.kind(), completed);
+    }
+
+    private static String logicalTransferStatus(
+            WarehouseOperation operation, TransferOperationContext context) {
+        if (operation.type() == WarehouseOperationType.TRANSFER_RECEIVE) {
+            return operation.status() == WarehouseOperationStatus.COMPLETED
+                    ? "RECEIVED"
+                    : operation.status().name();
+        }
+        if (operation.status() == WarehouseOperationStatus.DRAFT) {
+            return "DRAFT";
+        }
+        if (context != null && context.isReceived()) {
+            return "RECEIVED";
+        }
+        if (operation.status() == WarehouseOperationStatus.COMPLETED) {
+            return "SENT";
+        }
+        return operation.status().name();
     }
 
     private MaterialReference requireMaterial(UUID materialReferenceId) {

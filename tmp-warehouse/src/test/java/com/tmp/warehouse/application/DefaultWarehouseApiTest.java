@@ -99,7 +99,7 @@ class DefaultWarehouseApiTest {
                         new WarehouseReservationLinkService(links, CLOCK),
                         new WarehouseReceiptService(engine, stockPositions, materials),
                         new WarehouseMoveService(engine),
-                        new WarehouseTransferService(engine, operations, transferContexts),
+                        new WarehouseTransferService(engine, operations, transferContexts, new TransactionTemplate(new PassthroughTransactionManager())),
                         new WarehouseConsumptionService(engine, stockPositions),
                         new WarehouseAdjustmentService(engine, stockPositions),
                         operations,

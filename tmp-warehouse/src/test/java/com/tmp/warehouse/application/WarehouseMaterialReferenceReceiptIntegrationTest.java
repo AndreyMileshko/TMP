@@ -84,6 +84,7 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM warehouse.transfer_operation_context");
         jdbc.update("DELETE FROM warehouse.warehouse_movements");
         jdbc.update("DELETE FROM warehouse.warehouse_operations");
         jdbc.update("DELETE FROM warehouse.material_reservation_links");
@@ -107,7 +108,11 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
                         CLOCK);
         receipts = new WarehouseReceiptService(engine, stockPositions, materials);
         moves = new WarehouseMoveService(engine);
-        transfers = new WarehouseTransferService(engine, operations, new com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository(jdbc));
+        transfers = new WarehouseTransferService(
+                engine,
+                operations,
+                new com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository(jdbc),
+                new TransactionTemplate(new DataSourceTransactionManager(dataSource)));
         consumptions = new WarehouseConsumptionService(engine, stockPositions);
 
         JdbcWarehouseCatalogRepository catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);

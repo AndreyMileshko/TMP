@@ -4,6 +4,41 @@
 
 ---
 
+## STAGE7-000C — Warehouse Transfer Integrity
+
+**Date:** 2026-08-18  
+**Stage:** 7  
+**Status:** DONE  
+**Type:** Pre-implementation corrective (no Production module)
+
+### Summary
+
+Закрыты correctness defects Transfer lifecycle перед STAGE7-001: exactly-once receive, positive Transfer quantity, logical DRAFT/SENT/RECEIVED status. Warehouse остаётся line-operation based; STAGE7-010 фиксирует grouping 1 Production template → N Warehouse lines.
+
+### Exactly-once receive
+
+- `TransferOperationContext.receiveOperationId` (nullable);
+- Flyway V22 unique partial index on `receive_operation_id`;
+- `SELECT … FOR UPDATE` + `UPDATE … WHERE receive_operation_id IS NULL` in the same `REQUIRED` transaction as `IN_TRANSIT → AVAILABLE`;
+- sequential duplicate, same-material A/B, concurrent duplicate, and rollback-probe tests.
+
+### Transfer quantity
+
+- `quantity > 0` enforced on `TransferDraftRequest` / `createDraft` and send draft execution;
+- `StockQuantity` unchanged (zero still valid for Stock Position).
+
+### Transfer status
+
+- `WarehouseQueryApi.getTransferStatus` returns logical `DRAFT` / `SENT` / `RECEIVED` plus `receiveOperationId`.
+
+### Boundaries
+
+- Query/Command API split unchanged.
+- No `tmp-production`.
+- Git not executed.
+
+---
+
 ## STAGE7-000B — Warehouse Production Integration Readiness
 
 **Date:** 2026-08-17  

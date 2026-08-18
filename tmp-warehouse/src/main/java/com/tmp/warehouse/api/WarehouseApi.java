@@ -103,6 +103,13 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
+    /**
+     * Logical transfer status for a send reference (or receive operation).
+     *
+     * <p>{@code status} is {@code DRAFT}, {@code SENT}, {@code RECEIVED}, or the underlying
+     * operation status when the send failed. After receive, a query by the original send id returns
+     * {@code RECEIVED} rather than {@code COMPLETED}.
+     */
     record TransferStatusView(
             UUID operationId,
             OperationKind kind,
@@ -112,7 +119,8 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             UUID warehouseId,
             UUID storageCellId,
             UUID destinationWarehouseId,
-            UUID destinationStorageCellId) {
+            UUID destinationStorageCellId,
+            UUID receiveOperationId) {
 
         public TransferStatusView {
             java.util.Objects.requireNonNull(operationId, "operationId");

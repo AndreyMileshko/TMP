@@ -36,7 +36,7 @@ Cursor обновляет реальные пути во время CONTROL-001.
 | 3 | Capability Engine | Capability Engine Specification | Platform Core public API; capability ADR |
 | 4 | Security | Security Specification | Database Specification; audit and permission ADR |
 | 5 | Order Management | Order Management Specification (**v1.10**) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only); ADR v1.13 (incl. ADR-028…036); Stage 5 Manifest |
-| 6 | Warehouse | Warehouse Specification (**v1.6**) | Order public Query API; Production contracts; Database Specification |
+| 6 | Warehouse | Warehouse Specification (**v1.7**) | Order public Query API; Production contracts; Database Specification |
 | 7 | Production | Production Specification (**v2.2**) | OM Public Query (`SpecificationId`); Warehouse Query + Document commands; Document Engine Spec v1.2 / ADR-036; ADR-033…036; Stage 7 Manifest; Cutting Spec только для Cutting Plan integration |
 | 8 | Cutting Optimization | Cutting Optimization Specification (**v1.2**) | Production contracts; algorithm requirements; ADR-034 |
 | 9 | Analytics | Analytics Specification | Warehouse read-only Public API; Capability Engine registration API; Security permission API; Order Management read-only references; UI/UX report screen rules |

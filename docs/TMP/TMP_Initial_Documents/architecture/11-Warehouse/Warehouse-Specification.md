@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.6
+**Version:** 1.7
 
 ---
 
@@ -255,6 +255,18 @@ AVAILABLE
 1. Отправка;
 2. Получение.
 
+Количество Transfer должно быть строго больше нуля. `StockQuantity` по-прежнему допускает ноль как значение остатка; ноль запрещён именно для операции Transfer.
+
+Один успешно завершённый `TRANSFER_SEND` имеет 0..1 успешный `TRANSFER_RECEIVE` (exactly-once receive). Повторное получение того же send не создаёт Movement и не изменяет Stock Position.
+
+Логический статус Transfer для Query API:
+
+- `DRAFT` — заявка создана, stock не изменён;
+- `SENT` — send выполнен (`AVAILABLE` → `IN_TRANSIT`);
+- `RECEIVED` — receive выполнен (`IN_TRANSIT` → destination `AVAILABLE`).
+
+Warehouse остаётся line-operation based: одна Warehouse Operation — одна строка материала. Группировка нескольких строк в одно пользовательское перемещение принадлежит Production (logical transfer reference → 1..N Warehouse operation references).
+
 ---
 
 # 14. Списание (Consumption)
@@ -423,6 +435,8 @@ Capability permissions (идентификаторы `PermissionId`):
 6. Warehouse не рассчитывает производственную потребность.
 7. Reservation — информационная связь без изменения stock состояния.
 8. Stage 6 implementation code в рамках этого документа не стартует.
+9. Transfer quantity > 0.
+10. Completed `TRANSFER_SEND` may be received at most once.
 
 ---
 
@@ -458,3 +472,4 @@ Warehouse выполняет только складскую часть опер
 | 1.4 | Stage 7 docs alignment (ADR-035): Production инициирует Transfer template/receive confirmation и actual Consumption; Warehouse остаётся владельцем документов и Stock Position; без возврата Batch/FIFO/FEFO. |
 | 1.5 | Corrective pass: §17 разделён на Public Query API и Warehouse Application/Document Commands (Constitution принцип 28). |
 | 1.6 | §15: атомарность Release + Consumption ссылается на ADR-036 (механизм) при сохранении ADR-035 (бизнес-граница). |
+| 1.7 | §13.2 / §20: Transfer quantity > 0; exactly-once receive на completed TRANSFER_SEND; логический статус DRAFT/SENT/RECEIVED; Warehouse остаётся line-operation, группировка — Production. |

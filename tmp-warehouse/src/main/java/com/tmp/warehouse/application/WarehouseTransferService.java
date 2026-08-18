@@ -16,6 +16,7 @@ import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Inter-warehouse Transfer — draft request, send and receive via {@link WarehouseOperationEngine}
@@ -23,20 +24,24 @@ import java.util.Objects;
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
-        justification = "Stores injected operation engine and repositories.")
+        justification = "Stores injected operation engine, repositories and transaction template.")
 public final class WarehouseTransferService {
 
     private final WarehouseOperationEngine operationEngine;
     private final WarehouseOperationRepository operations;
     private final TransferOperationContextRepository transferContexts;
+    private final TransactionTemplate transactionTemplate;
 
     public WarehouseTransferService(
             WarehouseOperationEngine operationEngine,
             WarehouseOperationRepository operations,
-            TransferOperationContextRepository transferContexts) {
+            TransferOperationContextRepository transferContexts,
+            TransactionTemplate transactionTemplate) {
         this.operationEngine = Objects.requireNonNull(operationEngine, "operationEngine");
         this.operations = Objects.requireNonNull(operations, "operations");
         this.transferContexts = Objects.requireNonNull(transferContexts, "transferContexts");
+        this.transactionTemplate =
+                Objects.requireNonNull(transactionTemplate, "transactionTemplate");
     }
 
     /**
@@ -45,6 +50,7 @@ public final class WarehouseTransferService {
      */
     public WarehouseOperation createDraft(TransferDraftRequest request) {
         Objects.requireNonNull(request, "request");
+        requirePositiveQuantity(request.quantity());
         requireDistinctWarehouses(request.sourceWarehouseId(), request.destinationWarehouseId());
         WarehouseOperation draft =
                 operationEngine.create(
@@ -77,37 +83,60 @@ public final class WarehouseTransferService {
     /**
      * Receives stock from a completed TRANSFER_SEND into destination AVAILABLE.
      *
+     * <p>Exactly one successful receive is allowed per send. The receive marker and stock change
+     * commit in the same local transaction ({@code REQUIRED}).
+     *
      * @param sendOperationId completed send operation id
      */
     public WarehouseOperation receiveFromSend(WarehouseOperationId sendOperationId) {
         Objects.requireNonNull(sendOperationId, "sendOperationId");
-        WarehouseOperation send =
-                operations
-                        .findById(sendOperationId)
-                        .orElseThrow(
-                                () ->
-                                        new NoSuchElementException(
-                                                "Warehouse operation not found: " + sendOperationId));
-        if (send.type() != WarehouseOperationType.TRANSFER_SEND
-                || send.status() != WarehouseOperationStatus.COMPLETED) {
+        WarehouseOperation received =
+                transactionTemplate.execute(
+                        status -> {
+                            TransferOperationContext context =
+                                    transferContexts
+                                            .lockByOperationId(sendOperationId)
+                                            .orElseThrow(
+                                                    () ->
+                                                            new NoSuchElementException(
+                                                                    "Transfer context not found: "
+                                                                            + sendOperationId));
+                            if (context.isReceived()) {
+                                throw alreadyReceived(sendOperationId);
+                            }
+                            WarehouseOperation send =
+                                    operations
+                                            .findById(sendOperationId)
+                                            .orElseThrow(
+                                                    () ->
+                                                            new NoSuchElementException(
+                                                                    "Warehouse operation not found: "
+                                                                            + sendOperationId));
+                            if (send.type() != WarehouseOperationType.TRANSFER_SEND
+                                    || send.status() != WarehouseOperationStatus.COMPLETED) {
+                                throw new InvalidWarehouseStateException(
+                                        "Transfer receive requires completed TRANSFER_SEND: operationId="
+                                                + sendOperationId);
+                            }
+                            WarehouseOperation completedReceive =
+                                    operationEngine.transferReceive(
+                                            send.material(),
+                                            send.warehouseId(),
+                                            send.storageCellId(),
+                                            context.destinationWarehouseId(),
+                                            context.destinationStorageCellId(),
+                                            send.quantity());
+                            if (!transferContexts.claimReceiveIfAbsent(
+                                    sendOperationId, completedReceive.id())) {
+                                throw alreadyReceived(sendOperationId);
+                            }
+                            return completedReceive;
+                        });
+        if (received == null) {
             throw new InvalidWarehouseStateException(
-                    "Transfer receive requires completed TRANSFER_SEND: operationId="
-                            + sendOperationId);
+                    "Transfer receive returned null: sendOperationId=" + sendOperationId);
         }
-        TransferOperationContext context =
-                transferContexts
-                        .findByOperationId(sendOperationId)
-                        .orElseThrow(
-                                () ->
-                                        new NoSuchElementException(
-                                                "Transfer context not found: " + sendOperationId));
-        return operationEngine.transferReceive(
-                send.material(),
-                send.warehouseId(),
-                send.storageCellId(),
-                context.destinationWarehouseId(),
-                context.destinationStorageCellId(),
-                send.quantity());
+        return received;
     }
 
     /** Immediate send (Stage 6 UI path). */
@@ -134,6 +163,18 @@ public final class WarehouseTransferService {
                 request.quantity());
     }
 
+    private static InvalidWarehouseStateException alreadyReceived(WarehouseOperationId sendId) {
+        return new InvalidWarehouseStateException(
+                "Transfer send already received: operationId=" + sendId);
+    }
+
+    private static void requirePositiveQuantity(StockQuantity quantity) {
+        if (quantity.value().signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "Transfer quantity must be positive: " + quantity.value());
+        }
+    }
+
     private static void requireDistinctWarehouses(WarehouseId source, WarehouseId destination) {
         if (source.equals(destination)) {
             throw new InvalidWarehouseStateException(
@@ -156,6 +197,10 @@ public final class WarehouseTransferService {
             Objects.requireNonNull(sourceCellId, "sourceCellId");
             Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
             Objects.requireNonNull(destinationCellId, "destinationCellId");
+            if (quantity.value().signum() <= 0) {
+                throw new IllegalArgumentException(
+                        "Transfer quantity must be positive: " + quantity.value());
+            }
         }
     }
 }

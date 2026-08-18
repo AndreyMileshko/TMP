@@ -4,7 +4,7 @@
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation NOT STARTED  
 **Current Stage:** Stage 7 - NOT STARTED / 0% (Start Gate PASSED)  
 **Current Task:** none  
-**Last completed task:** STAGE7-000B (Warehouse Production Integration Readiness)  
+**Last completed task:** STAGE7-000C (Warehouse Transfer Integrity)  
 **Active blockers:** NONE  
 **Stage 6 Warehouse:** DONE  
 **Stage 7 Production:** NOT STARTED / 0%  
@@ -54,6 +54,7 @@ Stage 6 Warehouse = DONE
 STAGE7-000 = DONE (Start Gate; BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY RESOLVED)
 STAGE7-000A = DONE (Restore Green Reactor Baseline; Warehouse test debt)
 STAGE7-000B = DONE (Warehouse Production Integration Readiness)
+STAGE7-000C = DONE (Warehouse Transfer Integrity)
 Active blockers = NONE
 Stage 7 Production = NOT STARTED / 0%
 Stage 7 Start Gate = PASSED
@@ -93,7 +94,8 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - Start Gate PASSED (`STAGE7-000`).
 - ADR-036 Accepted (cross-capability atomicity).
 - `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` RESOLVED.
-- Pre-implementation baseline restored (`STAGE7-000A`): reactor `mvn test` GREEN; SpotBugs debt identified.
-- Warehouse integration readiness closed (`STAGE7-000B`): reactor `mvn verify` GREEN; `WarehouseQueryApi` / `WarehouseCommandApi` public boundaries ready for Production.
+- Pre-implementation baseline restored (`STAGE7-000A`).
+- Warehouse integration readiness closed (`STAGE7-000B`).
+- Warehouse Transfer integrity closed (`STAGE7-000C`): exactly-once receive, positive quantity, logical DRAFT/SENT/RECEIVED.
 - Production implementation NOT STARTED (0%).
 - Next task: **STAGE7-001** (Production module foundation) — READY.

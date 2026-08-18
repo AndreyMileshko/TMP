@@ -617,6 +617,7 @@ public final class WarehouseOperationEngine {
                                                                         "Warehouse operation not found: "
                                                                                 + id));
                                 locked.ensureDraft();
+                                requirePositiveQuantity(locked.quantity(), "Transfer send");
                                 StockPosition available =
                                         requireAvailableStock(
                                                 locked.warehouseId(),

@@ -85,7 +85,8 @@ class WarehouseSecurityAuthorizationTest {
                 new WarehouseReservationLinkService(new InMemoryReservationLinkRepository(), CLOCK);
         receipts = new WarehouseReceiptService(engine, stockPositions, materials);
         moves = new WarehouseMoveService(engine);
-        transfers = new WarehouseTransferService(engine, operations, transferContexts);
+        transfers = new WarehouseTransferService(
+                engine, operations, transferContexts, new TransactionTemplate(new PassthroughTransactionManager()));
         consumptions = new WarehouseConsumptionService(engine, stockPositions);
         adjustments = new WarehouseAdjustmentService(engine, stockPositions);
     }

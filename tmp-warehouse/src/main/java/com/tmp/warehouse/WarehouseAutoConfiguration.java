@@ -136,11 +136,13 @@ public class WarehouseAutoConfiguration {
     WarehouseTransferService warehouseTransferService(
             WarehouseOperationEngine warehouseOperationEngine,
             WarehouseOperationRepository warehouseOperationRepository,
-            TransferOperationContextRepository transferOperationContextRepository) {
+            TransferOperationContextRepository transferOperationContextRepository,
+            PlatformTransactionManager platformTransactionManager) {
         return new WarehouseTransferService(
                 warehouseOperationEngine,
                 warehouseOperationRepository,
-                transferOperationContextRepository);
+                transferOperationContextRepository,
+                new TransactionTemplate(platformTransactionManager));
     }
 
     @Bean

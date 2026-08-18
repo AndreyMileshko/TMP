@@ -101,6 +101,39 @@ class WarehouseSchemaFlywayTest {
     }
 
     @Test
+    void v22AddsOneTimeReceiveLinkAndUniqueIndex() {
+        Integer applied =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '22' AND success = TRUE
+                        """,
+                        Integer.class);
+        assertEquals(1, applied);
+
+        Integer receiveColumn =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.columns
+                        WHERE table_schema = 'warehouse'
+                          AND table_name = 'transfer_operation_context'
+                          AND column_name = 'receive_operation_id'
+                        """,
+                        Integer.class);
+        assertEquals(1, receiveColumn);
+
+        Integer uniqueIndex =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM pg_indexes
+                        WHERE schemaname = 'warehouse'
+                          AND indexname = 'uq_transfer_operation_context_receive_operation_id'
+                        """,
+                        Integer.class);
+        assertEquals(1, uniqueIndex);
+    }
+
+    @Test
     void warehouseCodeIsUniqueAndCellBelongsToWarehouse() {
         UUID warehouseId = UUID.randomUUID();
         UUID otherWarehouseId = UUID.randomUUID();

@@ -13,12 +13,38 @@ public final class InMemoryTransferOperationContextRepository
     private final Map<WarehouseOperationId, TransferOperationContext> store = new HashMap<>();
 
     @Override
-    public void save(TransferOperationContext context) {
+    public synchronized void save(TransferOperationContext context) {
         store.put(context.operationId(), context);
     }
 
     @Override
-    public Optional<TransferOperationContext> findByOperationId(WarehouseOperationId operationId) {
+    public synchronized Optional<TransferOperationContext> findByOperationId(
+            WarehouseOperationId operationId) {
         return Optional.ofNullable(store.get(operationId));
+    }
+
+    @Override
+    public synchronized Optional<TransferOperationContext> findByReceiveOperationId(
+            WarehouseOperationId receiveOperationId) {
+        return store.values().stream()
+                .filter(context -> receiveOperationId.equals(context.receiveOperationId()))
+                .findFirst();
+    }
+
+    @Override
+    public synchronized Optional<TransferOperationContext> lockByOperationId(
+            WarehouseOperationId operationId) {
+        return findByOperationId(operationId);
+    }
+
+    @Override
+    public synchronized boolean claimReceiveIfAbsent(
+            WarehouseOperationId sendOperationId, WarehouseOperationId receiveOperationId) {
+        TransferOperationContext current = store.get(sendOperationId);
+        if (current == null || current.isReceived()) {
+            return false;
+        }
+        store.put(sendOperationId, current.withReceiveOperationId(receiveOperationId));
+        return true;
     }
 }

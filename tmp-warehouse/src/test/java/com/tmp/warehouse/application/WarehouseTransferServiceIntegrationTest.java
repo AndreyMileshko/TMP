@@ -83,6 +83,7 @@ class WarehouseTransferServiceIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM warehouse.transfer_operation_context");
         jdbc.update("DELETE FROM warehouse.warehouse_movements");
         jdbc.update("DELETE FROM warehouse.warehouse_operations");
         jdbc.update("DELETE FROM warehouse.stock_positions");
@@ -102,7 +103,11 @@ class WarehouseTransferServiceIntegrationTest {
                         movements,
                         new TransactionTemplate(new DataSourceTransactionManager(dataSource)),
                         CLOCK);
-        transfers = new WarehouseTransferService(engine, operations, new com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository(jdbc));
+        transfers = new WarehouseTransferService(
+                engine,
+                operations,
+                new com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository(jdbc),
+                new TransactionTemplate(new DataSourceTransactionManager(dataSource)));
     }
 
     @Test

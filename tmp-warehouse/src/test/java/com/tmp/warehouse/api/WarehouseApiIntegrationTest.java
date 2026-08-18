@@ -135,7 +135,11 @@ class WarehouseApiIntegrationTest {
                                 new JdbcMaterialReservationLinkRepository(jdbc), CLOCK),
                         new WarehouseReceiptService(engine, stockPositions, materials),
                         new WarehouseMoveService(engine),
-                        new WarehouseTransferService(engine, operations, transferContexts),
+                        new WarehouseTransferService(
+                                engine,
+                                operations,
+                                transferContexts,
+                                new TransactionTemplate(new DataSourceTransactionManager(dataSource))),
                         new WarehouseConsumptionService(engine, stockPositions),
                         new WarehouseAdjustmentService(engine, stockPositions),
                         operations,

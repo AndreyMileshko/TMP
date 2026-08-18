@@ -605,13 +605,14 @@ class WarehouseWorkbenchViewModelTest {
             return new TransferStatusView(
                     operationId,
                     OperationKind.TRANSFER_SEND,
-                    "COMPLETED",
+                    "SENT",
                     UUID.randomUUID(),
                     BigDecimal.ONE,
                     UUID.randomUUID(),
                     UUID.randomUUID(),
                     UUID.randomUUID(),
-                    UUID.randomUUID());
+                    UUID.randomUUID(),
+                    null);
         }
 
         @Override
