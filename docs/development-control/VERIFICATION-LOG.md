@@ -3,6 +3,44 @@
 ## Latest result
 
 **Date:** 2026-08-19  
+**Scope:** STAGE7-003 — Production persistence schema  
+**Overall:** PASS (full reactor verify GREEN)  
+**Type:** Production JDBC persistence + Flyway V23 + mapping tests + architecture guard  
+**Environment:** Windows; Maven `.tools/apache-maven-3.9.9`; JDK 21; Docker Desktop
+
+| Item | Result |
+|---|---|
+| Flyway V23 production schema | PASS |
+| `production.production_item_states` table | PASS |
+| `specification_id NOT NULL` | PASS |
+| No Production Order / Revision tables | PASS |
+| `ProductionItemStateEntity` + mapper | PASS |
+| `JdbcProductionItemStateRepository` | PASS |
+| `ProductionItemState.rehydrate` load path | PASS |
+| Persistence unit tests | PASS |
+| Persistence integration tests (PostgreSQL) | PASS |
+| Stage7ProductionArchitectureTest persistence rule | PASS |
+| Unit tests (`tmp-production`) | PASS (47 tests) |
+| `mvn -pl :tmp-production -am test` | PASS |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS |
+| `mvn test` | PASS |
+| `mvn verify` | PASS (full reactor) |
+| STAGE7-003 | DONE |
+| STAGE7-004 | READY |
+| Git | NOT EXECUTED |
+
+### Commands
+
+```bash
+mvn -pl :tmp-production -am test
+mvn -pl :tmp-architecture-tests -am test
+mvn test
+mvn verify
+```
+
+---
+
+**Date:** 2026-08-19  
 **Scope:** STAGE7-002 — Production identifiers and item-owned state model  
 **Overall:** PASS (full reactor verify GREEN)  
 **Type:** Production domain model + architecture test typo fix + STAGE7-004A queue entry  

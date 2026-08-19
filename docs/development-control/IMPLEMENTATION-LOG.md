@@ -4,6 +4,47 @@
 
 ---
 
+## STAGE7-003 — Production persistence schema
+
+**Date:** 2026-08-19  
+**Stage:** 7  
+**Status:** DONE  
+**Type:** Persistence layer only (no business/documents/cross-capability integration)
+
+### Summary
+
+Реализован Production persistence layer для item-owned state: Flyway migration `production.production_item_states`, JDBC repository, entity↔domain mapping без JPA и без зависимости на Warehouse/Order/Cutting internals.
+
+### Persistence deliverables
+
+- Flyway `V23__production_schema.sql`: schema `production`, table `production_item_states`.
+- Surrogate `ProductionItemId` (persistence-only); business identity = `SourceOrderId + SourceOrderItemId + SpecificationId`.
+- `ProductionItemStateEntity` (mutable persistence representation).
+- `ProductionItemStateMapper` + `JdbcProductionItemStateRepository`.
+- Domain port `ProductionItemStateRepository`.
+- Domain `ProductionItemState.rehydrate(...)` for load path (no business logic in persistence).
+
+### Schema invariants
+
+- `specification_id NOT NULL`; no Revision column/table.
+- No `production_orders`, `OrderProductionStatus`, aggregate/batch/revision tables.
+- Production-owned columns only (status, quantities, material-check/status timestamps).
+- No FK to warehouse/order_management schemas.
+
+### Tests
+
+- Unit: `ProductionItemStateMapperTest`, `ProductionPersistenceContractTest`.
+- Integration: `JdbcProductionItemStateRepositoryTest`, `ProductionSchemaFlywayTest`.
+- Architecture: `Stage7ProductionArchitectureTest` persistence-layer dependency rule.
+
+### Boundaries
+
+- No Launch/Release/Cancel/Material Check/Transfer/Receipt/Consumption.
+- No Warehouse/Order/Cutting/UI/document code changes.
+- Git not executed by agent.
+
+---
+
 ## STAGE7-002 — Production identifiers and item-owned state model
 
 **Date:** 2026-08-19  

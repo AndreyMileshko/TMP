@@ -1,5 +1,6 @@
 package com.tmp.architecture;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -35,4 +36,23 @@ class Stage7ProductionArchitectureTest {
                     .because(
                             "Production must interact cross-capability only via public contracts "
                                     + "and must not depend on internal application/domain/persistence packages");
+
+    @ArchTest
+    static final ArchRule productionPersistenceDependsOnlyOnProductionDomainAndPlatform =
+            classes()
+                    .that()
+                    .resideInAPackage("com.tmp.production.persistence..")
+                    .should()
+                    .onlyDependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production.domain..",
+                            "com.tmp.production.persistence..",
+                            "java..",
+                            "javax..",
+                            "jakarta..",
+                            "org.springframework..",
+                            "edu.umd.cs.findbugs..")
+                    .because(
+                            "Production persistence must map Production domain state via JDBC only, "
+                                    + "without Warehouse/Order/Cutting internals");
 }

@@ -10316,7 +10316,7 @@ mvn verify
 
 ## STAGE7-003 — Production persistence schema
 
-**Status:** READY  
+**Status:** DONE  
 **Stage:** 7  
 **Depends on:** STAGE7-002  
 **Module:** `tmp-production`, `tmp-infra-db` (Flyway only)
@@ -10355,7 +10355,7 @@ mvn -pl :tmp-production,:tmp-infra-db -am test
 
 ## STAGE7-004 — Production Launch document
 
-**Status:** PLANNED  
+**Status:** READY  
 **Stage:** 7  
 **Depends on:** STAGE7-003  
 **Module:** `tmp-production`

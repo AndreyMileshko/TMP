@@ -142,6 +142,34 @@ public final class ProductionItemState {
     }
 
     /**
+     * Reconstructs persisted item-owned state from storage. Used by persistence adapters only;
+     * domain invariants are enforced by the private constructor.
+     */
+    public static ProductionItemState rehydrate(
+            SourceOrderId sourceOrderId,
+            SourceOrderItemId sourceOrderItemId,
+            SpecificationId specificationId,
+            ProductionStatus status,
+            ProductionQuantity orderedQuantity,
+            ProductionQuantity launchedQuantity,
+            ProductionQuantity activeProductionQuantity,
+            ProductionQuantity releasedQuantity,
+            Instant lastMaterialCheckAt,
+            Instant lastStatusChangedAt) {
+        return new ProductionItemState(
+                sourceOrderId,
+                sourceOrderItemId,
+                specificationId,
+                status,
+                orderedQuantity,
+                launchedQuantity,
+                activeProductionQuantity,
+                releasedQuantity,
+                lastMaterialCheckAt,
+                lastStatusChangedAt);
+    }
+
+    /**
      * Records the last material availability check timestamp without changing production status.
      */
     public ProductionItemState recordMaterialCheck(Instant checkedAt) {
