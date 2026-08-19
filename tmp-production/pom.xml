@@ -15,7 +15,14 @@
     <packaging>jar</packaging>
 
     <description>
-        Production capability foundation module (Stage 7): reactor wiring and package boundaries only.
-        No business logic, persistence, documents, or UI in STAGE7-001.
+        Production capability module (Stage 7): item-owned production state, documents and integrations.
     </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 </project>

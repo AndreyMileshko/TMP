@@ -2,15 +2,15 @@
 
 **Mode:** Autonomous Cursor Agent  
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation IN PROGRESS  
-**Current Stage:** Stage 7 - IN PROGRESS / 5% (Start Gate PASSED)  
+**Current Stage:** Stage 7 - IN PROGRESS / 9% (Start Gate PASSED)  
 **Current Task:** none  
-**Last completed task:** STAGE7-001 (Production module foundation)  
+**Last completed task:** STAGE7-002 (Production identifiers and item-owned state model)  
 **Active blockers:** NONE  
 **Stage 6 Warehouse:** DONE  
-**Stage 7 Production:** IN PROGRESS / 5%  
+**Stage 7 Production:** IN PROGRESS / 9%  
 **Stage 7 Start Gate:** PASSED  
 **Full verify baseline:** GREEN  
-**First READY implementation task:** STAGE7-002
+**First READY implementation task:** STAGE7-003
 
 
 ```text
@@ -56,11 +56,12 @@ STAGE7-000A = DONE (Restore Green Reactor Baseline; Warehouse test debt)
 STAGE7-000B = DONE (Warehouse Production Integration Readiness)
 STAGE7-000C = DONE (Warehouse Transfer Integrity)
 STAGE7-001 = DONE (Production module foundation)
+STAGE7-002 = DONE (Production identifiers and item-owned state model)
 Active blockers = NONE
-Stage 7 Production = IN PROGRESS / 5%
+Stage 7 Production = IN PROGRESS / 9%
 Stage 7 Start Gate = PASSED
 Full verify baseline = GREEN
-First READY implementation task = STAGE7-002
+First READY implementation task = STAGE7-003
 ```
 
 ---
@@ -76,7 +77,7 @@ First READY implementation task = STAGE7-002
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
-| 7 | Production | IN PROGRESS | 5% |
+| 7 | Production | IN PROGRESS | 9% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 
@@ -99,5 +100,6 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - Warehouse integration readiness closed (`STAGE7-000B`).
 - Warehouse Transfer integrity closed (`STAGE7-000C`): exactly-once receive, positive quantity, logical DRAFT/SENT/RECEIVED.
 - `STAGE7-001` completed: `tmp-production` module foundation, package boundaries, reactor wiring, Stage 7 architecture guard.
-- Production implementation IN PROGRESS (5% by task-count: 1/20 implementation tasks done).
-- Next task: **STAGE7-002** (Production identifiers and item-owned state model) — READY.
+- `STAGE7-002` completed: Production domain identifiers, item-owned state model, quantity invariants, unit tests; Stage7ProductionArchitectureTest Cutting typo fixed; STAGE7-004A queued for OM SpecificationId alignment.
+- Production implementation IN PROGRESS (9% by task-count: 2/23 implementation tasks done).
+- Next task: **STAGE7-003** (Production persistence schema) — READY.

@@ -10272,7 +10272,7 @@ mvn verify
 
 ## STAGE7-002 — Production identifiers and item-owned state model
 
-**Status:** READY  
+**Status:** DONE  
 **Stage:** 7  
 **Depends on:** STAGE7-001  
 **Module:** `tmp-production`
@@ -10290,6 +10290,7 @@ mvn verify
 
 - `tmp-production/src/main/**/domain/**`;
 - `tmp-production/src/test/**/domain/**`;
+- `tmp-architecture-tests` (Stage7ProductionArchitectureTest typo fix only);
 - control docs.
 
 ### Forbidden
@@ -10298,21 +10299,24 @@ mvn verify
 
 ### Acceptance criteria
 
-- [ ] item-owned state model соответствует spec;
-- [ ] order-level view не хранится как агрегат;
-- [ ] нет Production Order entity.
+- [x] item-owned state model соответствует spec;
+- [x] order-level view не хранится как агрегат;
+- [x] нет Production Order entity.
 
 ### Verification commands
 
 ```bash
 mvn -pl :tmp-production -am test
+mvn -pl :tmp-architecture-tests -am test
+mvn test
+mvn verify
 ```
 
 ---
 
 ## STAGE7-003 — Production persistence schema
 
-**Status:** PLANNED  
+**Status:** READY  
 **Stage:** 7  
 **Depends on:** STAGE7-002  
 **Module:** `tmp-production`, `tmp-infra-db` (Flyway only)
@@ -10387,11 +10391,70 @@ mvn -pl :tmp-production -am test
 
 ---
 
+## STAGE7-004A — Order Management stable SpecificationId public contract alignment
+
+**Status:** PLANNED  
+**Stage:** 7  
+**Depends on:** STAGE7-003  
+**Module:** `tmp-order-management`, `tmp-infra-db` (Flyway only, when schema change required)
+
+### Goal
+
+Привести фактический Production-facing Order Management Public Query implementation к уже Accepted OM Specification v1.10: stable opaque `SpecificationId`, `getCurrentItemSpecification(orderItemId)` и `getSpecificationById(specificationId)` без обязательной RevisionNumber в Production contract.
+
+### Required documents
+
+- Order Management Specification v1.10 (Production-facing read contract);
+- Production Spec v2.2 §5–§6 (Specification Reference);
+- ADR-033.
+
+### Allowed code scope
+
+- `tmp-order-management` public query API / read adapters;
+- OM-owned Flyway migrations when stable `SpecificationId` persistence is missing;
+- OM integration/contract tests;
+- control docs.
+
+### Forbidden
+
+- Production domain changes;
+- removal of OM internal Revision model;
+- removal of existing revision/history queries still required by OM;
+- Warehouse / Production / UI changes.
+
+### Implementation requirements
+
+1. Verify current OM schema/persistence for Specification identity.
+2. Implement or expose stable opaque `SpecificationId` (reuse existing identifier if schema already provides one).
+3. Provide public read contract:
+   - `getCurrentItemSpecification(orderItemId)`
+   - `getSpecificationById(specificationId)`
+4. Return `SpecificationId` together with immutable Specification content.
+5. Do not require Production consumers to pass RevisionNumber.
+6. Preserve OM internal Revision lifecycle and history queries.
+7. Add integration/contract tests proving Production-facing contract.
+
+### Acceptance criteria
+
+- [ ] OM Public Query exposes stable `SpecificationId` for current immutable Specification;
+- [ ] `getSpecificationById` resolves fixed Specification without RevisionNumber;
+- [ ] Production contract gap closed before STAGE7-005;
+- [ ] OM Revision internals unchanged for OM-owned workflows.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-order-management -am test
+mvn -pl :tmp-architecture-tests -am test
+```
+
+---
+
 ## STAGE7-005 — Specification Reference freeze
 
 **Status:** PLANNED  
 **Stage:** 7  
-**Depends on:** STAGE7-004  
+**Depends on:** STAGE7-004, STAGE7-004A  
 **Module:** `tmp-production`
 
 ### Goal

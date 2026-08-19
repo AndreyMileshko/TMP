@@ -2,6 +2,42 @@
 
 ## Latest result
 
+**Date:** 2026-08-19  
+**Scope:** STAGE7-002 — Production identifiers and item-owned state model  
+**Overall:** PASS (full reactor verify GREEN)  
+**Type:** Production domain model + architecture test typo fix + STAGE7-004A queue entry  
+**Environment:** Windows; Maven `.tools/apache-maven-3.9.9`; JDK 21; Docker Desktop
+
+| Item | Result |
+|---|---|
+| Production domain identifiers | PASS |
+| ProductionItemState item-owned model | PASS |
+| SpecificationId non-null at Launch | PASS |
+| No Revision in Production domain | PASS |
+| Quantity invariants | PASS |
+| Stage7ProductionArchitectureTest Cutting typo fixed | PASS |
+| Stage4 future-package guard preserved | PASS |
+| Unit tests (`tmp-production`) | PASS (33 tests) |
+| `mvn -pl :tmp-production -am test` | PASS |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS |
+| `mvn test` | PASS |
+| `mvn verify` | PASS (full reactor) |
+| STAGE7-002 | DONE |
+| STAGE7-003 | READY |
+| STAGE7-004A | PLANNED (added) |
+| Git | NOT EXECUTED |
+
+### Commands
+
+```bash
+mvn -pl :tmp-production -am test
+mvn -pl :tmp-architecture-tests -am test
+mvn test
+mvn verify
+```
+
+---
+
 **Date:** 2026-08-18  
 **Scope:** STAGE7-001 — Production module foundation  
 **Overall:** PASS (full reactor verify GREEN)  

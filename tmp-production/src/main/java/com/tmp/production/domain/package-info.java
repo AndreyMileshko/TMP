@@ -1,7 +1,7 @@
 /**
  * Internal Production domain model boundary.
  *
- * <p>STAGE7-001 does not introduce aggregates, entities or value objects. Domain types will be
- * added starting from STAGE7-002.
+ * <p>Item-owned production state, identifiers and invariants. No persistence, revision semantics,
+ * order-level aggregates or cross-capability dependencies.
  */
 package com.tmp.production.domain;

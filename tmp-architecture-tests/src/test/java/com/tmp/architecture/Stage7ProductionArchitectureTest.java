@@ -29,9 +29,9 @@ class Stage7ProductionArchitectureTest {
                             "com.tmp.order.application..",
                             "com.tmp.order.domain..",
                             "com.tmp.order.persistence..",
-                            "com.tmp.cut..application..",
-                            "com.tmp.cut..domain..",
-                            "com.tmp.cut..persistence..")
+                            "com.tmp.cutting.application..",
+                            "com.tmp.cutting.domain..",
+                            "com.tmp.cutting.persistence..")
                     .because(
                             "Production must interact cross-capability only via public contracts "
                                     + "and must not depend on internal application/domain/persistence packages");

@@ -4,6 +4,52 @@
 
 ---
 
+## STAGE7-002 — Production identifiers and item-owned state model
+
+**Date:** 2026-08-19  
+**Stage:** 7  
+**Status:** DONE  
+**Type:** Domain implementation (no persistence, documents or cross-capability integration)
+
+### Summary
+
+Реализована чистая Production domain-модель item-owned state: opaque identifiers, quantity invariants, status transitions без persistence и без зависимости на OM/Warehouse/Cutting internals. Исправлен typo `com.tmp.cut..` → `com.tmp.cutting..` в Stage7ProductionArchitectureTest. Добавлена future task STAGE7-004A для OM SpecificationId public contract alignment.
+
+### Domain model
+
+- Identifiers: `SourceOrderId`, `SourceOrderItemId`, `SpecificationId` (Production-owned opaque UUID refs).
+- Quantity: `ProductionQuantity` (whole-number; positive for ordered, non-negative for launched/active/released).
+- Status: `ProductionStatus` enum with accepted vocabulary; `NOT_STARTED` vocabulary-only.
+- State: `ProductionItemState` created at Launch with non-null `SpecificationId`; no nullable spec identity.
+- Exception: `InvalidProductionStateException`.
+
+### Invariants / behavior
+
+- No Production Order entity; no order-level persisted aggregate.
+- No RevisionNumber / OrderItemRevision in Production domain.
+- Launch → `IN_PRODUCTION` with full ordered quantity as launched/active.
+- Release → `PARTIALLY_RELEASED` / `RELEASED` with quantity guards.
+- Cancel → `CANCELLED` for unfinished production; `RELEASED` cannot be cancelled.
+- `active + released == launched` enforced except for `CANCELLED`.
+
+### Architecture
+
+- Fixed Cutting internal package patterns in `Stage7ProductionArchitectureTest`.
+- Stage4 future-stage guard unchanged (Stage 8+ only).
+
+### Future OM contract gap
+
+- Added `STAGE7-004A` (PLANNED) to align OM Public Query with Accepted OM Spec v1.10 stable `SpecificationId`.
+- Updated `STAGE7-005` to depend on `STAGE7-004A`.
+- No OM main code changes in this task.
+
+### Boundaries
+
+- Warehouse / OM / Cutting / UI / persistence / documents: unchanged.
+- Git not executed.
+
+---
+
 ## STAGE7-001 — Production module foundation
 
 **Date:** 2026-08-18  
