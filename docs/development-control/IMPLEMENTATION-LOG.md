@@ -4,6 +4,60 @@
 
 ---
 
+## STAGE7-004 — Production Launch document
+
+**Date:** 2026-08-19  
+**Stage:** 7  
+**Module:** `tmp-production`  
+**Status:** DONE
+
+### Changes
+
+Production Launch implemented as a Business Document through Document Engine.
+
+**New production files (5):**
+- `AlreadyLaunchedForProductionException.java` — domain-specific exception for duplicate launch
+- `ProductionLaunchPayload.java` — immutable payload record (OrderId, OrderItemId, SpecificationId, OrderedQuantity, LaunchTimestamp, CreatedBy)
+- `ProductionLaunchProcessor.java` — DocumentProcessor implementation; only component using ProductionItemStateRepository; delegates to `ProductionItemState.launch()`; publishes `ProductionLaunched` after commit
+- `ProductionLaunchPayloadHolder.java` — in-memory payload holder for Document Engine lifecycle bridge
+- `ProductionLaunched.java` — DomainEvent published after successful commit
+- `LaunchProductionCommand.java` — application command
+- `ProductionLaunchService.java` — application service orchestrating create+post through Document Engine
+
+**Modified files:**
+- `pom.xml` — added `tmp-platform-core` and `tmp-document-engine` dependencies
+- `Stage7ProductionArchitectureTest.java` — added `onlyProcessorUsesRepository` rule
+
+**New test files (5):**
+- `ProductionLaunchProcessorTest.java` — launch, duplicate guard, domain event, unpost rejection
+- `LaunchProductionCommandTest.java` — validation
+- `ProductionLaunchPayloadTest.java` — validation
+- `ProductionLaunchedTest.java` — event properties
+- `AlreadyLaunchedForProductionExceptionTest.java` — message/accessors
+
+### Architecture
+
+```
+Application (LaunchProductionCommand)
+  → ProductionLaunchService
+    → DocumentEngine.createDocument() + postDocument()
+      → ProductionLaunchProcessor.onPost()
+        → ProductionItemStateRepository.findByIdentity() [duplicate check]
+        → ProductionItemState.launch() [domain]
+        → ProductionItemStateRepository.save()
+        → TransactionalEventPublisher.publishAfterCommit(ProductionLaunched)
+```
+
+### Verification
+
+- `mvn -pl :tmp-production -am test` — 63 tests PASS
+- `mvn -pl :tmp-architecture-tests -am test` — BUILD SUCCESS
+- No Warehouse/Order/Cutting dependencies
+- No Revision usage
+- No Material Check
+
+---
+
 ## STAGE7-003 — Production persistence schema
 
 **Date:** 2026-08-19  

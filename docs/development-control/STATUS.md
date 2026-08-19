@@ -4,13 +4,13 @@
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation IN PROGRESS  
 **Current Stage:** Stage 7 - IN PROGRESS / 13% (Start Gate PASSED)  
 **Current Task:** none  
-**Last completed task:** STAGE7-003 (Production persistence schema)  
+**Last completed task:** STAGE7-004 (Production Launch document)  
 **Active blockers:** NONE  
 **Stage 6 Warehouse:** DONE  
-**Stage 7 Production:** IN PROGRESS / 13%  
+**Stage 7 Production:** IN PROGRESS / 17%  
 **Stage 7 Start Gate:** PASSED  
 **Full verify baseline:** GREEN  
-**First READY implementation task:** STAGE7-004
+**First READY implementation task:** STAGE7-004A
 
 
 ```text
@@ -58,11 +58,12 @@ STAGE7-000C = DONE (Warehouse Transfer Integrity)
 STAGE7-001 = DONE (Production module foundation)
 STAGE7-002 = DONE (Production identifiers and item-owned state model)
 STAGE7-003 = DONE (Production persistence schema)
+STAGE7-004 = DONE (Production Launch document)
 Active blockers = NONE
-Stage 7 Production = IN PROGRESS / 13%
+Stage 7 Production = IN PROGRESS / 17%
 Stage 7 Start Gate = PASSED
 Full verify baseline = GREEN
-First READY implementation task = STAGE7-004
+First READY implementation task = STAGE7-004A
 ```
 
 ---
@@ -78,7 +79,7 @@ First READY implementation task = STAGE7-004
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
-| 7 | Production | IN PROGRESS | 13% |
+| 7 | Production | IN PROGRESS | 17% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 
@@ -103,5 +104,6 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - `STAGE7-001` completed: `tmp-production` module foundation, package boundaries, reactor wiring, Stage 7 architecture guard.
 - `STAGE7-002` completed: Production domain identifiers, item-owned state model, quantity invariants, unit tests; Stage7ProductionArchitectureTest Cutting typo fixed; STAGE7-004A queued for OM SpecificationId alignment.
 - `STAGE7-003` completed: Production persistence schema (`production.production_item_states`), JDBC repository, entity↔domain mapping, Flyway V23, persistence/integration tests; no Production Order / Revision tables.
-- Production implementation IN PROGRESS (13% by task-count: 3/23 implementation tasks done).
-- Next task: **STAGE7-004** (Production Launch document) — READY.
+- `STAGE7-004` completed: Production Launch as Business Document — ProductionLaunchProcessor, ProductionLaunchPayload, ProductionLaunched event, AlreadyLaunchedForProductionException, ProductionLaunchService; Document Engine integration; duplicate Launch guard; after-commit domain event; architecture rule (only Processor uses Repository); unit tests PASS.
+- Production implementation IN PROGRESS (17% by task-count: 4/23 implementation tasks done).
+- Next task: **STAGE7-004A** (OM stable SpecificationId public contract alignment) — READY.

@@ -10355,7 +10355,7 @@ mvn -pl :tmp-production,:tmp-infra-db -am test
 
 ## STAGE7-004 — Production Launch document
 
-**Status:** READY  
+**Status:** DONE  
 **Stage:** 7  
 **Depends on:** STAGE7-003  
 **Module:** `tmp-production`
@@ -10393,7 +10393,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-004A — Order Management stable SpecificationId public contract alignment
 
-**Status:** PLANNED  
+**Status:** READY  
 **Stage:** 7  
 **Depends on:** STAGE7-003  
 **Module:** `tmp-order-management`, `tmp-infra-db` (Flyway only, when schema change required)

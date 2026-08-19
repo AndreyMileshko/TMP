@@ -20,6 +20,14 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.tmp</groupId>
+            <artifactId>tmp-platform-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tmp</groupId>
+            <artifactId>tmp-document-engine</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jdbc</artifactId>
         </dependency>

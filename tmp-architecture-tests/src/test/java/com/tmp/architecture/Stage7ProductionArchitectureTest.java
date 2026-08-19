@@ -55,4 +55,19 @@ class Stage7ProductionArchitectureTest {
                     .because(
                             "Production persistence must map Production domain state via JDBC only, "
                                     + "without Warehouse/Order/Cutting internals");
+
+    @ArchTest
+    static final ArchRule onlyProcessorUsesRepository =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .and()
+                    .haveSimpleNameNotContaining("Processor")
+                    .and()
+                    .resideOutsideOfPackage("com.tmp.production.persistence..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("ProductionItemStateRepository")
+                    .because(
+                            "Repository is called only by Processor and persistence adapters");
 }

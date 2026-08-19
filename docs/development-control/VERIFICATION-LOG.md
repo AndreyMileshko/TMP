@@ -3,6 +3,30 @@
 ## Latest result
 
 **Date:** 2026-08-19  
+**Scope:** STAGE7-004 — Production Launch document  
+**Overall:** PASS  
+**Type:** Production Launch as Business Document; Processor + Payload + Event + Duplicate guard
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-production -am test` | PASS (63 tests) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS |
+| Launch creates ProductionItemState IN_PRODUCTION | PASS |
+| SpecificationId preserved | PASS |
+| Duplicate Launch throws AlreadyLaunchedForProductionException | PASS |
+| ProductionLaunched event published after commit | PASS |
+| UNPOST rejected | PASS |
+| No Warehouse/Order/Cutting dependencies | PASS (architecture test) |
+| Repository used only by Processor | PASS (architecture test) |
+| STAGE7-004 | DONE |
+| STAGE7-004A | READY |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result
+
+**Date:** 2026-08-19  
 **Scope:** STAGE7-003 — Production persistence schema  
 **Overall:** PASS (full reactor verify GREEN)  
 **Type:** Production JDBC persistence + Flyway V23 + mapping tests + architecture guard  
