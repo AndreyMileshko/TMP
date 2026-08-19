@@ -38,6 +38,7 @@
         <module>tmp-security</module>
         <module>tmp-order-management</module>
         <module>tmp-warehouse</module>
+        <module>tmp-production</module>
         <module>tmp-bootstrap-app</module>
         <module>tmp-ui-shell</module>
         <module>tmp-infra-db</module>

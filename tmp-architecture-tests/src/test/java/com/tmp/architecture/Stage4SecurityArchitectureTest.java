@@ -136,15 +136,14 @@ class Stage4SecurityArchitectureTest {
                     .because("Security public API must not expose PasswordHash / credential carriers");
 
     @ArchTest
-    static final ArchRule stage7PlusBusinessPackagesDoNotExist =
+    static final ArchRule stage8PlusBusinessPackagesDoNotExist =
             noClasses()
                     .should().resideInAnyPackage(
-                            "com.tmp.production..",
                             "com.tmp.cutting..",
                             "com.tmp.analytics..")
-                    .because("Stage 7+ business packages must not exist yet "
+                    .because("Stage 8+ business packages must not exist yet "
                             + "(com.tmp.warehouse.. is introduced by Stage 6; "
-                            + "com.tmp.order.. by Stage 5)");
+                            + "com.tmp.order.. by Stage 5; com.tmp.production.. by Stage 7)");
 
     @Test
     void reactorPomsForbidSpringSecurityWebStackAndIdentityProtocols() throws IOException {

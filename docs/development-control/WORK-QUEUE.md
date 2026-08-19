@@ -10212,7 +10212,7 @@ mvn verify
 
 ## STAGE7-001 — Production module foundation
 
-**Status:** READY  
+**Status:** DONE  
 **Stage:** 7  
 **Depends on:** STAGE7-000C  
 **Module:** `tmp-production` (new)
@@ -10250,9 +10250,9 @@ mvn verify
 
 ### Acceptance criteria
 
-- [ ] `tmp-production` подключён в reactor и компилируется;
-- [ ] package boundaries соответствуют Architecture rules;
-- [ ] Production business documents ещё не реализованы.
+- [x] `tmp-production` подключён в reactor и компилируется;
+- [x] package boundaries соответствуют Architecture rules;
+- [x] Production business documents ещё не реализованы.
 
 ### Required tests
 
@@ -10264,13 +10264,15 @@ mvn verify
 ```bash
 mvn -pl :tmp-production -am test
 mvn -pl :tmp-architecture-tests -am test
+mvn test
+mvn verify
 ```
 
 ---
 
 ## STAGE7-002 — Production identifiers and item-owned state model
 
-**Status:** PLANNED  
+**Status:** READY  
 **Stage:** 7  
 **Depends on:** STAGE7-001  
 **Module:** `tmp-production`

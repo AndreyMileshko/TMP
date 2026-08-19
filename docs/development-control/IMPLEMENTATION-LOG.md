@@ -4,6 +4,49 @@
 
 ---
 
+## STAGE7-001 — Production module foundation
+
+**Date:** 2026-08-18  
+**Stage:** 7  
+**Status:** DONE  
+**Type:** Foundation implementation (no Production business logic)
+
+### Summary
+
+Создан минимальный capability-модуль `tmp-production` для Stage 7 foundation: подключение в root reactor, формализация package boundaries (`api`/`application`/`domain`/`infrastructure`) и архитектурная защита от зависимостей на internal-пакеты других capabilities.
+
+### Module foundation
+
+- Added `tmp-production/pom.xml` with existing parent conventions and no speculative dependencies.
+- Added `tmp-production` to root reactor modules in `pom.xml`.
+- No Production business services, documents, persistence adapters, migrations or UI artifacts introduced.
+
+### Package boundaries
+
+- Added boundary packages under `com.tmp.production` via `package-info.java`:
+  - `com.tmp.production.api`
+  - `com.tmp.production.application`
+  - `com.tmp.production.domain`
+  - `com.tmp.production.infrastructure`
+- `com.tmp.production.api` explicitly reserved as future public cross-capability boundary; no Stage7-016A API methods added in this task.
+
+### Architecture protection
+
+- Added `Stage7ProductionArchitectureTest` in `tmp-architecture-tests` with invariant:
+  `com.tmp.production..` must not depend on `application/domain/persistence` internals of Warehouse/Order/Cutting capabilities.
+- Added `tmp-production` dependency to `tmp-architecture-tests/pom.xml` so new package boundaries are part of ArchUnit scan.
+- Updated pre-existing Stage 4 guard rule to keep Stage 8+ package prohibition while allowing Stage 7 `com.tmp.production..` existence.
+
+### Boundaries
+
+- Warehouse code: unchanged.
+- Order Management code: unchanged.
+- Cutting Optimization code: unchanged.
+- UI code: unchanged.
+- Git not executed.
+
+---
+
 ## STAGE7-000C — Warehouse Transfer Integrity
 
 **Date:** 2026-08-18  

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.tmp</groupId>
+        <artifactId>tmp-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>tmp-production</artifactId>
+    <name>TMP Production</name>
+    <packaging>jar</packaging>
+
+    <description>
+        Production capability foundation module (Stage 7): reactor wiring and package boundaries only.
+        No business logic, persistence, documents, or UI in STAGE7-001.
+    </description>
+</project>
