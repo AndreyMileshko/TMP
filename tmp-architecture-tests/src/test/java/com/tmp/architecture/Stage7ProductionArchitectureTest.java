@@ -3,6 +3,8 @@ package com.tmp.architecture;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
+import com.tmp.order.api.OrderQueryService;
+import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -70,4 +72,35 @@ class Stage7ProductionArchitectureTest {
                     .haveSimpleName("ProductionItemStateRepository")
                     .because(
                             "Repository is called only by Processor and persistence adapters");
+
+    @ArchTest
+    static final ArchRule foundationQueryMustNotUseCurrentSpecificationApi =
+            noClasses()
+                    .that()
+                    .haveSimpleName("ProductionFoundationQueryService")
+                    .should()
+                    .callMethod(OrderQueryService.class, "getCurrentItemSpecification")
+                    .because(
+                            "Post-launch reads must use frozen SpecificationId via getSpecificationById only");
+
+    @ArchTest
+    static final ArchRule foundationQueryMustNotResolveCurrentForLaunch =
+            noClasses()
+                    .that()
+                    .haveSimpleName("ProductionFoundationQueryService")
+                    .should()
+                    .callMethod(OrderSpecificationQueryPort.class, "resolveCurrentForLaunch")
+                    .because(
+                            "Production Foundation freeze uses current specification only at Launch");
+
+    @ArchTest
+    static final ArchRule launchProcessorMustNotTouchOrderQuery =
+            noClasses()
+                    .that()
+                    .haveSimpleName("ProductionLaunchProcessor")
+                    .should()
+                    .dependOnClassesThat()
+                    .areAssignableTo(OrderQueryService.class)
+                    .because(
+                            "Launch processor persists frozen foundation from payload; OM query stays in Launch service");
 }

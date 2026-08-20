@@ -4,6 +4,56 @@
 
 ---
 
+## STAGE7-004A — Order Management stable SpecificationId public contract alignment
+
+**Date:** 2026-08-19  
+**Stage:** 7  
+**Module:** `tmp-order-management`, `tmp-infra-db` (Flyway V24)  
+**Status:** DONE
+
+### Changes
+
+Stable opaque `SpecificationId` added to OM Public Query API for Production-facing read contract.
+
+**New files (3):**
+- `SpecificationId.java` — opaque UUID identifier in `com.tmp.order.api`
+- `ProductionSpecificationDto.java` — Production-facing DTO without RevisionNumber
+- `V24__item_specification_id.sql` — Flyway migration adding `specification_id` UUID column
+
+**Modified production files (5):**
+- `OrderQueryService.java` — added `getCurrentItemSpecification()`, `getSpecificationById()`
+- `OrderQueryReadPort.java` — added `findCurrentSpecification()`, `findSpecificationById()`
+- `DefaultOrderQueryService.java` — implemented new methods with authorization
+- `JdbcOrderQueryReadAdapter.java` — JDBC queries for Production-facing contract
+- `OrderAggregateSql.java` + `OrderItemAggregateJdbcSupport.java` — `specification_id` in INSERT, deterministic UUID derivation
+
+**Modified test files (3):**
+- `DefaultOrderQueryServiceSecurityTest.java` — EmptyReadPort updated
+- `OrderImportMetadataFlywayTest.java` — latest migration version updated
+- `JdbcOrderQueryReadAdapterIT.java` — 6 new integration tests
+
+**New test files (3):**
+- `ProductionSpecificationDtoTest.java`
+- `SpecificationIdTest.java`
+- `SpecificationIdDerivationTest.java`
+
+### Architecture decisions
+
+- `specification_id` is derived deterministically from `(orderItemId, revisionNumber)` via `UUID.nameUUIDFromBytes` for stability across delete-reinsert save cycles.
+- Legacy revision-based API preserved; Production never uses RevisionNumber.
+- Document Engine payload remains in-memory — this is a known limitation. Backlog item created below.
+
+### Verification
+
+- `mvn -pl :tmp-order-management -am test` — 366 tests PASS
+- `mvn -pl :tmp-architecture-tests -am test` — BUILD SUCCESS
+
+### Backlog
+
+- **Evaluate persistent capability payload support for Document Engine**: `ProductionLaunchPayload` currently lives in `ProductionLaunchPayloadHolder` (in-memory). If Document Engine should support payload recovery after restart, a separate task is needed. Not blocking for STAGE7-004A.
+
+---
+
 ## STAGE7-004 — Production Launch document
 
 **Date:** 2026-08-19  
@@ -5433,4 +5483,74 @@ Implemented Warehouse domain model in `com.tmp.warehouse.domain` only: warehouse
 - No Material Master / Batch / FIFO / FEFO / reservation stock state
 - No Spring / DB / UI dependencies in domain
 - Git commands not executed by agent.
+
+---
+
+## STAGE7-004B — SpecificationId Stability Fix
+
+**Date:** 2026-08-19
+**Status:** DONE
+
+### Problem
+
+V24 migration used `md5(...)::uuid` to populate `specification_id`, while Java uses `UUID.nameUUIDFromBytes()` (UUID v3). These are NOT equivalent: UUID v3 sets version nibble to `3` and variant bits to `10`, while raw `md5()::uuid` does not. This breaks the SpecificationId stability invariant — a migrated row would get a different SpecificationId upon next Java save.
+
+### Solution
+
+1. **V25 migration** (`V25__fix_specification_id_uuid_v3.sql`): recalculates all `specification_id` values using SQL that replicates UUID v3 bit manipulation (version=3 at byte 6, variant=IETF at byte 8), matching Java's `UUID.nameUUIDFromBytes()` exactly.
+2. **`SpecificationIdMigrationConsistencyIT`**: two integration tests with Testcontainers PostgreSQL:
+   - `migrationAndJavaProduceSameSpecificationId` — verifies the SQL UUID v3 formula matches Java for the same input.
+   - `migrationThenJavaRederivationProducesSameId` — verifies stability: after migration, Java re-derivation produces the same UUID.
+3. **Flyway version assertions updated** in `OrderImportMetadataFlywayTest` (24→25) and `OrderIntakeFlywayBootstrapIT` (14→25).
+
+### Files changed
+
+- `tmp-order-management/src/main/resources/db/migration/V25__fix_specification_id_uuid_v3.sql` (NEW)
+- `tmp-order-management/src/test/java/com/tmp/order/persistence/SpecificationIdMigrationConsistencyIT.java` (NEW)
+- `tmp-order-management/src/test/java/com/tmp/order/persistence/OrderImportMetadataFlywayTest.java` (version assertion fix)
+- `tmp-order-management/src/test/java/com/tmp/order/persistence/OrderIntakeFlywayBootstrapIT.java` (version assertion fix)
+
+### Invariant established
+
+One canonical SpecificationId algorithm: Java `UUID.nameUUIDFromBytes()`. Migration V25 aligns DB data. No second independent implementation exists.
+
+---
+
+## STAGE7-005 — Production Foundation (Specification Reference Freeze)
+
+**Date:** 2026-08-20
+**Status:** DONE
+
+### Architecture decision: reference-only, no content snapshot
+
+Per Production Spec §127–134 and OM Spec v1.10: specifications addressed by `SpecificationId` are immutable in Order Management. Production **does not copy** specification content. `ProductionFoundation` stores only the stable `SpecificationId` reference + source order item + freeze timestamp. Material lines are resolved on demand via `getSpecificationById(frozenSpecificationId)`.
+
+### Domain
+
+- **`ProductionFoundation`**: immutable value object (`specificationId`, `sourceOrderId`, `sourceOrderItemId`, `frozenAt`); `freeze()` at Launch only; `restore()` for persistence rehydration.
+- **`CuttingPlanLinks`**: empty extension point for STAGE7-008 (0..N cutting plan references per material).
+- **`ProductionItemState`**: embeds `ProductionFoundation`; all transitions preserve foundation unchanged.
+
+### Application
+
+- **`OrderSpecificationQueryPort`** + **`DefaultOrderSpecificationQueryAdapter`**: wraps OM `OrderQueryService` public API.
+- **`ProductionLaunchService`**: calls `resolveCurrentForLaunch()` exactly once; creates `ProductionFoundation`; Launch document is sole freeze point.
+- **`ProductionFoundationQueryService`**: post-launch reads via `resolveById()` only; exposes `materialLines()` for future Material Check/Transfer/Release.
+- **`LaunchProductionCommand`**: no longer accepts `specificationId` from caller — resolved from OM at Launch.
+
+### Persistence
+
+- No schema migration. `specification_id` + `created_at` map to foundation reference + `frozenAt`.
+- Repository persists/restores only; no foundation computation.
+
+### Tests
+
+- Unit: `ProductionFoundationTest`, `ProductionFoundationQueryServiceTest`, `ProductionLaunchServiceTest`, updated `ProductionItemStateTest`.
+- Contract: `ProductionFoundationFreezeContractTest` (new revision does not affect frozen foundation).
+- Integration: `JdbcProductionItemStateRepositoryTest` (foundation round-trip).
+- Architecture: 3 new ArchUnit rules in `Stage7ProductionArchitectureTest`.
+
+### Verification
+
+- `mvn verify` — BUILD SUCCESS (all modules).
 

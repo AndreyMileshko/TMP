@@ -3,6 +3,7 @@ package com.tmp.production.persistence;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
 import com.tmp.production.domain.ProductionStatus;
@@ -68,9 +69,10 @@ class JdbcProductionItemStateRepositoryTest {
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specificationId = SpecificationId.generate();
 
+        ProductionFoundation foundation =
+                ProductionFoundation.freeze(orderId, itemId, specificationId, T0);
         ProductionItemState launched =
-                ProductionItemState.launch(
-                        orderId, itemId, specificationId, ProductionQuantity.positive(10), T0);
+                ProductionItemState.launch(foundation, ProductionQuantity.positive(10), T0);
         ProductionItemState partial =
                 launched.release(ProductionQuantity.positive(4), T1).recordMaterialCheck(T1);
 
@@ -82,6 +84,7 @@ class JdbcProductionItemStateRepositoryTest {
                         .orElseThrow();
 
         assertFieldEquals(partial, loaded);
+        assertEquals(foundation, loaded.foundation());
         assertEquals(specificationId, loaded.specificationId());
         assertEquals(ProductionStatus.PARTIALLY_RELEASED, loaded.status());
         assertEquals(ProductionQuantity.positive(10), loaded.orderedQuantity());
@@ -98,9 +101,10 @@ class JdbcProductionItemStateRepositoryTest {
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specificationId = SpecificationId.generate();
 
+        ProductionFoundation foundation =
+                ProductionFoundation.freeze(orderId, itemId, specificationId, T0);
         ProductionItemState launched =
-                ProductionItemState.launch(
-                        orderId, itemId, specificationId, ProductionQuantity.positive(5), T0);
+                ProductionItemState.launch(foundation, ProductionQuantity.positive(5), T0);
         repository.save(launched);
 
         ProductionItemState released = launched.release(ProductionQuantity.positive(5), T1);
@@ -127,9 +131,10 @@ class JdbcProductionItemStateRepositoryTest {
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specificationId = SpecificationId.generate();
 
+        ProductionFoundation foundation =
+                ProductionFoundation.freeze(orderId, itemId, specificationId, T0);
         repository.save(
-                ProductionItemState.launch(
-                        orderId, itemId, specificationId, ProductionQuantity.positive(1), T0));
+                ProductionItemState.launch(foundation, ProductionQuantity.positive(1), T0));
 
         UUID persistedSpecId =
                 jdbc.queryForObject(
@@ -147,6 +152,7 @@ class JdbcProductionItemStateRepositoryTest {
     }
 
     private static void assertFieldEquals(ProductionItemState expected, ProductionItemState actual) {
+        assertEquals(expected.foundation(), actual.foundation());
         assertEquals(expected.sourceOrderId(), actual.sourceOrderId());
         assertEquals(expected.sourceOrderItemId(), actual.sourceOrderItemId());
         assertEquals(expected.specificationId(), actual.specificationId());

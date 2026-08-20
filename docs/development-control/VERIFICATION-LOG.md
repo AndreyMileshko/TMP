@@ -2,6 +2,73 @@
 
 ## Latest result
 
+**Date:** 2026-08-20  
+**Scope:** STAGE7-005 — Production Foundation (Specification Reference Freeze)  
+**Overall:** PASS  
+**Type:** Domain ProductionFoundation + Launch freeze + post-launch query boundary
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-production -am test` | PASS (81 tests) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS (Stage7ProductionArchitectureTest: 6 rules) |
+| `mvn verify` | PASS (BUILD SUCCESS) |
+| Launch freezes SpecificationId via OM Public Query | PASS (ProductionLaunchServiceTest) |
+| Post-launch reads use getSpecificationById only | PASS (ProductionFoundationQueryServiceTest) |
+| Foundation immutable through state transitions | PASS |
+| New revision does not affect frozen foundation | PASS (ProductionFoundationFreezeContractTest) |
+| Architecture: no current-spec API after Launch | PASS |
+| STAGE7-005 | DONE |
+| STAGE7-006 | READY |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result (STAGE7-004B)
+
+**Date:** 2026-08-19  
+**Scope:** STAGE7-004B — SpecificationId Stability Fix  
+**Overall:** PASS  
+**Type:** Flyway V25 corrective migration + cross-path consistency integration tests
+
+| Check | Result |
+|-------|--------|
+| `mvn verify` | PASS (all modules, BUILD SUCCESS) |
+| SQL UUID v3 = Java UUID.nameUUIDFromBytes() | PASS (SpecificationIdMigrationConsistencyIT) |
+| SpecificationId stable after re-derivation | PASS (SpecificationIdMigrationConsistencyIT) |
+| SpecificationIdDerivationTest | PASS (3 tests) |
+| OrderImportMetadataFlywayTest (version=25) | PASS |
+| OrderIntakeFlywayBootstrapIT (version=25) | PASS |
+| STAGE7-004B | DONE |
+| STAGE7-005 | READY |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result (STAGE7-004A)
+
+**Date:** 2026-08-19  
+**Scope:** STAGE7-004A — OM stable SpecificationId public contract alignment  
+**Overall:** PASS  
+**Type:** OM Public Query API extension + Flyway V24 + Production-facing DTO
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-order-management -am test` | PASS (366 tests) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS |
+| `getCurrentItemSpecification()` returns ProductionSpecificationDto | PASS |
+| `getSpecificationById()` resolves by SpecificationId | PASS |
+| SpecificationId stable across reloads | PASS |
+| No RevisionNumber in ProductionSpecificationDto | PASS |
+| Legacy revision API still works | PASS |
+| Production does not depend on OM internals | PASS (architecture test) |
+| STAGE7-004A | DONE |
+| STAGE7-005 | READY |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result
+
 **Date:** 2026-08-19  
 **Scope:** STAGE7-004 — Production Launch document  
 **Overall:** PASS  

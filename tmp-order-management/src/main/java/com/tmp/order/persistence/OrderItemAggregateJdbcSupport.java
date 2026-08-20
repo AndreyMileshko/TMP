@@ -7,12 +7,14 @@ import com.tmp.order.domain.OptimisticLockConflictException;
 import com.tmp.order.domain.OrderItem;
 import com.tmp.order.domain.OrderItemRevision;
 import com.tmp.order.domain.SpecificationLine;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -242,7 +244,8 @@ final class OrderItemAggregateJdbcSupport {
                 OrderAggregateSql.INSERT_SPECIFICATION,
                 specification.orderItemId().value(),
                 specification.revisionNumber().value(),
-                specification.isImmutable());
+                specification.isImmutable(),
+                deriveSpecificationId(specification.orderItemId(), specification.revisionNumber()));
         int lineNumber = 1;
         for (SpecificationLine line : specification.lines()) {
             jdbc.update(
@@ -258,5 +261,15 @@ final class OrderItemAggregateJdbcSupport {
                     line.unitOfMeasure());
             lineNumber++;
         }
+    }
+
+    /**
+     * Deterministic specification_id derived from (orderItemId, revisionNumber) using UUID v5
+     * with a fixed namespace. Ensures the same specification always gets the same UUID across
+     * delete-reinsert cycles.
+     */
+    static UUID deriveSpecificationId(OrderItemId orderItemId, RevisionNumber revisionNumber) {
+        String key = orderItemId.value() + ":" + revisionNumber.value();
+        return UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8));
     }
 }

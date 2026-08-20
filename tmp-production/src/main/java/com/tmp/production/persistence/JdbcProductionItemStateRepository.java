@@ -96,7 +96,9 @@ public final class JdbcProductionItemStateRepository implements ProductionItemSt
         Instant now = clock.instant();
         entity.setId(ProductionItemId.generate());
         entity.setVersion(0L);
-        entity.setCreatedAt(now);
+        if (entity.createdAt() == null) {
+            entity.setCreatedAt(now);
+        }
         entity.setUpdatedAt(now);
         jdbcTemplate.update(
                 """

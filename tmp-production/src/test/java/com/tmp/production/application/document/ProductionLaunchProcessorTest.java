@@ -10,6 +10,7 @@ import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentStatus;
 import com.tmp.production.application.event.ProductionLaunched;
 import com.tmp.production.domain.AlreadyLaunchedForProductionException;
+import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
 import com.tmp.production.domain.ProductionStatus;
@@ -54,10 +55,11 @@ class ProductionLaunchProcessorTest {
         SpecificationId specId = SpecificationId.generate();
         Instant now = Instant.now();
 
+        ProductionFoundation foundation =
+                ProductionFoundation.freeze(orderId, itemId, specId, now);
         ProductionLaunchPayload payload =
                 new ProductionLaunchPayload(
-                        orderId, itemId, specId,
-                        ProductionQuantity.positive(10), now, "operator");
+                        foundation, ProductionQuantity.positive(10), "operator");
 
         UUID docId = UUID.randomUUID();
         payloadHolder.set(docId, payload);
@@ -78,10 +80,7 @@ class ProductionLaunchProcessorTest {
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specId = SpecificationId.generate();
 
-        ProductionLaunchPayload payload =
-                new ProductionLaunchPayload(
-                        orderId, itemId, specId,
-                        ProductionQuantity.positive(5), Instant.now(), "user1");
+        ProductionLaunchPayload payload = payload(orderId, itemId, specId, 5, Instant.now(), "user1");
 
         UUID docId = UUID.randomUUID();
         payloadHolder.set(docId, payload);
@@ -104,10 +103,7 @@ class ProductionLaunchProcessorTest {
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specId = SpecificationId.generate();
 
-        ProductionLaunchPayload payload =
-                new ProductionLaunchPayload(
-                        orderId, itemId, specId,
-                        ProductionQuantity.positive(3), Instant.now(), "op");
+        ProductionLaunchPayload payload = payload(orderId, itemId, specId, 3, Instant.now(), "op");
 
         UUID docId1 = UUID.randomUUID();
         payloadHolder.set(docId1, payload);
@@ -144,10 +140,7 @@ class ProductionLaunchProcessorTest {
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specId = SpecificationId.generate();
 
-        ProductionLaunchPayload payload =
-                new ProductionLaunchPayload(
-                        orderId, itemId, specId,
-                        ProductionQuantity.positive(1), Instant.now(), "user");
+        ProductionLaunchPayload payload = payload(orderId, itemId, specId, 1, Instant.now(), "user");
 
         UUID docId = UUID.randomUUID();
         payloadHolder.set(docId, payload);
@@ -155,7 +148,20 @@ class ProductionLaunchProcessorTest {
 
         ProductionItemState state =
                 repository.findByIdentity(orderId, itemId, specId).orElseThrow();
-        assertEquals(specId, state.specificationId());
+        assertEquals(specId, state.foundation().specificationId());
+    }
+
+    private static ProductionLaunchPayload payload(
+            SourceOrderId orderId,
+            SourceOrderItemId itemId,
+            SpecificationId specId,
+            long quantity,
+            Instant frozenAt,
+            String createdBy) {
+        ProductionFoundation foundation =
+                ProductionFoundation.freeze(orderId, itemId, specId, frozenAt);
+        return new ProductionLaunchPayload(
+                foundation, ProductionQuantity.positive(quantity), createdBy);
     }
 
     private static DocumentOperationContext contextFor(UUID documentId) {

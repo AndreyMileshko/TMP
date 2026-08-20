@@ -1,5 +1,6 @@
 package com.tmp.production.persistence;
 
+import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
 import com.tmp.production.domain.ProductionStatus;
@@ -31,15 +32,20 @@ public final class ProductionItemStateMapper {
         entity.setReleasedQuantity(state.releasedQuantity());
         entity.setLastMaterialCheckAt(state.lastMaterialCheckAt());
         entity.setLastStatusChangedAt(state.lastStatusChangedAt());
+        entity.setCreatedAt(state.foundation().frozenAt());
         return entity;
     }
 
     public static ProductionItemState toDomain(ProductionItemStateEntity entity) {
         Objects.requireNonNull(entity, "entity");
+        ProductionFoundation foundation =
+                ProductionFoundation.restore(
+                        entity.sourceOrderId(),
+                        entity.sourceOrderItemId(),
+                        entity.specificationId(),
+                        entity.createdAt());
         return ProductionItemState.rehydrate(
-                entity.sourceOrderId(),
-                entity.sourceOrderItemId(),
-                entity.specificationId(),
+                foundation,
                 entity.status(),
                 entity.orderedQuantity(),
                 entity.launchedQuantity(),

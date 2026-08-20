@@ -13,8 +13,10 @@ import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.OrderSummaryDto;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
+import com.tmp.order.api.ProductionSpecificationDto;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
+import com.tmp.order.api.SpecificationId;
 import com.tmp.order.api.SpecificationLineDto;
 import com.tmp.order.application.query.OrderQueryReadPort;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -371,6 +373,110 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                 RevisionStatus.valueOf(rs.getString("revision_status")),
                 rs.getBigDecimal("ordered_quantity"),
                 previous == null ? null : RevisionNumber.of(previous));
+    }
+
+    @Override
+    public Optional<ProductionSpecificationDto> findCurrentSpecification(
+            OrderItemId orderItemId) {
+        Objects.requireNonNull(orderItemId, "orderItemId");
+        List<ProductionSpecificationDto> rows =
+                jdbc.query(
+                        """
+                        SELECT s.specification_id, s.order_item_id, r.ordered_quantity
+                        FROM order_management.order_items i
+                        JOIN order_management.order_item_revisions r
+                          ON r.order_item_id = i.order_item_id
+                         AND r.revision_number = i.active_revision_number
+                        JOIN order_management.item_specifications s
+                          ON s.order_item_id = r.order_item_id
+                         AND s.revision_number = r.revision_number
+                        WHERE i.order_item_id = ?
+                          AND i.active_revision_number IS NOT NULL
+                          AND r.revision_status = 'ACTIVE'
+                        """,
+                        (rs, rowNum) -> {
+                            SpecificationId specId =
+                                    SpecificationId.of(rs.getObject("specification_id", UUID.class));
+                            OrderItemId itemId =
+                                    OrderItemId.of(rs.getObject("order_item_id", UUID.class));
+                            return ProductionSpecificationDto.of(
+                                    specId,
+                                    itemId,
+                                    rs.getBigDecimal("ordered_quantity"),
+                                    loadSpecLinesBySpecIdentity(itemId, specId));
+                        },
+                        orderItemId.value());
+        return rows.stream().findFirst();
+    }
+
+    @Override
+    public Optional<ProductionSpecificationDto> findSpecificationById(
+            SpecificationId specificationId) {
+        Objects.requireNonNull(specificationId, "specificationId");
+        List<ProductionSpecificationDto> rows =
+                jdbc.query(
+                        """
+                        SELECT s.specification_id, s.order_item_id, s.revision_number,
+                               r.ordered_quantity
+                        FROM order_management.item_specifications s
+                        JOIN order_management.order_item_revisions r
+                          ON r.order_item_id = s.order_item_id
+                         AND r.revision_number = s.revision_number
+                        WHERE s.specification_id = ?
+                          AND r.revision_status = 'ACTIVE'
+                        """,
+                        (rs, rowNum) -> {
+                            SpecificationId specId =
+                                    SpecificationId.of(rs.getObject("specification_id", UUID.class));
+                            OrderItemId itemId =
+                                    OrderItemId.of(rs.getObject("order_item_id", UUID.class));
+                            RevisionNumber revNum =
+                                    RevisionNumber.of(rs.getInt("revision_number"));
+                            List<SpecificationLineDto> lines = loadSpecLines(itemId, revNum);
+                            return ProductionSpecificationDto.of(
+                                    specId, itemId, rs.getBigDecimal("ordered_quantity"), lines);
+                        },
+                        specificationId.value());
+        return rows.stream().findFirst();
+    }
+
+    private List<SpecificationLineDto> loadSpecLinesBySpecIdentity(
+            OrderItemId orderItemId, SpecificationId specificationId) {
+        Integer revNum =
+                jdbc.queryForObject(
+                        """
+                        SELECT revision_number FROM order_management.item_specifications
+                        WHERE order_item_id = ? AND specification_id = ?
+                        """,
+                        Integer.class,
+                        orderItemId.value(),
+                        specificationId.value());
+        if (revNum == null) {
+            return List.of();
+        }
+        return loadSpecLines(orderItemId, RevisionNumber.of(revNum));
+    }
+
+    private List<SpecificationLineDto> loadSpecLines(
+            OrderItemId orderItemId, RevisionNumber revisionNumber) {
+        return jdbc.query(
+                """
+                SELECT material_code, material_name, color, length_mm, line_quantity,
+                       unit_of_measure
+                FROM order_management.item_specification_lines
+                WHERE order_item_id = ? AND revision_number = ?
+                ORDER BY line_number ASC
+                """,
+                (rs, rowNum) ->
+                        SpecificationLineDto.of(
+                                rs.getString("material_code"),
+                                rs.getString("material_name"),
+                                rs.getString("color"),
+                                rs.getBigDecimal("length_mm"),
+                                rs.getBigDecimal("line_quantity"),
+                                rs.getString("unit_of_measure")),
+                orderItemId.value(),
+                revisionNumber.value());
     }
 
     private record FilterSql(String whereClause, List<Object> args) {}

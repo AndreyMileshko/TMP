@@ -10,7 +10,9 @@ import com.tmp.order.api.OrderSearchCriteria;
 import com.tmp.order.api.OrderSummaryDto;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
+import com.tmp.order.api.ProductionSpecificationDto;
 import com.tmp.order.api.RevisionNumber;
+import com.tmp.order.api.SpecificationId;
 import java.util.Optional;
 
 /**
@@ -39,4 +41,8 @@ public interface OrderQueryReadPort {
 
     Optional<ItemSpecificationDto> findApprovedSpecification(
             OrderItemId orderItemId, RevisionNumber revisionNumber);
+
+    Optional<ProductionSpecificationDto> findCurrentSpecification(OrderItemId orderItemId);
+
+    Optional<ProductionSpecificationDto> findSpecificationById(SpecificationId specificationId);
 }

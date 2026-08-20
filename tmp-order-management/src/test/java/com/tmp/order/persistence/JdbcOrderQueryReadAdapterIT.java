@@ -4,6 +4,7 @@ import com.tmp.order.testsupport.IntakeContractFixtures;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,8 +21,10 @@ import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.OrderSummaryDto;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
+import com.tmp.order.api.ProductionSpecificationDto;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
+import com.tmp.order.api.SpecificationId;
 import com.tmp.order.application.query.DefaultOrderQueryService;
 import com.tmp.order.domain.CurrencyCode;
 import com.tmp.order.domain.CustomerOrder;
@@ -520,6 +523,86 @@ class JdbcOrderQueryReadAdapterIT {
                         T1,
                         T1);
         return itemRepository.save(item).id();
+    }
+
+    @Test
+    void getCurrentItemSpecificationReturnsProductionDto() {
+        OrderId orderId = seedOrder("ORD-PROD-SPEC", "CR", "Cust", OrderStatus.ACTIVE, T1);
+        OrderItemId itemId = seedItemWithDraftAndApproved(orderId);
+
+        Optional<ProductionSpecificationDto> result =
+                queries.getCurrentItemSpecification(itemId);
+
+        assertTrue(result.isPresent());
+        ProductionSpecificationDto dto = result.orElseThrow();
+        assertNotNull(dto.specificationId());
+        assertEquals(itemId, dto.orderItemId());
+        assertEquals(new BigDecimal("5.000000"), dto.orderedQuantity());
+        assertEquals(2, dto.lines().size());
+    }
+
+    @Test
+    void getCurrentItemSpecificationReturnsEmptyForNoActiveRevision() {
+        OrderId orderId = seedOrder("ORD-NO-ACTIVE", "CR", "Cust", OrderStatus.DRAFT, T1);
+        OrderItemId itemId = OrderItemId.generate();
+        OrderItem item =
+                OrderItem.create(
+                        itemId,
+                        orderId,
+                        ItemCommercialData.of(ProductCode.of("P-X"), "NoRev", ""),
+                        OrderedQuantity.of(1),
+                        Clock.fixed(T1, ZoneOffset.UTC));
+        itemRepository.save(item);
+
+        assertTrue(queries.getCurrentItemSpecification(itemId).isEmpty());
+    }
+
+    @Test
+    void getSpecificationByIdReturnsCorrectSpec() {
+        OrderId orderId = seedOrder("ORD-BY-SPECID", "CR", "Cust", OrderStatus.ACTIVE, T1);
+        OrderItemId itemId = seedItemWithDraftAndApproved(orderId);
+
+        ProductionSpecificationDto current =
+                queries.getCurrentItemSpecification(itemId).orElseThrow();
+        SpecificationId specId = current.specificationId();
+
+        Optional<ProductionSpecificationDto> byId = queries.getSpecificationById(specId);
+        assertTrue(byId.isPresent());
+        assertEquals(specId, byId.orElseThrow().specificationId());
+        assertEquals(2, byId.orElseThrow().lines().size());
+    }
+
+    @Test
+    void getSpecificationByIdReturnsEmptyForUnknown() {
+        assertTrue(
+                queries.getSpecificationById(
+                                SpecificationId.of(java.util.UUID.randomUUID()))
+                        .isEmpty());
+    }
+
+    @Test
+    void specificationIdIsStableAcrossReloads() {
+        OrderId orderId = seedOrder("ORD-STABLE-ID", "CR", "Cust", OrderStatus.ACTIVE, T1);
+        OrderItemId itemId = seedItemWithDraftAndApproved(orderId);
+
+        SpecificationId first =
+                queries.getCurrentItemSpecification(itemId).orElseThrow().specificationId();
+        SpecificationId second =
+                queries.getCurrentItemSpecification(itemId).orElseThrow().specificationId();
+
+        assertEquals(first, second);
+    }
+
+    @Test
+    void legacySpecificationApiStillWorks() {
+        OrderId orderId = seedOrder("ORD-LEGACY", "CR", "Cust", OrderStatus.ACTIVE, T1);
+        OrderItemId itemId = seedItemWithDraftAndApproved(orderId);
+
+        Optional<ItemSpecificationDto> legacy =
+                queries.getItemSpecification(itemId, RevisionNumber.first());
+        assertTrue(legacy.isPresent());
+        assertEquals(RevisionNumber.first(), legacy.orElseThrow().revisionNumber());
+        assertEquals(2, legacy.orElseThrow().lines().size());
     }
 
     private enum AllowingAuthorization implements AuthorizationService {

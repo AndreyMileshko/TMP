@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
 import com.tmp.production.domain.ProductionStatus;
@@ -24,10 +25,11 @@ class ProductionItemStateMapperTest {
         SourceOrderId orderId = SourceOrderId.generate();
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specificationId = SpecificationId.generate();
+        ProductionFoundation foundation =
+                ProductionFoundation.freeze(orderId, itemId, specificationId, T0);
 
         ProductionItemState launched =
-                ProductionItemState.launch(
-                        orderId, itemId, specificationId, ProductionQuantity.positive(12), T0);
+                ProductionItemState.launch(foundation, ProductionQuantity.positive(12), T0);
         ProductionItemState partial =
                 launched.release(ProductionQuantity.positive(5), T1).recordMaterialCheck(T1);
 
@@ -35,6 +37,7 @@ class ProductionItemStateMapperTest {
         ProductionItemState restored = ProductionItemStateMapper.toDomain(entity);
 
         assertFieldEquals(partial, restored);
+        assertEquals(foundation, restored.foundation());
         assertEquals(specificationId, restored.specificationId());
         assertEquals(ProductionStatus.PARTIALLY_RELEASED, restored.status());
         assertEquals(ProductionQuantity.positive(12), restored.orderedQuantity());
@@ -51,6 +54,7 @@ class ProductionItemStateMapperTest {
         ProductionItemState restored = ProductionItemStateMapper.toDomain(entity);
 
         assertNull(restored.lastMaterialCheckAt());
+        assertNotNull(restored.foundation());
         assertNotNull(restored.specificationId());
     }
 
@@ -63,15 +67,17 @@ class ProductionItemStateMapperTest {
     }
 
     private static ProductionItemState sampleLaunched() {
-        return ProductionItemState.launch(
-                SourceOrderId.generate(),
-                SourceOrderItemId.generate(),
-                SpecificationId.generate(),
-                ProductionQuantity.positive(3),
-                T0);
+        ProductionFoundation foundation =
+                ProductionFoundation.freeze(
+                        SourceOrderId.generate(),
+                        SourceOrderItemId.generate(),
+                        SpecificationId.generate(),
+                        T0);
+        return ProductionItemState.launch(foundation, ProductionQuantity.positive(3), T0);
     }
 
     private static void assertFieldEquals(ProductionItemState expected, ProductionItemState actual) {
+        assertEquals(expected.foundation(), actual.foundation());
         assertEquals(expected.sourceOrderId(), actual.sourceOrderId());
         assertEquals(expected.sourceOrderItemId(), actual.sourceOrderItemId());
         assertEquals(expected.specificationId(), actual.specificationId());

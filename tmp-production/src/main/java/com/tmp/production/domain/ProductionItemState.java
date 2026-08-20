@@ -7,14 +7,12 @@ import java.util.Objects;
  * Item-owned production state (Production Spec §5).
  *
  * <p>Identified by {@code SourceOrderId + SourceOrderItemId + SpecificationId}. Created at Launch
- * with a non-null specification reference. Absence of state before Launch is interpreted as
+ * with an immutable {@link ProductionFoundation}. Absence of state before Launch is interpreted as
  * {@link ProductionStatus#NOT_STARTED} at application/query boundaries only.
  */
 public final class ProductionItemState {
 
-    private final SourceOrderId sourceOrderId;
-    private final SourceOrderItemId sourceOrderItemId;
-    private final SpecificationId specificationId;
+    private final ProductionFoundation foundation;
     private final ProductionStatus status;
     private final ProductionQuantity orderedQuantity;
     private final ProductionQuantity launchedQuantity;
@@ -24,9 +22,7 @@ public final class ProductionItemState {
     private final Instant lastStatusChangedAt;
 
     private ProductionItemState(
-            SourceOrderId sourceOrderId,
-            SourceOrderItemId sourceOrderItemId,
-            SpecificationId specificationId,
+            ProductionFoundation foundation,
             ProductionStatus status,
             ProductionQuantity orderedQuantity,
             ProductionQuantity launchedQuantity,
@@ -34,9 +30,7 @@ public final class ProductionItemState {
             ProductionQuantity releasedQuantity,
             Instant lastMaterialCheckAt,
             Instant lastStatusChangedAt) {
-        this.sourceOrderId = Objects.requireNonNull(sourceOrderId, "sourceOrderId");
-        this.sourceOrderItemId = Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
-        this.specificationId = Objects.requireNonNull(specificationId, "specificationId");
+        this.foundation = Objects.requireNonNull(foundation, "foundation");
         this.status = Objects.requireNonNull(status, "status");
         this.orderedQuantity = Objects.requireNonNull(orderedQuantity, "orderedQuantity");
         this.launchedQuantity = Objects.requireNonNull(launchedQuantity, "launchedQuantity");
@@ -56,19 +50,19 @@ public final class ProductionItemState {
     /**
      * Creates production state when an order item is accepted into production at Launch.
      *
-     * <p>Whole-order Launch accepts the full ordered quantity for the item.
+     * <p>Whole-order Launch accepts the full ordered quantity for the item and freezes the
+     * {@link ProductionFoundation} exactly once.
      */
     public static ProductionItemState launch(
-            SourceOrderId sourceOrderId,
-            SourceOrderItemId sourceOrderItemId,
-            SpecificationId specificationId,
-            ProductionQuantity orderedQuantity,
-            Instant launchedAt) {
+            ProductionFoundation foundation, ProductionQuantity orderedQuantity, Instant launchedAt) {
+        Objects.requireNonNull(foundation, "foundation");
         Objects.requireNonNull(launchedAt, "launchedAt");
+        if (!foundation.frozenAt().equals(launchedAt)) {
+            throw new IllegalArgumentException(
+                    "Launch timestamp must match foundation freeze timestamp");
+        }
         return new ProductionItemState(
-                sourceOrderId,
-                sourceOrderItemId,
-                specificationId,
+                foundation,
                 ProductionStatus.IN_PRODUCTION,
                 orderedQuantity,
                 orderedQuantity,
@@ -105,9 +99,7 @@ public final class ProductionItemState {
                         ? ProductionStatus.RELEASED
                         : ProductionStatus.PARTIALLY_RELEASED;
         return new ProductionItemState(
-                sourceOrderId,
-                sourceOrderItemId,
-                specificationId,
+                foundation,
                 newStatus,
                 orderedQuantity,
                 launchedQuantity,
@@ -129,9 +121,7 @@ public final class ProductionItemState {
             throw new InvalidProductionStateException("Production is already cancelled");
         }
         return new ProductionItemState(
-                sourceOrderId,
-                sourceOrderItemId,
-                specificationId,
+                foundation,
                 ProductionStatus.CANCELLED,
                 orderedQuantity,
                 launchedQuantity,
@@ -146,9 +136,7 @@ public final class ProductionItemState {
      * domain invariants are enforced by the private constructor.
      */
     public static ProductionItemState rehydrate(
-            SourceOrderId sourceOrderId,
-            SourceOrderItemId sourceOrderItemId,
-            SpecificationId specificationId,
+            ProductionFoundation foundation,
             ProductionStatus status,
             ProductionQuantity orderedQuantity,
             ProductionQuantity launchedQuantity,
@@ -157,9 +145,7 @@ public final class ProductionItemState {
             Instant lastMaterialCheckAt,
             Instant lastStatusChangedAt) {
         return new ProductionItemState(
-                sourceOrderId,
-                sourceOrderItemId,
-                specificationId,
+                foundation,
                 status,
                 orderedQuantity,
                 launchedQuantity,
@@ -179,9 +165,7 @@ public final class ProductionItemState {
                     "Material check cannot be recorded for cancelled production");
         }
         return new ProductionItemState(
-                sourceOrderId,
-                sourceOrderItemId,
-                specificationId,
+                foundation,
                 status,
                 orderedQuantity,
                 launchedQuantity,
@@ -191,16 +175,20 @@ public final class ProductionItemState {
                 lastStatusChangedAt);
     }
 
+    public ProductionFoundation foundation() {
+        return foundation;
+    }
+
     public SourceOrderId sourceOrderId() {
-        return sourceOrderId;
+        return foundation.sourceOrderId();
     }
 
     public SourceOrderItemId sourceOrderItemId() {
-        return sourceOrderItemId;
+        return foundation.sourceOrderItemId();
     }
 
     public SpecificationId specificationId() {
-        return specificationId;
+        return foundation.specificationId();
     }
 
     public ProductionStatus status() {

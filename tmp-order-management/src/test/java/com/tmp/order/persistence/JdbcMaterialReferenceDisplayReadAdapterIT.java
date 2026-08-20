@@ -105,9 +105,10 @@ class JdbcMaterialReferenceDisplayReadAdapterIT {
         jdbc.update(
                 """
                 INSERT INTO order_management.item_specifications
-                    (order_item_id, revision_number, immutable)
-                VALUES (?, 1, TRUE)
+                    (order_item_id, revision_number, immutable, specification_id)
+                VALUES (?, 1, TRUE, md5(?::text || ':1')::uuid)
                 """,
+                orderItemId,
                 orderItemId);
         jdbc.update(
                 """

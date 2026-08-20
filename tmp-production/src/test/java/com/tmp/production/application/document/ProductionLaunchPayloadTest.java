@@ -3,6 +3,7 @@ package com.tmp.production.application.document;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionQuantity;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
@@ -14,42 +15,41 @@ class ProductionLaunchPayloadTest {
 
     @Test
     void validPayload() {
-        ProductionLaunchPayload payload =
-                new ProductionLaunchPayload(
+        Instant now = Instant.now();
+        ProductionFoundation foundation =
+                ProductionFoundation.freeze(
                         SourceOrderId.generate(),
                         SourceOrderItemId.generate(),
                         SpecificationId.generate(),
-                        ProductionQuantity.positive(5),
-                        Instant.now(),
-                        "operator");
+                        now);
+        ProductionLaunchPayload payload =
+                new ProductionLaunchPayload(foundation, ProductionQuantity.positive(5), "operator");
         assertEquals("operator", payload.createdBy());
+        assertEquals(foundation, payload.foundation());
     }
 
     @Test
-    void nullSourceOrderIdRejected() {
+    void nullFoundationRejected() {
         assertThrows(
                 NullPointerException.class,
                 () ->
                         new ProductionLaunchPayload(
-                                null,
-                                SourceOrderItemId.generate(),
-                                SpecificationId.generate(),
-                                ProductionQuantity.positive(1),
-                                Instant.now(),
-                                "op"));
+                                null, ProductionQuantity.positive(1), "op"));
     }
 
     @Test
     void blankCreatedByRejected() {
+        Instant now = Instant.now();
+        ProductionFoundation foundation =
+                ProductionFoundation.freeze(
+                        SourceOrderId.generate(),
+                        SourceOrderItemId.generate(),
+                        SpecificationId.generate(),
+                        now);
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
                         new ProductionLaunchPayload(
-                                SourceOrderId.generate(),
-                                SourceOrderItemId.generate(),
-                                SpecificationId.generate(),
-                                ProductionQuantity.positive(1),
-                                Instant.now(),
-                                "  "));
+                                foundation, ProductionQuantity.positive(1), "  "));
     }
 }

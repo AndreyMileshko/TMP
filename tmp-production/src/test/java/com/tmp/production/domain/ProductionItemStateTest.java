@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
+import com.tmp.production.testsupport.ProductionTestFixtures;
 import org.junit.jupiter.api.Test;
 
 class ProductionItemStateTest {
@@ -20,15 +21,17 @@ class ProductionItemStateTest {
     private static final Instant T2 = Instant.parse("2026-08-19T08:00:00Z");
 
     @Test
-    void launchCreatesInProductionStateWithNonNullSpecificationReference() {
+    void launchCreatesInProductionStateWithFrozenFoundation() {
         SourceOrderId orderId = SourceOrderId.generate();
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specificationId = SpecificationId.generate();
+        ProductionFoundation foundation =
+                ProductionFoundation.freeze(orderId, itemId, specificationId, T0);
 
         ProductionItemState state =
-                ProductionItemState.launch(
-                        orderId, itemId, specificationId, ProductionQuantity.positive(10), T0);
+                ProductionItemState.launch(foundation, ProductionQuantity.positive(10), T0);
 
+        assertEquals(foundation, state.foundation());
         assertEquals(orderId, state.sourceOrderId());
         assertEquals(itemId, state.sourceOrderItemId());
         assertEquals(specificationId, state.specificationId());
@@ -42,24 +45,42 @@ class ProductionItemStateTest {
     }
 
     @Test
+    void launchRejectsNullFoundation() {
+        assertThrows(
+                NullPointerException.class,
+                () -> ProductionItemState.launch(null, ProductionQuantity.positive(1), T0));
+    }
+
+    @Test
+    void launchRequiresMatchingFreezeTimestamp() {
+        ProductionFoundation foundation = ProductionTestFixtures.sampleFoundation(T0);
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ProductionItemState.launch(foundation, ProductionQuantity.positive(1), T1));
+    }
+
+    @Test
+    void foundationRemainsUnchangedAfterReleaseAndCancel() {
+        ProductionFoundation foundation = ProductionTestFixtures.sampleFoundation(T0);
+        ProductionItemState launched =
+                ProductionItemState.launch(foundation, ProductionQuantity.positive(5), T0);
+        ProductionItemState partial = launched.release(ProductionQuantity.positive(2), T1);
+        ProductionItemState cancelled = partial.cancel(T2);
+
+        assertEquals(foundation, launched.foundation());
+        assertEquals(foundation, partial.foundation());
+        assertEquals(foundation, cancelled.foundation());
+    }
+
+    @Test
     void launchRejectsNullIdentifiers() {
-        SourceOrderId orderId = SourceOrderId.generate();
-        SourceOrderItemId itemId = SourceOrderItemId.generate();
-        SpecificationId specificationId = SpecificationId.generate();
+        ProductionFoundation foundation = ProductionTestFixtures.sampleFoundation(T0);
         ProductionQuantity ordered = ProductionQuantity.positive(1);
 
         assertThrows(
                 NullPointerException.class,
-                () -> ProductionItemState.launch(null, itemId, specificationId, ordered, T0));
-        assertThrows(
-                NullPointerException.class,
-                () -> ProductionItemState.launch(orderId, null, specificationId, ordered, T0));
-        assertThrows(
-                NullPointerException.class,
-                () -> ProductionItemState.launch(orderId, itemId, null, ordered, T0));
-        assertThrows(
-                NullPointerException.class,
-                () -> ProductionItemState.launch(orderId, itemId, specificationId, null, T0));
+                () -> ProductionItemState.launch(foundation, null, T0));
+        assertThrows(NullPointerException.class, () -> ProductionItemState.launch(foundation, ordered, null));
     }
 
     @Test
@@ -181,20 +202,14 @@ class ProductionItemStateTest {
 
     @Test
     void twoOrderItemsHaveIndependentStates() {
+        ProductionFoundation firstFoundation = ProductionTestFixtures.sampleFoundation(T0);
+        ProductionFoundation secondFoundation = ProductionTestFixtures.sampleFoundation(T0);
         ProductionItemState first =
                 ProductionItemState.launch(
-                        SourceOrderId.generate(),
-                        SourceOrderItemId.generate(),
-                        SpecificationId.generate(),
-                        ProductionQuantity.positive(3),
-                        T0);
+                        firstFoundation, ProductionQuantity.positive(3), T0);
         ProductionItemState second =
                 ProductionItemState.launch(
-                        SourceOrderId.generate(),
-                        SourceOrderItemId.generate(),
-                        SpecificationId.generate(),
-                        ProductionQuantity.positive(7),
-                        T0);
+                        secondFoundation, ProductionQuantity.positive(7), T0);
 
         assertNotEquals(first.sourceOrderItemId(), second.sourceOrderItemId());
         assertNotEquals(first.specificationId(), second.specificationId());
@@ -217,11 +232,7 @@ class ProductionItemStateTest {
     }
 
     private static ProductionItemState sampleLaunched(long ordered) {
-        return ProductionItemState.launch(
-                SourceOrderId.generate(),
-                SourceOrderItemId.generate(),
-                SpecificationId.generate(),
-                ProductionQuantity.positive(ordered),
-                T0);
+        ProductionFoundation foundation = ProductionTestFixtures.sampleFoundation(T0);
+        return ProductionItemState.launch(foundation, ProductionQuantity.positive(ordered), T0);
     }
 }

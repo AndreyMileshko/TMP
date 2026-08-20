@@ -49,4 +49,18 @@ public interface OrderQueryService {
      */
     Optional<ItemSpecificationDto> getItemSpecification(
             OrderItemId orderItemId, RevisionNumber revisionNumber);
+
+    /**
+     * Returns the current active (approved) specification for an order item with a stable
+     * {@link SpecificationId}. Production consumers use this method to obtain the specification
+     * without knowing {@link RevisionNumber}.
+     */
+    Optional<ProductionSpecificationDto> getCurrentItemSpecification(OrderItemId orderItemId);
+
+    /**
+     * Returns the immutable specification by its stable opaque {@link SpecificationId}.
+     * Does not require {@link RevisionNumber}. Returns empty if the specification does not exist
+     * or is not approved.
+     */
+    Optional<ProductionSpecificationDto> getSpecificationById(SpecificationId specificationId);
 }

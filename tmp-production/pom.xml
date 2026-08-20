@@ -38,6 +38,10 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>com.tmp</groupId>
+            <artifactId>tmp-order-management</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>

@@ -11,7 +11,9 @@ import com.tmp.order.api.OrderSearchCriteria;
 import com.tmp.order.api.OrderSummaryDto;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
+import com.tmp.order.api.ProductionSpecificationDto;
 import com.tmp.order.api.RevisionNumber;
+import com.tmp.order.api.SpecificationId;
 import com.tmp.order.capability.OrderManagementPermissions;
 import com.tmp.security.api.AuthorizationService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -101,5 +103,21 @@ public final class DefaultOrderQueryService implements OrderQueryService {
         Objects.requireNonNull(revisionNumber, "revisionNumber");
         authorization.requirePermission(OrderManagementPermissions.SPECIFICATION_VIEW);
         return readPort.findApprovedSpecification(orderItemId, revisionNumber);
+    }
+
+    @Override
+    public Optional<ProductionSpecificationDto> getCurrentItemSpecification(
+            OrderItemId orderItemId) {
+        Objects.requireNonNull(orderItemId, "orderItemId");
+        authorization.requirePermission(OrderManagementPermissions.SPECIFICATION_VIEW);
+        return readPort.findCurrentSpecification(orderItemId);
+    }
+
+    @Override
+    public Optional<ProductionSpecificationDto> getSpecificationById(
+            SpecificationId specificationId) {
+        Objects.requireNonNull(specificationId, "specificationId");
+        authorization.requirePermission(OrderManagementPermissions.SPECIFICATION_VIEW);
+        return readPort.findSpecificationById(specificationId);
     }
 }

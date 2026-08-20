@@ -2,15 +2,15 @@
 
 **Mode:** Autonomous Cursor Agent  
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation IN PROGRESS  
-**Current Stage:** Stage 7 - IN PROGRESS / 13% (Start Gate PASSED)  
+**Current Stage:** Stage 7 - IN PROGRESS / 26% (Start Gate PASSED)  
 **Current Task:** none  
-**Last completed task:** STAGE7-004 (Production Launch document)  
+**Last completed task:** STAGE7-005 (Production Foundation — Specification Reference Freeze)  
 **Active blockers:** NONE  
 **Stage 6 Warehouse:** DONE  
-**Stage 7 Production:** IN PROGRESS / 17%  
+**Stage 7 Production:** IN PROGRESS / 26%  
 **Stage 7 Start Gate:** PASSED  
 **Full verify baseline:** GREEN  
-**First READY implementation task:** STAGE7-004A
+**First READY implementation task:** STAGE7-006
 
 
 ```text
@@ -59,11 +59,14 @@ STAGE7-001 = DONE (Production module foundation)
 STAGE7-002 = DONE (Production identifiers and item-owned state model)
 STAGE7-003 = DONE (Production persistence schema)
 STAGE7-004 = DONE (Production Launch document)
+STAGE7-004A = DONE (OM stable SpecificationId public contract)
+STAGE7-004B = DONE (SpecificationId Stability Fix)
+STAGE7-005 = DONE (Production Foundation — Specification Reference Freeze)
 Active blockers = NONE
-Stage 7 Production = IN PROGRESS / 17%
+Stage 7 Production = IN PROGRESS / 26%
 Stage 7 Start Gate = PASSED
 Full verify baseline = GREEN
-First READY implementation task = STAGE7-004A
+First READY implementation task = STAGE7-006
 ```
 
 ---
@@ -79,7 +82,7 @@ First READY implementation task = STAGE7-004A
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
-| 7 | Production | IN PROGRESS | 17% |
+| 7 | Production | IN PROGRESS | 26% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 
@@ -105,5 +108,8 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - `STAGE7-002` completed: Production domain identifiers, item-owned state model, quantity invariants, unit tests; Stage7ProductionArchitectureTest Cutting typo fixed; STAGE7-004A queued for OM SpecificationId alignment.
 - `STAGE7-003` completed: Production persistence schema (`production.production_item_states`), JDBC repository, entity↔domain mapping, Flyway V23, persistence/integration tests; no Production Order / Revision tables.
 - `STAGE7-004` completed: Production Launch as Business Document — ProductionLaunchProcessor, ProductionLaunchPayload, ProductionLaunched event, AlreadyLaunchedForProductionException, ProductionLaunchService; Document Engine integration; duplicate Launch guard; after-commit domain event; architecture rule (only Processor uses Repository); unit tests PASS.
-- Production implementation IN PROGRESS (17% by task-count: 4/23 implementation tasks done).
-- Next task: **STAGE7-004A** (OM stable SpecificationId public contract alignment) — READY.
+- `STAGE7-004A` completed: OM stable SpecificationId public contract — Flyway V24 adds `specification_id` UUID to `item_specifications`; `SpecificationId`, `ProductionSpecificationDto` DTOs; `getCurrentItemSpecification()` + `getSpecificationById()` on `OrderQueryService`; JDBC adapter; deterministic UUID derivation; legacy revision API preserved; no RevisionNumber in Production-facing DTO; 366 OM tests PASS.
+- `STAGE7-004B` completed: SpecificationId Stability Fix — V25 migration corrects V24's `md5()::uuid` to proper UUID v3 (version/variant bits matching Java `UUID.nameUUIDFromBytes()`); `SpecificationIdMigrationConsistencyIT` proves SQL and Java produce identical UUIDs; Flyway version assertions updated; full `mvn verify` PASS.
+- `STAGE7-005` completed: Production Foundation — `ProductionFoundation` domain value object frozen at Launch; `ProductionLaunchService` resolves current spec once via OM Public Query; `ProductionFoundationQueryService` reads frozen spec via `getSpecificationById` only; no specification content snapshot duplication (reference-only per Production Spec §127); architecture rules enforce post-launch boundary; 81 production tests + 6 architecture rules PASS; full `mvn verify` PASS.
+- Production implementation IN PROGRESS (26% by task-count: 6/23 implementation tasks done).
+- Next task: **STAGE7-006** (Computed Order Production View) — READY.

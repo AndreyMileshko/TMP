@@ -98,8 +98,8 @@ final class OrderAggregateSql {
     static final String INSERT_SPECIFICATION =
             """
             INSERT INTO order_management.item_specifications
-              (order_item_id, revision_number, immutable)
-            VALUES (?, ?, ?)
+              (order_item_id, revision_number, immutable, specification_id)
+            VALUES (?, ?, ?, ?)
             """;
 
     static final String INSERT_SPEC_LINE =

@@ -10393,7 +10393,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-004A — Order Management stable SpecificationId public contract alignment
 
-**Status:** READY  
+**Status:** DONE  
 **Stage:** 7  
 **Depends on:** STAGE7-003  
 **Module:** `tmp-order-management`, `tmp-infra-db` (Flyway only, when schema change required)
@@ -10450,9 +10450,41 @@ mvn -pl :tmp-architecture-tests -am test
 
 ---
 
+## STAGE7-004B — SpecificationId Stability Fix
+
+**Status:** DONE
+**Stage:** 7
+**Depends on:** STAGE7-004A
+**Module:** `tmp-order-management`
+
+### Goal
+
+Fix critical defect: V24 migration used `md5()::uuid` (no version/variant bits) while Java uses `UUID.nameUUIDFromBytes()` (UUID v3 with version/variant bits). These produce different UUIDs for the same input, breaking SpecificationId stability.
+
+### Solution
+
+1. V25 corrective migration recalculates all `specification_id` values using UUID v3 bit manipulation matching Java.
+2. `SpecificationIdMigrationConsistencyIT` — integration tests proving SQL and Java produce identical UUIDs.
+3. Flyway version assertions updated in existing tests.
+
+### Acceptance criteria
+
+- [x] Single canonical SpecificationId algorithm (Java `UUID.nameUUIDFromBytes()`);
+- [x] Migration and Java produce identical UUID for same (orderItemId, revisionNumber);
+- [x] SpecificationId stable after re-derivation;
+- [x] `mvn verify` PASS.
+
+### Verification commands
+
+```bash
+mvn verify
+```
+
+---
+
 ## STAGE7-005 — Specification Reference freeze
 
-**Status:** PLANNED  
+**Status:** DONE
 **Stage:** 7  
 **Depends on:** STAGE7-004, STAGE7-004A  
 **Module:** `tmp-production`
@@ -10478,19 +10510,25 @@ mvn -pl :tmp-architecture-tests -am test
 
 ### Acceptance criteria
 
-- [ ] Launch читает Specification по Public Query и сохраняет `SpecificationId`.
+- [x] Launch читает Specification по Public Query и сохраняет `SpecificationId`.
+- [x] Production Foundation frozen at Launch; post-launch reads use `getSpecificationById` only.
+- [x] No specification content snapshot duplication (reference-only).
+- [x] Domain owns freeze rules; repository only persists/restores.
+- [x] Architecture tests enforce post-launch boundary.
 
 ### Verification commands
 
 ```bash
 mvn -pl :tmp-production -am test
+mvn -pl :tmp-architecture-tests -am test
+mvn verify
 ```
 
 ---
 
 ## STAGE7-006 — Computed Order Production View
 
-**Status:** PLANNED  
+**Status:** READY  
 **Stage:** 7  
 **Depends on:** STAGE7-002  
 **Module:** `tmp-production`

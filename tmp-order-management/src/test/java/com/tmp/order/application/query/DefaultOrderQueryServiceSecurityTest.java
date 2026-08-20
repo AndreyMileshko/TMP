@@ -158,5 +158,17 @@ class DefaultOrderQueryServiceSecurityTest {
                 OrderItemId orderItemId, RevisionNumber revisionNumber) {
             return Optional.empty();
         }
+
+        @Override
+        public Optional<com.tmp.order.api.ProductionSpecificationDto> findCurrentSpecification(
+                OrderItemId orderItemId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<com.tmp.order.api.ProductionSpecificationDto> findSpecificationById(
+                com.tmp.order.api.SpecificationId specificationId) {
+            return Optional.empty();
+        }
     }
 }

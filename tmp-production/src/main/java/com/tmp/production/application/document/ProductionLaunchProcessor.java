@@ -5,6 +5,7 @@ import com.tmp.document.api.DocumentProcessor;
 import com.tmp.document.api.TransactionalEventPublisher;
 import com.tmp.production.application.event.ProductionLaunched;
 import com.tmp.production.domain.AlreadyLaunchedForProductionException;
+import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import java.util.Objects;
@@ -52,34 +53,31 @@ public final class ProductionLaunchProcessor implements DocumentProcessor {
     public void onPost(DocumentOperationContext context) {
         Objects.requireNonNull(context, "context");
         ProductionLaunchPayload payload = payloadHolder.require(context.document().id());
+        ProductionFoundation foundation = payload.foundation();
 
         if (repository
                 .findByIdentity(
-                        payload.sourceOrderId(),
-                        payload.sourceOrderItemId(),
-                        payload.specificationId())
+                        foundation.sourceOrderId(),
+                        foundation.sourceOrderItemId(),
+                        foundation.specificationId())
                 .isPresent()) {
             throw new AlreadyLaunchedForProductionException(
-                    payload.sourceOrderItemId(), payload.specificationId());
+                    foundation.sourceOrderItemId(), foundation.specificationId());
         }
 
         ProductionItemState state =
                 ProductionItemState.launch(
-                        payload.sourceOrderId(),
-                        payload.sourceOrderItemId(),
-                        payload.specificationId(),
-                        payload.orderedQuantity(),
-                        payload.launchTimestamp());
+                        foundation, payload.orderedQuantity(), foundation.frozenAt());
 
         repository.save(state);
 
         eventPublisher.publishAfterCommit(
                 new ProductionLaunched(
                         UUID.randomUUID().toString(),
-                        payload.launchTimestamp(),
-                        payload.sourceOrderId().value(),
-                        payload.sourceOrderItemId().value(),
-                        payload.specificationId().value(),
+                        foundation.frozenAt(),
+                        foundation.sourceOrderId().value(),
+                        foundation.sourceOrderItemId().value(),
+                        foundation.specificationId().value(),
                         payload.orderedQuantity().value().longValueExact()));
     }
 

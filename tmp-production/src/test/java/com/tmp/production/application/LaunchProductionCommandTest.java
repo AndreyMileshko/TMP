@@ -1,7 +1,6 @@
 package com.tmp.production.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
@@ -13,10 +12,9 @@ class LaunchProductionCommandTest {
     void validCommand() {
         UUID orderId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
-        UUID specId = UUID.randomUUID();
-        LaunchProductionCommand cmd =
-                new LaunchProductionCommand(orderId, itemId, specId, 10, "user");
+        LaunchProductionCommand cmd = new LaunchProductionCommand(orderId, itemId, 10, "user");
         assertEquals(orderId, cmd.sourceOrderId());
+        assertEquals(itemId, cmd.sourceOrderItemId());
         assertEquals(10, cmd.orderedQuantity());
     }
 
@@ -24,26 +22,20 @@ class LaunchProductionCommandTest {
     void zeroQuantityRejected() {
         assertThrows(
                 IllegalArgumentException.class,
-                () ->
-                        new LaunchProductionCommand(
-                                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 0, "u"));
+                () -> new LaunchProductionCommand(UUID.randomUUID(), UUID.randomUUID(), 0, "u"));
     }
 
     @Test
     void blankCreatedByRejected() {
         assertThrows(
                 IllegalArgumentException.class,
-                () ->
-                        new LaunchProductionCommand(
-                                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1, " "));
+                () -> new LaunchProductionCommand(UUID.randomUUID(), UUID.randomUUID(), 1, " "));
     }
 
     @Test
     void nullOrderIdRejected() {
         assertThrows(
                 NullPointerException.class,
-                () ->
-                        new LaunchProductionCommand(
-                                null, UUID.randomUUID(), UUID.randomUUID(), 1, "u"));
+                () -> new LaunchProductionCommand(null, UUID.randomUUID(), 1, "u"));
     }
 }

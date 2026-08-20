@@ -42,7 +42,7 @@ class OrderIntakeFlywayBootstrapIT {
 
             JdbcTemplate jdbc = new JdbcTemplate(dataSource(container));
             assertEquals(
-                    "14",
+                    "25",
                     jdbc.queryForObject(
                             "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1",
                             String.class));
@@ -94,7 +94,7 @@ class OrderIntakeFlywayBootstrapIT {
                 assertNotNull(context.getBean(OrderQueryService.class));
                 JdbcTemplate after = new JdbcTemplate(dataSource(container));
                 assertEquals(
-                        "14",
+                        "25",
                         after.queryForObject(
                                 "SELECT version FROM flyway_schema_history"
                                         + " ORDER BY installed_rank DESC LIMIT 1",
