@@ -3,81 +3,104 @@ package com.tmp.production.application;
 import com.tmp.document.api.CreateDocumentCommand;
 import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.DocumentMetadata;
+import com.tmp.order.api.OrderStatus;
+import com.tmp.production.application.document.ProductionLaunchLine;
 import com.tmp.production.application.document.ProductionLaunchPayload;
 import com.tmp.production.application.document.ProductionLaunchPayloadHolder;
 import com.tmp.production.application.document.ProductionLaunchProcessor;
-import com.tmp.production.application.port.OrderSpecificationQueryPort;
-import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedSpecification;
+import com.tmp.production.application.port.OrderForProductionQueryPort;
+import com.tmp.production.application.port.OrderForProductionQueryPort.ResolvedItemLine;
+import com.tmp.production.application.port.OrderForProductionQueryPort.ResolvedOrderForLaunch;
+import com.tmp.production.domain.OrderNotEligibleForProductionException;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionQuantity;
 import com.tmp.production.domain.SourceOrderId;
-import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationNotAvailableForLaunchException;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
- * Application service orchestrating Production Launch through the Document Engine.
+ * Application service orchestrating whole-order Production Launch through the Document Engine.
  *
- * <p>Resolves the current immutable specification from Order Management exactly once at Launch,
- * freezes the {@link ProductionFoundation}, and posts the Launch document. Post-launch reads must
- * use {@link ProductionFoundationQueryService} with {@code getSpecificationById} semantics only.
+ * <p>Resolves the ACTIVE customer order and all producible items from Order Management exactly once
+ * at Launch, freezes {@link ProductionFoundation} per line, and posts one multi-line Launch
+ * document.
  */
 public final class ProductionLaunchService {
 
     private final DocumentEngine documentEngine;
     private final ProductionLaunchPayloadHolder payloadHolder;
-    private final OrderSpecificationQueryPort specificationQuery;
+    private final OrderForProductionQueryPort orderForProductionQuery;
     private final Clock clock;
 
     public ProductionLaunchService(
             DocumentEngine documentEngine,
             ProductionLaunchPayloadHolder payloadHolder,
-            OrderSpecificationQueryPort specificationQuery,
+            OrderForProductionQueryPort orderForProductionQuery,
             Clock clock) {
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
         this.payloadHolder = Objects.requireNonNull(payloadHolder, "payloadHolder");
-        this.specificationQuery = Objects.requireNonNull(specificationQuery, "specificationQuery");
+        this.orderForProductionQuery =
+                Objects.requireNonNull(orderForProductionQuery, "orderForProductionQuery");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     /**
-     * Launches production for a single order item by freezing the current specification and posting
-     * a Launch document.
+     * Accepts a whole ACTIVE customer order into production.
      *
      * @return the posted document metadata
      */
     public DocumentMetadata launch(LaunchProductionCommand command) {
         Objects.requireNonNull(command, "command");
 
-        SourceOrderItemId sourceOrderItemId = SourceOrderItemId.of(command.sourceOrderItemId());
-        ResolvedSpecification currentSpecification =
-                specificationQuery
-                        .resolveCurrentForLaunch(sourceOrderItemId)
+        SourceOrderId sourceOrderId = SourceOrderId.of(command.sourceOrderId());
+        ResolvedOrderForLaunch order =
+                orderForProductionQuery
+                        .resolveForLaunch(sourceOrderId)
                         .orElseThrow(
                                 () ->
-                                        new SpecificationNotAvailableForLaunchException(
-                                                sourceOrderItemId));
+                                        new OrderNotEligibleForProductionException(
+                                                sourceOrderId, "order not found"));
 
-        var frozenAt = clock.instant();
-        ProductionFoundation foundation =
-                ProductionFoundation.freeze(
-                        SourceOrderId.of(command.sourceOrderId()),
-                        sourceOrderItemId,
-                        currentSpecification.specificationId(),
-                        frozenAt);
+        if (order.orderStatus() != OrderStatus.ACTIVE) {
+            throw new OrderNotEligibleForProductionException(sourceOrderId, order.orderStatus());
+        }
+
+        if (order.activeItemCount() == 0 || order.lines().isEmpty()) {
+            throw new OrderNotEligibleForProductionException(
+                    sourceOrderId, "order has no ACTIVE items");
+        }
+
+        if (order.activeItemCount() != order.lines().size()) {
+            throw new SpecificationNotAvailableForLaunchException(
+                    order.lines().getFirst().sourceOrderItemId());
+        }
+
+        var launchTimestamp = clock.instant();
+        List<ProductionLaunchLine> lines = new ArrayList<>(order.lines().size());
+        for (ResolvedItemLine itemLine : order.lines()) {
+            ProductionFoundation foundation =
+                    ProductionFoundation.freeze(
+                            sourceOrderId,
+                            itemLine.sourceOrderItemId(),
+                            itemLine.specificationId(),
+                            launchTimestamp);
+            lines.add(
+                    new ProductionLaunchLine(
+                            foundation, ProductionQuantity.positive(itemLine.orderedQuantity())));
+        }
 
         ProductionLaunchPayload payload =
                 new ProductionLaunchPayload(
-                        foundation,
-                        ProductionQuantity.positive(command.orderedQuantity()),
-                        command.createdBy());
+                        sourceOrderId, lines, command.createdBy(), launchTimestamp);
 
         DocumentMetadata draft =
                 documentEngine.createDocument(
                         new CreateDocumentCommand(
                                 ProductionLaunchProcessor.DOCUMENT_TYPE_ID,
-                                "Production Launch: " + command.sourceOrderItemId()));
+                                "Production Launch: " + command.sourceOrderId()));
 
         payloadHolder.set(draft.id(), payload);
         try {
@@ -87,4 +110,5 @@ public final class ProductionLaunchService {
             throw ex;
         }
     }
+
 }

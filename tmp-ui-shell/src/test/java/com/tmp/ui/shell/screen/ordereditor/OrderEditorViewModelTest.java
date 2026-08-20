@@ -312,6 +312,23 @@ class OrderEditorViewModelTest {
                 OrderItemId orderItemId, RevisionNumber revisionNumber) {
             return Optional.empty();
         }
+
+        @Override
+        public Optional<com.tmp.order.api.ProductionSpecificationDto> getCurrentItemSpecification(
+                OrderItemId orderItemId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<com.tmp.order.api.ProductionSpecificationDto> getSpecificationById(
+                com.tmp.order.api.SpecificationId specificationId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<com.tmp.order.api.OrderForProductionDto> getOrderForProduction(OrderId orderId) {
+            return Optional.empty();
+        }
     }
 
     private static final class FakeDocs implements OrderDocumentUiService {

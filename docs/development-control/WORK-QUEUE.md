@@ -10526,11 +10526,60 @@ mvn verify
 
 ---
 
+## STAGE7-005A — Whole-Order Production Launch Correction & Reactor Recovery
+
+**Status:** DONE
+**Stage:** 7
+**Depends on:** STAGE7-005
+**Module:** `tmp-production`, `tmp-order-management` (Public Query only), `tmp-ui-shell` (test doubles)
+
+### Goal
+
+Corrective fix: whole-order Production Launch (one ACTIVE Order, N item lines, one document, one after-commit event) and restore green reactor baseline (UI shell OrderQueryService test doubles).
+
+### Required documents
+
+- Production Spec v2.2 Production Launch / Domain Events;
+- OM Specification v1.10 Public Query API;
+- ADR-017, ADR-019, ADR-020, ADR-033, ADR-036.
+
+### Allowed code scope
+
+- Production Launch command/service/processor/payload/event;
+- OM read-only `getOrderForProduction` when required;
+- `tmp-ui-shell` test doubles only;
+- tests; control docs.
+
+### Forbidden
+
+- STAGE7-006+ features; Warehouse; Cutting; Material Check; git commit/push.
+
+### Acceptance criteria
+
+- [x] Whole-order Launch for ACTIVE Order with N items in one atomic document.
+- [x] `OrderAcceptedIntoProduction` after-commit (not item-level `ProductionLaunched`).
+- [x] Quantities and SpecificationId from OM only.
+- [x] `tmp-ui-shell` compiles and tests PASS.
+- [x] `mvn verify` BUILD SUCCESS.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-order-management -am test
+mvn -pl :tmp-production -am test
+mvn -pl :tmp-ui-shell -am test
+mvn -pl :tmp-architecture-tests -am test
+mvn test
+mvn verify
+```
+
+---
+
 ## STAGE7-006 — Computed Order Production View
 
-**Status:** READY  
-**Stage:** 7  
-**Depends on:** STAGE7-002  
+**Status:** READY
+**Stage:** 7
+**Depends on:** STAGE7-005A
 **Module:** `tmp-production`
 
 ### Goal

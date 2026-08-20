@@ -3,6 +3,7 @@ package com.tmp.production.application;
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedMaterialLine;
 import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedSpecification;
+import com.tmp.production.domain.FrozenSpecificationUnavailableException;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import java.util.List;
@@ -41,7 +42,10 @@ public final class ProductionFoundationQueryService {
     public List<ResolvedMaterialLine> materialLines(ProductionFoundation foundation) {
         return resolveFrozenSpecification(foundation)
                 .map(ResolvedSpecification::materialLines)
-                .orElse(List.of());
+                .orElseThrow(
+                        () ->
+                                new FrozenSpecificationUnavailableException(
+                                        foundation.specificationId()));
     }
 
     public List<ResolvedMaterialLine> materialLines(ProductionItemState state) {

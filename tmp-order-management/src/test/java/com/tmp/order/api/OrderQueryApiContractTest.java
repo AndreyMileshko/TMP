@@ -84,6 +84,21 @@ class OrderQueryApiContractTest {
                         .getMethod(
                                 "getItemSpecification", OrderItemId.class, RevisionNumber.class)
                         .getReturnType());
+        assertEquals(
+                Optional.class,
+                OrderQueryService.class
+                        .getMethod("getCurrentItemSpecification", OrderItemId.class)
+                        .getReturnType());
+        assertEquals(
+                Optional.class,
+                OrderQueryService.class
+                        .getMethod("getSpecificationById", SpecificationId.class)
+                        .getReturnType());
+        assertEquals(
+                Optional.class,
+                OrderQueryService.class
+                        .getMethod("getOrderForProduction", OrderId.class)
+                        .getReturnType());
     }
 
     @Test

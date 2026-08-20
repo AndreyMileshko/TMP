@@ -72,9 +72,32 @@ class DefaultOrderQueryServiceSecurityTest {
                         new FixedAuthorization(Set.of(OrderManagementPermissions.ITEM_VIEW)));
         assertThrows(
                 AccessDeniedException.class,
-                () ->
-                        service.getItemSpecification(
+                () -> service.getItemSpecification(
                                 OrderItemId.generate(), RevisionNumber.first()));
+        assertThrows(
+                AccessDeniedException.class,
+                () -> service.getCurrentItemSpecification(OrderItemId.generate()));
+        assertThrows(
+                AccessDeniedException.class,
+                () -> service.getSpecificationById(
+                        com.tmp.order.api.SpecificationId.of(java.util.UUID.randomUUID())));
+        assertThrows(
+                AccessDeniedException.class,
+                () -> service.getOrderForProduction(OrderId.generate()));
+    }
+
+    @Test
+    void getOrderForProductionRequiresAllViewPermissions() {
+        DefaultOrderQueryService missingSpecView =
+                new DefaultOrderQueryService(
+                        EmptyReadPort.INSTANCE,
+                        new FixedAuthorization(
+                                Set.of(
+                                        OrderManagementPermissions.ORDER_VIEW,
+                                        OrderManagementPermissions.ITEM_VIEW)));
+        assertThrows(
+                AccessDeniedException.class,
+                () -> missingSpecView.getOrderForProduction(OrderId.generate()));
     }
 
     @Test

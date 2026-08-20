@@ -4,29 +4,28 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-class ProductionLaunchedTest {
+class OrderAcceptedIntoProductionTest {
 
     @Test
     void eventProperties() {
         UUID orderId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
-        UUID specId = UUID.randomUUID();
         Instant now = Instant.now();
 
-        ProductionLaunched event =
-                new ProductionLaunched(
-                        UUID.randomUUID().toString(), now, orderId, itemId, specId, 10);
+        OrderAcceptedIntoProduction event =
+                new OrderAcceptedIntoProduction(
+                        UUID.randomUUID().toString(), now, orderId, 1, List.of(itemId));
 
-        assertEquals("production.launched", event.eventType());
+        assertEquals("production.order.accepted", event.eventType());
         assertEquals("production", event.sourceCapabilityId());
         assertEquals(orderId, event.sourceOrderId());
-        assertEquals(itemId, event.sourceOrderItemId());
-        assertEquals(specId, event.specificationId());
-        assertEquals(10, event.orderedQuantity());
-        assertEquals(now, event.occurredAt());
+        assertEquals(1, event.acceptedItemCount());
+        assertEquals(List.of(itemId), event.sourceOrderItemIds());
+        assertEquals(now, event.acceptedAt());
         assertNotNull(event.eventId());
     }
 }

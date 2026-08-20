@@ -2,29 +2,26 @@ package com.tmp.production.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.document.api.CreateDocumentCommand;
 import com.tmp.document.api.DocumentEngine;
+import com.tmp.document.api.DocumentEngineStatus;
 import com.tmp.document.api.DocumentMetadata;
+import com.tmp.document.api.DocumentProcessorRegistration;
+import com.tmp.document.api.DocumentQuery;
 import com.tmp.document.api.DocumentStatus;
+import com.tmp.document.api.DocumentTypeDescriptor;
+import com.tmp.document.api.UpdateDocumentCommand;
+import com.tmp.order.api.OrderStatus;
 import com.tmp.production.application.document.ProductionLaunchPayload;
 import com.tmp.production.application.document.ProductionLaunchPayloadHolder;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.spy;
-import com.tmp.production.application.port.OrderSpecificationQueryPort;
-import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedMaterialLine;
-import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedSpecification;
+import com.tmp.production.application.port.OrderForProductionQueryPort;
+import com.tmp.production.application.port.OrderForProductionQueryPort.ResolvedItemLine;
+import com.tmp.production.application.port.OrderForProductionQueryPort.ResolvedOrderForLaunch;
+import com.tmp.production.domain.OrderNotEligibleForProductionException;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
-import com.tmp.production.domain.SpecificationNotAvailableForLaunchException;
-import com.tmp.document.api.DocumentEngineStatus;
-import com.tmp.document.api.DocumentProcessorRegistration;
-import com.tmp.document.api.DocumentQuery;
-import com.tmp.document.api.DocumentTypeDescriptor;
-import com.tmp.document.api.UpdateDocumentCommand;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -42,7 +39,7 @@ class ProductionLaunchServiceTest {
 
     private static final Instant T0 = Instant.parse("2026-08-19T10:00:00Z");
 
-    private StubSpecificationQuery specificationQuery;
+    private StubOrderForProductionQuery orderQuery;
     private ProductionLaunchPayloadHolder payloadHolder;
     private ProductionLaunchPayload lastPayload;
     private StubDocumentEngine documentEngine;
@@ -50,91 +47,86 @@ class ProductionLaunchServiceTest {
 
     @BeforeEach
     void setUp() {
-        specificationQuery = new StubSpecificationQuery();
-        payloadHolder = spy(new ProductionLaunchPayloadHolder());
-        doAnswer(
+        orderQuery = new StubOrderForProductionQuery();
+        payloadHolder =
+                org.mockito.Mockito.spy(new ProductionLaunchPayloadHolder());
+        org.mockito.Mockito.doAnswer(
                         invocation -> {
                             lastPayload = invocation.getArgument(1);
                             return invocation.callRealMethod();
                         })
                 .when(payloadHolder)
-                .set(any(UUID.class), any(ProductionLaunchPayload.class));
+                .set(
+                        org.mockito.ArgumentMatchers.any(UUID.class),
+                        org.mockito.ArgumentMatchers.any(ProductionLaunchPayload.class));
         documentEngine = new StubDocumentEngine();
         service =
                 new ProductionLaunchService(
                         documentEngine,
                         payloadHolder,
-                        specificationQuery,
+                        orderQuery,
                         Clock.fixed(T0, ZoneOffset.UTC));
     }
 
     @Test
-    void launchFreezesCurrentSpecificationFromOrderManagement() {
+    void launchBuildsMultiLinePayloadFromOrderManagement() {
         UUID orderId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
         SpecificationId specId = SpecificationId.generate();
-        specificationQuery.currentSpec =
-                Optional.of(
-                        new ResolvedSpecification(
-                                specId,
-                                SourceOrderItemId.of(itemId),
-                                BigDecimal.TEN,
-                                List.of(
-                                        new ResolvedMaterialLine(
-                                                "MAT-1",
-                                                "Panel",
-                                                "white",
-                                                BigDecimal.valueOf(1000),
-                                                BigDecimal.valueOf(2),
-                                                "PCS"))));
+        orderQuery.order =
+                new ResolvedOrderForLaunch(
+                        SourceOrderId.of(orderId),
+                        OrderStatus.ACTIVE,
+                        1,
+                        List.of(new ResolvedItemLine(SourceOrderItemId.of(itemId), specId, BigDecimal.TEN)));
 
         DocumentMetadata posted =
-                service.launch(new LaunchProductionCommand(orderId, itemId, 10, "operator"));
+                service.launch(new LaunchProductionCommand(orderId, "operator"));
 
         assertEquals(DocumentStatus.POSTED, posted.status());
-        ProductionLaunchPayload payload = lastPayload;
-        assertEquals(specId, payload.foundation().specificationId());
-        assertEquals(SourceOrderId.of(orderId), payload.foundation().sourceOrderId());
-        assertEquals(SourceOrderItemId.of(itemId), payload.foundation().sourceOrderItemId());
-        assertEquals(T0, payload.foundation().frozenAt());
-        assertEquals(1, specificationQuery.resolveCurrentCalls);
-        assertEquals(0, specificationQuery.resolveByIdCalls);
+        assertEquals(1, lastPayload.lines().size());
+        assertEquals(specId, lastPayload.lines().getFirst().foundation().specificationId());
+        assertEquals(SourceOrderId.of(orderId), lastPayload.sourceOrderId());
+        assertEquals(SourceOrderItemId.of(itemId), lastPayload.lines().getFirst().foundation().sourceOrderItemId());
+        assertEquals(T0, lastPayload.launchTimestamp());
     }
 
     @Test
-    void launchFailsWhenCurrentSpecificationMissing() {
+    void launchFailsWhenOrderMissing() {
+        assertThrows(
+                OrderNotEligibleForProductionException.class,
+                () -> service.launch(new LaunchProductionCommand(UUID.randomUUID(), "op")));
+    }
+
+    @Test
+    void launchFailsWhenOrderNotActive() {
         UUID orderId = UUID.randomUUID();
-        UUID itemId = UUID.randomUUID();
+        orderQuery.order =
+                new ResolvedOrderForLaunch(
+                        SourceOrderId.of(orderId),
+                        OrderStatus.CANCELLED,
+                        1,
+                        List.of(
+                                new ResolvedItemLine(
+                                        SourceOrderItemId.generate(),
+                                        SpecificationId.generate(),
+                                        BigDecimal.ONE)));
 
         assertThrows(
-                SpecificationNotAvailableForLaunchException.class,
-                () -> service.launch(new LaunchProductionCommand(orderId, itemId, 5, "op")));
+                OrderNotEligibleForProductionException.class,
+                () -> service.launch(new LaunchProductionCommand(orderId, "op")));
     }
 
-    @Test
-    void launchCommandNoLongerRequiresSpecificationId() {
-        LaunchProductionCommand command =
-                new LaunchProductionCommand(UUID.randomUUID(), UUID.randomUUID(), 3, "user");
-        assertTrue(command.orderedQuantity() > 0);
-    }
+    private static final class StubOrderForProductionQuery implements OrderForProductionQueryPort {
 
-    private static final class StubSpecificationQuery implements OrderSpecificationQueryPort {
-
-        Optional<ResolvedSpecification> currentSpec = Optional.empty();
-        int resolveCurrentCalls;
-        int resolveByIdCalls;
+        ResolvedOrderForLaunch order;
 
         @Override
-        public Optional<ResolvedSpecification> resolveCurrentForLaunch(
-                SourceOrderItemId sourceOrderItemId) {
-            resolveCurrentCalls++;
-            return currentSpec;
-        }
-
-        @Override
-        public Optional<ResolvedSpecification> resolveById(SpecificationId specificationId) {
-            resolveByIdCalls++;
-            return Optional.empty();
+        public Optional<ResolvedOrderForLaunch> resolveForLaunch(SourceOrderId sourceOrderId) {
+            if (order == null || !order.sourceOrderId().equals(sourceOrderId)) {
+                return Optional.empty();
+            }
+            return Optional.of(order);
         }
     }
 

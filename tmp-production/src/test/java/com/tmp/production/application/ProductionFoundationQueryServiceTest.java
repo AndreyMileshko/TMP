@@ -1,11 +1,13 @@
 package com.tmp.production.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedMaterialLine;
 import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedSpecification;
+import com.tmp.production.domain.FrozenSpecificationUnavailableException;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
@@ -125,9 +127,11 @@ class ProductionFoundationQueryServiceTest {
     }
 
     @Test
-    void missingSpecificationReturnsEmptyMaterialLines() {
+    void unavailableFrozenSpecificationThrowsExplicitError() {
         ProductionFoundation foundation = ProductionTestFixtures.sampleFoundation(T0);
-        assertTrue(queryService.materialLines(foundation).isEmpty());
+        assertThrows(
+                FrozenSpecificationUnavailableException.class,
+                () -> queryService.materialLines(foundation));
     }
 
     private static final class TrackingSpecificationQuery implements OrderSpecificationQueryPort {

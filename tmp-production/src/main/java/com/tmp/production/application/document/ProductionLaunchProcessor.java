@@ -3,19 +3,21 @@ package com.tmp.production.application.document;
 import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentProcessor;
 import com.tmp.document.api.TransactionalEventPublisher;
-import com.tmp.production.application.event.ProductionLaunched;
-import com.tmp.production.domain.AlreadyLaunchedForProductionException;
-import com.tmp.production.domain.ProductionFoundation;
+import com.tmp.production.application.event.OrderAcceptedIntoProduction;
 import com.tmp.production.domain.ProductionItemState;
+import com.tmp.production.domain.ProductionLaunchConflictException;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Document Engine processor for Production Launch (Production Spec §9).
+ * Document Engine processor for whole-order Production Launch (Production Spec §9).
  *
- * <p>The only component permitted to interact with {@link ProductionItemStateRepository}.
- * All business rules are delegated to {@link ProductionItemState#launch}.
+ * <p>The only component permitted to interact with {@link ProductionItemStateRepository}. All
+ * business rules are delegated to {@link ProductionItemState#launch}. Order Management queries are
+ * performed before payload creation in {@link com.tmp.production.application.ProductionLaunchService}.
  */
 public final class ProductionLaunchProcessor implements DocumentProcessor {
 
@@ -53,32 +55,39 @@ public final class ProductionLaunchProcessor implements DocumentProcessor {
     public void onPost(DocumentOperationContext context) {
         Objects.requireNonNull(context, "context");
         ProductionLaunchPayload payload = payloadHolder.require(context.document().id());
-        ProductionFoundation foundation = payload.foundation();
 
-        if (repository
-                .findByIdentity(
+        for (ProductionLaunchLine line : payload.lines()) {
+            var foundation = line.foundation();
+            if (repository
+                    .findByIdentity(
+                            foundation.sourceOrderId(),
+                            foundation.sourceOrderItemId(),
+                            foundation.specificationId())
+                    .isPresent()) {
+                throw new ProductionLaunchConflictException(
                         foundation.sourceOrderId(),
                         foundation.sourceOrderItemId(),
-                        foundation.specificationId())
-                .isPresent()) {
-            throw new AlreadyLaunchedForProductionException(
-                    foundation.sourceOrderItemId(), foundation.specificationId());
+                        foundation.specificationId());
+            }
         }
 
-        ProductionItemState state =
-                ProductionItemState.launch(
-                        foundation, payload.orderedQuantity(), foundation.frozenAt());
-
-        repository.save(state);
+        List<UUID> acceptedItemIds = new ArrayList<>(payload.lines().size());
+        for (ProductionLaunchLine line : payload.lines()) {
+            var foundation = line.foundation();
+            ProductionItemState state =
+                    ProductionItemState.launch(
+                            foundation, line.orderedQuantity(), payload.launchTimestamp());
+            repository.save(state);
+            acceptedItemIds.add(foundation.sourceOrderItemId().value());
+        }
 
         eventPublisher.publishAfterCommit(
-                new ProductionLaunched(
+                new OrderAcceptedIntoProduction(
                         UUID.randomUUID().toString(),
-                        foundation.frozenAt(),
-                        foundation.sourceOrderId().value(),
-                        foundation.sourceOrderItemId().value(),
-                        foundation.specificationId().value(),
-                        payload.orderedQuantity().value().longValueExact()));
+                        payload.launchTimestamp(),
+                        payload.sourceOrderId().value(),
+                        acceptedItemIds.size(),
+                        acceptedItemIds));
     }
 
     @Override

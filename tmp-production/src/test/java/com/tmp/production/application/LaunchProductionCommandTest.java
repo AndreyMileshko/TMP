@@ -11,31 +11,20 @@ class LaunchProductionCommandTest {
     @Test
     void validCommand() {
         UUID orderId = UUID.randomUUID();
-        UUID itemId = UUID.randomUUID();
-        LaunchProductionCommand cmd = new LaunchProductionCommand(orderId, itemId, 10, "user");
+        LaunchProductionCommand cmd = new LaunchProductionCommand(orderId, "user");
         assertEquals(orderId, cmd.sourceOrderId());
-        assertEquals(itemId, cmd.sourceOrderItemId());
-        assertEquals(10, cmd.orderedQuantity());
-    }
-
-    @Test
-    void zeroQuantityRejected() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new LaunchProductionCommand(UUID.randomUUID(), UUID.randomUUID(), 0, "u"));
+        assertEquals("user", cmd.createdBy());
     }
 
     @Test
     void blankCreatedByRejected() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new LaunchProductionCommand(UUID.randomUUID(), UUID.randomUUID(), 1, " "));
+                () -> new LaunchProductionCommand(UUID.randomUUID(), " "));
     }
 
     @Test
     void nullOrderIdRejected() {
-        assertThrows(
-                NullPointerException.class,
-                () -> new LaunchProductionCommand(null, UUID.randomUUID(), 1, "u"));
+        assertThrows(NullPointerException.class, () -> new LaunchProductionCommand(null, "u"));
     }
 }

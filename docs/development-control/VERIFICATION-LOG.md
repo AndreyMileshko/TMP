@@ -2,9 +2,41 @@
 
 ## Latest result
 
-**Date:** 2026-08-20  
-**Scope:** STAGE7-005 — Production Foundation (Specification Reference Freeze)  
-**Overall:** PASS  
+**Date:** 2026-08-20
+**Scope:** STAGE7-005A — Whole-Order Production Launch Correction & Reactor Recovery
+**Overall:** PASS
+**Type:** Whole-order Launch + UI shell test-double compile recovery + frozen-spec error contract
+
+| Check | Result |
+|-------|--------|
+| Baseline before code (`git status --short` on 7978c1f) | CLEAN working tree; `git diff --check` clean |
+| Baseline `mvn verify` | FAIL (`tmp-infra-db` failsafe while Docker was down; previously also RED `tmp-ui-shell` test doubles) |
+| `mvn -pl :tmp-order-management -am test` | PASS |
+| `mvn -pl :tmp-production -am test` | PASS |
+| `mvn -pl :tmp-ui-shell -am test` | PASS |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS |
+| `mvn test` | PASS (covered by reactor verify) |
+| `mvn verify` | PASS (BUILD SUCCESS, 2026-08-20 14:25 +07) |
+| Whole-order Launch 3 items | PASS (`WholeOrderProductionLaunchTest`) |
+| Quantities from OM only | PASS |
+| Non-ACTIVE Order rejected | PASS |
+| Duplicate conflict all-or-nothing | PASS |
+| Middle-line failure rollback | PASS |
+| `OrderAcceptedIntoProduction` cardinality = 1 | PASS |
+| Frozen SpecificationId after current-spec change | PASS |
+| Unavailable frozen spec = error, not empty list | PASS |
+| UI shell OrderQueryService doubles compile | PASS |
+| STAGE7-005A | DONE |
+| STAGE7-006 | READY |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result (STAGE7-005)
+
+**Date:** 2026-08-20
+**Scope:** STAGE7-005 — Production Foundation (Specification Reference Freeze)
+**Overall:** PASS (module tests); later audit found reactor RED due to UI test doubles and item-level Launch granularity
 **Type:** Domain ProductionFoundation + Launch freeze + post-launch query boundary
 
 | Check | Result |

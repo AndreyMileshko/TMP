@@ -7,8 +7,11 @@ import java.util.Optional;
  *
  * <p>All operations are non-mutating. Absence is expressed as {@link Optional#empty()} or an empty
  * page — never {@code null}. Draft revisions and draft specifications are never returned: list and
- * get-by-number operations expose only {@link RevisionStatus#APPROVED} revisions; the current
- * production specification is {@link #getActiveOrderItemRevision(OrderItemId)}.
+ * get-by-number operations expose only {@link RevisionStatus#APPROVED} revisions.
+ *
+ * <p>Production-facing current specification before Launch: {@link #getCurrentItemSpecification}.
+ * After Launch, Production must resolve immutable specification content only via
+ * {@link #getSpecificationById}. Legacy revision APIs remain for Order Management workflows.
  *
  * <p>DTOs contain only Order Management data and never domain aggregates, persistence entities,
  * Production Status, stock positions, lots or Cutting Plan data.
@@ -63,4 +66,12 @@ public interface OrderQueryService {
      * or is not approved.
      */
     Optional<ProductionSpecificationDto> getSpecificationById(SpecificationId specificationId);
+
+    /**
+     * Returns a Production-facing view of a customer order for whole-order Launch.
+     *
+     * <p>Includes order status, the count of {@link OrderItemStatus#ACTIVE} items, and only ACTIVE
+     * items that currently have an approved Production-facing specification.
+     */
+    Optional<OrderForProductionDto> getOrderForProduction(OrderId orderId);
 }

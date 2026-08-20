@@ -1,26 +1,33 @@
 package com.tmp.production.application.document;
 
-import com.tmp.production.domain.ProductionFoundation;
-import com.tmp.production.domain.ProductionQuantity;
+import com.tmp.production.domain.SourceOrderId;
+import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 
 /**
- * Immutable payload carried by a Production Launch document (Production Spec §9).
+ * Immutable payload carried by a whole-order Production Launch document (Production Spec §9).
  *
- * <p>Contains the frozen {@link ProductionFoundation} and launch quantities. No material
- * availability, warehouse, cutting, or reservation data.
+ * <p>Contains one line per ACTIVE order item with frozen specification reference and ordered
+ * quantity. No material availability, warehouse, cutting, or reservation data.
  */
 public record ProductionLaunchPayload(
-        ProductionFoundation foundation,
-        ProductionQuantity orderedQuantity,
-        String createdBy) {
+        SourceOrderId sourceOrderId,
+        List<ProductionLaunchLine> lines,
+        String createdBy,
+        Instant launchTimestamp) {
 
     public ProductionLaunchPayload {
-        Objects.requireNonNull(foundation, "foundation");
-        Objects.requireNonNull(orderedQuantity, "orderedQuantity");
+        Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+        Objects.requireNonNull(lines, "lines");
         Objects.requireNonNull(createdBy, "createdBy");
+        Objects.requireNonNull(launchTimestamp, "launchTimestamp");
         if (createdBy.isBlank()) {
             throw new IllegalArgumentException("createdBy must not be blank");
         }
+        if (lines.isEmpty()) {
+            throw new IllegalArgumentException("Production Launch payload requires at least one line");
+        }
+        lines = List.copyOf(lines);
     }
 }

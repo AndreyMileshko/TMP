@@ -4,6 +4,55 @@
 
 ---
 
+## STAGE7-005A — Whole-Order Production Launch Correction & Reactor Recovery
+
+**Date:** 2026-08-20
+**Stage:** 7
+**Module:** `tmp-production`, `tmp-order-management` (read-only Public Query), `tmp-ui-shell` (test doubles)
+**Status:** DONE
+
+### History of the correction
+
+STAGE7-004 originally implemented item-level Production Launch (`sourceOrderItemId` + `orderedQuantity` on the command, one line, `ProductionLaunched` event). STAGE7-005 froze SpecificationId at that item Launch. Audit then found two defects:
+
+1. Full reactor `mvn verify` was RED: `OrderQueryService` gained `getCurrentItemSpecification` / `getSpecificationById`, but six `tmp-ui-shell` test doubles did not implement them.
+2. Accepted Production Specification requires one user operation "accept the order into production" for the entire ACTIVE Order, not a single Order Item.
+
+STAGE7-005A corrected granularity without changing the item-owned `ProductionItemState` model and without introducing `ProductionOrder`.
+
+### Whole-order Launch
+
+- `LaunchProductionCommand(sourceOrderId, createdBy)` — no item id, quantity, or SpecificationId from the caller.
+- OM Public Query `getOrderForProduction(orderId)` returns ACTIVE order status, ACTIVE item count, and Production-facing specifications.
+- Non-ACTIVE / missing order → `OrderNotEligibleForProductionException`.
+- One `ProductionLaunchPayload` with `List<ProductionLaunchLine>`; processor launches every line in one Document Engine `onPost`.
+- Duplicate identity pre-check → `ProductionLaunchConflictException` for the whole document; DB UNIQUE remains race protection.
+- After-commit event: `OrderAcceptedIntoProduction` (replaces item-level `ProductionLaunched` as the business event).
+- Processor does not query OM.
+
+### Foundation / frozen specification
+
+- STAGE7-005 reference-only freeze retained per line.
+- Post-launch reads still use `getSpecificationById`.
+- Unavailable frozen specification → `FrozenSpecificationUnavailableException` (not empty material list).
+
+### UI reactor recovery
+
+Test doubles updated to the new `OrderQueryService` contract:
+
+- `EmptyOrderQuery`
+- `OrderEditorControllerFxTest.EmptyQuery`
+- `OrderEditorViewModelTest.FakeQuery`
+- `OrderItemListControllerFxTest.EmptyQuery`
+- `OrderItemListViewModelTest.FakeQuery`
+- `OrderListViewModelTest.FakeOrderQuery`
+
+### Verification
+
+- `mvn verify` — BUILD SUCCESS (all modules).
+
+---
+
 ## STAGE7-004A — Order Management stable SpecificationId public contract alignment
 
 **Date:** 2026-08-19  

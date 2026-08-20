@@ -100,7 +100,17 @@ class Stage7ProductionArchitectureTest {
                     .haveSimpleName("ProductionLaunchProcessor")
                     .should()
                     .dependOnClassesThat()
-                    .areAssignableTo(OrderQueryService.class)
+                    .resideInAnyPackage("com.tmp.order..")
                     .because(
                             "Launch processor persists frozen foundation from payload; OM query stays in Launch service");
+
+    @ArchTest
+    static final ArchRule productionDomainDoesNotDependOnOrderApi =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production.domain..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("com.tmp.order..")
+                    .because("Production domain must not depend on Order Management types");
 }

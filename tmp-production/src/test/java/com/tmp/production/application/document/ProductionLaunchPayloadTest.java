@@ -9,6 +9,7 @@ import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ProductionLaunchPayloadTest {
@@ -16,33 +17,43 @@ class ProductionLaunchPayloadTest {
     @Test
     void validPayload() {
         Instant now = Instant.now();
+        SourceOrderId orderId = SourceOrderId.generate();
         ProductionFoundation foundation =
                 ProductionFoundation.freeze(
-                        SourceOrderId.generate(),
+                        orderId,
                         SourceOrderItemId.generate(),
                         SpecificationId.generate(),
                         now);
         ProductionLaunchPayload payload =
-                new ProductionLaunchPayload(foundation, ProductionQuantity.positive(5), "operator");
+                new ProductionLaunchPayload(
+                        orderId,
+                        List.of(new ProductionLaunchLine(foundation, ProductionQuantity.positive(5))),
+                        "operator",
+                        now);
         assertEquals("operator", payload.createdBy());
-        assertEquals(foundation, payload.foundation());
+        assertEquals(1, payload.lines().size());
+        assertEquals(orderId, payload.sourceOrderId());
     }
 
     @Test
-    void nullFoundationRejected() {
+    void emptyLinesRejected() {
         assertThrows(
-                NullPointerException.class,
+                IllegalArgumentException.class,
                 () ->
                         new ProductionLaunchPayload(
-                                null, ProductionQuantity.positive(1), "op"));
+                                SourceOrderId.generate(),
+                                List.of(),
+                                "op",
+                                Instant.now()));
     }
 
     @Test
     void blankCreatedByRejected() {
         Instant now = Instant.now();
+        SourceOrderId orderId = SourceOrderId.generate();
         ProductionFoundation foundation =
                 ProductionFoundation.freeze(
-                        SourceOrderId.generate(),
+                        orderId,
                         SourceOrderItemId.generate(),
                         SpecificationId.generate(),
                         now);
@@ -50,6 +61,11 @@ class ProductionLaunchPayloadTest {
                 IllegalArgumentException.class,
                 () ->
                         new ProductionLaunchPayload(
-                                foundation, ProductionQuantity.positive(1), "  "));
+                                orderId,
+                                List.of(
+                                        new ProductionLaunchLine(
+                                                foundation, ProductionQuantity.positive(1))),
+                                "  ",
+                                now));
     }
 }

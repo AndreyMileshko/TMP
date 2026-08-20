@@ -1,17 +1,16 @@
 package com.tmp.production.application.document;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.document.api.DocumentMetadata;
 import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentStatus;
-import com.tmp.production.application.event.ProductionLaunched;
-import com.tmp.production.domain.AlreadyLaunchedForProductionException;
+import com.tmp.production.application.event.OrderAcceptedIntoProduction;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
+import com.tmp.production.domain.ProductionLaunchConflictException;
 import com.tmp.production.domain.ProductionQuantity;
 import com.tmp.production.domain.ProductionStatus;
 import com.tmp.production.domain.SourceOrderId;
@@ -49,75 +48,95 @@ class ProductionLaunchProcessorTest {
     }
 
     @Test
-    void onPostCreatesStateInProduction() {
+    void onPostCreatesAllItemStates() {
         SourceOrderId orderId = SourceOrderId.generate();
-        SourceOrderItemId itemId = SourceOrderItemId.generate();
-        SpecificationId specId = SpecificationId.generate();
         Instant now = Instant.now();
-
-        ProductionFoundation foundation =
-                ProductionFoundation.freeze(orderId, itemId, specId, now);
         ProductionLaunchPayload payload =
-                new ProductionLaunchPayload(
-                        foundation, ProductionQuantity.positive(10), "operator");
+                payload(
+                        orderId,
+                        List.of(
+                                line(orderId, SourceOrderItemId.generate(), SpecificationId.generate(), 10, now),
+                                line(orderId, SourceOrderItemId.generate(), SpecificationId.generate(), 5, now)),
+                        now,
+                        "operator");
 
         UUID docId = UUID.randomUUID();
         payloadHolder.set(docId, payload);
-
         processor.onPost(contextFor(docId));
 
-        Optional<ProductionItemState> saved =
-                repository.findByIdentity(orderId, itemId, specId);
-        assertTrue(saved.isPresent());
-        assertEquals(ProductionStatus.IN_PRODUCTION, saved.get().status());
-        assertEquals(ProductionQuantity.positive(10), saved.get().orderedQuantity());
-        assertEquals(specId, saved.get().specificationId());
+        assertEquals(2, repository.size());
+        for (ProductionLaunchLine launchLine : payload.lines()) {
+            Optional<ProductionItemState> saved =
+                    repository.findByIdentity(
+                            launchLine.foundation().sourceOrderId(),
+                            launchLine.foundation().sourceOrderItemId(),
+                            launchLine.foundation().specificationId());
+            assertTrue(saved.isPresent());
+            assertEquals(ProductionStatus.IN_PRODUCTION, saved.get().status());
+            assertEquals(launchLine.orderedQuantity(), saved.get().orderedQuantity());
+        }
     }
 
     @Test
-    void onPostPublishesDomainEvent() {
+    void onPostPublishesSingleOrderAcceptedEvent() {
         SourceOrderId orderId = SourceOrderId.generate();
-        SourceOrderItemId itemId = SourceOrderItemId.generate();
-        SpecificationId specId = SpecificationId.generate();
-
-        ProductionLaunchPayload payload = payload(orderId, itemId, specId, 5, Instant.now(), "user1");
+        Instant now = Instant.now();
+        SourceOrderItemId item1 = SourceOrderItemId.generate();
+        SourceOrderItemId item2 = SourceOrderItemId.generate();
+        ProductionLaunchPayload payload =
+                payload(
+                        orderId,
+                        List.of(
+                                line(orderId, item1, SpecificationId.generate(), 3, now),
+                                line(orderId, item2, SpecificationId.generate(), 7, now)),
+                        now,
+                        "user1");
 
         UUID docId = UUID.randomUUID();
         payloadHolder.set(docId, payload);
-
         processor.onPost(contextFor(docId));
 
         assertEquals(1, eventPublisher.events.size());
-        ProductionLaunched event = (ProductionLaunched) eventPublisher.events.get(0);
+        OrderAcceptedIntoProduction event =
+                (OrderAcceptedIntoProduction) eventPublisher.events.getFirst();
         assertEquals(orderId.value(), event.sourceOrderId());
-        assertEquals(itemId.value(), event.sourceOrderItemId());
-        assertEquals(specId.value(), event.specificationId());
-        assertEquals(5, event.orderedQuantity());
-        assertEquals(ProductionLaunched.EVENT_TYPE, event.eventType());
-        assertEquals("production", event.sourceCapabilityId());
+        assertEquals(2, event.acceptedItemCount());
+        assertEquals(
+                List.of(item1.value(), item2.value()), event.sourceOrderItemIds());
+        assertEquals(OrderAcceptedIntoProduction.EVENT_TYPE, event.eventType());
     }
 
     @Test
-    void duplicateLaunchThrowsBusinessException() {
+    void duplicateLaunchRejectsWholeOrder() {
         SourceOrderId orderId = SourceOrderId.generate();
-        SourceOrderItemId itemId = SourceOrderItemId.generate();
-        SpecificationId specId = SpecificationId.generate();
-
-        ProductionLaunchPayload payload = payload(orderId, itemId, specId, 3, Instant.now(), "op");
-
+        Instant now = Instant.now();
+        SourceOrderItemId existingItem = SourceOrderItemId.generate();
+        SpecificationId existingSpec = SpecificationId.generate();
+        ProductionLaunchPayload existing =
+                payload(
+                        orderId,
+                        List.of(line(orderId, existingItem, existingSpec, 3, now)),
+                        now,
+                        "op");
         UUID docId1 = UUID.randomUUID();
-        payloadHolder.set(docId1, payload);
+        payloadHolder.set(docId1, existing);
         processor.onPost(contextFor(docId1));
 
+        ProductionLaunchPayload conflict =
+                payload(
+                        orderId,
+                        List.of(
+                                line(orderId, SourceOrderItemId.generate(), SpecificationId.generate(), 2, now),
+                                line(orderId, existingItem, existingSpec, 4, now)),
+                        now,
+                        "op");
         UUID docId2 = UUID.randomUUID();
-        payloadHolder.set(docId2, payload);
-        AlreadyLaunchedForProductionException ex =
-                assertThrows(
-                        AlreadyLaunchedForProductionException.class,
-                        () -> processor.onPost(contextFor(docId2)));
+        payloadHolder.set(docId2, conflict);
 
-        assertEquals(itemId, ex.sourceOrderItemId());
-        assertEquals(specId, ex.specificationId());
+        assertThrows(
+                ProductionLaunchConflictException.class, () -> processor.onPost(contextFor(docId2)));
+        assertEquals(1, repository.size());
+        assertEquals(1, eventPublisher.events.size());
     }
 
     @Test
@@ -134,34 +153,22 @@ class ProductionLaunchProcessorTest {
                 () -> processor.onPost(contextFor(UUID.randomUUID())));
     }
 
-    @Test
-    void specificationIdIsPreserved() {
-        SourceOrderId orderId = SourceOrderId.generate();
-        SourceOrderItemId itemId = SourceOrderItemId.generate();
-        SpecificationId specId = SpecificationId.generate();
-
-        ProductionLaunchPayload payload = payload(orderId, itemId, specId, 1, Instant.now(), "user");
-
-        UUID docId = UUID.randomUUID();
-        payloadHolder.set(docId, payload);
-        processor.onPost(contextFor(docId));
-
-        ProductionItemState state =
-                repository.findByIdentity(orderId, itemId, specId).orElseThrow();
-        assertEquals(specId, state.foundation().specificationId());
-    }
-
-    private static ProductionLaunchPayload payload(
+    private static ProductionLaunchLine line(
             SourceOrderId orderId,
             SourceOrderItemId itemId,
             SpecificationId specId,
             long quantity,
-            Instant frozenAt,
+            Instant frozenAt) {
+        ProductionFoundation foundation = ProductionFoundation.freeze(orderId, itemId, specId, frozenAt);
+        return new ProductionLaunchLine(foundation, ProductionQuantity.positive(quantity));
+    }
+
+    private static ProductionLaunchPayload payload(
+            SourceOrderId orderId,
+            List<ProductionLaunchLine> lines,
+            Instant launchTimestamp,
             String createdBy) {
-        ProductionFoundation foundation =
-                ProductionFoundation.freeze(orderId, itemId, specId, frozenAt);
-        return new ProductionLaunchPayload(
-                foundation, ProductionQuantity.positive(quantity), createdBy);
+        return new ProductionLaunchPayload(orderId, lines, createdBy, launchTimestamp);
     }
 
     private static DocumentOperationContext contextFor(UUID documentId) {
@@ -196,6 +203,10 @@ class ProductionLaunchProcessorTest {
                 SourceOrderItemId sourceOrderItemId,
                 SpecificationId specificationId) {
             return Optional.ofNullable(store.get(key(sourceOrderId, sourceOrderItemId, specificationId)));
+        }
+
+        int size() {
+            return store.size();
         }
 
         private static String key(

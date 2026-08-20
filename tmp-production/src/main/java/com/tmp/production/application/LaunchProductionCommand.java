@@ -4,21 +4,16 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Application-level command to launch production for a single order item.
+ * Application-level command to accept a whole ACTIVE customer order into production.
  *
- * <p>Specification is resolved and frozen at Launch from Order Management Public Query.
- * Callers do not supply {@code specificationId}.
+ * <p>Order items, ordered quantities and specification references are resolved exclusively from
+ * Order Management Public Query at Launch. Callers must not supply item-level production data.
  */
-public record LaunchProductionCommand(
-        UUID sourceOrderId, UUID sourceOrderItemId, long orderedQuantity, String createdBy) {
+public record LaunchProductionCommand(UUID sourceOrderId, String createdBy) {
 
     public LaunchProductionCommand {
         Objects.requireNonNull(sourceOrderId, "sourceOrderId");
-        Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
         Objects.requireNonNull(createdBy, "createdBy");
-        if (orderedQuantity <= 0) {
-            throw new IllegalArgumentException("orderedQuantity must be positive");
-        }
         if (createdBy.isBlank()) {
             throw new IllegalArgumentException("createdBy must not be blank");
         }
