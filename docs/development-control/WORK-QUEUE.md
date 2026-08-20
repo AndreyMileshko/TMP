@@ -10577,7 +10577,7 @@ mvn verify
 
 ## STAGE7-006 — Computed Order Production View
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-005A
 **Module:** `tmp-production`
@@ -10593,29 +10593,37 @@ mvn verify
 ### Allowed code scope
 
 - query/application view;
+- corrective Launch readiness contract (missing Specification vs no ACTIVE items);
 - tests; control docs.
 
 ### Forbidden
 
-- хранение order-level production aggregate; UI.
+- хранение order-level production aggregate; UI; Warehouse; Material Check; Public API §18; STAGE7-007+.
 
 ### Acceptance criteria
 
-- [ ] view вычисляется; stored state остаётся item-owned.
+- [x] view вычисляется; stored state остаётся item-owned;
+- [x] empty Production states → NOT_ACCEPTED (не MANUFACTURED / не AVAILABLE);
+- [x] IN_PRODUCTION / MANUFACTURED / CANCELLED matrix по Spec §5.3;
+- [x] Launch различает no ACTIVE items и missing Specification с корректным OrderItemId;
+- [x] repository `findBySourceOrderId`; no order-level status table.
 
 ### Verification commands
 
 ```bash
 mvn -pl :tmp-production -am test
+mvn -pl :tmp-architecture-tests -am test
+mvn test
+mvn verify
 ```
 
 ---
 
 ## STAGE7-007 — Material availability via Warehouse Query
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-005  
+**Status:** READY
+**Stage:** 7
+**Depends on:** STAGE7-005A, STAGE7-006
 **Module:** `tmp-production`
 
 ### Goal
@@ -10932,9 +10940,9 @@ mvn -pl :tmp-document-engine -am test
 
 ## STAGE7-014 — Production Cancellation
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-004  
+**Status:** PLANNED
+**Stage:** 7
+**Depends on:** STAGE7-005A
 **Module:** `tmp-production`
 
 ### Goal
@@ -11243,6 +11251,7 @@ Integration tests Launch/Transfer/Receipt/Release+Consumption границ с п
 ### Acceptance criteria
 
 - [ ] Launch covered;
+- [ ] whole-order Launch rollback proven with real Document Engine + Production JDBC repository + PostgreSQL/Testcontainers (not only InMemoryRepository simulation);
 - [ ] Transfer covered;
 - [ ] Receipt covered;
 - [ ] Release+Consumption atomicity covered at Production boundary;

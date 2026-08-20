@@ -22,6 +22,7 @@ import com.tmp.production.domain.OrderNotEligibleForProductionException;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
+import com.tmp.production.domain.SpecificationNotAvailableForLaunchException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -78,7 +79,8 @@ class ProductionLaunchServiceTest {
                         SourceOrderId.of(orderId),
                         OrderStatus.ACTIVE,
                         1,
-                        List.of(new ResolvedItemLine(SourceOrderItemId.of(itemId), specId, BigDecimal.TEN)));
+                        List.of(new ResolvedItemLine(SourceOrderItemId.of(itemId), specId, BigDecimal.TEN)),
+                        List.of());
 
         DocumentMetadata posted =
                 service.launch(new LaunchProductionCommand(orderId, "operator"));
@@ -110,11 +112,46 @@ class ProductionLaunchServiceTest {
                                 new ResolvedItemLine(
                                         SourceOrderItemId.generate(),
                                         SpecificationId.generate(),
-                                        BigDecimal.ONE)));
+                                        BigDecimal.ONE)),
+                        List.of());
 
         assertThrows(
                 OrderNotEligibleForProductionException.class,
                 () -> service.launch(new LaunchProductionCommand(orderId, "op")));
+    }
+
+    @Test
+    void launchFailsWhenOrderHasNoActiveItems() {
+        UUID orderId = UUID.randomUUID();
+        orderQuery.order =
+                new ResolvedOrderForLaunch(
+                        SourceOrderId.of(orderId), OrderStatus.ACTIVE, 0, List.of(), List.of());
+
+        assertThrows(
+                OrderNotEligibleForProductionException.class,
+                () -> service.launch(new LaunchProductionCommand(orderId, "op")));
+    }
+
+    @Test
+    void launchFailsWithMissingSpecificationItemId() {
+        UUID orderId = UUID.randomUUID();
+        SourceOrderItemId missing = SourceOrderItemId.generate();
+        SourceOrderItemId ready = SourceOrderItemId.generate();
+        orderQuery.order =
+                new ResolvedOrderForLaunch(
+                        SourceOrderId.of(orderId),
+                        OrderStatus.ACTIVE,
+                        2,
+                        List.of(
+                                new ResolvedItemLine(
+                                        ready, SpecificationId.generate(), BigDecimal.ONE)),
+                        List.of(missing));
+
+        SpecificationNotAvailableForLaunchException ex =
+                assertThrows(
+                        SpecificationNotAvailableForLaunchException.class,
+                        () -> service.launch(new LaunchProductionCommand(orderId, "op")));
+        assertEquals(missing, ex.sourceOrderItemId());
     }
 
     private static final class StubOrderForProductionQuery implements OrderForProductionQueryPort {

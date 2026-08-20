@@ -3,6 +3,7 @@ package com.tmp.production.application.port;
 import com.tmp.order.api.OrderForProductionDto;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderItemForProductionDto;
+import com.tmp.order.api.OrderItemId;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.ProductionSpecificationDto;
 import com.tmp.production.application.port.OrderForProductionQueryPort.ResolvedItemLine;
@@ -33,8 +34,14 @@ public final class DefaultOrderForProductionQueryAdapter implements OrderForProd
 
     private ResolvedOrderForLaunch toResolved(OrderForProductionDto dto) {
         List<ResolvedItemLine> lines = dto.items().stream().map(this::toResolvedLine).toList();
+        List<SourceOrderItemId> missing =
+                dto.missingSpecificationItemIds().stream().map(this::toSourceItemId).toList();
         return new ResolvedOrderForLaunch(
-                SourceOrderId.of(dto.orderId().value()), dto.status(), dto.activeItemCount(), lines);
+                SourceOrderId.of(dto.orderId().value()),
+                dto.status(),
+                dto.activeItemCount(),
+                lines,
+                missing);
     }
 
     private ResolvedItemLine toResolvedLine(OrderItemForProductionDto item) {
@@ -43,5 +50,9 @@ public final class DefaultOrderForProductionQueryAdapter implements OrderForProd
                 SourceOrderItemId.of(item.orderItemId().value()),
                 SpecificationId.of(specification.specificationId().value()),
                 specification.orderedQuantity());
+    }
+
+    private SourceOrderItemId toSourceItemId(OrderItemId orderItemId) {
+        return SourceOrderItemId.of(orderItemId.value());
     }
 }

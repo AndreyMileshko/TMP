@@ -68,14 +68,19 @@ public final class ProductionLaunchService {
             throw new OrderNotEligibleForProductionException(sourceOrderId, order.orderStatus());
         }
 
-        if (order.activeItemCount() == 0 || order.lines().isEmpty()) {
+        if (order.activeItemCount() == 0) {
             throw new OrderNotEligibleForProductionException(
                     sourceOrderId, "order has no ACTIVE items");
         }
 
-        if (order.activeItemCount() != order.lines().size()) {
+        if (!order.missingSpecificationItemIds().isEmpty()) {
             throw new SpecificationNotAvailableForLaunchException(
-                    order.lines().getFirst().sourceOrderItemId());
+                    order.missingSpecificationItemIds().getFirst());
+        }
+
+        if (order.lines().isEmpty()) {
+            throw new OrderNotEligibleForProductionException(
+                    sourceOrderId, "order has no ACTIVE items");
         }
 
         var launchTimestamp = clock.instant();

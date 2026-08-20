@@ -2,6 +2,7 @@ package com.tmp.production.application.event;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
 import java.util.List;
@@ -27,5 +28,32 @@ class OrderAcceptedIntoProductionTest {
         assertEquals(List.of(itemId), event.sourceOrderItemIds());
         assertEquals(now, event.acceptedAt());
         assertNotNull(event.eventId());
+    }
+
+    @Test
+    void rejectsCountMismatch() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new OrderAcceptedIntoProduction(
+                                UUID.randomUUID().toString(),
+                                Instant.now(),
+                                UUID.randomUUID(),
+                                2,
+                                List.of(UUID.randomUUID())));
+    }
+
+    @Test
+    void rejectsDuplicateItemIds() {
+        UUID itemId = UUID.randomUUID();
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new OrderAcceptedIntoProduction(
+                                UUID.randomUUID().toString(),
+                                Instant.now(),
+                                UUID.randomUUID(),
+                                2,
+                                List.of(itemId, itemId)));
     }
 }

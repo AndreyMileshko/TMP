@@ -138,7 +138,7 @@ class WholeOrderProductionLaunchTest {
         SourceOrderId orderId = SourceOrderId.generate();
         orderQuery.order =
                 new ResolvedOrderForLaunch(
-                        orderId, OrderStatus.DRAFT, 1, List.of(itemLine(SourceOrderItemId.generate(), SpecificationId.generate(), 1)));
+                        orderId, OrderStatus.DRAFT, 1, List.of(itemLine(SourceOrderItemId.generate(), SpecificationId.generate(), 1)), List.of());
 
         assertThrows(
                 OrderNotEligibleForProductionException.class,
@@ -248,14 +248,49 @@ class WholeOrderProductionLaunchTest {
     @Test
     void missingSpecificationOnActiveItemFailsBeforeDocumentPost() {
         SourceOrderId orderId = SourceOrderId.generate();
-        SourceOrderItemId itemId = SourceOrderItemId.generate();
-        orderQuery.throwOnResolve =
-                new SpecificationNotAvailableForLaunchException(itemId);
-        orderQuery.order = activeOrder(orderId, List.of());
+        SourceOrderItemId missingItem = SourceOrderItemId.generate();
+        SourceOrderItemId readyItem = SourceOrderItemId.generate();
+        orderQuery.order =
+                new ResolvedOrderForLaunch(
+                        orderId,
+                        OrderStatus.ACTIVE,
+                        2,
+                        List.of(itemLine(readyItem, SpecificationId.generate(), 1)),
+                        List.of(missingItem));
+
+        SpecificationNotAvailableForLaunchException ex =
+                assertThrows(
+                        SpecificationNotAvailableForLaunchException.class,
+                        () -> launchService.launch(new LaunchProductionCommand(orderId.value(), "operator")));
+        assertEquals(missingItem, ex.sourceOrderItemId());
+        assertEquals(0, repository.size());
+        assertEquals(0, eventPublisher.events.size());
+    }
+
+    @Test
+    void zeroActiveItemsRejectedAsNotEligible() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        orderQuery.order =
+                new ResolvedOrderForLaunch(orderId, OrderStatus.ACTIVE, 0, List.of(), List.of());
 
         assertThrows(
-                SpecificationNotAvailableForLaunchException.class,
+                OrderNotEligibleForProductionException.class,
                 () -> launchService.launch(new LaunchProductionCommand(orderId.value(), "operator")));
+    }
+
+    @Test
+    void oneActiveItemMissingSpecificationUsesThatItemId() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId missingItem = SourceOrderItemId.generate();
+        orderQuery.order =
+                new ResolvedOrderForLaunch(
+                        orderId, OrderStatus.ACTIVE, 1, List.of(), List.of(missingItem));
+
+        SpecificationNotAvailableForLaunchException ex =
+                assertThrows(
+                        SpecificationNotAvailableForLaunchException.class,
+                        () -> launchService.launch(new LaunchProductionCommand(orderId.value(), "op")));
+        assertEquals(missingItem, ex.sourceOrderItemId());
     }
 
     private void seedExistingState(
@@ -286,7 +321,7 @@ class WholeOrderProductionLaunchTest {
 
     private static ResolvedOrderForLaunch activeOrder(
             SourceOrderId orderId, List<ResolvedItemLine> lines) {
-        return new ResolvedOrderForLaunch(orderId, OrderStatus.ACTIVE, lines.size(), lines);
+        return new ResolvedOrderForLaunch(orderId, OrderStatus.ACTIVE, lines.size(), lines, List.of());
     }
 
     private static ResolvedItemLine itemLine(
@@ -432,6 +467,13 @@ class WholeOrderProductionLaunchTest {
                 SourceOrderItemId sourceOrderItemId,
                 SpecificationId specificationId) {
             return Optional.ofNullable(store.get(key(sourceOrderId, sourceOrderItemId, specificationId)));
+        }
+
+        @Override
+        public List<ProductionItemState> findBySourceOrderId(SourceOrderId sourceOrderId) {
+            return store.values().stream()
+                    .filter(state -> state.sourceOrderId().equals(sourceOrderId))
+                    .toList();
         }
 
         Optional<ProductionItemState> find(SourceOrderId orderId, SourceOrderItemId itemId) {

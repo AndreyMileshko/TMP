@@ -9,6 +9,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -66,6 +67,23 @@ public final class JdbcProductionItemStateRepository implements ProductionItemSt
             SpecificationId specificationId) {
         return findEntityByIdentity(sourceOrderId, sourceOrderItemId, specificationId)
                 .map(ProductionItemStateMapper::toDomain);
+    }
+
+    @Override
+    public List<ProductionItemState> findBySourceOrderId(SourceOrderId sourceOrderId) {
+        Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+        return jdbcTemplate
+                .query(
+                        SELECT_COLUMNS
+                                + """
+                                 FROM production.production_item_states
+                                 WHERE source_order_id = ?
+                                """,
+                        (rs, rowNum) -> ProductionItemStateMapper.mapRow(rs),
+                        sourceOrderId.value())
+                .stream()
+                .map(ProductionItemStateMapper::toDomain)
+                .toList();
     }
 
     private Optional<ProductionItemStateEntity> findEntityByIdentity(

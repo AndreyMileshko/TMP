@@ -59,19 +59,22 @@ class Stage7ProductionArchitectureTest {
                                     + "without Warehouse/Order/Cutting internals");
 
     @ArchTest
-    static final ArchRule onlyProcessorUsesRepository =
+    static final ArchRule onlyProcessorAndViewQueryUseRepository =
             noClasses()
                     .that()
                     .resideInAPackage("com.tmp.production..")
                     .and()
                     .haveSimpleNameNotContaining("Processor")
                     .and()
+                    .haveSimpleNameNotEndingWith("ViewService")
+                    .and()
                     .resideOutsideOfPackage("com.tmp.production.persistence..")
                     .should()
                     .dependOnClassesThat()
                     .haveSimpleName("ProductionItemStateRepository")
                     .because(
-                            "Repository is called only by Processor and persistence adapters");
+                            "Repository writes belong to Processor; read-only ViewService may query; "
+                                    + "persistence adapters implement the port");
 
     @ArchTest
     static final ArchRule foundationQueryMustNotUseCurrentSpecificationApi =
@@ -113,4 +116,96 @@ class Stage7ProductionArchitectureTest {
                     .dependOnClassesThat()
                     .resideInAnyPackage("com.tmp.order..")
                     .because("Production domain must not depend on Order Management types");
+
+    @ArchTest
+    static final ArchRule orderProductionViewCalculatorIsPure =
+            noClasses()
+                    .that()
+                    .haveSimpleName("OrderProductionViewCalculator")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production.domain.repository..",
+                            "com.tmp.production.persistence..",
+                            "com.tmp.production.application..",
+                            "com.tmp.order..",
+                            "com.tmp.warehouse..",
+                            "com.tmp.cutting..",
+                            "org.springframework..")
+                    .because(
+                            "Order Production View calculator is pure domain logic with no I/O");
+
+    @ArchTest
+    static final ArchRule orderProductionViewServiceDoesNotDependOnWarehouseOrCutting =
+            noClasses()
+                    .that()
+                    .haveSimpleName("ProductionOrderViewService")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.warehouse..",
+                            "com.tmp.cutting..",
+                            "com.tmp.order.application..",
+                            "com.tmp.order.domain..",
+                            "com.tmp.order.persistence..")
+                    .because(
+                            "Computed Order Production View stays inside Production and does not "
+                                    + "touch Warehouse/Cutting or OM internals");
+
+    @ArchTest
+    static final ArchRule noOrderProductionStateEntity =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .and()
+                    .haveSimpleName("OrderProductionStateEntity")
+                    .should()
+                    .beInterfaces()
+                    .because("Order-level Production status is computed; no OrderProductionStateEntity")
+                    .allowEmptyShould(true);
+
+    @ArchTest
+    static final ArchRule noOrderProductionRepository =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .and()
+                    .haveSimpleName("OrderProductionRepository")
+                    .should()
+                    .beInterfaces()
+                    .because("Order-level Production status is computed; no OrderProductionRepository")
+                    .allowEmptyShould(true);
+
+    @ArchTest
+    static final ArchRule persistenceAdapterDoesNotDependOnOrderProductionView =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production.persistence..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("OrderProductionView")
+                    .because(
+                            "JDBC adapters return rows; Order Production View aggregation stays in domain");
+
+    @ArchTest
+    static final ArchRule persistenceAdapterDoesNotDependOnOrderProductionViewStatus =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production.persistence..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("OrderProductionViewStatus")
+                    .because(
+                            "JDBC adapters return rows; Order Production View aggregation stays in domain");
+
+    @ArchTest
+    static final ArchRule persistenceAdapterDoesNotDependOnOrderProductionViewCalculator =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production.persistence..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("OrderProductionViewCalculator")
+                    .because(
+                            "JDBC adapters return rows; Order Production View aggregation stays in domain");
 }

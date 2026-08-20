@@ -4,6 +4,7 @@ import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -21,4 +22,12 @@ public interface ProductionItemStateRepository {
             SourceOrderId sourceOrderId,
             SourceOrderItemId sourceOrderItemId,
             SpecificationId specificationId);
+
+    /**
+     * Loads all item-owned Production states for the given customer order.
+     *
+     * <p>Returns an empty list when no Production states exist. Does not invent order-level
+     * status; aggregation is performed by the domain calculator.
+     */
+    List<ProductionItemState> findBySourceOrderId(SourceOrderId sourceOrderId);
 }

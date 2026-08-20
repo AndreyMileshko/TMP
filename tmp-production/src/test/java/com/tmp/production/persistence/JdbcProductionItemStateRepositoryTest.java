@@ -151,6 +151,64 @@ class JdbcProductionItemStateRepositoryTest {
                 repository.findByIdentity(orderId, itemId, specificationId).isPresent());
     }
 
+    @Test
+    void findBySourceOrderIdReturnsAllStatesForOrderOnly() {
+        SourceOrderId orderA = SourceOrderId.generate();
+        SourceOrderId orderB = SourceOrderId.generate();
+        SourceOrderItemId itemA1 = SourceOrderItemId.generate();
+        SourceOrderItemId itemA2 = SourceOrderItemId.generate();
+        SourceOrderItemId itemB = SourceOrderItemId.generate();
+        SpecificationId specA1 = SpecificationId.generate();
+        SpecificationId specA2 = SpecificationId.generate();
+        SpecificationId specB = SpecificationId.generate();
+
+        ProductionItemState stateA1 =
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(orderA, itemA1, specA1, T0),
+                        ProductionQuantity.positive(2),
+                        T0);
+        ProductionItemState stateA2 =
+                ProductionItemState.launch(
+                                ProductionFoundation.freeze(orderA, itemA2, specA2, T0),
+                                ProductionQuantity.positive(5),
+                                T0)
+                        .release(ProductionQuantity.positive(5), T1);
+        ProductionItemState stateB =
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(orderB, itemB, specB, T0),
+                        ProductionQuantity.positive(1),
+                        T0);
+
+        repository.save(stateA1);
+        repository.save(stateA2);
+        repository.save(stateB);
+
+        var loadedA = repository.findBySourceOrderId(orderA);
+        assertEquals(2, loadedA.size());
+        assertTrue(
+                loadedA.stream().allMatch(state -> state.sourceOrderId().equals(orderA)));
+        assertEquals(
+                1,
+                loadedA.stream()
+                        .filter(state -> state.status() == ProductionStatus.IN_PRODUCTION)
+                        .count());
+        assertEquals(
+                1,
+                loadedA.stream()
+                        .filter(state -> state.status() == ProductionStatus.RELEASED)
+                        .count());
+        assertEquals(
+                ProductionQuantity.positive(5),
+                loadedA.stream()
+                        .filter(state -> state.sourceOrderItemId().equals(itemA2))
+                        .findFirst()
+                        .orElseThrow()
+                        .releasedQuantity());
+
+        assertEquals(1, repository.findBySourceOrderId(orderB).size());
+        assertTrue(repository.findBySourceOrderId(SourceOrderId.generate()).isEmpty());
+    }
+
     private static void assertFieldEquals(ProductionItemState expected, ProductionItemState actual) {
         assertEquals(expected.foundation(), actual.foundation());
         assertEquals(expected.sourceOrderId(), actual.sourceOrderId());

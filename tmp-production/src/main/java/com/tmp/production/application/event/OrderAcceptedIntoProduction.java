@@ -2,8 +2,10 @@ package com.tmp.production.application.event;
 
 import com.tmp.core.api.event.DomainEvent;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -28,6 +30,17 @@ public record OrderAcceptedIntoProduction(
             throw new IllegalArgumentException("acceptedItemCount must be >= 1: " + acceptedItemCount);
         }
         sourceOrderItemIds = List.copyOf(sourceOrderItemIds);
+        if (acceptedItemCount != sourceOrderItemIds.size()) {
+            throw new IllegalArgumentException(
+                    "acceptedItemCount must equal sourceOrderItemIds size: "
+                            + acceptedItemCount
+                            + " != "
+                            + sourceOrderItemIds.size());
+        }
+        Set<UUID> unique = new HashSet<>(sourceOrderItemIds);
+        if (unique.size() != sourceOrderItemIds.size()) {
+            throw new IllegalArgumentException("sourceOrderItemIds must not contain duplicates");
+        }
     }
 
     @Override

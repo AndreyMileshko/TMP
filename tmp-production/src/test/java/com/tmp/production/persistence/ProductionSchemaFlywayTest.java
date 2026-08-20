@@ -110,4 +110,47 @@ class ProductionSchemaFlywayTest {
                         Integer.class);
         assertTrue(unique >= 1);
     }
+
+    @Test
+    void sourceOrderIdIndexExists() {
+        Integer indexes =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM pg_indexes
+                        WHERE schemaname = 'production'
+                          AND tablename = 'production_item_states'
+                          AND indexname = 'idx_production_item_states_source_order_id'
+                        """,
+                        Integer.class);
+        assertEquals(1, indexes);
+    }
+
+    @Test
+    void noStoredOrderLevelProductionStatus() {
+        Integer orderStatusColumns =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.columns
+                        WHERE table_schema = 'production'
+                          AND (
+                            column_name ILIKE '%order_production_status%'
+                            OR column_name ILIKE 'order_cancelled'
+                          )
+                        """,
+                        Integer.class);
+        assertEquals(0, orderStatusColumns);
+
+        Integer orderLevelTables =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.tables
+                        WHERE table_schema = 'production'
+                          AND (
+                            table_name ILIKE '%order_production%'
+                            OR table_name ILIKE '%production_order%'
+                          )
+                        """,
+                        Integer.class);
+        assertEquals(0, orderLevelTables);
+    }
 }

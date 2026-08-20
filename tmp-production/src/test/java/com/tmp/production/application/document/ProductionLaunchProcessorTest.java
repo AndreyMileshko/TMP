@@ -205,6 +205,13 @@ class ProductionLaunchProcessorTest {
             return Optional.ofNullable(store.get(key(sourceOrderId, sourceOrderItemId, specificationId)));
         }
 
+        @Override
+        public List<ProductionItemState> findBySourceOrderId(SourceOrderId sourceOrderId) {
+            return store.values().stream()
+                    .filter(state -> state.sourceOrderId().equals(sourceOrderId))
+                    .toList();
+        }
+
         int size() {
             return store.size();
         }

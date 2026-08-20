@@ -3,6 +3,35 @@
 ## Latest result
 
 **Date:** 2026-08-20
+**Scope:** STAGE7-006 — Computed Order Production View (+ Launch missing-Specification corrective)
+**Overall:** PASS
+**Type:** Computed order view + Launch readiness contract + architecture guards
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-production -am test` | PASS (116 production tests) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS (Stage7ProductionArchitectureTest: 14 rules) |
+| `mvn test` | PASS |
+| `mvn verify` | PASS (BUILD SUCCESS) |
+| no ACTIVE items vs missing Specification distinguished | PASS |
+| missing Specification exception uses correct OrderItemId | PASS |
+| empty states ≠ MANUFACTURED (NOT_ACCEPTED) | PASS |
+| IN_PRODUCTION / MANUFACTURED / CANCELLED matrix | PASS |
+| RELEASED+CANCELLED requires cancellation context | PASS |
+| `findBySourceOrderId` isolation | PASS |
+| no stored order-level production status | PASS (schema + ArchUnit) |
+| `OrderAcceptedIntoProduction` count/list/duplicates | PASS |
+| DB index `idx_production_item_states_source_order_id` | PASS (pre-existing V23; no new migration) |
+| Middle-line Launch failure unit simulation | PASS as **unit-level** rollback model (`WholeOrderProductionLaunchTest.failureOnMiddleItemRollsBackAllNewStates` / in-memory repository) — **not** PostgreSQL / Document Engine ACID proof; real boundary proof remains STAGE7-018 |
+| STAGE7-006 | DONE |
+| STAGE7-007 | READY |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result (STAGE7-005A)
+
+**Date:** 2026-08-20
 **Scope:** STAGE7-005A — Whole-Order Production Launch Correction & Reactor Recovery
 **Overall:** PASS
 **Type:** Whole-order Launch + UI shell test-double compile recovery + frozen-spec error contract
@@ -21,7 +50,7 @@
 | Quantities from OM only | PASS |
 | Non-ACTIVE Order rejected | PASS |
 | Duplicate conflict all-or-nothing | PASS |
-| Middle-line failure rollback | PASS |
+| Middle-line failure rollback | PASS as unit-level in-memory simulation only (real ACID → STAGE7-018) |
 | `OrderAcceptedIntoProduction` cardinality = 1 | PASS |
 | Frozen SpecificationId after current-spec change | PASS |
 | Unavailable frozen spec = error, not empty list | PASS |

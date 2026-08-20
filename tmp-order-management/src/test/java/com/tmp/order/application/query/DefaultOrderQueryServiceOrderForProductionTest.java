@@ -88,9 +88,67 @@ class DefaultOrderQueryServiceOrderForProductionTest {
         assertEquals(OrderStatus.ACTIVE, dto.status());
         assertEquals(1, dto.activeItemCount());
         assertEquals(1, dto.items().size());
+        assertTrue(dto.missingSpecificationItemIds().isEmpty());
         assertEquals(activeItem, dto.items().getFirst().orderItemId());
         assertEquals(specId, dto.items().getFirst().specification().specificationId());
         assertEquals(0, BigDecimal.TEN.compareTo(dto.items().getFirst().specification().orderedQuantity()));
+    }
+
+    @Test
+    void getOrderForProductionReportsMissingSpecificationItemIds() {
+        OrderId orderId = OrderId.generate();
+        OrderItemId withSpec = OrderItemId.generate();
+        OrderItemId withoutSpec = OrderItemId.generate();
+        Instant now = Instant.parse("2026-08-20T06:00:00Z");
+        SpecificationId specId = SpecificationId.of(UUID.randomUUID());
+        ProductionSpecificationDto spec =
+                ProductionSpecificationDto.of(specId, withSpec, BigDecimal.valueOf(3), List.of());
+        StubReadPort readPort =
+                new StubReadPort(
+                        OrderDto.of(
+                                orderId,
+                                "O-2",
+                                OrderStatus.ACTIVE,
+                                "ref",
+                                "Customer",
+                                null,
+                                null,
+                                null,
+                                "PRIVATE",
+                                "RUB",
+                                now,
+                                now),
+                        List.of(
+                                OrderItemDto.of(
+                                        withSpec,
+                                        orderId,
+                                        "P-1",
+                                        "Panel",
+                                        null,
+                                        null,
+                                        OrderItemStatus.ACTIVE,
+                                        RevisionNumber.first(),
+                                        now,
+                                        now),
+                                OrderItemDto.of(
+                                        withoutSpec,
+                                        orderId,
+                                        "P-2",
+                                        "Missing",
+                                        null,
+                                        null,
+                                        OrderItemStatus.ACTIVE,
+                                        RevisionNumber.first(),
+                                        now,
+                                        now)),
+                        Map.of(withSpec, spec));
+        DefaultOrderQueryService service =
+                new DefaultOrderQueryService(readPort, new AllowAllAuthorization());
+
+        OrderForProductionDto dto = service.getOrderForProduction(orderId).orElseThrow();
+        assertEquals(2, dto.activeItemCount());
+        assertEquals(1, dto.items().size());
+        assertEquals(List.of(withoutSpec), dto.missingSpecificationItemIds());
     }
 
     @Test

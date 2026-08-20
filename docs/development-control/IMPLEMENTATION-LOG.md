@@ -4,6 +4,45 @@
 
 ---
 
+## STAGE7-006 — Computed Order Production View
+
+**Date:** 2026-08-20
+**Stage:** 7
+**Module:** `tmp-production`, `tmp-order-management` (Public Query readiness DTO only)
+**Status:** DONE
+
+### Corrective Launch readiness
+
+- `OrderForProductionDto` now exposes `missingSpecificationItemIds` alongside `activeItemCount` and producible `items`.
+- Invariant: `activeItemCount == items.size() + missingSpecificationItemIds.size()`.
+- `ProductionLaunchService`:
+  - `activeItemCount == 0` → `OrderNotEligibleForProductionException` ("order has no ACTIVE items");
+  - non-empty missing list → `SpecificationNotAvailableForLaunchException` with the first missing `SourceOrderItemId` (not a producible line id).
+- `OrderAcceptedIntoProduction`: `acceptedItemCount == sourceOrderItemIds.size()` and no duplicate item IDs.
+
+### Computed Order Production View
+
+- Pure `OrderProductionViewCalculator` + `OrderProductionView` / `OrderProductionViewStatus`.
+- Statuses: `NOT_ACCEPTED`, `IN_PRODUCTION`, `MANUFACTURED`, `CANCELLED`.
+- Empty item states → `NOT_ACCEPTED` (never vacuous `MANUFACTURED`; not user-facing AVAILABLE without OM ACTIVE confirmation).
+- `Context.cancelled()` query input documents STAGE7-014 whole-order cancellation; RELEASED+CANCELLED without it is rejected as ambiguous.
+- Duplicate `SourceOrderItemId` rows rejected (no silent latest-spec pick).
+- `ProductionOrderViewService` read-only; recalculates every query; does not persist.
+- Repository: `findBySourceOrderId`; index already present in V23 (`idx_production_item_states_source_order_id`) — no new Flyway migration.
+- No order-level aggregate table / entity / repository.
+
+### Queue hygiene
+
+- STAGE7-007 depends on STAGE7-005A, STAGE7-006 → READY.
+- STAGE7-014 depends on STAGE7-005A.
+- STAGE7-018 AC: whole-order Launch rollback must use Document Engine + Production JDBC + PostgreSQL/Testcontainers.
+
+### Verification
+
+- `mvn test` / `mvn verify` — BUILD SUCCESS.
+
+---
+
 ## STAGE7-005A — Whole-Order Production Launch Correction & Reactor Recovery
 
 **Date:** 2026-08-20

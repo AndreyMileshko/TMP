@@ -44,7 +44,8 @@ class DefaultOrderForProductionQueryAdapterTest {
                                 orderId,
                                 OrderStatus.ACTIVE,
                                 1,
-                                List.of(OrderItemForProductionDto.of(itemId, spec))));
+                                List.of(OrderItemForProductionDto.of(itemId, spec)),
+                                List.of()));
         DefaultOrderForProductionQueryAdapter adapter =
                 new DefaultOrderForProductionQueryAdapter(query);
 
@@ -54,8 +55,36 @@ class DefaultOrderForProductionQueryAdapterTest {
         assertTrue(resolved.isPresent());
         assertEquals(OrderStatus.ACTIVE, resolved.get().orderStatus());
         assertEquals(1, resolved.get().lines().size());
+        assertTrue(resolved.get().missingSpecificationItemIds().isEmpty());
         assertEquals(BigDecimal.TEN, resolved.get().lines().getFirst().orderedQuantity());
         assertEquals(specId.value(), resolved.get().lines().getFirst().specificationId().value());
+    }
+
+    @Test
+    void mapsMissingSpecificationItemIds() {
+        OrderId orderId = OrderId.generate();
+        OrderItemId readyItem = OrderItemId.generate();
+        OrderItemId missingItem = OrderItemId.generate();
+        SpecificationId specId = SpecificationId.of(UUID.randomUUID());
+        ProductionSpecificationDto spec =
+                ProductionSpecificationDto.of(specId, readyItem, BigDecimal.ONE, List.of());
+        FakeOrderQuery query =
+                new FakeOrderQuery(
+                        OrderForProductionDto.of(
+                                orderId,
+                                OrderStatus.ACTIVE,
+                                2,
+                                List.of(OrderItemForProductionDto.of(readyItem, spec)),
+                                List.of(missingItem)));
+        DefaultOrderForProductionQueryAdapter adapter =
+                new DefaultOrderForProductionQueryAdapter(query);
+
+        ResolvedOrderForLaunch resolved =
+                adapter.resolveForLaunch(SourceOrderId.of(orderId.value())).orElseThrow();
+
+        assertEquals(1, resolved.lines().size());
+        assertEquals(1, resolved.missingSpecificationItemIds().size());
+        assertEquals(missingItem.value(), resolved.missingSpecificationItemIds().getFirst().value());
     }
 
     private static final class FakeOrderQuery implements OrderQueryService {

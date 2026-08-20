@@ -139,6 +139,7 @@ public final class DefaultOrderQueryService implements OrderQueryService {
         }
 
         List<OrderItemForProductionDto> producibleItems = new ArrayList<>();
+        List<OrderItemId> missingSpecificationItemIds = new ArrayList<>();
         int activeItemCount = 0;
         long fetched = 0;
         long totalElements = Long.MAX_VALUE;
@@ -153,12 +154,14 @@ public final class DefaultOrderQueryService implements OrderQueryService {
                     continue;
                 }
                 activeItemCount++;
-                readPort.findCurrentSpecification(item.orderItemId())
-                        .ifPresent(
-                                specification ->
-                                        producibleItems.add(
-                                                OrderItemForProductionDto.of(
-                                                        item.orderItemId(), specification)));
+                Optional<ProductionSpecificationDto> specification =
+                        readPort.findCurrentSpecification(item.orderItemId());
+                if (specification.isPresent()) {
+                    producibleItems.add(
+                            OrderItemForProductionDto.of(item.orderItemId(), specification.orElseThrow()));
+                } else {
+                    missingSpecificationItemIds.add(item.orderItemId());
+                }
             }
         }
 
@@ -167,6 +170,7 @@ public final class DefaultOrderQueryService implements OrderQueryService {
                         order.get().orderId(),
                         order.get().status(),
                         activeItemCount,
-                        producibleItems));
+                        producibleItems,
+                        missingSpecificationItemIds));
     }
 }
