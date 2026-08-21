@@ -2,15 +2,15 @@
 
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation IN PROGRESS
-**Current Stage:** Stage 7 - IN PROGRESS / 36% (Start Gate PASSED)
+**Current Stage:** Stage 7 - IN PROGRESS / 40% (Start Gate PASSED)
 **Current Task:** none
-**Last completed task:** STAGE7-006 (Computed Order Production View)
+**Last completed task:** STAGE7-007 (Material availability via Warehouse Query)
 **Active blockers:** NONE
 **Stage 6 Warehouse:** DONE
-**Stage 7 Production:** IN PROGRESS / 36%
+**Stage 7 Production:** IN PROGRESS / 40%
 **Stage 7 Start Gate:** PASSED
 **Full verify baseline:** GREEN
-**First READY implementation task:** STAGE7-007
+**First READY implementation task:** STAGE7-008
 
 
 ```text
@@ -64,11 +64,12 @@ STAGE7-004B = DONE (SpecificationId Stability Fix)
 STAGE7-005 = DONE (Production Foundation — Specification Reference Freeze)
 STAGE7-005A = DONE (Whole-Order Production Launch Correction & Reactor Recovery)
 STAGE7-006 = DONE (Computed Order Production View)
+STAGE7-007 = DONE (Material availability via Warehouse Query)
 Active blockers = NONE
-Stage 7 Production = IN PROGRESS / 36%
+Stage 7 Production = IN PROGRESS / 40%
 Stage 7 Start Gate = PASSED
 Full reactor baseline = GREEN
-First READY implementation task = STAGE7-007
+First READY implementation task = STAGE7-008
 ```
 
 ---
@@ -84,7 +85,7 @@ First READY implementation task = STAGE7-007
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
-| 7 | Production | IN PROGRESS | 36% |
+| 7 | Production | IN PROGRESS | 40% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 
@@ -115,5 +116,6 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - `STAGE7-005` completed: Production Foundation — `ProductionFoundation` domain value object frozen at Launch; `ProductionLaunchService` resolves current spec once via OM Public Query; `ProductionFoundationQueryService` reads frozen spec via `getSpecificationById` only; no specification content snapshot duplication (reference-only per Production Spec §127); architecture rules enforce post-launch boundary.
 - `STAGE7-005A` completed: corrective whole-order Launch. STAGE7-004 originally launched a single Order Item; audit found this violated Production Spec (one user operation accepts the entire ACTIVE Order). Launch now takes `SourceOrderId` only; OM Public Query supplies all ACTIVE items, quantities and SpecificationId; one multi-line Launch document is atomic; `OrderAcceptedIntoProduction` is the after-commit business event. `tmp-ui-shell` OrderQueryService test doubles restored to compile against the extended public contract. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-006` completed: computed Order Production View from item-owned states (`OrderProductionViewCalculator` + `ProductionOrderViewService`); no stored order-level status; empty states → `NOT_ACCEPTED` (not AVAILABLE); Launch readiness distinguishes no ACTIVE items vs missing Specification with correct `OrderItemId`; `OrderAcceptedIntoProduction` count/list/duplicates invariant; STAGE7-007 dependency → STAGE7-005A+006; STAGE7-014 → STAGE7-005A; STAGE7-018 ACID Launch rollback requires real JDBC/PostgreSQL. Full `mvn verify` BUILD SUCCESS.
-- Production implementation IN PROGRESS (36% by task-count: 9/25 implementation tasks done, including 004A/004B/005A).
-- Next task: **STAGE7-007** (Material availability via Warehouse Query) — READY.
+- `STAGE7-007` completed: read-only Material Availability Check for `IN_PRODUCTION` orders. Frozen Specification path only; `lineQuantity` not multiplied by product quantity; material identity resolved via `WarehouseQueryApi.listMaterialReferences()` (article+color+UoM; `lengthMm` never mapped to Warehouse `size`); unresolved/ambiguous distinct from stock=0; `ProductionWarehouseScope` (injected main/production warehouse ids, no hardcoded roles); deficit from scoped AVAILABLE stock only; no Warehouse writes, no Production status mutation, no document, no Cutting. Full `mvn verify` BUILD SUCCESS.
+- Production implementation IN PROGRESS (40% by task-count: 10/25 implementation tasks done, including 004A/004B/005A).
+- Next task: **STAGE7-008** (Cutting Plan references 0..N) — READY.

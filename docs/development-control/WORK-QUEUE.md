@@ -10621,7 +10621,7 @@ mvn verify
 
 ## STAGE7-007 — Material availability via Warehouse Query
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-005A, STAGE7-006
 **Module:** `tmp-production`
@@ -10652,7 +10652,7 @@ mvn verify
 
 ### Acceptance criteria
 
-- [ ] проверка читает Warehouse Query.
+- [x] проверка читает Warehouse Query.
 
 ### Verification commands
 
@@ -10664,9 +10664,9 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-008 — Cutting Plan references 0..N
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-005  
+**Status:** READY
+**Stage:** 7
+**Depends on:** STAGE7-005
 **Module:** `tmp-production` + `tmp-infra-db` (Flyway only, when schema change required)
 
 ### Goal

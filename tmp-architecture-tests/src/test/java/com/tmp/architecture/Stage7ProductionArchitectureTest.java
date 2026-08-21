@@ -208,4 +208,90 @@ class Stage7ProductionArchitectureTest {
                     .haveSimpleName("OrderProductionViewCalculator")
                     .because(
                             "JDBC adapters return rows; Order Production View aggregation stays in domain");
+
+    @ArchTest
+    static final ArchRule materialAvailabilityMustNotUseWarehouseInternals =
+            noClasses()
+                    .that()
+                    .haveSimpleName("CheckMaterialAvailabilityService")
+                    .or()
+                    .haveSimpleName("DefaultWarehouseAvailabilityQueryAdapter")
+                    .or()
+                    .haveSimpleName("SpecificationMaterialRequirementCalculator")
+                    .or()
+                    .haveSimpleName("ProductionWarehouseScope")
+                    .or()
+                    .haveSimpleNameContaining("MaterialAvailability")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.warehouse.application..",
+                            "com.tmp.warehouse.domain..",
+                            "com.tmp.warehouse.persistence..")
+                    .because(
+                            "Material availability must use WarehouseQueryApi read boundary only");
+
+    @ArchTest
+    static final ArchRule materialAvailabilityMustNotUseWarehouseCommandApi =
+            noClasses()
+                    .that()
+                    .haveSimpleName("CheckMaterialAvailabilityService")
+                    .or()
+                    .haveSimpleName("DefaultWarehouseAvailabilityQueryAdapter")
+                    .or()
+                    .haveSimpleNameContaining("MaterialAvailability")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("WarehouseCommandApi")
+                    .because("Material availability is read-only and must not call Warehouse commands");
+
+    @ArchTest
+    static final ArchRule materialAvailabilityMustNotUseCurrentSpecificationApi =
+            noClasses()
+                    .that()
+                    .haveSimpleName("CheckMaterialAvailabilityService")
+                    .should()
+                    .callMethod(OrderQueryService.class, "getCurrentItemSpecification")
+                    .because(
+                            "Material check must resolve frozen SpecificationId only");
+
+    @ArchTest
+    static final ArchRule materialAvailabilityMustNotResolveCurrentForLaunch =
+            noClasses()
+                    .that()
+                    .haveSimpleName("CheckMaterialAvailabilityService")
+                    .should()
+                    .callMethod(OrderSpecificationQueryPort.class, "resolveCurrentForLaunch")
+                    .because(
+                            "Material check must resolve frozen SpecificationId only");
+
+    @ArchTest
+    static final ArchRule warehouseAvailabilityAdapterUsesQueryApiOnly =
+            classes()
+                    .that()
+                    .haveSimpleName("DefaultWarehouseAvailabilityQueryAdapter")
+                    .should()
+                    .onlyDependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production.application.port..",
+                            "com.tmp.warehouse.api..",
+                            "java..")
+                    .because(
+                            "Warehouse availability adapter must depend on WarehouseQueryApi only");
+
+    @ArchTest
+    static final ArchRule materialRequirementCalculatorIsPure =
+            noClasses()
+                    .that()
+                    .haveSimpleName("SpecificationMaterialRequirementCalculator")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production.domain.repository..",
+                            "com.tmp.production.persistence..",
+                            "com.tmp.warehouse..",
+                            "com.tmp.cutting..",
+                            "org.springframework..")
+                    .because(
+                            "Requirement calculator is pure and must not touch Warehouse or persistence");
 }

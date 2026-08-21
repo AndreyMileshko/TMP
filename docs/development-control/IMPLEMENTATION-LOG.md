@@ -4,6 +4,60 @@
 
 ---
 
+## STAGE7-007 — Material availability via Warehouse Query
+
+**Date:** 2026-08-20
+**Stage:** 7
+**Module:** `tmp-production` (depends on `tmp-warehouse` Public Query API only)
+**Status:** DONE
+
+### Use case
+
+- `CheckMaterialAvailabilityService` — read/calculation only for `SourceOrderId`.
+- Allowed only when computed Order Production View = `IN_PRODUCTION`.
+- Rejected with `MaterialCheckNotAllowedException` for `NOT_ACCEPTED` / `MANUFACTURED` / `CANCELLED` (no Warehouse queries on reject).
+
+### Requirement calculation
+
+- Frozen `SpecificationId` → `ProductionFoundationQueryService` → `resolveById` only.
+- Pure `SpecificationMaterialRequirementCalculator`: aggregates by `(materialCode, color, unitOfMeasure)`.
+- `lineQuantity` is total planned quantity (OM Spec v1.10) — **not** multiplied by ordered/launched/product quantity.
+- `planningSource = SPECIFICATION` (Cutting deferred to STAGE7-008+).
+
+### Material identity
+
+- Resolution via `WarehouseAvailabilityQueryPort` → `WarehouseQueryApi.listMaterialReferences()`.
+- Match: article == materialCode, normalized color, unitOfMeasure; **`lengthMm` never used as Warehouse `size`**.
+- 0 candidates → `MATERIAL_UNRESOLVED`; >1 → `MATERIAL_AMBIGUOUS`; no silent legacy-article fallback.
+
+### Warehouse scope
+
+- Production-owned `ProductionWarehouseScope(mainWarehouseId, productionWarehouseId)` — distinct non-null ids; validated active via `listWarehouses()`.
+- No hardcoded MAIN/PRODUCTION codes or display names.
+- Scoped `checkAvailability(materialReferenceId, warehouseId, …)` AVAILABLE quantity only; other warehouses do not mask deficit.
+
+### Persistence / mutations
+
+- Immutable `MaterialAvailabilityCheckResult` snapshot (`Clock`); not persisted as stock source of truth.
+- `LastMaterialCheckAt` not updated (deferred to STAGE7-015A/016A document/projection path).
+- No WarehouseCommandApi, Transfer, Reservation, Production status change, or Material Check document.
+
+### Architecture
+
+- Port/adapter: `WarehouseAvailabilityQueryPort` / `DefaultWarehouseAvailabilityQueryAdapter`.
+- Stage7 ArchUnit: no Warehouse command/internals; no OM current-spec API; pure requirement calculator.
+
+### Queue hygiene
+
+- STAGE7-008 (depends on STAGE7-005) → READY.
+- STAGE7-009 remains blocked on STAGE7-007 + STAGE7-008 until 008 completes.
+
+### Verification
+
+- `mvn -pl :tmp-production -am test` / `mvn -pl :tmp-warehouse -am test` / `mvn -pl :tmp-architecture-tests -am test` / `mvn test` / `mvn verify` — BUILD SUCCESS.
+
+---
+
 ## STAGE7-006 — Computed Order Production View
 
 **Date:** 2026-08-20

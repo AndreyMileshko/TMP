@@ -3,6 +3,38 @@
 ## Latest result
 
 **Date:** 2026-08-20
+**Scope:** STAGE7-007 — Material availability via Warehouse Query
+**Overall:** PASS
+**Type:** Read-only material check + Warehouse Public Query + architecture guards
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-production -am test` | PASS |
+| `mvn -pl :tmp-warehouse -am test` | PASS |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS (Stage7ProductionArchitectureTest: 20 rules) |
+| `mvn test` | PASS |
+| `mvn verify` | PASS (BUILD SUCCESS) |
+| lifecycle gate IN_PRODUCTION only | PASS |
+| frozen SpecificationId path (not current) | PASS |
+| lineQuantity not × productQuantity | PASS |
+| aggregation by material identity | PASS |
+| lengthMm ≠ Warehouse size | PASS |
+| MATERIAL_UNRESOLVED / MATERIAL_AMBIGUOUS ≠ stock 0 | PASS |
+| main + production scoped AVAILABLE / deficit | PASS |
+| other warehouse does not mask deficit | PASS |
+| no Warehouse writes / no Production status mutation | PASS |
+| no Material Check document / no Cutting | PASS |
+| stock snapshot not Production source of truth | PASS |
+| `git diff --check` | clean (CRLF warnings only) |
+| STAGE7-007 | DONE |
+| STAGE7-008 | READY |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result (STAGE7-006)
+
+**Date:** 2026-08-20
 **Scope:** STAGE7-006 — Computed Order Production View (+ Launch missing-Specification corrective)
 **Overall:** PASS
 **Type:** Computed order view + Launch readiness contract + architecture guards

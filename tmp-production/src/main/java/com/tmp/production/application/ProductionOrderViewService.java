@@ -46,7 +46,15 @@ public final class ProductionOrderViewService {
             SourceOrderId sourceOrderId, Context context) {
         Objects.requireNonNull(sourceOrderId, "sourceOrderId");
         Objects.requireNonNull(context, "context");
-        List<ProductionItemState> states = repository.findBySourceOrderId(sourceOrderId);
-        return calculator.calculate(sourceOrderId, states, context);
+        return calculator.calculate(sourceOrderId, listItemStates(sourceOrderId), context);
+    }
+
+    /**
+     * Read-only item-owned Production states for the order. Empty when the order has not been
+     * launched.
+     */
+    public List<ProductionItemState> listItemStates(SourceOrderId sourceOrderId) {
+        Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+        return repository.findBySourceOrderId(sourceOrderId);
     }
 }
