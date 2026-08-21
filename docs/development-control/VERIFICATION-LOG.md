@@ -3,6 +3,30 @@
 ## Latest result
 
 **Date:** 2026-08-21
+**Scope:** STAGE7-011 — Receipt confirmation initiation
+**Overall:** PASS
+**Type:** Production confirm receipt → Warehouse receiveTransfer; status pre-validation; REQUIRED TX rollback
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-production -am test` | PASS (incl. ConfirmMaterialReceiptServiceTest 11 + ConfirmMaterialReceiptPostgresIntegrationTest 10) |
+| `mvn -pl :tmp-warehouse -am test` | PASS |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS (Stage7ProductionArchitectureTest receipt public-API guards) |
+| DRAFT / SENT / RECEIVED / mixed / multi-ref / prevalidation / consistency | PASS |
+| Real PostgreSQL partial-failure + pre-existing RECEIVED survival | PASS |
+| `mvn test` | PASS |
+| `mvn verify` | PASS (BUILD SUCCESS) |
+| `git diff --check` | clean (CRLF warnings only) |
+| STAGE7-011 | DONE |
+| STAGE7-012 | READY |
+| Blockers | NONE |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result (STAGE7-010)
+
+**Date:** 2026-08-21
 **Scope:** STAGE7-010 — Warehouse Transfer command integration (+ STAGE7-009 atomic template save precondition)
 **Overall:** PASS
 **Type:** Confirm template → Warehouse createTransferDraft; Production logical grouping; cell allocations; TX rollback

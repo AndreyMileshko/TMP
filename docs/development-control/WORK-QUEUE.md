@@ -10871,7 +10871,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-011 — Receipt confirmation initiation
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-010
 **Module:** `tmp-production`
@@ -10900,21 +10900,29 @@ mvn -pl :tmp-production -am test
 
 ### Acceptance criteria
 
-- [ ] receive выполняет Warehouse-owned operation.
+- [x] receive выполняет Warehouse-owned operation.
+- [x] command принимает только Production logical transfer identity.
+- [x] все Warehouse statuses проверяются ДО mutations; DRAFT блокирует; SENT→receive; RECEIVED idempotent/skip.
+- [x] multi-ref atomic REQUIRED TX; real PostgreSQL partial-failure rollback.
+- [x] stored ref consistency vs Warehouse; no Production receipt SoT / Document / history.
 
 ### Verification commands
 
 ```bash
 mvn -pl :tmp-production -am test
+mvn -pl :tmp-warehouse -am test
+mvn -pl :tmp-architecture-tests -am test
+mvn test
+mvn verify
 ```
 
 ---
 
 ## STAGE7-012 — Production Release document and plan/fact
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-005  
+**Status:** READY
+**Stage:** 7
+**Depends on:** STAGE7-005
 **Module:** `tmp-production`
 
 ### Goal
@@ -11320,7 +11328,8 @@ Integration tests Launch/Transfer/Receipt/Release+Consumption границ с п
 - [ ] Receipt covered;
 - [ ] Release+Consumption atomicity covered at Production boundary;
 - [ ] whole-order Production Cancellation covered (not unit-only);
-- [ ] OM/Warehouse ownership preserved.
+- [ ] OM/Warehouse ownership preserved;
+- [ ] final STAGE7-018 boundary integration tests use only OM/Warehouse **public** contracts (`com.tmp.order.api.*`, `com.tmp.warehouse.api.*`) and must not import Warehouse/OM application, domain, or persistence internals (existing STAGE7-010/011 low-level Postgres ITs that use Warehouse internals as fixtures remain allowed as interim transaction proofs only).
 
 ### Verification commands
 
@@ -11328,6 +11337,7 @@ Integration tests Launch/Transfer/Receipt/Release+Consumption границ с п
 mvn -pl :tmp-production -am verify
 ```
 
+**Verification note (STAGE7-011):** `ConfirmMaterialTransferPostgresIT` / `ConfirmMaterialReceiptPostgresIntegrationTest` may use Warehouse internals for fixture construction. STAGE7-018 final public-boundary suite must not.
 ---
 
 ## STAGE7-019 — Production architecture tests

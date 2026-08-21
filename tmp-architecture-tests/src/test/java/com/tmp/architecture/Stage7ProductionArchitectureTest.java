@@ -469,4 +469,57 @@ class Stage7ProductionArchitectureTest {
                             "com.tmp.warehouse.persistence..")
                     .because(
                             "Production logical transfer grouping must not touch Warehouse internals");
+
+    @ArchTest
+    static final ArchRule confirmMaterialReceiptUsesWarehousePublicApiOnly =
+            classes()
+                    .that()
+                    .haveSimpleName("ConfirmMaterialReceiptService")
+                    .should()
+                    .onlyDependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production..",
+                            "com.tmp.warehouse.api..",
+                            "java..",
+                            "org.springframework.transaction..",
+                            "edu.umd.cs.findbugs.annotations..")
+                    .because(
+                            "STAGE7-011 receipt confirmation must orchestrate only via Warehouse"
+                                    + " public API");
+
+    @ArchTest
+    static final ArchRule confirmMaterialReceiptMustNotUseWarehouseInternals =
+            noClasses()
+                    .that()
+                    .haveSimpleName("ConfirmMaterialReceiptService")
+                    .or()
+                    .haveSimpleName("ConfirmMaterialReceiptCommand")
+                    .or()
+                    .haveSimpleName("MaterialReceiptConfirmationResult")
+                    .or()
+                    .haveSimpleName("MaterialReceiptConfirmationException")
+                    .or()
+                    .haveSimpleName("ProductionMaterialTransferNotFoundException")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.warehouse.application..",
+                            "com.tmp.warehouse.domain..",
+                            "com.tmp.warehouse.persistence..")
+                    .because(
+                            "STAGE7-011 receipt initiation must not depend on Warehouse internals");
+
+    @ArchTest
+    static final ArchRule confirmMaterialReceiptMustNotDependOnStockPosition =
+            noClasses()
+                    .that()
+                    .haveSimpleName("ConfirmMaterialReceiptService")
+                    .or()
+                    .haveSimpleName("ConfirmMaterialReceiptCommand")
+                    .or()
+                    .haveSimpleName("MaterialReceiptConfirmationResult")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("StockPosition")
+                    .because("Production must not write or depend on Stock Position");
 }

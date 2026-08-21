@@ -4,6 +4,54 @@
 
 ---
 
+## STAGE7-011 — Receipt confirmation initiation
+
+**Date:** 2026-08-21
+**Stage:** 7
+**Module:** `tmp-production`
+**Status:** DONE
+
+### Command
+
+- `ConfirmMaterialReceiptCommand(ProductionMaterialTransferId logicalTransferId)` only.
+- UI cannot pass Warehouse draft/operation IDs, material, quantity, or cells.
+- Refs loaded exclusively from `ProductionMaterialTransferRepository`.
+
+### Status validation (before mutation)
+
+- Query all stored refs via `WarehouseQueryApi.getTransferStatus`.
+- DRAFT → reject (not ready); invalid status → reject; SENT → receive; RECEIVED → skip.
+- Pre-validation of full snapshot before any `receiveTransfer`.
+
+### Warehouse
+
+- Mutating: `WarehouseCommandApi.receiveTransfer(sendOperationId)` only for SENT refs.
+- No Stock Position writes; no Warehouse internals in Production main.
+- Original `warehouseDraftOperationId` remains stable correlation; `receiveOperationId` from Warehouse query/result.
+
+### Result
+
+- `MaterialReceiptConfirmationResult` with `RECEIVED` / `ALREADY_RECEIVED` and per-ref outcomes.
+- `confirmedAt` = injected Clock use-case completion / idempotent check time (not Warehouse receive timestamp).
+- No persisted Production receipt lifecycle, Document Engine document, or history (STAGE7-015A later).
+
+### Transaction
+
+- Outer `TransactionTemplate` REQUIRED.
+- Partial failure rolls back new receives in the current command; pre-existing RECEIVED survives.
+
+### Tests / architecture
+
+- Unit: DRAFT block, SENT, idempotent, mixed, multi-ref, prevalidation, consistency mismatch, not-found.
+- PostgreSQL: stock effects, rollback, pre-existing RECEIVED + failure, consistency.
+- Stage7ProductionArchitectureTest: receipt public-API-only + no Warehouse internals / StockPosition.
+
+### STAGE7-018 note
+
+- Low-level Postgres ITs may use Warehouse internals as fixtures; final STAGE7-018 boundary suite must use public contracts only.
+
+---
+
 ## STAGE7-010 — Warehouse Transfer command integration
 
 **Date:** 2026-08-21
