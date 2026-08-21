@@ -13,7 +13,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** Verifies production-owned Flyway migrations V23, V26 and V27. */
+/** Verifies production-owned Flyway migrations V23, V26, V27 and V28. */
 @Testcontainers
 class ProductionSchemaFlywayTest {
 
@@ -52,10 +52,12 @@ class ProductionSchemaFlywayTest {
 
         assertEquals(
                 List.of(
+                        "material_transfer_operation_refs",
                         "material_transfer_template_line_cutting_refs",
                         "material_transfer_template_line_source_items",
                         "material_transfer_template_lines",
                         "material_transfer_templates",
+                        "material_transfers",
                         "production_item_cutting_plan_links",
                         "production_item_states"),
                 tables);
@@ -94,7 +96,7 @@ class ProductionSchemaFlywayTest {
     }
 
     @Test
-    void flywayRecordsV23V26AndV27Migrations() {
+    void flywayRecordsV23V26V27AndV28Migrations() {
         Integer applied23 =
                 jdbc.queryForObject(
                         """
@@ -116,9 +118,17 @@ class ProductionSchemaFlywayTest {
                         WHERE version = '27' AND success = TRUE
                         """,
                         Integer.class);
+        Integer applied28 =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '28' AND success = TRUE
+                        """,
+                        Integer.class);
         assertEquals(1, applied23);
         assertEquals(1, applied26);
         assertEquals(1, applied27);
+        assertEquals(1, applied28);
     }
 
     @Test
@@ -228,12 +238,31 @@ class ProductionSchemaFlywayTest {
                           ON tc.constraint_name = ccu.constraint_name
                          AND tc.constraint_schema = ccu.constraint_schema
                         WHERE tc.table_schema = 'production'
-                          AND tc.table_name LIKE 'material_transfer_template%'
+                          AND (
+                            tc.table_name LIKE 'material_transfer_template%'
+                            OR tc.table_name IN (
+                                'material_transfers', 'material_transfer_operation_refs')
+                          )
                           AND tc.constraint_type = 'FOREIGN KEY'
                           AND ccu.table_schema <> 'production'
                         """,
                         Integer.class);
         assertEquals(0, foreignFks);
+    }
+
+    @Test
+    void materialTransferTemplateIdIsUniqueOnLogicalTransfer() {
+        Integer unique =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.table_constraints
+                        WHERE table_schema = 'production'
+                          AND table_name = 'material_transfers'
+                          AND constraint_name = 'uk_material_transfers_template_id'
+                          AND constraint_type = 'UNIQUE'
+                        """,
+                        Integer.class);
+        assertEquals(1, unique);
     }
 
     @Test

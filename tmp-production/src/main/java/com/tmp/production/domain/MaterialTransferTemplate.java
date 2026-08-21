@@ -6,14 +6,15 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 /**
  * Production-owned editable Material Transfer Template (Production Spec §13, ADR-035).
  *
- * <p>Not a Document Engine business document and not a Warehouse Transfer. Confirmation and
- * Warehouse operations belong to STAGE7-010.
+ * <p>Not a Document Engine business document and not a Warehouse Transfer. Confirmation creates
+ * Warehouse-owned Transfer DRAFTs via STAGE7-010 orchestration.
  */
 public final class MaterialTransferTemplate {
 
@@ -25,6 +26,8 @@ public final class MaterialTransferTemplate {
     private final Instant updatedAt;
     private final List<MaterialTransferTemplateLine> lines;
     private final long version;
+    private final MaterialTransferTemplateStatus status;
+    private final Instant confirmedAt;
 
     private MaterialTransferTemplate(
             MaterialTransferTemplateId templateId,
@@ -34,7 +37,9 @@ public final class MaterialTransferTemplate {
             Instant createdAt,
             Instant updatedAt,
             List<MaterialTransferTemplateLine> lines,
-            long version) {
+            long version,
+            MaterialTransferTemplateStatus status,
+            Instant confirmedAt) {
         this.templateId = Objects.requireNonNull(templateId, "templateId");
         this.sourceOrderId = Objects.requireNonNull(sourceOrderId, "sourceOrderId");
         this.sourceWarehouseId = Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
@@ -44,12 +49,19 @@ public final class MaterialTransferTemplate {
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
         this.lines = List.copyOf(Objects.requireNonNull(lines, "lines"));
         this.version = version;
+        this.status = Objects.requireNonNull(status, "status");
+        this.confirmedAt = confirmedAt;
         if (sourceWarehouseId.equals(destinationWarehouseId)) {
             throw new IllegalArgumentException(
                     "sourceWarehouseId and destinationWarehouseId must be distinct");
         }
         if (version < 0) {
             throw new IllegalArgumentException("version must be >= 0");
+        }
+        if (status == MaterialTransferTemplateStatus.CONFIRMED) {
+            Objects.requireNonNull(confirmedAt, "confirmedAt required when CONFIRMED");
+        } else if (confirmedAt != null) {
+            throw new IllegalArgumentException("confirmedAt must be null unless CONFIRMED");
         }
         validateLines(this.lines);
     }
@@ -68,7 +80,9 @@ public final class MaterialTransferTemplate {
                 createdAt,
                 createdAt,
                 lines,
-                0L);
+                0L,
+                MaterialTransferTemplateStatus.DRAFT,
+                null);
     }
 
     public static MaterialTransferTemplate rehydrate(
@@ -79,7 +93,9 @@ public final class MaterialTransferTemplate {
             Instant createdAt,
             Instant updatedAt,
             List<MaterialTransferTemplateLine> lines,
-            long version) {
+            long version,
+            MaterialTransferTemplateStatus status,
+            Instant confirmedAt) {
         return new MaterialTransferTemplate(
                 templateId,
                 sourceOrderId,
@@ -88,11 +104,14 @@ public final class MaterialTransferTemplate {
                 createdAt,
                 updatedAt,
                 lines,
-                version);
+                version,
+                status,
+                confirmedAt);
     }
 
     public MaterialTransferTemplate changeRequestedQuantity(
             MaterialTransferTemplateLineId lineId, BigDecimal quantity, Instant updatedAt) {
+        ensureEditable();
         Objects.requireNonNull(lineId, "lineId");
         Objects.requireNonNull(quantity, "quantity");
         Objects.requireNonNull(updatedAt, "updatedAt");
@@ -101,6 +120,7 @@ public final class MaterialTransferTemplate {
 
     public MaterialTransferTemplate excludeLine(
             MaterialTransferTemplateLineId lineId, Instant updatedAt) {
+        ensureEditable();
         Objects.requireNonNull(lineId, "lineId");
         Objects.requireNonNull(updatedAt, "updatedAt");
         return replaceLine(lineId, MaterialTransferTemplateLine::exclude, updatedAt);
@@ -108,9 +128,44 @@ public final class MaterialTransferTemplate {
 
     public MaterialTransferTemplate restoreLine(
             MaterialTransferTemplateLineId lineId, Instant updatedAt) {
+        ensureEditable();
         Objects.requireNonNull(lineId, "lineId");
         Objects.requireNonNull(updatedAt, "updatedAt");
         return replaceLine(lineId, MaterialTransferTemplateLine::restore, updatedAt);
+    }
+
+    /**
+     * Marks this template confirmed after Warehouse Transfer DRAFTs were created successfully.
+     */
+    public MaterialTransferTemplate confirm(Instant confirmedAt) {
+        Objects.requireNonNull(confirmedAt, "confirmedAt");
+        if (status == MaterialTransferTemplateStatus.CONFIRMED) {
+            return this;
+        }
+        if (status != MaterialTransferTemplateStatus.DRAFT) {
+            throw new IllegalStateException("Cannot confirm template in status " + status);
+        }
+        if (includedTransferLines().isEmpty()) {
+            throw new IllegalStateException(
+                    "Cannot confirm template without included transfer lines");
+        }
+        return new MaterialTransferTemplate(
+                templateId,
+                sourceOrderId,
+                sourceWarehouseId,
+                destinationWarehouseId,
+                createdAt,
+                confirmedAt,
+                lines,
+                version,
+                MaterialTransferTemplateStatus.CONFIRMED,
+                confirmedAt);
+    }
+
+    public void ensureEditable() {
+        if (status != MaterialTransferTemplateStatus.DRAFT) {
+            throw new MaterialTransferTemplateNotEditableException(templateId, status);
+        }
     }
 
     public MaterialTransferTemplateId templateId() {
@@ -143,6 +198,14 @@ public final class MaterialTransferTemplate {
 
     public long version() {
         return version;
+    }
+
+    public MaterialTransferTemplateStatus status() {
+        return status;
+    }
+
+    public Optional<Instant> confirmedAt() {
+        return Optional.ofNullable(confirmedAt);
     }
 
     /**
@@ -178,7 +241,9 @@ public final class MaterialTransferTemplate {
                 createdAt,
                 newUpdatedAt,
                 next,
-                version);
+                version,
+                status,
+                confirmedAt);
     }
 
     private static void validateLines(List<MaterialTransferTemplateLine> lines) {

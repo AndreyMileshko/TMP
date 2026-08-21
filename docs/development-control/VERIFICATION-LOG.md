@@ -3,6 +3,32 @@
 ## Latest result
 
 **Date:** 2026-08-21
+**Scope:** STAGE7-010 — Warehouse Transfer command integration (+ STAGE7-009 atomic template save precondition)
+**Overall:** PASS
+**Type:** Confirm template → Warehouse createTransferDraft; Production logical grouping; cell allocations; TX rollback
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-production -am test` | PASS (201 production tests) |
+| `mvn -pl :tmp-warehouse -am test` | PASS (170 warehouse tests) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS (Stage7ProductionArchitectureTest: 32 rules) |
+| Template save atomic + real PostgreSQL rollback | PASS (`JdbcMaterialTransferTemplateRepositoryTest.childRowFailureRollsBackHeaderVersionAndChildren`) |
+| Confirm / cell / idempotency / excluded / stock / multi-cell / partial TX rollback | PASS (`ConfirmMaterialTransferServiceTest`, `ConfirmMaterialTransferPostgresIT`) |
+| send→receive reference via stored draftOperationId | PASS (`storedDraftOperationIdIsSendReceiveReferenceViaPublicQuery`) |
+| Flyway V28 / no cross-capability FK | PASS (`ProductionSchemaFlywayTest`) |
+| `mvn test` | PASS |
+| `mvn verify` | PASS (BUILD SUCCESS; SpotBugs clean after entrySet fix) |
+| `git diff --check` | clean (CRLF warnings only) |
+| STAGE7-010 | DONE |
+| STAGE7-011 | READY |
+| Blockers | NONE |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result (STAGE7-009)
+
+**Date:** 2026-08-21
 **Scope:** STAGE7-009 — Editable Material Transfer Template
 **Overall:** PASS
 **Type:** Production-owned editable transfer template + V27 persistence + recommendation/edit guards + architecture

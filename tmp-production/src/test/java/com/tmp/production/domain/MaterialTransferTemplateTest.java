@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -87,6 +88,28 @@ class MaterialTransferTemplateTest {
                 () ->
                         MaterialTransferTemplate.create(
                                 SourceOrderId.generate(), MAIN, MAIN, T0, List.of()));
+    }
+
+    @Test
+    void confirmMarksTemplateConfirmed() {
+        MaterialTransferTemplateLine line = sampleLine(bd(10));
+        MaterialTransferTemplate template =
+                MaterialTransferTemplate.create(
+                        SourceOrderId.generate(), MAIN, PROD, T0, List.of(line));
+
+        MaterialTransferTemplate confirmed = template.confirm(T1);
+
+        assertEquals(MaterialTransferTemplateStatus.CONFIRMED, confirmed.status());
+        assertEquals(Optional.of(T1), confirmed.confirmedAt());
+        assertThrows(
+                MaterialTransferTemplateNotEditableException.class,
+                () -> confirmed.changeRequestedQuantity(line.lineId(), bd(8), T1));
+        assertThrows(
+                MaterialTransferTemplateNotEditableException.class,
+                () -> confirmed.excludeLine(line.lineId(), T1));
+        assertThrows(
+                MaterialTransferTemplateNotEditableException.class,
+                () -> confirmed.restoreLine(line.lineId(), T1));
     }
 
     private static MaterialTransferTemplateLine sampleLine(BigDecimal quantity) {

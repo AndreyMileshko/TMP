@@ -372,7 +372,9 @@ class MaterialTransferTemplateServiceTest {
                         created.createdAt(),
                         created.updatedAt(),
                         created.lines(),
-                        0L);
+                        0L,
+                        created.status(),
+                        created.confirmedAt().orElse(null));
         templateRepository.save(
                 created.changeRequestedQuantity(
                         created.lines().getFirst().lineId(), BigDecimal.valueOf(7), T0));
@@ -485,7 +487,9 @@ class MaterialTransferTemplateServiceTest {
                             template.createdAt(),
                             template.updatedAt(),
                             template.lines(),
-                            existing == null ? 0L : template.version() + 1);
+                            existing == null ? 0L : template.version() + 1,
+                            template.status(),
+                            template.confirmedAt().orElse(null));
             store.put(saved.templateId(), saved);
             return saved;
         }

@@ -4,6 +4,66 @@
 
 ---
 
+## STAGE7-010 — Warehouse Transfer command integration
+
+**Date:** 2026-08-21
+**Stage:** 7
+**Module:** `tmp-production` (Flyway V28; precondition fix on template JDBC save)
+**Status:** DONE
+
+### STAGE7-009 correction (precondition)
+
+- `JdbcMaterialTransferTemplateRepository.save` wraps header + child delete/insert in `TransactionTemplate` (REQUIRED / ADR-036).
+- Real PostgreSQL/Testcontainers rollback: controlled trigger fails child insert → header version/updated_at/lines/source-item/cutting refs remain V0.
+
+### Confirmation
+
+- `ConfirmMaterialTransferCommand(templateId, expectedVersion, allocations)`.
+- `ConfirmMaterialTransferService.confirmMaterialTransferCreate` loads saved template; material/quantity/warehouses from template only.
+- Allocations: `templateLineId` + `sourceStorageCellId` + `destinationStorageCellId` + `quantity`; sum per included line == persisted `requestedQuantity`.
+- Cells validated via `WarehouseQueryApi.listStorageCells` (exists, active, warehouse membership). No automatic picking policy.
+- Excluded lines: no Warehouse drafts; allocation for excluded → reject.
+- Stale `expectedVersion` → reject before Warehouse commands.
+
+### Warehouse
+
+- Calls only `WarehouseCommandApi.createTransferDraft`.
+- Does **not** call `sendTransfer` / `receiveTransfer`.
+- Draft result validated (`status=DRAFT`, material/qty/cells match).
+- Stock unchanged at confirm (AVAILABLE / IN_TRANSIT unchanged).
+
+### Production grouping
+
+- `ProductionMaterialTransfer` + `WarehouseTransferOperationRef` (opaque `warehouseDraftOperationId`).
+- Unique logical transfer per `templateId` (DB unique + idempotent re-confirm returns existing).
+- Template lifecycle: `DRAFT` → `CONFIRMED` (+ `confirmedAt`); edit/exclude/restore blocked after confirm.
+
+### STAGE7-011 readiness
+
+- Stored draft operation id is the send reference: after Warehouse send, `getTransferStatus(draftId)=SENT` and `receiveTransfer(draftId)` works (same id). Proven in `ConfirmMaterialTransferPostgresIT`.
+- Lookup by `logicalTransferId` / `templateId` / `sourceOrderId` via `ProductionMaterialTransferRepository`.
+
+### Persistence
+
+- V28: template `status`/`confirmed_at`; `production.material_transfers`; `production.material_transfer_operation_refs`.
+- Production-only FKs; no warehouse/OM/cutting FK.
+
+### Transaction
+
+- Outer confirmation TX (REQUIRED); Warehouse draft writes join ambient TX; partial draft failure rolls back logical transfer + Warehouse drafts (Postgres IT). No REQUIRES_NEW.
+
+### Architecture
+
+- Confirm service depends on Warehouse public API only; Stage7ProductionArchitectureTest rules added.
+
+### Queue
+
+- STAGE7-011 → READY.
+- STAGE7-008A remains PLANNED.
+- STAGE7-011 receive not implemented in this task.
+
+---
+
 ## STAGE7-009 — Editable Material Transfer Template
 
 **Date:** 2026-08-21

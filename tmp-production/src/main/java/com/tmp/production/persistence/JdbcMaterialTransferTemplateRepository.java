@@ -9,6 +9,7 @@ import com.tmp.production.domain.MaterialTransferTemplateId;
 import com.tmp.production.domain.MaterialTransferTemplateLine;
 import com.tmp.production.domain.MaterialTransferTemplateLineId;
 import com.tmp.production.domain.MaterialTransferTemplateOptimisticLockException;
+import com.tmp.production.domain.MaterialTransferTemplateStatus;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.repository.MaterialTransferTemplateRepository;
@@ -26,34 +27,54 @@ import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * JDBC adapter for Production-owned Material Transfer Templates ({@code production.*} only).
+ *
+ * <p>Header + child rows are persisted atomically in one local transaction (ADR-036 / REQUIRED).
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
-        justification = "Stores Spring-managed JdbcTemplate and Clock injected by the container.")
+        justification =
+                "Stores Spring-managed JdbcTemplate, Clock and TransactionTemplate injected by"
+                        + " the container.")
 public final class JdbcMaterialTransferTemplateRepository
         implements MaterialTransferTemplateRepository {
 
     private final JdbcTemplate jdbcTemplate;
     private final Clock clock;
+    private final TransactionTemplate transactionTemplate;
 
-    public JdbcMaterialTransferTemplateRepository(JdbcTemplate jdbcTemplate, Clock clock) {
+    public JdbcMaterialTransferTemplateRepository(
+            JdbcTemplate jdbcTemplate, Clock clock, PlatformTransactionManager transactionManager) {
         this.jdbcTemplate = Objects.requireNonNull(jdbcTemplate, "jdbcTemplate");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.transactionTemplate =
+                new TransactionTemplate(
+                        Objects.requireNonNull(transactionManager, "transactionManager"));
     }
 
     @Override
     public MaterialTransferTemplate save(MaterialTransferTemplate template) {
         Objects.requireNonNull(template, "template");
-        Optional<HeaderRow> existing = findHeader(template.templateId());
-        if (existing.isPresent()) {
-            update(template);
-        } else {
-            insert(template);
+        MaterialTransferTemplate saved =
+                transactionTemplate.execute(
+                        status -> {
+                            Optional<HeaderRow> existing = findHeader(template.templateId());
+                            if (existing.isPresent()) {
+                                update(template);
+                            } else {
+                                insert(template);
+                            }
+                            return findById(template.templateId()).orElseThrow();
+                        });
+        if (saved == null) {
+            throw new IllegalStateException(
+                    "Material transfer template save returned null: " + template.templateId());
         }
-        return findById(template.templateId()).orElseThrow();
+        return saved;
     }
 
     @Override
@@ -74,7 +95,9 @@ public final class JdbcMaterialTransferTemplateRepository
                         row.createdAt(),
                         row.updatedAt(),
                         lines,
-                        row.version()));
+                        row.version(),
+                        row.status(),
+                        row.confirmedAt()));
     }
 
     private void insert(MaterialTransferTemplate template) {
@@ -83,8 +106,8 @@ public final class JdbcMaterialTransferTemplateRepository
                 """
                 INSERT INTO production.material_transfer_templates (
                     id, source_order_id, source_warehouse_id, destination_warehouse_id,
-                    created_at, updated_at, version)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    created_at, updated_at, version, status, confirmed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 template.templateId().value(),
                 template.sourceOrderId().value(),
@@ -92,7 +115,9 @@ public final class JdbcMaterialTransferTemplateRepository
                 template.destinationWarehouseId(),
                 Timestamp.from(template.createdAt()),
                 Timestamp.from(now),
-                0L);
+                0L,
+                template.status().name(),
+                template.confirmedAt().map(Timestamp::from).orElse(null));
         insertLines(template.templateId(), template.lines());
     }
 
@@ -107,7 +132,9 @@ public final class JdbcMaterialTransferTemplateRepository
                             source_warehouse_id = ?,
                             destination_warehouse_id = ?,
                             updated_at = ?,
-                            version = ?
+                            version = ?,
+                            status = ?,
+                            confirmed_at = ?
                         WHERE id = ? AND version = ?
                         """,
                         template.sourceOrderId().value(),
@@ -115,6 +142,8 @@ public final class JdbcMaterialTransferTemplateRepository
                         template.destinationWarehouseId(),
                         Timestamp.from(now),
                         nextVersion,
+                        template.status().name(),
+                        template.confirmedAt().map(Timestamp::from).orElse(null),
                         template.templateId().value(),
                         template.version());
         if (updated == 0) {
@@ -310,7 +339,7 @@ public final class JdbcMaterialTransferTemplateRepository
                     jdbcTemplate.queryForObject(
                             """
                             SELECT id, source_order_id, source_warehouse_id, destination_warehouse_id,
-                                   created_at, updated_at, version
+                                   created_at, updated_at, version, status, confirmed_at
                             FROM production.material_transfer_templates
                             WHERE id = ?
                             """,
@@ -321,7 +350,12 @@ public final class JdbcMaterialTransferTemplateRepository
                                             rs.getObject("destination_warehouse_id", UUID.class),
                                             rs.getTimestamp("created_at").toInstant(),
                                             rs.getTimestamp("updated_at").toInstant(),
-                                            rs.getLong("version")),
+                                            rs.getLong("version"),
+                                            MaterialTransferTemplateStatus.valueOf(
+                                                    rs.getString("status")),
+                                            rs.getTimestamp("confirmed_at") == null
+                                                    ? null
+                                                    : rs.getTimestamp("confirmed_at").toInstant()),
                             templateId.value());
             return Optional.ofNullable(row);
         } catch (EmptyResultDataAccessException ex) {
@@ -335,7 +369,9 @@ public final class JdbcMaterialTransferTemplateRepository
             UUID destinationWarehouseId,
             Instant createdAt,
             Instant updatedAt,
-            long version) {}
+            long version,
+            MaterialTransferTemplateStatus status,
+            Instant confirmedAt) {}
 
     private record LineRow(
             UUID id,

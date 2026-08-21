@@ -10798,7 +10798,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-010 — Warehouse Transfer command integration
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-009
 **Module:** `tmp-production`
@@ -10849,13 +10849,17 @@ Confirmation loads the saved template by `MaterialTransferTemplateId` and uses e
 
 ### Acceptance criteria
 
-- [ ] Transfer остаётся Warehouse-owned;
-- [ ] Production не пишет Stock Position;
-- [ ] все строки одного подтверждённого Production template трассируются как одна пользовательская операция;
-- [ ] для каждой included строки с `requestedQuantity > 0` сохраняется Warehouse transfer reference;
-- [ ] Order ID / Production template ID восстанавливаются из Production-owned данных;
-- [ ] Warehouse operations не становятся Production-owned;
-- [ ] excluded template lines do not create Warehouse operations.
+- [x] Transfer остаётся Warehouse-owned;
+- [x] Production не пишет Stock Position;
+- [x] все строки одного подтверждённого Production template трассируются как одна пользовательская операция;
+- [x] для каждой included строки с `requestedQuantity > 0` сохраняется Warehouse transfer reference;
+- [x] Order ID / Production template ID восстанавливаются из Production-owned данных;
+- [x] Warehouse operations не становятся Production-owned;
+- [x] excluded template lines do not create Warehouse operations.
+- [x] STAGE7-009 template save atomic (header+children) + real PostgreSQL rollback test;
+- [x] explicit Storage Cell allocations validated via WarehouseQueryApi; no hidden picking policy;
+- [x] createTransferDraft only (no send/receive); stock unchanged at confirm; DRAFT status;
+- [x] idempotent confirm; edit blocked after CONFIRMED; optimistic expectedVersion.
 
 ### Verification commands
 
@@ -10867,9 +10871,9 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-011 — Receipt confirmation initiation
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-010  
+**Status:** READY
+**Stage:** 7
+**Depends on:** STAGE7-010
 **Module:** `tmp-production`
 
 ### Goal

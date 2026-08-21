@@ -34,7 +34,8 @@ import java.util.UUID;
 /**
  * Application use cases for Production-owned editable Material Transfer Templates.
  *
- * <p>prepare → persist → edit/read. Confirmation / WarehouseCommandApi is STAGE7-010.
+ * <p>prepare → persist → edit/read. Confirmation / WarehouseCommandApi is {@link
+ * ConfirmMaterialTransferService} (STAGE7-010).
  */
 public final class MaterialTransferTemplateService {
 

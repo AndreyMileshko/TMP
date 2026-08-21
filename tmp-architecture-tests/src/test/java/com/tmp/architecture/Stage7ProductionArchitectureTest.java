@@ -432,4 +432,41 @@ class Stage7ProductionArchitectureTest {
                     .haveSimpleName("ProductionItemStateRepository")
                     .because(
                             "Template service reads item state via ProductionOrderViewService only");
+    @ArchTest
+    static final ArchRule confirmMaterialTransferUsesWarehousePublicApiOnly =
+            classes()
+                    .that()
+                    .haveSimpleName("ConfirmMaterialTransferService")
+                    .should()
+                    .onlyDependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production..",
+                            "com.tmp.warehouse.api..",
+                            "java..",
+                            "org.springframework.transaction..",
+                            "edu.umd.cs.findbugs.annotations..")
+                    .because(
+                            "STAGE7-010 confirmation must orchestrate only via Warehouse public API");
+
+    @ArchTest
+    static final ArchRule confirmMaterialTransferMustNotUseWarehouseInternals =
+            noClasses()
+                    .that()
+                    .haveSimpleName("ConfirmMaterialTransferService")
+                    .or()
+                    .haveSimpleName("ConfirmMaterialTransferCommand")
+                    .or()
+                    .haveSimpleName("JdbcProductionMaterialTransferRepository")
+                    .or()
+                    .haveSimpleNameContaining("ProductionMaterialTransfer")
+                    .or()
+                    .haveSimpleName("WarehouseTransferOperationRef")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.warehouse.application..",
+                            "com.tmp.warehouse.domain..",
+                            "com.tmp.warehouse.persistence..")
+                    .because(
+                            "Production logical transfer grouping must not touch Warehouse internals");
 }
