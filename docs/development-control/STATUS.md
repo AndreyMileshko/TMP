@@ -2,15 +2,15 @@
 
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation IN PROGRESS
-**Current Stage:** Stage 7 - IN PROGRESS / 44% (Start Gate PASSED)
+**Current Stage:** Stage 7 - IN PROGRESS / 48% (Start Gate PASSED)
 **Current Task:** none
-**Last completed task:** STAGE7-008 (Cutting Plan references 0..N)
+**Last completed task:** STAGE7-009 (Editable Material Transfer Template)
 **Active blockers:** NONE
 **Stage 6 Warehouse:** DONE
-**Stage 7 Production:** IN PROGRESS / 44%
+**Stage 7 Production:** IN PROGRESS / 48%
 **Stage 7 Start Gate:** PASSED
 **Full verify baseline:** GREEN
-**First READY implementation task:** STAGE7-009
+**First READY implementation task:** STAGE7-010
 
 
 ```text
@@ -67,11 +67,12 @@ STAGE7-006 = DONE (Computed Order Production View)
 STAGE7-007 = DONE (Material availability via Warehouse Query)
 STAGE7-008 = DONE (Cutting Plan references 0..N)
 STAGE7-008A = PLANNED (Cutting Plan Link Association Contract; post-launch)
+STAGE7-009 = DONE (Editable Material Transfer Template)
 Active blockers = NONE
-Stage 7 Production = IN PROGRESS / 44%
+Stage 7 Production = IN PROGRESS / 48%
 Stage 7 Start Gate = PASSED
 Full reactor baseline = GREEN
-First READY implementation task = STAGE7-009
+First READY implementation task = STAGE7-010
 ```
 
 ---
@@ -87,7 +88,7 @@ First READY implementation task = STAGE7-009
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
-| 7 | Production | IN PROGRESS | 44% |
+| 7 | Production | IN PROGRESS | 48% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 
@@ -120,5 +121,6 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - `STAGE7-006` completed: computed Order Production View from item-owned states (`OrderProductionViewCalculator` + `ProductionOrderViewService`); no stored order-level status; empty states → `NOT_ACCEPTED` (not AVAILABLE); Launch readiness distinguishes no ACTIVE items vs missing Specification with correct `OrderItemId`; `OrderAcceptedIntoProduction` count/list/duplicates invariant; STAGE7-007 dependency → STAGE7-005A+006; STAGE7-014 → STAGE7-005A; STAGE7-018 ACID Launch rollback requires real JDBC/PostgreSQL. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-007` completed: read-only Material Availability Check for `IN_PRODUCTION` orders. Frozen Specification path only; `lineQuantity` not multiplied by product quantity; material identity resolved via `WarehouseQueryApi.listMaterialReferences()` (article+color+UoM; `lengthMm` never mapped to Warehouse `size`); unresolved/ambiguous distinct from stock=0; `ProductionWarehouseScope` (injected main/production warehouse ids, no hardcoded roles); deficit from scoped AVAILABLE stock only; no Warehouse writes, no Production status mutation, no document, no Cutting. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-008` completed: Production-owned 0..N Cutting Plan links (`MaterialReferenceId` → `CuttingPlanId`) on `ProductionItemState`; Flyway V26 child table; Launch payload ready with empty default; no Stage 8 dependency / Revision / cross-capability FK; Material Check stays on Specification when mere link present; STAGE7-008A PLANNED for post-launch association; STAGE7-009 READY. Full `mvn verify` BUILD SUCCESS.
-- Production implementation IN PROGRESS (44% by task-count: 11/25 implementation tasks done, including 004A/004B/005A).
-- Next task: **STAGE7-009** (Editable material transfer template) — READY.
+- `STAGE7-009` completed: Production-owned editable Material Transfer Template. `prepareMaterialTransferTemplate` uses STAGE7-007 Material Check snapshot; recommended transfer = min(max(required−production,0), main) with uncovered deficit; unresolved/ambiguous blocked; recommended vs requested quantities; exclude via `included=false`; optional CuttingPlanId informational only (`planningSource=SPECIFICATION`); Flyway V27 persistence + optimistic lock; no WarehouseCommandApi / stock mutation / Document Engine document. STAGE7-010 READY. Full `mvn verify` BUILD SUCCESS.
+- Production implementation IN PROGRESS (48% by task-count: 12/25 implementation tasks done, including 004A/004B/005A).
+- Next task: **STAGE7-010** (Warehouse Transfer command integration) — READY.

@@ -3,6 +3,39 @@
 ## Latest result
 
 **Date:** 2026-08-21
+**Scope:** STAGE7-009 — Editable Material Transfer Template
+**Overall:** PASS
+**Type:** Production-owned editable transfer template + V27 persistence + recommendation/edit guards + architecture
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-production -am test` | PASS (187 production tests) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS (Stage7ProductionArchitectureTest: 30 rules) |
+| Flyway / persistence IT | PASS (`JdbcMaterialTransferTemplateRepositoryTest`, `ProductionSchemaFlywayTest` V27) |
+| `mvn test` | PASS |
+| `mvn verify` | PASS (BUILD SUCCESS) |
+| TemplateId stable UUID / Production-owned | PASS |
+| Source=main / destination=production scope | PASS |
+| IN_PRODUCTION lifecycle guard | PASS |
+| STAGE7-007 Material Check as requirement source | PASS |
+| recommended vs requested split + edit immutability | PASS |
+| exclusion via included=false | PASS |
+| recommendation cases A–D + uncovered deficit | PASS |
+| unresolved/ambiguous rejection | PASS |
+| Cutting link SINGLE / MULTIPLE / NONE; planningSource=SPECIFICATION | PASS |
+| item traceability Set\<SourceOrderItemId\> | PASS |
+| WarehouseCommandApi / stock mutations | NONE |
+| STAGE7-008A | not executed (PLANNED) |
+| `git diff --check` | clean (CRLF warnings only) |
+| STAGE7-009 | DONE |
+| STAGE7-010 | READY |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result (STAGE7-008)
+
+**Date:** 2026-08-21
 **Scope:** STAGE7-008 — Cutting Plan references 0..N
 **Overall:** PASS
 **Type:** Domain 0..N links + Flyway V26 child table + Launch payload readiness + architecture guards

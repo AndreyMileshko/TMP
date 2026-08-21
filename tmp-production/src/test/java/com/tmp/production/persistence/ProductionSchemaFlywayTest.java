@@ -13,7 +13,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** Verifies production-owned Flyway migrations V23 and V26. */
+/** Verifies production-owned Flyway migrations V23, V26 and V27. */
 @Testcontainers
 class ProductionSchemaFlywayTest {
 
@@ -40,7 +40,7 @@ class ProductionSchemaFlywayTest {
     }
 
     @Test
-    void productionSchemaContainsItemStateAndCuttingPlanLinkTables() {
+    void productionSchemaContainsItemStateCuttingLinkAndTransferTemplateTables() {
         List<String> tables =
                 jdbc.queryForList(
                         """
@@ -51,7 +51,14 @@ class ProductionSchemaFlywayTest {
                         String.class);
 
         assertEquals(
-                List.of("production_item_cutting_plan_links", "production_item_states"), tables);
+                List.of(
+                        "material_transfer_template_line_cutting_refs",
+                        "material_transfer_template_line_source_items",
+                        "material_transfer_template_lines",
+                        "material_transfer_templates",
+                        "production_item_cutting_plan_links",
+                        "production_item_states"),
+                tables);
     }
 
     @Test
@@ -87,7 +94,7 @@ class ProductionSchemaFlywayTest {
     }
 
     @Test
-    void flywayRecordsV23AndV26Migrations() {
+    void flywayRecordsV23V26AndV27Migrations() {
         Integer applied23 =
                 jdbc.queryForObject(
                         """
@@ -102,8 +109,16 @@ class ProductionSchemaFlywayTest {
                         WHERE version = '26' AND success = TRUE
                         """,
                         Integer.class);
+        Integer applied27 =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '27' AND success = TRUE
+                        """,
+                        Integer.class);
         assertEquals(1, applied23);
         assertEquals(1, applied26);
+        assertEquals(1, applied27);
     }
 
     @Test
@@ -200,6 +215,25 @@ class ProductionSchemaFlywayTest {
                         """,
                         Integer.class);
         assertEquals(1, indexes);
+    }
+
+    @Test
+    void noCrossSchemaFkFromMaterialTransferTemplates() {
+        Integer foreignFks =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*)
+                        FROM information_schema.table_constraints tc
+                        JOIN information_schema.constraint_column_usage ccu
+                          ON tc.constraint_name = ccu.constraint_name
+                         AND tc.constraint_schema = ccu.constraint_schema
+                        WHERE tc.table_schema = 'production'
+                          AND tc.table_name LIKE 'material_transfer_template%'
+                          AND tc.constraint_type = 'FOREIGN KEY'
+                          AND ccu.table_schema <> 'production'
+                        """,
+                        Integer.class);
+        assertEquals(0, foreignFks);
     }
 
     @Test

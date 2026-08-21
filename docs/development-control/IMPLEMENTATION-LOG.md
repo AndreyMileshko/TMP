@@ -4,6 +4,70 @@
 
 ---
 
+## STAGE7-009 — Editable Material Transfer Template
+
+**Date:** 2026-08-21
+**Stage:** 7
+**Module:** `tmp-production` (Flyway V27 in production resources)
+**Status:** DONE
+
+### Template model
+
+- `MaterialTransferTemplateId` / `MaterialTransferTemplateLineId` — Production-owned UUID identities (not Warehouse Transfer / Document / Order IDs).
+- Immutable controlled aggregate `MaterialTransferTemplate` + `MaterialTransferTemplateLine`.
+- Warehouses from `ProductionWarehouseScope`: source = main, destination = production (not user-editable).
+- No Document Engine document; no status lifecycle beyond persisted editable draft (confirmation = STAGE7-010).
+
+### Preparation
+
+- `MaterialTransferTemplateService.prepareMaterialTransferTemplate(orderId)` calls fresh `CheckMaterialAvailabilityService.check` (same requirement algorithm as STAGE7-007).
+- Allowed only when Order Production View = `IN_PRODUCTION` (`MaterialTransferNotAllowedException` otherwise; no Warehouse queries after lifecycle rejection via Material Check guard).
+- `MATERIAL_UNRESOLVED` / `MATERIAL_AMBIGUOUS` → `MaterialTransferTemplateNotReadyException` (no null `materialReferenceId` transfer lines).
+- Active lines only when recommended transfer quantity > 0 (already-on-production materials omitted).
+
+### Recommendation
+
+- `MaterialTransferRecommendationCalculator`:
+  - needToProduction = max(required − productionAvailable, 0)
+  - recommended = min(needToProduction, mainAvailable)
+  - uncoveredDeficit = max(needToProduction − mainAvailable, 0)
+- Other warehouses ignored (scoped Material Check only).
+
+### Editability
+
+- `changeRequestedQuantity` / `excludeLine` / `restoreLine`.
+- Exclusion = `included=false` (not quantity=0/-1); included lines require `requestedQuantity > 0`.
+- `recommendedQuantity` immutable after create; initial `requestedQuantity = recommendedQuantity`.
+- `findTemplateById` for STAGE7-010 confirmation contract.
+
+### Cutting
+
+- Optional informational `CuttingPlanId` / `CuttingLinkStatus` (`NONE` / `SINGLE` / `MULTIPLE_REFERENCES`).
+- Conflicting plans → MULTIPLE_REFERENCES, no silent first-pick; quantity and `planningSource` stay SPECIFICATION.
+- `MaterialPlanningSource.CUTTING_PLAN` reserved for future Stage 8 read contract (unused now).
+- STAGE7-008A not executed.
+
+### Persistence
+
+- V27 tables (production schema only, no cross-capability FK):
+  - `material_transfer_templates`
+  - `material_transfer_template_lines`
+  - `material_transfer_template_line_source_items`
+  - `material_transfer_template_line_cutting_refs`
+- Optimistic `version` on template header; `MaterialTransferTemplateOptimisticLockException` on conflict.
+- JDBC round-trip + optimistic-lock tests.
+
+### Architecture
+
+- Stage7ProductionArchitectureTest: no WarehouseCommandApi / Warehouse internals / Cutting runtime / DocumentProcessor; template service does not depend on `ProductionItemStateRepository` directly.
+
+### Queue
+
+- STAGE7-008A remains PLANNED.
+- STAGE7-010 → READY (confirm from saved template id; included lines with requestedQuantity > 0 only).
+
+---
+
 ## STAGE7-008 — Cutting Plan references 0..N
 
 **Date:** 2026-08-21

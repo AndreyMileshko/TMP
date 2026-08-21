@@ -354,4 +354,82 @@ class Stage7ProductionArchitectureTest {
                     .dependOnClassesThat()
                     .resideInAnyPackage("com.tmp.cutting..")
                     .because("tmp-production must not depend on tmp-cutting / Stage 8 runtime");
+
+    @ArchTest
+    static final ArchRule materialTransferTemplateMustNotUseWarehouseCommandApi =
+            noClasses()
+                    .that()
+                    .haveSimpleNameContaining("MaterialTransferTemplate")
+                    .or()
+                    .haveSimpleName("MaterialTransferRecommendationCalculator")
+                    .or()
+                    .haveSimpleName("JdbcMaterialTransferTemplateRepository")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("WarehouseCommandApi")
+                    .because(
+                            "STAGE7-009 Material Transfer Template must not call Warehouse commands");
+
+    @ArchTest
+    static final ArchRule materialTransferTemplateMustNotUseWarehouseInternals =
+            noClasses()
+                    .that()
+                    .haveSimpleNameContaining("MaterialTransferTemplate")
+                    .or()
+                    .haveSimpleName("MaterialTransferRecommendationCalculator")
+                    .or()
+                    .haveSimpleName("JdbcMaterialTransferTemplateRepository")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.warehouse.application..",
+                            "com.tmp.warehouse.domain..",
+                            "com.tmp.warehouse.persistence..")
+                    .because(
+                            "Material Transfer Template stays Production-owned and must not touch "
+                                    + "Warehouse internals");
+
+    @ArchTest
+    static final ArchRule materialTransferTemplateMustNotDependOnCuttingRuntime =
+            noClasses()
+                    .that()
+                    .haveSimpleNameContaining("MaterialTransferTemplate")
+                    .or()
+                    .haveSimpleName("MaterialTransferRecommendationCalculator")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("com.tmp.cutting..")
+                    .because("Mere CuttingPlanId must not pull Stage 8 Cutting runtime");
+
+    @ArchTest
+    static final ArchRule materialTransferTemplateMustNotUseCurrentSpecificationApi =
+            noClasses()
+                    .that()
+                    .haveSimpleName("MaterialTransferTemplateService")
+                    .should()
+                    .callMethod(OrderQueryService.class, "getCurrentItemSpecification")
+                    .because(
+                            "Transfer template must resolve frozen SpecificationId only via Material Check path");
+
+    @ArchTest
+    static final ArchRule materialTransferTemplateIsNotDocumentProcessor =
+            noClasses()
+                    .that()
+                    .haveSimpleNameContaining("MaterialTransferTemplate")
+                    .should()
+                    .implement(com.tmp.document.api.DocumentProcessor.class)
+                    .because(
+                            "Material Transfer Template is an editable preparation model, not a "
+                                    + "Document Engine business document");
+
+    @ArchTest
+    static final ArchRule materialTransferTemplateServiceDoesNotUseItemStateRepositoryDirectly =
+            noClasses()
+                    .that()
+                    .haveSimpleName("MaterialTransferTemplateService")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("ProductionItemStateRepository")
+                    .because(
+                            "Template service reads item state via ProductionOrderViewService only");
 }

@@ -10760,7 +10760,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-009 — Editable material transfer template
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-007, STAGE7-008
 **Module:** `tmp-production`
@@ -10784,9 +10784,9 @@ mvn -pl :tmp-production -am test
 
 ### Acceptance criteria
 
-- [ ] шаблон редактируемый;
-- [ ] шаблон может использовать MaterialReference → CuttingPlanId для длинномерного материала;
-- [ ] Warehouse document ещё не создаётся.
+- [x] шаблон редактируемый;
+- [x] шаблон может использовать MaterialReference → CuttingPlanId для длинномерного материала;
+- [x] Warehouse document ещё не создаётся.
 
 ### Verification commands
 
@@ -10798,9 +10798,9 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-010 — Warehouse Transfer command integration
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-009  
+**Status:** READY
+**Stage:** 7
+**Depends on:** STAGE7-009
 **Module:** `tmp-production`
 
 ### Goal
@@ -10815,17 +10815,21 @@ mvn -pl :tmp-production -am test
 ### Required code context
 
 - `com.tmp.warehouse.api.WarehouseCommandApi` (`createTransferDraft`, `sendTransfer`, `receiveTransfer`, `getTransferStatus` via `WarehouseQueryApi`);
-- Production Spec transfer/receive workflow.
+- Production Spec transfer/receive workflow;
+- Production `MaterialTransferTemplate` / `MaterialTransferTemplateId` / `MaterialTransferTemplateService.findTemplateById`
+  (STAGE7-009: persisted editable template; confirm only included lines with `requestedQuantity > 0`).
 
 ### Allowed code scope
 
 - Production orchestrator calling `WarehouseCommandApi` / `WarehouseQueryApi`;
+- Production-owned grouping/traceability for 1 template → N Warehouse operation references;
 - tests; control docs.
 
 ### Forbidden
 
 - `WarehouseTransferService`, `WarehouseOperationEngine`, repositories;
-- Warehouse table access; rewriting Warehouse Operation Engine.
+- Warehouse table access; rewriting Warehouse Operation Engine;
+- trusting arbitrary client material/quantity DTO without loading saved template by `MaterialTransferTemplateId`.
 
 ### Implementation requirements
 
@@ -10835,19 +10839,23 @@ Warehouse остаётся line-operation based:
 1 Production Material Transfer Template (Production-owned)
   → 1 logical Production transfer reference (Production-owned grouping)
   → 1..N Warehouse-owned transfer line/operation references
-     (WarehouseCommandApi.createTransferDraft per material line)
+     (WarehouseCommandApi.createTransferDraft per included material line
+      with requestedQuantity > 0)
 ```
 
 Пользователь в UI видит одно перемещение заказа. Production хранит grouping/traceability (Order ID / template ID / line → Warehouse operation id). Warehouse не владеет Order ID.
+
+Confirmation loads the saved template by `MaterialTransferTemplateId` and uses each included line's persisted `requestedQuantity` (not a client-rebuilt list).
 
 ### Acceptance criteria
 
 - [ ] Transfer остаётся Warehouse-owned;
 - [ ] Production не пишет Stock Position;
 - [ ] все строки одного подтверждённого Production template трассируются как одна пользовательская операция;
-- [ ] для каждой строки сохраняется Warehouse transfer reference;
+- [ ] для каждой included строки с `requestedQuantity > 0` сохраняется Warehouse transfer reference;
 - [ ] Order ID / Production template ID восстанавливаются из Production-owned данных;
-- [ ] Warehouse operations не становятся Production-owned.
+- [ ] Warehouse operations не становятся Production-owned;
+- [ ] excluded template lines do not create Warehouse operations.
 
 ### Verification commands
 
