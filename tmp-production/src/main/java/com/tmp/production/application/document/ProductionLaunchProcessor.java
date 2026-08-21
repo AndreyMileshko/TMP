@@ -76,7 +76,10 @@ public final class ProductionLaunchProcessor implements DocumentProcessor {
             var foundation = line.foundation();
             ProductionItemState state =
                     ProductionItemState.launch(
-                            foundation, line.orderedQuantity(), payload.launchTimestamp());
+                            foundation,
+                            line.orderedQuantity(),
+                            payload.launchTimestamp(),
+                            line.cuttingPlanLinks());
             repository.save(state);
             acceptedItemIds.add(foundation.sourceOrderItemId().value());
         }

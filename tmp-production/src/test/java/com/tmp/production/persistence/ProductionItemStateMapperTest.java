@@ -5,6 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.production.domain.CuttingPlanId;
+import com.tmp.production.domain.CuttingPlanLinks;
+import com.tmp.production.domain.MaterialReferenceId;
+import com.tmp.production.domain.ProductionCuttingPlanLink;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
@@ -66,6 +70,31 @@ class ProductionItemStateMapperTest {
         assertTrue(entity.specificationId().value().toString().length() > 0);
     }
 
+    @Test
+    void mapperRoundTripPreservesMultipleCuttingPlanLinks() {
+        CuttingPlanLinks links =
+                CuttingPlanLinks.of(
+                        ProductionCuttingPlanLink.of(
+                                MaterialReferenceId.generate(), CuttingPlanId.generate()),
+                        ProductionCuttingPlanLink.of(
+                                MaterialReferenceId.generate(), CuttingPlanId.generate()));
+        ProductionFoundation foundation =
+                ProductionFoundation.freeze(
+                        SourceOrderId.generate(),
+                        SourceOrderItemId.generate(),
+                        SpecificationId.generate(),
+                        T0);
+        ProductionItemState state =
+                ProductionItemState.launch(
+                        foundation, ProductionQuantity.positive(2), T0, links);
+
+        ProductionItemState restored =
+                ProductionItemStateMapper.toDomain(ProductionItemStateMapper.toEntity(state));
+
+        assertEquals(links, restored.cuttingPlanLinks());
+        assertEquals(2, restored.cuttingPlanLinks().size());
+    }
+
     private static ProductionItemState sampleLaunched() {
         ProductionFoundation foundation =
                 ProductionFoundation.freeze(
@@ -88,5 +117,6 @@ class ProductionItemStateMapperTest {
         assertEquals(expected.releasedQuantity(), actual.releasedQuantity());
         assertEquals(expected.lastMaterialCheckAt(), actual.lastMaterialCheckAt());
         assertEquals(expected.lastStatusChangedAt(), actual.lastStatusChangedAt());
+        assertEquals(expected.cuttingPlanLinks(), actual.cuttingPlanLinks());
     }
 }

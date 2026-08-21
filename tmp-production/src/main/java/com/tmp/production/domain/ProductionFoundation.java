@@ -66,15 +66,6 @@ public final class ProductionFoundation {
         return frozenAt;
     }
 
-    /**
-     * Extension point for 0..N Cutting Plan references per material (STAGE7-008).
-     *
-     * <p>Returns empty until Cutting Plan link storage is implemented.
-     */
-    public CuttingPlanLinks cuttingPlanLinks() {
-        return CuttingPlanLinks.empty();
-    }
-
     @Override
     public boolean equals(Object other) {
         if (this == other) {

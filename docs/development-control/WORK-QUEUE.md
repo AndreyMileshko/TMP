@@ -10664,10 +10664,10 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-008 — Cutting Plan references 0..N
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-005
-**Module:** `tmp-production` + `tmp-infra-db` (Flyway only, when schema change required)
+**Module:** `tmp-production` + Flyway V26 in `tmp-production` (production schema only)
 
 ### Goal
 
@@ -10681,7 +10681,7 @@ mvn -pl :tmp-production -am test
 ### Allowed code scope
 
 - Production state fields/tables for CuttingPlanId links (production-owned schema only);
-- Flyway migrations in `tmp-infra-db` for `production` schema Cutting Plan link columns/tables;
+- Flyway migrations for `production` schema Cutting Plan link columns/tables;
 - tests; control docs.
 
 ### Forbidden
@@ -10695,8 +10695,8 @@ mvn -pl :tmp-production -am test
 
 ### Acceptance criteria
 
-- [ ] 0..N ссылок по материалу;
-- [ ] Cutting Plan — рекомендация, не источник истины изделия.
+- [x] 0..N ссылок по материалу;
+- [x] Cutting Plan — рекомендация, не источник истины изделия.
 
 ### Verification commands
 
@@ -10704,13 +10704,65 @@ mvn -pl :tmp-production -am test
 mvn -pl :tmp-production -am test
 ```
 
+### Notes
+
+- Default links empty; Launch without Stage 8 works.
+- Material Check remains `planningSource = SPECIFICATION` even when a link id is present (no Cutting planning read yet).
+- Post-launch association of existing CuttingPlanId → see STAGE7-008A (PLANNED; not required for STAGE7-009).
+
+---
+
+## STAGE7-008A — Cutting Plan Link Association Contract
+
+**Status:** PLANNED
+**Stage:** 7
+**Depends on:** STAGE7-008
+**Module:** `tmp-production`
+
+### Goal
+
+Безопасная document-driven association существующего CuttingPlanId к Production Item + MaterialReference после Launch, без управления lifecycle Cutting Plan.
+
+### Required documents
+
+- Production Spec §5.2.1 / §17; ADR-034; Constitution document-driven mutations.
+
+### Allowed code scope
+
+- Production application/document contract for associating an existing opaque CuttingPlanId;
+- tests; control docs.
+
+### Forbidden
+
+- Stage 8 runtime / Cutting lifecycle;
+- Cutting Plan Revision;
+- arbitrary repository mutation bypassing documents;
+- UI (later Stage 7/8 UX task).
+
+### Acceptance criteria
+
+- [ ] document-driven association after Launch for IN_PRODUCTION item;
+- [ ] at most one active link per material reference per Production Item;
+- [ ] no Cutting ownership / lifecycle copied into Production.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+```
+
+### Notes
+
+- Required before UI may allow users to bind maps after Launch.
+- STAGE7-009 does **not** depend on this task (template works with optional/empty link).
+
 ---
 
 ## STAGE7-009 — Editable material transfer template
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-007, STAGE7-008  
+**Status:** READY
+**Stage:** 7
+**Depends on:** STAGE7-007, STAGE7-008
 **Module:** `tmp-production`
 
 ### Goal

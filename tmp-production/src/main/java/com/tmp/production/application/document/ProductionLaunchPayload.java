@@ -8,8 +8,9 @@ import java.util.Objects;
 /**
  * Immutable payload carried by a whole-order Production Launch document (Production Spec §9).
  *
- * <p>Contains one line per ACTIVE order item with frozen specification reference and ordered
- * quantity. No material availability, warehouse, cutting, or reservation data.
+ * <p>Contains one line per ACTIVE order item with frozen specification reference, ordered
+ * quantity, and optional 0..N Cutting Plan links. Current Launch runtime supplies empty links
+ * until Stage 8 integration exists; no Stage 8 runtime calls from Launch.
  */
 public record ProductionLaunchPayload(
         SourceOrderId sourceOrderId,

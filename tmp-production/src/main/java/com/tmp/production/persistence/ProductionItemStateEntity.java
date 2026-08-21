@@ -1,5 +1,6 @@
 package com.tmp.production.persistence;
 
+import com.tmp.production.domain.CuttingPlanLinks;
 import com.tmp.production.domain.ProductionQuantity;
 import com.tmp.production.domain.ProductionStatus;
 import com.tmp.production.domain.SourceOrderId;
@@ -12,7 +13,7 @@ import java.util.Objects;
  * Mutable persistence representation of {@code production.production_item_states}.
  *
  * <p>Not a domain model; mapped to {@link com.tmp.production.domain.ProductionItemState} by
- * {@link ProductionItemStateMapper}.
+ * {@link ProductionItemStateMapper}. Cutting Plan links are loaded/saved with the aggregate.
  */
 public final class ProductionItemStateEntity {
 
@@ -30,6 +31,7 @@ public final class ProductionItemStateEntity {
     private long version;
     private Instant createdAt;
     private Instant updatedAt;
+    private CuttingPlanLinks cuttingPlanLinks = CuttingPlanLinks.empty();
 
     public ProductionItemId id() {
         return id;
@@ -143,5 +145,14 @@ public final class ProductionItemStateEntity {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
+    }
+
+    public CuttingPlanLinks cuttingPlanLinks() {
+        return cuttingPlanLinks;
+    }
+
+    public void setCuttingPlanLinks(CuttingPlanLinks cuttingPlanLinks) {
+        this.cuttingPlanLinks =
+                cuttingPlanLinks == null ? CuttingPlanLinks.empty() : cuttingPlanLinks;
     }
 }

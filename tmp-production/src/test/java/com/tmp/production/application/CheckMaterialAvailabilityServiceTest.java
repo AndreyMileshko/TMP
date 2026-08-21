@@ -10,11 +10,16 @@ import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedS
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.MaterialReferenceEntry;
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.WarehouseCatalogEntry;
+import com.tmp.production.domain.CuttingPlanId;
+import com.tmp.production.domain.CuttingPlanLinks;
 import com.tmp.production.domain.MaterialAvailabilityCheckResult;
 import com.tmp.production.domain.MaterialAvailabilityLineStatus;
 import com.tmp.production.domain.MaterialAvailabilityOverallStatus;
 import com.tmp.production.domain.MaterialCheckNotAllowedException;
+import com.tmp.production.domain.MaterialPlanningSource;
+import com.tmp.production.domain.MaterialReferenceId;
 import com.tmp.production.domain.OrderProductionViewStatus;
+import com.tmp.production.domain.ProductionCuttingPlanLink;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
@@ -147,6 +152,41 @@ class CheckMaterialAvailabilityServiceTest {
         assertEquals(1, result.lines().size());
         assertEquals("MAT-FROZEN", result.lines().getFirst().materialCode());
         assertEquals(0, result.lines().getFirst().requiredQuantity().compareTo(BigDecimal.valueOf(5)));
+    }
+
+    @Test
+    void mereCuttingPlanLinkDoesNotSwitchPlanningSourceFromSpecification() {
+        SpecificationId frozenSpec = SpecificationId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        UUID materialId = UUID.randomUUID();
+        CuttingPlanLinks links =
+                CuttingPlanLinks.of(
+                        ProductionCuttingPlanLink.of(
+                                MaterialReferenceId.of(materialId), CuttingPlanId.generate()));
+
+        ProductionFoundation foundation =
+                ProductionFoundation.freeze(orderId, itemId, frozenSpec, T0);
+        repository.save(
+                ProductionItemState.launch(
+                        foundation, ProductionQuantity.positive(10), T0, links));
+
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        spec(
+                                frozenSpec,
+                                itemId,
+                                List.of(materialLine("MAT-LINKED", "WHITE", "PCS", 4))));
+        warehouseQuery.materialReferences =
+                List.of(reference(materialId, "MAT-LINKED", "WHITE", "", "PCS"));
+        warehouseQuery.stock.put(stockKey(materialId, MAIN_WAREHOUSE), BigDecimal.TEN);
+        warehouseQuery.stock.put(stockKey(materialId, PROD_WAREHOUSE), BigDecimal.ZERO);
+
+        MaterialAvailabilityCheckResult result = service.check(orderId);
+
+        assertEquals(1, result.lines().size());
+        assertEquals(MaterialPlanningSource.SPECIFICATION, result.lines().getFirst().planningSource());
+        assertTrue(repository.findBySourceOrderId(orderId).getFirst().cuttingPlanLinks().size() == 1);
+        assertEquals(0, result.lines().getFirst().requiredQuantity().compareTo(BigDecimal.valueOf(4)));
     }
 
     @Test

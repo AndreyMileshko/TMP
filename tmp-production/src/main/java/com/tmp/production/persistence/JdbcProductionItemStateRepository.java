@@ -1,5 +1,9 @@
 package com.tmp.production.persistence;
 
+import com.tmp.production.domain.CuttingPlanId;
+import com.tmp.production.domain.CuttingPlanLinks;
+import com.tmp.production.domain.MaterialReferenceId;
+import com.tmp.production.domain.ProductionCuttingPlanLink;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
@@ -12,11 +16,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * JDBC adapter for {@code production.production_item_states}.
+ * JDBC adapter for {@code production.production_item_states} and child Cutting Plan links.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -52,8 +57,10 @@ public final class JdbcProductionItemStateRepository implements ProductionItemSt
             entity.setVersion(current.version());
             entity.setCreatedAt(current.createdAt());
             update(entity);
+            replaceLinks(entity.id(), state.cuttingPlanLinks());
         } else {
             insert(entity);
+            replaceLinks(entity.id(), state.cuttingPlanLinks());
         }
         return findByIdentity(
                         state.sourceOrderId(), state.sourceOrderItemId(), state.specificationId())
@@ -66,7 +73,7 @@ public final class JdbcProductionItemStateRepository implements ProductionItemSt
             SourceOrderItemId sourceOrderItemId,
             SpecificationId specificationId) {
         return findEntityByIdentity(sourceOrderId, sourceOrderItemId, specificationId)
-                .map(ProductionItemStateMapper::toDomain);
+                .map(this::toDomainWithLinks);
     }
 
     @Override
@@ -82,8 +89,13 @@ public final class JdbcProductionItemStateRepository implements ProductionItemSt
                         (rs, rowNum) -> ProductionItemStateMapper.mapRow(rs),
                         sourceOrderId.value())
                 .stream()
-                .map(ProductionItemStateMapper::toDomain)
+                .map(this::toDomainWithLinks)
                 .toList();
+    }
+
+    private ProductionItemState toDomainWithLinks(ProductionItemStateEntity entity) {
+        entity.setCuttingPlanLinks(loadLinks(entity.id()));
+        return ProductionItemStateMapper.toDomain(entity);
     }
 
     private Optional<ProductionItemStateEntity> findEntityByIdentity(
@@ -107,6 +119,46 @@ public final class JdbcProductionItemStateRepository implements ProductionItemSt
             return Optional.of(entity);
         } catch (EmptyResultDataAccessException ex) {
             return Optional.empty();
+        }
+    }
+
+    private CuttingPlanLinks loadLinks(ProductionItemId productionItemId) {
+        List<ProductionCuttingPlanLink> links =
+                jdbcTemplate.query(
+                        """
+                        SELECT material_reference_id, cutting_plan_id
+                        FROM production.production_item_cutting_plan_links
+                        WHERE production_item_id = ?
+                        ORDER BY material_reference_id
+                        """,
+                        (rs, rowNum) ->
+                                ProductionCuttingPlanLink.of(
+                                        MaterialReferenceId.of(
+                                                rs.getObject("material_reference_id", UUID.class)),
+                                        CuttingPlanId.of(
+                                                rs.getObject("cutting_plan_id", UUID.class))),
+                        productionItemId.value());
+        return CuttingPlanLinks.of(links);
+    }
+
+    private void replaceLinks(ProductionItemId productionItemId, CuttingPlanLinks links) {
+        jdbcTemplate.update(
+                """
+                DELETE FROM production.production_item_cutting_plan_links
+                WHERE production_item_id = ?
+                """,
+                productionItemId.value());
+        for (ProductionCuttingPlanLink link : links) {
+            jdbcTemplate.update(
+                    """
+                    INSERT INTO production.production_item_cutting_plan_links (
+                        id, production_item_id, material_reference_id, cutting_plan_id)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    UUID.randomUUID(),
+                    productionItemId.value(),
+                    link.materialReferenceId().value(),
+                    link.cuttingPlanId().value());
         }
     }
 

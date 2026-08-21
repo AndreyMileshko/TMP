@@ -4,6 +4,48 @@
 
 ---
 
+## STAGE7-008 — Cutting Plan references 0..N
+
+**Date:** 2026-08-21
+**Stage:** 7
+**Module:** `tmp-production` (Flyway V26 in production resources)
+**Status:** DONE
+
+### Domain
+
+- `CuttingPlanId` — opaque UUID VO; no revision/status/contents.
+- Production-owned `MaterialReferenceId` — opaque external reference (no Warehouse FK / no Warehouse domain import).
+- `ProductionCuttingPlanLink` + immutable `CuttingPlanLinks` (max one plan per material per item).
+- Links live on `ProductionItemState` (item-owned), not on Foundation / not order-level aggregate.
+- Default Launch / rehydrate without links → empty collection; overload `launch(..., CuttingPlanLinks)`.
+
+### Launch
+
+- `ProductionLaunchLine` carries `CuttingPlanLinks` (0..N).
+- `ProductionLaunchService` supplies empty links (Stage 8 absent); no Cutting runtime calls.
+- `LaunchProductionCommand` unchanged (no UI Cutting IDs).
+
+### Persistence
+
+- V26: `production.production_item_cutting_plan_links`
+  - columns: `id`, `production_item_id`, `material_reference_id`, `cutting_plan_id`
+  - FK → `production.production_item_states(id)` only
+  - UNIQUE (`production_item_id`, `material_reference_id`)
+  - index on `cutting_plan_id`
+- `JdbcProductionItemStateRepository` save/load links atomically with aggregate (replace-all).
+
+### Compatibility
+
+- Material Check with mere link present remains `planningSource = SPECIFICATION`.
+- Existing rows without child links load as empty.
+- Post-launch association gap documented as STAGE7-008A PLANNED (not implemented).
+
+### Architecture
+
+- Stage7ProductionArchitectureTest: no `com.tmp.cutting..`; Production-owned link types; no CuttingPlanRevision.
+
+---
+
 ## STAGE7-007 — Material availability via Warehouse Query
 
 **Date:** 2026-08-20

@@ -1,5 +1,6 @@
 package com.tmp.production.persistence;
 
+import com.tmp.production.domain.CuttingPlanLinks;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
@@ -33,6 +34,7 @@ public final class ProductionItemStateMapper {
         entity.setLastMaterialCheckAt(state.lastMaterialCheckAt());
         entity.setLastStatusChangedAt(state.lastStatusChangedAt());
         entity.setCreatedAt(state.foundation().frozenAt());
+        entity.setCuttingPlanLinks(state.cuttingPlanLinks());
         return entity;
     }
 
@@ -44,6 +46,10 @@ public final class ProductionItemStateMapper {
                         entity.sourceOrderItemId(),
                         entity.specificationId(),
                         entity.createdAt());
+        CuttingPlanLinks links =
+                entity.cuttingPlanLinks() == null
+                        ? CuttingPlanLinks.empty()
+                        : entity.cuttingPlanLinks();
         return ProductionItemState.rehydrate(
                 foundation,
                 entity.status(),
@@ -52,7 +58,8 @@ public final class ProductionItemStateMapper {
                 entity.activeProductionQuantity(),
                 entity.releasedQuantity(),
                 entity.lastMaterialCheckAt(),
-                entity.lastStatusChangedAt());
+                entity.lastStatusChangedAt(),
+                links);
     }
 
     public static ProductionItemStateEntity mapRow(ResultSet rs) throws SQLException {
@@ -75,6 +82,7 @@ public final class ProductionItemStateMapper {
         entity.setVersion(rs.getLong("version"));
         entity.setCreatedAt(rs.getTimestamp("created_at").toInstant());
         entity.setUpdatedAt(rs.getTimestamp("updated_at").toInstant());
+        entity.setCuttingPlanLinks(CuttingPlanLinks.empty());
         return entity;
     }
 

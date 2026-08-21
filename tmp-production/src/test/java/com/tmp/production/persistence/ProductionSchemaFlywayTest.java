@@ -13,7 +13,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** Verifies production-owned Flyway migration V23. */
+/** Verifies production-owned Flyway migrations V23 and V26. */
 @Testcontainers
 class ProductionSchemaFlywayTest {
 
@@ -40,7 +40,7 @@ class ProductionSchemaFlywayTest {
     }
 
     @Test
-    void v23CreatesProductionItemStateTable() {
+    void productionSchemaContainsItemStateAndCuttingPlanLinkTables() {
         List<String> tables =
                 jdbc.queryForList(
                         """
@@ -50,7 +50,8 @@ class ProductionSchemaFlywayTest {
                         """,
                         String.class);
 
-        assertEquals(List.of("production_item_states"), tables);
+        assertEquals(
+                List.of("production_item_cutting_plan_links", "production_item_states"), tables);
     }
 
     @Test
@@ -86,15 +87,23 @@ class ProductionSchemaFlywayTest {
     }
 
     @Test
-    void flywayRecordsV23Migration() {
-        Integer applied =
+    void flywayRecordsV23AndV26Migrations() {
+        Integer applied23 =
                 jdbc.queryForObject(
                         """
                         SELECT COUNT(*) FROM flyway_schema_history
                         WHERE version = '23' AND success = TRUE
                         """,
                         Integer.class);
-        assertEquals(1, applied);
+        Integer applied26 =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '26' AND success = TRUE
+                        """,
+                        Integer.class);
+        assertEquals(1, applied23);
+        assertEquals(1, applied26);
     }
 
     @Test
@@ -109,6 +118,88 @@ class ProductionSchemaFlywayTest {
                         """,
                         Integer.class);
         assertTrue(unique >= 1);
+    }
+
+    @Test
+    void cuttingPlanLinkUniqueConstraintIsItemPlusMaterial() {
+        Integer unique =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.table_constraints
+                        WHERE table_schema = 'production'
+                          AND table_name = 'production_item_cutting_plan_links'
+                          AND constraint_name = 'uk_production_item_cutting_plan_links_item_material'
+                          AND constraint_type = 'UNIQUE'
+                        """,
+                        Integer.class);
+        assertEquals(1, unique);
+    }
+
+    @Test
+    void cuttingPlanLinkForeignKeyTargetsOnlyProductionItemStates() {
+        Integer productionFk =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*)
+                        FROM information_schema.referential_constraints rc
+                        JOIN information_schema.constraint_table_usage ctu
+                          ON rc.unique_constraint_name = ctu.constraint_name
+                         AND rc.unique_constraint_schema = ctu.constraint_schema
+                        WHERE rc.constraint_schema = 'production'
+                          AND rc.constraint_name = 'fk_production_item_cutting_plan_links_item'
+                          AND ctu.table_schema = 'production'
+                          AND ctu.table_name = 'production_item_states'
+                        """,
+                        Integer.class);
+        assertEquals(1, productionFk);
+
+        Integer crossCapabilityFk =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*)
+                        FROM information_schema.referential_constraints rc
+                        JOIN information_schema.constraint_table_usage ctu
+                          ON rc.unique_constraint_name = ctu.constraint_name
+                         AND rc.unique_constraint_schema = ctu.constraint_schema
+                        WHERE rc.constraint_schema = 'production'
+                          AND rc.constraint_name = 'fk_production_item_cutting_plan_links_item'
+                          AND ctu.table_schema IN ('warehouse', 'cutting', 'order_management')
+                        """,
+                        Integer.class);
+        assertEquals(0, crossCapabilityFk);
+    }
+
+    @Test
+    void noCrossSchemaFkFromCuttingPlanLinks() {
+        Integer foreignFks =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*)
+                        FROM information_schema.table_constraints tc
+                        JOIN information_schema.constraint_column_usage ccu
+                          ON tc.constraint_name = ccu.constraint_name
+                         AND tc.constraint_schema = ccu.constraint_schema
+                        WHERE tc.table_schema = 'production'
+                          AND tc.table_name = 'production_item_cutting_plan_links'
+                          AND tc.constraint_type = 'FOREIGN KEY'
+                          AND ccu.table_schema <> 'production'
+                        """,
+                        Integer.class);
+        assertEquals(0, foreignFks);
+    }
+
+    @Test
+    void cuttingPlanIdIndexExists() {
+        Integer indexes =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM pg_indexes
+                        WHERE schemaname = 'production'
+                          AND tablename = 'production_item_cutting_plan_links'
+                          AND indexname = 'idx_production_item_cutting_plan_links_cutting_plan_id'
+                        """,
+                        Integer.class);
+        assertEquals(1, indexes);
     }
 
     @Test
@@ -152,5 +243,19 @@ class ProductionSchemaFlywayTest {
                         """,
                         Integer.class);
         assertEquals(0, orderLevelTables);
+    }
+
+    @Test
+    void cuttingPlanLinkTableHasNoRevisionColumns() {
+        Integer revisionColumns =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.columns
+                        WHERE table_schema = 'production'
+                          AND table_name = 'production_item_cutting_plan_links'
+                          AND column_name ILIKE '%revision%'
+                        """,
+                        Integer.class);
+        assertEquals(0, revisionColumns);
     }
 }

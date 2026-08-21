@@ -3,6 +3,10 @@ package com.tmp.production.persistence;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.production.domain.CuttingPlanId;
+import com.tmp.production.domain.CuttingPlanLinks;
+import com.tmp.production.domain.MaterialReferenceId;
+import com.tmp.production.domain.ProductionCuttingPlanLink;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
@@ -59,6 +63,7 @@ class JdbcProductionItemStateRepositoryTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM production.production_item_cutting_plan_links");
         jdbc.update("DELETE FROM production.production_item_states");
         repository = new JdbcProductionItemStateRepository(jdbc, CLOCK);
     }
@@ -209,6 +214,165 @@ class JdbcProductionItemStateRepositoryTest {
         assertTrue(repository.findBySourceOrderId(SourceOrderId.generate()).isEmpty());
     }
 
+    @Test
+    void launchWithoutLinksPersistsEmptyCollection() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specificationId = SpecificationId.generate();
+
+        repository.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(orderId, itemId, specificationId, T0),
+                        ProductionQuantity.positive(1),
+                        T0));
+
+        ProductionItemState loaded =
+                repository.findByIdentity(orderId, itemId, specificationId).orElseThrow();
+
+        assertTrue(loaded.cuttingPlanLinks().isEmpty());
+        Integer linkRows =
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM production.production_item_cutting_plan_links",
+                        Integer.class);
+        assertEquals(0, linkRows);
+    }
+
+    @Test
+    void saveAndLoadPreservesSingleCuttingPlanLink() {
+        MaterialReferenceId material = MaterialReferenceId.generate();
+        CuttingPlanId plan = CuttingPlanId.generate();
+        CuttingPlanLinks links =
+                CuttingPlanLinks.of(ProductionCuttingPlanLink.of(material, plan));
+
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specificationId = SpecificationId.generate();
+
+        repository.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(orderId, itemId, specificationId, T0),
+                        ProductionQuantity.positive(2),
+                        T0,
+                        links));
+
+        ProductionItemState loaded =
+                repository.findByIdentity(orderId, itemId, specificationId).orElseThrow();
+
+        assertEquals(1, loaded.cuttingPlanLinks().size());
+        assertEquals(plan, loaded.cuttingPlanLinks().findCuttingPlanId(material).orElseThrow());
+    }
+
+    @Test
+    void saveAndLoadPreservesMultipleCuttingPlanLinks() {
+        MaterialReferenceId a = MaterialReferenceId.generate();
+        MaterialReferenceId b = MaterialReferenceId.generate();
+        MaterialReferenceId c = MaterialReferenceId.generate();
+        CuttingPlanId x = CuttingPlanId.generate();
+        CuttingPlanId y = CuttingPlanId.generate();
+        CuttingPlanId z = CuttingPlanId.generate();
+        CuttingPlanLinks links =
+                CuttingPlanLinks.of(
+                        ProductionCuttingPlanLink.of(a, x),
+                        ProductionCuttingPlanLink.of(b, y),
+                        ProductionCuttingPlanLink.of(c, z));
+
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specificationId = SpecificationId.generate();
+
+        repository.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(orderId, itemId, specificationId, T0),
+                        ProductionQuantity.positive(3),
+                        T0,
+                        links));
+
+        ProductionItemState loaded =
+                repository.findByIdentity(orderId, itemId, specificationId).orElseThrow();
+
+        assertEquals(3, loaded.cuttingPlanLinks().size());
+        assertEquals(x, loaded.cuttingPlanLinks().findCuttingPlanId(a).orElseThrow());
+        assertEquals(y, loaded.cuttingPlanLinks().findCuttingPlanId(b).orElseThrow());
+        assertEquals(z, loaded.cuttingPlanLinks().findCuttingPlanId(c).orElseThrow());
+    }
+
+    @Test
+    void sameCuttingPlanIdMayBelongToMultipleProductionItems() {
+        CuttingPlanId shared = CuttingPlanId.generate();
+        MaterialReferenceId material = MaterialReferenceId.generate();
+        CuttingPlanLinks links =
+                CuttingPlanLinks.of(ProductionCuttingPlanLink.of(material, shared));
+
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemA = SourceOrderItemId.generate();
+        SourceOrderItemId itemB = SourceOrderItemId.generate();
+        SpecificationId specA = SpecificationId.generate();
+        SpecificationId specB = SpecificationId.generate();
+
+        repository.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(orderId, itemA, specA, T0),
+                        ProductionQuantity.positive(1),
+                        T0,
+                        links));
+        repository.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(orderId, itemB, specB, T0),
+                        ProductionQuantity.positive(1),
+                        T0,
+                        links));
+
+        assertEquals(
+                shared,
+                repository
+                        .findByIdentity(orderId, itemA, specA)
+                        .orElseThrow()
+                        .cuttingPlanLinks()
+                        .asList()
+                        .getFirst()
+                        .cuttingPlanId());
+        assertEquals(
+                shared,
+                repository
+                        .findByIdentity(orderId, itemB, specB)
+                        .orElseThrow()
+                        .cuttingPlanLinks()
+                        .asList()
+                        .getFirst()
+                        .cuttingPlanId());
+    }
+
+    @Test
+    void existingRowWithoutLinksLoadsAsEmptyAfterMigration() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specificationId = SpecificationId.generate();
+        UUID rowId = UUID.randomUUID();
+
+        jdbc.update(
+                """
+                INSERT INTO production.production_item_states (
+                    id, source_order_id, source_order_item_id, specification_id, status,
+                    ordered_quantity, launched_quantity, active_production_quantity,
+                    released_quantity, last_material_check_at, last_status_changed_at,
+                    version, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'IN_PRODUCTION', 1, 1, 1, 0, NULL, ?, 0, ?, ?)
+                """,
+                rowId,
+                orderId.value(),
+                itemId.value(),
+                specificationId.value(),
+                java.sql.Timestamp.from(T0),
+                java.sql.Timestamp.from(T0),
+                java.sql.Timestamp.from(T0));
+
+        ProductionItemState loaded =
+                repository.findByIdentity(orderId, itemId, specificationId).orElseThrow();
+
+        assertTrue(loaded.cuttingPlanLinks().isEmpty());
+        assertEquals(ProductionStatus.IN_PRODUCTION, loaded.status());
+    }
+
     private static void assertFieldEquals(ProductionItemState expected, ProductionItemState actual) {
         assertEquals(expected.foundation(), actual.foundation());
         assertEquals(expected.sourceOrderId(), actual.sourceOrderId());
@@ -221,5 +385,6 @@ class JdbcProductionItemStateRepositoryTest {
         assertEquals(expected.releasedQuantity(), actual.releasedQuantity());
         assertEquals(expected.lastMaterialCheckAt(), actual.lastMaterialCheckAt());
         assertEquals(expected.lastStatusChangedAt(), actual.lastStatusChangedAt());
+        assertEquals(expected.cuttingPlanLinks(), actual.cuttingPlanLinks());
     }
 }

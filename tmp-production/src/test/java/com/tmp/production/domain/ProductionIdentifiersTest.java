@@ -57,4 +57,20 @@ class ProductionIdentifiersTest {
     void differentSpecificationIdsAreNotEqual() {
         assertNotEquals(SpecificationId.generate(), SpecificationId.generate());
     }
+
+    @Test
+    void cuttingPlanIdRejectsNullAndUsesValueEquality() {
+        assertThrows(NullPointerException.class, () -> CuttingPlanId.of(null));
+        UUID value = UUID.randomUUID();
+        assertEquals(CuttingPlanId.of(value), CuttingPlanId.of(value));
+        assertNotEquals(CuttingPlanId.generate(), CuttingPlanId.generate());
+    }
+
+    @Test
+    void materialReferenceIdRejectsNullAndUsesValueEquality() {
+        assertThrows(NullPointerException.class, () -> MaterialReferenceId.of(null));
+        UUID value = UUID.randomUUID();
+        assertEquals(MaterialReferenceId.of(value), MaterialReferenceId.of(value));
+        assertNotEquals(MaterialReferenceId.generate(), MaterialReferenceId.generate());
+    }
 }

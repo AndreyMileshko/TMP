@@ -294,4 +294,64 @@ class Stage7ProductionArchitectureTest {
                             "org.springframework..")
                     .because(
                             "Requirement calculator is pure and must not touch Warehouse or persistence");
+
+    @ArchTest
+    static final ArchRule cuttingPlanLinkTypesAreProductionOwned =
+            classes()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .and()
+                    .haveNameMatching(
+                            ".*\\.(CuttingPlanId|ProductionCuttingPlanLink|CuttingPlanLinks|MaterialReferenceId)")
+                    .should()
+                    .resideInAPackage("com.tmp.production.domain..")
+                    .because("Cutting Plan link identity types are Production-owned opaque references");
+
+    @ArchTest
+    static final ArchRule cuttingPlanLinkCodeDoesNotDependOnCuttingCapability =
+            noClasses()
+                    .that()
+                    .haveSimpleName("CuttingPlanId")
+                    .or()
+                    .haveSimpleName("ProductionCuttingPlanLink")
+                    .or()
+                    .haveSimpleName("CuttingPlanLinks")
+                    .or()
+                    .haveSimpleName("MaterialReferenceId")
+                    .or()
+                    .haveSimpleName("ProductionItemState")
+                    .or()
+                    .haveSimpleName("JdbcProductionItemStateRepository")
+                    .or()
+                    .haveSimpleName("ProductionLaunchLine")
+                    .or()
+                    .haveSimpleName("ProductionLaunchProcessor")
+                    .or()
+                    .haveSimpleName("ProductionLaunchService")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("com.tmp.cutting..")
+                    .because("Production Cutting Plan links must not depend on Stage 8 Cutting types");
+
+    @ArchTest
+    static final ArchRule noCuttingPlanRevisionTypeInProduction =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .and()
+                    .haveNameMatching(".*Cutting(Plan)?Revision.*")
+                    .should()
+                    .beInterfaces()
+                    .because("Cutting Plan Revision is forbidden in Production (ADR-034)")
+                    .allowEmptyShould(true);
+
+    @ArchTest
+    static final ArchRule productionDoesNotDependOnAnyCuttingPackage =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("com.tmp.cutting..")
+                    .because("tmp-production must not depend on tmp-cutting / Stage 8 runtime");
 }

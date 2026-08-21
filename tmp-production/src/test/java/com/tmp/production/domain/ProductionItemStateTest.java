@@ -42,6 +42,7 @@ class ProductionItemStateTest {
         assertEquals(ProductionQuantity.zero(), state.releasedQuantity());
         assertNull(state.lastMaterialCheckAt());
         assertEquals(T0, state.lastStatusChangedAt());
+        assertTrue(state.cuttingPlanLinks().isEmpty());
     }
 
     @Test

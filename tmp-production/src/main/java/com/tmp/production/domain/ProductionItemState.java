@@ -9,6 +9,9 @@ import java.util.Objects;
  * <p>Identified by {@code SourceOrderId + SourceOrderItemId + SpecificationId}. Created at Launch
  * with an immutable {@link ProductionFoundation}. Absence of state before Launch is interpreted as
  * {@link ProductionStatus#NOT_STARTED} at application/query boundaries only.
+ *
+ * <p>Cutting Plan links are item-owned (0..N by {@link MaterialReferenceId}); empty by default when
+ * Stage 8 is absent.
  */
 public final class ProductionItemState {
 
@@ -20,6 +23,7 @@ public final class ProductionItemState {
     private final ProductionQuantity releasedQuantity;
     private final Instant lastMaterialCheckAt;
     private final Instant lastStatusChangedAt;
+    private final CuttingPlanLinks cuttingPlanLinks;
 
     private ProductionItemState(
             ProductionFoundation foundation,
@@ -29,7 +33,8 @@ public final class ProductionItemState {
             ProductionQuantity activeProductionQuantity,
             ProductionQuantity releasedQuantity,
             Instant lastMaterialCheckAt,
-            Instant lastStatusChangedAt) {
+            Instant lastStatusChangedAt,
+            CuttingPlanLinks cuttingPlanLinks) {
         this.foundation = Objects.requireNonNull(foundation, "foundation");
         this.status = Objects.requireNonNull(status, "status");
         this.orderedQuantity = Objects.requireNonNull(orderedQuantity, "orderedQuantity");
@@ -40,6 +45,7 @@ public final class ProductionItemState {
         this.lastMaterialCheckAt = lastMaterialCheckAt;
         this.lastStatusChangedAt =
                 Objects.requireNonNull(lastStatusChangedAt, "lastStatusChangedAt");
+        this.cuttingPlanLinks = Objects.requireNonNull(cuttingPlanLinks, "cuttingPlanLinks");
         if (status == ProductionStatus.NOT_STARTED) {
             throw new IllegalArgumentException(
                     "Persisted production state cannot use NOT_STARTED; absence of state means not started");
@@ -51,12 +57,24 @@ public final class ProductionItemState {
      * Creates production state when an order item is accepted into production at Launch.
      *
      * <p>Whole-order Launch accepts the full ordered quantity for the item and freezes the
-     * {@link ProductionFoundation} exactly once.
+     * {@link ProductionFoundation} exactly once. Cutting Plan links default to empty.
      */
     public static ProductionItemState launch(
             ProductionFoundation foundation, ProductionQuantity orderedQuantity, Instant launchedAt) {
+        return launch(foundation, orderedQuantity, launchedAt, CuttingPlanLinks.empty());
+    }
+
+    /**
+     * Creates production state at Launch with optional Cutting Plan links (0..N by material).
+     */
+    public static ProductionItemState launch(
+            ProductionFoundation foundation,
+            ProductionQuantity orderedQuantity,
+            Instant launchedAt,
+            CuttingPlanLinks cuttingPlanLinks) {
         Objects.requireNonNull(foundation, "foundation");
         Objects.requireNonNull(launchedAt, "launchedAt");
+        Objects.requireNonNull(cuttingPlanLinks, "cuttingPlanLinks");
         if (!foundation.frozenAt().equals(launchedAt)) {
             throw new IllegalArgumentException(
                     "Launch timestamp must match foundation freeze timestamp");
@@ -69,7 +87,8 @@ public final class ProductionItemState {
                 orderedQuantity,
                 ProductionQuantity.zero(),
                 null,
-                launchedAt);
+                launchedAt,
+                cuttingPlanLinks);
     }
 
     /**
@@ -106,7 +125,8 @@ public final class ProductionItemState {
                 newActive,
                 newReleased,
                 lastMaterialCheckAt,
-                releasedAt);
+                releasedAt,
+                cuttingPlanLinks);
     }
 
     /**
@@ -128,12 +148,13 @@ public final class ProductionItemState {
                 ProductionQuantity.zero(),
                 releasedQuantity,
                 lastMaterialCheckAt,
-                cancelledAt);
+                cancelledAt,
+                cuttingPlanLinks);
     }
 
     /**
      * Reconstructs persisted item-owned state from storage. Used by persistence adapters only;
-     * domain invariants are enforced by the private constructor.
+     * domain invariants are enforced by the private constructor. Links default to empty.
      */
     public static ProductionItemState rehydrate(
             ProductionFoundation foundation,
@@ -144,6 +165,31 @@ public final class ProductionItemState {
             ProductionQuantity releasedQuantity,
             Instant lastMaterialCheckAt,
             Instant lastStatusChangedAt) {
+        return rehydrate(
+                foundation,
+                status,
+                orderedQuantity,
+                launchedQuantity,
+                activeProductionQuantity,
+                releasedQuantity,
+                lastMaterialCheckAt,
+                lastStatusChangedAt,
+                CuttingPlanLinks.empty());
+    }
+
+    /**
+     * Reconstructs persisted item-owned state including Cutting Plan links.
+     */
+    public static ProductionItemState rehydrate(
+            ProductionFoundation foundation,
+            ProductionStatus status,
+            ProductionQuantity orderedQuantity,
+            ProductionQuantity launchedQuantity,
+            ProductionQuantity activeProductionQuantity,
+            ProductionQuantity releasedQuantity,
+            Instant lastMaterialCheckAt,
+            Instant lastStatusChangedAt,
+            CuttingPlanLinks cuttingPlanLinks) {
         return new ProductionItemState(
                 foundation,
                 status,
@@ -152,7 +198,8 @@ public final class ProductionItemState {
                 activeProductionQuantity,
                 releasedQuantity,
                 lastMaterialCheckAt,
-                lastStatusChangedAt);
+                lastStatusChangedAt,
+                cuttingPlanLinks);
     }
 
     /**
@@ -172,7 +219,8 @@ public final class ProductionItemState {
                 activeProductionQuantity,
                 releasedQuantity,
                 checkedAt,
-                lastStatusChangedAt);
+                lastStatusChangedAt,
+                cuttingPlanLinks);
     }
 
     public ProductionFoundation foundation() {
@@ -217,6 +265,13 @@ public final class ProductionItemState {
 
     public Instant lastStatusChangedAt() {
         return lastStatusChangedAt;
+    }
+
+    /**
+     * Immutable Cutting Plan links for this Production Item (0..N by material reference).
+     */
+    public CuttingPlanLinks cuttingPlanLinks() {
+        return cuttingPlanLinks;
     }
 
     private void validateQuantities() {

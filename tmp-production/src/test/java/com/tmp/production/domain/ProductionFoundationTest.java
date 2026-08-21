@@ -3,7 +3,6 @@ package com.tmp.production.domain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
@@ -67,11 +66,6 @@ class ProductionFoundationTest {
                         orderId, itemId, SpecificationId.generate(), T0);
 
         assertNotEquals(first, second);
-    }
-
-    @Test
-    void cuttingPlanLinksExtensionPointIsEmpty() {
-        assertTrue(sampleFoundation().cuttingPlanLinks().links().isEmpty());
     }
 
     @Test

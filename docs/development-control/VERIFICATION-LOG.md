@@ -2,6 +2,39 @@
 
 ## Latest result
 
+**Date:** 2026-08-21
+**Scope:** STAGE7-008 — Cutting Plan references 0..N
+**Overall:** PASS
+**Type:** Domain 0..N links + Flyway V26 child table + Launch payload readiness + architecture guards
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-production -am test` | PASS (161 tests) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS (Stage7ProductionArchitectureTest: 24 rules) |
+| `mvn -pl :tmp-infra-db,:tmp-production -am test` | covered via reactor |
+| `mvn test` | PASS |
+| `mvn verify` | PASS (BUILD SUCCESS) |
+| CuttingPlanId opaque UUID / no Revision | PASS |
+| 0..N links by materialReferenceId | PASS |
+| duplicate material rejected in Domain | PASS |
+| same CuttingPlanId on multiple items | PASS |
+| immutable link collection | PASS |
+| Launch default empty links / no Stage 8 calls | PASS |
+| V26 child table + UNIQUE(item, material) | PASS |
+| FK only to production_item_states; no warehouse/cutting FK | PASS |
+| existing rows load links=empty | PASS |
+| Material Check with link still SPECIFICATION | PASS |
+| DefaultWarehouseAvailabilityQueryAdapter returns availableQuantity (not probe) | PASS (focused unit test) |
+| `git diff --check` | clean (CRLF warnings only) |
+| STAGE7-008 | DONE |
+| STAGE7-008A | PLANNED (post-launch association; not executed) |
+| STAGE7-009 | READY |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result (STAGE7-007)
+
 **Date:** 2026-08-20
 **Scope:** STAGE7-007 — Material availability via Warehouse Query
 **Overall:** PASS
