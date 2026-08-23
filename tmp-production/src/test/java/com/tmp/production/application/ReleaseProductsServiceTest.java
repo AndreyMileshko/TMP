@@ -17,6 +17,7 @@ import com.tmp.document.api.UpdateDocumentCommand;
 import com.tmp.production.application.ReleaseProductsCommand.CellAllocation;
 import com.tmp.production.application.ReleaseProductsCommand.ItemRelease;
 import com.tmp.production.application.ReleaseProductsCommand.MaterialActualUsage;
+import com.tmp.production.application.ReleaseProductsResult.PrepareReleasePreview;
 import com.tmp.production.application.document.ProductionReleaseProcessor;
 import com.tmp.production.application.internal.ProductionReleaseDocumentService;
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
@@ -113,6 +114,77 @@ class ReleaseProductsServiceTest {
                         releaseDocumentService,
                         new PassthroughTransactionManager(),
                         Clock.fixed(T0, ZoneOffset.UTC));
+    }
+
+    @Test
+    void previewWithoutActualOrCellAllocations() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        UUID materialId = UUID.randomUUID();
+        launchItem(orderId, itemId, specId, 10);
+        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-PREV");
+
+        PrepareReleasePreview preview =
+                service.prepareRelease(
+                        new PrepareReleaseCommand(
+                                orderId.value(), List.of(new ItemRelease(itemId.value(), 3))));
+
+        assertEquals(0, preview.plannedMaterialLines().getFirst().plannedQuantity().compareTo(bd("5.100000")));
+        assertEquals(
+                0,
+                preview.defaultActuals().getFirst().actualQuantity().compareTo(bd("5.100000")));
+        assertEquals(0, warehouseCommands.consumeCalls.size());
+        assertTrue(releaseRepository.store.isEmpty());
+        assertEquals(ProductionStatus.IN_PRODUCTION, state(orderId, itemId, specId).status());
+    }
+
+    @Test
+    void confirmRecalculatesPlanAfterConcurrentStateChange() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        UUID materialId = UUID.randomUUID();
+        launchItem(orderId, itemId, specId, 10);
+        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-RECALC");
+        warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(100));
+
+        PrepareReleasePreview stalePreview =
+                service.prepareRelease(
+                        new PrepareReleaseCommand(
+                                orderId.value(), List.of(new ItemRelease(itemId.value(), 4))));
+        assertEquals(
+                0,
+                stalePreview.plannedMaterialLines().getFirst().plannedQuantity().compareTo(bd("6.800000")));
+
+        service.releaseProducts(
+                releaseCommand(
+                        orderId,
+                        itemId,
+                        3,
+                        materialId,
+                        bd("5.100000"),
+                        List.of(new CellAllocation(PROD_CELL, bd("5.100000")))));
+
+        ReleaseProductsResult confirm =
+                service.releaseProducts(
+                        releaseCommand(
+                                orderId,
+                                itemId,
+                                4,
+                                materialId,
+                                stalePreview.defaultActuals().getFirst().actualQuantity(),
+                                List.of(
+                                        new CellAllocation(
+                                                PROD_CELL,
+                                                stalePreview
+                                                        .defaultActuals()
+                                                        .getFirst()
+                                                        .actualQuantity()))));
+
+        assertEquals(
+                0, confirm.materialResults().getFirst().plannedQuantity().compareTo(bd("6.800000")));
+        assertEquals(7L, state(orderId, itemId, specId).releasedQuantity().value().longValueExact());
     }
 
     @Test

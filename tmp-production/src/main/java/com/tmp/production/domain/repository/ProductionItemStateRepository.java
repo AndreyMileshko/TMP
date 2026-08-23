@@ -30,4 +30,15 @@ public interface ProductionItemStateRepository {
      * status; aggregation is performed by the domain calculator.
      */
     List<ProductionItemState> findBySourceOrderId(SourceOrderId sourceOrderId);
+
+    /**
+     * Loads and row-locks all item-owned Production states for the given customer order.
+     *
+     * <p>Must be called within an active transaction. Default adapters may delegate to
+     * {@link #findBySourceOrderId}; JDBC adapters use {@code SELECT ... FOR UPDATE} with
+     * deterministic ordering ({@code sourceOrderItemId}, {@code specificationId}).
+     */
+    default List<ProductionItemState> findBySourceOrderIdForUpdate(SourceOrderId sourceOrderId) {
+        return findBySourceOrderId(sourceOrderId);
+    }
 }

@@ -4,6 +4,39 @@
 
 ---
 
+## STAGE7-013A — Release Preparation & Concurrency Correctness
+
+**Date:** 2026-08-23
+**Stage:** 7
+**Module:** `tmp-production`
+**Status:** DONE
+
+### Context
+
+Post-review corrective task for STAGE7-013: preview incorrectly required actual/cell allocations; plan was computed before outer TX (stale `releasedBefore`); ArchUnit internal-gateway rule did not cover `tmp-ui-shell`/external callers.
+
+### Delivered
+
+- `PrepareReleaseCommand` — preview-only (orderId + item releases); no `MaterialActualUsage` / `CellAllocation`.
+- `prepareRelease` — informational plan + `defaultActual = planned`; unlocked read; zero mutations.
+- `releaseProducts` — plan recomputed inside outer REQUIRED TX after `ProductionOrderStateLockService.lockAllItemStates`.
+- `ProductionOrderViewService.lockAllItemStates` + `JdbcProductionItemStateRepository.findBySourceOrderIdForUpdate` (`ORDER BY source_order_item_id, specification_id FOR UPDATE`).
+- `ProductionOrderStateLockService` — reusable whole-order locking boundary for STAGE7-014 Cancellation.
+- `OrderProductionViewCalculator` used on locked snapshot (not stale pre-lock view).
+- ArchUnit: global ban on `ProductionReleaseDocumentService` except `ReleaseProductsService` + technical test; `ProductionOrderStateLockService` ViewService-only rule.
+- `ProductionReleaseProcessorTest.materialLineReferencingForeignItemRejected` regression.
+- Tests: preview without actual; confirm recalculates; PostgreSQL concurrent serialize / cumulative plan / over-release; rollback proofs preserved.
+- Fixed `validateConsumptionResult`: `OperationResult.quantity` for CONSUMPTION is post-operation stock level (Warehouse public contract), not consumed delta.
+
+### Queue
+
+- STAGE7-013 = DONE (historical; corrective via 013A).
+- STAGE7-013A = DONE.
+- STAGE7-014 = READY.
+- Active blockers = NONE.
+
+---
+
 ## STAGE7-013 — Atomic Release + Consumption orchestration
 
 **Date:** 2026-08-23

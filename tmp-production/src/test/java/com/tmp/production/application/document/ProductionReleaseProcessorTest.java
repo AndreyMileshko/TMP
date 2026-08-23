@@ -187,6 +187,32 @@ class ProductionReleaseProcessorTest {
     }
 
     @Test
+    void materialLineReferencingForeignItemRejected() {
+        Fixture fx = launch(5);
+        SourceOrderItemId foreignItemId = SourceOrderItemId.generate();
+        UUID docId = UUID.randomUUID();
+        ProductionRelease release =
+                ProductionRelease.draft(
+                        docId,
+                        fx.orderId,
+                        T1,
+                        List.of(itemLine(fx.itemId, fx.specId, 1)),
+                        List.of(
+                                new ProductionRelease.MaterialLine(
+                                        MaterialReferenceId.generate(),
+                                        BigDecimal.ONE,
+                                        BigDecimal.ONE,
+                                        MaterialPlanningSource.SPECIFICATION,
+                                        Optional.empty(),
+                                        Optional.of(foreignItemId),
+                                        Optional.empty())));
+        releases.saveDraft(release);
+        assertThrows(
+                ProductionReleaseValidationException.class, () -> processor.onPost(context(docId)));
+        assertEquals(ProductionStatus.IN_PRODUCTION, items.require(fx.orderId, fx.itemId, fx.specId).status());
+    }
+
+    @Test
     void postedPayloadCannotBeReplaced() {
         Fixture fx = launch(2);
         UUID docId = prepareRelease(fx, 2, List.of());

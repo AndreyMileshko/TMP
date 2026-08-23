@@ -22,6 +22,8 @@ import com.tmp.document.persistence.JdbcLifecycleJournalAdapter;
 import com.tmp.production.application.ReleaseProductsCommand.CellAllocation;
 import com.tmp.production.application.ReleaseProductsCommand.ItemRelease;
 import com.tmp.production.application.ReleaseProductsCommand.MaterialActualUsage;
+import com.tmp.production.application.ReleaseProductsResult;
+import com.tmp.production.domain.ReleaseProductsException;
 import com.tmp.production.application.document.ProductionReleaseProcessor;
 import com.tmp.production.application.internal.ProductionReleaseDocumentService;
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
@@ -79,6 +81,13 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
@@ -222,6 +231,189 @@ class ReleaseProductsPostgresIT {
     }
 
     @Test
+    void concurrentReleasesSerializeWithoutLostUpdate() throws Exception {
+        ReleaseScenario scenario = prepareScenario(bd(200));
+        ReleaseProductsService service = newService(warehouseApi, releaseDocumentService);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        AtomicInteger successes = new AtomicInteger();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+
+        Future<?> first =
+                executor.submit(
+                        () ->
+                                runConcurrentRelease(
+                                        service,
+                                        scenario,
+                                        3,
+                                        bd("5.100000"),
+                                        ready,
+                                        start,
+                                        successes,
+                                        failure));
+        Future<?> second =
+                executor.submit(
+                        () ->
+                                runConcurrentRelease(
+                                        service,
+                                        scenario,
+                                        4,
+                                        bd("6.800000"),
+                                        ready,
+                                        start,
+                                        successes,
+                                        failure));
+
+        assertTrue(ready.await(10, TimeUnit.SECONDS));
+        start.countDown();
+        first.get(30, TimeUnit.SECONDS);
+        second.get(30, TimeUnit.SECONDS);
+        executor.shutdownNow();
+
+        if (failure.get() != null) {
+            throw new AssertionError("Concurrent release failed", failure.get());
+        }
+        assertEquals(2, successes.get());
+        assertEquals(
+                7L,
+                itemRepository
+                        .findByIdentity(
+                                scenario.orderId(), scenario.itemId(), scenario.specId())
+                        .orElseThrow()
+                        .releasedQuantity()
+                        .value()
+                        .longValueExact());
+        assertEquals(2, countPostedReleases());
+    }
+
+    @Test
+    void cumulativePlanConcurrencyFormsNonOverlappingSegments() throws Exception {
+        ReleaseScenario scenario = prepareScenario(bd(200));
+        ReleaseProductsService service = newService(warehouseApi, releaseDocumentService);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        AtomicInteger successes = new AtomicInteger();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+
+        Future<?> releaseThree =
+                executor.submit(
+                        () ->
+                                runConcurrentRelease(
+                                        service,
+                                        scenario,
+                                        3,
+                                        bd("5.100000"),
+                                        ready,
+                                        start,
+                                        successes,
+                                        failure));
+        Future<?> releaseFour =
+                executor.submit(
+                        () ->
+                                runConcurrentRelease(
+                                        service,
+                                        scenario,
+                                        4,
+                                        bd("6.800000"),
+                                        ready,
+                                        start,
+                                        successes,
+                                        failure));
+
+        assertTrue(ready.await(10, TimeUnit.SECONDS));
+        start.countDown();
+        releaseThree.get(30, TimeUnit.SECONDS);
+        releaseFour.get(30, TimeUnit.SECONDS);
+        executor.shutdownNow();
+
+        if (failure.get() != null) {
+            throw new AssertionError("Concurrent release failed", failure.get());
+        }
+        assertEquals(2, successes.get());
+
+        List<BigDecimal> planned =
+                jdbc.query(
+                        """
+                        SELECT planned_quantity
+                        FROM production.production_release_material_lines ml
+                        JOIN production.production_releases pr ON pr.document_id = ml.document_id
+                        WHERE pr.posted = TRUE
+                        ORDER BY pr.released_at, ml.planned_quantity
+                        """,
+                        (rs, rowNum) -> rs.getBigDecimal("planned_quantity"));
+        assertEquals(2, planned.size());
+        assertTrue(
+                planned.contains(bd("5.100000")) && planned.contains(bd("6.800000")),
+                "Expected both cumulative segments, got " + planned);
+        BigDecimal totalPlan = planned.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertEquals(0, totalPlan.compareTo(bd("11.900000")));
+    }
+
+    @Test
+    void concurrentOverReleaseOnlyOneSucceeds() throws Exception {
+        ReleaseScenario scenario = prepareScenarioWithQuantity(bd(200), 5);
+        ReleaseProductsService service = newService(warehouseApi, releaseDocumentService);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        AtomicInteger successes = new AtomicInteger();
+        AtomicInteger rejections = new AtomicInteger();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+
+        Future<?> first =
+                executor.submit(
+                        () ->
+                                runConcurrentReleaseExpectingFailure(
+                                        service,
+                                        scenario,
+                                        4,
+                                        bd("6.800000"),
+                                        ready,
+                                        start,
+                                        successes,
+                                        rejections,
+                                        failure));
+        Future<?> second =
+                executor.submit(
+                        () ->
+                                runConcurrentReleaseExpectingFailure(
+                                        service,
+                                        scenario,
+                                        4,
+                                        bd("6.800000"),
+                                        ready,
+                                        start,
+                                        successes,
+                                        rejections,
+                                        failure));
+
+        assertTrue(ready.await(10, TimeUnit.SECONDS));
+        start.countDown();
+        first.get(30, TimeUnit.SECONDS);
+        second.get(30, TimeUnit.SECONDS);
+        executor.shutdownNow();
+
+        if (failure.get() != null) {
+            throw new AssertionError("Concurrent over-release test failed", failure.get());
+        }
+        assertEquals(1, successes.get());
+        assertEquals(1, rejections.get());
+        long released =
+                itemRepository
+                        .findByIdentity(
+                                scenario.orderId(), scenario.itemId(), scenario.specId())
+                        .orElseThrow()
+                        .releasedQuantity()
+                        .value()
+                        .longValueExact();
+        assertTrue(released <= 5L);
+        assertEquals(1, countPostedReleases());
+        assertEquals(1, countConsumptionOperations());
+    }
+
+    @Test
     void consumptionFailureRollsBackNoPostedReleaseNoStockChange() {
         ReleaseScenario scenario = prepareScenario(bd(20));
         WarehouseCommandApi failingCommands =
@@ -312,6 +504,11 @@ class ReleaseProductsPostgresIT {
     }
 
     private ReleaseScenario prepareScenario(BigDecimal productionStock) {
+        return prepareScenarioWithQuantity(productionStock, 10);
+    }
+
+    private ReleaseScenario prepareScenarioWithQuantity(
+            BigDecimal productionStock, long orderedQuantity) {
         SourceOrderId orderId = SourceOrderId.generate();
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specId = SpecificationId.generate();
@@ -319,7 +516,7 @@ class ReleaseProductsPostgresIT {
         itemRepository.save(
                 ProductionItemState.launch(
                         ProductionFoundation.freeze(orderId, itemId, specId, T0),
-                        ProductionQuantity.positive(10),
+                        ProductionQuantity.positive(orderedQuantity),
                         T0));
         specificationQuery.byIdSpec =
                 Optional.of(
@@ -345,11 +542,64 @@ class ReleaseProductsPostgresIT {
         return new ReleaseScenario(orderId, itemId, specId, material);
     }
 
+    private static void runConcurrentRelease(
+            ReleaseProductsService service,
+            ReleaseScenario scenario,
+            long releaseQuantity,
+            BigDecimal actual,
+            CountDownLatch ready,
+            CountDownLatch start,
+            AtomicInteger successes,
+            AtomicReference<Throwable> failure) {
+        try {
+            ready.countDown();
+            start.await(10, TimeUnit.SECONDS);
+            service.releaseProducts(
+                    releaseCommand(scenario, releaseQuantity, actual, List.of(
+                            new CellAllocation(PROD_CELL, actual))));
+            successes.incrementAndGet();
+        } catch (Throwable ex) {
+            failure.compareAndSet(null, ex);
+        }
+    }
+
+    private static void runConcurrentReleaseExpectingFailure(
+            ReleaseProductsService service,
+            ReleaseScenario scenario,
+            long releaseQuantity,
+            BigDecimal actual,
+            CountDownLatch ready,
+            CountDownLatch start,
+            AtomicInteger successes,
+            AtomicInteger rejections,
+            AtomicReference<Throwable> failure) {
+        try {
+            ready.countDown();
+            start.await(10, TimeUnit.SECONDS);
+            service.releaseProducts(
+                    releaseCommand(scenario, releaseQuantity, actual, List.of(
+                            new CellAllocation(PROD_CELL, actual))));
+            successes.incrementAndGet();
+        } catch (ReleaseProductsException ex) {
+            rejections.incrementAndGet();
+        } catch (Throwable ex) {
+            failure.compareAndSet(null, ex);
+        }
+    }
+
     private static ReleaseProductsCommand releaseCommand(
             ReleaseScenario scenario, BigDecimal actual, List<CellAllocation> allocations) {
+        return releaseCommand(scenario, 3, actual, allocations);
+    }
+
+    private static ReleaseProductsCommand releaseCommand(
+            ReleaseScenario scenario,
+            long releaseQuantity,
+            BigDecimal actual,
+            List<CellAllocation> allocations) {
         return new ReleaseProductsCommand(
                 scenario.orderId().value(),
-                List.of(new ItemRelease(scenario.itemId().value(), 3)),
+                List.of(new ItemRelease(scenario.itemId().value(), releaseQuantity)),
                 List.of(
                         new MaterialActualUsage(
                                 scenario.itemId().value(),

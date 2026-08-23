@@ -14,9 +14,9 @@
 ## Status
 
 **START GATE PASSED**  
-**Stage 7 implementation IN PROGRESS / 65%**
+**Stage 7 implementation IN PROGRESS / 66%**
 
-Production functionality is **not** DONE. STAGE7-013 (Atomic Release + Consumption orchestration) is the latest completed implementation task at manifest update time.
+Production functionality is **not** DONE. STAGE7-013A (Release Preparation & Concurrency Correctness) is the latest completed implementation task at manifest update time.
 
 **Active blockers:** NONE
 

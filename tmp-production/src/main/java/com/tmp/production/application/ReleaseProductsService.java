@@ -16,6 +16,8 @@ import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedM
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.MaterialReferenceEntry;
 import com.tmp.production.domain.FrozenSpecificationUnavailableException;
+import com.tmp.production.domain.OrderProductionViewCalculator;
+import com.tmp.production.domain.OrderProductionViewCalculator.Context;
 import com.tmp.production.domain.OrderProductionViewStatus;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionStatus;
@@ -57,14 +59,15 @@ public final class ReleaseProductsService {
 
     private static final String STATUS_COMPLETED = "COMPLETED";
 
-    private final ProductionOrderViewService orderViewService;
     private final ProductionFoundationQueryService foundationQuery;
     private final WarehouseAvailabilityQueryPort warehouseAvailabilityQuery;
     private final WarehouseCommandApi warehouseCommandApi;
     private final WarehouseQueryApi warehouseQueryApi;
     private final ProductionWarehouseScope warehouseScope;
     private final ProductionReleaseDocumentService releaseDocumentService;
+    private final ProductionOrderStateLockService stateLockService;
     private final ReleaseMaterialPlanBuilder planBuilder;
+    private final OrderProductionViewCalculator viewCalculator;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -79,30 +82,31 @@ public final class ReleaseProductsService {
             PlatformTransactionManager transactionManager,
             Clock clock) {
         this(
-                orderViewService,
                 foundationQuery,
                 warehouseAvailabilityQuery,
                 warehouseCommandApi,
                 warehouseQueryApi,
                 warehouseScope,
                 releaseDocumentService,
+                new ProductionOrderStateLockService(orderViewService),
                 new ReleaseMaterialPlanBuilder(),
+                new OrderProductionViewCalculator(),
                 transactionManager,
                 clock);
     }
 
     ReleaseProductsService(
-            ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQuery,
             WarehouseAvailabilityQueryPort warehouseAvailabilityQuery,
             WarehouseCommandApi warehouseCommandApi,
             WarehouseQueryApi warehouseQueryApi,
             ProductionWarehouseScope warehouseScope,
             ProductionReleaseDocumentService releaseDocumentService,
+            ProductionOrderStateLockService stateLockService,
             ReleaseMaterialPlanBuilder planBuilder,
+            OrderProductionViewCalculator viewCalculator,
             PlatformTransactionManager transactionManager,
             Clock clock) {
-        this.orderViewService = Objects.requireNonNull(orderViewService, "orderViewService");
         this.foundationQuery = Objects.requireNonNull(foundationQuery, "foundationQuery");
         this.warehouseAvailabilityQuery =
                 Objects.requireNonNull(warehouseAvailabilityQuery, "warehouseAvailabilityQuery");
@@ -112,17 +116,28 @@ public final class ReleaseProductsService {
         this.warehouseScope = Objects.requireNonNull(warehouseScope, "warehouseScope");
         this.releaseDocumentService =
                 Objects.requireNonNull(releaseDocumentService, "releaseDocumentService");
+        this.stateLockService = Objects.requireNonNull(stateLockService, "stateLockService");
         this.planBuilder = Objects.requireNonNull(planBuilder, "planBuilder");
+        this.viewCalculator = Objects.requireNonNull(viewCalculator, "viewCalculator");
         this.transactionTemplate =
                 new TransactionTemplate(
                         Objects.requireNonNull(transactionManager, "transactionManager"));
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    public PrepareReleasePreview prepareRelease(ReleaseProductsCommand command) {
-        PreparedRelease prepared = prepareWithoutMutation(command);
+    /**
+     * Informational preview: system-computed plan with default actual = planned. No Warehouse or
+     * Production mutations; does not require confirmed actual usage or cell allocations.
+     */
+    public PrepareReleasePreview prepareRelease(PrepareReleaseCommand command) {
+        Objects.requireNonNull(command, "command");
+        SourceOrderId sourceOrderId = SourceOrderId.of(command.sourceOrderId());
+        List<ProductionItemState> states = stateLockService.readAllItemStates(sourceOrderId);
+        requireInProduction(sourceOrderId, states);
+        rejectDuplicateItems(command.itemReleases());
+        PlanSnapshot snapshot = computePlanSnapshot(command.itemReleases(), states);
         List<MaterialResult> defaultActuals =
-                prepared.plannedLines().stream()
+                snapshot.plannedLines().stream()
                         .map(
                                 line ->
                                         new MaterialResult(
@@ -133,16 +148,34 @@ public final class ReleaseProductsService {
                         .toList();
         return new PrepareReleasePreview(
                 command.sourceOrderId(),
-                prepared.itemResults(),
-                prepared.plannedLines(),
+                snapshot.itemResults(),
+                snapshot.plannedLines(),
                 defaultActuals);
     }
 
+    /**
+     * Confirms Release: plan is always recomputed inside the outer transaction on locked state.
+     * Does not trust any prior {@link #prepareRelease} snapshot.
+     */
     public ReleaseProductsResult releaseProducts(ReleaseProductsCommand command) {
         Objects.requireNonNull(command, "command");
-        PreparedRelease prepared = prepareWithoutMutation(command);
         ReleaseProductsResult result =
-                transactionTemplate.execute(status -> executeRelease(command, prepared));
+                transactionTemplate.execute(
+                        status -> {
+                            SourceOrderId sourceOrderId =
+                                    SourceOrderId.of(command.sourceOrderId());
+                            List<ProductionItemState> lockedStates =
+                                    stateLockService.lockAllItemStates(sourceOrderId);
+                            requireInProduction(sourceOrderId, lockedStates);
+                            rejectDuplicateItems(command.itemReleases());
+                            Map<UUID, StorageCellView> productionCells =
+                                    indexActiveProductionCells(
+                                            warehouseScope.productionWarehouseId());
+                            PreparedRelease prepared =
+                                    prepareConfirmRelease(
+                                            command, lockedStates, productionCells);
+                            return executeRelease(command, prepared);
+                        });
         if (result == null) {
             throw new ReleaseProductsException(
                     "Release orchestration returned null for order " + command.sourceOrderId());
@@ -201,46 +234,14 @@ public final class ReleaseProductsService {
                 consumptionReferences);
     }
 
-    private PreparedRelease prepareWithoutMutation(ReleaseProductsCommand command) {
-        SourceOrderId sourceOrderId = SourceOrderId.of(command.sourceOrderId());
-        if (orderViewService.getOrderProductionView(sourceOrderId).status()
-                != OrderProductionViewStatus.IN_PRODUCTION) {
-            throw new ReleaseProductsException(
-                    "Release is allowed only when order Production View is IN_PRODUCTION");
-        }
-
-        rejectDuplicateItems(command.itemReleases());
-        List<MaterialReferenceEntry> materialCatalog =
-                warehouseAvailabilityQuery.listMaterialReferences();
-        Map<UUID, StorageCellView> productionCells =
-                indexActiveProductionCells(warehouseScope.productionWarehouseId());
-
-        Map<String, PlannedMaterialLine> plannedByKey = new LinkedHashMap<>();
-        List<ItemResult> itemResults = new ArrayList<>();
-        List<ProductionReleaseDocumentCommand.ItemLine> documentItemLines = new ArrayList<>();
-
-        for (ItemRelease itemRelease : command.itemReleases()) {
-            SourceOrderItemId itemId = SourceOrderItemId.of(itemRelease.sourceOrderItemId());
-            ProductionItemState state = requireReleasableItem(sourceOrderId, itemId, itemRelease);
-            List<ResolvedMaterialLine> specLines = foundationQuery.materialLines(state);
-            List<PlannedMaterialLine> itemPlans =
-                    planBuilder.buildPlannedLines(
-                            state,
-                            itemRelease.releaseQuantity(),
-                            specLines,
-                            materialCatalog);
-            for (PlannedMaterialLine planned : itemPlans) {
-                plannedByKey.put(planned.stableKey(), planned);
-            }
-            itemResults.add(new ItemResult(itemId.value(), itemRelease.releaseQuantity()));
-            documentItemLines.add(
-                    new ProductionReleaseDocumentCommand.ItemLine(
-                            itemId.value(),
-                            state.specificationId().value(),
-                            BigDecimal.valueOf(itemRelease.releaseQuantity())));
-        }
-
+    private PreparedRelease prepareConfirmRelease(
+            ReleaseProductsCommand command,
+            List<ProductionItemState> lockedStates,
+            Map<UUID, StorageCellView> productionCells) {
+        PlanSnapshot snapshot = computePlanSnapshot(command.itemReleases(), lockedStates);
+        Map<String, PlannedMaterialLine> plannedByKey = indexPlannedLines(snapshot.plannedLines());
         Map<String, MaterialActualUsage> actualByKey = indexActualUsages(command, plannedByKey);
+
         List<MaterialResult> materialResults = new ArrayList<>(plannedByKey.size());
         for (PlannedMaterialLine planned : plannedByKey.values()) {
             MaterialActualUsage actual = actualByKey.get(planned.stableKey());
@@ -260,29 +261,87 @@ public final class ReleaseProductsService {
         }
 
         return new PreparedRelease(
+                snapshot.itemResults(),
+                snapshot.plannedLines(),
+                List.copyOf(materialResults),
+                snapshot.documentItemLines());
+    }
+
+    private PlanSnapshot computePlanSnapshot(
+            List<ItemRelease> itemReleases, List<ProductionItemState> states) {
+        List<MaterialReferenceEntry> materialCatalog =
+                warehouseAvailabilityQuery.listMaterialReferences();
+        Map<SourceOrderItemId, ProductionItemState> stateByItem = indexStatesByItem(states);
+
+        Map<String, PlannedMaterialLine> plannedByKey = new LinkedHashMap<>();
+        List<ItemResult> itemResults = new ArrayList<>();
+        List<ProductionReleaseDocumentCommand.ItemLine> documentItemLines = new ArrayList<>();
+
+        for (ItemRelease itemRelease : itemReleases) {
+            SourceOrderItemId itemId = SourceOrderItemId.of(itemRelease.sourceOrderItemId());
+            ProductionItemState state =
+                    requireReleasableItem(stateByItem, itemId, itemRelease.releaseQuantity());
+            List<ResolvedMaterialLine> specLines = foundationQuery.materialLines(state);
+            List<PlannedMaterialLine> itemPlans =
+                    planBuilder.buildPlannedLines(
+                            state,
+                            itemRelease.releaseQuantity(),
+                            specLines,
+                            materialCatalog);
+            for (PlannedMaterialLine planned : itemPlans) {
+                plannedByKey.put(planned.stableKey(), planned);
+            }
+            itemResults.add(new ItemResult(itemId.value(), itemRelease.releaseQuantity()));
+            documentItemLines.add(
+                    new ProductionReleaseDocumentCommand.ItemLine(
+                            itemId.value(),
+                            state.specificationId().value(),
+                            BigDecimal.valueOf(itemRelease.releaseQuantity())));
+        }
+
+        return new PlanSnapshot(
                 List.copyOf(itemResults),
                 List.copyOf(plannedByKey.values()),
-                List.copyOf(materialResults),
                 List.copyOf(documentItemLines));
     }
 
+    private void requireInProduction(SourceOrderId sourceOrderId, List<ProductionItemState> states) {
+        if (viewCalculator.calculate(sourceOrderId, states, Context.none()).status()
+                != OrderProductionViewStatus.IN_PRODUCTION) {
+            throw new ReleaseProductsException(
+                    "Release is allowed only when order Production View is IN_PRODUCTION");
+        }
+    }
+
+    private static Map<SourceOrderItemId, ProductionItemState> indexStatesByItem(
+            List<ProductionItemState> states) {
+        Map<SourceOrderItemId, ProductionItemState> byItem = new HashMap<>();
+        for (ProductionItemState state : states) {
+            ProductionItemState previous = byItem.put(state.sourceOrderItemId(), state);
+            if (previous != null) {
+                throw new ReleaseProductsException(
+                        "Ambiguous Production item state for item "
+                                + state.sourceOrderItemId().value());
+            }
+        }
+        return byItem;
+    }
+
     private ProductionItemState requireReleasableItem(
-            SourceOrderId sourceOrderId, SourceOrderItemId itemId, ItemRelease itemRelease) {
-        ProductionItemState state =
-                orderViewService.listItemStates(sourceOrderId).stream()
-                        .filter(candidate -> candidate.sourceOrderItemId().equals(itemId))
-                        .findFirst()
-                        .orElseThrow(
-                                () ->
-                                        new ReleaseProductsException(
-                                                "Production item state not found: " + itemId.value()));
+            Map<SourceOrderItemId, ProductionItemState> stateByItem,
+            SourceOrderItemId itemId,
+            long releaseQuantity) {
+        ProductionItemState state = stateByItem.get(itemId);
+        if (state == null) {
+            throw new ReleaseProductsException(
+                    "Production item state not found: " + itemId.value());
+        }
         if (state.status() != ProductionStatus.IN_PRODUCTION
                 && state.status() != ProductionStatus.PARTIALLY_RELEASED) {
             throw new ReleaseProductsException(
                     "Release rejected for item status " + state.status() + ": " + itemId.value());
         }
-        if (state.activeProductionQuantity().value().longValueExact()
-                < itemRelease.releaseQuantity()) {
+        if (state.activeProductionQuantity().value().longValueExact() < releaseQuantity) {
             throw new ReleaseProductsException(
                     "Release quantity exceeds active production quantity for item "
                             + itemId.value());
@@ -294,6 +353,15 @@ public final class ReleaseProductsService {
                     "Frozen specification unavailable for item " + itemId.value(), ex);
         }
         return state;
+    }
+
+    private static Map<String, PlannedMaterialLine> indexPlannedLines(
+            List<PlannedMaterialLine> plannedLines) {
+        Map<String, PlannedMaterialLine> plannedByKey = new LinkedHashMap<>();
+        for (PlannedMaterialLine planned : plannedLines) {
+            plannedByKey.put(planned.stableKey(), planned);
+        }
+        return plannedByKey;
     }
 
     private static void rejectDuplicateItems(List<ItemRelease> itemReleases) {
@@ -446,9 +514,8 @@ public final class ReleaseProductsService {
         if (!allocation.storageCellId().equals(result.storageCellId())) {
             throw new ReleaseProductsException("Warehouse consume storageCellId mismatch");
         }
-        if (result.quantity().compareTo(allocation.quantity()) != 0) {
-            throw new ReleaseProductsException("Warehouse consume quantity mismatch");
-        }
+        // OperationResult.quantity for CONSUMPTION is the post-operation stock level (Warehouse
+        // public contract); confirmed consumption amount is allocation.quantity() from the command.
     }
 
     private ProductionReleaseDocumentCommand toDocumentCommand(
@@ -473,6 +540,11 @@ public final class ReleaseProductsService {
         return new ProductionReleaseDocumentCommand(
                 sourceOrderId, releasedAt, prepared.documentItemLines(), materialLines);
     }
+
+    private record PlanSnapshot(
+            List<ItemResult> itemResults,
+            List<PlannedMaterialLine> plannedLines,
+            List<ProductionReleaseDocumentCommand.ItemLine> documentItemLines) {}
 
     private record PreparedRelease(
             List<ItemResult> itemResults,

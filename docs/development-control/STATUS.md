@@ -2,12 +2,12 @@
 
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation IN PROGRESS
-**Current Stage:** Stage 7 - IN PROGRESS / 65% (Start Gate PASSED)
+**Current Stage:** Stage 7 - IN PROGRESS / 66% (Start Gate PASSED)
 **Current Task:** none
-**Last completed task:** STAGE7-013 (Atomic Release + Consumption orchestration)
+**Last completed task:** STAGE7-013A (Release Preparation & Concurrency Correctness)
 **Active blockers:** NONE
 **Stage 6 Warehouse:** DONE
-**Stage 7 Production:** IN PROGRESS / 65%
+**Stage 7 Production:** IN PROGRESS / 66%
 **Stage 7 Start Gate:** PASSED
 **Full verify baseline:** GREEN
 **First READY implementation task:** STAGE7-014
@@ -73,9 +73,10 @@ STAGE7-011 = DONE (Receipt confirmation initiation)
 STAGE7-012 = DONE (Production Release document and plan/fact)
 STAGE7-012A = DONE (Partial Release Material Planning Contract)
 STAGE7-013 = DONE (Atomic Release + Consumption orchestration)
+STAGE7-013A = DONE (Release Preparation & Concurrency Correctness)
 STAGE7-014 = READY
 Active blockers = NONE
-Stage 7 Production = IN PROGRESS / 65%
+Stage 7 Production = IN PROGRESS / 66%
 Stage 7 Start Gate = PASSED
 Full reactor baseline = GREEN
 First READY implementation task = STAGE7-014
@@ -94,7 +95,7 @@ First READY implementation task = STAGE7-014
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
-| 7 | Production | IN PROGRESS | 65% |
+| 7 | Production | IN PROGRESS | 66% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 
@@ -133,5 +134,6 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - `STAGE7-012` completed: Production Release document (`production.release`) with durable plan/fact persistence (Flyway V29), `ProductionReleaseProcessor`, internal `ProductionReleaseDocumentService` gateway for STAGE7-013 (no standalone user `releaseProducts`), item-owned `ProductionItemState.release`, full pre-validation, POSTED immutability, UNPOST unsupported. No Warehouse Consumption. Partial-release material plan formula absent from Accepted docs → `BLK-STAGE7-PARTIAL-RELEASE-PLAN` OPEN; STAGE7-013 BLOCKED. Full `mvn test` / `mvn verify` BUILD SUCCESS.
 - `STAGE7-012A` completed: Accepted Production Specification **v2.3 §15.1.1** — cumulative proportional allocation for partial/repeated Release plan (`Q` = frozen `lineQuantity` on whole item, `N` = orderedQuantity, no `Q*N` double multiply; scale 6 HALF_UP; final Release closes exact `Q`). `BLK-STAGE7-PARTIAL-RELEASE-PLAN` RESOLVED. STAGE7-013 READY. Documentation-only; no business code. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-013` completed: `ReleaseProductsService` atomic Release + Warehouse Consumption orchestration (outer REQUIRED TX). System-computed partial plan per §15.1.1; confirmed actual + explicit production-warehouse cell allocations; `WarehouseCommandApi.consume`; internal document gateway; PostgreSQL rollback proofs. `ProductionReleased` deferred STAGE7-015. Full `mvn verify` BUILD SUCCESS.
-- Production implementation IN PROGRESS (65% by task-count: 17/26 Stage 7 tasks done through STAGE7-013, including 004A/004B/005A).
+- `STAGE7-013A` completed: corrective Release preview/confirm split (`PrepareReleaseCommand` without actual/cells); plan always recomputed inside outer TX on `SELECT … FOR UPDATE` whole-order lock via `ProductionOrderStateLockService`; `OrderProductionViewCalculator` on locked snapshot; stronger ArchUnit guard for `ProductionReleaseDocumentService`; PostgreSQL concurrent Release tests; existing rollback proofs preserved. Full `mvn verify` BUILD SUCCESS.
+- Production implementation IN PROGRESS (66% by task-count: 18/27 Stage 7 tasks done through STAGE7-013A, including 004A/004B/005A).
 - Next task: **STAGE7-014** (Production Cancellation) — READY.

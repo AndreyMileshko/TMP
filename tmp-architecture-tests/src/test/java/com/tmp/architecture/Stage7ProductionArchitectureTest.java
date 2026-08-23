@@ -582,17 +582,17 @@ class Stage7ProductionArchitectureTest {
     static final ArchRule productionReleaseDocumentServiceIsInternalGateway =
             noClasses()
                     .that()
-                    .resideInAPackage("com.tmp.production..")
+                    .doNotHaveSimpleName("ReleaseProductsService")
                     .and()
-                    .resideOutsideOfPackage("com.tmp.production.application.internal..")
+                    .doNotHaveSimpleName("ProductionReleaseDocumentService")
                     .and()
-                    .haveSimpleNameNotContaining("ReleaseProducts")
+                    .doNotHaveSimpleName("ProductionReleaseDocumentServiceTest")
                     .should()
                     .dependOnClassesThat()
                     .haveSimpleName("ProductionReleaseDocumentService")
                     .because(
-                            "Production Release document gateway is internal; business workflow must"
-                                    + " use ReleaseProductsService");
+                            "Production Release document gateway is internal; UI, bootstrap, public API"
+                                    + " and other orchestrators must use ReleaseProductsService only");
 
     @ArchTest
     static final ArchRule releaseProductsUsesWarehousePublicApiOnly =
@@ -610,6 +610,21 @@ class Stage7ProductionArchitectureTest {
                             "edu.umd.cs.findbugs.annotations..")
                     .because(
                             "STAGE7-013 Release orchestration must use Warehouse public API only");
+
+    @ArchTest
+    static final ArchRule productionOrderStateLockServiceUsesViewServiceOnly =
+            classes()
+                    .that()
+                    .haveSimpleName("ProductionOrderStateLockService")
+                    .should()
+                    .onlyDependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production.application..",
+                            "com.tmp.production.domain..",
+                            "java..")
+                    .because(
+                            "Whole-order Production locking boundary delegates to"
+                                    + " ProductionOrderViewService; no direct repository access");
 
     @ArchTest
     static final ArchRule releaseProductsMustNotUseWarehouseInternals =

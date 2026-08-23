@@ -57,4 +57,14 @@ public final class ProductionOrderViewService {
         Objects.requireNonNull(sourceOrderId, "sourceOrderId");
         return repository.findBySourceOrderId(sourceOrderId);
     }
+
+    /**
+     * Row-locks all item-owned Production states for the order within the ambient transaction.
+     *
+     * <p>Deterministic lock order: {@code sourceOrderItemId}, {@code specificationId}.
+     */
+    public List<ProductionItemState> lockAllItemStates(SourceOrderId sourceOrderId) {
+        Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+        return repository.findBySourceOrderIdForUpdate(sourceOrderId);
+    }
 }

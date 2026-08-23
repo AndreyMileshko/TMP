@@ -11061,11 +11061,70 @@ mvn verify
 
 ---
 
+## STAGE7-013A — Release Preparation & Concurrency Correctness
+
+**Status:** DONE
+**Stage:** 7
+**Depends on:** STAGE7-013
+**Module:** `tmp-production`
+
+### Goal
+
+Corrective closure for STAGE7-013 post-review gaps: preview without actual/cells, plan recomputed inside outer TX on locked state, reusable whole-order row-lock boundary, stronger internal Release gateway guard.
+
+### Required documents
+
+- Production Spec v2.3 §15, §15.1, §15.1.1, §15.2, §21, §24, §25;
+- ADR-036;
+- Document Engine Spec v1.2.
+
+### Allowed code scope
+
+- `PrepareReleaseCommand`, `ProductionOrderStateLockService`;
+- `ReleaseProductsService` preview/confirm split;
+- `ProductionOrderViewService.lockAllItemStates`;
+- `ProductionItemStateRepository.findBySourceOrderIdForUpdate`;
+- ArchUnit guard for `ProductionReleaseDocumentService`;
+- integration/concurrency tests; control docs.
+
+### Forbidden
+
+- STAGE7-014 Cancellation feature;
+- Domain Events / History / Security / UI;
+- Warehouse internals;
+- Saga / REQUIRES_NEW.
+
+### Acceptance criteria
+
+- [x] `prepareRelease` does not require actual usage or cell allocations;
+- [x] preview `defaultActual = planned`; no Warehouse/Production mutation;
+- [x] `releaseProducts` recomputes plan inside outer REQUIRED TX (no stale preview reuse);
+- [x] whole-order PostgreSQL row lock (`FOR UPDATE`, deterministic order);
+- [x] reusable locking boundary for future Cancellation;
+- [x] concurrent Release tests (serialization, cumulative plan, over-release);
+- [x] existing Consumption↔Release rollback tests PASS;
+- [x] ArchUnit blocks external dependency on `ProductionReleaseDocumentService`;
+- [x] foreign material-line item membership regression retained;
+- [x] STAGE7-014 unblocked → READY.
+
+### Verification commands
+
+```bash
+mvn -pl :tmp-production -am test
+mvn -pl :tmp-document-engine -am test
+mvn -pl :tmp-architecture-tests -am test
+mvn test
+mvn verify
+git diff --check
+```
+
+---
+
 ## STAGE7-014 — Production Cancellation
 
 **Status:** READY
 **Stage:** 7
-**Depends on:** STAGE7-005A
+**Depends on:** STAGE7-013A, STAGE7-005A
 **Module:** `tmp-production`
 
 ### Goal

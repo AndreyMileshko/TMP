@@ -79,13 +79,28 @@ public final class JdbcProductionItemStateRepository implements ProductionItemSt
     @Override
     public List<ProductionItemState> findBySourceOrderId(SourceOrderId sourceOrderId) {
         Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+        return queryStatesBySourceOrderId(sourceOrderId, false);
+    }
+
+    @Override
+    public List<ProductionItemState> findBySourceOrderIdForUpdate(SourceOrderId sourceOrderId) {
+        Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+        return queryStatesBySourceOrderId(sourceOrderId, true);
+    }
+
+    private List<ProductionItemState> queryStatesBySourceOrderId(
+            SourceOrderId sourceOrderId, boolean forUpdate) {
+        String sql =
+                SELECT_COLUMNS
+                        + """
+                         FROM production.production_item_states
+                         WHERE source_order_id = ?
+                         ORDER BY source_order_item_id, specification_id
+                        """
+                        + (forUpdate ? " FOR UPDATE" : "");
         return jdbcTemplate
                 .query(
-                        SELECT_COLUMNS
-                                + """
-                                 FROM production.production_item_states
-                                 WHERE source_order_id = ?
-                                """,
+                        sql,
                         (rs, rowNum) -> ProductionItemStateMapper.mapRow(rs),
                         sourceOrderId.value())
                 .stream()

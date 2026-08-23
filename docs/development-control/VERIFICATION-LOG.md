@@ -3,6 +3,37 @@
 ## Latest result
 
 **Date:** 2026-08-23
+**Scope:** STAGE7-013A — Release Preparation & Concurrency Correctness
+**Overall:** PASS
+
+| Check | Result |
+|-------|--------|
+| `PrepareReleaseCommand` preview without actual/cells | PASS |
+| preview `defaultActual = planned`; no mutations | PASS |
+| confirm plan inside outer TX on locked state | PASS |
+| preview not reused as source of truth | PASS |
+| whole-order `FOR UPDATE` row lock (deterministic order) | PASS |
+| `ProductionOrderStateLockService` reusable boundary | PASS |
+| PostgreSQL concurrent Release serialize | PASS |
+| cumulative plan concurrency (5.1 + 6.8 = 11.9) | PASS |
+| concurrent over-release (at most one of two release-4) | PASS |
+| Consumption failure rollback | PASS |
+| Release POST failure rollback after consume | PASS |
+| ArchUnit external `ProductionReleaseDocumentService` guard | PASS |
+| foreign material-line membership rejected | PASS |
+| Warehouse public API boundary preserved | PASS |
+| `git diff --check` | clean |
+| `mvn test` | PASS |
+| `mvn verify` | PASS |
+| STAGE7-013A | DONE |
+| STAGE7-014 | READY |
+| Git commit/push | NOT EXECUTED |
+
+---
+
+## Previous result (STAGE7-013)
+
+**Date:** 2026-08-23
 **Scope:** STAGE7-013 — Atomic Release + Consumption orchestration
 **Overall:** PASS
 
