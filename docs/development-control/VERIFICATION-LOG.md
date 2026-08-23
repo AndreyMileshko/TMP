@@ -3,6 +3,31 @@
 ## Latest result
 
 **Date:** 2026-08-21
+**Scope:** STAGE7-012 — Production Release document and plan/fact
+**Overall:** PASS
+**Type:** Production Release document; durable plan/fact; processor; internal gateway; no Warehouse Consumption
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-production -am test` | PASS (incl. ProductionRelease* domain/processor/document/JDBC/Postgres + Flyway V29) |
+| `mvn -pl :tmp-document-engine -am test` | PASS |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS (Stage7ProductionArchitectureTest: 39 rules incl. Release guards) |
+| Full / partial / repeated / over-release / status / multi-item / spec mismatch / plan-fact / durability / immutability | PASS |
+| Warehouse API / Consumption / stock | NONE |
+| Standalone user releaseProducts | NONE |
+| `BLK-STAGE7-PARTIAL-RELEASE-PLAN` | OPEN (blocks STAGE7-013) |
+| `mvn test` | PASS |
+| `mvn verify` | PASS (BUILD SUCCESS) |
+| `git diff --check` | clean (CRLF warnings only) |
+| STAGE7-012 | DONE |
+| STAGE7-013 | BLOCKED |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result (STAGE7-011)
+
+**Date:** 2026-08-21
 **Scope:** STAGE7-011 — Receipt confirmation initiation
 **Overall:** PASS
 **Type:** Production confirm receipt → Warehouse receiveTransfer; status pre-validation; REQUIRED TX rollback

@@ -522,4 +522,64 @@ class Stage7ProductionArchitectureTest {
                     .dependOnClassesThat()
                     .haveSimpleName("StockPosition")
                     .because("Production must not write or depend on Stock Position");
+
+    @ArchTest
+    static final ArchRule productionReleaseMustNotDependOnWarehouse =
+            noClasses()
+                    .that()
+                    .haveSimpleNameContaining("ProductionRelease")
+                    .or()
+                    .haveSimpleName("JdbcProductionReleaseRepository")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("com.tmp.warehouse..")
+                    .because(
+                            "STAGE7-012 Production Release must not call Warehouse API or touch "
+                                    + "Warehouse packages; Consumption is STAGE7-013");
+
+    @ArchTest
+    static final ArchRule productionReleaseMustNotDependOnOrderOrCuttingInternals =
+            noClasses()
+                    .that()
+                    .haveSimpleNameContaining("ProductionRelease")
+                    .or()
+                    .haveSimpleName("JdbcProductionReleaseRepository")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.order.application..",
+                            "com.tmp.order.domain..",
+                            "com.tmp.order.persistence..",
+                            "com.tmp.cutting..")
+                    .because(
+                            "Production Release processor loads durable payload only; no OM/Cutting "
+                                    + "queries");
+
+    @ArchTest
+    static final ArchRule productionReleaseProcessorDoesNotQueryExternally =
+            noClasses()
+                    .that()
+                    .haveSimpleName("ProductionReleaseProcessor")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.order..",
+                            "com.tmp.warehouse..",
+                            "com.tmp.cutting..")
+                    .because(
+                            "Release processor must not perform external capability queries");
+
+    @ArchTest
+    static final ArchRule noStandaloneUserFacingReleaseProductsService =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .and()
+                    .haveNameMatching(".*ReleaseProducts.*")
+                    .should()
+                    .beInterfaces()
+                    .because(
+                            "User-facing releaseProducts orchestration belongs to STAGE7-013; "
+                                    + "STAGE7-012 exposes only an internal document gateway")
+                    .allowEmptyShould(true);
 }

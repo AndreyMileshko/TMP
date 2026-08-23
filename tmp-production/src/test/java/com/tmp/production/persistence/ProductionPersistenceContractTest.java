@@ -12,6 +12,9 @@ class ProductionPersistenceContractTest {
         assertTrue(
                 ProductionItemStateRepository.class.isAssignableFrom(
                         JdbcProductionItemStateRepository.class));
+        assertTrue(
+                com.tmp.production.domain.repository.ProductionReleaseRepository.class
+                        .isAssignableFrom(JdbcProductionReleaseRepository.class));
     }
 
     @Test

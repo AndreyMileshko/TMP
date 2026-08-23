@@ -13,7 +13,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** Verifies production-owned Flyway migrations V23, V26, V27 and V28. */
+/** Verifies production-owned Flyway migrations V23, V26, V27, V28 and V29. */
 @Testcontainers
 class ProductionSchemaFlywayTest {
 
@@ -59,7 +59,10 @@ class ProductionSchemaFlywayTest {
                         "material_transfer_templates",
                         "material_transfers",
                         "production_item_cutting_plan_links",
-                        "production_item_states"),
+                        "production_item_states",
+                        "production_release_item_lines",
+                        "production_release_material_lines",
+                        "production_releases"),
                 tables);
     }
 
@@ -96,7 +99,7 @@ class ProductionSchemaFlywayTest {
     }
 
     @Test
-    void flywayRecordsV23V26V27AndV28Migrations() {
+    void flywayRecordsV23V26V27V28AndV29Migrations() {
         Integer applied23 =
                 jdbc.queryForObject(
                         """
@@ -125,10 +128,18 @@ class ProductionSchemaFlywayTest {
                         WHERE version = '28' AND success = TRUE
                         """,
                         Integer.class);
+        Integer applied29 =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '29' AND success = TRUE
+                        """,
+                        Integer.class);
         assertEquals(1, applied23);
         assertEquals(1, applied26);
         assertEquals(1, applied27);
         assertEquals(1, applied28);
+        assertEquals(1, applied29);
     }
 
     @Test
@@ -242,6 +253,7 @@ class ProductionSchemaFlywayTest {
                             tc.table_name LIKE 'material_transfer_template%'
                             OR tc.table_name IN (
                                 'material_transfers', 'material_transfer_operation_refs')
+                            OR tc.table_name LIKE 'production_release%'
                           )
                           AND tc.constraint_type = 'FOREIGN KEY'
                           AND ccu.table_schema <> 'production'

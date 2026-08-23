@@ -4,6 +4,60 @@
 
 ---
 
+## STAGE7-012 — Production Release document and plan/fact
+
+**Date:** 2026-08-21
+**Stage:** 7
+**Module:** `tmp-production`
+**Status:** DONE
+
+### Document
+
+- TypeId: `production.release`
+- `ProductionReleaseProcessor` — Document Engine lifecycle; loads durable payload; full pre-validation of all item lines before any `ProductionItemState` save; calls domain `release(...)`; marks payload posted.
+- UNPOST → `UnsupportedOperationException`.
+- No `ProductionReleased` domain event (deferred to STAGE7-015).
+
+### Domain / plan-fact
+
+- `ProductionRelease` aggregate keyed by Document Engine `documentId` (no extra ProductionReleaseId / ProductionOrder).
+- Item lines: `sourceOrderItemId` + frozen `specificationId` + `releaseQuantity` (>0); duplicate item rejected.
+- Material lines: exact `MaterialReferenceId`, `plannedQuantity`/`actualQuantity` (>=0 independently; fact may be < / = / > plan, including zero fact), `MaterialPlanningSource`, optional opaque `CuttingPlanId`, optional item traceability, optional comment.
+- Deviation as computed `actualMinusPlanned` (not stored column).
+
+### Persistence
+
+- Flyway `V29__production_release.sql`: `production.production_releases`, `_item_lines`, `_material_lines`.
+- FK only within `production` schema; opaque UUID refs (no OM/Warehouse/Cutting FK); no Revision columns.
+- `JdbcProductionReleaseRepository` — durable draft save / markPosted / findByDocumentId; POSTED immutable.
+
+### Application boundary
+
+- Internal `ProductionReleaseDocumentService` + `ProductionReleaseDocumentCommand`: createDraft / updateDraft / post / findReleaseByDocumentId / actualMaterialUsages.
+- `@Transactional` REQUIRED (joins ambient TX for STAGE7-013); no REQUIRES_NEW.
+- No standalone user-facing `releaseProducts(...)` bypassing Warehouse Consumption.
+
+### Blocker
+
+- Searched Accepted docs: no partial-release material plan scaling formula.
+- Created `BLK-STAGE7-PARTIAL-RELEASE-PLAN`; STAGE7-013 = BLOCKED.
+
+### Tests / architecture
+
+- Domain, processor, document service, JDBC durability, PostgreSQL IT, Flyway V29, Stage7ProductionArchitectureTest Release guards (no Warehouse/OM/Cutting; no ReleaseProducts*).
+
+### Verification
+
+- `mvn -pl :tmp-production -am test` PASS
+- `mvn -pl :tmp-document-engine -am test` PASS
+- `mvn -pl :tmp-architecture-tests -am test` PASS
+- `mvn test` PASS
+- `mvn verify` PASS
+- `git diff --check` clean (CRLF warnings only)
+- Git commit / push NOT EXECUTED
+
+---
+
 ## STAGE7-011 — Receipt confirmation initiation
 
 **Date:** 2026-08-21

@@ -14,24 +14,24 @@
 
 ## CONTROL-001 — Validate development sources
 
-**Status:** DONE  
-**Stage:** Control  
-**Goal:** Проверить наличие и непротиворечивость обязательных документов проекта перед генерацией полной очереди Stage 0.  
-**Required documents:** Constitution, ADR, Architecture Overview, Database Specification, Development Guide, Code Quality Standards, Master Implementation Plan, Cursor AI Guide.  
-**Allowed code scope:** none.  
-**Acceptance criteria:** сформирован реестр найденных документов; отсутствующие или конфликтующие документы зафиксированы как blockers; `CONTEXT-MAP.md` актуализирован.  
-**Verification:** ручная сверка путей и статусов документов.  
+**Status:** DONE
+**Stage:** Control
+**Goal:** Проверить наличие и непротиворечивость обязательных документов проекта перед генерацией полной очереди Stage 0.
+**Required documents:** Constitution, ADR, Architecture Overview, Database Specification, Development Guide, Code Quality Standards, Master Implementation Plan, Cursor AI Guide.
+**Allowed code scope:** none.
+**Acceptance criteria:** сформирован реестр найденных документов; отсутствующие или конфликтующие документы зафиксированы как blockers; `CONTEXT-MAP.md` актуализирован.
+**Verification:** ручная сверка путей и статусов документов.
 **Next on success:** CONTROL-002.
 
 ## CONTROL-002 — Build Stage 0 task queue
 
-**Status:** DONE  
-**Stage:** Control  
-**Goal:** Декомпозировать Stage 0 в готовые автономные задачи на основании архитектуры и Master Implementation Plan.  
-**Required documents:** Stage 0 Manifest и документы, подтверждённые CONTROL-001.  
-**Allowed code scope:** none.  
-**Acceptance criteria:** все задачи Stage 0 имеют Scope, контекст, критерии, проверки и зависимости; первая задача Stage 0 получила READY.  
-**Verification:** проверка соответствия task-size rules и Stage 0 exit criteria.  
+**Status:** DONE
+**Stage:** Control
+**Goal:** Декомпозировать Stage 0 в готовые автономные задачи на основании архитектуры и Master Implementation Plan.
+**Required documents:** Stage 0 Manifest и документы, подтверждённые CONTROL-001.
+**Allowed code scope:** none.
+**Acceptance criteria:** все задачи Stage 0 имеют Scope, контекст, критерии, проверки и зависимости; первая задача Stage 0 получила READY.
+**Verification:** проверка соответствия task-size rules и Stage 0 exit criteria.
 **Next on success:** первая READY-задача Stage 0.
 
 ---
@@ -40,9 +40,9 @@
 
 ## STAGE0-001 — Bootstrap repository reactor and parent pom
 
-**Status:** DONE  
-**Stage:** 0  
-**Depends on:** CONTROL-002  
+**Status:** DONE
+**Stage:** 0
+**Depends on:** CONTROL-002
 **Module:** root reactor
 
 ### Goal
@@ -102,9 +102,9 @@ mvn -q -DskipTests validate
 
 ## STAGE0-002 — Configure dependency and plugin management baseline
 
-**Status:** DONE  
-**Stage:** 0  
-**Depends on:** STAGE0-001  
+**Status:** DONE
+**Stage:** 0
+**Depends on:** STAGE0-001
 **Module:** root reactor
 
 ### Goal
@@ -160,9 +160,9 @@ mvn -q -DskipTests help:effective-pom
 
 ## STAGE0-003 — Wire formatting and static analysis gates
 
-**Status:** DONE  
-**Stage:** 0  
-**Depends on:** STAGE0-002  
+**Status:** DONE
+**Stage:** 0
+**Depends on:** STAGE0-002
 **Module:** build quality
 
 ### Goal
@@ -216,9 +216,9 @@ mvn -q verify -DskipTests
 
 ## STAGE0-004 — Establish test baseline and test module conventions
 
-**Status:** DONE  
-**Stage:** 0  
-**Depends on:** STAGE0-002  
+**Status:** DONE
+**Stage:** 0
+**Depends on:** STAGE0-002
 **Module:** test baseline
 
 ### Goal
@@ -273,9 +273,9 @@ mvn -q test
 
 ## STAGE0-005 — Create Spring composition root skeleton
 
-**Status:** DONE  
-**Stage:** 0  
-**Depends on:** STAGE0-001  
+**Status:** DONE
+**Stage:** 0
+**Depends on:** STAGE0-001
 **Module:** app-bootstrap
 
 ### Goal
@@ -329,9 +329,9 @@ mvn -q -pl :app-bootstrap test
 
 ## STAGE0-006 — Implement JavaFX empty shell bootstrap
 
-**Status:** DONE  
-**Stage:** 0  
-**Depends on:** STAGE0-005  
+**Status:** DONE
+**Stage:** 0
+**Depends on:** STAGE0-005
 **Module:** ui-shell
 
 ### Goal
@@ -386,9 +386,9 @@ mvn -q -pl :ui-shell test
 
 ## STAGE0-007 — Configure PostgreSQL connectivity profiles
 
-**Status:** DONE  
-**Stage:** 0  
-**Depends on:** STAGE0-005  
+**Status:** DONE
+**Stage:** 0
+**Depends on:** STAGE0-005
 **Module:** infra-db
 
 ### Goal
@@ -443,9 +443,9 @@ mvn -q -pl :infra-db test
 
 ## STAGE0-008 — Add Flyway baseline migration flow
 
-**Status:** DONE  
-**Stage:** 0  
-**Depends on:** STAGE0-007  
+**Status:** DONE
+**Stage:** 0
+**Depends on:** STAGE0-007
 **Module:** infra-db
 
 ### Goal
@@ -500,9 +500,9 @@ mvn -q -pl :infra-db verify
 
 ## STAGE0-009 — Integrate Testcontainers for PostgreSQL tests
 
-**Status:** DONE  
-**Stage:** 0  
-**Depends on:** STAGE0-008  
+**Status:** DONE
+**Stage:** 0
+**Depends on:** STAGE0-008
 **Module:** integration-test infra
 
 ### Goal
@@ -557,9 +557,9 @@ mvn -q -pl :infra-db failsafe:integration-test failsafe:verify
 
 ## STAGE0-010 — Create ArchUnit baseline architecture tests
 
-**Status:** DONE  
-**Stage:** 0  
-**Depends on:** STAGE0-001  
+**Status:** DONE
+**Stage:** 0
+**Depends on:** STAGE0-001
 **Module:** architecture-tests
 
 ### Goal
@@ -615,9 +615,9 @@ mvn -q verify -DskipITs
 
 ## STAGE0-011 — Configure logging, runtime profiles, and packaging
 
-**Status:** DONE  
-**Stage:** 0  
-**Depends on:** STAGE0-006  
+**Status:** DONE
+**Stage:** 0
+**Depends on:** STAGE0-006
 **Module:** runtime-packaging
 
 ### Goal
@@ -673,9 +673,9 @@ mvn -q -Ppackage verify
 
 ## STAGE0-012 — Run complete Stage 0 verification gate
 
-**Status:** DONE  
-**Stage:** 0  
-**Depends on:** STAGE0-003, STAGE0-004, STAGE0-006, STAGE0-008, STAGE0-009, STAGE0-010, STAGE0-011  
+**Status:** DONE
+**Stage:** 0
+**Depends on:** STAGE0-003, STAGE0-004, STAGE0-006, STAGE0-008, STAGE0-009, STAGE0-010, STAGE0-011
 **Module:** cross-stage
 
 ### Goal
@@ -735,9 +735,9 @@ mvn -q verify
 
 ## STAGE1-001 — Bootstrap tmp-platform-core module and Core API boundaries
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE0-012  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE0-012
 **Module:** tmp-platform-core
 
 ### Goal
@@ -784,9 +784,9 @@ mvn -q -DskipTests validate
 
 ## STAGE1-002 — Define PlatformComponent contract and module metadata
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-001  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-001
 **Module:** tmp-platform-core
 
 ### Goal
@@ -833,9 +833,9 @@ mvn -q -pl :tmp-platform-core test
 
 ## STAGE1-003 — Implement Platform Registry
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-002  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-002
 **Module:** tmp-platform-core
 
 ### Goal
@@ -882,9 +882,9 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultPlatformRegistryTest
 
 ## STAGE1-004 — Implement Service Registry
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-002  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-002
 **Module:** tmp-platform-core
 
 ### Goal
@@ -931,9 +931,9 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultServiceRegistryTest
 
 ## STAGE1-005 — Implement Capability Registry
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-002  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-002
 **Module:** tmp-platform-core
 
 ### Goal
@@ -980,9 +980,9 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultCapabilityRegistryTest
 
 ## STAGE1-006 — Define Event Bus contracts
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-001  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-001
 **Module:** tmp-platform-core
 
 ### Goal
@@ -1029,9 +1029,9 @@ mvn -q -pl :tmp-platform-core compile
 
 ## STAGE1-007 — Implement synchronous Event Bus
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-006  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-006
 **Module:** tmp-platform-core
 
 ### Goal
@@ -1078,9 +1078,9 @@ mvn -q -pl :tmp-platform-core test -Dtest=SynchronousEventBusTest
 
 ## STAGE1-008 — Implement Lifecycle Management
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-002, STAGE1-003  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-002, STAGE1-003
 **Module:** tmp-platform-core
 
 ### Goal
@@ -1127,9 +1127,9 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultLifecycleManagerTest
 
 ## STAGE1-009 — Implement Platform Configuration access
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-001  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-001
 **Module:** tmp-platform-core
 
 ### Goal
@@ -1176,9 +1176,9 @@ mvn -q -pl :tmp-platform-core test -Dtest=PlatformCoreAutoConfigurationTest
 
 ## STAGE1-010 — Wire Platform Core into bootstrap
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-003..STAGE1-009  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-003..STAGE1-009
 **Module:** tmp-bootstrap-app, tmp-platform-core
 
 ### Goal
@@ -1225,9 +1225,9 @@ mvn -q -pl :tmp-bootstrap-app verify
 
 ## STAGE1-011 — Add Stage 1 architecture tests
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-010  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-010
 **Module:** tmp-architecture-tests
 
 ### Goal
@@ -1274,9 +1274,9 @@ mvn -q -pl :tmp-architecture-tests test
 
 ## STAGE1-012 — Minimal platform status UI visibility
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-010  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-010
 **Module:** tmp-ui-shell, tmp-bootstrap-app
 
 ### Goal
@@ -1323,9 +1323,9 @@ mvn -q -pl :tmp-ui-shell test
 
 ## STAGE1-013 — Run complete Stage 1 verification gate
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-003..STAGE1-012  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-003..STAGE1-012
 **Module:** cross-stage
 
 ### Goal
@@ -1373,9 +1373,9 @@ mvn clean verify -Ppackage
 
 ## STAGE1-014 — Fix Stage 1 acceptance review blockers (BLK-005..007)
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-013  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-013
 **Module:** tmp-platform-core, tmp-bootstrap-app, tmp-architecture-tests
 
 ### Goal
@@ -1471,9 +1471,9 @@ Manual: `dist/jpackage/TMP/TMP.exe` with `TMP_DB_URL`, `TMP_DB_USERNAME`, `TMP_D
 
 ## STAGE2-022 — Registry rollback compensation (BLK-011 reopen)
 
-**Status:** DONE  
-**Stage:** 2  
-**Depends on:** STAGE2-021  
+**Status:** DONE
+**Stage:** 2
+**Depends on:** STAGE2-021
 **Module:** tmp-document-engine
 
 ### Goal
@@ -1527,9 +1527,9 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineRegistration*
 
 ## STAGE2-023 — After-commit handler failure policy (BLK-013)
 
-**Status:** DONE  
-**Stage:** 2  
-**Depends on:** STAGE2-022  
+**Status:** DONE
+**Stage:** 2
+**Depends on:** STAGE2-022
 **Module:** tmp-document-engine
 
 ### Goal
@@ -1581,9 +1581,9 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineTransactionEven
 
 ## STAGE2-024 — PostgreSQL Testcontainers Document Engine ITs
 
-**Status:** DONE  
-**Stage:** 2  
-**Depends on:** STAGE2-023  
+**Status:** DONE
+**Stage:** 2
+**Depends on:** STAGE2-023
 **Module:** tmp-document-engine
 
 ### Goal
@@ -1640,9 +1640,9 @@ mvn -q -pl :tmp-document-engine test -Dtest=*Postgres*
 
 ## STAGE2-025 — FK document_type_id decision and invariant
 
-**Status:** DONE  
-**Stage:** 2  
-**Depends on:** STAGE2-022  
+**Status:** DONE
+**Stage:** 2
+**Depends on:** STAGE2-022
 **Module:** tmp-document-engine
 
 ### Goal
@@ -1693,9 +1693,9 @@ mvn -q -pl :tmp-document-engine test -Dtest=*Registration*,*Postgres*,*Lifecycle
 
 ## STAGE2-026 — Final Stage 2 re-verification gate (re-review)
 
-**Status:** DONE  
-**Stage:** 2  
-**Depends on:** STAGE2-022..STAGE2-025  
+**Status:** DONE
+**Stage:** 2
+**Depends on:** STAGE2-022..STAGE2-025
 **Module:** cross-stage
 
 ### Goal
@@ -1750,9 +1750,9 @@ Manual: `dist/jpackage/TMP/TMP.exe`
 
 ## STAGE2-017 — Fix duplicate DocumentEngine beans (BLK-010)
 
-**Status:** DONE  
-**Stage:** 2  
-**Depends on:** STAGE2-016  
+**Status:** DONE
+**Stage:** 2
+**Depends on:** STAGE2-016
 **Module:** tmp-document-engine, tmp-bootstrap-app
 
 ### Goal
@@ -1808,9 +1808,9 @@ mvn -q -pl :tmp-bootstrap-app test -Dtest=SpringContextSmokeTest,DocumentEngineB
 
 ## STAGE2-018 — Atomic processor registration (BLK-011)
 
-**Status:** DONE  
-**Stage:** 2  
-**Depends on:** STAGE2-017  
+**Status:** DONE
+**Stage:** 2
+**Depends on:** STAGE2-017
 **Module:** tmp-document-engine
 
 ### Goal
@@ -1862,9 +1862,9 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineRegistrationTes
 
 ## STAGE2-019 — Post-commit event publishing (BLK-012)
 
-**Status:** DONE  
-**Stage:** 2  
-**Depends on:** STAGE2-018  
+**Status:** DONE
+**Stage:** 2
+**Depends on:** STAGE2-018
 **Module:** tmp-document-engine
 
 ### Goal
@@ -1916,9 +1916,9 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineTransactionEven
 
 ## STAGE2-020 — Expanded lifecycle/rollback/concurrency tests
 
-**Status:** DONE  
-**Stage:** 2  
-**Depends on:** STAGE2-019  
+**Status:** DONE
+**Stage:** 2
+**Depends on:** STAGE2-019
 **Module:** tmp-document-engine, tmp-bootstrap-app
 
 ### Goal
@@ -1970,9 +1970,9 @@ mvn -q -pl :tmp-document-engine,:tmp-bootstrap-app test
 
 ## STAGE2-021 — Final Stage 2 re-verification gate
 
-**Status:** DONE  
-**Stage:** 2  
-**Depends on:** STAGE2-017..STAGE2-020  
+**Status:** DONE
+**Stage:** 2
+**Depends on:** STAGE2-017..STAGE2-020
 **Module:** cross-stage
 
 ### Goal
@@ -2027,9 +2027,9 @@ Manual: `dist/jpackage/TMP/TMP.exe`
 
 ## STAGE1-016 — Fix registration/lifecycle race condition (BLK-009)
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-015  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-015
 **Module:** tmp-platform-core
 
 ### Goal
@@ -2083,9 +2083,9 @@ mvn clean verify -Ppackage
 
 ## STAGE1-015 — Fix Stage 1 re-review remaining defects (BLK-008)
 
-**Status:** DONE  
-**Stage:** 1  
-**Depends on:** STAGE1-014  
+**Status:** DONE
+**Stage:** 1
+**Depends on:** STAGE1-014
 **Module:** tmp-platform-core, tmp-bootstrap-app, tmp-architecture-tests
 
 ### Goal
@@ -2156,9 +2156,9 @@ mvn clean verify -Ppackage
 
 ## STAGE3-001 — Bootstrap `tmp-capability-engine` module and public API package skeleton
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE2-026  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE2-026
 **Module:** tmp-capability-engine (new)
 
 ### Goal
@@ -2227,9 +2227,9 @@ mvn -q -pl :tmp-capability-engine compile
 
 ## STAGE3-002 — CapabilityId and CapabilityVersion value objects with version compatibility rule
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-001  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-001
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -2298,9 +2298,9 @@ Stable, fully-tested identity and version value objects usable by every later de
 
 ## STAGE3-003 — Dependency descriptor and dependency validation error contract
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-002  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-002
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -2364,9 +2364,9 @@ A reusable, precise dependency contract ready for graph validation.
 
 ## STAGE3-004 — Command, View, Navigation and Permission descriptor contracts
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-002  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-002
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -2436,9 +2436,9 @@ Four independent, fully-tested UI/command metadata contracts with zero business 
 
 ## STAGE3-005 — Public service, event, settings and document contribution contracts
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-002  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-002
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -2508,9 +2508,9 @@ Complete, fully-tested set of integration-facing contribution contracts ready to
 
 ## STAGE3-006 — CapabilityDescriptor aggregate, CapabilityLifecycleState and Capability SPI contract
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-003, STAGE3-004, STAGE3-005  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-003, STAGE3-004, STAGE3-005
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -2579,9 +2579,9 @@ The complete, immutable Capability contract required by the specification, ready
 
 ## STAGE3-007 — Capability Registry (read-only catalog, uniqueness, immutable snapshots)
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-006  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-006
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -2652,9 +2652,9 @@ A thread-safe, in-memory, immutable-snapshot capability catalog ready to back di
 
 ## STAGE3-008 — Capability lifecycle state machine (allowed transitions)
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-006  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-006
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -2727,9 +2727,9 @@ An explicit, exhaustively-tested state transition contract that the lifecycle ma
 
 ## STAGE3-009 — Discovery of Capability beans (Spring composition, deterministic ordering)
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-007  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-007
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -2794,9 +2794,9 @@ A minimal, framework-light discovery step producing a deterministic, duplicate-c
 
 ## STAGE3-010 — Dependency graph validation (missing/self/duplicate/version/cycles) and topological order
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-003, STAGE3-009  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-003, STAGE3-009
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -2872,9 +2872,9 @@ A fully-tested, deterministic dependency validator and topological sorter, the f
 
 ## STAGE3-011 — Internal contribution catalogs (permission, command, view, navigation, settings, event descriptor)
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-004, STAGE3-005, STAGE3-007  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-004, STAGE3-005, STAGE3-007
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -2946,9 +2946,9 @@ Six consistent, owner-tracked, atomically-rollback-able contribution catalogs re
 
 ## STAGE3-012 — Atomic registration orchestrator (Document Engine + Platform Core external contributions with rollback)
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-010, STAGE3-011  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-010, STAGE3-011
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -3028,9 +3028,9 @@ A single, fully-tested atomic registration entry point satisfying the specificat
 
 ## STAGE3-013 — Lifecycle manager: initialization order, activation/deactivation, dependents check, reverse shutdown
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-008, STAGE3-010, STAGE3-012  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-008, STAGE3-010, STAGE3-012
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -3104,9 +3104,9 @@ A fully-tested lifecycle manager enforcing correct ordering, activation guards, 
 
 ## STAGE3-014 — CapabilityEngine public facade and status snapshot
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-009, STAGE3-013  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-009, STAGE3-013
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -3178,9 +3178,9 @@ A stable, minimal public `CapabilityEngine` API — the only type external modul
 
 ## STAGE3-015 — Spring Boot auto-configuration and Platform Core component registration
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-014  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-014
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -3246,9 +3246,9 @@ Capability Engine is a properly auto-configured, singly-registered Platform Core
 
 ## STAGE3-016 — Sample technical Capability (end-to-end fixture, no business logic)
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-015  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-015
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -3317,9 +3317,9 @@ A complete, non-business, end-to-end proof that a new Capability can be discover
 
 ## STAGE3-017 — Bootstrap integration and minimal technical capability status UI
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-016  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-016
 **Module:** tmp-bootstrap-app, tmp-ui-shell
 
 ### Goal
@@ -3385,9 +3385,9 @@ The packaged desktop application exposes Capability Engine's technical status al
 
 ## STAGE3-018 — Stage 3 architecture tests
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-017  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-017
 **Module:** tmp-architecture-tests
 
 ### Goal
@@ -3457,9 +3457,9 @@ Automated, permanent enforcement of every module-boundary rule mandated for Stag
 
 ## STAGE3-019 — PostgreSQL Testcontainers integration test for document contribution
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-016  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-016
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -3524,9 +3524,9 @@ Verified, real-database proof of atomic document contribution registration and r
 
 ## STAGE3-020 — Concurrency tests (registration race, activation/deactivation race, snapshot safety)
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-013  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-013
 **Module:** tmp-capability-engine
 
 ### Goal
@@ -3591,9 +3591,9 @@ Deterministic proof that Capability Engine's shared state survives concurrent re
 
 ## STAGE3-021 — Final Stage 3 verification gate
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-001..STAGE3-020  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-001..STAGE3-020
 **Module:** cross-stage
 
 ### Goal
@@ -3661,9 +3661,9 @@ Stage 3 fully verified end-to-end; `STATUS.md` updated to `Stage 3: DONE 100%`; 
 
 ## STAGE3-022 — Stage 3 acceptance rework (BLK-014)
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-021  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-021
 **Module:** `tmp-platform-core`, `tmp-document-engine`, `tmp-capability-engine`
 
 ### Goal
@@ -3710,9 +3710,9 @@ Stage 3 returned to IN_PROGRESS during rework; ready for `STAGE3-023` full re-ve
 
 ## STAGE3-023 — Re-verification gate after acceptance rework
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-022  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-022
 **Module:** cross-stage
 
 ### Goal
@@ -3743,9 +3743,9 @@ Manual: `dist/jpackage/TMP/TMP.exe`
 
 ## STAGE3-024 — Lifecycle contribution cleanup (BLK-015)
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-023  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-023
 **Module:** `tmp-capability-engine`
 
 ### Goal
@@ -3788,9 +3788,9 @@ Stage 3 re-verified; stop before Stage 4.
 
 ## STAGE3-025 — Re-verification gate after BLK-015
 
-**Status:** DONE  
-**Stage:** 3  
-**Depends on:** STAGE3-024  
+**Status:** DONE
+**Stage:** 3
+**Depends on:** STAGE3-024
 **Module:** cross-stage
 
 ### Goal
@@ -6510,10 +6510,10 @@ Automated, durable enforcement of every Stage 4 architectural boundary.
 
 ## STAGE4-040 — Final Stage 4 verification gate
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-039, STAGE4-030, STAGE4-041, STAGE4-042, STAGE4-043, STAGE4-044, STAGE4-045, STAGE4-046, STAGE4-047, STAGE4-048, STAGE4-049, STAGE4-050, STAGE4-051, STAGE4-052, STAGE4-053  
-**Module:** cross-stage  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-039, STAGE4-030, STAGE4-041, STAGE4-042, STAGE4-043, STAGE4-044, STAGE4-045, STAGE4-046, STAGE4-047, STAGE4-048, STAGE4-049, STAGE4-050, STAGE4-051, STAGE4-052, STAGE4-053
+**Module:** cross-stage
 **Closed by:** STAGE4-054 (2026-07-24)
 
 ### Goal
@@ -6575,9 +6575,9 @@ Stage 4 fully DONE; explicit stop before Stage 5 per governance §9 ("завер
 
 ## STAGE4-041 — Authentication transaction and session consistency
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-039, BLK-016  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-039, BLK-016
 **Module:** `tmp-security`
 
 ### Goal
@@ -6644,9 +6644,9 @@ Login audit/session consistency matches Security Specification and BLK-016 block
 
 ## STAGE4-042 — Login timing side-channel mitigation
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-041  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-041
 **Module:** `tmp-security`
 
 ### Goal
@@ -6705,9 +6705,9 @@ No login-existence timing oracle via skipped BCrypt.
 
 ## STAGE4-043 — Atomic bootstrap administrator and unique role name
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-042  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-042
 **Module:** `tmp-security`
 
 ### Goal
@@ -6768,9 +6768,9 @@ Bootstrap is race-safe and atomic.
 
 ## STAGE4-044 — Remove bootstrap secret defaults from repository YAML
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-043  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-043
 **Module:** `tmp-bootstrap-app`
 
 ### Goal
@@ -6828,9 +6828,9 @@ No bootstrap secrets in repository defaults.
 
 ## STAGE4-045 — Permission ownership migration and synchronization
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-044  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-044
 **Module:** `tmp-security`
 
 ### Goal
@@ -6888,9 +6888,9 @@ Permission definitions are capability-owned and sync-safe.
 
 ## STAGE4-046 — Deleted user cannot keep an active secured session
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-045  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-045
 **Module:** `tmp-security`
 
 ### Goal
@@ -6948,9 +6948,9 @@ Logical delete immediately stops secured access for that user.
 
 ## STAGE4-047 — Idempotent document contribution registration on restart
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-046  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-046
 **Module:** `tmp-capability-engine`
 
 ### Goal
@@ -7010,9 +7010,9 @@ Packaged app restart is stable with persisted document types.
 
 ## STAGE4-048 — VERIFICATION-LOG remediation for Stage 4
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-047  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-047
 **Module:** docs
 
 ### Goal
@@ -7070,9 +7070,9 @@ Verification log is trustworthy for Stage 4 review.
 
 ## STAGE4-049 — Legacy permission ownership claim on V4→V5 upgrade
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-048, BLK-017  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-048, BLK-017
 **Module:** `tmp-security`
 
 ### Goal
@@ -7135,9 +7135,9 @@ Existing V4 DBs upgrade through V5 and Security startup without ownership confli
 
 ## STAGE4-050 — Logout clears session on audit failure
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-049  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-049
 **Module:** `tmp-security`
 
 ### Goal
@@ -7195,9 +7195,9 @@ Logout always ends authentication even if audit write fails.
 
 ## STAGE4-051 — Close prior session before login attempt
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-050  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-050
 **Module:** `tmp-security`
 
 ### Goal
@@ -7255,9 +7255,9 @@ Login failure never leaves a prior authenticated session.
 
 ## STAGE4-052 — Login vs user-delete race: status re-check before session open
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-051  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-051
 **Module:** `tmp-security`
 
 ### Goal
@@ -7314,9 +7314,9 @@ Login/delete race cannot authenticate a deleted user.
 
 ## STAGE4-053 — Automated verification after BLK-017 fixes
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-049, STAGE4-050, STAGE4-051, STAGE4-052  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-049, STAGE4-050, STAGE4-051, STAGE4-052
 **Module:** cross-stage
 
 ### Goal
@@ -7379,9 +7379,9 @@ Automated residual gate green; STAGE4-040 waiting on user GUI confirmation.
 
 ## STAGE4-054 — Final Stage 4 close after manual packaged GUI confirmation
 
-**Status:** DONE  
-**Stage:** 4  
-**Depends on:** STAGE4-040, STAGE4-053  
+**Status:** DONE
+**Stage:** 4
+**Depends on:** STAGE4-040, STAGE4-053
 **Module:** cross-stage
 
 ### Goal
@@ -7455,9 +7455,9 @@ Stage 4 fully closed; non-blocking pagination encoding backlog only; explicit st
 
 ## BACKLOG-001 — Fix Security Audit pagination text encoding
 
-**Status:** PLANNED  
-**Stage:** Backlog (post–Stage 4; does not block Stage 4 close)  
-**Depends on:** STAGE4-054  
+**Status:** PLANNED
+**Stage:** Backlog (post–Stage 4; does not block Stage 4 close)
+**Depends on:** STAGE4-054
 **Module:** `tmp-ui-shell` (Security Audit Screen)
 
 ### Goal
@@ -9019,9 +9019,9 @@ User FAIL or incomplete smoke — N/A (PASS recorded).
 
 ## STAGE5-058 — Imported Order Lifecycle + Final STXT Contract
 
-**Status:** DONE  
-**Stage:** 5 (post-closure improvement; Stage 5 Final Closure 2026-08-06)  
-**Depends on:** STAGE5-057  
+**Status:** DONE
+**Stage:** 5 (post-closure improvement; Stage 5 Final Closure 2026-08-06)
+**Depends on:** STAGE5-057
 **Module:** `tmp-order-management` (primary); `tmp-ui-shell`; Flyway `V13`+`V14`
 
 ### Goal
@@ -9117,8 +9117,8 @@ Conflict with ADR-031 final; verification failure outside Scope; start of Stage 
 
 ## Stage 5 — FINAL CLOSURE
 
-**Status:** DONE  
-**Date:** 2026-08-06  
+**Status:** DONE
+**Date:** 2026-08-06
 **Depends on:** STAGE5-057 DONE, STAGE5-058 DONE (+ Manual GUI Smoke PASS)
 
 ### Fixed status
@@ -9132,10 +9132,10 @@ Conflict with ADR-031 final; verification failure outside Scope; start of Stage 
 
 ### Delivered (summary)
 
-Order Management: create order; create items; revisions; specifications; approve lifecycle.  
-Import: trusted STXT → Import Core → Approve flow → uniform ACTIVE (Order/Item/Revision/Specification).  
-No ImportMetadata / sourceType / creationSource / separate import lifecycle.  
-STXT: multi-order file; Order→Item→Specification; qty = copies / norm per 1 copy (no multiply); `@`/`#` skip; `кв.м.` → `шт.` with size moved to name.  
+Order Management: create order; create items; revisions; specifications; approve lifecycle.
+Import: trusted STXT → Import Core → Approve flow → uniform ACTIVE (Order/Item/Revision/Specification).
+No ImportMetadata / sourceType / creationSource / separate import lifecycle.
+STXT: multi-order file; Order→Item→Specification; qty = copies / norm per 1 copy (no multiply); `@`/`#` skip; `кв.м.` → `шт.` with size moved to name.
 ACTIVE: read-only; changes only via Revision N+1.
 
 ### Out of scope (unchanged / not started)
@@ -9150,16 +9150,16 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 # Stage 6 — Warehouse
 
-**Status:** DONE  
+**Status:** DONE
 **Stage goal:** Implement Warehouse v1.0 strictly by `Warehouse-Specification.md` v1.3.
 
 > Stage 6 implementation decomposition prepared. No Stage 6 production development started in this planning update.
 
 ## STAGE6-001 — Warehouse module foundation
 
-**Status:** DONE  
-**Stage:** 6  
-**Depends on:** Stage 5 = DONE  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** Stage 5 = DONE
 **Module:** `tmp-warehouse`
 
 ### Goal
@@ -9199,9 +9199,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-002 — Warehouse domain model
 
-**Status:** DONE  
-**Stage:** 6  
-**Depends on:** STAGE6-001  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-001
 **Module:** `tmp-warehouse`
 
 ### Goal
@@ -9367,9 +9367,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-007 — Receipt
 
-**Status:** DONE  
-**Stage:** 6  
-**Depends on:** STAGE6-006  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-006
 **Module:** `tmp-warehouse`
 
 ### Goal
@@ -9400,9 +9400,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-008 — Move
 
-**Status:** DONE  
-**Stage:** 6  
-**Depends on:** STAGE6-007  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-007
 **Module:** `tmp-warehouse`
 
 ### Goal
@@ -9433,9 +9433,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-009 — Transfer
 
-**Status:** DONE  
-**Stage:** 6  
-**Depends on:** STAGE6-008  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-008
 **Module:** `tmp-warehouse`
 
 ### Goal
@@ -9466,9 +9466,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-010 — Consumption
 
-**Status:** DONE  
-**Stage:** 6  
-**Depends on:** STAGE6-009  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-009
 **Module:** `tmp-warehouse`
 
 ### Goal
@@ -9499,9 +9499,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-011 — Inventory
 
-**Status:** DONE  
-**Stage:** 6  
-**Depends on:** STAGE6-010  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-010
 **Module:** `tmp-warehouse`
 
 ### Goal
@@ -9532,9 +9532,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-012 — Public API
 
-**Status:** DONE  
-**Stage:** 6  
-**Depends on:** STAGE6-011  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-011
 **Module:** `tmp-warehouse-api`, `tmp-warehouse`
 
 ### Goal
@@ -9565,9 +9565,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-013 — Security integration
 
-**Status:** DONE  
-**Stage:** 6  
-**Depends on:** STAGE6-012  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-012
 **Module:** `tmp-warehouse`, `tmp-security`
 
 ### Goal
@@ -9598,9 +9598,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-014 — UI
 
-**Status:** DONE  
-**Stage:** 6  
-**Depends on:** STAGE6-013  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-013
 **Module:** `tmp-ui-shell`
 
 ### Goal
@@ -9833,9 +9833,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ## STAGE6-016 — Warehouse UI + Security Roles UI final UX fix
 
-**Status:** DONE  
-**Stage:** 6  
-**Depends on:** STAGE6-015  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-015
 **Module:** `tmp-ui-shell` (primary); additive Public API catalogue methods in `tmp-warehouse` only as required for create warehouse/cell via API (no DB bypass)
 
 ### Goal
@@ -9917,9 +9917,9 @@ mvn package
 
 ## STAGE6-017 — Warehouse structure permissions security fix
 
-**Status:** DONE  
-**Stage:** 6  
-**Depends on:** STAGE6-016  
+**Status:** DONE
+**Stage:** 6
+**Depends on:** STAGE6-016
 **Module:** `tmp-warehouse` (security catalogue + Public API guards); `tmp-ui-shell` (UI permission checks); `tmp-bootstrap-app` (Security Admin ensure)
 
 ### Goal
@@ -9987,9 +9987,9 @@ mvn -pl :tmp-warehouse,:tmp-ui-shell,:tmp-bootstrap-app -am test
 
 ## STAGE7-000 — Stage 7 Start Gate and Release/Consumption atomicity proof
 
-**Status:** DONE  
-**Stage:** 7  
-**Depends on:** Stage 6 = DONE  
+**Status:** DONE
+**Stage:** 7
+**Depends on:** Stage 6 = DONE
 **Module:** documentation + `tmp-document-engine` test-only
 
 ### Goal
@@ -10033,9 +10033,9 @@ mvn -pl :tmp-architecture-tests -am test
 
 ## STAGE7-000A — Restore Green Reactor Baseline
 
-**Status:** DONE  
-**Stage:** 7  
-**Depends on:** STAGE7-000  
+**Status:** DONE
+**Stage:** 7
+**Depends on:** STAGE7-000
 **Module:** `tmp-warehouse` (test-only)
 
 ### Goal
@@ -10086,10 +10086,10 @@ mvn verify
 
 ## STAGE7-000B — Warehouse Production Integration Readiness
 
-**Status:** DONE  
-**Stage:** 7  
-**Depends on:** STAGE7-000A  
-**Type:** pre-implementation corrective / Stage 6 integration readiness  
+**Status:** DONE
+**Stage:** 7
+**Depends on:** STAGE7-000A
+**Type:** pre-implementation corrective / Stage 6 integration readiness
 **Module:** `tmp-warehouse`, `tmp-architecture-tests`, `tmp-bootstrap-app` (bootstrap wiring only), `tmp-ui-shell` (test fakes only)
 
 ### Goal
@@ -10157,10 +10157,10 @@ mvn verify
 
 ## STAGE7-000C — Warehouse Transfer Integrity
 
-**Status:** DONE  
-**Stage:** 7  
-**Depends on:** STAGE7-000B  
-**Type:** pre-implementation corrective  
+**Status:** DONE
+**Stage:** 7
+**Depends on:** STAGE7-000B
+**Type:** pre-implementation corrective
 **Module:** `tmp-warehouse`
 
 ### Goal
@@ -10212,9 +10212,9 @@ mvn verify
 
 ## STAGE7-001 — Production module foundation
 
-**Status:** DONE  
-**Stage:** 7  
-**Depends on:** STAGE7-000C  
+**Status:** DONE
+**Stage:** 7
+**Depends on:** STAGE7-000C
 **Module:** `tmp-production` (new)
 
 ### Goal
@@ -10272,9 +10272,9 @@ mvn verify
 
 ## STAGE7-002 — Production identifiers and item-owned state model
 
-**Status:** DONE  
-**Stage:** 7  
-**Depends on:** STAGE7-001  
+**Status:** DONE
+**Stage:** 7
+**Depends on:** STAGE7-001
 **Module:** `tmp-production`
 
 ### Goal
@@ -10316,9 +10316,9 @@ mvn verify
 
 ## STAGE7-003 — Production persistence schema
 
-**Status:** DONE  
-**Stage:** 7  
-**Depends on:** STAGE7-002  
+**Status:** DONE
+**Stage:** 7
+**Depends on:** STAGE7-002
 **Module:** `tmp-production`, `tmp-infra-db` (Flyway only)
 
 ### Goal
@@ -10355,9 +10355,9 @@ mvn -pl :tmp-production,:tmp-infra-db -am test
 
 ## STAGE7-004 — Production Launch document
 
-**Status:** DONE  
-**Stage:** 7  
-**Depends on:** STAGE7-003  
+**Status:** DONE
+**Stage:** 7
+**Depends on:** STAGE7-003
 **Module:** `tmp-production`
 
 ### Goal
@@ -10393,9 +10393,9 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-004A — Order Management stable SpecificationId public contract alignment
 
-**Status:** DONE  
-**Stage:** 7  
-**Depends on:** STAGE7-003  
+**Status:** DONE
+**Stage:** 7
+**Depends on:** STAGE7-003
 **Module:** `tmp-order-management`, `tmp-infra-db` (Flyway only, when schema change required)
 
 ### Goal
@@ -10485,8 +10485,8 @@ mvn verify
 ## STAGE7-005 — Specification Reference freeze
 
 **Status:** DONE
-**Stage:** 7  
-**Depends on:** STAGE7-004, STAGE7-004A  
+**Stage:** 7
+**Depends on:** STAGE7-004, STAGE7-004A
 **Module:** `tmp-production`
 
 ### Goal
@@ -10920,7 +10920,7 @@ mvn verify
 
 ## STAGE7-012 — Production Release document and plan/fact
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-005
 **Module:** `tmp-production`
@@ -10945,8 +10945,10 @@ Production-owned Release document с plan/fact расхода без Warehouse C
 
 ### Acceptance criteria
 
-- [ ] Release хранит plan/fact;
-- [ ] Warehouse Consumption ещё не проводится в этой задаче.
+- [x] Release хранит plan/fact;
+- [x] Warehouse Consumption ещё не проводится в этой задаче.
+- [x] Durable Production-owned persistence (V29); processor full pre-validation; no standalone user releaseProducts.
+- [x] `BLK-STAGE7-PARTIAL-RELEASE-PLAN` documented (partial-release plan formula absent from Accepted docs).
 
 ### Verification commands
 
@@ -10958,9 +10960,10 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-013 — Atomic Release + Consumption orchestration
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-012, STAGE7-010  
+**Status:** BLOCKED
+**Stage:** 7
+**Depends on:** STAGE7-012, STAGE7-010
+**Blocked by:** `BLK-STAGE7-PARTIAL-RELEASE-PLAN`
 **Module:** `tmp-production`
 
 ### Goal
@@ -11049,9 +11052,9 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-015 — Production domain events
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-013, STAGE7-014  
+**Status:** PLANNED
+**Stage:** 7
+**Depends on:** STAGE7-013, STAGE7-014
 **Module:** `tmp-production`
 
 ### Goal
@@ -11090,9 +11093,9 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-015A — Production Audit and History
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-007, STAGE7-010, STAGE7-011, STAGE7-013, STAGE7-014, STAGE7-015  
+**Status:** PLANNED
+**Stage:** 7
+**Depends on:** STAGE7-007, STAGE7-010, STAGE7-011, STAGE7-013, STAGE7-014, STAGE7-015
 **Module:** `tmp-production`
 
 ### Goal
@@ -11150,9 +11153,9 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-016 — Production security permissions
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-001  
+**Status:** PLANNED
+**Stage:** 7
+**Depends on:** STAGE7-001
 **Module:** `tmp-production`
 
 ### Goal
@@ -11187,9 +11190,9 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-016A — Production Public Query API
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-006, STAGE7-007, STAGE7-015A, STAGE7-016  
+**Status:** PLANNED
+**Stage:** 7
+**Depends on:** STAGE7-006, STAGE7-007, STAGE7-015A, STAGE7-016
 **Module:** `tmp-production`
 
 ### Goal
@@ -11244,9 +11247,9 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-017 — Production workbench UI
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-011, STAGE7-013, STAGE7-014, STAGE7-016, STAGE7-016A  
+**Status:** PLANNED
+**Stage:** 7
+**Depends on:** STAGE7-011, STAGE7-013, STAGE7-014, STAGE7-016, STAGE7-016A
 **Module:** `tmp-ui-shell`
 
 ### Goal
@@ -11289,9 +11292,9 @@ mvn -pl :tmp-ui-shell,:tmp-production -am test
 
 ## STAGE7-018 — Production integration tests with OM and Warehouse
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-013, STAGE7-011, STAGE7-014  
+**Status:** PLANNED
+**Stage:** 7
+**Depends on:** STAGE7-013, STAGE7-011, STAGE7-014
 **Module:** `tmp-production`
 
 ### Goal
@@ -11342,9 +11345,9 @@ mvn -pl :tmp-production -am verify
 
 ## STAGE7-019 — Production architecture tests
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-001  
+**Status:** PLANNED
+**Stage:** 7
+**Depends on:** STAGE7-001
 **Module:** `tmp-architecture-tests`
 
 ### Goal
@@ -11380,9 +11383,9 @@ mvn -pl :tmp-architecture-tests -am test
 
 ## STAGE7-020 — Stage 7 final closure audit
 
-**Status:** PLANNED  
-**Stage:** 7  
-**Depends on:** STAGE7-014, STAGE7-015, STAGE7-015A, STAGE7-016A, STAGE7-017, STAGE7-018, STAGE7-019  
+**Status:** PLANNED
+**Stage:** 7
+**Depends on:** STAGE7-014, STAGE7-015, STAGE7-015A, STAGE7-016A, STAGE7-017, STAGE7-018, STAGE7-019
 **Module:** documentation
 
 ### Goal

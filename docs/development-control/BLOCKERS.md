@@ -2,9 +2,9 @@
 
 ## `STAGE5-INTAKE-COMMERCIAL-DRAFT` — Incomplete DRAFT order from file import
 
-**Status:** RESOLVED — incomplete commercial data is allowed only in DRAFT; approval requires all mandatory commercial fields.  
-**Task:** STAGE5-053 (Import Core); planning for Order Intake MVP  
-**Detected:** 2026-07-30  
+**Status:** RESOLVED — incomplete commercial data is allowed only in DRAFT; approval requires all mandatory commercial fields.
+**Task:** STAGE5-053 (Import Core); planning for Order Intake MVP
+**Detected:** 2026-07-30
 **Resolved:** 2026-07-30
 
 ### Reason
@@ -35,17 +35,63 @@ None — resolved.
 
 ## Active blockers
 
-**Active blockers:** NONE
+**Active blockers:** `BLK-STAGE7-PARTIAL-RELEASE-PLAN`
+
+---
+
+### `BLK-STAGE7-PARTIAL-RELEASE-PLAN` — Normative material plan for partial Release
+
+**Status:** OPEN
+**Detected:** 2026-08-21
+**Stage:** 7 Production
+**Task:** STAGE7-012 (documented); blocks STAGE7-013 readiness
+**Related:** Production Specification v2.2 §3.17, §15, §15.1; ADR-035
+
+### Reason
+
+Accepted Production Specification разрешает повторный / частичный Release количеств во времени, но **не определяет** формулу масштабирования нормативного material plan при выпуске части `orderedQuantity`.
+
+Пример ambiguity:
+
+- Order Item quantity = 10
+- Specification material line quantity = 17
+- Release quantity = 3
+
+Не задано, должен ли plan быть `17 * 3 / 10`, полным 17, или иным правилом.
+
+STAGE7-012 реализует document foundation: processor **принимает уже сформированный** immutable plan/fact payload и не вычисляет plan. User-facing orchestration STAGE7-013, которая должна формировать нормативный plan автоматически, **не может** быть READY без принятого правила.
+
+### Evidence searched (no formula found)
+
+- Production Spec v2.2 §3, §12, §15, §15.1, §21, §24
+- ADR-035 / ADR-036
+- STAGE-7-PRODUCTION.md
+- No accepted proportional / partial-release planning rule located
+
+### Required user / architecture decision
+
+Как рассчитывать normative material plan для частичного выпуска Order Item?
+
+Пока решение не принято и не зафиксировано в Accepted Specification / ADR — **не изобретать** proportional scaling в коде.
+
+### Impact
+
+- STAGE7-012 = DONE (document/persistence/processor without plan computation)
+- STAGE7-013 = BLOCKED until rule accepted
+
+### Resolution
+
+None yet.
 
 ---
 
 ### `BLK-STAGE7-WAREHOUSE-INTEGRATION-READINESS` — Warehouse public contracts and verify baseline before Production
 
-**Status:** RESOLVED  
-**Detected:** 2026-08-17  
-**Resolved:** 2026-08-17  
-**Stage:** 7 Production (pre-implementation)  
-**Task:** STAGE7-000B  
+**Status:** RESOLVED
+**Detected:** 2026-08-17
+**Resolved:** 2026-08-17
+**Stage:** 7 Production (pre-implementation)
+**Task:** STAGE7-000B
 **Related:** Warehouse Specification v1.6; Production Specification v2.2 §11, §13–§15; ADR-036
 
 ### Reason
@@ -72,10 +118,10 @@ Before first Production implementation task:
 
 ### `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` — Cross-capability atomicity for Production Release + Warehouse Consumption
 
-**Status:** RESOLVED  
-**Detected:** 2026-08-17  
-**Resolved:** 2026-08-17  
-**Stage:** 7 Production  
+**Status:** RESOLVED
+**Detected:** 2026-08-17
+**Resolved:** 2026-08-17
+**Stage:** 7 Production
 **Related:** Production Specification v2.2 §21; ADR-035; ADR-036; Document Engine Specification v1.2
 
 ### Reason
@@ -147,8 +193,8 @@ Production implementation не начиналась. Warehouse core не пер�
 
 ## `BLK-018` — `Maven command unavailable for required verification`
 
-**Status:** RESOLVED  
-**Task:** `STAGE6-001`  
+**Status:** RESOLVED
+**Task:** `STAGE6-001`
 **Detected:** 2026-08-06
 
 ### Reason
@@ -186,8 +232,8 @@ Verification успешно выполнен этим бинарником:
 
 ## `BLK-001` — `Shell execution environment unavailable`
 
-**Status:** RESOLVED  
-**Task:** `STAGE0-001`  
+**Status:** RESOLVED
+**Task:** `STAGE0-001`
 **Detected:** 2026-07-17
 
 ### Reason
@@ -218,8 +264,8 @@ Verification успешно выполнен этим бинарником:
 
 ## `<BLOCKER-ID>` — `<title>`
 
-**Status:** OPEN | RESOLVED  
-**Task:** `<TASK-ID>`  
+**Status:** OPEN | RESOLVED
+**Task:** `<TASK-ID>`
 **Detected:** YYYY-MM-DD
 
 ### Reason
@@ -249,8 +295,8 @@ Verification успешно выполнен этим бинарником:
 
 ## `BLK-002` — `JDK 21 compiler not available in environment`
 
-**Status:** RESOLVED  
-**Task:** `STAGE0-004`  
+**Status:** RESOLVED
+**Task:** `STAGE0-004`
 **Detected:** 2026-07-17
 
 ### Reason
@@ -282,8 +328,8 @@ Verification успешно выполнен этим бинарником:
 
 ## `BLK-003` — `Docker environment unavailable for Testcontainers`
 
-**Status:** RESOLVED  
-**Task:** `STAGE0-009`  
+**Status:** RESOLVED
+**Task:** `STAGE0-009`
 **Detected:** 2026-07-17
 
 ### Reason
@@ -314,8 +360,8 @@ Docker Desktop установлен и запущен; WSL2 kernel обновл�
 
 ## `BLK-004` — `TmpBootstrapApplication excludes database auto-configuration`
 
-**Status:** RESOLVED  
-**Task:** `STAGE0-012` (re-opened)  
+**Status:** RESOLVED
+**Task:** `STAGE0-012` (re-opened)
 **Detected:** 2026-07-20
 
 ### Reason
@@ -349,8 +395,8 @@ Stage 0 acceptance review выявил, что `TmpBootstrapApplication` иск�
 
 ## `BLK-005` — `Unstable PlatformEvent and DomainEvent metadata`
 
-**Status:** RESOLVED  
-**Task:** `STAGE1-014`  
+**Status:** RESOLVED
+**Task:** `STAGE1-014`
 **Detected:** 2026-07-20
 
 ### Reason
@@ -383,8 +429,8 @@ Stage 0 acceptance review выявил, что `TmpBootstrapApplication` иск�
 
 ## `BLK-006` — `Lifecycle failure consistency in DefaultLifecycleManager`
 
-**Status:** RESOLVED  
-**Task:** `STAGE1-014`  
+**Status:** RESOLVED
+**Task:** `STAGE1-014`
 **Detected:** 2026-07-20
 
 ### Reason
@@ -417,8 +463,8 @@ Stage 0 acceptance review выявил, что `TmpBootstrapApplication` иск�
 
 ## `BLK-007` — `Split component registration across PlatformRegistry and LifecycleManager`
 
-**Status:** RESOLVED  
-**Task:** `STAGE1-014`  
+**Status:** RESOLVED
+**Task:** `STAGE1-014`
 **Detected:** 2026-07-20
 
 ### Reason
@@ -451,8 +497,8 @@ Stage 0 acceptance review выявил, что `TmpBootstrapApplication` иск�
 
 ## `BLK-008` — `Stage 1 acceptance review remaining defects`
 
-**Status:** RESOLVED  
-**Task:** `STAGE1-015`  
+**Status:** RESOLVED
+**Task:** `STAGE1-015`
 **Detected:** 2026-07-21
 
 ### Reason
@@ -492,8 +538,8 @@ Stage 0 acceptance review выявил, что `TmpBootstrapApplication` иск�
 
 ## `BLK-009` — `Registration/lifecycle race condition (split synchronization)`
 
-**Status:** RESOLVED  
-**Task:** `STAGE1-016`  
+**Status:** RESOLVED
+**Task:** `STAGE1-016`
 **Detected:** 2026-07-21
 
 ### Reason
@@ -532,8 +578,8 @@ Stage 2 (`STAGE2-001..026`) завершён. Re-review residual BLK-011 и BLK-
 
 ## `BLK-010` — `Duplicate DocumentEngine Spring beans`
 
-**Status:** RESOLVED  
-**Task:** `STAGE2-017`  
+**Status:** RESOLVED
+**Task:** `STAGE2-017`
 **Detected:** 2026-07-21
 
 ### Reason
@@ -566,9 +612,9 @@ Stage 2 (`STAGE2-001..026`) завершён. Re-review residual BLK-011 и BLK-
 
 ## `BLK-011` — `Non-atomic processor registration (transaction final outcome)`
 
-**Status:** RESOLVED  
-**Task:** `STAGE2-022`  
-**Detected:** 2026-07-21  
+**Status:** RESOLVED
+**Task:** `STAGE2-022`
+**Detected:** 2026-07-21
 **Reopened:** 2026-07-22
 
 ### Reason
@@ -601,8 +647,8 @@ Stage 2 (`STAGE2-001..026`) завершён. Re-review residual BLK-011 и BLK-
 
 ## `BLK-012` — `Document events published before transaction commit`
 
-**Status:** RESOLVED  
-**Task:** `STAGE2-019`  
+**Status:** RESOLVED
+**Task:** `STAGE2-019`
 **Detected:** 2026-07-21
 
 ### Reason
@@ -634,8 +680,8 @@ Stage 2 (`STAGE2-001..026`) завершён. Re-review residual BLK-011 и BLK-
 
 ## `BLK-013` — `After-commit event handler failure policy undefined`
 
-**Status:** RESOLVED  
-**Task:** `STAGE2-023`  
+**Status:** RESOLVED
+**Task:** `STAGE2-023`
 **Detected:** 2026-07-22
 
 ### Reason
@@ -668,8 +714,8 @@ Stage 2 (`STAGE2-001..026`) завершён. Re-review residual BLK-011 и BLK-
 
 ## `BLK-014` — `Public APIs cannot reverse external Capability contributions`
 
-**Status:** RESOLVED  
-**Task:** `STAGE3-022`  
+**Status:** RESOLVED
+**Task:** `STAGE3-022`
 **Detected:** 2026-07-22
 
 ### Reason
@@ -713,8 +759,8 @@ Capability Engine: `CapabilityExternalContributionRegistry`, `CapabilityEventSub
 
 ## `BLK-015` — `Lifecycle failures leave stale Capability contributions`
 
-**Status:** RESOLVED  
-**Task:** `STAGE3-024`  
+**Status:** RESOLVED
+**Task:** `STAGE3-024`
 **Detected:** 2026-07-23
 
 ### Reason
@@ -749,8 +795,8 @@ Capability Engine: `CapabilityExternalContributionRegistry`, `CapabilityEventSub
 
 ## `BLK-016` — `Stage 4 Security acceptance defects`
 
-**Status:** RESOLVED  
-**Task:** `STAGE4-041`…`STAGE4-048` (corrective); blocks `STAGE4-040`  
+**Status:** RESOLVED
+**Task:** `STAGE4-041`…`STAGE4-048` (corrective); blocks `STAGE4-040`
 **Detected:** 2026-07-23
 
 ### Reason
@@ -799,8 +845,8 @@ Automated gate after fixes: `mvn clean verify`, `mvn clean verify -Ppackage`, `T
 
 ## `BLK-017` — `Stage 4 Security residual acceptance defects after BLK-016`
 
-**Status:** RESOLVED  
-**Task:** `STAGE4-049`…`STAGE4-053` (corrective); blocks `STAGE4-040`  
+**Status:** RESOLVED
+**Task:** `STAGE4-049`…`STAGE4-053` (corrective); blocks `STAGE4-040`
 **Detected:** 2026-07-23
 
 ### Reason
@@ -849,8 +895,8 @@ Automated gate: `mvn clean verify` PASSED; `mvn clean verify -Ppackage` PASSED; 
 
 ## Stage 5 Start Gate — documentation gate result (STAGE5-000)
 
-**Date:** 2026-07-24  
-**Task:** `STAGE5-000`  
+**Date:** 2026-07-24
+**Task:** `STAGE5-000`
 **Status:** No blocker raised.
 
 Documentation gate for Stage 5 PASSED. Order Management Specification contradictions (production-status storage inside Order Item; mixed commercial/production lifecycle; storage-owner ≠ change-owner statement; mutating operations exposed as external Public API; missing business documents and transition matrices; non-conformant capability codes; `IN_PROGRESS`/`COMPLETED` order statuses without a commercial process) were resolved directly in `Order-Management-Specification.md` v1.1 under existing accepted ADRs (ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021). No new ADR was required and none was created.
@@ -861,8 +907,8 @@ No unresolved contradiction remains; Stage 5 is **not** blocked. No previously c
 
 ## Stage 5 Documentation Gate corrections (STAGE5-000-FIX)
 
-**Date:** 2026-07-24  
-**Task:** `STAGE5-000-FIX`  
+**Date:** 2026-07-24
+**Task:** `STAGE5-000-FIX`
 **Status:** Documentation blockers recorded and closed after re-verification. Active blocker: None.
 
 Post-STAGE5-000 review identified six documentation-level blockers. During the fix, Stage 5 was temporarily blocked by documentation contradictions and `STAGE5-001` was moved to `PLANNED`; `STAGE5-000-FIX` was opened as the single `READY` task. Each blocker below was resolved and verified before closure. History is retained (records added, none removed).
