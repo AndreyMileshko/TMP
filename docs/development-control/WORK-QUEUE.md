@@ -9983,7 +9983,7 @@ mvn -pl :tmp-warehouse,:tmp-ui-shell,:tmp-bootstrap-app -am test
 
 # Stage 7 — Production
 
-> **Обязательно к прочтению перед любой задачей Stage 7:** `docs/development-control/stages/STAGE-7-PRODUCTION.md` и Production Specification **v2.2**. Правила контекста — `CONTEXT-MAP.md` → «Stage 7 — Production Context». Start Gate PASSED (`STAGE7-000`). Atomicity = ADR-036. Одновременно только одна задача `IN_PROGRESS`. Git-операции запрещены (выполняет пользователь).
+> **Обязательно к прочтению перед любой задачей Stage 7:** `docs/development-control/stages/STAGE-7-PRODUCTION.md` и Production Specification **v2.3**. Правила контекста — `CONTEXT-MAP.md` → «Stage 7 — Production Context». Start Gate PASSED (`STAGE7-000`). Atomicity = ADR-036. Одновременно только одна задача `IN_PROGRESS`. Git-операции запрещены (выполняет пользователь).
 
 ## STAGE7-000 — Stage 7 Start Gate and Release/Consumption atomicity proof
 
@@ -10958,12 +10958,57 @@ mvn -pl :tmp-production -am test
 
 ---
 
+## STAGE7-012A — Partial Release Material Planning Contract
+
+**Status:** DONE
+**Stage:** 7
+**Depends on:** STAGE7-012
+**Module:** documentation only (`tmp-production` contract)
+
+### Goal
+
+Зафиксировать нормативное правило cumulative proportional allocation material plan для partial/repeated Production Release; закрыть `BLK-STAGE7-PARTIAL-RELEASE-PLAN`; разблокировать STAGE7-013.
+
+### Required documents
+
+- Production Specification (update to v2.3 §15.1.1);
+- Order Management `Specification.lineQuantity` semantics;
+- BLOCKERS.md; WORK-QUEUE.md; STATUS.md.
+
+### Allowed code scope
+
+- Production Specification v2.3;
+- control docs only.
+
+### Forbidden
+
+- Production / Warehouse / OM Java implementation;
+- DB migrations;
+- STAGE7-013 orchestration;
+- new ADR (business rule owned by Production Spec).
+
+### Acceptance criteria
+
+- [x] Production Specification v2.3 Accepted with §15.1.1;
+- [x] cumulative formula, precision, final closure, examples documented;
+- [x] `BLK-STAGE7-PARTIAL-RELEASE-PLAN` RESOLVED;
+- [x] STAGE7-013 = READY;
+- [x] Active blockers = NONE.
+
+### Verification commands
+
+```bash
+git diff --check
+mvn verify
+```
+
+---
+
 ## STAGE7-013 — Atomic Release + Consumption orchestration
 
-**Status:** BLOCKED
+**Status:** READY
 **Stage:** 7
-**Depends on:** STAGE7-012, STAGE7-010
-**Blocked by:** `BLK-STAGE7-PARTIAL-RELEASE-PLAN`
+**Depends on:** STAGE7-012A, STAGE7-010
 **Module:** `tmp-production`
 
 ### Goal
@@ -10972,7 +11017,7 @@ Application-level use case проводит Warehouse Consumption и Production 
 
 ### Required documents
 
-- Production Spec v2.2 §21;
+- Production Spec v2.3 §15.1.1, §21;
 - ADR-036; ADR-035;
 - Document Engine Spec v1.2;
 - Warehouse Application/Document Consumption command contract only.

@@ -35,53 +35,35 @@ None — resolved.
 
 ## Active blockers
 
-**Active blockers:** `BLK-STAGE7-PARTIAL-RELEASE-PLAN`
+**Active blockers:** NONE
 
 ---
 
 ### `BLK-STAGE7-PARTIAL-RELEASE-PLAN` — Normative material plan for partial Release
 
-**Status:** OPEN
+**Status:** RESOLVED
 **Detected:** 2026-08-21
+**Resolved:** 2026-08-23
 **Stage:** 7 Production
-**Task:** STAGE7-012 (documented); blocks STAGE7-013 readiness
-**Related:** Production Specification v2.2 §3.17, §15, §15.1; ADR-035
+**Task:** STAGE7-012 (documented); STAGE7-012A (contract closure)
+**Related:** Production Specification v2.3 §15.1.1; ADR-035
 
 ### Reason
 
-Accepted Production Specification разрешает повторный / частичный Release количеств во времени, но **не определяет** формулу масштабирования нормативного material plan при выпуске части `orderedQuantity`.
-
-Пример ambiguity:
-
-- Order Item quantity = 10
-- Specification material line quantity = 17
-- Release quantity = 3
-
-Не задано, должен ли plan быть `17 * 3 / 10`, полным 17, или иным правилом.
-
-STAGE7-012 реализует document foundation: processor **принимает уже сформированный** immutable plan/fact payload и не вычисляет plan. User-facing orchestration STAGE7-013, которая должна формировать нормативный plan автоматически, **не может** быть READY без принятого правила.
-
-### Evidence searched (no formula found)
-
-- Production Spec v2.2 §3, §12, §15, §15.1, §21, §24
-- ADR-035 / ADR-036
-- STAGE-7-PRODUCTION.md
-- No accepted proportional / partial-release planning rule located
-
-### Required user / architecture decision
-
-Как рассчитывать normative material plan для частичного выпуска Order Item?
-
-Пока решение не принято и не зафиксировано в Accepted Specification / ADR — **не изобретать** proportional scaling в коде.
-
-### Impact
-
-- STAGE7-012 = DONE (document/persistence/processor without plan computation)
-- STAGE7-013 = BLOCKED until rule accepted
+Accepted Production Specification v2.2 разрешала повторный / частичный Release количеств во времени, но **не определяла** формулу масштабирования нормативного material plan при выпуске части `orderedQuantity`.
 
 ### Resolution
 
-None yet.
+Accepted **Production Specification v2.3 §15.1.1 — Partial Release Material Plan**:
+
+1. Frozen Specification (`Specification.lineQuantity` = `Q` на всю позицию) + `orderedQuantity` = `N`; запрещено `Q * N` повторное умножение.
+2. Cumulative proportional allocation: `C_before = normalized(Q * R_before / N)`, `C_after = normalized(Q * R_after / N)`, `Plan_current = C_after - C_before`.
+3. Final Release (`R_after == N`): `C_after = Q` exactly; SUM(plans) == `Q`.
+4. Precision: scale 6, `RoundingMode.HALF_UP`, `BigDecimal` only.
+5. Rule applies to `MaterialPlanningSource.SPECIFICATION` only in Stage 7; opaque `CuttingPlanId` does not drive quantity.
+6. Plan vs fact separation preserved; Warehouse Consumption uses actualQuantity.
+
+`STAGE7-013` unblocked (READY).
 
 ---
 

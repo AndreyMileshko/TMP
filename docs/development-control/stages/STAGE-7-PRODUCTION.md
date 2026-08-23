@@ -2,7 +2,7 @@
 
 ## Source
 
-- Production Specification **v2.2** (TMP-SPEC-012)
+- Production Specification **v2.3** (TMP-SPEC-012)
 - ADR-033, ADR-034, ADR-035, **ADR-036** (и действующие ADR-017…022, 024, 028, 031, 032)
 - Document Engine Specification **v1.2** (multi-document / ambient transaction contract)
 - Order Management Public Query API (ACTIVE Order → Item → Specification + `SpecificationId`)
@@ -24,7 +24,7 @@ Production functionality is **not** DONE. No mutating Stage 7 implementation tas
 
 | Item | Requirement | Result |
 |------|-------------|--------|
-| Docs alignment | Production Spec v2.2 + ADR-033…036 accepted | PASS |
+| Docs alignment | Production Spec v2.3 + ADR-033…036 accepted | PASS |
 | OM contract | Production-facing read without Order Item Revision; stable `SpecificationId` | PASS |
 | Spec freeze | Launch фиксирует Production Specification Reference | PASS (docs) |
 | Warehouse contract | Query API read-only; Transfer/Consumption = Warehouse-owned document commands | PASS |

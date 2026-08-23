@@ -4,6 +4,45 @@
 
 ---
 
+## STAGE7-012A — Partial Release Material Planning Contract
+
+**Date:** 2026-08-23
+**Stage:** 7
+**Module:** documentation / control only
+**Status:** DONE
+
+### Context
+
+- STAGE7-012 implemented Production Release document foundation without computing normative partial-release plan.
+- Accepted docs v2.2 did not define scaling formula → `BLK-STAGE7-PARTIAL-RELEASE-PLAN` OPEN (agent did not invent rule).
+
+### Accepted rule (Production Specification v2.3 §15.1.1)
+
+- `Q` = frozen `Specification.lineQuantity` (total normative quantity for whole Order Item material line).
+- `N` = `ProductionItemState.orderedQuantity`.
+- Forbidden: `Q * N` repeated multiplication.
+- Cumulative proportional allocation: `C_before = normalized(Q * R_before / N)`, `C_after = normalized(Q * R_after / N)`, `Plan_current = C_after - C_before`.
+- Final Release (`R_after == N`): `C_after = Q` exactly; SUM(plans) == `Q`.
+- Precision: scale 6, `RoundingMode.HALF_UP`, `BigDecimal` only.
+- Applies to `MaterialPlanningSource.SPECIFICATION` in Stage 7; opaque `CuttingPlanId` does not drive quantity.
+- Plan vs fact separation unchanged; Warehouse Consumption uses actualQuantity.
+
+### Outcome
+
+- Production Specification v2.2 → **v2.3 Accepted** with normative examples (10/17 and 3/1 rounding closure).
+- No new ADR (business rule owned by Production Spec; ADR-035/036 unchanged).
+- `BLK-STAGE7-PARTIAL-RELEASE-PLAN` **RESOLVED** (2026-08-23).
+- STAGE7-013 → **READY**.
+- No Production/Warehouse/OM Java, migrations, or tests changed.
+
+### Verification
+
+- `git diff --check` PASS
+- `mvn verify` PASS
+- Git commit / push NOT EXECUTED
+
+---
+
 ## STAGE7-012 — Production Release document and plan/fact
 
 **Date:** 2026-08-21

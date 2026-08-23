@@ -2,6 +2,35 @@
 
 ## Latest result
 
+**Date:** 2026-08-23
+**Scope:** STAGE7-012A — Partial Release Material Planning Contract
+**Overall:** PASS
+**Type:** Normative documentation / contract closure only (no business code)
+
+| Check | Result |
+|-------|--------|
+| Production Specification v2.3 Accepted | PASS |
+| §15.1.1 added (cumulative formula, precision, final closure, examples) | PASS |
+| OM `lineQuantity` = total for whole item; no `Q * N` double multiply | PASS |
+| Cumulative examples 10/17 (3+4+3) and 3/1 rounding closure | PASS |
+| Final closure invariant SUM(plan) == Q | PASS |
+| Plan/fact separation; actual may differ; Warehouse uses actual | PASS |
+| SPECIFICATION-only Stage 7; CuttingPlanId alone does not compute plan | PASS |
+| No Revision introduced | PASS |
+| No ADR change; no Java/migration/test changes | PASS |
+| `BLK-STAGE7-PARTIAL-RELEASE-PLAN` | RESOLVED (2026-08-23) |
+| STAGE7-013 | READY |
+| Active blockers | NONE |
+| `git diff --check` | clean (CRLF warnings only) |
+| `mvn verify` | PASS (BUILD SUCCESS) |
+| STAGE7-012A | DONE |
+| STAGE7-013 business code | NOT implemented |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result (STAGE7-012)
+
 **Date:** 2026-08-21
 **Scope:** STAGE7-012 — Production Release document and plan/fact
 **Overall:** PASS

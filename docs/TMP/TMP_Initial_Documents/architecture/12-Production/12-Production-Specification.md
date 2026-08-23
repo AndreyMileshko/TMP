@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-012  
 **Status:** Accepted  
-**Version:** 2.2
+**Version:** 2.3
 
 ---
 
@@ -477,6 +477,87 @@ Production Release хранит по каждой строке материал�
 
 Warehouse списывает **подтверждённое фактическое** количество.
 
+### 15.1.1 Partial Release Material Plan
+
+Нормативный **plannedQuantity** для Production Release при частичном или повторном выпуске позиции рассчитывается по зафиксированной Specification и cumulative proportional allocation (Stage 7 v1.0).
+
+#### Semantics: frozen Specification и Order Management contract
+
+- Frozen Specification (по `ProductionItemState.specificationId`) — единственная нормативная основа расчёта plan для Stage 7.
+- Запрещено использовать current Specification, latest Specification, active Revision или RevisionNumber.
+- Order Management contract: `Specification.lineQuantity` для строки материала означает **общее нормативное количество одинаковых элементов для всей расчётной позиции** (на весь Order Item), а не «на одно изделие».
+- `ProductionItemState.orderedQuantity` (`N`) — количество одинаковых изделий позиции.
+- **Запрещено** повторно умножать `lineQuantity * orderedQuantity` при расчёте plan Release.
+
+Для каждой строки frozen Specification (материал):
+
+| Symbol | Meaning |
+|--------|---------|
+| `Q` | `Specification.lineQuantity` (норматив на всю позицию) |
+| `N` | `ProductionItemState.orderedQuantity` |
+| `R_before` | `ProductionItemState.releasedQuantity` до текущего Release |
+| `R_current` | количество изделий, выпускаемое текущим Release |
+| `R_after` | `R_before + R_current` |
+
+#### Cumulative proportional allocation
+
+Plan текущего Release — **приращение** cumulative target, а не независимое масштабирование только `R_current`:
+
+```text
+C_before = normalized(Q * R_before / N)
+C_after  = normalized(Q * R_after / N)   // except final closure below
+Plan_current = C_after - C_before
+```
+
+`normalized(x)` — округление `x` до scale = 6, `RoundingMode.HALF_UP` (`BigDecimal`; не `double` / `float`).
+
+**Критически:** запрещено рассчитывать каждый Release независимо как `round(Q * R_current / N)` без cumulative target — это накапливает ошибку округления при repeated partial Release.
+
+#### Final Release closure
+
+Если `R_after == N` (полный выпуск позиции):
+
+```text
+C_after = Q   // EXACT, без округления Q * N / N
+Plan_current = C_after - C_before
+```
+
+Инвариант после полного выпуска позиции по материалу:
+
+```text
+SUM(Plan_current по всем Release данной позиции/материала) == Q
+```
+
+#### Plan vs fact
+
+§15.1.1 определяет только **plannedQuantity**. **actualQuantity** мастер может изменить; допустимо `actual < plan`, `actual = plan`, `actual > plan`. Warehouse Consumption (§21) списывает **actualQuantity**, не plannedQuantity. Specification и Cutting Plan из-за факта не изменяются.
+
+#### Zero plan
+
+Из-за cumulative allocation и округления `Plan_current` после `normalized(...)` может быть `0.000000` для очень малого `Q` и малого partial Release. Это допустимый нормативный результат; искусственно не увеличивать до минимальной единицы. Фактический расход задаётся отдельно.
+
+#### Planning source — Stage 7 scope
+
+Правило §15.1.1 применяется к `MaterialPlanningSource.SPECIFICATION`. Stage 7 не имеет runtime Cutting Optimization. Наличие opaque `CuttingPlanId` **не** означает `planningSource = CUTTING_PLAN` и **не** используется для вычисления количества. Если Stage 8 предоставит итоговую плановую потребность Cutting Plan, правило plan для `CUTTING_PLAN` задаётся отдельным integration contract.
+
+#### Normative examples
+
+**CASE A** — proportional partial releases, exact closure:
+
+- `N = 10`, `Q = 17`
+- Release #1: `R_current = 3`, `R_before = 0`, `R_after = 3` → `C_after = 5.100000`, `Plan = 5.100000`
+- Release #2: `R_current = 4`, `R_before = 3`, `R_after = 7` → `C_before = 5.100000`, `C_after = 11.900000`, `Plan = 6.800000`
+- Release #3: `R_current = 3`, `R_before = 7`, `R_after = 10` → `C_before = 11.900000`, `C_after = 17` (EXACT), `Plan = 5.100000`
+- Total plan: `17.000000`
+
+**CASE B** — rounding closure on final Release:
+
+- `N = 3`, `Q = 1`
+- Release 1: `R_current = 1` → cumulative `0.333333`, plan `0.333333`
+- Release 2: `R_current = 1` → cumulative `0.666667`, plan `0.333334`
+- Final Release 3: `R_current = 1` → cumulative `1` (EXACT), plan `0.333333`
+- Total plan: `1.000000`
+
 ## 15.2 Недостаток материала
 
 Если на складе производства недостаточно материала для фактического списания:
@@ -808,6 +889,7 @@ Order Management — владелец Order / Order Item / Revision / Specificat
 | 2.0 | Новая согласованная модель Stage 7: order-level UX + item-owned state; без Order Item Revision в Production contract; Cutting Plan как рекомендация без Revision; editable transfer + plan/fact; Public Query vs Application API; Start Gate атомарности Release/Consumption (ADR-033…035). |
 | 2.1 | Corrective pass: Production Specification Reference (`Specification ID`); Cutting Plan links 0..N by MaterialReference; restored detailed Cutting Spec alignment; Warehouse Query vs Document commands. |
 | 2.2 | Нормативное уточнение §21: shared ACID transaction для Production Release + Warehouse Consumption (ADR-036); ownership без изменений. |
+| 2.3 | §15.1.1: cumulative proportional allocation нормативного material plan для partial/repeated Production Release; final Release closes Specification `lineQuantity` exactly; scale 6 / HALF_UP; SPECIFICATION-only scope Stage 7; plan/fact separation сохранена. |
 
 ---
 

@@ -2,15 +2,15 @@
 
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation IN PROGRESS
-**Current Stage:** Stage 7 - IN PROGRESS / 60% (Start Gate PASSED)
+**Current Stage:** Stage 7 - IN PROGRESS / 62% (Start Gate PASSED)
 **Current Task:** none
-**Last completed task:** STAGE7-012 (Production Release document and plan/fact)
-**Active blockers:** BLK-STAGE7-PARTIAL-RELEASE-PLAN (blocks STAGE7-013)
+**Last completed task:** STAGE7-012A (Partial Release Material Planning Contract)
+**Active blockers:** NONE
 **Stage 6 Warehouse:** DONE
-**Stage 7 Production:** IN PROGRESS / 60%
+**Stage 7 Production:** IN PROGRESS / 62%
 **Stage 7 Start Gate:** PASSED
 **Full verify baseline:** GREEN
-**First READY implementation task:** none (STAGE7-013 BLOCKED)
+**First READY implementation task:** STAGE7-013
 
 
 ```text
@@ -71,12 +71,13 @@ STAGE7-009 = DONE (Editable Material Transfer Template)
 STAGE7-010 = DONE (Warehouse Transfer command integration; template atomic save precondition)
 STAGE7-011 = DONE (Receipt confirmation initiation)
 STAGE7-012 = DONE (Production Release document and plan/fact)
-STAGE7-013 = BLOCKED (BLK-STAGE7-PARTIAL-RELEASE-PLAN)
-Active blockers = BLK-STAGE7-PARTIAL-RELEASE-PLAN
-Stage 7 Production = IN PROGRESS / 60%
+STAGE7-012A = DONE (Partial Release Material Planning Contract)
+STAGE7-013 = READY
+Active blockers = NONE
+Stage 7 Production = IN PROGRESS / 62%
 Stage 7 Start Gate = PASSED
 Full reactor baseline = GREEN
-First READY implementation task = none (STAGE7-013 BLOCKED)
+First READY implementation task = STAGE7-013
 ```
 
 ---
@@ -92,7 +93,7 @@ First READY implementation task = none (STAGE7-013 BLOCKED)
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
-| 7 | Production | IN PROGRESS | 60% |
+| 7 | Production | IN PROGRESS | 62% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 
@@ -129,5 +130,6 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - `STAGE7-010` completed: confirm Material Transfer Template → Warehouse-owned Transfer DRAFTs via `WarehouseCommandApi.createTransferDraft` only. Precondition: atomic template save (TransactionTemplate REQUIRED) + real PostgreSQL child-insert rollback test. Explicit cell allocations (`templateLineId` + source/destination cells + quantity); WarehouseQueryApi cell membership/active validation; no hidden picking; 1 line → 1..N drafts; Production `ProductionMaterialTransfer` grouping + operation refs (V28); DRAFT/CONFIRMED template lifecycle; idempotent confirm; edit blocked after confirm; stock unchanged; send→receive reference resolvable from stored draftOperationId (`getTransferStatus` / same id for `receiveTransfer`). STAGE7-011 READY. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-011` completed: «Подтвердить получение» for Production logical transfer. `ConfirmMaterialReceiptService` loads Warehouse refs from `ProductionMaterialTransferRepository` only (no UI Warehouse operation IDs). Full status snapshot via `WarehouseQueryApi.getTransferStatus` before any mutation; DRAFT/invalid reject; SENT → `WarehouseCommandApi.receiveTransfer`; RECEIVED skipped; all-RECEIVED → `ALREADY_RECEIVED` idempotent. Outer REQUIRED TX; real PostgreSQL partial-failure rollback; stored ref consistency; original send/draft id remains correlation. No Production receipt SoT, Document, history/audit, or stock writes. STAGE7-012 READY. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-012` completed: Production Release document (`production.release`) with durable plan/fact persistence (Flyway V29), `ProductionReleaseProcessor`, internal `ProductionReleaseDocumentService` gateway for STAGE7-013 (no standalone user `releaseProducts`), item-owned `ProductionItemState.release`, full pre-validation, POSTED immutability, UNPOST unsupported. No Warehouse Consumption. Partial-release material plan formula absent from Accepted docs → `BLK-STAGE7-PARTIAL-RELEASE-PLAN` OPEN; STAGE7-013 BLOCKED. Full `mvn test` / `mvn verify` BUILD SUCCESS.
-- Production implementation IN PROGRESS (60% by task-count: 15/25 implementation tasks done, including 004A/004B/005A).
-- Next: resolve `BLK-STAGE7-PARTIAL-RELEASE-PLAN` before STAGE7-013; do not invent proportional scaling.
+- `STAGE7-012A` completed: Accepted Production Specification **v2.3 §15.1.1** — cumulative proportional allocation for partial/repeated Release plan (`Q` = frozen `lineQuantity` on whole item, `N` = orderedQuantity, no `Q*N` double multiply; scale 6 HALF_UP; final Release closes exact `Q`). `BLK-STAGE7-PARTIAL-RELEASE-PLAN` RESOLVED. STAGE7-013 READY. Documentation-only; no business code. Full `mvn verify` BUILD SUCCESS.
+- Production implementation IN PROGRESS (62% by task-count: 16/26 Stage 7 tasks done through STAGE7-012A, including 004A/004B/005A).
+- Next task: **STAGE7-013** (Atomic Release + Consumption orchestration) — READY.
