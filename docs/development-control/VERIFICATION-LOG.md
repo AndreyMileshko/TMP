@@ -3,6 +3,37 @@
 ## Latest result
 
 **Date:** 2026-08-23
+**Scope:** STAGE7-013 — Atomic Release + Consumption orchestration
+**Overall:** PASS
+
+| Check | Result |
+|-------|--------|
+| `ReleaseProductsService` user-facing orchestration | PASS |
+| Partial plan calculator (10/17, 3/1 rounding closure) | PASS |
+| Per-Spec-line plan before aggregation | PASS |
+| Frozen Specification via `resolveById` only | PASS |
+| `MaterialReferenceResolver` reused by STAGE7-007 | PASS |
+| Production warehouse + explicit cell allocations only | PASS |
+| Plan/fact; extra material rejected; zero actual no consume | PASS |
+| Outer TX: draft → consume → POST | PASS |
+| PostgreSQL rollback: consumption failure | PASS |
+| PostgreSQL rollback: release failure after consume | PASS |
+| Internal `ProductionReleaseDocumentService` boundary | PASS |
+| ArchUnit Release + Warehouse public API rules | PASS |
+| No Warehouse internals in Production main | PASS |
+| `ProductionReleased` event | NOT implemented (STAGE7-015) |
+| STAGE7-018 | NOT marked DONE |
+| `git diff --check` | clean |
+| `mvn verify` | PASS |
+| STAGE7-013 | DONE |
+| STAGE7-014 | READY |
+| Git | NOT EXECUTED |
+
+---
+
+## Previous result (STAGE7-012A)
+
+**Date:** 2026-08-23
 **Scope:** STAGE7-012A — Partial Release Material Planning Contract
 **Overall:** PASS
 **Type:** Normative documentation / contract closure only (no business code)

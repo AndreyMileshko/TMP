@@ -14,7 +14,8 @@ import com.tmp.document.api.DocumentQuery;
 import com.tmp.document.api.DocumentStatus;
 import com.tmp.document.api.DocumentTypeDescriptor;
 import com.tmp.document.api.UpdateDocumentCommand;
-import com.tmp.production.application.ProductionReleaseDocumentService.ProductionReleaseDocumentCommand;
+import com.tmp.production.application.internal.ProductionReleaseDocumentService;
+import com.tmp.production.application.internal.ProductionReleaseDocumentService.ProductionReleaseDocumentCommand;
 import com.tmp.production.application.document.ProductionReleaseProcessor;
 import com.tmp.production.domain.MaterialPlanningSource;
 import com.tmp.production.domain.ProductionFoundation;
@@ -182,7 +183,7 @@ class ProductionReleaseDocumentServiceTest {
                                                         BigDecimal.ONE,
                                                         MaterialPlanningSource.SPECIFICATION,
                                                         null,
-                                                        null,
+                                                        itemId.value(),
                                                         "changed")))));
     }
 

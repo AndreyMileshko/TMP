@@ -12,9 +12,11 @@ import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import com.tmp.production.domain.repository.ProductionReleaseRepository;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Document Engine processor for Production Release (Production Spec §9 / §15).
@@ -76,6 +78,7 @@ public final class ProductionReleaseProcessor implements DocumentProcessor {
         }
 
         List<ValidatedLine> validated = preValidateAll(release);
+        validateMaterialLineMembership(release);
 
         for (ValidatedLine line : validated) {
             itemStateRepository.save(line.releasedState());
@@ -151,6 +154,26 @@ public final class ProductionReleaseProcessor implements DocumentProcessor {
                             + ": "
                             + ex.getMessage(),
                     ex);
+        }
+    }
+
+    private static void validateMaterialLineMembership(ProductionRelease release) {
+        Set<SourceOrderItemId> itemIds = new HashSet<>();
+        for (ProductionRelease.ItemLine itemLine : release.itemLines()) {
+            itemIds.add(itemLine.sourceOrderItemId());
+        }
+        for (ProductionRelease.MaterialLine materialLine : release.materialLines()) {
+            materialLine
+                    .sourceOrderItemId()
+                    .ifPresent(
+                            itemId -> {
+                                if (!itemIds.contains(itemId)) {
+                                    throw new ProductionReleaseValidationException(
+                                            "Production Release material line references item not"
+                                                    + " in release: "
+                                                    + itemId.value());
+                                }
+                            });
         }
     }
 

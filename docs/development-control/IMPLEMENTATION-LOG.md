@@ -4,6 +4,39 @@
 
 ---
 
+## STAGE7-013 — Atomic Release + Consumption orchestration
+
+**Date:** 2026-08-23
+**Stage:** 7
+**Module:** `tmp-production`
+**Status:** DONE
+
+### Delivered
+
+- `ReleaseProductsService` — user-facing «Выпустить изделия» orchestration (outer REQUIRED TX).
+- `prepareRelease` preview + `releaseProducts` confirm path.
+- `PartialReleaseMaterialPlanCalculator` — cumulative proportional allocation per Spec v2.3 §15.1.1 (scale 6 HALF_UP, final closure exact `Q`).
+- `ReleaseMaterialPlanBuilder` — per-Spec-line plan then aggregate by item + MaterialReferenceId.
+- `MaterialReferenceResolver` extracted; `CheckMaterialAvailabilityService` reuses it (STAGE7-007 semantics preserved).
+- `ProductionReleaseDocumentService` moved to `application.internal` — not a public bypass path.
+- Warehouse Consumption via `WarehouseCommandApi.consume` only; explicit production-warehouse cell allocations; no hidden picking.
+- ArchUnit guards: internal gateway + Warehouse public API boundary.
+- Tests: `ReleaseProductsServiceTest`, `ReleaseProductsPostgresIT` (consumption failure + release failure rollback proofs).
+
+### Deferred
+
+- `ProductionReleased` domain event → STAGE7-015.
+- Production security permissions → STAGE7-016.
+- STAGE7-018 final public-boundary suite unchanged.
+
+### Queue
+
+- STAGE7-013 = DONE.
+- STAGE7-014 = READY.
+- Active blockers = NONE.
+
+---
+
 ## STAGE7-012A — Partial Release Material Planning Contract
 
 **Date:** 2026-08-23

@@ -11006,7 +11006,7 @@ mvn verify
 
 ## STAGE7-013 — Atomic Release + Consumption orchestration
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-012A, STAGE7-010
 **Module:** `tmp-production`
@@ -11044,23 +11044,26 @@ Application-level use case проводит Warehouse Consumption и Production 
 
 ### Acceptance criteria
 
-- [ ] outer TX: Consumption then Release;
-- [ ] failure of either rolls back both;
-- [ ] ownership preserved;
-- [ ] after-commit events only after outer commit.
+- [x] outer TX: Consumption then Release POST;
+- [x] failure of either rolls back both (PostgreSQL proof);
+- [x] ownership preserved (Warehouse public API only);
+- [x] `ReleaseProductsService` user-facing boundary; internal document gateway protected;
+- [x] partial plan calculator per Spec v2.3 §15.1.1;
+- [x] `ProductionReleased` event deferred to STAGE7-015.
 
 ### Verification commands
 
 ```bash
 mvn -pl :tmp-production -am test
 mvn -pl :tmp-document-engine -am test
+mvn verify
 ```
 
 ---
 
 ## STAGE7-014 — Production Cancellation
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** 7
 **Depends on:** STAGE7-005A
 **Module:** `tmp-production`

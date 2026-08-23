@@ -2,15 +2,15 @@
 
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation IN PROGRESS
-**Current Stage:** Stage 7 - IN PROGRESS / 62% (Start Gate PASSED)
+**Current Stage:** Stage 7 - IN PROGRESS / 65% (Start Gate PASSED)
 **Current Task:** none
-**Last completed task:** STAGE7-012A (Partial Release Material Planning Contract)
+**Last completed task:** STAGE7-013 (Atomic Release + Consumption orchestration)
 **Active blockers:** NONE
 **Stage 6 Warehouse:** DONE
-**Stage 7 Production:** IN PROGRESS / 62%
+**Stage 7 Production:** IN PROGRESS / 65%
 **Stage 7 Start Gate:** PASSED
 **Full verify baseline:** GREEN
-**First READY implementation task:** STAGE7-013
+**First READY implementation task:** STAGE7-014
 
 
 ```text
@@ -72,12 +72,13 @@ STAGE7-010 = DONE (Warehouse Transfer command integration; template atomic save 
 STAGE7-011 = DONE (Receipt confirmation initiation)
 STAGE7-012 = DONE (Production Release document and plan/fact)
 STAGE7-012A = DONE (Partial Release Material Planning Contract)
-STAGE7-013 = READY
+STAGE7-013 = DONE (Atomic Release + Consumption orchestration)
+STAGE7-014 = READY
 Active blockers = NONE
-Stage 7 Production = IN PROGRESS / 62%
+Stage 7 Production = IN PROGRESS / 65%
 Stage 7 Start Gate = PASSED
 Full reactor baseline = GREEN
-First READY implementation task = STAGE7-013
+First READY implementation task = STAGE7-014
 ```
 
 ---
@@ -93,7 +94,7 @@ First READY implementation task = STAGE7-013
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
-| 7 | Production | IN PROGRESS | 62% |
+| 7 | Production | IN PROGRESS | 65% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 
@@ -131,5 +132,6 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - `STAGE7-011` completed: «Подтвердить получение» for Production logical transfer. `ConfirmMaterialReceiptService` loads Warehouse refs from `ProductionMaterialTransferRepository` only (no UI Warehouse operation IDs). Full status snapshot via `WarehouseQueryApi.getTransferStatus` before any mutation; DRAFT/invalid reject; SENT → `WarehouseCommandApi.receiveTransfer`; RECEIVED skipped; all-RECEIVED → `ALREADY_RECEIVED` idempotent. Outer REQUIRED TX; real PostgreSQL partial-failure rollback; stored ref consistency; original send/draft id remains correlation. No Production receipt SoT, Document, history/audit, or stock writes. STAGE7-012 READY. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-012` completed: Production Release document (`production.release`) with durable plan/fact persistence (Flyway V29), `ProductionReleaseProcessor`, internal `ProductionReleaseDocumentService` gateway for STAGE7-013 (no standalone user `releaseProducts`), item-owned `ProductionItemState.release`, full pre-validation, POSTED immutability, UNPOST unsupported. No Warehouse Consumption. Partial-release material plan formula absent from Accepted docs → `BLK-STAGE7-PARTIAL-RELEASE-PLAN` OPEN; STAGE7-013 BLOCKED. Full `mvn test` / `mvn verify` BUILD SUCCESS.
 - `STAGE7-012A` completed: Accepted Production Specification **v2.3 §15.1.1** — cumulative proportional allocation for partial/repeated Release plan (`Q` = frozen `lineQuantity` on whole item, `N` = orderedQuantity, no `Q*N` double multiply; scale 6 HALF_UP; final Release closes exact `Q`). `BLK-STAGE7-PARTIAL-RELEASE-PLAN` RESOLVED. STAGE7-013 READY. Documentation-only; no business code. Full `mvn verify` BUILD SUCCESS.
-- Production implementation IN PROGRESS (62% by task-count: 16/26 Stage 7 tasks done through STAGE7-012A, including 004A/004B/005A).
-- Next task: **STAGE7-013** (Atomic Release + Consumption orchestration) — READY.
+- `STAGE7-013` completed: `ReleaseProductsService` atomic Release + Warehouse Consumption orchestration (outer REQUIRED TX). System-computed partial plan per §15.1.1; confirmed actual + explicit production-warehouse cell allocations; `WarehouseCommandApi.consume`; internal document gateway; PostgreSQL rollback proofs. `ProductionReleased` deferred STAGE7-015. Full `mvn verify` BUILD SUCCESS.
+- Production implementation IN PROGRESS (65% by task-count: 17/26 Stage 7 tasks done through STAGE7-013, including 004A/004B/005A).
+- Next task: **STAGE7-014** (Production Cancellation) — READY.

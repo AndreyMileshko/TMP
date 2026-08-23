@@ -570,16 +570,57 @@ class Stage7ProductionArchitectureTest {
                             "Release processor must not perform external capability queries");
 
     @ArchTest
-    static final ArchRule noStandaloneUserFacingReleaseProductsService =
+    static final ArchRule releaseProductsServiceIsUserFacingReleaseBoundary =
+            classes()
+                    .that()
+                    .haveSimpleName("ReleaseProductsService")
+                    .should()
+                    .resideInAPackage("com.tmp.production.application..")
+                    .because("User-facing Release orchestration belongs to ReleaseProductsService");
+
+    @ArchTest
+    static final ArchRule productionReleaseDocumentServiceIsInternalGateway =
             noClasses()
                     .that()
                     .resideInAPackage("com.tmp.production..")
                     .and()
-                    .haveNameMatching(".*ReleaseProducts.*")
+                    .resideOutsideOfPackage("com.tmp.production.application.internal..")
+                    .and()
+                    .haveSimpleNameNotContaining("ReleaseProducts")
                     .should()
-                    .beInterfaces()
+                    .dependOnClassesThat()
+                    .haveSimpleName("ProductionReleaseDocumentService")
                     .because(
-                            "User-facing releaseProducts orchestration belongs to STAGE7-013; "
-                                    + "STAGE7-012 exposes only an internal document gateway")
-                    .allowEmptyShould(true);
+                            "Production Release document gateway is internal; business workflow must"
+                                    + " use ReleaseProductsService");
+
+    @ArchTest
+    static final ArchRule releaseProductsUsesWarehousePublicApiOnly =
+            classes()
+                    .that()
+                    .haveSimpleName("ReleaseProductsService")
+                    .should()
+                    .onlyDependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production..",
+                            "com.tmp.warehouse.api..",
+                            "com.tmp.document.api..",
+                            "java..",
+                            "org.springframework.transaction..",
+                            "edu.umd.cs.findbugs.annotations..")
+                    .because(
+                            "STAGE7-013 Release orchestration must use Warehouse public API only");
+
+    @ArchTest
+    static final ArchRule releaseProductsMustNotUseWarehouseInternals =
+            noClasses()
+                    .that()
+                    .haveSimpleName("ReleaseProductsService")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.warehouse.application..",
+                            "com.tmp.warehouse.domain..",
+                            "com.tmp.warehouse.persistence..")
+                    .because("ReleaseProductsService must not depend on Warehouse internals");
 }

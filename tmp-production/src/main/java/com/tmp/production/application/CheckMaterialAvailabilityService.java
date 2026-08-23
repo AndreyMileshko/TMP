@@ -36,6 +36,7 @@ public final class CheckMaterialAvailabilityService {
     private final WarehouseAvailabilityQueryPort warehouseQuery;
     private final ProductionWarehouseScope warehouseScope;
     private final SpecificationMaterialRequirementCalculator requirementCalculator;
+    private final MaterialReferenceResolver materialReferenceResolver;
     private final Clock clock;
 
     public CheckMaterialAvailabilityService(
@@ -50,6 +51,7 @@ public final class CheckMaterialAvailabilityService {
                 warehouseQuery,
                 warehouseScope,
                 new SpecificationMaterialRequirementCalculator(),
+                new MaterialReferenceResolver(),
                 clock);
     }
 
@@ -59,6 +61,7 @@ public final class CheckMaterialAvailabilityService {
             WarehouseAvailabilityQueryPort warehouseQuery,
             ProductionWarehouseScope warehouseScope,
             SpecificationMaterialRequirementCalculator requirementCalculator,
+            MaterialReferenceResolver materialReferenceResolver,
             Clock clock) {
         this.orderViewService = Objects.requireNonNull(orderViewService, "orderViewService");
         this.foundationQuery = Objects.requireNonNull(foundationQuery, "foundationQuery");
@@ -66,6 +69,8 @@ public final class CheckMaterialAvailabilityService {
         this.warehouseScope = Objects.requireNonNull(warehouseScope, "warehouseScope");
         this.requirementCalculator =
                 Objects.requireNonNull(requirementCalculator, "requirementCalculator");
+        this.materialReferenceResolver =
+                Objects.requireNonNull(materialReferenceResolver, "materialReferenceResolver");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -121,10 +126,14 @@ public final class CheckMaterialAvailabilityService {
     private MaterialAvailabilityLine buildLine(
             AggregatedMaterialRequirement requirement, List<MaterialReferenceEntry> catalog) {
         SpecificationMaterialIdentity identity = requirement.identity();
-        MaterialResolution resolution = resolveMaterialReference(identity, catalog);
+        MaterialReferenceResolver.Result resolution =
+                materialReferenceResolver.resolve(identity, catalog);
 
-        if (resolution.status() != null) {
-            return unresolvedLine(requirement, resolution.status());
+        if (resolution.status() == MaterialReferenceResolver.ResolutionStatus.UNRESOLVED) {
+            return unresolvedLine(requirement, MaterialAvailabilityLineStatus.MATERIAL_UNRESOLVED);
+        }
+        if (resolution.status() == MaterialReferenceResolver.ResolutionStatus.AMBIGUOUS) {
+            return unresolvedLine(requirement, MaterialAvailabilityLineStatus.MATERIAL_AMBIGUOUS);
         }
 
         UUID materialReferenceId = resolution.materialReferenceId();
@@ -173,35 +182,6 @@ public final class CheckMaterialAvailabilityService {
                 MaterialPlanningSource.SPECIFICATION);
     }
 
-    private static MaterialResolution resolveMaterialReference(
-            SpecificationMaterialIdentity identity, List<MaterialReferenceEntry> catalog) {
-        List<MaterialReferenceEntry> candidates =
-                catalog.stream()
-                        .filter(
-                                entry ->
-                                        entry.article().equals(identity.materialCode())
-                                                && SpecificationMaterialIdentity.normalizeColor(
-                                                                entry.color())
-                                                        .equals(identity.color())
-                                                && entry.unitOfMeasure()
-                                                        .trim()
-                                                        .equals(identity.unitOfMeasure()))
-                        .toList();
-
-        if (candidates.isEmpty()) {
-            return MaterialResolution.unresolved();
-        }
-        if (candidates.size() > 1) {
-            return MaterialResolution.ambiguous();
-        }
-        return MaterialResolution.resolved(candidates.getFirst().materialReferenceId());
-    }
-
-    private static BigDecimal deficit(BigDecimal required, BigDecimal available) {
-        BigDecimal difference = required.subtract(available);
-        return difference.signum() > 0 ? difference : BigDecimal.ZERO;
-    }
-
     private static MaterialAvailabilityOverallStatus resolveOverallStatus(
             List<MaterialAvailabilityLine> lines) {
         boolean hasUnresolved = false;
@@ -223,21 +203,8 @@ public final class CheckMaterialAvailabilityService {
         return MaterialAvailabilityOverallStatus.ALL_AVAILABLE;
     }
 
-    private record MaterialResolution(
-            UUID materialReferenceId, MaterialAvailabilityLineStatus status) {
-
-        static MaterialResolution resolved(UUID materialReferenceId) {
-            return new MaterialResolution(materialReferenceId, null);
-        }
-
-        static MaterialResolution unresolved() {
-            return new MaterialResolution(
-                    null, MaterialAvailabilityLineStatus.MATERIAL_UNRESOLVED);
-        }
-
-        static MaterialResolution ambiguous() {
-            return new MaterialResolution(
-                    null, MaterialAvailabilityLineStatus.MATERIAL_AMBIGUOUS);
-        }
+    private static BigDecimal deficit(BigDecimal required, BigDecimal available) {
+        BigDecimal difference = required.subtract(available);
+        return difference.signum() > 0 ? difference : BigDecimal.ZERO;
     }
 }

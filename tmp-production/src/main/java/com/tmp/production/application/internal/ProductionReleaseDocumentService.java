@@ -1,4 +1,4 @@
-package com.tmp.production.application;
+package com.tmp.production.application.internal;
 
 import com.tmp.document.api.CreateDocumentCommand;
 import com.tmp.document.api.DocumentEngine;
@@ -25,7 +25,7 @@ import java.util.UUID;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Internal Production Release document gateway for STAGE7-013 orchestration.
+ * Internal Production Release document gateway for {@code ReleaseProductsService} orchestration.
  *
  * <p>Not a standalone user-facing «Выпустить изделия» use case. Does not call Warehouse.
  * Joins ambient {@code REQUIRED} transactions (ADR-036); does not use {@code REQUIRES_NEW}.
@@ -48,9 +48,6 @@ public final class ProductionReleaseDocumentService {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    /**
-     * Creates a Document Engine DRAFT and persists Production-owned release payload.
-     */
     @Transactional
     public DocumentMetadata createDraft(ProductionReleaseDocumentCommand command) {
         Objects.requireNonNull(command, "command");
@@ -72,9 +69,6 @@ public final class ProductionReleaseDocumentService {
         return draft;
     }
 
-    /**
-     * Replaces DRAFT payload content. Rejected after POST.
-     */
     @Transactional
     public ProductionRelease updateDraft(
             UUID documentId, ProductionReleaseDocumentCommand command) {
@@ -100,27 +94,18 @@ public final class ProductionReleaseDocumentService {
         return releaseRepository.saveDraft(updated);
     }
 
-    /**
-     * Posts the Production Release document via Document Engine (joins ambient TX).
-     */
     @Transactional
     public DocumentMetadata post(UUID documentId) {
         Objects.requireNonNull(documentId, "documentId");
         return documentEngine.postDocument(documentId);
     }
 
-    /**
-     * Durable release read model for tests / future history.
-     */
     @Transactional(readOnly = true)
     public Optional<ProductionRelease> findReleaseByDocumentId(UUID documentId) {
         Objects.requireNonNull(documentId, "documentId");
         return releaseRepository.findByDocumentId(documentId);
     }
 
-    /**
-     * Actual material usage projection for STAGE7-013 Warehouse Consumption aggregation.
-     */
     @Transactional(readOnly = true)
     public List<ProductionRelease.ActualMaterialUsage> actualMaterialUsages(UUID documentId) {
         return findReleaseByDocumentId(documentId)
@@ -161,9 +146,6 @@ public final class ProductionReleaseDocumentService {
                 .toList();
     }
 
-    /**
-     * Internal command for preparing a Production Release document (not UI orchestration).
-     */
     public record ProductionReleaseDocumentCommand(
             UUID sourceOrderId,
             Instant releasedAt,
@@ -202,6 +184,7 @@ public final class ProductionReleaseDocumentService {
                 Objects.requireNonNull(plannedQuantity, "plannedQuantity");
                 Objects.requireNonNull(actualQuantity, "actualQuantity");
                 Objects.requireNonNull(planningSource, "planningSource");
+                Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
             }
         }
     }
