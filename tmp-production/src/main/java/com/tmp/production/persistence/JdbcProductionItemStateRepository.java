@@ -83,6 +83,38 @@ public final class JdbcProductionItemStateRepository implements ProductionItemSt
     }
 
     @Override
+    public Optional<ProductionItemState> findBySourceOrderItemId(SourceOrderItemId sourceOrderItemId) {
+        Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
+
+        List<ProductionItemStateEntity> entities =
+                jdbcTemplate.query(
+                        SELECT_COLUMNS
+                                + """
+                         FROM production.production_item_states
+                         WHERE source_order_item_id = ?
+                         ORDER BY specification_id
+                        """,
+                        (rs, rowNum) -> ProductionItemStateMapper.mapRow(rs),
+                        sourceOrderItemId.value());
+
+        if (entities.isEmpty()) {
+            return Optional.empty();
+        }
+        if (entities.size() > 1) {
+            throw new ProductionPersistenceException(
+                    "Data integrity violation: expected exactly 1 frozen Production item state row "
+                            + "per SourceOrderItemId, but found "
+                            + entities.size()
+                            + " rows for source_order_item_id="
+                            + sourceOrderItemId.value());
+        }
+
+        ProductionItemStateEntity entity = entities.getFirst();
+        entity.setCuttingPlanLinks(loadLinks(entity.id()));
+        return Optional.of(ProductionItemStateMapper.toDomain(entity));
+    }
+
+    @Override
     public List<ProductionItemState> findBySourceOrderIdForUpdate(SourceOrderId sourceOrderId) {
         Objects.requireNonNull(sourceOrderId, "sourceOrderId");
         return queryStatesBySourceOrderId(sourceOrderId, true);

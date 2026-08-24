@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.capability.api.PermissionDescriptor;
+import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.security.api.PermissionId;
 import java.util.HashSet;
 import java.util.List;
@@ -50,10 +51,11 @@ class ProductionPermissionCatalogTest {
 
     @Test
     void capabilityDescriptorExposesPermissionCatalogOnly() {
-        ProductionCapability capability = new ProductionCapability();
+        ProductionCapability capability = new ProductionCapability(productionQueryApiStub());
         assertEquals(ProductionCapability.ID, capability.descriptor().id());
         assertEquals("production", capability.descriptor().id().value());
         assertEquals(7, capability.descriptor().permissions().size());
+        assertEquals(1, capability.descriptor().publicServices().size());
         assertEquals(0, capability.descriptor().navigationContributions().size());
         assertEquals(0, capability.descriptor().views().size());
         assertEquals(0, capability.descriptor().commands().size());
@@ -74,5 +76,31 @@ class ProductionPermissionCatalogTest {
         for (PermissionId permissionId : ProductionPermissions.all()) {
             assertTrue(ProductionPermissionCatalog.contains(permissionId));
         }
+    }
+
+    private static ProductionQueryApi productionQueryApiStub() {
+        return new ProductionQueryApi() {
+            @Override
+            public OrderProductionView getOrderProductionView(java.util.UUID orderId) {
+                return null;
+            }
+
+            @Override
+            public java.util.Optional<ItemProductionStateView> getItemProductionState(
+                    java.util.UUID orderItemId) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public java.util.Optional<MaterialAvailabilityResultView> getMaterialAvailabilityResult(
+                    java.util.UUID orderId) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public java.util.List<ProductionHistoryEntryView> listProductionHistory(java.util.UUID orderId) {
+                return java.util.List.of();
+            }
+        };
     }
 }

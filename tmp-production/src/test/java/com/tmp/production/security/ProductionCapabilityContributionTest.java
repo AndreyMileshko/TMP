@@ -8,6 +8,7 @@ import com.tmp.order.capability.OrderManagementCapability;
 import com.tmp.security.capability.SecurityAdministrationCapability;
 import com.tmp.warehouse.security.WarehouseCapability;
 import com.tmp.warehouse.security.WarehousePermissions;
+import com.tmp.production.api.ProductionQueryApi;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -18,7 +19,7 @@ class ProductionCapabilityContributionTest {
     @Test
     void productionPermissionsAreDiscoverableInCapabilityRegistry() {
         CapabilityContributionCatalogs catalogs = new CapabilityContributionCatalogs();
-        catalogs.registerInternalContributions(new ProductionCapability().descriptor());
+        catalogs.registerInternalContributions(new ProductionCapability(productionQueryApiStub()).descriptor());
 
         assertEquals(7, catalogs.activePermissions().size());
         assertEquals(
@@ -34,7 +35,7 @@ class ProductionCapabilityContributionTest {
                     catalogs.registerInternalContributions(new SecurityAdministrationCapability().descriptor());
                     catalogs.registerInternalContributions(new OrderManagementCapability().descriptor());
                     catalogs.registerInternalContributions(new WarehouseCapability().descriptor());
-                    catalogs.registerInternalContributions(new ProductionCapability().descriptor());
+                    catalogs.registerInternalContributions(new ProductionCapability(productionQueryApiStub()).descriptor());
                 });
 
         long distinctPermissionIds =
@@ -81,6 +82,34 @@ class ProductionCapabilityContributionTest {
 
     private static com.tmp.security.api.PermissionId permissionForViewProduction() {
         return ProductionPermissions.PRODUCTION_VIEW;
+    }
+
+    private static ProductionQueryApi productionQueryApiStub() {
+        return new ProductionQueryApi() {
+            @Override
+            public ProductionQueryApi.OrderProductionView getOrderProductionView(
+                    java.util.UUID orderId) {
+                return null;
+            }
+
+            @Override
+            public java.util.Optional<ProductionQueryApi.ItemProductionStateView> getItemProductionState(
+                    java.util.UUID orderItemId) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public java.util.Optional<ProductionQueryApi.MaterialAvailabilityResultView> getMaterialAvailabilityResult(
+                    java.util.UUID orderId) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public java.util.List<ProductionQueryApi.ProductionHistoryEntryView> listProductionHistory(
+                    java.util.UUID orderId) {
+                return java.util.List.of();
+            }
+        };
     }
 
     private static com.tmp.security.api.PermissionId permissionForAcceptOrder() {

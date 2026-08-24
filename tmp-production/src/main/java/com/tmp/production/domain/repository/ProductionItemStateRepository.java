@@ -32,6 +32,20 @@ public interface ProductionItemStateRepository {
     List<ProductionItemState> findBySourceOrderId(SourceOrderId sourceOrderId);
 
     /**
+     * Loads and row-locks (if supported by the adapter) one frozen Production state for the
+     * given {@link SourceOrderItemId}.
+     *
+     * <p>Empty when the item has not been launched (no persisted row).
+     *
+     * <p>Throws {@link com.tmp.production.persistence.ProductionPersistenceException} when
+     * persistence unexpectedly returns multiple states for the same Order Item id.
+     */
+    default Optional<ProductionItemState> findBySourceOrderItemId(SourceOrderItemId sourceOrderItemId) {
+        throw new UnsupportedOperationException(
+                "Adapter must implement lookup by SourceOrderItemId: " + sourceOrderItemId);
+    }
+
+    /**
      * Loads and row-locks all item-owned Production states for the given customer order.
      *
      * <p>Must be called within an active transaction. Default adapters may delegate to

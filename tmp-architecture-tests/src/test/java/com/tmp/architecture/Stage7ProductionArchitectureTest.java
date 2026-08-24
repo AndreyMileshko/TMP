@@ -5,6 +5,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import com.tmp.order.api.OrderQueryService;
+import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tmp.production.domain.repository.ProductionHistoryRepository;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -69,6 +70,8 @@ class Stage7ProductionArchitectureTest {
                     .haveSimpleNameNotContaining("Processor")
                     .and()
                     .haveSimpleNameNotEndingWith("ViewService")
+                    .and()
+                    .haveSimpleNameNotEndingWith("AutoConfiguration")
                     .and()
                     .resideOutsideOfPackage("com.tmp.production.persistence..")
                     .should()
@@ -856,14 +859,62 @@ class Stage7ProductionArchitectureTest {
                     .because("Production history write boundary is append-only");
 
     @ArchTest
-    static final ArchRule productionPublicQueryApiNotImplementedYet =
+    static final ArchRule productionPublicApiIsDtoOnlyAndIndependent =
             noClasses()
                     .that()
-                    .haveSimpleName("ProductionQueryApi")
-                    .should()
                     .resideInAPackage("com.tmp.production.api..")
-                    .because("STAGE7-016A Public Query API must not be introduced in STAGE7-015A")
-                    .allowEmptyShould(true);
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production.application..",
+                            "com.tmp.production.domain..",
+                            "com.tmp.production.persistence..",
+                            "com.tmp.order..",
+                            "com.tmp.warehouse..",
+                            "com.tmp.cutting..",
+                            "com.tmp.security..")
+                    .because("Public Query API is DTO-only and must not depend on internal capability types");
+
+    @ArchTest
+    static final ArchRule productionPublicQueryApiIsReadOnly =
+            methods()
+                    .that()
+                    .areDeclaredIn(ProductionQueryApi.class)
+                    .should()
+                    .haveNameNotStartingWith("accept")
+                    .andShould()
+                    .haveNameNotStartingWith("launch")
+                    .andShould()
+                    .haveNameNotStartingWith("checkMaterials")
+                    .andShould()
+                    .haveNameNotStartingWith("createTransfer")
+                    .andShould()
+                    .haveNameNotStartingWith("confirmReceipt")
+                    .andShould()
+                    .haveNameNotStartingWith("release")
+                    .andShould()
+                    .haveNameNotStartingWith("cancel")
+                    .andShould()
+                    .haveNameNotStartingWith("create")
+                    .andShould()
+                    .haveNameNotStartingWith("update")
+                    .andShould()
+                    .haveNameNotStartingWith("delete")
+                    .andShould()
+                    .haveNameNotStartingWith("post");
+
+    @ArchTest
+    static final ArchRule defaultProductionQueryApiDoesNotTouchWarehouseOmCuttingInternals =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production.application..")
+                    .and()
+                    .haveSimpleName("DefaultProductionQueryApi")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("com.tmp.warehouse..", "com.tmp.order..", "com.tmp.cutting..")
+                    .because(
+                            "Public Query API implementation must only read via Production-owned services/ports");
 
     @ArchTest
     static final ArchRule productionItemStateMustNotDependOnHistory =
@@ -890,6 +941,7 @@ class Stage7ProductionArchitectureTest {
                     .onlyDependOnClassesThat()
                     .resideInAnyPackage(
                             "com.tmp.production.security..",
+                            "com.tmp.production.api..",
                             "com.tmp.security.api..",
                             "com.tmp.capability.api..",
                             "java..",

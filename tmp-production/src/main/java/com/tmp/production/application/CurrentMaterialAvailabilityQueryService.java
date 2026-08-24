@@ -17,26 +17,20 @@ import com.tmp.production.domain.OrderProductionViewStatus;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SpecificationMaterialIdentity;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Read-only use case: check material availability for an order in {@code IN_PRODUCTION}.
+ * Side-effect-free current material availability calculation (Production Spec §18.1).
  *
- * <p>Does not mutate Warehouse stock, Production state, or create Business Documents. After a
- * successful calculation, appends {@code MATERIALS_CHECKED} history in a short REQUIRED transaction.
+ * <p>Produces the same semantics as {@link CheckMaterialAvailabilityService} but does not append
+ * {@code MATERIALS_CHECKED} history and does not mutate Production/Warehouse.
  */
-@SuppressFBWarnings(
-        value = "EI_EXPOSE_REP2",
-        justification = "Stores injected collaborators, history service, TX manager and clock.")
-public final class CheckMaterialAvailabilityService {
+public final class CurrentMaterialAvailabilityQueryService {
 
     private final ProductionOrderViewService orderViewService;
     private final ProductionFoundationQueryService foundationQuery;
@@ -44,18 +38,13 @@ public final class CheckMaterialAvailabilityService {
     private final ProductionWarehouseScope warehouseScope;
     private final SpecificationMaterialRequirementCalculator requirementCalculator;
     private final MaterialReferenceResolver materialReferenceResolver;
-    private final CurrentMaterialAvailabilityQueryService calculator;
-    private final ProductionHistoryService historyService;
-    private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
-    public CheckMaterialAvailabilityService(
+    public CurrentMaterialAvailabilityQueryService(
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQuery,
             WarehouseAvailabilityQueryPort warehouseQuery,
             ProductionWarehouseScope warehouseScope,
-            ProductionHistoryService historyService,
-            PlatformTransactionManager transactionManager,
             Clock clock) {
         this(
                 orderViewService,
@@ -64,20 +53,16 @@ public final class CheckMaterialAvailabilityService {
                 warehouseScope,
                 new SpecificationMaterialRequirementCalculator(),
                 new MaterialReferenceResolver(),
-                historyService,
-                transactionManager,
                 clock);
     }
 
-    CheckMaterialAvailabilityService(
+    CurrentMaterialAvailabilityQueryService(
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQuery,
             WarehouseAvailabilityQueryPort warehouseQuery,
             ProductionWarehouseScope warehouseScope,
             SpecificationMaterialRequirementCalculator requirementCalculator,
             MaterialReferenceResolver materialReferenceResolver,
-            ProductionHistoryService historyService,
-            PlatformTransactionManager transactionManager,
             Clock clock) {
         this.orderViewService = Objects.requireNonNull(orderViewService, "orderViewService");
         this.foundationQuery = Objects.requireNonNull(foundationQuery, "foundationQuery");
@@ -87,28 +72,45 @@ public final class CheckMaterialAvailabilityService {
                 Objects.requireNonNull(requirementCalculator, "requirementCalculator");
         this.materialReferenceResolver =
                 Objects.requireNonNull(materialReferenceResolver, "materialReferenceResolver");
-        this.calculator =
-                new CurrentMaterialAvailabilityQueryService(
-                        this.orderViewService,
-                        this.foundationQuery,
-                        this.warehouseQuery,
-                        this.warehouseScope,
-                        this.requirementCalculator,
-                        this.materialReferenceResolver,
-                        Objects.requireNonNull(clock, "clock"));
-        this.historyService = Objects.requireNonNull(historyService, "historyService");
-        this.transactionTemplate =
-                new TransactionTemplate(
-                        Objects.requireNonNull(transactionManager, "transactionManager"));
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    public MaterialAvailabilityCheckResult check(SourceOrderId sourceOrderId) {
+    /**
+     * Calculates current material availability for one order.
+     *
+     * @throws MaterialCheckNotAllowedException when Production View is not {@code IN_PRODUCTION}
+     */
+    public MaterialAvailabilityCheckResult evaluate(SourceOrderId sourceOrderId) {
         Objects.requireNonNull(sourceOrderId, "sourceOrderId");
-        MaterialAvailabilityCheckResult result = calculator.evaluate(sourceOrderId);
-        transactionTemplate.executeWithoutResult(
-                status -> historyService.append(historyService.materialsChecked(result)));
-        return result;
+
+        OrderProductionView view = orderViewService.getOrderProductionView(sourceOrderId);
+        if (view.status() != OrderProductionViewStatus.IN_PRODUCTION) {
+            throw new MaterialCheckNotAllowedException(sourceOrderId, view.status());
+        }
+
+        validateWarehouseScope();
+
+        // Material requirements are computed from item-owned states in the frozen specification.
+        List<ResolvedMaterialLine> allMaterialLines = new ArrayList<>();
+        for (ProductionItemState state : orderViewService.listItemStates(sourceOrderId)) {
+            allMaterialLines.addAll(foundationQuery.materialLines(state));
+        }
+
+        List<AggregatedMaterialRequirement> requirements =
+                requirementCalculator.aggregate(allMaterialLines);
+
+        List<MaterialReferenceEntry> materialCatalog = warehouseQuery.listMaterialReferences();
+
+        List<MaterialAvailabilityLine> lines = new ArrayList<>(requirements.size());
+        for (AggregatedMaterialRequirement requirement : requirements) {
+            lines.add(buildLine(requirement, materialCatalog));
+        }
+
+        return new MaterialAvailabilityCheckResult(
+                sourceOrderId,
+                clock.instant(),
+                resolveOverallStatus(lines),
+                lines);
     }
 
     private void validateWarehouseScope() {
@@ -155,9 +157,7 @@ public final class CheckMaterialAvailabilityService {
         BigDecimal totalAvailable = mainAvailable.add(productionAvailable);
         BigDecimal deficit = deficit(requirement.requiredQuantity(), totalAvailable);
         MaterialAvailabilityLineStatus status =
-                deficit.signum() > 0
-                        ? MaterialAvailabilityLineStatus.INSUFFICIENT
-                        : MaterialAvailabilityLineStatus.AVAILABLE;
+                deficit.signum() > 0 ? MaterialAvailabilityLineStatus.INSUFFICIENT : MaterialAvailabilityLineStatus.AVAILABLE;
 
         return new MaterialAvailabilityLine(
                 identity.materialCode(),
@@ -185,7 +185,7 @@ public final class CheckMaterialAvailabilityService {
                 requirement.requiredQuantity(),
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
-                BigDecimal.ZERO,
+                requirement.requiredQuantity(),
                 requirement.requiredQuantity(),
                 status,
                 MaterialPlanningSource.SPECIFICATION);
@@ -217,3 +217,4 @@ public final class CheckMaterialAvailabilityService {
         return difference.signum() > 0 ? difference : BigDecimal.ZERO;
     }
 }
+

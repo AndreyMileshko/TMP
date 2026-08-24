@@ -11285,7 +11285,7 @@ mvn -pl :tmp-production -am test
 
 ### Acceptance criteria
 
-- [ ] permissions соответствуют spec.
+- [x] permissions соответствуют spec.
 
 ### Verification commands
 
@@ -11297,7 +11297,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-016A — Production Public Query API
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-006, STAGE7-007, STAGE7-015A, STAGE7-016
 **Module:** `tmp-production`
@@ -11338,11 +11338,11 @@ History читается из Production-owned history. Order-level status вы�
 
 ### Acceptance criteria
 
-- [ ] API read-only;
-- [ ] DTO не раскрывают persistence;
-- [ ] history из Production-owned store;
-- [ ] permission `production.order.view` через Security contract (`ProductionPermissions.PRODUCTION_VIEW`);
-- [ ] contract/unit/integration tests PASS.
+- [x] API read-only;
+- [x] DTO не раскрывают persistence;
+- [x] history из Production-owned store;
+- [x] permission `production.order.view` через Security contract (`ProductionPermissions.PRODUCTION_VIEW`);
+- [x] contract/unit/integration tests PASS.
 
 ### Verification commands
 
@@ -11354,7 +11354,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-017 — Production workbench UI
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** 7
 **Depends on:** STAGE7-011, STAGE7-013, STAGE7-014, STAGE7-016, STAGE7-016A
 **Module:** `tmp-ui-shell`
@@ -11502,7 +11502,7 @@ Closure audit Stage 7 без отметки DONE при открытых деф�
 ### Required documents
 
 - STAGE-7 Manifest exit criteria;
-- Production Spec v2.2.
+- Production Spec v2.4.
 
 ### Allowed code scope
 

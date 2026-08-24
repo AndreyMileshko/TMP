@@ -4,6 +4,36 @@
 
 ---
 
+## STAGE7-016A — Production Public Query API
+
+**Date:** 2026-08-24
+**Stage:** 7
+**Module:** `tmp-production`
+**Status:** DONE
+
+### Context
+
+Read-only inter-module Production Public Query API per Production Spec v2.4 §18.1. Material availability is a current calculation reused by the explicit Check command; Query API does not append `MATERIALS_CHECKED` history.
+
+### Delivered
+
+- `com.tmp.production.api.ProductionQueryApi` with public DTOs only.
+- `DefaultProductionQueryApi` requires `ProductionPermissions.PRODUCTION_VIEW` before any repository/history/Warehouse read.
+- `findBySourceOrderItemId` on Production item-state repository; duplicate rows throw persistence exception.
+- `CurrentMaterialAvailabilityQueryService` extracted from `CheckMaterialAvailabilityService`.
+- `ProductionCapability` contributes exactly one `PublicServiceContribution` for `ProductionQueryApi`.
+- `ProductionAutoConfiguration` wires read-side beans; no new DB projection/cache; no new technical permission.
+
+### Verification
+
+- `mvn -pl :tmp-production -am test` PASS
+- `mvn -pl :tmp-architecture-tests -am test` PASS
+- `mvn test` PASS
+- `mvn verify` PASS
+- `git diff --check` clean
+
+---
+
 ## STAGE7-016 — Production security permissions
 
 **Date:** 2026-08-24

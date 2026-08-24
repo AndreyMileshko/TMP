@@ -4,7 +4,11 @@ import com.tmp.capability.api.Capability;
 import com.tmp.capability.api.CapabilityDescriptor;
 import com.tmp.capability.api.CapabilityId;
 import com.tmp.capability.api.CapabilityVersion;
+import com.tmp.capability.api.PublicServiceContribution;
+import com.tmp.production.api.ProductionQueryApi;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Production Capability: permission catalogue metadata (Production Specification §20).
@@ -19,7 +23,8 @@ public final class ProductionCapability implements Capability {
 
     private final CapabilityDescriptor descriptor;
 
-    public ProductionCapability() {
+    public ProductionCapability(ProductionQueryApi productionQueryApi) {
+        Objects.requireNonNull(productionQueryApi, "productionQueryApi");
         this.descriptor =
                 CapabilityDescriptor.builder()
                         .id(ID)
@@ -29,6 +34,10 @@ public final class ProductionCapability implements Capability {
                                 "Order-centric production workflow: acceptance, materials, transfer,"
                                         + " receipt, release and cancellation")
                         .permissions(ProductionPermissionCatalog.all())
+                        .publicServices(
+                                List.of(
+                                        PublicServiceContribution.of(
+                                                ProductionQueryApi.class, productionQueryApi)))
                         .build();
     }
 

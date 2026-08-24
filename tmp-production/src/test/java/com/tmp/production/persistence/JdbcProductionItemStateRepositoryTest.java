@@ -15,6 +15,7 @@ import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
+import com.tmp.production.persistence.ProductionPersistenceException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -371,6 +372,57 @@ class JdbcProductionItemStateRepositoryTest {
 
         assertTrue(loaded.cuttingPlanLinks().isEmpty());
         assertEquals(ProductionStatus.IN_PRODUCTION, loaded.status());
+    }
+
+    @Test
+    void findBySourceOrderItemIdReturnsEmptyWhenUnknownItem() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+
+        assertTrue(repository.findBySourceOrderItemId(itemId).isEmpty());
+    }
+
+    @Test
+    void findBySourceOrderItemIdReturnsSingleFrozenState() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specificationId = SpecificationId.generate();
+
+        ProductionFoundation foundation =
+                ProductionFoundation.freeze(orderId, itemId, specificationId, T0);
+        ProductionItemState launched =
+                ProductionItemState.launch(foundation, ProductionQuantity.positive(2), T0);
+        repository.save(launched);
+
+        ProductionItemState loaded = repository.findBySourceOrderItemId(itemId).orElseThrow();
+        assertEquals(orderId, loaded.sourceOrderId());
+        assertEquals(itemId, loaded.sourceOrderItemId());
+        assertEquals(specificationId, loaded.specificationId());
+        assertEquals(ProductionStatus.IN_PRODUCTION, loaded.status());
+    }
+
+    @Test
+    void findBySourceOrderItemIdThrowsOnDuplicateRows() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specA = SpecificationId.generate();
+        SpecificationId specB = SpecificationId.generate();
+
+        ProductionFoundation foundationA =
+                ProductionFoundation.freeze(orderId, itemId, specA, T0);
+        ProductionFoundation foundationB =
+                ProductionFoundation.freeze(orderId, itemId, specB, T0);
+
+        repository.save(
+                ProductionItemState.launch(
+                        foundationA, ProductionQuantity.positive(1), T0));
+        repository.save(
+                ProductionItemState.launch(
+                        foundationB, ProductionQuantity.positive(1), T0));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                ProductionPersistenceException.class,
+                () -> repository.findBySourceOrderItemId(itemId));
     }
 
     private static void assertFieldEquals(ProductionItemState expected, ProductionItemState actual) {

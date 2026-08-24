@@ -5,10 +5,12 @@ import com.tmp.production.domain.OrderProductionViewCalculator;
 import com.tmp.production.domain.OrderProductionViewCalculator.Context;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.SourceOrderId;
+import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.repository.ProductionCancellationQuery;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Read-only application query for the computed Order Production View.
@@ -88,5 +90,16 @@ public final class ProductionOrderViewService {
     public List<ProductionItemState> lockAllItemStates(SourceOrderId sourceOrderId) {
         Objects.requireNonNull(sourceOrderId, "sourceOrderId");
         return repository.findBySourceOrderIdForUpdate(sourceOrderId);
+    }
+
+    /**
+     * Read-only item-owned Production state for one {@link SourceOrderItemId}.
+     *
+     * <p>Empty when the order item has not been launched (no persisted row).
+     */
+    public Optional<ProductionItemState> findItemProductionStateByOrderItemId(
+            SourceOrderItemId sourceOrderItemId) {
+        Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
+        return repository.findBySourceOrderItemId(sourceOrderItemId);
     }
 }

@@ -3,6 +3,33 @@
 ## Latest result
 
 **Date:** 2026-08-24
+**Scope:** STAGE7-016A — Production Public Query API
+**Overall:** PASS
+
+| Check | Result |
+|-------|--------|
+| STAGE7-016 acceptance checkbox corrected | PASS |
+| STAGE7-020 Production Spec v2.4 reference | PASS |
+| ProductionQueryApi read-only four methods | PASS |
+| `production.order.view` before downstream reads | PASS |
+| Current material query does not append history | PASS |
+| Capability Engine ServiceRegistry lookup | PASS |
+| Duplicate capability registration rejected | PASS |
+| No new DB projection / technical permission | PASS |
+| ArchUnit Stage 7 Production Query API rules | PASS |
+| `git diff --check` | clean |
+| `mvn -pl :tmp-production -am test` | PASS |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS |
+| `mvn test` | PASS |
+| `mvn verify` | PASS |
+| STAGE7-016 | DONE |
+| STAGE7-016A | DONE |
+| STAGE7-017 | READY |
+| Git commit/push | NOT EXECUTED |
+
+---
+
+**Date:** 2026-08-24
 **Scope:** STAGE7-016 — Production security permissions
 **Overall:** PASS
 
