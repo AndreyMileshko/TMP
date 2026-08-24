@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-012  
 **Status:** Accepted  
-**Version:** 2.3
+**Version:** 2.4
 
 ---
 
@@ -693,23 +693,25 @@ Production **не** обязан подписываться на `Order Item Rev
 
 Permissions уровня бизнес-действий:
 
+Permission IDs следуют Security contract: `<area>.<resource>.<action>` (три lowercase dot-separated сегмента).
+
 | Permission | Назначение |
 |------------|------------|
-| `production.view` | Просмотр Production / истории |
-| `production.accept` | Принять заказ в производство |
-| `production.check_materials` | Проверить наличие материалов |
-| `production.create_transfer` | Инициировать создание перемещения из Production (фактический Warehouse document — с учётом Warehouse permissions) |
-| `production.confirm_receipt` | Подтвердить получение (инициирует Warehouse receive) |
-| `production.release` | Выпустить изделия |
-| `production.cancel` | Отменить производство заказа |
+| `production.order.view` | Просмотр Production / истории |
+| `production.order.accept` | Принять заказ в производство |
+| `production.materials.check` | Проверить наличие материалов |
+| `production.transfer.create` | Инициировать создание перемещения из Production (фактический Warehouse document — с учётом Warehouse permissions) |
+| `production.receipt.confirm` | Подтвердить получение (инициирует Warehouse receive) |
+| `production.release.create` | Выпустить изделия |
+| `production.cancellation.create` | Отменить производство заказа |
 
 Технические permissions на внутренние шаги одной пользовательской операции не плодятся.
 
 Для Warehouse-owned операций предпочтительно переиспользовать:
 
-- `warehouse.transfer.create`;
+- `warehouse.transfer.create` (Transfer draft/send/receive, включая receive после send);
 - `warehouse.consumption.create`;
-- соответствующие receive/send permissions Stage 6.
+- `warehouse.stock.view` для read-only проверки доступности на Warehouse Query boundary (Warehouse-owned, не дублируется Production).
 
 ---
 
@@ -890,6 +892,7 @@ Order Management — владелец Order / Order Item / Revision / Specificat
 | 2.1 | Corrective pass: Production Specification Reference (`Specification ID`); Cutting Plan links 0..N by MaterialReference; restored detailed Cutting Spec alignment; Warehouse Query vs Document commands. |
 | 2.2 | Нормативное уточнение §21: shared ACID transaction для Production Release + Warehouse Consumption (ADR-036); ownership без изменений. |
 | 2.3 | §15.1.1: cumulative proportional allocation нормативного material plan для partial/repeated Production Release; final Release closes Specification `lineQuantity` exactly; scale 6 / HALF_UP; SPECIFICATION-only scope Stage 7; plan/fact separation сохранена. |
+| 2.4 | Production permission shorthand normalized to canonical 3-segment Security PermissionId format. Business semantics unchanged. Warehouse-owned permissions remain Warehouse-owned. |
 
 ---
 

@@ -11260,7 +11260,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-016 — Production security permissions
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-001
 **Module:** `tmp-production`
@@ -11297,7 +11297,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-016A — Production Public Query API
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** 7
 **Depends on:** STAGE7-006, STAGE7-007, STAGE7-015A, STAGE7-016
 **Module:** `tmp-production`
@@ -11309,7 +11309,7 @@ mvn -pl :tmp-production -am test
 ### Required documents
 
 - Production Spec §18;
-- Security public authorization contract (`production.view`).
+- Security public authorization contract (`ProductionPermissions.PRODUCTION_VIEW` / `production.order.view`).
 
 ### Allowed code scope
 
@@ -11341,7 +11341,7 @@ History читается из Production-owned history. Order-level status вы�
 - [ ] API read-only;
 - [ ] DTO не раскрывают persistence;
 - [ ] history из Production-owned store;
-- [ ] permission `production.view` через Security contract;
+- [ ] permission `production.order.view` через Security contract (`ProductionPermissions.PRODUCTION_VIEW`);
 - [ ] contract/unit/integration tests PASS.
 
 ### Verification commands

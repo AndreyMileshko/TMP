@@ -317,6 +317,25 @@ class WarehouseSecurityAuthorizationTest {
                                         StorageCellId.generate())));
     }
 
+    @Test
+    void receiveTransferRequiresWarehouseTransferPermission() {
+        UUID sendOperationId = UUID.randomUUID();
+        DefaultWarehouseApi denied = api(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
+        DefaultWarehouseApi allowed = api(Set.of(WarehousePermissions.WAREHOUSE_TRANSFER));
+
+        assertThrows(
+                AccessDeniedException.class, () -> denied.receiveTransfer(sendOperationId));
+        try {
+            allowed.receiveTransfer(sendOperationId);
+        } catch (AccessDeniedException deniedAfterAuth) {
+            throw new AssertionError(
+                    "receiveTransfer must use warehouse.transfer.create, not deny authorized callers",
+                    deniedAfterAuth);
+        } catch (RuntimeException ignored) {
+            // business/validation failure after authorization is acceptable for this contract test
+        }
+    }
+
     private DefaultWarehouseApi api(Set<PermissionId> granted) {
         return new DefaultWarehouseApi(
                 new FixedAuthorization(granted),

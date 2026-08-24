@@ -4,6 +4,53 @@
 
 ---
 
+## STAGE7-016 — Production security permissions
+
+**Date:** 2026-08-24
+**Stage:** 7
+**Module:** `tmp-production`, `tmp-warehouse` (receive contract test only)
+**Status:** DONE
+
+### Context
+
+Production Spec §20 shorthand (`production.view`, etc.) normalized to canonical 3-segment Security `PermissionId` format. Production Spec v2.4 Accepted. No Security core changes; no automatic grants; no AuthorizationService wiring in application use cases (STAGE7-016A/017).
+
+### Delivered
+
+- `ProductionPermissions` — 7 immutable constants (`production.order.view` … `production.cancellation.create`).
+- `ProductionPermissionCatalog` — 7 nonblank descriptors; no Warehouse-owned IDs.
+- `ProductionCapability` (`capability id=production`) — permission metadata contribution only; no UI navigation yet.
+- `ProductionAutoConfiguration` + Spring Boot auto-config imports.
+- Production Spec v2.4 §20 + version history.
+- WORK-QUEUE STAGE7-016A canonical permission reference updated.
+- ArchUnit: production security package depends on Security/Capability public API only.
+- Warehouse contract test: `receiveTransfer` requires `warehouse.transfer.create`.
+
+### Warehouse reuse matrix (documented/tested)
+
+| Business action | Production permission | Warehouse downstream |
+|---|---|---|
+| View | `production.order.view` | none |
+| Accept | `production.order.accept` | none |
+| Check materials | `production.materials.check` | read may require `warehouse.stock.view` (Warehouse-owned) |
+| Create transfer | `production.transfer.create` | `warehouse.transfer.create` |
+| Confirm receipt | `production.receipt.confirm` | `warehouse.transfer.create` (receive) |
+| Release | `production.release.create` | `warehouse.consumption.create` |
+| Cancel | `production.cancellation.create` | none |
+
+### Verification
+
+- `mvn -pl :tmp-production -am test` PASS
+- `mvn -pl :tmp-security -am test` PASS
+- `mvn -pl :tmp-capability-engine -am test` PASS
+- `mvn -pl :tmp-warehouse -am test` PASS
+- `mvn -pl :tmp-architecture-tests -am test` PASS
+- `mvn test` PASS
+- `mvn verify` PASS
+- `git diff --check` clean
+
+---
+
 ## STAGE7-015A — Production Audit and History
 
 **Date:** 2026-08-24

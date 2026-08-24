@@ -3,6 +3,38 @@
 ## Latest result
 
 **Date:** 2026-08-24
+**Scope:** STAGE7-016 — Production security permissions
+**Overall:** PASS
+
+| Check | Result |
+|-------|--------|
+| Production Spec v2.4 §20 canonical PermissionIds | PASS |
+| Exactly 7 Production-owned permissions | PASS |
+| No 2-segment runtime aliases | PASS |
+| `ProductionPermissions` / `ProductionPermissionCatalog` / `ProductionCapability` | PASS |
+| Capability id `production`; permissions discoverable in registry | PASS |
+| No automatic role/user grants | PASS |
+| Warehouse permissions not duplicated in Production catalog | PASS |
+| `receiveTransfer` → `warehouse.transfer.create` contract test | PASS |
+| Production/Warehouse requirements matrix test | PASS |
+| ArchUnit production security boundary rules | PASS |
+| No Security core / DB migration / History changes | PASS |
+| STAGE7-016A not implemented | PASS |
+| `git diff --check` | clean |
+| `mvn -pl :tmp-production -am test` | PASS |
+| `mvn -pl :tmp-security -am test` | PASS |
+| `mvn -pl :tmp-capability-engine -am test` | PASS |
+| `mvn -pl :tmp-warehouse -am test` | PASS |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS |
+| `mvn test` | PASS |
+| `mvn verify` | PASS |
+| STAGE7-016 | DONE |
+| STAGE7-016A | READY |
+| Git commit/push | NOT EXECUTED |
+
+---
+
+**Date:** 2026-08-24
 **Scope:** STAGE7-015A — Production Audit and History
 **Overall:** PASS
 

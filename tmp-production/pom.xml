@@ -28,6 +28,18 @@
             <artifactId>tmp-document-engine</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.tmp</groupId>
+            <artifactId>tmp-capability-engine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tmp</groupId>
+            <artifactId>tmp-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jdbc</artifactId>
         </dependency>

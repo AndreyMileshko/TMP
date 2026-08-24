@@ -880,4 +880,37 @@ class Stage7ProductionArchitectureTest {
                     .because(
                             "Current Production state must not be reconstructed from history"
                                     + " (not event sourcing)");
+
+    @ArchTest
+    static final ArchRule productionSecurityDependsOnPublicSecurityAndCapabilityApiOnly =
+            classes()
+                    .that()
+                    .resideInAPackage("com.tmp.production.security..")
+                    .should()
+                    .onlyDependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production.security..",
+                            "com.tmp.security.api..",
+                            "com.tmp.capability.api..",
+                            "java..",
+                            "edu.umd.cs.findbugs..")
+                    .because(
+                            "Production permission contribution uses Security and Capability public"
+                                    + " contracts only");
+
+    @ArchTest
+    static final ArchRule productionSecurityMustNotDependOnWarehouseInternals =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production.security..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.warehouse.application..",
+                            "com.tmp.warehouse.domain..",
+                            "com.tmp.warehouse.persistence..",
+                            "com.tmp.warehouse.security..")
+                    .because(
+                            "Production permission catalogue must not depend on Warehouse internals;"
+                                    + " Warehouse permissions are referenced in tests only");
 }
