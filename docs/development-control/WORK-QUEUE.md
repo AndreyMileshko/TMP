@@ -11159,7 +11159,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-015 — Production domain events
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-013, STAGE7-014
 **Module:** `tmp-production`
@@ -11186,9 +11186,9 @@ mvn -pl :tmp-production -am test
 
 ### Acceptance criteria
 
-- [ ] события после commit;
-- [ ] rollback не публикует события;
-- [ ] покрыты минимум: `OrderAcceptedIntoProduction`, `ProductionReleased`, `OrderProductionCancelled`.
+- [x] события после commit;
+- [x] rollback не публикует события;
+- [x] покрыты минимум: `OrderAcceptedIntoProduction`, `ProductionReleased`, `OrderProductionCancelled`.
 
 ### Verification commands
 
@@ -11200,7 +11200,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-015A — Production Audit and History
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** 7
 **Depends on:** STAGE7-007, STAGE7-010, STAGE7-011, STAGE7-013, STAGE7-014, STAGE7-015
 **Module:** `tmp-production`

@@ -42,7 +42,7 @@ class ProductionCancellationProcessorTest {
     void setUp() {
         items = new InMemoryItemRepository();
         cancellations = new InMemoryCancellationRepository();
-        processor = new ProductionCancellationProcessor(cancellations, items);
+        processor = new ProductionCancellationProcessor(cancellations, items, event -> {});
     }
 
     @Test

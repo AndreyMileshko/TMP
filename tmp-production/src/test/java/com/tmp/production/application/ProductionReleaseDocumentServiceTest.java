@@ -57,7 +57,7 @@ class ProductionReleaseDocumentServiceTest {
     void setUp() {
         items = new InMemoryItemRepository();
         releases = new InMemoryReleaseRepository();
-        processor = new ProductionReleaseProcessor(releases, items);
+        processor = new ProductionReleaseProcessor(releases, items, event -> {});
         documentEngine = new StubDocumentEngine(processor);
         service =
                 new ProductionReleaseDocumentService(

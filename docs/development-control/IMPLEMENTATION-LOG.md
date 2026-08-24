@@ -4,6 +4,40 @@
 
 ---
 
+## STAGE7-015 — Production domain events
+
+**Date:** 2026-08-24
+**Stage:** 7
+**Module:** `tmp-production`
+**Status:** DONE
+
+### Context
+
+Publish completed Production business Domain Events after successful transaction commit only (Production Spec §19, Document Engine after-commit, ADR-021). Close STAGE7-014 Release↔Cancel overlapping row-lock verification gap first.
+
+### Delivered
+
+- STAGE7-014 verification correction: `ReleaseCancelOverlapPostgresIT` proves true overlapping transactions serialize via `SELECT … FOR UPDATE` (cancel-wins and partial-release-wins).
+- Existing `OrderAcceptedIntoProduction` retained as canonical Launch event.
+- New `ProductionReleased` and `OrderProductionCancelled` immutable DomainEvent records in `com.tmp.production.application.event`.
+- `ProductionReleaseProcessor` / `ProductionCancellationProcessor` schedule events via public `TransactionalEventPublisher.publishAfterCommit` after state mutations; one event per document POST.
+- Event timestamps from business documents; Release/Cancellation include source document IDs.
+- Real PostgreSQL after-commit/rollback proofs in `ProductionDomainEventsPostgresIT`.
+- ArchUnit rules for event contracts and public publisher usage.
+- No History/Audit store; no Security; STAGE7-018 not marked DONE.
+- STAGE7-015A = READY.
+
+### Verification
+
+- `mvn -pl :tmp-production -am test` PASS
+- `mvn -pl :tmp-document-engine -am test` PASS
+- `mvn -pl :tmp-architecture-tests -am test` PASS
+- `mvn test` PASS
+- `mvn verify` PASS
+- `git diff --check` clean
+
+---
+
 ## STAGE7-014 — Production Cancellation
 
 **Date:** 2026-08-23

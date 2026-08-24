@@ -214,7 +214,8 @@ class ReleaseProductsPostgresIT {
                         new JdbcDocumentVersionAdapter(jdbc),
                         new TransactionAfterCommitEventPublisher());
         documentEngine.registerProcessor(
-                new ProductionReleaseProcessor(releaseRepository, itemRepository));
+                new ProductionReleaseProcessor(
+                        releaseRepository, itemRepository, new TransactionAfterCommitEventPublisher()));
         releaseDocumentService =
                 new ProductionReleaseDocumentService(documentEngine, releaseRepository, CLOCK);
 

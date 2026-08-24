@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tmp.document.api.DocumentMetadata;
 import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentStatus;
+import com.tmp.production.application.event.ProductionReleased;
 import com.tmp.production.domain.MaterialPlanningSource;
 import com.tmp.production.domain.MaterialReferenceId;
 import com.tmp.production.domain.ProductionFoundation;
@@ -24,6 +25,7 @@ import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import com.tmp.production.domain.repository.ProductionReleaseRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,7 +49,7 @@ class ProductionReleaseProcessorTest {
     void setUp() {
         items = new InMemoryItemRepository();
         releases = new InMemoryReleaseRepository();
-        processor = new ProductionReleaseProcessor(releases, items);
+        processor = new ProductionReleaseProcessor(releases, items, event -> {});
         warehouseTouched = new AtomicBoolean(false);
     }
 
@@ -68,6 +70,19 @@ class ProductionReleaseProcessorTest {
         assertEquals(ProductionQuantity.positive(10), state.releasedQuantity());
         assertTrue(releases.findByDocumentId(docId).orElseThrow().posted());
         assertFalse(warehouseTouched.get());
+    }
+
+    @Test
+    void onPostSchedulesExactlyOneProductionReleasedEvent() {
+        CapturingEventPublisher events = new CapturingEventPublisher();
+        processor = new ProductionReleaseProcessor(releases, items, events);
+        Fixture fx = launch(10);
+        UUID docId = prepareRelease(fx, 3, List.of());
+        processor.onPost(context(docId));
+        assertEquals(1, events.events.size());
+        assertEquals(
+                ProductionReleased.EVENT_TYPE,
+                ((ProductionReleased) events.events.getFirst()).eventType());
     }
 
     @Test
@@ -359,6 +374,17 @@ class ProductionReleaseProcessorTest {
         @Override
         public Optional<ProductionRelease> findByDocumentId(UUID documentId) {
             return Optional.ofNullable(store.get(documentId));
+        }
+    }
+
+    private static final class CapturingEventPublisher
+            implements com.tmp.document.api.TransactionalEventPublisher {
+
+        final List<com.tmp.core.api.event.DomainEvent> events = new ArrayList<>();
+
+        @Override
+        public void publishAfterCommit(com.tmp.core.api.event.DomainEvent event) {
+            events.add(event);
         }
     }
 }

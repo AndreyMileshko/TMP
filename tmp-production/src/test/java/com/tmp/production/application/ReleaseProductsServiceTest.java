@@ -97,7 +97,7 @@ class ReleaseProductsServiceTest {
                         new StorageCellView(PROD_CELL_B, PROD, "P-02", true));
         releaseRepository = new InMemoryReleaseRepository();
         ProductionReleaseProcessor processor =
-                new ProductionReleaseProcessor(releaseRepository, repository);
+                new ProductionReleaseProcessor(releaseRepository, repository, event -> {});
         ProductionReleaseDocumentService releaseDocumentService =
                 new ProductionReleaseDocumentService(
                         new StubDocumentEngine(processor),

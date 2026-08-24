@@ -2,15 +2,15 @@
 
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation IN PROGRESS
-**Current Stage:** Stage 7 - IN PROGRESS / 69% (Start Gate PASSED)
+**Current Stage:** Stage 7 - IN PROGRESS / 74% (Start Gate PASSED)
 **Current Task:** none
-**Last completed task:** STAGE7-014 (Production Cancellation)
+**Last completed task:** STAGE7-015 (Production domain events)
 **Active blockers:** NONE
 **Stage 6 Warehouse:** DONE
-**Stage 7 Production:** IN PROGRESS / 69%
+**Stage 7 Production:** IN PROGRESS / 74%
 **Stage 7 Start Gate:** PASSED
 **Full verify baseline:** GREEN
-**First READY implementation task:** STAGE7-015
+**First READY implementation task:** STAGE7-015A
 
 
 ```text
@@ -75,12 +75,13 @@ STAGE7-012A = DONE (Partial Release Material Planning Contract)
 STAGE7-013 = DONE (Atomic Release + Consumption orchestration)
 STAGE7-013A = DONE (Release Preparation & Concurrency Correctness)
 STAGE7-014 = DONE
-STAGE7-015 = READY
+STAGE7-015 = DONE
+STAGE7-015A = READY
 Active blockers = NONE
-Stage 7 Production = IN PROGRESS / 69%
+Stage 7 Production = IN PROGRESS / 74%
 Stage 7 Start Gate = PASSED
 Full reactor baseline = GREEN
-First READY implementation task = STAGE7-015
+First READY implementation task = STAGE7-015A
 ```
 
 ---
@@ -96,7 +97,7 @@ First READY implementation task = STAGE7-015
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
-| 7 | Production | IN PROGRESS | 69% |
+| 7 | Production | IN PROGRESS | 74% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 
@@ -137,5 +138,6 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - `STAGE7-013` completed: `ReleaseProductsService` atomic Release + Warehouse Consumption orchestration (outer REQUIRED TX). System-computed partial plan per §15.1.1; confirmed actual + explicit production-warehouse cell allocations; `WarehouseCommandApi.consume`; internal document gateway; PostgreSQL rollback proofs. `ProductionReleased` deferred STAGE7-015. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-013A` completed: corrective Release preview/confirm split (`PrepareReleaseCommand` without actual/cells); plan always recomputed inside outer TX on `SELECT … FOR UPDATE` whole-order lock via `ProductionOrderStateLockService`; `OrderProductionViewCalculator` on locked snapshot; stronger ArchUnit guard for `ProductionReleaseDocumentService`; PostgreSQL concurrent Release tests; existing rollback proofs preserved. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-014` completed: whole-order Production Cancellation (`production.cancellation`) via `CancelOrderProductionService`; durable payload Flyway V30; `ProductionCancellationProcessor`; internal gateway; `ProductionCancellationQuery.hasPostedCancellation`; `ProductionOrderViewService` uses posted cancellation evidence for RELEASED+CANCELLED mix; reuses `ProductionOrderStateLockService`; no Warehouse/Cutting mutation; PostgreSQL atomicity + Release↔Cancel ordering proofs. Full `mvn verify` BUILD SUCCESS.
-- Production implementation IN PROGRESS (69% by task-count: 19/27 Stage 7 tasks done through STAGE7-014, including 004A/004B/005A).
-- Next task: **STAGE7-015** (Production domain events) — READY.
+- `STAGE7-015` completed: Production domain events after-commit via public `TransactionalEventPublisher` — `OrderAcceptedIntoProduction` (existing), `ProductionReleased`, `OrderProductionCancelled`; Release/Cancellation processors schedule one event per document POST; STAGE7-014 verification gap closed with true overlapping Release↔Cancel row-lock serialization proofs; rollback delivers 0 events. Full `mvn verify` BUILD SUCCESS.
+- Production implementation IN PROGRESS (74% by task-count: 20/27 Stage 7 tasks done through STAGE7-015, including 004A/004B/005A).
+- Next task: **STAGE7-015A** (Production Audit and History) — READY.

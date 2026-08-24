@@ -2,6 +2,44 @@
 
 ## Latest result
 
+**Date:** 2026-08-24
+**Scope:** STAGE7-015 — Production domain events (+ STAGE7-014 overlap verification correction)
+**Overall:** PASS
+
+| Check | Result |
+|-------|--------|
+| STAGE7-014 Release↔Cancel PostgreSQL overlap / row-lock serialization proof | PASS |
+| Cancel holds lock → concurrent Release blocks → Cancel commits → Release rejects | PASS |
+| Partial Release holds lock → concurrent Cancel blocks → Release commits → Cancel preserves released qty | PASS |
+| Launch after-commit proof (`OrderAcceptedIntoProduction`) | PASS |
+| Launch rollback → 0 delivered events | PASS |
+| Release after-commit proof (`ProductionReleased`) | PASS |
+| Consumption failure → 0 `ProductionReleased` | PASS |
+| Release POST failure → 0 `ProductionReleased` | PASS |
+| Repeated partial releases → separate `ProductionReleased` events | PASS |
+| Cancellation after-commit proof (`OrderProductionCancelled`) | PASS |
+| Cancellation rollback → 0 delivered events | PASS |
+| Cancellation rejected (MANUFACTURED) → 0 events | PASS |
+| Events immutable DomainEvent; `sourceCapabilityId=production`; stable eventType | PASS |
+| Public `TransactionalEventPublisher` only; no Document Engine internals in Production main | PASS |
+| Events not used as commands; Warehouse Consumption remains document-driven | PASS |
+| No History/Audit store; no Security | PASS |
+| ArchUnit Production event rules | PASS |
+| `git diff --check` | clean |
+| `mvn -pl :tmp-production -am test` | PASS |
+| `mvn -pl :tmp-document-engine -am test` | PASS |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS |
+| `mvn test` | PASS |
+| `mvn verify` | PASS |
+| STAGE7-015 | DONE |
+| STAGE7-015A | READY |
+| STAGE7-018 | PLANNED (not DONE) |
+| Git commit/push | NOT EXECUTED |
+
+---
+
+## Previous result
+
 **Date:** 2026-08-23
 **Scope:** STAGE7-014 — Production Cancellation
 **Overall:** PASS
@@ -21,7 +59,7 @@
 | duplicate cancellation rejected | PASS |
 | MANUFACTURED cancellation rejected | PASS |
 | PostgreSQL atomicity rollback proof | PASS |
-| Release↔Cancel ordering proofs (PostgreSQL) | PASS |
+| Release↔Cancel ordering proofs (PostgreSQL) | PASS (superseded by STAGE7-015 overlap / row-lock serialization proof) |
 | ArchUnit cancellation gateway/boundary rules | PASS |
 | `git diff --check` | clean |
 | `mvn test` | PASS |

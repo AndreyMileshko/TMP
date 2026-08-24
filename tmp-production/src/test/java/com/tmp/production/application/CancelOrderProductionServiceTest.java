@@ -60,7 +60,7 @@ class CancelOrderProductionServiceTest {
         itemRepository = new InMemoryItemRepository();
         cancellationRepository = new InMemoryCancellationRepository();
         ProductionCancellationProcessor processor =
-                new ProductionCancellationProcessor(cancellationRepository, itemRepository);
+                new ProductionCancellationProcessor(cancellationRepository, itemRepository, event -> {});
         ProductionCancellationDocumentService documentService =
                 new ProductionCancellationDocumentService(
                         new StubDocumentEngine(processor),

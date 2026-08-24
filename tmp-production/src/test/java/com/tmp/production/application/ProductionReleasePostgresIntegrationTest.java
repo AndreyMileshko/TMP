@@ -85,7 +85,7 @@ class ProductionReleasePostgresIntegrationTest {
         jdbc.update("DELETE FROM production.production_item_states");
         itemRepository = new JdbcProductionItemStateRepository(jdbc, CLOCK);
         releaseRepository = new JdbcProductionReleaseRepository(jdbc, CLOCK);
-        processor = new ProductionReleaseProcessor(releaseRepository, itemRepository);
+        processor = new ProductionReleaseProcessor(releaseRepository, itemRepository, event -> {});
         tx = new TransactionTemplate(txManager);
     }
 

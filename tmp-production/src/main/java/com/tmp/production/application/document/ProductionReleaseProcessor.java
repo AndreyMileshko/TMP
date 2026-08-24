@@ -2,6 +2,8 @@ package com.tmp.production.application.document;
 
 import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentProcessor;
+import com.tmp.document.api.TransactionalEventPublisher;
+import com.tmp.production.application.event.ProductionReleased;
 import com.tmp.production.domain.InvalidProductionStateException;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionRelease;
@@ -17,13 +19,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Document Engine processor for Production Release (Production Spec §9 / §15).
  *
  * <p>Loads durable Production-owned payload, fully pre-validates all item lines, then applies
  * {@link ProductionItemState#release}. Does not call Warehouse, Order Management, or Cutting.
- * Domain event {@code ProductionReleased} is deferred to STAGE7-015.
+ * Publishes {@link ProductionReleased} after successful POST via {@link TransactionalEventPublisher}.
  */
 public final class ProductionReleaseProcessor implements DocumentProcessor {
 
@@ -31,13 +34,16 @@ public final class ProductionReleaseProcessor implements DocumentProcessor {
 
     private final ProductionReleaseRepository releaseRepository;
     private final ProductionItemStateRepository itemStateRepository;
+    private final TransactionalEventPublisher eventPublisher;
 
     public ProductionReleaseProcessor(
             ProductionReleaseRepository releaseRepository,
-            ProductionItemStateRepository itemStateRepository) {
+            ProductionItemStateRepository itemStateRepository,
+            TransactionalEventPublisher eventPublisher) {
         this.releaseRepository = Objects.requireNonNull(releaseRepository, "releaseRepository");
         this.itemStateRepository =
                 Objects.requireNonNull(itemStateRepository, "itemStateRepository");
+        this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
     }
 
     @Override
@@ -84,6 +90,7 @@ public final class ProductionReleaseProcessor implements DocumentProcessor {
             itemStateRepository.save(line.releasedState());
         }
         releaseRepository.markPosted(release.markPosted());
+        eventPublisher.publishAfterCommit(buildReleasedEvent(release, documentId, validated));
     }
 
     @Override
@@ -182,6 +189,28 @@ public final class ProductionReleaseProcessor implements DocumentProcessor {
         return itemStateRepository.findBySourceOrderId(release.sourceOrderId()).stream()
                 .filter(state -> state.sourceOrderItemId().equals(itemId))
                 .findFirst();
+    }
+
+    private ProductionReleased buildReleasedEvent(
+            ProductionRelease release, UUID documentId, List<ValidatedLine> validated) {
+        List<ProductionReleased.ReleasedItem> releasedItems =
+                new ArrayList<>(release.itemLines().size());
+        for (int index = 0; index < release.itemLines().size(); index++) {
+            ProductionRelease.ItemLine line = release.itemLines().get(index);
+            ProductionItemState resultingState = validated.get(index).releasedState();
+            releasedItems.add(
+                    new ProductionReleased.ReleasedItem(
+                            line.sourceOrderItemId().value(),
+                            line.specificationId().value(),
+                            line.releaseQuantity().value().longValueExact(),
+                            resultingState.status()));
+        }
+        return new ProductionReleased(
+                UUID.randomUUID().toString(),
+                release.releasedAt(),
+                documentId,
+                release.sourceOrderId().value(),
+                releasedItems);
     }
 
     private record ValidatedLine(ProductionItemState releasedState) {}

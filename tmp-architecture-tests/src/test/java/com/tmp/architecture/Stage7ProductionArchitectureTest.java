@@ -731,4 +731,61 @@ class Stage7ProductionArchitectureTest {
                     .because(
                             "Order Production View reads cancellation evidence via"
                                     + " ProductionCancellationQuery port only");
+
+    @ArchTest
+    static final ArchRule productionDomainEventsImplementDomainEvent =
+            classes()
+                    .that()
+                    .resideInAPackage("com.tmp.production.application.event..")
+                    .and()
+                    .areTopLevelClasses()
+                    .and()
+                    .haveSimpleNameNotEndingWith("Test")
+                    .should()
+                    .implement(com.tmp.core.api.event.DomainEvent.class)
+                    .because("Production business events must implement public DomainEvent contract");
+
+    @ArchTest
+    static final ArchRule productionEventProcessorsUsePublicTransactionalPublisher =
+            classes()
+                    .that()
+                    .haveSimpleName("ProductionLaunchProcessor")
+                    .or()
+                    .haveSimpleName("ProductionReleaseProcessor")
+                    .or()
+                    .haveSimpleName("ProductionCancellationProcessor")
+                    .should()
+                    .dependOnClassesThat()
+                    .areAssignableTo(com.tmp.document.api.TransactionalEventPublisher.class)
+                    .because(
+                            "Production event scheduling must use public TransactionalEventPublisher");
+
+    @ArchTest
+    static final ArchRule productionProcessorsMustNotUseDocumentEngineInternals =
+            noClasses()
+                    .that()
+                    .haveSimpleName("ProductionLaunchProcessor")
+                    .or()
+                    .haveSimpleName("ProductionReleaseProcessor")
+                    .or()
+                    .haveSimpleName("ProductionCancellationProcessor")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("com.tmp.document.internal..")
+                    .because(
+                            "Production processors must not import Document Engine internal packages");
+
+    @ArchTest
+    static final ArchRule productionDomainEventsMustNotDependOnRepositories =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production.application.event..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production.domain.repository..",
+                            "com.tmp.production.persistence..",
+                            "org.springframework..")
+                    .because(
+                            "Production domain events are immutable notification facts, not persistence types");
 }

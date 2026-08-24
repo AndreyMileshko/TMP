@@ -2,6 +2,8 @@ package com.tmp.production.application.document;
 
 import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentProcessor;
+import com.tmp.document.api.TransactionalEventPublisher;
+import com.tmp.production.application.event.OrderProductionCancelled;
 import com.tmp.production.domain.CancellationItemAction;
 import com.tmp.production.domain.InvalidProductionStateException;
 import com.tmp.production.domain.ProductionCancellation;
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Document Engine processor for whole-order Production Cancellation (Production Spec §16).
@@ -31,14 +34,17 @@ public final class ProductionCancellationProcessor implements DocumentProcessor 
 
     private final ProductionCancellationRepository cancellationRepository;
     private final ProductionItemStateRepository itemStateRepository;
+    private final TransactionalEventPublisher eventPublisher;
 
     public ProductionCancellationProcessor(
             ProductionCancellationRepository cancellationRepository,
-            ProductionItemStateRepository itemStateRepository) {
+            ProductionItemStateRepository itemStateRepository,
+            TransactionalEventPublisher eventPublisher) {
         this.cancellationRepository =
                 Objects.requireNonNull(cancellationRepository, "cancellationRepository");
         this.itemStateRepository =
                 Objects.requireNonNull(itemStateRepository, "itemStateRepository");
+        this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
     }
 
     @Override
@@ -86,6 +92,7 @@ public final class ProductionCancellationProcessor implements DocumentProcessor 
             }
         }
         cancellationRepository.markPosted(cancellation.markPosted());
+        eventPublisher.publishAfterCommit(buildCancelledEvent(cancellation, documentId));
     }
 
     @Override
@@ -230,6 +237,26 @@ public final class ProductionCancellationProcessor implements DocumentProcessor 
         return itemStateRepository.findBySourceOrderId(cancellation.sourceOrderId()).stream()
                 .filter(state -> state.sourceOrderItemId().equals(itemId))
                 .findFirst();
+    }
+
+    private OrderProductionCancelled buildCancelledEvent(
+            ProductionCancellation cancellation, UUID documentId) {
+        List<OrderProductionCancelled.ItemOutcome> outcomes =
+                cancellation.itemLines().stream()
+                        .map(
+                                line ->
+                                        new OrderProductionCancelled.ItemOutcome(
+                                                line.sourceOrderItemId().value(),
+                                                line.specificationId().value(),
+                                                line.action()))
+                        .toList();
+        return new OrderProductionCancelled(
+                UUID.randomUUID().toString(),
+                cancellation.cancelledAt(),
+                documentId,
+                cancellation.sourceOrderId().value(),
+                cancellation.reason(),
+                outcomes);
     }
 
     private record ValidatedLine(ProductionItemState mutatedState) {}
