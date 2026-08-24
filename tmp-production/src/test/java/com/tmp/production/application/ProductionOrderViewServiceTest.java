@@ -1,6 +1,7 @@
 package com.tmp.production.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.production.domain.OrderProductionView;
@@ -8,9 +9,11 @@ import com.tmp.production.domain.OrderProductionViewStatus;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
+import com.tmp.production.domain.ProductionStatus;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
+import com.tmp.production.domain.repository.ProductionCancellationQuery;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import java.time.Instant;
 import java.util.List;
@@ -64,12 +67,44 @@ class ProductionOrderViewServiceTest {
         assertTrue(repository.findBySourceOrderId(orderB).size() == 1);
     }
 
+    @Test
+    void usesPostedCancellationEvidenceForReleasedAndCancelledMix() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        InMemoryRepository repository = new InMemoryRepository();
+        SourceOrderItemId releasedItem = SourceOrderItemId.generate();
+        SourceOrderItemId cancelledItem = SourceOrderItemId.generate();
+        SpecificationId releasedSpec = SpecificationId.generate();
+        SpecificationId cancelledSpec = SpecificationId.generate();
+        repository.save(launched(orderId, releasedItem, releasedSpec, 5));
+        repository.save(launched(orderId, cancelledItem, cancelledSpec, 5));
+        repository.save(
+                repository.require(orderId, releasedItem, releasedSpec)
+                        .release(ProductionQuantity.positive(5), T0));
+        repository.save(
+                repository.require(orderId, cancelledItem, cancelledSpec).cancel(T0));
+        ProductionOrderViewService withoutEvidence =
+                new ProductionOrderViewService(repository, orderIdArg -> false);
+        assertThrows(
+                com.tmp.production.domain.InvalidProductionStateException.class,
+                () -> withoutEvidence.getOrderProductionView(orderId));
+
+        ProductionOrderViewService withEvidence =
+                new ProductionOrderViewService(repository, orderIdArg -> true);
+        OrderProductionView view = withEvidence.getOrderProductionView(orderId);
+        assertEquals(OrderProductionViewStatus.CANCELLED, view.status());
+    }
+
     private static ProductionItemState launched(
-            SourceOrderId orderId, SourceOrderItemId itemId, long quantity) {
+            SourceOrderId orderId, SourceOrderItemId itemId, SpecificationId specId, long quantity) {
         return ProductionItemState.launch(
-                ProductionFoundation.freeze(orderId, itemId, SpecificationId.generate(), T0),
+                ProductionFoundation.freeze(orderId, itemId, specId, T0),
                 ProductionQuantity.positive(quantity),
                 T0);
+    }
+
+    private static ProductionItemState launched(
+            SourceOrderId orderId, SourceOrderItemId itemId, long quantity) {
+        return launched(orderId, itemId, SpecificationId.generate(), quantity);
     }
 
     private static final class InMemoryRepository implements ProductionItemStateRepository {
@@ -102,6 +137,11 @@ class ProductionOrderViewServiceTest {
             return store.values().stream()
                     .filter(state -> state.sourceOrderId().equals(sourceOrderId))
                     .toList();
+        }
+
+        ProductionItemState require(
+                SourceOrderId orderId, SourceOrderItemId itemId, SpecificationId specId) {
+            return findByIdentity(orderId, itemId, specId).orElseThrow();
         }
     }
 }

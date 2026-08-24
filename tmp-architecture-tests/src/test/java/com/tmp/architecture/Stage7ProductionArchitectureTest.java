@@ -638,4 +638,97 @@ class Stage7ProductionArchitectureTest {
                             "com.tmp.warehouse.domain..",
                             "com.tmp.warehouse.persistence..")
                     .because("ReleaseProductsService must not depend on Warehouse internals");
+
+    @ArchTest
+    static final ArchRule productionCancellationMustNotDependOnWarehouse =
+            noClasses()
+                    .that()
+                    .haveSimpleNameContaining("ProductionCancellation")
+                    .or()
+                    .haveSimpleName("JdbcProductionCancellationRepository")
+                    .or()
+                    .haveSimpleName("CancelOrderProductionService")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("com.tmp.warehouse..")
+                    .because(
+                            "STAGE7-014 Production Cancellation must not call Warehouse API or"
+                                    + " touch Warehouse packages");
+
+    @ArchTest
+    static final ArchRule productionCancellationMustNotDependOnOrderOrCuttingInternals =
+            noClasses()
+                    .that()
+                    .haveSimpleNameContaining("ProductionCancellation")
+                    .or()
+                    .haveSimpleName("JdbcProductionCancellationRepository")
+                    .or()
+                    .haveSimpleName("CancelOrderProductionService")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.order.application..",
+                            "com.tmp.order.domain..",
+                            "com.tmp.order.persistence..",
+                            "com.tmp.cutting..")
+                    .because(
+                            "Production Cancellation processor loads durable payload only; no"
+                                    + " OM/Cutting queries");
+
+    @ArchTest
+    static final ArchRule productionCancellationProcessorDoesNotQueryExternally =
+            noClasses()
+                    .that()
+                    .haveSimpleName("ProductionCancellationProcessor")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.order..",
+                            "com.tmp.warehouse..",
+                            "com.tmp.cutting..")
+                    .because(
+                            "Cancellation processor must not perform external capability queries");
+
+    @ArchTest
+    static final ArchRule cancelOrderProductionServiceIsUserFacingCancellationBoundary =
+            classes()
+                    .that()
+                    .haveSimpleName("CancelOrderProductionService")
+                    .should()
+                    .resideInAPackage("com.tmp.production.application..")
+                    .because(
+                            "User-facing Cancellation orchestration belongs to"
+                                    + " CancelOrderProductionService");
+
+    @ArchTest
+    static final ArchRule productionCancellationDocumentServiceIsInternalGateway =
+            noClasses()
+                    .that()
+                    .doNotHaveSimpleName("CancelOrderProductionService")
+                    .and()
+                    .doNotHaveSimpleName("ProductionCancellationDocumentService")
+                    .and()
+                    .doNotHaveSimpleName("ProductionCancellationDocumentServiceTest")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("ProductionCancellationDocumentService")
+                    .because(
+                            "Production Cancellation document gateway is internal; UI, bootstrap,"
+                                    + " public API and other orchestrators must use"
+                                    + " CancelOrderProductionService only");
+
+    @ArchTest
+    static final ArchRule productionOrderViewServiceMayUseCancellationQueryOnly =
+            classes()
+                    .that()
+                    .haveSimpleName("ProductionOrderViewService")
+                    .should()
+                    .onlyDependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production.application..",
+                            "com.tmp.production.domain..",
+                            "java..")
+                    .because(
+                            "Order Production View reads cancellation evidence via"
+                                    + " ProductionCancellationQuery port only");
 }

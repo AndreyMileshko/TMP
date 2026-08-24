@@ -11122,7 +11122,7 @@ git diff --check
 
 ## STAGE7-014 — Production Cancellation
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-013A, STAGE7-005A
 **Module:** `tmp-production`
@@ -11146,8 +11146,8 @@ Whole-order Production Cancellation через Production-owned document.
 
 ### Acceptance criteria
 
-- [ ] отмена заказа целиком;
-- [ ] материалы автоматически не возвращаются.
+- [x] отмена заказа целиком;
+- [x] материалы автоматически не возвращаются.
 
 ### Verification commands
 
@@ -11159,7 +11159,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-015 — Production domain events
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** 7
 **Depends on:** STAGE7-013, STAGE7-014
 **Module:** `tmp-production`

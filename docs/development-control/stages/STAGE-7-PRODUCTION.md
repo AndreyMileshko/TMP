@@ -14,9 +14,9 @@
 ## Status
 
 **START GATE PASSED**  
-**Stage 7 implementation IN PROGRESS / 66%**
+**Stage 7 implementation IN PROGRESS / 69%**
 
-Production functionality is **not** DONE. STAGE7-013A (Release Preparation & Concurrency Correctness) is the latest completed implementation task at manifest update time.
+Production functionality is **not** DONE. STAGE7-014 (Production Cancellation) is the latest completed implementation task at manifest update time.
 
 **Active blockers:** NONE
 

@@ -4,6 +4,41 @@
 
 ---
 
+## STAGE7-014 — Production Cancellation
+
+**Date:** 2026-08-23
+**Stage:** 7
+**Module:** `tmp-production`
+**Status:** DONE
+
+### Context
+
+Whole-order Production Cancellation per Production Spec §16: cancel unfinished item-owned production via durable Production-owned document; preserve RELEASED items and released quantities; no automatic material return.
+
+### Delivered
+
+- Document type `production.cancellation` + `ProductionCancellationProcessor`.
+- Durable payload Flyway V30 (`production_cancellations`, `production_cancellation_item_lines`, UNIQUE `source_order_id`).
+- `CancelOrderProductionService` + `CancelOrderProductionCommand` (whole order only; optional reason).
+- Internal `ProductionCancellationDocumentService` gateway (ArchUnit bypass guard).
+- `ProductionCancellationQuery.hasPostedCancellation` + JDBC adapter.
+- `ProductionOrderViewService` auto-supplies `Context.cancelled()` from posted cancellation evidence.
+- Reuses `ProductionOrderStateLockService` (same lock domain as Release).
+- Domain: `ProductionItemState.cancel()` for unfinished items; `PRESERVED_RELEASED` lines for RELEASED items.
+- Tests: unit (service/processor/view), PostgreSQL IT (happy path, rollback, cutting links preserved, Release↔Cancel ordering), ArchUnit rules.
+- STAGE7-015 = READY; STAGE7-018 NOT marked DONE.
+
+### Verification
+
+- `mvn -pl :tmp-production -am test` PASS
+- `mvn -pl :tmp-document-engine -am test` PASS
+- `mvn -pl :tmp-architecture-tests -am test` PASS
+- `mvn test` PASS
+- `mvn verify` PASS
+- `git diff --check` clean
+
+---
+
 ## STAGE7-013A — Release Preparation & Concurrency Correctness
 
 **Date:** 2026-08-23

@@ -5,6 +5,7 @@ import com.tmp.production.domain.OrderProductionViewCalculator;
 import com.tmp.production.domain.OrderProductionViewCalculator.Context;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.SourceOrderId;
+import com.tmp.production.domain.repository.ProductionCancellationQuery;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import java.util.List;
 import java.util.Objects;
@@ -19,23 +20,44 @@ import java.util.Objects;
 public final class ProductionOrderViewService {
 
     private final ProductionItemStateRepository repository;
+    private final ProductionCancellationQuery cancellationQuery;
     private final OrderProductionViewCalculator calculator;
 
     public ProductionOrderViewService(ProductionItemStateRepository repository) {
-        this(repository, new OrderProductionViewCalculator());
+        this(repository, sourceOrderId -> false, new OrderProductionViewCalculator());
+    }
+
+    public ProductionOrderViewService(
+            ProductionItemStateRepository repository,
+            ProductionCancellationQuery cancellationQuery) {
+        this(repository, cancellationQuery, new OrderProductionViewCalculator());
     }
 
     public ProductionOrderViewService(
             ProductionItemStateRepository repository, OrderProductionViewCalculator calculator) {
+        this(repository, sourceOrderId -> false, calculator);
+    }
+
+    public ProductionOrderViewService(
+            ProductionItemStateRepository repository,
+            ProductionCancellationQuery cancellationQuery,
+            OrderProductionViewCalculator calculator) {
         this.repository = Objects.requireNonNull(repository, "repository");
+        this.cancellationQuery =
+                Objects.requireNonNull(cancellationQuery, "cancellationQuery");
         this.calculator = Objects.requireNonNull(calculator, "calculator");
     }
 
     /**
-     * Computes the Production View from current item-owned states without cancellation context.
+     * Computes the Production View from item-owned states and posted Cancellation evidence.
      */
     public OrderProductionView getOrderProductionView(SourceOrderId sourceOrderId) {
-        return getOrderProductionView(sourceOrderId, Context.none());
+        Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+        Context context =
+                cancellationQuery.hasPostedCancellation(sourceOrderId)
+                        ? Context.cancelled()
+                        : Context.none();
+        return getOrderProductionView(sourceOrderId, context);
     }
 
     /**

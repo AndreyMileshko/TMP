@@ -13,7 +13,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** Verifies production-owned Flyway migrations V23, V26, V27, V28 and V29. */
+/** Verifies production-owned Flyway migrations V23–V30. */
 @Testcontainers
 class ProductionSchemaFlywayTest {
 
@@ -58,6 +58,8 @@ class ProductionSchemaFlywayTest {
                         "material_transfer_template_lines",
                         "material_transfer_templates",
                         "material_transfers",
+                        "production_cancellation_item_lines",
+                        "production_cancellations",
                         "production_item_cutting_plan_links",
                         "production_item_states",
                         "production_release_item_lines",

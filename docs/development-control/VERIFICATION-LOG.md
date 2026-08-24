@@ -3,6 +3,38 @@
 ## Latest result
 
 **Date:** 2026-08-23
+**Scope:** STAGE7-014 — Production Cancellation
+**Overall:** PASS
+
+| Check | Result |
+|-------|--------|
+| whole-order `CancelOrderProductionService` | PASS |
+| document type `production.cancellation` | PASS |
+| durable payload V30 + UNIQUE per order | PASS |
+| `ProductionOrderStateLockService` reused | PASS |
+| IN_PRODUCTION / PARTIALLY_RELEASED → CANCELLED | PASS |
+| RELEASED items preserved | PASS |
+| released quantity preserved on partial items | PASS |
+| no Warehouse API calls from Cancellation | PASS |
+| Order View uses posted cancellation evidence | PASS |
+| RELEASED+CANCELLED mix → CANCELLED with document | PASS |
+| duplicate cancellation rejected | PASS |
+| MANUFACTURED cancellation rejected | PASS |
+| PostgreSQL atomicity rollback proof | PASS |
+| Release↔Cancel ordering proofs (PostgreSQL) | PASS |
+| ArchUnit cancellation gateway/boundary rules | PASS |
+| `git diff --check` | clean |
+| `mvn test` | PASS |
+| `mvn verify` | PASS |
+| STAGE7-014 | DONE |
+| STAGE7-015 | READY |
+| Git commit/push | NOT EXECUTED |
+
+---
+
+## Previous result
+
+**Date:** 2026-08-23
 **Scope:** STAGE7-013A — Release Preparation & Concurrency Correctness
 **Overall:** PASS
 
