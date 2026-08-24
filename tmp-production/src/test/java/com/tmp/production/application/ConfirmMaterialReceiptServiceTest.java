@@ -15,6 +15,8 @@ import com.tmp.production.domain.ProductionMaterialTransferNotFoundException;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.WarehouseTransferOperationRef;
 import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
+import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
+import com.tmp.production.testsupport.ProductionHistoryTestSupport;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
@@ -49,16 +51,21 @@ class ConfirmMaterialReceiptServiceTest {
     private InMemoryTransferRepository transfers;
     private RecordingWarehouse warehouse;
     private ConfirmMaterialReceiptService service;
+    private InMemoryProductionHistoryRepository historyRepository;
 
     @BeforeEach
     void setUp() {
         transfers = new InMemoryTransferRepository();
         warehouse = new RecordingWarehouse();
+        historyRepository = new InMemoryProductionHistoryRepository();
+        ProductionHistoryService historyService =
+                ProductionHistoryTestSupport.historyService(historyRepository);
         service =
                 new ConfirmMaterialReceiptService(
                         transfers,
                         warehouse,
                         warehouse,
+                        historyService,
                         new PassthroughTransactionManager(),
                         Clock.fixed(T0, ZoneOffset.UTC));
     }
@@ -104,6 +111,13 @@ class ConfirmMaterialReceiptServiceTest {
         assertEquals(
                 warehouse.lastReceiveOperationId,
                 result.references().getFirst().receiveOperationId());
+        assertEquals(
+                1,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .MATERIAL_RECEIPT_CONFIRMED)
+                        .size());
     }
 
     @Test
@@ -120,6 +134,7 @@ class ConfirmMaterialReceiptServiceTest {
         assertEquals(0, warehouse.receiveCalls.size());
         assertEquals(2, result.references().size());
         assertEquals(T0, result.confirmedAt());
+        assertEquals(0, historyRepository.size());
     }
 
     @Test
@@ -153,6 +168,27 @@ class ConfirmMaterialReceiptServiceTest {
         assertEquals(3, warehouse.receiveCalls.size());
         assertEquals(MaterialReceiptConfirmationStatus.RECEIVED, result.status());
         assertEquals(3, result.references().size());
+        assertEquals(
+                1,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .MATERIAL_RECEIPT_CONFIRMED)
+                        .size());
+
+        int receiveCallsAfterFirst = warehouse.receiveCalls.size();
+        MaterialReceiptConfirmationResult retry =
+                service.confirmMaterialReceipt(
+                        new ConfirmMaterialReceiptCommand(transfer.logicalTransferId()));
+        assertEquals(MaterialReceiptConfirmationStatus.ALREADY_RECEIVED, retry.status());
+        assertEquals(receiveCallsAfterFirst, warehouse.receiveCalls.size());
+        assertEquals(
+                1,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .MATERIAL_RECEIPT_CONFIRMED)
+                        .size());
     }
 
     @Test

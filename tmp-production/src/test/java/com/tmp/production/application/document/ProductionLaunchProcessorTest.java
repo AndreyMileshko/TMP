@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tmp.document.api.DocumentMetadata;
 import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentStatus;
+import com.tmp.production.application.ProductionHistoryService;
 import com.tmp.production.application.event.OrderAcceptedIntoProduction;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
@@ -17,6 +18,8 @@ import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
+import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
+import com.tmp.production.testsupport.ProductionHistoryTestSupport;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,13 +36,19 @@ class ProductionLaunchProcessorTest {
     private CapturingEventPublisher eventPublisher;
     private ProductionLaunchPayloadHolder payloadHolder;
     private ProductionLaunchProcessor processor;
+    private InMemoryProductionHistoryRepository historyRepository;
 
     @BeforeEach
     void setUp() {
         repository = new InMemoryRepository();
         eventPublisher = new CapturingEventPublisher();
         payloadHolder = new ProductionLaunchPayloadHolder();
-        processor = new ProductionLaunchProcessor(repository, eventPublisher, payloadHolder);
+        historyRepository = new InMemoryProductionHistoryRepository();
+        ProductionHistoryService historyService =
+                ProductionHistoryTestSupport.historyService(historyRepository);
+        processor =
+                new ProductionLaunchProcessor(
+                        repository, eventPublisher, payloadHolder, historyService);
     }
 
     @Test
@@ -104,6 +113,16 @@ class ProductionLaunchProcessorTest {
         assertEquals(
                 List.of(item1.value(), item2.value()), event.sourceOrderItemIds());
         assertEquals(OrderAcceptedIntoProduction.EVENT_TYPE, event.eventType());
+        assertEquals(
+                1,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .ORDER_ACCEPTED)
+                        .size());
+        assertEquals(
+                "user1",
+                historyRepository.listByOrder(orderId).getFirst().actorRef().orElseThrow());
     }
 
     @Test

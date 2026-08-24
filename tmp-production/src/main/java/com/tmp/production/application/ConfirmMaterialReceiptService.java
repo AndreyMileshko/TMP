@@ -43,6 +43,7 @@ public final class ConfirmMaterialReceiptService {
     private final ProductionMaterialTransferRepository transferRepository;
     private final WarehouseCommandApi warehouseCommandApi;
     private final WarehouseQueryApi warehouseQueryApi;
+    private final ProductionHistoryService historyService;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -50,6 +51,7 @@ public final class ConfirmMaterialReceiptService {
             ProductionMaterialTransferRepository transferRepository,
             WarehouseCommandApi warehouseCommandApi,
             WarehouseQueryApi warehouseQueryApi,
+            ProductionHistoryService historyService,
             PlatformTransactionManager transactionManager,
             Clock clock) {
         this.transferRepository =
@@ -57,6 +59,7 @@ public final class ConfirmMaterialReceiptService {
         this.warehouseCommandApi =
                 Objects.requireNonNull(warehouseCommandApi, "warehouseCommandApi");
         this.warehouseQueryApi = Objects.requireNonNull(warehouseQueryApi, "warehouseQueryApi");
+        this.historyService = Objects.requireNonNull(historyService, "historyService");
         this.transactionTemplate =
                 new TransactionTemplate(
                         Objects.requireNonNull(transactionManager, "transactionManager"));
@@ -109,12 +112,21 @@ public final class ConfirmMaterialReceiptService {
             }
             referenceResults.add(receiveSentReference(status));
         }
-        return new MaterialReceiptConfirmationResult(
-                transfer.logicalTransferId(),
-                transfer.sourceOrderId(),
-                confirmedAt,
-                MaterialReceiptConfirmationStatus.RECEIVED,
-                referenceResults);
+        MaterialReceiptConfirmationResult result =
+                new MaterialReceiptConfirmationResult(
+                        transfer.logicalTransferId(),
+                        transfer.sourceOrderId(),
+                        confirmedAt,
+                        MaterialReceiptConfirmationStatus.RECEIVED,
+                        referenceResults);
+        List<UUID> receiveOperationIds =
+                referenceResults.stream()
+                        .map(MaterialReceiptReferenceResult::receiveOperationId)
+                        .toList();
+        historyService.append(
+                historyService.materialReceiptConfirmed(
+                        transfer, confirmedAt, referenceResults.size(), receiveOperationIds));
+        return result;
     }
 
     private ProductionMaterialTransfer requireTransfer(ProductionMaterialTransferId logicalTransferId) {

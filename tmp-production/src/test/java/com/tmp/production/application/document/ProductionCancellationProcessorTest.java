@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tmp.document.api.DocumentMetadata;
 import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentStatus;
+import com.tmp.production.application.ProductionHistoryService;
 import com.tmp.production.domain.CancellationItemAction;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
@@ -20,6 +21,8 @@ import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.ProductionCancellationRepository;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
+import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
+import com.tmp.production.testsupport.ProductionHistoryTestSupport;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +45,13 @@ class ProductionCancellationProcessorTest {
     void setUp() {
         items = new InMemoryItemRepository();
         cancellations = new InMemoryCancellationRepository();
-        processor = new ProductionCancellationProcessor(cancellations, items, event -> {});
+        InMemoryProductionHistoryRepository historyRepository =
+                new InMemoryProductionHistoryRepository();
+        ProductionHistoryService historyService =
+                ProductionHistoryTestSupport.historyService(historyRepository);
+        processor =
+                new ProductionCancellationProcessor(
+                        cancellations, items, event -> {}, historyService);
     }
 
     @Test

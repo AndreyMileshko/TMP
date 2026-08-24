@@ -14,6 +14,7 @@ import com.tmp.production.domain.ProductionStatus;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
+import com.tmp.production.persistence.JdbcProductionHistoryRepository;
 import com.tmp.production.persistence.JdbcProductionItemStateRepository;
 import com.tmp.production.persistence.JdbcProductionReleaseRepository;
 import java.time.Clock;
@@ -78,6 +79,7 @@ class ProductionReleasePostgresIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("TRUNCATE TABLE production.production_history");
         jdbc.update("DELETE FROM production.production_release_material_lines");
         jdbc.update("DELETE FROM production.production_release_item_lines");
         jdbc.update("DELETE FROM production.production_releases");
@@ -85,7 +87,11 @@ class ProductionReleasePostgresIntegrationTest {
         jdbc.update("DELETE FROM production.production_item_states");
         itemRepository = new JdbcProductionItemStateRepository(jdbc, CLOCK);
         releaseRepository = new JdbcProductionReleaseRepository(jdbc, CLOCK);
-        processor = new ProductionReleaseProcessor(releaseRepository, itemRepository, event -> {});
+        JdbcProductionHistoryRepository jdbcHistory = new JdbcProductionHistoryRepository(jdbc);
+        ProductionHistoryService historyService = new ProductionHistoryService(jdbcHistory, CLOCK);
+        processor =
+                new ProductionReleaseProcessor(
+                        releaseRepository, itemRepository, event -> {}, historyService);
         tx = new TransactionTemplate(txManager);
     }
 

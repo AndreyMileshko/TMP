@@ -17,18 +17,25 @@ import com.tmp.production.domain.OrderProductionViewStatus;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SpecificationMaterialIdentity;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Read-only use case: check material availability for an order in {@code IN_PRODUCTION}.
  *
- * <p>Does not mutate Warehouse stock, Production state, or create Business Documents.
+ * <p>Does not mutate Warehouse stock, Production state, or create Business Documents. After a
+ * successful calculation, appends {@code MATERIALS_CHECKED} history in a short REQUIRED transaction.
  */
+@SuppressFBWarnings(
+        value = "EI_EXPOSE_REP2",
+        justification = "Stores injected collaborators, history service, TX manager and clock.")
 public final class CheckMaterialAvailabilityService {
 
     private final ProductionOrderViewService orderViewService;
@@ -37,6 +44,8 @@ public final class CheckMaterialAvailabilityService {
     private final ProductionWarehouseScope warehouseScope;
     private final SpecificationMaterialRequirementCalculator requirementCalculator;
     private final MaterialReferenceResolver materialReferenceResolver;
+    private final ProductionHistoryService historyService;
+    private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
     public CheckMaterialAvailabilityService(
@@ -44,6 +53,8 @@ public final class CheckMaterialAvailabilityService {
             ProductionFoundationQueryService foundationQuery,
             WarehouseAvailabilityQueryPort warehouseQuery,
             ProductionWarehouseScope warehouseScope,
+            ProductionHistoryService historyService,
+            PlatformTransactionManager transactionManager,
             Clock clock) {
         this(
                 orderViewService,
@@ -52,6 +63,8 @@ public final class CheckMaterialAvailabilityService {
                 warehouseScope,
                 new SpecificationMaterialRequirementCalculator(),
                 new MaterialReferenceResolver(),
+                historyService,
+                transactionManager,
                 clock);
     }
 
@@ -62,6 +75,8 @@ public final class CheckMaterialAvailabilityService {
             ProductionWarehouseScope warehouseScope,
             SpecificationMaterialRequirementCalculator requirementCalculator,
             MaterialReferenceResolver materialReferenceResolver,
+            ProductionHistoryService historyService,
+            PlatformTransactionManager transactionManager,
             Clock clock) {
         this.orderViewService = Objects.requireNonNull(orderViewService, "orderViewService");
         this.foundationQuery = Objects.requireNonNull(foundationQuery, "foundationQuery");
@@ -71,6 +86,10 @@ public final class CheckMaterialAvailabilityService {
                 Objects.requireNonNull(requirementCalculator, "requirementCalculator");
         this.materialReferenceResolver =
                 Objects.requireNonNull(materialReferenceResolver, "materialReferenceResolver");
+        this.historyService = Objects.requireNonNull(historyService, "historyService");
+        this.transactionTemplate =
+                new TransactionTemplate(
+                        Objects.requireNonNull(transactionManager, "transactionManager"));
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -98,8 +117,12 @@ public final class CheckMaterialAvailabilityService {
             lines.add(buildLine(requirement, materialCatalog));
         }
 
-        return new MaterialAvailabilityCheckResult(
-                sourceOrderId, clock.instant(), resolveOverallStatus(lines), lines);
+        MaterialAvailabilityCheckResult result =
+                new MaterialAvailabilityCheckResult(
+                        sourceOrderId, clock.instant(), resolveOverallStatus(lines), lines);
+        transactionTemplate.executeWithoutResult(
+                status -> historyService.append(historyService.materialsChecked(result)));
+        return result;
     }
 
     private void validateWarehouseScope() {

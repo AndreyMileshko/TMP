@@ -46,6 +46,7 @@ import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.persistence.JdbcProductionCancellationRepository;
+import com.tmp.production.persistence.JdbcProductionHistoryRepository;
 import com.tmp.production.persistence.JdbcProductionItemStateRepository;
 import com.tmp.production.persistence.JdbcProductionReleaseRepository;
 import com.tmp.security.api.AuthorizationService;
@@ -166,6 +167,7 @@ class CancelOrderProductionPostgresIT {
         jdbc.update("DELETE FROM documents.document_versions");
         jdbc.update("DELETE FROM documents.documents");
         jdbc.update("DELETE FROM documents.document_types");
+        jdbc.update("TRUNCATE TABLE production.production_history");
         jdbc.update("DELETE FROM production.production_cancellation_item_lines");
         jdbc.update("DELETE FROM production.production_cancellations");
         jdbc.update("DELETE FROM production.production_release_material_lines");
@@ -213,6 +215,8 @@ class CancelOrderProductionPostgresIT {
         itemRepository = new JdbcProductionItemStateRepository(jdbc, CLOCK);
         releaseRepository = new JdbcProductionReleaseRepository(jdbc, CLOCK);
         cancellationRepository = new JdbcProductionCancellationRepository(jdbc, CLOCK);
+        JdbcProductionHistoryRepository jdbcHistory = new JdbcProductionHistoryRepository(jdbc);
+        ProductionHistoryService historyService = new ProductionHistoryService(jdbcHistory, CLOCK);
         documentEngine =
                 new DefaultDocumentEngine(
                         new DefaultDocumentProcessorRegistry(),
@@ -222,10 +226,16 @@ class CancelOrderProductionPostgresIT {
                         new TransactionAfterCommitEventPublisher());
         documentEngine.registerProcessor(
                 new ProductionReleaseProcessor(
-                        releaseRepository, itemRepository, new TransactionAfterCommitEventPublisher()));
+                        releaseRepository,
+                        itemRepository,
+                        new TransactionAfterCommitEventPublisher(),
+                        historyService));
         documentEngine.registerProcessor(
                 new ProductionCancellationProcessor(
-                        cancellationRepository, itemRepository, new TransactionAfterCommitEventPublisher()));
+                        cancellationRepository,
+                        itemRepository,
+                        new TransactionAfterCommitEventPublisher(),
+                        historyService));
         releaseDocumentService =
                 new ProductionReleaseDocumentService(documentEngine, releaseRepository, CLOCK);
         cancellationDocumentService =

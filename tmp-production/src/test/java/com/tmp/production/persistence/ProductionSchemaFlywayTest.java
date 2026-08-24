@@ -13,7 +13,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** Verifies production-owned Flyway migrations V23–V30. */
+/** Verifies production-owned Flyway migrations V23–V31. */
 @Testcontainers
 class ProductionSchemaFlywayTest {
 
@@ -60,6 +60,7 @@ class ProductionSchemaFlywayTest {
                         "material_transfers",
                         "production_cancellation_item_lines",
                         "production_cancellations",
+                        "production_history",
                         "production_item_cutting_plan_links",
                         "production_item_states",
                         "production_release_item_lines",
@@ -101,7 +102,7 @@ class ProductionSchemaFlywayTest {
     }
 
     @Test
-    void flywayRecordsV23V26V27V28AndV29Migrations() {
+    void flywayRecordsV23V26V27V28V29V30AndV31Migrations() {
         Integer applied23 =
                 jdbc.queryForObject(
                         """
@@ -137,11 +138,27 @@ class ProductionSchemaFlywayTest {
                         WHERE version = '29' AND success = TRUE
                         """,
                         Integer.class);
+        Integer applied30 =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '30' AND success = TRUE
+                        """,
+                        Integer.class);
+        Integer applied31 =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '31' AND success = TRUE
+                        """,
+                        Integer.class);
         assertEquals(1, applied23);
         assertEquals(1, applied26);
         assertEquals(1, applied27);
         assertEquals(1, applied28);
         assertEquals(1, applied29);
+        assertEquals(1, applied30);
+        assertEquals(1, applied31);
     }
 
     @Test

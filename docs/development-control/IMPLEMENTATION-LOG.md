@@ -4,6 +4,44 @@
 
 ---
 
+## STAGE7-015A — Production Audit and History
+
+**Date:** 2026-08-24
+**Stage:** 7
+**Module:** `tmp-production`
+**Status:** DONE
+
+### Context
+
+Production-owned immutable business history of significant user actions (Production Spec §22, ADR-021). History is not Security Audit, not Event Sourcing, and not after-commit event delivery.
+
+Atomic infrastructure exception: new production files exceed the usual 5-file cap because the append-only store, Flyway table+triggers, appender/query service and JDBC adapter cannot be verified independently of each other.
+
+### Delivered
+
+- Domain model: immutable `ProductionHistoryEntry` + `ProductionHistoryType` (7 Spec §22 categories).
+- Append-only `ProductionHistoryRepository` / `JdbcProductionHistoryRepository`; no update/delete API.
+- Flyway `V31__production_history.sql`: `production.production_history`, order/time index, unique `(history_type, business_reference_id)` for document-backed facts, BEFORE UPDATE/DELETE triggers. TRUNCATE remains available for tests.
+- `ProductionHistoryService`: appender + `listByOrder`; `recordedAt` from injected Clock; `occurredAt` from business timestamps.
+- Same-TX writes: Launch/Release/Cancellation processors; Transfer/Receipt confirm services; Material Check uses a short REQUIRED TX after successful calculation.
+- Idempotency: transfer retry, already-received receipt, duplicate cancellation do not append a second row. Repeated explicit Material Checks and repeated Releases do.
+- PLAN_FACT_DEVIATION only when `actual.compareTo(planned) != 0`; formula `actualMinusPlanned`.
+- Internal query only — no `ProductionQueryApi`, no Security permission, no Analytics.
+- STAGE7-015 domain events unchanged and still after-commit.
+- STAGE7-018 remains PLANNED.
+
+### Verification
+
+- `mvn -pl :tmp-production -am test` PASS
+- `mvn -pl :tmp-document-engine -am test` PASS
+- `mvn -pl :tmp-warehouse -am test` PASS
+- `mvn -pl :tmp-architecture-tests -am test` PASS
+- `mvn test` PASS
+- `mvn verify` PASS
+- `git diff --check` clean
+
+---
+
 ## STAGE7-015 — Production domain events
 
 **Date:** 2026-08-24

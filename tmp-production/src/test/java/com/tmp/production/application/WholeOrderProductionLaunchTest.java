@@ -33,6 +33,8 @@ import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.SpecificationNotAvailableForLaunchException;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
+import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
+import com.tmp.production.testsupport.ProductionHistoryTestSupport;
 import com.tmp.production.testsupport.ProductionTestFixtures;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -74,7 +76,13 @@ class WholeOrderProductionLaunchTest {
                         payloadHolder,
                         orderQuery,
                         Clock.fixed(T0, ZoneOffset.UTC));
-        processor = new ProductionLaunchProcessor(repository, eventPublisher, payloadHolder);
+        InMemoryProductionHistoryRepository historyRepository =
+                new InMemoryProductionHistoryRepository();
+        ProductionHistoryService historyService =
+                ProductionHistoryTestSupport.historyService(historyRepository);
+        processor =
+                new ProductionLaunchProcessor(
+                        repository, eventPublisher, payloadHolder, historyService);
         specificationQuery = new TrackingSpecificationQuery();
         foundationQueryService = new ProductionFoundationQueryService(specificationQuery);
     }

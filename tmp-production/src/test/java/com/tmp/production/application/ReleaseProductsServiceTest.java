@@ -38,6 +38,8 @@ import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import com.tmp.production.domain.repository.ProductionReleaseRepository;
+import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
+import com.tmp.production.testsupport.ProductionHistoryTestSupport;
 import com.tmp.warehouse.api.WarehouseApi.ConsumptionCommand;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
@@ -96,8 +98,13 @@ class ReleaseProductsServiceTest {
                         new StorageCellView(PROD_CELL, PROD, "P-01", true),
                         new StorageCellView(PROD_CELL_B, PROD, "P-02", true));
         releaseRepository = new InMemoryReleaseRepository();
+        InMemoryProductionHistoryRepository historyRepository =
+                new InMemoryProductionHistoryRepository();
+        ProductionHistoryService historyService =
+                ProductionHistoryTestSupport.historyService(historyRepository);
         ProductionReleaseProcessor processor =
-                new ProductionReleaseProcessor(releaseRepository, repository, event -> {});
+                new ProductionReleaseProcessor(
+                        releaseRepository, repository, event -> {}, historyService);
         ProductionReleaseDocumentService releaseDocumentService =
                 new ProductionReleaseDocumentService(
                         new StubDocumentEngine(processor),

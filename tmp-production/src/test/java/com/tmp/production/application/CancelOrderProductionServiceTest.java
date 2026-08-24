@@ -30,6 +30,8 @@ import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.ProductionCancellationQuery;
 import com.tmp.production.domain.repository.ProductionCancellationRepository;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
+import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
+import com.tmp.production.testsupport.ProductionHistoryTestSupport;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -54,13 +56,18 @@ class CancelOrderProductionServiceTest {
     private InMemoryCancellationRepository cancellationRepository;
     private CancelOrderProductionService service;
     private ProductionOrderViewService viewService;
+    private InMemoryProductionHistoryRepository historyRepository;
 
     @BeforeEach
     void setUp() {
         itemRepository = new InMemoryItemRepository();
         cancellationRepository = new InMemoryCancellationRepository();
+        historyRepository = new InMemoryProductionHistoryRepository();
+        ProductionHistoryService historyService =
+                ProductionHistoryTestSupport.historyService(historyRepository);
         ProductionCancellationProcessor processor =
-                new ProductionCancellationProcessor(cancellationRepository, itemRepository, event -> {});
+                new ProductionCancellationProcessor(
+                        cancellationRepository, itemRepository, event -> {}, historyService);
         ProductionCancellationDocumentService documentService =
                 new ProductionCancellationDocumentService(
                         new StubDocumentEngine(processor),
@@ -95,6 +102,13 @@ class CancelOrderProductionServiceTest {
         assertEquals(ProductionQuantity.zero(), state.activeProductionQuantity());
         assertEquals(OrderProductionViewStatus.CANCELLED, viewService.getOrderProductionView(orderId).status());
         assertTrue(cancellationRepository.hasPostedCancellation(orderId));
+        assertEquals(
+                1,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .PRODUCTION_CANCELLED)
+                        .size());
     }
 
     @Test
@@ -156,6 +170,13 @@ class CancelOrderProductionServiceTest {
         assertThrows(
                 ProductionCancellationAlreadyExistsException.class,
                 () -> service.cancelOrderProduction(new CancelOrderProductionCommand(orderId.value())));
+        assertEquals(
+                1,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .PRODUCTION_CANCELLED)
+                        .size());
     }
 
     @Test

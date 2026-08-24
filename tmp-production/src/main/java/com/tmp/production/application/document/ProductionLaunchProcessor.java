@@ -3,6 +3,7 @@ package com.tmp.production.application.document;
 import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentProcessor;
 import com.tmp.document.api.TransactionalEventPublisher;
+import com.tmp.production.application.ProductionHistoryService;
 import com.tmp.production.application.event.OrderAcceptedIntoProduction;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionLaunchConflictException;
@@ -10,6 +11,7 @@ import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -26,14 +28,17 @@ public final class ProductionLaunchProcessor implements DocumentProcessor {
     private final ProductionItemStateRepository repository;
     private final TransactionalEventPublisher eventPublisher;
     private final ProductionLaunchPayloadHolder payloadHolder;
+    private final ProductionHistoryService historyService;
 
     public ProductionLaunchProcessor(
             ProductionItemStateRepository repository,
             TransactionalEventPublisher eventPublisher,
-            ProductionLaunchPayloadHolder payloadHolder) {
+            ProductionLaunchPayloadHolder payloadHolder,
+            ProductionHistoryService historyService) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
         this.payloadHolder = Objects.requireNonNull(payloadHolder, "payloadHolder");
+        this.historyService = Objects.requireNonNull(historyService, "historyService");
     }
 
     @Override
@@ -83,6 +88,14 @@ public final class ProductionLaunchProcessor implements DocumentProcessor {
             repository.save(state);
             acceptedItemIds.add(foundation.sourceOrderItemId().value());
         }
+
+        historyService.append(
+                historyService.orderAccepted(
+                        payload.sourceOrderId(),
+                        context.document().id(),
+                        payload.launchTimestamp(),
+                        acceptedItemIds,
+                        Optional.of(payload.createdBy())));
 
         eventPublisher.publishAfterCommit(
                 new OrderAcceptedIntoProduction(

@@ -30,6 +30,8 @@ import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import com.tmp.production.domain.repository.ProductionReleaseRepository;
+import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
+import com.tmp.production.testsupport.ProductionHistoryTestSupport;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -57,7 +59,11 @@ class ProductionReleaseDocumentServiceTest {
     void setUp() {
         items = new InMemoryItemRepository();
         releases = new InMemoryReleaseRepository();
-        processor = new ProductionReleaseProcessor(releases, items, event -> {});
+        InMemoryProductionHistoryRepository historyRepository =
+                new InMemoryProductionHistoryRepository();
+        ProductionHistoryService historyService =
+                ProductionHistoryTestSupport.historyService(historyRepository);
+        processor = new ProductionReleaseProcessor(releases, items, event -> {}, historyService);
         documentEngine = new StubDocumentEngine(processor);
         service =
                 new ProductionReleaseDocumentService(

@@ -11200,7 +11200,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-015A — Production Audit and History
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-007, STAGE7-010, STAGE7-011, STAGE7-013, STAGE7-014, STAGE7-015
 **Module:** `tmp-production`
@@ -11244,11 +11244,11 @@ History append-only / immutable. Фильтрация минимум по Order 
 
 ### Acceptance criteria
 
-- [ ] значимые действия фиксируются;
-- [ ] rollback не оставляет ложной успешной записи;
-- [ ] история фильтруется минимум по Order ID;
-- [ ] пользовательские technical intermediate steps не засоряют историю;
-- [ ] plan/fact deviation отражается в истории выпуска.
+- [x] значимые действия фиксируются;
+- [x] rollback не оставляет ложной успешной записи;
+- [x] история фильтруется минимум по Order ID;
+- [x] пользовательские technical intermediate steps не засоряют историю;
+- [x] plan/fact deviation отражается в истории выпуска.
 
 ### Verification commands
 
@@ -11260,7 +11260,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-016 — Production security permissions
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** 7
 **Depends on:** STAGE7-001
 **Module:** `tmp-production`

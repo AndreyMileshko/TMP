@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tmp.document.api.DocumentMetadata;
 import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentStatus;
+import com.tmp.production.application.ProductionHistoryService;
 import com.tmp.production.application.event.ProductionReleased;
 import com.tmp.production.domain.MaterialPlanningSource;
 import com.tmp.production.domain.MaterialReferenceId;
@@ -23,6 +24,8 @@ import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import com.tmp.production.domain.repository.ProductionReleaseRepository;
+import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
+import com.tmp.production.testsupport.ProductionHistoryTestSupport;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -43,13 +46,17 @@ class ProductionReleaseProcessorTest {
     private InMemoryItemRepository items;
     private InMemoryReleaseRepository releases;
     private ProductionReleaseProcessor processor;
+    private InMemoryProductionHistoryRepository historyRepository;
     private AtomicBoolean warehouseTouched;
 
     @BeforeEach
     void setUp() {
         items = new InMemoryItemRepository();
         releases = new InMemoryReleaseRepository();
-        processor = new ProductionReleaseProcessor(releases, items, event -> {});
+        historyRepository = new InMemoryProductionHistoryRepository();
+        ProductionHistoryService historyService =
+                ProductionHistoryTestSupport.historyService(historyRepository);
+        processor = new ProductionReleaseProcessor(releases, items, event -> {}, historyService);
         warehouseTouched = new AtomicBoolean(false);
     }
 
@@ -70,12 +77,121 @@ class ProductionReleaseProcessorTest {
         assertEquals(ProductionQuantity.positive(10), state.releasedQuantity());
         assertTrue(releases.findByDocumentId(docId).orElseThrow().posted());
         assertFalse(warehouseTouched.get());
+        assertEquals(
+                1,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .PRODUCTS_RELEASED)
+                        .size());
+        assertEquals(
+                0,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .PLAN_FACT_DEVIATION)
+                        .size());
+    }
+
+    @Test
+    void equalPlanFactWithDifferentScaleDoesNotCreateDeviationHistory() {
+        Fixture fx = launch(10);
+        UUID docId =
+                prepareRelease(
+                        fx,
+                        10,
+                        List.of(
+                                new ProductionRelease.MaterialLine(
+                                        MaterialReferenceId.generate(),
+                                        new BigDecimal("10.0"),
+                                        new BigDecimal("10.000000"),
+                                        MaterialPlanningSource.SPECIFICATION,
+                                        Optional.empty(),
+                                        Optional.of(fx.itemId),
+                                        Optional.empty())));
+        processor.onPost(context(docId));
+        assertEquals(
+                1,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .PRODUCTS_RELEASED)
+                        .size());
+        assertEquals(
+                0,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .PLAN_FACT_DEVIATION)
+                        .size());
+    }
+
+    @Test
+    void planFactDeviationHistoryIncludesOnlyDeviatingLines() {
+        Fixture fx = launch(10);
+        SourceOrderItemId itemA = fx.itemId;
+        UUID matA = UUID.randomUUID();
+        UUID matB = UUID.randomUUID();
+        UUID matC = UUID.randomUUID();
+        UUID docId =
+                prepareRelease(
+                        fx,
+                        10,
+                        List.of(
+                                new ProductionRelease.MaterialLine(
+                                        MaterialReferenceId.of(matA),
+                                        new BigDecimal("10"),
+                                        new BigDecimal("8"),
+                                        MaterialPlanningSource.SPECIFICATION,
+                                        Optional.empty(),
+                                        Optional.of(itemA),
+                                        Optional.empty()),
+                                new ProductionRelease.MaterialLine(
+                                        MaterialReferenceId.of(matB),
+                                        new BigDecimal("4"),
+                                        new BigDecimal("4"),
+                                        MaterialPlanningSource.SPECIFICATION,
+                                        Optional.empty(),
+                                        Optional.of(itemA),
+                                        Optional.empty()),
+                                new ProductionRelease.MaterialLine(
+                                        MaterialReferenceId.of(matC),
+                                        new BigDecimal("5"),
+                                        new BigDecimal("7"),
+                                        MaterialPlanningSource.SPECIFICATION,
+                                        Optional.empty(),
+                                        Optional.of(itemA),
+                                        Optional.empty())));
+        processor.onPost(context(docId));
+        assertEquals(
+                1,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .PRODUCTS_RELEASED)
+                        .size());
+        var deviation =
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .PLAN_FACT_DEVIATION)
+                        .getFirst();
+        String details = deviation.detailsJson().orElseThrow();
+        assertTrue(details.contains(matA.toString()));
+        assertTrue(details.contains(matC.toString()));
+        assertTrue(!details.contains(matB.toString()));
+        assertTrue(details.contains("\"actualMinusPlanned\":-2"));
+        assertTrue(details.contains("\"actualMinusPlanned\":2"));
     }
 
     @Test
     void onPostSchedulesExactlyOneProductionReleasedEvent() {
         CapturingEventPublisher events = new CapturingEventPublisher();
-        processor = new ProductionReleaseProcessor(releases, items, events);
+        InMemoryProductionHistoryRepository historyRepository =
+                new InMemoryProductionHistoryRepository();
+        ProductionHistoryService historyService =
+                ProductionHistoryTestSupport.historyService(historyRepository);
+        processor = new ProductionReleaseProcessor(releases, items, events, historyService);
         Fixture fx = launch(10);
         UUID docId = prepareRelease(fx, 3, List.of());
         processor.onPost(context(docId));
@@ -101,6 +217,13 @@ class ProductionReleaseProcessorTest {
         assertEquals(ProductionStatus.PARTIALLY_RELEASED, after2.status());
         assertEquals(ProductionQuantity.nonNegative(3), after2.activeProductionQuantity());
         assertEquals(ProductionQuantity.nonNegative(7), after2.releasedQuantity());
+        assertEquals(
+                2,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .PRODUCTS_RELEASED)
+                        .size());
     }
 
     @Test

@@ -34,6 +34,8 @@ import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.MaterialTransferTemplateRepository;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
+import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
+import com.tmp.production.testsupport.ProductionHistoryTestSupport;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -75,12 +77,18 @@ class MaterialTransferTemplateServiceTest {
         ProductionOrderViewService viewService = new ProductionOrderViewService(itemRepository);
         ProductionFoundationQueryService foundationQuery =
                 new ProductionFoundationQueryService(specificationQuery);
+        InMemoryProductionHistoryRepository historyRepository =
+                new InMemoryProductionHistoryRepository();
+        ProductionHistoryService historyService =
+                ProductionHistoryTestSupport.historyService(historyRepository);
         CheckMaterialAvailabilityService availabilityService =
                 new CheckMaterialAvailabilityService(
                         viewService,
                         foundationQuery,
                         warehouseQuery,
                         new ProductionWarehouseScope(MAIN_WAREHOUSE, PROD_WAREHOUSE),
+                        historyService,
+                        ProductionHistoryTestSupport.noOpTransactionManager(),
                         Clock.fixed(T0, ZoneOffset.UTC));
         service =
                 new MaterialTransferTemplateService(

@@ -48,6 +48,7 @@ public final class ConfirmMaterialTransferService {
     private final ProductionMaterialTransferRepository transferRepository;
     private final WarehouseCommandApi warehouseCommandApi;
     private final WarehouseQueryApi warehouseQueryApi;
+    private final ProductionHistoryService historyService;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -56,6 +57,7 @@ public final class ConfirmMaterialTransferService {
             ProductionMaterialTransferRepository transferRepository,
             WarehouseCommandApi warehouseCommandApi,
             WarehouseQueryApi warehouseQueryApi,
+            ProductionHistoryService historyService,
             PlatformTransactionManager transactionManager,
             Clock clock) {
         this.templateRepository =
@@ -65,6 +67,7 @@ public final class ConfirmMaterialTransferService {
         this.warehouseCommandApi =
                 Objects.requireNonNull(warehouseCommandApi, "warehouseCommandApi");
         this.warehouseQueryApi = Objects.requireNonNull(warehouseQueryApi, "warehouseQueryApi");
+        this.historyService = Objects.requireNonNull(historyService, "historyService");
         this.transactionTemplate =
                 new TransactionTemplate(
                         Objects.requireNonNull(transactionManager, "transactionManager"));
@@ -176,7 +179,9 @@ public final class ConfirmMaterialTransferService {
                 ProductionMaterialTransfer.create(
                         template.templateId(), template.sourceOrderId(), now, refs);
         ProductionMaterialTransfer savedTransfer = transferRepository.save(transfer);
-        templateRepository.save(template.confirm(now));
+        MaterialTransferTemplate confirmed = template.confirm(now);
+        templateRepository.save(confirmed);
+        historyService.append(historyService.materialTransferCreated(confirmed, savedTransfer));
         return savedTransfer;
     }
 

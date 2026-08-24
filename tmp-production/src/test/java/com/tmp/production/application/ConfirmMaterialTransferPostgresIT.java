@@ -15,6 +15,7 @@ import com.tmp.production.domain.ProductionMaterialTransfer;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.persistence.JdbcMaterialTransferTemplateRepository;
+import com.tmp.production.persistence.JdbcProductionHistoryRepository;
 import com.tmp.production.persistence.JdbcProductionMaterialTransferRepository;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
@@ -124,6 +125,7 @@ class ConfirmMaterialTransferPostgresIT {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("TRUNCATE TABLE production.production_history");
         jdbc.update("DELETE FROM production.material_transfer_operation_refs");
         jdbc.update("DELETE FROM production.material_transfers");
         jdbc.update("DELETE FROM production.material_transfer_template_line_cutting_refs");
@@ -169,9 +171,17 @@ class ConfirmMaterialTransferPostgresIT {
 
         templates = new JdbcMaterialTransferTemplateRepository(jdbc, CLOCK, txManager);
         transfers = new JdbcProductionMaterialTransferRepository(jdbc, txManager);
+        JdbcProductionHistoryRepository jdbcHistory = new JdbcProductionHistoryRepository(jdbc);
+        ProductionHistoryService historyService = new ProductionHistoryService(jdbcHistory, CLOCK);
         service =
                 new ConfirmMaterialTransferService(
-                        templates, transfers, warehouseApi, warehouseApi, txManager, CLOCK);
+                        templates,
+                        transfers,
+                        warehouseApi,
+                        warehouseApi,
+                        historyService,
+                        txManager,
+                        CLOCK);
 
         mainWarehouseId = WarehouseId.generate();
         productionWarehouseId = WarehouseId.generate();
@@ -274,7 +284,14 @@ class ConfirmMaterialTransferPostgresIT {
                 };
         ConfirmMaterialTransferService failingService =
                 new ConfirmMaterialTransferService(
-                        templates, transfers, failingCommands, warehouseApi, txManager, CLOCK);
+                        templates,
+                        transfers,
+                        failingCommands,
+                        warehouseApi,
+                        new ProductionHistoryService(
+                                new JdbcProductionHistoryRepository(jdbc), CLOCK),
+                        txManager,
+                        CLOCK);
 
         assertThrows(
                 RuntimeException.class,

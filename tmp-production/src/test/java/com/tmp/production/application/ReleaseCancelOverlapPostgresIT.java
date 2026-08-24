@@ -30,6 +30,7 @@ import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import com.tmp.production.persistence.JdbcProductionCancellationRepository;
+import com.tmp.production.persistence.JdbcProductionHistoryRepository;
 import com.tmp.production.persistence.JdbcProductionItemStateRepository;
 import com.tmp.production.persistence.JdbcProductionReleaseRepository;
 import com.tmp.security.api.AuthorizationService;
@@ -148,6 +149,7 @@ class ReleaseCancelOverlapPostgresIT {
         jdbc.update("DELETE FROM documents.document_versions");
         jdbc.update("DELETE FROM documents.documents");
         jdbc.update("DELETE FROM documents.document_types");
+        jdbc.update("TRUNCATE TABLE production.production_history");
         jdbc.update("DELETE FROM production.production_cancellation_item_lines");
         jdbc.update("DELETE FROM production.production_cancellations");
         jdbc.update("DELETE FROM production.production_release_material_lines");
@@ -354,16 +356,20 @@ class ReleaseCancelOverlapPostgresIT {
 
     private CancelOrderProductionService cancelService() {
         var cancellationRepository = new JdbcProductionCancellationRepository(jdbc, CLOCK);
+        JdbcProductionHistoryRepository jdbcHistory = new JdbcProductionHistoryRepository(jdbc);
+        ProductionHistoryService historyService = new ProductionHistoryService(jdbcHistory, CLOCK);
         var documentEngine =
                 documentEngine(
                         new ProductionReleaseProcessor(
                                 new JdbcProductionReleaseRepository(jdbc, CLOCK),
                                 itemRepository,
-                                new TransactionAfterCommitEventPublisher()),
+                                new TransactionAfterCommitEventPublisher(),
+                                historyService),
                         new ProductionCancellationProcessor(
                                 cancellationRepository,
                                 itemRepository,
-                                new TransactionAfterCommitEventPublisher()));
+                                new TransactionAfterCommitEventPublisher(),
+                                historyService));
         var cancellationDocumentService =
                 new ProductionCancellationDocumentService(
                         documentEngine, cancellationRepository, CLOCK);
@@ -375,16 +381,20 @@ class ReleaseCancelOverlapPostgresIT {
 
     private ReleaseProductsService releaseService() {
         var releaseRepository = new JdbcProductionReleaseRepository(jdbc, CLOCK);
+        JdbcProductionHistoryRepository jdbcHistory = new JdbcProductionHistoryRepository(jdbc);
+        ProductionHistoryService historyService = new ProductionHistoryService(jdbcHistory, CLOCK);
         var documentEngine =
                 documentEngine(
                         new ProductionReleaseProcessor(
                                 releaseRepository,
                                 itemRepository,
-                                new TransactionAfterCommitEventPublisher()),
+                                new TransactionAfterCommitEventPublisher(),
+                                historyService),
                         new ProductionCancellationProcessor(
                                 new JdbcProductionCancellationRepository(jdbc, CLOCK),
                                 itemRepository,
-                                new TransactionAfterCommitEventPublisher()));
+                                new TransactionAfterCommitEventPublisher(),
+                                historyService));
         var releaseDocumentService =
                 new ProductionReleaseDocumentService(documentEngine, releaseRepository, CLOCK);
         var viewService = new ProductionOrderViewService(itemRepository);

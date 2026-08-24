@@ -3,6 +3,45 @@
 ## Latest result
 
 **Date:** 2026-08-24
+**Scope:** STAGE7-015A — Production Audit and History
+**Overall:** PASS
+
+| Check | Result |
+|-------|--------|
+| Production-owned history store (`production.production_history`, Flyway V31) | PASS |
+| Append-only repository API (no update/delete) | PASS |
+| DB triggers reject UPDATE/DELETE; TRUNCATE allowed for fixtures | PASS |
+| `listByOrder` filters by OrderId; chronological deterministic order | PASS |
+| Unknown order → empty list | PASS |
+| ORDER_ACCEPTED / MATERIALS_CHECKED / MATERIAL_TRANSFER_CREATED / MATERIAL_RECEIPT_CONFIRMED / PRODUCTS_RELEASED / PLAN_FACT_DEVIATION / PRODUCTION_CANCELLED | PASS |
+| Technical steps and preview helpers not stored | PASS |
+| Repeated Material Check → new entries; transfer/receipt retry → no duplicate | PASS |
+| Repeated legitimate Releases → separate PRODUCTS_RELEASED | PASS |
+| Launch/Transfer/Receipt/Release/Cancellation rollback → 0 history | PASS |
+| History persistence failure rolls back Release + Consumption | PASS |
+| Plan/fact: `actualMinusPlanned`; BigDecimal.compareTo scale-independent | PASS |
+| Not Event Sourcing; current state not read from history | PASS |
+| Security Audit / Analytics not used; no new Domain Events for history | PASS |
+| No cross-capability FK | PASS |
+| STAGE7-018 remains PLANNED | PASS |
+| ArchUnit Production history rules | PASS |
+| `git diff --check` | clean |
+| `mvn -pl :tmp-production -am test` | PASS |
+| `mvn -pl :tmp-document-engine -am test` | PASS |
+| `mvn -pl :tmp-warehouse -am test` | PASS |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS |
+| `mvn test` | PASS |
+| `mvn verify` | PASS |
+| STAGE7-015 | DONE |
+| STAGE7-015A | DONE |
+| STAGE7-016 | READY |
+| STAGE7-016A | PLANNED |
+| STAGE7-018 | PLANNED (not DONE) |
+| Git commit/push | NOT EXECUTED |
+
+---
+
+**Date:** 2026-08-24
 **Scope:** STAGE7-015 — Production domain events (+ STAGE7-014 overlap verification correction)
 **Overall:** PASS
 

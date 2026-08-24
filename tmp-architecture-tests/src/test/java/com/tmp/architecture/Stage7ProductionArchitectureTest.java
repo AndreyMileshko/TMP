@@ -1,10 +1,12 @@
 package com.tmp.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
+import com.tmp.production.domain.repository.ProductionHistoryRepository;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -788,4 +790,94 @@ class Stage7ProductionArchitectureTest {
                             "org.springframework..")
                     .because(
                             "Production domain events are immutable notification facts, not persistence types");
+
+    @ArchTest
+    static final ArchRule productionHistoryOwnedByProductionModule =
+            classes()
+                    .that()
+                    .haveSimpleName("ProductionHistoryEntry")
+                    .or()
+                    .haveSimpleName("ProductionHistoryRepository")
+                    .or()
+                    .haveSimpleName("ProductionHistoryService")
+                    .or()
+                    .haveSimpleName("JdbcProductionHistoryRepository")
+                    .should()
+                    .resideInAPackage("com.tmp.production..")
+                    .because("Production Spec §22 business history is owned by tmp-production");
+
+    @ArchTest
+    static final ArchRule productionHistoryMustNotDependOnSecurityAudit =
+            noClasses()
+                    .that()
+                    .haveSimpleNameContaining("ProductionHistory")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("com.tmp.security..")
+                    .because("Security Audit must not own Production business history");
+
+    @ArchTest
+    static final ArchRule productionHistoryMustNotDependOnAnalytics =
+            noClasses()
+                    .that()
+                    .haveSimpleNameContaining("ProductionHistory")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("com.tmp.analytics..")
+                    .because("Production history must not send data to Analytics");
+
+    @ArchTest
+    static final ArchRule productionHistoryMustNotDependOnForeignInternals =
+            noClasses()
+                    .that()
+                    .haveSimpleNameContaining("ProductionHistory")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.warehouse.application..",
+                            "com.tmp.warehouse.domain..",
+                            "com.tmp.warehouse.persistence..",
+                            "com.tmp.order.application..",
+                            "com.tmp.order.domain..",
+                            "com.tmp.order.persistence..",
+                            "com.tmp.cutting..")
+                    .because(
+                            "Production history store must not depend on Warehouse/OM/Cutting internals");
+
+    @ArchTest
+    static final ArchRule productionHistoryRepositoryIsAppendOnly =
+            methods()
+                    .that()
+                    .areDeclaredIn(ProductionHistoryRepository.class)
+                    .should()
+                    .haveName("append")
+                    .orShould()
+                    .haveName("listByOrder")
+                    .because("Production history write boundary is append-only");
+
+    @ArchTest
+    static final ArchRule productionPublicQueryApiNotImplementedYet =
+            noClasses()
+                    .that()
+                    .haveSimpleName("ProductionQueryApi")
+                    .should()
+                    .resideInAPackage("com.tmp.production.api..")
+                    .because("STAGE7-016A Public Query API must not be introduced in STAGE7-015A")
+                    .allowEmptyShould(true);
+
+    @ArchTest
+    static final ArchRule productionItemStateMustNotDependOnHistory =
+            noClasses()
+                    .that()
+                    .haveSimpleName("ProductionItemState")
+                    .or()
+                    .haveSimpleName("OrderProductionViewCalculator")
+                    .or()
+                    .haveSimpleName("ProductionOrderViewService")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleNameContaining("ProductionHistory")
+                    .because(
+                            "Current Production state must not be reconstructed from history"
+                                    + " (not event sourcing)");
 }

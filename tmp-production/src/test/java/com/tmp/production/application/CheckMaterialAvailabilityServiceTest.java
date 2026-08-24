@@ -28,6 +28,8 @@ import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
+import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
+import com.tmp.production.testsupport.ProductionHistoryTestSupport;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -52,6 +54,7 @@ class CheckMaterialAvailabilityServiceTest {
     private TrackingSpecificationQuery specificationQuery;
     private TrackingWarehouseQuery warehouseQuery;
     private CheckMaterialAvailabilityService service;
+    private InMemoryProductionHistoryRepository historyRepository;
     private SourceOrderId orderId;
 
     @BeforeEach
@@ -68,12 +71,17 @@ class CheckMaterialAvailabilityServiceTest {
         ProductionOrderViewService viewService = new ProductionOrderViewService(repository);
         ProductionFoundationQueryService foundationQuery =
                 new ProductionFoundationQueryService(specificationQuery);
+        historyRepository = new InMemoryProductionHistoryRepository();
+        ProductionHistoryService historyService =
+                ProductionHistoryTestSupport.historyService(historyRepository);
         service =
                 new CheckMaterialAvailabilityService(
                         viewService,
                         foundationQuery,
                         warehouseQuery,
                         new ProductionWarehouseScope(MAIN_WAREHOUSE, PROD_WAREHOUSE),
+                        historyService,
+                        ProductionHistoryTestSupport.noOpTransactionManager(),
                         Clock.fixed(T0, ZoneOffset.UTC));
 
         orderId = SourceOrderId.generate();
@@ -421,6 +429,62 @@ class CheckMaterialAvailabilityServiceTest {
     }
 
     @Test
+    void successfulCheckAppendsMaterialsCheckedHistoryAndRepeatedChecksAppendAgain() {
+        SpecificationId specId = SpecificationId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        launchItem(orderId, itemId, specId, 1);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        spec(
+                                specId,
+                                itemId,
+                                List.of(materialLine("PROFILE-X", "WHITE", "PCS", 10))));
+        UUID materialId = UUID.randomUUID();
+        warehouseQuery.materialReferences =
+                List.of(reference(materialId, "PROFILE-X", "WHITE", "", "PCS"));
+        warehouseQuery.stock.put(stockKey(materialId, MAIN_WAREHOUSE), BigDecimal.valueOf(10));
+        warehouseQuery.stock.put(stockKey(materialId, PROD_WAREHOUSE), BigDecimal.ZERO);
+
+        service.check(orderId);
+        service.check(orderId);
+
+        assertEquals(2, historyRepository.size());
+        assertEquals(
+                2,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .MATERIALS_CHECKED)
+                        .size());
+        assertEquals(
+                List.of(
+                        com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                .MATERIALS_CHECKED,
+                        com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                .MATERIALS_CHECKED),
+                historyRepository.listByOrder(orderId).stream()
+                        .map(com.tmp.production.domain.ProductionHistoryEntry::historyType)
+                        .toList());
+    }
+
+    @Test
+    void warehouseFailureDoesNotAppendMaterialsCheckedHistory() {
+        SpecificationId specId = SpecificationId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        launchItem(orderId, itemId, specId, 1);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        spec(
+                                specId,
+                                itemId,
+                                List.of(materialLine("PROFILE-X", "WHITE", "PCS", 10))));
+        warehouseQuery.failOnListMaterials = true;
+
+        assertThrows(RuntimeException.class, () -> service.check(orderId));
+        assertEquals(0, historyRepository.size());
+    }
+
+    @Test
     void otherWarehouseStockDoesNotMaskDeficit() {
         SpecificationId specId = SpecificationId.generate();
         SourceOrderItemId itemId = SourceOrderItemId.generate();
@@ -616,6 +680,7 @@ class CheckMaterialAvailabilityServiceTest {
         final Map<String, BigDecimal> stock = new ConcurrentHashMap<>();
         int listMaterialReferencesCalls;
         int availableQuantityCalls;
+        boolean failOnListMaterials;
         final List<UUID> lastWarehouseIds = new ArrayList<>();
 
         @Override
@@ -626,6 +691,9 @@ class CheckMaterialAvailabilityServiceTest {
         @Override
         public List<MaterialReferenceEntry> listMaterialReferences() {
             listMaterialReferencesCalls++;
+            if (failOnListMaterials) {
+                throw new RuntimeException("controlled warehouse catalog failure");
+            }
             return materialReferences;
         }
 

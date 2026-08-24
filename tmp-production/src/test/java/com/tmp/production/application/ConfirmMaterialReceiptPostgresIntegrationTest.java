@@ -20,6 +20,7 @@ import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.WarehouseTransferOperationRef;
 import com.tmp.production.persistence.JdbcMaterialTransferTemplateRepository;
+import com.tmp.production.persistence.JdbcProductionHistoryRepository;
 import com.tmp.production.persistence.JdbcProductionMaterialTransferRepository;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
@@ -133,6 +134,7 @@ class ConfirmMaterialReceiptPostgresIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("TRUNCATE TABLE production.production_history");
         jdbc.update("DELETE FROM production.material_transfer_operation_refs");
         jdbc.update("DELETE FROM production.material_transfers");
         jdbc.update("DELETE FROM production.material_transfer_template_line_cutting_refs");
@@ -178,9 +180,11 @@ class ConfirmMaterialReceiptPostgresIntegrationTest {
 
         templates = new JdbcMaterialTransferTemplateRepository(jdbc, CLOCK, txManager);
         transfers = new JdbcProductionMaterialTransferRepository(jdbc, txManager);
+        JdbcProductionHistoryRepository jdbcHistory = new JdbcProductionHistoryRepository(jdbc);
+        ProductionHistoryService historyService = new ProductionHistoryService(jdbcHistory, CLOCK);
         receiptService =
                 new ConfirmMaterialReceiptService(
-                        transfers, warehouseApi, warehouseApi, txManager, CLOCK);
+                        transfers, warehouseApi, warehouseApi, historyService, txManager, CLOCK);
 
         mainWarehouseId = WarehouseId.generate();
         productionWarehouseId = WarehouseId.generate();
@@ -381,6 +385,8 @@ class ConfirmMaterialReceiptPostgresIntegrationTest {
                             }
                         },
                         warehouseApi,
+                        new ProductionHistoryService(
+                                new JdbcProductionHistoryRepository(jdbc), CLOCK),
                         txManager,
                         CLOCK);
 
@@ -428,6 +434,8 @@ class ConfirmMaterialReceiptPostgresIntegrationTest {
                             }
                         },
                         warehouseApi,
+                        new ProductionHistoryService(
+                                new JdbcProductionHistoryRepository(jdbc), CLOCK),
                         txManager,
                         CLOCK);
 
@@ -473,6 +481,8 @@ class ConfirmMaterialReceiptPostgresIntegrationTest {
                         new FixedTransferRepository(corrupted),
                         warehouseApi,
                         warehouseApi,
+                        new ProductionHistoryService(
+                                new JdbcProductionHistoryRepository(jdbc), CLOCK),
                         txManager,
                         CLOCK);
 

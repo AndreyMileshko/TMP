@@ -53,6 +53,7 @@ import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.persistence.JdbcProductionCancellationRepository;
+import com.tmp.production.persistence.JdbcProductionHistoryRepository;
 import com.tmp.production.persistence.JdbcProductionItemStateRepository;
 import com.tmp.production.persistence.JdbcProductionReleaseRepository;
 import com.tmp.production.testsupport.CollectingAfterCommitEventPublisher;
@@ -177,6 +178,7 @@ class ProductionDomainEventsPostgresIT {
         jdbc.update("DELETE FROM documents.document_versions");
         jdbc.update("DELETE FROM documents.documents");
         jdbc.update("DELETE FROM documents.document_types");
+        jdbc.update("TRUNCATE TABLE production.production_history");
         jdbc.update("DELETE FROM production.production_cancellation_item_lines");
         jdbc.update("DELETE FROM production.production_cancellations");
         jdbc.update("DELETE FROM production.production_release_material_lines");
@@ -463,15 +465,26 @@ class ProductionDomainEventsPostgresIT {
                         new JdbcLifecycleJournalAdapter(jdbc),
                         new JdbcDocumentVersionAdapter(jdbc),
                         new TransactionAfterCommitEventPublisher());
+        JdbcProductionHistoryRepository jdbcHistory = new JdbcProductionHistoryRepository(jdbc);
+        ProductionHistoryService historyService = new ProductionHistoryService(jdbcHistory, CLOCK);
         engine.registerProcessor(
                 new ProductionLaunchProcessor(
-                        itemRepository, eventCollector.publisher(), payloadHolder));
+                        itemRepository,
+                        eventCollector.publisher(),
+                        payloadHolder,
+                        historyService));
         engine.registerProcessor(
                 new ProductionReleaseProcessor(
-                        releaseRepository, itemRepository, eventCollector.publisher()));
+                        releaseRepository,
+                        itemRepository,
+                        eventCollector.publisher(),
+                        historyService));
         engine.registerProcessor(
                 new ProductionCancellationProcessor(
-                        cancellationRepository, itemRepository, eventCollector.publisher()));
+                        cancellationRepository,
+                        itemRepository,
+                        eventCollector.publisher(),
+                        historyService));
         return engine;
     }
 

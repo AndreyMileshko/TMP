@@ -3,8 +3,11 @@ package com.tmp.production.application.document;
 import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentProcessor;
 import com.tmp.document.api.TransactionalEventPublisher;
+import com.tmp.production.application.ProductionHistoryService;
+import com.tmp.production.application.ProductionHistoryService.ReleasedItemSnapshot;
 import com.tmp.production.application.event.ProductionReleased;
 import com.tmp.production.domain.InvalidProductionStateException;
+import com.tmp.production.domain.ProductionHistoryEntry;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionRelease;
 import com.tmp.production.domain.ProductionReleaseValidationException;
@@ -35,15 +38,18 @@ public final class ProductionReleaseProcessor implements DocumentProcessor {
     private final ProductionReleaseRepository releaseRepository;
     private final ProductionItemStateRepository itemStateRepository;
     private final TransactionalEventPublisher eventPublisher;
+    private final ProductionHistoryService historyService;
 
     public ProductionReleaseProcessor(
             ProductionReleaseRepository releaseRepository,
             ProductionItemStateRepository itemStateRepository,
-            TransactionalEventPublisher eventPublisher) {
+            TransactionalEventPublisher eventPublisher,
+            ProductionHistoryService historyService) {
         this.releaseRepository = Objects.requireNonNull(releaseRepository, "releaseRepository");
         this.itemStateRepository =
                 Objects.requireNonNull(itemStateRepository, "itemStateRepository");
         this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
+        this.historyService = Objects.requireNonNull(historyService, "historyService");
     }
 
     @Override
@@ -90,7 +96,26 @@ public final class ProductionReleaseProcessor implements DocumentProcessor {
             itemStateRepository.save(line.releasedState());
         }
         releaseRepository.markPosted(release.markPosted());
+        appendReleaseHistory(release, documentId, validated);
         eventPublisher.publishAfterCommit(buildReleasedEvent(release, documentId, validated));
+    }
+
+    private void appendReleaseHistory(
+            ProductionRelease release, UUID documentId, List<ValidatedLine> validated) {
+        List<ReleasedItemSnapshot> snapshots = new ArrayList<>(release.itemLines().size());
+        for (int index = 0; index < release.itemLines().size(); index++) {
+            ProductionRelease.ItemLine line = release.itemLines().get(index);
+            ProductionItemState resultingState = validated.get(index).releasedState();
+            snapshots.add(
+                    ReleasedItemSnapshot.of(
+                            line.sourceOrderItemId(),
+                            line.releaseQuantity().value().longValueExact(),
+                            resultingState.status().name()));
+        }
+        historyService.append(historyService.productsReleased(release, documentId, snapshots));
+        Optional<ProductionHistoryEntry> deviation =
+                historyService.planFactDeviationIfAny(release, documentId);
+        deviation.ifPresent(historyService::append);
     }
 
     @Override

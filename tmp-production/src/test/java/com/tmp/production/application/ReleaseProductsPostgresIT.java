@@ -39,6 +39,7 @@ import com.tmp.production.domain.ProductionStatus;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
+import com.tmp.production.persistence.JdbcProductionHistoryRepository;
 import com.tmp.production.persistence.JdbcProductionItemStateRepository;
 import com.tmp.production.persistence.JdbcProductionReleaseRepository;
 import com.tmp.security.api.AuthorizationService;
@@ -162,6 +163,7 @@ class ReleaseProductsPostgresIT {
         jdbc.update("DELETE FROM documents.document_versions");
         jdbc.update("DELETE FROM documents.documents");
         jdbc.update("DELETE FROM documents.document_types");
+        jdbc.update("TRUNCATE TABLE production.production_history");
         jdbc.update("DELETE FROM production.production_release_material_lines");
         jdbc.update("DELETE FROM production.production_release_item_lines");
         jdbc.update("DELETE FROM production.production_releases");
@@ -206,6 +208,8 @@ class ReleaseProductsPostgresIT {
 
         itemRepository = new JdbcProductionItemStateRepository(jdbc, CLOCK);
         releaseRepository = new JdbcProductionReleaseRepository(jdbc, CLOCK);
+        JdbcProductionHistoryRepository jdbcHistory = new JdbcProductionHistoryRepository(jdbc);
+        ProductionHistoryService historyService = new ProductionHistoryService(jdbcHistory, CLOCK);
         documentEngine =
                 new DefaultDocumentEngine(
                         new DefaultDocumentProcessorRegistry(),
@@ -215,7 +219,10 @@ class ReleaseProductsPostgresIT {
                         new TransactionAfterCommitEventPublisher());
         documentEngine.registerProcessor(
                 new ProductionReleaseProcessor(
-                        releaseRepository, itemRepository, new TransactionAfterCommitEventPublisher()));
+                        releaseRepository,
+                        itemRepository,
+                        new TransactionAfterCommitEventPublisher(),
+                        historyService));
         releaseDocumentService =
                 new ProductionReleaseDocumentService(documentEngine, releaseRepository, CLOCK);
 
@@ -488,6 +495,65 @@ class ReleaseProductsPostgresIT {
                                 scenario.orderId(), scenario.itemId(), scenario.specId())
                         .orElseThrow()
                         .status());
+    }
+
+    @Test
+    void historyAppendFailureAfterConsumptionRollsBackReleaseAndStock() {
+        ReleaseScenario scenario = prepareScenario(bd(20));
+        JdbcProductionHistoryRepository realHistory = new JdbcProductionHistoryRepository(jdbc);
+        ProductionHistoryService failingHistory =
+                new ProductionHistoryService(
+                        new com.tmp.production.domain.repository.ProductionHistoryRepository() {
+                            @Override
+                            public com.tmp.production.domain.ProductionHistoryEntry append(
+                                    com.tmp.production.domain.ProductionHistoryEntry entry) {
+                                throw new RuntimeException("controlled history repository failure");
+                            }
+
+                            @Override
+                            public java.util.List<com.tmp.production.domain.ProductionHistoryEntry>
+                                    listByOrder(com.tmp.production.domain.SourceOrderId sourceOrderId) {
+                                return realHistory.listByOrder(sourceOrderId);
+                            }
+                        },
+                        CLOCK);
+        DocumentEngine failingEngine =
+                new DefaultDocumentEngine(
+                        new DefaultDocumentProcessorRegistry(),
+                        new JdbcDocumentStorageAdapter(jdbc),
+                        new JdbcLifecycleJournalAdapter(jdbc),
+                        new JdbcDocumentVersionAdapter(jdbc),
+                        new TransactionAfterCommitEventPublisher());
+        failingEngine.registerProcessor(
+                new ProductionReleaseProcessor(
+                        releaseRepository, itemRepository, event -> {}, failingHistory));
+        ProductionReleaseDocumentService failingDocs =
+                new ProductionReleaseDocumentService(failingEngine, releaseRepository, CLOCK);
+        ReleaseProductsService service = newService(warehouseApi, failingDocs);
+        BigDecimal stockBefore = availableProductionStock(scenario.material());
+
+        assertThrows(
+                RuntimeException.class,
+                () ->
+                        service.releaseProducts(
+                                releaseCommand(
+                                        scenario,
+                                        bd("5.100000"),
+                                        List.of(
+                                                new CellAllocation(
+                                                        PROD_CELL, bd("5.100000"))))));
+
+        assertEquals(0, countPostedReleases());
+        assertEquals(
+                0, availableProductionStock(scenario.material()).compareTo(stockBefore));
+        assertEquals(
+                ProductionStatus.IN_PRODUCTION,
+                itemRepository
+                        .findByIdentity(
+                                scenario.orderId(), scenario.itemId(), scenario.specId())
+                        .orElseThrow()
+                        .status());
+        assertEquals(0, realHistory.listByOrder(scenario.orderId()).size());
     }
 
     private ReleaseProductsService newService(

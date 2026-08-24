@@ -23,6 +23,8 @@ import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.WarehouseTransferOperationRef;
 import com.tmp.production.domain.repository.MaterialTransferTemplateRepository;
 import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
+import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
+import com.tmp.production.testsupport.ProductionHistoryTestSupport;
 import com.tmp.warehouse.api.WarehouseApi.CreateTransferDraftCommand;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
@@ -62,6 +64,7 @@ class ConfirmMaterialTransferServiceTest {
     private RecordingWarehouseCommandApi commands;
     private StubWarehouseQueryApi queries;
     private ConfirmMaterialTransferService service;
+    private InMemoryProductionHistoryRepository historyRepository;
 
     @BeforeEach
     void setUp() {
@@ -76,12 +79,16 @@ class ConfirmMaterialTransferServiceTest {
                         new StorageCellView(INACTIVE_CELL, MAIN, "M-OFF", false));
         queries.destinationCells =
                 List.of(new StorageCellView(PROD_CELL, PROD, "P-01", true));
+        historyRepository = new InMemoryProductionHistoryRepository();
+        ProductionHistoryService historyService =
+                ProductionHistoryTestSupport.historyService(historyRepository);
         service =
                 new ConfirmMaterialTransferService(
                         templates,
                         transfers,
                         commands,
                         queries,
+                        historyService,
                         new PassthroughTransactionManager(),
                         Clock.fixed(T0, ZoneOffset.UTC));
     }
@@ -299,6 +306,40 @@ class ConfirmMaterialTransferServiceTest {
         assertEquals(first.logicalTransferId(), second.logicalTransferId());
         assertEquals(1, commands.createDraftCalls.size());
         assertEquals(1, transfers.store.size());
+        assertEquals(
+                1,
+                historyRepository
+                        .ofType(
+                                com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType
+                                        .MATERIAL_TRANSFER_CREATED)
+                        .size());
+    }
+
+    @Test
+    void warehouseDraftFailureLeavesNoTransferHistory() {
+        MaterialTransferTemplateLine lineA = line("MAT-A", bd(5));
+        MaterialTransferTemplateLine lineB = line("MAT-B", bd(5));
+        MaterialTransferTemplate template =
+                templates.save(
+                        MaterialTransferTemplate.create(
+                                SourceOrderId.generate(), MAIN, PROD, T0, List.of(lineA, lineB)));
+        commands.failOnCall = 2;
+
+        assertThrows(
+                RuntimeException.class,
+                () ->
+                        service.confirmMaterialTransferCreate(
+                                new ConfirmMaterialTransferCommand(
+                                        template.templateId(),
+                                        template.version(),
+                                        List.of(
+                                                new CellAllocation(
+                                                        lineA.lineId(), MAIN_CELL_A, PROD_CELL, bd(5)),
+                                                new CellAllocation(
+                                                        lineB.lineId(), MAIN_CELL_A, PROD_CELL, bd(5))))));
+
+        assertEquals(0, historyRepository.size());
+        assertTrue(transfers.store.isEmpty());
     }
 
     @Test

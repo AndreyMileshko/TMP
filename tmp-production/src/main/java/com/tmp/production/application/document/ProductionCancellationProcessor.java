@@ -3,6 +3,7 @@ package com.tmp.production.application.document;
 import com.tmp.document.api.DocumentOperationContext;
 import com.tmp.document.api.DocumentProcessor;
 import com.tmp.document.api.TransactionalEventPublisher;
+import com.tmp.production.application.ProductionHistoryService;
 import com.tmp.production.application.event.OrderProductionCancelled;
 import com.tmp.production.domain.CancellationItemAction;
 import com.tmp.production.domain.InvalidProductionStateException;
@@ -35,16 +36,19 @@ public final class ProductionCancellationProcessor implements DocumentProcessor 
     private final ProductionCancellationRepository cancellationRepository;
     private final ProductionItemStateRepository itemStateRepository;
     private final TransactionalEventPublisher eventPublisher;
+    private final ProductionHistoryService historyService;
 
     public ProductionCancellationProcessor(
             ProductionCancellationRepository cancellationRepository,
             ProductionItemStateRepository itemStateRepository,
-            TransactionalEventPublisher eventPublisher) {
+            TransactionalEventPublisher eventPublisher,
+            ProductionHistoryService historyService) {
         this.cancellationRepository =
                 Objects.requireNonNull(cancellationRepository, "cancellationRepository");
         this.itemStateRepository =
                 Objects.requireNonNull(itemStateRepository, "itemStateRepository");
         this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
+        this.historyService = Objects.requireNonNull(historyService, "historyService");
     }
 
     @Override
@@ -92,6 +96,7 @@ public final class ProductionCancellationProcessor implements DocumentProcessor 
             }
         }
         cancellationRepository.markPosted(cancellation.markPosted());
+        historyService.append(historyService.productionCancelled(cancellation, documentId));
         eventPublisher.publishAfterCommit(buildCancelledEvent(cancellation, documentId));
     }
 
