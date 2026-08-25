@@ -4,6 +4,43 @@
 
 ---
 
+## STAGE7-019 — Production architecture tests (ArchUnit boundary rules)
+
+**Date:** 2026-08-25
+**Stage:** 7
+**Module:** `tmp-architecture-tests`
+**Status:** DONE
+
+### Delivered
+
+Authoritative STAGE7-019 closure rules in `Stage7ProductionArchitectureTest` (existing incremental feature rules retained; no suite rewrite, no production business code):
+
+- `productionUsesOnlyWarehousePublicApi` — Production may depend on Warehouse only through `com.tmp.warehouse.api..` (forbids application/domain/persistence/security/infrastructure and other internals);
+- `productionUsesOnlyOrderManagementPublicApi` — Production may depend on OM only through `com.tmp.order.api..`;
+- `productionUsesOnlyCuttingPublicApiIfPresent` — Production must not depend on Cutting internals (Stage 8 runtime out of scope);
+- `uiShellDoesNotContainProductionDomain` — `com.tmp.ui.shell..` must not depend on `com.tmp.production.domain..`;
+- `uiShellUsesOnlyProductionPublicApi` — UI may use Production only via `com.tmp.production.api` (`ProductionQueryApi` / `ProductionApplicationApi`);
+- `productionModuleHasNoJavaFx` — Production stays out of JavaFX; UI lives in `tmp-ui-shell`.
+
+Allowed: `com.tmp.order.api.*`, `com.tmp.warehouse.api.*`. Forbidden: Warehouse/OM/Cutting internals. Tests excluded via `ImportOption.DoNotIncludeTests` (existing convention).
+
+### Verification
+
+- `Stage7ProductionArchitectureTest`: 72/72 PASS
+- `tmp-architecture-tests` module: 145 tests PASS
+- `mvn -pl :tmp-architecture-tests -am test`: BUILD SUCCESS (~6:40; reactor includes production/warehouse/OM/UI compile+tests as `-am` dependencies)
+- `git diff --check`: clean (CRLF warning only)
+
+### Queue
+
+- STAGE7-018 = DONE
+- STAGE7-019 = DONE
+- STAGE7-020 = READY
+- Stage 7 progress = 96% (26/27)
+- Active blockers = NONE
+
+---
+
 ## STAGE7-018 — Production public-boundary integration tests (OM + Warehouse)
 
 **Date:** 2026-08-25

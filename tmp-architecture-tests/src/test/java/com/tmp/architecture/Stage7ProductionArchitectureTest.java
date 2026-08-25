@@ -1,5 +1,7 @@
 package com.tmp.architecture;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideOutsideOfPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
@@ -15,11 +17,92 @@ import com.tngtech.archunit.lang.ArchRule;
 
 /**
  * Stage 7 Production architecture boundaries.
+ *
+ * <p>STAGE7-019 is the module-level ArchUnit closure: Production may use Warehouse / Order
+ * Management only through {@code *.api} public contracts (ADR-003/004/019/028/036), must not
+ * depend on Cutting internals or runtime, and {@code tmp-ui-shell} must not contain Production
+ * domain. Incremental feature rules below remain in force.
  */
 @AnalyzeClasses(
         packages = "com.tmp",
         importOptions = ImportOption.DoNotIncludeTests.class)
 class Stage7ProductionArchitectureTest {
+
+    @ArchTest
+    static final ArchRule productionUsesOnlyWarehousePublicApi =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .should()
+                    .dependOnClassesThat(
+                            resideInAnyPackage("com.tmp.warehouse..")
+                                    .and(resideOutsideOfPackage("com.tmp.warehouse.api..")))
+                    .because(
+                            "STAGE7-019: Production must not depend on Warehouse internals; "
+                                    + "only com.tmp.warehouse.api public contracts are allowed");
+
+    @ArchTest
+    static final ArchRule productionUsesOnlyOrderManagementPublicApi =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .should()
+                    .dependOnClassesThat(
+                            resideInAnyPackage("com.tmp.order..")
+                                    .and(resideOutsideOfPackage("com.tmp.order.api..")))
+                    .because(
+                            "STAGE7-019: Production must not depend on Order Management internals; "
+                                    + "only com.tmp.order.api public contracts are allowed");
+
+    @ArchTest
+    static final ArchRule productionUsesOnlyCuttingPublicApiIfPresent =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .should()
+                    .dependOnClassesThat(
+                            resideInAnyPackage("com.tmp.cutting..")
+                                    .and(resideOutsideOfPackage("com.tmp.cutting.api..")))
+                    .because(
+                            "STAGE7-019: Production must not depend on Cutting internals; "
+                                    + "Stage 8 runtime is out of scope");
+
+    @ArchTest
+    static final ArchRule uiShellDoesNotContainProductionDomain =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.ui.shell..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("com.tmp.production.domain..")
+                    .because(
+                            "STAGE7-019: UI must not contain Production domain; workbench uses "
+                                    + "com.tmp.production.api only");
+
+    @ArchTest
+    static final ArchRule uiShellUsesOnlyProductionPublicApi =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.ui.shell..")
+                    .should()
+                    .dependOnClassesThat(
+                            resideInAnyPackage("com.tmp.production..")
+                                    .and(resideOutsideOfPackage("com.tmp.production.api..")))
+                    .because(
+                            "STAGE7-019: UI shell may depend on Production only through "
+                                    + "com.tmp.production.api (no domain/application/persistence)");
+
+    @ArchTest
+    static final ArchRule productionModuleHasNoJavaFx =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("javafx..")
+                    .because(
+                            "STAGE7-019: Production domain stays in tmp-production; UI lives in "
+                                    + "tmp-ui-shell");
 
     @ArchTest
     static final ArchRule productionDoesNotDependOnOtherCapabilityInternals =

@@ -3,6 +3,41 @@
 ## Latest result
 
 **Date:** 2026-08-25
+**Scope:** STAGE7-019 — Production architecture tests (ArchUnit boundary rules)
+**Overall:** PASS
+
+### STAGE7-019 ArchUnit closure
+
+| Check | Result |
+|-------|--------|
+| `productionUsesOnlyWarehousePublicApi` | PASS |
+| `productionUsesOnlyOrderManagementPublicApi` | PASS |
+| `productionUsesOnlyCuttingPublicApiIfPresent` | PASS |
+| `uiShellDoesNotContainProductionDomain` | PASS |
+| `uiShellUsesOnlyProductionPublicApi` | PASS |
+| `productionModuleHasNoJavaFx` | PASS |
+| Production → Warehouse/OM internals | NONE found |
+| Production → Cutting internals | NONE found |
+| UI → Production domain | NONE found |
+| `Stage7ProductionArchitectureTest` | 72/72 PASS |
+| `tmp-architecture-tests` module | 145 tests PASS |
+
+### Full verification matrix
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-architecture-tests -am test` | PASS (exit 0, ~6:40) |
+| `git diff --check` | clean (exit 0; CRLF warning only) |
+| STAGE7-018 | DONE |
+| STAGE7-019 | DONE |
+| STAGE7-020 | READY |
+| Active blockers | NONE |
+
+---
+
+## Previous result
+
+**Date:** 2026-08-25
 **Scope:** STAGE7-018 — Production public-boundary integration tests + STAGE7-017 deferred full reactor regression
 **Overall:** PASS
 

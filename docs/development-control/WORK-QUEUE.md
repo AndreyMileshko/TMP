@@ -11493,7 +11493,7 @@ Test-support fixes during implementation: ProductionCapability stub for permissi
 
 ## STAGE7-019 — Production architecture tests
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-001
 **Module:** `tmp-architecture-tests`
@@ -11518,8 +11518,8 @@ ArchUnit правила границ Production.
 
 ### Acceptance criteria
 
-- [ ] Production не зависит от внутренних пакетов Warehouse/OM/Cutting;
-- [ ] UI не содержит Production domain.
+- [x] Production не зависит от внутренних пакетов Warehouse/OM/Cutting;
+- [x] UI не содержит Production domain.
 
 ### Verification commands
 
@@ -11527,11 +11527,15 @@ ArchUnit правила границ Production.
 mvn -pl :tmp-architecture-tests -am test
 ```
 
+### Completion notes (2026-08-25)
+
+STAGE7-019 ArchUnit closure in `Stage7ProductionArchitectureTest` (6 authoritative rules; 72 Stage 7 rules total). Production may depend on Warehouse/OM only via `com.tmp.warehouse.api` / `com.tmp.order.api`; Cutting internals forbidden; `tmp-ui-shell` must not depend on Production domain or any non-`com.tmp.production.api` Production package; Production has no JavaFX. Incremental feature rules retained. `mvn -pl :tmp-architecture-tests -am test` BUILD SUCCESS (tmp-architecture-tests 145 tests; Stage7 72/72). `git diff --check` clean. No production business code.
+
 ---
 
 ## STAGE7-020 — Stage 7 final closure audit
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** 7
 **Depends on:** STAGE7-014, STAGE7-015, STAGE7-015A, STAGE7-016A, STAGE7-017, STAGE7-018, STAGE7-019
 **Module:** documentation
