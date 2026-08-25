@@ -27,7 +27,7 @@ import java.util.UUID;
 /**
  * Side-effect-free current material availability calculation (Production Spec §18.1).
  *
- * <p>Produces the same semantics as {@link CheckMaterialAvailabilityService} but does not append
+ * <p>Authoritative calculator used by both Public Query and explicit Check. Does not append
  * {@code MATERIALS_CHECKED} history and does not mutate Production/Warehouse.
  */
 public final class CurrentMaterialAvailabilityQueryService {
@@ -90,7 +90,6 @@ public final class CurrentMaterialAvailabilityQueryService {
 
         validateWarehouseScope();
 
-        // Material requirements are computed from item-owned states in the frozen specification.
         List<ResolvedMaterialLine> allMaterialLines = new ArrayList<>();
         for (ProductionItemState state : orderViewService.listItemStates(sourceOrderId)) {
             allMaterialLines.addAll(foundationQuery.materialLines(state));
@@ -107,10 +106,7 @@ public final class CurrentMaterialAvailabilityQueryService {
         }
 
         return new MaterialAvailabilityCheckResult(
-                sourceOrderId,
-                clock.instant(),
-                resolveOverallStatus(lines),
-                lines);
+                sourceOrderId, clock.instant(), resolveOverallStatus(lines), lines);
     }
 
     private void validateWarehouseScope() {
@@ -157,7 +153,9 @@ public final class CurrentMaterialAvailabilityQueryService {
         BigDecimal totalAvailable = mainAvailable.add(productionAvailable);
         BigDecimal deficit = deficit(requirement.requiredQuantity(), totalAvailable);
         MaterialAvailabilityLineStatus status =
-                deficit.signum() > 0 ? MaterialAvailabilityLineStatus.INSUFFICIENT : MaterialAvailabilityLineStatus.AVAILABLE;
+                deficit.signum() > 0
+                        ? MaterialAvailabilityLineStatus.INSUFFICIENT
+                        : MaterialAvailabilityLineStatus.AVAILABLE;
 
         return new MaterialAvailabilityLine(
                 identity.materialCode(),
@@ -185,7 +183,7 @@ public final class CurrentMaterialAvailabilityQueryService {
                 requirement.requiredQuantity(),
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
-                requirement.requiredQuantity(),
+                BigDecimal.ZERO,
                 requirement.requiredQuantity(),
                 status,
                 MaterialPlanningSource.SPECIFICATION);
@@ -217,4 +215,3 @@ public final class CurrentMaterialAvailabilityQueryService {
         return difference.signum() > 0 ? difference : BigDecimal.ZERO;
     }
 }
-

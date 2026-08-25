@@ -159,6 +159,10 @@ class PackagingSmokeIT {
         env.put("TMP_SECURITY_BOOTSTRAP_ADMIN_LOGIN", "admin");
         env.put("TMP_SECURITY_BOOTSTRAP_ADMIN_DISPLAY_NAME", "Administrator");
         env.put("TMP_SECURITY_BOOTSTRAP_ADMIN_PASSWORD", ADMIN_PASSWORD);
+        env.put(
+                "JAVA_TOOL_OPTIONS",
+                "-Dtmp.production.warehouse.main-warehouse-id=11111111-1111-4111-8111-111111111111"
+                        + " -Dtmp.production.warehouse.production-warehouse-id=22222222-2222-4222-8222-222222222222");
         builder.redirectErrorStream(true);
         return builder.start();
     }
@@ -175,7 +179,9 @@ class PackagingSmokeIT {
                         "--spring.datasource.driver-class-name=org.postgresql.Driver",
                         "--tmp.security.bootstrap.admin-login=admin",
                         "--tmp.security.bootstrap.admin-display-name=Administrator",
-                        "--tmp.security.bootstrap.admin-password=" + ADMIN_PASSWORD);
+                        "--tmp.security.bootstrap.admin-password=" + ADMIN_PASSWORD,
+                        "--tmp.production.warehouse.main-warehouse-id=11111111-1111-4111-8111-111111111111",
+                        "--tmp.production.warehouse.production-warehouse-id=22222222-2222-4222-8222-222222222222");
     }
 
     private static LoadedImportScreen loadImportScreen(OrderImportViewModel viewModel)

@@ -31,5 +31,13 @@ abstract class AbstractBootstrapPostgresSpringTest {
         registry.add("tmp.security.bootstrap.admin-login", () -> "admin");
         registry.add("tmp.security.bootstrap.admin-display-name", () -> "Administrator");
         registry.add("tmp.security.bootstrap.admin-password", () -> "test-admin-password");
+        // Explicit Production warehouse scope for bootstrap tests (no fake AutoConfiguration
+        // defaults). Same values as application-test.yml.
+        registry.add(
+                "tmp.production.warehouse.main-warehouse-id",
+                () -> "11111111-1111-4111-8111-111111111111");
+        registry.add(
+                "tmp.production.warehouse.production-warehouse-id",
+                () -> "22222222-2222-4222-8222-222222222222");
     }
 }

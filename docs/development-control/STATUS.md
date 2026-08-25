@@ -2,15 +2,15 @@
 
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation IN PROGRESS
-**Current Stage:** Stage 7 - IN PROGRESS / 85% (Start Gate PASSED)
+**Current Stage:** Stage 7 - IN PROGRESS / 89% (Start Gate PASSED)
 **Current Task:** none
-**Last completed task:** STAGE7-016A (Production Public Query API)
+**Last completed task:** STAGE7-017 (Production workbench UI)
 **Active blockers:** NONE
 **Stage 6 Warehouse:** DONE
-**Stage 7 Production:** IN PROGRESS / 85%
+**Stage 7 Production:** IN PROGRESS / 89%
 **Stage 7 Start Gate:** PASSED
 **Full verify baseline:** GREEN
-**First READY implementation task:** STAGE7-017
+**First READY implementation task:** STAGE7-018
 
 
 ```text
@@ -79,11 +79,12 @@ STAGE7-015 = DONE
 STAGE7-015A = DONE
 STAGE7-016 = DONE
 STAGE7-016A = DONE
+STAGE7-017 = DONE
 Active blockers = NONE
-Stage 7 Production = IN PROGRESS / 85%
+Stage 7 Production = IN PROGRESS / 89%
 Stage 7 Start Gate = PASSED
 Full reactor baseline = GREEN
-First READY implementation task = STAGE7-017
+First READY implementation task = STAGE7-018
 ```
 
 ---
@@ -99,7 +100,7 @@ First READY implementation task = STAGE7-017
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
-| 7 | Production | IN PROGRESS | 85% |
+| 7 | Production | IN PROGRESS | 89% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 
@@ -143,5 +144,6 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - `STAGE7-015` completed: Production domain events after-commit via public `TransactionalEventPublisher` — `OrderAcceptedIntoProduction` (existing), `ProductionReleased`, `OrderProductionCancelled`; Release/Cancellation processors schedule one event per document POST; STAGE7-014 verification gap closed with true overlapping Release↔Cancel row-lock serialization proofs; rollback delivers 0 events. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-015A` completed: Production-owned immutable business history (`production.production_history`, Flyway V31). Append-only JDBC store with DB triggers rejecting UPDATE/DELETE. Seven Spec §22 types recorded in the same business transaction as Launch/Check/Transfer/Receipt/Release/Cancellation. Internal `listByOrder` query; no Public Query API, Security Audit, or Analytics. STAGE7-015 domain events unchanged. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-016A` completed: Production Public Query API (`com.tmp.production.api.ProductionQueryApi`) — four read-only operations; `production.order.view` before any downstream read; current side-effect-free material availability via `CurrentMaterialAvailabilityQueryService`; ProductionCapability contributes exactly one public service; Platform ServiceRegistry lookup proof. STAGE7-017 READY. Full `mvn verify` BUILD SUCCESS.
-- Production implementation IN PROGRESS (85% by task-count: 23/27 Stage 7 tasks done through STAGE7-016A, including 004A/004B/005A).
-- Next task: **STAGE7-017** (Production workbench UI) — READY.
+- `STAGE7-017` completed: Production Workbench UI in `tmp-ui-shell` (`com.tmp.ui.shell.screen.production`) + STAGE7-016A post-review corrections (unresolved/ambiguous `totalAvailable=0`; dead duplicate Check calculation removed; magic Warehouse UUIDs replaced by `tmp.production.warehouse.*` / explicit `ProductionWarehouseScope` bean). Order-centric workbench with 6 commands via `ProductionApplicationApi`; reads via `ProductionQueryApi`; Capability nav «Производство». Full `mvn test` / `mvn verify` BUILD SUCCESS. STAGE7-018 READY.
+- Production implementation IN PROGRESS (89% by task-count: 24/27 Stage 7 tasks done through STAGE7-017, including 004A/004B/005A).
+- Next task: **STAGE7-018** (Production integration tests with OM and Warehouse) — READY.

@@ -11354,7 +11354,7 @@ mvn -pl :tmp-production -am test
 
 ## STAGE7-017 — Production workbench UI
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-011, STAGE7-013, STAGE7-014, STAGE7-016, STAGE7-016A
 **Module:** `tmp-ui-shell`
@@ -11380,14 +11380,20 @@ mvn -pl :tmp-production -am test
 
 ### Acceptance criteria
 
-- [ ] order-centric экран;
-- [ ] все 6 основных команд присутствуют: Принять в производство; Проверить наличие материалов; Создать перемещение материалов; Подтвердить получение; Выпустить изделия; Отменить производство заказа;
-- [ ] состояние кнопок определяется lifecycle + permissions;
-- [ ] UI не содержит business logic;
-- [ ] нет прямого доступа к repositories;
-- [ ] история заказа отображается через Production read contract;
-- [ ] Cutting Plan показывается как optional reference (Stage 8 не требуется);
-- [ ] mutating actions идут через application/documents.
+- [x] order-centric экран;
+- [x] все 6 основных команд присутствуют: Принять в производство; Проверить наличие материалов; Создать перемещение материалов; Подтвердить получение; Выпустить изделия; Отменить производство заказа;
+- [x] состояние кнопок определяется lifecycle + permissions;
+- [x] UI не содержит business logic;
+- [x] нет прямого доступа к repositories;
+- [x] история заказа отображается через Production read contract;
+- [x] Cutting Plan показывается как optional reference (Stage 8 не требуется);
+- [x] mutating actions идут через application/documents.
+
+### Post-review corrections closed with this task (STAGE7-016A)
+
+- unresolved/ambiguous `totalAvailable = 0` (was incorrectly `requiredQuantity`);
+- dead duplicate availability calculation removed from `CheckMaterialAvailabilityService`;
+- magic Warehouse UUIDs removed from `ProductionAutoConfiguration`; scope via `tmp.production.warehouse.*` or explicit bean.
 
 ### Verification commands
 
@@ -11399,7 +11405,7 @@ mvn -pl :tmp-ui-shell,:tmp-production -am test
 
 ## STAGE7-018 — Production integration tests with OM and Warehouse
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** 7
 **Depends on:** STAGE7-013, STAGE7-011, STAGE7-014
 **Module:** `tmp-production`

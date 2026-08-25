@@ -2,6 +2,63 @@
 
 ## Latest result
 
+**Date:** 2026-08-25
+**Scope:** STAGE7-017 — Production Workbench UI (+ STAGE7-016A post-review corrections)
+**Overall:** PASS
+
+| Check | Result |
+|-------|--------|
+| STAGE7-016A unresolved/ambiguous `totalAvailable=0` | PASS |
+| Availability arithmetic invariant + regression tests | PASS |
+| CheckMaterialAvailabilityService dead duplicate calc removed | PASS |
+| Authoritative calculator = CurrentMaterialAvailabilityQueryService | PASS |
+| Magic Warehouse UUIDs removed; `tmp.production.warehouse.*` / explicit bean | PASS |
+| Fail-fast without Production warehouse scope | PASS |
+| ProductionApplicationApi + DefaultProductionApplicationApi | PASS |
+| ProductionCapability nav «Производство» order 60 | PASS |
+| Order-centric Workbench UI (6 commands) | PASS |
+| Reads via ProductionQueryApi; mutations via ProductionApplicationApi | PASS |
+| Transfer/Release explicit cell picking (no hidden first-cell) | PASS |
+| Permission + lifecycle button matrix tests | PASS |
+| ViewModel / FXML smoke / ArchUnit UI boundaries | PASS |
+| `git diff --check` | clean |
+| `mvn -pl :tmp-production -am test` | PASS |
+| `mvn -pl :tmp-ui-shell,:tmp-production -am test` | PASS |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS |
+| `mvn test` | PASS |
+| `mvn verify` | PASS |
+| STAGE7-016A | DONE (corrections logged) |
+| STAGE7-017 | DONE |
+| STAGE7-018 | READY |
+| STAGE7-019 | PLANNED |
+| STAGE7-020 | PLANNED |
+| Module SDK / Plugin Runtime / STAGE7-008A | NOT IMPLEMENTED |
+| Git commit/push | NOT EXECUTED |
+
+---
+
+**Date:** 2026-08-25
+**Scope:** STAGE7-017 (partial) — Production Application API + Spring wiring
+**Overall:** SUPERSEDED by STAGE7-017 DONE entry above
+
+| Check | Result |
+|-------|--------|
+| ProductionApplicationApi UUID/DTO-only methods | PASS |
+| DefaultProductionApplicationApi mapping unit tests | PASS |
+| ProductionAutoConfiguration mutating + read beans | PASS |
+| Document processor registrar (Launch/Release/Cancellation) | PASS |
+| Shared CurrentMaterialAvailabilityQueryService for Check | PASS |
+| ProductionCapability nav/view/command «Производство» order 60 | PASS |
+| Bootstrap tmp-production dependency + warehouse scope config | PASS |
+| ArchUnit Stage 7 (internal gateway wiring exception) | PASS |
+| `mvn -pl :tmp-production -am test` | PASS |
+| `mvn -pl :tmp-architecture-tests -am test -Dtest=Stage7ProductionArchitectureTest` | PASS |
+| UI FXML/ViewModel | completed in STAGE7-017 DONE |
+| STAGE7-017 | was IN_PROGRESS |
+| Git commit/push | NOT EXECUTED |
+
+---
+
 **Date:** 2026-08-24
 **Scope:** STAGE7-016A — Production Public Query API
 **Overall:** PASS

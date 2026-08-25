@@ -4,6 +4,50 @@
 
 ---
 
+## STAGE7-017 — Production Workbench UI
+
+**Date:** 2026-08-25
+**Stage:** 7
+**Module:** `tmp-ui-shell` (+ `tmp-production` Application API / auto-config; bootstrap wiring)
+**Status:** DONE
+
+### Context
+
+Order-centric Production Workbench (Production Spec §23) with six mutation commands through Application API and reads through Public Query API. Also closed mandatory STAGE7-016A post-review corrections before UI completion.
+
+### STAGE7-016A post-review corrections (closed in this task)
+
+- Unresolved/ambiguous availability: `totalAvailable` was incorrectly `requiredQuantity`; now `0` with `deficit = requiredQuantity` (aligned with STAGE7-007).
+- Arithmetic invariant / domain guard on `MaterialAvailabilityLine` + regression tests.
+- Dead duplicate calculation removed from `CheckMaterialAvailabilityService` (only `calculator.evaluate` + history append). Authoritative calculator: `CurrentMaterialAvailabilityQueryService`.
+- Magic Warehouse UUIDs (`…0001` / `…0002`) removed from `ProductionAutoConfiguration`. Scope from `tmp.production.warehouse.main-warehouse-id` / `production-warehouse-id` (`ProductionWarehouseProperties`) or explicit `ProductionWarehouseScope` bean; fail-fast if missing.
+
+### Delivered
+
+- `com.tmp.production.api.ProductionApplicationApi` + `DefaultProductionApplicationApi` (Spec §18.2 UI-facing mutations, UUID/DTO only).
+- Full Production mutating Spring wiring; Capability nav «Производство» (`production.view.workbench`, order 60, `production.order.view`).
+- Workbench package `com.tmp.ui.shell.screen.production`: ViewModel, Controller, FXML, action policy, error mapper, presentation rows.
+- Six commands: Accept / Check / Transfer (editable template + explicit cells) / Receipt / Release (prepare→confirm, plan from API) / Cancel (whole-order).
+- Reads: `ProductionQueryApi` (view, items, availability, history); Warehouse public API for cell lists only.
+- ArchUnit UI boundary rules; ViewModel / permission / FXML smoke tests.
+- Bootstrap: `tmp-production` dependency; IT/test DynamicPropertySource warehouse scope; capability count updates.
+
+### Not done (out of scope)
+
+- STAGE7-018 / 019 / 020; STAGE7-008A; Module SDK / Plugin Runtime; Stage 8 Cutting UI.
+
+### Verification
+
+- `mvn -pl :tmp-production -am test` PASS
+- `mvn -pl :tmp-ui-shell,:tmp-production -am test` PASS
+- `mvn -pl :tmp-architecture-tests -am test` PASS
+- `mvn test` PASS
+- `mvn verify` PASS
+- `git diff --check` clean
+- Git commit/push NOT EXECUTED
+
+---
+
 ## STAGE7-016A — Production Public Query API
 
 **Date:** 2026-08-24

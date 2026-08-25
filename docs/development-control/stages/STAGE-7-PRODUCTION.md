@@ -14,9 +14,9 @@
 ## Status
 
 **START GATE PASSED**  
-**Stage 7 implementation IN PROGRESS / 85%**
+**Stage 7 implementation IN PROGRESS / 89%**
 
-Production functionality is **not** DONE. STAGE7-016A (Production Public Query API) is the latest completed implementation task at manifest update time.
+Production functionality is **not** DONE. STAGE7-017 (Production workbench UI) is the latest completed implementation task. STAGE7-018 is READY.
 
 **Active blockers:** NONE
 

@@ -20,6 +20,12 @@ tmp:
       admin-login: ${TMP_SECURITY_BOOTSTRAP_ADMIN_LOGIN}
       admin-display-name: ${TMP_SECURITY_BOOTSTRAP_ADMIN_DISPLAY_NAME}
       admin-password: ${TMP_SECURITY_BOOTSTRAP_ADMIN_PASSWORD}
+  production:
+    warehouse:
+      # Required when Production is on the classpath. Set to real Warehouse IDs for the package
+      # environment, or inject via TMP_PRODUCTION_WAREHOUSE_* / Spring property overrides.
+      # main-warehouse-id: ${TMP_PRODUCTION_WAREHOUSE_MAIN_ID}
+      # production-warehouse-id: ${TMP_PRODUCTION_WAREHOUSE_PRODUCTION_ID}
 
 logging:
   level:

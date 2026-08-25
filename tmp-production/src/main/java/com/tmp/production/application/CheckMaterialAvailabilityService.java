@@ -1,106 +1,79 @@
 package com.tmp.production.application;
 
-import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedMaterialLine;
-import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
-import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.MaterialReferenceEntry;
-import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.WarehouseCatalogEntry;
-import com.tmp.production.domain.AggregatedMaterialRequirement;
-import com.tmp.production.domain.InvalidProductionWarehouseScopeException;
 import com.tmp.production.domain.MaterialAvailabilityCheckResult;
-import com.tmp.production.domain.MaterialAvailabilityLine;
-import com.tmp.production.domain.MaterialAvailabilityLineStatus;
-import com.tmp.production.domain.MaterialAvailabilityOverallStatus;
-import com.tmp.production.domain.MaterialCheckNotAllowedException;
-import com.tmp.production.domain.MaterialPlanningSource;
-import com.tmp.production.domain.OrderProductionView;
-import com.tmp.production.domain.OrderProductionViewStatus;
-import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.SourceOrderId;
-import com.tmp.production.domain.SpecificationMaterialIdentity;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.math.BigDecimal;
-import java.time.Clock;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Read-only use case: check material availability for an order in {@code IN_PRODUCTION}.
+ * Explicit material availability check use case for an order in {@code IN_PRODUCTION}.
  *
- * <p>Does not mutate Warehouse stock, Production state, or create Business Documents. After a
- * successful calculation, appends {@code MATERIALS_CHECKED} history in a short REQUIRED transaction.
+ * <p>Delegates calculation to the authoritative {@link CurrentMaterialAvailabilityQueryService},
+ * then appends {@code MATERIALS_CHECKED} history in a short REQUIRED transaction. Does not mutate
+ * Warehouse stock or Production item state.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
-        justification = "Stores injected collaborators, history service, TX manager and clock.")
+        justification = "Stores injected calculator, history service and TX manager.")
 public final class CheckMaterialAvailabilityService {
 
-    private final ProductionOrderViewService orderViewService;
-    private final ProductionFoundationQueryService foundationQuery;
-    private final WarehouseAvailabilityQueryPort warehouseQuery;
-    private final ProductionWarehouseScope warehouseScope;
-    private final SpecificationMaterialRequirementCalculator requirementCalculator;
-    private final MaterialReferenceResolver materialReferenceResolver;
     private final CurrentMaterialAvailabilityQueryService calculator;
     private final ProductionHistoryService historyService;
     private final TransactionTemplate transactionTemplate;
-    private final Clock clock;
 
+    public CheckMaterialAvailabilityService(
+            CurrentMaterialAvailabilityQueryService calculator,
+            ProductionHistoryService historyService,
+            PlatformTransactionManager transactionManager) {
+        this.calculator = Objects.requireNonNull(calculator, "calculator");
+        this.historyService = Objects.requireNonNull(historyService, "historyService");
+        this.transactionTemplate =
+                new TransactionTemplate(
+                        Objects.requireNonNull(transactionManager, "transactionManager"));
+    }
+
+    /**
+     * Compatibility constructor used by existing unit tests that wire calculator dependencies
+     * directly. Prefer injecting a shared {@link CurrentMaterialAvailabilityQueryService} bean.
+     */
     public CheckMaterialAvailabilityService(
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQuery,
-            WarehouseAvailabilityQueryPort warehouseQuery,
+            com.tmp.production.application.port.WarehouseAvailabilityQueryPort warehouseQuery,
             ProductionWarehouseScope warehouseScope,
             ProductionHistoryService historyService,
             PlatformTransactionManager transactionManager,
-            Clock clock) {
+            java.time.Clock clock) {
         this(
-                orderViewService,
-                foundationQuery,
-                warehouseQuery,
-                warehouseScope,
-                new SpecificationMaterialRequirementCalculator(),
-                new MaterialReferenceResolver(),
+                new CurrentMaterialAvailabilityQueryService(
+                        orderViewService, foundationQuery, warehouseQuery, warehouseScope, clock),
                 historyService,
-                transactionManager,
-                clock);
+                transactionManager);
     }
 
     CheckMaterialAvailabilityService(
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQuery,
-            WarehouseAvailabilityQueryPort warehouseQuery,
+            com.tmp.production.application.port.WarehouseAvailabilityQueryPort warehouseQuery,
             ProductionWarehouseScope warehouseScope,
             SpecificationMaterialRequirementCalculator requirementCalculator,
             MaterialReferenceResolver materialReferenceResolver,
             ProductionHistoryService historyService,
             PlatformTransactionManager transactionManager,
-            Clock clock) {
-        this.orderViewService = Objects.requireNonNull(orderViewService, "orderViewService");
-        this.foundationQuery = Objects.requireNonNull(foundationQuery, "foundationQuery");
-        this.warehouseQuery = Objects.requireNonNull(warehouseQuery, "warehouseQuery");
-        this.warehouseScope = Objects.requireNonNull(warehouseScope, "warehouseScope");
-        this.requirementCalculator =
-                Objects.requireNonNull(requirementCalculator, "requirementCalculator");
-        this.materialReferenceResolver =
-                Objects.requireNonNull(materialReferenceResolver, "materialReferenceResolver");
-        this.calculator =
+            java.time.Clock clock) {
+        this(
                 new CurrentMaterialAvailabilityQueryService(
-                        this.orderViewService,
-                        this.foundationQuery,
-                        this.warehouseQuery,
-                        this.warehouseScope,
-                        this.requirementCalculator,
-                        this.materialReferenceResolver,
-                        Objects.requireNonNull(clock, "clock"));
-        this.historyService = Objects.requireNonNull(historyService, "historyService");
-        this.transactionTemplate =
-                new TransactionTemplate(
-                        Objects.requireNonNull(transactionManager, "transactionManager"));
-        this.clock = Objects.requireNonNull(clock, "clock");
+                        orderViewService,
+                        foundationQuery,
+                        warehouseQuery,
+                        warehouseScope,
+                        requirementCalculator,
+                        materialReferenceResolver,
+                        clock),
+                historyService,
+                transactionManager);
     }
 
     public MaterialAvailabilityCheckResult check(SourceOrderId sourceOrderId) {
@@ -109,111 +82,5 @@ public final class CheckMaterialAvailabilityService {
         transactionTemplate.executeWithoutResult(
                 status -> historyService.append(historyService.materialsChecked(result)));
         return result;
-    }
-
-    private void validateWarehouseScope() {
-        List<WarehouseCatalogEntry> warehouses = warehouseQuery.listWarehouses();
-        validateWarehouse(warehouses, warehouseScope.mainWarehouseId());
-        validateWarehouse(warehouses, warehouseScope.productionWarehouseId());
-    }
-
-    private static void validateWarehouse(
-            List<WarehouseCatalogEntry> warehouses, UUID warehouseId) {
-        WarehouseCatalogEntry entry =
-                warehouses.stream()
-                        .filter(candidate -> candidate.warehouseId().equals(warehouseId))
-                        .findFirst()
-                        .orElseThrow(
-                                () ->
-                                        InvalidProductionWarehouseScopeException.warehouseNotFound(
-                                                warehouseId));
-        if (!entry.active()) {
-            throw InvalidProductionWarehouseScopeException.warehouseInactive(warehouseId);
-        }
-    }
-
-    private MaterialAvailabilityLine buildLine(
-            AggregatedMaterialRequirement requirement, List<MaterialReferenceEntry> catalog) {
-        SpecificationMaterialIdentity identity = requirement.identity();
-        MaterialReferenceResolver.Result resolution =
-                materialReferenceResolver.resolve(identity, catalog);
-
-        if (resolution.status() == MaterialReferenceResolver.ResolutionStatus.UNRESOLVED) {
-            return unresolvedLine(requirement, MaterialAvailabilityLineStatus.MATERIAL_UNRESOLVED);
-        }
-        if (resolution.status() == MaterialReferenceResolver.ResolutionStatus.AMBIGUOUS) {
-            return unresolvedLine(requirement, MaterialAvailabilityLineStatus.MATERIAL_AMBIGUOUS);
-        }
-
-        UUID materialReferenceId = resolution.materialReferenceId();
-        BigDecimal mainAvailable =
-                warehouseQuery.availableQuantity(
-                        materialReferenceId, warehouseScope.mainWarehouseId());
-        BigDecimal productionAvailable =
-                warehouseQuery.availableQuantity(
-                        materialReferenceId, warehouseScope.productionWarehouseId());
-        BigDecimal totalAvailable = mainAvailable.add(productionAvailable);
-        BigDecimal deficit = deficit(requirement.requiredQuantity(), totalAvailable);
-        MaterialAvailabilityLineStatus status =
-                deficit.signum() > 0
-                        ? MaterialAvailabilityLineStatus.INSUFFICIENT
-                        : MaterialAvailabilityLineStatus.AVAILABLE;
-
-        return new MaterialAvailabilityLine(
-                identity.materialCode(),
-                requirement.materialName(),
-                identity.color(),
-                identity.unitOfMeasure(),
-                materialReferenceId,
-                requirement.requiredQuantity(),
-                mainAvailable,
-                productionAvailable,
-                totalAvailable,
-                deficit,
-                status,
-                MaterialPlanningSource.SPECIFICATION);
-    }
-
-    private static MaterialAvailabilityLine unresolvedLine(
-            AggregatedMaterialRequirement requirement, MaterialAvailabilityLineStatus status) {
-        return new MaterialAvailabilityLine(
-                requirement.identity().materialCode(),
-                requirement.materialName(),
-                requirement.identity().color(),
-                requirement.identity().unitOfMeasure(),
-                null,
-                requirement.requiredQuantity(),
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                requirement.requiredQuantity(),
-                status,
-                MaterialPlanningSource.SPECIFICATION);
-    }
-
-    private static MaterialAvailabilityOverallStatus resolveOverallStatus(
-            List<MaterialAvailabilityLine> lines) {
-        boolean hasUnresolved = false;
-        boolean hasDeficit = false;
-        for (MaterialAvailabilityLine line : lines) {
-            if (line.status() == MaterialAvailabilityLineStatus.MATERIAL_UNRESOLVED
-                    || line.status() == MaterialAvailabilityLineStatus.MATERIAL_AMBIGUOUS) {
-                hasUnresolved = true;
-            } else if (line.status() == MaterialAvailabilityLineStatus.INSUFFICIENT) {
-                hasDeficit = true;
-            }
-        }
-        if (hasUnresolved) {
-            return MaterialAvailabilityOverallStatus.HAS_UNRESOLVED_MATERIALS;
-        }
-        if (hasDeficit) {
-            return MaterialAvailabilityOverallStatus.HAS_DEFICIT;
-        }
-        return MaterialAvailabilityOverallStatus.ALL_AVAILABLE;
-    }
-
-    private static BigDecimal deficit(BigDecimal required, BigDecimal available) {
-        BigDecimal difference = required.subtract(available);
-        return difference.signum() > 0 ? difference : BigDecimal.ZERO;
     }
 }

@@ -15,6 +15,11 @@ tmp:
       admin-login: admin
       admin-display-name: Administrator
       admin-password: test-admin-password
+  production:
+    warehouse:
+      # Explicit test-scope Warehouse IDs; override in IT when catalog fixtures differ.
+      main-warehouse-id: 11111111-1111-4111-8111-111111111111
+      production-warehouse-id: 22222222-2222-4222-8222-222222222222
 
 logging:
   level:

@@ -592,12 +592,15 @@ class Stage7ProductionArchitectureTest {
                     .doNotHaveSimpleName("ProductionReleaseDocumentService")
                     .and()
                     .doNotHaveSimpleName("ProductionReleaseDocumentServiceTest")
+                    .and()
+                    .doNotHaveSimpleName("ProductionAutoConfiguration")
                     .should()
                     .dependOnClassesThat()
                     .haveSimpleName("ProductionReleaseDocumentService")
                     .because(
                             "Production Release document gateway is internal; UI, bootstrap, public API"
-                                    + " and other orchestrators must use ReleaseProductsService only");
+                                    + " and other orchestrators must use ReleaseProductsService only"
+                                    + " (Spring wiring in ProductionAutoConfiguration is allowed)");
 
     @ArchTest
     static final ArchRule releaseProductsUsesWarehousePublicApiOnly =
@@ -714,13 +717,16 @@ class Stage7ProductionArchitectureTest {
                     .doNotHaveSimpleName("ProductionCancellationDocumentService")
                     .and()
                     .doNotHaveSimpleName("ProductionCancellationDocumentServiceTest")
+                    .and()
+                    .doNotHaveSimpleName("ProductionAutoConfiguration")
                     .should()
                     .dependOnClassesThat()
                     .haveSimpleName("ProductionCancellationDocumentService")
                     .because(
                             "Production Cancellation document gateway is internal; UI, bootstrap,"
                                     + " public API and other orchestrators must use"
-                                    + " CancelOrderProductionService only");
+                                    + " CancelOrderProductionService only"
+                                    + " (Spring wiring in ProductionAutoConfiguration is allowed)");
 
     @ArchTest
     static final ArchRule productionOrderViewServiceMayUseCancellationQueryOnly =
@@ -965,4 +971,44 @@ class Stage7ProductionArchitectureTest {
                     .because(
                             "Production permission catalogue must not depend on Warehouse internals;"
                                     + " Warehouse permissions are referenced in tests only");
+
+    @ArchTest
+    static final ArchRule productionWorkbenchUiMustNotDependOnInternalPackages =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.ui.shell.screen.production..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production.domain..",
+                            "com.tmp.production.persistence..",
+                            "com.tmp.warehouse.application..",
+                            "com.tmp.warehouse.domain..",
+                            "com.tmp.warehouse.persistence..",
+                            "com.tmp.order.application..",
+                            "com.tmp.order.domain..",
+                            "com.tmp.order.persistence..",
+                            "com.tmp.cutting..")
+                    .because(
+                            "Production workbench UI must use only public Production/Order/Warehouse"
+                                    + " APIs");
+
+    @ArchTest
+    static final ArchRule productionWorkbenchUiMustNotDependOnInternalServicesOrDocumentEngine =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.ui.shell.screen.production..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveNameMatching(
+                            ".*(ProductionItemStateRepository"
+                                    + "|ProductionHistoryRepository"
+                                    + "|JdbcProduction.*"
+                                    + "|DocumentProcessor"
+                                    + "|ProductionReleaseDocumentService"
+                                    + "|ProductionCancellationDocumentService"
+                                    + "|DocumentEngine).*")
+                    .because(
+                            "Production workbench must not reach repositories, JDBC adapters,"
+                                    + " Document Processors or DocumentEngine");
 }

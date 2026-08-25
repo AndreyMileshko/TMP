@@ -33,9 +33,12 @@ import com.tmp.ui.shell.screen.orderitemeditor.OrderItemEditorViewModel;
 import com.tmp.ui.shell.screen.orderitemlist.OrderItemListViewModel;
 import com.tmp.ui.shell.screen.orderlist.OrderListViewModel;
 import com.tmp.ui.shell.screen.orderspecificationeditor.OrderItemSpecificationEditorViewModel;
+import com.tmp.ui.shell.screen.production.ProductionWorkbenchViewModel;
 import com.tmp.ui.shell.screen.roleadmin.RoleAdministrationViewModel;
 import com.tmp.ui.shell.screen.useradmin.UserAdministrationViewModel;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkbenchViewModel;
+import com.tmp.production.api.ProductionApplicationApi;
+import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.warehouse.api.WarehouseApi;
 import jakarta.annotation.PostConstruct;
 import javafx.application.Platform;
@@ -173,6 +176,23 @@ public class UiShellAutoConfiguration {
     }
 
     @Bean
+    ProductionWorkbenchViewModel productionWorkbenchViewModel(
+            ProductionQueryApi productionQueryApi,
+            ProductionApplicationApi productionApplicationApi,
+            OrderQueryService orderQueryService,
+            WarehouseApi warehouseApi,
+            AuthorizationService authorizationService,
+            AuthenticationService authenticationService) {
+        return new ProductionWorkbenchViewModel(
+                productionQueryApi,
+                productionApplicationApi,
+                orderQueryService,
+                warehouseApi,
+                authorizationService,
+                authenticationService);
+    }
+
+    @Bean
     OrderScreenNavigationBridge orderScreenNavigationBridge(
             OrderListViewModel orderListViewModel,
             OrderEditorViewModel orderEditorViewModel,
@@ -206,7 +226,8 @@ public class UiShellAutoConfiguration {
             OrderItemListViewModel orderItemListViewModel,
             OrderItemEditorViewModel orderItemEditorViewModel,
             OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel,
-            WarehouseWorkbenchViewModel warehouseWorkbenchViewModel) {
+            WarehouseWorkbenchViewModel warehouseWorkbenchViewModel,
+            ProductionWorkbenchViewModel productionWorkbenchViewModel) {
         return new UiShellScreenRegistrar(
                 navigationService,
                 loginViewModel,
@@ -221,7 +242,8 @@ public class UiShellAutoConfiguration {
                 orderItemListViewModel,
                 orderItemEditorViewModel,
                 orderItemSpecificationEditorViewModel,
-                warehouseWorkbenchViewModel);
+                warehouseWorkbenchViewModel,
+                productionWorkbenchViewModel);
     }
 
     @Bean
@@ -343,6 +365,7 @@ public class UiShellAutoConfiguration {
         private final OrderItemEditorViewModel orderItemEditorViewModel;
         private final OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel;
         private final WarehouseWorkbenchViewModel warehouseWorkbenchViewModel;
+        private final ProductionWorkbenchViewModel productionWorkbenchViewModel;
 
         UiShellScreenRegistrar(
                 NavigationService navigationService,
@@ -358,7 +381,8 @@ public class UiShellAutoConfiguration {
                 OrderItemListViewModel orderItemListViewModel,
                 OrderItemEditorViewModel orderItemEditorViewModel,
                 OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel,
-                WarehouseWorkbenchViewModel warehouseWorkbenchViewModel) {
+                WarehouseWorkbenchViewModel warehouseWorkbenchViewModel,
+                ProductionWorkbenchViewModel productionWorkbenchViewModel) {
             this.navigationService = navigationService;
             this.loginViewModel = loginViewModel;
             this.mainWindowViewModel = mainWindowViewModel;
@@ -373,6 +397,7 @@ public class UiShellAutoConfiguration {
             this.orderItemEditorViewModel = orderItemEditorViewModel;
             this.orderItemSpecificationEditorViewModel = orderItemSpecificationEditorViewModel;
             this.warehouseWorkbenchViewModel = warehouseWorkbenchViewModel;
+            this.productionWorkbenchViewModel = productionWorkbenchViewModel;
         }
 
         @PostConstruct
@@ -423,6 +448,10 @@ public class UiShellAutoConfiguration {
                     UiShellScreens.WAREHOUSE_WORKBENCH_SCREEN_ID,
                     UiShellScreens.WAREHOUSE_WORKBENCH_FXML,
                     () -> warehouseWorkbenchViewModel));
+            navigationService.register(new ScreenRegistration(
+                    UiShellScreens.PRODUCTION_WORKBENCH_SCREEN_ID,
+                    UiShellScreens.PRODUCTION_WORKBENCH_FXML,
+                    () -> productionWorkbenchViewModel));
         }
     }
 }

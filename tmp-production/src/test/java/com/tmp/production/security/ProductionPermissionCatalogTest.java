@@ -56,9 +56,22 @@ class ProductionPermissionCatalogTest {
         assertEquals("production", capability.descriptor().id().value());
         assertEquals(7, capability.descriptor().permissions().size());
         assertEquals(1, capability.descriptor().publicServices().size());
-        assertEquals(0, capability.descriptor().navigationContributions().size());
-        assertEquals(0, capability.descriptor().views().size());
-        assertEquals(0, capability.descriptor().commands().size());
+        assertEquals(1, capability.descriptor().navigationContributions().size());
+        assertEquals(1, capability.descriptor().views().size());
+        assertEquals(1, capability.descriptor().commands().size());
+        assertEquals(
+                ProductionCapability.NAV_PRODUCTION,
+                capability.descriptor().navigationContributions().getFirst().navigationId());
+        assertEquals(
+                "Производство",
+                capability.descriptor().navigationContributions().getFirst().displayName());
+        assertEquals(60, capability.descriptor().navigationContributions().getFirst().order());
+        assertEquals(
+                ProductionCapability.VIEW_PRODUCTION,
+                capability.descriptor().views().getFirst().viewId());
+        assertEquals(
+                ProductionPermissions.PRODUCTION_VIEW.value(),
+                capability.descriptor().commands().getFirst().requiredPermissionIds().getFirst());
         assertEquals(
                 ProductionPermissions.all().stream().map(PermissionId::value).collect(Collectors.toSet()),
                 capability.descriptor().permissions().stream()

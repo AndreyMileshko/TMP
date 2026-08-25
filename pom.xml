@@ -120,6 +120,11 @@
                 <version>${project.version}</version>
             </dependency>
             <dependency>
+                <groupId>com.tmp</groupId>
+                <artifactId>tmp-production</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
                 <version>${testcontainers.version}</version>

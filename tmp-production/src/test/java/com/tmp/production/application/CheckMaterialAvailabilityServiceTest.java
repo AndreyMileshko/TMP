@@ -368,9 +368,67 @@ class CheckMaterialAvailabilityServiceTest {
 
         MaterialAvailabilityCheckResult result = service.check(orderId);
 
-        assertEquals(
-                MaterialAvailabilityLineStatus.MATERIAL_UNRESOLVED, result.lines().getFirst().status());
+        var line = result.lines().getFirst();
+        assertEquals(MaterialAvailabilityLineStatus.MATERIAL_UNRESOLVED, line.status());
+        assertEquals(0, line.mainWarehouseAvailable().compareTo(BigDecimal.ZERO));
+        assertEquals(0, line.productionWarehouseAvailable().compareTo(BigDecimal.ZERO));
+        assertEquals(0, line.totalAvailable().compareTo(BigDecimal.ZERO));
+        assertEquals(0, line.deficit().compareTo(BigDecimal.valueOf(3)));
         assertEquals(0, warehouseQuery.availableQuantityCalls);
+    }
+
+    @Test
+    void ambiguousMaterialReportsZeroTotalAvailableAndFullDeficit() {
+        SpecificationId specId = SpecificationId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        launchItem(orderId, itemId, specId, 1);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        spec(
+                                specId,
+                                itemId,
+                                List.of(materialLine("PROFILE-X", "WHITE", "PCS", 5))));
+        warehouseQuery.materialReferences =
+                List.of(
+                        reference(UUID.randomUUID(), "PROFILE-X", "WHITE", "6000", "PCS"),
+                        reference(UUID.randomUUID(), "PROFILE-X", "WHITE", "3000", "PCS"));
+
+        MaterialAvailabilityCheckResult result = service.check(orderId);
+
+        var line = result.lines().getFirst();
+        assertEquals(MaterialAvailabilityLineStatus.MATERIAL_AMBIGUOUS, line.status());
+        assertEquals(0, line.mainWarehouseAvailable().compareTo(BigDecimal.ZERO));
+        assertEquals(0, line.productionWarehouseAvailable().compareTo(BigDecimal.ZERO));
+        assertEquals(0, line.totalAvailable().compareTo(BigDecimal.ZERO));
+        assertEquals(0, line.deficit().compareTo(BigDecimal.valueOf(5)));
+    }
+
+    @Test
+    void resolvedLineTotalAvailableEqualsMainPlusProduction() {
+        SpecificationId specId = SpecificationId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        launchItem(orderId, itemId, specId, 1);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        spec(
+                                specId,
+                                itemId,
+                                List.of(materialLine("PROFILE-X", "WHITE", "PCS", 10))));
+
+        UUID materialId = UUID.randomUUID();
+        warehouseQuery.materialReferences =
+                List.of(reference(materialId, "PROFILE-X", "WHITE", "", "PCS"));
+        warehouseQuery.stock.put(stockKey(materialId, MAIN_WAREHOUSE), BigDecimal.valueOf(6));
+        warehouseQuery.stock.put(stockKey(materialId, PROD_WAREHOUSE), BigDecimal.valueOf(2));
+
+        MaterialAvailabilityCheckResult result = service.check(orderId);
+
+        var line = result.lines().getFirst();
+        assertEquals(
+                0,
+                line.totalAvailable()
+                        .compareTo(
+                                line.mainWarehouseAvailable().add(line.productionWarehouseAvailable())));
     }
 
     @Test

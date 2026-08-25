@@ -23,6 +23,8 @@ public final class UiShellScreens {
             "com/tmp/ui/shell/screen/orderimport/OrderImportScreen.fxml";
     public static final String WAREHOUSE_WORKBENCH_FXML =
             "com/tmp/ui/shell/screen/warehouse/WarehouseWorkbenchScreen.fxml";
+    public static final String PRODUCTION_WORKBENCH_FXML =
+            "com/tmp/ui/shell/screen/production/ProductionWorkbenchScreen.fxml";
 
     public static final String MAIN_SCREEN_ID = "main";
     public static final String ACCESS_DENIED_SCREEN_ID = "access-denied";
@@ -41,6 +43,15 @@ public final class UiShellScreens {
     public static final String ORDER_IMPORT_SCREEN_ID = "order.view.order-import";
     /** Must match Warehouse Capability {@code viewId} ({@code warehouse.view.workbench}). */
     public static final String WAREHOUSE_WORKBENCH_SCREEN_ID = "warehouse.view.workbench";
+    /** Must match Production Capability {@code viewId} ({@code production.view.workbench}). */
+    public static final String PRODUCTION_WORKBENCH_SCREEN_ID = "production.view.workbench";
+    public static final String PRODUCTION_VIEW_PERMISSION = "production.order.view";
+    public static final String PRODUCTION_ACCEPT_PERMISSION = "production.order.accept";
+    public static final String PRODUCTION_CHECK_PERMISSION = "production.materials.check";
+    public static final String PRODUCTION_TRANSFER_PERMISSION = "production.transfer.create";
+    public static final String PRODUCTION_RECEIPT_PERMISSION = "production.receipt.confirm";
+    public static final String PRODUCTION_RELEASE_PERMISSION = "production.release.create";
+    public static final String PRODUCTION_CANCEL_PERMISSION = "production.cancellation.create";
     public static final String WAREHOUSE_VIEW_PERMISSION = "warehouse.stock.view";
     public static final String WAREHOUSE_RECEIPT_PERMISSION = "warehouse.receipt.create";
     public static final String WAREHOUSE_MOVE_PERMISSION = "warehouse.move.create";
