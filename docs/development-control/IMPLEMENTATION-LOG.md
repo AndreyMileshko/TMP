@@ -4,6 +4,51 @@
 
 ---
 
+## STAGE7-018 — Production public-boundary integration tests (OM + Warehouse)
+
+**Date:** 2026-08-25
+**Stage:** 7
+**Module:** `tmp-production` (test-only + control docs)
+**Status:** DONE
+
+### Delivered
+
+Final public-boundary integration suite in `com.tmp.production.integration.publicboundary`:
+
+- `ProductionPublicBoundaryPostgresIT` — 9 PostgreSQL/Testcontainers scenarios (Launch success/rollback, material availability, multi-cell Transfer 6+4 send/receipt/idempotency, Release preview + multi-cell Consumption, Release atomic rollback, partial Release cumulative planning 5.100000/6.800000, mixed-state Cancellation, manufactured Cancellation reject);
+- `PublicBoundaryImportGuardTest` — source-level guard forbidding OM/Warehouse application/domain/persistence imports in the package;
+- `ProductionPublicBoundaryComposition`, `PublicBoundaryRepositoryPorts`, `ControllableProductionItemStateRepository`, `ControllableProductionHistoryRepository`, `PublicBoundaryPermissions` — test wiring and Production-owned fault injection only.
+
+OM fixture: `OrderImportService.preview/confirm` → real ACTIVE Order + Specifications. Warehouse fixture: `WarehouseCommandApi.createWarehouse/createStorageCell/receipt`. All cross-capability reads/assertions via public APIs (`OrderQueryService`, `WarehouseQueryApi`, `ProductionQueryApi`, `ProductionApplicationApi`). Real Document Engine, Production JDBC, shared transaction manager.
+
+### Fixes during implementation (test-support only)
+
+- Permissions FK: `ProductionCapability` stub bean registers Production permission definitions for Security sync;
+- Material identity: OM fixture UoM `"шт."` (Warehouse canonical), not `"шт"`;
+- Launch payload: shared `ProductionLaunchPayloadHolder` + processor registration in composition;
+- Fault injection: `PublicBoundaryRepositoryPorts` static forwarding so Document Engine processors see controllable repos;
+- Launch rollback: `failOnSaveCount(2)` fails on 2nd JDBC save for 2-item order.
+
+### Verification
+
+- `ProductionPublicBoundaryPostgresIT` + `PublicBoundaryImportGuardTest`: 10/10 PASS
+- `mvn -pl :tmp-production -am test`: PASS (334 tests)
+- `mvn -pl :tmp-production -am verify`: PASS
+- `mvn -pl :tmp-ui-shell -am test`: PASS (~6.5 min)
+- `mvn -pl :tmp-architecture-tests -am test`: PASS (~6.5 min)
+- `mvn test` (full reactor): PASS (~6:40)
+- `mvn verify` (full reactor): PASS (~17:10)
+- STAGE7-017 deferred full regression (multi-cell UI + FXML): PASS in full reactor
+- `git diff --check`: clean
+
+### Queue
+
+- STAGE7-018 = DONE
+- STAGE7-019 = READY
+- Stage 7 progress = 93% (25/27)
+
+---
+
 ## STAGE7-017 — Actual multi-cell allocation UI correction
 
 **Date:** 2026-08-25

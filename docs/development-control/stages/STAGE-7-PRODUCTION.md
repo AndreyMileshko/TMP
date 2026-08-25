@@ -14,9 +14,9 @@
 ## Status
 
 **START GATE PASSED**  
-**Stage 7 implementation IN PROGRESS / 89%**
+**Stage 7 implementation IN PROGRESS / 93%**
 
-Production functionality is **not** DONE. STAGE7-017 (Production workbench UI) is the latest completed implementation task. STAGE7-018 is READY.
+Production functionality is **not** DONE. STAGE7-018 (Production public-boundary integration tests with OM and Warehouse) is the latest completed implementation task. STAGE7-019 (Production architecture tests) is READY.
 
 **Active blockers:** NONE
 

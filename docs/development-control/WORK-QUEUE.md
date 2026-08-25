@@ -11433,7 +11433,7 @@ Targeted verification PASS (24 tests). Full reactor NOT RUN → STAGE7-018.
 
 ## STAGE7-018 — Production integration tests with OM and Warehouse
 
-**Status:** READY
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-013, STAGE7-011, STAGE7-014
 **Module:** `tmp-production`
@@ -11466,14 +11466,14 @@ Integration tests Launch/Transfer/Receipt/Release+Consumption границ с п
 
 ### Acceptance criteria
 
-- [ ] Launch covered;
-- [ ] whole-order Launch rollback proven with real Document Engine + Production JDBC repository + PostgreSQL/Testcontainers (not only InMemoryRepository simulation);
-- [ ] Transfer covered;
-- [ ] Receipt covered;
-- [ ] Release+Consumption atomicity covered at Production boundary;
-- [ ] whole-order Production Cancellation covered (not unit-only);
-- [ ] OM/Warehouse ownership preserved;
-- [ ] final STAGE7-018 boundary integration tests use only OM/Warehouse **public** contracts (`com.tmp.order.api.*`, `com.tmp.warehouse.api.*`) and must not import Warehouse/OM application, domain, or persistence internals (existing STAGE7-010/011 low-level Postgres ITs that use Warehouse internals as fixtures remain allowed as interim transaction proofs only).
+- [x] Launch covered;
+- [x] whole-order Launch rollback proven with real Document Engine + Production JDBC repository + PostgreSQL/Testcontainers (not only InMemoryRepository simulation);
+- [x] Transfer covered;
+- [x] Receipt covered;
+- [x] Release+Consumption atomicity covered at Production boundary;
+- [x] whole-order Production Cancellation covered (not unit-only);
+- [x] OM/Warehouse ownership preserved;
+- [x] final STAGE7-018 boundary integration tests use only OM/Warehouse **public** contracts (`com.tmp.order.api.*`, `com.tmp.warehouse.api.*`) and must not import Warehouse/OM application, domain, or persistence internals (existing STAGE7-010/011 low-level Postgres ITs that use Warehouse internals as fixtures remain allowed as interim transaction proofs only).
 
 ### Verification commands
 
@@ -11482,11 +11482,18 @@ mvn -pl :tmp-production -am verify
 ```
 
 **Verification note (STAGE7-011):** `ConfirmMaterialTransferPostgresIT` / `ConfirmMaterialReceiptPostgresIntegrationTest` may use Warehouse internals for fixture construction. STAGE7-018 final public-boundary suite must not.
+
+### Completion notes (2026-08-25)
+
+Final public-boundary suite: `com.tmp.production.integration.publicboundary` — `ProductionPublicBoundaryPostgresIT` (9 scenarios) + `PublicBoundaryImportGuardTest` + support composition/fault-injection helpers. OM fixture via `OrderImportService.preview/confirm`; Warehouse via `WarehouseCommandApi`; reads via `OrderQueryService`, `WarehouseQueryApi`, `ProductionQueryApi`/`ProductionApplicationApi`. Real PostgreSQL/Testcontainers, Document Engine, Production JDBC. STAGE7-017 deferred full reactor regression PASS. Full verification PASS: `mvn -pl :tmp-production -am test/verify`, `mvn -pl :tmp-ui-shell -am test`, `mvn -pl :tmp-architecture-tests -am test`, `mvn test`, `mvn verify`, `git diff --check`.
+
+Test-support fixes during implementation: ProductionCapability stub for permission FK; OM UoM `"шт."`; shared `ProductionLaunchPayloadHolder`; `PublicBoundaryRepositoryPorts` static forwarding for fault injection; Launch rollback `failOnSaveCount(2)`.
+
 ---
 
 ## STAGE7-019 — Production architecture tests
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** 7
 **Depends on:** STAGE7-001
 **Module:** `tmp-architecture-tests`

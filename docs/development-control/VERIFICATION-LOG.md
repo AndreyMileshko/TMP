@@ -3,8 +3,59 @@
 ## Latest result
 
 **Date:** 2026-08-25
-**Scope:** STAGE7-017 actual multi-cell allocation UI correction (post-review)
-**Overall:** PASS (targeted only)
+**Scope:** STAGE7-018 — Production public-boundary integration tests + STAGE7-017 deferred full reactor regression
+**Overall:** PASS
+
+### STAGE7-018 Public Boundary suite
+
+| Check | Result |
+|-------|--------|
+| `ProductionPublicBoundaryPostgresIT` (9 scenarios) | PASS |
+| `PublicBoundaryImportGuardTest` | PASS |
+| OM public imports only (`com.tmp.order.api.*`, `com.tmp.order.api.imports.*`) | PASS |
+| Warehouse public imports only (`com.tmp.warehouse.api.*`) | PASS |
+| Forbidden OM/Warehouse internals in publicboundary package | NONE found |
+| Real PostgreSQL/Testcontainers | PASS |
+| Real Document Engine | PASS |
+| Real Production JDBC persistence | PASS |
+
+### STAGE7-017 deferred full regression
+
+| Check | Result |
+|-------|--------|
+| Multi-cell Transfer/Release ViewModel tests (16 tests in `ProductionWorkbenchViewModelTest`) | PASS |
+| `ProductionWorkbenchControllerFxTest` (FXML allocation controls) | PASS |
+| Full reactor inclusion | PASS |
+
+### Full verification matrix
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-production -am test` | PASS (334 tests, exit 0) |
+| `mvn -pl :tmp-production -am verify` | PASS (exit 0, ~15 min) |
+| `mvn -pl :tmp-ui-shell -am test` | PASS (exit 0, ~6:30) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS (exit 0, ~6:30) |
+| `mvn test` (full reactor) | PASS (exit 0, ~6:40) |
+| `mvn verify` (full reactor) | PASS (exit 0, ~17:10) |
+| `git diff --check` | clean (exit 0; CRLF warning only) |
+| STAGE7-018 | DONE |
+| STAGE7-019 | READY |
+
+### Named public-boundary tests
+
+- `launchWholeOrderThroughPublicOmBoundary`
+- `launchWholeOrderRollbackRemovesAllJdbcState`
+- `materialAvailabilityAndExplicitCheckHistoryThroughPublicWarehouseBoundary`
+- `transferMultiCellSendAndReceiptThroughPublicWarehouseBoundary`
+- `releasePreviewNoMutationThenMultiCellConsumptionHappyPath`
+- `releaseFailureRollsBackPublicWarehouseConsumption`
+- `partialReleaseCumulativePlanningThroughPublicBoundary`
+- `cancellationPreservesReleasedAndCancelsUnfinishedWithoutStockReturn`
+- `manufacturedCancellationIsRejectedWithoutSideEffects`
+
+---
+
+## Previous result
 
 Prior corrective commit (c38b873) documented verification but contained no UI code
 changes. Actual multi-cell correction implemented now; named multi-cell tests added;
