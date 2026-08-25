@@ -14,11 +14,13 @@
 ## Status
 
 **START GATE PASSED**  
-**Stage 7 implementation IN PROGRESS / 96%**
+**Stage 7 DONE / 100%**
+**Closure Audit (`STAGE7-020`): PASS**
 
-Production functionality is **not** DONE. STAGE7-019 (Production architecture tests) is the latest completed implementation task. STAGE7-020 (Stage 7 final closure audit) is IN_PROGRESS.
+All 27 mandatory Stage 7 tasks are DONE (`STAGE7-001` … `STAGE7-020`, including 004A/004B/005A/012A/013A/015A/016A). `STAGE7-008A` (post-launch Cutting Plan link association) remains PLANNED, is excluded from the mandatory 27 and does not block closure.
 
 **Active blockers:** NONE
+**Production Specification:** v2.4 Accepted
 
 ## Start Gate (required before READY tasks)
 
@@ -72,13 +74,24 @@ Atomicity evidence: outer shared ACID transaction; Document Engine REQUIRED join
 
 ## Exit criteria
 
-- Production owns only its state and documents;
-- user workflow is order-level; stored state is item-owned;
-- Specification Reference frozen at Launch;
-- Cutting Plan links support 0..N by material;
-- Order Management and Warehouse boundaries preserved (Query vs Document);
-- Release/Consumption atomicity proven (ADR-036) and implemented;
-- Production business history and Public Query API implemented (Spec §18, §22);
-- no MES; no Production Order; Cutting optional;
-- Constitution and Accepted ADR satisfied;
-- Stage 7 closure audit PASS.
+| # | Criterion | Result | Evidence |
+|---|-----------|--------|----------|
+| 1 | Production owns only its state and documents | PASS | `production` schema: item states, cutting links, transfer templates/transfers, release, cancellation, history; no Order/Warehouse/Cutting tables |
+| 2 | User workflow is order-level; stored state is item-owned | PASS | whole-order Launch/Release/Cancellation; `production.production_item_states` keyed by order+item+specification |
+| 3 | Specification Reference frozen at Launch | PASS | `ProductionFoundation.freeze` at Launch; post-launch reads only `getSpecificationById`; ArchUnit `foundationQueryMustNot*` |
+| 4 | Cutting Plan links support 0..N by material | PASS | `CuttingPlanLinks`, `production.production_item_cutting_plan_links`; opaque ids, no lifecycle |
+| 5 | Order Management and Warehouse boundaries preserved (Query vs Document) | PASS | `com.tmp.order.api` / `com.tmp.warehouse.api` only; Transfer/Consumption stay Warehouse-owned commands |
+| 6 | Release/Consumption atomicity proven (ADR-036) and implemented | PASS | outer shared TX in `ReleaseProductsService`; `releaseFailureRollsBackPublicWarehouseConsumption` |
+| 7 | Production business history and Public Query API implemented (Spec §18, §22) | PASS | append-only `production.production_history` with UPDATE/DELETE triggers; four read-only `ProductionQueryApi` operations |
+| 8 | No MES; no Production Order; Cutting optional | PASS | no work centers/shifts/routing/OEE; no `ProductionOrder` aggregate/entity/table; Production runs with Stage 8 NOT STARTED |
+| 9 | Constitution and Accepted ADR satisfied | PASS | ADR-017/018/020/021/024/032/033/034/035/036; Document Engine Spec v1.2 |
+| 10 | Stage 7 closure audit PASS | PASS | `STAGE7-020`; full reactor `mvn test` / `mvn verify` PASS; 72/72 Stage 7 ArchUnit rules; `git diff --check` clean |
+
+## Closure
+
+**Closure Audit:** PASS (`STAGE7-020`, 2026-08-25)
+**Mandatory tasks:** 27 / 27 DONE
+**Progress:** 100%
+**Active blockers:** NONE
+**Non-blocking backlog:** `STAGE7-008A` (post-launch Cutting Plan link association) remains PLANNED
+**Next stage:** Stage 8 Cutting Optimization — NOT STARTED (Start Gate not run)

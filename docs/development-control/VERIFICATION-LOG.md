@@ -3,6 +3,89 @@
 ## Latest result
 
 **Date:** 2026-08-25
+**Scope:** STAGE7-020 — Stage 7 Final Closure Audit (Production)
+**Overall:** PASS
+
+### Final full verification (current HEAD)
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-production -am test` | PASS (tmp-production 334 tests, 0 failures) |
+| `mvn -pl :tmp-ui-shell -am test` | PASS (tmp-ui-shell 230 tests, 0 failures) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS (145 tests; `Stage7ProductionArchitectureTest` 72/72) |
+| `mvn test` (full reactor) | PASS (1690 tests, 0 failures, 0 errors) |
+| `mvn verify` (full reactor) | PASS (1690 unit + 184 integration tests) |
+| `git diff --check` | clean (CRLF warning only) |
+
+### Stage 7 Exit Criteria
+
+| Criterion | Result |
+|-----------|--------|
+| Ownership boundaries (no cross-capability persistence ownership) | PASS |
+| Order Item principal object / whole-order UX / item-owned state | PASS |
+| No Production Order aggregate, entity or table | PASS |
+| Order-level Production status computed (no persisted mutable status) | PASS |
+| Frozen `SpecificationId` invariant after Launch | PASS |
+| Cutting Plan links opaque 0..N; no Cutting ownership | PASS |
+| Material identity (article + normalized color + UoM; UNRESOLVED ≠ AMBIGUOUS) | PASS |
+| Availability arithmetic (main + production; unresolved → 0/0/0/deficit) | PASS |
+| Read-only availability appends no `MATERIALS_CHECKED` | PASS |
+| Transfer Warehouse ownership; DRAFT only; multi-cell 1..N | PASS |
+| Receipt via public Warehouse receive; idempotent repeat | PASS |
+| Release + Warehouse Consumption atomic (ADR-036) | PASS |
+| Partial Release cumulative planning (§15.1.1, scale 6 HALF_UP) | PASS |
+| Multi-cell Release 0..N with SUM = actualQuantity | PASS |
+| Consumption only from production warehouse | PASS |
+| Whole-order Cancellation; released preserved; no automatic return | PASS |
+| Concurrency: shared whole-order `FOR UPDATE` lock; real overlap proofs | PASS |
+| Domain events after-commit only; rollback delivers none | PASS |
+| Production History durable, append-only, same-transaction | PASS |
+| Exactly 7 canonical Production permissions; no legacy aliases | PASS |
+| Warehouse permissions remain Warehouse-owned | PASS |
+| `ProductionQueryApi` read-only; `production.order.view` before downstream reads | PASS |
+| Public DTO boundary (no domain/persistence/foreign internals) | PASS |
+| Capability `production` registered; single PublicService | PASS |
+| Order-centric Workbench with six actions; no UI business logic | PASS |
+| Final public-boundary integration suite (no OM/Warehouse internals) | PASS |
+| Final architecture suite (72 Stage 7 rules) | PASS |
+| No MES; no Stage 8 runtime dependency | PASS |
+| Warehouse ids from explicit runtime configuration (no magic UUIDs) | PASS |
+
+### Public boundary evidence
+
+| Check | Result |
+|-------|--------|
+| OM internals used in final suite | NO |
+| Warehouse internals used in final suite | NO |
+| Real PostgreSQL / Testcontainers | YES |
+| Real Document Engine | YES |
+| Real Production JDBC | YES |
+| `PublicBoundaryImportGuardTest` | PASS |
+| `ProductionPublicBoundaryPostgresIT` (9 scenarios) | PASS |
+
+### Closure
+
+| Item | Result |
+|------|--------|
+| Mandatory Stage 7 tasks | 27 / 27 DONE |
+| STAGE7-008A | PLANNED (non-blocking, excluded from the 27) |
+| Production Specification | v2.4 Accepted |
+| Active Stage 7 blockers | NONE |
+| Control docs (STATUS / WORK-QUEUE / Stage manifest / logs / CONTEXT-MAP) | consistent |
+| STAGE7-020 | DONE |
+| Stage 7 Production | DONE / 100% |
+| Stage 8 Cutting Optimization | NOT STARTED |
+| Git commit / push | NOT EXECUTED |
+
+### Failures
+
+- None.
+
+---
+
+## Previous result
+
+**Date:** 2026-08-25
 **Scope:** STAGE7-019 — Production architecture tests (ArchUnit boundary rules)
 **Overall:** PASS
 

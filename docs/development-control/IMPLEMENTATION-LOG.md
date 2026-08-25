@@ -4,6 +4,71 @@
 
 ---
 
+## STAGE7-020 — Stage 7 Final Closure Audit
+
+**Date:** 2026-08-25
+**Stage:** 7
+**Module:** documentation (control docs only)
+**Status:** DONE
+
+### Scope
+
+Verification/closure task. No new business functionality, no production code changes, no Git operations. Base HEAD `fac4e3d`.
+
+### Audit result
+
+- **Production Specification:** v2.4 Accepted (permission shorthand normalized to canonical 3-segment format; business semantics unchanged).
+- **Mandatory tasks:** 27 / 27 DONE (`STAGE7-001` … `STAGE7-020`, incl. 004A/004B/005A/012A/013A/015A/016A). `STAGE7-008A` remains PLANNED post-launch, excluded from the 27, non-blocking.
+- **Ownership:** Production owns item state, its documents, logical Material Transfer, Release, Cancellation, History and its own permissions/API/UI metadata. No Order/Specification/Warehouse stock/Warehouse Transfer/Consumption/Cutting Plan lifecycle ownership; no cross-capability persistence ownership.
+- **No Production Order:** no `ProductionOrder` aggregate, entity or `production_orders` table. Order Item is the principal object; Order is whole-order UX only.
+- **Order-level status:** computed by `OrderProductionViewCalculator` from item states plus posted Cancellation evidence; no persisted mutable order Production status.
+- **Specification freeze:** Launch resolves ACTIVE Order via OM public API and freezes `SpecificationId` in `ProductionFoundation`; post-launch reads use `getSpecificationById` only (ArchUnit-enforced).
+- **Cutting:** `CuttingPlanId` stored as opaque 0..N links per material reference; no creation/approval/modification; Stage 8 NOT STARTED and not required at runtime.
+- **Material identity (ADR-032):** article/code + normalized color + unitOfMeasure; `lengthMm` never used as Warehouse size; UNRESOLVED and AMBIGUOUS remain distinct; first candidate never selected.
+- **Availability:** `total = main + production` for resolved lines; unresolved/ambiguous → 0/0/0 with `deficit = required`. Read-only `ProductionQueryApi` path uses `CurrentMaterialAvailabilityQueryService` and appends no history; explicit Check appends `MATERIALS_CHECKED`.
+- **Transfer:** Production-owned editable template; confirm creates Warehouse DRAFT operations via `WarehouseCommandApi.createTransferDraft` only (no send/receive, no stock mutation); one template line → 1..N explicit source/destination cell allocations with SUM = persisted `requestedQuantity`; no hidden picking.
+- **Receipt:** Warehouse performs DRAFT → SENT; Production confirms through the public receive API using stored refs; repeat returns `ALREADY_RECEIVED` without duplicate history.
+- **Release:** `ReleaseProductsService` runs one outer shared transaction — whole-order `FOR UPDATE` lock → validation → plan recomputation on locked state → allocation/cell validation → Release draft → Warehouse Consumption → Release POST; preview snapshots are never authoritative.
+- **Partial Release plan (§15.1.1):** cumulative proportional allocation per original frozen Specification line before aggregation; `BigDecimal`, scale 6, HALF_UP; exact `Q` on final release; no `Q * N` double multiplication.
+- **Multi-cell Release:** 0..N allocations; `actual > 0` requires ≥ 1 allocation with SUM = `actualQuantity`; `actual = 0` requires empty allocations; backend remains final validator.
+- **Consumption:** only from the production warehouse, never from Main; executed by the Warehouse-owned command; Production stores plan/fact only.
+- **Atomicity:** Consumption + Release POST in one local ACID transaction; injected History failure rolls back stock, Release, state, history and delivers no `ProductionReleased`.
+- **Concurrency:** Release and Cancellation share `ProductionOrderStateLockService` (`SELECT … FOR UPDATE`, deterministic order); real PostgreSQL overlap proofs in both directions.
+- **Cancellation:** whole-order; IN_PRODUCTION / PARTIALLY_RELEASED → CANCELLED with `releasedQuantity` preserved and `activeProductionQuantity = 0`; RELEASED preserved; no automatic Warehouse return; no mutation of posted documents.
+- **Events / History:** `OrderAcceptedIntoProduction`, `ProductionReleased`, `OrderProductionCancelled` via `TransactionalEventPublisher.publishAfterCommit()`; history appended inside the business transaction; append-only enforced by DB triggers; not event sourcing.
+- **Security:** exactly 7 Production permissions in `<area>.<resource>.<action>` form; no legacy runtime aliases; Warehouse permissions remain Warehouse-owned and Warehouse commands keep their own authorization.
+- **Public API / UI:** `ProductionQueryApi` read-only, `production.order.view` checked before any downstream read, DTO-only immutable boundary; Capability `production` contributes permissions, one PublicService and navigation; order-centric Workbench with the six user actions and no business calculation.
+- **Integration / architecture:** final public-boundary suite uses only `com.tmp.order.api` / `com.tmp.warehouse.api` with real PostgreSQL/Testcontainers, real Document Engine and real Production JDBC; `PublicBoundaryImportGuardTest` blocks internals; 72/72 Stage 7 ArchUnit rules PASS.
+- **Configuration:** Main/Production warehouse ids come from `tmp.production.warehouse.*`; no magic UUID defaults in production code.
+- **No MES / no Stage 8 dependency:** no work centers, shifts, routing, dispatching, OEE or telemetry; Production workflow valid without any Cutting Plan.
+- **Blockers:** all Stage 7 blockers RESOLVED; active blockers NONE.
+
+### Defects fixed (control docs only)
+
+- `CONTEXT-MAP.md`: Production Specification v2.2 → **v2.4** (stage table, Stage 5 boundary note, Stage 7 context, `stage7-production-domain`); Stage 7 status `NOT STARTED / 0%` → `DONE / 100%`; stale "implementation starts from STAGE7-001" rule replaced with closure statement and STAGE7-008A note; legacy `production.view` → `production.order.view`.
+- `WORK-QUEUE.md`: Stage 7 header mandatory reading Production Specification v2.3 → **v2.4**.
+
+No production code, tests, ADR or Accepted specifications were modified.
+
+### Verification (executed on current HEAD)
+
+- `mvn -pl :tmp-production -am test` — BUILD SUCCESS (tmp-production 334 tests)
+- `mvn -pl :tmp-ui-shell -am test` — BUILD SUCCESS (tmp-ui-shell 230 tests)
+- `mvn -pl :tmp-architecture-tests -am test` — BUILD SUCCESS (145 tests; `Stage7ProductionArchitectureTest` 72/72)
+- `mvn test` — BUILD SUCCESS (1690 tests, 0 failures)
+- `mvn verify` — BUILD SUCCESS (1690 unit + 184 integration tests)
+- `git diff --check` — clean (CRLF warning only)
+
+### Queue
+
+- STAGE7-020 = DONE
+- Stage 7 Production = DONE / 100% (27/27 mandatory)
+- STAGE7-008A = PLANNED (post-launch, non-blocking)
+- Active blockers = NONE
+- Stage 8 Cutting Optimization = NOT STARTED (not started now)
+
+---
+
 ## STAGE7-019 — Production architecture tests (ArchUnit boundary rules)
 
 **Date:** 2026-08-25

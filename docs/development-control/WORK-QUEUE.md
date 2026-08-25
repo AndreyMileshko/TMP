@@ -9983,7 +9983,7 @@ mvn -pl :tmp-warehouse,:tmp-ui-shell,:tmp-bootstrap-app -am test
 
 # Stage 7 — Production
 
-> **Обязательно к прочтению перед любой задачей Stage 7:** `docs/development-control/stages/STAGE-7-PRODUCTION.md` и Production Specification **v2.3**. Правила контекста — `CONTEXT-MAP.md` → «Stage 7 — Production Context». Start Gate PASSED (`STAGE7-000`). Atomicity = ADR-036. Одновременно только одна задача `IN_PROGRESS`. Git-операции запрещены (выполняет пользователь).
+> **Обязательно к прочтению перед любой задачей Stage 7:** `docs/development-control/stages/STAGE-7-PRODUCTION.md` и Production Specification **v2.4**. Правила контекста — `CONTEXT-MAP.md` → «Stage 7 — Production Context». Start Gate PASSED (`STAGE7-000`). Atomicity = ADR-036. Одновременно только одна задача `IN_PROGRESS`. Git-операции запрещены (выполняет пользователь).
 
 ## STAGE7-000 — Stage 7 Start Gate and Release/Consumption atomicity proof
 
@@ -11535,7 +11535,7 @@ STAGE7-019 ArchUnit closure in `Stage7ProductionArchitectureTest` (6 authoritati
 
 ## STAGE7-020 — Stage 7 final closure audit
 
-**Status:** IN_PROGRESS
+**Status:** DONE
 **Stage:** 7
 **Depends on:** STAGE7-014, STAGE7-015, STAGE7-015A, STAGE7-016A, STAGE7-017, STAGE7-018, STAGE7-019
 **Module:** documentation
@@ -11559,12 +11559,20 @@ Closure audit Stage 7 без отметки DONE при открытых деф�
 
 ### Acceptance criteria
 
-- [ ] exit criteria выполнены;
-- [ ] нет OPEN blockers Stage 7.
+- [x] exit criteria выполнены;
+- [x] нет OPEN blockers Stage 7.
 
 ### Verification commands
 
 ```bash
 mvn verify
 ```
+
+### Completion notes (2026-08-25)
+
+Closure audit Stage 7 Production выполнен на HEAD `fac4e3d` + control-doc синхронизация. Проверено по коду и тестам: ownership (Production владеет только item state, документами, logical Material Transfer, Release, Cancellation, History, собственными permissions/API/UI metadata); нет `ProductionOrder` сущности/таблицы/агрегата; Order Item — главный объект, whole-order UX; order-level Production status вычисляется (`OrderProductionViewCalculator` + posted Cancellation evidence), нет persisted mutable order status; Specification freeze на Launch (`ProductionFoundation`, только `getSpecificationById` после Launch); Cutting Plan links — opaque 0..N, без lifecycle; material identity = article + normalized color + UoM, `lengthMm` не используется, UNRESOLVED ≠ AMBIGUOUS, first candidate не выбирается; availability = main + production, unresolved/ambiguous → 0/0/0/deficit=required; read-only availability не пишет `MATERIALS_CHECKED`; Transfer создаёт только Warehouse DRAFT через `WarehouseCommandApi`, 1 template line → 1..N allocations с SUM = requestedQuantity; Receipt через public Warehouse receive, идемпотентен; Release — внешняя shared TX, lock → validate → plan → allocations → draft → Consumption → POST; partial plan по §15.1.1 (scale 6, HALF_UP, per spec line до агрегации); multi-cell Release 0..N с SUM = actualQuantity; списание только со склада производства; атомарный rollback доказан; concurrency — общий `ProductionOrderStateLockService` (`FOR UPDATE`, детерминированный порядок) + реальные overlap-тесты PostgreSQL; Cancellation whole-order с сохранением releasedQuantity и без возврата материалов; события только `publishAfterCommit`; History append-only (DB-триггеры UPDATE/DELETE) в той же бизнес-транзакции; ровно 7 permissions `<area>.<resource>.<action>` без legacy alias; Warehouse permissions остаются Warehouse-owned; `ProductionQueryApi` read-only с `production.order.view` до любых downstream reads; DTO-only public boundary; Capability `production` регистрирует один PublicService; order-centric Workbench с шестью действиями и без бизнес-логики; final boundary suite без OM/Warehouse internals на реальном PostgreSQL/Document Engine/Production JDBC; 72 Stage 7 ArchUnit правила; Warehouse ids только из `tmp.production.warehouse.*`; нет MES и нет runtime-зависимости от Stage 8.
+
+Исправлены только рассинхронизации control docs: `CONTEXT-MAP.md` (Production Spec v2.2 → v2.4 в 3 местах, Stage 7 статус NOT STARTED/0% → DONE/100%, legacy `production.view` → `production.order.view`) и Stage 7 заголовок WORK-QUEUE (v2.3 → v2.4). Production code не изменялся.
+
+Full verification на текущем HEAD: `mvn -pl :tmp-production -am test` PASS (tmp-production 334); `mvn -pl :tmp-ui-shell -am test` PASS (tmp-ui-shell 230); `mvn -pl :tmp-architecture-tests -am test` PASS (145; Stage7 72/72); `mvn test` PASS (1690); `mvn verify` PASS (1690 unit + 184 IT); `git diff --check` clean. Stage 7 = DONE / 100% (27/27). STAGE7-008A остаётся PLANNED post-launch и не блокирует closure. Stage 8 = NOT STARTED.
 

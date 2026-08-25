@@ -1,18 +1,21 @@
 # TMP Development Status
 
 **Mode:** Autonomous Cursor Agent
-**Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation IN PROGRESS
-**Current Stage:** Stage 7 - IN PROGRESS / 96% (Start Gate PASSED)
-**Current Task:** STAGE7-020 (Stage 7 final closure audit) — IN_PROGRESS
-**Last completed task:** STAGE7-019 (Production architecture tests)
+**Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
+**Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS)
+**Current Task:** none (Stage 7 closed; Stage 8 Start Gate not passed)
+**Last completed task:** STAGE7-020 (Stage 7 final closure audit)
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
 **Active blockers:** NONE
 **Stage 6 Warehouse:** DONE
-**Stage 7 Production:** IN PROGRESS / 96%
+**Stage 7 Production:** DONE / 100%
 **Stage 7 Start Gate:** PASSED
+**Stage 7 Closure Audit:** PASS
+**Completed Stage 7 tasks:** 27 / 27 mandatory
+**Production Specification:** v2.4 Accepted
 **Full verify baseline:** GREEN
-**First READY implementation task:** STAGE7-020 (IN_PROGRESS)
+**First READY implementation task:** none (Stage 8 not started)
 
 
 ```text
@@ -84,12 +87,14 @@ STAGE7-016A = DONE
 STAGE7-017 = DONE
 STAGE7-018 = DONE
 STAGE7-019 = DONE
-STAGE7-020 = IN_PROGRESS
+STAGE7-020 = DONE
+Stage 7 Production = DONE
 Active blockers = NONE
-Stage 7 Production = IN PROGRESS / 96%
+Stage 7 Production = DONE / 100% (27/27 mandatory)
 Stage 7 Start Gate = PASSED
+Stage 7 Closure Audit = PASS
 Full reactor baseline = GREEN
-First READY implementation task = STAGE7-020 (IN_PROGRESS)
+First READY implementation task = none (Stage 8 NOT STARTED)
 ```
 
 ---
@@ -105,7 +110,7 @@ First READY implementation task = STAGE7-020 (IN_PROGRESS)
 | 4 | Security | DONE | 100% |
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
-| 7 | Production | IN PROGRESS | 96% |
+| 7 | Production | DONE | 100% |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 
@@ -152,5 +157,8 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - `STAGE7-017` completed: Production Workbench UI in `tmp-ui-shell` (`com.tmp.ui.shell.screen.production`) + STAGE7-016A post-review corrections (unresolved/ambiguous `totalAvailable=0`; dead duplicate Check calculation removed; magic Warehouse UUIDs replaced by `tmp.production.warehouse.*` / explicit `ProductionWarehouseScope` bean). Order-centric workbench with 6 commands via `ProductionApplicationApi`; reads via `ProductionQueryApi`; Capability nav «Производство». Full `mvn test` / `mvn verify` BUILD SUCCESS. STAGE7-018 READY.
 - `STAGE7-018` completed: final public-boundary integration suite `com.tmp.production.integration.publicboundary` — `ProductionPublicBoundaryPostgresIT` (9 PostgreSQL scenarios) + `PublicBoundaryImportGuardTest`; OM via `OrderImportService` + `OrderQueryService`; Warehouse via `WarehouseCommandApi` + `WarehouseQueryApi`; real Document Engine + Production JDBC; Launch/Transfer/Receipt/Release+Consumption/Cancellation matrix; STAGE7-017 deferred full reactor regression PASS. Full `mvn test` / `mvn verify` BUILD SUCCESS.
 - `STAGE7-019` completed: Production ArchUnit closure in `Stage7ProductionArchitectureTest` — Production uses only Warehouse/OM `*.api` (no internals including security/infrastructure); Cutting internals forbidden; UI shell must not contain Production domain and may use only `com.tmp.production.api`; Production has no JavaFX. Incremental feature rules retained. `mvn -pl :tmp-architecture-tests -am test` BUILD SUCCESS (145 architecture-module tests; 72 Stage 7 rules). STAGE7-020 READY.
-- Production implementation IN PROGRESS (96% by task-count: 26/27 Stage 7 tasks done through STAGE7-019, including 004A/004B/005A; 008A remains PLANNED post-launch and is excluded from the 27).
-- Next task: **STAGE7-020** (Stage 7 final closure audit) — IN_PROGRESS.
+- `STAGE7-020` completed: Stage 7 final closure audit. Production Specification v2.4 Accepted; 27/27 mandatory tasks DONE; ownership, no Production Order, computed order status, frozen Specification, opaque 0..N Cutting links, material identity/availability, Warehouse-owned Transfer/Consumption, atomic Release + Consumption, whole-order Cancellation, after-commit events, append-only History, exactly 7 canonical permissions, read-only Public Query API, Capability registration and order-centric Workbench all verified against code and tests. Public-boundary integration (real PostgreSQL + Document Engine + Production JDBC, OM/Warehouse public contracts only) PASS; architecture closure 72/72 Stage 7 rules PASS. Control-doc drift fixed (CONTEXT-MAP Production Spec v2.2 → v2.4, Stage 7 status, legacy `production.view` → `production.order.view`; WORK-QUEUE Stage 7 header v2.3 → v2.4); no production code changes. Full verification on current HEAD: `mvn -pl :tmp-production -am test` PASS (334), `mvn -pl :tmp-ui-shell -am test` PASS (230), `mvn -pl :tmp-architecture-tests -am test` PASS (145), `mvn test` PASS (1690), `mvn verify` PASS (1690 unit + 184 IT), `git diff --check` clean.
+
+## Stage 7 — Final Closure (2026-08-25)
+
+Stage 7 Production complete. 27/27 mandatory tasks DONE. `STAGE7-008A` remains PLANNED post-launch and is excluded from the 27; it does not block closure. Active blockers NONE. Stage 8 Cutting Optimization = NOT STARTED (no Stage 8 tasks created; no runtime dependency from Production). Production v1.0 is feature complete, architecture verified, integration verified and closure verified; future changes go through separate stage/change tasks.
