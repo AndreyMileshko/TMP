@@ -11535,7 +11535,7 @@ STAGE7-019 ArchUnit closure in `Stage7ProductionArchitectureTest` (6 authoritati
 
 ## STAGE7-020 — Stage 7 final closure audit
 
-**Status:** READY
+**Status:** IN_PROGRESS
 **Stage:** 7
 **Depends on:** STAGE7-014, STAGE7-015, STAGE7-015A, STAGE7-016A, STAGE7-017, STAGE7-018, STAGE7-019
 **Module:** documentation

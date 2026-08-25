@@ -3,7 +3,7 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Start Gate PASSED; Stage 7 implementation IN PROGRESS
 **Current Stage:** Stage 7 - IN PROGRESS / 96% (Start Gate PASSED)
-**Current Task:** STAGE7-020 (Stage 7 final closure audit) — READY
+**Current Task:** STAGE7-020 (Stage 7 final closure audit) — IN_PROGRESS
 **Last completed task:** STAGE7-019 (Production architecture tests)
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
@@ -12,7 +12,7 @@
 **Stage 7 Production:** IN PROGRESS / 96%
 **Stage 7 Start Gate:** PASSED
 **Full verify baseline:** GREEN
-**First READY implementation task:** STAGE7-020
+**First READY implementation task:** STAGE7-020 (IN_PROGRESS)
 
 
 ```text
@@ -84,12 +84,12 @@ STAGE7-016A = DONE
 STAGE7-017 = DONE
 STAGE7-018 = DONE
 STAGE7-019 = DONE
-STAGE7-020 = READY
+STAGE7-020 = IN_PROGRESS
 Active blockers = NONE
 Stage 7 Production = IN PROGRESS / 96%
 Stage 7 Start Gate = PASSED
 Full reactor baseline = GREEN
-First READY implementation task = STAGE7-020
+First READY implementation task = STAGE7-020 (IN_PROGRESS)
 ```
 
 ---
@@ -153,4 +153,4 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - `STAGE7-018` completed: final public-boundary integration suite `com.tmp.production.integration.publicboundary` — `ProductionPublicBoundaryPostgresIT` (9 PostgreSQL scenarios) + `PublicBoundaryImportGuardTest`; OM via `OrderImportService` + `OrderQueryService`; Warehouse via `WarehouseCommandApi` + `WarehouseQueryApi`; real Document Engine + Production JDBC; Launch/Transfer/Receipt/Release+Consumption/Cancellation matrix; STAGE7-017 deferred full reactor regression PASS. Full `mvn test` / `mvn verify` BUILD SUCCESS.
 - `STAGE7-019` completed: Production ArchUnit closure in `Stage7ProductionArchitectureTest` — Production uses only Warehouse/OM `*.api` (no internals including security/infrastructure); Cutting internals forbidden; UI shell must not contain Production domain and may use only `com.tmp.production.api`; Production has no JavaFX. Incremental feature rules retained. `mvn -pl :tmp-architecture-tests -am test` BUILD SUCCESS (145 architecture-module tests; 72 Stage 7 rules). STAGE7-020 READY.
 - Production implementation IN PROGRESS (96% by task-count: 26/27 Stage 7 tasks done through STAGE7-019, including 004A/004B/005A; 008A remains PLANNED post-launch and is excluded from the 27).
-- Next task: **STAGE7-020** (Stage 7 final closure audit) — READY.
+- Next task: **STAGE7-020** (Stage 7 final closure audit) — IN_PROGRESS.
