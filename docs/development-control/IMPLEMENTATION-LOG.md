@@ -46,6 +46,18 @@ Order-centric Production Workbench (Production Spec §23) with six mutation comm
 - `git diff --check` clean
 - Git commit/push NOT EXECUTED
 
+### Post-review corrective verification (2026-08-25)
+
+Targeted UI verification after local UI correction:
+
+- `mvn -pl :tmp-ui-shell -am -DskipTests compile` PASS
+- surefire: `ProductionWorkbenchViewModelTest`, `ProductionWorkbenchControllerFxTest`, `ProductionActionPolicyTest` — 16 tests PASS
+- `git diff --check` clean
+
+Full reactor `mvn test` / `mvn verify` / PostgreSQL integration / full architecture suite intentionally **not** re-run; deferred to STAGE7-018.
+Status remains DONE.
+
+
 ---
 
 ## STAGE7-016A — Production Public Query API

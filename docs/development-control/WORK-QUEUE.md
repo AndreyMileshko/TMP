@@ -11403,6 +11403,24 @@ mvn -pl :tmp-ui-shell,:tmp-production -am test
 
 ---
 
+
+### Post-review corrective verification (2026-08-25)
+
+**Status remains:** DONE
+
+Targeted only (not full reactor):
+
+```bash
+mvn -pl :tmp-ui-shell -am -DskipTests compile
+mvn -pl :tmp-ui-shell -am -Dsurefire.failIfNoSpecifiedTests=false -Dtest=ProductionWorkbenchViewModelTest,ProductionWorkbenchControllerFxTest,ProductionActionPolicyTest test
+git diff --check
+```
+
+All PASS. STAGE7-017 post-review correction received targeted UI verification.
+Full reactor regression and integration verification are intentionally deferred to STAGE7-018.
+
+---
+
 ## STAGE7-018 — Production integration tests with OM and Warehouse
 
 **Status:** READY

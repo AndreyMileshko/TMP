@@ -3,6 +3,49 @@
 ## Latest result
 
 **Date:** 2026-08-25
+**Scope:** STAGE7-017 post-review correction — targeted UI verification (local corrective pass)
+**Overall:** PASS (targeted only)
+
+STAGE7-017 post-review correction received targeted UI verification.
+Full reactor regression and integration verification are intentionally
+deferred to STAGE7-018.
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-ui-shell -am -DskipTests compile` | PASS (exit 0) |
+| Production Workbench targeted surefire (`ProductionWorkbenchViewModelTest`, `ProductionWorkbenchControllerFxTest`, `ProductionActionPolicyTest`) | PASS — 16 tests, 0 failures (exit 0) |
+| `git diff --check` | clean (exit 0) |
+| `mvn test` (full reactor) | NOT RUN — deferred to STAGE7-018 |
+| `mvn verify` (full / integration) | NOT RUN — deferred to STAGE7-018 |
+| Full architecture-test suite | NOT RUN — deferred to STAGE7-018 |
+| Full PostgreSQL integration suite | NOT RUN — deferred to STAGE7-018 |
+| STAGE7-017 | DONE (corrective targeted verification PASS) |
+| STAGE7-018 | READY (owns full regression / integration) |
+
+### Tests executed (methods)
+
+**ProductionWorkbenchViewModelTest** (8):
+- `loadsOrderStatusItemsHistoryAndMaterials`
+- `sixCommandsDelegateToApplicationApi` (explicit Transfer/Release cell pick; no hidden auto-select in path)
+- `transferEditChangesRequestedQuantityNotRecommended`
+- `cancelSendsOnlyOrderId`
+- `releasePrepareThenReleaseProductsWithoutRecomputingPlan` (actual != plan path)
+- `terminalStatesDisableButtons`
+- `notAcceptedEnablesOnlyAccept`
+- `emptyStateDisablesMutations`
+
+**ProductionWorkbenchControllerFxTest** (1):
+- `fxmlLoadsWithSixCommandButtons`
+
+**ProductionActionPolicyTest** (7): permission/lifecycle button matrix
+
+Note: No separate surefire methods named for Transfer multi-cell 6+4, Transfer allocation mismatch, Release multi-cell 6+4, or Release actual = 0 were present in `tmp-ui-shell`; coverage for those scenarios is via the ViewModel confirm paths / related methods above and production code invariants (explicit cell picking; actual may differ from plan; actual 0 omits cell allocation).
+
+---
+
+## Prior result (STAGE7-017 original DONE)
+
+**Date:** 2026-08-25
 **Scope:** STAGE7-017 — Production Workbench UI (+ STAGE7-016A post-review corrections)
 **Overall:** PASS
 
