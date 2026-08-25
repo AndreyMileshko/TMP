@@ -81,6 +81,32 @@ class ProductionWorkbenchControllerFxTest {
                         assertEquals(
                                 "Отменить производство заказа",
                                 ((Button) root.lookup("#cancelProductionButton")).getText());
+                        javafx.scene.control.ScrollPane scroll =
+                                (javafx.scene.control.ScrollPane) root.lookup("#rootScroll");
+                        assertNotNull(scroll);
+                        Parent scrollContent = (Parent) scroll.getContent();
+                        assertNotNull(scrollContent.lookup("#addTransferAllocationButton"));
+                        assertNotNull(scrollContent.lookup("#removeTransferAllocationButton"));
+                        assertNotNull(scrollContent.lookup("#transferAllocationsTable"));
+                        assertNotNull(scrollContent.lookup("#addReleaseAllocationButton"));
+                        assertNotNull(scrollContent.lookup("#removeReleaseAllocationButton"));
+                        assertNotNull(scrollContent.lookup("#releaseAllocationsTable"));
+                        assertEquals(
+                                "Добавить распределение",
+                                ((Button) scrollContent.lookup("#addTransferAllocationButton"))
+                                        .getText());
+                        assertEquals(
+                                "Удалить распределение",
+                                ((Button) scrollContent.lookup("#removeTransferAllocationButton"))
+                                        .getText());
+                        assertEquals(
+                                "Добавить распределение",
+                                ((Button) scrollContent.lookup("#addReleaseAllocationButton"))
+                                        .getText());
+                        assertEquals(
+                                "Удалить распределение",
+                                ((Button) scrollContent.lookup("#removeReleaseAllocationButton"))
+                                        .getText());
                         ok.set(true);
                     } catch (Throwable throwable) {
                         error.set(throwable);

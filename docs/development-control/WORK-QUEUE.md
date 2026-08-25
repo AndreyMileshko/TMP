@@ -11419,6 +11419,16 @@ git diff --check
 All PASS. STAGE7-017 post-review correction received targeted UI verification.
 Full reactor regression and integration verification are intentionally deferred to STAGE7-018.
 
+### Actual multi-cell correction (2026-08-25, supersedes docs-only pass)
+
+**Status remains:** DONE
+
+Prior corrective commit documented verification without UI code changes. This pass
+implements real multi-cell Transfer (1..N) and Release (0..N) presentation models,
+FXML allocation editors, and named multi-cell ViewModel tests.
+
+Targeted verification PASS (24 tests). Full reactor NOT RUN → STAGE7-018.
+
 ---
 
 ## STAGE7-018 — Production integration tests with OM and Warehouse

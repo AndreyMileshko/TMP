@@ -2,17 +2,21 @@ package com.tmp.ui.shell.screen.production;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.api.OrderId;
+import com.tmp.production.api.ProductionApplicationApi.CellAllocationView;
 import com.tmp.production.api.ProductionApplicationApi.CuttingLinkStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualDefaultView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialPlanningSourceView;
 import com.tmp.production.api.ProductionApplicationApi.PlannedMaterialLineView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
 import com.tmp.production.api.ProductionApplicationApi.ReleaseResultView;
+import com.tmp.production.api.ProductionApplicationApi.TransferCellAllocation;
 import com.tmp.production.api.ProductionApplicationApi.TransferTemplateLineView;
 import com.tmp.production.api.ProductionApplicationApi.TransferTemplateStatusView;
 import com.tmp.production.api.ProductionApplicationApi.TransferTemplateView;
@@ -58,7 +62,9 @@ class ProductionWorkbenchViewModelTest {
     private UUID sourceWh;
     private UUID destWh;
     private UUID sourceCell;
+    private UUID sourceCellB;
     private UUID destCell;
+    private UUID destCellB;
     private UUID materialRef;
     private UUID templateId;
     private UUID lineId;
@@ -87,7 +93,9 @@ class ProductionWorkbenchViewModelTest {
         sourceWh = UUID.fromString("44444444-4444-4444-4444-444444444444");
         destWh = UUID.fromString("55555555-5555-5555-5555-555555555555");
         sourceCell = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        sourceCellB = UUID.fromString("66666666-6666-6666-6666-666666666667");
         destCell = UUID.fromString("77777777-7777-7777-7777-777777777777");
+        destCellB = UUID.fromString("77777777-7777-7777-7777-777777777778");
         materialRef = UUID.fromString("88888888-8888-8888-8888-888888888888");
         templateId = UUID.fromString("99999999-9999-9999-9999-999999999999");
         lineId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
@@ -96,9 +104,15 @@ class ProductionWorkbenchViewModelTest {
         orderQuery.order = ProductionWorkbenchUiTestSupport.order(orderId, "ORD-1");
         orderQuery.items.add(ProductionWorkbenchUiTestSupport.item(orderId, itemId, "1"));
         warehouseApi.cellsByWarehouse.put(
-                sourceWh, List.of(new StorageCellView(sourceCell, sourceWh, "S-1", true)));
+                sourceWh,
+                List.of(
+                        new StorageCellView(sourceCell, sourceWh, "S-A", true),
+                        new StorageCellView(sourceCellB, sourceWh, "S-B", true)));
         warehouseApi.cellsByWarehouse.put(
-                destWh, List.of(new StorageCellView(destCell, destWh, "P-1", true)));
+                destWh,
+                List.of(
+                        new StorageCellView(destCell, destWh, "P-X", true),
+                        new StorageCellView(destCellB, destWh, "P-Y", true)));
         applicationApi.mainWarehouseId = sourceWh;
         applicationApi.productionWarehouseId = destWh;
     }
@@ -188,8 +202,10 @@ class ProductionWorkbenchViewModelTest {
         viewModel.prepareTransfer();
         assertEquals(1, applicationApi.prepareTransferCalls.size());
         TransferLineRow row = viewModel.transferLines().get(0);
-        row.setSourceCell(row.sourceCellChoices().get(0));
-        row.setDestinationCell(row.destinationCellChoices().get(0));
+        TransferAllocationRow transferAlloc = row.addAllocation();
+        transferAlloc.setSourceCell(row.sourceCellChoices().get(0));
+        transferAlloc.setDestinationCell(row.destinationCellChoices().get(0));
+        transferAlloc.setQuantity("5");
         viewModel.confirmTransfer();
         assertEquals(1, applicationApi.confirmTransferCalls.size());
 
@@ -210,7 +226,9 @@ class ProductionWorkbenchViewModelTest {
         viewModel.prepareRelease();
         assertEquals(1, applicationApi.prepareReleaseCalls.size());
         ReleaseMaterialRow materialRow = viewModel.releaseMaterialRows().get(0);
-        materialRow.setProductionCell(materialRow.cellChoices().get(0));
+        ReleaseCellAllocationRow releaseAlloc = materialRow.addAllocation();
+        releaseAlloc.setProductionCell(materialRow.cellChoices().get(0));
+        releaseAlloc.setQuantity(materialRow.actualQuantity());
         viewModel.confirmRelease();
         assertEquals(1, applicationApi.releaseProductCalls.size());
         assertEquals(
@@ -267,13 +285,232 @@ class ProductionWorkbenchViewModelTest {
         assertEquals("4.000000", row.plannedQuantity());
         assertEquals("4.000000", row.actualQuantity());
         row.setActualQuantity("3.5");
-        row.setProductionCell(row.cellChoices().get(0));
+        ReleaseCellAllocationRow allocation = row.addAllocation();
+        allocation.setProductionCell(row.cellChoices().get(0));
+        allocation.setQuantity("3.5");
 
         viewModel.confirmRelease();
         assertEquals(prepared, applicationApi.releaseProductCalls.get(0));
         assertEquals(
                 new BigDecimal("3.5"),
                 applicationApi.releaseUsageCalls.get(0).get(0).actualQuantity());
+    }
+
+    @Test
+    void transferSupportsMultipleCellAllocationsForOneTemplateLine() {
+        seedInProduction();
+        applicationApi.template = sampleTemplate(new BigDecimal("10"));
+        viewModel.openForOrder(OrderId.of(orderId));
+        viewModel.prepareTransfer();
+
+        TransferLineRow row = viewModel.transferLines().get(0);
+        TransferAllocationRow first = row.addAllocation();
+        first.setSourceCell(choiceById(row.sourceCellChoices(), sourceCell));
+        first.setDestinationCell(choiceById(row.destinationCellChoices(), destCell));
+        first.setQuantity("6");
+        TransferAllocationRow second = row.addAllocation();
+        second.setSourceCell(choiceById(row.sourceCellChoices(), sourceCellB));
+        second.setDestinationCell(choiceById(row.destinationCellChoices(), destCell));
+        second.setQuantity("4");
+
+        viewModel.confirmTransfer();
+
+        assertEquals(1, applicationApi.confirmTransferAllocationCalls.size());
+        List<TransferCellAllocation> allocations =
+                applicationApi.confirmTransferAllocationCalls.get(0);
+        assertEquals(2, allocations.size());
+        assertEquals(lineId, allocations.get(0).templateLineId());
+        assertEquals(lineId, allocations.get(1).templateLineId());
+        assertEquals(sourceCell, allocations.get(0).sourceStorageCellId());
+        assertEquals(destCell, allocations.get(0).destinationStorageCellId());
+        assertEquals(new BigDecimal("6"), allocations.get(0).quantity());
+        assertEquals(sourceCellB, allocations.get(1).sourceStorageCellId());
+        assertEquals(destCell, allocations.get(1).destinationStorageCellId());
+        assertEquals(new BigDecimal("4"), allocations.get(1).quantity());
+    }
+
+    @Test
+    void transferSupportsMultipleDestinationsForOneTemplateLine() {
+        seedInProduction();
+        applicationApi.template = sampleTemplate(new BigDecimal("10"));
+        viewModel.openForOrder(OrderId.of(orderId));
+        viewModel.prepareTransfer();
+
+        TransferLineRow row = viewModel.transferLines().get(0);
+        TransferAllocationRow first = row.addAllocation();
+        first.setSourceCell(choiceById(row.sourceCellChoices(), sourceCell));
+        first.setDestinationCell(choiceById(row.destinationCellChoices(), destCell));
+        first.setQuantity("6");
+        TransferAllocationRow second = row.addAllocation();
+        second.setSourceCell(choiceById(row.sourceCellChoices(), sourceCellB));
+        second.setDestinationCell(choiceById(row.destinationCellChoices(), destCellB));
+        second.setQuantity("4");
+
+        viewModel.confirmTransfer();
+
+        List<TransferCellAllocation> allocations =
+                applicationApi.confirmTransferAllocationCalls.get(0);
+        assertEquals(2, allocations.size());
+        assertEquals(destCell, allocations.get(0).destinationStorageCellId());
+        assertEquals(destCellB, allocations.get(1).destinationStorageCellId());
+        assertEquals(new BigDecimal("6"), allocations.get(0).quantity());
+        assertEquals(new BigDecimal("4"), allocations.get(1).quantity());
+    }
+
+    @Test
+    void transferAllocationMismatchBlocksConfirm() {
+        seedInProduction();
+        applicationApi.template = sampleTemplate(new BigDecimal("10"));
+        viewModel.openForOrder(OrderId.of(orderId));
+        viewModel.prepareTransfer();
+
+        TransferLineRow row = viewModel.transferLines().get(0);
+        TransferAllocationRow first = row.addAllocation();
+        first.setSourceCell(choiceById(row.sourceCellChoices(), sourceCell));
+        first.setDestinationCell(choiceById(row.destinationCellChoices(), destCell));
+        first.setQuantity("6");
+        TransferAllocationRow second = row.addAllocation();
+        second.setSourceCell(choiceById(row.sourceCellChoices(), sourceCellB));
+        second.setDestinationCell(choiceById(row.destinationCellChoices(), destCell));
+        second.setQuantity("3");
+
+        viewModel.confirmTransfer();
+
+        assertEquals(0, applicationApi.confirmTransferCalls.size());
+        assertTrue(viewModel.errorMessageProperty().get().contains("Сумма распределений"));
+    }
+
+    @Test
+    void transferPrepareLeavesAllocationsEmptyWithoutAutoCellPick() {
+        seedInProduction();
+        applicationApi.template = sampleTemplate(new BigDecimal("10"));
+        viewModel.openForOrder(OrderId.of(orderId));
+        viewModel.prepareTransfer();
+
+        TransferLineRow row = viewModel.transferLines().get(0);
+        assertEquals(2, row.sourceCellChoices().size());
+        assertEquals(2, row.destinationCellChoices().size());
+        assertTrue(row.allocations().isEmpty());
+        TransferAllocationRow added = row.addAllocation();
+        assertNull(added.sourceCell());
+        assertNull(added.destinationCell());
+        assertEquals("", added.quantity());
+    }
+
+    @Test
+    void releaseSupportsMultipleProductionCellAllocations() {
+        seedInProduction();
+        viewModel.openForOrder(OrderId.of(orderId));
+        viewModel.itemRows().get(0).setReleaseQuantityInput("2");
+        applicationApi.releasePreview =
+                sampleReleasePreview(new BigDecimal("10.000000"), new BigDecimal("10.000000"));
+        applicationApi.releaseResult =
+                new ReleaseResultView(UUID.randomUUID(), orderId, Instant.now());
+
+        viewModel.prepareRelease();
+        ReleaseMaterialRow row = viewModel.releaseMaterialRows().get(0);
+        row.setActualQuantity("10");
+        ReleaseCellAllocationRow first = row.addAllocation();
+        first.setProductionCell(choiceById(row.cellChoices(), destCell));
+        first.setQuantity("6");
+        ReleaseCellAllocationRow second = row.addAllocation();
+        second.setProductionCell(choiceById(row.cellChoices(), destCellB));
+        second.setQuantity("4");
+
+        viewModel.confirmRelease();
+
+        MaterialActualUsageView usage = applicationApi.releaseUsageCalls.get(0).get(0);
+        assertEquals(new BigDecimal("10"), usage.actualQuantity());
+        assertEquals(2, usage.allocations().size());
+        assertEquals(destCell, usage.allocations().get(0).storageCellId());
+        assertEquals(new BigDecimal("6"), usage.allocations().get(0).quantity());
+        assertEquals(destCellB, usage.allocations().get(1).storageCellId());
+        assertEquals(new BigDecimal("4"), usage.allocations().get(1).quantity());
+    }
+
+    @Test
+    void releaseAllocationsValidateAgainstActualNotPlan() {
+        seedInProduction();
+        viewModel.openForOrder(OrderId.of(orderId));
+        viewModel.itemRows().get(0).setReleaseQuantityInput("2");
+        applicationApi.releasePreview =
+                sampleReleasePreview(new BigDecimal("10.000000"), new BigDecimal("10.000000"));
+        applicationApi.releaseResult =
+                new ReleaseResultView(UUID.randomUUID(), orderId, Instant.now());
+
+        viewModel.prepareRelease();
+        ReleaseMaterialRow row = viewModel.releaseMaterialRows().get(0);
+        assertEquals("10.000000", row.plannedQuantity());
+        row.setActualQuantity("12");
+        ReleaseCellAllocationRow first = row.addAllocation();
+        first.setProductionCell(choiceById(row.cellChoices(), destCell));
+        first.setQuantity("7");
+        ReleaseCellAllocationRow second = row.addAllocation();
+        second.setProductionCell(choiceById(row.cellChoices(), destCellB));
+        second.setQuantity("5");
+
+        viewModel.confirmRelease();
+
+        MaterialActualUsageView usage = applicationApi.releaseUsageCalls.get(0).get(0);
+        assertEquals(new BigDecimal("12"), usage.actualQuantity());
+        BigDecimal sum =
+                usage.allocations().stream()
+                        .map(CellAllocationView::quantity)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertEquals(new BigDecimal("12"), sum);
+    }
+
+    @Test
+    void releaseZeroActualRequiresEmptyAllocations() {
+        seedInProduction();
+        viewModel.openForOrder(OrderId.of(orderId));
+        viewModel.itemRows().get(0).setReleaseQuantityInput("2");
+        applicationApi.releasePreview =
+                sampleReleasePreview(new BigDecimal("4.000000"), new BigDecimal("4.000000"));
+        applicationApi.releaseResult =
+                new ReleaseResultView(UUID.randomUUID(), orderId, Instant.now());
+
+        viewModel.prepareRelease();
+        ReleaseMaterialRow row = viewModel.releaseMaterialRows().get(0);
+        row.setActualQuantity("0");
+        assertTrue(row.allocations().isEmpty());
+
+        viewModel.confirmRelease();
+
+        MaterialActualUsageView usage = applicationApi.releaseUsageCalls.get(0).get(0);
+        assertEquals(0, usage.actualQuantity().signum());
+        assertTrue(usage.allocations().isEmpty());
+    }
+
+    @Test
+    void releaseAllocationMismatchBlocksConfirm() {
+        seedInProduction();
+        viewModel.openForOrder(OrderId.of(orderId));
+        viewModel.itemRows().get(0).setReleaseQuantityInput("2");
+        applicationApi.releasePreview =
+                sampleReleasePreview(new BigDecimal("10.000000"), new BigDecimal("10.000000"));
+        applicationApi.releaseResult =
+                new ReleaseResultView(UUID.randomUUID(), orderId, Instant.now());
+
+        viewModel.prepareRelease();
+        ReleaseMaterialRow row = viewModel.releaseMaterialRows().get(0);
+        row.setActualQuantity("10");
+        ReleaseCellAllocationRow first = row.addAllocation();
+        first.setProductionCell(choiceById(row.cellChoices(), destCell));
+        first.setQuantity("6");
+        ReleaseCellAllocationRow second = row.addAllocation();
+        second.setProductionCell(choiceById(row.cellChoices(), destCellB));
+        second.setQuantity("3");
+
+        viewModel.confirmRelease();
+
+        assertEquals(0, applicationApi.releaseProductCalls.size());
+        assertTrue(viewModel.errorMessageProperty().get().contains("Сумма распределений"));
+    }
+
+    private static StorageCellChoice choiceById(
+            java.util.Collection<StorageCellChoice> choices, UUID id) {
+        return choices.stream().filter(c -> c.id().equals(id)).findFirst().orElseThrow();
     }
 
     @Test
@@ -376,6 +613,10 @@ class ProductionWorkbenchViewModelTest {
     }
 
     private ReleasePreviewView sampleReleasePreview() {
+        return sampleReleasePreview(new BigDecimal("4.000000"), new BigDecimal("4.000000"));
+    }
+
+    private ReleasePreviewView sampleReleasePreview(BigDecimal planned, BigDecimal actual) {
         return new ReleasePreviewView(
                 orderId,
                 List.of(new ItemReleaseView(itemId, 2)),
@@ -384,16 +625,13 @@ class ProductionWorkbenchViewModelTest {
                                 itemId,
                                 materialRef,
                                 specId,
-                                new BigDecimal("4.000000"),
+                                planned,
                                 MaterialPlanningSourceView.SPECIFICATION,
                                 Optional.empty(),
                                 Optional.of("Материал"))),
                 List.of(
                         new MaterialActualDefaultView(
-                                itemId,
-                                materialRef,
-                                new BigDecimal("4.000000"),
-                                new BigDecimal("4.000000"))));
+                                itemId, materialRef, planned, actual)));
     }
 
     private MaterialAvailabilityLineView resolvedLine() {

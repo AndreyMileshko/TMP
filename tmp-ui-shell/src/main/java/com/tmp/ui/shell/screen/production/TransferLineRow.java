@@ -1,13 +1,15 @@
 package com.tmp.ui.shell.screen.production;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.UUID;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
-/** Editable presentation row for a material transfer template line. */
+/**
+ * Editable presentation row for a material transfer template line. Holds 0..N explicit cell
+ * allocations; cells are never auto-selected.
+ */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP",
         justification = "JavaFX ComboBox binding requires live ObservableList references.")
@@ -24,9 +26,8 @@ public final class TransferLineRow {
             FXCollections.observableArrayList();
     private final ObservableList<StorageCellChoice> destinationCellChoices =
             FXCollections.observableArrayList();
-    private StorageCellChoice sourceCell;
-    private StorageCellChoice destinationCell;
-    private String allocationQuantity;
+    private final ObservableList<TransferAllocationRow> allocations =
+            FXCollections.observableArrayList();
 
     public TransferLineRow(
             UUID lineId,
@@ -43,7 +44,6 @@ public final class TransferLineRow {
         this.requiredQuantity = Objects.requireNonNull(requiredQuantity, "requiredQuantity");
         this.requestedQuantity = Objects.requireNonNull(requestedQuantity, "requestedQuantity");
         this.included = included;
-        this.allocationQuantity = requestedQuantity;
     }
 
     public UUID lineId() {
@@ -91,32 +91,30 @@ public final class TransferLineRow {
         return destinationCellChoices;
     }
 
-    public StorageCellChoice sourceCell() {
-        return sourceCell;
+    public ObservableList<TransferAllocationRow> allocations() {
+        return allocations;
     }
 
-    public void setSourceCell(StorageCellChoice sourceCell) {
-        this.sourceCell = sourceCell;
+    public TransferAllocationRow addAllocation() {
+        TransferAllocationRow row =
+                new TransferAllocationRow(lineId, sourceCellChoices, destinationCellChoices);
+        allocations.add(row);
+        return row;
     }
 
-    public StorageCellChoice destinationCell() {
-        return destinationCell;
+    public void removeAllocation(TransferAllocationRow row) {
+        Objects.requireNonNull(row, "row");
+        allocations.remove(row);
     }
 
-    public void setDestinationCell(StorageCellChoice destinationCell) {
-        this.destinationCell = destinationCell;
+    public void clearAllocations() {
+        allocations.clear();
     }
 
-    public String allocationQuantity() {
-        return allocationQuantity;
-    }
-
-    public void setAllocationQuantity(String allocationQuantity) {
-        this.allocationQuantity =
-                allocationQuantity == null ? "" : allocationQuantity.trim();
-    }
-
-    public BigDecimal parseAllocationQuantity() {
-        return new BigDecimal(allocationQuantity);
+    public String allocationSummary() {
+        if (allocations.isEmpty()) {
+            return "нет распределений";
+        }
+        return allocations.size() + " распред.";
     }
 }

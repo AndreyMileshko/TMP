@@ -3,8 +3,66 @@
 ## Latest result
 
 **Date:** 2026-08-25
-**Scope:** STAGE7-017 post-review correction — targeted UI verification (local corrective pass)
+**Scope:** STAGE7-017 actual multi-cell allocation UI correction (post-review)
 **Overall:** PASS (targeted only)
+
+Prior corrective commit (c38b873) documented verification but contained no UI code
+changes. Actual multi-cell correction implemented now; named multi-cell tests added;
+targeted verification PASS.
+
+STAGE7-017 actual multi-cell correction:
+
+Transfer:
+- 1..N allocations implemented
+- explicit source/destination
+- sum validation
+- no auto pick
+
+Release:
+- 0..N allocations implemented
+- sum against actual
+- zero actual supported
+- no auto pick
+
+Named tests:
+- Transfer multi-cell PASS
+- Transfer mismatch PASS
+- Release multi-cell PASS
+- Release mismatch PASS
+- Release zero PASS
+
+Full reactor:
+
+NOT RUN
+intentionally deferred to STAGE7-018.
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-ui-shell -am -DskipTests compile` | PASS (exit 0) |
+| Targeted surefire (`ProductionWorkbenchViewModelTest`, `ProductionWorkbenchControllerFxTest`, `ProductionActionPolicyTest`) | PASS — 24 tests, 0 failures (exit 0) |
+| `git diff --check` | clean (exit 0) |
+| `mvn test` (full reactor) | NOT RUN — deferred to STAGE7-018 |
+| `mvn verify` (full / integration) | NOT RUN — deferred to STAGE7-018 |
+| Full architecture-test suite | NOT RUN — deferred to STAGE7-018 |
+| Full PostgreSQL integration suite | NOT RUN — deferred to STAGE7-018 |
+| STAGE7-017 | DONE (actual multi-cell code correction) |
+| STAGE7-018 | READY |
+
+### Named tests executed
+
+**Transfer:** `transferSupportsMultipleCellAllocationsForOneTemplateLine`, `transferSupportsMultipleDestinationsForOneTemplateLine`, `transferAllocationMismatchBlocksConfirm`, `transferPrepareLeavesAllocationsEmptyWithoutAutoCellPick`
+
+**Release:** `releaseSupportsMultipleProductionCellAllocations`, `releaseAllocationsValidateAgainstActualNotPlan`, `releaseZeroActualRequiresEmptyAllocations`, `releaseAllocationMismatchBlocksConfirm`
+
+**FXML:** `fxmlLoadsWithSixCommandButtons` (allocation editor controls present)
+
+---
+
+## Prior result (docs-only corrective verification — superseded)
+
+**Date:** 2026-08-25
+**Scope:** STAGE7-017 post-review correction — targeted UI verification (local corrective pass)
+**Overall:** PASS (targeted only) — **superseded:** that pass documented verification while multi-cell UI code changes were absent (commit c38b873 docs-only).
 
 STAGE7-017 post-review correction received targeted UI verification.
 Full reactor regression and integration verification are intentionally

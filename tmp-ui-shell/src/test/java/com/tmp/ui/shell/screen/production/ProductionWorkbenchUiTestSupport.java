@@ -179,6 +179,8 @@ final class ProductionWorkbenchUiTestSupport {
         final List<UUID> prepareTransferCalls = new CopyOnWriteArrayList<>();
         final List<Object[]> changeQtyCalls = new CopyOnWriteArrayList<>();
         final List<UUID> confirmTransferCalls = new CopyOnWriteArrayList<>();
+        final List<List<TransferCellAllocation>> confirmTransferAllocationCalls =
+                new CopyOnWriteArrayList<>();
         final List<UUID> receiptCalls = new CopyOnWriteArrayList<>();
         final List<List<ItemReleaseView>> prepareReleaseCalls = new CopyOnWriteArrayList<>();
         final List<List<ItemReleaseView>> releaseProductCalls = new CopyOnWriteArrayList<>();
@@ -281,6 +283,7 @@ final class ProductionWorkbenchUiTestSupport {
         public LogicalTransferView confirmMaterialTransferCreate(
                 UUID templateId, long expectedVersion, List<TransferCellAllocation> allocations) {
             confirmTransferCalls.add(templateId);
+            confirmTransferAllocationCalls.add(List.copyOf(allocations));
             return new LogicalTransferView(UUID.randomUUID(), templateId, Instant.now());
         }
 

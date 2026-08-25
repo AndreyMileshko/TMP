@@ -5,7 +5,7 @@
 **Current Stage:** Stage 7 - IN PROGRESS / 89% (Start Gate PASSED)
 **Current Task:** none
 **Last completed task:** STAGE7-017 (Production workbench UI)
-**STAGE7-017 post-review corrective targeted UI verification:** PASS (compile + Production Workbench surefire 16 tests + git diff --check). Full reactor regression / integration deferred to STAGE7-018.
+**STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Prior docs-only corrective commit (c38b873) superseded. Targeted compile + 24 surefire + git diff --check PASS. Full reactor deferred to STAGE7-018.
 
 **Active blockers:** NONE
 **Stage 6 Warehouse:** DONE

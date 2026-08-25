@@ -170,13 +170,25 @@ public final class ProductionWorkbenchController
     private TableColumn<TransferLineRow, String> transferIncludedColumn;
 
     @FXML
-    private TableColumn<TransferLineRow, StorageCellChoice> transferSourceCellColumn;
+    private TableColumn<TransferLineRow, String> transferAllocationSummaryColumn;
 
     @FXML
-    private TableColumn<TransferLineRow, StorageCellChoice> transferDestCellColumn;
+    private TableView<TransferAllocationRow> transferAllocationsTable;
 
     @FXML
-    private TableColumn<TransferLineRow, String> transferAllocQtyColumn;
+    private TableColumn<TransferAllocationRow, StorageCellChoice> transferAllocSourceColumn;
+
+    @FXML
+    private TableColumn<TransferAllocationRow, StorageCellChoice> transferAllocDestColumn;
+
+    @FXML
+    private TableColumn<TransferAllocationRow, String> transferAllocQtyColumn;
+
+    @FXML
+    private Button addTransferAllocationButton;
+
+    @FXML
+    private Button removeTransferAllocationButton;
 
     @FXML
     private Button applyRequestedQtyButton;
@@ -206,7 +218,22 @@ public final class ProductionWorkbenchController
     private TableColumn<ReleaseMaterialRow, String> releaseActualColumn;
 
     @FXML
-    private TableColumn<ReleaseMaterialRow, StorageCellChoice> releaseCellColumn;
+    private TableColumn<ReleaseMaterialRow, String> releaseAllocationSummaryColumn;
+
+    @FXML
+    private TableView<ReleaseCellAllocationRow> releaseAllocationsTable;
+
+    @FXML
+    private TableColumn<ReleaseCellAllocationRow, StorageCellChoice> releaseAllocCellColumn;
+
+    @FXML
+    private TableColumn<ReleaseCellAllocationRow, String> releaseAllocQtyColumn;
+
+    @FXML
+    private Button addReleaseAllocationButton;
+
+    @FXML
+    private Button removeReleaseAllocationButton;
 
     @FXML
     private Button confirmReleaseButton;
@@ -338,16 +365,21 @@ public final class ProductionWorkbenchController
                 c ->
                         new javafx.beans.property.SimpleStringProperty(
                                 c.getValue().included() ? "Да" : "Нет"));
-        transferAllocQtyColumn.setCellFactory(TextFieldTableCell.forTableColumn());
-        transferAllocQtyColumn.setCellValueFactory(
+        transferAllocationSummaryColumn.setCellValueFactory(
                 c ->
                         new javafx.beans.property.SimpleStringProperty(
-                                c.getValue().allocationQuantity()));
+                                c.getValue().allocationSummary()));
+        transferLinesTable.setItems(viewModel.transferLines());
+
+        transferAllocationsTable.setEditable(true);
+        transferAllocQtyColumn.setCellFactory(TextFieldTableCell.forTableColumn());
+        transferAllocQtyColumn.setCellValueFactory(
+                c -> new javafx.beans.property.SimpleStringProperty(c.getValue().quantity()));
         transferAllocQtyColumn.setOnEditCommit(
-                event -> event.getRowValue().setAllocationQuantity(event.getNewValue()));
-        transferSourceCellColumn.setCellValueFactory(
+                event -> event.getRowValue().setQuantity(event.getNewValue()));
+        transferAllocSourceColumn.setCellValueFactory(
                 c -> new javafx.beans.property.SimpleObjectProperty<>(c.getValue().sourceCell()));
-        transferSourceCellColumn.setCellFactory(
+        transferAllocSourceColumn.setCellFactory(
                 col ->
                         new TableCell<>() {
                             private final ComboBox<StorageCellChoice> combo = new ComboBox<>();
@@ -357,9 +389,10 @@ public final class ProductionWorkbenchController
                                 combo.valueProperty()
                                         .addListener(
                                                 (obs, oldValue, newValue) -> {
-                                                    TransferLineRow row = getTableRow() == null
-                                                            ? null
-                                                            : getTableRow().getItem();
+                                                    TransferAllocationRow row =
+                                                            getTableRow() == null
+                                                                    ? null
+                                                                    : getTableRow().getItem();
                                                     if (row != null) {
                                                         row.setSourceCell(newValue);
                                                     }
@@ -369,21 +402,23 @@ public final class ProductionWorkbenchController
                             @Override
                             protected void updateItem(StorageCellChoice item, boolean empty) {
                                 super.updateItem(item, empty);
-                                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                                if (empty
+                                        || getTableRow() == null
+                                        || getTableRow().getItem() == null) {
                                     setGraphic(null);
                                     return;
                                 }
-                                TransferLineRow row = getTableRow().getItem();
+                                TransferAllocationRow row = getTableRow().getItem();
                                 combo.setItems(row.sourceCellChoices());
                                 combo.setValue(row.sourceCell());
                                 setGraphic(combo);
                             }
                         });
-        transferDestCellColumn.setCellValueFactory(
+        transferAllocDestColumn.setCellValueFactory(
                 c ->
                         new javafx.beans.property.SimpleObjectProperty<>(
                                 c.getValue().destinationCell()));
-        transferDestCellColumn.setCellFactory(
+        transferAllocDestColumn.setCellFactory(
                 col ->
                         new TableCell<>() {
                             private final ComboBox<StorageCellChoice> combo = new ComboBox<>();
@@ -393,9 +428,10 @@ public final class ProductionWorkbenchController
                                 combo.valueProperty()
                                         .addListener(
                                                 (obs, oldValue, newValue) -> {
-                                                    TransferLineRow row = getTableRow() == null
-                                                            ? null
-                                                            : getTableRow().getItem();
+                                                    TransferAllocationRow row =
+                                                            getTableRow() == null
+                                                                    ? null
+                                                                    : getTableRow().getItem();
                                                     if (row != null) {
                                                         row.setDestinationCell(newValue);
                                                     }
@@ -405,18 +441,53 @@ public final class ProductionWorkbenchController
                             @Override
                             protected void updateItem(StorageCellChoice item, boolean empty) {
                                 super.updateItem(item, empty);
-                                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                                if (empty
+                                        || getTableRow() == null
+                                        || getTableRow().getItem() == null) {
                                     setGraphic(null);
                                     return;
                                 }
-                                TransferLineRow row = getTableRow().getItem();
+                                TransferAllocationRow row = getTableRow().getItem();
                                 combo.setItems(row.destinationCellChoices());
                                 combo.setValue(row.destinationCell());
                                 setGraphic(combo);
                             }
                         });
-        transferLinesTable.setItems(viewModel.transferLines());
 
+        transferLinesTable
+                .getSelectionModel()
+                .selectedItemProperty()
+                .addListener(
+                        (obs, oldValue, selected) -> {
+                            if (selected == null) {
+                                transferAllocationsTable.setItems(null);
+                            } else {
+                                transferAllocationsTable.setItems(selected.allocations());
+                            }
+                            transferLinesTable.refresh();
+                        });
+
+        addTransferAllocationButton.setOnAction(
+                e -> {
+                    TransferLineRow selected =
+                            transferLinesTable.getSelectionModel().getSelectedItem();
+                    if (selected != null) {
+                        viewModel.addTransferAllocation(selected);
+                        transferAllocationsTable.setItems(selected.allocations());
+                        transferLinesTable.refresh();
+                    }
+                });
+        removeTransferAllocationButton.setOnAction(
+                e -> {
+                    TransferLineRow line =
+                            transferLinesTable.getSelectionModel().getSelectedItem();
+                    TransferAllocationRow allocation =
+                            transferAllocationsTable.getSelectionModel().getSelectedItem();
+                    if (line != null && allocation != null) {
+                        viewModel.removeTransferAllocation(line, allocation);
+                        transferLinesTable.refresh();
+                    }
+                });
         applyRequestedQtyButton.setOnAction(
                 e -> {
                     TransferLineRow selected =
@@ -457,12 +528,27 @@ public final class ProductionWorkbenchController
         releaseActualColumn.setCellValueFactory(
                 c -> new javafx.beans.property.SimpleStringProperty(c.getValue().actualQuantity()));
         releaseActualColumn.setOnEditCommit(
-                event -> event.getRowValue().setActualQuantity(event.getNewValue()));
-        releaseCellColumn.setCellValueFactory(
+                event -> {
+                    event.getRowValue().setActualQuantity(event.getNewValue());
+                    releaseMaterialsTable.refresh();
+                });
+        releaseAllocationSummaryColumn.setCellValueFactory(
+                c ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                c.getValue().allocationSummary()));
+        releaseMaterialsTable.setItems(viewModel.releaseMaterialRows());
+
+        releaseAllocationsTable.setEditable(true);
+        releaseAllocQtyColumn.setCellFactory(TextFieldTableCell.forTableColumn());
+        releaseAllocQtyColumn.setCellValueFactory(
+                c -> new javafx.beans.property.SimpleStringProperty(c.getValue().quantity()));
+        releaseAllocQtyColumn.setOnEditCommit(
+                event -> event.getRowValue().setQuantity(event.getNewValue()));
+        releaseAllocCellColumn.setCellValueFactory(
                 c ->
                         new javafx.beans.property.SimpleObjectProperty<>(
                                 c.getValue().productionCell()));
-        releaseCellColumn.setCellFactory(
+        releaseAllocCellColumn.setCellFactory(
                 col ->
                         new TableCell<>() {
                             private final ComboBox<StorageCellChoice> combo = new ComboBox<>();
@@ -472,9 +558,10 @@ public final class ProductionWorkbenchController
                                 combo.valueProperty()
                                         .addListener(
                                                 (obs, oldValue, newValue) -> {
-                                                    ReleaseMaterialRow row = getTableRow() == null
-                                                            ? null
-                                                            : getTableRow().getItem();
+                                                    ReleaseCellAllocationRow row =
+                                                            getTableRow() == null
+                                                                    ? null
+                                                                    : getTableRow().getItem();
                                                     if (row != null) {
                                                         row.setProductionCell(newValue);
                                                     }
@@ -484,17 +571,53 @@ public final class ProductionWorkbenchController
                             @Override
                             protected void updateItem(StorageCellChoice item, boolean empty) {
                                 super.updateItem(item, empty);
-                                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                                if (empty
+                                        || getTableRow() == null
+                                        || getTableRow().getItem() == null) {
                                     setGraphic(null);
                                     return;
                                 }
-                                ReleaseMaterialRow row = getTableRow().getItem();
+                                ReleaseCellAllocationRow row = getTableRow().getItem();
                                 combo.setItems(row.cellChoices());
                                 combo.setValue(row.productionCell());
                                 setGraphic(combo);
                             }
                         });
-        releaseMaterialsTable.setItems(viewModel.releaseMaterialRows());
+
+        releaseMaterialsTable
+                .getSelectionModel()
+                .selectedItemProperty()
+                .addListener(
+                        (obs, oldValue, selected) -> {
+                            if (selected == null) {
+                                releaseAllocationsTable.setItems(null);
+                            } else {
+                                releaseAllocationsTable.setItems(selected.allocations());
+                            }
+                            releaseMaterialsTable.refresh();
+                        });
+
+        addReleaseAllocationButton.setOnAction(
+                e -> {
+                    ReleaseMaterialRow selected =
+                            releaseMaterialsTable.getSelectionModel().getSelectedItem();
+                    if (selected != null) {
+                        viewModel.addReleaseAllocation(selected);
+                        releaseAllocationsTable.setItems(selected.allocations());
+                        releaseMaterialsTable.refresh();
+                    }
+                });
+        removeReleaseAllocationButton.setOnAction(
+                e -> {
+                    ReleaseMaterialRow material =
+                            releaseMaterialsTable.getSelectionModel().getSelectedItem();
+                    ReleaseCellAllocationRow allocation =
+                            releaseAllocationsTable.getSelectionModel().getSelectedItem();
+                    if (material != null && allocation != null) {
+                        viewModel.removeReleaseAllocation(material, allocation);
+                        releaseMaterialsTable.refresh();
+                    }
+                });
         confirmReleaseButton.disableProperty().bind(viewModel.canReleaseProperty().not());
         confirmReleaseButton.setOnAction(e -> viewModel.confirmRelease());
     }

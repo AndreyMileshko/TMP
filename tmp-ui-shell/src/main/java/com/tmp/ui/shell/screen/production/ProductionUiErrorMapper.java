@@ -97,6 +97,9 @@ public final class ProductionUiErrorMapper {
                     || lower.contains("must not")
                     || lower.contains("required")
                     || lower.contains("must be")) {
+                if (containsCyrillic(message)) {
+                    return message;
+                }
                 return VALIDATION;
             }
             if (simple.contains("NoSuchElement")
@@ -111,5 +114,15 @@ public final class ProductionUiErrorMapper {
 
     public static boolean isConcurrentOrStale(Throwable error) {
         return CONCURRENT_STALE.equals(text(error)) || STALE_TEMPLATE.equals(text(error));
+    }
+
+    private static boolean containsCyrillic(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c >= '\u0400' && c <= '\u04FF') {
+                return true;
+            }
+        }
+        return false;
     }
 }

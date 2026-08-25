@@ -101,18 +101,26 @@
                 <VBox fx:id="transferPanel" spacing="8" visible="false" managed="false">
                     <Separator/>
                     <Label text="Шаблон перемещения материалов"/>
-                    <TableView fx:id="transferLinesTable" prefHeight="180">
+                    <TableView fx:id="transferLinesTable" prefHeight="160">
                         <columns>
-                            <TableColumn fx:id="transferMaterialColumn" text="Материал" prefWidth="200"/>
+                            <TableColumn fx:id="transferMaterialColumn" text="Материал" prefWidth="220"/>
                             <TableColumn fx:id="transferRecommendedColumn" text="Рекомендовано" prefWidth="100"/>
                             <TableColumn fx:id="transferRequestedColumn" text="Запрошено" prefWidth="100"/>
                             <TableColumn fx:id="transferIncludedColumn" text="Включено" prefWidth="80"/>
-                            <TableColumn fx:id="transferSourceCellColumn" text="Ячейка источника" prefWidth="140"/>
-                            <TableColumn fx:id="transferDestCellColumn" text="Ячейка назначения" prefWidth="140"/>
-                            <TableColumn fx:id="transferAllocQtyColumn" text="Кол-во размещения" prefWidth="120"/>
+                            <TableColumn fx:id="transferAllocationSummaryColumn" text="Распределения" prefWidth="140"/>
+                        </columns>
+                    </TableView>
+                    <Label text="Распределения выбранной строки (источник → назначение)"/>
+                    <TableView fx:id="transferAllocationsTable" prefHeight="140">
+                        <columns>
+                            <TableColumn fx:id="transferAllocSourceColumn" text="Ячейка источника" prefWidth="160"/>
+                            <TableColumn fx:id="transferAllocDestColumn" text="Ячейка назначения" prefWidth="160"/>
+                            <TableColumn fx:id="transferAllocQtyColumn" text="Количество" prefWidth="120"/>
                         </columns>
                     </TableView>
                     <HBox spacing="8">
+                        <Button fx:id="addTransferAllocationButton" text="Добавить распределение"/>
+                        <Button fx:id="removeTransferAllocationButton" text="Удалить распределение"/>
                         <Button fx:id="applyRequestedQtyButton" text="Применить количество"/>
                         <Button fx:id="excludeTransferLineButton" text="Исключить строку"/>
                         <Button fx:id="restoreTransferLineButton" text="Восстановить строку"/>
@@ -123,15 +131,26 @@
                 <VBox fx:id="releasePanel" spacing="8" visible="false" managed="false">
                     <Separator/>
                     <Label text="Выпуск изделий — план/факт материалов"/>
-                    <TableView fx:id="releaseMaterialsTable" prefHeight="180">
+                    <TableView fx:id="releaseMaterialsTable" prefHeight="160">
                         <columns>
                             <TableColumn fx:id="releaseMaterialColumn" text="Материал" prefWidth="220"/>
                             <TableColumn fx:id="releasePlannedColumn" text="План" prefWidth="100"/>
                             <TableColumn fx:id="releaseActualColumn" text="Факт" prefWidth="100"/>
-                            <TableColumn fx:id="releaseCellColumn" text="Ячейка производства" prefWidth="160"/>
+                            <TableColumn fx:id="releaseAllocationSummaryColumn" text="Распределения" prefWidth="140"/>
                         </columns>
                     </TableView>
-                    <Button fx:id="confirmReleaseButton" text="Подтвердить выпуск"/>
+                    <Label text="Распределения выбранного материала по ячейкам производства"/>
+                    <TableView fx:id="releaseAllocationsTable" prefHeight="140">
+                        <columns>
+                            <TableColumn fx:id="releaseAllocCellColumn" text="Ячейка производства" prefWidth="200"/>
+                            <TableColumn fx:id="releaseAllocQtyColumn" text="Количество" prefWidth="120"/>
+                        </columns>
+                    </TableView>
+                    <HBox spacing="8">
+                        <Button fx:id="addReleaseAllocationButton" text="Добавить распределение"/>
+                        <Button fx:id="removeReleaseAllocationButton" text="Удалить распределение"/>
+                        <Button fx:id="confirmReleaseButton" text="Подтвердить выпуск"/>
+                    </HBox>
                 </VBox>
             </VBox>
         </content>

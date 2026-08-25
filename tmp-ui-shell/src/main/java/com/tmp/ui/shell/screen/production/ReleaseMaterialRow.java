@@ -7,7 +7,10 @@ import java.util.UUID;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
-/** Editable presentation row for release material plan/fact. */
+/**
+ * Editable presentation row for release material plan/fact. Holds 0..N explicit production-cell
+ * allocations; cells are never auto-selected.
+ */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP",
         justification = "JavaFX ComboBox binding requires live ObservableList references.")
@@ -20,7 +23,8 @@ public final class ReleaseMaterialRow {
     private String actualQuantity;
     private final ObservableList<StorageCellChoice> cellChoices =
             FXCollections.observableArrayList();
-    private StorageCellChoice productionCell;
+    private final ObservableList<ReleaseCellAllocationRow> allocations =
+            FXCollections.observableArrayList();
 
     public ReleaseMaterialRow(
             UUID sourceOrderItemId,
@@ -64,15 +68,34 @@ public final class ReleaseMaterialRow {
         return cellChoices;
     }
 
-    public StorageCellChoice productionCell() {
-        return productionCell;
+    public ObservableList<ReleaseCellAllocationRow> allocations() {
+        return allocations;
     }
 
-    public void setProductionCell(StorageCellChoice productionCell) {
-        this.productionCell = productionCell;
+    public ReleaseCellAllocationRow addAllocation() {
+        ReleaseCellAllocationRow row =
+                new ReleaseCellAllocationRow(sourceOrderItemId, materialReferenceId, cellChoices);
+        allocations.add(row);
+        return row;
+    }
+
+    public void removeAllocation(ReleaseCellAllocationRow row) {
+        Objects.requireNonNull(row, "row");
+        allocations.remove(row);
+    }
+
+    public void clearAllocations() {
+        allocations.clear();
     }
 
     public BigDecimal parseActualQuantity() {
         return new BigDecimal(actualQuantity);
+    }
+
+    public String allocationSummary() {
+        if (allocations.isEmpty()) {
+            return "нет распределений";
+        }
+        return allocations.size() + " распред.";
     }
 }

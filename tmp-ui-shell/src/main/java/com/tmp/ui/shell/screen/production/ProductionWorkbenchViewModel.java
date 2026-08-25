@@ -39,9 +39,13 @@ import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
@@ -270,6 +274,29 @@ public final class ProductionWorkbenchViewModel {
                     transferLines.clear();
                     reloadCurrentOrder();
                 });
+    }
+
+    public TransferAllocationRow addTransferAllocation(TransferLineRow line) {
+        Objects.requireNonNull(line, "line");
+        return line.addAllocation();
+    }
+
+    public void removeTransferAllocation(TransferLineRow line, TransferAllocationRow allocation) {
+        Objects.requireNonNull(line, "line");
+        Objects.requireNonNull(allocation, "allocation");
+        line.removeAllocation(allocation);
+    }
+
+    public ReleaseCellAllocationRow addReleaseAllocation(ReleaseMaterialRow material) {
+        Objects.requireNonNull(material, "material");
+        return material.addAllocation();
+    }
+
+    public void removeReleaseAllocation(
+            ReleaseMaterialRow material, ReleaseCellAllocationRow allocation) {
+        Objects.requireNonNull(material, "material");
+        Objects.requireNonNull(allocation, "allocation");
+        material.removeAllocation(allocation);
     }
 
     public void confirmReceipt() {
@@ -552,6 +579,8 @@ public final class ProductionWorkbenchViewModel {
                 loadCells(template.sourceWarehouseId());
         List<StorageCellChoice> destCells =
                 loadCells(template.destinationWarehouseId());
+        Map<UUID, List<PreservedTransferAllocation>> previous =
+                snapshotTransferAllocations();
         List<TransferLineRow> rows = new ArrayList<>();
         for (TransferTemplateLineView line : template.lines()) {
             TransferLineRow row =
@@ -569,7 +598,18 @@ public final class ProductionWorkbenchViewModel {
                             line.included());
             row.sourceCellChoices().setAll(sourceCells);
             row.destinationCellChoices().setAll(destCells);
-            // No auto-first-cell selection — user must pick explicitly.
+            // No auto-first-cell selection. Excluded lines stay empty; included lines keep
+            // prior explicit allocations (not scaled) when requested quantity changes.
+            if (line.included()) {
+                List<PreservedTransferAllocation> preserved =
+                        previous.getOrDefault(line.lineId(), List.of());
+                for (PreservedTransferAllocation item : preserved) {
+                    TransferAllocationRow allocation = row.addAllocation();
+                    allocation.setSourceCell(findChoice(sourceCells, item.sourceCellId()));
+                    allocation.setDestinationCell(findChoice(destCells, item.destinationCellId()));
+                    allocation.setQuantity(item.quantity());
+                }
+            }
             rows.add(row);
         }
         transferLines.setAll(rows);
@@ -603,6 +643,7 @@ public final class ProductionWorkbenchViewModel {
                             actual.plannedQuantity().toPlainString(),
                             actual.actualQuantity().toPlainString());
             row.cellChoices().setAll(cells);
+            // No auto-first-cell selection — user adds allocations explicitly.
             rows.add(row);
         }
         releaseMaterialRows.setAll(rows);
@@ -614,17 +655,43 @@ public final class ProductionWorkbenchViewModel {
             if (!row.included()) {
                 continue;
             }
-            if (row.sourceCell() == null || row.destinationCell() == null) {
+            if (row.allocations().isEmpty()) {
                 throw new IllegalArgumentException(
-                        "Выберите ячейки источника и назначения для каждой включённой строки");
+                        "Добавьте хотя бы одно распределение ячеек для каждой включённой строки");
             }
-            BigDecimal qty = parsePositiveDecimal(row.allocationQuantity(), "количество размещения");
-            allocations.add(
-                    new TransferCellAllocation(
-                            row.lineId(),
-                            row.sourceCell().id(),
-                            row.destinationCell().id(),
-                            qty));
+            BigDecimal requested =
+                    parseNonNegativeDecimal(row.requestedQuantity(), "запрошенное количество");
+            BigDecimal sum = BigDecimal.ZERO;
+            Set<String> pairs = new HashSet<>();
+            for (TransferAllocationRow allocation : row.allocations()) {
+                if (allocation.sourceCell() == null || allocation.destinationCell() == null) {
+                    throw new IllegalArgumentException(
+                            "Выберите ячейки источника и назначения для каждого распределения");
+                }
+                String pairKey =
+                        allocation.sourceCell().id() + "->" + allocation.destinationCell().id();
+                if (!pairs.add(pairKey)) {
+                    throw new IllegalArgumentException(
+                            "Дублирующая пара ячеек источника/назначения в одной строке шаблона");
+                }
+                BigDecimal qty =
+                        parsePositiveDecimal(allocation.quantity(), "количество размещения");
+                sum = sum.add(qty);
+                allocations.add(
+                        new TransferCellAllocation(
+                                row.lineId(),
+                                allocation.sourceCell().id(),
+                                allocation.destinationCell().id(),
+                                qty));
+            }
+            if (sum.compareTo(requested) != 0) {
+                throw new IllegalArgumentException(
+                        "Сумма распределений ("
+                                + sum.toPlainString()
+                                + ") должна равняться запрошенному количеству ("
+                                + requested.toPlainString()
+                                + ")");
+            }
         }
         if (allocations.isEmpty()) {
             throw new IllegalArgumentException("Нет строк для создания перемещения");
@@ -664,13 +731,44 @@ public final class ProductionWorkbenchViewModel {
         List<MaterialActualUsageView> usages = new ArrayList<>();
         for (ReleaseMaterialRow row : releaseMaterialRows) {
             BigDecimal actual = parseNonNegativeDecimal(row.actualQuantity(), "фактическое количество");
-            List<CellAllocationView> allocations = List.of();
-            if (actual.signum() > 0) {
-                if (row.productionCell() == null) {
+            List<CellAllocationView> allocations = new ArrayList<>();
+            if (actual.signum() == 0) {
+                if (!row.allocations().isEmpty()) {
                     throw new IllegalArgumentException(
-                            "Выберите ячейку склада производства для положительного факта");
+                            "При фактическом количестве 0 распределения по ячейкам должны быть пустыми");
                 }
-                allocations = List.of(new CellAllocationView(row.productionCell().id(), actual));
+            } else {
+                if (row.allocations().isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "Добавьте хотя бы одно распределение по ячейке производства"
+                                    + " для положительного факта");
+                }
+                BigDecimal sum = BigDecimal.ZERO;
+                Set<UUID> cells = new HashSet<>();
+                for (ReleaseCellAllocationRow allocation : row.allocations()) {
+                    if (allocation.productionCell() == null) {
+                        throw new IllegalArgumentException(
+                                "Выберите ячейку склада производства для каждого распределения");
+                    }
+                    if (!cells.add(allocation.productionCell().id())) {
+                        throw new IllegalArgumentException(
+                                "Дублирующая ячейка производства в одном материале выпуска");
+                    }
+                    BigDecimal qty =
+                            parsePositiveDecimal(
+                                    allocation.quantity(), "количество размещения выпуска");
+                    sum = sum.add(qty);
+                    allocations.add(
+                            new CellAllocationView(allocation.productionCell().id(), qty));
+                }
+                if (sum.compareTo(actual) != 0) {
+                    throw new IllegalArgumentException(
+                            "Сумма распределений ("
+                                    + sum.toPlainString()
+                                    + ") должна равняться фактическому количеству ("
+                                    + actual.toPlainString()
+                                    + ")");
+                }
             }
             usages.add(
                     new MaterialActualUsageView(
@@ -681,6 +779,44 @@ public final class ProductionWorkbenchViewModel {
         }
         return usages;
     }
+
+    private Map<UUID, List<PreservedTransferAllocation>> snapshotTransferAllocations() {
+        Map<UUID, List<PreservedTransferAllocation>> snapshot = new HashMap<>();
+        for (TransferLineRow row : transferLines) {
+            if (!row.included() || row.allocations().isEmpty()) {
+                continue;
+            }
+            List<PreservedTransferAllocation> items = new ArrayList<>();
+            for (TransferAllocationRow allocation : row.allocations()) {
+                items.add(
+                        new PreservedTransferAllocation(
+                                allocation.sourceCell() == null
+                                        ? null
+                                        : allocation.sourceCell().id(),
+                                allocation.destinationCell() == null
+                                        ? null
+                                        : allocation.destinationCell().id(),
+                                allocation.quantity()));
+            }
+            snapshot.put(row.lineId(), items);
+        }
+        return snapshot;
+    }
+
+    private static StorageCellChoice findChoice(List<StorageCellChoice> choices, UUID cellId) {
+        if (cellId == null) {
+            return null;
+        }
+        for (StorageCellChoice choice : choices) {
+            if (choice.id().equals(cellId)) {
+                return choice;
+            }
+        }
+        return null;
+    }
+
+    private record PreservedTransferAllocation(
+            UUID sourceCellId, UUID destinationCellId, String quantity) {}
 
     private List<StorageCellChoice> loadCells(UUID warehouseId) {
         List<StorageCellView> cells = warehouseApi.listStorageCells(warehouseId);

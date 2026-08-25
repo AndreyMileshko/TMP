@@ -4,6 +4,42 @@
 
 ---
 
+## STAGE7-017 — Actual multi-cell allocation UI correction
+
+**Date:** 2026-08-25
+**Stage:** 7
+**Module:** `tmp-ui-shell`
+**Status:** DONE (corrective pass; no new Work Queue task)
+
+### Clarification of prior corrective commit
+
+Commit `c38b873` documented targeted verification but contained **no UI code changes**
+(control docs only). Multi-cell allocation was still single-cell on that base.
+This entry records the **actual** code correction.
+
+### Delivered
+
+- `TransferAllocationRow` + `TransferLineRow` 0..N allocations; `buildTransferAllocations` emits all rows; sum == requestedQuantity; duplicate source/dest pair rejected; no auto cell pick.
+- `ReleaseCellAllocationRow` + `ReleaseMaterialRow` 0..N allocations; `buildMaterialActualUsages` emits all `CellAllocationView`; sum vs actualQuantity; actual=0 → empty allocations; no auto pick.
+- FXML allocation editor (add/remove + cell/qty tables) for Transfer and Release.
+- Named ViewModel tests: Transfer 6+4 / multi-dest / mismatch / no-auto-pick; Release 6+4 / actual≠plan / zero / mismatch; FXML smoke for allocation controls.
+- Cyrillic presentation validation messages surfaced via `ProductionUiErrorMapper`.
+
+### Verification (targeted only)
+
+- compile `:tmp-ui-shell -am` PASS
+- 24 targeted surefire tests PASS
+- `git diff --check` clean
+- full `mvn test` / `mvn verify` / IT / ArchUnit: **NOT RUN** → STAGE7-018
+
+### Queue
+
+- STAGE7-017 remains DONE
+- STAGE7-018 remains READY
+- Stage 7 progress unchanged (89%)
+
+---
+
 ## STAGE7-017 — Production Workbench UI
 
 **Date:** 2026-08-25
