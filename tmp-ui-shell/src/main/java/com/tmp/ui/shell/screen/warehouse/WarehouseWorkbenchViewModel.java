@@ -19,6 +19,7 @@ import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,6 +71,11 @@ public final class WarehouseWorkbenchViewModel {
     private final ObservableList<StockView> stockRows = FXCollections.observableArrayList();
     private final ObservableList<ReservationLinkView> reservationLinks =
             FXCollections.observableArrayList();
+    private final ObservableList<TransferDraftRow> transferDraftRows =
+            FXCollections.observableArrayList();
+
+    private final ObjectProperty<TransferDraftRow> selectedTransferDraft =
+            new SimpleObjectProperty<>();
 
     private final ObservableList<StorageCellChoice> receiptCellChoices =
             FXCollections.observableArrayList();
@@ -381,25 +387,70 @@ public final class WarehouseWorkbenchViewModel {
             deny();
             return;
         }
-        run("Межскладское перемещение (отправка) выполнено", () -> {
-            MaterialChoice material = requireChoice(transferMaterial.get(), "материал");
-            WarehouseChoice source =
-                    requireChoice(transferSourceWarehouse.get(), "склад источник");
-            StorageCellChoice sourceCell =
-                    requireChoice(transferSourceCell.get(), "ячейка источник");
-            WarehouseChoice destination =
-                    requireChoice(transferDestWarehouse.get(), "склад назначения");
-            OperationResult result =
-                    warehouseApi.executeWarehouseOperation(
-                            ExecuteOperationCommand.transferSend(
-                                    material.id(),
-                                    parsePositiveDecimal(transferQuantity.get(), "количество"),
-                                    source.id(),
-                                    sourceCell.id(),
-                                    destination.id()));
-            statusMessage.set(
-                    "Межскладская отправка выполнена: operationId=" + result.operationId());
-        });
+        TransferDraftRow selected = selectedTransferDraft.get();
+        if (selected == null) {
+            errorMessage.set("Выберите черновик перемещения для отправки.");
+            return;
+        }
+        run(
+                "Межскладское перемещение (отправка) выполнено",
+                () -> {
+                    OperationResult result = warehouseApi.sendTransfer(selected.operationId());
+                    statusMessage.set(
+                            "Отправлен существующий черновик: operationId="
+                                    + result.operationId());
+                    refreshTransferDraftRows();
+                });
+    }
+
+    public void loadTransferDrafts() {
+        if (!canTransfer.get() && !canView.get()) {
+            deny();
+            return;
+        }
+        run("Черновики перемещений загружены", this::refreshTransferDraftRows);
+    }
+
+    private void refreshTransferDraftRows() {
+        ensureWarehouseChoicesLoaded();
+        loadMaterialChoices();
+        List<TransferDraftRow> rows = new ArrayList<>();
+        for (var draft : warehouseApi.listTransferDrafts()) {
+            rows.add(mapTransferDraft(draft));
+        }
+        transferDraftRows.setAll(rows);
+        if (rows.isEmpty()) {
+            statusMessage.set("Черновики перемещений не найдены");
+        }
+        UUID previous =
+                selectedTransferDraft.get() == null
+                        ? null
+                        : selectedTransferDraft.get().operationId();
+        if (previous != null) {
+            selectedTransferDraft.set(
+                    rows.stream()
+                            .filter(row -> row.operationId().equals(previous))
+                            .findFirst()
+                            .orElse(null));
+        }
+    }
+
+    private TransferDraftRow mapTransferDraft(WarehouseApi.TransferRequestView draft) {
+        String materialLabel =
+                materialChoices.stream()
+                        .filter(choice -> choice.id().equals(draft.materialReferenceId()))
+                        .map(MaterialChoice::label)
+                        .findFirst()
+                        .orElse(draft.materialReferenceId().toString());
+        return new TransferDraftRow(
+                draft.operationId(),
+                draft.status(),
+                materialLabel,
+                draft.quantity().toPlainString(),
+                warehouseLabel(draft.sourceWarehouseId()),
+                cellLabel(draft.sourceStorageCellId()),
+                warehouseLabel(draft.destinationWarehouseId()),
+                cellLabel(draft.destinationStorageCellId()));
     }
 
     public void submitTransferReceive() {
@@ -631,6 +682,14 @@ public final class WarehouseWorkbenchViewModel {
 
     public ObservableList<ReservationLinkView> reservationLinks() {
         return reservationLinks;
+    }
+
+    public ObservableList<TransferDraftRow> transferDraftRows() {
+        return transferDraftRows;
+    }
+
+    public ObjectProperty<TransferDraftRow> selectedTransferDraftProperty() {
+        return selectedTransferDraft;
     }
 
     public ObservableList<StorageCellChoice> receiptCellChoices() {
@@ -902,13 +961,18 @@ public final class WarehouseWorkbenchViewModel {
         statusMessage.set("");
         switch (value) {
             case WAREHOUSES -> loadWarehouses();
-            case STOCK, RECEIPT, MOVE, TRANSFER, CONSUMPTION, ADJUSTMENT, INVENTORY -> {
-                    ensureWarehouseChoicesLoaded();
-                    loadMaterialChoices();
-                    if (value == WarehouseSection.RECEIPT) {
-                        loadUnitOfMeasureChoices();
-                    }
+            case TRANSFER -> {
+                ensureWarehouseChoicesLoaded();
+                loadMaterialChoices();
+                loadTransferDrafts();
+            }
+            case STOCK, RECEIPT, MOVE, CONSUMPTION, ADJUSTMENT, INVENTORY -> {
+                ensureWarehouseChoicesLoaded();
+                loadMaterialChoices();
+                if (value == WarehouseSection.RECEIPT) {
+                    loadUnitOfMeasureChoices();
                 }
+            }
             case RESERVATIONS -> {
                 // forms load on demand
             }

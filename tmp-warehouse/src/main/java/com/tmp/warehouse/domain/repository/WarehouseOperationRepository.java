@@ -2,6 +2,9 @@ package com.tmp.warehouse.domain.repository;
 
 import com.tmp.warehouse.domain.WarehouseOperation;
 import com.tmp.warehouse.domain.WarehouseOperationId;
+import com.tmp.warehouse.domain.WarehouseOperationStatus;
+import com.tmp.warehouse.domain.WarehouseOperationType;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -19,6 +22,10 @@ public interface WarehouseOperationRepository {
     WarehouseOperation create(WarehouseOperation operation);
 
     Optional<WarehouseOperation> findById(WarehouseOperationId id);
+
+    /** Lists operations by type and lifecycle status (read-only catalogue query). */
+    List<WarehouseOperation> findByTypeAndStatus(
+            WarehouseOperationType type, WarehouseOperationStatus status);
 
     /**
      * Persists lifecycle result (COMPLETED / FAILED) with optimistic locking on version.

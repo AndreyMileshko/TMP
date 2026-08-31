@@ -218,7 +218,40 @@ class WarehouseWorkbenchViewModelTest {
     }
 
     @Test
-    void transferSendAndReceiveCallPublicApi() {
+    void transferSendUsesExistingDraftIdThroughPublicApi() {
+        UUID wh = UUID.randomUUID();
+        UUID destWh = UUID.randomUUID();
+        UUID cell = UUID.randomUUID();
+        UUID destCell = UUID.randomUUID();
+        UUID draftId = UUID.randomUUID();
+        WarehouseView source = new WarehouseView(wh, "WH-S", "Source", true);
+        WarehouseView destination = new WarehouseView(destWh, "WH-D", "Dest", true);
+        api.warehouses.add(source);
+        api.warehouses.add(destination);
+        MaterialChoice material = api.addMaterial("M1");
+        api.transferDrafts.add(
+                new TransferRequestView(
+                        draftId,
+                        "DRAFT",
+                        material.id(),
+                        new BigDecimal("2"),
+                        wh,
+                        cell,
+                        destWh,
+                        destCell));
+        viewModel.loadWarehouses();
+        viewModel.selectSection(WarehouseSection.TRANSFER);
+
+        assertEquals(1, viewModel.transferDraftRows().size());
+        viewModel.selectedTransferDraftProperty().set(viewModel.transferDraftRows().get(0));
+        viewModel.submitTransferSend();
+
+        assertEquals(List.of(draftId), api.sendTransferCalls);
+        assertEquals(0, api.executeCalls.size());
+    }
+
+    @Test
+    void transferReceiveStillUsesGenericPublicApi() {
         UUID wh = UUID.randomUUID();
         UUID destWh = UUID.randomUUID();
         UUID cell = UUID.randomUUID();
@@ -230,13 +263,6 @@ class WarehouseWorkbenchViewModelTest {
         MaterialChoice material = api.addMaterial("M1");
         viewModel.loadWarehouses();
 
-        viewModel.transferMaterialProperty().set(material);
-        viewModel.transferQuantityProperty().set("2");
-        viewModel.transferSourceWarehouseProperty().set(WarehouseChoice.from(source));
-        viewModel.transferSourceCellProperty().set(new StorageCellChoice(cell, wh, "A-01", true));
-        viewModel.transferDestWarehouseProperty().set(WarehouseChoice.from(destination));
-        viewModel.submitTransferSend();
-
         viewModel.transferReceiveMaterialProperty().set(material);
         viewModel.transferReceiveQuantityProperty().set("2");
         viewModel.transferReceiveSourceWarehouseProperty().set(WarehouseChoice.from(source));
@@ -247,9 +273,8 @@ class WarehouseWorkbenchViewModelTest {
                 .set(new StorageCellChoice(destCell, destWh, "B-01", true));
         viewModel.submitTransferReceive();
 
-        assertEquals(2, api.executeCalls.size());
-        assertEquals(OperationKind.TRANSFER_SEND, api.executeCalls.get(0).kind());
-        assertEquals(OperationKind.TRANSFER_RECEIVE, api.executeCalls.get(1).kind());
+        assertEquals(1, api.executeCalls.size());
+        assertEquals(OperationKind.TRANSFER_RECEIVE, api.executeCalls.get(0).kind());
     }
 
     @Test
@@ -447,6 +472,8 @@ class WarehouseWorkbenchViewModelTest {
         private int getStockByWarehouseCalls;
         private int listReservationCalls;
         private final List<MaterialReferenceView> materialReferences = new ArrayList<>();
+        private final List<TransferRequestView> transferDrafts = new ArrayList<>();
+        private final List<UUID> sendTransferCalls = new CopyOnWriteArrayList<>();
         private int listMaterialReferencesCalls;
         private boolean denyNext;
 
@@ -616,6 +643,11 @@ class WarehouseWorkbenchViewModelTest {
         }
 
         @Override
+        public List<TransferRequestView> listTransferDrafts() {
+            return List.copyOf(transferDrafts);
+        }
+
+        @Override
         public OperationResult receive(WarehouseApi.ReceiptCommand command) {
             return executeWarehouseOperation(
                     ExecuteOperationCommand.receipt(
@@ -655,6 +687,7 @@ class WarehouseWorkbenchViewModelTest {
 
         @Override
         public OperationResult sendTransfer(UUID transferDraftOperationId) {
+            sendTransferCalls.add(transferDraftOperationId);
             return new OperationResult(
                     transferDraftOperationId,
                     OperationKind.TRANSFER_SEND,

@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -133,6 +134,21 @@ class WarehouseTransferIntegrityIntegrationTest {
                 quantity(productionWarehouseId, productionCellId, material, "AVAILABLE")
                         .compareTo(BigDecimal.valueOf(8)));
         assertEquals(4, movementCount());
+    }
+
+    @Test
+    void listTransferDraftsExposesDraftBeforeSendOnly() {
+        MaterialReference material = materialWithAvailable(20L);
+        WarehouseApi.TransferRequestView draft = draft(material, 8);
+
+        List<WarehouseApi.TransferRequestView> listed = queryApi.listTransferDrafts();
+        assertEquals(1, listed.size());
+        assertEquals(draft.operationId(), listed.get(0).operationId());
+        assertEquals("DRAFT", listed.get(0).status());
+        assertEquals(material.id().value(), listed.get(0).materialReferenceId());
+
+        commandApi.sendTransfer(draft.operationId());
+        assertTrue(queryApi.listTransferDrafts().isEmpty());
     }
 
     @Test

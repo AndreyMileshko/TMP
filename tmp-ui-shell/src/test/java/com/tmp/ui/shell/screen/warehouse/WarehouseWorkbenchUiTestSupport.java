@@ -133,6 +133,11 @@ final class WarehouseWorkbenchUiTestSupport {
         }
 
         @Override
+        public List<TransferRequestView> listTransferDrafts() {
+            return List.of();
+        }
+
+        @Override
         public OperationResult receive(WarehouseApi.ReceiptCommand command) {
             throw new UnsupportedOperationException();
         }

@@ -58,6 +58,19 @@ class ProductionActionPolicyTest {
     }
 
     @Test
+    void inProductionReceiptRequiresReceivableTransferLifecycle() {
+        ProductionActionPolicy.Decision withoutReceivable =
+                ProductionActionPolicy.evaluate(
+                        true, OrderProductionViewStatus.IN_PRODUCTION, ALL, false);
+        assertFalse(withoutReceivable.receipt());
+
+        ProductionActionPolicy.Decision receivable =
+                ProductionActionPolicy.evaluate(
+                        true, OrderProductionViewStatus.IN_PRODUCTION, ALL, true);
+        assertTrue(receivable.receipt());
+    }
+
+    @Test
     void inProductionReceiptRequiresApplicableTransfer() {
         ProductionActionPolicy.Decision withoutTransfer =
                 ProductionActionPolicy.evaluate(

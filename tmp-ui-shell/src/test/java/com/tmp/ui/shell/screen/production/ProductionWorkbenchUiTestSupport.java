@@ -20,6 +20,7 @@ import com.tmp.order.api.SpecificationId;
 import com.tmp.production.api.ProductionApplicationApi;
 import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
+import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
@@ -48,6 +49,7 @@ import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
+import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
@@ -284,7 +286,8 @@ final class ProductionWorkbenchUiTestSupport {
                 UUID templateId, long expectedVersion, List<TransferCellAllocation> allocations) {
             confirmTransferCalls.add(templateId);
             confirmTransferAllocationCalls.add(List.copyOf(allocations));
-            return new LogicalTransferView(UUID.randomUUID(), templateId, Instant.now());
+            return new LogicalTransferView(
+                    UUID.randomUUID(), templateId, Instant.now(), List.of());
         }
 
         @Override
@@ -496,9 +499,27 @@ final class ProductionWorkbenchUiTestSupport {
             return List.of();
         }
 
+        final Map<UUID, String> transferStatuses = new HashMap<>();
+
         @Override
         public TransferStatusView getTransferStatus(UUID operationId) {
-            throw new UnsupportedOperationException();
+            String status = transferStatuses.getOrDefault(operationId, "DRAFT");
+            return new TransferStatusView(
+                    operationId,
+                    OperationKind.TRANSFER_SEND,
+                    status,
+                    UUID.randomUUID(),
+                    BigDecimal.ONE,
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    null);
+        }
+
+        @Override
+        public List<TransferRequestView> listTransferDrafts() {
+            return List.of();
         }
 
         @Override

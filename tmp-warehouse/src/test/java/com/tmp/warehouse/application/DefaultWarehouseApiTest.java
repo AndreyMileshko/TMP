@@ -31,6 +31,8 @@ import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseMovement;
 import com.tmp.warehouse.domain.WarehouseOperation;
 import com.tmp.warehouse.domain.WarehouseOperationId;
+import com.tmp.warehouse.domain.WarehouseOperationStatus;
+import com.tmp.warehouse.domain.WarehouseOperationType;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.MaterialReservationLinkRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
@@ -496,6 +498,14 @@ class DefaultWarehouseApiTest {
         @Override
         public Optional<WarehouseOperation> findById(WarehouseOperationId id) {
             return Optional.ofNullable(store.get(id));
+        }
+
+        @Override
+        public List<WarehouseOperation> findByTypeAndStatus(
+                WarehouseOperationType type, WarehouseOperationStatus status) {
+            return store.values().stream()
+                    .filter(op -> op.type() == type && op.status() == status)
+                    .toList();
         }
 
         @Override

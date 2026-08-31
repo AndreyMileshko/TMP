@@ -11,6 +11,7 @@ import com.tmp.order.api.PageResult;
 import com.tmp.production.api.ProductionApplicationApi;
 import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
+import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
@@ -113,6 +114,8 @@ public final class ProductionWorkbenchViewModel {
     private final ObjectProperty<LogicalTransferRow> selectedLogicalTransfer =
             new SimpleObjectProperty<>();
 
+    private final ObjectProperty<UUID> selectedTransferLineId = new SimpleObjectProperty<>();
+
     private UUID currentOrderId;
     private OrderProductionViewStatus currentStatus;
     private TransferTemplateView currentTemplate;
@@ -205,6 +208,7 @@ public final class ProductionWorkbenchViewModel {
             errorMessage.set(ProductionUiErrorMapper.VALIDATION);
             return;
         }
+        UUID lineId = row.lineId();
         run(
                 "Количество перемещения обновлено",
                 () -> {
@@ -212,10 +216,10 @@ public final class ProductionWorkbenchViewModel {
                     TransferTemplateView updated =
                             applicationApi.changeTransferRequestedQuantity(
                                     currentTemplate.templateId(),
-                                    row.lineId(),
+                                    lineId,
                                     qty,
                                     currentTemplate.version());
-                    applyTemplate(updated);
+                    applyTemplate(updated, lineId);
                 },
                 true);
     }
@@ -228,12 +232,13 @@ public final class ProductionWorkbenchViewModel {
         run(
                 "Строка исключена",
                 () -> {
+                    UUID lineId = row.lineId();
                     TransferTemplateView updated =
                             applicationApi.excludeTransferLine(
                                     currentTemplate.templateId(),
-                                    row.lineId(),
+                                    lineId,
                                     currentTemplate.version());
-                    applyTemplate(updated);
+                    applyTemplate(updated, lineId);
                 },
                 true);
     }
@@ -246,12 +251,13 @@ public final class ProductionWorkbenchViewModel {
         run(
                 "Строка восстановлена",
                 () -> {
+                    UUID lineId = row.lineId();
                     TransferTemplateView updated =
                             applicationApi.restoreTransferLine(
                                     currentTemplate.templateId(),
-                                    row.lineId(),
+                                    lineId,
                                     currentTemplate.version());
-                    applyTemplate(updated);
+                    applyTemplate(updated, lineId);
                 },
                 true);
     }
@@ -487,6 +493,24 @@ public final class ProductionWorkbenchViewModel {
         return selectedLogicalTransfer;
     }
 
+    public ObjectProperty<UUID> selectedTransferLineIdProperty() {
+        return selectedTransferLineId;
+    }
+
+    public void selectTransferLine(UUID lineId) {
+        selectedTransferLineId.set(lineId);
+    }
+
+    public TransferLineRow findTransferLine(UUID lineId) {
+        if (lineId == null) {
+            return null;
+        }
+        return transferLines.stream()
+                .filter(row -> row.lineId().equals(lineId))
+                .findFirst()
+                .orElse(null);
+    }
+
     public UUID currentOrderId() {
         return currentOrderId;
     }
@@ -573,6 +597,10 @@ public final class ProductionWorkbenchViewModel {
     }
 
     private void applyTemplate(TransferTemplateView template) {
+        applyTemplate(template, selectedTransferLineId.get());
+    }
+
+    private void applyTemplate(TransferTemplateView template, UUID reselectLineId) {
         currentTemplate = template;
         releaseProductionWarehouseId = template.destinationWarehouseId();
         List<StorageCellChoice> sourceCells =
@@ -613,6 +641,12 @@ public final class ProductionWorkbenchViewModel {
             rows.add(row);
         }
         transferLines.setAll(rows);
+        if (reselectLineId != null
+                && rows.stream().anyMatch(row -> row.lineId().equals(reselectLineId))) {
+            selectedTransferLineId.set(reselectLineId);
+        } else if (reselectLineId != null) {
+            selectedTransferLineId.set(null);
+        }
     }
 
     private void applyReleasePreview(ReleasePreviewView preview, UUID productionWarehouseId) {
@@ -911,7 +945,10 @@ public final class ProductionWorkbenchViewModel {
                     new LogicalTransferRow(
                             transfer.id(),
                             transfer.templateId(),
-                            TIME_FORMAT.format(transfer.createdAt())));
+                            TIME_FORMAT.format(transfer.createdAt()),
+                            TransferReceiptEligibility.lifecycleSummary(
+                                    transfer.warehouseOperations(), warehouseApi),
+                            transfer.warehouseOperations()));
         }
         return rows;
     }
@@ -925,12 +962,14 @@ public final class ProductionWorkbenchViewModel {
                         has(UiShellScreens.PRODUCTION_RECEIPT_PERMISSION),
                         has(UiShellScreens.PRODUCTION_RELEASE_PERMISSION),
                         has(UiShellScreens.PRODUCTION_CANCEL_PERMISSION));
-        boolean hasTransfer =
-                !logicalTransfers.isEmpty()
-                        || selectedLogicalTransfer.get() != null;
+        LogicalTransferRow selected = selectedLogicalTransfer.get();
+        boolean transferReceivable =
+                selected != null
+                        && TransferReceiptEligibility.isReceivable(
+                                selected.warehouseOperations(), warehouseApi);
         ProductionActionPolicy.Decision decision =
                 ProductionActionPolicy.evaluate(
-                        orderSelected.get(), currentStatus, permissions, hasTransfer);
+                        orderSelected.get(), currentStatus, permissions, transferReceivable);
         canAccept.set(decision.accept());
         canCheck.set(decision.check());
         canTransfer.set(decision.transfer());
@@ -958,6 +997,7 @@ public final class ProductionWorkbenchViewModel {
         releaseMaterialRows.clear();
         productionCellChoices.clear();
         selectedLogicalTransfer.set(null);
+        selectedTransferLineId.set(null);
         transferPanelVisible.set(false);
         releasePanelVisible.set(false);
         refreshActionPolicy();

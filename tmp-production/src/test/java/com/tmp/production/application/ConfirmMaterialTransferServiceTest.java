@@ -709,6 +709,11 @@ class ConfirmMaterialTransferServiceTest {
                 UUID operationId) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public List<com.tmp.warehouse.api.WarehouseApi.TransferRequestView> listTransferDrafts() {
+            return List.of();
+        }
     }
 
     private static final class PassthroughTransactionManager

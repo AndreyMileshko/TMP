@@ -10,6 +10,7 @@ import com.tmp.production.api.ProductionApplicationApi.CellAllocationView;
 import com.tmp.production.api.ProductionApplicationApi.CuttingLinkStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
+import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualDefaultView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialPlanningSourceView;
@@ -37,6 +38,8 @@ import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubA
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubOrderQuery;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubQueryApi;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubWarehouseApi;
+import com.tmp.warehouse.api.WarehouseApi.OperationKind;
+import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -70,6 +73,8 @@ class ProductionWorkbenchViewModelTest {
     private UUID lineId;
     private UUID logicalTransferId;
 
+    private UUID warehouseDraftId;
+
     @BeforeEach
     void setUp() {
         queryApi = new StubQueryApi();
@@ -100,6 +105,7 @@ class ProductionWorkbenchViewModelTest {
         templateId = UUID.fromString("99999999-9999-9999-9999-999999999999");
         lineId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         logicalTransferId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        warehouseDraftId = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccd");
 
         orderQuery.order = ProductionWorkbenchUiTestSupport.order(orderId, "ORD-1");
         orderQuery.items.add(ProductionWorkbenchUiTestSupport.item(orderId, itemId, "1"));
@@ -212,7 +218,13 @@ class ProductionWorkbenchViewModelTest {
         applicationApi.logicalTransfers =
                 List.of(
                         new LogicalTransferView(
-                                logicalTransferId, templateId, Instant.parse("2026-01-01T12:00:00Z")));
+                                logicalTransferId,
+                                templateId,
+                                Instant.parse("2026-01-01T12:00:00Z"),
+                                List.of(
+                                        new WarehouseTransferRefView(
+                                                warehouseDraftId, materialRef, new BigDecimal("5")))));
+        warehouseApi.transferStatuses.put(warehouseDraftId, "SENT");
         viewModel.refresh();
         viewModel.selectedLogicalTransferProperty().set(viewModel.logicalTransfers().get(0));
         viewModel.confirmReceipt();
@@ -506,6 +518,64 @@ class ProductionWorkbenchViewModelTest {
 
         assertEquals(0, applicationApi.releaseProductCalls.size());
         assertTrue(viewModel.errorMessageProperty().get().contains("Сумма распределений"));
+    }
+
+    @Test
+    void transferReselectionRetainsVisibleAllocations() {
+        seedInProduction();
+        applicationApi.template = sampleTemplate(new BigDecimal("1.000000"));
+        viewModel.openForOrder(OrderId.of(orderId));
+        viewModel.prepareTransfer();
+
+        TransferLineRow line = viewModel.transferLines().get(0);
+        TransferAllocationRow first = line.addAllocation();
+        first.setSourceCell(choiceById(line.sourceCellChoices(), sourceCell));
+        first.setDestinationCell(choiceById(line.destinationCellChoices(), destCell));
+        first.setQuantity("0.600000");
+        TransferAllocationRow second = line.addAllocation();
+        second.setSourceCell(choiceById(line.sourceCellChoices(), sourceCellB));
+        second.setDestinationCell(choiceById(line.destinationCellChoices(), destCellB));
+        second.setQuantity("0.400000");
+
+        viewModel.selectTransferLine(line.lineId());
+        assertEquals(2, viewModel.findTransferLine(line.lineId()).allocations().size());
+
+        viewModel.selectTransferLine(null);
+        viewModel.selectTransferLine(line.lineId());
+        assertEquals(2, viewModel.findTransferLine(line.lineId()).allocations().size());
+        assertEquals("0.600000", line.allocations().get(0).quantity());
+        assertEquals("0.400000", line.allocations().get(1).quantity());
+    }
+
+    @Test
+    void receiptDisabledForDraftEnabledForSentDisabledAfterReceived() {
+        seedInProduction();
+        viewModel.openForOrder(OrderId.of(orderId));
+
+        WarehouseTransferRefView ref =
+                new WarehouseTransferRefView(warehouseDraftId, materialRef, new BigDecimal("1"));
+        LogicalTransferView transfer =
+                new LogicalTransferView(
+                        logicalTransferId,
+                        templateId,
+                        Instant.parse("2026-01-01T12:00:00Z"),
+                        List.of(ref));
+        applicationApi.logicalTransfers = List.of(transfer);
+
+        warehouseApi.transferStatuses.put(warehouseDraftId, "DRAFT");
+        viewModel.refresh();
+        viewModel.selectedLogicalTransferProperty().set(viewModel.logicalTransfers().get(0));
+        assertFalse(viewModel.canReceiptProperty().get());
+
+        warehouseApi.transferStatuses.put(warehouseDraftId, "SENT");
+        viewModel.refresh();
+        viewModel.selectedLogicalTransferProperty().set(viewModel.logicalTransfers().get(0));
+        assertTrue(viewModel.canReceiptProperty().get());
+
+        warehouseApi.transferStatuses.put(warehouseDraftId, "RECEIVED");
+        viewModel.refresh();
+        viewModel.selectedLogicalTransferProperty().set(viewModel.logicalTransfers().get(0));
+        assertFalse(viewModel.canReceiptProperty().get());
     }
 
     private static StorageCellChoice choiceById(

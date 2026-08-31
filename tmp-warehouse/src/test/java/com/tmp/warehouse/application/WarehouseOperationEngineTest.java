@@ -170,6 +170,14 @@ class WarehouseOperationEngineTest {
         }
 
         @Override
+        public List<WarehouseOperation> findByTypeAndStatus(
+                WarehouseOperationType type, WarehouseOperationStatus status) {
+            return store.values().stream()
+                    .filter(op -> op.type() == type && op.status() == status)
+                    .toList();
+        }
+
+        @Override
         public WarehouseOperation update(WarehouseOperation operation) {
             WarehouseOperation current = store.get(operation.id());
             WarehouseOperation persisted =

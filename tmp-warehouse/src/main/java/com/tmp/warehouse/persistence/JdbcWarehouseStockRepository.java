@@ -254,21 +254,37 @@ public final class JdbcWarehouseStockRepository {
     public Optional<WarehouseOperationRow> findOperationById(WarehouseOperationId id) {
         Objects.requireNonNull(id, "id");
         try {
-            return Optional.ofNullable(jdbcTemplate.queryForObject(
-                    """
-                    SELECT wo.id, wo.operation_type, wo.status, wo.warehouse_id, wo.storage_cell_id,
-                           wo.quantity, wo.stock_state, wo.version, wo.created_at, wo.updated_at,
-                           mr.id AS material_id, mr.article, mr.name, mr.color, mr.size,
-                           mr.unit_of_measure
-                    FROM warehouse.warehouse_operations wo
-                    JOIN warehouse.material_references mr ON wo.material_reference_id = mr.id
-                    WHERE wo.id = ?
-                    """,
-                    OPERATION_MAPPER,
-                    id.value()));
+            return Optional.ofNullable(
+                    jdbcTemplate.queryForObject(
+                            operationSelectSql() + " WHERE wo.id = ?",
+                            OPERATION_MAPPER,
+                            id.value()));
         } catch (EmptyResultDataAccessException ex) {
             return Optional.empty();
         }
+    }
+
+    public List<WarehouseOperationRow> findOperationsByTypeAndStatus(
+            WarehouseOperationType operationType, WarehouseOperationStatus status) {
+        Objects.requireNonNull(operationType, "operationType");
+        Objects.requireNonNull(status, "status");
+        return jdbcTemplate.query(
+                operationSelectSql()
+                        + " WHERE wo.operation_type = ? AND wo.status = ? ORDER BY wo.created_at",
+                OPERATION_MAPPER,
+                operationType.name(),
+                status.name());
+    }
+
+    private static String operationSelectSql() {
+        return """
+                SELECT wo.id, wo.operation_type, wo.status, wo.warehouse_id, wo.storage_cell_id,
+                       wo.quantity, wo.stock_state, wo.version, wo.created_at, wo.updated_at,
+                       mr.id AS material_id, mr.article, mr.name, mr.color, mr.size,
+                       mr.unit_of_measure
+                FROM warehouse.warehouse_operations wo
+                JOIN warehouse.material_references mr ON wo.material_reference_id = mr.id
+                """;
     }
 
     private static StockPositionRow mapPosition(ResultSet rs, int rowNum) throws SQLException {

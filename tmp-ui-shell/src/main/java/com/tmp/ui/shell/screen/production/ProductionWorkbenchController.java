@@ -11,10 +11,14 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.cell.TextFieldTableCell;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.VBox;
+import javafx.collections.ListChangeListener;
+import java.util.UUID;
 
 /**
  * Production workbench FXML controller. Confirmation dialogs live here; no business logic.
@@ -454,18 +458,62 @@ public final class ProductionWorkbenchController
                             }
                         });
 
+        transferLinesTable.setRowFactory(
+                table -> {
+                    TableRow<TransferLineRow> row = new TableRow<>();
+                    row.addEventHandler(
+                            MouseEvent.MOUSE_PRESSED,
+                            event -> {
+                                if (!row.isEmpty()) {
+                                    TransferLineRow item = row.getItem();
+                                    table.getSelectionModel().select(item);
+                                    viewModel.selectTransferLine(item.lineId());
+                                    syncTransferAllocationsTable();
+                                }
+                            });
+                    return row;
+                });
+
         transferLinesTable
                 .getSelectionModel()
                 .selectedItemProperty()
                 .addListener(
                         (obs, oldValue, selected) -> {
-                            if (selected == null) {
-                                transferAllocationsTable.setItems(null);
-                            } else {
-                                transferAllocationsTable.setItems(selected.allocations());
+                            if (selected != null) {
+                                viewModel.selectTransferLine(selected.lineId());
                             }
+                            syncTransferAllocationsTable();
                             transferLinesTable.refresh();
                         });
+
+        viewModel
+                .selectedTransferLineIdProperty()
+                .addListener(
+                        (obs, oldValue, lineId) -> {
+                            if (lineId != null) {
+                                TransferLineRow row = viewModel.findTransferLine(lineId);
+                                if (row != null) {
+                                    transferLinesTable.getSelectionModel().select(row);
+                                }
+                            }
+                            syncTransferAllocationsTable();
+                        });
+
+        viewModel
+                .transferLines()
+                .addListener(
+                        (ListChangeListener<TransferLineRow>)
+                                change -> {
+                                    UUID lineId =
+                                            viewModel.selectedTransferLineIdProperty().get();
+                                    if (lineId != null) {
+                                        TransferLineRow row = viewModel.findTransferLine(lineId);
+                                        if (row != null) {
+                                            transferLinesTable.getSelectionModel().select(row);
+                                        }
+                                    }
+                                    syncTransferAllocationsTable();
+                                });
 
         addTransferAllocationButton.setOnAction(
                 e -> {
@@ -473,7 +521,7 @@ public final class ProductionWorkbenchController
                             transferLinesTable.getSelectionModel().getSelectedItem();
                     if (selected != null) {
                         viewModel.addTransferAllocation(selected);
-                        transferAllocationsTable.setItems(selected.allocations());
+                        syncTransferAllocationsTable();
                         transferLinesTable.refresh();
                     }
                 });
@@ -485,6 +533,7 @@ public final class ProductionWorkbenchController
                             transferAllocationsTable.getSelectionModel().getSelectedItem();
                     if (line != null && allocation != null) {
                         viewModel.removeTransferAllocation(line, allocation);
+                        syncTransferAllocationsTable();
                         transferLinesTable.refresh();
                     }
                 });
@@ -494,6 +543,7 @@ public final class ProductionWorkbenchController
                             transferLinesTable.getSelectionModel().getSelectedItem();
                     if (selected != null) {
                         viewModel.applyTransferRequestedQuantity(selected);
+                        syncTransferAllocationsTable();
                     }
                 });
         excludeTransferLineButton.setOnAction(
@@ -584,16 +634,27 @@ public final class ProductionWorkbenchController
                             }
                         });
 
+        releaseMaterialsTable.setRowFactory(
+                table -> {
+                    TableRow<ReleaseMaterialRow> row = new TableRow<>();
+                    row.addEventHandler(
+                            MouseEvent.MOUSE_PRESSED,
+                            event -> {
+                                if (!row.isEmpty()) {
+                                    ReleaseMaterialRow item = row.getItem();
+                                    table.getSelectionModel().select(item);
+                                    syncReleaseAllocationsTable();
+                                }
+                            });
+                    return row;
+                });
+
         releaseMaterialsTable
                 .getSelectionModel()
                 .selectedItemProperty()
                 .addListener(
                         (obs, oldValue, selected) -> {
-                            if (selected == null) {
-                                releaseAllocationsTable.setItems(null);
-                            } else {
-                                releaseAllocationsTable.setItems(selected.allocations());
-                            }
+                            syncReleaseAllocationsTable();
                             releaseMaterialsTable.refresh();
                         });
 
@@ -603,7 +664,7 @@ public final class ProductionWorkbenchController
                             releaseMaterialsTable.getSelectionModel().getSelectedItem();
                     if (selected != null) {
                         viewModel.addReleaseAllocation(selected);
-                        releaseAllocationsTable.setItems(selected.allocations());
+                        syncReleaseAllocationsTable();
                         releaseMaterialsTable.refresh();
                     }
                 });
@@ -615,11 +676,36 @@ public final class ProductionWorkbenchController
                             releaseAllocationsTable.getSelectionModel().getSelectedItem();
                     if (material != null && allocation != null) {
                         viewModel.removeReleaseAllocation(material, allocation);
+                        syncReleaseAllocationsTable();
                         releaseMaterialsTable.refresh();
                     }
                 });
         confirmReleaseButton.disableProperty().bind(viewModel.canReleaseProperty().not());
         confirmReleaseButton.setOnAction(e -> viewModel.confirmRelease());
+    }
+
+    private void syncTransferAllocationsTable() {
+        TransferLineRow selected = transferLinesTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            UUID lineId = viewModel.selectedTransferLineIdProperty().get();
+            if (lineId != null) {
+                selected = viewModel.findTransferLine(lineId);
+            }
+        }
+        if (selected == null) {
+            transferAllocationsTable.setItems(null);
+            return;
+        }
+        transferAllocationsTable.setItems(selected.allocations());
+    }
+
+    private void syncReleaseAllocationsTable() {
+        ReleaseMaterialRow selected = releaseMaterialsTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            releaseAllocationsTable.setItems(null);
+            return;
+        }
+        releaseAllocationsTable.setItems(selected.allocations());
     }
 
     private void confirmCancel() {

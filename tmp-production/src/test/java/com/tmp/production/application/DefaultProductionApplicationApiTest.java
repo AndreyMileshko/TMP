@@ -150,6 +150,10 @@ class DefaultProductionApplicationApiTest {
         assertEquals(transfer.logicalTransferId().value(), views.getFirst().id());
         assertEquals(transfer.templateId().value(), views.getFirst().templateId());
         assertEquals(createdAt, views.getFirst().createdAt());
+        assertEquals(1, views.getFirst().warehouseOperations().size());
+        assertEquals(
+                transfer.warehouseOperationRefs().getFirst().warehouseDraftOperationId(),
+                views.getFirst().warehouseOperations().getFirst().warehouseDraftOperationId());
     }
 
     @Test

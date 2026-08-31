@@ -324,7 +324,15 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         return new LogicalTransferView(
                 transfer.logicalTransferId().value(),
                 transfer.templateId().value(),
-                transfer.createdAt());
+                transfer.createdAt(),
+                transfer.warehouseOperationRefs().stream()
+                        .map(
+                                ref ->
+                                        new WarehouseTransferRefView(
+                                                ref.warehouseDraftOperationId(),
+                                                ref.materialReferenceId().value(),
+                                                ref.quantity()))
+                        .toList());
     }
 
     private ReleasePreviewView map(PrepareReleasePreview preview) {

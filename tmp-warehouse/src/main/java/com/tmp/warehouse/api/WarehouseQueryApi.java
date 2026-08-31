@@ -7,6 +7,7 @@ import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.math.BigDecimal;
@@ -64,4 +65,7 @@ public interface WarehouseQueryApi {
     List<ReservationLinkView> listReservationLinks(String materialCode);
 
     TransferStatusView getTransferStatus(UUID operationId);
+
+    /** Lists Warehouse-owned transfer requests still in {@code DRAFT} (no stock movement yet). */
+    List<TransferRequestView> listTransferDrafts();
 }

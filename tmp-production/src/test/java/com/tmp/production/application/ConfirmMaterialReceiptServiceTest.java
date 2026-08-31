@@ -19,6 +19,7 @@ import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
 import com.tmp.production.testsupport.ProductionHistoryTestSupport;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
+import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
 import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
@@ -369,6 +370,11 @@ class ConfirmMaterialReceiptServiceTest {
                     base.destinationWarehouseId(),
                     base.destinationStorageCellId(),
                     base.receiveOperationId());
+        }
+
+        @Override
+        public List<TransferRequestView> listTransferDrafts() {
+            return List.of();
         }
 
         @Override

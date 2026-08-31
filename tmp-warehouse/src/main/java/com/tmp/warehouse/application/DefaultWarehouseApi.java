@@ -305,6 +305,37 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     }
 
     @Override
+    public List<TransferRequestView> listTransferDrafts() {
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        return operations
+                .findByTypeAndStatus(
+                        WarehouseOperationType.TRANSFER_SEND, WarehouseOperationStatus.DRAFT)
+                .stream()
+                .map(this::toTransferRequestView)
+                .toList();
+    }
+
+    private TransferRequestView toTransferRequestView(WarehouseOperation draft) {
+        TransferOperationContext context =
+                transferContexts
+                        .findByOperationId(draft.id())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "Transfer context not found for draft: "
+                                                        + draft.id().value()));
+        return new TransferRequestView(
+                draft.id().value(),
+                logicalTransferStatus(draft, context),
+                draft.material().id().value(),
+                draft.quantity().value(),
+                draft.warehouseId().value(),
+                draft.storageCellId().value(),
+                context.destinationWarehouseId().value(),
+                context.destinationStorageCellId().value());
+    }
+
+    @Override
     public OperationResult receive(ReceiptCommand command) {
         Objects.requireNonNull(command, "command");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_RECEIPT);

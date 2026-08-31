@@ -157,11 +157,28 @@ public interface ProductionApplicationApi {
         }
     }
 
-    record LogicalTransferView(UUID id, UUID templateId, Instant createdAt) {
+    record WarehouseTransferRefView(
+            UUID warehouseDraftOperationId,
+            UUID materialReferenceId,
+            BigDecimal quantity) {
+        public WarehouseTransferRefView {
+            Objects.requireNonNull(warehouseDraftOperationId, "warehouseDraftOperationId");
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            Objects.requireNonNull(quantity, "quantity");
+        }
+    }
+
+    record LogicalTransferView(
+            UUID id,
+            UUID templateId,
+            Instant createdAt,
+            List<WarehouseTransferRefView> warehouseOperations) {
         public LogicalTransferView {
             Objects.requireNonNull(id, "id");
             Objects.requireNonNull(templateId, "templateId");
             Objects.requireNonNull(createdAt, "createdAt");
+            Objects.requireNonNull(warehouseOperations, "warehouseOperations");
+            warehouseOperations = List.copyOf(warehouseOperations);
         }
     }
 

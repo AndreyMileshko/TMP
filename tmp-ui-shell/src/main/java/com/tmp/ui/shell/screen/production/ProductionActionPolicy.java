@@ -32,13 +32,14 @@ public final class ProductionActionPolicy {
     }
 
     /**
-     * @param hasApplicableTransfer true when at least one logical transfer exists for receipt
+     * @param transferReceivable true when selected logical transfer has at least one Warehouse SENT
+     *     ref and no DRAFT refs (Warehouse lifecycle)
      */
     public static Decision evaluate(
             boolean orderSelected,
             OrderProductionViewStatus status,
             Permissions permissions,
-            boolean hasApplicableTransfer) {
+            boolean transferReceivable) {
         Objects.requireNonNull(permissions, "permissions");
         if (!orderSelected || status == null) {
             return Decision.none();
@@ -50,7 +51,7 @@ public final class ProductionActionPolicy {
                     false,
                     permissions.check(),
                     permissions.transfer(),
-                    permissions.receipt() && hasApplicableTransfer,
+                    permissions.receipt() && transferReceivable,
                     permissions.release(),
                     permissions.cancel());
             case MANUFACTURED, CANCELLED -> Decision.none();

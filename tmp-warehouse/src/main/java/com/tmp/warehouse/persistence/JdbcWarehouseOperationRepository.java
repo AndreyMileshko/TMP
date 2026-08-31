@@ -2,11 +2,14 @@ package com.tmp.warehouse.persistence;
 
 import com.tmp.warehouse.domain.WarehouseOperation;
 import com.tmp.warehouse.domain.WarehouseOperationId;
+import com.tmp.warehouse.domain.WarehouseOperationStatus;
+import com.tmp.warehouse.domain.WarehouseOperationType;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import com.tmp.warehouse.persistence.WarehousePersistenceModels.WarehouseOperationRow;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -39,6 +42,16 @@ public final class JdbcWarehouseOperationRepository implements WarehouseOperatio
     public Optional<WarehouseOperation> findById(WarehouseOperationId id) {
         Objects.requireNonNull(id, "id");
         return stock.findOperationById(id).map(WarehouseOperationRow::toDomain);
+    }
+
+    @Override
+    public List<WarehouseOperation> findByTypeAndStatus(
+            WarehouseOperationType type, WarehouseOperationStatus status) {
+        Objects.requireNonNull(type, "type");
+        Objects.requireNonNull(status, "status");
+        return stock.findOperationsByTypeAndStatus(type, status).stream()
+                .map(WarehouseOperationRow::toDomain)
+                .toList();
     }
 
     @Override
