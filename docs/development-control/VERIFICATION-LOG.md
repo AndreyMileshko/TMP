@@ -2,6 +2,47 @@
 
 ## Latest result
 
+**Date:** 2026-08-31
+**Scope:** POST-CLOSURE PRODUCTION/Warehouse CORRECTION (Stage 7 remains DONE)
+**Overall:** PASS
+
+### Post-closure corrective verification (2026-08-31)
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-production -am test` | PASS (tmp-production 347 tests, 0 failures) |
+| `mvn -pl :tmp-warehouse -am test` | PASS (tmp-warehouse 172 tests, 0 failures) |
+| `mvn -pl :tmp-ui-shell -am test` | PASS (tmp-ui-shell 240 tests, 0 failures) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS (135 tests; `Stage7ProductionArchitectureTest` 72/72) |
+| `mvn test` (full reactor) | PASS (1704 tests, 0 failures, 0 errors) |
+| `mvn verify` (full reactor) | PASS (1704 unit + 188 integration tests) |
+| `git diff --check` | clean (CRLF warning only) |
+| `ProductionPublicBoundaryPostgresIT` (PostgreSQL/Testcontainers) | PASS (13 scenarios) |
+
+**Note:** Stage 7 formal closure was 2026-08-25. Evidence from that date does not verify 2026-08-31 corrective code. Full reactor regression was rerun after corrections.
+
+### Manual defect verification
+
+| ID | Verified |
+|---|---|
+| PROD-MANUAL-004 | JavaFX TableView reselection shows 2 allocation rows with 0.600000 / 0.400000 |
+| PROD-MANUAL-005 | VIEW loads drafts; TRANSFER sends; view-only cannot send |
+| PROD-MANUAL-006 | DRAFT receipt rejected; SENT enabled; RECEIVED disabled; partial SENT fail-closed |
+| PROD-MANUAL-007 | Same Warehouse operation ID DRAFT → SENT → RECEIVED via public APIs |
+
+### Closure state
+
+| Item | Result |
+|------|--------|
+| Stage 6 manual Warehouse Transfer Send preserved | PASS |
+| Stage 7 Production | DONE / 100% (unchanged task count 27/27) |
+| Stage 8 Cutting Optimization | NOT STARTED |
+| Active blockers | NONE |
+
+---
+
+## Previous result (2026-08-25)
+
 **Date:** 2026-08-25
 **Scope:** STAGE7-020 — Stage 7 Final Closure Audit (Production)
 **Overall:** PASS

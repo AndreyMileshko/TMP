@@ -4,6 +4,48 @@
 
 ---
 
+## POST-CLOSURE PRODUCTION/Warehouse CORRECTION — 2026-08-31
+
+**Date:** 2026-08-31
+**Stage:** 7 (post-closure corrective pass; no new STAGE7 task IDs)
+**Base commit:** `2c7113b6d150f9f87218417b6828ac937be73f3e`
+**Status:** DONE
+
+### Context
+
+Stage 7 had already been formally closed on 2026-08-25. Manual acceptance defects PROD-MANUAL-004/005/006/007 required corrections after commit `2c7113b`. STAGE7-018/019/020 remain DONE; Stage 8 NOT STARTED.
+
+### Changes
+
+- **Warehouse UI:** Restored Stage 6 manual inter-warehouse Transfer Send form (Section B) alongside Production-created DRAFT table (Section A) in `WarehouseWorkbenchScreen.fxml` / controller / ViewModel (`submitManualTransferSend` vs `submitTransferSend` on selected draft).
+- **Permissions:** Draft list load/refresh governed by `warehouse.view`; send selected draft and manual send governed by `warehouse.transfer`; TRANSFER section accessible with view OR transfer.
+- **Production UI proof:** `ProductionWorkbenchControllerFxTest.transferLineReselectionKeepsAllocationRowsVisibleInTable` — visual TableView regression for PROD-MANUAL-004.
+- **Public boundary:** Extended `ProductionPublicBoundaryPostgresIT` — `listTransferDrafts` same-ID proof, full 3+4+3 partial release (Q=1, N=10), plan 0.400000 / actual 0.350000 multi-cell deviation, zero actual skips consumption, transfer receipt lifecycle fail-closed.
+
+### Manual defect resolution
+
+| ID | Result |
+|---|---|
+| PROD-MANUAL-004 | Fixed + JavaFX regression test |
+| PROD-MANUAL-005 | Fixed (VIEW read / TRANSFER send; UI + backend aligned) |
+| PROD-MANUAL-006 | Confirmed fixed in 2c7113b + lifecycle public-boundary test |
+| PROD-MANUAL-007 | Confirmed fixed in 2c7113b + same-ID DRAFT→SENT→RECEIVED public-boundary proof |
+
+### Verification (executed 2026-08-31)
+
+- `mvn -pl :tmp-production -am test` — PASS (tmp-production 347 tests)
+- `mvn -pl :tmp-warehouse -am test` — PASS (tmp-warehouse 172 tests)
+- `mvn -pl :tmp-ui-shell -am test` — PASS (tmp-ui-shell 240 tests)
+- `mvn -pl :tmp-architecture-tests -am test` — PASS (135 module tests; Stage7ProductionArchitectureTest 72/72)
+- `mvn test` — PASS (1704 unit tests)
+- `mvn verify` — PASS (1704 unit + 188 IT)
+- `git diff --check` — clean (CRLF warnings only)
+- PostgreSQL public-boundary suite (`ProductionPublicBoundaryPostgresIT`) — PASS (13 scenarios)
+
+Stage 7: REMAINS DONE. Stage 8: NOT STARTED.
+
+---
+
 ## STAGE7-020 — Stage 7 Final Closure Audit
 
 **Date:** 2026-08-25

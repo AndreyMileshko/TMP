@@ -11576,3 +11576,31 @@ Closure audit Stage 7 Production выполнен на HEAD `fac4e3d` + control-
 
 Full verification на текущем HEAD: `mvn -pl :tmp-production -am test` PASS (tmp-production 334); `mvn -pl :tmp-ui-shell -am test` PASS (tmp-ui-shell 230); `mvn -pl :tmp-architecture-tests -am test` PASS (145; Stage7 72/72); `mvn test` PASS (1690); `mvn verify` PASS (1690 unit + 184 IT); `git diff --check` clean. Stage 7 = DONE / 100% (27/27). STAGE7-008A остаётся PLANNED post-launch и не блокирует closure. Stage 8 = NOT STARTED.
 
+---
+
+## POST-CLOSURE PRODUCTION/Warehouse CORRECTION — 2026-08-31
+
+**Status:** DONE (corrective pass; not a new STAGE7 task)
+**Stage:** 7 post-closure
+**Base commit:** `2c7113b6d150f9f87218417b6828ac937be73f3e`
+**Depends on:** STAGE7-020 (Stage 7 already closed)
+
+### Goal
+
+Finish and verify post-closure Production/Warehouse corrections from manual acceptance PROD-MANUAL-004/005/006/007 without reopening STAGE7-019/020 or starting Stage 8.
+
+### Allowed code scope
+
+- `tmp-ui-shell` Warehouse + Production UI/tests
+- `tmp-production` public-boundary integration tests
+- control docs
+
+### Completion notes (2026-08-31)
+
+- Restored manual Warehouse Transfer Send UI alongside DRAFT table.
+- Permission normalization: VIEW reads drafts; TRANSFER sends.
+- Extended public-boundary PostgreSQL proofs (same transfer ID lifecycle, 3+4+3 partial release, plan/fact deviation, zero actual, receipt lifecycle).
+- JavaFX regression test for transfer allocation reselection visibility.
+- Full reactor `mvn test` / `mvn verify` PASS on 2026-08-31. Stage 7 REMAINS DONE. Stage 8 NOT STARTED.
+
+See `POST-CLOSURE-CORRECTION-2026-08-31.md` for full record.

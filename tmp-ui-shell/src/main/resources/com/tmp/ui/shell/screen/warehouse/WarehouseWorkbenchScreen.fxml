@@ -103,7 +103,7 @@
         </VBox>
 
         <VBox fx:id="transferPane" spacing="10" visible="false" managed="false">
-            <Label text="Черновики перемещений (DRAFT)"/>
+            <Label text="Существующие черновики перемещений (DRAFT)"/>
             <HBox spacing="8">
                 <Button fx:id="loadTransferDraftsButton" text="Обновить список"/>
             </HBox>
@@ -119,7 +119,15 @@
                     <TableColumn fx:id="transferDraftDestCellColumn" text="Куда: ячейка" prefWidth="100"/>
                 </columns>
             </TableView>
-            <Button fx:id="submitTransferSendButton" text="Отправить выбранный черновик (Transfer Send)"/>
+            <Button fx:id="submitTransferSendButton" text="Отправить выбранный черновик"/>
+            <Separator/>
+            <Label text="Ручное межскладское перемещение (Transfer Send)"/>
+            <ComboBox fx:id="transferSourceWarehouseCombo" promptText="Откуда: склад" maxWidth="Infinity"/>
+            <ComboBox fx:id="transferSourceCellCombo" promptText="Откуда: ячейка" maxWidth="Infinity"/>
+            <ComboBox fx:id="transferDestWarehouseCombo" promptText="Куда: склад" maxWidth="Infinity"/>
+            <ComboBox fx:id="transferMaterialCombo" promptText="Материал" maxWidth="Infinity"/>
+            <TextField fx:id="transferQuantityField" promptText="Количество"/>
+            <Button fx:id="submitManualTransferSendButton" text="Отправить (Transfer Send)"/>
             <Separator/>
             <Label text="Transfer Receive — получение (ручная операция)"/>
             <ComboBox fx:id="transferReceiveMaterialCombo" promptText="Материал" maxWidth="Infinity"/>

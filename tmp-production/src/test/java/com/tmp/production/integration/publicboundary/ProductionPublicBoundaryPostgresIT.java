@@ -35,6 +35,7 @@ import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
 import com.tmp.production.api.ProductionApplicationApi.TransferCellAllocation;
 import com.tmp.production.api.ProductionApplicationApi.TransferTemplateLineView;
 import com.tmp.production.api.ProductionApplicationApi.TransferTemplateView;
+import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateStatus;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
@@ -48,6 +49,7 @@ import com.tmp.production.api.ProductionQueryApi.ProductionHistoryType;
 import com.tmp.production.application.event.OrderAcceptedIntoProduction;
 import com.tmp.production.application.event.ProductionReleased;
 import com.tmp.production.domain.CancelOrderProductionException;
+import com.tmp.production.domain.MaterialReceiptConfirmationException;
 import com.tmp.production.domain.ProductionHistoryEntry;
 import com.tmp.production.domain.ProductionMaterialTransfer;
 import com.tmp.production.domain.SourceOrderId;
@@ -67,6 +69,7 @@ import com.tmp.warehouse.api.WarehouseApi.ReceiptCommand;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
@@ -325,6 +328,17 @@ class ProductionPublicBoundaryPostgresIT {
                                         new TransferCellAllocation(
                                                 primaryLine.lineId(), cellMB, cellPY, bd(4))));
 
+        List<UUID> warehouseOperationIds =
+                logical.warehouseOperations().stream()
+                        .map(WarehouseTransferRefView::warehouseDraftOperationId)
+                        .toList();
+        assertEquals(2, warehouseOperationIds.size());
+        List<UUID> listedDraftIds =
+                warehouseQueryApi.listTransferDrafts().stream()
+                        .map(TransferRequestView::operationId)
+                        .toList();
+        assertTrue(listedDraftIds.containsAll(warehouseOperationIds));
+
         ProductionMaterialTransfer durable =
                 production
                         .materialTransfers()
@@ -337,6 +351,7 @@ class ProductionPublicBoundaryPostgresIT {
             assertEquals(
                     "DRAFT",
                     warehouseQueryApi.getTransferStatus(ref.warehouseDraftOperationId()).status());
+            assertTrue(warehouseOperationIds.contains(ref.warehouseDraftOperationId()));
         }
         assertEquals(
                 0,
@@ -348,10 +363,12 @@ class ProductionPublicBoundaryPostgresIT {
                         availableInWarehouse(productionWarehouseId, primaryMaterialRefId)));
 
         for (WarehouseTransferOperationRef ref : durable.warehouseOperationRefs()) {
-            warehouseCommandApi.sendTransfer(ref.warehouseDraftOperationId());
-            assertEquals(
-                    "SENT",
-                    warehouseQueryApi.getTransferStatus(ref.warehouseDraftOperationId()).status());
+            UUID sameId = ref.warehouseDraftOperationId();
+            warehouseCommandApi.sendTransfer(sameId);
+            assertEquals("SENT", warehouseQueryApi.getTransferStatus(sameId).status());
+            assertTrue(
+                    warehouseQueryApi.listTransferDrafts().stream()
+                            .noneMatch(draft -> draft.operationId().equals(sameId)));
         }
         assertEquals(0, bd(0).compareTo(availableInWarehouse(mainWarehouseId, primaryMaterialRefId)));
         assertEquals(
@@ -362,6 +379,9 @@ class ProductionPublicBoundaryPostgresIT {
         ReceiptResultView receipt =
                 production.applicationApi().confirmMaterialReceipt(logical.id());
         assertEquals(ReceiptStatusView.RECEIVED, receipt.status());
+        for (UUID operationId : warehouseOperationIds) {
+            assertEquals("RECEIVED", warehouseQueryApi.getTransferStatus(operationId).status());
+        }
         assertEquals(0, bd(6).compareTo(availableInCell(cellPX, primaryMaterialRefId)));
         assertEquals(0, bd(4).compareTo(availableInCell(cellPY, primaryMaterialRefId)));
         assertHistoryCount(order.orderId(), ProductionHistoryType.MATERIAL_RECEIPT_CONFIRMED, 1);
@@ -628,6 +648,325 @@ class ProductionPublicBoundaryPostgresIT {
                         availableInWarehouse(productionWarehouseId, primaryMaterialRefId)));
     }
 
+    @Test
+    void fullPartialReleaseThreeFourThreeClosesExactlyThroughPublicBoundary() {
+        ImportedOrder order = importOrder(bd(1), 10, bd(1), 5);
+        seedStockForOrderMaterial(bd(1));
+        putOtherMaterialInProduction(bd(1));
+        production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
+        transferSingleMaterialToProduction(order, bd(1));
+
+        ReleasePreviewView firstPreview =
+                production
+                        .applicationApi()
+                        .prepareRelease(
+                                order.orderId(),
+                                List.of(new ItemReleaseView(order.itemAId(), 3)));
+        assertEquals(
+                0,
+                bd("0.300000")
+                        .compareTo(firstPreview.plannedMaterialLines().getFirst().plannedQuantity()));
+        production
+                .applicationApi()
+                .releaseProducts(
+                        order.orderId(),
+                        List.of(new ItemReleaseView(order.itemAId(), 3)),
+                        List.of(
+                                new MaterialActualUsageView(
+                                        order.itemAId(),
+                                        primaryMaterialRefId,
+                                        bd("0.300000"),
+                                        List.of(
+                                                new CellAllocationView(
+                                                        cellPX, bd("0.300000"))))));
+
+        ReleasePreviewView secondPreview =
+                production
+                        .applicationApi()
+                        .prepareRelease(
+                                order.orderId(),
+                                List.of(new ItemReleaseView(order.itemAId(), 4)));
+        assertEquals(
+                0,
+                bd("0.400000")
+                        .compareTo(secondPreview.plannedMaterialLines().getFirst().plannedQuantity()));
+        production
+                .applicationApi()
+                .releaseProducts(
+                        order.orderId(),
+                        List.of(new ItemReleaseView(order.itemAId(), 4)),
+                        List.of(
+                                new MaterialActualUsageView(
+                                        order.itemAId(),
+                                        primaryMaterialRefId,
+                                        bd("0.400000"),
+                                        List.of(
+                                                new CellAllocationView(
+                                                        cellPX, bd("0.400000"))))));
+
+        ReleasePreviewView thirdPreview =
+                production
+                        .applicationApi()
+                        .prepareRelease(
+                                order.orderId(),
+                                List.of(new ItemReleaseView(order.itemAId(), 3)));
+        assertEquals(
+                0,
+                bd("0.300000")
+                        .compareTo(thirdPreview.plannedMaterialLines().getFirst().plannedQuantity()));
+        production
+                .applicationApi()
+                .releaseProducts(
+                        order.orderId(),
+                        List.of(new ItemReleaseView(order.itemAId(), 3)),
+                        List.of(
+                                new MaterialActualUsageView(
+                                        order.itemAId(),
+                                        primaryMaterialRefId,
+                                        bd("0.300000"),
+                                        List.of(
+                                                new CellAllocationView(
+                                                        cellPX, bd("0.300000"))))));
+
+        ItemProductionStateView itemA = itemState(order.itemAId());
+        assertEquals(ItemProductionStateStatus.RELEASED, itemA.status());
+        assertEquals(10L, itemA.releasedQuantity());
+        assertEquals(0L, itemA.activeProductionQuantity());
+
+        UUID otherRef =
+                warehouseQueryApi.listMaterialReferences().stream()
+                        .filter(ref -> OTHER_CODE.equals(ref.article()))
+                        .findFirst()
+                        .orElseThrow()
+                        .materialReferenceId();
+        production
+                .applicationApi()
+                .releaseProducts(
+                        order.orderId(),
+                        List.of(new ItemReleaseView(order.itemBId(), 5)),
+                        List.of(
+                                new MaterialActualUsageView(
+                                        order.itemBId(),
+                                        otherRef,
+                                        bd(1),
+                                        List.of(new CellAllocationView(cellPX, bd(1))))));
+
+        assertEquals(
+                OrderProductionViewStatus.MANUFACTURED,
+                production.queryApi().getOrderProductionView(order.orderId()).status());
+        assertHistoryCount(order.orderId(), ProductionHistoryType.PRODUCTS_RELEASED, 4);
+    }
+
+    @Test
+    void partialReleasePlanFactDeviationConsumesActualOnlyThroughPublicBoundary() {
+        ImportedOrder order = importOrder(bd(1), 10, bd(1), 5);
+        seedStockForOrderMaterial(bd(1));
+        putOtherMaterialInProduction(bd(1));
+        production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
+        transferMultiCellMaterialToProduction(order, bd("0.600000"), bd("0.400000"));
+
+        production
+                .applicationApi()
+                .releaseProducts(
+                        order.orderId(),
+                        List.of(new ItemReleaseView(order.itemAId(), 3)),
+                        List.of(
+                                new MaterialActualUsageView(
+                                        order.itemAId(),
+                                        primaryMaterialRefId,
+                                        bd("0.300000"),
+                                        List.of(
+                                                new CellAllocationView(
+                                                        cellPX, bd("0.300000"))))));
+
+        BigDecimal pxBeforeSecond = availableInCell(cellPX, primaryMaterialRefId);
+        BigDecimal pyBeforeSecond = availableInCell(cellPY, primaryMaterialRefId);
+        ReleasePreviewView secondPreview =
+                production
+                        .applicationApi()
+                        .prepareRelease(
+                                order.orderId(),
+                                List.of(new ItemReleaseView(order.itemAId(), 4)));
+        assertEquals(
+                0,
+                bd("0.400000")
+                        .compareTo(secondPreview.plannedMaterialLines().getFirst().plannedQuantity()));
+
+        production
+                .applicationApi()
+                .releaseProducts(
+                        order.orderId(),
+                        List.of(new ItemReleaseView(order.itemAId(), 4)),
+                        List.of(
+                                new MaterialActualUsageView(
+                                        order.itemAId(),
+                                        primaryMaterialRefId,
+                                        bd("0.350000"),
+                                        List.of(
+                                                new CellAllocationView(cellPX, bd("0.200000")),
+                                                new CellAllocationView(cellPY, bd("0.150000"))))));
+
+        assertEquals(
+                0,
+                pxBeforeSecond
+                        .subtract(bd("0.200000"))
+                        .compareTo(availableInCell(cellPX, primaryMaterialRefId)));
+        assertEquals(
+                0,
+                pyBeforeSecond
+                        .subtract(bd("0.150000"))
+                        .compareTo(availableInCell(cellPY, primaryMaterialRefId)));
+        assertHistoryCount(order.orderId(), ProductionHistoryType.PRODUCTS_RELEASED, 2);
+        assertHistoryCount(order.orderId(), ProductionHistoryType.PLAN_FACT_DEVIATION, 1);
+        assertEquals(7L, itemState(order.itemAId()).releasedQuantity());
+
+        assertThrows(
+                RuntimeException.class,
+                () ->
+                        production
+                                .applicationApi()
+                                .releaseProducts(
+                                        order.orderId(),
+                                        List.of(new ItemReleaseView(order.itemAId(), 1)),
+                                        List.of(
+                                                new MaterialActualUsageView(
+                                                        order.itemAId(),
+                                                        primaryMaterialRefId,
+                                                        bd("0.100000"),
+                                                        List.of(
+                                                                new CellAllocationView(
+                                                                        cellPX, bd("0.060000")),
+                                                                new CellAllocationView(
+                                                                        cellPY, bd("0.050000")))))));
+    }
+
+    @Test
+    void zeroActualReleaseSkipsWarehouseConsumptionThroughPublicBoundary() {
+        ImportedOrder order = importOrder(bd(1), 10, bd(1), 5);
+        seedStockForOrderMaterial(bd(1));
+        production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
+        transferSingleMaterialToProduction(order, bd(1));
+
+        BigDecimal stockBefore = availableInCell(cellPX, primaryMaterialRefId);
+        production
+                .applicationApi()
+                .releaseProducts(
+                        order.orderId(),
+                        List.of(new ItemReleaseView(order.itemAId(), 3)),
+                        List.of(
+                                new MaterialActualUsageView(
+                                        order.itemAId(),
+                                        primaryMaterialRefId,
+                                        bd(0),
+                                        List.of())));
+
+        assertEquals(0, stockBefore.compareTo(availableInCell(cellPX, primaryMaterialRefId)));
+        assertEquals(3L, itemState(order.itemAId()).releasedQuantity());
+        assertHistoryCount(order.orderId(), ProductionHistoryType.PRODUCTS_RELEASED, 1);
+        assertHistoryCount(order.orderId(), ProductionHistoryType.PLAN_FACT_DEVIATION, 1);
+    }
+
+    @Test
+    void transferReceiptLifecycleFailClosedThroughPublicBoundary() {
+        ImportedOrder order = importStandardOrder();
+        production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
+        TransferTemplateView template =
+                production.applicationApi().prepareMaterialTransferTemplate(order.orderId());
+        TransferTemplateLineView primaryLine =
+                template.lines().stream()
+                        .filter(line -> MATERIAL_CODE.equals(line.materialCode()))
+                        .findFirst()
+                        .orElseThrow();
+        LogicalTransferView logical =
+                production
+                        .applicationApi()
+                        .confirmMaterialTransferCreate(
+                                template.templateId(),
+                                template.version(),
+                                List.of(
+                                        new TransferCellAllocation(
+                                                primaryLine.lineId(), cellMA, cellPX, bd(6)),
+                                        new TransferCellAllocation(
+                                                primaryLine.lineId(), cellMB, cellPY, bd(4))));
+        List<UUID> operationIds =
+                logical.warehouseOperations().stream()
+                        .map(WarehouseTransferRefView::warehouseDraftOperationId)
+                        .toList();
+
+        assertThrows(
+                MaterialReceiptConfirmationException.class,
+                () -> production.applicationApi().confirmMaterialReceipt(logical.id()));
+
+        warehouseCommandApi.sendTransfer(operationIds.get(0));
+        assertThrows(
+                MaterialReceiptConfirmationException.class,
+                () -> production.applicationApi().confirmMaterialReceipt(logical.id()));
+
+        warehouseCommandApi.sendTransfer(operationIds.get(1));
+        ReceiptResultView receipt =
+                production.applicationApi().confirmMaterialReceipt(logical.id());
+        assertEquals(ReceiptStatusView.RECEIVED, receipt.status());
+        for (UUID operationId : operationIds) {
+            assertEquals("RECEIVED", warehouseQueryApi.getTransferStatus(operationId).status());
+        }
+
+        ReceiptResultView retry =
+                production.applicationApi().confirmMaterialReceipt(logical.id());
+        assertEquals(ReceiptStatusView.ALREADY_RECEIVED, retry.status());
+    }
+
+    private void transferSingleMaterialToProduction(ImportedOrder order, BigDecimal quantity) {
+        TransferTemplateView template =
+                production.applicationApi().prepareMaterialTransferTemplate(order.orderId());
+        TransferTemplateLineView primaryLine =
+                template.lines().stream()
+                        .filter(line -> MATERIAL_CODE.equals(line.materialCode()))
+                        .findFirst()
+                        .orElseThrow();
+        LogicalTransferView logical =
+                production
+                        .applicationApi()
+                        .confirmMaterialTransferCreate(
+                                template.templateId(),
+                                template.version(),
+                                List.of(
+                                        new TransferCellAllocation(
+                                                primaryLine.lineId(),
+                                                cellMA,
+                                                cellPX,
+                                                quantity)));
+        for (WarehouseTransferRefView ref : logical.warehouseOperations()) {
+            warehouseCommandApi.sendTransfer(ref.warehouseDraftOperationId());
+        }
+        production.applicationApi().confirmMaterialReceipt(logical.id());
+    }
+
+    private void transferMultiCellMaterialToProduction(
+            ImportedOrder order, BigDecimal pxQuantity, BigDecimal pyQuantity) {
+        TransferTemplateView template =
+                production.applicationApi().prepareMaterialTransferTemplate(order.orderId());
+        TransferTemplateLineView primaryLine =
+                template.lines().stream()
+                        .filter(line -> MATERIAL_CODE.equals(line.materialCode()))
+                        .findFirst()
+                        .orElseThrow();
+        LogicalTransferView logical =
+                production
+                        .applicationApi()
+                        .confirmMaterialTransferCreate(
+                                template.templateId(),
+                                template.version(),
+                                List.of(
+                                        new TransferCellAllocation(
+                                                primaryLine.lineId(), cellMA, cellPX, pxQuantity),
+                                        new TransferCellAllocation(
+                                                primaryLine.lineId(), cellMB, cellPY, pyQuantity)));
+        for (WarehouseTransferRefView ref : logical.warehouseOperations()) {
+            warehouseCommandApi.sendTransfer(ref.warehouseDraftOperationId());
+        }
+        production.applicationApi().confirmMaterialReceipt(logical.id());
+    }
+
     private ImportedOrder launchTransferReceiveReady(ImportedOrder order) {
         production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
         TransferTemplateView template =
@@ -648,14 +987,7 @@ class ProductionPublicBoundaryPostgresIT {
                                                 primaryLine.lineId(), cellMA, cellPX, bd(6)),
                                         new TransferCellAllocation(
                                                 primaryLine.lineId(), cellMB, cellPY, bd(4))));
-        ProductionMaterialTransfer durable =
-                production
-                        .materialTransfers()
-                        .findById(
-                                com.tmp.production.domain.ProductionMaterialTransferId.of(
-                                        logical.id()))
-                        .orElseThrow();
-        for (WarehouseTransferOperationRef ref : durable.warehouseOperationRefs()) {
+        for (WarehouseTransferRefView ref : logical.warehouseOperations()) {
             warehouseCommandApi.sendTransfer(ref.warehouseDraftOperationId());
         }
         production.applicationApi().confirmMaterialReceipt(logical.id());

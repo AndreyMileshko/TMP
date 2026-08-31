@@ -278,6 +278,111 @@ class WarehouseWorkbenchViewModelTest {
     }
 
     @Test
+    void viewOnlyOperatorCanLoadDraftsButCannotSend() {
+        UUID wh = UUID.randomUUID();
+        UUID destWh = UUID.randomUUID();
+        UUID cell = UUID.randomUUID();
+        UUID destCell = UUID.randomUUID();
+        UUID draftId = UUID.randomUUID();
+        WarehouseView source = new WarehouseView(wh, "WH-S", "Source", true);
+        WarehouseView destination = new WarehouseView(destWh, "WH-D", "Dest", true);
+        api.warehouses.add(source);
+        api.warehouses.add(destination);
+        MaterialChoice material = api.addMaterial("M1");
+        api.transferDrafts.add(
+                new TransferRequestView(
+                        draftId,
+                        "DRAFT",
+                        material.id(),
+                        new BigDecimal("2"),
+                        wh,
+                        cell,
+                        destWh,
+                        destCell));
+
+        auth.allowed = Set.of(UiShellScreens.WAREHOUSE_VIEW_PERMISSION);
+        viewModel.refreshPermissions();
+        assertTrue(viewModel.canViewProperty().get());
+        assertFalse(viewModel.canTransferProperty().get());
+
+        viewModel.selectSection(WarehouseSection.TRANSFER);
+        assertEquals(WarehouseSection.TRANSFER, viewModel.sectionProperty().get());
+        assertEquals(1, viewModel.transferDraftRows().size());
+        assertEquals(1, api.listTransferDraftsCalls);
+
+        viewModel.selectedTransferDraftProperty().set(viewModel.transferDraftRows().get(0));
+        viewModel.submitTransferSend();
+        assertEquals(WarehouseUiErrorMapper.ACCESS_DENIED, viewModel.errorMessageProperty().get());
+        assertTrue(api.sendTransferCalls.isEmpty());
+    }
+
+    @Test
+    void viewAndTransferOperatorCanSendSelectedDraft() {
+        UUID wh = UUID.randomUUID();
+        UUID destWh = UUID.randomUUID();
+        UUID cell = UUID.randomUUID();
+        UUID destCell = UUID.randomUUID();
+        UUID draftId = UUID.randomUUID();
+        WarehouseView source = new WarehouseView(wh, "WH-S", "Source", true);
+        WarehouseView destination = new WarehouseView(destWh, "WH-D", "Dest", true);
+        api.warehouses.add(source);
+        api.warehouses.add(destination);
+        MaterialChoice material = api.addMaterial("M1");
+        api.transferDrafts.add(
+                new TransferRequestView(
+                        draftId,
+                        "DRAFT",
+                        material.id(),
+                        new BigDecimal("2"),
+                        wh,
+                        cell,
+                        destWh,
+                        destCell));
+
+        viewModel.loadWarehouses();
+        viewModel.selectSection(WarehouseSection.TRANSFER);
+        viewModel.selectedTransferDraftProperty().set(viewModel.transferDraftRows().get(0));
+        viewModel.submitTransferSend();
+
+        assertEquals(List.of(draftId), api.sendTransferCalls);
+        assertEquals(0, api.executeCalls.size());
+    }
+
+    @Test
+    void manualTransferSendUsesGenericPublicApi() {
+        UUID wh = UUID.randomUUID();
+        UUID destWh = UUID.randomUUID();
+        UUID cell = UUID.randomUUID();
+        WarehouseView source = new WarehouseView(wh, "WH-S", "Source", true);
+        WarehouseView destination = new WarehouseView(destWh, "WH-D", "Dest", true);
+        api.warehouses.add(source);
+        api.warehouses.add(destination);
+        MaterialChoice material = api.addMaterial("M1");
+        viewModel.loadWarehouses();
+
+        viewModel.transferMaterialProperty().set(material);
+        viewModel.transferQuantityProperty().set("2");
+        viewModel.transferSourceWarehouseProperty().set(WarehouseChoice.from(source));
+        viewModel.transferSourceCellProperty()
+                .set(new StorageCellChoice(cell, wh, "A-01", true));
+        viewModel.transferDestWarehouseProperty().set(WarehouseChoice.from(destination));
+        viewModel.submitManualTransferSend();
+
+        assertEquals(1, api.executeCalls.size());
+        assertEquals(OperationKind.TRANSFER_SEND, api.executeCalls.get(0).kind());
+        assertEquals(0, api.sendTransferCalls.size());
+    }
+
+    @Test
+    void transferSectionDeniedWithoutViewOrTransfer() {
+        auth.allowed = Set.of(UiShellScreens.WAREHOUSE_RECEIPT_PERMISSION);
+        viewModel.refreshPermissions();
+        viewModel.selectSection(WarehouseSection.TRANSFER);
+        assertEquals(WarehouseUiErrorMapper.ACCESS_DENIED, viewModel.errorMessageProperty().get());
+        assertEquals(WarehouseSection.WAREHOUSES, viewModel.sectionProperty().get());
+    }
+
+    @Test
     void consumptionAndAdjustmentUseWarehouseAndCellChoices() {
         UUID wh = UUID.randomUUID();
         UUID cell = UUID.randomUUID();
@@ -474,6 +579,7 @@ class WarehouseWorkbenchViewModelTest {
         private final List<MaterialReferenceView> materialReferences = new ArrayList<>();
         private final List<TransferRequestView> transferDrafts = new ArrayList<>();
         private final List<UUID> sendTransferCalls = new CopyOnWriteArrayList<>();
+        private int listTransferDraftsCalls;
         private int listMaterialReferencesCalls;
         private boolean denyNext;
 
@@ -644,6 +750,7 @@ class WarehouseWorkbenchViewModelTest {
 
         @Override
         public List<TransferRequestView> listTransferDrafts() {
+            listTransferDraftsCalls++;
             return List.copyOf(transferDrafts);
         }
 

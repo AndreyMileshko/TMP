@@ -222,6 +222,24 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
     private Button submitTransferSendButton;
 
     @FXML
+    private ComboBox<WarehouseChoice> transferSourceWarehouseCombo;
+
+    @FXML
+    private ComboBox<StorageCellChoice> transferSourceCellCombo;
+
+    @FXML
+    private ComboBox<WarehouseChoice> transferDestWarehouseCombo;
+
+    @FXML
+    private ComboBox<MaterialChoice> transferMaterialCombo;
+
+    @FXML
+    private TextField transferQuantityField;
+
+    @FXML
+    private Button submitManualTransferSendButton;
+
+    @FXML
     private ComboBox<MaterialChoice> transferReceiveMaterialCombo;
 
     @FXML
@@ -486,10 +504,30 @@ public final class WarehouseWorkbenchController implements ViewModelAware<Wareho
                                 transferDraftsTable.getSelectionModel().select(selected);
                             }
                         });
-        loadTransferDraftsButton.disableProperty().bind(viewModel.canTransferProperty().not());
+        loadTransferDraftsButton.disableProperty().bind(viewModel.canViewProperty().not());
         loadTransferDraftsButton.setOnAction(e -> viewModel.loadTransferDrafts());
-        submitTransferSendButton.disableProperty().bind(viewModel.canTransferProperty().not());
+        submitTransferSendButton.disableProperty().bind(
+                Bindings.or(
+                        viewModel.canTransferProperty().not(),
+                        Bindings.createBooleanBinding(
+                                () -> viewModel.selectedTransferDraftProperty().get() == null,
+                                viewModel.selectedTransferDraftProperty())));
         submitTransferSendButton.setOnAction(e -> viewModel.submitTransferSend());
+
+        bindWarehouseCombo(transferSourceWarehouseCombo, viewModel);
+        transferSourceWarehouseCombo.valueProperty().bindBidirectional(
+                viewModel.transferSourceWarehouseProperty());
+        transferSourceCellCombo.setItems(viewModel.transferSendCellChoices());
+        transferSourceCellCombo.valueProperty().bindBidirectional(
+                viewModel.transferSourceCellProperty());
+        bindWarehouseCombo(transferDestWarehouseCombo, viewModel);
+        transferDestWarehouseCombo.valueProperty().bindBidirectional(
+                viewModel.transferDestWarehouseProperty());
+        bindMaterialCombo(transferMaterialCombo, viewModel);
+        transferMaterialCombo.valueProperty().bindBidirectional(viewModel.transferMaterialProperty());
+        bindText(transferQuantityField, viewModel.transferQuantityProperty());
+        submitManualTransferSendButton.disableProperty().bind(viewModel.canTransferProperty().not());
+        submitManualTransferSendButton.setOnAction(e -> viewModel.submitManualTransferSend());
 
         bindMaterialCombo(transferReceiveMaterialCombo, viewModel);
         transferReceiveMaterialCombo.valueProperty().bindBidirectional(

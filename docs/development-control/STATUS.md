@@ -2,9 +2,9 @@
 
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
-**Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS)
+**Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
 **Current Task:** none (Stage 7 closed; Stage 8 Start Gate not passed)
-**Last completed task:** STAGE7-020 (Stage 7 final closure audit)
+**Last completed task:** POST-CLOSURE PRODUCTION/Warehouse CORRECTION (2026-08-31)
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
 **Active blockers:** NONE
@@ -12,9 +12,10 @@
 **Stage 7 Production:** DONE / 100%
 **Stage 7 Start Gate:** PASSED
 **Stage 7 Closure Audit:** PASS
+**Stage 7 Post-Closure Correction (2026-08-31):** PASS
 **Completed Stage 7 tasks:** 27 / 27 mandatory
 **Production Specification:** v2.4 Accepted
-**Full verify baseline:** GREEN
+**Full verify baseline:** GREEN (2026-08-31 post-closure rerun)
 **First READY implementation task:** none (Stage 8 not started)
 
 
@@ -162,3 +163,7 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 ## Stage 7 — Final Closure (2026-08-25)
 
 Stage 7 Production complete. 27/27 mandatory tasks DONE. `STAGE7-008A` remains PLANNED post-launch and is excluded from the 27; it does not block closure. Active blockers NONE. Stage 8 Cutting Optimization = NOT STARTED (no Stage 8 tasks created; no runtime dependency from Production). Production v1.0 is feature complete, architecture verified, integration verified and closure verified; future changes go through separate stage/change tasks.
+
+## Stage 7 — Post-Closure Corrective Pass (2026-08-31)
+
+Stage 7 had already been formally closed on 2026-08-25. Manual acceptance testing (PROD-MANUAL-004/005/006/007) exposed post-closure defects in Production/Warehouse UI and public-boundary proof gaps. Corrective work started from base commit `2c7113b6d150f9f87218417b6828ac937be73f3e`. Previous verification evidence from 2026-08-25 does not constitute verification of the 2026-08-31 code changes. Full reactor regression was rerun after corrections. Stage 6 manual Warehouse Transfer Send UI preserved alongside Production-created DRAFT workflow. Stage 7 remains DONE only after new full verification green. Stage 8 remains NOT STARTED.

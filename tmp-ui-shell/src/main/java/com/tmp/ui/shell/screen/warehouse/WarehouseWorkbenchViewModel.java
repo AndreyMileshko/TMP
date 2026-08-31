@@ -403,6 +403,32 @@ public final class WarehouseWorkbenchViewModel {
                 });
     }
 
+    public void submitManualTransferSend() {
+        if (!canTransfer.get()) {
+            deny();
+            return;
+        }
+        run("Межскладское перемещение (отправка) выполнено", () -> {
+            MaterialChoice material = requireChoice(transferMaterial.get(), "материал");
+            WarehouseChoice source =
+                    requireChoice(transferSourceWarehouse.get(), "склад источник");
+            StorageCellChoice sourceCell =
+                    requireChoice(transferSourceCell.get(), "ячейка источник");
+            WarehouseChoice destination =
+                    requireChoice(transferDestWarehouse.get(), "склад назначения");
+            OperationResult result =
+                    warehouseApi.executeWarehouseOperation(
+                            ExecuteOperationCommand.transferSend(
+                                    material.id(),
+                                    parsePositiveDecimal(transferQuantity.get(), "количество"),
+                                    source.id(),
+                                    sourceCell.id(),
+                                    destination.id()));
+            statusMessage.set(
+                    "Межскладская отправка выполнена: operationId=" + result.operationId());
+        });
+    }
+
     public void loadTransferDrafts() {
         if (!canTransfer.get() && !canView.get()) {
             deny();
@@ -984,7 +1010,7 @@ public final class WarehouseWorkbenchViewModel {
             case WAREHOUSES, STOCK, INVENTORY -> canView.get();
             case RECEIPT -> canReceipt.get();
             case MOVE -> canMove.get();
-            case TRANSFER -> canTransfer.get();
+            case TRANSFER -> canView.get() || canTransfer.get();
             case CONSUMPTION -> canConsumption.get();
             case ADJUSTMENT -> canAdjustment.get();
             case RESERVATIONS -> canReservation.get();
