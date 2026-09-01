@@ -31,7 +31,7 @@
     <HBox spacing="8">
         <Button fx:id="createButton" text="Создать"/>
         <Button fx:id="updateButton" text="Изменить"/>
-        <Button fx:id="deleteButton" text="Удалить"/>
+        <Button fx:id="deleteButton" text="Удалить" styleClass="tmp-button-danger"/>
         <Button fx:id="refreshButton" text="Обновить"/>
     </HBox>
     <Label text="Разрешения выбранной роли"/>

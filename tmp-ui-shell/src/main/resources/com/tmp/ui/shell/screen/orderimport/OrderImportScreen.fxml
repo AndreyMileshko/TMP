@@ -57,7 +57,7 @@
     <HBox spacing="8">
         <Button fx:id="validateButton" text="Проверить"/>
         <Button fx:id="importButton" text="Импортировать"/>
-        <Button fx:id="cancelButton" text="Отмена"/>
+        <Button fx:id="cancelButton" text="Отмена" styleClass="tmp-button-secondary"/>
     </HBox>
     <Label fx:id="loadingLabel" text="Загрузка..." styleClass="order-import-loading"
            visible="false" managed="false"/>

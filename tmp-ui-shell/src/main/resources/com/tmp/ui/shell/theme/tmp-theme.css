@@ -31,6 +31,11 @@
     -tmp-success: #2E7D32;
     -tmp-success-soft: #EAF5EC;
 
+    -tmp-action: #3F7F5F;
+    -tmp-action-hover: #356D51;
+    -tmp-action-pressed: #2D5C45;
+    -tmp-action-soft: #EAF3ED;
+
     -tmp-warning: #A86700;
     -tmp-warning-soft: #FFF4DF;
 
@@ -122,9 +127,9 @@
    ========================================================================== */
 
 .button {
-    -fx-background-color: -tmp-surface;
-    -fx-text-fill: -tmp-text;
-    -fx-border-color: -tmp-border;
+    -fx-background-color: -tmp-action;
+    -fx-text-fill: white;
+    -fx-border-color: derive(-tmp-action, -15%);
     -fx-border-width: 1;
     -fx-border-radius: 6;
     -fx-background-radius: 6;
@@ -135,12 +140,13 @@
 }
 
 .button:hover {
-    -fx-background-color: -tmp-surface-hover;
-    -fx-border-color: -tmp-border-strong;
+    -fx-background-color: -tmp-action-hover;
+    -fx-border-color: derive(-tmp-action-hover, -10%);
 }
 
 .button:pressed {
-    -fx-background-color: derive(-tmp-surface-hover, -5%);
+    -fx-background-color: -tmp-action-pressed;
+    -fx-border-color: derive(-tmp-action-pressed, -10%);
 }
 
 .button:focused {
@@ -149,23 +155,27 @@
 }
 
 .button:disabled {
-    -fx-opacity: 0.55;
+    -fx-background-color: -tmp-surface-alt;
+    -fx-text-fill: -tmp-text-disabled;
+    -fx-border-color: -tmp-border;
+    -fx-opacity: 1;
     -fx-cursor: default;
 }
 
 .tmp-button-primary {
-    -fx-background-color: -tmp-primary;
+    -fx-background-color: -tmp-action;
     -fx-text-fill: white;
-    -fx-border-color: transparent;
+    -fx-border-color: derive(-tmp-action, -15%);
 }
 
 .tmp-button-primary:hover {
-    -fx-background-color: -tmp-primary-hover;
-    -fx-border-color: transparent;
+    -fx-background-color: -tmp-action-hover;
+    -fx-border-color: derive(-tmp-action-hover, -10%);
 }
 
 .tmp-button-primary:pressed {
-    -fx-background-color: -tmp-primary-pressed;
+    -fx-background-color: -tmp-action-pressed;
+    -fx-border-color: derive(-tmp-action-pressed, -10%);
 }
 
 .tmp-button-primary:focused {
@@ -184,6 +194,13 @@
     -fx-border-color: -tmp-border-strong;
 }
 
+.tmp-button-secondary:disabled {
+    -fx-background-color: -tmp-surface-alt;
+    -fx-text-fill: -tmp-text-disabled;
+    -fx-border-color: -tmp-border;
+    -fx-opacity: 1;
+}
+
 .tmp-button-danger {
     -fx-background-color: -tmp-danger;
     -fx-text-fill: white;
@@ -200,6 +217,13 @@
     -fx-border-width: 2;
 }
 
+.tmp-button-danger:disabled {
+    -fx-background-color: -tmp-surface-alt;
+    -fx-text-fill: -tmp-text-disabled;
+    -fx-border-color: -tmp-border;
+    -fx-opacity: 1;
+}
+
 .tmp-button-ghost {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
@@ -209,6 +233,13 @@
 .tmp-button-ghost:hover {
     -fx-background-color: -tmp-surface-hover;
     -fx-border-color: transparent;
+}
+
+.tmp-button-ghost:disabled {
+    -fx-background-color: transparent;
+    -fx-text-fill: -tmp-text-disabled;
+    -fx-border-color: transparent;
+    -fx-opacity: 1;
 }
 
 /* ==========================================================================

@@ -53,7 +53,7 @@
     <HBox spacing="8">
         <Button fx:id="addLineButton" text="Добавить строку"/>
         <Button fx:id="updateLineButton" text="Изменить строку"/>
-        <Button fx:id="deleteLineButton" text="Удалить строку"/>
+        <Button fx:id="deleteLineButton" text="Удалить строку" styleClass="tmp-button-danger"/>
         <Button fx:id="moveUpButton" text="Выше"/>
         <Button fx:id="moveDownButton" text="Ниже"/>
         <Button fx:id="clearLinesButton" text="Очистить"/>

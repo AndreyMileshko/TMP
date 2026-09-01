@@ -97,6 +97,73 @@ class TmpThemeFxTest {
         });
     }
 
+    @Test
+    void enabledActionButtonsUseActionSemanticStyleClasses() throws InterruptedException {
+        JavaFxTestSupport.runOnFxThread(() -> {
+            Button standard = new Button("Action");
+            Button primary = new Button("Primary");
+            primary.getStyleClass().add("tmp-button-primary");
+            Button secondary = new Button("Cancel");
+            secondary.getStyleClass().add("tmp-button-secondary");
+            Button danger = new Button("Delete");
+            danger.getStyleClass().add("tmp-button-danger");
+            Button ghost = new Button("Ghost");
+            ghost.getStyleClass().add("tmp-button-ghost");
+
+            VBox root = new VBox(8, standard, primary, secondary, danger, ghost);
+            Scene scene = new Scene(root, 320, 260);
+            TmpTheme.apply(scene);
+            root.applyCss();
+            root.layout();
+
+            assertTrue(standard.getStyleClass().contains("button"));
+            assertTrue(primary.getStyleClass().contains("tmp-button-primary"));
+            assertTrue(secondary.getStyleClass().contains("tmp-button-secondary"));
+            assertTrue(danger.getStyleClass().contains("tmp-button-danger"));
+            assertTrue(ghost.getStyleClass().contains("tmp-button-ghost"));
+            assertTrue(standard.isDisable() == false);
+        });
+    }
+
+    @Test
+    void disabledButtonsKeepSemanticStyleClassesWithoutCssException() throws InterruptedException {
+        JavaFxTestSupport.runOnFxThread(() -> {
+            Button enabled = new Button("Enabled");
+            Button disabled = new Button("Disabled");
+            disabled.setDisable(true);
+            Button disabledDanger = new Button("Disabled delete");
+            disabledDanger.getStyleClass().add("tmp-button-danger");
+            disabledDanger.setDisable(true);
+
+            VBox root = new VBox(8, enabled, disabled, disabledDanger);
+            Scene scene = new Scene(root, 320, 180);
+            TmpTheme.apply(scene);
+            root.applyCss();
+            root.layout();
+
+            assertFalse(enabled.isDisable());
+            assertTrue(disabled.isDisable());
+            assertTrue(disabledDanger.isDisable());
+        });
+    }
+
+    @Test
+    void shellLogoutStyleRemainsNeutralWithThemeApplied() throws Exception {
+        JavaFxTestSupport.runOnFxThread(() -> {
+            Button logout = new Button("Выход");
+            logout.getStyleClass().add("main-window-logout");
+            VBox root = new VBox(logout);
+            Scene scene = new Scene(root, 240, 120);
+            TmpTheme.apply(scene);
+            TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/main/MainWindow.css");
+            root.applyCss();
+            root.layout();
+
+            assertTrue(logout.getStyleClass().contains("main-window-logout"));
+            assertFalse(logout.getStyleClass().contains("tmp-button-primary"));
+        });
+    }
+
     private static void loadAndLayout(String fxmlPath) throws Exception {
         FXMLLoader loader = new FXMLLoader(TmpThemeFxTest.class.getClassLoader().getResource(fxmlPath));
         if (loader.getLocation() == null) {
