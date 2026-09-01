@@ -231,8 +231,17 @@ Controller не содержит бизнес-логики.
 
 ---
 
+# Визуальный стандарт
+
+All JavaFX visual implementation **MUST** comply with [TMP UI Standard](TMP-UI-Standard.md).
+
+TMP UI Standard определяет обязательный visual contract: design tokens, typography, spacing, component semantics, CSS architecture и UI Compliance Checklist. Настоящий документ определяет архитектуру UI; TMP UI Standard — визуальную и UX-реализацию.
+
+---
+
 # Связанные документы
 
+- [TMP UI Standard](TMP-UI-Standard.md)
 - TMP Constitution
 - Architecture Overview
 - Architecture Decisions

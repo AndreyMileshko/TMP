@@ -162,23 +162,27 @@
     -fx-cursor: default;
 }
 
-.tmp-button-primary {
+.tmp-button-primary,
+.tmp-button-action {
     -fx-background-color: -tmp-action;
     -fx-text-fill: white;
     -fx-border-color: derive(-tmp-action, -15%);
 }
 
-.tmp-button-primary:hover {
+.tmp-button-primary:hover,
+.tmp-button-action:hover {
     -fx-background-color: -tmp-action-hover;
     -fx-border-color: derive(-tmp-action-hover, -10%);
 }
 
-.tmp-button-primary:pressed {
+.tmp-button-primary:pressed,
+.tmp-button-action:pressed {
     -fx-background-color: -tmp-action-pressed;
     -fx-border-color: derive(-tmp-action-pressed, -10%);
 }
 
-.tmp-button-primary:focused {
+.tmp-button-primary:focused,
+.tmp-button-action:focused {
     -fx-border-color: -tmp-focus;
     -fx-border-width: 2;
 }
@@ -748,4 +752,185 @@
 .titled-pane > .content {
     -fx-background-color: -tmp-surface;
     -fx-border-color: -tmp-border;
+}
+
+/* ==========================================================================
+   SCREEN STRUCTURE
+   ========================================================================== */
+
+.tmp-screen {
+    -fx-background-color: -tmp-bg;
+    -fx-spacing: 12;
+    -fx-padding: 24;
+}
+
+.tmp-screen-compact {
+    -fx-background-color: -tmp-bg;
+    -fx-spacing: 12;
+    -fx-padding: 16;
+}
+
+.tmp-screen-header {
+    -fx-spacing: 8;
+}
+
+.tmp-screen-subtitle {
+    -fx-font-size: 13px;
+    -fx-text-fill: -tmp-text-secondary;
+}
+
+.tmp-screen-actions {
+    -fx-spacing: 8;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.tmp-toolbar {
+    -fx-spacing: 8;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 0 0 8 0;
+}
+
+.tmp-content {
+    -fx-background-color: transparent;
+}
+
+/* ==========================================================================
+   FORMS
+   ========================================================================== */
+
+.tmp-form {
+    -fx-hgap: 12;
+    -fx-vgap: 12;
+}
+
+.tmp-form-label {
+    -fx-font-size: 13px;
+    -fx-text-fill: -tmp-text;
+}
+
+.tmp-form-help {
+    -fx-font-size: 12px;
+    -fx-text-fill: -tmp-text-secondary;
+}
+
+/* ==========================================================================
+   EMPTY STATES
+   ========================================================================== */
+
+.tmp-empty-state {
+    -fx-alignment: center;
+    -fx-padding: 24;
+    -fx-spacing: 8;
+}
+
+.tmp-empty-state-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -tmp-text-secondary;
+}
+
+.tmp-empty-state-hint {
+    -fx-font-size: 12px;
+    -fx-text-fill: -tmp-text-disabled;
+}
+
+/* ==========================================================================
+   TABS
+   ========================================================================== */
+
+.tab-pane {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.tab-pane > .tab-header-area {
+    -fx-padding: 0;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab {
+    -fx-background-color: -tmp-surface-alt;
+    -fx-border-color: transparent transparent -tmp-border transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 8 16 8 16;
+    -fx-pref-height: 36;
+    -fx-min-height: 36;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab:hover {
+    -fx-background-color: -tmp-surface-hover;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab:selected {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-primary transparent transparent transparent;
+    -fx-border-width: 2 0 0 0;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab .tab-label {
+    -fx-text-fill: -tmp-text-secondary;
+    -fx-font-size: 13px;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab:selected .tab-label {
+    -fx-text-fill: -tmp-primary;
+    -fx-font-weight: bold;
+}
+
+.tab-pane:focused > .tab-header-area > .headers-region > .tab:selected .focus-indicator {
+    -fx-border-color: -tmp-focus;
+}
+
+.tab-pane > .tab-content-area {
+    -fx-background-color: -tmp-surface;
+    -fx-padding: 16;
+}
+
+/* ==========================================================================
+   LIST / TREE / SPLIT
+   ========================================================================== */
+
+.list-view,
+.tree-view {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.list-view .list-cell,
+.tree-view .tree-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -tmp-text;
+    -fx-padding: 8 10 8 10;
+    -fx-cell-size: 36;
+}
+
+.list-view .list-cell:hover,
+.tree-view .tree-cell:hover {
+    -fx-background-color: -tmp-surface-hover;
+}
+
+.list-view:focused .list-cell:filled:selected,
+.tree-view:focused .tree-cell:filled:selected {
+    -fx-background-color: -tmp-primary-soft;
+    -fx-text-fill: -tmp-text;
+}
+
+.list-view .placeholder .label,
+.tree-view .placeholder .label {
+    -fx-text-fill: -tmp-text-secondary;
+}
+
+.split-pane {
+    -fx-background-color: -tmp-bg;
+    -fx-padding: 0;
+}
+
+.split-pane > .split-pane-divider {
+    -fx-background-color: -tmp-border;
+    -fx-padding: 0 1 0 1;
 }

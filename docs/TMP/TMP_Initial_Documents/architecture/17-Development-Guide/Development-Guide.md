@@ -464,7 +464,8 @@ Cursor AI обязан подтвердить:
 - изменения архитектуры требуют обновления ADR;
 - изменения базы данных требуют обновления Database Specification;
 - изменения API требуют обновления соответствующих Specifications;
-- изменения UI требуют обновления UI/UX Specification.
+- изменения UI требуют обновления UI/UX Specification;
+- перед созданием или изменением UI необходимо следовать [TMP UI Standard](../16-UI-UX/TMP-UI-Standard.md).
 
 ---
 

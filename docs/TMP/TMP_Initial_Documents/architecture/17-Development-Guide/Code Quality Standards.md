@@ -289,6 +289,7 @@ Code Quality Standards определяет обязательные станд�
 - ViewModel подготавливает данные для отображения.
 - Долгие операции выполняются вне UI Thread.
 - Навигация осуществляется через централизованный Navigation Service.
+- Визуальное оформление MUST соответствовать [TMP UI Standard](../16-UI-UX/TMP-UI-Standard.md) (design tokens, semantic style classes, запрет inline CSS).
 
 ---
 
