@@ -9,7 +9,8 @@ public interface AuthenticationService {
 
     SessionSummary login(Login login, char[] password);
 
-    SessionSummary completePasswordSetup(Login login, char[] newPassword, char[] confirmPassword);
+    SessionSummary completePasswordSetup(
+            Login login, String activationCode, char[] newPassword, char[] confirmPassword);
 
     void logout();
 

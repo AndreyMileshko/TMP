@@ -6,6 +6,7 @@ import com.tmp.security.api.UserId;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Immutable Security user aggregate. Password is stored only as {@link PasswordHash};
@@ -19,6 +20,8 @@ public final class User {
     private final PasswordHash passwordHash;
     private final UserStatus status;
     private final boolean passwordSetupRequired;
+    private final PasswordHash activationCodeHash;
+    private final Instant activationCodeExpiresAt;
     private final long version;
     private final Instant createdAt;
     private final Instant updatedAt;
@@ -30,6 +33,8 @@ public final class User {
             PasswordHash passwordHash,
             UserStatus status,
             boolean passwordSetupRequired,
+            PasswordHash activationCodeHash,
+            Instant activationCodeExpiresAt,
             long version,
             Instant createdAt,
             Instant updatedAt) {
@@ -39,6 +44,8 @@ public final class User {
         this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash");
         this.status = Objects.requireNonNull(status, "status");
         this.passwordSetupRequired = passwordSetupRequired;
+        this.activationCodeHash = activationCodeHash;
+        this.activationCodeExpiresAt = activationCodeExpiresAt;
         this.version = version;
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
@@ -48,7 +55,7 @@ public final class User {
             UserId id, Login login, DisplayName displayName, PasswordHash passwordHash, Clock clock) {
         Objects.requireNonNull(clock, "clock");
         Instant now = clock.instant();
-        return new User(id, login, displayName, passwordHash, UserStatus.ACTIVE, false, 0L, now, now);
+        return new User(id, login, displayName, passwordHash, UserStatus.ACTIVE, false, null, null, 0L, now, now);
     }
 
     public static User createActivePendingPasswordSetup(
@@ -62,6 +69,8 @@ public final class User {
                 PasswordHash.uninitialized(),
                 UserStatus.ACTIVE,
                 true,
+                null,
+                null,
                 0L,
                 now,
                 now);
@@ -77,26 +86,37 @@ public final class User {
             PasswordHash passwordHash,
             UserStatus status,
             boolean passwordSetupRequired,
+            PasswordHash activationCodeHash,
+            Instant activationCodeExpiresAt,
             long version,
             Instant createdAt,
             Instant updatedAt) {
         return new User(
-                id, login, displayName, passwordHash, status, passwordSetupRequired, version, createdAt, updatedAt);
+                id,
+                login,
+                displayName,
+                passwordHash,
+                status,
+                passwordSetupRequired,
+                activationCodeHash,
+                activationCodeExpiresAt,
+                version,
+                createdAt,
+                updatedAt);
     }
 
     public User withLogin(Login newLogin, Clock clock) {
         requireActive();
         Objects.requireNonNull(newLogin, "newLogin");
         Objects.requireNonNull(clock, "clock");
-        return new User(
-                id,
+        return copyWith(
                 newLogin,
                 displayName,
                 passwordHash,
                 status,
                 passwordSetupRequired,
-                version,
-                createdAt,
+                activationCodeHash,
+                activationCodeExpiresAt,
                 clock.instant());
     }
 
@@ -104,15 +124,14 @@ public final class User {
         requireActive();
         Objects.requireNonNull(newDisplayName, "newDisplayName");
         Objects.requireNonNull(clock, "clock");
-        return new User(
-                id,
+        return copyWith(
                 login,
                 newDisplayName,
                 passwordHash,
                 status,
                 passwordSetupRequired,
-                version,
-                createdAt,
+                activationCodeHash,
+                activationCodeExpiresAt,
                 clock.instant());
     }
 
@@ -121,15 +140,14 @@ public final class User {
         requirePasswordSet();
         Objects.requireNonNull(newPasswordHash, "newPasswordHash");
         Objects.requireNonNull(clock, "clock");
-        return new User(
-                id,
+        return copyWith(
                 login,
                 displayName,
                 newPasswordHash,
                 status,
                 false,
-                version,
-                createdAt,
+                null,
+                null,
                 clock.instant());
     }
 
@@ -140,30 +158,44 @@ public final class User {
         if (!passwordSetupRequired) {
             throw new IllegalStateException("Password is already initialized for user: " + id);
         }
-        return new User(
-                id,
+        return copyWith(
                 login,
                 displayName,
                 newPasswordHash,
                 status,
                 false,
-                version,
-                createdAt,
+                null,
+                null,
+                clock.instant());
+    }
+
+    public User withActivationCode(PasswordHash codeHash, Instant expiresAt, Clock clock) {
+        requireActive();
+        Objects.requireNonNull(codeHash, "codeHash");
+        Objects.requireNonNull(expiresAt, "expiresAt");
+        Objects.requireNonNull(clock, "clock");
+        return copyWith(
+                login,
+                displayName,
+                passwordHash,
+                status,
+                passwordSetupRequired,
+                codeHash,
+                expiresAt,
                 clock.instant());
     }
 
     public User requiringPasswordSetup(Clock clock) {
         requireActive();
         Objects.requireNonNull(clock, "clock");
-        return new User(
-                id,
+        return copyWith(
                 login,
                 displayName,
                 PasswordHash.uninitialized(),
                 status,
                 true,
-                version,
-                createdAt,
+                null,
+                null,
                 clock.instant());
     }
 
@@ -172,16 +204,22 @@ public final class User {
         if (status == UserStatus.DELETED) {
             throw new UserAlreadyDeletedException("User already deleted: " + id);
         }
-        return new User(
-                id,
+        return copyWith(
                 login,
                 displayName,
                 passwordHash,
                 UserStatus.DELETED,
                 passwordSetupRequired,
-                version,
-                createdAt,
+                activationCodeHash,
+                activationCodeExpiresAt,
                 clock.instant());
+    }
+
+    public boolean hasActiveActivationCode(Instant now) {
+        Objects.requireNonNull(now, "now");
+        return activationCodeHash != null
+                && activationCodeExpiresAt != null
+                && !now.isAfter(activationCodeExpiresAt);
     }
 
     private void requireActive() {
@@ -196,6 +234,29 @@ public final class User {
         }
     }
 
+    private User copyWith(
+            Login login,
+            DisplayName displayName,
+            PasswordHash passwordHash,
+            UserStatus status,
+            boolean passwordSetupRequired,
+            PasswordHash activationCodeHash,
+            Instant activationCodeExpiresAt,
+            Instant updatedAt) {
+        return new User(
+                id,
+                login,
+                displayName,
+                passwordHash,
+                status,
+                passwordSetupRequired,
+                activationCodeHash,
+                activationCodeExpiresAt,
+                version,
+                createdAt,
+                updatedAt);
+    }
+
     public boolean isActive() {
         return status == UserStatus.ACTIVE;
     }
@@ -206,6 +267,14 @@ public final class User {
 
     public boolean passwordSetupRequired() {
         return passwordSetupRequired;
+    }
+
+    public Optional<PasswordHash> activationCodeHash() {
+        return Optional.ofNullable(activationCodeHash);
+    }
+
+    public Optional<Instant> activationCodeExpiresAt() {
+        return Optional.ofNullable(activationCodeExpiresAt);
     }
 
     public UserId id() {

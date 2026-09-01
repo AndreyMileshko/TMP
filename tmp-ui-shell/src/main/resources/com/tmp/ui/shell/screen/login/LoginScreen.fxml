@@ -19,5 +19,6 @@
     <TextField fx:id="loginField" promptText="Логин" prefWidth="280"/>
     <PasswordField fx:id="passwordField" promptText="Пароль" prefWidth="280"/>
     <Button fx:id="loginButton" text="Войти" defaultButton="true" prefWidth="280"/>
+    <Button fx:id="activationButton" text="Первый вход / активация" prefWidth="280"/>
     <Label fx:id="errorLabel" styleClass="login-error" visible="false" managed="false" wrapText="true"/>
 </VBox>

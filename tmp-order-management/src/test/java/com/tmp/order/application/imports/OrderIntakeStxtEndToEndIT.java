@@ -214,11 +214,17 @@ class OrderIntakeStxtEndToEndIT {
                 userAdministrationService.listUsers(0, 100, null).stream()
                         .filter(user -> "importer".equalsIgnoreCase(user.login().value()))
                         .findFirst();
-        UserSummary importer =
-                existing.orElseGet(
-                        () ->
-                                userAdministrationService.createUser(
-                                        Login.of("importer"), DisplayName.of("Importer")));
+        String activationCode = null;
+        UserSummary importer;
+        if (existing.isPresent()) {
+            importer = existing.get();
+        } else {
+            var creation =
+                    userAdministrationService.createUser(
+                            Login.of("importer"), DisplayName.of("Importer"));
+            importer = creation.user();
+            activationCode = creation.activationCode();
+        }
         roleAdministrationService.grantIndividualPermission(
                 importer.id(), OrderManagementPermissions.ORDER_CREATE);
         roleAdministrationService.grantIndividualPermission(
@@ -244,7 +250,10 @@ class OrderIntakeStxtEndToEndIT {
             authenticationService.login(Login.of("importer"), IMPORTER_PASSWORD.clone());
         } else {
             authenticationService.completePasswordSetup(
-                    Login.of("importer"), IMPORTER_PASSWORD.clone(), IMPORTER_PASSWORD.clone());
+                    Login.of("importer"),
+                    activationCode,
+                    IMPORTER_PASSWORD.clone(),
+                    IMPORTER_PASSWORD.clone());
         }
     }
 

@@ -51,7 +51,10 @@ class LoginViewModelTest {
         viewModel.loginProperty().set("newbie");
 
         assertEquals(LoginViewModel.SubmitOutcome.PASSWORD_SETUP_REQUIRED, viewModel.submit("x".toCharArray()));
-        assertEquals("newbie", viewModel.pendingPasswordSetupLogin().orElseThrow().value());
+        assertEquals(
+                "Для этой учётной записи требуется активация. Используйте «Первый вход / активация».",
+                viewModel.errorMessageProperty().get());
+        assertEquals("newbie", viewModel.loginProperty().get());
         assertTrue(viewModel.lastSession().isEmpty());
     }
 
@@ -83,7 +86,8 @@ class LoginViewModelTest {
         }
 
         @Override
-        public SessionSummary completePasswordSetup(Login login, char[] newPassword, char[] confirmPassword) {
+        public SessionSummary completePasswordSetup(
+                Login login, String activationCode, char[] newPassword, char[] confirmPassword) {
             if (failure != null) {
                 throw failure;
             }

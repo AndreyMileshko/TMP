@@ -50,15 +50,19 @@ class OrderListPermissionBootstrapIT extends AbstractBootstrapPostgresSpringTest
     void packagedWiringUsesAuthorizationServiceForCreateOrderPermission() {
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
 
-        UserSummary operator = userAdministrationService.createUser(
+        var operatorCreation = userAdministrationService.createUser(
                 Login.of("orderoperator"), DisplayName.of("Order Operator"));
+        UserSummary operator = operatorCreation.user();
         RoleSummary role = roleAdministrationService.createRole("OrderViewers", "view only");
         roleAdministrationService.grantPermissionToRole(role.id(), OrderManagementPermissions.ORDER_VIEW);
         roleAdministrationService.assignRole(operator.id(), role.id());
 
         authenticationService.logout();
         authenticationService.completePasswordSetup(
-                Login.of("orderoperator"), OPERATOR_PASSWORD.clone(), OPERATOR_PASSWORD.clone());
+                Login.of("orderoperator"),
+                operatorCreation.activationCode(),
+                OPERATOR_PASSWORD.clone(),
+                OPERATOR_PASSWORD.clone());
 
         assertTrue(authorizationService.hasPermission(OrderManagementPermissions.ORDER_VIEW));
         assertFalse(authorizationService.hasPermission(OrderManagementPermissions.ORDER_CREATE));

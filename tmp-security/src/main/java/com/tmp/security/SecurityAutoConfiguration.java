@@ -26,10 +26,12 @@ import com.tmp.security.application.PermissionOverrideApplicationService;
 import com.tmp.security.application.PermissionSynchronizationApplicationService;
 import com.tmp.security.application.RoleAdministrationApplicationService;
 import com.tmp.security.application.RoleAssignmentApplicationService;
+import com.tmp.security.application.SecurityActivationProperties;
 import com.tmp.security.application.SecurityBootstrapProperties;
 import com.tmp.security.application.SessionContext;
 import com.tmp.security.application.UserAdministrationApplicationService;
 import com.tmp.security.capability.SecurityAdministrationCapability;
+import com.tmp.security.domain.ActivationCodeGenerator;
 import com.tmp.security.domain.PasswordHasher;
 import com.tmp.security.domain.repository.PermissionDefinitionRepository;
 import com.tmp.security.domain.repository.PermissionOverrideRepository;
@@ -64,7 +66,7 @@ import org.springframework.transaction.support.TransactionTemplate;
             "com.tmp.infra.db.DatabaseAutoConfiguration",
             "com.tmp.capability.CapabilityEngineAutoConfiguration"
         })
-@EnableConfigurationProperties(SecurityBootstrapProperties.class)
+@EnableConfigurationProperties({SecurityBootstrapProperties.class, SecurityActivationProperties.class})
 @EnableTransactionManagement
 public class SecurityAutoConfiguration {
 
@@ -194,15 +196,22 @@ public class SecurityAutoConfiguration {
     }
 
     @Bean
+    ActivationCodeGenerator activationCodeGenerator() {
+        return new ActivationCodeGenerator();
+    }
+
+    @Bean
     UserAdministrationApplicationService userAdministrationApplicationService(
             UserRepository userRepository,
             AuthorizationApplicationService authorizationApplicationService,
+            PasswordApplicationService passwordApplicationService,
             SecurityAuditRepository securityAuditRepository,
             SessionContext sessionContext,
             Clock securityClock) {
         return new UserAdministrationApplicationService(
                 userRepository,
                 authorizationApplicationService,
+                passwordApplicationService,
                 securityAuditRepository,
                 sessionContext,
                 securityClock);
@@ -215,6 +224,8 @@ public class SecurityAutoConfiguration {
             AuthorizationApplicationService authorizationApplicationService,
             SecurityAuditRepository securityAuditRepository,
             SessionContext sessionContext,
+            ActivationCodeGenerator activationCodeGenerator,
+            SecurityActivationProperties securityActivationProperties,
             Clock securityClock) {
         return new PasswordApplicationService(
                 userRepository,
@@ -222,6 +233,8 @@ public class SecurityAutoConfiguration {
                 authorizationApplicationService,
                 securityAuditRepository,
                 sessionContext,
+                activationCodeGenerator,
+                securityActivationProperties,
                 securityClock);
     }
 

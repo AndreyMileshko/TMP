@@ -1184,11 +1184,17 @@ class ProductionPublicBoundaryPostgresIT {
                 userAdministrationService.listUsers(0, 100, null).stream()
                         .filter(user -> "pb-operator".equalsIgnoreCase(user.login().value()))
                         .findFirst();
-        UserSummary operator =
-                existing.orElseGet(
-                        () ->
-                                userAdministrationService.createUser(
-                                        Login.of("pb-operator"), DisplayName.of("Public Boundary Operator")));
+        String activationCode = null;
+        UserSummary operator;
+        if (existing.isPresent()) {
+            operator = existing.get();
+        } else {
+            var creation =
+                    userAdministrationService.createUser(
+                            Login.of("pb-operator"), DisplayName.of("Public Boundary Operator"));
+            operator = creation.user();
+            activationCode = creation.activationCode();
+        }
         for (PermissionId permission : PublicBoundaryPermissions.ORDER_IMPORT_AND_VIEW) {
             roleAdministrationService.grantIndividualPermission(operator.id(), permission);
         }
@@ -1203,7 +1209,10 @@ class ProductionPublicBoundaryPostgresIT {
             authenticationService.login(Login.of("pb-operator"), OPERATOR_PASSWORD.clone());
         } else {
             authenticationService.completePasswordSetup(
-                    Login.of("pb-operator"), OPERATOR_PASSWORD.clone(), OPERATOR_PASSWORD.clone());
+                    Login.of("pb-operator"),
+                    activationCode,
+                    OPERATOR_PASSWORD.clone(),
+                    OPERATOR_PASSWORD.clone());
         }
     }
 

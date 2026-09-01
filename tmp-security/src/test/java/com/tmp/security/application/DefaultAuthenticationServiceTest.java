@@ -7,7 +7,9 @@ import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.SessionSummary;
 import com.tmp.security.api.UserId;
+import com.tmp.security.domain.ActivationCodeGenerator;
 import com.tmp.security.domain.PasswordHash;
+import com.tmp.security.support.ActivationTestSupport;
 import com.tmp.security.domain.PasswordHasher;
 import com.tmp.security.domain.SecurityAuditEvent;
 import com.tmp.security.domain.User;
@@ -46,7 +48,14 @@ class DefaultAuthenticationServiceTest {
                 PasswordApplicationServiceTest.emptyRoles(),
                 PasswordApplicationServiceTest.grant(UserId.generate(), com.tmp.security.api.SecurityPermissions.USERS_RESET_PASSWORD));
         PasswordApplicationService passwords = new PasswordApplicationService(
-                users, new ExactHasher(), authorization, audit, sessions, CLOCK);
+                users,
+                new ExactHasher(),
+                authorization,
+                audit,
+                sessions,
+                new ActivationCodeGenerator(),
+                ActivationTestSupport.defaultActivationProperties(),
+                CLOCK);
         AuthenticationApplicationService app = new AuthenticationApplicationService(
                 users,
                 new ExactHasher(),

@@ -2,6 +2,7 @@ package com.tmp.security.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -26,6 +27,9 @@ import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.AuditQueryFilter;
 import com.tmp.security.domain.IndividualPermissionOverride;
 import com.tmp.security.api.InvalidCurrentPasswordException;
+import com.tmp.security.api.InvalidActivationCodeException;
+import com.tmp.security.api.PasswordResetResult;
+import com.tmp.security.domain.ActivationCodeGenerator;
 import com.tmp.security.domain.PasswordHash;
 import com.tmp.security.domain.PasswordHasher;
 import com.tmp.security.domain.PermissionOverrideDecision;
@@ -48,6 +52,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import com.tmp.security.support.ActivationTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -79,7 +84,14 @@ class PasswordApplicationServiceTest {
                 emptyRoles(),
                 grant(selfId, SecurityPermissions.USERS_RESET_PASSWORD));
         service = new PasswordApplicationService(
-                users, new ExactHasher(), authorization, audit, sessions, CLOCK);
+                users,
+                new ExactHasher(),
+                authorization,
+                audit,
+                sessions,
+                new ActivationCodeGenerator(),
+                ActivationTestSupport.defaultActivationProperties(),
+                CLOCK);
     }
 
     @Test
@@ -117,7 +129,7 @@ class PasswordApplicationServiceTest {
     }
 
     @Test
-    void resetRequiresSetupWithoutAdminPassword() {
+    void resetRequiresSetupWithoutAdminPasswordAndIssuesCode() {
         UserId other = users.save(User.createActive(
                         UserId.generate(),
                         Login.of("other"),
@@ -125,24 +137,55 @@ class PasswordApplicationServiceTest {
                         PasswordHash.of("unknown-old"),
                         CLOCK))
                 .id();
-        service.requestPasswordReset(other);
+        PasswordResetResult result = service.requestPasswordReset(other);
         User updated = users.findById(other).orElseThrow();
         assertTrue(updated.passwordSetupRequired());
         assertTrue(updated.passwordHash().isUninitialized());
-        assertEquals(AuditOperation.PASSWORD_RESET, audit.events.getFirst().operation());
+        assertTrue(updated.hasActiveActivationCode(CLOCK.instant()));
+        assertNotNull(result.activationCode());
+        assertTrue(audit.events.stream().anyMatch(e -> e.operation() == AuditOperation.PASSWORD_RESET));
+        assertTrue(audit.events.stream().anyMatch(e -> e.operation() == AuditOperation.ACTIVATION_CODE_ISSUED));
         assertFalse(audit.events.getFirst().safeDescription().contains("unknown-old"));
     }
 
     @Test
-    void initializePasswordForSetupRequiredUser() {
+    void initializePasswordRequiresValidActivationCode() {
         User pending = users.save(User.createActivePendingPasswordSetup(
                 UserId.generate(), Login.of("pending"), DisplayName.of("Pending"), CLOCK));
+        String code = service.issueActivationCode(pending);
         service.initializePassword(
-                Login.of("pending"), "long-enough".toCharArray(), "long-enough".toCharArray());
+                Login.of("pending"), code, "long-enough".toCharArray(), "long-enough".toCharArray());
         User updated = users.findById(pending.id()).orElseThrow();
         assertFalse(updated.passwordSetupRequired());
         assertEquals("long-enough", updated.passwordHash().encodedValue());
-        assertEquals(AuditOperation.PASSWORD_INITIALIZED, audit.events.getFirst().operation());
+        assertFalse(updated.hasActiveActivationCode(CLOCK.instant()));
+        assertEquals(AuditOperation.PASSWORD_INITIALIZED, audit.events.getLast().operation());
+    }
+
+    @Test
+    void initializePasswordRejectsWithoutCode() {
+        users.save(User.createActivePendingPasswordSetup(
+                UserId.generate(), Login.of("pending"), DisplayName.of("Pending"), CLOCK));
+        assertThrows(
+                InvalidActivationCodeException.class,
+                () -> service.initializePassword(
+                        Login.of("pending"),
+                        "AAAA-BBBB-CCCC",
+                        "long-enough".toCharArray(),
+                        "long-enough".toCharArray()));
+    }
+
+    @Test
+    void initializePasswordRejectsReplay() {
+        User pending = users.save(User.createActivePendingPasswordSetup(
+                UserId.generate(), Login.of("pending"), DisplayName.of("Pending"), CLOCK));
+        String code = service.issueActivationCode(pending);
+        service.initializePassword(
+                Login.of("pending"), code, "long-enough".toCharArray(), "long-enough".toCharArray());
+        assertThrows(
+                InvalidActivationCodeException.class,
+                () -> service.initializePassword(
+                        Login.of("pending"), code, "another-one".toCharArray(), "another-one".toCharArray()));
     }
 
     static CapabilityEngine engine(Set<PermissionId> active) {

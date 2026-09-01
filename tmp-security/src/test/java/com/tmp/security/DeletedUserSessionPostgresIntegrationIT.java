@@ -89,9 +89,10 @@ class DeletedUserSessionPostgresIntegrationIT {
     @Test
     void logicallyDeletedUserWithOpenSessionCannotAuthorize() {
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
-        UserSummary victim = userAdministrationService.createUser(
+        var victimCreation = userAdministrationService.createUser(
                 Login.of("deleted-session-user"),
                 DisplayName.of("Deleted Session"));
+        UserSummary victim = victimCreation.user();
         var adminRole = roleRepository.findAll().stream()
                 .filter(role -> BootstrapAdministratorApplicationService.SECURITY_ADMINISTRATOR_ROLE_NAME
                         .equals(role.name()))
@@ -101,7 +102,10 @@ class DeletedUserSessionPostgresIntegrationIT {
         authenticationService.logout();
 
         authenticationService.completePasswordSetup(
-                Login.of("deleted-session-user"), "victim-secret".toCharArray(), "victim-secret".toCharArray());
+                Login.of("deleted-session-user"),
+                victimCreation.activationCode(),
+                "victim-secret".toCharArray(),
+                "victim-secret".toCharArray());
         assertTrue(authorizationService.hasPermission(SecurityPermissions.USERS_VIEW));
         assertTrue(authenticationService.isAuthenticated());
 
@@ -118,9 +122,10 @@ class DeletedUserSessionPostgresIntegrationIT {
     @Test
     void deletingAuthenticatedUserClearsSession() {
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
-        UserSummary operator = userAdministrationService.createUser(
+        var operatorCreation = userAdministrationService.createUser(
                 Login.of("self-delete-user"),
                 DisplayName.of("Self Delete"));
+        UserSummary operator = operatorCreation.user();
         var adminRole = roleRepository.findAll().stream()
                 .filter(role -> BootstrapAdministratorApplicationService.SECURITY_ADMINISTRATOR_ROLE_NAME
                         .equals(role.name()))
@@ -130,7 +135,10 @@ class DeletedUserSessionPostgresIntegrationIT {
         authenticationService.logout();
 
         authenticationService.completePasswordSetup(
-                Login.of("self-delete-user"), "self-secret".toCharArray(), "self-secret".toCharArray());
+                Login.of("self-delete-user"),
+                operatorCreation.activationCode(),
+                "self-secret".toCharArray(),
+                "self-secret".toCharArray());
         assertTrue(authenticationService.isAuthenticated());
         userAdministrationService.deleteUser(operator.id());
         assertFalse(authenticationService.isAuthenticated());
@@ -140,8 +148,9 @@ class DeletedUserSessionPostgresIntegrationIT {
     @Test
     void concurrentAuthorizationSeesDelete() throws Exception {
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
-        UserSummary victim = userAdministrationService.createUser(
+        var victimCreation = userAdministrationService.createUser(
                 Login.of("race-user"), DisplayName.of("Race"));
+        UserSummary victim = victimCreation.user();
         var adminRole = roleRepository.findAll().stream()
                 .filter(role -> BootstrapAdministratorApplicationService.SECURITY_ADMINISTRATOR_ROLE_NAME
                         .equals(role.name()))
@@ -150,7 +159,10 @@ class DeletedUserSessionPostgresIntegrationIT {
         roleAdministrationService.assignRole(victim.id(), adminRole.id());
         authenticationService.logout();
         authenticationService.completePasswordSetup(
-                Login.of("race-user"), "race-secret".toCharArray(), "race-secret".toCharArray());
+                Login.of("race-user"),
+                victimCreation.activationCode(),
+                "race-secret".toCharArray(),
+                "race-secret".toCharArray());
         assertTrue(authorizationService.hasPermission(SecurityPermissions.USERS_VIEW));
 
         CountDownLatch ready = new CountDownLatch(1);

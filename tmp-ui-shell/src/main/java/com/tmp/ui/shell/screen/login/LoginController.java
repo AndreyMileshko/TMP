@@ -25,6 +25,9 @@ public final class LoginController implements ViewModelAware<LoginViewModel> {
     private Button loginButton;
 
     @FXML
+    private Button activationButton;
+
+    @FXML
     private Label errorLabel;
 
     private LoginViewModel viewModel;
@@ -42,6 +45,7 @@ public final class LoginController implements ViewModelAware<LoginViewModel> {
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
         loginButton.setOnAction(event -> onLogin());
+        activationButton.setOnAction(event -> onActivation());
     }
 
     private void onLogin() {
@@ -50,24 +54,18 @@ public final class LoginController implements ViewModelAware<LoginViewModel> {
         }
         char[] password = passwordField.getText().toCharArray();
         passwordField.clear();
-        LoginViewModel.SubmitOutcome outcome = viewModel.submit(password);
-        if (outcome == LoginViewModel.SubmitOutcome.PASSWORD_SETUP_REQUIRED) {
-            openPasswordSetupDialog();
-        }
+        viewModel.submit(password);
     }
 
-    private void openPasswordSetupDialog() {
+    private void onActivation() {
         if (viewModel == null) {
             return;
         }
-        String login = viewModel.pendingPasswordSetupLogin()
-                .map(l -> l.value())
-                .orElse(viewModel.loginProperty().get());
-        PasswordSetupDialog.show(loginField.getScene().getWindow(), login).ifPresent(input -> {
-            boolean success = viewModel.completePasswordSetup(input.newPassword(), input.confirmPassword());
-            if (!success) {
-                openPasswordSetupDialog();
-            }
-        });
+        String initialLogin = viewModel.loginProperty().get();
+        UserActivationDialog.show(
+                loginField.getScene().getWindow(),
+                initialLogin,
+                input -> viewModel.completeActivation(
+                        input.login(), input.activationCode(), input.newPassword(), input.confirmPassword()));
     }
 }

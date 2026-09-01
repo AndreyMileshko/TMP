@@ -26,6 +26,8 @@ import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.AuditQueryFilter;
 import com.tmp.security.domain.DuplicateLoginException;
 import com.tmp.security.domain.IndividualPermissionOverride;
+import com.tmp.security.api.UserCreationResult;
+import com.tmp.security.domain.ActivationCodeGenerator;
 import com.tmp.security.domain.PasswordHash;
 import com.tmp.security.domain.PasswordHasher;
 import com.tmp.security.domain.Role;
@@ -47,6 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import com.tmp.security.support.ActivationTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -59,6 +62,8 @@ class UserAdministrationApplicationServiceTest {
     private SessionContext sessions;
     private UserAdministrationApplicationService service;
     private AuthorizationApplicationService authorization;
+
+    private PasswordApplicationService passwordService;
 
     @BeforeEach
     void setUp() {
@@ -74,15 +79,26 @@ class UserAdministrationApplicationServiceTest {
                 emptyAssignments(),
                 emptyRoles(),
                 grantAllOverrides(actor));
+        passwordService = new PasswordApplicationService(
+                users,
+                new ExactHasher(),
+                authorization,
+                audit,
+                sessions,
+                new ActivationCodeGenerator(),
+                ActivationTestSupport.defaultActivationProperties(),
+                CLOCK);
         service = new UserAdministrationApplicationService(
-                users, authorization, audit, sessions, CLOCK);
+                users, authorization, passwordService, audit, sessions, CLOCK);
     }
 
     @Test
     void createUpdateDeleteAndList() {
-        User created = service.createUser(Login.of("new"), DisplayName.of("New"));
+        UserCreationResult creation = service.createUser(Login.of("new"), DisplayName.of("New"));
+        User created = users.findById(creation.user().id()).orElseThrow();
         assertTrue(created.passwordSetupRequired());
         assertTrue(created.passwordHash().isUninitialized());
+        assertTrue(creation.activationCode().matches(".*-.*-.*"));
         assertEquals(1, audit.events.stream().filter(e -> e.operation() == AuditOperation.USER_CREATED).count());
         service.updateUser(created.id(), Login.of("new"), DisplayName.of("Renamed"));
         User deleted = service.deleteUser(created.id());
@@ -330,5 +346,17 @@ class UserAdministrationApplicationServiceTest {
 
     private static AlwaysActiveUserRepository alwaysActiveUsers() {
         return new AlwaysActiveUserRepository();
+    }
+
+    private static final class ExactHasher implements PasswordHasher {
+        @Override
+        public PasswordHash hash(char[] plaintextPassword) {
+            return PasswordHash.of(new String(plaintextPassword));
+        }
+
+        @Override
+        public boolean matches(char[] plaintextPassword, PasswordHash hash) {
+            return hash.encodedValue().equals(new String(plaintextPassword));
+        }
     }
 }

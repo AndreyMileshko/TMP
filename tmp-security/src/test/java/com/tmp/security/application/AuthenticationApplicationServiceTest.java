@@ -12,6 +12,8 @@ import com.tmp.security.api.Login;
 import com.tmp.security.api.UserId;
 import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.AuditQueryFilter;
+import com.tmp.security.api.InvalidActivationCodeException;
+import com.tmp.security.domain.ActivationCodeGenerator;
 import com.tmp.security.domain.PasswordHash;
 import com.tmp.security.domain.PasswordHasher;
 import com.tmp.security.domain.SecurityAuditEvent;
@@ -43,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import com.tmp.security.support.ActivationTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.SimpleTransactionStatus;
@@ -68,7 +71,14 @@ class AuthenticationApplicationServiceTest {
         audit = new InMemoryAudit();
         hasher = new RecordingHasher();
         passwordService = new PasswordApplicationService(
-                users, hasher, allowAllAuthorization(), audit, sessions, CLOCK);
+                users,
+                hasher,
+                allowAllAuthorization(),
+                audit,
+                sessions,
+                new ActivationCodeGenerator(),
+                ActivationTestSupport.defaultActivationProperties(),
+                CLOCK);
         service = new AuthenticationApplicationService(
                 users, hasher, passwordService, sessions, audit, CLOCK, immediateTransactions());
     }
@@ -94,11 +104,12 @@ class AuthenticationApplicationServiceTest {
     }
 
     @Test
-    void completePasswordSetupOpensSession() {
-        users.save(User.createActivePendingPasswordSetup(
+    void completePasswordSetupOpensSessionWithActivationCode() {
+        User pending = users.save(User.createActivePendingPasswordSetup(
                 UserId.generate(), Login.of("newbie"), DisplayName.of("Newbie"), CLOCK));
+        String code = passwordService.issueActivationCode(pending);
         service.completePasswordSetup(
-                Login.of("newbie"), "long-enough".toCharArray(), "long-enough".toCharArray());
+                Login.of("newbie"), code, "long-enough".toCharArray(), "long-enough".toCharArray());
         assertTrue(service.isAuthenticated());
         assertFalse(users.findByLoginIgnoreCase(Login.of("newbie")).orElseThrow().passwordSetupRequired());
         assertTrue(audit.events.stream().anyMatch(e -> e.operation() == AuditOperation.PASSWORD_INITIALIZED));
@@ -106,13 +117,28 @@ class AuthenticationApplicationServiceTest {
     }
 
     @Test
-    void completePasswordSetupRejectsMismatch() {
+    void completePasswordSetupRejectsWithoutActivationCode() {
         users.save(User.createActivePendingPasswordSetup(
                 UserId.generate(), Login.of("newbie"), DisplayName.of("Newbie"), CLOCK));
         assertThrows(
+                InvalidActivationCodeException.class,
+                () -> service.completePasswordSetup(
+                        Login.of("newbie"),
+                        "AAAA-BBBB-CCCC",
+                        "long-enough".toCharArray(),
+                        "long-enough".toCharArray()));
+        assertFalse(service.isAuthenticated());
+    }
+
+    @Test
+    void completePasswordSetupRejectsMismatch() {
+        User pending = users.save(User.createActivePendingPasswordSetup(
+                UserId.generate(), Login.of("newbie"), DisplayName.of("Newbie"), CLOCK));
+        String code = passwordService.issueActivationCode(pending);
+        assertThrows(
                 com.tmp.security.api.PasswordConfirmationMismatchException.class,
                 () -> service.completePasswordSetup(
-                        Login.of("newbie"), "long-enough".toCharArray(), "different".toCharArray()));
+                        Login.of("newbie"), code, "long-enough".toCharArray(), "different".toCharArray()));
         assertFalse(service.isAuthenticated());
     }
 

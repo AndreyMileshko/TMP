@@ -13,6 +13,8 @@ import com.tmp.security.api.RoleAdministrationService;
 import com.tmp.security.api.RoleId;
 import com.tmp.security.api.RoleSummary;
 import com.tmp.security.api.SecurityPermissions;
+import com.tmp.security.api.PasswordResetResult;
+import com.tmp.security.api.UserCreationResult;
 import com.tmp.security.api.UserAdministrationService;
 import com.tmp.security.api.UserId;
 import com.tmp.security.api.UserSummary;
@@ -308,7 +310,7 @@ class RoleAdministrationSelectionFxTest {
 
     private static final class EmptyUsers implements UserAdministrationService {
         @Override
-        public UserSummary createUser(Login login, DisplayName displayName) {
+        public UserCreationResult createUser(Login login, DisplayName displayName) {
             throw new UnsupportedOperationException();
         }
 
@@ -332,7 +334,8 @@ class RoleAdministrationSelectionFxTest {
         }
 
         @Override
-        public void requestPasswordReset(UserId targetUserId) {
+        public PasswordResetResult requestPasswordReset(UserId targetUserId) {
+            throw new UnsupportedOperationException();
         }
     }
 

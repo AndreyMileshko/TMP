@@ -9,6 +9,8 @@ import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.PermissionId;
+import com.tmp.security.api.PasswordResetResult;
+import com.tmp.security.api.UserCreationResult;
 import com.tmp.security.api.UserAdministrationService;
 import com.tmp.security.api.UserId;
 import com.tmp.security.api.UserSummary;
@@ -54,9 +56,51 @@ class UserAdministrationViewModelTest {
         };
         UserAdministrationViewModel viewModel =
                 new UserAdministrationViewModel(service, new FakeAuthz(Set.of()));
+        viewModel.refresh();
         assertTrue(viewModel.errorMessageProperty().get().contains("Access denied"));
         assertFalse(viewModel.errorMessageProperty().get().contains("at "));
         assertFalse(viewModel.canCreateProperty().get());
+    }
+
+    @Test
+    void showDeletedToggleFiltersDeletedUsers() {
+        FakeUsers service = new FakeUsers();
+        service.users.add(summary("active", "Active"));
+        service.users.add(withStatus(summary("deleted", "Deleted"), "DELETED"));
+        UserAdministrationViewModel viewModel =
+                new UserAdministrationViewModel(service, new FakeAuthz(allUserPermissions()));
+        viewModel.refresh();
+
+        assertFalse(viewModel.showDeletedProperty().get());
+        assertEquals(2, viewModel.userList().size());
+        assertEquals(1, viewModel.filteredUserList().size());
+        assertEquals("active", viewModel.filteredUserList().get(0).login().value());
+
+        viewModel.showDeletedProperty().set(true);
+        assertEquals(2, viewModel.filteredUserList().size());
+
+        viewModel.showDeletedProperty().set(false);
+        assertEquals(1, viewModel.filteredUserList().size());
+    }
+
+    @Test
+    void softDeleteHidesUserWhenShowDeletedOff() {
+        FakeUsers service = new FakeUsers();
+        UserSummary active = summary("active", "Active");
+        service.users.add(active);
+        UserAdministrationViewModel viewModel =
+                new UserAdministrationViewModel(service, new FakeAuthz(allUserPermissions()));
+        viewModel.refresh();
+        assertEquals(1, viewModel.filteredUserList().size());
+
+        viewModel.deleteUser(active);
+        assertEquals(1, viewModel.userList().size());
+        assertEquals("DELETED", viewModel.userList().get(0).status());
+        assertEquals(0, viewModel.filteredUserList().size());
+
+        viewModel.showDeletedProperty().set(true);
+        assertEquals(1, viewModel.filteredUserList().size());
+        assertEquals("DELETED", viewModel.filteredUserList().get(0).status());
     }
 
     @Test
@@ -86,6 +130,17 @@ class UserAdministrationViewModelTest {
                 SecurityPermissions.USERS_RESET_PASSWORD);
     }
 
+    private static UserSummary withStatus(UserSummary user, String status) {
+        return new UserSummary(
+                user.id(),
+                user.login(),
+                user.displayName(),
+                status,
+                user.version(),
+                user.createdAt(),
+                user.updatedAt());
+    }
+
     private static UserSummary summary(String login, String name) {
         return new UserSummary(
                 UserId.generate(),
@@ -101,10 +156,10 @@ class UserAdministrationViewModelTest {
         private final List<UserSummary> users = new ArrayList<>();
 
         @Override
-        public UserSummary createUser(Login login, DisplayName displayName) {
+        public UserCreationResult createUser(Login login, DisplayName displayName) {
             UserSummary created = summary(login.value(), displayName.value());
             users.add(created);
-            return created;
+            return new UserCreationResult(created, "TEST-CODE");
         }
 
         @Override
@@ -115,8 +170,9 @@ class UserAdministrationViewModelTest {
         @Override
         public UserSummary deleteUser(UserId userId) {
             UserSummary found = users.stream().filter(u -> u.id().equals(userId)).findFirst().orElseThrow();
-            users.remove(found);
-            return found;
+            UserSummary deleted = withStatus(found, "DELETED");
+            users.set(users.indexOf(found), deleted);
+            return deleted;
         }
 
         @Override
@@ -129,7 +185,10 @@ class UserAdministrationViewModelTest {
         }
 
         @Override
-        public void requestPasswordReset(UserId targetUserId) {
+        public PasswordResetResult requestPasswordReset(UserId targetUserId) {
+            UserSummary user =
+                    users.stream().filter(u -> u.id().equals(targetUserId)).findFirst().orElseThrow();
+            return new PasswordResetResult(user, "RESET-CODE");
         }
     }
 

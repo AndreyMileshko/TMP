@@ -159,14 +159,18 @@ class OrderManagementAutoConfigurationTest {
     @Test
     void searchOrdersSucceedsAfterOrderViewPermissionGrantedViaPublicSecurityApi() {
         authenticationService.login(Login.of("admin"), "bootstrap-secret-value".toCharArray());
-        UserSummary viewer = userAdministrationService.createUser(
+        var viewerCreation = userAdministrationService.createUser(
                 Login.of("orderviewer"), DisplayName.of("Order Viewer"));
+        UserSummary viewer = viewerCreation.user();
         roleAdministrationService.grantIndividualPermission(
                 viewer.id(), OrderManagementPermissions.ORDER_VIEW);
         authenticationService.logout();
 
         authenticationService.completePasswordSetup(
-                Login.of("orderviewer"), VIEWER_PASSWORD.clone(), VIEWER_PASSWORD.clone());
+                Login.of("orderviewer"),
+                viewerCreation.activationCode(),
+                VIEWER_PASSWORD.clone(),
+                VIEWER_PASSWORD.clone());
         OrderQueryService fromContext = applicationContext.getBean(OrderQueryService.class);
         PageResult<OrderSummaryDto> page =
                 assertDoesNotThrow(

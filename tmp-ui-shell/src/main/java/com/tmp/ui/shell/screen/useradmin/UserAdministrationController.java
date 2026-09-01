@@ -5,6 +5,7 @@ import com.tmp.ui.shell.navigation.ViewModelAware;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
@@ -35,6 +36,9 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
     private Button createUserButton;
 
     @FXML
+    private CheckBox showDeletedCheckBox;
+
+    @FXML
     private Label errorLabel;
 
     private UserAdministrationViewModel viewModel;
@@ -49,11 +53,12 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
         statusColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(cell.getValue().status()));
 
-        userTable.setItems(viewModel.userList());
+        userTable.setItems(viewModel.filteredUserList());
         userTable.setRowFactory(table -> createContextMenuRow());
 
         createUserButton.disableProperty().bind(viewModel.canCreateProperty().not());
         createUserButton.setOnAction(e -> onCreateUser());
+        showDeletedCheckBox.selectedProperty().bindBidirectional(viewModel.showDeletedProperty());
 
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
         errorLabel.visibleProperty().bind(Bindings.createBooleanBinding(
@@ -63,6 +68,7 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
                 },
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
+        viewModel.refresh();
     }
 
     private TableRow<UserSummary> createContextMenuRow() {
@@ -115,7 +121,9 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
     private void onCreateUser() {
         UserAdministrationDialogs.showCreateDialog(
                         userTable.getScene().getWindow(), viewModel.canCreateProperty().get())
-                .ifPresent(result -> viewModel.createUser(result.login(), result.displayName()));
+                .ifPresent(result -> viewModel.createUser(result.login(), result.displayName())
+                        .ifPresent(code -> UserAdministrationDialogs.showUserCreatedDialog(
+                                userTable.getScene().getWindow(), result.login(), code)));
     }
 
     private void onEditUser(UserSummary user) {
@@ -129,7 +137,9 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
             return;
         }
         if (UserAdministrationDialogs.confirmPasswordReset(userTable.getScene().getWindow(), user)) {
-            viewModel.requestPasswordReset(user);
+            viewModel.requestPasswordReset(user).ifPresent(code ->
+                    UserAdministrationDialogs.showPasswordResetDialog(
+                            userTable.getScene().getWindow(), user.login().value(), code));
         }
     }
 

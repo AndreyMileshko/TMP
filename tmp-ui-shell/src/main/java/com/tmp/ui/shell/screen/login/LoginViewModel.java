@@ -2,6 +2,7 @@ package com.tmp.ui.shell.screen.login;
 
 import com.tmp.security.api.AuthenticationFailedException;
 import com.tmp.security.api.AuthenticationService;
+import com.tmp.security.api.InvalidActivationCodeException;
 import com.tmp.security.api.InvalidPasswordException;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.PasswordConfirmationMismatchException;
@@ -26,11 +27,13 @@ public final class LoginViewModel {
         PASSWORD_SETUP_REQUIRED
     }
 
+    private static final String ACTIVATION_REQUIRED_MESSAGE =
+            "Для этой учётной записи требуется активация. Используйте «Первый вход / активация».";
+
     private final AuthenticationService authenticationService;
     private final StringProperty login = new SimpleStringProperty("");
     private final StringProperty errorMessage = new SimpleStringProperty("");
     private SessionSummary lastSession;
-    private Login pendingPasswordSetupLogin;
     private Runnable onLoginSuccess = () -> {
     };
 
@@ -54,10 +57,6 @@ public final class LoginViewModel {
         return Optional.ofNullable(lastSession);
     }
 
-    public Optional<Login> pendingPasswordSetupLogin() {
-        return Optional.ofNullable(pendingPasswordSetupLogin);
-    }
-
     /**
      * Attempts authentication. Returns outcome for the controller.
      */
@@ -65,13 +64,12 @@ public final class LoginViewModel {
         Objects.requireNonNull(password, "password");
         errorMessage.set("");
         lastSession = null;
-        pendingPasswordSetupLogin = null;
         try {
             lastSession = authenticationService.login(Login.of(login.get()), password);
             onLoginSuccess.run();
             return SubmitOutcome.SUCCESS;
         } catch (PasswordSetupRequiredException ex) {
-            pendingPasswordSetupLogin = ex.login();
+            errorMessage.set(ACTIVATION_REQUIRED_MESSAGE);
             return SubmitOutcome.PASSWORD_SETUP_REQUIRED;
         } catch (AuthenticationFailedException ex) {
             errorMessage.set(ex.getMessage());
@@ -84,28 +82,40 @@ public final class LoginViewModel {
         }
     }
 
-    public boolean completePasswordSetup(char[] newPassword, char[] confirmPassword) {
+    /**
+     * Completes activation with login, code, and new password. Returns empty on success or an
+     * error message to display inside the activation dialog.
+     */
+    public Optional<String> completeActivation(
+            String activationLogin, String activationCode, char[] newPassword, char[] confirmPassword) {
+        Objects.requireNonNull(activationLogin, "activationLogin");
+        Objects.requireNonNull(activationCode, "activationCode");
         Objects.requireNonNull(newPassword, "newPassword");
         Objects.requireNonNull(confirmPassword, "confirmPassword");
         errorMessage.set("");
         lastSession = null;
-        Login setupLogin = pendingPasswordSetupLogin != null
-                ? pendingPasswordSetupLogin
-                : Login.of(login.get());
         try {
-            lastSession = authenticationService.completePasswordSetup(setupLogin, newPassword, confirmPassword);
-            pendingPasswordSetupLogin = null;
+            lastSession = authenticationService.completePasswordSetup(
+                    Login.of(activationLogin), activationCode, newPassword, confirmPassword);
             onLoginSuccess.run();
-            return true;
+            return Optional.empty();
+        } catch (InvalidActivationCodeException ex) {
+            return Optional.of(ex.getMessage());
         } catch (InvalidPasswordException | PasswordConfirmationMismatchException ex) {
-            errorMessage.set(ex.getMessage());
-            return false;
+            return Optional.of(ex.getMessage());
         } catch (IllegalArgumentException ex) {
-            errorMessage.set(ex.getMessage());
-            return false;
+            return Optional.of(safeMessage(ex));
         } finally {
             Arrays.fill(newPassword, '\0');
             Arrays.fill(confirmPassword, '\0');
         }
+    }
+
+    private static String safeMessage(Throwable ex) {
+        String message = ex.getMessage();
+        if (message == null || message.isBlank()) {
+            return "Операция не выполнена";
+        }
+        return message;
     }
 }

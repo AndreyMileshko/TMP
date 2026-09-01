@@ -43,8 +43,9 @@ public final class JdbcUserRepository implements UserRepository {
                         """
                         INSERT INTO security.users (
                             id, login, display_name, password_hash, status,
-                            password_setup_required, version, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            password_setup_required, activation_code_hash, activation_code_expires_at,
+                            version, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         user.id().value(),
                         user.login().value(),
@@ -52,6 +53,10 @@ public final class JdbcUserRepository implements UserRepository {
                         user.passwordHash().encodedValue(),
                         user.status().name(),
                         user.passwordSetupRequired(),
+                        user.activationCodeHash().map(PasswordHash::encodedValue).orElse(null),
+                        user.activationCodeExpiresAt()
+                                .map(Timestamp::from)
+                                .orElse(null),
                         user.version(),
                         Timestamp.from(user.createdAt()),
                         Timestamp.from(user.updatedAt()));
@@ -63,7 +68,8 @@ public final class JdbcUserRepository implements UserRepository {
                     """
                     UPDATE security.users
                     SET login = ?, display_name = ?, password_hash = ?, status = ?,
-                        password_setup_required = ?, version = ?, updated_at = ?
+                        password_setup_required = ?, activation_code_hash = ?,
+                        activation_code_expires_at = ?, version = ?, updated_at = ?
                     WHERE id = ? AND version = ?
                     """,
                     user.login().value(),
@@ -71,6 +77,10 @@ public final class JdbcUserRepository implements UserRepository {
                     user.passwordHash().encodedValue(),
                     user.status().name(),
                     user.passwordSetupRequired(),
+                    user.activationCodeHash().map(PasswordHash::encodedValue).orElse(null),
+                    user.activationCodeExpiresAt()
+                            .map(Timestamp::from)
+                            .orElse(null),
                     nextVersion,
                     Timestamp.from(user.updatedAt()),
                     user.id().value(),
@@ -85,6 +95,8 @@ public final class JdbcUserRepository implements UserRepository {
                     user.passwordHash(),
                     user.status(),
                     user.passwordSetupRequired(),
+                    user.activationCodeHash().orElse(null),
+                    user.activationCodeExpiresAt().orElse(null),
                     nextVersion,
                     user.createdAt(),
                     user.updatedAt());
@@ -159,6 +171,8 @@ public final class JdbcUserRepository implements UserRepository {
     }
 
     private static User mapRow(ResultSet rs, int rowNum) throws SQLException {
+        String activationHash = rs.getString("activation_code_hash");
+        Timestamp activationExpires = rs.getTimestamp("activation_code_expires_at");
         return User.rehydrate(
                 UserId.of(rs.getObject("id", UUID.class)),
                 Login.of(rs.getString("login")),
@@ -166,6 +180,8 @@ public final class JdbcUserRepository implements UserRepository {
                 PasswordHash.of(rs.getString("password_hash")),
                 UserStatus.valueOf(rs.getString("status")),
                 rs.getBoolean("password_setup_required"),
+                activationHash == null ? null : PasswordHash.of(activationHash),
+                activationExpires == null ? null : activationExpires.toInstant(),
                 rs.getLong("version"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant());

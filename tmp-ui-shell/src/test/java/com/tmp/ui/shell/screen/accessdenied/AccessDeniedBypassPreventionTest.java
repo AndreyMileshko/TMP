@@ -78,7 +78,8 @@ class AccessDeniedBypassPreventionTest {
         }
 
         @Override
-        public SessionSummary completePasswordSetup(Login login, char[] newPassword, char[] confirmPassword) {
+        public SessionSummary completePasswordSetup(
+                Login login, String activationCode, char[] newPassword, char[] confirmPassword) {
             throw new UnsupportedOperationException();
         }
 

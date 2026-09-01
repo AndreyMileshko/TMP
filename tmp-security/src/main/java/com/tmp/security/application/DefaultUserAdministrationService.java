@@ -2,7 +2,9 @@ package com.tmp.security.application;
 
 import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
+import com.tmp.security.api.PasswordResetResult;
 import com.tmp.security.api.UserAdministrationService;
+import com.tmp.security.api.UserCreationResult;
 import com.tmp.security.api.UserId;
 import com.tmp.security.api.UserSummary;
 import com.tmp.security.domain.UserStatus;
@@ -21,8 +23,8 @@ public final class DefaultUserAdministrationService implements UserAdministratio
     }
 
     @Override
-    public UserSummary createUser(Login login, DisplayName displayName) {
-        return SecurityApiMapper.toSummary(users.createUser(login, displayName));
+    public UserCreationResult createUser(Login login, DisplayName displayName) {
+        return users.createUser(login, displayName);
     }
 
     @Override
@@ -51,7 +53,7 @@ public final class DefaultUserAdministrationService implements UserAdministratio
     }
 
     @Override
-    public void requestPasswordReset(UserId targetUserId) {
-        passwords.requestPasswordReset(targetUserId);
+    public PasswordResetResult requestPasswordReset(UserId targetUserId) {
+        return passwords.requestPasswordReset(targetUserId);
     }
 }

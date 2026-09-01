@@ -105,8 +105,47 @@ final class UserAdministrationDialogs {
                         + user.login().value()
                         + " — "
                         + user.displayName().value()
-                        + "?\nПользователь создаст новый пароль при следующем входе.");
+                        + "?\nПользователь получит новый код активации.");
         return alert.showAndWait().filter(ButtonType.OK::equals).isPresent();
+    }
+
+    static void showUserCreatedDialog(Window owner, String login, String activationCode) {
+        showActivationCodeDialog(
+                owner,
+                "Пользователь создан",
+                "Логин: " + login,
+                activationCode,
+                "Передайте этот код пользователю.");
+    }
+
+    static void showPasswordResetDialog(Window owner, String login, String activationCode) {
+        showActivationCodeDialog(
+                owner,
+                "Пароль сброшен",
+                "Пользователь: " + login,
+                activationCode,
+                "Передайте новый код активации пользователю.");
+    }
+
+    private static void showActivationCodeDialog(
+            Window owner, String title, String header, String activationCode, String footer) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.initOwner(owner);
+        alert.initModality(Modality.APPLICATION_MODAL);
+        alert.setTitle(title);
+        alert.setHeaderText(header);
+        alert.setContentText(
+                "Код активации:\n" + activationCode + "\n\n" + footer);
+
+        ButtonType copyType = new ButtonType("Копировать код", ButtonBar.ButtonData.OTHER);
+        alert.getButtonTypes().setAll(copyType, ButtonType.CLOSE);
+        alert.showAndWait().ifPresent(button -> {
+            if (button == copyType) {
+                javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+                content.putString(activationCode);
+                javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+            }
+        });
     }
 
     static Optional<String> showDeleteConfirmation(Window owner, UserSummary user) {

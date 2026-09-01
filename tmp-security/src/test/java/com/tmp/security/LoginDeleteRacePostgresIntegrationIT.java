@@ -94,11 +94,14 @@ class LoginDeleteRacePostgresIntegrationIT {
     @Test
     void loginDoesNotOpenSessionWhenUserDeletedAfterCredentialCheck() throws Exception {
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
-        var victim = userAdministrationService.createUser(
+        var victimCreation = userAdministrationService.createUser(
                 Login.of("race-login-user"), DisplayName.of("Race Login"));
         authenticationService.logout();
         authenticationService.completePasswordSetup(
-                Login.of("race-login-user"), "race-login-secret".toCharArray(), "race-login-secret".toCharArray());
+                Login.of("race-login-user"),
+                victimCreation.activationCode(),
+                "race-login-secret".toCharArray(),
+                "race-login-secret".toCharArray());
         authenticationService.logout();
 
         CountDownLatch enteredFindById = new CountDownLatch(1);
@@ -112,7 +115,7 @@ class LoginDeleteRacePostgresIntegrationIT {
         assertTrue(enteredFindById.await(30, TimeUnit.SECONDS));
         // Clear before any main-thread findById/save so we do not join the login barrier.
         controllableUsers.clearFindByIdBarrier();
-        User current = userRepository.findById(victim.id()).orElseThrow();
+        User current = userRepository.findById(victimCreation.user().id()).orElseThrow();
         userRepository.save(current.deleted(clock));
         releaseFindById.countDown();
 

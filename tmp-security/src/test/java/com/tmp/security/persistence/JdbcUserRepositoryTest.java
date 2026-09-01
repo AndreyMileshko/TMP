@@ -99,6 +99,8 @@ class JdbcUserRepositoryTest {
                 created.passwordHash(),
                 created.status(),
                 created.passwordSetupRequired(),
+                null,
+                null,
                 0L,
                 created.createdAt(),
                 created.updatedAt());

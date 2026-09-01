@@ -154,10 +154,13 @@ class AuthenticationPostgresIntegrationIT {
                 Login.of("to-delete-login"), DisplayName.of("To Delete"));
         authenticationService.logout();
         authenticationService.completePasswordSetup(
-                Login.of("to-delete-login"), "delete-secret".toCharArray(), "delete-secret".toCharArray());
+                Login.of("to-delete-login"),
+                deleted.activationCode(),
+                "delete-secret".toCharArray(),
+                "delete-secret".toCharArray());
         authenticationService.logout();
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
-        userAdministrationService.deleteUser(deleted.id());
+        userAdministrationService.deleteUser(deleted.user().id());
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
         assertThrows(
                 AuthenticationFailedException.class,
@@ -172,12 +175,15 @@ class AuthenticationPostgresIntegrationIT {
                 Login.of("other-login"), DisplayName.of("Other"));
         authenticationService.logout();
         authenticationService.completePasswordSetup(
-                Login.of("other-login"), "other-secret".toCharArray(), "other-secret".toCharArray());
+                Login.of("other-login"),
+                other.activationCode(),
+                "other-secret".toCharArray(),
+                "other-secret".toCharArray());
         authenticationService.logout();
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
         authenticationService.login(Login.of("other-login"), "other-secret".toCharArray());
         assertTrue(authenticationService.isAuthenticated());
-        assertEquals(other.login().value(), authenticationService.currentSession().orElseThrow().login().value());
+        assertEquals(other.user().login().value(), authenticationService.currentSession().orElseThrow().login().value());
         assertTrue(auditDescriptionsAvoidSecrets());
     }
 

@@ -3,6 +3,7 @@ package com.tmp.security.application;
 import com.tmp.security.api.AuditEventId;
 import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
+import com.tmp.security.api.UserCreationResult;
 import com.tmp.security.api.UserId;
 import com.tmp.security.api.SecurityPermissions;
 import com.tmp.security.domain.AuditOperation;
@@ -24,6 +25,7 @@ public class UserAdministrationApplicationService {
 
     private final UserRepository userRepository;
     private final AuthorizationApplicationService authorization;
+    private final PasswordApplicationService passwordApplicationService;
     private final SecurityAuditRepository auditRepository;
     private final SessionContext sessionContext;
     private final Clock clock;
@@ -31,23 +33,27 @@ public class UserAdministrationApplicationService {
     public UserAdministrationApplicationService(
             UserRepository userRepository,
             AuthorizationApplicationService authorization,
+            PasswordApplicationService passwordApplicationService,
             SecurityAuditRepository auditRepository,
             SessionContext sessionContext,
             Clock clock) {
         this.userRepository = Objects.requireNonNull(userRepository, "userRepository");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
+        this.passwordApplicationService =
+                Objects.requireNonNull(passwordApplicationService, "passwordApplicationService");
         this.auditRepository = Objects.requireNonNull(auditRepository, "auditRepository");
         this.sessionContext = Objects.requireNonNull(sessionContext, "sessionContext");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     @Transactional
-    public User createUser(Login login, DisplayName displayName) {
+    public UserCreationResult createUser(Login login, DisplayName displayName) {
         authorization.requirePermission(SecurityPermissions.USERS_CREATE);
         User created = userRepository.save(
                 User.createActivePendingPasswordSetup(UserId.generate(), login, displayName, clock));
         appendAudit(AuditOperation.USER_CREATED, created.id(), "User created; password setup required");
-        return created;
+        String activationCode = passwordApplicationService.issueActivationCode(created);
+        return new UserCreationResult(SecurityApiMapper.toSummary(created), activationCode);
     }
 
     @Transactional

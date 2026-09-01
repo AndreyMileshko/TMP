@@ -4,17 +4,21 @@ import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
+import com.tmp.security.api.PasswordResetResult;
 import com.tmp.security.api.UserAdministrationService;
+import com.tmp.security.api.UserCreationResult;
 import com.tmp.security.api.UserId;
 import com.tmp.security.api.UserSummary;
 import com.tmp.security.api.SecurityPermissions;
 import java.util.Objects;
+import java.util.Optional;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"}, justification = "JavaFX ViewModel/Controller intentionally expose observable properties and retain ViewModel for FXML wiring")
@@ -26,6 +30,8 @@ public final class UserAdministrationViewModel {
     private final UserAdministrationService users;
     private final AuthorizationService authorization;
     private final ObservableList<UserSummary> userList = FXCollections.observableArrayList();
+    private final FilteredList<UserSummary> filteredUserList = new FilteredList<>(userList);
+    private final BooleanProperty showDeleted = new SimpleBooleanProperty(false);
     private final StringProperty errorMessage = new SimpleStringProperty("");
     private final BooleanProperty canCreate = new SimpleBooleanProperty(false);
     private final BooleanProperty canUpdate = new SimpleBooleanProperty(false);
@@ -36,12 +42,21 @@ public final class UserAdministrationViewModel {
             UserAdministrationService users, AuthorizationService authorization) {
         this.users = Objects.requireNonNull(users, "users");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
+        filteredUserList.setPredicate(this::isVisibleInTable);
+        showDeleted.addListener((obs, oldValue, newValue) -> filteredUserList.setPredicate(this::isVisibleInTable));
         refreshPermissions();
-        refresh();
     }
 
     public ObservableList<UserSummary> userList() {
         return userList;
+    }
+
+    public ObservableList<UserSummary> filteredUserList() {
+        return filteredUserList;
+    }
+
+    public BooleanProperty showDeletedProperty() {
+        return showDeleted;
     }
 
     public StringProperty errorMessageProperty() {
@@ -76,10 +91,11 @@ public final class UserAdministrationViewModel {
         refreshPermissions();
     }
 
-    public void createUser(String login, String displayName) {
-        runAction(() -> {
-            users.createUser(Login.of(login), DisplayName.of(displayName));
+    public Optional<String> createUser(String login, String displayName) {
+        return runActionWithResult(() -> {
+            UserCreationResult result = users.createUser(Login.of(login), DisplayName.of(displayName));
             refresh();
+            return result.activationCode();
         });
     }
 
@@ -105,14 +121,15 @@ public final class UserAdministrationViewModel {
         });
     }
 
-    public void requestPasswordReset(UserSummary selected) {
+    public Optional<String> requestPasswordReset(UserSummary selected) {
         if (selected == null) {
-            return;
+            return Optional.empty();
         }
         UserId id = selected.id();
-        runAction(() -> {
-            users.requestPasswordReset(id);
+        return runActionWithResult(() -> {
+            PasswordResetResult result = users.requestPasswordReset(id);
             refresh();
+            return result.activationCode();
         });
     }
 
@@ -132,6 +149,10 @@ public final class UserAdministrationViewModel {
         return "ACTIVE".equals(user.status());
     }
 
+    private boolean isVisibleInTable(UserSummary user) {
+        return showDeleted.get() || !"DELETED".equals(user.status());
+    }
+
     private void refreshPermissions() {
         canCreate.set(authorization.hasPermission(SecurityPermissions.USERS_CREATE));
         canUpdate.set(authorization.hasPermission(SecurityPermissions.USERS_UPDATE));
@@ -147,6 +168,22 @@ public final class UserAdministrationViewModel {
             errorMessage.set(ex.getMessage());
         } catch (RuntimeException ex) {
             errorMessage.set(safeMessage(ex));
+        }
+    }
+
+    private Optional<String> runActionWithResult(java.util.concurrent.Callable<String> action) {
+        errorMessage.set("");
+        try {
+            return Optional.ofNullable(action.call());
+        } catch (AccessDeniedException ex) {
+            errorMessage.set(ex.getMessage());
+            return Optional.empty();
+        } catch (RuntimeException ex) {
+            errorMessage.set(safeMessage(ex));
+            return Optional.empty();
+        } catch (Exception ex) {
+            errorMessage.set(safeMessage(ex));
+            return Optional.empty();
         }
     }
 

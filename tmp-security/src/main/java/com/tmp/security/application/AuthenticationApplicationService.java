@@ -99,12 +99,15 @@ public class AuthenticationApplicationService {
         }
     }
 
-    public Session completePasswordSetup(Login login, char[] newPassword, char[] confirmPassword) {
+    public Session completePasswordSetup(
+            Login login, String activationCode, char[] newPassword, char[] confirmPassword) {
         Objects.requireNonNull(login, "login");
+        Objects.requireNonNull(activationCode, "activationCode");
         Objects.requireNonNull(newPassword, "newPassword");
         Objects.requireNonNull(confirmPassword, "confirmPassword");
         sessionContext.close();
-        User initialized = passwordApplicationService.initializePassword(login, newPassword, confirmPassword);
+        User initialized = passwordApplicationService.initializePassword(
+                login, activationCode, newPassword, confirmPassword);
         User activeUser = requireStillActive(login, initialized);
         recordLoginSuccess(activeUser);
         User beforeOpen = requireStillActive(login, activeUser);
