@@ -4,7 +4,6 @@ import com.tmp.ui.shell.navigation.ViewModelAware;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.layout.StackPane;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -25,7 +24,10 @@ public final class MainWindowController implements ViewModelAware<MainWindowView
     private Button logoutButton;
 
     @FXML
-    private Label statusLabel;
+    private Label userAvatarLabel;
+
+    @FXML
+    private Label userLoginLabel;
 
     private MainWindowViewModel viewModel;
 
@@ -34,13 +36,8 @@ public final class MainWindowController implements ViewModelAware<MainWindowView
         this.viewModel = viewModel;
         viewModel.refreshNavigation();
         navigationList.setItems(viewModel.navigationItems());
-        navigationList.setCellFactory(list -> new ListCell<>() {
-            @Override
-            protected void updateItem(NavigationItem item, boolean empty) {
-                super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.displayName());
-            }
-        });
+        navigationList.setFixedCellSize(42);
+        navigationList.setCellFactory(list -> new NavigationListCell());
         navigationList.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) -> {
             if (selected != null) {
                 viewModel.selectNavigation(selected.navigationId());
@@ -52,7 +49,8 @@ public final class MainWindowController implements ViewModelAware<MainWindowView
                 contentArea.getChildren().add(root);
             }
         });
+        userLoginLabel.textProperty().bind(viewModel.currentUserLoginProperty());
+        userAvatarLabel.textProperty().bind(viewModel.currentUserInitialProperty());
         logoutButton.setOnAction(event -> viewModel.logout());
-        statusLabel.setText("Signed in");
     }
 }

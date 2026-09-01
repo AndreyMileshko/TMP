@@ -18,7 +18,7 @@ public class JavaFxShellApplication extends Application {
             throw new IllegalStateException("UiShellEntryPoint was not provided to JavaFxShellLauncher");
         }
         Parent root = entryPoint.navigationService().load(entryPoint.initialScreenId());
-        Scene scene = new Scene(root, 960, 640);
+        Scene scene = new Scene(root, 1280, 800);
         TmpTheme.apply(scene);
         TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/login/LoginScreen.css");
         TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/main/MainWindow.css");
@@ -26,6 +26,8 @@ public class JavaFxShellApplication extends Application {
         TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/useradmin/UserAdministrationScreen.css");
         entryPoint.sceneNavigator().attach(scene);
         stage.setTitle(WINDOW_TITLE);
+        stage.setMinWidth(1024);
+        stage.setMinHeight(700);
         stage.setScene(scene);
         stage.show();
     }

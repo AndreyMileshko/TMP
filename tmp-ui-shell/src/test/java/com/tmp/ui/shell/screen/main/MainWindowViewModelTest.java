@@ -1,24 +1,29 @@
 package com.tmp.ui.shell.screen.main;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.PermissionId;
+import com.tmp.security.api.SessionId;
 import com.tmp.security.api.SessionSummary;
+import com.tmp.security.api.UserId;
 import com.tmp.ui.shell.JavaFxTestSupport;
 import com.tmp.ui.shell.navigation.NavigationService;
 import com.tmp.ui.shell.navigation.NavigationServices;
 import com.tmp.ui.shell.navigation.ScreenRegistration;
 import com.tmp.ui.shell.navigation.ShellNavEntry;
 import com.tmp.ui.shell.navigation.ShellNavigationCatalogue;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javafx.scene.Parent;
 import org.junit.jupiter.api.BeforeAll;
@@ -82,6 +87,64 @@ class MainWindowViewModelTest {
         assertTrue(after.get());
     }
 
+    @Test
+    void currentUserLoginComesFromSessionSummary() {
+        SessionSummary session = new SessionSummary(
+                SessionId.of(UUID.randomUUID()),
+                UserId.of(UUID.randomUUID()),
+                Login.of("operator"),
+                Instant.parse("2026-07-23T04:00:00Z"));
+        MainWindowViewModel viewModel = new MainWindowViewModel(
+                new FakeCatalogue(),
+                new FakeAuthz(Set.of()),
+                new SessionAuthn(session),
+                NavigationServices.createDefault());
+        assertEquals("operator", viewModel.currentUserLoginProperty().get());
+        assertEquals("O", viewModel.currentUserInitialProperty().get());
+    }
+
+    @Test
+    void currentUserUsesSafeFallbackWhenSessionMissing() {
+        MainWindowViewModel viewModel = new MainWindowViewModel(
+                new FakeCatalogue(), new FakeAuthz(Set.of()), new FakeAuthn(), NavigationServices.createDefault());
+        assertEquals("—", viewModel.currentUserLoginProperty().get());
+        assertEquals("—", viewModel.currentUserInitialProperty().get());
+    }
+
+    @Test
+    void navigationOrderIsPreservedFromCatalogue() {
+        FakeCatalogue catalogue = new FakeCatalogue();
+        catalogue.entries.add(ShellNavEntry.of("nav.third", "Third", "view.third", 30, List.of()));
+        catalogue.entries.add(ShellNavEntry.of("nav.first", "First", "view.first", 10, List.of()));
+        catalogue.entries.add(ShellNavEntry.of("nav.second", "Second", "view.second", 20, List.of()));
+        MainWindowViewModel viewModel = new MainWindowViewModel(
+                catalogue, new FakeAuthz(Set.of()), new FakeAuthn(), NavigationServices.createDefault());
+        assertEquals("nav.first", viewModel.navigationItems().get(0).navigationId());
+        assertEquals("nav.second", viewModel.navigationItems().get(1).navigationId());
+        assertEquals("nav.third", viewModel.navigationItems().get(2).navigationId());
+    }
+
+    @Test
+    void selectNavigationReplacesPreviousContent() {
+        FakeCatalogue catalogue = new FakeCatalogue();
+        catalogue.entries.add(ShellNavEntry.of("nav.a", "A", "view.a", 1, List.of()));
+        catalogue.entries.add(ShellNavEntry.of("nav.b", "B", "view.b", 2, List.of()));
+        NavigationService navigation = NavigationServices.createDefault();
+        navigation.register(new ScreenRegistration(
+                "view.a", "fxml/fixture-screen.fxml", () -> new com.tmp.ui.shell.navigation.FixtureViewModel("a")));
+        navigation.register(new ScreenRegistration(
+                "view.b", "fxml/fixture-screen.fxml", () -> new com.tmp.ui.shell.navigation.FixtureViewModel("b")));
+        MainWindowViewModel viewModel =
+                new MainWindowViewModel(catalogue, new FakeAuthz(Set.of()), new FakeAuthn(), navigation);
+        viewModel.selectNavigation("nav.a");
+        Parent first = viewModel.contentProperty().get();
+        assertNotNull(first);
+        viewModel.selectNavigation("nav.b");
+        Parent second = viewModel.contentProperty().get();
+        assertNotNull(second);
+        assertTrue(first != second);
+    }
+
     private static final class FakeAuthz implements AuthorizationService {
         private final Set<PermissionId> granted;
 
@@ -128,6 +191,39 @@ class MainWindowViewModelTest {
         @Override
         public boolean isAuthenticated() {
             return false;
+        }
+    }
+
+    private static class SessionAuthn implements AuthenticationService {
+        private final SessionSummary session;
+
+        private SessionAuthn(SessionSummary session) {
+            this.session = session;
+        }
+
+        @Override
+        public SessionSummary login(Login login, char[] password) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public SessionSummary completePasswordSetup(
+                Login login, String activationCode, char[] newPassword, char[] confirmPassword) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void logout() {
+        }
+
+        @Override
+        public Optional<SessionSummary> currentSession() {
+            return Optional.of(session);
+        }
+
+        @Override
+        public boolean isAuthenticated() {
+            return true;
         }
     }
 

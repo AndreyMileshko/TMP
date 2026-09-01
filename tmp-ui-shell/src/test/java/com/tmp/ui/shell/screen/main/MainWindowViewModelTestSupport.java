@@ -24,6 +24,19 @@ final class MainWindowViewModelTestSupport {
         }
     }
 
+    static final class SingleEntryCatalogue implements ShellNavigationCatalogue {
+        private final ShellNavEntry entry;
+
+        SingleEntryCatalogue(ShellNavEntry entry) {
+            this.entry = entry;
+        }
+
+        @Override
+        public List<ShellNavEntry> entries() {
+            return List.of(entry);
+        }
+    }
+
     static final class AllowAllAuthz implements AuthorizationService {
         @Override
         public boolean hasPermission(PermissionId permissionId) {
@@ -71,6 +84,39 @@ final class MainWindowViewModelTestSupport {
         @Override
         public boolean isAuthenticated() {
             return false;
+        }
+    }
+
+    static final class SessionAuthn implements AuthenticationService {
+        private final SessionSummary session;
+
+        SessionAuthn(SessionSummary session) {
+            this.session = session;
+        }
+
+        @Override
+        public SessionSummary login(Login login, char[] password) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public SessionSummary completePasswordSetup(
+                Login login, String activationCode, char[] newPassword, char[] confirmPassword) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void logout() {
+        }
+
+        @Override
+        public Optional<SessionSummary> currentSession() {
+            return Optional.of(session);
+        }
+
+        @Override
+        public boolean isAuthenticated() {
+            return true;
         }
     }
 }

@@ -14,36 +14,39 @@
             fx:controller="com.tmp.ui.shell.screen.main.MainWindowController"
             styleClass="main-window-root">
     <top>
-        <HBox spacing="12" styleClass="main-window-top" alignment="CENTER_LEFT">
+        <HBox styleClass="main-window-top" alignment="CENTER_LEFT" minHeight="56" prefHeight="56" maxHeight="56">
             <padding>
-                <Insets top="10" right="14" bottom="10" left="14"/>
+                <Insets top="0" right="20" bottom="0" left="20"/>
             </padding>
-            <Label text="TOP Manufacturing Platform" styleClass="main-window-brand"/>
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <Label text="TMP" styleClass="main-window-brand-mark"/>
+                <Label text="TOP Manufacturing Platform" styleClass="main-window-brand"/>
+            </HBox>
             <Pane HBox.hgrow="ALWAYS"/>
-            <Button fx:id="logoutButton" text="Выход"/>
+            <HBox spacing="16" alignment="CENTER_RIGHT">
+                <HBox spacing="10" alignment="CENTER_LEFT" styleClass="main-window-user">
+                    <Label fx:id="userAvatarLabel" styleClass="main-window-user-avatar" maxWidth="32" minWidth="32"
+                           alignment="CENTER"/>
+                    <Label fx:id="userLoginLabel" styleClass="main-window-user-login"/>
+                </HBox>
+                <Button fx:id="logoutButton" text="Выход" styleClass="main-window-logout"/>
+            </HBox>
         </HBox>
     </top>
     <left>
-        <VBox spacing="8" styleClass="main-window-nav" prefWidth="220">
+        <VBox styleClass="main-window-sidebar" prefWidth="232" minWidth="232" maxWidth="232">
             <padding>
-                <Insets top="12" right="10" bottom="12" left="10"/>
+                <Insets top="16" right="12" bottom="16" left="12"/>
             </padding>
-            <Label text="Навигация" styleClass="main-window-nav-title"/>
-            <ListView fx:id="navigationList" VBox.vgrow="ALWAYS"/>
+            <Label text="РАЗДЕЛЫ" styleClass="main-window-nav-section-title"/>
+            <ListView fx:id="navigationList" styleClass="main-window-navigation" VBox.vgrow="ALWAYS"/>
         </VBox>
     </left>
     <center>
         <StackPane fx:id="contentArea" styleClass="main-window-content">
             <padding>
-                <Insets top="16" right="16" bottom="16" left="16"/>
+                <Insets top="8" right="8" bottom="8" left="8"/>
             </padding>
         </StackPane>
     </center>
-    <bottom>
-        <Label fx:id="statusLabel" styleClass="main-window-status">
-            <padding>
-                <Insets top="6" right="10" bottom="6" left="10"/>
-            </padding>
-        </Label>
-    </bottom>
 </BorderPane>

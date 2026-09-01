@@ -13,6 +13,8 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.Parent;
@@ -30,6 +32,8 @@ public final class MainWindowViewModel {
     private final NavigationService navigationService;
     private final ObservableList<NavigationItem> navigationItems = FXCollections.observableArrayList();
     private final ObjectProperty<Parent> content = new SimpleObjectProperty<>();
+    private final StringProperty currentUserLogin = new SimpleStringProperty("—");
+    private final StringProperty currentUserInitial = new SimpleStringProperty("—");
     private Runnable afterLogout = () -> {
     };
     private Consumer<String> onAccessDenied = message -> {
@@ -45,6 +49,7 @@ public final class MainWindowViewModel {
         this.authenticationService = Objects.requireNonNull(authenticationService, "authenticationService");
         this.navigationService = Objects.requireNonNull(navigationService, "navigationService");
         refreshNavigation();
+        refreshCurrentUser();
     }
 
     public void setAfterLogout(Runnable afterLogout) {
@@ -65,6 +70,14 @@ public final class MainWindowViewModel {
 
     public ObjectProperty<Parent> contentProperty() {
         return content;
+    }
+
+    public StringProperty currentUserLoginProperty() {
+        return currentUserLogin;
+    }
+
+    public StringProperty currentUserInitialProperty() {
+        return currentUserInitial;
     }
 
     public void refreshNavigation() {
@@ -109,5 +122,18 @@ public final class MainWindowViewModel {
             }
         }
         return true;
+    }
+
+    private void refreshCurrentUser() {
+        String login = authenticationService.currentSession()
+                .map(session -> session.login().value())
+                .filter(value -> !value.isBlank())
+                .orElse("—");
+        currentUserLogin.set(login);
+        if ("—".equals(login)) {
+            currentUserInitial.set("—");
+            return;
+        }
+        currentUserInitial.set(String.valueOf(Character.toUpperCase(login.charAt(0))));
     }
 }
