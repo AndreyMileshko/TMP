@@ -20,6 +20,9 @@ tmp:
       admin-login: ${TMP_SECURITY_BOOTSTRAP_ADMIN_LOGIN}
       admin-display-name: ${TMP_SECURITY_BOOTSTRAP_ADMIN_DISPLAY_NAME}
       admin-password: ${TMP_SECURITY_BOOTSTRAP_ADMIN_PASSWORD}
+  capability:
+    sample:
+      diagnostic: false
   production:
     warehouse:
       # Required when Production is on the classpath. Set to real Warehouse IDs for the package

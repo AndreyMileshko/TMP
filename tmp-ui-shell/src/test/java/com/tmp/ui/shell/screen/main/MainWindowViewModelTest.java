@@ -111,6 +111,11 @@ class MainWindowViewModelTest {
         }
 
         @Override
+        public SessionSummary completePasswordSetup(Login login, char[] newPassword, char[] confirmPassword) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void logout() {
         }
 

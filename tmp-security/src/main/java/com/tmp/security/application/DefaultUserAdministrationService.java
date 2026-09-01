@@ -21,13 +21,13 @@ public final class DefaultUserAdministrationService implements UserAdministratio
     }
 
     @Override
-    public UserSummary createUser(Login login, DisplayName displayName, char[] initialPassword) {
-        return SecurityApiMapper.toSummary(users.createUser(login, displayName, initialPassword));
+    public UserSummary createUser(Login login, DisplayName displayName) {
+        return SecurityApiMapper.toSummary(users.createUser(login, displayName));
     }
 
     @Override
-    public UserSummary updateUser(UserId userId, DisplayName newDisplayName) {
-        return SecurityApiMapper.toSummary(users.updateUser(userId, newDisplayName));
+    public UserSummary updateUser(UserId userId, Login login, DisplayName displayName) {
+        return SecurityApiMapper.toSummary(users.updateUser(userId, login, displayName));
     }
 
     @Override
@@ -51,7 +51,7 @@ public final class DefaultUserAdministrationService implements UserAdministratio
     }
 
     @Override
-    public void resetPassword(UserId targetUserId, char[] newPassword) {
-        passwords.resetPassword(targetUserId, newPassword);
+    public void requestPasswordReset(UserId targetUserId) {
+        passwords.requestPasswordReset(targetUserId);
     }
 }

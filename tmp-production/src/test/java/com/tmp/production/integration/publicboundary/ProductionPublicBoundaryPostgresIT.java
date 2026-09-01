@@ -1180,16 +1180,15 @@ class ProductionPublicBoundaryPostgresIT {
 
     private void ensureOperator() {
         authenticationService.login(Login.of("admin"), "bootstrap-secret-value".toCharArray());
-        UserSummary operator =
+        Optional<UserSummary> existing =
                 userAdministrationService.listUsers(0, 100, null).stream()
                         .filter(user -> "pb-operator".equalsIgnoreCase(user.login().value()))
-                        .findFirst()
-                        .orElseGet(
-                                () ->
-                                        userAdministrationService.createUser(
-                                                Login.of("pb-operator"),
-                                                DisplayName.of("Public Boundary Operator"),
-                                                OPERATOR_PASSWORD.clone()));
+                        .findFirst();
+        UserSummary operator =
+                existing.orElseGet(
+                        () ->
+                                userAdministrationService.createUser(
+                                        Login.of("pb-operator"), DisplayName.of("Public Boundary Operator")));
         for (PermissionId permission : PublicBoundaryPermissions.ORDER_IMPORT_AND_VIEW) {
             roleAdministrationService.grantIndividualPermission(operator.id(), permission);
         }
@@ -1200,7 +1199,12 @@ class ProductionPublicBoundaryPostgresIT {
             roleAdministrationService.grantIndividualPermission(operator.id(), permission);
         }
         authenticationService.logout();
-        authenticationService.login(Login.of("pb-operator"), OPERATOR_PASSWORD.clone());
+        if (existing.isPresent()) {
+            authenticationService.login(Login.of("pb-operator"), OPERATOR_PASSWORD.clone());
+        } else {
+            authenticationService.completePasswordSetup(
+                    Login.of("pb-operator"), OPERATOR_PASSWORD.clone(), OPERATOR_PASSWORD.clone());
+        }
     }
 
     private void cleanupBusinessData() {

@@ -73,7 +73,10 @@ class ProductionWorkbenchControllerFxTest {
                         ProductionWorkbenchController controller = loader.getController();
                         controller.setViewModel(viewModel);
                         Stage stage = new Stage();
-                        stage.setScene(new Scene(root));
+                        stage.setScene(new Scene(root, 1200, 800));
+                        stage.show();
+                        root.applyCss();
+                        root.layout();
 
                         assertNotNull(root.lookup("#acceptButton"));
                         assertNotNull(root.lookup("#confirmReceiptButton"));
@@ -87,6 +90,18 @@ class ProductionWorkbenchControllerFxTest {
                         Parent scrollContent = (Parent) scroll.getContent();
                         assertNotNull(scrollContent.lookup("#addTransferAllocationButton"));
                         assertNotNull(scrollContent.lookup("#transferAllocationsTable"));
+                        @SuppressWarnings("unchecked")
+                        TableView<TransferAllocationRow> transferAllocationsTable =
+                                (TableView<TransferAllocationRow>)
+                                        scrollContent.lookup("#transferAllocationsTable");
+                        @SuppressWarnings("unchecked")
+                        TableView<ReleaseCellAllocationRow> releaseAllocationsTable =
+                                (TableView<ReleaseCellAllocationRow>)
+                                        scrollContent.lookup("#releaseAllocationsTable");
+                        assertNotNull(transferAllocationsTable.getItems());
+                        assertTrue(transferAllocationsTable.getItems().isEmpty());
+                        assertNotNull(releaseAllocationsTable.getItems());
+                        assertTrue(releaseAllocationsTable.getItems().isEmpty());
                         ok.set(true);
                     } catch (Throwable throwable) {
                         error.set(throwable);
@@ -273,9 +288,8 @@ class ProductionWorkbenchControllerFxTest {
 
                         transferLinesTable.getSelectionModel().clearSelection();
                         viewModel.selectTransferLine(null);
-                        assertTrue(
-                                transferAllocationsTable.getItems() == null
-                                        || transferAllocationsTable.getItems().isEmpty());
+                        assertNotNull(transferAllocationsTable.getItems());
+                        assertTrue(transferAllocationsTable.getItems().isEmpty());
 
                         transferLinesTable.getSelectionModel().select(line);
                         viewModel.selectTransferLine(line.lineId());

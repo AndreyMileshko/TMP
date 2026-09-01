@@ -7,6 +7,7 @@ import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.AuditResult;
 import com.tmp.security.api.InvalidCurrentPasswordException;
 import com.tmp.security.domain.PasswordHasher;
+import com.tmp.security.domain.PasswordPolicy;
 import com.tmp.security.domain.SecurityAuditEvent;
 import com.tmp.security.domain.Session;
 import com.tmp.security.domain.User;
@@ -18,7 +19,7 @@ import java.util.Objects;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Self-service password change and administrative password reset.
+ * Self-service password change, initial password setup, and administrative password reset requests.
  * Never logs, audits, or puts password/hash material into exception messages.
  */
 public class PasswordApplicationService {
@@ -57,6 +58,7 @@ public class PasswordApplicationService {
             if (!passwordHasher.matches(currentPassword, user.passwordHash())) {
                 throw new InvalidCurrentPasswordException();
             }
+            PasswordPolicy.validateNewPassword(newPassword);
             User updated = userRepository.save(
                     user.withPasswordHash(passwordHasher.hash(newPassword), clock));
             appendAudit(
@@ -72,25 +74,46 @@ public class PasswordApplicationService {
     }
 
     @Transactional
-    public void resetPassword(UserId targetUserId, char[] newPassword) {
-        authorization.requirePermission(SecurityPermissions.USERS_RESET_PASSWORD);
-        Objects.requireNonNull(targetUserId, "targetUserId");
+    public User initializePassword(
+            com.tmp.security.api.Login login, char[] newPassword, char[] confirmPassword) {
+        Objects.requireNonNull(login, "login");
         Objects.requireNonNull(newPassword, "newPassword");
+        Objects.requireNonNull(confirmPassword, "confirmPassword");
         try {
-            User user = userRepository.findById(targetUserId)
-                    .orElseThrow(() -> new IllegalArgumentException("User not found: " + targetUserId));
+            PasswordPolicy.validate(newPassword, confirmPassword);
+            User user = userRepository.findByLoginIgnoreCase(login)
+                    .filter(User::isActive)
+                    .filter(User::passwordSetupRequired)
+                    .orElseThrow(() -> new IllegalArgumentException("Password setup is not required for login"));
             User updated = userRepository.save(
-                    user.withPasswordHash(passwordHasher.hash(newPassword), clock));
-            var actor = sessionContext.current();
+                    user.withPasswordInitialized(passwordHasher.hash(newPassword), clock));
             appendAudit(
-                    AuditOperation.PASSWORD_RESET,
-                    actor.map(Session::userId).orElse(null),
-                    actor.map(s -> s.login().value()).orElse("system"),
+                    AuditOperation.PASSWORD_INITIALIZED,
                     updated.id(),
-                    "Password reset by administrator");
+                    updated.login().value(),
+                    updated.id(),
+                    "Password initialized by user");
+            return updated;
         } finally {
             Arrays.fill(newPassword, '\0');
+            Arrays.fill(confirmPassword, '\0');
         }
+    }
+
+    @Transactional
+    public void requestPasswordReset(UserId targetUserId) {
+        authorization.requirePermission(SecurityPermissions.USERS_RESET_PASSWORD);
+        Objects.requireNonNull(targetUserId, "targetUserId");
+        User user = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + targetUserId));
+        User updated = userRepository.save(user.requiringPasswordSetup(clock));
+        var actor = sessionContext.current();
+        appendAudit(
+                AuditOperation.PASSWORD_RESET,
+                actor.map(Session::userId).orElse(null),
+                actor.map(s -> s.login().value()).orElse("system"),
+                updated.id(),
+                "Password reset requested; user must set a new password on next login");
     }
 
     private void appendAudit(

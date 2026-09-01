@@ -161,6 +161,7 @@ public class SecurityAutoConfiguration {
     AuthenticationApplicationService authenticationApplicationService(
             UserRepository userRepository,
             PasswordHasher passwordHasher,
+            PasswordApplicationService passwordApplicationService,
             SessionContext sessionContext,
             SecurityAuditRepository securityAuditRepository,
             Clock securityClock,
@@ -168,6 +169,7 @@ public class SecurityAutoConfiguration {
         return new AuthenticationApplicationService(
                 userRepository,
                 passwordHasher,
+                passwordApplicationService,
                 sessionContext,
                 securityAuditRepository,
                 securityClock,
@@ -194,14 +196,12 @@ public class SecurityAutoConfiguration {
     @Bean
     UserAdministrationApplicationService userAdministrationApplicationService(
             UserRepository userRepository,
-            PasswordHasher passwordHasher,
             AuthorizationApplicationService authorizationApplicationService,
             SecurityAuditRepository securityAuditRepository,
             SessionContext sessionContext,
             Clock securityClock) {
         return new UserAdministrationApplicationService(
                 userRepository,
-                passwordHasher,
                 authorizationApplicationService,
                 securityAuditRepository,
                 sessionContext,

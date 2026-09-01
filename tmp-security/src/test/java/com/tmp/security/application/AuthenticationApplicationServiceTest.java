@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.security.api.PasswordSetupRequiredException;
 import com.tmp.security.api.AuthenticationFailedException;
 import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
@@ -15,8 +16,24 @@ import com.tmp.security.domain.PasswordHash;
 import com.tmp.security.domain.PasswordHasher;
 import com.tmp.security.domain.SecurityAuditEvent;
 import com.tmp.security.domain.User;
+import com.tmp.security.domain.Role;
+import com.tmp.security.api.RoleId;
+import com.tmp.security.api.PermissionId;
+import com.tmp.capability.api.CapabilityEngine;
+import com.tmp.capability.api.CapabilityEngineStatus;
+import com.tmp.capability.api.CapabilityId;
+import com.tmp.capability.api.CapabilityLifecycleState;
+import com.tmp.capability.api.CapabilityDescriptor;
+import com.tmp.capability.api.PermissionDescriptor;
+import com.tmp.capability.api.CommandDescriptor;
+import com.tmp.capability.api.ViewDescriptor;
+import com.tmp.capability.api.NavigationContribution;
+import com.tmp.security.domain.repository.PermissionOverrideRepository;
+import com.tmp.security.domain.repository.RoleAssignmentRepository;
+import com.tmp.security.domain.repository.RoleRepository;
 import com.tmp.security.domain.repository.SecurityAuditRepository;
 import com.tmp.security.domain.repository.UserRepository;
+import java.util.Set;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -41,6 +58,7 @@ class AuthenticationApplicationServiceTest {
     private SessionContext sessions;
     private InMemoryAudit audit;
     private RecordingHasher hasher;
+    private PasswordApplicationService passwordService;
     private AuthenticationApplicationService service;
 
     @BeforeEach
@@ -49,8 +67,10 @@ class AuthenticationApplicationServiceTest {
         sessions = new SessionContext();
         audit = new InMemoryAudit();
         hasher = new RecordingHasher();
+        passwordService = new PasswordApplicationService(
+                users, hasher, allowAllAuthorization(), audit, sessions, CLOCK);
         service = new AuthenticationApplicationService(
-                users, hasher, sessions, audit, CLOCK, immediateTransactions());
+                users, hasher, passwordService, sessions, audit, CLOCK, immediateTransactions());
     }
 
     @Test
@@ -59,6 +79,41 @@ class AuthenticationApplicationServiceTest {
         service.login(Login.of("admin"), "secret".toCharArray());
         assertTrue(service.isAuthenticated());
         assertEquals(AuditOperation.LOGIN_SUCCESS, audit.events.getFirst().operation());
+    }
+
+    @Test
+    void passwordSetupRequiredRedirectsWithoutSession() {
+        users.save(User.createActivePendingPasswordSetup(
+                UserId.generate(), Login.of("newbie"), DisplayName.of("Newbie"), CLOCK));
+        PasswordSetupRequiredException ex = assertThrows(
+                PasswordSetupRequiredException.class,
+                () -> service.login(Login.of("newbie"), "anything".toCharArray()));
+        assertEquals("newbie", ex.login().value());
+        assertFalse(service.isAuthenticated());
+        assertTrue(audit.events.isEmpty());
+    }
+
+    @Test
+    void completePasswordSetupOpensSession() {
+        users.save(User.createActivePendingPasswordSetup(
+                UserId.generate(), Login.of("newbie"), DisplayName.of("Newbie"), CLOCK));
+        service.completePasswordSetup(
+                Login.of("newbie"), "long-enough".toCharArray(), "long-enough".toCharArray());
+        assertTrue(service.isAuthenticated());
+        assertFalse(users.findByLoginIgnoreCase(Login.of("newbie")).orElseThrow().passwordSetupRequired());
+        assertTrue(audit.events.stream().anyMatch(e -> e.operation() == AuditOperation.PASSWORD_INITIALIZED));
+        assertTrue(audit.events.stream().anyMatch(e -> e.operation() == AuditOperation.LOGIN_SUCCESS));
+    }
+
+    @Test
+    void completePasswordSetupRejectsMismatch() {
+        users.save(User.createActivePendingPasswordSetup(
+                UserId.generate(), Login.of("newbie"), DisplayName.of("Newbie"), CLOCK));
+        assertThrows(
+                com.tmp.security.api.PasswordConfirmationMismatchException.class,
+                () -> service.completePasswordSetup(
+                        Login.of("newbie"), "long-enough".toCharArray(), "different".toCharArray()));
+        assertFalse(service.isAuthenticated());
     }
 
     @Test
@@ -174,6 +229,134 @@ class AuthenticationApplicationServiceTest {
                 AuthenticationFailedException.class,
                 () -> service.login(Login.of("admin"), "secret".toCharArray()));
         assertFalse(service.isAuthenticated());
+    }
+
+    private static AuthorizationApplicationService allowAllAuthorization() {
+        PermissionOverrideRepository overrides = new PermissionOverrideRepository() {
+            @Override
+            public com.tmp.security.domain.IndividualPermissionOverride save(
+                    com.tmp.security.domain.IndividualPermissionOverride override) {
+                return override;
+            }
+
+            @Override
+            public void remove(UserId userId, PermissionId permissionId) {
+            }
+
+            @Override
+            public java.util.List<com.tmp.security.domain.IndividualPermissionOverride> findByUser(UserId userId) {
+                return java.util.List.of();
+            }
+
+            @Override
+            public java.util.Optional<com.tmp.security.domain.IndividualPermissionOverride> findByUserAndPermission(
+                    UserId userId, PermissionId permissionId) {
+                return java.util.Optional.empty();
+            }
+        };
+        CapabilityEngine engine = new CapabilityEngine() {
+            @Override
+            public void discoverAndRegisterAll() {
+            }
+
+            @Override
+            public void activateAll() {
+            }
+
+            @Override
+            public void deactivate(CapabilityId id) {
+            }
+
+            @Override
+            public void stopAll() {
+            }
+
+            @Override
+            public java.util.Optional<CapabilityDescriptor> findById(CapabilityId id) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public java.util.List<CapabilityDescriptor> registeredCapabilities() {
+                return java.util.List.of();
+            }
+
+            @Override
+            public CapabilityLifecycleState stateOf(CapabilityId id) {
+                return CapabilityLifecycleState.ACTIVE;
+            }
+
+            @Override
+            public java.util.List<PermissionDescriptor> activePermissions() {
+                return java.util.List.of();
+            }
+
+            @Override
+            public java.util.List<CommandDescriptor> activeCommands() {
+                return java.util.List.of();
+            }
+
+            @Override
+            public java.util.List<ViewDescriptor> activeViews() {
+                return java.util.List.of();
+            }
+
+            @Override
+            public java.util.List<NavigationContribution> activeNavigation() {
+                return java.util.List.of();
+            }
+
+            @Override
+            public CapabilityEngineStatus status() {
+                return new CapabilityEngineStatus(0, 0, 0, 0);
+            }
+        };
+        RoleAssignmentRepository assignments = new RoleAssignmentRepository() {
+            @Override
+            public void assign(com.tmp.security.domain.RoleAssignment assignment) {
+            }
+
+            @Override
+            public void revoke(UserId userId, RoleId roleId) {
+            }
+
+            @Override
+            public Set<RoleId> findRoleIdsForUser(UserId userId) {
+                return Set.of();
+            }
+
+            @Override
+            public java.util.List<UserId> findUserIdsForRole(RoleId roleId) {
+                return java.util.List.of();
+            }
+
+            @Override
+            public long countUsersForRole(RoleId roleId) {
+                return 0;
+            }
+        };
+        RoleRepository roles = new RoleRepository() {
+            @Override
+            public Role save(Role role) {
+                return role;
+            }
+
+            @Override
+            public java.util.Optional<Role> findById(RoleId id) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public java.util.List<Role> findAll() {
+                return java.util.List.of();
+            }
+
+            @Override
+            public void deleteById(RoleId id) {
+            }
+        };
+        return new AuthorizationApplicationService(
+                new SessionContext(), new AlwaysActiveUserRepository(), engine, assignments, roles, overrides);
     }
 
     private User active(String login, String password) {

@@ -20,6 +20,12 @@ public final class DefaultAuthenticationService implements AuthenticationService
     }
 
     @Override
+    public SessionSummary completePasswordSetup(Login login, char[] newPassword, char[] confirmPassword) {
+        return SecurityApiMapper.toSummary(
+                delegate.completePasswordSetup(login, newPassword, confirmPassword));
+    }
+
+    @Override
     public void logout() {
         delegate.logout();
     }

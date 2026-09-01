@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -209,16 +210,15 @@ class OrderIntakeStxtEndToEndIT {
 
     private void ensureImporter() {
         authenticationService.login(Login.of("admin"), "bootstrap-secret-value".toCharArray());
-        UserSummary importer =
+        Optional<UserSummary> existing =
                 userAdministrationService.listUsers(0, 100, null).stream()
                         .filter(user -> "importer".equalsIgnoreCase(user.login().value()))
-                        .findFirst()
-                        .orElseGet(
-                                () ->
-                                        userAdministrationService.createUser(
-                                                Login.of("importer"),
-                                                DisplayName.of("Importer"),
-                                                IMPORTER_PASSWORD.clone()));
+                        .findFirst();
+        UserSummary importer =
+                existing.orElseGet(
+                        () ->
+                                userAdministrationService.createUser(
+                                        Login.of("importer"), DisplayName.of("Importer")));
         roleAdministrationService.grantIndividualPermission(
                 importer.id(), OrderManagementPermissions.ORDER_CREATE);
         roleAdministrationService.grantIndividualPermission(
@@ -240,7 +240,12 @@ class OrderIntakeStxtEndToEndIT {
         roleAdministrationService.grantIndividualPermission(
                 importer.id(), OrderManagementPermissions.SPECIFICATION_VIEW);
         authenticationService.logout();
-        authenticationService.login(Login.of("importer"), IMPORTER_PASSWORD.clone());
+        if (existing.isPresent()) {
+            authenticationService.login(Login.of("importer"), IMPORTER_PASSWORD.clone());
+        } else {
+            authenticationService.completePasswordSetup(
+                    Login.of("importer"), IMPORTER_PASSWORD.clone(), IMPORTER_PASSWORD.clone());
+        }
     }
 
     private static byte[] readFixture(String classpath) throws IOException {

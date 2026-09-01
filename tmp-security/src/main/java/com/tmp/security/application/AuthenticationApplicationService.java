@@ -3,6 +3,7 @@ package com.tmp.security.application;
 import com.tmp.security.api.AuditEventId;
 import com.tmp.security.api.AuthenticationFailedException;
 import com.tmp.security.api.Login;
+import com.tmp.security.api.PasswordSetupRequiredException;
 import com.tmp.security.api.SessionId;
 import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.AuditResult;
@@ -46,6 +47,7 @@ public class AuthenticationApplicationService {
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
+    private final PasswordApplicationService passwordApplicationService;
     private final SessionContext sessionContext;
     private final SecurityAuditRepository auditRepository;
     private final Clock clock;
@@ -54,12 +56,15 @@ public class AuthenticationApplicationService {
     public AuthenticationApplicationService(
             UserRepository userRepository,
             PasswordHasher passwordHasher,
+            PasswordApplicationService passwordApplicationService,
             SessionContext sessionContext,
             SecurityAuditRepository auditRepository,
             Clock clock,
             TransactionOperations authenticationTransactions) {
         this.userRepository = Objects.requireNonNull(userRepository, "userRepository");
         this.passwordHasher = Objects.requireNonNull(passwordHasher, "passwordHasher");
+        this.passwordApplicationService =
+                Objects.requireNonNull(passwordApplicationService, "passwordApplicationService");
         this.sessionContext = Objects.requireNonNull(sessionContext, "sessionContext");
         this.auditRepository = Objects.requireNonNull(auditRepository, "auditRepository");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -71,10 +76,11 @@ public class AuthenticationApplicationService {
         Objects.requireNonNull(login, "login");
         Objects.requireNonNull(password, "password");
         try {
-            // Desktop contract: any new login attempt closes the previous session first so a
-            // failed attempt never leaves the prior user authenticated.
             sessionContext.close();
             Optional<User> found = userRepository.findByLoginIgnoreCase(login);
+            if (found.isPresent() && found.get().isActive() && found.get().passwordSetupRequired()) {
+                throw new PasswordSetupRequiredException(found.get().login());
+            }
             boolean credentialsAccepted = verifyCredentials(found, password);
             if (!credentialsAccepted) {
                 recordLoginFailure(login, found);
@@ -83,8 +89,6 @@ public class AuthenticationApplicationService {
             User user = found.orElseThrow();
             User activeUser = requireStillActive(login, user);
             recordLoginSuccess(activeUser);
-            // Re-check immediately before open so a concurrent logical delete cannot leave a
-            // usable session for a DELETED user (LOGIN_SUCCESS may already be committed).
             User beforeOpen = requireStillActive(login, activeUser);
             Session session = Session.of(
                     SessionId.generate(), beforeOpen.id(), beforeOpen.login(), clock.instant());
@@ -93,6 +97,21 @@ public class AuthenticationApplicationService {
         } finally {
             Arrays.fill(password, '\0');
         }
+    }
+
+    public Session completePasswordSetup(Login login, char[] newPassword, char[] confirmPassword) {
+        Objects.requireNonNull(login, "login");
+        Objects.requireNonNull(newPassword, "newPassword");
+        Objects.requireNonNull(confirmPassword, "confirmPassword");
+        sessionContext.close();
+        User initialized = passwordApplicationService.initializePassword(login, newPassword, confirmPassword);
+        User activeUser = requireStillActive(login, initialized);
+        recordLoginSuccess(activeUser);
+        User beforeOpen = requireStillActive(login, activeUser);
+        Session session = Session.of(
+                SessionId.generate(), beforeOpen.id(), beforeOpen.login(), clock.instant());
+        sessionContext.open(session);
+        return session;
     }
 
     public void logout() {
@@ -113,8 +132,6 @@ public class AuthenticationApplicationService {
                     "Logout",
                     AuditResult.SUCCESS)));
         } finally {
-            // Session must clear even when logout audit persistence fails; audit failure still
-            // propagates to the caller.
             sessionContext.close();
         }
     }
@@ -138,7 +155,11 @@ public class AuthenticationApplicationService {
 
     private boolean verifyCredentials(Optional<User> found, char[] password) {
         if (found.isPresent() && found.get().isActive()) {
-            return passwordHasher.matches(password, found.get().passwordHash());
+            User user = found.get();
+            if (user.passwordSetupRequired()) {
+                return false;
+            }
+            return passwordHasher.matches(password, user.passwordHash());
         }
         passwordHasher.matches(password, UNKNOWN_USER_DUMMY_HASH);
         return false;

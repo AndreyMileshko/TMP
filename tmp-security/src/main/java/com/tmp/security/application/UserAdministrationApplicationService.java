@@ -7,25 +7,22 @@ import com.tmp.security.api.UserId;
 import com.tmp.security.api.SecurityPermissions;
 import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.AuditResult;
-import com.tmp.security.domain.PasswordHasher;
 import com.tmp.security.domain.SecurityAuditEvent;
 import com.tmp.security.domain.User;
 import com.tmp.security.domain.UserStatus;
 import com.tmp.security.domain.repository.SecurityAuditRepository;
 import com.tmp.security.domain.repository.UserRepository;
 import java.time.Clock;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * User administration: create / update display name / logical delete / list.
+ * User administration: create / update / logical delete / list.
  */
 public class UserAdministrationApplicationService {
 
     private final UserRepository userRepository;
-    private final PasswordHasher passwordHasher;
     private final AuthorizationApplicationService authorization;
     private final SecurityAuditRepository auditRepository;
     private final SessionContext sessionContext;
@@ -33,13 +30,11 @@ public class UserAdministrationApplicationService {
 
     public UserAdministrationApplicationService(
             UserRepository userRepository,
-            PasswordHasher passwordHasher,
             AuthorizationApplicationService authorization,
             SecurityAuditRepository auditRepository,
             SessionContext sessionContext,
             Clock clock) {
         this.userRepository = Objects.requireNonNull(userRepository, "userRepository");
-        this.passwordHasher = Objects.requireNonNull(passwordHasher, "passwordHasher");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.auditRepository = Objects.requireNonNull(auditRepository, "auditRepository");
         this.sessionContext = Objects.requireNonNull(sessionContext, "sessionContext");
@@ -47,29 +42,27 @@ public class UserAdministrationApplicationService {
     }
 
     @Transactional
-    public User createUser(Login login, DisplayName displayName, char[] initialPassword) {
+    public User createUser(Login login, DisplayName displayName) {
         authorization.requirePermission(SecurityPermissions.USERS_CREATE);
-        Objects.requireNonNull(initialPassword, "initialPassword");
-        try {
-            User created = userRepository.save(User.createActive(
-                    UserId.generate(),
-                    login,
-                    displayName,
-                    passwordHasher.hash(initialPassword),
-                    clock));
-            appendAudit(AuditOperation.USER_CREATED, created.id(), "User created");
-            return created;
-        } finally {
-            Arrays.fill(initialPassword, '\0');
-        }
+        User created = userRepository.save(
+                User.createActivePendingPasswordSetup(UserId.generate(), login, displayName, clock));
+        appendAudit(AuditOperation.USER_CREATED, created.id(), "User created; password setup required");
+        return created;
     }
 
     @Transactional
-    public User updateUser(UserId userId, DisplayName newDisplayName) {
+    public User updateUser(UserId userId, Login login, DisplayName displayName) {
         authorization.requirePermission(SecurityPermissions.USERS_UPDATE);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
-        User updated = userRepository.save(user.withDisplayName(newDisplayName, clock));
+        User updated = user;
+        if (!updated.login().equals(login)) {
+            updated = updated.withLogin(login, clock);
+        }
+        if (!updated.displayName().equals(displayName)) {
+            updated = updated.withDisplayName(displayName, clock);
+        }
+        updated = userRepository.save(updated);
         appendAudit(AuditOperation.USER_UPDATED, updated.id(), "User updated");
         return updated;
     }

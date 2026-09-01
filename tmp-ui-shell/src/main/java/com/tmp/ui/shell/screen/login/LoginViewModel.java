@@ -2,7 +2,10 @@ package com.tmp.ui.shell.screen.login;
 
 import com.tmp.security.api.AuthenticationFailedException;
 import com.tmp.security.api.AuthenticationService;
+import com.tmp.security.api.InvalidPasswordException;
 import com.tmp.security.api.Login;
+import com.tmp.security.api.PasswordConfirmationMismatchException;
+import com.tmp.security.api.PasswordSetupRequiredException;
 import com.tmp.security.api.SessionSummary;
 import java.util.Arrays;
 import java.util.Objects;
@@ -17,10 +20,17 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public final class LoginViewModel {
 
+    public enum SubmitOutcome {
+        SUCCESS,
+        FAILED,
+        PASSWORD_SETUP_REQUIRED
+    }
+
     private final AuthenticationService authenticationService;
     private final StringProperty login = new SimpleStringProperty("");
     private final StringProperty errorMessage = new SimpleStringProperty("");
     private SessionSummary lastSession;
+    private Login pendingPasswordSetupLogin;
     private Runnable onLoginSuccess = () -> {
     };
 
@@ -44,26 +54,58 @@ public final class LoginViewModel {
         return Optional.ofNullable(lastSession);
     }
 
+    public Optional<Login> pendingPasswordSetupLogin() {
+        return Optional.ofNullable(pendingPasswordSetupLogin);
+    }
+
     /**
-     * Attempts authentication. Returns {@code true} on success.
-     * On failure sets {@link #errorMessageProperty()} to the generic safe message.
+     * Attempts authentication. Returns outcome for the controller.
      */
-    public boolean submit(char[] password) {
+    public SubmitOutcome submit(char[] password) {
         Objects.requireNonNull(password, "password");
         errorMessage.set("");
         lastSession = null;
+        pendingPasswordSetupLogin = null;
         try {
             lastSession = authenticationService.login(Login.of(login.get()), password);
             onLoginSuccess.run();
-            return true;
+            return SubmitOutcome.SUCCESS;
+        } catch (PasswordSetupRequiredException ex) {
+            pendingPasswordSetupLogin = ex.login();
+            return SubmitOutcome.PASSWORD_SETUP_REQUIRED;
         } catch (AuthenticationFailedException ex) {
+            errorMessage.set(ex.getMessage());
+            return SubmitOutcome.FAILED;
+        } catch (IllegalArgumentException ex) {
+            errorMessage.set(AuthenticationFailedException.GENERIC_MESSAGE);
+            return SubmitOutcome.FAILED;
+        } finally {
+            Arrays.fill(password, '\0');
+        }
+    }
+
+    public boolean completePasswordSetup(char[] newPassword, char[] confirmPassword) {
+        Objects.requireNonNull(newPassword, "newPassword");
+        Objects.requireNonNull(confirmPassword, "confirmPassword");
+        errorMessage.set("");
+        lastSession = null;
+        Login setupLogin = pendingPasswordSetupLogin != null
+                ? pendingPasswordSetupLogin
+                : Login.of(login.get());
+        try {
+            lastSession = authenticationService.completePasswordSetup(setupLogin, newPassword, confirmPassword);
+            pendingPasswordSetupLogin = null;
+            onLoginSuccess.run();
+            return true;
+        } catch (InvalidPasswordException | PasswordConfirmationMismatchException ex) {
             errorMessage.set(ex.getMessage());
             return false;
         } catch (IllegalArgumentException ex) {
-            errorMessage.set(AuthenticationFailedException.GENERIC_MESSAGE);
+            errorMessage.set(ex.getMessage());
             return false;
         } finally {
-            Arrays.fill(password, '\0');
+            Arrays.fill(newPassword, '\0');
+            Arrays.fill(confirmPassword, '\0');
         }
     }
 }

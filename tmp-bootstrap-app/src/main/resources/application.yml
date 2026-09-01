@@ -11,7 +11,8 @@ tmp:
     version: 0.1.0-SNAPSHOT
   capability:
     sample:
-      diagnostic: true
+      # Sample capabilities are test/diagnostic fixtures only — not production navigation.
+      diagnostic: false
 
 logging:
   level:

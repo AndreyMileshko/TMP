@@ -196,12 +196,12 @@ class RoleAdministrationViewModelTest {
 
     private static final class EmptyUsers implements UserAdministrationService {
         @Override
-        public UserSummary createUser(Login login, DisplayName displayName, char[] initialPassword) {
+        public UserSummary createUser(Login login, DisplayName displayName) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public UserSummary updateUser(UserId userId, DisplayName newDisplayName) {
+        public UserSummary updateUser(UserId userId, Login login, DisplayName newDisplayName) {
             throw new UnsupportedOperationException();
         }
 
@@ -220,7 +220,7 @@ class RoleAdministrationViewModelTest {
         }
 
         @Override
-        public void resetPassword(UserId targetUserId, char[] newPassword) {
+        public void requestPasswordReset(UserId targetUserId) {
         }
     }
 

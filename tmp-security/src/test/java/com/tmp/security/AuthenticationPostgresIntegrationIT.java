@@ -151,7 +151,12 @@ class AuthenticationPostgresIntegrationIT {
 
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
         var deleted = userAdministrationService.createUser(
-                Login.of("to-delete-login"), DisplayName.of("To Delete"), "delete-secret".toCharArray());
+                Login.of("to-delete-login"), DisplayName.of("To Delete"));
+        authenticationService.logout();
+        authenticationService.completePasswordSetup(
+                Login.of("to-delete-login"), "delete-secret".toCharArray(), "delete-secret".toCharArray());
+        authenticationService.logout();
+        authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
         userAdministrationService.deleteUser(deleted.id());
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
         assertThrows(
@@ -164,7 +169,11 @@ class AuthenticationPostgresIntegrationIT {
     void successfulLoginReplacesPreviousSession() {
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
         var other = userAdministrationService.createUser(
-                Login.of("other-login"), DisplayName.of("Other"), "other-secret".toCharArray());
+                Login.of("other-login"), DisplayName.of("Other"));
+        authenticationService.logout();
+        authenticationService.completePasswordSetup(
+                Login.of("other-login"), "other-secret".toCharArray(), "other-secret".toCharArray());
+        authenticationService.logout();
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
         authenticationService.login(Login.of("other-login"), "other-secret".toCharArray());
         assertTrue(authenticationService.isAuthenticated());

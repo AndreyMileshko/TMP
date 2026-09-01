@@ -42,14 +42,16 @@ public final class JdbcUserRepository implements UserRepository {
                 jdbcTemplate.update(
                         """
                         INSERT INTO security.users (
-                            id, login, display_name, password_hash, status, version, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            id, login, display_name, password_hash, status,
+                            password_setup_required, version, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         user.id().value(),
                         user.login().value(),
                         user.displayName().value(),
                         user.passwordHash().encodedValue(),
                         user.status().name(),
+                        user.passwordSetupRequired(),
                         user.version(),
                         Timestamp.from(user.createdAt()),
                         Timestamp.from(user.updatedAt()));
@@ -61,13 +63,14 @@ public final class JdbcUserRepository implements UserRepository {
                     """
                     UPDATE security.users
                     SET login = ?, display_name = ?, password_hash = ?, status = ?,
-                        version = ?, updated_at = ?
+                        password_setup_required = ?, version = ?, updated_at = ?
                     WHERE id = ? AND version = ?
                     """,
                     user.login().value(),
                     user.displayName().value(),
                     user.passwordHash().encodedValue(),
                     user.status().name(),
+                    user.passwordSetupRequired(),
                     nextVersion,
                     Timestamp.from(user.updatedAt()),
                     user.id().value(),
@@ -81,6 +84,7 @@ public final class JdbcUserRepository implements UserRepository {
                     user.displayName(),
                     user.passwordHash(),
                     user.status(),
+                    user.passwordSetupRequired(),
                     nextVersion,
                     user.createdAt(),
                     user.updatedAt());
@@ -161,6 +165,7 @@ public final class JdbcUserRepository implements UserRepository {
                 DisplayName.of(rs.getString("display_name")),
                 PasswordHash.of(rs.getString("password_hash")),
                 UserStatus.valueOf(rs.getString("status")),
+                rs.getBoolean("password_setup_required"),
                 rs.getLong("version"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant());

@@ -39,7 +39,10 @@ class SecurityApiSurfaceNoCredentialLeakTest {
                 AuditQueryService.class,
                 AccessDeniedException.class,
                 AuthenticationFailedException.class,
-                InvalidCurrentPasswordException.class
+                InvalidCurrentPasswordException.class,
+                PasswordSetupRequiredException.class,
+                InvalidPasswordException.class,
+                PasswordConfirmationMismatchException.class
         };
         for (Class<?> type : types) {
             for (Field field : type.getDeclaredFields()) {

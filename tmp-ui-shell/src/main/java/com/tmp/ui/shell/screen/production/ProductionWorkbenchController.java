@@ -17,7 +17,9 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.VBox;
+import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
 import java.util.UUID;
 
 /**
@@ -244,6 +246,12 @@ public final class ProductionWorkbenchController
 
     private ProductionWorkbenchViewModel viewModel;
 
+    private final ObservableList<TransferAllocationRow> emptyTransferAllocations =
+            FXCollections.observableArrayList();
+
+    private final ObservableList<ReleaseCellAllocationRow> emptyReleaseAllocations =
+            FXCollections.observableArrayList();
+
     @Override
     public void setViewModel(ProductionWorkbenchViewModel viewModel) {
         this.viewModel = viewModel;
@@ -375,6 +383,7 @@ public final class ProductionWorkbenchController
                                 c.getValue().allocationSummary()));
         transferLinesTable.setItems(viewModel.transferLines());
 
+        transferAllocationsTable.setItems(emptyTransferAllocations);
         transferAllocationsTable.setEditable(true);
         transferAllocQtyColumn.setCellFactory(TextFieldTableCell.forTableColumn());
         transferAllocQtyColumn.setCellValueFactory(
@@ -588,6 +597,7 @@ public final class ProductionWorkbenchController
                                 c.getValue().allocationSummary()));
         releaseMaterialsTable.setItems(viewModel.releaseMaterialRows());
 
+        releaseAllocationsTable.setItems(emptyReleaseAllocations);
         releaseAllocationsTable.setEditable(true);
         releaseAllocQtyColumn.setCellFactory(TextFieldTableCell.forTableColumn());
         releaseAllocQtyColumn.setCellValueFactory(
@@ -693,7 +703,7 @@ public final class ProductionWorkbenchController
             }
         }
         if (selected == null) {
-            transferAllocationsTable.setItems(null);
+            transferAllocationsTable.setItems(emptyTransferAllocations);
             return;
         }
         transferAllocationsTable.setItems(selected.allocations());
@@ -702,7 +712,7 @@ public final class ProductionWorkbenchController
     private void syncReleaseAllocationsTable() {
         ReleaseMaterialRow selected = releaseMaterialsTable.getSelectionModel().getSelectedItem();
         if (selected == null) {
-            releaseAllocationsTable.setItems(null);
+            releaseAllocationsTable.setItems(emptyReleaseAllocations);
             return;
         }
         releaseAllocationsTable.setItems(selected.allocations());

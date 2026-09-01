@@ -178,7 +178,7 @@ class SecuritySchemaPostgresIntegrationIT {
         users.save(user.withDisplayName(DisplayName.of("L2"), CLOCK));
         User staleUser = User.rehydrate(
                 user.id(), user.login(), DisplayName.of("stale"), user.passwordHash(),
-                user.status(), 0L, user.createdAt(), user.updatedAt());
+                user.status(), false, 0L, user.createdAt(), user.updatedAt());
         assertThrows(OptimisticLockConflictException.class, () -> users.save(staleUser));
 
         Role role = roles.save(Role.create(RoleId.generate(), "lockrole", "", CLOCK));

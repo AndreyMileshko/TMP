@@ -130,6 +130,11 @@ class LoginControllerFxTest {
         }
 
         @Override
+        public SessionSummary completePasswordSetup(Login login, char[] newPassword, char[] confirmPassword) {
+            throw new AuthenticationFailedException();
+        }
+
+        @Override
         public void logout() {
         }
 
@@ -153,6 +158,11 @@ class LoginControllerFxTest {
 
         @Override
         public SessionSummary login(Login login, char[] password) {
+            return session;
+        }
+
+        @Override
+        public SessionSummary completePasswordSetup(Login login, char[] newPassword, char[] confirmPassword) {
             return session;
         }
 

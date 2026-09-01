@@ -36,7 +36,7 @@ class JavaFxShellApplicationFlowTest {
         LoginViewModel viewModel = new LoginViewModel(new FailingAuth());
         viewModel.setOnLoginSuccess(() -> navigated.set(true));
         viewModel.loginProperty().set("x");
-        assertFalse(viewModel.submit("bad".toCharArray()));
+        assertEquals(LoginViewModel.SubmitOutcome.FAILED, viewModel.submit("bad".toCharArray()));
         assertEquals(AuthenticationFailedException.GENERIC_MESSAGE, viewModel.errorMessageProperty().get());
         assertFalse(navigated.get());
     }
@@ -52,7 +52,7 @@ class JavaFxShellApplicationFlowTest {
         LoginViewModel viewModel = new LoginViewModel(new OkAuth(session));
         viewModel.setOnLoginSuccess(() -> navigated.set(true));
         viewModel.loginProperty().set("admin");
-        assertTrue(viewModel.submit("ok".toCharArray()));
+        assertEquals(LoginViewModel.SubmitOutcome.SUCCESS, viewModel.submit("ok".toCharArray()));
         assertTrue(navigated.get());
     }
 
@@ -88,6 +88,11 @@ class JavaFxShellApplicationFlowTest {
             }
 
             @Override
+            public SessionSummary completePasswordSetup(Login login, char[] newPassword, char[] confirmPassword) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
             public void logout() {
                 authenticated = false;
                 loggedOut.set(true);
@@ -118,6 +123,11 @@ class JavaFxShellApplicationFlowTest {
         }
 
         @Override
+        public SessionSummary completePasswordSetup(Login login, char[] newPassword, char[] confirmPassword) {
+            throw new AuthenticationFailedException();
+        }
+
+        @Override
         public void logout() {
         }
 
@@ -141,6 +151,11 @@ class JavaFxShellApplicationFlowTest {
 
         @Override
         public SessionSummary login(Login login, char[] password) {
+            return session;
+        }
+
+        @Override
+        public SessionSummary completePasswordSetup(Login login, char[] newPassword, char[] confirmPassword) {
             return session;
         }
 

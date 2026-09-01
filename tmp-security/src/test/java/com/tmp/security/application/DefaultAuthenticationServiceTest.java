@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.Test;
 
@@ -36,11 +37,22 @@ class DefaultAuthenticationServiceTest {
         users.save(User.createActive(
                 id, Login.of("admin"), DisplayName.of("A"), PasswordHash.of("secret"), CLOCK));
         SessionContext sessions = new SessionContext();
+        InMemoryAudit audit = new InMemoryAudit();
+        AuthorizationApplicationService authorization = new AuthorizationApplicationService(
+                sessions,
+                new AlwaysActiveUserRepository(),
+                PasswordApplicationServiceTest.engine(Set.of()),
+                PasswordApplicationServiceTest.emptyAssignments(),
+                PasswordApplicationServiceTest.emptyRoles(),
+                PasswordApplicationServiceTest.grant(UserId.generate(), com.tmp.security.api.SecurityPermissions.USERS_RESET_PASSWORD));
+        PasswordApplicationService passwords = new PasswordApplicationService(
+                users, new ExactHasher(), authorization, audit, sessions, CLOCK);
         AuthenticationApplicationService app = new AuthenticationApplicationService(
                 users,
                 new ExactHasher(),
+                passwords,
                 sessions,
-                new InMemoryAudit(),
+                audit,
                 CLOCK,
                 new org.springframework.transaction.support.TransactionOperations() {
                     @Override

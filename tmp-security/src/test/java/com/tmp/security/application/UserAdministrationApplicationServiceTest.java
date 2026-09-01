@@ -1,6 +1,7 @@
 package com.tmp.security.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,7 +42,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -75,14 +75,16 @@ class UserAdministrationApplicationServiceTest {
                 emptyRoles(),
                 grantAllOverrides(actor));
         service = new UserAdministrationApplicationService(
-                users, new FakeHasher(), authorization, audit, sessions, CLOCK);
+                users, authorization, audit, sessions, CLOCK);
     }
 
     @Test
     void createUpdateDeleteAndList() {
-        User created = service.createUser(Login.of("new"), DisplayName.of("New"), "pwd".toCharArray());
+        User created = service.createUser(Login.of("new"), DisplayName.of("New"));
+        assertTrue(created.passwordSetupRequired());
+        assertTrue(created.passwordHash().isUninitialized());
         assertEquals(1, audit.events.stream().filter(e -> e.operation() == AuditOperation.USER_CREATED).count());
-        service.updateUser(created.id(), DisplayName.of("Renamed"));
+        service.updateUser(created.id(), Login.of("new"), DisplayName.of("Renamed"));
         User deleted = service.deleteUser(created.id());
         assertEquals(UserStatus.DELETED, deleted.status());
         assertTrue(users.findById(deleted.id()).isPresent());
@@ -93,27 +95,15 @@ class UserAdministrationApplicationServiceTest {
     void deniedWithoutPermission() {
         sessions.close();
         assertThrows(AccessDeniedException.class,
-                () -> service.createUser(Login.of("x"), DisplayName.of("X"), "p".toCharArray()));
+                () -> service.createUser(Login.of("x"), DisplayName.of("X")));
         assertTrue(users.store.isEmpty());
     }
 
     @Test
     void duplicateLoginSurfaces() {
-        service.createUser(Login.of("dup"), DisplayName.of("A"), "p".toCharArray());
+        service.createUser(Login.of("dup"), DisplayName.of("A"));
         assertThrows(DuplicateLoginException.class,
-                () -> service.createUser(Login.of("DUP"), DisplayName.of("B"), "p".toCharArray()));
-    }
-
-    private static final class FakeHasher implements PasswordHasher {
-        @Override
-        public PasswordHash hash(char[] plaintextPassword) {
-            return PasswordHash.of("$2a$10$x");
-        }
-
-        @Override
-        public boolean matches(char[] plaintextPassword, PasswordHash hash) {
-            return true;
-        }
+                () -> service.createUser(Login.of("DUP"), DisplayName.of("B")));
     }
 
     private static CapabilityEngine allPermissionsEngine() {
@@ -337,6 +327,7 @@ class UserAdministrationApplicationServiceTest {
             return events.size();
         }
     }
+
     private static AlwaysActiveUserRepository alwaysActiveUsers() {
         return new AlwaysActiveUserRepository();
     }

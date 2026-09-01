@@ -18,6 +18,7 @@ public final class User {
     private final DisplayName displayName;
     private final PasswordHash passwordHash;
     private final UserStatus status;
+    private final boolean passwordSetupRequired;
     private final long version;
     private final Instant createdAt;
     private final Instant updatedAt;
@@ -28,6 +29,7 @@ public final class User {
             DisplayName displayName,
             PasswordHash passwordHash,
             UserStatus status,
+            boolean passwordSetupRequired,
             long version,
             Instant createdAt,
             Instant updatedAt) {
@@ -36,6 +38,7 @@ public final class User {
         this.displayName = Objects.requireNonNull(displayName, "displayName");
         this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash");
         this.status = Objects.requireNonNull(status, "status");
+        this.passwordSetupRequired = passwordSetupRequired;
         this.version = version;
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
@@ -45,7 +48,23 @@ public final class User {
             UserId id, Login login, DisplayName displayName, PasswordHash passwordHash, Clock clock) {
         Objects.requireNonNull(clock, "clock");
         Instant now = clock.instant();
-        return new User(id, login, displayName, passwordHash, UserStatus.ACTIVE, 0L, now, now);
+        return new User(id, login, displayName, passwordHash, UserStatus.ACTIVE, false, 0L, now, now);
+    }
+
+    public static User createActivePendingPasswordSetup(
+            UserId id, Login login, DisplayName displayName, Clock clock) {
+        Objects.requireNonNull(clock, "clock");
+        Instant now = clock.instant();
+        return new User(
+                id,
+                login,
+                displayName,
+                PasswordHash.uninitialized(),
+                UserStatus.ACTIVE,
+                true,
+                0L,
+                now,
+                now);
     }
 
     /**
@@ -57,10 +76,28 @@ public final class User {
             DisplayName displayName,
             PasswordHash passwordHash,
             UserStatus status,
+            boolean passwordSetupRequired,
             long version,
             Instant createdAt,
             Instant updatedAt) {
-        return new User(id, login, displayName, passwordHash, status, version, createdAt, updatedAt);
+        return new User(
+                id, login, displayName, passwordHash, status, passwordSetupRequired, version, createdAt, updatedAt);
+    }
+
+    public User withLogin(Login newLogin, Clock clock) {
+        requireActive();
+        Objects.requireNonNull(newLogin, "newLogin");
+        Objects.requireNonNull(clock, "clock");
+        return new User(
+                id,
+                newLogin,
+                displayName,
+                passwordHash,
+                status,
+                passwordSetupRequired,
+                version,
+                createdAt,
+                clock.instant());
     }
 
     public User withDisplayName(DisplayName newDisplayName, Clock clock) {
@@ -68,15 +105,66 @@ public final class User {
         Objects.requireNonNull(newDisplayName, "newDisplayName");
         Objects.requireNonNull(clock, "clock");
         return new User(
-                id, login, newDisplayName, passwordHash, status, version, createdAt, clock.instant());
+                id,
+                login,
+                newDisplayName,
+                passwordHash,
+                status,
+                passwordSetupRequired,
+                version,
+                createdAt,
+                clock.instant());
     }
 
     public User withPasswordHash(PasswordHash newPasswordHash, Clock clock) {
         requireActive();
+        requirePasswordSet();
         Objects.requireNonNull(newPasswordHash, "newPasswordHash");
         Objects.requireNonNull(clock, "clock");
         return new User(
-                id, login, displayName, newPasswordHash, status, version, createdAt, clock.instant());
+                id,
+                login,
+                displayName,
+                newPasswordHash,
+                status,
+                false,
+                version,
+                createdAt,
+                clock.instant());
+    }
+
+    public User withPasswordInitialized(PasswordHash newPasswordHash, Clock clock) {
+        requireActive();
+        Objects.requireNonNull(newPasswordHash, "newPasswordHash");
+        Objects.requireNonNull(clock, "clock");
+        if (!passwordSetupRequired) {
+            throw new IllegalStateException("Password is already initialized for user: " + id);
+        }
+        return new User(
+                id,
+                login,
+                displayName,
+                newPasswordHash,
+                status,
+                false,
+                version,
+                createdAt,
+                clock.instant());
+    }
+
+    public User requiringPasswordSetup(Clock clock) {
+        requireActive();
+        Objects.requireNonNull(clock, "clock");
+        return new User(
+                id,
+                login,
+                displayName,
+                PasswordHash.uninitialized(),
+                status,
+                true,
+                version,
+                createdAt,
+                clock.instant());
     }
 
     public User deleted(Clock clock) {
@@ -85,12 +173,26 @@ public final class User {
             throw new UserAlreadyDeletedException("User already deleted: " + id);
         }
         return new User(
-                id, login, displayName, passwordHash, UserStatus.DELETED, version, createdAt, clock.instant());
+                id,
+                login,
+                displayName,
+                passwordHash,
+                UserStatus.DELETED,
+                passwordSetupRequired,
+                version,
+                createdAt,
+                clock.instant());
     }
 
     private void requireActive() {
         if (status == UserStatus.DELETED) {
             throw new UserAlreadyDeletedException("User already deleted: " + id);
+        }
+    }
+
+    private void requirePasswordSet() {
+        if (passwordSetupRequired) {
+            throw new IllegalStateException("Password setup is required for user: " + id);
         }
     }
 
@@ -100,6 +202,10 @@ public final class User {
 
     public boolean isDeleted() {
         return status == UserStatus.DELETED;
+    }
+
+    public boolean passwordSetupRequired() {
+        return passwordSetupRequired;
     }
 
     public UserId id() {
@@ -141,6 +247,7 @@ public final class User {
                 + ", displayName=" + displayName
                 + ", passwordHash=" + passwordHash
                 + ", status=" + status
+                + ", passwordSetupRequired=" + passwordSetupRequired
                 + ", version=" + version
                 + "}";
     }

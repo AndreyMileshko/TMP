@@ -104,7 +104,7 @@ class SecurityEndToEndPostgresIntegrationIT {
         assertTrue(authorizationService.hasPermission(SecurityPermissions.USERS_CREATE));
 
         UserSummary operator = userAdministrationService.createUser(
-                Login.of("operator"), DisplayName.of("Operator"), OPERATOR_PASSWORD.clone());
+                Login.of("operator"), DisplayName.of("Operator"));
         RoleSummary role = roleAdministrationService.createRole("Operators", "Limited operators");
         roleAdministrationService.grantPermissionToRole(role.id(), SecurityPermissions.USERS_VIEW);
         roleAdministrationService.grantPermissionToRole(role.id(), SecurityPermissions.ROLES_VIEW);
@@ -112,7 +112,8 @@ class SecurityEndToEndPostgresIntegrationIT {
         roleAdministrationService.grantIndividualPermission(operator.id(), SecurityPermissions.AUDIT_VIEW);
 
         authenticationService.logout();
-        authenticationService.login(Login.of("operator"), OPERATOR_PASSWORD.clone());
+        authenticationService.completePasswordSetup(
+                Login.of("operator"), OPERATOR_PASSWORD.clone(), OPERATOR_PASSWORD.clone());
 
         Set<PermissionId> effective = authorizationService.effectivePermissions();
         assertEquals(
@@ -150,13 +151,14 @@ class SecurityEndToEndPostgresIntegrationIT {
     void inactiveCapabilityPermissionIsDeniedEvenIfRoleStillListsIt() {
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
         UserSummary viewer = userAdministrationService.createUser(
-                Login.of("auditviewer"), DisplayName.of("Audit Viewer"), "viewer-secret".toCharArray());
+                Login.of("auditviewer"), DisplayName.of("Audit Viewer"));
         RoleSummary role = roleAdministrationService.createRole("AuditReaders", "readers");
         roleAdministrationService.grantPermissionToRole(role.id(), SecurityPermissions.AUDIT_VIEW);
         roleAdministrationService.assignRole(viewer.id(), role.id());
 
         authenticationService.logout();
-        authenticationService.login(Login.of("auditviewer"), "viewer-secret".toCharArray());
+        authenticationService.completePasswordSetup(
+                Login.of("auditviewer"), "viewer-secret".toCharArray(), "viewer-secret".toCharArray());
         assertTrue(authorizationService.hasPermission(SecurityPermissions.AUDIT_VIEW));
 
         capabilityEngine.deactivate(SecurityAdministrationCapability.ID);
@@ -170,7 +172,7 @@ class SecurityEndToEndPostgresIntegrationIT {
     void duplicateRoleAssignmentDoesNotInsertSecondRowOrLeakSql() {
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
         UserSummary operator = userAdministrationService.createUser(
-                Login.of("duprole"), DisplayName.of("Dup Role"), OPERATOR_PASSWORD.clone());
+                Login.of("duprole"), DisplayName.of("Dup Role"));
         RoleSummary role = roleAdministrationService.createRole("DupAssign", "duplicate assign");
         roleAdministrationService.assignRole(operator.id(), role.id());
         long rowsAfterFirst = countUserRoleRows(operator.id(), role.id());

@@ -19,7 +19,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"}, justification = "JavaFX ViewModel/Controller intentionally expose observable properties and retain ViewModel for FXML wiring")
 /**
- * User administration ViewModel. Permission buttons are cosmetic; enforcement stays in Security.
+ * User administration ViewModel. Permission flags are cosmetic; enforcement stays in Security.
  */
 public final class UserAdministrationViewModel {
 
@@ -27,14 +27,10 @@ public final class UserAdministrationViewModel {
     private final AuthorizationService authorization;
     private final ObservableList<UserSummary> userList = FXCollections.observableArrayList();
     private final StringProperty errorMessage = new SimpleStringProperty("");
-    private final StringProperty loginInput = new SimpleStringProperty("");
-    private final StringProperty displayNameInput = new SimpleStringProperty("");
-    private final StringProperty passwordInput = new SimpleStringProperty("");
     private final BooleanProperty canCreate = new SimpleBooleanProperty(false);
     private final BooleanProperty canUpdate = new SimpleBooleanProperty(false);
     private final BooleanProperty canDelete = new SimpleBooleanProperty(false);
     private final BooleanProperty canResetPassword = new SimpleBooleanProperty(false);
-    private UserSummary selected;
 
     public UserAdministrationViewModel(
             UserAdministrationService users, AuthorizationService authorization) {
@@ -50,18 +46,6 @@ public final class UserAdministrationViewModel {
 
     public StringProperty errorMessageProperty() {
         return errorMessage;
-    }
-
-    public StringProperty loginInputProperty() {
-        return loginInput;
-    }
-
-    public StringProperty displayNameInputProperty() {
-        return displayNameInput;
-    }
-
-    public StringProperty passwordInputProperty() {
-        return passwordInput;
     }
 
     public BooleanProperty canCreateProperty() {
@@ -80,14 +64,6 @@ public final class UserAdministrationViewModel {
         return canResetPassword;
     }
 
-    public void select(UserSummary summary) {
-        this.selected = summary;
-        if (summary != null) {
-            loginInput.set(summary.login().value());
-            displayNameInput.set(summary.displayName().value());
-        }
-    }
-
     public void refresh() {
         errorMessage.set("");
         try {
@@ -100,60 +76,60 @@ public final class UserAdministrationViewModel {
         refreshPermissions();
     }
 
-    public void createUser() {
+    public void createUser(String login, String displayName) {
         runAction(() -> {
-            char[] password = passwordInput.get().toCharArray();
-            try {
-                users.createUser(Login.of(loginInput.get()), DisplayName.of(displayNameInput.get()), password);
-            } finally {
-                java.util.Arrays.fill(password, '\0');
-                passwordInput.set("");
-            }
+            users.createUser(Login.of(login), DisplayName.of(displayName));
             refresh();
         });
     }
 
-    public void updateSelected() {
+    public void updateUser(UserSummary selected, String login, String displayName) {
         if (selected == null) {
-            errorMessage.set("Р’С‹Р±РµСЂРёС‚Рµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ");
             return;
         }
         UserId id = selected.id();
         runAction(() -> {
-            users.updateUser(id, DisplayName.of(displayNameInput.get()));
+            users.updateUser(id, Login.of(login), DisplayName.of(displayName));
             refresh();
         });
     }
 
-    public void deleteSelected() {
+    public void deleteUser(UserSummary selected) {
         if (selected == null) {
-            errorMessage.set("Р’С‹Р±РµСЂРёС‚Рµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ");
             return;
         }
         UserId id = selected.id();
         runAction(() -> {
             users.deleteUser(id);
-            selected = null;
             refresh();
         });
     }
 
-    public void resetPasswordSelected() {
+    public void requestPasswordReset(UserSummary selected) {
         if (selected == null) {
-            errorMessage.set("Р’С‹Р±РµСЂРёС‚Рµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ");
             return;
         }
         UserId id = selected.id();
         runAction(() -> {
-            char[] password = passwordInput.get().toCharArray();
-            try {
-                users.resetPassword(id, password);
-            } finally {
-                java.util.Arrays.fill(password, '\0');
-                passwordInput.set("");
-            }
+            users.requestPasswordReset(id);
             refresh();
         });
+    }
+
+    public boolean canEdit(UserSummary user) {
+        return user != null && isActive(user) && canUpdate.get();
+    }
+
+    public boolean canDeleteUser(UserSummary user) {
+        return user != null && isActive(user) && canDelete.get();
+    }
+
+    public boolean canReset(UserSummary user) {
+        return user != null && isActive(user) && canResetPassword.get();
+    }
+
+    private static boolean isActive(UserSummary user) {
+        return "ACTIVE".equals(user.status());
     }
 
     private void refreshPermissions() {
@@ -177,7 +153,7 @@ public final class UserAdministrationViewModel {
     private static String safeMessage(Throwable ex) {
         String message = ex.getMessage();
         if (message == null || message.isBlank()) {
-            return "РћРїРµСЂР°С†РёСЏ РЅРµ РІС‹РїРѕР»РЅРµРЅР°";
+            return "Операция не выполнена";
         }
         return message;
     }

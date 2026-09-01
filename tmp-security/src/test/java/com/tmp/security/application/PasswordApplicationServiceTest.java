@@ -14,6 +14,7 @@ import com.tmp.capability.api.CommandDescriptor;
 import com.tmp.capability.api.NavigationContribution;
 import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.capability.api.ViewDescriptor;
+import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.PermissionId;
@@ -21,7 +22,6 @@ import com.tmp.security.api.RoleId;
 import com.tmp.security.api.SessionId;
 import com.tmp.security.api.UserId;
 import com.tmp.security.api.SecurityPermissions;
-import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.AuditQueryFilter;
 import com.tmp.security.domain.IndividualPermissionOverride;
@@ -43,7 +43,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -87,7 +86,7 @@ class PasswordApplicationServiceTest {
     void changeOwnPasswordWrongCurrentRejected() {
         assertThrows(
                 InvalidCurrentPasswordException.class,
-                () -> service.changeOwnPassword("wrong".toCharArray(), "new1".toCharArray()));
+                () -> service.changeOwnPassword("wrong".toCharArray(), "newpassword".toCharArray()));
         assertEquals(storedHash, users.findById(selfId).orElseThrow().passwordHash().encodedValue());
         assertTrue(audit.events.isEmpty());
     }
@@ -114,11 +113,11 @@ class PasswordApplicationServiceTest {
                 .id();
         assertThrows(
                 AccessDeniedException.class,
-                () -> service.resetPassword(other, "new".toCharArray()));
+                () -> service.requestPasswordReset(other));
     }
 
     @Test
-    void resetWithPermissionWithoutKnowingOldPassword() {
+    void resetRequiresSetupWithoutAdminPassword() {
         UserId other = users.save(User.createActive(
                         UserId.generate(),
                         Login.of("other"),
@@ -126,27 +125,27 @@ class PasswordApplicationServiceTest {
                         PasswordHash.of("unknown-old"),
                         CLOCK))
                 .id();
-        String replacement = "admin-set-password";
-        service.resetPassword(other, replacement.toCharArray());
-        assertEquals(replacement, users.findById(other).orElseThrow().passwordHash().encodedValue());
+        service.requestPasswordReset(other);
+        User updated = users.findById(other).orElseThrow();
+        assertTrue(updated.passwordSetupRequired());
+        assertTrue(updated.passwordHash().isUninitialized());
         assertEquals(AuditOperation.PASSWORD_RESET, audit.events.getFirst().operation());
-        assertFalse(audit.events.getFirst().safeDescription().contains(replacement));
         assertFalse(audit.events.getFirst().safeDescription().contains("unknown-old"));
     }
 
-    private static final class ExactHasher implements PasswordHasher {
-        @Override
-        public PasswordHash hash(char[] plaintextPassword) {
-            return PasswordHash.of(new String(plaintextPassword));
-        }
-
-        @Override
-        public boolean matches(char[] plaintextPassword, PasswordHash hash) {
-            return hash.encodedValue().equals(new String(plaintextPassword));
-        }
+    @Test
+    void initializePasswordForSetupRequiredUser() {
+        User pending = users.save(User.createActivePendingPasswordSetup(
+                UserId.generate(), Login.of("pending"), DisplayName.of("Pending"), CLOCK));
+        service.initializePassword(
+                Login.of("pending"), "long-enough".toCharArray(), "long-enough".toCharArray());
+        User updated = users.findById(pending.id()).orElseThrow();
+        assertFalse(updated.passwordSetupRequired());
+        assertEquals("long-enough", updated.passwordHash().encodedValue());
+        assertEquals(AuditOperation.PASSWORD_INITIALIZED, audit.events.getFirst().operation());
     }
 
-    private static CapabilityEngine engine(Set<PermissionId> active) {
+    static CapabilityEngine engine(Set<PermissionId> active) {
         return new CapabilityEngine() {
             @Override
             public void discoverAndRegisterAll() {
@@ -208,7 +207,7 @@ class PasswordApplicationServiceTest {
         };
     }
 
-    private static PermissionOverrideRepository grant(UserId userId, PermissionId permissionId) {
+    static PermissionOverrideRepository grant(UserId userId, PermissionId permissionId) {
         return new PermissionOverrideRepository() {
             @Override
             public IndividualPermissionOverride save(IndividualPermissionOverride override) {
@@ -236,7 +235,7 @@ class PasswordApplicationServiceTest {
         };
     }
 
-    private static RoleAssignmentRepository emptyAssignments() {
+    static RoleAssignmentRepository emptyAssignments() {
         return new RoleAssignmentRepository() {
             @Override
             public void assign(com.tmp.security.domain.RoleAssignment assignment) {
@@ -263,7 +262,7 @@ class PasswordApplicationServiceTest {
         };
     }
 
-    private static RoleRepository emptyRoles() {
+    static RoleRepository emptyRoles() {
         return new RoleRepository() {
             @Override
             public Role save(Role role) {
@@ -286,6 +285,18 @@ class PasswordApplicationServiceTest {
         };
     }
 
+    private static final class ExactHasher implements PasswordHasher {
+        @Override
+        public PasswordHash hash(char[] plaintextPassword) {
+            return PasswordHash.of(new String(plaintextPassword));
+        }
+
+        @Override
+        public boolean matches(char[] plaintextPassword, PasswordHash hash) {
+            return hash.encodedValue().equals(new String(plaintextPassword));
+        }
+    }
+
     private static final class InMemoryUsers implements UserRepository {
         private final Map<UserId, User> store = new ConcurrentHashMap<>();
 
@@ -302,12 +313,14 @@ class PasswordApplicationServiceTest {
 
         @Override
         public Optional<User> findByLoginIgnoreCase(Login login) {
-            return Optional.empty();
+            return store.values().stream()
+                    .filter(u -> u.login().value().equalsIgnoreCase(login.value()))
+                    .findFirst();
         }
 
         @Override
         public boolean existsByLoginIgnoreCase(Login login) {
-            return false;
+            return findByLoginIgnoreCase(login).isPresent();
         }
 
         @Override
@@ -339,6 +352,7 @@ class PasswordApplicationServiceTest {
             return events.size();
         }
     }
+
     private static AlwaysActiveUserRepository alwaysActiveUsers() {
         return new AlwaysActiveUserRepository();
     }

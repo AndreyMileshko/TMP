@@ -95,7 +95,10 @@ class LoginDeleteRacePostgresIntegrationIT {
     void loginDoesNotOpenSessionWhenUserDeletedAfterCredentialCheck() throws Exception {
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
         var victim = userAdministrationService.createUser(
-                Login.of("race-login-user"), DisplayName.of("Race Login"), "race-login-secret".toCharArray());
+                Login.of("race-login-user"), DisplayName.of("Race Login"));
+        authenticationService.logout();
+        authenticationService.completePasswordSetup(
+                Login.of("race-login-user"), "race-login-secret".toCharArray(), "race-login-secret".toCharArray());
         authenticationService.logout();
 
         CountDownLatch enteredFindById = new CountDownLatch(1);

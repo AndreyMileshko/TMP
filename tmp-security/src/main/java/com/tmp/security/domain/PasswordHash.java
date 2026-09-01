@@ -12,6 +12,14 @@ public final class PasswordHash {
 
     private static final String REDACTED = "PasswordHash[REDACTED]";
 
+    /**
+     * Sentinel stored for accounts awaiting self-service password setup. Valid BCrypt format but not
+     * derived from any known plaintext; {@link com.tmp.security.domain.PasswordHasher#matches} must
+     * never succeed for real passwords against this value.
+     */
+    private static final PasswordHash UNINITIALIZED = new PasswordHash(
+            "$2a$10$XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+
     private final String encodedHash;
 
     private PasswordHash(String encodedHash) {
@@ -28,6 +36,15 @@ public final class PasswordHash {
             throw new IllegalArgumentException("Password hash must not be blank");
         }
         return new PasswordHash(encodedHash);
+    }
+
+    /** Placeholder hash for accounts that have not yet completed self-service password setup. */
+    public static PasswordHash uninitialized() {
+        return UNINITIALIZED;
+    }
+
+    public boolean isUninitialized() {
+        return this == UNINITIALIZED;
     }
 
     /**

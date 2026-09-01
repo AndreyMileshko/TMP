@@ -281,9 +281,7 @@ class OrderImportCoreIT {
                 existing.orElseGet(
                         () ->
                                 userAdministrationService.createUser(
-                                        Login.of("importer"),
-                                        DisplayName.of("Importer"),
-                                        IMPORTER_PASSWORD.clone()));
+                                        Login.of("importer"), DisplayName.of("Importer")));
         roleAdministrationService.grantIndividualPermission(
                 importer.id(), OrderManagementPermissions.ORDER_CREATE);
         roleAdministrationService.grantIndividualPermission(
@@ -295,7 +293,12 @@ class OrderImportCoreIT {
         roleAdministrationService.grantIndividualPermission(
                 importer.id(), OrderManagementPermissions.ORDER_APPROVE);
         authenticationService.logout();
-        authenticationService.login(Login.of("importer"), IMPORTER_PASSWORD.clone());
+        if (existing.isPresent()) {
+            authenticationService.login(Login.of("importer"), IMPORTER_PASSWORD.clone());
+        } else {
+            authenticationService.completePasswordSetup(
+                    Login.of("importer"), IMPORTER_PASSWORD.clone(), IMPORTER_PASSWORD.clone());
+        }
     }
 
     private OrderId seedExistingOrder(String orderNumber) {

@@ -50,6 +50,24 @@ public final class LoginController implements ViewModelAware<LoginViewModel> {
         }
         char[] password = passwordField.getText().toCharArray();
         passwordField.clear();
-        viewModel.submit(password);
+        LoginViewModel.SubmitOutcome outcome = viewModel.submit(password);
+        if (outcome == LoginViewModel.SubmitOutcome.PASSWORD_SETUP_REQUIRED) {
+            openPasswordSetupDialog();
+        }
+    }
+
+    private void openPasswordSetupDialog() {
+        if (viewModel == null) {
+            return;
+        }
+        String login = viewModel.pendingPasswordSetupLogin()
+                .map(l -> l.value())
+                .orElse(viewModel.loginProperty().get());
+        PasswordSetupDialog.show(loginField.getScene().getWindow(), login).ifPresent(input -> {
+            boolean success = viewModel.completePasswordSetup(input.newPassword(), input.confirmPassword());
+            if (!success) {
+                openPasswordSetupDialog();
+            }
+        });
     }
 }

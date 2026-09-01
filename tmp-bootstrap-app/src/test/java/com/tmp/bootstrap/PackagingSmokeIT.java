@@ -121,7 +121,8 @@ class PackagingSmokeIT {
                 AtomicBoolean loginNavigated = new AtomicBoolean(false);
                 loginViewModel.setOnLoginSuccess(() -> loginNavigated.set(true));
                 loginViewModel.loginProperty().set("admin");
-                assertTrue(
+                assertEquals(
+                        LoginViewModel.SubmitOutcome.SUCCESS,
                         loginViewModel.submit(ADMIN_PASSWORD.toCharArray()),
                         "admin must authenticate successfully");
                 assertTrue(loginNavigated.get());

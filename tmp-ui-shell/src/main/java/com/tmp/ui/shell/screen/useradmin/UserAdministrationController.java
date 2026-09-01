@@ -5,11 +5,12 @@ import com.tmp.ui.shell.navigation.ViewModelAware;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
-import javafx.scene.control.PasswordField;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
-import javafx.scene.control.TextField;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"}, justification = "JavaFX ViewModel/Controller intentionally expose observable properties and retain ViewModel for FXML wiring")
@@ -31,34 +32,16 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
     private TableColumn<UserSummary, String> statusColumn;
 
     @FXML
-    private TextField loginField;
-
-    @FXML
-    private TextField displayNameField;
-
-    @FXML
-    private PasswordField passwordField;
-
-    @FXML
-    private Button createButton;
-
-    @FXML
-    private Button updateButton;
-
-    @FXML
-    private Button deleteButton;
-
-    @FXML
-    private Button resetPasswordButton;
-
-    @FXML
-    private Button refreshButton;
+    private Button createUserButton;
 
     @FXML
     private Label errorLabel;
 
+    private UserAdministrationViewModel viewModel;
+
     @Override
     public void setViewModel(UserAdministrationViewModel viewModel) {
+        this.viewModel = viewModel;
         loginColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(cell.getValue().login().value()));
         displayNameColumn.setCellValueFactory(cell ->
@@ -67,23 +50,10 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
                 new javafx.beans.property.SimpleStringProperty(cell.getValue().status()));
 
         userTable.setItems(viewModel.userList());
-        userTable.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) ->
-                viewModel.select(selected));
+        userTable.setRowFactory(table -> createContextMenuRow());
 
-        loginField.textProperty().bindBidirectional(viewModel.loginInputProperty());
-        displayNameField.textProperty().bindBidirectional(viewModel.displayNameInputProperty());
-        passwordField.textProperty().bindBidirectional(viewModel.passwordInputProperty());
-
-        createButton.disableProperty().bind(viewModel.canCreateProperty().not());
-        updateButton.disableProperty().bind(viewModel.canUpdateProperty().not());
-        deleteButton.disableProperty().bind(viewModel.canDeleteProperty().not());
-        resetPasswordButton.disableProperty().bind(viewModel.canResetPasswordProperty().not());
-
-        createButton.setOnAction(e -> viewModel.createUser());
-        updateButton.setOnAction(e -> viewModel.updateSelected());
-        deleteButton.setOnAction(e -> viewModel.deleteSelected());
-        resetPasswordButton.setOnAction(e -> viewModel.resetPasswordSelected());
-        refreshButton.setOnAction(e -> viewModel.refresh());
+        createUserButton.disableProperty().bind(viewModel.canCreateProperty().not());
+        createUserButton.setOnAction(e -> onCreateUser());
 
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
         errorLabel.visibleProperty().bind(Bindings.createBooleanBinding(
@@ -93,6 +63,81 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
                 },
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
-        viewModel.refresh();
+    }
+
+    private TableRow<UserSummary> createContextMenuRow() {
+        TableRow<UserSummary> row = new TableRow<>();
+        ContextMenu menu = new ContextMenu();
+        MenuItem editItem = new MenuItem("Редактировать");
+        MenuItem resetItem = new MenuItem("Сбросить пароль");
+        MenuItem deleteItem = new MenuItem("Удалить");
+        menu.getItems().addAll(editItem, resetItem, deleteItem);
+
+        editItem.setOnAction(e -> {
+            UserSummary user = row.getItem();
+            if (user != null) {
+                onEditUser(user);
+            }
+        });
+        resetItem.setOnAction(e -> {
+            UserSummary user = row.getItem();
+            if (user != null) {
+                onResetPassword(user);
+            }
+        });
+        deleteItem.setOnAction(e -> {
+            UserSummary user = row.getItem();
+            if (user != null) {
+                onDeleteUser(user);
+            }
+        });
+
+        row.contextMenuProperty().bind(Bindings.createObjectBinding(
+                () -> row.isEmpty() ? null : menu,
+                row.emptyProperty(), row.itemProperty()));
+
+        row.setOnContextMenuRequested(event -> {
+            if (!row.isEmpty()) {
+                userTable.getSelectionModel().select(row.getItem());
+            }
+        });
+
+        editItem.disableProperty().bind(Bindings.createBooleanBinding(
+                () -> !viewModel.canEdit(row.getItem()), row.itemProperty()));
+        resetItem.disableProperty().bind(Bindings.createBooleanBinding(
+                () -> !viewModel.canReset(row.getItem()), row.itemProperty()));
+        deleteItem.disableProperty().bind(Bindings.createBooleanBinding(
+                () -> !viewModel.canDeleteUser(row.getItem()), row.itemProperty()));
+
+        return row;
+    }
+
+    private void onCreateUser() {
+        UserAdministrationDialogs.showCreateDialog(
+                        userTable.getScene().getWindow(), viewModel.canCreateProperty().get())
+                .ifPresent(result -> viewModel.createUser(result.login(), result.displayName()));
+    }
+
+    private void onEditUser(UserSummary user) {
+        UserAdministrationDialogs.showEditDialog(
+                        userTable.getScene().getWindow(), viewModel.canEdit(user), user)
+                .ifPresent(result -> viewModel.updateUser(user, result.login(), result.displayName()));
+    }
+
+    private void onResetPassword(UserSummary user) {
+        if (!viewModel.canReset(user)) {
+            return;
+        }
+        if (UserAdministrationDialogs.confirmPasswordReset(userTable.getScene().getWindow(), user)) {
+            viewModel.requestPasswordReset(user);
+        }
+    }
+
+    private void onDeleteUser(UserSummary user) {
+        if (!viewModel.canDeleteUser(user)) {
+            return;
+        }
+        UserAdministrationDialogs.showDeleteConfirmation(userTable.getScene().getWindow(), user)
+                .ifPresent(confirmed -> viewModel.deleteUser(user));
     }
 }

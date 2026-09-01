@@ -28,19 +28,17 @@ class UserAdministrationViewModelTest {
         service.users.add(summary("a", "Alice"));
         UserAdministrationViewModel viewModel =
                 new UserAdministrationViewModel(service, new FakeAuthz(allUserPermissions()));
+        viewModel.refresh();
         assertEquals(1, viewModel.userList().size());
         assertEquals("a", viewModel.userList().get(0).login().value());
     }
 
     @Test
-    void createDelegatesAndRefreshes() {
+    void createDelegatesWithoutPassword() {
         FakeUsers service = new FakeUsers();
         UserAdministrationViewModel viewModel =
                 new UserAdministrationViewModel(service, new FakeAuthz(allUserPermissions()));
-        viewModel.loginInputProperty().set("bob");
-        viewModel.displayNameInputProperty().set("Bob");
-        viewModel.passwordInputProperty().set("secret-value");
-        viewModel.createUser();
+        viewModel.createUser("bob", "Bob");
         assertEquals(1, service.users.size());
         assertEquals(1, viewModel.userList().size());
         assertEquals("", viewModel.errorMessageProperty().get());
@@ -59,6 +57,24 @@ class UserAdministrationViewModelTest {
         assertTrue(viewModel.errorMessageProperty().get().contains("Access denied"));
         assertFalse(viewModel.errorMessageProperty().get().contains("at "));
         assertFalse(viewModel.canCreateProperty().get());
+    }
+
+    @Test
+    void deletedUserCannotBeEdited() {
+        UserAdministrationViewModel viewModel =
+                new UserAdministrationViewModel(new FakeUsers(), new FakeAuthz(allUserPermissions()));
+        UserSummary deleted = summary("gone", "Gone");
+        deleted = new UserSummary(
+                deleted.id(),
+                deleted.login(),
+                deleted.displayName(),
+                "DELETED",
+                deleted.version(),
+                deleted.createdAt(),
+                deleted.updatedAt());
+        assertFalse(viewModel.canEdit(deleted));
+        assertFalse(viewModel.canDeleteUser(deleted));
+        assertFalse(viewModel.canReset(deleted));
     }
 
     private static Set<PermissionId> allUserPermissions() {
@@ -85,14 +101,14 @@ class UserAdministrationViewModelTest {
         private final List<UserSummary> users = new ArrayList<>();
 
         @Override
-        public UserSummary createUser(Login login, DisplayName displayName, char[] initialPassword) {
+        public UserSummary createUser(Login login, DisplayName displayName) {
             UserSummary created = summary(login.value(), displayName.value());
             users.add(created);
             return created;
         }
 
         @Override
-        public UserSummary updateUser(UserId userId, DisplayName newDisplayName) {
+        public UserSummary updateUser(UserId userId, Login login, DisplayName newDisplayName) {
             return users.stream().filter(u -> u.id().equals(userId)).findFirst().orElseThrow();
         }
 
@@ -113,7 +129,7 @@ class UserAdministrationViewModelTest {
         }
 
         @Override
-        public void resetPassword(UserId targetUserId, char[] newPassword) {
+        public void requestPasswordReset(UserId targetUserId) {
         }
     }
 

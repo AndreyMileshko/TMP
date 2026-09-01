@@ -7,9 +7,9 @@ import java.util.List;
  */
 public interface UserAdministrationService {
 
-    UserSummary createUser(Login login, DisplayName displayName, char[] initialPassword);
+    UserSummary createUser(Login login, DisplayName displayName);
 
-    UserSummary updateUser(UserId userId, DisplayName newDisplayName);
+    UserSummary updateUser(UserId userId, Login login, DisplayName displayName);
 
     UserSummary deleteUser(UserId userId);
 
@@ -17,5 +17,5 @@ public interface UserAdministrationService {
 
     void changeOwnPassword(char[] currentPassword, char[] newPassword);
 
-    void resetPassword(UserId targetUserId, char[] newPassword);
+    void requestPasswordReset(UserId targetUserId);
 }

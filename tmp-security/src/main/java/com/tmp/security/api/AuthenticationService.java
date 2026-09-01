@@ -9,6 +9,8 @@ public interface AuthenticationService {
 
     SessionSummary login(Login login, char[] password);
 
+    SessionSummary completePasswordSetup(Login login, char[] newPassword, char[] confirmPassword);
+
     void logout();
 
     Optional<SessionSummary> currentSession();
