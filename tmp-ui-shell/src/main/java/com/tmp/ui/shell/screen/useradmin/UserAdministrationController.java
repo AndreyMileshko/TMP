@@ -2,17 +2,21 @@ package com.tmp.ui.shell.screen.useradmin;
 
 import com.tmp.security.api.UserSummary;
 import com.tmp.ui.shell.navigation.ViewModelAware;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import javafx.scene.layout.VBox;
 
 @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"}, justification = "JavaFX ViewModel/Controller intentionally expose observable properties and retain ViewModel for FXML wiring")
 /**
@@ -52,11 +56,15 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
                 new javafx.beans.property.SimpleStringProperty(cell.getValue().displayName().value()));
         statusColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(cell.getValue().status()));
+        statusColumn.setCellFactory(column -> new StatusBadgeTableCell());
 
+        configureTableResize();
         userTable.setItems(viewModel.filteredUserList());
+        userTable.setPlaceholder(createEmptyState());
         userTable.setRowFactory(table -> createContextMenuRow());
 
-        createUserButton.disableProperty().bind(viewModel.canCreateProperty().not());
+        createUserButton.visibleProperty().bind(viewModel.canCreateProperty());
+        createUserButton.managedProperty().bind(viewModel.canCreateProperty());
         createUserButton.setOnAction(e -> onCreateUser());
         showDeletedCheckBox.selectedProperty().bindBidirectional(viewModel.showDeletedProperty());
 
@@ -71,13 +79,53 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
         viewModel.refresh();
     }
 
+    private void configureTableResize() {
+        statusColumn.setResizable(false);
+        displayNameColumn.prefWidthProperty().bind(Bindings.createDoubleBinding(
+                () -> {
+                    double tableWidth = userTable.getWidth();
+                    if (tableWidth <= 0) {
+                        return 320.0;
+                    }
+                    double reserved = loginColumn.getWidth() + statusColumn.getWidth() + 16;
+                    return Math.max(150.0, tableWidth - reserved);
+                },
+                userTable.widthProperty(),
+                loginColumn.widthProperty(),
+                statusColumn.widthProperty(),
+                displayNameColumn.minWidthProperty()));
+    }
+
+    private static VBox createEmptyState() {
+        Label title = new Label("Нет пользователей для отображения");
+        title.getStyleClass().add("tmp-empty-state-title");
+        Label hint = new Label("Измените фильтр или создайте нового пользователя.");
+        hint.getStyleClass().add("tmp-empty-state-hint");
+        hint.setWrapText(true);
+        VBox emptyState = new VBox(8, title, hint);
+        emptyState.getStyleClass().add("tmp-empty-state");
+        emptyState.setAlignment(Pos.CENTER);
+        return emptyState;
+    }
+
     private TableRow<UserSummary> createContextMenuRow() {
         TableRow<UserSummary> row = new TableRow<>();
         ContextMenu menu = new ContextMenu();
         MenuItem editItem = new MenuItem("Редактировать");
         MenuItem resetItem = new MenuItem("Сбросить пароль");
+        SeparatorMenuItem separator = new SeparatorMenuItem();
         MenuItem deleteItem = new MenuItem("Удалить");
-        menu.getItems().addAll(editItem, resetItem, deleteItem);
+        deleteItem.getStyleClass().add("tmp-menu-item-danger");
+        menu.getItems().addAll(editItem, resetItem, separator, deleteItem);
+
+        editItem.visibleProperty().bind(viewModel.canUpdateProperty());
+        resetItem.visibleProperty().bind(viewModel.canResetPasswordProperty());
+        deleteItem.visibleProperty().bind(viewModel.canDeleteProperty());
+        separator.visibleProperty().bind(Bindings.createBooleanBinding(
+                () -> deleteItem.isVisible() && (editItem.isVisible() || resetItem.isVisible()),
+                deleteItem.visibleProperty(),
+                editItem.visibleProperty(),
+                resetItem.visibleProperty()));
 
         editItem.setOnAction(e -> {
             UserSummary user = row.getItem();
@@ -99,8 +147,19 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
         });
 
         row.contextMenuProperty().bind(Bindings.createObjectBinding(
-                () -> row.isEmpty() ? null : menu,
-                row.emptyProperty(), row.itemProperty()));
+                () -> {
+                    if (row.isEmpty()) {
+                        return null;
+                    }
+                    if (!editItem.isVisible() && !resetItem.isVisible() && !deleteItem.isVisible()) {
+                        return null;
+                    }
+                    return menu;
+                },
+                row.emptyProperty(),
+                editItem.visibleProperty(),
+                resetItem.visibleProperty(),
+                deleteItem.visibleProperty()));
 
         row.setOnContextMenuRequested(event -> {
             if (!row.isEmpty()) {
@@ -149,5 +208,20 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
         }
         UserAdministrationDialogs.showDeleteConfirmation(userTable.getScene().getWindow(), user)
                 .ifPresent(confirmed -> viewModel.deleteUser(user));
+    }
+
+    private static final class StatusBadgeTableCell extends TableCell<UserSummary, String> {
+        @Override
+        protected void updateItem(String status, boolean empty) {
+            super.updateItem(status, empty);
+            if (empty || status == null) {
+                setGraphic(null);
+                setText(null);
+                return;
+            }
+            setText(null);
+            setAlignment(Pos.CENTER_LEFT);
+            setGraphic(UserStatusPresentation.centeredBadgeCell(status));
+        }
     }
 }

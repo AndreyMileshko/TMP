@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.Label?>
@@ -11,22 +10,29 @@
 
 <VBox xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.tmp.ui.shell.screen.useradmin.UserAdministrationController"
-      spacing="12"
-      styleClass="user-admin-root">
-    <padding>
-        <Insets top="16" right="16" bottom="16" left="16"/>
-    </padding>
-    <Label text="Пользователи" styleClass="user-admin-title"/>
-    <TableView fx:id="userTable" VBox.vgrow="ALWAYS">
-        <columns>
-            <TableColumn fx:id="loginColumn" text="Логин" prefWidth="160"/>
-            <TableColumn fx:id="displayNameColumn" text="Имя" prefWidth="200"/>
-            <TableColumn fx:id="statusColumn" text="Статус" prefWidth="100"/>
-        </columns>
-    </TableView>
-    <HBox spacing="12" alignment="CENTER_LEFT">
-        <Button fx:id="createUserButton" text="Создать пользователя"/>
+      styleClass="tmp-screen">
+    <VBox styleClass="tmp-screen-header">
+        <HBox alignment="CENTER_LEFT" spacing="16">
+            <VBox HBox.hgrow="ALWAYS" spacing="4">
+                <Label text="Пользователи" styleClass="tmp-screen-title"/>
+                <Label text="Управление учетными записями пользователей" styleClass="tmp-screen-subtitle"/>
+            </VBox>
+            <HBox styleClass="tmp-screen-actions" alignment="CENTER_RIGHT">
+                <Button fx:id="createUserButton" text="Создать пользователя" styleClass="tmp-button-action"/>
+            </HBox>
+        </HBox>
+    </VBox>
+    <HBox styleClass="tmp-toolbar">
         <CheckBox fx:id="showDeletedCheckBox" text="Показывать удалённых"/>
     </HBox>
-    <Label fx:id="errorLabel" styleClass="user-admin-error" visible="false" managed="false" wrapText="true"/>
+    <VBox styleClass="tmp-content" VBox.vgrow="ALWAYS">
+        <TableView fx:id="userTable" VBox.vgrow="ALWAYS">
+            <columns>
+                <TableColumn fx:id="loginColumn" text="Логин" prefWidth="140" minWidth="120"/>
+                <TableColumn fx:id="displayNameColumn" text="Имя" prefWidth="320" minWidth="150"/>
+                <TableColumn fx:id="statusColumn" text="Статус" prefWidth="96" minWidth="88" maxWidth="120"/>
+            </columns>
+        </TableView>
+    </VBox>
+    <Label fx:id="errorLabel" styleClass="tmp-message-error" visible="false" managed="false" wrapText="true"/>
 </VBox>

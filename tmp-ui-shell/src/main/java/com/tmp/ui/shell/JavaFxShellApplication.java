@@ -23,7 +23,6 @@ public class JavaFxShellApplication extends Application {
         TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/login/LoginScreen.css");
         TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/main/MainWindow.css");
         TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/accessdenied/AccessDeniedScreen.css");
-        TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/useradmin/UserAdministrationScreen.css");
         entryPoint.sceneNavigator().attach(scene);
         stage.setTitle(WINDOW_TITLE);
         stage.setMinWidth(1024);

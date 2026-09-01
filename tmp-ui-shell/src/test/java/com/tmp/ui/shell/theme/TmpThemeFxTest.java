@@ -174,7 +174,6 @@ class TmpThemeFxTest {
         TmpTheme.apply(scene);
         TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/login/LoginScreen.css");
         TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/main/MainWindow.css");
-        TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/useradmin/UserAdministrationScreen.css");
         root.applyCss();
         root.layout();
     }
