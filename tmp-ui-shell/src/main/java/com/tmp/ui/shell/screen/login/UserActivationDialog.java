@@ -1,5 +1,6 @@
 package com.tmp.ui.shell.screen.login;
 
+import com.tmp.ui.shell.theme.TmpTheme;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -55,6 +56,7 @@ final class UserActivationDialog {
 
         ButtonType saveType = new ButtonType("Сохранить пароль", ButtonBar.ButtonData.OK_DONE);
         DialogPane dialogPane = dialog.getDialogPane();
+        TmpTheme.apply(dialogPane);
         dialogPane.getButtonTypes().addAll(saveType, ButtonType.CANCEL);
         dialogPane.setMinWidth(420);
 
@@ -68,7 +70,7 @@ final class UserActivationDialog {
         confirmPasswordField.setPromptText("Повторите пароль");
         Label errorLabel = new Label();
         errorLabel.setWrapText(true);
-        errorLabel.getStyleClass().add("login-error");
+        errorLabel.getStyleClass().add("tmp-text-error");
         errorLabel.setVisible(false);
         errorLabel.setManaged(false);
         errorLabel.setMaxWidth(Double.MAX_VALUE);

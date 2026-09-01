@@ -1,15 +1,15 @@
 .access-denied-root {
-    -fx-background-color: #f7f9fc;
+    -fx-background-color: -tmp-bg;
 }
 
 .access-denied-title {
     -fx-font-size: 20px;
     -fx-font-weight: bold;
-    -fx-text-fill: #1f2a37;
+    -fx-text-fill: -tmp-text;
 }
 
 .access-denied-message {
     -fx-font-size: 14px;
-    -fx-text-fill: #b42318;
+    -fx-text-fill: -tmp-danger;
     -fx-max-width: 420;
 }

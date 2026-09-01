@@ -1,0 +1,720 @@
+/*
+ * TMP Design System — Light Theme (Stage 1)
+ * Single global stylesheet for JavaFX controls and reusable utility classes.
+ */
+
+/* ==========================================================================
+   DESIGN TOKENS
+   ========================================================================== */
+
+.root {
+    -tmp-bg: #F4F7FA;
+    -tmp-surface: #FFFFFF;
+    -tmp-surface-alt: #F8FAFC;
+    -tmp-surface-hover: #F1F5F9;
+
+    -tmp-text: #1F2937;
+    -tmp-text-secondary: #667085;
+    -tmp-text-disabled: #98A2B3;
+
+    -tmp-border: #D8E0E8;
+    -tmp-border-strong: #C5CFDA;
+
+    -tmp-primary: #0F75BD;
+    -tmp-primary-hover: #0C679F;
+    -tmp-primary-pressed: #095783;
+    -tmp-primary-soft: #E7F3FA;
+
+    -tmp-dark: #1D2A39;
+    -tmp-dark-hover: #27384A;
+
+    -tmp-success: #2E7D32;
+    -tmp-success-soft: #EAF5EC;
+
+    -tmp-warning: #A86700;
+    -tmp-warning-soft: #FFF4DF;
+
+    -tmp-danger: #C62828;
+    -tmp-danger-hover: #A92020;
+    -tmp-danger-soft: #FDECEC;
+
+    -tmp-focus: #2D8FE3;
+
+    -fx-font-family: "Segoe UI", system-ui, sans-serif;
+    -fx-font-size: 13px;
+    -fx-text-fill: -tmp-text;
+
+    -fx-focus-color: -tmp-focus;
+    -fx-faint-focus-color: derive(-tmp-focus, 80%);
+
+    -fx-base: -tmp-surface;
+    -fx-background: -tmp-bg;
+    -fx-control-inner-background: -tmp-surface;
+    -fx-accent: -tmp-primary;
+}
+
+/* ==========================================================================
+   TYPOGRAPHY
+   ========================================================================== */
+
+.label {
+    -fx-text-fill: -tmp-text;
+}
+
+.tmp-text-small {
+    -fx-font-size: 12px;
+}
+
+.tmp-text-muted {
+    -fx-text-fill: -tmp-text-secondary;
+}
+
+.tmp-text-disabled {
+    -fx-text-fill: -tmp-text-disabled;
+}
+
+.tmp-section-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -tmp-text;
+}
+
+.tmp-screen-title {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -tmp-text;
+}
+
+.tmp-dialog-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -tmp-text;
+}
+
+/* ==========================================================================
+   SURFACES
+   ========================================================================== */
+
+.tmp-surface {
+    -fx-background-color: -tmp-surface;
+}
+
+.tmp-card {
+    -fx-background-color: -tmp-surface;
+    -fx-background-radius: 8;
+    -fx-border-color: -tmp-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(29, 42, 57, 0.08), 10, 0.12, 0, 1);
+}
+
+.tmp-section {
+    -fx-background-color: -tmp-surface-alt;
+    -fx-background-radius: 8;
+    -fx-border-color: -tmp-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-padding: 16;
+}
+
+/* ==========================================================================
+   BUTTONS
+   ========================================================================== */
+
+.button {
+    -fx-background-color: -tmp-surface;
+    -fx-text-fill: -tmp-text;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 6 14 6 14;
+    -fx-pref-height: 34;
+    -fx-min-height: 34;
+    -fx-cursor: hand;
+}
+
+.button:hover {
+    -fx-background-color: -tmp-surface-hover;
+    -fx-border-color: -tmp-border-strong;
+}
+
+.button:pressed {
+    -fx-background-color: derive(-tmp-surface-hover, -5%);
+}
+
+.button:focused {
+    -fx-border-color: -tmp-focus;
+    -fx-border-width: 2;
+}
+
+.button:disabled {
+    -fx-opacity: 0.55;
+    -fx-cursor: default;
+}
+
+.tmp-button-primary {
+    -fx-background-color: -tmp-primary;
+    -fx-text-fill: white;
+    -fx-border-color: transparent;
+}
+
+.tmp-button-primary:hover {
+    -fx-background-color: -tmp-primary-hover;
+    -fx-border-color: transparent;
+}
+
+.tmp-button-primary:pressed {
+    -fx-background-color: -tmp-primary-pressed;
+}
+
+.tmp-button-primary:focused {
+    -fx-border-color: -tmp-focus;
+    -fx-border-width: 2;
+}
+
+.tmp-button-secondary {
+    -fx-background-color: -tmp-surface;
+    -fx-text-fill: -tmp-text;
+    -fx-border-color: -tmp-border;
+}
+
+.tmp-button-secondary:hover {
+    -fx-background-color: -tmp-surface-hover;
+    -fx-border-color: -tmp-border-strong;
+}
+
+.tmp-button-danger {
+    -fx-background-color: -tmp-danger;
+    -fx-text-fill: white;
+    -fx-border-color: transparent;
+}
+
+.tmp-button-danger:hover {
+    -fx-background-color: -tmp-danger-hover;
+    -fx-border-color: transparent;
+}
+
+.tmp-button-danger:focused {
+    -fx-border-color: -tmp-focus;
+    -fx-border-width: 2;
+}
+
+.tmp-button-ghost {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-text-fill: -tmp-text;
+}
+
+.tmp-button-ghost:hover {
+    -fx-background-color: -tmp-surface-hover;
+    -fx-border-color: transparent;
+}
+
+/* ==========================================================================
+   INPUTS
+   ========================================================================== */
+
+.text-field,
+.password-field,
+.text-area {
+    -fx-background-color: -tmp-surface;
+    -fx-text-fill: -tmp-text;
+    -fx-prompt-text-fill: -tmp-text-disabled;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 6 10 6 10;
+}
+
+.text-field,
+.password-field {
+    -fx-pref-height: 34;
+    -fx-min-height: 34;
+}
+
+.text-field:hover,
+.password-field:hover,
+.text-area:hover {
+    -fx-border-color: -tmp-border-strong;
+}
+
+.text-field:focused,
+.password-field:focused,
+.text-area:focused {
+    -fx-border-color: -tmp-focus;
+    -fx-border-width: 2;
+}
+
+.text-field:disabled,
+.password-field:disabled,
+.text-area:disabled {
+    -fx-opacity: 0.65;
+    -fx-background-color: -tmp-surface-alt;
+}
+
+.combo-box-base {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-pref-height: 34;
+    -fx-min-height: 34;
+}
+
+.combo-box-base:hover {
+    -fx-border-color: -tmp-border-strong;
+}
+
+.combo-box-base:focused {
+    -fx-border-color: -tmp-focus;
+    -fx-border-width: 2;
+}
+
+.combo-box-popup .list-view {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-border;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+
+.combo-box-popup .list-cell:hover {
+    -fx-background-color: -tmp-surface-hover;
+}
+
+.combo-box-popup .list-cell:selected {
+    -fx-background-color: -tmp-primary-soft;
+    -fx-text-fill: -tmp-text;
+}
+
+.date-picker {
+    -fx-background-color: transparent;
+}
+
+.date-picker > .text-field {
+    -fx-background-color: -tmp-surface;
+}
+
+.date-picker:focused > .text-field {
+    -fx-border-color: -tmp-focus;
+    -fx-border-width: 2;
+}
+
+.spinner {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+
+.spinner:focused {
+    -fx-border-color: -tmp-focus;
+    -fx-border-width: 2;
+}
+
+.spinner .increment-arrow-button,
+.spinner .decrement-arrow-button {
+    -fx-background-color: -tmp-surface-alt;
+    -fx-border-color: transparent;
+}
+
+.spinner .increment-arrow-button:hover,
+.spinner .decrement-arrow-button:hover {
+    -fx-background-color: -tmp-surface-hover;
+}
+
+.tmp-input-error {
+    -fx-border-color: -tmp-danger;
+    -fx-border-width: 2;
+}
+
+.tmp-input-error:focused {
+    -fx-border-color: -tmp-danger;
+}
+
+/* ==========================================================================
+   TABLES
+   ========================================================================== */
+
+.table-view {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 0;
+}
+
+.table-view .column-header-background {
+    -fx-background-color: -tmp-surface-alt;
+    -fx-background-radius: 8 8 0 0;
+}
+
+.table-view .column-header,
+.table-view .filler {
+    -fx-size: 36;
+    -fx-border-color: transparent transparent -tmp-border transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-background-color: transparent;
+}
+
+.table-view .column-header .label {
+    -fx-font-weight: bold;
+    -fx-text-fill: -tmp-text;
+    -fx-padding: 0 8 0 8;
+}
+
+.table-view .table-row-cell {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: transparent transparent -tmp-border transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 0;
+    -fx-cell-size: 36;
+}
+
+.table-view .table-row-cell:odd {
+    -fx-background-color: -tmp-surface-alt;
+}
+
+.table-view .table-row-cell:hover {
+    -fx-background-color: -tmp-surface-hover;
+}
+
+.table-view:focused .table-row-cell:filled:selected {
+    -fx-background-color: -tmp-primary-soft;
+    -fx-table-cell-border-color: transparent;
+}
+
+.table-view .table-row-cell:filled:selected .text {
+    -fx-fill: -tmp-text;
+}
+
+.table-view .table-cell {
+    -fx-text-fill: -tmp-text;
+    -fx-padding: 0 8 0 8;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.table-view .placeholder .label {
+    -fx-text-fill: -tmp-text-secondary;
+    -fx-font-size: 13px;
+}
+
+.table-view .scroll-bar:vertical,
+.table-view .scroll-bar:horizontal {
+    -fx-background-color: transparent;
+}
+
+/* ==========================================================================
+   MENUS
+   ========================================================================== */
+
+.context-menu {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 4 0 4 0;
+    -fx-effect: dropshadow(gaussian, rgba(29, 42, 57, 0.12), 10, 0.15, 0, 2);
+}
+
+.menu-item {
+    -fx-padding: 8 16 8 16;
+}
+
+.menu-item .label {
+    -fx-text-fill: -tmp-text;
+    -fx-font-size: 13px;
+}
+
+.menu-item:focused,
+.menu-item:hover {
+    -fx-background-color: -tmp-surface-hover;
+}
+
+.menu-item:disabled .label {
+    -fx-text-fill: -tmp-text-disabled;
+}
+
+.context-menu .separator .line {
+    -fx-border-color: -tmp-border;
+    -fx-padding: 2 0 2 0;
+}
+
+.tmp-menu-item-danger .label {
+    -fx-text-fill: -tmp-danger;
+}
+
+.tmp-menu-item-danger:focused,
+.tmp-menu-item-danger:hover {
+    -fx-background-color: -tmp-danger-soft;
+}
+
+/* ==========================================================================
+   CHECKBOX / RADIO
+   ========================================================================== */
+
+.check-box {
+    -fx-text-fill: -tmp-text;
+}
+
+.check-box .box {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-border-strong;
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-padding: 2;
+}
+
+.check-box:hover .box {
+    -fx-border-color: -tmp-primary;
+}
+
+.check-box:selected .mark {
+    -fx-background-color: white;
+}
+
+.check-box:selected .box {
+    -fx-background-color: -tmp-primary;
+    -fx-border-color: -tmp-primary;
+}
+
+.check-box:focused .box {
+    -fx-border-color: -tmp-focus;
+    -fx-border-width: 2;
+}
+
+.check-box:disabled {
+    -fx-opacity: 0.55;
+}
+
+.radio-button {
+    -fx-text-fill: -tmp-text;
+}
+
+.radio-button .radio {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-border-strong;
+    -fx-border-width: 1;
+}
+
+.radio-button:selected .dot {
+    -fx-background-color: -tmp-primary;
+}
+
+.radio-button:focused .radio {
+    -fx-border-color: -tmp-focus;
+    -fx-border-width: 2;
+}
+
+/* ==========================================================================
+   DIALOGS
+   ========================================================================== */
+
+.dialog-pane {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 16;
+    -fx-effect: dropshadow(gaussian, rgba(29, 42, 57, 0.14), 12, 0.18, 0, 2);
+}
+
+.dialog-pane > .content.label {
+    -fx-text-fill: -tmp-text;
+    -fx-font-size: 13px;
+    -fx-wrap-text: true;
+}
+
+.dialog-pane > .header-panel .label {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -tmp-text;
+}
+
+.dialog-pane > .button-bar > .container {
+    -fx-padding: 12 0 0 0;
+    -fx-spacing: 8;
+}
+
+.alert .dialog-pane {
+    -fx-graphic: null;
+}
+
+/* ==========================================================================
+   BADGES
+   ========================================================================== */
+
+.tmp-badge {
+    -fx-background-color: -tmp-surface-alt;
+    -fx-text-fill: -tmp-text-secondary;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-padding: 2 8 2 8;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.tmp-badge-success {
+    -fx-background-color: -tmp-success-soft;
+    -fx-text-fill: -tmp-success;
+    -fx-border-color: derive(-tmp-success, 60%);
+}
+
+.tmp-badge-warning {
+    -fx-background-color: -tmp-warning-soft;
+    -fx-text-fill: -tmp-warning;
+    -fx-border-color: derive(-tmp-warning, 50%);
+}
+
+.tmp-badge-danger {
+    -fx-background-color: -tmp-danger-soft;
+    -fx-text-fill: -tmp-danger;
+    -fx-border-color: derive(-tmp-danger, 50%);
+}
+
+.tmp-badge-neutral {
+    -fx-background-color: -tmp-surface-alt;
+    -fx-text-fill: -tmp-text-secondary;
+    -fx-border-color: -tmp-border;
+}
+
+.tmp-badge-info {
+    -fx-background-color: -tmp-primary-soft;
+    -fx-text-fill: -tmp-primary;
+    -fx-border-color: derive(-tmp-primary, 50%);
+}
+
+/* ==========================================================================
+   MESSAGES
+   ========================================================================== */
+
+.tmp-text-error {
+    -fx-text-fill: -tmp-danger;
+    -fx-font-size: 12px;
+}
+
+.tmp-text-success {
+    -fx-text-fill: -tmp-success;
+    -fx-font-size: 12px;
+}
+
+.tmp-text-warning {
+    -fx-text-fill: -tmp-warning;
+    -fx-font-size: 12px;
+}
+
+.tmp-message-error {
+    -fx-background-color: -tmp-danger-soft;
+    -fx-text-fill: -tmp-danger;
+    -fx-border-color: derive(-tmp-danger, 55%);
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 8 12 8 12;
+}
+
+.tmp-message-success {
+    -fx-background-color: -tmp-success-soft;
+    -fx-text-fill: -tmp-success;
+    -fx-border-color: derive(-tmp-success, 55%);
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 8 12 8 12;
+}
+
+.tmp-message-info {
+    -fx-background-color: -tmp-primary-soft;
+    -fx-text-fill: -tmp-primary;
+    -fx-border-color: derive(-tmp-primary, 55%);
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 8 12 8 12;
+}
+
+/* ==========================================================================
+   SCROLLBARS
+   ========================================================================== */
+
+.scroll-bar {
+    -fx-background-color: transparent;
+    -fx-pref-width: 12;
+    -fx-pref-height: 12;
+}
+
+.scroll-bar .track {
+    -fx-background-color: -tmp-surface-alt;
+    -fx-background-radius: 6;
+    -fx-border-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: derive(-tmp-border-strong, 10%);
+    -fx-background-radius: 6;
+    -fx-background-insets: 2;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: -tmp-text-disabled;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-padding: 0;
+    -fx-pref-width: 0;
+    -fx-pref-height: 0;
+    -fx-opacity: 0;
+}
+
+/* ==========================================================================
+   TOOLTIP
+   ========================================================================== */
+
+.tooltip {
+    -fx-background-color: -tmp-dark;
+    -fx-text-fill: white;
+    -fx-font-size: 12px;
+    -fx-background-radius: 4;
+    -fx-padding: 6 10 6 10;
+    -fx-effect: dropshadow(gaussian, rgba(29, 42, 57, 0.2), 8, 0.2, 0, 2);
+}
+
+/* ==========================================================================
+   UTILITY CLASSES
+   ========================================================================== */
+
+.separator .line {
+    -fx-border-color: -tmp-border;
+}
+
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-border-color: -tmp-border;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.scroll-pane > .viewport {
+    -fx-background-color: -tmp-surface;
+}
+
+.titled-pane > .title {
+    -fx-background-color: -tmp-surface-alt;
+    -fx-border-color: -tmp-border;
+    -fx-font-weight: bold;
+}
+
+.titled-pane > .content {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-border;
+}

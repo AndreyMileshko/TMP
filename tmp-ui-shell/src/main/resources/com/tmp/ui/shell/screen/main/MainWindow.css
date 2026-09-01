@@ -1,32 +1,32 @@
 .main-window-root {
-    -fx-background-color: #f3f5f8;
+    -fx-background-color: -tmp-bg;
 }
 
 .main-window-top {
-    -fx-background-color: #1f2a37;
+    -fx-background-color: -tmp-dark;
 }
 
 .main-window-brand {
-    -fx-text-fill: #f7f9fc;
+    -fx-text-fill: #F7F9FC;
     -fx-font-size: 16px;
     -fx-font-weight: bold;
 }
 
 .main-window-nav {
-    -fx-background-color: #e8eef5;
+    -fx-background-color: derive(-tmp-bg, -3%);
 }
 
 .main-window-nav-title {
     -fx-font-size: 13px;
-    -fx-text-fill: #1f2a37;
+    -fx-text-fill: -tmp-text;
     -fx-font-weight: bold;
 }
 
 .main-window-content {
-    -fx-background-color: #f7f9fc;
+    -fx-background-color: -tmp-bg;
 }
 
 .main-window-status {
-    -fx-background-color: #d9e2ec;
-    -fx-text-fill: #1f2a37;
+    -fx-background-color: derive(-tmp-border, 40%);
+    -fx-text-fill: -tmp-text;
 }

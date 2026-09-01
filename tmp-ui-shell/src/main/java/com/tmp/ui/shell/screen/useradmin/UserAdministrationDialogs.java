@@ -1,6 +1,7 @@
 package com.tmp.ui.shell.screen.useradmin;
 
 import com.tmp.security.api.UserSummary;
+import com.tmp.ui.shell.theme.TmpTheme;
 import java.util.Optional;
 import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
@@ -53,6 +54,7 @@ final class UserAdministrationDialogs {
         dialog.initModality(Modality.APPLICATION_MODAL);
         dialog.setTitle(title);
         dialog.setHeaderText(null);
+        TmpTheme.apply(dialog.getDialogPane());
 
         ButtonType submitType = new ButtonType(submitLabel, ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(submitType, ButtonType.CANCEL);
@@ -98,6 +100,7 @@ final class UserAdministrationDialogs {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.initOwner(owner);
         alert.initModality(Modality.APPLICATION_MODAL);
+        TmpTheme.apply(alert.getDialogPane());
         alert.setTitle("Сброс пароля");
         alert.setHeaderText(null);
         alert.setContentText(
@@ -132,6 +135,7 @@ final class UserAdministrationDialogs {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.initOwner(owner);
         alert.initModality(Modality.APPLICATION_MODAL);
+        TmpTheme.apply(alert.getDialogPane());
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.setContentText(
@@ -154,6 +158,7 @@ final class UserAdministrationDialogs {
         dialog.initModality(Modality.APPLICATION_MODAL);
         dialog.setTitle("Удаление пользователя");
         dialog.setHeaderText(null);
+        TmpTheme.apply(dialog.getDialogPane());
 
         ButtonType deleteType = new ButtonType("Удалить", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(deleteType, ButtonType.CANCEL);

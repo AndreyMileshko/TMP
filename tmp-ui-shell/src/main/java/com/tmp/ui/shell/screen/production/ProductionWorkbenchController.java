@@ -1,6 +1,7 @@
 package com.tmp.ui.shell.screen.production;
 
 import com.tmp.ui.shell.navigation.ViewModelAware;
+import com.tmp.ui.shell.theme.TmpTheme;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
@@ -720,6 +721,7 @@ public final class ProductionWorkbenchController
 
     private void confirmCancel() {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        TmpTheme.apply(alert.getDialogPane());
         alert.setTitle("Отмена производства");
         alert.setHeaderText("Отменить производство заказа целиком?");
         alert.setContentText(

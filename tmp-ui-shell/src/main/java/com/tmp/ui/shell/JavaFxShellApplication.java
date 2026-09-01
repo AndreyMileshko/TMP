@@ -1,6 +1,7 @@
 package com.tmp.ui.shell;
 
 import com.tmp.security.api.AuthenticationService;
+import com.tmp.ui.shell.theme.TmpTheme;
 import javafx.application.Application;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -18,21 +19,15 @@ public class JavaFxShellApplication extends Application {
         }
         Parent root = entryPoint.navigationService().load(entryPoint.initialScreenId());
         Scene scene = new Scene(root, 960, 640);
-        addStylesheet(scene, "com/tmp/ui/shell/screen/login/LoginScreen.css");
-        addStylesheet(scene, "com/tmp/ui/shell/screen/main/MainWindow.css");
-        addStylesheet(scene, "com/tmp/ui/shell/screen/accessdenied/AccessDeniedScreen.css");
-        addStylesheet(scene, "com/tmp/ui/shell/screen/useradmin/UserAdministrationScreen.css");
+        TmpTheme.apply(scene);
+        TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/login/LoginScreen.css");
+        TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/main/MainWindow.css");
+        TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/accessdenied/AccessDeniedScreen.css");
+        TmpTheme.addStylesheet(scene, "com/tmp/ui/shell/screen/useradmin/UserAdministrationScreen.css");
         entryPoint.sceneNavigator().attach(scene);
         stage.setTitle(WINDOW_TITLE);
         stage.setScene(scene);
         stage.show();
-    }
-
-    private static void addStylesheet(Scene scene, String classpathLocation) {
-        var resource = JavaFxShellApplication.class.getClassLoader().getResource(classpathLocation);
-        if (resource != null) {
-            scene.getStylesheets().add(resource.toExternalForm());
-        }
     }
 
     @Override

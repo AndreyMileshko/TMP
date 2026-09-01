@@ -1,13 +1,13 @@
 .user-admin-root {
-    -fx-background-color: #f7f9fc;
+    -fx-background-color: -tmp-bg;
 }
 
 .user-admin-title {
     -fx-font-size: 18px;
     -fx-font-weight: bold;
-    -fx-text-fill: #1f2a37;
+    -fx-text-fill: -tmp-text;
 }
 
 .user-admin-error {
-    -fx-text-fill: #b42318;
+    -fx-text-fill: -tmp-danger;
 }
