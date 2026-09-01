@@ -11,8 +11,10 @@ import com.tmp.security.api.SessionId;
 import com.tmp.security.api.SessionSummary;
 import com.tmp.security.api.UserId;
 import com.tmp.ui.shell.JavaFxTestSupport;
+import com.tmp.ui.shell.ShellWindowProfile;
 import com.tmp.ui.shell.navigation.NavigationServices;
 import com.tmp.ui.shell.navigation.ScreenRegistration;
+import com.tmp.ui.shell.theme.TmpTheme;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -80,6 +82,66 @@ class LoginControllerFxTest {
         assertEquals(AuthenticationFailedException.GENERIC_MESSAGE, errorText.get());
         assertTrue(errorVisible.get());
         assertFalse(errorText.get().contains("at "));
+    }
+
+    @Test
+    void loginFormUsesCompactBoundedFieldWidth() throws Exception {
+        LoginViewModel viewModel = new LoginViewModel(new AlwaysFailAuth());
+        var navigation = NavigationServices.createDefault();
+        navigation.register(new ScreenRegistration(
+                "login",
+                "com/tmp/ui/shell/screen/login/LoginScreen.fxml",
+                () -> viewModel));
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        AtomicReference<Double> fieldWidth = new AtomicReference<>();
+        AtomicReference<Double> buttonWidth = new AtomicReference<>();
+        AtomicReference<Boolean> errorWraps = new AtomicReference<>();
+
+        Platform.runLater(() -> {
+            try {
+                Parent root = navigation.load("login");
+                Scene scene = new Scene(root, ShellWindowProfile.LOGIN_WIDTH, ShellWindowProfile.LOGIN_HEIGHT);
+                TmpTheme.apply(scene);
+                root.applyCss();
+                root.layout();
+
+                TextField loginField = (TextField) root.lookup("#loginField");
+                Button loginButton = (Button) root.lookup("#loginButton");
+                Label errorLabel = (Label) root.lookup("#errorLabel");
+
+                fieldWidth.set(loginField.getPrefWidth());
+                buttonWidth.set(loginButton.getPrefWidth());
+                errorWraps.set(errorLabel.isWrapText());
+
+                assertTrue(loginField.getStyleClass().contains("tmp-auth-form-field"));
+                assertTrue(loginButton.getStyleClass().contains("tmp-auth-form-field"));
+                assertTrue(errorLabel.getStyleClass().contains("login-error"));
+
+                loginField.setText("x");
+                ((PasswordField) root.lookup("#passwordField")).setText("y");
+                loginButton.fire();
+                root.applyCss();
+                root.layout();
+
+                assertTrue(errorLabel.isVisible());
+                assertTrue(errorLabel.isManaged());
+                assertTrue(loginButton.isVisible());
+            } catch (Throwable throwable) {
+                error.set(throwable);
+            } finally {
+                latch.countDown();
+            }
+        });
+
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
+        if (error.get() != null) {
+            throw new AssertionError(error.get());
+        }
+        assertTrue(fieldWidth.get() >= 240 && fieldWidth.get() <= 260);
+        assertTrue(buttonWidth.get() >= 240 && buttonWidth.get() <= 260);
+        assertTrue(errorWraps.get());
     }
 
     @Test

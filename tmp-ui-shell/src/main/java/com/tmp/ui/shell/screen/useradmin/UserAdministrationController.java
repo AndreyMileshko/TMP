@@ -58,7 +58,8 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
                 new javafx.beans.property.SimpleStringProperty(cell.getValue().status()));
         statusColumn.setCellFactory(column -> new StatusBadgeTableCell());
 
-        configureTableResize();
+        userTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        statusColumn.setResizable(false);
         userTable.setItems(viewModel.filteredUserList());
         userTable.setPlaceholder(createEmptyState());
         userTable.setRowFactory(table -> createContextMenuRow());
@@ -77,23 +78,6 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
         viewModel.refresh();
-    }
-
-    private void configureTableResize() {
-        statusColumn.setResizable(false);
-        displayNameColumn.prefWidthProperty().bind(Bindings.createDoubleBinding(
-                () -> {
-                    double tableWidth = userTable.getWidth();
-                    if (tableWidth <= 0) {
-                        return 320.0;
-                    }
-                    double reserved = loginColumn.getWidth() + statusColumn.getWidth() + 16;
-                    return Math.max(150.0, tableWidth - reserved);
-                },
-                userTable.widthProperty(),
-                loginColumn.widthProperty(),
-                statusColumn.widthProperty(),
-                displayNameColumn.minWidthProperty()));
     }
 
     private static VBox createEmptyState() {

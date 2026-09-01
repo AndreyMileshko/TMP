@@ -794,6 +794,21 @@
     -fx-background-color: transparent;
 }
 
+.tmp-content-compact {
+    -fx-max-width: 760;
+    -fx-alignment: TOP_LEFT;
+}
+
+.tmp-table-compact {
+    -fx-max-width: 760;
+}
+
+.tmp-auth-form-field {
+    -fx-pref-width: 250;
+    -fx-max-width: 250;
+    -fx-min-width: 250;
+}
+
 /* ==========================================================================
    FORMS
    ========================================================================== */

@@ -32,6 +32,27 @@ class TmpUiStandardFxTest {
     }
 
     @Test
+    void compactContentClassesApplyWithoutException() throws InterruptedException {
+        JavaFxTestSupport.runOnFxThread(() -> {
+            TextField authField = new TextField();
+            authField.getStyleClass().add("tmp-auth-form-field");
+            TableView<String> table = createTableView();
+            table.getStyleClass().add("tmp-table-compact");
+            VBox content = new VBox(8, table);
+            content.getStyleClass().addAll("tmp-content", "tmp-content-compact");
+
+            Scene scene = new Scene(content, 1200, 800);
+            TmpTheme.apply(scene);
+            content.applyCss();
+            content.layout();
+
+            assertTrue(authField.getStyleClass().contains("tmp-auth-form-field"));
+            assertTrue(content.getStyleClass().contains("tmp-content-compact"));
+            assertTrue(table.getStyleClass().contains("tmp-table-compact"));
+        });
+    }
+
+    @Test
     void standardScreenStructureClassesApplyWithoutException() throws InterruptedException {
         JavaFxTestSupport.runOnFxThread(() -> {
             Label title = new Label("Screen title");

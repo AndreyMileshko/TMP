@@ -388,6 +388,38 @@ class UserAdministrationControllerFxTest {
     }
 
     @Test
+    void tableUsesBoundedCompactWidthOnWideScene() throws Exception {
+        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(
+                new UsersWithActiveAndDeleted(), new AllowAll());
+        AtomicReference<Parent> rootRef = new AtomicReference<>();
+        AtomicReference<Double> tableWidth = new AtomicReference<>();
+        AtomicReference<Double> sceneWidth = new AtomicReference<>();
+        AtomicReference<Throwable> error = new AtomicReference<>();
+
+        CountDownLatch latch = new CountDownLatch(1);
+        Platform.runLater(() -> {
+            try {
+                Parent root = loadScreen(viewModel, 1600, 900);
+                TableView<?> table = (TableView<?>) root.lookup("#userTable");
+                tableWidth.set(table.getWidth() > 0 ? table.getWidth() : table.prefWidth(-1));
+                sceneWidth.set(root.getLayoutBounds().getWidth());
+                rootRef.set(root);
+            } catch (Throwable throwable) {
+                error.set(throwable);
+            } finally {
+                latch.countDown();
+            }
+        });
+
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
+        if (error.get() != null) {
+            throw new AssertionError(error.get());
+        }
+        assertTrue(tableWidth.get() < sceneWidth.get() - 48);
+        assertTrue(tableWidth.get() <= 760 + 32);
+    }
+
+    @Test
     void layoutRemainsUsableAtCommonResolutions() throws Exception {
         UserAdministrationViewModel viewModel = new UserAdministrationViewModel(
                 new UsersWithActiveAndDeleted(), new AllowAll());

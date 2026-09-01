@@ -25,12 +25,12 @@
     <HBox styleClass="tmp-toolbar">
         <CheckBox fx:id="showDeletedCheckBox" text="Показывать удалённых"/>
     </HBox>
-    <VBox styleClass="tmp-content" VBox.vgrow="ALWAYS">
-        <TableView fx:id="userTable" VBox.vgrow="ALWAYS">
+    <VBox styleClass="tmp-content tmp-content-compact" alignment="TOP_LEFT" VBox.vgrow="ALWAYS">
+        <TableView fx:id="userTable" styleClass="tmp-table-compact" VBox.vgrow="ALWAYS">
             <columns>
-                <TableColumn fx:id="loginColumn" text="Логин" prefWidth="140" minWidth="120"/>
-                <TableColumn fx:id="displayNameColumn" text="Имя" prefWidth="320" minWidth="150"/>
-                <TableColumn fx:id="statusColumn" text="Статус" prefWidth="96" minWidth="88" maxWidth="120"/>
+                <TableColumn fx:id="loginColumn" text="Логин" prefWidth="160" minWidth="120"/>
+                <TableColumn fx:id="displayNameColumn" text="Имя" prefWidth="380" minWidth="150"/>
+                <TableColumn fx:id="statusColumn" text="Статус" prefWidth="120" minWidth="110" maxWidth="130"/>
             </columns>
         </TableView>
     </VBox>

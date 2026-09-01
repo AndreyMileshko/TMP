@@ -182,6 +182,9 @@ Screen
 | `.tmp-screen-actions` | primary actions в header |
 | `.tmp-toolbar` | панель фильтров / команд |
 | `.tmp-content` | основная рабочая область |
+| `.tmp-content-compact` | bounded/compact content area (max ~760 px) |
+| `.tmp-table-compact` | compact administration table (bounded width) |
+| `.tmp-auth-form-field` | compact authentication form control (~250 px) |
 | `.tmp-screen-compact` | compact variant (16 px padding) |
 
 ## 8.3 Outer padding
@@ -190,6 +193,24 @@ Screen
 - Compact workbench: **16 px** (`.tmp-screen-compact`) — только для плотных production screens.
 
 **MUST NOT** использовать произвольный outer padding per module.
+
+## 8.4 Bounded / compact content width
+
+Не каждый экран обязан заполнять всю доступную ширину рабочей области.
+
+Для следующих archetypes **SHOULD** использовать bounded/compact width, если растягивание не повышает информационную ценность:
+
+- authentication forms (Login, activation);
+- небольших administration forms;
+- tables с малым количеством компактных колонок (Users, Roles).
+
+Workbench screens (Warehouse, Production) **MAY** использовать всю рабочую площадь.
+
+Administration screens (Users, Roles) **MAY** использовать compact/bounded data area (`.tmp-content-compact`, `.tmp-table-compact`).
+
+Authentication form controls **SHOULD** использовать `.tmp-auth-form-field` (~250 px) и **MUST NOT** растягиваться на desktop width.
+
+Bounded content **SHOULD** быть выровнен по левому краю; свободное место справа допустимо.
 
 ---
 

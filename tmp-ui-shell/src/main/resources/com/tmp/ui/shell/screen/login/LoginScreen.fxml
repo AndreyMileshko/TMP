@@ -16,9 +16,9 @@
         <Insets top="40" right="40" bottom="40" left="40"/>
     </padding>
     <Label text="Вход в систему" styleClass="login-title"/>
-    <TextField fx:id="loginField" promptText="Логин" prefWidth="280"/>
-    <PasswordField fx:id="passwordField" promptText="Пароль" prefWidth="280"/>
-    <Button fx:id="loginButton" text="Войти" defaultButton="true" prefWidth="280"/>
-    <Button fx:id="activationButton" text="Первый вход / активация" prefWidth="280"/>
+    <TextField fx:id="loginField" promptText="Логин" styleClass="tmp-auth-form-field"/>
+    <PasswordField fx:id="passwordField" promptText="Пароль" styleClass="tmp-auth-form-field"/>
+    <Button fx:id="loginButton" text="Войти" defaultButton="true" styleClass="tmp-auth-form-field"/>
+    <Button fx:id="activationButton" text="Первый вход / активация" styleClass="tmp-auth-form-field"/>
     <Label fx:id="errorLabel" styleClass="login-error" visible="false" managed="false" wrapText="true"/>
 </VBox>

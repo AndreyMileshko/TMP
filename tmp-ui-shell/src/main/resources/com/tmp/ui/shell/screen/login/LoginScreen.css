@@ -11,6 +11,9 @@
 .login-error {
     -fx-text-fill: -tmp-danger;
     -fx-font-size: 12px;
+    -fx-alignment: center;
+    -fx-max-width: 250;
+    -fx-pref-width: 250;
 }
 
 .login-ok-placeholder {
