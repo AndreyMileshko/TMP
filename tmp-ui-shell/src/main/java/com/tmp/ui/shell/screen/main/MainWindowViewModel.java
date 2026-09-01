@@ -48,8 +48,7 @@ public final class MainWindowViewModel {
         this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService");
         this.authenticationService = Objects.requireNonNull(authenticationService, "authenticationService");
         this.navigationService = Objects.requireNonNull(navigationService, "navigationService");
-        refreshNavigation();
-        refreshCurrentUser();
+        refreshShellState();
     }
 
     public void setAfterLogout(Runnable afterLogout) {
@@ -78,6 +77,12 @@ public final class MainWindowViewModel {
 
     public StringProperty currentUserInitialProperty() {
         return currentUserInitial;
+    }
+
+    /** Refreshes user presentation and permission-filtered navigation for the current session. */
+    public void refreshShellState() {
+        refreshCurrentUser();
+        refreshNavigation();
     }
 
     public void refreshNavigation() {

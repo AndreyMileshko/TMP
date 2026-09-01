@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 final class MainWindowViewModelTestSupport {
 
@@ -34,6 +35,19 @@ final class MainWindowViewModelTestSupport {
         @Override
         public List<ShellNavEntry> entries() {
             return List.of(entry);
+        }
+    }
+
+    static final class MultiEntryCatalogue implements ShellNavigationCatalogue {
+        private final List<ShellNavEntry> entries;
+
+        MultiEntryCatalogue(List<ShellNavEntry> entries) {
+            this.entries = List.copyOf(entries);
+        }
+
+        @Override
+        public List<ShellNavEntry> entries() {
+            return entries;
         }
     }
 
@@ -117,6 +131,44 @@ final class MainWindowViewModelTestSupport {
         @Override
         public boolean isAuthenticated() {
             return true;
+        }
+    }
+
+    static final class StatefulSessionAuthn implements AuthenticationService {
+        private final AtomicReference<SessionSummary> session = new AtomicReference<>();
+
+        void setSession(SessionSummary value) {
+            session.set(value);
+        }
+
+        void clearSession() {
+            session.set(null);
+        }
+
+        @Override
+        public SessionSummary login(Login login, char[] password) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public SessionSummary completePasswordSetup(
+                Login login, String activationCode, char[] newPassword, char[] confirmPassword) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void logout() {
+            clearSession();
+        }
+
+        @Override
+        public Optional<SessionSummary> currentSession() {
+            return Optional.ofNullable(session.get());
+        }
+
+        @Override
+        public boolean isAuthenticated() {
+            return session.get() != null;
         }
     }
 }

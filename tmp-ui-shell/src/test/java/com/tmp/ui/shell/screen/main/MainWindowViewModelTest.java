@@ -145,6 +145,48 @@ class MainWindowViewModelTest {
         assertTrue(first != second);
     }
 
+    @Test
+    void refreshShellStateUpdatesUserAfterSessionAppears() {
+        MainWindowViewModelTestSupport.StatefulSessionAuthn authn =
+                new MainWindowViewModelTestSupport.StatefulSessionAuthn();
+        MainWindowViewModel viewModel = new MainWindowViewModel(
+                new FakeCatalogue(), new FakeAuthz(Set.of()), authn, NavigationServices.createDefault());
+        assertEquals("—", viewModel.currentUserLoginProperty().get());
+
+        authn.setSession(sessionFor("admin"));
+        viewModel.refreshShellState();
+        assertEquals("admin", viewModel.currentUserLoginProperty().get());
+        assertEquals("A", viewModel.currentUserInitialProperty().get());
+
+        authn.setSession(sessionFor("operator"));
+        viewModel.refreshShellState();
+        assertEquals("operator", viewModel.currentUserLoginProperty().get());
+        assertEquals("O", viewModel.currentUserInitialProperty().get());
+    }
+
+    @Test
+    void refreshShellStateClearsUserAfterLogout() {
+        MainWindowViewModelTestSupport.StatefulSessionAuthn authn =
+                new MainWindowViewModelTestSupport.StatefulSessionAuthn();
+        authn.setSession(sessionFor("admin"));
+        MainWindowViewModel viewModel = new MainWindowViewModel(
+                new FakeCatalogue(), new FakeAuthz(Set.of()), authn, NavigationServices.createDefault());
+        assertEquals("admin", viewModel.currentUserLoginProperty().get());
+
+        authn.logout();
+        viewModel.refreshShellState();
+        assertEquals("—", viewModel.currentUserLoginProperty().get());
+        assertEquals("—", viewModel.currentUserInitialProperty().get());
+    }
+
+    private static SessionSummary sessionFor(String login) {
+        return new SessionSummary(
+                SessionId.of(UUID.randomUUID()),
+                UserId.of(UUID.randomUUID()),
+                Login.of(login),
+                Instant.parse("2026-07-23T04:00:00Z"));
+    }
+
     private static final class FakeAuthz implements AuthorizationService {
         private final Set<PermissionId> granted;
 

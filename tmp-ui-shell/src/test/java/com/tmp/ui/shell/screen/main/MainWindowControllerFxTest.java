@@ -1,6 +1,7 @@
 package com.tmp.ui.shell.screen.main;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -16,7 +17,6 @@ import com.tmp.ui.shell.navigation.ShellNavEntry;
 import com.tmp.ui.shell.theme.TmpTheme;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -112,6 +112,71 @@ class MainWindowControllerFxTest {
     void layoutAtRepresentativeSizesDoesNotThrow() throws Exception {
         layoutAtSize(1024, 700);
         layoutAtSize(1600, 900);
+    }
+
+    @Test
+    void mainWindowShowsUserAndRenderedNavigationAfterSessionAppears() throws Exception {
+        AtomicReference<String> loginText = new AtomicReference<>();
+        AtomicReference<String> avatarText = new AtomicReference<>();
+        AtomicReference<Integer> itemCount = new AtomicReference<>();
+        AtomicReference<Boolean> cellHasGraphic = new AtomicReference<>();
+
+        JavaFxTestSupport.runOnFxThread(() -> {
+            MainWindowViewModelTestSupport.StatefulSessionAuthn authn =
+                    new MainWindowViewModelTestSupport.StatefulSessionAuthn();
+            MainWindowViewModelTestSupport.MultiEntryCatalogue catalogue =
+                    new MainWindowViewModelTestSupport.MultiEntryCatalogue(List.of(
+                            ShellNavEntry.of(
+                                    ShellNavigationIcons.NAV_USERS, "Users", "security.view.users", 1, List.of()),
+                            ShellNavEntry.of(
+                                    ShellNavigationIcons.NAV_ROLES, "Roles", "security.view.roles", 2, List.of())));
+
+            MainWindowViewModel viewModel = new MainWindowViewModel(
+                    catalogue,
+                    new MainWindowViewModelTestSupport.AllowAllAuthz(),
+                    authn,
+                    NavigationServices.createDefault());
+            assertEquals("—", viewModel.currentUserLoginProperty().get());
+
+            authn.setSession(sessionFor("admin"));
+            Parent root = loadMainWindow(viewModel);
+            loginText.set(((Label) root.lookup("#userLoginLabel")).getText());
+            avatarText.set(((Label) root.lookup("#userAvatarLabel")).getText());
+
+            @SuppressWarnings("unchecked")
+            ListView<NavigationItem> navigationList = (ListView<NavigationItem>) root.lookup("#navigationList");
+            itemCount.set(navigationList.getItems().size());
+            navigationList.setPrefHeight(navigationList.getItems().size() * 42 + 20);
+            navigationList.applyCss();
+            navigationList.layout();
+            cellHasGraphic.set(firstVisibleCellHasGraphic(navigationList));
+        });
+
+        assertEquals("admin", loginText.get());
+        assertEquals("A", avatarText.get());
+        assertEquals(2, itemCount.get());
+        assertTrue(cellHasGraphic.get());
+    }
+
+    private static boolean firstVisibleCellHasGraphic(ListView<NavigationItem> navigationList) {
+        if (navigationList.getItems().isEmpty()) {
+            return false;
+        }
+        NavigationListCell probe = new NavigationListCell();
+        probe.updateItem(navigationList.getItems().get(0), false);
+        javafx.scene.layout.StackPane holder = new javafx.scene.layout.StackPane(probe);
+        new Scene(holder, 320, 48);
+        probe.applyCss();
+        probe.layout();
+        return probe.getGraphic() != null;
+    }
+
+    private static SessionSummary sessionFor(String login) {
+        return new SessionSummary(
+                SessionId.of(UUID.randomUUID()),
+                UserId.of(UUID.randomUUID()),
+                Login.of(login),
+                Instant.parse("2026-07-23T04:00:00Z"));
     }
 
     private static void layoutAtSize(double width, double height) throws Exception {

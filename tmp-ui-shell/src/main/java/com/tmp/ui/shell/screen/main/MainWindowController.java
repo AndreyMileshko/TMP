@@ -34,7 +34,7 @@ public final class MainWindowController implements ViewModelAware<MainWindowView
     @Override
     public void setViewModel(MainWindowViewModel viewModel) {
         this.viewModel = viewModel;
-        viewModel.refreshNavigation();
+        viewModel.refreshShellState();
         navigationList.setItems(viewModel.navigationItems());
         navigationList.setFixedCellSize(42);
         navigationList.setCellFactory(list -> new NavigationListCell());

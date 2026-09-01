@@ -36,11 +36,15 @@ final class NavigationListCell extends ListCell<NavigationItem> {
     protected void updateItem(NavigationItem item, boolean empty) {
         super.updateItem(item, empty);
         if (empty || item == null) {
+            label.setText(null);
+            icon.setContent(null);
             setGraphic(null);
+            applySelectedStyle(false);
             return;
         }
         label.setText(item.displayName());
         ShellNavigationIcons.apply(icon, item.navigationId());
+        setGraphic(row);
         applySelectedStyle(isSelected());
     }
 
