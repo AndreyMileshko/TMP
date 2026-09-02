@@ -98,7 +98,7 @@ public final class SecurityAdministrationCapability implements Capability {
                         ViewDescriptor.of(VIEW_AUDIT, "Security audit", NAV_AUDIT)))
                 .navigationContributions(List.of(
                         NavigationContribution.of(NAV_USERS, "Пользователи", VIEW_USERS, 10),
-                        NavigationContribution.of(NAV_ROLES, "Roles", VIEW_ROLES, 20),
+                        NavigationContribution.of(NAV_ROLES, "Роли", VIEW_ROLES, 20),
                         NavigationContribution.of(NAV_AUDIT, "Security audit", VIEW_AUDIT, 30)))
                 .build();
     }

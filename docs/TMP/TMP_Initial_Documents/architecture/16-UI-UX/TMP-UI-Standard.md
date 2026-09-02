@@ -291,6 +291,8 @@ TableView **MUST** следовать глобальному стилю темы
 - selected: blue/system accent soft background (`-tmp-primary-soft`);
 - empty: human-readable empty state (см. §25).
 
+Table header **MUST** have a distinct neutral background darker than normal/alternating data rows. Column header and data rows **MUST NOT** use the same background token. Header background **MUST** use dedicated semantic token `-tmp-table-header-bg` (defined globally in `tmp-theme.css`). Header **MUST NOT** imitate selected/hover state.
+
 **SHOULD NOT** использовать тяжёлую полную grid-сетку без специфической необходимости.
 
 ## 12.2 Column rules

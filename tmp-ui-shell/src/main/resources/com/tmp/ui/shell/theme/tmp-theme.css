@@ -12,6 +12,7 @@
     -tmp-surface: #FFFFFF;
     -tmp-surface-alt: #F8FAFC;
     -tmp-surface-hover: #F1F5F9;
+    -tmp-table-header-bg: #E9EEF4;
 
     -tmp-text: #1F2937;
     -tmp-text-secondary: #667085;
@@ -384,8 +385,10 @@
 }
 
 .table-view .column-header-background {
-    -fx-background-color: -tmp-surface-alt;
+    -fx-background-color: -tmp-table-header-bg;
     -fx-background-radius: 8 8 0 0;
+    -fx-border-color: transparent transparent -tmp-border-strong transparent;
+    -fx-border-width: 0 0 1 0;
 }
 
 .table-view .column-header,

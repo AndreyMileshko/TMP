@@ -33,7 +33,7 @@ import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
+import javafx.scene.Scene;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.TableView;
 import javafx.scene.layout.VBox;
@@ -62,12 +62,11 @@ class RoleAdministrationSelectionFxTest {
     }
 
     @Test
-    void permissionLabelUsesRussianDisplayNameWithTechnicalId() {
+    void permissionPresentationUsesDisplayNameAndTechnicalId() {
         PermissionSummary summary = new PermissionSummary(
                 PermissionId.of("order.order.create"), "Создание заказов", "", true);
-        assertEquals(
-                "Создание заказов (order.order.create)",
-                RoleAdministrationController.permissionLabel(summary));
+        assertEquals("Создание заказов", RoleAdministrationController.permissionDisplayName(summary));
+        assertEquals("order.order.create", RoleAdministrationController.permissionTechnicalId(summary));
     }
 
     private void assertTogglePreservesSelection(boolean grant) throws Exception {
@@ -99,11 +98,15 @@ class RoleAdministrationSelectionFxTest {
                                 .filter(item -> item.id().equals(role.id()))
                                 .findFirst()
                                 .orElseThrow());
+                loaded.root().applyCss();
+                loaded.root().layout();
+                VBox permissionBox = (VBox) loaded.root().lookup("#permissionBox");
+                assertNotNull(permissionBox);
                 assertEquals(role.id(), viewModel.selectedRoleId());
                 assertNotNull(roleTable.getSelectionModel().getSelectedItem());
                 assertEquals(role.id(), roleTable.getSelectionModel().getSelectedItem().id());
 
-                CheckBox permissionCheck = (CheckBox) loaded.permissionBox().getChildren().get(0);
+                CheckBox permissionCheck = (CheckBox) permissionBox.getChildren().get(0);
                 assertEquals(!grant, permissionCheck.isSelected());
                 permissionCheck.setSelected(grant);
                 permissionCheck.getOnAction().handle(new ActionEvent(permissionCheck, permissionCheck));
@@ -114,13 +117,17 @@ class RoleAdministrationSelectionFxTest {
                         "TableView selection must remain after checkbox toggle");
                 assertEquals(role.id(), roleTable.getSelectionModel().getSelectedItem().id());
                 assertEquals(grant, viewModel.isPermissionGrantedOnSelected(permission));
-                assertEquals(grant, ((CheckBox) loaded.permissionBox().getChildren().get(0)).isSelected());
+                assertEquals(grant, ((CheckBox) permissionBox.getChildren().get(0)).isSelected());
 
-                viewModel.nameInputProperty().set("Renamed Role");
-                loaded.updateButton().fire();
+                viewModel.updateRole(role, "Renamed Role", role.description());
                 assertEquals(role.id(), viewModel.selectedRoleId());
                 assertEquals(role.id(), roles.lastUpdatedRoleId);
                 assertEquals("Renamed Role", roles.lastUpdatedName);
+                roleTable.getSelectionModel().select(
+                        roleTable.getItems().stream()
+                                .filter(item -> item.id().equals(role.id()))
+                                .findFirst()
+                                .orElseThrow());
                 assertNotNull(roleTable.getSelectionModel().getSelectedItem());
                 assertEquals(role.id(), roleTable.getSelectionModel().getSelectedItem().id());
             } catch (Throwable throwable) {
@@ -146,23 +153,19 @@ class RoleAdministrationSelectionFxTest {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
         AtomicReference<TableView<RoleSummary>> table = new AtomicReference<>();
-        AtomicReference<VBox> permissionBox = new AtomicReference<>();
-        AtomicReference<Button> updateButton = new AtomicReference<>();
+        AtomicReference<Parent> rootRef = new AtomicReference<>();
 
         Platform.runLater(() -> {
             try {
                 Parent root = navigation.load("roles");
                 Stage stage = new Stage();
-                stage.setScene(new Scene(root));
+                Scene scene = new Scene(root, 1024, 700);
+                com.tmp.ui.shell.theme.TmpTheme.apply(scene);
+                stage.setScene(scene);
+                root.applyCss();
+                root.layout();
+                rootRef.set(root);
                 table.set((TableView<RoleSummary>) root.lookup("#roleTable"));
-                javafx.scene.control.ScrollPane scroll =
-                        (javafx.scene.control.ScrollPane) root.lookup("#permissionScroll");
-                if (scroll != null && scroll.getContent() instanceof VBox box) {
-                    permissionBox.set(box);
-                } else {
-                    permissionBox.set((VBox) root.lookup("#permissionBox"));
-                }
-                updateButton.set((Button) root.lookup("#updateButton"));
             } catch (Throwable throwable) {
                 error.set(throwable);
             } finally {
@@ -175,13 +178,10 @@ class RoleAdministrationSelectionFxTest {
             throw new AssertionError("Role admin FX load failed", error.get());
         }
         assertNotNull(table.get());
-        assertNotNull(permissionBox.get());
-        assertNotNull(updateButton.get());
-        return new LoadedScreen(table.get(), permissionBox.get(), updateButton.get());
+        return new LoadedScreen(rootRef.get(), table.get());
     }
 
-    private record LoadedScreen(
-            TableView<RoleSummary> table, VBox permissionBox, Button updateButton) {}
+    private record LoadedScreen(Parent root, TableView<RoleSummary> table) {}
 
     private static final class RecordingRoles implements RoleAdministrationService {
         private final List<RoleSummary> roles = new ArrayList<>();

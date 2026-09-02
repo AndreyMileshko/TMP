@@ -17,7 +17,9 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -190,6 +192,43 @@ class TmpUiStandardFxTest {
             assertNotNull(tabPane.lookup(".tab-header-area"));
             assertTrue(card.getStyleClass().contains("tmp-card"));
         });
+    }
+
+    @Test
+    void tableHeaderUsesDistinctBackgroundFromDataRows() throws InterruptedException {
+        JavaFxTestSupport.runOnFxThread(() -> {
+            TableView<String> table = createTableView();
+            table.getItems().addAll("Row A", "Row B");
+            VBox root = new VBox(table);
+            Scene scene = new Scene(root, 480, 240);
+            TmpTheme.apply(scene);
+            table.applyCss();
+            table.layout();
+
+            Region headerBackground = (Region) table.lookup(".column-header-background");
+            assertNotNull(headerBackground);
+            Color headerColor = (Color) headerBackground.getBackground().getFills().get(0).getFill();
+            table.getSkin();
+            table.layout();
+            Region oddRow = (Region) table.lookup(".table-row-cell:odd");
+            Region evenRow = (Region) table.lookup(".table-row-cell:even");
+            assertNotNull(oddRow);
+            assertNotNull(evenRow);
+            Color oddRowColor = (Color) oddRow.getBackground().getFills().get(0).getFill();
+            Color evenRowColor = (Color) evenRow.getBackground().getFills().get(0).getFill();
+
+            assertFalse(colorsEqual(headerColor, oddRowColor),
+                    "Table header must not share background with alternating rows");
+            assertFalse(colorsEqual(headerColor, evenRowColor),
+                    "Table header must not share background with normal rows");
+        });
+    }
+
+    private static boolean colorsEqual(Color left, Color right) {
+        return left != null && right != null
+                && Math.abs(left.getRed() - right.getRed()) < 0.001
+                && Math.abs(left.getGreen() - right.getGreen()) < 0.001
+                && Math.abs(left.getBlue() - right.getBlue()) < 0.001;
     }
 
     @Test

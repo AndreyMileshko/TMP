@@ -1,0 +1,26 @@
+.role-admin-split {
+    -fx-background-color: transparent;
+}
+
+.role-admin-master {
+    -fx-min-width: 260;
+    -fx-pref-width: 340;
+}
+
+.role-admin-detail {
+    -fx-min-width: 280;
+    -fx-padding: 0 0 0 8;
+}
+
+.role-admin-assignment {
+    -fx-padding: 8 0 0 0;
+}
+
+.role-admin-permission-row {
+    -fx-alignment: CENTER_LEFT;
+    -fx-spacing: 8;
+}
+
+.role-admin-permission-id {
+    -fx-font-size: 11px;
+}

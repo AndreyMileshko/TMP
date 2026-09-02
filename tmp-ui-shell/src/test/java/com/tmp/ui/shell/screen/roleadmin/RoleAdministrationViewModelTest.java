@@ -32,9 +32,7 @@ class RoleAdministrationViewModelTest {
         FakeRoles roles = new FakeRoles();
         RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
                 roles, new EmptyUsers(), new AllowAll());
-        viewModel.nameInputProperty().set("Ops");
-        viewModel.descriptionInputProperty().set("ops");
-        viewModel.createRole();
+        viewModel.createRole("Ops", "ops");
         assertEquals(1, roles.roles.size());
         assertEquals("Ops", roles.roles.get(0).name());
     }
@@ -54,13 +52,13 @@ class RoleAdministrationViewModelTest {
         RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
                 roles, new EmptyUsers(), new AllowAll());
         viewModel.select(existing);
-        viewModel.deleteSelected();
+        viewModel.deleteRole(existing);
         assertTrue(viewModel.errorMessageProperty().get().contains("assigned"));
         assertEquals(1, viewModel.roleList().size());
     }
 
     @Test
-    void updateSelectedShowsExactRussianSuccessMessage() {
+    void updateRoleDelegatesAndKeepsSelection() {
         FakeRoles roles = new FakeRoles();
         RoleSummary existing = new RoleSummary(
                 RoleId.generate(), "Ops", "ops", Set.of(), 0L,
@@ -69,20 +67,26 @@ class RoleAdministrationViewModelTest {
         RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
                 roles, new EmptyUsers(), new AllowAll());
         viewModel.select(existing);
-        viewModel.nameInputProperty().set("Ops Updated");
-        viewModel.updateSelected();
-        assertEquals(RoleAdministrationMessages.ROLE_UPDATED, viewModel.statusMessageProperty().get());
-        assertFalse(viewModel.statusMessageProperty().get().contains("Р'"));
-        assertEquals("Роль успешно изменена.", viewModel.statusMessageProperty().get());
+        viewModel.updateRole(existing, "Ops Updated", "updated");
+        assertEquals(existing.id(), viewModel.selectedRoleId());
+        assertTrue(viewModel.errorMessageProperty().get().isEmpty());
     }
 
     @Test
     void selectRoleRequiredMessageIsValidUtf8Russian() {
         RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
                 new FakeRoles(), new EmptyUsers(), new AllowAll());
-        viewModel.updateSelected();
+        viewModel.updateRole(null, "Ops", "ops");
         assertEquals(RoleAdministrationMessages.SELECT_ROLE, viewModel.errorMessageProperty().get());
         assertEquals("Выберите роль", viewModel.errorMessageProperty().get());
+    }
+
+    @Test
+    void permissionFlagsSplitAssignAndManage() {
+        RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
+                new FakeRoles(), new EmptyUsers(), new AssignOnlyAuth());
+        assertTrue(viewModel.canAssignRoleProperty().get());
+        assertFalse(viewModel.canManageRolePermissionsProperty().get());
     }
 
     @Test
@@ -240,6 +244,22 @@ class RoleAdministrationViewModelTest {
         @Override
         public Set<PermissionId> effectivePermissions() {
             return Set.of();
+        }
+    }
+
+    private static final class AssignOnlyAuth implements AuthorizationService {
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return SecurityPermissions.ROLES_ASSIGN.equals(permissionId);
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {
+        }
+
+        @Override
+        public Set<PermissionId> effectivePermissions() {
+            return Set.of(SecurityPermissions.ROLES_ASSIGN);
         }
     }
 }

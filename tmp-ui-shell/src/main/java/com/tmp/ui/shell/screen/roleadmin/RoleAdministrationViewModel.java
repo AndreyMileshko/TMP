@@ -36,14 +36,13 @@ public final class RoleAdministrationViewModel {
     private final ObservableList<PermissionSummary> permissionCatalogue = FXCollections.observableArrayList();
     private final ObservableList<PermissionId> selectedRolePermissions = FXCollections.observableArrayList();
     private final StringProperty errorMessage = new SimpleStringProperty("");
-    private final StringProperty statusMessage = new SimpleStringProperty("");
-    private final StringProperty nameInput = new SimpleStringProperty("");
-    private final StringProperty descriptionInput = new SimpleStringProperty("");
     private final StringProperty assignLoginInput = new SimpleStringProperty("");
     private final BooleanProperty canCreate = new SimpleBooleanProperty(false);
     private final BooleanProperty canUpdate = new SimpleBooleanProperty(false);
     private final BooleanProperty canDelete = new SimpleBooleanProperty(false);
-    private final BooleanProperty canAssign = new SimpleBooleanProperty(false);
+    private final BooleanProperty canAssignRole = new SimpleBooleanProperty(false);
+    private final BooleanProperty canManageRolePermissions = new SimpleBooleanProperty(false);
+    private final BooleanProperty hasSelectedRole = new SimpleBooleanProperty(false);
     private RoleSummary selected;
     private RoleId selectedRoleId;
 
@@ -74,18 +73,6 @@ public final class RoleAdministrationViewModel {
         return errorMessage;
     }
 
-    public StringProperty statusMessageProperty() {
-        return statusMessage;
-    }
-
-    public StringProperty nameInputProperty() {
-        return nameInput;
-    }
-
-    public StringProperty descriptionInputProperty() {
-        return descriptionInput;
-    }
-
     public StringProperty assignLoginInputProperty() {
         return assignLoginInput;
     }
@@ -102,30 +89,40 @@ public final class RoleAdministrationViewModel {
         return canDelete;
     }
 
-    public BooleanProperty canAssignProperty() {
-        return canAssign;
+    public BooleanProperty canAssignRoleProperty() {
+        return canAssignRole;
+    }
+
+    public BooleanProperty canManageRolePermissionsProperty() {
+        return canManageRolePermissions;
+    }
+
+    public BooleanProperty hasSelectedRoleProperty() {
+        return hasSelectedRole;
     }
 
     public RoleId selectedRoleId() {
         return selectedRoleId;
     }
 
+    public RoleSummary selectedRole() {
+        return selected;
+    }
+
     public void select(RoleSummary summary) {
         if (summary == null) {
-            // TableView may temporarily clear selection when items are replaced.
-            // Do not wipe selectedRoleId here — only explicit clearSelection() does.
             return;
         }
         this.selected = summary;
         this.selectedRoleId = summary.id();
-        nameInput.set(summary.name());
-        descriptionInput.set(summary.description());
+        hasSelectedRole.set(true);
         selectedRolePermissions.setAll(summary.permissionIds());
     }
 
     public void clearSelection() {
         this.selected = null;
         this.selectedRoleId = null;
+        hasSelectedRole.set(false);
         selectedRolePermissions.clear();
     }
 
@@ -149,37 +146,36 @@ public final class RoleAdministrationViewModel {
         refreshPermissions();
     }
 
-    public void createRole() {
+    public void createRole(String name, String description) {
         runAction(() -> {
-            roles.createRole(nameInput.get(), descriptionInput.get());
-            statusMessage.set(RoleAdministrationMessages.ROLE_CREATED);
+            roles.createRole(name, description);
             refresh();
         });
     }
 
-    public void updateSelected() {
-        if (selectedRoleId == null) {
+    public void updateRole(RoleSummary role, String name, String description) {
+        if (role == null) {
             errorMessage.set(RoleAdministrationMessages.SELECT_ROLE);
             return;
         }
-        RoleId id = selectedRoleId;
+        RoleId id = role.id();
         runAction(() -> {
-            roles.updateRole(id, nameInput.get(), descriptionInput.get());
-            statusMessage.set(RoleAdministrationMessages.ROLE_UPDATED);
+            roles.updateRole(id, name, description);
             refresh();
         });
     }
 
-    public void deleteSelected() {
-        if (selectedRoleId == null) {
+    public void deleteRole(RoleSummary role) {
+        if (role == null) {
             errorMessage.set(RoleAdministrationMessages.SELECT_ROLE);
             return;
         }
-        RoleId id = selectedRoleId;
+        RoleId id = role.id();
         runAction(() -> {
             roles.deleteRole(id);
-            clearSelection();
-            statusMessage.set(RoleAdministrationMessages.ROLE_DELETED);
+            if (selectedRoleId != null && selectedRoleId.equals(id)) {
+                clearSelection();
+            }
             refresh();
         });
     }
@@ -218,7 +214,6 @@ public final class RoleAdministrationViewModel {
         runAction(() -> {
             UserId userId = findUserIdByLogin(assignLoginInput.get());
             roles.assignRole(userId, roleId);
-            statusMessage.set(RoleAdministrationMessages.ROLE_ASSIGNED);
             refresh();
         });
     }
@@ -232,7 +227,6 @@ public final class RoleAdministrationViewModel {
         runAction(() -> {
             UserId userId = findUserIdByLogin(assignLoginInput.get());
             roles.revokeRole(userId, roleId);
-            statusMessage.set(RoleAdministrationMessages.ROLE_REVOKED);
             refresh();
         });
     }
@@ -253,13 +247,12 @@ public final class RoleAdministrationViewModel {
         canCreate.set(authorization.hasPermission(SecurityPermissions.ROLES_CREATE));
         canUpdate.set(authorization.hasPermission(SecurityPermissions.ROLES_UPDATE));
         canDelete.set(authorization.hasPermission(SecurityPermissions.ROLES_DELETE));
-        canAssign.set(authorization.hasPermission(SecurityPermissions.ROLES_ASSIGN)
-                || authorization.hasPermission(SecurityPermissions.PERMISSIONS_ASSIGN));
+        canAssignRole.set(authorization.hasPermission(SecurityPermissions.ROLES_ASSIGN));
+        canManageRolePermissions.set(authorization.hasPermission(SecurityPermissions.PERMISSIONS_ASSIGN));
     }
 
     private void runAction(Runnable action) {
         errorMessage.set("");
-        statusMessage.set("");
         try {
             action.run();
         } catch (AccessDeniedException
