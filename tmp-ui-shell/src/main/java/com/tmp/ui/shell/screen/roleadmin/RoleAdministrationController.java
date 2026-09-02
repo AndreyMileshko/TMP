@@ -307,7 +307,7 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
 
         CheckBox check = new CheckBox();
         check.setGraphic(row);
-        check.setFocusTraversable(false);
+        check.setFocusTraversable(canModify);
         PermissionId id = permission.permissionId();
         check.setSelected(viewModel.isPermissionGrantedOnSelected(id));
         check.setDisable(!canModify);

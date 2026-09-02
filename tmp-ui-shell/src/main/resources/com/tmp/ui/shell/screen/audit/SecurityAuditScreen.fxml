@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.DatePicker?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
@@ -11,29 +11,39 @@
 
 <VBox xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.tmp.ui.shell.screen.audit.SecurityAuditController"
-      spacing="12">
-    <padding>
-        <Insets top="16" right="16" bottom="16" left="16"/>
-    </padding>
-    <Label text="Журнал аудита безопасности" styleClass="audit-title"/>
-    <HBox spacing="8">
-        <TextField fx:id="operationFilterField" promptText="Операция" prefWidth="200"/>
-        <Button fx:id="applyFilterButton" text="Применить фильтр"/>
+      fx:id="root"
+      styleClass="tmp-screen">
+    <VBox styleClass="tmp-screen-header">
+        <Label text="Аудит безопасности" styleClass="tmp-screen-title"/>
+        <Label text="Журнал событий безопасности и административных действий" styleClass="tmp-screen-subtitle"/>
+    </VBox>
+    <HBox styleClass="tmp-toolbar security-audit-filter-bar" spacing="8" alignment="CENTER_LEFT">
+        <Label text="С" styleClass="tmp-form-label"/>
+        <DatePicker fx:id="fromDatePicker" promptText="Дата начала"/>
+        <Label text="По" styleClass="tmp-form-label"/>
+        <DatePicker fx:id="toDatePicker" promptText="Дата окончания"/>
+        <TextField fx:id="operationFilterField"
+                   promptText="Код операции (напр. USER_CREATED)"
+                   styleClass="security-audit-operation-filter"/>
+        <Button fx:id="applyFilterButton" text="Применить" styleClass="tmp-button-secondary"/>
+        <Button fx:id="resetFilterButton" text="Сбросить" styleClass="tmp-button-secondary"/>
     </HBox>
-    <TableView fx:id="auditTable" prefHeight="320">
-        <columns>
-            <TableColumn fx:id="occurredAtColumn" text="Время" prefWidth="160"/>
-            <TableColumn fx:id="actorColumn" text="Актор" prefWidth="120"/>
-            <TableColumn fx:id="operationColumn" text="Операция" prefWidth="140"/>
-            <TableColumn fx:id="targetColumn" text="Цель" prefWidth="160"/>
-            <TableColumn fx:id="descriptionColumn" text="Описание" prefWidth="220"/>
-            <TableColumn fx:id="resultColumn" text="Результат" prefWidth="90"/>
-        </columns>
-    </TableView>
-    <HBox spacing="8" alignment="CENTER_LEFT">
-        <Button fx:id="previousPageButton" text="Назад"/>
+    <VBox styleClass="tmp-content" alignment="TOP_LEFT" VBox.vgrow="ALWAYS">
+        <TableView fx:id="auditTable" VBox.vgrow="ALWAYS">
+            <columns>
+                <TableColumn fx:id="occurredAtColumn" text="Дата и время" prefWidth="160" minWidth="140"/>
+                <TableColumn fx:id="actorColumn" text="Пользователь" prefWidth="120" minWidth="100"/>
+                <TableColumn fx:id="operationColumn" text="Операция" prefWidth="180" minWidth="140"/>
+                <TableColumn fx:id="targetColumn" text="Объект" prefWidth="180" minWidth="120"/>
+                <TableColumn fx:id="descriptionColumn" text="Описание" prefWidth="240" minWidth="160"/>
+                <TableColumn fx:id="resultColumn" text="Результат" prefWidth="110" minWidth="100" maxWidth="130"/>
+            </columns>
+        </TableView>
+    </VBox>
+    <HBox styleClass="security-audit-pagination" spacing="16" alignment="CENTER">
+        <Button fx:id="previousPageButton" text="← Назад" styleClass="tmp-button-secondary"/>
         <Label fx:id="pageLabel"/>
-        <Button fx:id="nextPageButton" text="Вперёд"/>
+        <Button fx:id="nextPageButton" text="Вперёд →" styleClass="tmp-button-secondary"/>
     </HBox>
-    <Label fx:id="errorLabel" styleClass="audit-error" visible="false" managed="false" wrapText="true"/>
+    <Label fx:id="errorLabel" styleClass="tmp-message-error" visible="false" managed="false" wrapText="true"/>
 </VBox>

@@ -1,6 +1,7 @@
 package com.tmp.ui.shell.screen.roleadmin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -67,6 +68,47 @@ class RoleAdministrationSelectionFxTest {
                 PermissionId.of("order.order.create"), "Создание заказов", "", true);
         assertEquals("Создание заказов", RoleAdministrationController.permissionDisplayName(summary));
         assertEquals("order.order.create", RoleAdministrationController.permissionTechnicalId(summary));
+    }
+
+    @Test
+    void editablePermissionCheckBoxIsFocusTraversable() throws Exception {
+        RecordingRoles roles = new RecordingRoles();
+        PermissionId permission = SecurityPermissions.USERS_VIEW;
+        roles.addRole("Security Administrator", "admin role", Set.of());
+        roles.permissions.add(new PermissionSummary(permission, "Просмотр пользователей", "", true));
+
+        RoleAdministrationViewModel viewModel =
+                new RoleAdministrationViewModel(roles, new EmptyUsers(), new AllowAll());
+        var navigation = NavigationServices.createDefault();
+        navigation.register(new ScreenRegistration(
+                "roles",
+                "com/tmp/ui/shell/screen/roleadmin/RoleAdministrationScreen.fxml",
+                () -> viewModel));
+
+        LoadedScreen loaded = loadScreen(navigation);
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> error = new AtomicReference<>();
+
+        Platform.runLater(() -> {
+            try {
+                loaded.table().getSelectionModel().selectFirst();
+                loaded.root().applyCss();
+                loaded.root().layout();
+                VBox permissionBox = (VBox) loaded.root().lookup("#permissionBox");
+                CheckBox permissionCheck = (CheckBox) permissionBox.getChildren().get(0);
+                assertFalse(permissionCheck.isDisable());
+                assertTrue(permissionCheck.isFocusTraversable());
+            } catch (Throwable throwable) {
+                error.set(throwable);
+            } finally {
+                latch.countDown();
+            }
+        });
+
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
+        if (error.get() != null) {
+            throw new AssertionError("Permission checkbox focus regression failed", error.get());
+        }
     }
 
     private void assertTogglePreservesSelection(boolean grant) throws Exception {

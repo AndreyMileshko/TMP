@@ -1,0 +1,12 @@
+.security-audit-filter-bar {
+    -fx-padding: 0 0 8 0;
+}
+
+.security-audit-operation-filter {
+    -fx-pref-width: 220;
+    -fx-max-width: 280;
+}
+
+.security-audit-pagination {
+    -fx-padding: 8 0 0 0;
+}

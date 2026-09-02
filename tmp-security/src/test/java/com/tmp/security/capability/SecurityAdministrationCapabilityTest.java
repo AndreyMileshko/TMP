@@ -55,12 +55,6 @@ class SecurityAdministrationCapabilityTest {
     }
 
     @Test
-    void securityPermissionsConstantsMatchCatalogue() {
-        assertEquals(PermissionId.of("security.users.view"), SecurityPermissions.USERS_VIEW);
-        assertEquals(PermissionId.of("security.audit.view"), SecurityPermissions.AUDIT_VIEW);
-    }
-
-    @Test
     void permissionDisplayNamesAreRussianAndIdsUnchanged() {
         SecurityAdministrationCapability capability = new SecurityAdministrationCapability();
         var byId = capability.descriptor().permissions().stream()
@@ -82,6 +76,29 @@ class SecurityAdministrationCapabilityTest {
         for (String displayName : byId.values()) {
             assertTrue(containsCyrillic(displayName), () -> "Expected Russian display name: " + displayName);
         }
+    }
+
+    @Test
+    void securityPermissionsConstantsMatchCatalogue() {
+        assertEquals(PermissionId.of("security.users.view"), SecurityPermissions.USERS_VIEW);
+        assertEquals(PermissionId.of("security.audit.view"), SecurityPermissions.AUDIT_VIEW);
+    }
+
+    @Test
+    void auditNavigationCaptionIsRussian() {
+        SecurityAdministrationCapability capability = new SecurityAdministrationCapability();
+        String caption = capability.descriptor().navigationContributions().stream()
+                .filter(nav -> SecurityAdministrationCapability.NAV_AUDIT.equals(nav.navigationId()))
+                .map(NavigationContribution::displayName)
+                .findFirst()
+                .orElseThrow();
+        assertEquals("Аудит безопасности", caption);
+        assertEquals(SecurityAdministrationCapability.NAV_AUDIT, capability.descriptor()
+                .navigationContributions().stream()
+                .filter(nav -> "Аудит безопасности".equals(nav.displayName()))
+                .map(NavigationContribution::navigationId)
+                .findFirst()
+                .orElseThrow());
     }
 
     private static boolean containsCyrillic(String value) {
