@@ -5,13 +5,18 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
-import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseButton;
+import javafx.stage.Window;
 
 /**
- * Item Specification editor FXML controller. Document-driven; no Spring imports.
+ * Item Specification editor FXML controller. Dialog-driven mutations; no Spring imports.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
@@ -23,13 +28,10 @@ public final class OrderItemSpecificationEditorController
     private Label titleLabel;
 
     @FXML
-    private Label revisionNumberLabel;
+    private Label orderedQuantityLabel;
 
     @FXML
-    private Label revisionStatusLabel;
-
-    @FXML
-    private TextField orderedQuantityField;
+    private Button addMaterialButton;
 
     @FXML
     private TableView<SpecificationLineRow> linesTable;
@@ -53,48 +55,6 @@ public final class OrderItemSpecificationEditorController
     private TableColumn<SpecificationLineRow, String> unitOfMeasureColumn;
 
     @FXML
-    private TextField materialCodeField;
-
-    @FXML
-    private TextField materialNameField;
-
-    @FXML
-    private TextField colorField;
-
-    @FXML
-    private TextField lengthMmField;
-
-    @FXML
-    private TextField lineQuantityField;
-
-    @FXML
-    private TextField unitOfMeasureField;
-
-    @FXML
-    private Button addLineButton;
-
-    @FXML
-    private Button updateLineButton;
-
-    @FXML
-    private Button deleteLineButton;
-
-    @FXML
-    private Button moveUpButton;
-
-    @FXML
-    private Button moveDownButton;
-
-    @FXML
-    private Button clearLinesButton;
-
-    @FXML
-    private Button saveDraftButton;
-
-    @FXML
-    private Button postButton;
-
-    @FXML
     private Label successLabel;
 
     @FXML
@@ -103,15 +63,20 @@ public final class OrderItemSpecificationEditorController
     @FXML
     private Label errorLabel;
 
+    private OrderItemSpecificationEditorViewModel viewModel;
+    private ContextMenu rowContextMenu;
+
     @Override
     public void setViewModel(OrderItemSpecificationEditorViewModel viewModel) {
+        this.viewModel = viewModel;
         titleLabel.textProperty().bind(viewModel.titleProperty());
-        revisionNumberLabel.textProperty().bind(viewModel.revisionNumberTextProperty());
-        revisionStatusLabel.textProperty().bind(viewModel.revisionStatusTextProperty());
-        orderedQuantityField.textProperty().bindBidirectional(viewModel.orderedQuantityProperty());
-        orderedQuantityField.disableProperty().bind(viewModel.editableProperty().not());
+        orderedQuantityLabel.textProperty().bind(viewModel.orderedQuantityTextProperty());
 
         linesTable.setItems(viewModel.lines());
+        linesTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        materialCodeColumn.setMaxWidth(Double.MAX_VALUE);
+        materialNameColumn.setMaxWidth(Double.MAX_VALUE);
+
         linesTable
                 .getSelectionModel()
                 .selectedIndexProperty()
@@ -151,37 +116,47 @@ public final class OrderItemSpecificationEditorController
                         new javafx.beans.property.SimpleStringProperty(
                                 cell.getValue().unitOfMeasure()));
 
-        materialCodeField.textProperty().bindBidirectional(viewModel.editMaterialCodeProperty());
-        materialNameField.textProperty().bindBidirectional(viewModel.editMaterialNameProperty());
-        colorField.textProperty().bindBidirectional(viewModel.editColorProperty());
-        lengthMmField.textProperty().bindBidirectional(viewModel.editLengthMmProperty());
-        lineQuantityField.textProperty().bindBidirectional(viewModel.editLineQuantityProperty());
-        unitOfMeasureField.textProperty().bindBidirectional(viewModel.editUnitOfMeasureProperty());
+        addMaterialButton.disableProperty().bind(viewModel.canAddLineProperty().not());
+        addMaterialButton.visibleProperty().bind(viewModel.editableProperty());
+        addMaterialButton.managedProperty().bind(addMaterialButton.visibleProperty());
+        addMaterialButton.setOnAction(e -> onAddMaterial());
 
-        materialCodeField.disableProperty().bind(viewModel.editableProperty().not());
-        materialNameField.disableProperty().bind(viewModel.editableProperty().not());
-        colorField.disableProperty().bind(viewModel.editableProperty().not());
-        lengthMmField.disableProperty().bind(viewModel.editableProperty().not());
-        lineQuantityField.disableProperty().bind(viewModel.editableProperty().not());
-        unitOfMeasureField.disableProperty().bind(viewModel.editableProperty().not());
-
-        addLineButton.disableProperty().bind(viewModel.canAddLineProperty().not());
-        updateLineButton.disableProperty().bind(viewModel.canUpdateLineProperty().not());
-        deleteLineButton.disableProperty().bind(viewModel.canDeleteLineProperty().not());
-        moveUpButton.disableProperty().bind(viewModel.canMoveUpProperty().not());
-        moveDownButton.disableProperty().bind(viewModel.canMoveDownProperty().not());
-        clearLinesButton.disableProperty().bind(viewModel.canClearLinesProperty().not());
-        saveDraftButton.disableProperty().bind(viewModel.canSaveDraftProperty().not());
-        postButton.disableProperty().bind(viewModel.canPostProperty().not());
-
-        addLineButton.setOnAction(e -> viewModel.addLine());
-        updateLineButton.setOnAction(e -> viewModel.updateSelectedLine());
-        deleteLineButton.setOnAction(e -> viewModel.deleteSelectedLine());
-        moveUpButton.setOnAction(e -> viewModel.moveSelectedUp());
-        moveDownButton.setOnAction(e -> viewModel.moveSelectedDown());
-        clearLinesButton.setOnAction(e -> viewModel.clearLines());
-        saveDraftButton.setOnAction(e -> viewModel.saveDraft());
-        postButton.setOnAction(e -> viewModel.postDocument());
+        rowContextMenu = buildContextMenu();
+        linesTable.setRowFactory(
+                table -> {
+                    TableRow<SpecificationLineRow> row = new TableRow<>();
+                    row.setOnMouseClicked(
+                            event -> {
+                                if (event.getButton() == MouseButton.PRIMARY
+                                        && event.getClickCount() == 2
+                                        && !row.isEmpty()
+                                        && viewModel.editableProperty().get()) {
+                                    viewModel.selectLine(row.getIndex());
+                                    onEditSelected();
+                                }
+                            });
+                    row.contextMenuProperty()
+                            .bind(
+                                    Bindings.createObjectBinding(
+                                            () -> {
+                                                if (row.isEmpty()
+                                                        || !viewModel.editableProperty().get()) {
+                                                    return null;
+                                                }
+                                                return rowContextMenu;
+                                            },
+                                            row.emptyProperty(),
+                                            viewModel.editableProperty()));
+                    return row;
+                });
+        linesTable.setOnKeyPressed(
+                event -> {
+                    if (event.getCode() == KeyCode.ENTER
+                            && viewModel.selectedLineProperty().get() != null
+                            && viewModel.editableProperty().get()) {
+                        onEditSelected();
+                    }
+                });
 
         successLabel.textProperty().bind(viewModel.successMessageProperty());
         successLabel
@@ -218,5 +193,57 @@ public final class OrderItemSpecificationEditorController
                                 },
                                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
+    }
+
+    private ContextMenu buildContextMenu() {
+        MenuItem edit = new MenuItem("Изменить");
+        edit.setOnAction(e -> onEditSelected());
+        MenuItem delete = new MenuItem("Удалить");
+        delete.setOnAction(e -> onDeleteSelected());
+        MenuItem moveUp = new MenuItem("Переместить выше");
+        moveUp.setOnAction(e -> viewModel.moveSelectedUp());
+        MenuItem moveDown = new MenuItem("Переместить ниже");
+        moveDown.setOnAction(e -> viewModel.moveSelectedDown());
+        ContextMenu menu = new ContextMenu(edit, delete, moveUp, moveDown);
+        menu.setOnShowing(
+                e -> {
+                    edit.setDisable(!viewModel.canUpdateLineProperty().get());
+                    delete.setDisable(!viewModel.canDeleteLineProperty().get());
+                    moveUp.setDisable(!viewModel.canMoveUpProperty().get());
+                    moveDown.setDisable(!viewModel.canMoveDownProperty().get());
+                });
+        return menu;
+    }
+
+    private void onAddMaterial() {
+        Window owner = ownerWindow();
+        SpecificationLineDialogs.showAddDialog(owner).ifPresent(viewModel::addLine);
+    }
+
+    private void onEditSelected() {
+        SpecificationLineRow selected = viewModel.selectedLineProperty().get();
+        if (selected == null) {
+            return;
+        }
+        Window owner = ownerWindow();
+        SpecificationLineDialogs.showEditDialog(owner, selected)
+                .ifPresent(viewModel::updateSelectedLine);
+    }
+
+    private void onDeleteSelected() {
+        if (!viewModel.canDeleteLineProperty().get()) {
+            return;
+        }
+        Window owner = ownerWindow();
+        if (SpecificationLineDialogs.showDeleteConfirmation(owner)) {
+            viewModel.deleteSelectedLine();
+        }
+    }
+
+    private Window ownerWindow() {
+        if (linesTable.getScene() != null) {
+            return linesTable.getScene().getWindow();
+        }
+        return null;
     }
 }

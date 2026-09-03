@@ -2,13 +2,12 @@ package com.tmp.ui.shell.screen.orderitemeditor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.api.OrderDto;
 import com.tmp.order.api.OrderId;
-import com.tmp.order.api.OrderItemDto;
 import com.tmp.order.api.OrderItemId;
-import com.tmp.order.api.OrderItemRevisionDto;
 import com.tmp.order.api.OrderItemStatus;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderSearchCriteria;
@@ -18,18 +17,18 @@ import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
+import com.tmp.order.api.ui.CurrentOrderItemSpecificationRef;
+import com.tmp.order.api.ui.CurrentOrderItemSpecificationUiService;
 import com.tmp.order.api.ui.OrderItemCommercialDraft;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.order.api.ui.OrderItemEditorSnapshot;
 import com.tmp.order.api.ui.OrderItemSpecificationLineDraft;
-import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
-import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
-import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
+import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatus;
 import com.tmp.ui.shell.screen.orderlist.FakeAuthorization;
-import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -40,11 +39,11 @@ import org.junit.jupiter.api.Test;
 class OrderItemEditorViewModelTest {
 
     @Test
-    void createSaveAndPostUsesDocumentUiServiceOnly() {
+    void saveNewItemUsesFacade() {
         FakeDocs docs = new FakeDocs();
         FakeEditorQuery query = new FakeEditorQuery();
         OrderItemId created = OrderItemId.generate();
-        docs.postResult = created;
+        docs.saveNewResult = created;
         query.snapshot = snapshot(created, OrderItemStatus.DRAFT, true, false);
         OrderItemEditorViewModel viewModel =
                 new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
@@ -52,483 +51,119 @@ class OrderItemEditorViewModelTest {
         viewModel.productCodeProperty().set("P-1");
         viewModel.nameProperty().set("Panel");
         viewModel.orderedQuantityProperty().set("2");
-        viewModel.saveCommercialDraft();
-        assertEquals("ORDER_ITEM_CREATE", docs.lastBeginType);
-        assertTrue(docs.saveCreateCalled);
-        viewModel.postCommercialDocument();
-        assertTrue(docs.postCalled);
+        viewModel.save();
+        assertTrue(docs.saveNewCalled);
+        assertFalse(docs.beginCreateCalled);
         assertEquals(created, viewModel.orderItemIdForTest());
-        assertEquals("Документ позиции проведён", viewModel.successMessageProperty().get());
+        assertEquals("Позиция сохранена", viewModel.successMessageProperty().get());
     }
 
     @Test
-    void successMessagePreservedAfterReload() {
+    void saveExistingItemUsesFacade() {
         FakeDocs docs = new FakeDocs();
         FakeEditorQuery query = new FakeEditorQuery();
         OrderItemId id = OrderItemId.generate();
-        docs.postResult = id;
         query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false);
         OrderItemEditorViewModel viewModel =
                 new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
         viewModel.openExisting(id);
-        viewModel.saveCommercialDraft();
-        viewModel.postCommercialDocument();
-        assertEquals("Документ позиции проведён", viewModel.successMessageProperty().get());
-        assertEquals("", viewModel.errorMessageProperty().get());
+        viewModel.nameProperty().set("Updated");
+        viewModel.save();
+        assertTrue(docs.saveExistingCalled);
+        assertEquals("Updated", docs.lastCommercialDraft.name());
     }
 
     @Test
-    void externalPositionNumberIsReadFromSnapshotAndShownAfterReopen() {
+    void editableDraftShowsSaveAndCancel() {
         FakeDocs docs = new FakeDocs();
         FakeEditorQuery query = new FakeEditorQuery();
         OrderItemId id = OrderItemId.generate();
-        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false, "EXT-55");
+        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false);
         OrderItemEditorViewModel viewModel =
                 new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
         viewModel.openExisting(id);
-        assertEquals("EXT-55", viewModel.externalPositionNumberProperty().get());
-    }
-
-    @Test
-    void nullExternalPositionNumberIsShownAsEmptyField() {
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemId id = OrderItemId.generate();
-        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false, null);
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(new FakeDocs(), query, auth(allItemPerms()));
-        viewModel.openExisting(id);
-        assertEquals("", viewModel.externalPositionNumberProperty().get());
-    }
-
-    @Test
-    void nullProductCodeAndNameAreShownAsEmptyFields() {
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemId id = OrderItemId.generate();
-        query.snapshot =
-                OrderItemEditorSnapshot.of(
-                        id,
-                        OrderId.generate(),
-                        null,
-                        null,
-                        null,
-                        "EXT-IMP",
-                        OrderItemStatus.DRAFT,
-                        OrderItemEditorSnapshot.RevisionView.of(
-                                RevisionNumber.first(),
-                                RevisionStatus.DRAFT,
-                                BigDecimal.ONE,
-                                0),
-                        null,
-                        BigDecimal.ONE);
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(new FakeDocs(), query, auth(allItemPerms()));
-        viewModel.openExisting(id);
-        assertEquals("", viewModel.productCodeProperty().get());
-        assertEquals("", viewModel.nameProperty().get());
-        assertEquals("EXT-IMP", viewModel.externalPositionNumberProperty().get());
-        assertEquals("Позиция", viewModel.titleProperty().get());
-        assertFalse("null".equalsIgnoreCase(viewModel.productCodeProperty().get()));
-        assertFalse("null".equalsIgnoreCase(viewModel.nameProperty().get()));
-    }
-
-    @Test
-    void incompleteDraftCanBeFilledAndSavedThroughDocumentFlow() {
-        FakeDocs docs = new FakeDocs();
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemId id = OrderItemId.generate();
-        query.snapshot =
-                OrderItemEditorSnapshot.of(
-                        id,
-                        OrderId.generate(),
-                        null,
-                        null,
-                        null,
-                        "EXT-IMP",
-                        OrderItemStatus.DRAFT,
-                        OrderItemEditorSnapshot.RevisionView.of(
-                                RevisionNumber.first(),
-                                RevisionStatus.DRAFT,
-                                BigDecimal.ONE,
-                                0),
-                        null,
-                        BigDecimal.ONE);
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
-        viewModel.openExisting(id);
-        viewModel.productCodeProperty().set("P-FILL");
-        viewModel.nameProperty().set("Filled Name");
-        viewModel.saveCommercialDraft();
-
-        assertEquals("P-FILL", docs.lastCommercialDraft.productCode());
-        assertEquals("Filled Name", docs.lastCommercialDraft.name());
-        assertEquals("EXT-IMP", docs.lastCommercialDraft.externalPositionNumber());
-    }
-
-    @Test
-    void saveCommercialDraftPassesExternalPositionNumberToContract() {
-        FakeDocs docs = new FakeDocs();
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
-        viewModel.openCreate(OrderId.generate());
-        viewModel.productCodeProperty().set("P-1");
-        viewModel.nameProperty().set("Panel");
-        viewModel.externalPositionNumberProperty().set(" EXT-100 ");
-        viewModel.orderedQuantityProperty().set("3");
-
-        viewModel.saveCommercialDraft();
-
-        assertEquals("EXT-100", docs.lastCommercialDraft.externalPositionNumber());
-    }
-
-    @Test
-    void saveCommercialDraftConvertsBlankExternalPositionNumberToNull() {
-        FakeDocs docs = new FakeDocs();
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
-        viewModel.openCreate(OrderId.generate());
-        viewModel.productCodeProperty().set("P-1");
-        viewModel.nameProperty().set("Panel");
-        viewModel.externalPositionNumberProperty().set("   ");
-        viewModel.orderedQuantityProperty().set("3");
-
-        viewModel.saveCommercialDraft();
-
-        assertEquals(null, docs.lastCommercialDraft.externalPositionNumber());
-    }
-
-    @Test
-    void draftAndActiveRevisionsDisplayedSeparately() {
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemId id = OrderItemId.generate();
-        query.snapshot = snapshot(id, OrderItemStatus.ACTIVE, true, true);
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(new FakeDocs(), query, auth(allItemPerms()));
-        viewModel.openExisting(id);
-        assertTrue(viewModel.activeRevisionTextProperty().get().startsWith("1"));
-        assertTrue(viewModel.draftRevisionTextProperty().get().startsWith("2"));
-        assertEquals("1", viewModel.draftSpecLineCountTextProperty().get());
-    }
-
-    @Test
-    void cancelAllowedOnlyForDraftItem() {
-        FakeDocs docs = new FakeDocs();
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemId draftId = OrderItemId.generate();
-        query.snapshot = snapshot(draftId, OrderItemStatus.DRAFT, true, false);
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
-        viewModel.openExisting(draftId);
+        assertTrue(viewModel.fieldsEditableProperty().get());
+        assertTrue(viewModel.canSaveProperty().get());
         assertTrue(viewModel.canCancelItemProperty().get());
-
-        OrderItemId activeId = OrderItemId.generate();
-        query.snapshot = snapshot(activeId, OrderItemStatus.ACTIVE, false, true);
-        viewModel.openExisting(activeId);
-        assertFalse(viewModel.canCancelItemProperty().get());
-        viewModel.cancelItem();
-        assertFalse(docs.cancelCalled);
-        assertTrue(viewModel.errorMessageProperty().get().length() > 0);
+        assertEquals(OrderItemOperationalStatus.EDITING, viewModel.operationalStatusProperty().get());
     }
 
     @Test
-    void secondDraftRevisionIsBlocked() {
+    void readOnlyAfterTransferHidesMutationActions() {
         FakeDocs docs = new FakeDocs();
         FakeEditorQuery query = new FakeEditorQuery();
+        FakeOrderQuery orders = new FakeOrderQuery();
         OrderItemId id = OrderItemId.generate();
-        query.snapshot = snapshot(id, OrderItemStatus.ACTIVE, true, true);
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
-        viewModel.openExisting(id);
-        assertFalse(viewModel.canCreateRevisionProperty().get());
-        viewModel.createNextRevision();
-        assertFalse(docs.revisionCreateCalled);
-        assertEquals(OrderUiErrorMapper.FORBIDDEN_TRANSITION, viewModel.errorMessageProperty().get());
-    }
-
-    @Test
-    void createNextRevisionPostsRevisionCreateDocument() {
-        FakeDocs docs = new FakeDocs();
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemId id = OrderItemId.generate();
-        docs.postResult = id;
-        query.snapshot = snapshot(id, OrderItemStatus.ACTIVE, false, true);
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
-        viewModel.openExisting(id);
-        assertTrue(viewModel.canCreateRevisionProperty().get());
-        query.snapshot = snapshot(id, OrderItemStatus.ACTIVE, true, true);
-        viewModel.createNextRevision();
-        assertTrue(docs.revisionCreateCalled);
-        assertTrue(docs.saveRevisionCreateCalled);
-        assertTrue(docs.postCalled);
-        assertTrue(viewModel.successMessageProperty().get().contains("создана"));
-    }
-
-    @Test
-    void mutationsDisabledWhenParentOrderIsActive() {
-        FakeDocs docs = new FakeDocs();
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemId id = OrderItemId.generate();
-        query.snapshot = snapshot(id, OrderItemStatus.ACTIVE, false, true);
+        OrderId orderId = OrderId.generate();
+        query.snapshot =
+                OrderItemEditorSnapshot.of(
+                        id,
+                        orderId,
+                        "P-1",
+                        "Panel",
+                        null,
+                        null,
+                        OrderItemStatus.ACTIVE,
+                        OrderItemEditorSnapshot.RevisionView.of(
+                                RevisionNumber.first(), RevisionStatus.ACTIVE, BigDecimal.TEN, 1),
+                        null,
+                        BigDecimal.TEN);
+        orders.status = OrderStatus.ACTIVE;
         OrderItemEditorViewModel viewModel =
                 new OrderItemEditorViewModel(
-                        docs, query, auth(allItemPerms()), new StatusOrderQuery(OrderStatus.ACTIVE));
+                        docs, query, auth(allItemPerms()), orders, new FakeCurrentSpec(), null);
         viewModel.openExisting(id);
-        assertFalse(viewModel.canCreateRevisionProperty().get());
-        viewModel.createNextRevision();
-        assertFalse(docs.revisionCreateCalled);
-        assertEquals(OrderUiErrorMapper.FORBIDDEN_TRANSITION, viewModel.errorMessageProperty().get());
-    }
-
-    @Test
-    void revisionQuantityUpdateUsesRevisionUpdateDocument() {
-        FakeDocs docs = new FakeDocs();
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemId id = OrderItemId.generate();
-        docs.postResult = id;
-        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false);
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
-        viewModel.openExisting(id);
-        viewModel.orderedQuantityProperty().set("9");
-        viewModel.saveRevisionQuantityDraft();
-        assertTrue(docs.saveRevisionUpdateCalled);
-        viewModel.postRevisionUpdate();
-        assertTrue(docs.postCalled);
-        assertEquals("Количество черновой редакции обновлено", viewModel.successMessageProperty().get());
-    }
-
-    @Test
-    void repeatedPostShowsAlreadyPostedAndKeepsLocalState() {
-        FakeDocs docs = new FakeDocs();
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemId id = OrderItemId.generate();
-        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false);
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
-        viewModel.openExisting(id);
-        viewModel.orderedQuantityProperty().set("9");
-        viewModel.saveRevisionQuantityDraft();
-        UUID documentId = viewModel.documentIdForTest();
-        docs.failPost =
-                new IllegalStateException(
-                        "Operation requires DRAFT status: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        viewModel.postRevisionUpdate();
-        assertEquals(documentId, viewModel.documentIdForTest());
-        assertEquals("9", viewModel.orderedQuantityProperty().get());
-        assertEquals(OrderUiErrorMapper.ALREADY_POSTED, viewModel.errorMessageProperty().get());
-        assertEquals("", viewModel.successMessageProperty().get());
-        assertFalse(viewModel.errorMessageProperty().get().contains("aaaaaaaa"));
-    }
-
-    @Test
-    void approveRevisionReloadsActivePointer() {
-        FakeDocs docs = new FakeDocs();
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemId id = OrderItemId.generate();
-        docs.postResult = id;
-        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false);
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
-        viewModel.openExisting(id);
-        query.snapshot = snapshot(id, OrderItemStatus.ACTIVE, false, true);
-        viewModel.approveDraftRevision();
-        assertTrue(docs.approveCalled);
-        assertTrue(viewModel.activeRevisionTextProperty().get().startsWith("1"));
-        assertEquals("—", viewModel.draftRevisionTextProperty().get());
-        assertEquals("Редакция утверждена", viewModel.successMessageProperty().get());
-    }
-
-    @Test
-    void permissionsHideUnavailableActions() {
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemId id = OrderItemId.generate();
-        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false);
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(
-                        new FakeDocs(),
-                        query,
-                        auth(Set.of(PermissionId.of("order.item.view"))));
-        viewModel.openExisting(id);
-        assertFalse(viewModel.canSaveCommercialDraftProperty().get());
+        assertFalse(viewModel.fieldsEditableProperty().get());
+        assertFalse(viewModel.canSaveProperty().get());
         assertFalse(viewModel.canCancelItemProperty().get());
-        assertFalse(viewModel.canApproveRevisionProperty().get());
-        assertFalse(viewModel.canOpenDraftSpecificationProperty().get());
+        assertTrue(viewModel.canOpenSpecificationProperty().get());
     }
 
     @Test
-    void openSpecificationActionsRequireViewPermissionAndRevision() {
+    void openSpecificationUsesCurrentFacade() {
+        FakeDocs docs = new FakeDocs();
         FakeEditorQuery query = new FakeEditorQuery();
+        FakeCurrentSpec current = new FakeCurrentSpec();
         OrderItemId id = OrderItemId.generate();
-        query.snapshot = snapshot(id, OrderItemStatus.ACTIVE, true, true);
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false);
+        current.ref = CurrentOrderItemSpecificationRef.of(id, revision);
         AtomicReference<OrderItemEditorViewModel.RevisionTarget> opened = new AtomicReference<>();
         OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(new FakeDocs(), query, auth(allItemPerms()));
+                new OrderItemEditorViewModel(
+                        docs, query, auth(allItemPerms()), null, current, null);
         viewModel.setOnOpenSpecification(opened::set);
         viewModel.openExisting(id);
-        assertTrue(viewModel.canOpenActiveSpecificationProperty().get());
-        assertTrue(viewModel.canOpenDraftSpecificationProperty().get());
-        viewModel.openDraftSpecification();
+        viewModel.openSpecification();
+        assertNotNull(opened.get());
         assertEquals(id, opened.get().orderItemId());
-        assertEquals(2, opened.get().revisionNumber().value());
-        viewModel.openActiveSpecification();
-        assertEquals(1, opened.get().revisionNumber().value());
+        assertEquals(revision, opened.get().revisionNumber());
     }
 
     @Test
-    void activePositionIsViewOnly() {
+    void cancelItemStillUsesDocumentApi() {
+        FakeDocs docs = new FakeDocs();
         FakeEditorQuery query = new FakeEditorQuery();
         OrderItemId id = OrderItemId.generate();
-        query.snapshot = snapshot(id, OrderItemStatus.ACTIVE, false, true, "IMP-1");
+        docs.postResult = id;
+        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false);
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
+        viewModel.openExisting(id);
+        viewModel.cancelItem();
+        assertTrue(docs.cancelCalled);
+        assertTrue(docs.postCalled);
+    }
+
+    @Test
+    void titleUsesProductCode() {
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemId id = OrderItemId.generate();
+        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false);
         OrderItemEditorViewModel viewModel =
                 new OrderItemEditorViewModel(new FakeDocs(), query, auth(allItemPerms()));
         viewModel.openExisting(id);
-        assertFalse(viewModel.commercialEditableProperty().get(), "ACTIVE Position: view only");
-        assertFalse(viewModel.canSaveCommercialDraftProperty().get());
-        assertFalse(viewModel.canPostCommercialProperty().get());
-    }
-
-    @Test
-    void viewModelHasNoRepositoryOrJdbcFields() {
-        for (Field field : OrderItemEditorViewModel.class.getDeclaredFields()) {
-            String name = field.getType().getName();
-            assertFalse(name.contains("JdbcTemplate"));
-            assertFalse(name.contains("Repository"));
-            assertFalse(name.contains("persistence"));
-            assertFalse(name.contains("DocumentProcessor"));
-        }
-    }
-
-    @Test
-    void orderedQuantityValidationRejectsInvalidValuesWithRussianMessages() {
-        FakeDocs docs = new FakeDocs();
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
-        viewModel.openCreate(OrderId.generate());
-        viewModel.productCodeProperty().set("P-1");
-        viewModel.nameProperty().set("Panel");
-
-        viewModel.orderedQuantityProperty().set("");
-        viewModel.saveCommercialDraft();
-        assertEquals("Количество изделий обязательно для заполнения.", viewModel.errorMessageProperty().get());
-
-        viewModel.orderedQuantityProperty().set("2.5");
-        viewModel.saveCommercialDraft();
-        assertEquals(
-                "Количество изделий должно быть целым числом больше нуля.",
-                viewModel.errorMessageProperty().get());
-
-        viewModel.orderedQuantityProperty().set("0");
-        viewModel.saveCommercialDraft();
-        assertEquals(
-                "Количество изделий должно быть целым числом больше нуля.",
-                viewModel.errorMessageProperty().get());
-
-        viewModel.orderedQuantityProperty().set("-1");
-        viewModel.saveCommercialDraft();
-        assertEquals(
-                "Количество изделий должно быть целым числом больше нуля.",
-                viewModel.errorMessageProperty().get());
-
-        viewModel.orderedQuantityProperty().set("abc");
-        viewModel.saveCommercialDraft();
-        assertEquals("Количество изделий должно быть числом.", viewModel.errorMessageProperty().get());
-        assertFalse(docs.saveCreateCalled);
-    }
-
-    @Test
-    void importedDraftWithScaledProductQuantityAllowsCommentSave() {
-        FakeDocs docs = new FakeDocs();
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemId id = OrderItemId.generate();
-        BigDecimal importedQuantity = new BigDecimal("8.000000");
-        query.snapshot =
-                OrderItemEditorSnapshot.of(
-                        id,
-                        OrderId.generate(),
-                        null,
-                        null,
-                        "old-comment",
-                        "1",
-                        OrderItemStatus.DRAFT,
-                        null,
-                        OrderItemEditorSnapshot.RevisionView.of(
-                                RevisionNumber.first(),
-                                RevisionStatus.DRAFT,
-                                importedQuantity,
-                                2),
-                        importedQuantity);
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
-        viewModel.openExisting(id);
-        // NUMERIC(19,6) leftovers must not appear as fractional UI text.
-        assertEquals("8", viewModel.orderedQuantityProperty().get());
-
-        viewModel.commentsProperty().set("smoke-comment");
-        viewModel.saveCommercialDraft();
-
-        assertEquals("", viewModel.errorMessageProperty().get());
-        assertTrue(docs.saveUpdateCalled);
-        assertEquals("smoke-comment", docs.lastCommercialDraft.comments());
-    }
-
-    @Test
-    void commercialDraftSaveForImportedItemIgnoresScaledQuantityDisplayLeftovers() {
-        FakeDocs docs = new FakeDocs();
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemId id = OrderItemId.generate();
-        BigDecimal importedQuantity = new BigDecimal("8.000000");
-        query.snapshot =
-                OrderItemEditorSnapshot.of(
-                        id,
-                        OrderId.generate(),
-                        null,
-                        null,
-                        "old-comment",
-                        "1",
-                        OrderItemStatus.DRAFT,
-                        null,
-                        OrderItemEditorSnapshot.RevisionView.of(
-                                RevisionNumber.first(),
-                                RevisionStatus.DRAFT,
-                                importedQuantity,
-                                2),
-                        importedQuantity);
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
-        viewModel.openExisting(id);
-        // Simulate user/manual field still holding scaled text after open.
-        viewModel.orderedQuantityProperty().set("8.000000");
-        viewModel.commentsProperty().set("after-import-comment");
-        viewModel.saveCommercialDraft();
-
-        assertEquals("", viewModel.errorMessageProperty().get());
-        assertTrue(
-                viewModel.successMessageProperty().get().contains("Черновик изменения позиции"));
-        assertTrue(docs.saveUpdateCalled);
-        assertEquals("after-import-comment", docs.lastCommercialDraft.comments());
-        assertEquals("8", viewModel.orderedQuantityProperty().get());
-    }
-
-    @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"8", "8.0", "8.000000"})
-    void createCommercialDraftAcceptsWholeScaledQuantities(String rawQuantity) {
-        FakeDocs docs = new FakeDocs();
-        FakeEditorQuery query = new FakeEditorQuery();
-        OrderItemEditorViewModel viewModel =
-                new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
-        viewModel.openCreate(OrderId.generate());
-        viewModel.productCodeProperty().set("P-1");
-        viewModel.nameProperty().set("Panel");
-        viewModel.orderedQuantityProperty().set(rawQuantity);
-        viewModel.saveCommercialDraft();
-
-        assertEquals("", viewModel.errorMessageProperty().get());
-        assertTrue(docs.saveCreateCalled);
-        assertEquals("8", docs.lastOrderedQuantity);
-        assertEquals("8", viewModel.orderedQuantityProperty().get());
+        assertEquals("Позиция P-1", viewModel.titleProperty().get());
     }
 
     private static Set<PermissionId> allItemPerms() {
@@ -543,16 +178,12 @@ class OrderItemEditorViewModelTest {
                 PermissionId.of("order.specification.view"));
     }
 
-    private static AuthorizationService auth(Set<PermissionId> granted) {
+    private static FakeAuthorization auth(Set<PermissionId> granted) {
         return new FakeAuthorization(granted);
     }
 
     private static OrderItemEditorSnapshot snapshot(
-            OrderItemId id,
-            OrderItemStatus status,
-            boolean withDraft,
-            boolean withActive,
-            String externalPositionNumber) {
+            OrderItemId id, OrderItemStatus status, boolean withDraft, boolean withActive) {
         OrderItemEditorSnapshot.RevisionView active =
                 withActive
                         ? OrderItemEditorSnapshot.RevisionView.of(
@@ -579,29 +210,38 @@ class OrderItemEditorViewModelTest {
                 "P-1",
                 "Panel",
                 null,
-                externalPositionNumber,
+                "EXT-1",
                 status,
                 active,
                 draft,
                 quantity);
     }
 
-    private static OrderItemEditorSnapshot snapshot(
-            OrderItemId id, OrderItemStatus status, boolean withDraft, boolean withActive) {
-        return snapshot(id, status, withDraft, withActive, null);
+    private static final class FakeEditorQuery implements OrderItemEditorQueryService {
+        private OrderItemEditorSnapshot snapshot;
+
+        @Override
+        public Optional<OrderItemEditorSnapshot> getEditorSnapshot(OrderItemId orderItemId) {
+            return Optional.ofNullable(snapshot);
+        }
     }
 
-    private static final class StatusOrderQuery implements OrderQueryService {
-        private final OrderStatus status;
+    private static final class FakeCurrentSpec implements CurrentOrderItemSpecificationUiService {
+        private CurrentOrderItemSpecificationRef ref;
 
-        private StatusOrderQuery(OrderStatus status) {
-            this.status = status;
+        @Override
+        public Optional<CurrentOrderItemSpecificationRef> resolveCurrent(OrderItemId orderItemId) {
+            return Optional.ofNullable(ref);
         }
+    }
+
+    private static final class FakeOrderQuery implements OrderQueryService {
+        private OrderStatus status = OrderStatus.DRAFT;
 
         @Override
         public PageResult<OrderSummaryDto> searchOrders(
                 OrderSearchCriteria criteria, PageRequest pageRequest) {
-            return PageResult.of(List.of(), pageRequest.pageIndex(), pageRequest.pageSize(), 0);
+            return PageResult.of(List.of(), 0, pageRequest.pageSize(), 0);
         }
 
         @Override
@@ -609,43 +249,45 @@ class OrderItemEditorViewModelTest {
             return Optional.of(
                     OrderDto.of(
                             orderId,
-                            "ORD-1",
+                            "O-1",
                             status,
-                            "C-1",
-                            "Customer",
                             null,
                             null,
                             null,
                             null,
                             null,
-                            java.time.Instant.EPOCH,
-                            java.time.Instant.EPOCH));
+                            null,
+                            null,
+                            Instant.parse("2026-07-27T10:00:00Z"),
+                            Instant.parse("2026-07-27T10:00:00Z")));
         }
 
         @Override
-        public PageResult<OrderItemDto> getOrderItems(OrderId orderId, PageRequest pageRequest) {
-            return PageResult.of(List.of(), pageRequest.pageIndex(), pageRequest.pageSize(), 0);
+        public PageResult<com.tmp.order.api.OrderItemDto> getOrderItems(
+                OrderId orderId, PageRequest pageRequest) {
+            return PageResult.of(List.of(), 0, pageRequest.pageSize(), 0);
         }
 
         @Override
-        public Optional<OrderItemDto> getOrderItem(OrderItemId orderItemId) {
+        public Optional<com.tmp.order.api.OrderItemDto> getOrderItem(OrderItemId orderItemId) {
             return Optional.empty();
         }
 
         @Override
-        public PageResult<OrderItemRevisionDto> getOrderItemRevisions(
+        public PageResult<com.tmp.order.api.OrderItemRevisionDto> getOrderItemRevisions(
                 OrderItemId orderItemId, PageRequest pageRequest) {
-            return PageResult.of(List.of(), pageRequest.pageIndex(), pageRequest.pageSize(), 0);
+            return PageResult.of(List.of(), 0, pageRequest.pageSize(), 0);
         }
 
         @Override
-        public Optional<OrderItemRevisionDto> getOrderItemRevision(
+        public Optional<com.tmp.order.api.OrderItemRevisionDto> getOrderItemRevision(
                 OrderItemId orderItemId, RevisionNumber revisionNumber) {
             return Optional.empty();
         }
 
         @Override
-        public Optional<OrderItemRevisionDto> getActiveOrderItemRevision(OrderItemId orderItemId) {
+        public Optional<com.tmp.order.api.OrderItemRevisionDto> getActiveOrderItemRevision(
+                OrderItemId orderItemId) {
             return Optional.empty();
         }
 
@@ -673,71 +315,45 @@ class OrderItemEditorViewModelTest {
         }
     }
 
-    private static final class FakeEditorQuery implements OrderItemEditorQueryService {
-        private OrderItemEditorSnapshot snapshot;
-
-        @Override
-        public Optional<OrderItemEditorSnapshot> getEditorSnapshot(OrderItemId orderItemId) {
-            return Optional.ofNullable(snapshot);
-        }
-    }
-
     private static final class FakeDocs implements OrderItemDocumentUiService {
         private OrderItemId postResult;
-        private String lastBeginType;
-        private boolean saveCreateCalled;
-        private boolean saveUpdateCalled;
-        private boolean saveRevisionCreateCalled;
-        private boolean saveRevisionUpdateCalled;
+        private OrderItemId saveNewResult = OrderItemId.generate();
+        private boolean saveNewCalled;
+        private boolean saveExistingCalled;
+        private boolean beginCreateCalled;
         private boolean postCalled;
         private boolean cancelCalled;
-        private boolean revisionCreateCalled;
-        private boolean approveCalled;
-        private UUID lastDocumentId = UUID.randomUUID();
-        private RuntimeException failPost;
         private OrderItemCommercialDraft lastCommercialDraft;
-        private String lastOrderedQuantity;
 
         @Override
         public UUID beginItemCreate(String title, OrderId orderId) {
-            lastBeginType = "ORDER_ITEM_CREATE";
-            lastDocumentId = UUID.randomUUID();
-            return lastDocumentId;
+            beginCreateCalled = true;
+            return UUID.randomUUID();
         }
 
         @Override
         public UUID beginItemUpdate(String title, OrderItemId orderItemId) {
-            lastBeginType = "ORDER_ITEM_UPDATE";
-            lastDocumentId = UUID.randomUUID();
-            return lastDocumentId;
+            return UUID.randomUUID();
         }
 
         @Override
         public UUID beginItemCancel(String title, OrderItemId orderItemId) {
             cancelCalled = true;
-            lastBeginType = "ORDER_ITEM_CANCEL";
             return UUID.randomUUID();
         }
 
         @Override
         public UUID beginRevisionCreate(String title, OrderItemId orderItemId) {
-            revisionCreateCalled = true;
-            lastBeginType = "ORDER_ITEM_REVISION_CREATE";
-            lastDocumentId = UUID.randomUUID();
-            return lastDocumentId;
+            return UUID.randomUUID();
         }
 
         @Override
         public UUID beginRevisionUpdate(String title, OrderItemId orderItemId) {
-            lastBeginType = "ORDER_ITEM_REVISION_UPDATE";
-            lastDocumentId = UUID.randomUUID();
-            return lastDocumentId;
+            return UUID.randomUUID();
         }
 
         @Override
         public UUID beginRevisionApprove(String title, OrderItemId orderItemId) {
-            approveCalled = true;
-            lastBeginType = "ORDER_ITEM_REVISION_APPROVE";
             return UUID.randomUUID();
         }
 
@@ -749,9 +365,6 @@ class OrderItemEditorViewModelTest {
                 OrderItemCommercialDraft draft,
                 String orderedQuantity,
                 long expectedPayloadRevision) {
-            saveCreateCalled = true;
-            lastCommercialDraft = draft;
-            lastOrderedQuantity = orderedQuantity;
             return expectedPayloadRevision + 1;
         }
 
@@ -761,8 +374,6 @@ class OrderItemEditorViewModelTest {
                 OrderItemId orderItemId,
                 OrderItemCommercialDraft draft,
                 long expectedPayloadRevision) {
-            saveUpdateCalled = true;
-            lastCommercialDraft = draft;
             return expectedPayloadRevision + 1;
         }
 
@@ -773,7 +384,6 @@ class OrderItemEditorViewModelTest {
                 RevisionNumber revisionNumber,
                 Optional<RevisionNumber> copyFromRevisionNumber,
                 long expectedPayloadRevision) {
-            saveRevisionCreateCalled = true;
             return expectedPayloadRevision + 1;
         }
 
@@ -785,7 +395,6 @@ class OrderItemEditorViewModelTest {
                 String orderedQuantity,
                 List<OrderItemSpecificationLineDraft> specificationLines,
                 long expectedPayloadRevision) {
-            saveRevisionUpdateCalled = true;
             return expectedPayloadRevision + 1;
         }
 
@@ -796,22 +405,29 @@ class OrderItemEditorViewModelTest {
                 RevisionNumber revisionNumber,
                 String orderedQuantity,
                 long expectedPayloadRevision) {
-            return saveRevisionUpdateDraft(
-                    documentId,
-                    orderItemId,
-                    revisionNumber,
-                    orderedQuantity,
-                    List.of(),
-                    expectedPayloadRevision);
+            return expectedPayloadRevision + 1;
         }
 
         @Override
         public OrderItemId postDocument(UUID documentId) {
-            if (failPost != null) {
-                throw failPost;
-            }
             postCalled = true;
-            return postResult;
+            return postResult == null ? OrderItemId.generate() : postResult;
+        }
+
+        @Override
+        public OrderItemId saveNewItem(
+                OrderId orderId, OrderItemCommercialDraft draft, String orderedQuantity) {
+            saveNewCalled = true;
+            lastCommercialDraft = draft;
+            return saveNewResult;
+        }
+
+        @Override
+        public OrderItemId saveExistingItem(
+                OrderItemId orderItemId, OrderItemCommercialDraft draft, String orderedQuantity) {
+            saveExistingCalled = true;
+            lastCommercialDraft = draft;
+            return orderItemId;
         }
 
         @Override

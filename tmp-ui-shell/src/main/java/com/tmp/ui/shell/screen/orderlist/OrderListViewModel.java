@@ -383,13 +383,13 @@ public final class OrderListViewModel {
         onFiltersChanged();
     }
 
-    public List<OrderCustomerOptionDto> loadCustomerOptions() {
+    public Optional<List<OrderCustomerOptionDto>> loadCustomerOptions() {
         try {
-            return worklistQuery.listKnownCustomers();
+            return Optional.of(List.copyOf(worklistQuery.listKnownCustomers()));
         } catch (RuntimeException ex) {
             LOGGER.log(Level.ERROR, "Failed to load known customer options", ex);
             errorMessage.set(OrderUiErrorMapper.text(ex, OrderUiOperation.LOAD));
-            return List.of();
+            return Optional.empty();
         }
     }
 

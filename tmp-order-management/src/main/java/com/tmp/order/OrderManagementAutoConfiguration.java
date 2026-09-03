@@ -7,6 +7,7 @@ import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderWorklistQuery;
 import com.tmp.order.api.imports.OrderImportService;
 import com.tmp.order.api.imports.StxtOrderFileParser;
+import com.tmp.order.api.ui.CurrentOrderItemSpecificationUiService;
 import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
@@ -45,6 +46,7 @@ import com.tmp.order.application.query.DefaultOrderQueryService;
 import com.tmp.order.application.query.DefaultOrderWorklistQuery;
 import com.tmp.order.application.query.MaterialReferenceDisplayReadPort;
 import com.tmp.order.application.query.OrderQueryReadPort;
+import com.tmp.order.application.ui.DefaultCurrentOrderItemSpecificationUiService;
 import com.tmp.order.application.ui.DefaultOrderDocumentUiService;
 import com.tmp.order.application.ui.DefaultOrderItemDocumentUiService;
 import com.tmp.order.application.ui.DefaultOrderItemEditorQueryService;
@@ -434,16 +436,28 @@ public class OrderManagementAutoConfiguration {
             DocumentEngine documentEngine,
             DraftPayloadApplicationService draftPayloadApplicationService,
             OrderItemRepository orderItemRepository,
+            OrderQueryService orderQueryService,
             ProcessingRecordPort processingRecordPort,
             AuthorizationService authorizationService,
-            Clock clock) {
+            Clock clock,
+            PlatformTransactionManager transactionManager) {
         return new DefaultOrderItemDocumentUiService(
                 documentEngine,
                 draftPayloadApplicationService,
                 orderItemRepository,
+                orderQueryService,
                 processingRecordPort,
                 authorizationService,
-                clock);
+                clock,
+                transactionManager);
+    }
+
+    @Bean
+    CurrentOrderItemSpecificationUiService defaultCurrentOrderItemSpecificationUiService(
+            OrderItemRepository orderItemRepository,
+            AuthorizationService authorizationService) {
+        return new DefaultCurrentOrderItemSpecificationUiService(
+                orderItemRepository, authorizationService);
     }
 
     @Bean

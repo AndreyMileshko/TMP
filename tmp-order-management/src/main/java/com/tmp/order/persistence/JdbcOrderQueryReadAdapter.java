@@ -528,10 +528,16 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
         List<OrderCustomerOptionDto> options =
                 jdbc.query(
                         """
-                        SELECT DISTINCT o.customer_ref, o.customer_name
-                          FROM order_management.orders o
-                         WHERE o.customer_ref IS NOT NULL
-                         ORDER BY o.customer_name NULLS LAST, o.customer_ref
+                        SELECT canonical.customer_ref, canonical.customer_name
+                          FROM (
+                                SELECT DISTINCT ON (o.customer_ref)
+                                       o.customer_ref,
+                                       o.customer_name
+                                  FROM order_management.orders o
+                                 WHERE o.customer_ref IS NOT NULL
+                                 ORDER BY o.customer_ref, o.created_at DESC, o.order_id DESC
+                          ) canonical
+                         ORDER BY canonical.customer_name NULLS LAST, canonical.customer_ref
                         """,
                         (rs, rowNum) ->
                                 OrderCustomerOptionDto.of(

@@ -47,6 +47,17 @@
 
     -tmp-focus: #2D8FE3;
 
+    -tmp-table-selection-bg: rgba(95, 170, 110, 0.18);
+    -tmp-table-selection-hover-bg: rgba(95, 170, 110, 0.28);
+
+    -tmp-status-indicator-editing: #7A8699;
+    -tmp-status-indicator-waiting: #F2B705;
+    -tmp-status-indicator-progress: #2196F3;
+    -tmp-status-indicator-success: #32B85A;
+    -tmp-status-indicator-partial: #FF8A00;
+    -tmp-status-indicator-cancelled: #EF4444;
+    -tmp-status-indicator-unavailable: #B0B8C4;
+
     -fx-font-family: "Segoe UI", system-ui, sans-serif;
     -fx-font-size: 13px;
     -fx-text-fill: -tmp-text;
@@ -422,13 +433,25 @@
     -fx-background-color: -tmp-surface-hover;
 }
 
+.table-view .table-row-cell:filled:selected,
 .table-view:focused .table-row-cell:filled:selected {
-    -fx-background-color: -tmp-primary-soft;
+    -fx-background-color: -tmp-table-selection-bg;
     -fx-table-cell-border-color: transparent;
 }
 
-.table-view .table-row-cell:filled:selected .text {
+.table-view .table-row-cell:filled:selected:hover,
+.table-view:focused .table-row-cell:filled:selected:hover {
+    -fx-background-color: -tmp-table-selection-hover-bg;
+}
+
+.table-view .table-row-cell:filled:selected .text,
+.table-view:focused .table-row-cell:filled:selected .text {
     -fx-fill: -tmp-text;
+}
+
+.table-view .table-row-cell:filled:selected .table-cell,
+.table-view:focused .table-row-cell:filled:selected .table-cell {
+    -fx-text-fill: -tmp-text;
 }
 
 .table-view .table-cell {
@@ -968,31 +991,31 @@
 }
 
 .tmp-status-dot-neutral {
-    -fx-fill: -tmp-text-secondary;
+    -fx-fill: -tmp-status-indicator-editing;
 }
 
 .tmp-status-dot-warning {
-    -fx-fill: -tmp-warning;
+    -fx-fill: -tmp-status-indicator-waiting;
 }
 
 .tmp-status-dot-warning-strong {
-    -fx-fill: -tmp-warning-strong;
+    -fx-fill: -tmp-status-indicator-partial;
 }
 
 .tmp-status-dot-info {
-    -fx-fill: -tmp-primary;
+    -fx-fill: -tmp-status-indicator-progress;
 }
 
 .tmp-status-dot-success {
-    -fx-fill: -tmp-success;
+    -fx-fill: -tmp-status-indicator-success;
 }
 
 .tmp-status-dot-danger {
-    -fx-fill: -tmp-danger;
+    -fx-fill: -tmp-status-indicator-cancelled;
 }
 
 .tmp-status-dot-unavailable {
-    -fx-fill: -tmp-border;
+    -fx-fill: -tmp-status-indicator-unavailable;
 }
 
 .tmp-status-caption {

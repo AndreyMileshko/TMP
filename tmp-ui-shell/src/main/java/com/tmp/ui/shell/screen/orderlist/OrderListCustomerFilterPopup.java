@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import javafx.geometry.Insets;
@@ -35,6 +36,8 @@ final class OrderListCustomerFilterPopup {
             Set<String> selectedRefs,
             boolean includeUnassigned,
             Consumer<Selection> onApply) {
+        Objects.requireNonNull(options, "options");
+        Objects.requireNonNull(onApply, "onApply");
         Popup popup = new Popup();
         popup.setAutoHide(true);
 
@@ -66,6 +69,11 @@ final class OrderListCustomerFilterPopup {
             optionBox.getChildren().add(box);
         }
 
+        Label emptyLabel = new Label("Заказчиков пока нет");
+        emptyLabel.getStyleClass().add("tmp-empty-state-hint");
+        emptyLabel.setVisible(rows.isEmpty());
+        emptyLabel.setManaged(rows.isEmpty());
+
         selectAllBox.selectedProperty().addListener((obs, old, selected) -> {
             if (Boolean.TRUE.equals(selected)) {
                 for (OptionRow row : rows) {
@@ -77,7 +85,7 @@ final class OrderListCustomerFilterPopup {
             row.box.selectedProperty().addListener((obs, old, selected) -> {
                 if (Boolean.FALSE.equals(selected)) {
                     selectAllBox.setSelected(false);
-                } else if (rows.stream().allMatch(item -> item.box.isSelected())) {
+                } else if (!rows.isEmpty() && rows.stream().allMatch(item -> item.box.isSelected())) {
                     selectAllBox.setSelected(true);
                 }
             });
@@ -95,28 +103,20 @@ final class OrderListCustomerFilterPopup {
         ScrollPane scroll = new ScrollPane(optionBox);
         scroll.setFitToWidth(true);
         scroll.setPrefHeight(180);
+        scroll.setVisible(!rows.isEmpty());
+        scroll.setManaged(!rows.isEmpty());
 
         Button apply = new Button("Применить");
         apply.getStyleClass().add("tmp-button-action");
         Button reset = new Button("Сбросить");
         reset.getStyleClass().add("tmp-button-secondary");
         apply.setOnAction(e -> {
-            boolean all = selectAllBox.isSelected() || rows.stream().allMatch(item -> item.box.isSelected());
-            Set<String> refs = new LinkedHashSet<>();
-            boolean unassigned = false;
-            if (!all) {
-                for (OptionRow row : rows) {
-                    if (!row.box.isSelected()) {
-                        continue;
-                    }
-                    if (row.option.isUnassigned()) {
-                        unassigned = true;
-                    } else if (row.option.customerRef() != null) {
-                        refs.add(row.option.customerRef());
-                    }
-                }
+            Selection selection = resolveSelection(selectAllBox.isSelected(), rows);
+            if (selection == null) {
+                popup.hide();
+                return;
             }
-            onApply.accept(new Selection(all, refs, unassigned));
+            onApply.accept(selection);
             popup.hide();
         });
         reset.setOnAction(e -> {
@@ -128,12 +128,40 @@ final class OrderListCustomerFilterPopup {
 
         HBox actions = new HBox(8, apply, reset);
         root.getChildren()
-                .addAll(title, search, selectAllBox, new Separator(), scroll, actions);
+                .addAll(title, search, selectAllBox, new Separator(), emptyLabel, scroll, actions);
         root.setPadding(new Insets(12));
         popup.getContent().add(root);
         var bounds = owner.localToScreen(owner.getBoundsInLocal());
         popup.show(owner, bounds.getMinX(), bounds.getMaxY() + 4);
         return popup;
+    }
+
+    /**
+     * Resolves Apply selection. Empty option rows never imply «select all» via {@code allMatch}.
+     * Returns {@code null} when Apply would be a no-op (empty catalogue without explicit select-all).
+     */
+    static Selection resolveSelection(boolean selectAllChecked, List<OptionRow> rows) {
+        if (rows.isEmpty() && !selectAllChecked) {
+            return null;
+        }
+        boolean all =
+                selectAllChecked
+                        || (!rows.isEmpty() && rows.stream().allMatch(item -> item.box.isSelected()));
+        Set<String> refs = new LinkedHashSet<>();
+        boolean unassigned = false;
+        if (!all) {
+            for (OptionRow row : rows) {
+                if (!row.box.isSelected()) {
+                    continue;
+                }
+                if (row.option.isUnassigned()) {
+                    unassigned = true;
+                } else if (row.option.customerRef() != null) {
+                    refs.add(row.option.customerRef());
+                }
+            }
+        }
+        return new Selection(all, refs, unassigned);
     }
 
     private static String displayName(OrderCustomerOptionDto option) {
@@ -146,5 +174,5 @@ final class OrderListCustomerFilterPopup {
         return option.customerName();
     }
 
-    private record OptionRow(OrderCustomerOptionDto option, CheckBox box) {}
+    record OptionRow(OrderCustomerOptionDto option, CheckBox box) {}
 }

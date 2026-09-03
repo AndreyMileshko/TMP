@@ -725,6 +725,20 @@ class JdbcOrderQueryReadAdapterIT {
         assertEquals(List.of("CR-A1", "CR-A2"), refs);
     }
 
+    @Test
+    void knownCustomersCollapseSameRefToLatestDisplayName() {
+        seedOrder("ORD-OLD-NAME", "CR-1", "ООО Альфа", OrderStatus.DRAFT, T1);
+        seedOrder("ORD-NEW-NAME", "CR-1", "Альфа", OrderStatus.DRAFT, T3);
+
+        List<OrderCustomerOptionDto> options =
+                readAdapter.listKnownCustomers().stream()
+                        .filter(option -> "CR-1".equals(option.customerRef()))
+                        .toList();
+
+        assertEquals(1, options.size());
+        assertEquals("Альфа", options.getFirst().customerName());
+    }
+
     private enum AllowingAuthorization implements AuthorizationService {
         INSTANCE;
 

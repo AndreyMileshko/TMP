@@ -1,14 +1,19 @@
 package com.tmp.ui.shell.screen.orderitemlist;
 
-import com.tmp.order.api.OrderItemDto;
 import com.tmp.ui.shell.navigation.ViewModelAware;
+import com.tmp.ui.shell.order.worklist.OperationalStatusIndicator;
+import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatus;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseButton;
 
 /**
  * Order item list FXML controller. Query-driven; no Spring imports.
@@ -25,22 +30,19 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
     private Button createItemButton;
 
     @FXML
-    private Button openItemButton;
+    private TableView<OrderItemListRow> itemsTable;
 
     @FXML
-    private TableView<OrderItemDto> itemsTable;
+    private TableColumn<OrderItemListRow, String> productCodeColumn;
 
     @FXML
-    private TableColumn<OrderItemDto, String> productCodeColumn;
+    private TableColumn<OrderItemListRow, String> nameColumn;
 
     @FXML
-    private TableColumn<OrderItemDto, String> nameColumn;
+    private TableColumn<OrderItemListRow, String> quantityColumn;
 
     @FXML
-    private TableColumn<OrderItemDto, String> statusColumn;
-
-    @FXML
-    private TableColumn<OrderItemDto, String> activeRevisionColumn;
+    private TableColumn<OrderItemListRow, OrderItemOperationalStatus> statusColumn;
 
     @FXML
     private Label errorLabel;
@@ -49,6 +51,8 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
     public void setViewModel(OrderItemListViewModel viewModel) {
         titleLabel.textProperty().bind(viewModel.titleProperty());
         itemsTable.setItems(viewModel.items());
+        itemsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        nameColumn.setMaxWidth(Double.MAX_VALUE);
         itemsTable.getSelectionModel()
                 .selectedItemProperty()
                 .addListener((obs, oldValue, newValue) -> viewModel.selectedItemProperty().set(newValue));
@@ -56,28 +60,46 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
         productCodeColumn.setCellValueFactory(
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
-                                nullToEmpty(cell.getValue().productCode())));
+                                cell.getValue().productCode()));
         nameColumn.setCellValueFactory(
                 cell ->
+                        new javafx.beans.property.SimpleStringProperty(cell.getValue().name()));
+        quantityColumn.setCellValueFactory(
+                cell ->
                         new javafx.beans.property.SimpleStringProperty(
-                                nullToEmpty(cell.getValue().name())));
+                                cell.getValue().quantityDisplay()));
         statusColumn.setCellValueFactory(
                 cell ->
-                        new javafx.beans.property.SimpleStringProperty(
-                                cell.getValue().status().name()));
-        activeRevisionColumn.setCellValueFactory(
-                cell ->
-                        new javafx.beans.property.SimpleStringProperty(
-                                cell.getValue()
-                                        .activeRevisionNumber()
-                                        .map(Object::toString)
-                                        .orElse("")));
+                        new javafx.beans.property.SimpleObjectProperty<>(
+                                cell.getValue().operationalStatus()));
+        statusColumn.setCellFactory(column -> new StatusTableCell());
 
         createItemButton.disableProperty().bind(viewModel.canCreateProperty().not());
-        openItemButton.disableProperty().bind(viewModel.canOpenSelectedProperty().not());
-
+        createItemButton.visibleProperty().bind(viewModel.canCreateProperty());
+        createItemButton.managedProperty().bind(createItemButton.visibleProperty());
         createItemButton.setOnAction(e -> viewModel.createItem());
-        openItemButton.setOnAction(e -> viewModel.openSelected());
+
+        itemsTable.setRowFactory(
+                table -> {
+                    TableRow<OrderItemListRow> row = new TableRow<>();
+                    row.setOnMouseClicked(
+                            event -> {
+                                if (event.getButton() == MouseButton.PRIMARY
+                                        && event.getClickCount() == 2
+                                        && !row.isEmpty()) {
+                                    viewModel.selectedItemProperty().set(row.getItem());
+                                    viewModel.openSelected();
+                                }
+                            });
+                    return row;
+                });
+        itemsTable.setOnKeyPressed(
+                event -> {
+                    if (event.getCode() == KeyCode.ENTER
+                            && viewModel.selectedItemProperty().get() != null) {
+                        viewModel.openSelected();
+                    }
+                });
 
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
         errorLabel.visibleProperty().bind(Bindings.createBooleanBinding(
@@ -89,7 +111,18 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
     }
 
-    private static String nullToEmpty(String value) {
-        return value == null ? "" : value;
+    private static final class StatusTableCell
+            extends TableCell<OrderItemListRow, OrderItemOperationalStatus> {
+        @Override
+        protected void updateItem(OrderItemOperationalStatus status, boolean empty) {
+            super.updateItem(status, empty);
+            if (empty || status == null) {
+                setGraphic(null);
+                setText(null);
+                return;
+            }
+            setGraphic(OperationalStatusIndicator.create(status));
+            setText(null);
+        }
     }
 }

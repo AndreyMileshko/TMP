@@ -1,15 +1,18 @@
 package com.tmp.ui.shell.screen.orderitemeditor;
 
 import com.tmp.ui.shell.navigation.ViewModelAware;
+import com.tmp.ui.shell.order.worklist.OperationalStatusIndicator;
+import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatus;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.HBox;
 
 /**
- * Order item / revision editor FXML controller. Document-driven; no Spring imports.
+ * Order item card FXML controller. Document-driven via application facades; no Spring imports.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
@@ -20,61 +23,46 @@ public final class OrderItemEditorController implements ViewModelAware<OrderItem
     private Label titleLabel;
 
     @FXML
-    private Label statusLabel;
+    private HBox statusIndicatorBox;
 
     @FXML
     private TextField productCodeField;
 
     @FXML
+    private Label productCodeValueLabel;
+
+    @FXML
     private TextField nameField;
+
+    @FXML
+    private Label nameValueLabel;
 
     @FXML
     private TextField commentsField;
 
     @FXML
+    private Label commentsValueLabel;
+
+    @FXML
     private TextField externalPositionNumberField;
+
+    @FXML
+    private Label externalPositionNumberValueLabel;
 
     @FXML
     private TextField orderedQuantityField;
 
     @FXML
-    private Label activeRevisionLabel;
+    private Label orderedQuantityValueLabel;
 
     @FXML
-    private Label draftRevisionLabel;
+    private Button saveButton;
 
     @FXML
-    private Label draftSpecLineCountLabel;
-
-    @FXML
-    private TextField copyFromRevisionField;
-
-    @FXML
-    private Button saveCommercialButton;
-
-    @FXML
-    private Button postCommercialButton;
+    private Button openSpecificationButton;
 
     @FXML
     private Button cancelItemButton;
-
-    @FXML
-    private Button createRevisionButton;
-
-    @FXML
-    private Button saveRevisionButton;
-
-    @FXML
-    private Button postRevisionButton;
-
-    @FXML
-    private Button approveRevisionButton;
-
-    @FXML
-    private Button openActiveSpecificationButton;
-
-    @FXML
-    private Button openDraftSpecificationButton;
 
     @FXML
     private Label successLabel;
@@ -85,7 +73,6 @@ public final class OrderItemEditorController implements ViewModelAware<OrderItem
     @Override
     public void setViewModel(OrderItemEditorViewModel viewModel) {
         titleLabel.textProperty().bind(viewModel.titleProperty());
-        statusLabel.textProperty().bind(viewModel.statusTextProperty());
 
         productCodeField.textProperty().bindBidirectional(viewModel.productCodeProperty());
         nameField.textProperty().bindBidirectional(viewModel.nameProperty());
@@ -94,41 +81,37 @@ public final class OrderItemEditorController implements ViewModelAware<OrderItem
                 .textProperty()
                 .bindBidirectional(viewModel.externalPositionNumberProperty());
         orderedQuantityField.textProperty().bindBidirectional(viewModel.orderedQuantityProperty());
-        copyFromRevisionField.textProperty().bindBidirectional(viewModel.copyFromRevisionProperty());
 
-        activeRevisionLabel.textProperty().bind(viewModel.activeRevisionTextProperty());
-        draftRevisionLabel.textProperty().bind(viewModel.draftRevisionTextProperty());
-        draftSpecLineCountLabel.textProperty().bind(viewModel.draftSpecLineCountTextProperty());
+        productCodeValueLabel.textProperty().bind(viewModel.productCodeProperty());
+        nameValueLabel.textProperty().bind(viewModel.nameProperty());
+        commentsValueLabel.textProperty().bind(viewModel.commentsProperty());
+        externalPositionNumberValueLabel.textProperty().bind(viewModel.externalPositionNumberProperty());
+        orderedQuantityValueLabel.textProperty().bind(viewModel.orderedQuantityProperty());
 
-        productCodeField.disableProperty().bind(viewModel.commercialEditableProperty().not());
-        nameField.disableProperty().bind(viewModel.commercialEditableProperty().not());
-        commentsField.disableProperty().bind(viewModel.commercialEditableProperty().not());
-        externalPositionNumberField.disableProperty().bind(viewModel.commercialEditableProperty().not());
-        orderedQuantityField.disableProperty().bind(viewModel.quantityEditableProperty().not());
+        bindEditableChrome(viewModel);
 
-        saveCommercialButton.disableProperty().bind(viewModel.canSaveCommercialDraftProperty().not());
-        postCommercialButton.disableProperty().bind(viewModel.canPostCommercialProperty().not());
+        viewModel
+                .operationalStatusProperty()
+                .addListener((obs, oldValue, newValue) -> refreshStatusGraphic(newValue));
+        refreshStatusGraphic(viewModel.operationalStatusProperty().get());
+
+        saveButton.disableProperty().bind(viewModel.canSaveProperty().not());
+        saveButton.visibleProperty().bind(viewModel.canSaveProperty());
+        saveButton.managedProperty().bind(saveButton.visibleProperty());
+
         cancelItemButton.disableProperty().bind(viewModel.canCancelItemProperty().not());
-        createRevisionButton.disableProperty().bind(viewModel.canCreateRevisionProperty().not());
-        saveRevisionButton.disableProperty().bind(viewModel.canSaveRevisionDraftProperty().not());
-        postRevisionButton.disableProperty().bind(viewModel.canPostRevisionUpdateProperty().not());
-        approveRevisionButton.disableProperty().bind(viewModel.canApproveRevisionProperty().not());
-        openActiveSpecificationButton
-                .disableProperty()
-                .bind(viewModel.canOpenActiveSpecificationProperty().not());
-        openDraftSpecificationButton
-                .disableProperty()
-                .bind(viewModel.canOpenDraftSpecificationProperty().not());
+        cancelItemButton.visibleProperty().bind(viewModel.canCancelItemProperty());
+        cancelItemButton.managedProperty().bind(cancelItemButton.visibleProperty());
 
-        saveCommercialButton.setOnAction(e -> viewModel.saveCommercialDraft());
-        postCommercialButton.setOnAction(e -> viewModel.postCommercialDocument());
+        openSpecificationButton
+                .disableProperty()
+                .bind(viewModel.canOpenSpecificationProperty().not());
+        openSpecificationButton.visibleProperty().bind(viewModel.canOpenSpecificationProperty());
+        openSpecificationButton.managedProperty().bind(openSpecificationButton.visibleProperty());
+
+        saveButton.setOnAction(e -> viewModel.save());
         cancelItemButton.setOnAction(e -> viewModel.cancelItem());
-        createRevisionButton.setOnAction(e -> viewModel.createNextRevision());
-        saveRevisionButton.setOnAction(e -> viewModel.saveRevisionQuantityDraft());
-        postRevisionButton.setOnAction(e -> viewModel.postRevisionUpdate());
-        approveRevisionButton.setOnAction(e -> viewModel.approveDraftRevision());
-        openActiveSpecificationButton.setOnAction(e -> viewModel.openActiveSpecification());
-        openDraftSpecificationButton.setOnAction(e -> viewModel.openDraftSpecification());
+        openSpecificationButton.setOnAction(e -> viewModel.openSpecification());
 
         successLabel.textProperty().bind(viewModel.successMessageProperty());
         successLabel.visibleProperty().bind(Bindings.createBooleanBinding(
@@ -147,5 +130,38 @@ public final class OrderItemEditorController implements ViewModelAware<OrderItem
                 },
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
+    }
+
+    private void bindEditableChrome(OrderItemEditorViewModel viewModel) {
+        productCodeField.visibleProperty().bind(viewModel.fieldsEditableProperty());
+        productCodeField.managedProperty().bind(productCodeField.visibleProperty());
+        nameField.visibleProperty().bind(viewModel.fieldsEditableProperty());
+        nameField.managedProperty().bind(nameField.visibleProperty());
+        commentsField.visibleProperty().bind(viewModel.fieldsEditableProperty());
+        commentsField.managedProperty().bind(commentsField.visibleProperty());
+        externalPositionNumberField.visibleProperty().bind(viewModel.fieldsEditableProperty());
+        externalPositionNumberField.managedProperty().bind(externalPositionNumberField.visibleProperty());
+        orderedQuantityField.visibleProperty().bind(viewModel.fieldsEditableProperty());
+        orderedQuantityField.managedProperty().bind(orderedQuantityField.visibleProperty());
+
+        productCodeValueLabel.visibleProperty().bind(viewModel.fieldsEditableProperty().not());
+        productCodeValueLabel.managedProperty().bind(productCodeValueLabel.visibleProperty());
+        nameValueLabel.visibleProperty().bind(viewModel.fieldsEditableProperty().not());
+        nameValueLabel.managedProperty().bind(nameValueLabel.visibleProperty());
+        commentsValueLabel.visibleProperty().bind(viewModel.fieldsEditableProperty().not());
+        commentsValueLabel.managedProperty().bind(commentsValueLabel.visibleProperty());
+        externalPositionNumberValueLabel.visibleProperty().bind(viewModel.fieldsEditableProperty().not());
+        externalPositionNumberValueLabel
+                .managedProperty()
+                .bind(externalPositionNumberValueLabel.visibleProperty());
+        orderedQuantityValueLabel.visibleProperty().bind(viewModel.fieldsEditableProperty().not());
+        orderedQuantityValueLabel.managedProperty().bind(orderedQuantityValueLabel.visibleProperty());
+    }
+
+    private void refreshStatusGraphic(OrderItemOperationalStatus status) {
+        statusIndicatorBox.getChildren().clear();
+        if (status != null) {
+            statusIndicatorBox.getChildren().add(OperationalStatusIndicator.create(status));
+        }
     }
 }

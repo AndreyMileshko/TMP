@@ -4,6 +4,86 @@
 
 ---
 
+## UI Modernization Stage 3.4.3 — Final Orders UX Corrective — 2026-09-03
+
+**Date:** 2026-09-03
+**Stage:** UI Modernization 3.4.3; outside Stages 0–9 queue
+**Base checkpoint:** `2c9b9f4bde8e1e31b98ef4fe9afa79613f9fe394`
+**Status:** IMPLEMENTED / FINAL MANUAL UI ACCEPTANCE PENDING (no auto-commit); Stage 3.5 Warehouse NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Full Final Orders UX Corrective: (A) customer filter failure ≠ empty success + DISTINCT ON latest name; (B) global soft green TableView selection; (C) brighter dedicated status-indicator tokens; (D–E) item list columns/open/operational status; (F) simplified item card with facade Save; (G–L) simplified specification (dialog/context-menu, no revision chrome); (M) revision abstraction via UI facades; (O) TMP-UI-Standard §§39.6–39.9.
+
+### Key changes
+
+- Customer: `Optional` load result; popup not opened on failure; SQL `DISTINCT ON (customer_ref) … ORDER BY created_at DESC`
+- Theme: `-tmp-table-selection-bg`; `-tmp-status-indicator-*`; dots radius 6
+- `OrderItemOperationalStatus` / deriver; `OperationalStatusIndicator`; `DecimalUiFormat`
+- `OrderItemDocumentUiService.saveNewItem` / `saveExistingItem`; `CurrentOrderItemSpecificationUiService`
+- Item list / card / spec FXML+VM+Controller modernization; `SpecificationLineDialogs`
+- Row ordering kept via context menu (business line numbers on save)
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-03 Stage 3.4.3 Final Orders UX Corrective.
+
+---
+
+## UI Modernization Stage 3.4.3 Parts D–N — Item List / Item Card / Spec Editor — 2026-09-03
+
+**Date:** 2026-09-03
+**Stage:** UI Modernization 3.4.3 (continuation); Parts A–C retained
+**Status:** SUPERSEDED by full Stage 3.4.3 Final Orders UX Corrective entry above
+**Commit:** none (per task)
+
+### Summary
+
+Modernized Order Item List, Order Item Card, and Specification Editor: operational status indicators, facade-based Save, current-spec open, dialog-driven material lines with auto-persist, no technical revision/draft/post chrome.
+
+### Key changes
+
+- Item list: columns Код позиции / Наименование / Количество / Статус; `OrderItemListRow`; double-click/Enter open; Production facts → operational status
+- Item card: `saveNewItem`/`saveExistingItem`; `CurrentOrderItemSpecificationUiService`; editable vs read-only chrome
+- Spec editor: modal add/edit, context menu move/delete, `persistWorkingCopy()`, `DecimalUiFormat`, product-code header
+- `UiShellAutoConfiguration` wiring; TMP-UI-Standard §§39.6–39.9
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-03 Stage 3.4.3 Final Orders UX Corrective.
+
+---
+
+## UI Modernization Stage 3.4.3 — Final UI & Customer Filter Corrective — 2026-09-03
+
+**Date:** 2026-09-03
+**Stage:** UI Modernization 3.4.3; outside Stages 0–9 queue
+**Base checkpoint:** `2c9b9f4bde8e1e31b98ef4fe9afa79613f9fe394`
+**Status:** IMPLEMENTED / FINAL MANUAL UI ACCEPTANCE PENDING (no auto-commit); Stage 3.5 Warehouse NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Four narrow fixes: (1) customer popup load failure must not open popup / rewrite selection; (2) one `customerRef` = one catalogue option with latest name; (3) global soft translucent green TableView selection; (4) brighter dedicated status-indicator dots without changing generic success/danger/warning tokens.
+
+### Key corrective changes
+
+- `loadCustomerOptions()` → `Optional<List<…>>`; controller skips popup on empty Optional
+- Popup Apply guard: empty rows never imply select-all via `allMatch`
+- `listKnownCustomers` SQL: `DISTINCT ON (customer_ref) … ORDER BY created_at DESC, order_id DESC`
+- `tmp-theme.css`: `-tmp-table-selection-bg` / hover; focused+unfocused selected rows
+- Dedicated `-tmp-status-indicator-*` tokens; status dots radius 5→6
+- TMP-UI-Standard §§12 / 39 updated
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-03 Stage 3.4.3.
+
+---
+
 ## UI Modernization Stage 3.4.2 — Final Acceptance Corrective — 2026-09-03
 
 **Date:** 2026-09-03

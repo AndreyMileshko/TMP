@@ -17,7 +17,7 @@
             <VBox HBox.hgrow="ALWAYS" spacing="4">
                 <Label fx:id="titleLabel" styleClass="tmp-screen-title"/>
                 <HBox spacing="8" alignment="CENTER_LEFT">
-                    <Circle fx:id="statusDot" radius="5" styleClass="tmp-status-dot tmp-status-dot-neutral"/>
+                    <Circle fx:id="statusDot" radius="6" styleClass="tmp-status-dot tmp-status-dot-neutral"/>
                     <Label fx:id="subtitleLabel" styleClass="tmp-screen-subtitle"/>
                 </HBox>
             </VBox>

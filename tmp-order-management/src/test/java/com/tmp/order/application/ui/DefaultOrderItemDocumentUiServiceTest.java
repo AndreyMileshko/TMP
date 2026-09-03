@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -22,6 +23,7 @@ import com.tmp.order.api.OrderItemDto;
 import com.tmp.order.api.OrderItemId;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderItemStatus;
+import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
 import com.tmp.order.api.ui.OrderItemCommercialDraft;
@@ -32,9 +34,14 @@ import com.tmp.order.application.payload.DocumentTypeCode;
 import com.tmp.order.application.payload.DraftPayloadApplicationService;
 import com.tmp.order.application.payload.OrderDocumentPayload;
 import com.tmp.order.application.payload.OrderItemCreatePayload;
+import com.tmp.order.application.payload.OrderItemRevisionApprovePayload;
 import com.tmp.order.application.payload.OrderItemRevisionUpdatePayload;
+import com.tmp.order.application.payload.OrderItemUpdatePayload;
 import com.tmp.order.application.payload.PayloadOptimisticLockException;
+import com.tmp.order.application.processing.ProcessingOperation;
+import com.tmp.order.application.processing.ProcessingRecord;
 import com.tmp.order.application.processing.ProcessingRecordPort;
+import com.tmp.order.application.processing.ResultReference;
 import com.tmp.order.capability.OrderManagementPermissions;
 import com.tmp.order.domain.ItemCommercialData;
 import com.tmp.order.domain.ItemSpecification;
@@ -68,6 +75,7 @@ class DefaultOrderItemDocumentUiServiceTest {
     private DocumentEngine documentEngine;
     private DraftPayloadApplicationService draftPayloads;
     private OrderItemRepository orderItemRepository;
+    private OrderQueryService orderQueryService;
     private ProcessingRecordPort processingRecords;
     private AuthorizationService authorization;
     private DefaultOrderItemDocumentUiService service;
@@ -77,6 +85,7 @@ class DefaultOrderItemDocumentUiServiceTest {
         documentEngine = mock(DocumentEngine.class);
         draftPayloads = mock(DraftPayloadApplicationService.class);
         orderItemRepository = mock(OrderItemRepository.class);
+        orderQueryService = mock(OrderQueryService.class);
         processingRecords = mock(ProcessingRecordPort.class);
         authorization = mock(AuthorizationService.class);
         service =
@@ -84,6 +93,7 @@ class DefaultOrderItemDocumentUiServiceTest {
                         documentEngine,
                         draftPayloads,
                         orderItemRepository,
+                        orderQueryService,
                         processingRecords,
                         authorization,
                         CLOCK);
@@ -453,6 +463,233 @@ class DefaultOrderItemDocumentUiServiceTest {
         for (Field field : DefaultOrderItemDocumentUiService.class.getDeclaredFields()) {
             assertFalse(field.getType().getName().contains("JdbcTemplate"));
         }
+    }
+
+    @Test
+    void saveNewItemBeginsSavesAndPostsAsOneOperation() {
+        UUID documentId = UUID.randomUUID();
+        OrderId orderId = OrderId.generate();
+        OrderItemId created = OrderItemId.generate();
+        when(documentEngine.createDocument(any(CreateDocumentCommand.class)))
+                .thenReturn(metadata(documentId, DocumentTypeCode.ORDER_ITEM_CREATE.name()));
+        when(draftPayloads.load(DocumentId.of(documentId))).thenReturn(Optional.empty());
+        when(draftPayloads.createDraft(any(OrderDocumentPayload.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(documentEngine.findById(documentId))
+                .thenReturn(
+                        Optional.of(metadata(documentId, DocumentTypeCode.ORDER_ITEM_CREATE.name())));
+        when(draftPayloads.load(DocumentId.of(documentId)))
+                .thenReturn(Optional.empty())
+                .thenReturn(
+                        Optional.of(
+                                OrderItemCreatePayload.create(
+                                        DocumentId.of(documentId),
+                                        orderId,
+                                        created,
+                                        ItemCommercialData.of(ProductCode.of("P-1"), "Panel", null),
+                                        OrderedQuantity.of(3),
+                                        NOW)));
+        when(documentEngine.postDocument(documentId))
+                .thenReturn(metadata(documentId, DocumentTypeCode.ORDER_ITEM_CREATE.name()));
+        when(processingRecords.findByDocumentIdAndOperation(
+                        DocumentId.of(documentId), ProcessingOperation.POST))
+                .thenReturn(
+                        Optional.of(
+                                ProcessingRecord.completedPost(
+                                        DocumentId.of(documentId),
+                                        DocumentTypeCode.ORDER_ITEM_CREATE,
+                                        PayloadRevision.initial(),
+                                        NOW,
+                                        ResultReference.of("orderItem:" + created.value()))));
+
+        OrderItemId result =
+                service.saveNewItem(
+                        orderId, OrderItemCommercialDraft.of("P-1", "Panel", null), "3");
+
+        assertEquals(created, result);
+        verify(documentEngine).createDocument(any(CreateDocumentCommand.class));
+        verify(documentEngine).postDocument(documentId);
+    }
+
+    @Test
+    void saveExistingItemUpdatesCommercialAndDraftQuantityWithoutApprove() {
+        OrderId orderId = OrderId.generate();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber draftNumber = RevisionNumber.first();
+        OrderItem draftItem = draftItemWithSpecLine(orderId, itemId, draftNumber);
+        when(orderItemRepository.findById(itemId)).thenReturn(Optional.of(draftItem));
+        when(orderQueryService.getOrder(orderId))
+                .thenReturn(Optional.of(orderDto(orderId, OrderStatus.DRAFT)));
+
+        UUID updateDoc = UUID.randomUUID();
+        UUID revisionDoc = UUID.randomUUID();
+        when(documentEngine.createDocument(any(CreateDocumentCommand.class)))
+                .thenReturn(metadata(updateDoc, DocumentTypeCode.ORDER_ITEM_UPDATE.name()))
+                .thenReturn(
+                        metadata(revisionDoc, DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE.name()));
+        when(draftPayloads.load(any(DocumentId.class))).thenReturn(Optional.empty());
+        when(draftPayloads.createDraft(any(OrderDocumentPayload.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(documentEngine.findById(updateDoc))
+                .thenReturn(
+                        Optional.of(metadata(updateDoc, DocumentTypeCode.ORDER_ITEM_UPDATE.name())));
+        when(documentEngine.findById(revisionDoc))
+                .thenReturn(
+                        Optional.of(
+                                metadata(
+                                        revisionDoc,
+                                        DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE.name())));
+        when(draftPayloads.load(DocumentId.of(updateDoc)))
+                .thenReturn(Optional.empty())
+                .thenReturn(
+                        Optional.of(
+                                OrderItemUpdatePayload.create(
+                                        DocumentId.of(updateDoc),
+                                        itemId,
+                                        ItemCommercialData.of(ProductCode.of("P-9"), "Updated", null),
+                                        NOW)));
+        when(draftPayloads.load(DocumentId.of(revisionDoc)))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty())
+                .thenReturn(
+                        Optional.of(
+                                OrderItemRevisionUpdatePayload.create(
+                                        DocumentId.of(revisionDoc),
+                                        itemId,
+                                        draftNumber,
+                                        OrderedQuantity.of(9),
+                                        List.of(),
+                                        NOW)));
+        when(documentEngine.postDocument(updateDoc))
+                .thenReturn(metadata(updateDoc, DocumentTypeCode.ORDER_ITEM_UPDATE.name()));
+        when(documentEngine.postDocument(revisionDoc))
+                .thenReturn(
+                        metadata(revisionDoc, DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE.name()));
+
+        OrderItemId result =
+                service.saveExistingItem(
+                        itemId, OrderItemCommercialDraft.of("P-9", "Updated", null), "9");
+
+        assertEquals(itemId, result);
+        verify(documentEngine, times(2)).createDocument(any(CreateDocumentCommand.class));
+        verify(documentEngine).postDocument(updateDoc);
+        verify(documentEngine).postDocument(revisionDoc);
+        verify(documentEngine, never())
+                .createDocument(
+                        org.mockito.ArgumentMatchers.argThat(
+                                cmd ->
+                                        cmd != null
+                                                && "ORDER_ITEM_REVISION_APPROVE"
+                                                        .equals(cmd.documentTypeId())));
+    }
+
+    @Test
+    void saveExistingItemApprovesActiveItemDraftRevisionAfterQuantityUpdate() {
+        OrderId orderId = OrderId.generate();
+        OrderItemId itemId = OrderItemId.generate();
+        OrderItem activeDraft = activeWithDraft(orderId, itemId);
+        RevisionNumber draftNumber = activeDraft.draftRevisionNumber().orElseThrow();
+        when(orderItemRepository.findById(itemId)).thenReturn(Optional.of(activeDraft));
+        when(orderQueryService.getOrder(orderId))
+                .thenReturn(Optional.of(orderDto(orderId, OrderStatus.DRAFT)));
+
+        UUID revisionDoc = UUID.randomUUID();
+        UUID approveDoc = UUID.randomUUID();
+        when(documentEngine.createDocument(any(CreateDocumentCommand.class)))
+                .thenReturn(
+                        metadata(revisionDoc, DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE.name()))
+                .thenReturn(
+                        metadata(approveDoc, DocumentTypeCode.ORDER_ITEM_REVISION_APPROVE.name()));
+        when(draftPayloads.load(any(DocumentId.class))).thenReturn(Optional.empty());
+        when(draftPayloads.createDraft(any(OrderDocumentPayload.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(documentEngine.findById(revisionDoc))
+                .thenReturn(
+                        Optional.of(
+                                metadata(
+                                        revisionDoc,
+                                        DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE.name())));
+        when(documentEngine.findById(approveDoc))
+                .thenReturn(
+                        Optional.of(
+                                metadata(
+                                        approveDoc,
+                                        DocumentTypeCode.ORDER_ITEM_REVISION_APPROVE.name())));
+        when(draftPayloads.load(DocumentId.of(revisionDoc)))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty())
+                .thenReturn(
+                        Optional.of(
+                                OrderItemRevisionUpdatePayload.create(
+                                        DocumentId.of(revisionDoc),
+                                        itemId,
+                                        draftNumber,
+                                        OrderedQuantity.of(8),
+                                        List.of(),
+                                        NOW)));
+        when(draftPayloads.load(DocumentId.of(approveDoc)))
+                .thenReturn(
+                        Optional.of(
+                                OrderItemRevisionApprovePayload.create(
+                                        DocumentId.of(approveDoc), itemId, draftNumber, NOW)));
+        when(documentEngine.postDocument(revisionDoc))
+                .thenReturn(
+                        metadata(revisionDoc, DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE.name()));
+        when(documentEngine.postDocument(approveDoc))
+                .thenReturn(
+                        metadata(approveDoc, DocumentTypeCode.ORDER_ITEM_REVISION_APPROVE.name()));
+
+        OrderItemId result =
+                service.saveExistingItem(
+                        itemId, OrderItemCommercialDraft.of("P-2", "Door", null), "8");
+
+        assertEquals(itemId, result);
+        verify(documentEngine).postDocument(revisionDoc);
+        verify(documentEngine).postDocument(approveDoc);
+        ArgumentCaptor<CreateDocumentCommand> captor =
+                ArgumentCaptor.forClass(CreateDocumentCommand.class);
+        verify(documentEngine, times(2)).createDocument(captor.capture());
+        assertEquals(
+                "ORDER_ITEM_REVISION_UPDATE", captor.getAllValues().get(0).documentTypeId());
+        assertEquals(
+                "ORDER_ITEM_REVISION_APPROVE", captor.getAllValues().get(1).documentTypeId());
+    }
+
+    @Test
+    void saveExistingItemRejectsWhenParentOrderNotDraft() {
+        OrderId orderId = OrderId.generate();
+        OrderItemId itemId = OrderItemId.generate();
+        when(orderItemRepository.findById(itemId))
+                .thenReturn(
+                        Optional.of(
+                                draftItemWithSpecLine(orderId, itemId, RevisionNumber.first())));
+        when(orderQueryService.getOrder(orderId))
+                .thenReturn(Optional.of(orderDto(orderId, OrderStatus.ACTIVE)));
+
+        assertThrows(
+                IllegalStateException.class,
+                () ->
+                        service.saveExistingItem(
+                                itemId,
+                                OrderItemCommercialDraft.of("P-1", "Panel", null),
+                                "1"));
+        verify(documentEngine, never()).createDocument(any());
+    }
+
+    private static com.tmp.order.api.OrderDto orderDto(OrderId id, OrderStatus status) {
+        return com.tmp.order.api.OrderDto.of(
+                id,
+                "N-1",
+                status,
+                "C-1",
+                "Acme",
+                null,
+                null,
+                null,
+                "PRIVATE",
+                "RUB",
+                NOW,
+                NOW);
     }
 
     private static OrderItem draftItemWithSpecLine(

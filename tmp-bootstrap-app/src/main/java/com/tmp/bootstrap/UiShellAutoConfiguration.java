@@ -8,6 +8,7 @@ import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.OrderWorklistQuery;
 import com.tmp.order.api.imports.OrderImportService;
 import com.tmp.order.api.imports.StxtOrderFileParser;
+import com.tmp.order.api.ui.CurrentOrderItemSpecificationUiService;
 import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
@@ -170,8 +171,15 @@ public class UiShellAutoConfiguration {
 
     @Bean
     OrderItemListViewModel orderItemListViewModel(
-            OrderQueryService orderQueryService, AuthorizationService authorizationService) {
-        return new OrderItemListViewModel(orderQueryService, authorizationService);
+            OrderQueryService orderQueryService,
+            AuthorizationService authorizationService,
+            OrderItemEditorQueryService orderItemEditorQueryService,
+            ProductionQueryApi productionQueryApi) {
+        return new OrderItemListViewModel(
+                orderQueryService,
+                authorizationService,
+                orderItemEditorQueryService,
+                productionQueryApi);
     }
 
     @Bean
@@ -179,23 +187,31 @@ public class UiShellAutoConfiguration {
             OrderItemDocumentUiService orderItemDocumentUiService,
             OrderItemEditorQueryService orderItemEditorQueryService,
             OrderQueryService orderQueryService,
-            AuthorizationService authorizationService) {
+            AuthorizationService authorizationService,
+            CurrentOrderItemSpecificationUiService currentOrderItemSpecificationUiService,
+            ProductionQueryApi productionQueryApi) {
         return new OrderItemEditorViewModel(
                 orderItemDocumentUiService,
                 orderItemEditorQueryService,
                 authorizationService,
-                orderQueryService);
+                orderQueryService,
+                currentOrderItemSpecificationUiService,
+                productionQueryApi);
     }
 
     @Bean
     OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel(
             OrderItemDocumentUiService orderItemDocumentUiService,
             OrderItemSpecificationEditorQueryService orderItemSpecificationEditorQueryService,
-            AuthorizationService authorizationService) {
+            AuthorizationService authorizationService,
+            OrderItemEditorQueryService orderItemEditorQueryService,
+            OrderQueryService orderQueryService) {
         return new OrderItemSpecificationEditorViewModel(
                 orderItemDocumentUiService,
                 orderItemSpecificationEditorQueryService,
-                authorizationService);
+                authorizationService,
+                orderItemEditorQueryService,
+                orderQueryService);
     }
 
     @Bean

@@ -94,6 +94,23 @@ public interface OrderItemDocumentUiService {
      */
     OrderItemId postDocument(UUID documentId);
 
+    /**
+     * User-facing Save for a new item: begin create + save draft + post as one application
+     * operation. Result is an editable {@link com.tmp.order.api.OrderItemStatus#DRAFT} item with
+     * draft revision {@code 1}.
+     */
+    OrderItemId saveNewItem(
+            OrderId orderId, OrderItemCommercialDraft draft, String orderedQuantity);
+
+    /**
+     * User-facing Save for an editable existing item while the parent order is {@code DRAFT}.
+     * Orchestrates commercial {@code ORDER_ITEM_UPDATE} and/or draft-revision quantity {@code
+     * ORDER_ITEM_REVISION_UPDATE} (and revision approve when required) so the UI Save action does
+     * not chain technical document steps.
+     */
+    OrderItemId saveExistingItem(
+            OrderItemId orderItemId, OrderItemCommercialDraft draft, String orderedQuantity);
+
     Optional<OrderItemCommercialDraft> loadItemCreateDraft(UUID documentId);
 
     Optional<OrderItemCommercialDraft> loadItemUpdateDraft(UUID documentId);

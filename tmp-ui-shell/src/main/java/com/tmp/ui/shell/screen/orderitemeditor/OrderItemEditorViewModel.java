@@ -6,10 +6,14 @@ import com.tmp.order.api.OrderItemStatus;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.RevisionNumber;
+import com.tmp.order.api.ui.CurrentOrderItemSpecificationRef;
+import com.tmp.order.api.ui.CurrentOrderItemSpecificationUiService;
 import com.tmp.order.api.ui.OrderItemCommercialDraft;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.order.api.ui.OrderItemEditorSnapshot;
+import com.tmp.production.api.ProductionQueryApi;
+import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
@@ -17,7 +21,11 @@ import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.order.ProductQuantityUiValidation;
 import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
 import com.tmp.ui.shell.order.error.OrderUiOperation;
+import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatus;
+import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatusDeriver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,14 +38,16 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 
 /**
- * Document-driven order item / revision editor. Mutating actions go only through {@link
- * OrderItemDocumentUiService}; draft revision is loaded only through {@link
- * OrderItemEditorQueryService}.
+ * User-facing order item card. Mutations go through {@link OrderItemDocumentUiService} facades
+ * ({@code saveNewItem} / {@code saveExistingItem}); specification open uses {@link
+ * CurrentOrderItemSpecificationUiService}.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
         justification = "JavaFX ViewModel intentionally exposes observable properties")
 public final class OrderItemEditorViewModel {
+
+    private static final Logger LOGGER = System.getLogger(OrderItemEditorViewModel.class.getName());
 
     public enum Mode {
         CREATE,
@@ -48,10 +58,13 @@ public final class OrderItemEditorViewModel {
     private final OrderItemEditorQueryService editorQuery;
     private final AuthorizationService authorization;
     private final OrderQueryService orderQueryService;
+    private final CurrentOrderItemSpecificationUiService currentSpecification;
+    private final ProductionQueryApi productionQuery;
 
     private final ObjectProperty<Mode> mode = new SimpleObjectProperty<>(Mode.CREATE);
-    private final StringProperty title = new SimpleStringProperty("Позиция");
-    private final StringProperty statusText = new SimpleStringProperty("");
+    private final StringProperty title = new SimpleStringProperty("Новая позиция");
+    private final ObjectProperty<OrderItemOperationalStatus> operationalStatus =
+            new SimpleObjectProperty<>();
     private final StringProperty errorMessage = new SimpleStringProperty("");
     private final StringProperty successMessage = new SimpleStringProperty("");
     private final StringProperty productCode = new SimpleStringProperty("");
@@ -59,31 +72,17 @@ public final class OrderItemEditorViewModel {
     private final StringProperty comments = new SimpleStringProperty("");
     private final StringProperty externalPositionNumber = new SimpleStringProperty("");
     private final StringProperty orderedQuantity = new SimpleStringProperty("1");
-    private final StringProperty activeRevisionText = new SimpleStringProperty("");
-    private final StringProperty draftRevisionText = new SimpleStringProperty("");
-    private final StringProperty draftSpecLineCountText = new SimpleStringProperty("0");
-    private final StringProperty copyFromRevision = new SimpleStringProperty("");
-    private final BooleanProperty commercialEditable = new SimpleBooleanProperty(false);
-    private final BooleanProperty quantityEditable = new SimpleBooleanProperty(false);
-    private final BooleanProperty canSaveCommercialDraft = new SimpleBooleanProperty(false);
-    private final BooleanProperty canPostCommercial = new SimpleBooleanProperty(false);
+    private final BooleanProperty fieldsEditable = new SimpleBooleanProperty(false);
+    private final BooleanProperty canSave = new SimpleBooleanProperty(false);
     private final BooleanProperty canCancelItem = new SimpleBooleanProperty(false);
-    private final BooleanProperty canCreateRevision = new SimpleBooleanProperty(false);
-    private final BooleanProperty canSaveRevisionDraft = new SimpleBooleanProperty(false);
-    private final BooleanProperty canPostRevisionUpdate = new SimpleBooleanProperty(false);
-    private final BooleanProperty canApproveRevision = new SimpleBooleanProperty(false);
-    private final BooleanProperty canOpenActiveSpecification = new SimpleBooleanProperty(false);
-    private final BooleanProperty canOpenDraftSpecification = new SimpleBooleanProperty(false);
+    private final BooleanProperty canOpenSpecification = new SimpleBooleanProperty(false);
 
     private OrderId orderId;
     private OrderItemId orderItemId;
     private OrderItemStatus itemStatus;
-    private boolean parentOrderDraft = true;
+    private OrderStatus parentOrderStatus = OrderStatus.DRAFT;
     private RevisionNumber draftRevisionNumber;
     private RevisionNumber activeRevisionNumber;
-    private UUID documentId;
-    private long payloadRevision;
-    private DocumentKind pendingKind = DocumentKind.NONE;
     private Runnable onBackToItemList = () -> {
     };
     private Consumer<OrderItemId> onItemOpened = id -> {
@@ -91,19 +90,11 @@ public final class OrderItemEditorViewModel {
     private Consumer<RevisionTarget> onOpenSpecification = target -> {
     };
 
-    private enum DocumentKind {
-        NONE,
-        ITEM_CREATE,
-        ITEM_UPDATE,
-        REVISION_CREATE,
-        REVISION_UPDATE
-    }
-
     public OrderItemEditorViewModel(
             OrderItemDocumentUiService itemDocuments,
             OrderItemEditorQueryService editorQuery,
             AuthorizationService authorization) {
-        this(itemDocuments, editorQuery, authorization, null);
+        this(itemDocuments, editorQuery, authorization, null, null, null);
     }
 
     public OrderItemEditorViewModel(
@@ -111,10 +102,22 @@ public final class OrderItemEditorViewModel {
             OrderItemEditorQueryService editorQuery,
             AuthorizationService authorization,
             OrderQueryService orderQueryService) {
+        this(itemDocuments, editorQuery, authorization, orderQueryService, null, null);
+    }
+
+    public OrderItemEditorViewModel(
+            OrderItemDocumentUiService itemDocuments,
+            OrderItemEditorQueryService editorQuery,
+            AuthorizationService authorization,
+            OrderQueryService orderQueryService,
+            CurrentOrderItemSpecificationUiService currentSpecification,
+            ProductionQueryApi productionQuery) {
         this.itemDocuments = Objects.requireNonNull(itemDocuments, "itemDocuments");
         this.editorQuery = Objects.requireNonNull(editorQuery, "editorQuery");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.orderQueryService = orderQueryService;
+        this.currentSpecification = currentSpecification;
+        this.productionQuery = productionQuery;
     }
 
     public void setOnBackToItemList(Runnable onBackToItemList) {
@@ -136,24 +139,17 @@ public final class OrderItemEditorViewModel {
         mode.set(Mode.CREATE);
         title.set("Новая позиция");
         this.orderId = orderId;
-        refreshParentOrderDraft();
+        refreshParentOrderStatus();
         orderItemId = null;
         itemStatus = null;
         draftRevisionNumber = null;
         activeRevisionNumber = null;
-        documentId = null;
-        payloadRevision = 0L;
-        pendingKind = DocumentKind.NONE;
         productCode.set("");
         name.set("");
         comments.set("");
         externalPositionNumber.set("");
         orderedQuantity.set("1");
-        activeRevisionText.set("");
-        draftRevisionText.set("1 (черновик после создания)");
-        draftSpecLineCountText.set("0");
-        copyFromRevision.set("");
-        statusText.set("CREATE");
+        operationalStatus.set(OrderItemOperationalStatus.EDITING);
         refreshActionFlags();
     }
 
@@ -165,9 +161,6 @@ public final class OrderItemEditorViewModel {
 
     private void reloadExisting(OrderItemId id) {
         mode.set(Mode.VIEW_EXISTING);
-        documentId = null;
-        payloadRevision = 0L;
-        pendingKind = DocumentKind.NONE;
         errorMessage.set("");
         try {
             Optional<OrderItemEditorSnapshot> loaded = editorQuery.getEditorSnapshot(id);
@@ -184,86 +177,35 @@ public final class OrderItemEditorViewModel {
         }
     }
 
-    public void saveCommercialDraft() {
+    /** User-facing Save: create or update via application facade (no technical document chain). */
+    public void save() {
         clearMessages();
         if (!parentAllowsMutation()) {
             return;
         }
         try {
             OrderItemCommercialDraft draft = currentCommercialDraft();
+            String quantity =
+                    ProductQuantityUiValidation.requireValidNormalizedProductQuantity(
+                            orderedQuantity.get());
+            orderedQuantity.set(quantity);
             if (mode.get() == Mode.CREATE) {
-                // CREATE payload owns orderedQuantity / productQuantity.
-                String quantity =
-                        ProductQuantityUiValidation.requireValidNormalizedProductQuantity(
-                                orderedQuantity.get());
-                orderedQuantity.set(quantity);
-                if (documentId == null) {
-                    documentId =
-                            itemDocuments.beginItemCreate(
-                                    "ORDER_ITEM_CREATE", orderId);
-                    payloadRevision = 0L;
-                    pendingKind = DocumentKind.ITEM_CREATE;
-                }
-                payloadRevision =
-                        itemDocuments.saveItemCreateDraft(
-                                documentId,
-                                orderId,
-                                Optional.ofNullable(orderItemId),
-                                draft,
-                                quantity,
-                                payloadRevision);
-                showSuccess("Черновик документа позиции сохранён");
+                OrderItemId created = itemDocuments.saveNewItem(orderId, draft, quantity);
+                showSuccess("Позиция сохранена");
+                reloadExisting(created);
             } else {
-                // ITEM_UPDATE commercial draft does not carry orderedQuantity; quantity changes
-                // go through REVISION_UPDATE. Normalize display leftovers such as "8.000000" but
-                // never block commercial save on quantity text.
-                if (orderItemId == null || itemStatus != OrderItemStatus.DRAFT) {
+                if (orderItemId == null) {
                     showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
                     return;
                 }
-                normalizeQuantityDisplayBestEffort();
-                if (documentId == null || pendingKind != DocumentKind.ITEM_UPDATE) {
-                    documentId =
-                            itemDocuments.beginItemUpdate(
-                                    "ORDER_ITEM_UPDATE " + orderItemId.value(), orderItemId);
-                    payloadRevision = 0L;
-                    pendingKind = DocumentKind.ITEM_UPDATE;
-                }
-                payloadRevision =
-                        itemDocuments.saveItemUpdateDraft(
-                                documentId, orderItemId, draft, payloadRevision);
-                showSuccess("Черновик изменения позиции сохранён");
+                OrderItemId saved = itemDocuments.saveExistingItem(orderItemId, draft, quantity);
+                showSuccess("Позиция сохранена");
+                reloadExisting(saved);
             }
-            refreshActionFlags();
         } catch (AccessDeniedException ex) {
             showMappedError(ex, OrderUiOperation.SAVE_DRAFT);
         } catch (RuntimeException ex) {
             showMappedError(ex, OrderUiOperation.SAVE_DRAFT);
-        }
-    }
-
-    public void postCommercialDocument() {
-        clearMessages();
-        if (!parentAllowsMutation()) {
-            return;
-        }
-        try {
-            if (documentId == null
-                    || (pendingKind != DocumentKind.ITEM_CREATE
-                            && pendingKind != DocumentKind.ITEM_UPDATE)) {
-                errorMessage.set("Сначала сохраните коммерческий черновик документа");
-                return;
-            }
-            OrderItemId result = itemDocuments.postDocument(documentId);
-            documentId = null;
-            payloadRevision = 0L;
-            pendingKind = DocumentKind.NONE;
-            showSuccess("Документ позиции проведён");
-            reloadExisting(result);
-        } catch (AccessDeniedException ex) {
-            showMappedError(ex, OrderUiOperation.POST_DOCUMENT);
-        } catch (RuntimeException ex) {
-            showMappedError(ex, OrderUiOperation.POST_DOCUMENT);
         }
     }
 
@@ -290,134 +232,10 @@ public final class OrderItemEditorViewModel {
         }
     }
 
-    public void createNextRevision() {
+    public void openSpecification() {
         clearMessages();
-        if (!parentAllowsMutation()) {
-            return;
-        }
-        try {
-            if (orderItemId == null || itemStatus != OrderItemStatus.ACTIVE) {
-                showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
-                return;
-            }
-            if (draftRevisionNumber != null) {
-                showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
-                return;
-            }
-            if (activeRevisionNumber == null) {
-                showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
-                return;
-            }
-            RevisionNumber next = activeRevisionNumber.next();
-            Optional<RevisionNumber> copyFrom = parseCopyFrom();
-            documentId =
-                    itemDocuments.beginRevisionCreate(
-                            "ORDER_ITEM_REVISION_CREATE " + orderItemId.value(), orderItemId);
-            payloadRevision = 0L;
-            pendingKind = DocumentKind.REVISION_CREATE;
-            payloadRevision =
-                    itemDocuments.saveRevisionCreateDraft(
-                            documentId, orderItemId, next, copyFrom, payloadRevision);
-            OrderItemId result = itemDocuments.postDocument(documentId);
-            documentId = null;
-            payloadRevision = 0L;
-            pendingKind = DocumentKind.NONE;
-            showSuccess("Черновая редакция " + next.value() + " создана");
-            reloadExisting(result);
-        } catch (AccessDeniedException ex) {
-            showMappedError(ex, OrderUiOperation.CREATE);
-        } catch (RuntimeException ex) {
-            showMappedError(ex, OrderUiOperation.CREATE);
-        }
-    }
-
-    public void saveRevisionQuantityDraft() {
-        clearMessages();
-        if (!parentAllowsMutation()) {
-            return;
-        }
-        try {
-            if (orderItemId == null || draftRevisionNumber == null) {
-                errorMessage.set("Нет черновой редакции для изменения количества");
-                return;
-            }
-            String quantity =
-                    ProductQuantityUiValidation.requireValidNormalizedProductQuantity(
-                            orderedQuantity.get());
-            orderedQuantity.set(quantity);
-            if (documentId == null || pendingKind != DocumentKind.REVISION_UPDATE) {
-                documentId =
-                        itemDocuments.beginRevisionUpdate(
-                                "ORDER_ITEM_REVISION_UPDATE " + orderItemId.value(), orderItemId);
-                payloadRevision = 0L;
-                pendingKind = DocumentKind.REVISION_UPDATE;
-            }
-            payloadRevision =
-                    itemDocuments.saveRevisionUpdateDraft(
-                            documentId,
-                            orderItemId,
-                            draftRevisionNumber,
-                            quantity,
-                            payloadRevision);
-            showSuccess("Черновик изменения количества сохранён");
-            refreshActionFlags();
-        } catch (AccessDeniedException ex) {
-            showMappedError(ex, OrderUiOperation.SAVE_DRAFT);
-        } catch (RuntimeException ex) {
-            showMappedError(ex, OrderUiOperation.SAVE_DRAFT);
-        }
-    }
-
-    public void postRevisionUpdate() {
-        clearMessages();
-        if (!parentAllowsMutation()) {
-            return;
-        }
-        try {
-            if (documentId == null || pendingKind != DocumentKind.REVISION_UPDATE) {
-                errorMessage.set("Сначала сохраните черновик изменения количества");
-                return;
-            }
-            OrderItemId result = itemDocuments.postDocument(documentId);
-            documentId = null;
-            payloadRevision = 0L;
-            pendingKind = DocumentKind.NONE;
-            showSuccess("Количество черновой редакции обновлено");
-            reloadExisting(result);
-        } catch (AccessDeniedException ex) {
-            showMappedError(ex, OrderUiOperation.POST_DOCUMENT);
-        } catch (RuntimeException ex) {
-            showMappedError(ex, OrderUiOperation.POST_DOCUMENT);
-        }
-    }
-
-    public void approveDraftRevision() {
-        clearMessages();
-        if (!parentAllowsMutation()) {
-            return;
-        }
-        try {
-            if (orderItemId == null || draftRevisionNumber == null) {
-                errorMessage.set("Нет черновой редакции для утверждения");
-                return;
-            }
-            UUID approveDoc =
-                    itemDocuments.beginRevisionApprove(
-                            "ORDER_ITEM_REVISION_APPROVE " + orderItemId.value(), orderItemId);
-            OrderItemId result = itemDocuments.postDocument(approveDoc);
-            showSuccess("Редакция утверждена");
-            reloadExisting(result);
-        } catch (AccessDeniedException ex) {
-            showMappedError(ex, OrderUiOperation.APPROVE);
-        } catch (RuntimeException ex) {
-            showMappedError(ex, OrderUiOperation.APPROVE);
-        }
-    }
-
-    public void openActiveSpecification() {
-        clearMessages();
-        if (orderItemId == null || activeRevisionNumber == null) {
-            errorMessage.set("Нет активной спецификации");
+        if (orderItemId == null) {
+            errorMessage.set("Сначала сохраните позицию");
             return;
         }
         if (!authorization.hasPermission(
@@ -425,21 +243,24 @@ public final class OrderItemEditorViewModel {
             showError(OrderUiErrorMapper.ACCESS_DENIED);
             return;
         }
-        onOpenSpecification.accept(new RevisionTarget(orderItemId, activeRevisionNumber));
-    }
-
-    public void openDraftSpecification() {
-        clearMessages();
-        if (orderItemId == null || draftRevisionNumber == null) {
-            errorMessage.set("Нет черновой спецификации");
+        if (currentSpecification == null) {
+            showError(OrderUiErrorMapper.NOT_FOUND);
             return;
         }
-        if (!authorization.hasPermission(
-                PermissionId.of(UiShellScreens.ORDER_SPECIFICATION_VIEW_PERMISSION))) {
-            showError(OrderUiErrorMapper.ACCESS_DENIED);
-            return;
+        try {
+            Optional<CurrentOrderItemSpecificationRef> ref =
+                    currentSpecification.resolveCurrent(orderItemId);
+            if (ref.isEmpty()) {
+                errorMessage.set("Нет спецификации для открытия");
+                return;
+            }
+            onOpenSpecification.accept(
+                    new RevisionTarget(ref.get().orderItemId(), ref.get().revisionNumber()));
+        } catch (AccessDeniedException ex) {
+            showMappedError(ex, OrderUiOperation.LOAD);
+        } catch (RuntimeException ex) {
+            showMappedError(ex, OrderUiOperation.LOAD);
         }
-        onOpenSpecification.accept(new RevisionTarget(orderItemId, draftRevisionNumber));
     }
 
     public void backToItemList() {
@@ -473,8 +294,8 @@ public final class OrderItemEditorViewModel {
         return title;
     }
 
-    public StringProperty statusTextProperty() {
-        return statusText;
+    public ObjectProperty<OrderItemOperationalStatus> operationalStatusProperty() {
+        return operationalStatus;
     }
 
     public StringProperty errorMessageProperty() {
@@ -505,78 +326,30 @@ public final class OrderItemEditorViewModel {
         return orderedQuantity;
     }
 
-    public StringProperty activeRevisionTextProperty() {
-        return activeRevisionText;
+    public BooleanProperty fieldsEditableProperty() {
+        return fieldsEditable;
     }
 
-    public StringProperty draftRevisionTextProperty() {
-        return draftRevisionText;
-    }
-
-    public StringProperty draftSpecLineCountTextProperty() {
-        return draftSpecLineCountText;
-    }
-
-    public StringProperty copyFromRevisionProperty() {
-        return copyFromRevision;
-    }
-
-    public BooleanProperty commercialEditableProperty() {
-        return commercialEditable;
-    }
-
-    public BooleanProperty quantityEditableProperty() {
-        return quantityEditable;
-    }
-
-    public BooleanProperty canSaveCommercialDraftProperty() {
-        return canSaveCommercialDraft;
-    }
-
-    public BooleanProperty canPostCommercialProperty() {
-        return canPostCommercial;
+    public BooleanProperty canSaveProperty() {
+        return canSave;
     }
 
     public BooleanProperty canCancelItemProperty() {
         return canCancelItem;
     }
 
-    public BooleanProperty canCreateRevisionProperty() {
-        return canCreateRevision;
-    }
-
-    public BooleanProperty canSaveRevisionDraftProperty() {
-        return canSaveRevisionDraft;
-    }
-
-    public BooleanProperty canPostRevisionUpdateProperty() {
-        return canPostRevisionUpdate;
-    }
-
-    public BooleanProperty canApproveRevisionProperty() {
-        return canApproveRevision;
-    }
-
-    public BooleanProperty canOpenActiveSpecificationProperty() {
-        return canOpenActiveSpecification;
-    }
-
-    public BooleanProperty canOpenDraftSpecificationProperty() {
-        return canOpenDraftSpecification;
+    public BooleanProperty canOpenSpecificationProperty() {
+        return canOpenSpecification;
     }
 
     OrderItemId orderItemIdForTest() {
         return orderItemId;
     }
 
-    UUID documentIdForTest() {
-        return documentId;
-    }
-
     private void applySnapshot(OrderItemEditorSnapshot snapshot) {
         orderItemId = snapshot.orderItemId();
         orderId = snapshot.orderId();
-        refreshParentOrderDraft();
+        refreshParentOrderStatus();
         itemStatus = snapshot.status();
         activeRevisionNumber = snapshot.activeRevisionNumber().orElse(null);
         draftRevisionNumber = snapshot.draftRevisionNumber().orElse(null);
@@ -584,35 +357,37 @@ public final class OrderItemEditorViewModel {
                 snapshot.productCode() == null || snapshot.productCode().isBlank()
                         ? "Позиция"
                         : "Позиция " + snapshot.productCode());
-        statusText.set(snapshot.status().name());
         productCode.set(nullToEmpty(snapshot.productCode()));
         name.set(nullToEmpty(snapshot.name()));
         comments.set(nullToEmpty(snapshot.comments()));
         externalPositionNumber.set(nullToEmpty(snapshot.externalPositionNumber()));
         orderedQuantity.set(ProductQuantityUiValidation.formatForDisplay(snapshot.orderedQuantity()));
-        activeRevisionText.set(
-                snapshot.activeRevision()
-                        .map(
-                                view ->
-                                        view.revisionNumber().value()
-                                                + " / "
-                                                + ProductQuantityUiValidation.formatForDisplay(
-                                                        view.orderedQuantity()))
-                        .orElse("—"));
-        draftRevisionText.set(
-                snapshot.draftRevision()
-                        .map(
-                                view ->
-                                        view.revisionNumber().value()
-                                                + " / "
-                                                + ProductQuantityUiValidation.formatForDisplay(
-                                                        view.orderedQuantity())
-                                                + " ("
-                                                + view.status().name()
-                                                + ")")
-                        .orElse("—"));
-        draftSpecLineCountText.set(Integer.toString(snapshot.draftSpecificationLineCount()));
+        operationalStatus.set(deriveOperationalStatus(snapshot.status()));
         refreshActionFlags();
+    }
+
+    private OrderItemOperationalStatus deriveOperationalStatus(OrderItemStatus status) {
+        OrderStatus parent = parentOrderStatus == null ? OrderStatus.DRAFT : parentOrderStatus;
+        Optional<ItemProductionStateView> facts = Optional.empty();
+        if (parent == OrderStatus.ACTIVE && orderItemId != null) {
+            facts = loadProductionFacts(orderItemId);
+        }
+        return OrderItemOperationalStatusDeriver.derive(parent, status, facts);
+    }
+
+    private Optional<ItemProductionStateView> loadProductionFacts(OrderItemId id) {
+        if (productionQuery == null) {
+            return Optional.empty();
+        }
+        try {
+            return productionQuery.getItemProductionState(id.value());
+        } catch (AccessDeniedException ex) {
+            LOGGER.log(Level.WARNING, "Production facts unavailable (access denied)", ex);
+            return Optional.empty();
+        } catch (RuntimeException ex) {
+            LOGGER.log(Level.WARNING, "Production facts unavailable", ex);
+            return Optional.empty();
+        }
     }
 
     private void refreshActionFlags() {
@@ -625,114 +400,53 @@ public final class OrderItemEditorViewModel {
         boolean hasCancel =
                 authorization.hasPermission(
                         PermissionId.of(UiShellScreens.ORDER_ITEM_CANCEL_PERMISSION));
-        boolean hasApprove =
-                authorization.hasPermission(
-                        PermissionId.of(UiShellScreens.ORDER_ITEM_APPROVE_PERMISSION));
-        boolean hasRevisionCreate =
-                authorization.hasPermission(
-                        PermissionId.of(UiShellScreens.ORDER_REVISION_CREATE_PERMISSION));
-        boolean hasRevisionEdit =
-                authorization.hasPermission(
-                        PermissionId.of(UiShellScreens.ORDER_REVISION_EDIT_PERMISSION));
         boolean hasSpecificationView =
                 authorization.hasPermission(
                         PermissionId.of(UiShellScreens.ORDER_SPECIFICATION_VIEW_PERMISSION));
+        boolean parentDraft = parentOrderStatus == OrderStatus.DRAFT;
 
         if (mode.get() == Mode.CREATE) {
-            commercialEditable.set(hasCreate && parentOrderDraft);
-            quantityEditable.set(hasCreate && parentOrderDraft);
-            canSaveCommercialDraft.set(hasCreate && parentOrderDraft);
-            canPostCommercial.set(
-                    hasCreate
-                            && parentOrderDraft
-                            && documentId != null
-                            && pendingKind == DocumentKind.ITEM_CREATE);
+            fieldsEditable.set(hasCreate && parentDraft);
+            canSave.set(hasCreate && parentDraft);
             canCancelItem.set(false);
-            canCreateRevision.set(false);
-            canSaveRevisionDraft.set(false);
-            canPostRevisionUpdate.set(false);
-            canApproveRevision.set(false);
-            canOpenActiveSpecification.set(false);
-            canOpenDraftSpecification.set(false);
+            canOpenSpecification.set(false);
             return;
         }
 
         boolean draftItem = itemStatus == OrderItemStatus.DRAFT;
-        boolean activeItem = itemStatus == OrderItemStatus.ACTIVE;
         boolean cancelled = itemStatus == OrderItemStatus.CANCELLED;
-        boolean hasDraftRevision = draftRevisionNumber != null;
-        boolean hasActiveRevision = activeRevisionNumber != null;
+        boolean hasRevision = draftRevisionNumber != null || activeRevisionNumber != null;
 
-        commercialEditable.set(draftItem && hasEdit);
-        quantityEditable.set(
-                (mode.get() == Mode.CREATE && hasCreate)
-                        || (hasDraftRevision && hasRevisionEdit)
-                        || (draftItem && hasCreate));
-        if (draftItem) {
-            // Create flow quantity is part of ITEM_CREATE; for existing draft item quantity belongs
-            // to draft revision 1 via REVISION_UPDATE.
-            quantityEditable.set(hasDraftRevision && hasRevisionEdit);
-        }
-        canSaveCommercialDraft.set(draftItem && hasEdit);
-        canPostCommercial.set(
-                draftItem && hasEdit && documentId != null && pendingKind == DocumentKind.ITEM_UPDATE);
-        canCancelItem.set(draftItem && hasCancel);
-        canCreateRevision.set(activeItem && !hasDraftRevision && hasRevisionCreate);
-        canSaveRevisionDraft.set(hasDraftRevision && hasRevisionEdit);
-        canPostRevisionUpdate.set(
-                hasDraftRevision
-                        && hasRevisionEdit
-                        && documentId != null
-                        && pendingKind == DocumentKind.REVISION_UPDATE);
-        canApproveRevision.set(hasDraftRevision && hasApprove);
-        canOpenActiveSpecification.set(hasActiveRevision && hasSpecificationView);
-        canOpenDraftSpecification.set(hasDraftRevision && hasSpecificationView);
-        if (cancelled) {
-            commercialEditable.set(false);
-            quantityEditable.set(false);
-            canSaveCommercialDraft.set(false);
-            canPostCommercial.set(false);
+        fieldsEditable.set(draftItem && hasEdit && parentDraft && !cancelled);
+        canSave.set(draftItem && hasEdit && parentDraft && !cancelled);
+        canCancelItem.set(draftItem && hasCancel && parentDraft && !cancelled);
+        canOpenSpecification.set(hasRevision && hasSpecificationView && !cancelled);
+
+        if (!parentDraft) {
+            fieldsEditable.set(false);
+            canSave.set(false);
             canCancelItem.set(false);
-            canCreateRevision.set(false);
-            canSaveRevisionDraft.set(false);
-            canPostRevisionUpdate.set(false);
-            canApproveRevision.set(false);
-            canOpenActiveSpecification.set(false);
-            canOpenDraftSpecification.set(false);
-        }
-        if (!parentOrderDraft) {
-            commercialEditable.set(false);
-            quantityEditable.set(false);
-            canSaveCommercialDraft.set(false);
-            canPostCommercial.set(false);
-            canCancelItem.set(false);
-            canCreateRevision.set(false);
-            canSaveRevisionDraft.set(false);
-            canPostRevisionUpdate.set(false);
-            canApproveRevision.set(false);
         }
     }
 
-    private void refreshParentOrderDraft() {
+    private void refreshParentOrderStatus() {
         if (orderQueryService == null || orderId == null) {
-            parentOrderDraft = true;
+            parentOrderStatus = OrderStatus.DRAFT;
             return;
         }
         try {
-            parentOrderDraft =
+            parentOrderStatus =
                     orderQueryService
                             .getOrder(orderId)
-                            .map(dto -> dto.status() == OrderStatus.DRAFT)
-                            .orElse(false);
-        } catch (AccessDeniedException ex) {
-            parentOrderDraft = false;
+                            .map(dto -> dto.status())
+                            .orElse(OrderStatus.DRAFT);
         } catch (RuntimeException ex) {
-            parentOrderDraft = false;
+            parentOrderStatus = OrderStatus.ACTIVE;
         }
     }
 
     private boolean parentAllowsMutation() {
-        if (parentOrderDraft) {
+        if (parentOrderStatus == OrderStatus.DRAFT) {
             return true;
         }
         showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
@@ -745,31 +459,6 @@ public final class OrderItemEditorViewModel {
                 name.get(),
                 blankToNull(comments.get()),
                 blankToNull(externalPositionNumber.get()));
-    }
-
-    private void normalizeQuantityDisplayBestEffort() {
-        String raw = orderedQuantity.get();
-        if (raw == null || raw.isBlank()) {
-            return;
-        }
-        try {
-            orderedQuantity.set(
-                    ProductQuantityUiValidation.requireValidNormalizedProductQuantity(raw));
-        } catch (RuntimeException ignored) {
-            // Quantity is owned by revision update, not commercial ITEM_UPDATE.
-        }
-    }
-
-    private Optional<RevisionNumber> parseCopyFrom() {
-        String raw = copyFromRevision.get();
-        if (raw == null || raw.isBlank()) {
-            return Optional.empty();
-        }
-        try {
-            return Optional.of(RevisionNumber.of(Integer.parseInt(raw.trim())));
-        } catch (RuntimeException ex) {
-            throw new IllegalArgumentException("Некорректный номер редакции для копирования", ex);
-        }
     }
 
     private void clearMessages() {

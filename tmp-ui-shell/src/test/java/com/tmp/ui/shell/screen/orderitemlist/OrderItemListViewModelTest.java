@@ -18,8 +18,13 @@ import com.tmp.order.api.OrderSummaryDto;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
 import com.tmp.order.api.RevisionNumber;
+import com.tmp.order.api.RevisionStatus;
+import com.tmp.order.api.ui.OrderItemEditorQueryService;
+import com.tmp.order.api.ui.OrderItemEditorSnapshot;
 import com.tmp.security.api.PermissionId;
+import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatus;
 import com.tmp.ui.shell.screen.orderlist.FakeAuthorization;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +51,7 @@ class OrderItemListViewModelTest {
         assertEquals(1, query.getOrderItemsCalls);
         assertEquals(1, viewModel.items().size());
         assertTrue(viewModel.canCreateProperty().get());
+        assertEquals(OrderItemOperationalStatus.EDITING, viewModel.items().get(0).operationalStatus());
     }
 
     @Test
@@ -75,10 +81,56 @@ class OrderItemListViewModelTest {
         assertTrue(opened.get());
     }
 
+    @Test
+    void quantityComesFromEditorSnapshot() {
+        FakeQuery query = new FakeQuery();
+        FakeEditorQuery editor = new FakeEditorQuery();
+        OrderId orderId = OrderId.generate();
+        OrderItemId itemId = OrderItemId.generate();
+        query.items = List.of(item(orderId, itemId));
+        editor.snapshot =
+                OrderItemEditorSnapshot.of(
+                        itemId,
+                        orderId,
+                        "P-1",
+                        "Panel",
+                        null,
+                        null,
+                        OrderItemStatus.DRAFT,
+                        null,
+                        OrderItemEditorSnapshot.RevisionView.of(
+                                RevisionNumber.first(), RevisionStatus.DRAFT, BigDecimal.valueOf(8), 0),
+                        BigDecimal.valueOf(8));
+        OrderItemListViewModel viewModel =
+                new OrderItemListViewModel(query, new FakeAuthorization(), editor, null);
+        viewModel.openForOrder(orderId, OrderStatus.DRAFT);
+        assertEquals("8", viewModel.items().get(0).quantityDisplay());
+    }
+
+    @Test
+    void missingSnapshotShowsEmptyQuantity() {
+        FakeQuery query = new FakeQuery();
+        OrderId orderId = OrderId.generate();
+        query.items = List.of(item(orderId, OrderItemId.generate()));
+        OrderItemListViewModel viewModel =
+                new OrderItemListViewModel(query, new FakeAuthorization(), new FakeEditorQuery(), null);
+        viewModel.openForOrder(orderId, OrderStatus.DRAFT);
+        assertEquals("", viewModel.items().get(0).quantityDisplay());
+    }
+
     private static OrderItemDto item(OrderId orderId, OrderItemId itemId) {
         Instant now = Instant.parse("2026-07-27T10:00:00Z");
         return OrderItemDto.of(
                 itemId, orderId, "P-1", "Panel", null, null, OrderItemStatus.DRAFT, null, now, now);
+    }
+
+    private static final class FakeEditorQuery implements OrderItemEditorQueryService {
+        private OrderItemEditorSnapshot snapshot;
+
+        @Override
+        public Optional<OrderItemEditorSnapshot> getEditorSnapshot(OrderItemId orderItemId) {
+            return Optional.ofNullable(snapshot);
+        }
     }
 
     private static final class FakeQuery implements OrderQueryService {

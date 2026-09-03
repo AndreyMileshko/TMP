@@ -2,6 +2,7 @@ package com.tmp.ui.shell.screen.orderlist;
 
 import com.tmp.ui.shell.navigation.ViewModelAware;
 import com.tmp.ui.shell.order.worklist.DateTimePresentation;
+import com.tmp.ui.shell.order.worklist.OperationalStatusIndicator;
 import com.tmp.ui.shell.order.worklist.OrderListPeriod;
 import com.tmp.ui.shell.order.worklist.OrderOperationalStatus;
 import com.tmp.ui.shell.order.worklist.OrderOperationalSummary;
@@ -11,7 +12,6 @@ import javafx.animation.PauseTransition;
 import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
-import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
@@ -24,8 +24,6 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
-import javafx.scene.layout.HBox;
-import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
 
@@ -204,15 +202,7 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
             }
         });
 
-        customerFilterButton.setOnAction(e ->
-                OrderListCustomerFilterPopup.show(
-                        customerFilterButton,
-                        viewModel.loadCustomerOptions(),
-                        viewModel.selectAllCustomersProperty().get(),
-                        Set.copyOf(viewModel.selectedCustomerRefs()),
-                        viewModel.includeUnassignedCustomerProperty().get(),
-                        selection -> viewModel.applyCustomerSelection(
-                                selection.selectAll(), selection.customerRefs(), selection.includeUnassigned())));
+        customerFilterButton.setOnAction(e -> openCustomerFilterPopup());
 
         ordersTable.setRowFactory(table -> {
             TableRow<OrderOperationalSummary> row = new TableRow<>();
@@ -256,6 +246,21 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
         binding = false;
+    }
+
+    private void openCustomerFilterPopup() {
+        var loaded = viewModel.loadCustomerOptions();
+        if (loaded.isEmpty()) {
+            return;
+        }
+        OrderListCustomerFilterPopup.show(
+                customerFilterButton,
+                loaded.get(),
+                viewModel.selectAllCustomersProperty().get(),
+                Set.copyOf(viewModel.selectedCustomerRefs()),
+                viewModel.includeUnassignedCustomerProperty().get(),
+                selection -> viewModel.applyCustomerSelection(
+                        selection.selectAll(), selection.customerRefs(), selection.includeUnassigned()));
     }
 
     private void bindStatus(CheckBox checkBox, OrderOperationalStatus status) {
@@ -337,14 +342,7 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
                 setText(null);
                 return;
             }
-            Circle dot = new Circle(5);
-            dot.getStyleClass().addAll("tmp-status-dot", item.operationalStatus().indicatorStyleClass());
-            Label caption = new Label(item.operationalStatus().caption());
-            caption.getStyleClass().add("tmp-status-caption");
-            HBox box = new HBox(8, dot, caption);
-            box.getStyleClass().add("tmp-status-cell");
-            box.setAlignment(Pos.CENTER_LEFT);
-            setGraphic(box);
+            setGraphic(OperationalStatusIndicator.create(item.operationalStatus()));
             setText(null);
         }
     }

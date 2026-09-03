@@ -3,8 +3,12 @@ package com.tmp.order.application.ui;
 import com.tmp.document.api.CreateDocumentCommand;
 import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.DocumentMetadata;
+import com.tmp.order.api.OrderDto;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderItemId;
+import com.tmp.order.api.OrderItemStatus;
+import com.tmp.order.api.OrderQueryService;
+import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
 import com.tmp.order.api.ui.OrderItemCommercialDraft;
@@ -45,6 +49,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Default UI orchestration for item / revision document flows. Posts only through {@link
@@ -55,9 +61,11 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
     private final DocumentEngine documentEngine;
     private final DraftPayloadApplicationService draftPayloads;
     private final OrderItemRepository orderItemRepository;
+    private final OrderQueryService orderQueryService;
     private final ProcessingRecordPort processingRecords;
     private final AuthorizationService authorization;
     private final Clock clock;
+    private final TransactionTemplate transactionTemplate;
 
     public DefaultOrderItemDocumentUiService(
             DocumentEngine documentEngine,
@@ -66,13 +74,55 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
             ProcessingRecordPort processingRecords,
             AuthorizationService authorization,
             Clock clock) {
+        this(
+                documentEngine,
+                draftPayloads,
+                orderItemRepository,
+                null,
+                processingRecords,
+                authorization,
+                clock,
+                null);
+    }
+
+    public DefaultOrderItemDocumentUiService(
+            DocumentEngine documentEngine,
+            DraftPayloadApplicationService draftPayloads,
+            OrderItemRepository orderItemRepository,
+            OrderQueryService orderQueryService,
+            ProcessingRecordPort processingRecords,
+            AuthorizationService authorization,
+            Clock clock) {
+        this(
+                documentEngine,
+                draftPayloads,
+                orderItemRepository,
+                orderQueryService,
+                processingRecords,
+                authorization,
+                clock,
+                null);
+    }
+
+    public DefaultOrderItemDocumentUiService(
+            DocumentEngine documentEngine,
+            DraftPayloadApplicationService draftPayloads,
+            OrderItemRepository orderItemRepository,
+            OrderQueryService orderQueryService,
+            ProcessingRecordPort processingRecords,
+            AuthorizationService authorization,
+            Clock clock,
+            PlatformTransactionManager transactionManager) {
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
         this.draftPayloads = Objects.requireNonNull(draftPayloads, "draftPayloads");
         this.orderItemRepository =
                 Objects.requireNonNull(orderItemRepository, "orderItemRepository");
+        this.orderQueryService = orderQueryService;
         this.processingRecords = Objects.requireNonNull(processingRecords, "processingRecords");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.transactionTemplate =
+                transactionManager == null ? null : new TransactionTemplate(transactionManager);
     }
 
     @Override
@@ -406,6 +456,122 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
     }
 
     @Override
+    public OrderItemId saveNewItem(
+            OrderId orderId, OrderItemCommercialDraft draft, String orderedQuantity) {
+        Objects.requireNonNull(orderId, "orderId");
+        Objects.requireNonNull(draft, "draft");
+        Objects.requireNonNull(orderedQuantity, "orderedQuantity");
+        return inTransaction(
+                () -> {
+                    UUID documentId =
+                            beginItemCreate("ORDER_ITEM_CREATE " + orderId.value(), orderId);
+                    saveItemCreateDraft(
+                            documentId, orderId, Optional.empty(), draft, orderedQuantity, 0L);
+                    return postDocument(documentId);
+                });
+    }
+
+    @Override
+    public OrderItemId saveExistingItem(
+            OrderItemId orderItemId, OrderItemCommercialDraft draft, String orderedQuantity) {
+        Objects.requireNonNull(orderItemId, "orderItemId");
+        Objects.requireNonNull(draft, "draft");
+        Objects.requireNonNull(orderedQuantity, "orderedQuantity");
+        return inTransaction(
+                () -> saveExistingItemInTransaction(orderItemId, draft, orderedQuantity));
+    }
+
+    private OrderItemId saveExistingItemInTransaction(
+            OrderItemId orderItemId, OrderItemCommercialDraft draft, String orderedQuantity) {
+        OrderItem item = requireItem(orderItemId);
+        requireParentOrderDraft(item.orderId());
+        if (item.status() == OrderItemStatus.CANCELLED) {
+            throw new IllegalStateException(
+                    "Cancelled order item cannot be saved: " + orderItemId);
+        }
+
+        boolean commercialUpdated = false;
+        boolean quantityUpdated = false;
+
+        if (item.status() == OrderItemStatus.DRAFT) {
+            UUID updateDoc =
+                    beginItemUpdate(
+                            "ORDER_ITEM_UPDATE " + orderItemId.value(), orderItemId);
+            saveItemUpdateDraft(updateDoc, orderItemId, draft, 0L);
+            postDocument(updateDoc);
+            commercialUpdated = true;
+            item = requireItem(orderItemId);
+        }
+
+        Optional<RevisionNumber> draftRevision = item.draftRevisionNumber();
+        if (draftRevision.isPresent()) {
+            RevisionNumber draftNumber = draftRevision.get();
+            UUID revisionDoc =
+                    beginRevisionUpdate(
+                            "ORDER_ITEM_REVISION_UPDATE " + orderItemId.value(), orderItemId);
+            saveRevisionUpdateDraft(
+                    revisionDoc, orderItemId, draftNumber, orderedQuantity, 0L);
+            postDocument(revisionDoc);
+            quantityUpdated = true;
+            item = requireItem(orderItemId);
+        }
+
+        if (shouldApproveDraftRevision(item)) {
+            UUID approveDoc =
+                    beginRevisionApprove(
+                            "ORDER_ITEM_REVISION_APPROVE " + orderItemId.value(), orderItemId);
+            postDocument(approveDoc);
+            return orderItemId;
+        }
+
+        if (!commercialUpdated && !quantityUpdated) {
+            throw new IllegalStateException(
+                    "Order item has no editable commercial draft or draft revision to save: "
+                            + orderItemId
+                            + ", status="
+                            + item.status());
+        }
+        return orderItemId;
+    }
+
+    /**
+     * Approve only for an already-{@code ACTIVE} item that still has an open draft revision with a
+     * non-empty specification. DRAFT items remain DRAFT after Save (iterative edit while parent is
+     * DRAFT); promotion to ACTIVE is not part of Save for first revision.
+     */
+    private static boolean shouldApproveDraftRevision(OrderItem item) {
+        if (item.status() != OrderItemStatus.ACTIVE) {
+            return false;
+        }
+        Optional<OrderItemRevision> draft = item.draftRevision();
+        if (draft.isEmpty() || !draft.get().isDraft()) {
+            return false;
+        }
+        return draft.get()
+                .specification()
+                .filter(spec -> !spec.isEmpty())
+                .isPresent();
+    }
+
+    private void requireParentOrderDraft(OrderId orderId) {
+        if (orderQueryService == null) {
+            return;
+        }
+        OrderDto parent =
+                orderQueryService
+                        .getOrder(orderId)
+                        .orElseThrow(
+                                () -> new IllegalStateException("Order not found: " + orderId));
+        if (parent.status() != OrderStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "Order item can be saved only while parent order is DRAFT, current="
+                            + parent.status()
+                            + ", orderId="
+                            + orderId);
+        }
+    }
+
+    @Override
     public Optional<OrderItemCommercialDraft> loadItemCreateDraft(UUID documentId) {
         Objects.requireNonNull(documentId, "documentId");
         authorization.requirePermission(OrderManagementPermissions.ITEM_CREATE);
@@ -655,5 +821,16 @@ public final class DefaultOrderItemDocumentUiService implements OrderItemDocumen
             return cause;
         }
         return new IllegalStateException(message + ": " + cause.getMessage(), cause);
+    }
+
+    private <T> T inTransaction(java.util.function.Supplier<T> action) {
+        if (transactionTemplate == null) {
+            return action.get();
+        }
+        T result = transactionTemplate.execute(status -> action.get());
+        if (result == null) {
+            throw new IllegalStateException("Order item document orchestration returned null");
+        }
+        return result;
     }
 }

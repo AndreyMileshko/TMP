@@ -17,14 +17,13 @@
     <Label fx:id="titleLabel" styleClass="order-item-list-title"/>
     <HBox spacing="8">
         <Button fx:id="createItemButton" text="Создать позицию"/>
-        <Button fx:id="openItemButton" text="Открыть"/>
     </HBox>
     <TableView fx:id="itemsTable" prefHeight="360">
         <columns>
-            <TableColumn fx:id="productCodeColumn" text="Код изделия" prefWidth="140"/>
-            <TableColumn fx:id="nameColumn" text="Наименование" prefWidth="220"/>
-            <TableColumn fx:id="statusColumn" text="Статус" prefWidth="100"/>
-            <TableColumn fx:id="activeRevisionColumn" text="Активная редакция" prefWidth="140"/>
+            <TableColumn fx:id="productCodeColumn" text="Код позиции" prefWidth="140" minWidth="100"/>
+            <TableColumn fx:id="nameColumn" text="Наименование" prefWidth="280" minWidth="160"/>
+            <TableColumn fx:id="quantityColumn" text="Количество" prefWidth="110" minWidth="80"/>
+            <TableColumn fx:id="statusColumn" text="Статус" prefWidth="200" minWidth="140"/>
         </columns>
     </TableView>
     <Label fx:id="errorLabel" styleClass="order-item-list-error" visible="false" managed="false" wrapText="true"/>

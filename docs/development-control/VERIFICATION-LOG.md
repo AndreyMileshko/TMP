@@ -3,8 +3,39 @@
 ## Latest result
 
 **Date:** 2026-09-03
-**Scope:** UI Modernization Stage 3.4.2 — Final Acceptance Corrective (customer filter)
-**Overall:** PASS (code/tests/build/package/launch on `tmp-stage5-pg`); interactive packaged GUI click-through FINAL MANUAL UI ACCEPTANCE PENDING (no desktop robot)
+**Scope:** UI Modernization Stage 3.4.3 — Final Orders UX Corrective (Parts A–T)
+**Overall:** PASS (targeted tests + quick build + package + launch on `tmp-stage5-pg`); interactive packaged GUI FINAL MANUAL UI ACCEPTANCE PENDING
+
+### Stage 3.4.3 Final Orders UX Corrective verification (2026-09-03)
+
+| Check | Result |
+|-------|--------|
+| OM: `DefaultOrderItemDocumentUiServiceTest`, `DefaultCurrentOrderItemSpecificationUiServiceTest` | PASS (21) |
+| OM: `JdbcOrderQueryReadAdapterIT` (DISTINCT ON customers + query IT) | PASS (25) |
+| UI: deriver / DecimalUiFormat / OrderItemList* / OrderItemEditor* / OrderItemSpecification* / TmpUiStandardFxTest / OrderOperationalStatusIndicatorTest / OrderListCustomer* / OrderOperationalStatusDeriverTest | PASS (71) |
+| Working DB Docker | `tmp-stage5-pg` Up; host `localhost`; port `55432`; database `tmp_gui_stage5`; Flyway `34`; `tmp-stage34-smoke-pg` NOT USED |
+| Quick install `mvn -pl :tmp-bootstrap-app -am install -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-03 12:51:49) |
+| Launch (env ≡ `scripts/run-tmp-package.ps1`) against `jdbc:postgresql://localhost:55432/tmp_gui_stage5` | PASS — Flyway V34 up-to-date; `Started DesktopBootstrap`; JavaFX-Launcher started; process alive (PID 17944); startup exceptions NONE (non-blocking JavaFX unnamed-module WARN) |
+| Interactive visual: item list / card / spec / green selection / navigation / resize | NOT AUTOMATED — requires user visual confirmation (TEST VERIFIED for code paths) |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 Warehouse | NOT STARTED |
+| Auto-commit | NOT DONE |
+
+### Stage 3.4.3 Parts A–C verification (2026-09-03) — superseded by full 3.4.3 entry above
+
+**Overall:** PASS (code/tests/build/package/launch on `tmp-stage5-pg`); interactive packaged GUI visual confirmation FINAL MANUAL UI ACCEPTANCE PENDING
+
+| Check | Result |
+|-------|--------|
+| OM surefire: `JdbcOrderQueryReadAdapterIT` + query stubs | PASS (34) |
+| UI surefire: customer options/popup/corrective/preference/ViewModel/ControllerFx/navigation/worklist/status indicators/theme/shell history | PASS (70) |
+| Working DB Docker | `tmp-stage5-pg` Up; host `localhost`; port `55432`; database `tmp_gui_stage5`; Flyway `34`; orders preserved `14`; `tmp-stage34-smoke-pg` NOT USED |
+| Quick install `mvn -pl :tmp-bootstrap-app -am install -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-03 11:53:14) |
+| Launch (env ≡ `scripts/run-tmp-package.ps1`) against `jdbc:postgresql://localhost:55432/tmp_gui_stage5` | PASS — Flyway V34 up-to-date; `Started DesktopBootstrap`; JavaFX-Launcher started; process alive; startup exceptions NONE (non-blocking JavaFX unnamed-module WARN) |
+| Interactive visual: green selection / brighter dots / second TableView screen | NOT AUTOMATED — requires user visual confirmation |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
 
 ### Stage 3.4.2 verification (2026-09-03)
 

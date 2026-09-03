@@ -232,6 +232,31 @@ class TmpUiStandardFxTest {
     }
 
     @Test
+    void tableSelectionUsesSoftGreenTokenInsteadOfPrimarySoft() {
+        String themeCss;
+        try (var in = TmpTheme.class.getResourceAsStream("tmp-theme.css")) {
+            assertNotNull(in);
+            themeCss = new String(in.readAllBytes());
+        } catch (Exception ex) {
+            throw new IllegalStateException(ex);
+        }
+        assertTrue(themeCss.contains("-tmp-table-selection-bg:"));
+        assertTrue(themeCss.contains("-tmp-table-selection-hover-bg:"));
+        assertTrue(themeCss.contains(".table-view .table-row-cell:filled:selected"));
+        assertTrue(themeCss.contains(".table-view:focused .table-row-cell:filled:selected"));
+        assertTrue(themeCss.contains("-fx-background-color: -tmp-table-selection-bg"));
+        assertFalse(themeCss.contains(
+                ".table-view:focused .table-row-cell:filled:selected {\r\n    -fx-background-color: -tmp-primary-soft;"));
+        assertFalse(themeCss.contains(
+                ".table-view:focused .table-row-cell:filled:selected {\n    -fx-background-color: -tmp-primary-soft;"));
+        assertTrue(themeCss.contains("-tmp-status-indicator-waiting:"));
+        assertTrue(themeCss.contains("-tmp-status-indicator-success:"));
+        assertTrue(themeCss.contains("-tmp-success: #2E7D32"));
+        assertTrue(themeCss.contains("-tmp-danger: #C62828"));
+        assertTrue(themeCss.contains("-tmp-warning: #A86700"));
+    }
+
+    @Test
     void dialogPaneWithStandardThemeAppliesWithoutException() throws InterruptedException {
         JavaFxTestSupport.runOnFxThread(() -> {
             DialogPane dialogPane = new DialogPane();

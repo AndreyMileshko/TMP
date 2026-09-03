@@ -3,9 +3,9 @@ package com.tmp.ui.shell.screen.orderspecificationeditor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderItemId;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
@@ -22,7 +22,6 @@ import com.tmp.ui.shell.navigation.NavigationServices;
 import com.tmp.ui.shell.navigation.ScreenRegistration;
 import com.tmp.ui.shell.screen.orderlist.FakeAuthorization;
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -36,7 +35,6 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
-import javafx.scene.control.TextField;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -49,16 +47,25 @@ class OrderItemSpecificationEditorControllerFxTest {
     }
 
     @Test
-    void loadsOrderItemSpecificationEditorFxml() throws Exception {
+    void loadsModernSpecificationEditorWithoutLegacyForm() throws Exception {
         OrderItemSpecificationEditorViewModel viewModel =
                 new OrderItemSpecificationEditorViewModel(
                         new TrackingDocs(), new EmptyQuery(), new FakeAuthorization());
         Parent root = loadEditor(viewModel);
         assertNotNull(root.lookup("#linesTable"));
+        assertNotNull(root.lookup("#addMaterialButton"));
+        assertNotNull(root.lookup("#orderedQuantityLabel"));
+        assertNull(root.lookup("#revisionNumberLabel"));
+        assertNull(root.lookup("#revisionStatusLabel"));
+        assertNull(root.lookup("#materialCodeField"));
+        assertNull(root.lookup("#saveDraftButton"));
+        assertNull(root.lookup("#postButton"));
+        assertNull(root.lookup("#addLineButton"));
+        assertNull(root.lookup("#orderedQuantityField"));
     }
 
     @Test
-    void fxmlContainsRequiredColumnsAndFields() throws Exception {
+    void fxmlContainsRequiredColumnsAndHeader() throws Exception {
         TrackingDocs docs = new TrackingDocs();
         EmptyQuery query = new EmptyQuery();
         OrderItemId itemId = OrderItemId.generate();
@@ -79,53 +86,13 @@ class OrderItemSpecificationEditorControllerFxTest {
         assertEquals("Длина, мм", table.getColumns().get(3).getText());
         assertEquals("Количество", table.getColumns().get(4).getText());
         assertEquals("Единица измерения", table.getColumns().get(5).getText());
-
-        assertNotNull(root.lookup("#materialCodeField"));
-        assertNotNull(root.lookup("#materialNameField"));
-        assertNotNull(root.lookup("#colorField"));
-        assertNotNull(root.lookup("#lengthMmField"));
-        assertNotNull(root.lookup("#lineQuantityField"));
-        assertNotNull(root.lookup("#unitOfMeasureField"));
-        assertNotNull(root.lookup("#orderedQuantityField"));
+        Label qty = (Label) root.lookup("#orderedQuantityLabel");
+        assertEquals("Количество изделий: 1", qty.getText());
+        assertTrue(((Button) root.lookup("#addMaterialButton")).isVisible());
     }
 
     @Test
-    void draftFieldsAndButtonsAreEnabledWithPermissions() throws Exception {
-        EmptyQuery query = new EmptyQuery();
-        OrderItemId itemId = OrderItemId.generate();
-        RevisionNumber revision = RevisionNumber.first();
-        query.snapshot =
-                draftSnapshot(
-                        itemId,
-                        revision,
-                        List.of(
-                                OrderItemSpecificationLineView.of(
-                                        1, "M1", "Mat", null, null, BigDecimal.ONE, "шт")));
-        OrderItemSpecificationEditorViewModel viewModel =
-                new OrderItemSpecificationEditorViewModel(
-                        new TrackingDocs(), query, auth(allPerms()));
-        viewModel.open(itemId, revision);
-
-        Parent root = loadEditor(viewModel);
-        TextField orderedQuantity = (TextField) root.lookup("#orderedQuantityField");
-        TextField materialCode = (TextField) root.lookup("#materialCodeField");
-        TextField color = (TextField) root.lookup("#colorField");
-        TextField lengthMm = (TextField) root.lookup("#lengthMmField");
-        Button addLine = (Button) root.lookup("#addLineButton");
-        Button saveDraft = (Button) root.lookup("#saveDraftButton");
-
-        assertFalse(orderedQuantity.isDisabled());
-        assertFalse(materialCode.isDisabled());
-        assertFalse(color.isDisabled());
-        assertFalse(lengthMm.isDisabled());
-        assertEquals("", color.getText());
-        assertEquals("", lengthMm.getText());
-        assertFalse(addLine.isDisabled());
-        assertFalse(saveDraft.isDisabled());
-    }
-
-    @Test
-    void approvedRevisionDisablesEditingControls() throws Exception {
+    void readOnlyHidesAddButton() throws Exception {
         EmptyQuery query = new EmptyQuery();
         OrderItemId itemId = OrderItemId.generate();
         RevisionNumber revision = RevisionNumber.first();
@@ -138,88 +105,14 @@ class OrderItemSpecificationEditorControllerFxTest {
                         true,
                         List.of(
                                 OrderItemSpecificationLineView.of(
-                                        1,
-                                        "A",
-                                        "Approved",
-                                        null,
-                                        null,
-                                        BigDecimal.ONE,
-                                        "pcs")));
+                                        1, "A", "Approved", null, null, BigDecimal.ONE, "pcs")));
         OrderItemSpecificationEditorViewModel viewModel =
                 new OrderItemSpecificationEditorViewModel(
                         new TrackingDocs(), query, auth(allPerms()));
         viewModel.open(itemId, revision);
 
         Parent root = loadEditor(viewModel);
-        assertTrue(((TextField) root.lookup("#orderedQuantityField")).isDisabled());
-        assertTrue(((TextField) root.lookup("#materialCodeField")).isDisabled());
-        assertTrue(((TextField) root.lookup("#lineQuantityField")).isDisabled());
-        assertTrue(((Button) root.lookup("#addLineButton")).isDisabled());
-        assertTrue(((Button) root.lookup("#saveDraftButton")).isDisabled());
-        assertTrue(((Button) root.lookup("#updateLineButton")).isDisabled());
-        assertTrue(((Button) root.lookup("#deleteLineButton")).isDisabled());
-    }
-
-    @Test
-    void invalidOrderedQuantityShowsRussianErrorAndDoesNotCallDocumentService() throws Exception {
-        TrackingDocs docs = new TrackingDocs();
-        EmptyQuery query = new EmptyQuery();
-        OrderItemId itemId = OrderItemId.generate();
-        RevisionNumber revision = RevisionNumber.first();
-        query.snapshot = draftSnapshot(itemId, revision, List.of());
-        OrderItemSpecificationEditorViewModel viewModel =
-                new OrderItemSpecificationEditorViewModel(docs, query, auth(allPerms()));
-        viewModel.open(itemId, revision);
-
-        Parent root = loadEditor(viewModel);
-        TextField orderedQuantity = (TextField) root.lookup("#orderedQuantityField");
-        Button saveDraft = (Button) root.lookup("#saveDraftButton");
-        Label errorLabel = (Label) root.lookup("#errorLabel");
-
-        runFx(
-                () -> {
-                    orderedQuantity.setText("abc");
-                    saveDraft.fire();
-                });
-
-        assertEquals("Количество изделий должно быть числом.", errorLabel.getText());
-        assertFalse(docs.beginRevisionUpdateCalled);
-        assertFalse(docs.saveRevisionUpdateCalled);
-        assertEquals("abc", orderedQuantity.getText());
-    }
-
-    @Test
-    void validSaveUsesOrderItemDocumentUiService() throws Exception {
-        TrackingDocs docs = new TrackingDocs();
-        EmptyQuery query = new EmptyQuery();
-        OrderItemId itemId = OrderItemId.generate();
-        RevisionNumber revision = RevisionNumber.first();
-        query.snapshot =
-                draftSnapshot(
-                        itemId,
-                        revision,
-                        List.of(
-                                OrderItemSpecificationLineView.of(
-                                        1, "M1", "Mat", "Белый", BigDecimal.TEN, BigDecimal.TWO, "шт")));
-        OrderItemSpecificationEditorViewModel viewModel =
-                new OrderItemSpecificationEditorViewModel(docs, query, auth(allPerms()));
-        viewModel.open(itemId, revision);
-
-        Parent root = loadEditor(viewModel);
-        TextField orderedQuantity = (TextField) root.lookup("#orderedQuantityField");
-        Button saveDraft = (Button) root.lookup("#saveDraftButton");
-
-        runFx(
-                () -> {
-                    orderedQuantity.setText("3");
-                    saveDraft.fire();
-                });
-
-        assertTrue(docs.beginRevisionUpdateCalled);
-        assertTrue(docs.saveRevisionUpdateCalled);
-        assertEquals("3", docs.lastOrderedQuantity);
-        assertEquals(1, docs.lastSavedLines.size());
-        assertEquals(new BigDecimal("2"), docs.lastSavedLines.get(0).lineQuantity());
+        assertFalse(((Button) root.lookup("#addMaterialButton")).isVisible());
     }
 
     private static Parent loadEditor(OrderItemSpecificationEditorViewModel viewModel)
@@ -258,25 +151,6 @@ class OrderItemSpecificationEditorControllerFxTest {
         return rootRef.get();
     }
 
-    private static void runFx(Runnable action) throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
-        AtomicReference<Throwable> error = new AtomicReference<>();
-        Platform.runLater(
-                () -> {
-                    try {
-                        action.run();
-                    } catch (Throwable throwable) {
-                        error.set(throwable);
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-        assertTrue(latch.await(10, TimeUnit.SECONDS));
-        if (error.get() != null) {
-            throw new AssertionError("FX action failed", error.get());
-        }
-    }
-
     private static Set<PermissionId> allPerms() {
         return Set.of(
                 PermissionId.of("order.specification.view"),
@@ -306,13 +180,8 @@ class OrderItemSpecificationEditorControllerFxTest {
     }
 
     private static final class TrackingDocs implements OrderItemDocumentUiService {
-        private boolean beginRevisionUpdateCalled;
-        private boolean saveRevisionUpdateCalled;
-        private String lastOrderedQuantity;
-        private List<OrderItemSpecificationLineDraft> lastSavedLines = List.of();
-
         @Override
-        public UUID beginItemCreate(String title, OrderId orderId) {
+        public UUID beginItemCreate(String title, com.tmp.order.api.OrderId orderId) {
             return UUID.randomUUID();
         }
 
@@ -333,7 +202,6 @@ class OrderItemSpecificationEditorControllerFxTest {
 
         @Override
         public UUID beginRevisionUpdate(String title, OrderItemId orderItemId) {
-            beginRevisionUpdateCalled = true;
             return UUID.randomUUID();
         }
 
@@ -345,7 +213,7 @@ class OrderItemSpecificationEditorControllerFxTest {
         @Override
         public long saveItemCreateDraft(
                 UUID documentId,
-                OrderId orderId,
+                com.tmp.order.api.OrderId orderId,
                 Optional<OrderItemId> orderItemId,
                 OrderItemCommercialDraft draft,
                 String orderedQuantity,
@@ -380,9 +248,6 @@ class OrderItemSpecificationEditorControllerFxTest {
                 String orderedQuantity,
                 List<OrderItemSpecificationLineDraft> specificationLines,
                 long expectedPayloadRevision) {
-            saveRevisionUpdateCalled = true;
-            lastOrderedQuantity = orderedQuantity;
-            lastSavedLines = new ArrayList<>(specificationLines);
             return expectedPayloadRevision + 1;
         }
 
@@ -393,18 +258,26 @@ class OrderItemSpecificationEditorControllerFxTest {
                 RevisionNumber revisionNumber,
                 String orderedQuantity,
                 long expectedPayloadRevision) {
-            return saveRevisionUpdateDraft(
-                    documentId,
-                    orderItemId,
-                    revisionNumber,
-                    orderedQuantity,
-                    List.of(),
-                    expectedPayloadRevision);
+            return expectedPayloadRevision;
         }
 
         @Override
         public OrderItemId postDocument(UUID documentId) {
             return OrderItemId.generate();
+        }
+
+        @Override
+        public OrderItemId saveNewItem(
+                com.tmp.order.api.OrderId orderId,
+                OrderItemCommercialDraft draft,
+                String orderedQuantity) {
+            return OrderItemId.generate();
+        }
+
+        @Override
+        public OrderItemId saveExistingItem(
+                OrderItemId orderItemId, OrderItemCommercialDraft draft, String orderedQuantity) {
+            return orderItemId;
         }
 
         @Override

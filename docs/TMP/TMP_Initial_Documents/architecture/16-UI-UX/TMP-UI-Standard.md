@@ -71,7 +71,8 @@
 | Семантика | Назначение | Токены |
 |---|---|---|
 | DARK | shell, topbar | `-tmp-dark`, `-tmp-dark-hover` |
-| BLUE | system accent, navigation, selected, focus, info | `-tmp-primary`, `-tmp-primary-hover`, `-tmp-primary-pressed`, `-tmp-primary-soft`, `-tmp-focus` |
+| BLUE | system accent, navigation, focus, info | `-tmp-primary`, `-tmp-primary-hover`, `-tmp-primary-pressed`, `-tmp-primary-soft`, `-tmp-focus` |
+| GREEN (table) | TableView selected row | `-tmp-table-selection-bg`, `-tmp-table-selection-hover-bg` |
 | GREEN | executable/available action, success | `-tmp-action`, `-tmp-action-hover`, `-tmp-action-pressed`, `-tmp-action-soft`, `-tmp-success`, `-tmp-success-soft` |
 | GRAY | neutral, secondary, disabled, inactive | `-tmp-bg`, `-tmp-surface`, `-tmp-surface-alt`, `-tmp-surface-hover`, `-tmp-text-secondary`, `-tmp-text-disabled`, `-tmp-border` |
 | RED | destructive, error | `-tmp-danger`, `-tmp-danger-hover`, `-tmp-danger-soft` |
@@ -288,7 +289,7 @@ TableView **MUST** следовать глобальному стилю темы
 - header: clean, semibold, no heavy gradient;
 - row height: ~36 px;
 - hover: soft;
-- selected: blue/system accent soft background (`-tmp-primary-soft`);
+- selected: soft translucent green background (`-tmp-table-selection-bg`); visible for both focused and unfocused TableView; selected text remains normal readable `-tmp-text`. Screen-specific TableView selection colors are **prohibited** — global `tmp-theme.css` is the source of truth.
 - empty: human-readable empty state (см. §25).
 
 Table header **MUST** have a distinct neutral background darker than normal/alternating data rows. Column header and data rows **MUST NOT** use the same background token. Header background **MUST** use dedicated semantic token `-tmp-table-header-bg` (defined globally in `tmp-theme.css`). Header **MUST NOT** imitate selected/hover state.
@@ -584,7 +585,7 @@ ScrollPane **SHOULD** применяться только к content area. Toolb
 # 30. SplitPane / TreeView / ListView / Controls
 
 - SplitPane: допустим для master-detail/workbench; divider position — разумный default.
-- TreeView / ListView: единый visual style темы (row height, hover, selected).
+- TreeView / ListView: единый visual style темы (row height, hover); selection follows soft translucent green TableView rule when applicable.
 - ComboBox / DatePicker / Spinner: **MUST** использовать Design System; **MUST NOT** создавать custom control без необходимости.
 - Scrollbar / Tooltip: следовать текущим Theme rules.
 
@@ -738,15 +739,15 @@ User-facing status is a separate read-model concept. Captions **MUST** be Russia
 
 | Operational status | Caption | Indicator |
 |---|---|---|
-| EDITING | Редактируется | neutral / gray |
-| AWAITING_PRODUCTION | Ожидает производства | warning / yellow |
-| IN_PRODUCTION | В производстве | info / blue |
-| COMPLETED | Выполнен | success / green |
-| PARTIALLY_COMPLETED | Частично выполнен | warning-strong / orange |
-| CANCELLED | Отменён | danger / red |
-| STATUS_UNAVAILABLE | Статус недоступен | muted / unavailable |
+| EDITING | Редактируется | neutral / gray indicator |
+| AWAITING_PRODUCTION | Ожидает производства | bright amber indicator |
+| IN_PRODUCTION | В производстве | bright blue indicator |
+| COMPLETED | Выполнен | bright green indicator |
+| PARTIALLY_COMPLETED | Частично выполнен | bright orange indicator |
+| CANCELLED | Отменён | bright red indicator |
+| STATUS_UNAVAILABLE | Статус недоступен | muted / unavailable indicator |
 
-Status cell **MUST** be a colored indicator **plus** text (not color-only, not emoji).
+Status cell **MUST** be a colored indicator **plus** text (not color-only, not emoji). Indicator colors use dedicated `-tmp-status-indicator-*` tokens and **MUST NOT** reuse/brighten generic `-tmp-success` / `-tmp-danger` / `-tmp-warning` / `-tmp-info` message/button palette.
 
 `STATUS_UNAVAILABLE` is presentation-only. It **MUST NOT** be added to commercial `OrderStatus`. It means Production facts could not be read (AccessDenied or technical failure). The UI **MUST NOT** treat a failed Production read as zero manufactured / «Ожидает производства». Unavailable rows remain in the list and are always included by the status filter (no dedicated checkbox for this rare state).
 
@@ -778,7 +779,7 @@ Open: double-click on a non-empty row, or Enter on the selected row. Click selec
 
 - One quick search: order number **OR** customer name (partial, case-insensitive). Not persisted between sessions. Restored by in-session Back memento.
 - Status checkboxes; default for a new user: all except «Отменён» and «Статус недоступен». Immediate refresh (small debounce allowed). Persisted per user. **At least one status checkbox MUST remain selected**; the last selected checkbox cannot be cleared (disabled or immediately re-selected). Empty/corrupt persisted status sets fall back to defaults.
-- Customer Excel-like multi-select on stable `customerRef`; UI shows `customerName`. Select-all means no customer predicate. Persisted per user. Customer option catalogue is **period-independent** (distinct known customers from Order Management across all Orders); period and customer filters are independent. Reconciliation runs only after a **successful** catalogue load: `persisted ∩ known`; a customer without Orders in the current period is **not** stale. True stale refs are dropped and cleaned preference may be rewritten once. If a subset becomes empty after successful reconciliation, the filter returns to «Заказчики: Все» (no invisible filter). Catalogue load failure must not clear selection, must not rewrite preference, and must surface a user-facing error (technical exception logged).
+- Customer Excel-like multi-select on stable `customerRef`; UI shows `customerName`. Select-all means no customer predicate. Persisted per user. Customer option catalogue is **period-independent** (distinct known customers from Order Management across all Orders); **one `customerRef` = one option**, display name = latest known name from the newest Order. Period and customer filters are independent. Reconciliation runs only after a **successful** catalogue load: `persisted ∩ known`; a customer without Orders in the current period is **not** stale. True stale refs are dropped and cleaned preference may be rewritten once. If a subset becomes empty after successful reconciliation, the filter returns to «Заказчики: Все» (no invisible filter). Catalogue load failure must not clear selection, must not rewrite preference, must surface a user-facing error (technical exception logged), and **must not open** the customer popup. Empty option rows must not be interpreted as «select all».
 - Period is mandatory (created-at). Presets: Сегодня, Последние 7 дней, Последние 30 дней (new-user default), Текущий месяц, Другой период. Dynamic presets recompute on login; custom stores exact dates. Half-open day bounds.
 
 Persistent filters are server-side, keyed by immutable user id. Quick search, selected row, page index, and navigation history are session-only.
@@ -796,6 +797,52 @@ Save creates/updates an editable `DRAFT`. Transfer to Work is one application op
 Topbar **← / →** (tooltips Назад / Вперёд) is a session-only browser-like history for content screens. Back/Forward do not push. Branching clears forward. Logout clears history. Restored routes re-check permissions. Orders list memento restores search, filters, page, and selected row.
 
 Keyboard: Alt+Left / Alt+Right when they do not conflict with OS/JavaFX.
+
+## 39.6 Order items list
+
+Header: **Позиции заказа**.
+
+Actions: **Создать позицию** only when the parent Order is `DRAFT` and the user has create permission. No permanent **Открыть** toolbar button.
+
+Columns exactly: Код позиции, Наименование, Количество, Статус. Do **not** show «Активная редакция» or commercial `ACTIVE`/`DRAFT` as the Status column value.
+
+Status cell uses the same operational indicator pattern as the Orders list (`OperationalStatusIndicator`: colored dot + Russian caption), derived via `OrderItemOperationalStatusDeriver` from parent Order status, commercial item status, and optional Production item facts. When Production facts cannot be read after transfer, show **Статус недоступен** — never invent zeros as «Ожидает производства».
+
+Quantity comes from the item editor snapshot (`orderedQuantity`), formatted without trailing zeros. Missing snapshot → empty cell.
+
+Open: double-click a non-empty row, or Enter on the selected row. Single click selects only. Empty-area double-click does nothing.
+
+Table uses constrained column resize; Наименование gets the larger share of width.
+
+## 39.7 Order item card
+
+Title: **Позиция {productCode}** or **Новая позиция**. Header status is an operational indicator graphic (not raw commercial enum text).
+
+Editable while parent Order is `DRAFT`: Код позиции, Наименование, Комментарий, Внешний номер позиции, Количество изделий.
+
+Visible actions when editable: **Сохранить** (application facade `saveNewItem` / `saveExistingItem` — not a technical begin/save/post chain in the controller), **Открыть спецификацию** (resolves current draft-or-active via `CurrentOrderItemSpecificationUiService`), **Отменить позицию** (danger secondary, when cancel is allowed).
+
+**MUST NOT** show: active/draft revision labels, copy-from-revision, commercial draft/post, create revision, save qty draft, post revision, approve, separate open-active / open-draft specification buttons.
+
+After transfer (parent not `DRAFT`): fields are read-only labels; only **Открыть спецификацию** (plus shell history) remains. Hide Save and Cancel — no wall of disabled technical buttons.
+
+## 39.8 Specification editor
+
+Title: **Спецификация позиции {productCode}**. Subtitle/label: **Количество изделий: N** (read-only; quantity edits belong on the item card). Spec persistence preserves the existing ordered quantity from the snapshot.
+
+**MUST NOT** show: revision number / revision status, permanent line form under the table, permanent Добавить/Изменить/Удалить/Выше/Ниже/Очистить/Сохранить черновик/Провести изменение button wall.
+
+Editable UX: secondary **+ Добавить материал** opens a TMP-themed modal (Артикул, Наименование, Цвет, Длина, мм, Количество, Единица измерения). Double-click / Enter edits the selected row via the same dialog. Context menu: Изменить, Удалить, Переместить выше, Переместить ниже (row order has business meaning — line numbers on save). Delete uses a simple OK/Cancel confirmation (no typed DELETE). After add/edit/delete/move, persist immediately through the existing revision-update document API internally; the user does not see Save draft / Post.
+
+Table: constrained resize; Артикул and Наименование grow; compact Цвет / Длина, мм / Количество / Единица измерения. Display decimals via `DecimalUiFormat`.
+
+Read-only: hide add button and mutation context menu; double-click does nothing; table remains selectable/scrollable.
+
+## 39.9 Global selection and status presentation
+
+TableView selection uses soft translucent green (`-tmp-table-selection-bg`) from the global theme for both focused and unfocused tables. Screen-specific selection colors are prohibited.
+
+Operational status cells and headers reuse `OperationalStatusIndicator` (Circle radius 6 + caption) with dedicated `tmp-status-dot-*` classes. Do not reuse/brighten the generic `-tmp-success` / `-tmp-danger` / `-tmp-warning` / `-tmp-info` message/button palette for status dots.
 
 ---
 

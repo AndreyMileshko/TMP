@@ -44,7 +44,7 @@ class OrderListCustomerOptionsViewModelTest {
                         new OrderListTestSupport.InMemoryPreferences());
         viewModel.refresh();
 
-        List<OrderCustomerOptionDto> options = viewModel.loadCustomerOptions();
+        List<OrderCustomerOptionDto> options = viewModel.loadCustomerOptions().orElseThrow();
         assertEquals(
                 Set.of("c-a", "c-b"),
                 options.stream()
@@ -270,12 +270,97 @@ class OrderListCustomerOptionsViewModelTest {
                         new OrderListTestSupport.InMemoryPreferences());
         viewModel.refresh();
         List<String> refs =
-                viewModel.loadCustomerOptions().stream()
+                viewModel.loadCustomerOptions().orElseThrow().stream()
                         .filter(option -> "Alpha".equals(option.customerName()))
                         .map(OrderCustomerOptionDto::customerRef)
                         .sorted()
                         .toList();
         assertEquals(List.of("c-a", "c-b"), refs);
+    }
+
+    @Test
+    void loadCustomerOptionsFailureReturnsEmptyOptionalWithoutClearingSelection() {
+        OrderListTestSupport.InMemoryWorklistQuery worklist = new OrderListTestSupport.InMemoryWorklistQuery();
+        worklist.rows.add(
+                OrderListTestSupport.row(
+                        "A-1",
+                        OrderStatus.DRAFT,
+                        "c-a",
+                        "Alpha",
+                        Instant.parse("2026-09-01T10:00:00Z")));
+        OrderListTestSupport.InMemoryPreferences prefs = new OrderListTestSupport.InMemoryPreferences();
+        saveCustomerPreference(prefs, Set.of("c-a"));
+        int savesBefore = prefs.saveCalls;
+        OrderListViewModel viewModel =
+                OrderListTestSupport.viewModel(
+                        worklist,
+                        new OrderListTestSupport.MapProductionQuery(),
+                        new FakeAuthorization(),
+                        new OrderListTestSupport.SessionAuthn(OrderListTestSupport.userId()),
+                        prefs);
+        viewModel.refresh();
+        worklist.denyCustomers = new RuntimeException("popup catalogue down");
+
+        assertTrue(viewModel.loadCustomerOptions().isEmpty());
+        assertEquals(Set.of("c-a"), Set.copyOf(viewModel.selectedCustomerRefs()));
+        assertFalse(viewModel.selectAllCustomersProperty().get());
+        assertEquals(savesBefore, prefs.saveCalls);
+        assertPersistedCustomers(prefs, Set.of("c-a"));
+        assertFalse(viewModel.errorMessageProperty().get().isBlank());
+    }
+
+    @Test
+    void loadCustomerOptionsSuccessEmptyIsDistinctFromFailure() {
+        OrderListViewModel viewModel =
+                OrderListTestSupport.viewModel(
+                        new OrderListTestSupport.InMemoryWorklistQuery(),
+                        new OrderListTestSupport.MapProductionQuery(),
+                        new FakeAuthorization(),
+                        new OrderListTestSupport.SessionAuthn(OrderListTestSupport.userId()),
+                        new OrderListTestSupport.InMemoryPreferences());
+        viewModel.refresh();
+
+        var loaded = viewModel.loadCustomerOptions();
+        assertTrue(loaded.isPresent());
+        assertTrue(loaded.get().isEmpty());
+        assertTrue(
+                viewModel.errorMessageProperty().get() == null
+                        || viewModel.errorMessageProperty().get().isBlank());
+    }
+
+    @Test
+    void sameCustomerRefUsesLatestKnownDisplayName() {
+        OrderListTestSupport.InMemoryWorklistQuery worklist = new OrderListTestSupport.InMemoryWorklistQuery();
+        worklist.rows.add(
+                OrderListTestSupport.row(
+                        "OLD-1",
+                        OrderStatus.DRAFT,
+                        "CUST-1",
+                        "ООО Альфа",
+                        Instant.parse("2026-01-01T10:00:00Z")));
+        worklist.rows.add(
+                OrderListTestSupport.row(
+                        "NEW-1",
+                        OrderStatus.DRAFT,
+                        "CUST-1",
+                        "Альфа",
+                        Instant.parse("2026-09-01T10:00:00Z")));
+        OrderListViewModel viewModel =
+                OrderListTestSupport.viewModel(
+                        worklist,
+                        new OrderListTestSupport.MapProductionQuery(),
+                        new FakeAuthorization(),
+                        new OrderListTestSupport.SessionAuthn(OrderListTestSupport.userId()),
+                        new OrderListTestSupport.InMemoryPreferences());
+        viewModel.refresh();
+
+        List<OrderCustomerOptionDto> named =
+                viewModel.loadCustomerOptions().orElseThrow().stream()
+                        .filter(option -> !option.isUnassigned())
+                        .toList();
+        assertEquals(1, named.size());
+        assertEquals("CUST-1", named.getFirst().customerRef());
+        assertEquals("Альфа", named.getFirst().customerName());
     }
 
     private static void saveCustomerPreference(

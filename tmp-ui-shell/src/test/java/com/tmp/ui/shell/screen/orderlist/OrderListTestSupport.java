@@ -145,18 +145,28 @@ public final class OrderListTestSupport {
                 throw denyCustomers;
             }
             knownCustomerCalls++;
-            Map<String, OrderCustomerOptionDto> unique = new LinkedHashMap<>();
+            Map<String, OrderWorklistRowDto> latestByRef = new LinkedHashMap<>();
             boolean unassigned = false;
             for (OrderWorklistRowDto row : rows) {
-                if (row.customerRef() == null) {
+                if (row.customerRef() == null || row.customerRef().isBlank()) {
                     unassigned = true;
                     continue;
                 }
-                unique.putIfAbsent(
-                        row.customerRef(),
-                        OrderCustomerOptionDto.of(row.customerRef(), row.customerName()));
+                OrderWorklistRowDto previous = latestByRef.get(row.customerRef());
+                if (previous == null
+                        || row.createdAt().isAfter(previous.createdAt())
+                        || (row.createdAt().equals(previous.createdAt())
+                                && row.orderId()
+                                        .value()
+                                        .compareTo(previous.orderId().value())
+                                        > 0)) {
+                    latestByRef.put(row.customerRef(), row);
+                }
             }
-            List<OrderCustomerOptionDto> options = new ArrayList<>(unique.values());
+            List<OrderCustomerOptionDto> options = new ArrayList<>();
+            for (OrderWorklistRowDto row : latestByRef.values()) {
+                options.add(OrderCustomerOptionDto.of(row.customerRef(), row.customerName()));
+            }
             options.sort((a, b) -> {
                 String nameA = a.customerName() == null ? "" : a.customerName();
                 String nameB = b.customerName() == null ? "" : b.customerName();

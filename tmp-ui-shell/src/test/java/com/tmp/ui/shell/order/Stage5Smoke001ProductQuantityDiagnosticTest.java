@@ -30,7 +30,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Diagnostic coverage for STAGE5-057-SMOKE-001: pin the Russian whole-quantity message to UI
- * validation and prove commercial draft save for imported scaled quantities does not fail.
+ * validation and prove user-facing Save for imported scaled quantities does not fail.
  */
 class Stage5Smoke001ProductQuantityDiagnosticTest {
 
@@ -53,7 +53,7 @@ class Stage5Smoke001ProductQuantityDiagnosticTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"8", "8.0", "8.000000"})
-    void importedDraftCommercialSaveSucceedsForScaledWholeQuantitiesOnSamePath(String rawQuantity) {
+    void importedDraftSaveSucceedsForScaledWholeQuantitiesOnSamePath(String rawQuantity) {
         RecordingDocs docs = new RecordingDocs();
         FakeEditorQuery query = new FakeEditorQuery(new BigDecimal("8.000000"));
         OrderItemEditorViewModel viewModel =
@@ -64,15 +64,14 @@ class Stage5Smoke001ProductQuantityDiagnosticTest {
 
         viewModel.orderedQuantityProperty().set(rawQuantity);
         viewModel.commentsProperty().set("smoke-diagnostic");
-        viewModel.saveCommercialDraft();
+        viewModel.save();
 
         assertEquals("", viewModel.errorMessageProperty().get());
         assertFalse(viewModel.errorMessageProperty().get().contains("Количество изделий"));
-        assertTrue(docs.saveUpdateCalled);
-        assertFalse(docs.saveCreateCalled);
+        assertTrue(docs.saveExistingCalled);
+        assertFalse(docs.saveNewCalled);
         assertEquals("smoke-diagnostic", docs.lastCommercialDraft.comments());
-        // Commercial update must not send quantity to document service.
-        assertEquals(null, docs.lastOrderedQuantity);
+        assertEquals("8", docs.lastOrderedQuantity);
         assertEquals("8", viewModel.orderedQuantityProperty().get());
     }
 
@@ -84,12 +83,11 @@ class Stage5Smoke001ProductQuantityDiagnosticTest {
                 new OrderItemEditorViewModel(docs, query, auth(allItemPerms()));
 
         viewModel.openExisting(query.itemId);
-        viewModel.saveCommercialDraft();
+        viewModel.save();
 
         assertEquals("", viewModel.errorMessageProperty().get());
-        assertTrue(docs.saveUpdateCalled);
-        assertTrue(
-                viewModel.successMessageProperty().get().contains("Черновик изменения позиции"));
+        assertTrue(docs.saveExistingCalled);
+        assertTrue(viewModel.successMessageProperty().get().contains("Позиция сохранена"));
     }
 
     private static Set<PermissionId> allItemPerms() {
@@ -138,8 +136,8 @@ class Stage5Smoke001ProductQuantityDiagnosticTest {
     }
 
     private static final class RecordingDocs implements OrderItemDocumentUiService {
-        private boolean saveCreateCalled;
-        private boolean saveUpdateCalled;
+        private boolean saveNewCalled;
+        private boolean saveExistingCalled;
         private OrderItemCommercialDraft lastCommercialDraft;
         private String lastOrderedQuantity;
 
@@ -181,9 +179,6 @@ class Stage5Smoke001ProductQuantityDiagnosticTest {
                 OrderItemCommercialDraft draft,
                 String orderedQuantity,
                 long expectedPayloadRevision) {
-            saveCreateCalled = true;
-            lastCommercialDraft = draft;
-            lastOrderedQuantity = orderedQuantity;
             return expectedPayloadRevision + 1;
         }
 
@@ -193,9 +188,6 @@ class Stage5Smoke001ProductQuantityDiagnosticTest {
                 OrderItemId orderItemId,
                 OrderItemCommercialDraft draft,
                 long expectedPayloadRevision) {
-            saveUpdateCalled = true;
-            lastCommercialDraft = draft;
-            lastOrderedQuantity = null;
             return expectedPayloadRevision + 1;
         }
 
@@ -216,7 +208,6 @@ class Stage5Smoke001ProductQuantityDiagnosticTest {
                 RevisionNumber revisionNumber,
                 String orderedQuantity,
                 long expectedPayloadRevision) {
-            lastOrderedQuantity = orderedQuantity;
             return expectedPayloadRevision + 1;
         }
 
@@ -228,13 +219,30 @@ class Stage5Smoke001ProductQuantityDiagnosticTest {
                 String orderedQuantity,
                 List<OrderItemSpecificationLineDraft> specificationLines,
                 long expectedPayloadRevision) {
-            lastOrderedQuantity = orderedQuantity;
             return expectedPayloadRevision + 1;
         }
 
         @Override
         public OrderItemId postDocument(UUID documentId) {
             return OrderItemId.generate();
+        }
+
+        @Override
+        public OrderItemId saveNewItem(
+                OrderId orderId, OrderItemCommercialDraft draft, String orderedQuantity) {
+            saveNewCalled = true;
+            lastCommercialDraft = draft;
+            lastOrderedQuantity = orderedQuantity;
+            return OrderItemId.generate();
+        }
+
+        @Override
+        public OrderItemId saveExistingItem(
+                OrderItemId orderItemId, OrderItemCommercialDraft draft, String orderedQuantity) {
+            saveExistingCalled = true;
+            lastCommercialDraft = draft;
+            lastOrderedQuantity = orderedQuantity;
+            return orderItemId;
         }
 
         @Override
