@@ -2,7 +2,10 @@ package com.tmp.production.api;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +20,31 @@ public interface ProductionQueryApi {
 
     OrderProductionView getOrderProductionView(UUID orderId);
 
+    /**
+     * Batch read of Production facts for the operational Orders list.
+     *
+     * <p>The default implementation exists so test doubles compile; it is N+1 and MUST be overridden
+     * in the production adapter.
+     */
+    default Map<UUID, OrderProductionListFacts> getOrderProductionListFacts(Collection<UUID> orderIds) {
+        Objects.requireNonNull(orderIds, "orderIds");
+        Map<UUID, OrderProductionListFacts> facts = new LinkedHashMap<>();
+        for (UUID orderId : orderIds) {
+            Objects.requireNonNull(orderId, "orderId");
+            OrderProductionView view = getOrderProductionView(orderId);
+            facts.put(
+                    orderId,
+                    new OrderProductionListFacts(
+                            orderId,
+                            view.status(),
+                            0L,
+                            0L,
+                            0L,
+                            view.status() == OrderProductionViewStatus.CANCELLED));
+        }
+        return facts;
+    }
+
     Optional<ItemProductionStateView> getItemProductionState(UUID orderItemId);
 
     Optional<MaterialAvailabilityResultView> getMaterialAvailabilityResult(UUID orderId);
@@ -28,6 +56,28 @@ public interface ProductionQueryApi {
         IN_PRODUCTION,
         MANUFACTURED,
         CANCELLED
+    }
+
+    /**
+     * Compact Production facts for one order on the operational list. Quantities are sums across
+     * item-owned Production states; zeros when the order has not been accepted into Production.
+     */
+    record OrderProductionListFacts(
+            UUID sourceOrderId,
+            OrderProductionViewStatus status,
+            long orderedQuantity,
+            long releasedQuantity,
+            long activeProductionQuantity,
+            boolean cancellationPosted) {
+        public OrderProductionListFacts {
+            Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+            Objects.requireNonNull(status, "status");
+            if (orderedQuantity < 0L
+                    || releasedQuantity < 0L
+                    || activeProductionQuantity < 0L) {
+                throw new IllegalArgumentException("Quantities must be >= 0");
+            }
+        }
     }
 
     record OrderProductionView(

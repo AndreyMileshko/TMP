@@ -15,9 +15,12 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -124,6 +127,37 @@ public final class JdbcProductionCancellationRepository
                         Boolean.class,
                         sourceOrderId.value());
         return Boolean.TRUE.equals(posted);
+    }
+
+    @Override
+    public Set<SourceOrderId> findPostedCancellationOrderIds(Collection<SourceOrderId> sourceOrderIds) {
+        Objects.requireNonNull(sourceOrderIds, "sourceOrderIds");
+        if (sourceOrderIds.isEmpty()) {
+            return Set.of();
+        }
+        List<UUID> ids = sourceOrderIds.stream().map(SourceOrderId::value).distinct().toList();
+        Set<SourceOrderId> posted = new LinkedHashSet<>();
+        int chunkSize = 500;
+        for (int start = 0; start < ids.size(); start += chunkSize) {
+            int end = Math.min(start + chunkSize, ids.size());
+            List<UUID> chunk = ids.subList(start, end);
+            String placeholders = String.join(",", java.util.Collections.nCopies(chunk.size(), "?"));
+            String sql =
+                    """
+                    SELECT DISTINCT source_order_id
+                      FROM production.production_cancellations
+                     WHERE posted = TRUE
+                       AND source_order_id IN (
+                    """
+                            + placeholders
+                            + ")";
+            posted.addAll(
+                    jdbcTemplate.query(
+                            sql,
+                            (rs, rowNum) -> SourceOrderId.of(rs.getObject("source_order_id", UUID.class)),
+                            chunk.toArray()));
+        }
+        return Set.copyOf(posted);
     }
 
     private Optional<HeaderRow> findHeader(UUID documentId) {

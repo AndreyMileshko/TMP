@@ -9,7 +9,7 @@ class AuditOperationTest {
 
     @Test
     void allRequiredConstantsPresent() {
-        assertEquals(18, AuditOperation.values().length);
+        assertEquals(20, AuditOperation.values().length);
         assertEquals(
                 EnumSet.of(
                         AuditOperation.LOGIN_SUCCESS,
@@ -20,6 +20,8 @@ class AuditOperationTest {
                         AuditOperation.USER_DELETED,
                         AuditOperation.PASSWORD_CHANGED,
                         AuditOperation.PASSWORD_RESET,
+                        AuditOperation.ACTIVATION_CODE_ISSUED,
+                        AuditOperation.PASSWORD_INITIALIZED,
                         AuditOperation.ROLE_CREATED,
                         AuditOperation.ROLE_UPDATED,
                         AuditOperation.ROLE_DELETED,

@@ -12,8 +12,7 @@ class OrderListCreatePermissionTest {
 
     @Test
     void viewOnlyPermissionKeepsCreateOrderDisabled() {
-        OrderListViewModel viewModel = new OrderListViewModel(
-                new EmptyOrderQuery(),
+        OrderListViewModel viewModel = OrderListTestSupport.viewModel(
                 new FakeAuthorization(PermissionId.of(UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION)));
         viewModel.refresh();
         assertFalse(viewModel.canCreateProperty().get());
@@ -21,8 +20,7 @@ class OrderListCreatePermissionTest {
 
     @Test
     void viewAndCreatePermissionsEnableCreateOrder() {
-        OrderListViewModel viewModel = new OrderListViewModel(
-                new EmptyOrderQuery(),
+        OrderListViewModel viewModel = OrderListTestSupport.viewModel(
                 new FakeAuthorization(
                         PermissionId.of(UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION),
                         PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION)));
@@ -32,8 +30,7 @@ class OrderListCreatePermissionTest {
 
     @Test
     void missingCreatePermissionKeepsCreateOrderDisabledEvenWithOtherOrderPermissions() {
-        OrderListViewModel viewModel = new OrderListViewModel(
-                new EmptyOrderQuery(),
+        OrderListViewModel viewModel = OrderListTestSupport.viewModel(
                 new FakeAuthorization(
                         OrderManagementPermissions.ORDER_VIEW,
                         OrderManagementPermissions.ORDER_EDIT,
@@ -45,7 +42,7 @@ class OrderListCreatePermissionTest {
     @Test
     void refreshReevaluatesPermissionsAfterSessionBecomesAvailable() {
         MutableAuthorization authorization = new MutableAuthorization();
-        OrderListViewModel viewModel = new OrderListViewModel(new EmptyOrderQuery(), authorization);
+        OrderListViewModel viewModel = OrderListTestSupport.viewModel(authorization);
         assertFalse(viewModel.canCreateProperty().get());
 
         authorization.grant(

@@ -2,9 +2,23 @@
 
 ## Latest result
 
-**Date:** 2026-08-31
-**Scope:** POST-CLOSURE PRODUCTION/Warehouse CORRECTION (Stage 7 remains DONE)
-**Overall:** PASS
+**Date:** 2026-09-03
+**Scope:** UI Modernization Stage 3.4 — Orders
+**Overall:** PASS (module tests + package launch); interactive GUI Orders smoke limited (no JavaFX robot)
+
+### Stage 3.4 verification (2026-09-03)
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-order-management test` | PASS (376 tests) |
+| `mvn -pl :tmp-order-management "-Dit.test=JdbcOrderQueryReadAdapterIT" failsafe:integration-test` | PASS (22 IT) |
+| `mvn -pl :tmp-security "-Dtest=AuditOperationTest,JdbcUserUiPreferenceServiceTest" test` | PASS (4) |
+| `mvn -pl :tmp-production "-Dtest=ProductionQueryApiAuthorizationTest,CancelOrderProductionServiceTest" test` | PASS (15) |
+| Stage 3.4 `tmp-ui-shell` surefire subset (Orders/history/worklist/editor) | PASS (125) |
+| Quick install `mvn -pl :tmp-bootstrap-app -am install -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-03 10:10) |
+| Launch isolated DB `tmp-stage34-smoke-pg:55433/tmp_stage34_orders` + warehouse env | PASS — `Started DesktopBootstrap`; Flyway through V34; admin bootstrapped |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
 
 ### Post-closure corrective verification (2026-08-31)
 

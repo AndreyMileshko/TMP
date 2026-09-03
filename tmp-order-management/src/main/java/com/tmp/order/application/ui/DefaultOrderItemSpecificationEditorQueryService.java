@@ -1,6 +1,8 @@
 package com.tmp.order.application.ui;
 
 import com.tmp.order.api.OrderItemId;
+import com.tmp.order.api.OrderQueryService;
+import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
 import com.tmp.order.api.ui.OrderItemSpecificationEditorQueryService;
@@ -25,12 +27,16 @@ public final class DefaultOrderItemSpecificationEditorQueryService
         implements OrderItemSpecificationEditorQueryService {
 
     private final OrderItemRepository orderItemRepository;
+    private final OrderQueryService orderQueryService;
     private final AuthorizationService authorization;
 
     public DefaultOrderItemSpecificationEditorQueryService(
-            OrderItemRepository orderItemRepository, AuthorizationService authorization) {
+            OrderItemRepository orderItemRepository,
+            OrderQueryService orderQueryService,
+            AuthorizationService authorization) {
         this.orderItemRepository =
                 Objects.requireNonNull(orderItemRepository, "orderItemRepository");
+        this.orderQueryService = Objects.requireNonNull(orderQueryService, "orderQueryService");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
     }
 
@@ -68,7 +74,15 @@ public final class DefaultOrderItemSpecificationEditorQueryService
                             line.lineQuantity(),
                             line.unitOfMeasure()));
         }
-        boolean immutable = found.status() == RevisionStatus.ACTIVE || specification.isImmutable();
+        boolean parentNotDraft =
+                orderQueryService
+                        .getOrder(item.orderId())
+                        .map(order -> order.status() != OrderStatus.DRAFT)
+                        .orElse(false);
+        boolean immutable =
+                parentNotDraft
+                        || found.status() == RevisionStatus.ACTIVE
+                        || specification.isImmutable();
         return Optional.of(
                 OrderItemSpecificationEditorSnapshot.of(
                         item.id(),

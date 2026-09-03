@@ -40,10 +40,10 @@ class OrderImportMetadataFlywayTest {
     @Test
     void cleanDatabaseMigratesToLatestAndDropsImportMetadataTable() throws Exception {
         assertEquals(
-                "25",
+                1L,
                 jdbc.queryForObject(
-                        "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1",
-                        String.class));
+                        "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '25'",
+                        Long.class));
         assertFalse(tableExists(POSTGRES, "order_import_metadata"));
     }
 
@@ -75,10 +75,10 @@ class OrderImportMetadataFlywayTest {
                     .migrate();
 
             assertEquals(
-                    "25",
+                    1L,
                     upgradeJdbc.queryForObject(
-                            "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1",
-                            String.class));
+                            "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '25'",
+                            Long.class));
             assertFalse(tableExists(upgradeContainer, "order_import_metadata"));
         }
     }

@@ -270,7 +270,7 @@ Order Management **не** владеет и **не** хранит (принад�
 
 Переходы `APPROVED → CANCELLED` и `ACTIVE → CANCELLED` **запрещены в Stage 5**.
 
-`ACTIVE` (любого происхождения): прямое редактирование запрещено; изменение состава/количеств/спецификации — только через механизм Revision на позициях.
+`ACTIVE` (любого происхождения): прямое редактирование header **запрещено**. После передачи заказа в работу (`ACTIVE`) позиции, спецификации и Revision N+1 **также запрещены**: производственный baseline неизменяем. Новый производственный запуск требует **нового заказа**, а не новой Revision.
 
 ---
 
@@ -293,7 +293,7 @@ Order Management **не** владеет и **не** хранит (принад�
 | (none) | `DRAFT` | `ORDER_ITEM_CREATE` | `order.item.create` | родительский заказ в `DRAFT` | добавление позиции в `APPROVED`/`ACTIVE`/`CANCELLED` заказ | `OrderItemCreated`, `OrderItemRevisionCreated` |
 | `DRAFT` | `DRAFT` | `ORDER_ITEM_UPDATE` / `ORDER_ITEM_REVISION_UPDATE` | `order.item.edit` / `order.revision.edit` | позиция `DRAFT` | изменение состава через `ORDER_ITEM_UPDATE` | `OrderItemUpdated` / `OrderItemRevisionUpdated` |
 | `DRAFT` | `ACTIVE` | `ORDER_ITEM_REVISION_APPROVE` | `order.item.approve` | Draft Revision валидна; commercial item полны (ADR-030) | утверждение без спецификации / без коммерции | `OrderItemRevisionApproved` (Revision → `ACTIVE`) |
-| `ACTIVE` | `ACTIVE` | `ORDER_ITEM_REVISION_CREATE` → update* → approve | `order.revision.create`, `order.revision.edit`, `order.item.approve` | текущая Revision `ACTIVE`, нет открытой Draft | вторая Draft | revision events |
+| `ACTIVE` | `ACTIVE` | `ORDER_ITEM_REVISION_CREATE` → update* → approve | `order.revision.create`, `order.revision.edit`, `order.item.approve` | родительский заказ ещё `DRAFT`; текущая Revision `ACTIVE`, нет открытой Draft | родительский заказ `APPROVED`/`ACTIVE`/`CANCELLED`; вторая Draft | revision events |
 | (none) | `ACTIVE` | IMPORT operation | import permission set | валидная позиция + спецификация batch | placeholders; частичный импорт | create + ACTIVE landing events |
 | `DRAFT` | `CANCELLED` | `ORDER_ITEM_CANCEL` | `order.item.cancel` | позиция `DRAFT` | отмена ACTIVE (запрещено в Stage 5) | `OrderItemCancelled` |
 
@@ -301,13 +301,13 @@ Order Management **не** владеет и **не** хранит (принад�
 
 Переход `ACTIVE → CANCELLED` **запрещён в Stage 5**.
 
-Прямое редактирование ACTIVE позиции/спецификации запрещено для **любого** ACTIVE. Изменение — только новой Revision.
+Прямое редактирование ACTIVE позиции/спецификации запрещено для **любого** ACTIVE. Revision N+1 разрешена **только пока родительский заказ в `DRAFT`**. После `ORDER_ACTIVATE` / «Передать в работу» N+1 запрещена.
 
 ## 9.3 Transition matrix — Order Item Revision
 
 | From | To | Business document / operation | Required capability | Preconditions | Forbidden conditions | Domain event |
 | --- | --- | --- | --- | --- | --- | --- |
-| (none) | `DRAFT` | `ORDER_ITEM_CREATE` / `ORDER_ITEM_REVISION_CREATE` | `order.item.create` / `order.revision.create` | для N+1: предыдущая `ACTIVE`, нет Draft | вторая Draft | `OrderItemRevisionCreated` |
+| (none) | `DRAFT` | `ORDER_ITEM_CREATE` / `ORDER_ITEM_REVISION_CREATE` | `order.item.create` / `order.revision.create` | для N+1: родительский заказ `DRAFT`; предыдущая `ACTIVE`, нет Draft | родительский заказ не `DRAFT`; вторая Draft | `OrderItemRevisionCreated` |
 | `DRAFT` | `DRAFT` | `ORDER_ITEM_REVISION_UPDATE` | `order.revision.edit` | Revision в `DRAFT` | правка ACTIVE Revision | `OrderItemRevisionUpdated` |
 | `DRAFT` | `ACTIVE` | `ORDER_ITEM_REVISION_APPROVE` | `order.item.approve` | спецификация валидна; commercial gates ручного пути | невалидная спецификация | `OrderItemRevisionApproved` |
 | (none) | `ACTIVE` | IMPORT operation | import permission set | спецификация batch валидна | placeholders | create + ACTIVE |
@@ -833,6 +833,7 @@ Order Management предоставляет стабильные `Order ID`, `Or
 | 1.8 | **Stage 6 Start Gate (ADR-032):** финальное решение — нет Material Master; материалы в контексте Specification; Material Mapping; Production → Warehouse interaction; §28. |
 | 1.9 | **Stage 7 docs alignment (ADR-033):** Production-facing contract без обязательного Order Item Revision в состоянии Production; `getCurrentItemSpecification`; §10/§15/§17/§20 обновлены; внутренняя Revision-модель OM и Stage 5 lifecycle сохранены. |
 | 1.10 | **Corrective pass:** публичный stable `SpecificationId`; `getSpecificationById`; Production фиксирует Specification Reference при Launch без возврата Revision в Production contract. |
+| 1.11 | **UI Stage 3.4:** после `ACTIVE` / «Передать в работу» заказ полностью immutable (header, items, specifications, Revision N+1). Новый производственный запуск — только новым заказом. `OrderStatus` без production-derived values. |
 ---
 
 # 28. Material Responsibility and Mapping (ADR-032)
@@ -1108,7 +1109,7 @@ Placeholders (`UNKNOWN`, `N/A`, `IMPORT`, …) запрещены — импор
    create → `ORDER_ITEM_REVISION_APPROVE` → `ORDER_APPROVE` (import gates: client + ≥1 ACTIVE item; без полного ADR-030 set) → `ORDER_ACTIVATE`.
 2. Итог: `ACTIVE` на Order / Item / Revision / Specification. Прямая активация агрегатов (`DRAFT → ACTIVE`) **запрещена**.
 3. Требует поля Final STXT Contract (§27.6); placeholders (`UNKNOWN`, `N/A`, …) запрещены — импорт отклоняется.
-4. После создания — обычный `ACTIVE`: прямое редактирование запрещено; изменение только через Revision (одинаково с ручным ACTIVE).
+4. После создания — обычный `ACTIVE`: прямое редактирование запрещено; Revision N+1 после `ACTIVE` заказа запрещена (одинаково с ручным ACTIVE).
 
 **Реализация:** `STAGE5-058`.
 
@@ -1149,7 +1150,8 @@ Placeholders (`UNKNOWN`, `N/A`, `IMPORT`, …) запрещены — импор
 После ACTIVE:
   единое поведение независимо от канала создания
   прямое редактирование запрещено (только просмотр)
-  изменение только через Revision N+1
+  Revision N+1 не используется для изменения production baseline
+  новый производственный запуск — только новым заказом
 ```
 
 Дубли: только `orderNumber` uniqueness.

@@ -8,6 +8,8 @@ public enum OrderUiOperation {
     CREATE,
     UPDATE,
     APPROVE,
+    SAVE,
+    TRANSFER_TO_WORK,
     CANCEL,
     DELETE,
     UNPOST,

@@ -4,6 +4,32 @@
 
 ---
 
+## UI Modernization Stage 3.4 — Orders — 2026-09-03
+
+**Date:** 2026-09-03
+**Stage:** UI Modernization 3.4 (Orders); outside Stages 0–9 queue
+**Base checkpoint:** `2df1d941b0d1b481f7cf8fade5cd6df2ef8e3f0f`
+**Status:** IMPLEMENTED (no auto-commit); Stage 3.5 Warehouse NOT STARTED
+**Commit:** none (per task)
+
+### Summary
+
+Orders list/editor brought to TMP UI Standard with operational read-model status, mandatory period, per-user server preferences, Save / Transfer to Work UX, Shell Back/Forward history, and post-transfer immutability guards.
+
+### Key deliverables
+
+- Operational list composition in UI shell (`OrderOperationalListService` + Production batch facts); `OrderStatus` / `OrderSummaryDto` unchanged
+- Server-side `UserUiPreferenceService` + Flyway `V34__user_ui_preferences.sql`
+- `OrderDocumentUiService.saveNewOrder` / `saveExistingDraft` / `transferToWork`
+- `ParentOrderDraftGuard` for item/revision/spec mutations after ACTIVE
+- Shell `ShellNavigationHistory` + Orders list memento
+
+### Verification (module-scoped; full reactor NOT RUN)
+
+See VERIFICATION-LOG entry 2026-09-03 Stage 3.4.
+
+---
+
 ## POST-CLOSURE PRODUCTION/Warehouse CORRECTION — 2026-08-31
 
 **Date:** 2026-08-31

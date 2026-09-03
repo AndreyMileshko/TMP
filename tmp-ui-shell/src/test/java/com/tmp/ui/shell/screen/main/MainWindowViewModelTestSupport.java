@@ -52,9 +52,15 @@ final class MainWindowViewModelTestSupport {
     }
 
     static final class AllowAllAuthz implements AuthorizationService {
+        private boolean denyAll;
+
+        void denyAll() {
+            this.denyAll = true;
+        }
+
         @Override
         public boolean hasPermission(PermissionId permissionId) {
-            return true;
+            return !denyAll;
         }
 
         @Override
@@ -64,6 +70,33 @@ final class MainWindowViewModelTestSupport {
         @Override
         public Set<PermissionId> effectivePermissions() {
             return Set.of();
+        }
+    }
+
+    static final class FakeAuthn implements AuthenticationService {
+        @Override
+        public SessionSummary login(Login login, char[] password) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public SessionSummary completePasswordSetup(
+                Login login, String activationCode, char[] newPassword, char[] confirmPassword) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void logout() {
+        }
+
+        @Override
+        public Optional<SessionSummary> currentSession() {
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean isAuthenticated() {
+            return false;
         }
     }
 

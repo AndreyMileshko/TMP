@@ -1,22 +1,36 @@
 package com.tmp.ui.shell.screen.orderlist;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.order.api.OrderStatus;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.JavaFxTestSupport;
 import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.navigation.NavigationServices;
 import com.tmp.ui.shell.navigation.ScreenRegistration;
+import com.tmp.ui.shell.order.worklist.DateTimePresentation;
+import com.tmp.ui.shell.order.worklist.OrderOperationalSummary;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -29,93 +43,127 @@ class OrderListControllerFxTest {
     }
 
     @Test
-    void loadsOrderListFxml() throws Exception {
-        OrderListViewModel viewModel = new OrderListViewModel(new EmptyOrderQuery(), new FakeAuthorization());
-        var navigation = NavigationServices.createDefault();
-        navigation.register(new ScreenRegistration(
-                UiShellScreens.ORDER_LIST_SCREEN_ID,
-                UiShellScreens.ORDER_LIST_FXML,
-                () -> viewModel));
-
-        CountDownLatch latch = new CountDownLatch(1);
-        AtomicReference<Throwable> error = new AtomicReference<>();
-        AtomicReference<Label> title = new AtomicReference<>();
-
-        Platform.runLater(() -> {
-            try {
-                Parent root = navigation.load(UiShellScreens.ORDER_LIST_SCREEN_ID);
-                Stage stage = new Stage();
-                stage.setScene(new Scene(root));
-                title.set((Label) root.lookup("#titleLabel"));
-            } catch (Throwable throwable) {
-                error.set(throwable);
-            } finally {
-                latch.countDown();
-            }
-        });
-
-        assertTrue(latch.await(10, TimeUnit.SECONDS));
-        if (error.get() != null) {
-            throw new AssertionError("Order list FX load failed", error.get());
-        }
-        assertNotNull(title.get());
+    void modernListHasRequiredColumnsAndNoOpenOrCustomerRef() throws Exception {
+        OrderListViewModel viewModel = OrderListTestSupport.viewModel();
+        Parent root = load(viewModel);
+        assertEquals("Заказы", ((Label) root.lookup("#titleLabel")).getText());
+        assertTrue(((Label) root.lookup("#subtitleLabel")).getText().contains("заказами"));
+        assertNotNull(root.lookup(".tmp-screen-header"));
+        assertNull(root.lookup("#openOrderButton"));
+        assertNull(root.lookup("#customerRefColumn"));
+        TableView<?> table = (TableView<?>) root.lookup("#ordersTable");
+        assertEquals(5, table.getColumns().size());
+        assertEquals("Номер заказа", ((TableColumn<?, ?>) table.getColumns().get(0)).getText());
+        assertEquals("Заказчик", ((TableColumn<?, ?>) table.getColumns().get(1)).getText());
+        assertEquals("Дата создания", ((TableColumn<?, ?>) table.getColumns().get(2)).getText());
+        assertEquals("Изделий", ((TableColumn<?, ?>) table.getColumns().get(3)).getText());
+        assertEquals("Статус", ((TableColumn<?, ?>) table.getColumns().get(4)).getText());
+        assertNotNull(root.lookup("#quickSearchField"));
+        assertNotNull(root.lookup("#customerFilterButton"));
+        assertNotNull(root.lookup("#periodCombo"));
+        assertTrue(((CheckBox) root.lookup("#statusEditingCheck")).isSelected());
+        assertFalse(((CheckBox) root.lookup("#statusCancelledCheck")).isSelected());
+        assertNotNull(table.getItems());
+        assertEquals("← Предыдущая", ((Button) root.lookup("#previousPageButton")).getText());
+        assertEquals("Следующая →", ((Button) root.lookup("#nextPageButton")).getText());
     }
 
     @Test
     void createOrderButtonReflectsAuthorizationAfterRefresh() throws Exception {
-        OrderListViewModel viewModel = new OrderListViewModel(
-                new EmptyOrderQuery(),
+        OrderListViewModel allowed = OrderListTestSupport.viewModel(
                 new FakeAuthorization(
                         PermissionId.of(UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION),
                         PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION)));
-        var navigation = NavigationServices.createDefault();
-        navigation.register(new ScreenRegistration(
-                UiShellScreens.ORDER_LIST_SCREEN_ID,
-                UiShellScreens.ORDER_LIST_FXML,
-                () -> viewModel));
+        Parent root = load(allowed);
+        assertFalse(((Button) root.lookup("#createOrderButton")).isDisabled());
 
+        OrderListViewModel viewOnly = OrderListTestSupport.viewModel(
+                new FakeAuthorization(PermissionId.of(UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION)));
+        Parent disabledRoot = load(viewOnly, "order-list-view-only");
+        assertTrue(((Button) disabledRoot.lookup("#createOrderButton")).isDisabled());
+    }
+
+    @Test
+    void dateFormatIsDayMonthYearHoursMinutes() throws Exception {
+        Instant instant = Instant.parse("2026-09-02T10:19:00Z");
+        assertEquals("02.09.2026 10:19", DateTimePresentation.format(instant, ZoneOffset.UTC));
+    }
+
+    @Test
+    void enterOnSelectedRowOpensOrder() throws Exception {
+        OrderListTestSupport.InMemoryWorklistQuery worklist = new OrderListTestSupport.InMemoryWorklistQuery();
+        worklist.rows.add(
+                OrderListTestSupport.row(
+                        "OPEN-1",
+                        OrderStatus.DRAFT,
+                        "c-1",
+                        "Alpha",
+                        Instant.parse("2026-09-01T10:00:00Z")));
+        OrderListViewModel viewModel =
+                OrderListTestSupport.viewModel(
+                        worklist,
+                        new OrderListTestSupport.MapProductionQuery(),
+                        new FakeAuthorization(
+                                PermissionId.of(UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION),
+                                PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION)),
+                        new OrderListTestSupport.SessionAuthn(OrderListTestSupport.userId()),
+                        new OrderListTestSupport.InMemoryPreferences());
+        viewModel.refresh();
+        AtomicBoolean opened = new AtomicBoolean();
+        viewModel.setOnOpenOrder(id -> opened.set(true));
+        Parent root = load(viewModel);
+        JavaFxTestSupport.runOnFxThread(() -> {
+            @SuppressWarnings("unchecked")
+            TableView<OrderOperationalSummary> table =
+                    (TableView<OrderOperationalSummary>) root.lookup("#ordersTable");
+            table.getSelectionModel().select(0);
+            table.fireEvent(
+                    new KeyEvent(
+                            KeyEvent.KEY_PRESSED,
+                            "",
+                            "",
+                            KeyCode.ENTER,
+                            false,
+                            false,
+                            false,
+                            false));
+        });
+        assertTrue(opened.get());
+    }
+
+    @Test
+    void searchFieldIsPresentWithPlaceholder() throws Exception {
+        Parent root = load(OrderListTestSupport.viewModel());
+        TextField search = (TextField) root.lookup("#quickSearchField");
+        assertEquals("Поиск по номеру или заказчику...", search.getPromptText());
+    }
+
+    private static Parent load(OrderListViewModel viewModel) throws Exception {
+        return load(viewModel, UiShellScreens.ORDER_LIST_SCREEN_ID);
+    }
+
+    private static Parent load(OrderListViewModel viewModel, String screenId) throws Exception {
+        var navigation = NavigationServices.createDefault();
+        navigation.register(new ScreenRegistration(screenId, UiShellScreens.ORDER_LIST_FXML, () -> viewModel));
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
-        AtomicReference<Button> createButton = new AtomicReference<>();
-
+        AtomicReference<Parent> root = new AtomicReference<>();
         Platform.runLater(() -> {
             try {
-                Parent root = navigation.load(UiShellScreens.ORDER_LIST_SCREEN_ID);
+                Parent loaded = navigation.load(screenId);
                 Stage stage = new Stage();
-                stage.setScene(new Scene(root));
-                createButton.set((Button) root.lookup("#createOrderButton"));
+                stage.setScene(new Scene(loaded));
+                root.set(loaded);
             } catch (Throwable throwable) {
                 error.set(throwable);
             } finally {
                 latch.countDown();
             }
         });
-
         assertTrue(latch.await(10, TimeUnit.SECONDS));
         if (error.get() != null) {
             throw new AssertionError("Order list FX load failed", error.get());
         }
-        assertNotNull(createButton.get());
-        assertFalse(createButton.get().isDisabled());
-
-        OrderListViewModel viewOnly = new OrderListViewModel(
-                new EmptyOrderQuery(),
-                new FakeAuthorization(PermissionId.of(UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION)));
-        CountDownLatch latch2 = new CountDownLatch(1);
-        AtomicReference<Button> disabledButton = new AtomicReference<>();
-        navigation.register(new ScreenRegistration(
-                "order-list-view-only",
-                UiShellScreens.ORDER_LIST_FXML,
-                () -> viewOnly));
-        Platform.runLater(() -> {
-            try {
-                Parent root = navigation.load("order-list-view-only");
-                disabledButton.set((Button) root.lookup("#createOrderButton"));
-            } finally {
-                latch2.countDown();
-            }
-        });
-        assertTrue(latch2.await(10, TimeUnit.SECONDS));
-        assertTrue(disabledButton.get().isDisabled());
+        return root.get();
     }
 }

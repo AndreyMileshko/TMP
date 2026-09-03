@@ -11,6 +11,7 @@ import com.tmp.security.api.RoleAdministrationService;
 import com.tmp.security.api.SecuredOperationDemo;
 import com.tmp.security.api.SystemRolePermissionEnsureService;
 import com.tmp.security.api.UserAdministrationService;
+import com.tmp.security.api.UserUiPreferenceService;
 import com.tmp.security.application.AuditQueryApplicationService;
 import com.tmp.security.application.AuthenticationApplicationService;
 import com.tmp.security.application.AuthorizationApplicationService;
@@ -46,6 +47,7 @@ import com.tmp.security.persistence.JdbcRoleAssignmentRepository;
 import com.tmp.security.persistence.JdbcRoleRepository;
 import com.tmp.security.persistence.JdbcSecurityAuditRepository;
 import com.tmp.security.persistence.JdbcUserRepository;
+import com.tmp.security.persistence.JdbcUserUiPreferenceService;
 import jakarta.annotation.PostConstruct;
 import java.time.Clock;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -84,6 +86,11 @@ public class SecurityAutoConfiguration {
     @Bean
     UserRepository userRepository(JdbcTemplate jdbcTemplate) {
         return new JdbcUserRepository(jdbcTemplate);
+    }
+
+    @Bean
+    UserUiPreferenceService userUiPreferenceService(JdbcTemplate jdbcTemplate, Clock securityClock) {
+        return new JdbcUserUiPreferenceService(jdbcTemplate, securityClock);
     }
 
     @Bean

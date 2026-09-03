@@ -18,6 +18,7 @@ import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
 import com.tmp.order.api.event.OrderItemRevisionCreated;
 import com.tmp.order.application.item.CreateOrderItemRevisionUseCase;
+import com.tmp.order.application.order.InMemoryCustomerOrderRepository;
 import com.tmp.order.application.order.InMemoryOrderItemRepository;
 import com.tmp.order.application.payload.DocumentId;
 import com.tmp.order.application.payload.DocumentTypeCode;
@@ -33,6 +34,7 @@ import com.tmp.order.domain.OrderItem;
 import com.tmp.order.domain.OrderedQuantity;
 import com.tmp.order.domain.ProductCode;
 import com.tmp.order.domain.SpecificationLine;
+import com.tmp.order.testsupport.ParentOrderFixtures;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -50,6 +52,7 @@ class OrderItemRevisionCreateDocumentProcessorTest {
     private OrderDocumentPayloadPort payloads;
     private ProcessingRecordPort processing;
     private InMemoryOrderItemRepository items;
+    private InMemoryCustomerOrderRepository orders;
     private List<DomainEvent> published;
     private OrderItemRevisionCreateDocumentProcessor processor;
 
@@ -58,13 +61,14 @@ class OrderItemRevisionCreateDocumentProcessorTest {
         payloads = new InMemoryOrderDocumentPayloadPort();
         processing = new InMemoryProcessingRecordPort();
         items = new InMemoryOrderItemRepository();
+        orders = new InMemoryCustomerOrderRepository();
         published = new ArrayList<>();
         processor =
                 new OrderItemRevisionCreateDocumentProcessor(
                         payloads,
                         processing,
                         (TransactionalEventPublisher) published::add,
-                        new CreateOrderItemRevisionUseCase(items, CLOCK),
+                        new CreateOrderItemRevisionUseCase(orders, items, CLOCK),
                         CLOCK);
     }
 
@@ -163,11 +167,41 @@ class OrderItemRevisionCreateDocumentProcessorTest {
         assertTrue(!saved.draftRevision().orElseThrow().specification().orElseThrow().isImmutable());
     }
 
+    @Test
+    void revisionCreateRejectedWhenParentOrderIsActive() {
+        OrderItem active = seedActiveItemOnActiveOrder();
+        RevisionNumber activeBefore = active.activeRevisionNumber().orElseThrow();
+        DocumentId documentId = DocumentId.generate();
+        payloads.create(
+                OrderItemRevisionCreatePayload.create(
+                        documentId, active.id(), RevisionNumber.of(2), null, NOW));
+
+        assertThrows(InvalidOrderStateException.class, () -> processor.onPost(context(documentId)));
+        OrderItem saved = items.findById(active.id()).orElseThrow();
+        assertEquals(activeBefore, saved.activeRevisionNumber().orElseThrow());
+        assertTrue(saved.draftRevisionNumber().isEmpty());
+        assertTrue(published.isEmpty());
+    }
+
     private OrderItem seedActiveItem() {
+        return seedActiveItem(true);
+    }
+
+    private OrderItem seedActiveItemOnActiveOrder() {
+        return seedActiveItem(false);
+    }
+
+    private OrderItem seedActiveItem(boolean draftParent) {
+        OrderId orderId = OrderId.generate();
+        if (draftParent) {
+            ParentOrderFixtures.saveDraft(orders, orderId, CLOCK);
+        } else {
+            ParentOrderFixtures.saveActive(orders, orderId, CLOCK);
+        }
         OrderItem draft =
                 OrderItem.create(
                         OrderItemId.generate(),
-                        OrderId.generate(),
+                        orderId,
                         ItemCommercialData.of(ProductCode.of("P-1"), "Door", null),
                         OrderedQuantity.of(1),
                         CLOCK);

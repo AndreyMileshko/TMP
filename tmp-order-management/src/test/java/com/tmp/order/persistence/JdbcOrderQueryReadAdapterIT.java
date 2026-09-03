@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.api.ItemSpecificationDto;
+import com.tmp.order.api.OrderCustomerOptionDto;
 import com.tmp.order.api.OrderDto;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderItemDto;
@@ -19,6 +20,8 @@ import com.tmp.order.api.OrderSearchCriteria;
 import com.tmp.order.api.OrderSort;
 import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.OrderSummaryDto;
+import com.tmp.order.api.OrderWorklistCriteria;
+import com.tmp.order.api.OrderWorklistRowDto;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
 import com.tmp.order.api.ProductionSpecificationDto;
@@ -472,6 +475,18 @@ class JdbcOrderQueryReadAdapterIT {
         return orderRepository.save(withStatus).id();
     }
 
+    private OrderItemId seedDraftItem(OrderId orderId, int quantity, Clock clock) {
+        return itemRepository
+                .save(
+                        OrderItem.create(
+                                OrderItemId.generate(),
+                                orderId,
+                                ItemCommercialData.of(ProductCode.of("P-WL"), "Panel", null),
+                                OrderedQuantity.of(quantity),
+                                clock))
+                .id();
+    }
+
     private OrderItemId seedItemWithDraftAndApproved(OrderId orderId) {
         OrderItemId itemId = OrderItemId.generate();
         RevisionNumber rev1 = RevisionNumber.first();
@@ -603,6 +618,78 @@ class JdbcOrderQueryReadAdapterIT {
         assertTrue(legacy.isPresent());
         assertEquals(RevisionNumber.first(), legacy.orElseThrow().revisionNumber());
         assertEquals(2, legacy.orElseThrow().lines().size());
+    }
+
+    @Test
+    void worklistQuickSearchMatchesOrderNumberOrCustomerName() {
+        seedOrder("ORD-ALPHA-1", "CR-A", "Beta LLC", OrderStatus.DRAFT, T2);
+        seedOrder("ORD-GAMMA-1", "CR-B", "AlphaSearch Co", OrderStatus.DRAFT, T2);
+        seedOrder("ORD-OTHER", "CR-C", "Other", OrderStatus.DRAFT, T2);
+
+        List<OrderWorklistRowDto> rows =
+                readAdapter.listWorklistRows(
+                        OrderWorklistCriteria.builder()
+                                .createdFrom(T1)
+                                .createdToExclusive(T3.plusSeconds(1))
+                                .quickSearch("Alpha")
+                                .build());
+
+        assertEquals(2, rows.size());
+        assertTrue(rows.stream().anyMatch(row -> "ORD-ALPHA-1".equals(row.orderNumber())));
+        assertTrue(rows.stream().anyMatch(row -> "ORD-GAMMA-1".equals(row.orderNumber())));
+    }
+
+    @Test
+    void worklistItemQuantityIncludesCancelledItemsHistoricalQuantity() {
+        Clock clock = Clock.fixed(T2, ZoneOffset.UTC);
+        OrderId orderId = seedOrder("ORD-QTY-HIST", "CR-Q", "Qty Co", OrderStatus.DRAFT, T2);
+        seedDraftItem(orderId, 3, clock);
+        OrderItemId cancelledId = seedDraftItem(orderId, 5, clock);
+        itemRepository.save(itemRepository.findById(cancelledId).orElseThrow().cancel(clock));
+
+        List<OrderWorklistRowDto> rows =
+                readAdapter.listWorklistRows(
+                        OrderWorklistCriteria.builder()
+                                .createdFrom(T1)
+                                .createdToExclusive(T3.plusSeconds(1))
+                                .quickSearch("ORD-QTY-HIST")
+                                .build());
+
+        assertEquals(1, rows.size());
+        assertEquals(8L, rows.getFirst().itemQuantity());
+    }
+
+    @Test
+    void worklistPeriodUsesHalfOpenCreatedAtRange() {
+        seedOrder("ORD-IN-PERIOD", "CR-I", "In", OrderStatus.DRAFT, T2);
+        seedOrder("ORD-OUT-PERIOD", "CR-O", "Out", OrderStatus.DRAFT, T3);
+
+        List<OrderWorklistRowDto> rows =
+                readAdapter.listWorklistRows(
+                        OrderWorklistCriteria.builder()
+                                .createdFrom(T1)
+                                .createdToExclusive(T3)
+                                .build());
+
+        assertEquals(1, rows.size());
+        assertEquals("ORD-IN-PERIOD", rows.getFirst().orderNumber());
+    }
+
+    @Test
+    void worklistCustomersIncludeUnassignedDraftWithoutCustomerRef() {
+        seedOrder("ORD-NAMED-C", "CR-1", "Named", OrderStatus.DRAFT, T2);
+        Clock clock = Clock.fixed(T2, ZoneOffset.UTC);
+        orderRepository.save(
+                CustomerOrder.create(
+                        OrderId.generate(),
+                        OrderNumber.of("ORD-UNASSIGNED-C"),
+                        OrderCommercialData.of(null, null, null, null, null, null, null),
+                        clock));
+
+        List<OrderCustomerOptionDto> options = readAdapter.listWorklistCustomers(T1, T3.plusSeconds(1));
+
+        assertTrue(options.stream().anyMatch(OrderCustomerOptionDto::isUnassigned));
+        assertTrue(options.stream().anyMatch(option -> "CR-1".equals(option.customerRef())));
     }
 
     private enum AllowingAuthorization implements AuthorizationService {

@@ -3,6 +3,7 @@ package com.tmp.production.application;
 import com.tmp.production.domain.OrderProductionView;
 import com.tmp.production.domain.OrderProductionViewCalculator;
 import com.tmp.production.domain.OrderProductionViewCalculator.Context;
+import com.tmp.production.domain.OrderProductionViewStatus;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
@@ -102,4 +103,65 @@ public final class ProductionOrderViewService {
         Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
         return repository.findBySourceOrderItemId(sourceOrderItemId);
     }
+
+    /**
+     * Batch Production facts for the operational Orders list. Two SQL operations: item states IN
+     * query and posted-cancellation IN query.
+     */
+    public java.util.Map<java.util.UUID, ProductionListFacts> listProductionListFacts(
+            java.util.Collection<java.util.UUID> orderIds) {
+        Objects.requireNonNull(orderIds, "orderIds");
+        if (orderIds.isEmpty()) {
+            return java.util.Map.of();
+        }
+        java.util.LinkedHashSet<SourceOrderId> sourceIds = new java.util.LinkedHashSet<>();
+        for (java.util.UUID orderId : orderIds) {
+            Objects.requireNonNull(orderId, "orderId");
+            sourceIds.add(SourceOrderId.of(orderId));
+        }
+        java.util.List<ProductionItemState> states = repository.findBySourceOrderIds(sourceIds);
+        java.util.Set<SourceOrderId> cancelledOrders =
+                cancellationQuery.findPostedCancellationOrderIds(sourceIds);
+        java.util.Map<SourceOrderId, java.util.List<ProductionItemState>> byOrder =
+                new java.util.LinkedHashMap<>();
+        for (SourceOrderId sourceOrderId : sourceIds) {
+            byOrder.put(sourceOrderId, new java.util.ArrayList<>());
+        }
+        for (ProductionItemState state : states) {
+            byOrder.computeIfAbsent(state.sourceOrderId(), key -> new java.util.ArrayList<>()).add(state);
+        }
+        java.util.Map<java.util.UUID, ProductionListFacts> facts = new java.util.LinkedHashMap<>();
+        for (SourceOrderId sourceOrderId : sourceIds) {
+            boolean cancellationPosted = cancelledOrders.contains(sourceOrderId);
+            Context context = cancellationPosted ? Context.cancelled() : Context.none();
+            java.util.List<ProductionItemState> orderStates = byOrder.getOrDefault(sourceOrderId, List.of());
+            OrderProductionView view = calculator.calculate(sourceOrderId, orderStates, context);
+            long ordered = 0L;
+            long released = 0L;
+            long active = 0L;
+            for (ProductionItemState state : orderStates) {
+                ordered += state.orderedQuantity().value().longValueExact();
+                released += state.releasedQuantity().value().longValueExact();
+                active += state.activeProductionQuantity().value().longValueExact();
+            }
+            facts.put(
+                    sourceOrderId.value(),
+                    new ProductionListFacts(
+                            sourceOrderId.value(),
+                            view.status(),
+                            ordered,
+                            released,
+                            active,
+                            cancellationPosted));
+        }
+        return java.util.Map.copyOf(facts);
+    }
+
+    public record ProductionListFacts(
+            java.util.UUID sourceOrderId,
+            OrderProductionViewStatus status,
+            long orderedQuantity,
+            long releasedQuantity,
+            long activeProductionQuantity,
+            boolean cancellationPosted) {}
 }

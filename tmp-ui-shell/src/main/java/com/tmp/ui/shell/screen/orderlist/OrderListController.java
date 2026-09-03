@@ -1,18 +1,36 @@
 package com.tmp.ui.shell.screen.orderlist;
 
-import com.tmp.order.api.OrderSummaryDto;
 import com.tmp.ui.shell.navigation.ViewModelAware;
+import com.tmp.ui.shell.order.worklist.DateTimePresentation;
+import com.tmp.ui.shell.order.worklist.OrderListPeriod;
+import com.tmp.ui.shell.order.worklist.OrderOperationalStatus;
+import com.tmp.ui.shell.order.worklist.OrderOperationalSummary;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Set;
+import javafx.animation.PauseTransition;
 import javafx.beans.binding.Bindings;
+import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseButton;
+import javafx.scene.layout.HBox;
+import javafx.scene.shape.Circle;
+import javafx.util.Duration;
+import javafx.util.StringConverter;
 
 /**
- * Order list FXML controller. Read-only; binds filters/pagination to {@link OrderListViewModel}.
+ * Order list FXML controller. Binds operational list filters, table and pagination.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
@@ -21,133 +39,196 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
 
     @FXML
     private Label titleLabel;
-
+    @FXML
+    private Label subtitleLabel;
     @FXML
     private Button createOrderButton;
-
     @FXML
     private Button importOrderButton;
-
     @FXML
-    private Button openOrderButton;
-
+    private TextField quickSearchField;
     @FXML
-    private TextField orderNumberFilterField;
-
+    private ComboBox<OrderListPeriod.Preset> periodCombo;
     @FXML
-    private TextField orderStatusFilterField;
-
+    private DatePicker periodFromPicker;
     @FXML
-    private TextField customerRefFilterField;
-
+    private DatePicker periodToPicker;
     @FXML
-    private TextField customerNameFilterField;
-
+    private Button customerFilterButton;
     @FXML
-    private TextField createdFromFilterField;
-
+    private CheckBox statusEditingCheck;
     @FXML
-    private TextField createdToFilterField;
-
+    private CheckBox statusAwaitingCheck;
     @FXML
-    private Button applyFilterButton;
-
+    private CheckBox statusInProductionCheck;
     @FXML
-    private Button clearFilterButton;
-
+    private CheckBox statusCompletedCheck;
+    @FXML
+    private CheckBox statusPartialCheck;
+    @FXML
+    private CheckBox statusCancelledCheck;
     @FXML
     private Label loadingLabel;
-
     @FXML
-    private Label emptyLabel;
-
+    private TableView<OrderOperationalSummary> ordersTable;
     @FXML
-    private TableView<OrderSummaryDto> ordersTable;
-
+    private TableColumn<OrderOperationalSummary, String> orderNumberColumn;
     @FXML
-    private TableColumn<OrderSummaryDto, String> orderNumberColumn;
-
+    private TableColumn<OrderOperationalSummary, String> customerNameColumn;
     @FXML
-    private TableColumn<OrderSummaryDto, String> customerNameColumn;
-
+    private TableColumn<OrderOperationalSummary, String> createdAtColumn;
     @FXML
-    private TableColumn<OrderSummaryDto, String> statusColumn;
-
+    private TableColumn<OrderOperationalSummary, String> itemCountColumn;
     @FXML
-    private TableColumn<OrderSummaryDto, String> createdAtColumn;
-
-    @FXML
-    private TableColumn<OrderSummaryDto, String> customerRefColumn;
-
+    private TableColumn<OrderOperationalSummary, OrderOperationalSummary> statusColumn;
     @FXML
     private Button previousPageButton;
-
     @FXML
     private Button nextPageButton;
-
     @FXML
     private Label pageLabel;
-
     @FXML
     private Label statusLabel;
-
     @FXML
     private Label errorLabel;
 
+    private OrderListViewModel viewModel;
+    private final PauseTransition searchDebounce = new PauseTransition(Duration.millis(300));
+    private boolean binding;
+
     @Override
     public void setViewModel(OrderListViewModel viewModel) {
+        this.viewModel = viewModel;
+        binding = true;
         titleLabel.textProperty().bind(viewModel.titleProperty());
+        subtitleLabel.textProperty().bind(viewModel.subtitleProperty());
         statusLabel.textProperty().bind(viewModel.statusMessageProperty());
+        customerFilterButton.textProperty().bind(viewModel.customerFilterLabelProperty());
 
         orderNumberColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(cell.getValue().orderNumber()));
         customerNameColumn.setCellValueFactory(cell ->
-                new javafx.beans.property.SimpleStringProperty(cell.getValue().customerName()));
-        statusColumn.setCellValueFactory(cell ->
-                new javafx.beans.property.SimpleStringProperty(cell.getValue().status().name()));
-        createdAtColumn.setCellValueFactory(cell ->
-                new javafx.beans.property.SimpleStringProperty(cell.getValue().createdAt().toString()));
-        customerRefColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
-                        cell.getValue().customerRef() == null ? "" : cell.getValue().customerRef()));
+                        DateTimePresentation.customerDisplay(cell.getValue().customerName())));
+        createdAtColumn.setCellValueFactory(cell ->
+                new javafx.beans.property.SimpleStringProperty(
+                        DateTimePresentation.format(cell.getValue().createdAt())));
+        itemCountColumn.setCellValueFactory(cell ->
+                new javafx.beans.property.SimpleStringProperty(
+                        Long.toString(cell.getValue().itemQuantity())));
+        statusColumn.setCellValueFactory(cell ->
+                new javafx.beans.property.SimpleObjectProperty<>(cell.getValue()));
+        statusColumn.setCellFactory(column -> new StatusTableCell());
 
         ordersTable.setItems(viewModel.orders());
+        ordersTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        Label placeholder = new Label();
+        placeholder.textProperty().bind(viewModel.statusMessageProperty());
+        placeholder.getStyleClass().add("tmp-empty-state-hint");
+        placeholder.setWrapText(true);
+        ordersTable.setPlaceholder(placeholder);
         ordersTable.getSelectionModel()
                 .selectedItemProperty()
                 .addListener((obs, oldValue, newValue) -> viewModel.selectedOrderProperty().set(newValue));
+        viewModel.selectedOrderProperty().addListener((obs, oldValue, newValue) -> {
+            if (newValue != null && ordersTable.getItems().contains(newValue)) {
+                ordersTable.getSelectionModel().select(newValue);
+                ordersTable.scrollTo(newValue);
+            }
+        });
+        OrderOperationalSummary alreadySelected = viewModel.selectedOrderProperty().get();
+        if (alreadySelected != null && ordersTable.getItems().contains(alreadySelected)) {
+            ordersTable.getSelectionModel().select(alreadySelected);
+            ordersTable.scrollTo(alreadySelected);
+        }
+
         createOrderButton.disableProperty().bind(viewModel.canCreateProperty().not());
         importOrderButton.disableProperty().bind(viewModel.canImportProperty().not());
-        openOrderButton.disableProperty().bind(viewModel.canOpenSelectedProperty().not());
         createOrderButton.setOnAction(e -> viewModel.createOrder());
         importOrderButton.setOnAction(e -> viewModel.importOrder());
-        openOrderButton.setOnAction(e -> viewModel.openSelectedOrder());
-        orderNumberFilterField.textProperty().bindBidirectional(viewModel.orderNumberFilterProperty());
-        orderStatusFilterField.textProperty().bindBidirectional(viewModel.orderStatusFilterProperty());
-        customerRefFilterField.textProperty().bindBidirectional(viewModel.customerRefFilterProperty());
-        customerNameFilterField.textProperty().bindBidirectional(viewModel.customerNameFilterProperty());
-        createdFromFilterField.textProperty().bindBidirectional(viewModel.createdFromFilterProperty());
-        createdToFilterField.textProperty().bindBidirectional(viewModel.createdToFilterProperty());
 
-        applyFilterButton.setOnAction(e -> viewModel.applyFilters());
-        clearFilterButton.setOnAction(e -> viewModel.clearFilters());
+        searchDebounce.setOnFinished(e -> viewModel.onSearchChanged());
+        quickSearchField.setText(viewModel.quickSearchProperty().get());
+        quickSearchField.textProperty().addListener((obs, old, value) -> {
+            viewModel.quickSearchProperty().set(value);
+            searchDebounce.playFromStart();
+        });
+
+        periodCombo.setItems(FXCollections.observableArrayList(OrderListPeriod.Preset.values()));
+        periodCombo.setConverter(periodConverter());
+        periodCombo.setValue(viewModel.periodPresetProperty().get());
+        periodCombo.valueProperty().addListener((obs, old, value) -> {
+            if (value == null || binding) {
+                return;
+            }
+            viewModel.periodPresetProperty().set(value);
+            updateCustomPeriodVisibility(value);
+            viewModel.onFiltersChanged();
+        });
+        periodFromPicker.valueProperty().bindBidirectional(viewModel.customFromProperty());
+        periodToPicker.valueProperty().bindBidirectional(viewModel.customToProperty());
+        periodFromPicker.valueProperty().addListener((obs, old, value) -> {
+            if (!binding && viewModel.periodPresetProperty().get() == OrderListPeriod.Preset.CUSTOM) {
+                viewModel.onFiltersChanged();
+            }
+        });
+        periodToPicker.valueProperty().addListener((obs, old, value) -> {
+            if (!binding && viewModel.periodPresetProperty().get() == OrderListPeriod.Preset.CUSTOM) {
+                viewModel.onFiltersChanged();
+            }
+        });
+        updateCustomPeriodVisibility(viewModel.periodPresetProperty().get());
+
+        bindStatus(statusEditingCheck, OrderOperationalStatus.EDITING);
+        bindStatus(statusAwaitingCheck, OrderOperationalStatus.AWAITING_PRODUCTION);
+        bindStatus(statusInProductionCheck, OrderOperationalStatus.IN_PRODUCTION);
+        bindStatus(statusCompletedCheck, OrderOperationalStatus.COMPLETED);
+        bindStatus(statusPartialCheck, OrderOperationalStatus.PARTIALLY_COMPLETED);
+        bindStatus(statusCancelledCheck, OrderOperationalStatus.CANCELLED);
+
+        customerFilterButton.setOnAction(e ->
+                OrderListCustomerFilterPopup.show(
+                        customerFilterButton,
+                        viewModel.loadCustomerOptions(),
+                        viewModel.selectAllCustomersProperty().get(),
+                        Set.copyOf(viewModel.selectedCustomerRefs()),
+                        viewModel.includeUnassignedCustomerProperty().get(),
+                        selection -> viewModel.applyCustomerSelection(
+                                selection.selectAll(), selection.customerRefs(), selection.includeUnassigned())));
+
+        ordersTable.setRowFactory(table -> {
+            TableRow<OrderOperationalSummary> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (event.getButton() == MouseButton.PRIMARY
+                        && event.getClickCount() == 2
+                        && !row.isEmpty()) {
+                    viewModel.selectedOrderProperty().set(row.getItem());
+                    viewModel.openSelectedOrder();
+                }
+            });
+            return row;
+        });
+        ordersTable.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER && viewModel.selectedOrderProperty().get() != null) {
+                viewModel.openSelectedOrder();
+            }
+        });
+
         previousPageButton.setOnAction(e -> viewModel.previousPage());
         nextPageButton.setOnAction(e -> viewModel.nextPage());
         previousPageButton.disableProperty().bind(viewModel.canGoPreviousProperty().not());
         nextPageButton.disableProperty().bind(viewModel.canGoNextProperty().not());
-
         pageLabel.textProperty().bind(Bindings.createStringBinding(
                 () -> "Страница "
                         + (viewModel.pageIndexProperty().get() + 1)
-                        + " / записей: "
-                        + viewModel.totalElementsProperty().get(),
+                        + " · "
+                        + viewModel.totalElementsProperty().get()
+                        + " заказов",
                 viewModel.pageIndexProperty(),
                 viewModel.totalElementsProperty()));
 
         loadingLabel.visibleProperty().bind(viewModel.loadingProperty());
         loadingLabel.managedProperty().bind(loadingLabel.visibleProperty());
-        emptyLabel.visibleProperty().bind(viewModel.emptyResultProperty());
-        emptyLabel.managedProperty().bind(emptyLabel.visibleProperty());
-
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
         errorLabel.visibleProperty().bind(Bindings.createBooleanBinding(
                 () -> {
@@ -156,7 +237,67 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
                 },
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
+        binding = false;
+    }
 
-        viewModel.refresh();
+    private void bindStatus(CheckBox checkBox, OrderOperationalStatus status) {
+        checkBox.setSelected(viewModel.selectedStatuses().contains(status));
+        checkBox.selectedProperty().addListener((obs, old, selected) -> {
+            if (!binding) {
+                viewModel.toggleStatus(status, Boolean.TRUE.equals(selected));
+            }
+        });
+    }
+
+    private void updateCustomPeriodVisibility(OrderListPeriod.Preset preset) {
+        boolean custom = preset == OrderListPeriod.Preset.CUSTOM;
+        periodFromPicker.setVisible(custom);
+        periodFromPicker.setManaged(custom);
+        periodToPicker.setVisible(custom);
+        periodToPicker.setManaged(custom);
+    }
+
+    private static StringConverter<OrderListPeriod.Preset> periodConverter() {
+        return new StringConverter<>() {
+            @Override
+            public String toString(OrderListPeriod.Preset preset) {
+                if (preset == null) {
+                    return "";
+                }
+                return switch (preset) {
+                    case TODAY -> "Сегодня";
+                    case LAST_7_DAYS -> "Последние 7 дней";
+                    case LAST_30_DAYS -> "Последние 30 дней";
+                    case CURRENT_MONTH -> "Текущий месяц";
+                    case CUSTOM -> "Другой период";
+                };
+            }
+
+            @Override
+            public OrderListPeriod.Preset fromString(String string) {
+                return OrderListPeriod.Preset.LAST_30_DAYS;
+            }
+        };
+    }
+
+    private static final class StatusTableCell extends TableCell<OrderOperationalSummary, OrderOperationalSummary> {
+        @Override
+        protected void updateItem(OrderOperationalSummary item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty || item == null) {
+                setGraphic(null);
+                setText(null);
+                return;
+            }
+            Circle dot = new Circle(5);
+            dot.getStyleClass().addAll("tmp-status-dot", item.operationalStatus().indicatorStyleClass());
+            Label caption = new Label(item.operationalStatus().caption());
+            caption.getStyleClass().add("tmp-status-caption");
+            HBox box = new HBox(8, dot, caption);
+            box.getStyleClass().add("tmp-status-cell");
+            box.setAlignment(Pos.CENTER_LEFT);
+            setGraphic(box);
+            setText(null);
+        }
     }
 }

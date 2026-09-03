@@ -4,6 +4,7 @@ import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.TransactionalEventPublisher;
 import com.tmp.order.api.MaterialReferenceDisplayQuery;
 import com.tmp.order.api.OrderQueryService;
+import com.tmp.order.api.OrderWorklistQuery;
 import com.tmp.order.api.imports.OrderImportService;
 import com.tmp.order.api.imports.StxtOrderFileParser;
 import com.tmp.order.api.ui.OrderDocumentUiService;
@@ -41,6 +42,7 @@ import com.tmp.order.application.payload.OrderDocumentPayloadPort;
 import com.tmp.order.application.processing.ProcessingRecordPort;
 import com.tmp.order.application.query.DefaultMaterialReferenceDisplayQuery;
 import com.tmp.order.application.query.DefaultOrderQueryService;
+import com.tmp.order.application.query.DefaultOrderWorklistQuery;
 import com.tmp.order.application.query.MaterialReferenceDisplayReadPort;
 import com.tmp.order.application.query.OrderQueryReadPort;
 import com.tmp.order.application.ui.DefaultOrderDocumentUiService;
@@ -108,6 +110,12 @@ public class OrderManagementAutoConfiguration {
     OrderQueryService orderQueryService(
             OrderQueryReadPort orderQueryReadPort, AuthorizationService authorizationService) {
         return new DefaultOrderQueryService(orderQueryReadPort, authorizationService);
+    }
+
+    @Bean
+    OrderWorklistQuery orderWorklistQuery(
+            OrderQueryReadPort orderQueryReadPort, AuthorizationService authorizationService) {
+        return new DefaultOrderWorklistQuery(orderQueryReadPort, authorizationService);
     }
 
     @Bean
@@ -183,32 +191,47 @@ public class OrderManagementAutoConfiguration {
 
     @Bean
     UpdateOrderItemUseCase updateOrderItemUseCase(
-            OrderItemRepository orderItemRepository, Clock clock) {
-        return new UpdateOrderItemUseCase(orderItemRepository, clock);
+            CustomerOrderRepository customerOrderRepository,
+            OrderItemRepository orderItemRepository,
+            Clock clock) {
+        return new UpdateOrderItemUseCase(
+                customerOrderRepository, orderItemRepository, clock);
     }
 
     @Bean
     CancelOrderItemUseCase cancelOrderItemUseCase(
-            OrderItemRepository orderItemRepository, Clock clock) {
-        return new CancelOrderItemUseCase(orderItemRepository, clock);
+            CustomerOrderRepository customerOrderRepository,
+            OrderItemRepository orderItemRepository,
+            Clock clock) {
+        return new CancelOrderItemUseCase(
+                customerOrderRepository, orderItemRepository, clock);
     }
 
     @Bean
     CreateOrderItemRevisionUseCase createOrderItemRevisionUseCase(
-            OrderItemRepository orderItemRepository, Clock clock) {
-        return new CreateOrderItemRevisionUseCase(orderItemRepository, clock);
+            CustomerOrderRepository customerOrderRepository,
+            OrderItemRepository orderItemRepository,
+            Clock clock) {
+        return new CreateOrderItemRevisionUseCase(
+                customerOrderRepository, orderItemRepository, clock);
     }
 
     @Bean
     UpdateOrderItemRevisionUseCase updateOrderItemRevisionUseCase(
-            OrderItemRepository orderItemRepository, Clock clock) {
-        return new UpdateOrderItemRevisionUseCase(orderItemRepository, clock);
+            CustomerOrderRepository customerOrderRepository,
+            OrderItemRepository orderItemRepository,
+            Clock clock) {
+        return new UpdateOrderItemRevisionUseCase(
+                customerOrderRepository, orderItemRepository, clock);
     }
 
     @Bean
     ApproveOrderItemRevisionUseCase approveOrderItemRevisionUseCase(
-            OrderItemRepository orderItemRepository, Clock clock) {
-        return new ApproveOrderItemRevisionUseCase(orderItemRepository, clock);
+            CustomerOrderRepository customerOrderRepository,
+            OrderItemRepository orderItemRepository,
+            Clock clock) {
+        return new ApproveOrderItemRevisionUseCase(
+                customerOrderRepository, orderItemRepository, clock);
     }
 
     @Bean
@@ -394,14 +417,16 @@ public class OrderManagementAutoConfiguration {
             OrderQueryService orderQueryService,
             ProcessingRecordPort processingRecordPort,
             AuthorizationService authorizationService,
-            Clock clock) {
+            Clock clock,
+            PlatformTransactionManager transactionManager) {
         return new DefaultOrderDocumentUiService(
                 documentEngine,
                 draftPayloadApplicationService,
                 orderQueryService,
                 processingRecordPort,
                 authorizationService,
-                clock);
+                clock,
+                transactionManager);
     }
 
     @Bean
@@ -432,9 +457,11 @@ public class OrderManagementAutoConfiguration {
 
     @Bean
     OrderItemSpecificationEditorQueryService defaultOrderItemSpecificationEditorQueryService(
-            OrderItemRepository orderItemRepository, AuthorizationService authorizationService) {
+            OrderItemRepository orderItemRepository,
+            OrderQueryService orderQueryService,
+            AuthorizationService authorizationService) {
         return new DefaultOrderItemSpecificationEditorQueryService(
-                orderItemRepository, authorizationService);
+                orderItemRepository, orderQueryService, authorizationService);
     }
 
     @Bean

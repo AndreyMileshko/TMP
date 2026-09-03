@@ -6,13 +6,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.tmp.order.api.OrderDto;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderItemId;
 import com.tmp.order.api.OrderItemStatus;
+import com.tmp.order.api.OrderQueryService;
+import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
 import com.tmp.order.api.ui.OrderItemSpecificationEditorSnapshot;
@@ -41,16 +45,23 @@ class DefaultOrderItemSpecificationEditorQueryServiceTest {
     private static final Instant NOW = Instant.parse("2026-07-27T10:00:00Z");
 
     private OrderItemRepository orderItemRepository;
+    private OrderQueryService orderQueryService;
     private AuthorizationService authorization;
     private DefaultOrderItemSpecificationEditorQueryService service;
 
     @BeforeEach
     void setUp() {
         orderItemRepository = mock(OrderItemRepository.class);
+        orderQueryService = mock(OrderQueryService.class);
         authorization = mock(AuthorizationService.class);
+        when(orderQueryService.getOrder(any(OrderId.class)))
+                .thenAnswer(
+                        invocation ->
+                                Optional.of(
+                                        draftOrderDto(invocation.getArgument(0))));
         service =
                 new DefaultOrderItemSpecificationEditorQueryService(
-                        orderItemRepository, authorization);
+                        orderItemRepository, orderQueryService, authorization);
     }
 
     @Test
@@ -72,6 +83,23 @@ class DefaultOrderItemSpecificationEditorQueryServiceTest {
         assertEquals(1, snapshot.lines().get(0).lineNumber());
         assertEquals(2, snapshot.lines().get(1).lineNumber());
         verify(authorization).requirePermission(OrderManagementPermissions.SPECIFICATION_VIEW);
+    }
+
+    @Test
+    void draftSpecificationIsImmutableWhenParentOrderIsActive() {
+        OrderItemId itemId = OrderItemId.generate();
+        OrderId orderId = OrderId.generate();
+        RevisionNumber draftNumber = RevisionNumber.first();
+        when(orderItemRepository.findById(itemId))
+                .thenReturn(Optional.of(draftItem(orderId, itemId, draftNumber)));
+        when(orderQueryService.getOrder(orderId))
+                .thenReturn(Optional.of(orderDto(orderId, OrderStatus.ACTIVE)));
+
+        OrderItemSpecificationEditorSnapshot snapshot =
+                service.getSpecificationSnapshot(itemId, draftNumber).orElseThrow();
+
+        assertTrue(snapshot.immutable());
+        assertEquals(RevisionStatus.DRAFT, snapshot.revisionStatus());
     }
 
     @Test
@@ -161,6 +189,26 @@ class DefaultOrderItemSpecificationEditorQueryServiceTest {
         assertThrows(
                 AccessDeniedException.class,
                 () -> service.getSpecificationSnapshot(itemId, RevisionNumber.first()));
+    }
+
+    private static OrderDto draftOrderDto(OrderId orderId) {
+        return orderDto(orderId, OrderStatus.DRAFT);
+    }
+
+    private static OrderDto orderDto(OrderId orderId, OrderStatus status) {
+        return OrderDto.of(
+                orderId,
+                "ORD-" + orderId.value(),
+                status,
+                "C-1",
+                "Customer",
+                null,
+                null,
+                null,
+                null,
+                null,
+                NOW,
+                NOW);
     }
 
     private static OrderItem draftItem(

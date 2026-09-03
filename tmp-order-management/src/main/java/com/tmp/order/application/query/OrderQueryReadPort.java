@@ -1,6 +1,7 @@
 package com.tmp.order.application.query;
 
 import com.tmp.order.api.ItemSpecificationDto;
+import com.tmp.order.api.OrderCustomerOptionDto;
 import com.tmp.order.api.OrderDto;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderItemDto;
@@ -13,6 +14,10 @@ import com.tmp.order.api.PageResult;
 import com.tmp.order.api.ProductionSpecificationDto;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.SpecificationId;
+import com.tmp.order.api.OrderWorklistCriteria;
+import com.tmp.order.api.OrderWorklistRowDto;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -45,4 +50,8 @@ public interface OrderQueryReadPort {
     Optional<ProductionSpecificationDto> findCurrentSpecification(OrderItemId orderItemId);
 
     Optional<ProductionSpecificationDto> findSpecificationById(SpecificationId specificationId);
+
+    List<OrderWorklistRowDto> listWorklistRows(OrderWorklistCriteria criteria);
+
+    List<OrderCustomerOptionDto> listWorklistCustomers(Instant createdFrom, Instant createdToExclusive);
 }

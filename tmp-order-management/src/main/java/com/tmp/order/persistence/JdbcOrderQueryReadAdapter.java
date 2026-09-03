@@ -1,6 +1,7 @@
 package com.tmp.order.persistence;
 
 import com.tmp.order.api.ItemSpecificationDto;
+import com.tmp.order.api.OrderCustomerOptionDto;
 import com.tmp.order.api.OrderDto;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderItemDto;
@@ -11,6 +12,8 @@ import com.tmp.order.api.OrderSearchCriteria;
 import com.tmp.order.api.OrderSort;
 import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.OrderSummaryDto;
+import com.tmp.order.api.OrderWorklistCriteria;
+import com.tmp.order.api.OrderWorklistRowDto;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
 import com.tmp.order.api.ProductionSpecificationDto;
@@ -20,13 +23,16 @@ import com.tmp.order.api.SpecificationId;
 import com.tmp.order.api.SpecificationLineDto;
 import com.tmp.order.application.query.OrderQueryReadPort;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -477,6 +483,146 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                                 rs.getString("unit_of_measure")),
                 orderItemId.value(),
                 revisionNumber.value());
+    }
+
+    @Override
+    public List<OrderWorklistRowDto> listWorklistRows(OrderWorklistCriteria criteria) {
+        Objects.requireNonNull(criteria, "criteria");
+        FilterSql filter = buildWorklistFilter(criteria);
+        String sql =
+                """
+                SELECT o.order_id, o.order_number, o.status, o.customer_ref, o.customer_name,
+                       o.created_at, COALESCE(q.item_quantity, 0) AS item_quantity
+                  FROM order_management.orders o
+                  LEFT JOIN (
+                        SELECT i.order_id,
+                               COALESCE(SUM(qty.ordered_quantity), 0) AS item_quantity
+                          FROM order_management.order_items i
+                          LEFT JOIN LATERAL (
+                                SELECT r.ordered_quantity
+                                  FROM order_management.order_item_revisions r
+                                 WHERE r.order_item_id = i.order_item_id
+                                 ORDER BY CASE
+                                            WHEN i.active_revision_number IS NOT NULL
+                                             AND r.revision_number = i.active_revision_number
+                                            THEN 0 ELSE 1
+                                          END,
+                                          r.revision_number DESC
+                                 LIMIT 1
+                          ) qty ON TRUE
+                         GROUP BY i.order_id
+                  ) q ON q.order_id = o.order_id
+                """
+                        + filter.whereClause
+                        + """
+                 ORDER BY o.created_at DESC, o.order_id DESC
+                 LIMIT ?
+                """;
+        List<Object> args = new ArrayList<>(filter.args);
+        args.add(OrderWorklistCriteria.MAX_ROWS + 1);
+        return jdbc.query(sql, (rs, rowNum) -> mapWorklistRow(rs), args.toArray());
+    }
+
+    @Override
+    public List<OrderCustomerOptionDto> listWorklistCustomers(
+            Instant createdFrom, Instant createdToExclusive) {
+        Objects.requireNonNull(createdFrom, "createdFrom");
+        Objects.requireNonNull(createdToExclusive, "createdToExclusive");
+        if (!createdFrom.isBefore(createdToExclusive)) {
+            throw new IllegalArgumentException(
+                    "createdFrom must be before createdToExclusive: "
+                            + createdFrom
+                            + " / "
+                            + createdToExclusive);
+        }
+        List<OrderCustomerOptionDto> options =
+                jdbc.query(
+                        """
+                        SELECT DISTINCT o.customer_ref, o.customer_name
+                          FROM order_management.orders o
+                         WHERE o.created_at >= ?
+                           AND o.created_at < ?
+                           AND o.customer_ref IS NOT NULL
+                         ORDER BY o.customer_name NULLS LAST, o.customer_ref
+                        """,
+                        (rs, rowNum) ->
+                                OrderCustomerOptionDto.of(
+                                        rs.getString("customer_ref"), rs.getString("customer_name")),
+                        Timestamp.from(createdFrom),
+                        Timestamp.from(createdToExclusive));
+        Integer unassigned =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*)
+                          FROM order_management.orders o
+                         WHERE o.created_at >= ?
+                           AND o.created_at < ?
+                           AND o.customer_ref IS NULL
+                        """,
+                        Integer.class,
+                        Timestamp.from(createdFrom),
+                        Timestamp.from(createdToExclusive));
+        List<OrderCustomerOptionDto> result = new ArrayList<>(options);
+        if (unassigned != null && unassigned > 0) {
+            result.add(0, OrderCustomerOptionDto.unassigned());
+        }
+        return List.copyOf(result);
+    }
+
+    private static FilterSql buildWorklistFilter(OrderWorklistCriteria criteria) {
+        StringBuilder where = new StringBuilder(" WHERE o.created_at >= ? AND o.created_at < ?");
+        List<Object> args = new ArrayList<>();
+        args.add(Timestamp.from(criteria.createdFrom()));
+        args.add(Timestamp.from(criteria.createdToExclusive()));
+        criteria.quickSearch().ifPresent(value -> {
+            String pattern = '%' + escapeIlike(value) + '%';
+            where.append(" AND (o.order_number ILIKE ? ESCAPE '\\' OR o.customer_name ILIKE ? ESCAPE '\\')");
+            args.add(pattern);
+            args.add(pattern);
+        });
+        if (criteria.filterByCustomers()) {
+            Set<String> refs = criteria.customerRefs();
+            boolean unassigned = criteria.includeUnassignedCustomer();
+            if (refs.isEmpty() && !unassigned) {
+                where.append(" AND 1=0");
+            } else if (refs.isEmpty()) {
+                where.append(" AND o.customer_ref IS NULL");
+            } else {
+                where.append(" AND (o.customer_ref IN (");
+                boolean first = true;
+                for (String ref : refs) {
+                    if (!first) {
+                        where.append(", ");
+                    }
+                    first = false;
+                    where.append('?');
+                    args.add(ref);
+                }
+                where.append(')');
+                if (unassigned) {
+                    where.append(" OR o.customer_ref IS NULL");
+                }
+                where.append(')');
+            }
+        }
+        return new FilterSql(where.toString(), args);
+    }
+
+    private static String escapeIlike(String value) {
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+    }
+
+    private static OrderWorklistRowDto mapWorklistRow(ResultSet rs) throws SQLException {
+        BigDecimal quantity = rs.getBigDecimal("item_quantity");
+        long itemQuantity = quantity == null ? 0L : quantity.longValueExact();
+        return OrderWorklistRowDto.of(
+                OrderId.of(rs.getObject("order_id", UUID.class)),
+                rs.getString("order_number"),
+                OrderStatus.valueOf(rs.getString("status")),
+                rs.getString("customer_ref"),
+                rs.getString("customer_name"),
+                rs.getTimestamp("created_at").toInstant(),
+                itemQuantity);
     }
 
     private record FilterSql(String whereClause, List<Object> args) {}

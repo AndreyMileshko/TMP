@@ -95,9 +95,6 @@ public final class OrderItemSpecificationEditorController
     private Button postButton;
 
     @FXML
-    private Button backButton;
-
-    @FXML
     private Label successLabel;
 
     @FXML
@@ -185,7 +182,6 @@ public final class OrderItemSpecificationEditorController
         clearLinesButton.setOnAction(e -> viewModel.clearLines());
         saveDraftButton.setOnAction(e -> viewModel.saveDraft());
         postButton.setOnAction(e -> viewModel.postDocument());
-        backButton.setOnAction(e -> viewModel.backToItem());
 
         successLabel.textProperty().bind(viewModel.successMessageProperty());
         successLabel

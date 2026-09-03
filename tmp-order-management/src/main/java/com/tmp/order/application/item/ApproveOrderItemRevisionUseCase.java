@@ -3,6 +3,7 @@ package com.tmp.order.application.item;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.domain.InvalidOrderStateException;
 import com.tmp.order.domain.OrderItem;
+import com.tmp.order.domain.repository.CustomerOrderRepository;
 import com.tmp.order.domain.repository.OrderItemRepository;
 import java.time.Clock;
 import java.util.Objects;
@@ -12,10 +13,16 @@ import java.util.Objects;
  */
 public final class ApproveOrderItemRevisionUseCase {
 
+    private final CustomerOrderRepository customerOrderRepository;
     private final OrderItemRepository orderItemRepository;
     private final Clock clock;
 
-    public ApproveOrderItemRevisionUseCase(OrderItemRepository orderItemRepository, Clock clock) {
+    public ApproveOrderItemRevisionUseCase(
+            CustomerOrderRepository customerOrderRepository,
+            OrderItemRepository orderItemRepository,
+            Clock clock) {
+        this.customerOrderRepository =
+                Objects.requireNonNull(customerOrderRepository, "customerOrderRepository");
         this.orderItemRepository =
                 Objects.requireNonNull(orderItemRepository, "orderItemRepository");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -27,6 +34,7 @@ public final class ApproveOrderItemRevisionUseCase {
                 orderItemRepository
                         .findById(command.orderItemId())
                         .orElseThrow(() -> new OrderItemNotFoundException(command.orderItemId()));
+        ParentOrderDraftGuard.requireDraft(customerOrderRepository, existing.orderId());
         RevisionNumber draftNumber =
                 existing
                         .draftRevisionNumber()

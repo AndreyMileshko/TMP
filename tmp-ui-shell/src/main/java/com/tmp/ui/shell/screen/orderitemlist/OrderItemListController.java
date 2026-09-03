@@ -28,9 +28,6 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
     private Button openItemButton;
 
     @FXML
-    private Button backButton;
-
-    @FXML
     private TableView<OrderItemDto> itemsTable;
 
     @FXML
@@ -81,7 +78,6 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
 
         createItemButton.setOnAction(e -> viewModel.createItem());
         openItemButton.setOnAction(e -> viewModel.openSelected());
-        backButton.setOnAction(e -> viewModel.backToOrder());
 
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
         errorLabel.visibleProperty().bind(Bindings.createBooleanBinding(

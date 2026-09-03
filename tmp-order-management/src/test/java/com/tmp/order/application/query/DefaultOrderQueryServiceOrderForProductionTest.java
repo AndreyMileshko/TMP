@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.api.ItemSpecificationDto;
+import com.tmp.order.api.OrderCustomerOptionDto;
 import com.tmp.order.api.OrderDto;
 import com.tmp.order.api.OrderForProductionDto;
 import com.tmp.order.api.OrderId;
@@ -14,6 +15,8 @@ import com.tmp.order.api.OrderItemStatus;
 import com.tmp.order.api.OrderSearchCriteria;
 import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.OrderSummaryDto;
+import com.tmp.order.api.OrderWorklistCriteria;
+import com.tmp.order.api.OrderWorklistRowDto;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
 import com.tmp.order.api.ProductionSpecificationDto;
@@ -246,6 +249,17 @@ class DefaultOrderQueryServiceOrderForProductionTest {
         @Override
         public Optional<ProductionSpecificationDto> findSpecificationById(SpecificationId specificationId) {
             return Optional.empty();
+        }
+
+        @Override
+        public List<OrderWorklistRowDto> listWorklistRows(OrderWorklistCriteria criteria) {
+            return List.of();
+        }
+
+        @Override
+        public List<OrderCustomerOptionDto> listWorklistCustomers(
+                Instant createdFrom, Instant createdToExclusive) {
+            return List.of();
         }
     }
 }

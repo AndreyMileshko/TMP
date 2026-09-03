@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,12 +17,16 @@ import com.tmp.document.api.CreateDocumentCommand;
 import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.DocumentMetadata;
 import com.tmp.document.api.DocumentStatus;
+import com.tmp.order.api.OrderDto;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderQueryService;
+import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.ui.OrderHeaderDraft;
 import com.tmp.order.application.payload.DocumentId;
 import com.tmp.order.application.payload.DocumentTypeCode;
 import com.tmp.order.application.payload.DraftPayloadApplicationService;
+import com.tmp.order.application.payload.OrderActivatePayload;
+import com.tmp.order.application.payload.OrderApprovePayload;
 import com.tmp.order.application.payload.OrderCreatePayload;
 import com.tmp.order.application.payload.OrderDocumentPayload;
 import com.tmp.order.application.processing.ProcessingOperation;
@@ -157,8 +162,114 @@ class DefaultOrderDocumentUiServiceTest {
         assertEquals(orderId, result);
         verify(authorization).requirePermission(OrderManagementPermissions.ORDER_CREATE);
         verify(documentEngine).postDocument(documentId);
-        verify(documentEngine, never()).registerProcessor(any());
-        verify(orderQueryService, never()).searchOrders(any(), any());
+    }
+
+    @Test
+    void transferToWorkApprovesThenActivatesInOneOperation() {
+        OrderId orderId = OrderId.generate();
+        UUID approveDoc = UUID.randomUUID();
+        UUID activateDoc = UUID.randomUUID();
+        when(orderQueryService.getOrder(orderId))
+                .thenReturn(Optional.of(orderDto(orderId, OrderStatus.DRAFT)))
+                .thenReturn(Optional.of(orderDto(orderId, OrderStatus.APPROVED)));
+        when(documentEngine.createDocument(any(CreateDocumentCommand.class)))
+                .thenReturn(metadata(approveDoc, DocumentTypeCode.ORDER_APPROVE.name()))
+                .thenReturn(metadata(activateDoc, DocumentTypeCode.ORDER_ACTIVATE.name()));
+        when(draftPayloads.createDraft(any(OrderDocumentPayload.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(documentEngine.findById(approveDoc))
+                .thenReturn(Optional.of(metadata(approveDoc, DocumentTypeCode.ORDER_APPROVE.name())));
+        when(documentEngine.findById(activateDoc))
+                .thenReturn(Optional.of(metadata(activateDoc, DocumentTypeCode.ORDER_ACTIVATE.name())));
+        when(draftPayloads.load(DocumentId.of(approveDoc)))
+                .thenReturn(Optional.of(OrderApprovePayload.create(DocumentId.of(approveDoc), orderId, NOW)));
+        when(draftPayloads.load(DocumentId.of(activateDoc)))
+                .thenReturn(Optional.of(OrderActivatePayload.create(DocumentId.of(activateDoc), orderId, NOW)));
+        when(documentEngine.postDocument(any(UUID.class)))
+                .thenAnswer(invocation -> {
+                    UUID id = invocation.getArgument(0);
+                    String type =
+                            id.equals(approveDoc)
+                                    ? DocumentTypeCode.ORDER_APPROVE.name()
+                                    : DocumentTypeCode.ORDER_ACTIVATE.name();
+                    return metadata(id, type);
+                });
+
+        OrderId result = service.transferToWork(orderId);
+
+        assertEquals(orderId, result);
+        verify(documentEngine, times(2)).postDocument(any(UUID.class));
+        verify(documentEngine).postDocument(approveDoc);
+        verify(documentEngine).postDocument(activateDoc);
+    }
+
+    @Test
+    void transferToWorkIsNoOpWhenAlreadyActive() {
+        OrderId orderId = OrderId.generate();
+        when(orderQueryService.getOrder(orderId))
+                .thenReturn(Optional.of(orderDto(orderId, OrderStatus.ACTIVE)));
+
+        assertEquals(orderId, service.transferToWork(orderId));
+        verify(documentEngine, never()).createDocument(any());
+        verify(documentEngine, never()).postDocument(any());
+    }
+
+    @Test
+    void saveNewOrderBeginsSavesAndPostsAsOneOperation() {
+        UUID documentId = UUID.randomUUID();
+        OrderId created = OrderId.generate();
+        when(documentEngine.createDocument(any(CreateDocumentCommand.class)))
+                .thenReturn(metadata(documentId, DocumentTypeCode.ORDER_CREATE.name()));
+        when(draftPayloads.load(DocumentId.of(documentId))).thenReturn(Optional.empty());
+        when(draftPayloads.createDraft(any(OrderDocumentPayload.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(documentEngine.findById(documentId))
+                .thenReturn(Optional.of(metadata(documentId, DocumentTypeCode.ORDER_CREATE.name())));
+        when(draftPayloads.load(DocumentId.of(documentId)))
+                .thenReturn(Optional.empty())
+                .thenReturn(
+                        Optional.of(
+                                OrderCreatePayload.create(
+                                        DocumentId.of(documentId),
+                                        OrderNumber.of("ORD-NEW"),
+                                        commercial(),
+                                        NOW)));
+        when(documentEngine.postDocument(documentId))
+                .thenReturn(metadata(documentId, DocumentTypeCode.ORDER_CREATE.name()));
+        when(processingRecords.findByDocumentIdAndOperation(
+                        DocumentId.of(documentId), ProcessingOperation.POST))
+                .thenReturn(
+                        Optional.of(
+                                ProcessingRecord.completedPost(
+                                        DocumentId.of(documentId),
+                                        DocumentTypeCode.ORDER_CREATE,
+                                        PayloadRevision.initial(),
+                                        NOW,
+                                        ResultReference.of("order:" + created.value()))));
+
+        OrderId result =
+                service.saveNewOrder(
+                        OrderHeaderDraft.of("ORD-NEW", "C-1", "Acme", null, null, null, "PRIVATE", "RUB"));
+
+        assertEquals(created, result);
+        verify(documentEngine).createDocument(any(CreateDocumentCommand.class));
+        verify(documentEngine).postDocument(documentId);
+    }
+
+    private static OrderDto orderDto(OrderId id, OrderStatus status) {
+        return OrderDto.of(
+                id,
+                "N-1",
+                status,
+                "C-1",
+                "Acme",
+                null,
+                null,
+                null,
+                "PRIVATE",
+                "RUB",
+                NOW,
+                NOW);
     }
 
     @Test

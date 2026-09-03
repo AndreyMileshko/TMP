@@ -4,11 +4,13 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.SVGPath?>
 
 <BorderPane xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.tmp.ui.shell.screen.main.MainWindowController"
@@ -21,6 +23,29 @@
             <HBox spacing="12" alignment="CENTER_LEFT">
                 <Label text="TMP" styleClass="main-window-brand-mark"/>
                 <Label text="TOP Manufacturing Platform" styleClass="main-window-brand"/>
+            </HBox>
+            <HBox styleClass="main-window-history" spacing="4" alignment="CENTER_LEFT">
+                <padding>
+                    <Insets top="0" right="0" bottom="0" left="16"/>
+                </padding>
+                <Button fx:id="historyBackButton" styleClass="main-window-history-button" focusTraversable="true">
+                    <tooltip>
+                        <Tooltip text="Назад"/>
+                    </tooltip>
+                    <graphic>
+                        <SVGPath content="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"
+                                 styleClass="main-window-history-icon"/>
+                    </graphic>
+                </Button>
+                <Button fx:id="historyForwardButton" styleClass="main-window-history-button" focusTraversable="true">
+                    <tooltip>
+                        <Tooltip text="Вперёд"/>
+                    </tooltip>
+                    <graphic>
+                        <SVGPath content="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"
+                                 styleClass="main-window-history-icon"/>
+                    </graphic>
+                </Button>
             </HBox>
             <Pane HBox.hgrow="ALWAYS"/>
             <HBox spacing="16" alignment="CENTER_RIGHT">

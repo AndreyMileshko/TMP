@@ -12,7 +12,10 @@ import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.security.ProductionPermissions;
 import com.tmp.security.api.AuthorizationService;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -50,6 +53,29 @@ public final class DefaultProductionQueryApi implements ProductionQueryApi {
         com.tmp.production.domain.OrderProductionView view =
                 orderViewService.getOrderProductionView(sourceOrderId);
         return map(view);
+    }
+
+    @Override
+    public Map<UUID, ProductionQueryApi.OrderProductionListFacts> getOrderProductionListFacts(
+            Collection<UUID> orderIds) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+        Objects.requireNonNull(orderIds, "orderIds");
+        Map<UUID, ProductionOrderViewService.ProductionListFacts> facts =
+                orderViewService.listProductionListFacts(orderIds);
+        Map<UUID, ProductionQueryApi.OrderProductionListFacts> mapped = new LinkedHashMap<>();
+        for (Map.Entry<UUID, ProductionOrderViewService.ProductionListFacts> entry : facts.entrySet()) {
+            ProductionOrderViewService.ProductionListFacts value = entry.getValue();
+            mapped.put(
+                    entry.getKey(),
+                    new ProductionQueryApi.OrderProductionListFacts(
+                            value.sourceOrderId(),
+                            map(value.status()),
+                            value.orderedQuantity(),
+                            value.releasedQuantity(),
+                            value.activeProductionQuantity(),
+                            value.cancellationPosted()));
+        }
+        return Map.copyOf(mapped);
     }
 
     @Override

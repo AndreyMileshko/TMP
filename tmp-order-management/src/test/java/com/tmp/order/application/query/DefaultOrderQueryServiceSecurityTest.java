@@ -14,6 +14,7 @@ import com.tmp.order.capability.OrderManagementPermissions;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -192,6 +193,18 @@ class DefaultOrderQueryServiceSecurityTest {
         public Optional<com.tmp.order.api.ProductionSpecificationDto> findSpecificationById(
                 com.tmp.order.api.SpecificationId specificationId) {
             return Optional.empty();
+        }
+
+        @Override
+        public List<com.tmp.order.api.OrderWorklistRowDto> listWorklistRows(
+                com.tmp.order.api.OrderWorklistCriteria criteria) {
+            return List.of();
+        }
+
+        @Override
+        public List<com.tmp.order.api.OrderCustomerOptionDto> listWorklistCustomers(
+                java.time.Instant createdFrom, java.time.Instant createdToExclusive) {
+            return List.of();
         }
     }
 }

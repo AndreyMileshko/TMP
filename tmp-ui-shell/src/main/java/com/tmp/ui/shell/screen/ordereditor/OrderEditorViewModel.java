@@ -6,25 +6,29 @@ import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderHeaderDraft;
+import com.tmp.production.api.ProductionQueryApi;
+import com.tmp.production.api.ProductionQueryApi.OrderProductionListFacts;
+import com.tmp.production.api.ProductionQueryApi.OrderProductionViewStatus;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
 import com.tmp.ui.shell.order.error.OrderUiOperation;
+import com.tmp.ui.shell.order.worklist.DateTimePresentation;
+import com.tmp.ui.shell.order.worklist.OrderOperationalStatus;
+import com.tmp.ui.shell.order.worklist.OrderOperationalStatusDeriver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Consumer;
 import javafx.beans.property.BooleanProperty;
-import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
-import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 
 /**
- * Document-driven order editor. Mutating actions go only through {@link OrderDocumentUiService}.
+ * User-facing order editor. Document Engine stages are orchestrated by {@link OrderDocumentUiService}.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
@@ -36,6 +40,9 @@ public final class OrderEditorViewModel {
         VIEW_EXISTING
     }
 
+    static final String TRANSFER_IMMUTABILITY_HINT =
+            "После передачи заказ и его позиции нельзя будет редактировать.";
+
     private static final String PERM_VIEW = "order.order.view";
     private static final String PERM_CREATE = "order.order.create";
     private static final String PERM_EDIT = "order.order.edit";
@@ -45,9 +52,12 @@ public final class OrderEditorViewModel {
     private final OrderQueryService orderQueryService;
     private final OrderDocumentUiService orderDocuments;
     private final AuthorizationService authorization;
+    private final ProductionQueryApi productionQueryApi;
 
-    private final ObjectProperty<Mode> mode = new SimpleObjectProperty<>(Mode.CREATE);
-    private final StringProperty title = new SimpleStringProperty("Заказ");
+    private final javafx.beans.property.ObjectProperty<Mode> mode =
+            new javafx.beans.property.SimpleObjectProperty<>(Mode.CREATE);
+    private final StringProperty title = new SimpleStringProperty("Новый заказ");
+    private final StringProperty subtitle = new SimpleStringProperty("");
     private final StringProperty statusText = new SimpleStringProperty("");
     private final StringProperty errorMessage = new SimpleStringProperty("");
     private final StringProperty successMessage = new SimpleStringProperty("");
@@ -60,39 +70,26 @@ public final class OrderEditorViewModel {
     private final StringProperty direction = new SimpleStringProperty("PRIVATE");
     private final StringProperty currency = new SimpleStringProperty("RUB");
     private final BooleanProperty fieldsEditable = new SimpleBooleanProperty(true);
-    private final BooleanProperty canSaveDraft = new SimpleBooleanProperty(false);
-    private final BooleanProperty canPost = new SimpleBooleanProperty(false);
-    private final BooleanProperty canApprove = new SimpleBooleanProperty(false);
+    private final BooleanProperty canSave = new SimpleBooleanProperty(false);
+    private final BooleanProperty canTransferToWork = new SimpleBooleanProperty(false);
     private final BooleanProperty canCancel = new SimpleBooleanProperty(false);
     private final BooleanProperty orderNumberEditable = new SimpleBooleanProperty(true);
     private final BooleanProperty canOpenItems = new SimpleBooleanProperty(false);
 
     private OrderId orderId;
     private OrderStatus orderStatus;
-    private UUID documentId;
-    private long payloadRevision;
-    private Runnable onBackToList = () -> {
-    };
-    private Consumer<OrderId> onOrderOpened = id -> {
-    };
-    private Runnable onOpenItems = () -> {
-    };
+    private OrderOperationalStatus operationalStatus = OrderOperationalStatus.EDITING;
+    private Runnable onOpenItems = () -> {};
 
     public OrderEditorViewModel(
             OrderQueryService orderQueryService,
             OrderDocumentUiService orderDocuments,
-            AuthorizationService authorization) {
+            AuthorizationService authorization,
+            ProductionQueryApi productionQueryApi) {
         this.orderQueryService = Objects.requireNonNull(orderQueryService, "orderQueryService");
         this.orderDocuments = Objects.requireNonNull(orderDocuments, "orderDocuments");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
-    }
-
-    public void setOnBackToList(Runnable onBackToList) {
-        this.onBackToList = Objects.requireNonNull(onBackToList, "onBackToList");
-    }
-
-    public void setOnOrderOpened(Consumer<OrderId> onOrderOpened) {
-        this.onOrderOpened = Objects.requireNonNull(onOrderOpened, "onOrderOpened");
+        this.productionQueryApi = Objects.requireNonNull(productionQueryApi, "productionQueryApi");
     }
 
     public void setOnOpenItems(Runnable onOpenItems) {
@@ -105,8 +102,7 @@ public final class OrderEditorViewModel {
         title.set("Новый заказ");
         orderId = null;
         orderStatus = null;
-        documentId = null;
-        payloadRevision = 0L;
+        operationalStatus = OrderOperationalStatus.EDITING;
         orderNumber.set("");
         customerRef.set("");
         customerName.set("");
@@ -115,7 +111,8 @@ public final class OrderEditorViewModel {
         responsibleManager.set("");
         direction.set("PRIVATE");
         currency.set("RUB");
-        statusText.set("CREATE");
+        statusText.set(OrderOperationalStatus.EDITING.caption());
+        updateSubtitle();
         refreshActionFlags();
     }
 
@@ -125,14 +122,8 @@ public final class OrderEditorViewModel {
         reloadExisting(id);
     }
 
-    /**
-     * Reloads order state without clearing a previously set success message (used after post /
-     * approve / cancel).
-     */
     private void reloadExisting(OrderId id) {
         mode.set(Mode.VIEW_EXISTING);
-        documentId = null;
-        payloadRevision = 0L;
         errorMessage.set("");
         try {
             Optional<OrderDto> loaded = orderQueryService.getOrder(id);
@@ -141,7 +132,6 @@ public final class OrderEditorViewModel {
                 return;
             }
             applyOrder(loaded.get());
-            onOrderOpened.accept(id);
         } catch (AccessDeniedException ex) {
             showMappedError(ex, OrderUiOperation.LOAD);
         } catch (RuntimeException ex) {
@@ -149,77 +139,45 @@ public final class OrderEditorViewModel {
         }
     }
 
-    public void saveDraft() {
+    public void save() {
         clearMessages();
         try {
             OrderHeaderDraft draft = currentDraft();
             if (mode.get() == Mode.CREATE) {
-                if (documentId == null) {
-                    documentId = orderDocuments.beginOrderCreate("ORDER_CREATE " + draft.orderNumber());
-                    payloadRevision = 0L;
-                }
-                payloadRevision = orderDocuments.saveCreateDraft(documentId, draft, payloadRevision);
-                showSuccess("Черновик документа сохранён");
-            } else {
-                if (orderId == null || orderStatus != OrderStatus.DRAFT) {
-                    showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
-                    return;
-                }
-                if (documentId == null) {
-                    documentId = orderDocuments.beginOrderUpdate("ORDER_UPDATE " + orderId.value(), orderId);
-                    payloadRevision = 0L;
-                }
-                payloadRevision =
-                        orderDocuments.saveUpdateDraft(documentId, orderId, draft, payloadRevision);
-                showSuccess("Черновик изменения сохранён");
-            }
-            refreshActionFlags();
-        } catch (AccessDeniedException ex) {
-            showMappedError(ex, OrderUiOperation.SAVE_DRAFT);
-        } catch (RuntimeException ex) {
-            showMappedError(ex, OrderUiOperation.SAVE_DRAFT);
-        }
-    }
-
-    public void postCurrentDocument() {
-        clearMessages();
-        try {
-            if (documentId == null) {
-                errorMessage.set("Сначала сохраните черновик документа");
+                OrderId created = orderDocuments.saveNewOrder(draft);
+                showSuccess("Заказ сохранён");
+                reloadExisting(created);
                 return;
             }
-            OrderId result = orderDocuments.postDocument(documentId);
-            documentId = null;
-            payloadRevision = 0L;
-            showSuccess("Документ проведён");
-            reloadExisting(result);
-        } catch (AccessDeniedException ex) {
-            showMappedError(ex, OrderUiOperation.POST_DOCUMENT);
-        } catch (RuntimeException ex) {
-            showMappedError(ex, OrderUiOperation.POST_DOCUMENT);
-        }
-    }
-
-    public void approveOrder() {
-        clearMessages();
-        try {
             if (orderId == null || orderStatus != OrderStatus.DRAFT) {
                 showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
                 return;
             }
-            UUID approveDoc =
-                    orderDocuments.beginOrderApprove("ORDER_APPROVE " + orderId.value(), orderId);
-            OrderId approvedId = orderDocuments.postDocument(approveDoc);
-            UUID activateDoc =
-                    orderDocuments.beginOrderActivate(
-                            "ORDER_ACTIVATE " + approvedId.value(), approvedId);
-            OrderId result = orderDocuments.postDocument(activateDoc);
-            showSuccess("Заказ утверждён");
+            OrderId saved = orderDocuments.saveExistingDraft(orderId, draft);
+            showSuccess("Заказ сохранён");
+            reloadExisting(saved);
+        } catch (AccessDeniedException ex) {
+            showMappedError(ex, OrderUiOperation.SAVE);
+        } catch (RuntimeException ex) {
+            showMappedError(ex, OrderUiOperation.SAVE);
+        }
+    }
+
+    public void transferToWork() {
+        clearMessages();
+        try {
+            if (orderId == null
+                    || (orderStatus != OrderStatus.DRAFT && orderStatus != OrderStatus.APPROVED)) {
+                showError(OrderUiErrorMapper.FORBIDDEN_TRANSITION);
+                return;
+            }
+            OrderId result = orderDocuments.transferToWork(orderId);
+            showSuccess("Заказ передан в работу");
             reloadExisting(result);
         } catch (AccessDeniedException ex) {
-            showMappedError(ex, OrderUiOperation.APPROVE);
+            showMappedError(ex, OrderUiOperation.TRANSFER_TO_WORK);
         } catch (RuntimeException ex) {
-            showMappedError(ex, OrderUiOperation.APPROVE);
+            showMappedError(ex, OrderUiOperation.TRANSFER_TO_WORK);
         }
     }
 
@@ -242,15 +200,19 @@ public final class OrderEditorViewModel {
         }
     }
 
-    public void backToList() {
-        onBackToList.run();
-    }
-
     public void openItems() {
         if (orderId == null || !canOpenItems.get()) {
             return;
         }
         onOpenItems.run();
+    }
+
+    public String transferConfirmationTitle() {
+        String number = orderNumber.get();
+        if (number == null || number.isBlank()) {
+            return "Передать заказ в работу?";
+        }
+        return "Передать заказ №" + number + " в работу?";
     }
 
     public OrderId currentOrderId() {
@@ -261,12 +223,20 @@ public final class OrderEditorViewModel {
         return orderStatus;
     }
 
-    public ObjectProperty<Mode> modeProperty() {
+    public OrderOperationalStatus operationalStatus() {
+        return operationalStatus;
+    }
+
+    public javafx.beans.property.ObjectProperty<Mode> modeProperty() {
         return mode;
     }
 
     public StringProperty titleProperty() {
         return title;
+    }
+
+    public StringProperty subtitleProperty() {
+        return subtitle;
     }
 
     public StringProperty statusTextProperty() {
@@ -321,16 +291,12 @@ public final class OrderEditorViewModel {
         return orderNumberEditable;
     }
 
-    public BooleanProperty canSaveDraftProperty() {
-        return canSaveDraft;
+    public BooleanProperty canSaveProperty() {
+        return canSave;
     }
 
-    public BooleanProperty canPostProperty() {
-        return canPost;
-    }
-
-    public BooleanProperty canApproveProperty() {
-        return canApprove;
+    public BooleanProperty canTransferToWorkProperty() {
+        return canTransferToWork;
     }
 
     public BooleanProperty canCancelProperty() {
@@ -345,24 +311,60 @@ public final class OrderEditorViewModel {
         return orderId;
     }
 
-    UUID documentIdForTest() {
-        return documentId;
-    }
-
     private void applyOrder(OrderDto dto) {
         orderId = dto.orderId();
         orderStatus = dto.status();
-        title.set("Заказ " + dto.orderNumber());
-        statusText.set(dto.status().name());
+        title.set("Заказ №" + dto.orderNumber());
         orderNumber.set(dto.orderNumber());
         customerRef.set(nullToEmpty(dto.customerRef()));
         customerName.set(dto.customerName());
         contractRef.set(nullToEmpty(dto.contractRef()));
         siteRef.set(nullToEmpty(dto.siteRef()));
         responsibleManager.set(nullToEmpty(dto.responsibleManager()));
-        direction.set(dto.direction());
-        currency.set(dto.currency());
+        direction.set(dto.direction() == null || dto.direction().isBlank() ? "PRIVATE" : dto.direction());
+        currency.set(dto.currency() == null || dto.currency().isBlank() ? "RUB" : dto.currency());
+        operationalStatus = deriveOperationalStatus(dto);
+        statusText.set(operationalStatus.caption());
+        updateSubtitle();
         refreshActionFlags();
+    }
+
+    private OrderOperationalStatus deriveOperationalStatus(OrderDto dto) {
+        if (dto.status() == OrderStatus.DRAFT || dto.status() == OrderStatus.APPROVED) {
+            return OrderOperationalStatus.EDITING;
+        }
+        if (dto.status() == OrderStatus.CANCELLED) {
+            return OrderOperationalStatus.CANCELLED;
+        }
+        OrderProductionListFacts facts = loadProductionFacts(dto.orderId());
+        return OrderOperationalStatusDeriver.derive(dto.status(), facts.orderedQuantity(), facts);
+    }
+
+    private OrderProductionListFacts loadProductionFacts(OrderId id) {
+        try {
+            return productionQueryApi
+                    .getOrderProductionListFacts(List.of(id.value()))
+                    .getOrDefault(id.value(), emptyFacts(id));
+        } catch (AccessDeniedException ex) {
+            return emptyFacts(id);
+        } catch (RuntimeException ex) {
+            return emptyFacts(id);
+        }
+    }
+
+    private static OrderProductionListFacts emptyFacts(OrderId id) {
+        return new OrderProductionListFacts(
+                id.value(), OrderProductionViewStatus.NOT_ACCEPTED, 0L, 0L, 0L, false);
+    }
+
+    private void updateSubtitle() {
+        String customer = DateTimePresentation.customerDisplay(customerName.get());
+        String status = operationalStatus == null ? "" : operationalStatus.caption();
+        if (status.isBlank()) {
+            subtitle.set(customer);
+            return;
+        }
+        subtitle.set(customer + " · " + status);
     }
 
     private void refreshActionFlags() {
@@ -371,37 +373,32 @@ public final class OrderEditorViewModel {
         boolean hasEdit = authorization.hasPermission(PermissionId.of(PERM_EDIT));
         boolean hasApprove = authorization.hasPermission(PermissionId.of(PERM_APPROVE));
         boolean hasCancel = authorization.hasPermission(PermissionId.of(PERM_CANCEL));
+        boolean hasItemView = authorization.hasPermission(PermissionId.of("order.item.view"));
 
         if (mode.get() == Mode.CREATE) {
             fieldsEditable.set(hasCreate);
             orderNumberEditable.set(hasCreate);
-            canSaveDraft.set(hasCreate);
-            canPost.set(hasCreate && documentId != null);
-            canApprove.set(false);
+            canSave.set(hasCreate);
+            canTransferToWork.set(false);
             canCancel.set(false);
             canOpenItems.set(false);
             return;
         }
 
         boolean draft = orderStatus == OrderStatus.DRAFT;
-        boolean readOnlyStatus =
-                orderStatus == OrderStatus.APPROVED
-                        || orderStatus == OrderStatus.ACTIVE
-                        || orderStatus == OrderStatus.CANCELLED;
-        boolean hasItemView =
-                authorization.hasPermission(PermissionId.of("order.item.view"));
+        boolean approved = orderStatus == OrderStatus.APPROVED;
+        boolean transferred =
+                orderStatus == OrderStatus.ACTIVE || orderStatus == OrderStatus.CANCELLED;
         fieldsEditable.set(hasView && draft && hasEdit);
         orderNumberEditable.set(false);
-        canSaveDraft.set(draft && hasEdit);
-        canPost.set(draft && hasEdit && documentId != null);
-        canApprove.set(draft && hasApprove);
+        canSave.set(draft && hasEdit);
+        canTransferToWork.set((draft || approved) && hasApprove);
         canCancel.set(draft && hasCancel);
         canOpenItems.set(orderId != null && hasItemView);
-        if (readOnlyStatus) {
+        if (transferred) {
             fieldsEditable.set(false);
-            canSaveDraft.set(false);
-            canPost.set(false);
-            canApprove.set(false);
+            canSave.set(false);
+            canTransferToWork.set(false);
             canCancel.set(false);
         }
     }

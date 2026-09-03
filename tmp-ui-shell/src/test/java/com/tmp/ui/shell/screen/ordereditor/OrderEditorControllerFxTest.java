@@ -1,6 +1,8 @@
 package com.tmp.ui.shell.screen.ordereditor;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.api.ItemSpecificationDto;
@@ -31,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.BeforeAll;
@@ -46,7 +49,7 @@ class OrderEditorControllerFxTest {
     @Test
     void loadsOrderEditorFxml() throws Exception {
         OrderEditorViewModel viewModel = new OrderEditorViewModel(
-                new EmptyQuery(), new EmptyDocs(), new FakeAuthorization());
+                new EmptyQuery(), new EmptyDocs(), new FakeAuthorization(), new EmptyProductionQuery());
         viewModel.openCreate();
         var navigation = NavigationServices.createDefault();
         navigation.register(new ScreenRegistration(
@@ -58,12 +61,23 @@ class OrderEditorControllerFxTest {
         AtomicReference<Throwable> error = new AtomicReference<>();
         AtomicReference<TextField> field = new AtomicReference<>();
 
+        AtomicReference<Button> save = new AtomicReference<>();
+        AtomicReference<Button> transfer = new AtomicReference<>();
+        AtomicReference<Button> post = new AtomicReference<>();
+        AtomicReference<Button> approve = new AtomicReference<>();
+        AtomicReference<Button> draft = new AtomicReference<>();
+
         Platform.runLater(() -> {
             try {
                 Parent root = navigation.load(UiShellScreens.ORDER_EDITOR_SCREEN_ID);
                 Stage stage = new Stage();
                 stage.setScene(new Scene(root));
                 field.set((TextField) root.lookup("#orderNumberField"));
+                save.set((Button) root.lookup("#saveButton"));
+                transfer.set((Button) root.lookup("#transferButton"));
+                post.set((Button) root.lookup("#postButton"));
+                approve.set((Button) root.lookup("#approveButton"));
+                draft.set((Button) root.lookup("#saveDraftButton"));
             } catch (Throwable throwable) {
                 error.set(throwable);
             } finally {
@@ -76,6 +90,12 @@ class OrderEditorControllerFxTest {
             throw new AssertionError("Order editor FX load failed", error.get());
         }
         assertNotNull(field.get());
+        assertNotNull(save.get());
+        assertEquals("Сохранить", save.get().getText());
+        assertEquals("Передать в работу", transfer.get().getText());
+        assertNull(post.get());
+        assertNull(approve.get());
+        assertNull(draft.get());
     }
 
     private static final class EmptyQuery implements OrderQueryService {
@@ -185,6 +205,21 @@ class OrderEditorControllerFxTest {
         @Override
         public OrderId postDocument(UUID documentId) {
             return OrderId.generate();
+        }
+
+        @Override
+        public OrderId saveNewOrder(OrderHeaderDraft draft) {
+            return OrderId.generate();
+        }
+
+        @Override
+        public OrderId saveExistingDraft(OrderId orderId, OrderHeaderDraft draft) {
+            return orderId;
+        }
+
+        @Override
+        public OrderId transferToWork(OrderId orderId) {
+            return orderId;
         }
 
         @Override

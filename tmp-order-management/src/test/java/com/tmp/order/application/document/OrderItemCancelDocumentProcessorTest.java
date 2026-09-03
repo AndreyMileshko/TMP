@@ -18,6 +18,7 @@ import com.tmp.order.api.OrderItemStatus;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.event.OrderItemCancelled;
 import com.tmp.order.application.item.CancelOrderItemUseCase;
+import com.tmp.order.application.order.InMemoryCustomerOrderRepository;
 import com.tmp.order.application.order.InMemoryOrderItemRepository;
 import com.tmp.order.application.payload.DocumentId;
 import com.tmp.order.application.payload.DocumentTypeCode;
@@ -34,6 +35,7 @@ import com.tmp.order.domain.OrderItem;
 import com.tmp.order.domain.OrderedQuantity;
 import com.tmp.order.domain.ProductCode;
 import com.tmp.order.domain.SpecificationLine;
+import com.tmp.order.testsupport.ParentOrderFixtures;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -51,6 +53,7 @@ class OrderItemCancelDocumentProcessorTest {
     private OrderDocumentPayloadPort payloads;
     private ProcessingRecordPort processing;
     private InMemoryOrderItemRepository items;
+    private InMemoryCustomerOrderRepository orders;
     private List<DomainEvent> published;
     private OrderItemCancelDocumentProcessor processor;
 
@@ -59,13 +62,14 @@ class OrderItemCancelDocumentProcessorTest {
         payloads = new InMemoryOrderDocumentPayloadPort();
         processing = new InMemoryProcessingRecordPort();
         items = new InMemoryOrderItemRepository();
+        orders = new InMemoryCustomerOrderRepository();
         published = new ArrayList<>();
         processor =
                 new OrderItemCancelDocumentProcessor(
                         payloads,
                         processing,
                         (TransactionalEventPublisher) published::add,
-                        new CancelOrderItemUseCase(items, CLOCK),
+                        new CancelOrderItemUseCase(orders, items, CLOCK),
                         CLOCK);
     }
 
@@ -124,10 +128,12 @@ class OrderItemCancelDocumentProcessorTest {
     }
 
     private OrderItem seedDraftItem() {
+        OrderId orderId = OrderId.generate();
+        ParentOrderFixtures.saveDraft(orders, orderId, CLOCK);
         return items.save(
                 OrderItem.create(
                         OrderItemId.generate(),
-                        OrderId.generate(),
+                        orderId,
                         ItemCommercialData.of(ProductCode.of("P-1"), "Door", null),
                         OrderedQuantity.of(1),
                         CLOCK));

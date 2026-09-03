@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-UI-STD-001  
 **Status:** Accepted  
-**Version:** 1.0
+**Version:** 1.1
 
 ---
 
@@ -728,7 +728,74 @@ Business screen **не считается UI-complete**, пока не выпо�
 
 ---
 
-# 39. Связанные документы
+# 39. Orders (Stage 3.4)
+
+Orders list and editor follow this operational UX. Commercial `OrderStatus` (`DRAFT` / `APPROVED` / `ACTIVE` / `CANCELLED`) remains the Order Management lifecycle and **MUST NOT** gain production-derived values.
+
+## 39.1 Operational status
+
+User-facing status is a separate read-model concept. Captions **MUST** be Russian; raw enums **MUST NOT** be shown.
+
+| Operational status | Caption | Indicator |
+|---|---|---|
+| EDITING | Редактируется | neutral / gray |
+| AWAITING_PRODUCTION | Ожидает производства | warning / yellow |
+| IN_PRODUCTION | В производстве | info / blue |
+| COMPLETED | Выполнен | success / green |
+| PARTIALLY_COMPLETED | Частично выполнен | warning-strong / orange |
+| CANCELLED | Отменён | danger / red |
+
+Status cell **MUST** be a colored indicator **plus** text (not color-only, not emoji).
+
+Derivation (manufacturing complete = all ordered items released; warehouse/shipment/installation are out of scope):
+
+| Condition | Status |
+|---|---|
+| Commercial `DRAFT` or leftover `APPROVED` | Редактируется |
+| `ACTIVE`, 0 manufactured | Ожидает производства |
+| `ACTIVE`, partial manufactured, work remains | В производстве |
+| All items manufactured | Выполнен |
+| Cancelled with 0 manufactured | Отменён |
+| Manufactured > 0 and remaining volume cancelled | Частично выполнен (terminal; not «Отменён») |
+
+## 39.2 List
+
+Header: **Заказы**. Subtitle: управление заказами и их производственным состоянием.
+
+Actions: **+ Новый заказ** (primary), **Импорт** (secondary). No **Открыть** toolbar button.
+
+Columns exactly: Номер заказа, Заказчик, Дата создания, Изделий, Статус. `customerRef` is not shown.
+
+Date format: `dd.MM.yyyy HH:mm` in the application timezone. Empty customer: `—` / «Без заказчика».
+
+Open: double-click on a non-empty row, or Enter on the selected row. Click selects only. Empty-space double-click does nothing.
+
+## 39.3 Filters
+
+- One quick search: order number **OR** customer name (partial, case-insensitive). Not persisted between sessions. Restored by in-session Back memento.
+- Status checkboxes; default for a new user: all except «Отменён». Immediate refresh (small debounce allowed). Persisted per user.
+- Customer Excel-like multi-select on stable `customerRef`; UI shows `customerName`. Select-all means no customer predicate. Persisted per user. Stale ids ignored.
+- Period is mandatory (created-at). Presets: Сегодня, Последние 7 дней, Последние 30 дней (new-user default), Текущий месяц, Другой период. Dynamic presets recompute on login; custom stores exact dates. Half-open day bounds.
+
+Persistent filters are server-side, keyed by immutable user id. Quick search, selected row, page index, and navigation history are session-only.
+
+## 39.4 Editor lifecycle
+
+User actions: **Сохранить**, **Передать в работу**, **Отменить заказ** (DRAFT), **Позиции заказа**.
+
+**MUST NOT** show: Сохранить черновик, Провести, Утвердить.
+
+Save creates/updates an editable `DRAFT`. Transfer to Work is one application operation (approve+activate) with confirmation that the order becomes fully immutable. After transfer, header / items / specifications are read-only; backend also rejects mutations. New production launch requires a new order, not Revision N+1.
+
+## 39.5 Shell history
+
+Topbar **← / →** (tooltips Назад / Вперёд) is a session-only browser-like history for content screens. Back/Forward do not push. Branching clears forward. Logout clears history. Restored routes re-check permissions. Orders list memento restores search, filters, page, and selected row.
+
+Keyboard: Alt+Left / Alt+Right when they do not conflict with OS/JavaFX.
+
+---
+
+# 40. Связанные документы
 
 - [UI/UX Specification](UI-UX-Specification.md) — архитектура UI
 - [Development Guide](../17-Development-Guide/Development-Guide.md)
@@ -738,7 +805,7 @@ Business screen **не считается UI-complete**, пока не выпо�
 
 ---
 
-# 40. Architecture Rules
+# 41. Architecture Rules
 
 **UI-STD-001** — All JavaFX visual implementation MUST comply with TMP UI Standard.
 

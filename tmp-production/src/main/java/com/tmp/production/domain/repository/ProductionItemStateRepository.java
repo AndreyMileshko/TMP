@@ -32,6 +32,26 @@ public interface ProductionItemStateRepository {
     List<ProductionItemState> findBySourceOrderId(SourceOrderId sourceOrderId);
 
     /**
+     * Loads item-owned Production states for many orders in one adapter call.
+     *
+     * <p>Default loops {@link #findBySourceOrderId}. JDBC adapters MUST use a single {@code IN}
+     * query. Cutting Plan links may be omitted (empty) because this method is for list
+     * aggregation of quantities and status.
+     */
+    default List<ProductionItemState> findBySourceOrderIds(
+            java.util.Collection<SourceOrderId> sourceOrderIds) {
+        java.util.Objects.requireNonNull(sourceOrderIds, "sourceOrderIds");
+        if (sourceOrderIds.isEmpty()) {
+            return List.of();
+        }
+        java.util.ArrayList<ProductionItemState> states = new java.util.ArrayList<>();
+        for (SourceOrderId sourceOrderId : sourceOrderIds) {
+            states.addAll(findBySourceOrderId(sourceOrderId));
+        }
+        return List.copyOf(states);
+    }
+
+    /**
      * Loads and row-locks (if supported by the adapter) one frozen Production state for the
      * given {@link SourceOrderItemId}.
      *

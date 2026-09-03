@@ -13,6 +13,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -80,6 +82,40 @@ public final class JdbcProductionItemStateRepository implements ProductionItemSt
     public List<ProductionItemState> findBySourceOrderId(SourceOrderId sourceOrderId) {
         Objects.requireNonNull(sourceOrderId, "sourceOrderId");
         return queryStatesBySourceOrderId(sourceOrderId, false);
+    }
+
+    @Override
+    public List<ProductionItemState> findBySourceOrderIds(Collection<SourceOrderId> sourceOrderIds) {
+        Objects.requireNonNull(sourceOrderIds, "sourceOrderIds");
+        if (sourceOrderIds.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> ids = sourceOrderIds.stream().map(SourceOrderId::value).distinct().toList();
+        List<ProductionItemState> states = new ArrayList<>();
+        int chunkSize = 500;
+        for (int start = 0; start < ids.size(); start += chunkSize) {
+            int end = Math.min(start + chunkSize, ids.size());
+            List<UUID> chunk = ids.subList(start, end);
+            String placeholders = String.join(",", java.util.Collections.nCopies(chunk.size(), "?"));
+            String sql =
+                    SELECT_COLUMNS
+                            + """
+                             FROM production.production_item_states
+                             WHERE source_order_id IN (
+                            """
+                            + placeholders
+                            + """
+                             )
+                             ORDER BY source_order_id, source_order_item_id, specification_id
+                            """;
+            states.addAll(
+                    jdbcTemplate.query(
+                            sql,
+                            (rs, rowNum) -> ProductionItemStateMapper.toDomain(
+                                    ProductionItemStateMapper.mapRow(rs)),
+                            chunk.toArray()));
+        }
+        return List.copyOf(states);
     }
 
     @Override

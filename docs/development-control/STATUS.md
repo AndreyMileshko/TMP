@@ -3,8 +3,9 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**Current Task:** none (Stage 7 closed; Stage 8 Start Gate not passed)
-**Last completed task:** POST-CLOSURE PRODUCTION/Warehouse CORRECTION (2026-08-31)
+**UI Modernization:** Stage 3.4 Orders IMPLEMENTED 2026-09-03 (no commit); Stage 3.5 Warehouse NOT STARTED
+**Current Task:** none (Stage 7 closed; Stage 8 Start Gate not passed; UI 3.4 verification logged)
+**Last completed task:** UI Modernization Stage 3.4 Orders (2026-09-03); prior: POST-CLOSURE PRODUCTION/Warehouse CORRECTION (2026-08-31)
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
 **Active blockers:** NONE

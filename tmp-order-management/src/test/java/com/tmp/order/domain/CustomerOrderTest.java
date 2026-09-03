@@ -104,12 +104,11 @@ class CustomerOrderTest {
     }
 
     @Test
-    void commercialUpdateForbiddenWhenApproved() {
-        CustomerOrder approved = sampleOrder().approve(CLOCK);
-        OrderCommercialData data = sampleCommercialData();
+    void commercialUpdateForbiddenWhenActive() {
+        CustomerOrder active = sampleOrder().approve(CLOCK).activate(CLOCK);
         assertThrows(
                 InvalidOrderStateException.class,
-                () -> approved.updateCommercialData(data, CLOCK));
+                () -> active.updateCommercialData(sampleCommercialData(), CLOCK));
     }
 
     @Test

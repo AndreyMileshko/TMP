@@ -3,8 +3,10 @@ package com.tmp.order.application.ui;
 import com.tmp.document.api.CreateDocumentCommand;
 import com.tmp.document.api.DocumentEngine;
 import com.tmp.document.api.DocumentMetadata;
+import com.tmp.order.api.OrderDto;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderQueryService;
+import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderHeaderDraft;
 import com.tmp.order.application.document.OrderCreateDocumentProcessor;
@@ -34,6 +36,8 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Default UI orchestration for order-level document flows. Posts only through {@link
@@ -47,6 +51,7 @@ public final class DefaultOrderDocumentUiService implements OrderDocumentUiServi
     private final ProcessingRecordPort processingRecords;
     private final AuthorizationService authorization;
     private final Clock clock;
+    private final TransactionTemplate transactionTemplate;
 
     public DefaultOrderDocumentUiService(
             DocumentEngine documentEngine,
@@ -55,12 +60,32 @@ public final class DefaultOrderDocumentUiService implements OrderDocumentUiServi
             ProcessingRecordPort processingRecords,
             AuthorizationService authorization,
             Clock clock) {
+        this(
+                documentEngine,
+                draftPayloads,
+                orderQueryService,
+                processingRecords,
+                authorization,
+                clock,
+                null);
+    }
+
+    public DefaultOrderDocumentUiService(
+            DocumentEngine documentEngine,
+            DraftPayloadApplicationService draftPayloads,
+            OrderQueryService orderQueryService,
+            ProcessingRecordPort processingRecords,
+            AuthorizationService authorization,
+            Clock clock,
+            PlatformTransactionManager transactionManager) {
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
         this.draftPayloads = Objects.requireNonNull(draftPayloads, "draftPayloads");
         this.orderQueryService = Objects.requireNonNull(orderQueryService, "orderQueryService");
         this.processingRecords = Objects.requireNonNull(processingRecords, "processingRecords");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.transactionTemplate =
+                transactionManager == null ? null : new TransactionTemplate(transactionManager);
     }
 
     @Override
@@ -230,6 +255,84 @@ public final class DefaultOrderDocumentUiService implements OrderDocumentUiServi
     }
 
     @Override
+    public OrderId saveNewOrder(OrderHeaderDraft draft) {
+        Objects.requireNonNull(draft, "draft");
+        return inTransaction(
+                () -> {
+                    UUID documentId = beginOrderCreate("ORDER_CREATE " + draft.orderNumber());
+                    saveCreateDraft(documentId, draft, 0L);
+                    return postDocument(documentId);
+                });
+    }
+
+    @Override
+    public OrderId saveExistingDraft(OrderId orderId, OrderHeaderDraft draft) {
+        Objects.requireNonNull(orderId, "orderId");
+        Objects.requireNonNull(draft, "draft");
+        return inTransaction(
+                () -> {
+                    OrderDto current =
+                            orderQueryService
+                                    .getOrder(orderId)
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "Order not found: " + orderId));
+                    if (current.status() != OrderStatus.DRAFT) {
+                        throw new IllegalStateException(
+                                "Order can be saved only while DRAFT, current="
+                                        + current.status()
+                                        + ", id="
+                                        + orderId);
+                    }
+                    UUID documentId =
+                            beginOrderUpdate("ORDER_UPDATE " + orderId.value(), orderId);
+                    saveUpdateDraft(documentId, orderId, draft, 0L);
+                    return postDocument(documentId);
+                });
+    }
+
+    @Override
+    public OrderId transferToWork(OrderId orderId) {
+        Objects.requireNonNull(orderId, "orderId");
+        return inTransaction(() -> transferToWorkInTransaction(orderId));
+    }
+
+    private OrderId transferToWorkInTransaction(OrderId orderId) {
+        OrderDto current =
+                orderQueryService
+                        .getOrder(orderId)
+                        .orElseThrow(
+                                () -> new IllegalStateException("Order not found: " + orderId));
+        if (current.status() == OrderStatus.ACTIVE) {
+            return orderId;
+        }
+        if (current.status() == OrderStatus.CANCELLED) {
+            throw new IllegalStateException(
+                    "Cancelled order cannot be transferred to work: " + orderId);
+        }
+        OrderId result = orderId;
+        if (current.status() == OrderStatus.DRAFT) {
+            UUID approveDoc = beginOrderApprove("ORDER_APPROVE " + result.value(), result);
+            result = postDocument(approveDoc);
+            OrderId approvedId = result;
+            current =
+                    orderQueryService
+                            .getOrder(approvedId)
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalStateException(
+                                                    "Order not found after approve: "
+                                                            + approvedId));
+        }
+        if (current.status() == OrderStatus.APPROVED) {
+            UUID activateDoc = beginOrderActivate("ORDER_ACTIVATE " + result.value(), result);
+            result = postDocument(activateDoc);
+        }
+        return result;
+    }
+
+    @Override
     public Optional<OrderHeaderDraft> loadCreateDraft(UUID documentId) {
         Objects.requireNonNull(documentId, "documentId");
         authorization.requirePermission(OrderManagementPermissions.ORDER_CREATE);
@@ -376,5 +479,16 @@ public final class DefaultOrderDocumentUiService implements OrderDocumentUiServi
             return cause;
         }
         return new IllegalStateException(message + ": " + cause.getMessage(), cause);
+    }
+
+    private <T> T inTransaction(java.util.function.Supplier<T> action) {
+        if (transactionTemplate == null) {
+            return action.get();
+        }
+        T result = transactionTemplate.execute(status -> action.get());
+        if (result == null) {
+            throw new IllegalStateException("Order document orchestration returned null");
+        }
+        return result;
     }
 }

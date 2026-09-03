@@ -77,9 +77,6 @@ public final class OrderItemEditorController implements ViewModelAware<OrderItem
     private Button openDraftSpecificationButton;
 
     @FXML
-    private Button backButton;
-
-    @FXML
     private Label successLabel;
 
     @FXML
@@ -132,7 +129,6 @@ public final class OrderItemEditorController implements ViewModelAware<OrderItem
         approveRevisionButton.setOnAction(e -> viewModel.approveDraftRevision());
         openActiveSpecificationButton.setOnAction(e -> viewModel.openActiveSpecification());
         openDraftSpecificationButton.setOnAction(e -> viewModel.openDraftSpecification());
-        backButton.setOnAction(e -> viewModel.backToItemList());
 
         successLabel.textProperty().bind(viewModel.successMessageProperty());
         successLabel.visibleProperty().bind(Bindings.createBooleanBinding(

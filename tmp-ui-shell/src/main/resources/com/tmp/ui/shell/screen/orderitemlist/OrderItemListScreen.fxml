@@ -18,7 +18,6 @@
     <HBox spacing="8">
         <Button fx:id="createItemButton" text="Создать позицию"/>
         <Button fx:id="openItemButton" text="Открыть"/>
-        <Button fx:id="backButton" text="К заказу"/>
     </HBox>
     <TableView fx:id="itemsTable" prefHeight="360">
         <columns>

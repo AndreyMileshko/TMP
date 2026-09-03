@@ -1,15 +1,18 @@
 package com.tmp.ui.shell.screen.ordereditor;
 
 import com.tmp.ui.shell.navigation.ViewModelAware;
+import com.tmp.ui.shell.order.worklist.OrderOperationalStatus;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.shape.Circle;
+import javafx.stage.Window;
 
 /**
- * Order editor FXML controller. Document-driven; no Spring imports.
+ * Order editor FXML controller. Document orchestration stays in the ViewModel.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
@@ -18,62 +21,46 @@ public final class OrderEditorController implements ViewModelAware<OrderEditorVi
 
     @FXML
     private Label titleLabel;
-
     @FXML
-    private Label statusLabel;
-
+    private Label subtitleLabel;
+    @FXML
+    private Circle statusDot;
     @FXML
     private TextField orderNumberField;
-
     @FXML
     private TextField customerNameField;
-
     @FXML
     private TextField customerRefField;
-
     @FXML
     private TextField contractRefField;
-
     @FXML
     private TextField siteRefField;
-
     @FXML
     private TextField responsibleManagerField;
-
     @FXML
     private TextField directionField;
-
     @FXML
     private TextField currencyField;
-
     @FXML
-    private Button saveDraftButton;
-
+    private Button saveButton;
     @FXML
-    private Button postButton;
-
-    @FXML
-    private Button approveButton;
-
+    private Button transferButton;
     @FXML
     private Button cancelButton;
-
     @FXML
     private Button itemsButton;
-
-    @FXML
-    private Button backButton;
-
     @FXML
     private Label successLabel;
-
     @FXML
     private Label errorLabel;
 
     @Override
     public void setViewModel(OrderEditorViewModel viewModel) {
         titleLabel.textProperty().bind(viewModel.titleProperty());
-        statusLabel.textProperty().bind(viewModel.statusTextProperty());
+        subtitleLabel.textProperty().bind(viewModel.subtitleProperty());
+        applyStatusDot(viewModel.operationalStatus());
+        viewModel.statusTextProperty().addListener((obs, old, value) ->
+                applyStatusDot(viewModel.operationalStatus()));
 
         orderNumberField.textProperty().bindBidirectional(viewModel.orderNumberProperty());
         customerNameField.textProperty().bindBidirectional(viewModel.customerNameProperty());
@@ -95,18 +82,32 @@ public final class OrderEditorController implements ViewModelAware<OrderEditorVi
         directionField.disableProperty().bind(viewModel.fieldsEditableProperty().not());
         currencyField.disableProperty().bind(viewModel.fieldsEditableProperty().not());
 
-        saveDraftButton.disableProperty().bind(viewModel.canSaveDraftProperty().not());
-        postButton.disableProperty().bind(viewModel.canPostProperty().not());
-        approveButton.disableProperty().bind(viewModel.canApproveProperty().not());
+        saveButton.disableProperty().bind(viewModel.canSaveProperty().not());
+        transferButton.disableProperty().bind(viewModel.canTransferToWorkProperty().not());
         cancelButton.disableProperty().bind(viewModel.canCancelProperty().not());
         itemsButton.disableProperty().bind(viewModel.canOpenItemsProperty().not());
 
-        saveDraftButton.setOnAction(e -> viewModel.saveDraft());
-        postButton.setOnAction(e -> viewModel.postCurrentDocument());
-        approveButton.setOnAction(e -> viewModel.approveOrder());
-        cancelButton.setOnAction(e -> viewModel.cancelOrder());
+        saveButton.setOnAction(e -> viewModel.save());
+        transferButton.setOnAction(e -> {
+            Window owner = transferButton.getScene() == null ? null : transferButton.getScene().getWindow();
+            var confirmed =
+                    OrderEditorDialogs.confirmTransferToWork(
+                            owner,
+                            viewModel.transferConfirmationTitle(),
+                            OrderEditorViewModel.TRANSFER_IMMUTABILITY_HINT);
+            if (confirmed.orElse(false)) {
+                viewModel.transferToWork();
+            }
+        });
+        cancelButton.setOnAction(e -> {
+            Window owner = cancelButton.getScene() == null ? null : cancelButton.getScene().getWindow();
+            var confirmed =
+                    OrderEditorDialogs.confirmCancelOrder(owner, viewModel.orderNumberProperty().get());
+            if (confirmed.orElse(false)) {
+                viewModel.cancelOrder();
+            }
+        });
         itemsButton.setOnAction(e -> viewModel.openItems());
-        backButton.setOnAction(e -> viewModel.backToList());
 
         successLabel.textProperty().bind(viewModel.successMessageProperty());
         successLabel.visibleProperty().bind(Bindings.createBooleanBinding(
@@ -125,5 +126,14 @@ public final class OrderEditorController implements ViewModelAware<OrderEditorVi
                 },
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
+    }
+
+    private void applyStatusDot(OrderOperationalStatus status) {
+        statusDot.getStyleClass().setAll("tmp-status-dot");
+        if (status != null) {
+            statusDot.getStyleClass().add(status.indicatorStyleClass());
+        } else {
+            statusDot.getStyleClass().add("tmp-status-dot-neutral");
+        }
     }
 }

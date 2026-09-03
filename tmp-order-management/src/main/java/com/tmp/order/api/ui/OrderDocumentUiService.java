@@ -42,6 +42,24 @@ public interface OrderDocumentUiService {
      */
     OrderId postDocument(UUID documentId);
 
+    /**
+     * User-facing Save for a new order: begin + save draft + post as one application operation.
+     * Result is an editable {@link com.tmp.order.api.OrderStatus#DRAFT} order.
+     */
+    OrderId saveNewOrder(OrderHeaderDraft draft);
+
+    /**
+     * User-facing Save for an existing DRAFT order: begin update + save draft + post as one
+     * application operation. Result remains {@link com.tmp.order.api.OrderStatus#DRAFT}.
+     */
+    OrderId saveExistingDraft(OrderId orderId, OrderHeaderDraft draft);
+
+    /**
+     * User-facing «Передать в работу»: approve (when DRAFT) then activate in one application
+     * operation so the user is not left in {@code APPROVED} without {@code ACTIVE}.
+     */
+    OrderId transferToWork(OrderId orderId);
+
     Optional<OrderHeaderDraft> loadCreateDraft(UUID documentId);
 
     Optional<OrderHeaderDraft> loadUpdateDraft(UUID documentId);

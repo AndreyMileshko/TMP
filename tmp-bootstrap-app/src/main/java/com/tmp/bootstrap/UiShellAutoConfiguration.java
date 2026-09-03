@@ -5,6 +5,7 @@ import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderItemId;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderStatus;
+import com.tmp.order.api.OrderWorklistQuery;
 import com.tmp.order.api.imports.OrderImportService;
 import com.tmp.order.api.imports.StxtOrderFileParser;
 import com.tmp.order.api.ui.OrderDocumentUiService;
@@ -16,13 +17,17 @@ import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.RoleAdministrationService;
 import com.tmp.security.api.UserAdministrationService;
+import com.tmp.security.api.UserUiPreferenceService;
 import com.tmp.ui.shell.SceneNavigator;
 import com.tmp.ui.shell.UiShellEntryPoint;
 import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.navigation.NavigationService;
 import com.tmp.ui.shell.navigation.NavigationServices;
 import com.tmp.ui.shell.navigation.ScreenRegistration;
+import com.tmp.ui.shell.navigation.ShellHistoryEntry;
 import com.tmp.ui.shell.navigation.ShellNavigationCatalogue;
+import com.tmp.ui.shell.order.worklist.OrderListMemento;
+import com.tmp.ui.shell.order.worklist.OrderOperationalListService;
 import com.tmp.ui.shell.screen.accessdenied.AccessDeniedViewModel;
 import com.tmp.ui.shell.screen.audit.SecurityAuditViewModel;
 import com.tmp.ui.shell.screen.login.LoginViewModel;
@@ -41,6 +46,7 @@ import com.tmp.production.api.ProductionApplicationApi;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.warehouse.api.WarehouseApi;
 import jakarta.annotation.PostConstruct;
+import java.time.Clock;
 import javafx.application.Platform;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -122,9 +128,26 @@ public class UiShellAutoConfiguration {
     }
 
     @Bean
+    OrderOperationalListService orderOperationalListService(
+            OrderWorklistQuery orderWorklistQuery, ProductionQueryApi productionQueryApi) {
+        return new OrderOperationalListService(orderWorklistQuery, productionQueryApi);
+    }
+
+    @Bean
     OrderListViewModel orderListViewModel(
-            OrderQueryService orderQueryService, AuthorizationService authorizationService) {
-        return new OrderListViewModel(orderQueryService, authorizationService);
+            OrderOperationalListService orderOperationalListService,
+            OrderWorklistQuery orderWorklistQuery,
+            AuthorizationService authorizationService,
+            AuthenticationService authenticationService,
+            UserUiPreferenceService userUiPreferenceService,
+            Clock clock) {
+        return new OrderListViewModel(
+                orderOperationalListService,
+                orderWorklistQuery,
+                authorizationService,
+                authenticationService,
+                userUiPreferenceService,
+                clock);
     }
 
     @Bean
@@ -139,8 +162,10 @@ public class UiShellAutoConfiguration {
     OrderEditorViewModel orderEditorViewModel(
             OrderQueryService orderQueryService,
             OrderDocumentUiService orderDocumentUiService,
-            AuthorizationService authorizationService) {
-        return new OrderEditorViewModel(orderQueryService, orderDocumentUiService, authorizationService);
+            AuthorizationService authorizationService,
+            ProductionQueryApi productionQueryApi) {
+        return new OrderEditorViewModel(
+                orderQueryService, orderDocumentUiService, authorizationService, productionQueryApi);
     }
 
     @Bean
@@ -153,9 +178,13 @@ public class UiShellAutoConfiguration {
     OrderItemEditorViewModel orderItemEditorViewModel(
             OrderItemDocumentUiService orderItemDocumentUiService,
             OrderItemEditorQueryService orderItemEditorQueryService,
+            OrderQueryService orderQueryService,
             AuthorizationService authorizationService) {
         return new OrderItemEditorViewModel(
-                orderItemDocumentUiService, orderItemEditorQueryService, authorizationService);
+                orderItemDocumentUiService,
+                orderItemEditorQueryService,
+                authorizationService,
+                orderQueryService);
     }
 
     @Bean
@@ -281,71 +310,138 @@ public class UiShellAutoConfiguration {
 
         @PostConstruct
         void wireCallbacks() {
+            mainWindowViewModel.setOnSidebarScreen(screenId -> {
+                if (UiShellScreens.ORDER_LIST_SCREEN_ID.equals(screenId)) {
+                    orderListViewModel.resetForSidebarOpen();
+                }
+            });
             orderListViewModel.setOnCreateOrder(() -> Platform.runLater(() -> {
-                orderEditorViewModel.openCreate();
-                mainWindowViewModel.showScreen(UiShellScreens.ORDER_EDITOR_SCREEN_ID);
+                rememberList();
+                mainWindowViewModel.navigate(createEditorEntry());
             }));
             orderListViewModel.setOnImportOrder(() -> Platform.runLater(() -> {
-                orderImportViewModel.open();
-                mainWindowViewModel.showScreen(UiShellScreens.ORDER_IMPORT_SCREEN_ID);
+                rememberList();
+                mainWindowViewModel.navigate(importEntry());
             }));
             orderListViewModel.setOnOpenOrder((OrderId orderId) -> Platform.runLater(() -> {
-                orderEditorViewModel.openExisting(orderId);
-                mainWindowViewModel.showScreen(UiShellScreens.ORDER_EDITOR_SCREEN_ID);
+                rememberList();
+                mainWindowViewModel.navigate(editorEntry(orderId));
             }));
             orderImportViewModel.setOnCancel(() -> Platform.runLater(() -> {
+                if (mainWindowViewModel.canGoBackProperty().get()) {
+                    mainWindowViewModel.goBack();
+                    return;
+                }
                 orderListViewModel.refresh();
-                mainWindowViewModel.showScreen(UiShellScreens.ORDER_LIST_SCREEN_ID);
+                mainWindowViewModel.navigate(
+                        ShellHistoryEntry.of(
+                                UiShellScreens.ORDER_LIST_SCREEN_ID,
+                                UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION,
+                                orderListViewModel::refresh));
             }));
             orderImportViewModel.setOnImportSuccess(() -> {
                 // Stay on import screen to show result; list refresh on cancel/back.
             });
-            orderEditorViewModel.setOnBackToList(() -> Platform.runLater(() -> {
-                orderListViewModel.refresh();
-                mainWindowViewModel.showScreen(UiShellScreens.ORDER_LIST_SCREEN_ID);
-            }));
             orderEditorViewModel.setOnOpenItems(() -> Platform.runLater(() -> {
                 OrderId orderId = orderEditorViewModel.currentOrderId();
                 OrderStatus status = orderEditorViewModel.currentOrderStatus();
                 if (orderId == null || status == null) {
                     return;
                 }
-                orderItemListViewModel.openForOrder(orderId, status);
-                mainWindowViewModel.showScreen(UiShellScreens.ORDER_ITEM_LIST_SCREEN_ID);
-            }));
-            orderItemListViewModel.setOnBackToOrder(() -> Platform.runLater(() -> {
-                OrderId orderId = orderEditorViewModel.currentOrderId();
-                if (orderId != null) {
-                    orderEditorViewModel.openExisting(orderId);
-                }
-                mainWindowViewModel.showScreen(UiShellScreens.ORDER_EDITOR_SCREEN_ID);
+                mainWindowViewModel.replaceCurrent(editorEntry(orderId));
+                mainWindowViewModel.navigate(itemListEntry(orderId));
             }));
             orderItemListViewModel.setOnCreateItem(() -> Platform.runLater(() -> {
                 OrderId orderId = orderItemListViewModel.currentOrderId();
                 if (orderId == null) {
                     return;
                 }
-                orderItemEditorViewModel.openCreate(orderId);
-                mainWindowViewModel.showScreen(UiShellScreens.ORDER_ITEM_EDITOR_SCREEN_ID);
+                mainWindowViewModel.replaceCurrent(itemListEntry(orderId));
+                mainWindowViewModel.navigate(itemCreateEntry(orderId));
             }));
             orderItemListViewModel.setOnOpenItem((OrderItemId itemId) -> Platform.runLater(() -> {
-                orderItemEditorViewModel.openExisting(itemId);
-                mainWindowViewModel.showScreen(UiShellScreens.ORDER_ITEM_EDITOR_SCREEN_ID);
-            }));
-            orderItemEditorViewModel.setOnBackToItemList(() -> Platform.runLater(() -> {
-                orderItemListViewModel.refresh();
-                mainWindowViewModel.showScreen(UiShellScreens.ORDER_ITEM_LIST_SCREEN_ID);
+                OrderId orderId = orderItemListViewModel.currentOrderId();
+                if (orderId != null) {
+                    mainWindowViewModel.replaceCurrent(itemListEntry(orderId));
+                }
+                mainWindowViewModel.navigate(itemEditorEntry(itemId));
             }));
             orderItemEditorViewModel.setOnOpenSpecification(target -> Platform.runLater(() -> {
-                orderItemSpecificationEditorViewModel.open(
-                        target.orderItemId(), target.revisionNumber());
-                mainWindowViewModel.showScreen(
-                        UiShellScreens.ORDER_ITEM_SPECIFICATION_EDITOR_SCREEN_ID);
+                OrderItemId itemId = target.orderItemId();
+                mainWindowViewModel.replaceCurrent(itemEditorEntry(itemId));
+                mainWindowViewModel.navigate(specificationEntry(itemId, target.revisionNumber()));
             }));
-            orderItemSpecificationEditorViewModel.setOnBackToItem(itemId -> Platform.runLater(() -> {
-                orderItemEditorViewModel.openExisting(itemId);
-                mainWindowViewModel.showScreen(UiShellScreens.ORDER_ITEM_EDITOR_SCREEN_ID);
-            }));
+        }
+
+        private void rememberList() {
+            OrderListMemento memento = orderListViewModel.captureMemento();
+            mainWindowViewModel.replaceCurrent(
+                    ShellHistoryEntry.of(
+                            UiShellScreens.ORDER_LIST_SCREEN_ID,
+                            UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION,
+                            () -> orderListViewModel.restoreMemento(memento)));
+        }
+
+        private ShellHistoryEntry createEditorEntry() {
+            return ShellHistoryEntry.of(
+                    UiShellScreens.ORDER_EDITOR_SCREEN_ID,
+                    UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION,
+                    () -> {
+                        if (orderEditorViewModel.currentOrderId() != null) {
+                            orderEditorViewModel.openExisting(orderEditorViewModel.currentOrderId());
+                        } else {
+                            orderEditorViewModel.openCreate();
+                        }
+                    });
+        }
+
+        private ShellHistoryEntry editorEntry(OrderId orderId) {
+            return ShellHistoryEntry.of(
+                    UiShellScreens.ORDER_EDITOR_SCREEN_ID,
+                    UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION,
+                    () -> orderEditorViewModel.openExisting(orderId));
+        }
+
+        private ShellHistoryEntry importEntry() {
+            return ShellHistoryEntry.of(
+                    UiShellScreens.ORDER_IMPORT_SCREEN_ID,
+                    UiShellScreens.ORDER_CREATE_PERMISSION,
+                    orderImportViewModel::open);
+        }
+
+        private ShellHistoryEntry itemListEntry(OrderId orderId) {
+            return ShellHistoryEntry.of(
+                    UiShellScreens.ORDER_ITEM_LIST_SCREEN_ID,
+                    UiShellScreens.ORDER_ITEM_VIEW_PERMISSION,
+                    () -> {
+                        orderEditorViewModel.openExisting(orderId);
+                        OrderStatus status = orderEditorViewModel.currentOrderStatus();
+                        if (status != null) {
+                            orderItemListViewModel.openForOrder(orderId, status);
+                        }
+                    });
+        }
+
+        private ShellHistoryEntry itemCreateEntry(OrderId orderId) {
+            return ShellHistoryEntry.of(
+                    UiShellScreens.ORDER_ITEM_EDITOR_SCREEN_ID,
+                    UiShellScreens.ORDER_ITEM_VIEW_PERMISSION,
+                    () -> orderItemEditorViewModel.openCreate(orderId));
+        }
+
+        private ShellHistoryEntry itemEditorEntry(OrderItemId itemId) {
+            return ShellHistoryEntry.of(
+                    UiShellScreens.ORDER_ITEM_EDITOR_SCREEN_ID,
+                    UiShellScreens.ORDER_ITEM_VIEW_PERMISSION,
+                    () -> orderItemEditorViewModel.openExisting(itemId));
+        }
+
+        private ShellHistoryEntry specificationEntry(
+                OrderItemId itemId, com.tmp.order.api.RevisionNumber revisionNumber) {
+            return ShellHistoryEntry.of(
+                    UiShellScreens.ORDER_ITEM_SPECIFICATION_EDITOR_SCREEN_ID,
+                    UiShellScreens.ORDER_SPECIFICATION_VIEW_PERMISSION,
+                    () -> orderItemSpecificationEditorViewModel.open(itemId, revisionNumber));
         }
     }
 

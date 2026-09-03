@@ -56,7 +56,33 @@ class ProductionQueryApiAuthorizationTest {
                         materialQueryService,
                         historyService);
 
-        assertThrows(AccessDeniedException.class, () -> api.getOrderProductionView(UUID.randomUUID()));
+        assertThrows(
+                AccessDeniedException.class, () -> api.getOrderProductionView(UUID.randomUUID()));
+        Mockito.verifyNoInteractions(orderViewService, materialQueryService, historyService);
+    }
+
+    @Test
+    void deniedOrderListFactsFailsBeforeAnyDownstreamRead() {
+        AuthorizationService authorizationService = Mockito.mock(AuthorizationService.class);
+        ProductionOrderViewService orderViewService = Mockito.mock(ProductionOrderViewService.class);
+        CurrentMaterialAvailabilityQueryService materialQueryService =
+                Mockito.mock(CurrentMaterialAvailabilityQueryService.class);
+        ProductionHistoryService historyService = Mockito.mock(ProductionHistoryService.class);
+
+        Mockito.doThrow(new AccessDeniedException("denied"))
+                .when(authorizationService)
+                .requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+
+        DefaultProductionQueryApi api =
+                new DefaultProductionQueryApi(
+                        authorizationService,
+                        orderViewService,
+                        materialQueryService,
+                        historyService);
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> api.getOrderProductionListFacts(List.of(UUID.randomUUID())));
         Mockito.verifyNoInteractions(orderViewService, materialQueryService, historyService);
     }
 

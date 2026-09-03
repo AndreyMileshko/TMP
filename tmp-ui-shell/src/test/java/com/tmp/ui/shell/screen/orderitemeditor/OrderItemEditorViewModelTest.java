@@ -4,9 +4,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.order.api.OrderDto;
 import com.tmp.order.api.OrderId;
+import com.tmp.order.api.OrderItemDto;
 import com.tmp.order.api.OrderItemId;
+import com.tmp.order.api.OrderItemRevisionDto;
 import com.tmp.order.api.OrderItemStatus;
+import com.tmp.order.api.OrderQueryService;
+import com.tmp.order.api.OrderSearchCriteria;
+import com.tmp.order.api.OrderStatus;
+import com.tmp.order.api.OrderSummaryDto;
+import com.tmp.order.api.PageRequest;
+import com.tmp.order.api.PageResult;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
 import com.tmp.order.api.ui.OrderItemCommercialDraft;
@@ -254,6 +263,22 @@ class OrderItemEditorViewModelTest {
         assertTrue(docs.saveRevisionCreateCalled);
         assertTrue(docs.postCalled);
         assertTrue(viewModel.successMessageProperty().get().contains("создана"));
+    }
+
+    @Test
+    void mutationsDisabledWhenParentOrderIsActive() {
+        FakeDocs docs = new FakeDocs();
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemId id = OrderItemId.generate();
+        query.snapshot = snapshot(id, OrderItemStatus.ACTIVE, false, true);
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(
+                        docs, query, auth(allItemPerms()), new StatusOrderQuery(OrderStatus.ACTIVE));
+        viewModel.openExisting(id);
+        assertFalse(viewModel.canCreateRevisionProperty().get());
+        viewModel.createNextRevision();
+        assertFalse(docs.revisionCreateCalled);
+        assertEquals(OrderUiErrorMapper.FORBIDDEN_TRANSITION, viewModel.errorMessageProperty().get());
     }
 
     @Test
@@ -564,6 +589,88 @@ class OrderItemEditorViewModelTest {
     private static OrderItemEditorSnapshot snapshot(
             OrderItemId id, OrderItemStatus status, boolean withDraft, boolean withActive) {
         return snapshot(id, status, withDraft, withActive, null);
+    }
+
+    private static final class StatusOrderQuery implements OrderQueryService {
+        private final OrderStatus status;
+
+        private StatusOrderQuery(OrderStatus status) {
+            this.status = status;
+        }
+
+        @Override
+        public PageResult<OrderSummaryDto> searchOrders(
+                OrderSearchCriteria criteria, PageRequest pageRequest) {
+            return PageResult.of(List.of(), pageRequest.pageIndex(), pageRequest.pageSize(), 0);
+        }
+
+        @Override
+        public Optional<OrderDto> getOrder(OrderId orderId) {
+            return Optional.of(
+                    OrderDto.of(
+                            orderId,
+                            "ORD-1",
+                            status,
+                            "C-1",
+                            "Customer",
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            java.time.Instant.EPOCH,
+                            java.time.Instant.EPOCH));
+        }
+
+        @Override
+        public PageResult<OrderItemDto> getOrderItems(OrderId orderId, PageRequest pageRequest) {
+            return PageResult.of(List.of(), pageRequest.pageIndex(), pageRequest.pageSize(), 0);
+        }
+
+        @Override
+        public Optional<OrderItemDto> getOrderItem(OrderItemId orderItemId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public PageResult<OrderItemRevisionDto> getOrderItemRevisions(
+                OrderItemId orderItemId, PageRequest pageRequest) {
+            return PageResult.of(List.of(), pageRequest.pageIndex(), pageRequest.pageSize(), 0);
+        }
+
+        @Override
+        public Optional<OrderItemRevisionDto> getOrderItemRevision(
+                OrderItemId orderItemId, RevisionNumber revisionNumber) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<OrderItemRevisionDto> getActiveOrderItemRevision(OrderItemId orderItemId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<com.tmp.order.api.ItemSpecificationDto> getItemSpecification(
+                OrderItemId orderItemId, RevisionNumber revisionNumber) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<com.tmp.order.api.ProductionSpecificationDto> getCurrentItemSpecification(
+                OrderItemId orderItemId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<com.tmp.order.api.ProductionSpecificationDto> getSpecificationById(
+                com.tmp.order.api.SpecificationId specificationId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<com.tmp.order.api.OrderForProductionDto> getOrderForProduction(OrderId orderId) {
+            return Optional.empty();
+        }
     }
 
     private static final class FakeEditorQuery implements OrderItemEditorQueryService {

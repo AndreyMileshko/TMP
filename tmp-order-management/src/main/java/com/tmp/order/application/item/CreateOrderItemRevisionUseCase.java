@@ -7,6 +7,7 @@ import com.tmp.order.domain.OrderItem;
 import com.tmp.order.domain.OrderItemRevision;
 import com.tmp.order.domain.OrderedQuantity;
 import com.tmp.order.domain.SpecificationLine;
+import com.tmp.order.domain.repository.CustomerOrderRepository;
 import com.tmp.order.domain.repository.OrderItemRepository;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -14,14 +15,21 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Creates Draft Revision {@code active+1} for an ACTIVE order item (Specification §6.2).
+ * Creates Draft Revision {@code active+1} for an ACTIVE order item while the parent order is still
+ * {@code DRAFT}. After transfer to work the parent is immutable and N+1 is rejected.
  */
 public final class CreateOrderItemRevisionUseCase {
 
+    private final CustomerOrderRepository customerOrderRepository;
     private final OrderItemRepository orderItemRepository;
     private final Clock clock;
 
-    public CreateOrderItemRevisionUseCase(OrderItemRepository orderItemRepository, Clock clock) {
+    public CreateOrderItemRevisionUseCase(
+            CustomerOrderRepository customerOrderRepository,
+            OrderItemRepository orderItemRepository,
+            Clock clock) {
+        this.customerOrderRepository =
+                Objects.requireNonNull(customerOrderRepository, "customerOrderRepository");
         this.orderItemRepository =
                 Objects.requireNonNull(orderItemRepository, "orderItemRepository");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -33,6 +41,7 @@ public final class CreateOrderItemRevisionUseCase {
                 orderItemRepository
                         .findById(command.orderItemId())
                         .orElseThrow(() -> new OrderItemNotFoundException(command.orderItemId()));
+        ParentOrderDraftGuard.requireDraft(customerOrderRepository, existing.orderId());
         RevisionNumber active =
                 existing
                         .activeRevisionNumber()

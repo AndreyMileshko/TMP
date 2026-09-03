@@ -59,6 +59,33 @@
     -fx-border-width: 2;
 }
 
+.main-window-history {
+    -fx-spacing: 4;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.main-window-history-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 6 8 6 8;
+    -fx-min-width: 32;
+    -fx-min-height: 32;
+    -fx-pref-width: 32;
+    -fx-pref-height: 32;
+}
+
+.main-window-history-button:hover {
+    -fx-background-color: -tmp-dark-hover;
+}
+
+.main-window-history-button:disabled {
+    -fx-opacity: 0.35;
+}
+
+.main-window-history-icon {
+    -fx-fill: #F7F9FC;
+}
+
 /* Sidebar */
 .main-window-sidebar {
     -fx-background-color: -tmp-surface;

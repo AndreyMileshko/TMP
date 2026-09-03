@@ -607,6 +607,8 @@ Production **не** изменяет lifecycle Order Management.
 - материалы на складе производства автоматически не удаляются и не списываются;
 - автоматический возврат на основной склад без отдельного пользовательского складского решения **не выполняется**.
 
+Если часть изделий уже изготовлена, а оставшийся невыпущенный объём отменён, released facts **сохраняются**. Пользовательский operational status списка Orders в этом случае — «Частично выполнен» (не «Отменён»). Production computed order view при этом может оставаться `CANCELLED` на уровне Production — это не уничтожает факт выпуска.
+
 Внутри система выполняет необходимые компенсирующие Production actions через проведение **Production Cancellation**.
 
 ---
@@ -893,6 +895,7 @@ Order Management — владелец Order / Order Item / Revision / Specificat
 | 2.2 | Нормативное уточнение §21: shared ACID transaction для Production Release + Warehouse Consumption (ADR-036); ownership без изменений. |
 | 2.3 | §15.1.1: cumulative proportional allocation нормативного material plan для partial/repeated Production Release; final Release closes Specification `lineQuantity` exactly; scale 6 / HALF_UP; SPECIFICATION-only scope Stage 7; plan/fact separation сохранена. |
 | 2.4 | Production permission shorthand normalized to canonical 3-segment Security PermissionId format. Business semantics unchanged. Warehouse-owned permissions remain Warehouse-owned. |
+| 2.5 | §16: partial cancellation preserves RELEASED facts; Orders UI operational status «Частично выполнен» is a presentation/read-model, not a Production enum. |
 
 ---
 

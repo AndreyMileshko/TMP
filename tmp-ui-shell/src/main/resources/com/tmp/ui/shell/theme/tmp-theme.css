@@ -39,6 +39,7 @@
 
     -tmp-warning: #A86700;
     -tmp-warning-soft: #FFF4DF;
+    -tmp-warning-strong: #C05621;
 
     -tmp-danger: #C62828;
     -tmp-danger-hover: #A92020;
@@ -951,4 +952,65 @@
 .split-pane > .split-pane-divider {
     -fx-background-color: -tmp-border;
     -fx-padding: 0 1 0 1;
+}
+
+/* ==========================================================================
+   STATUS INDICATORS
+   ========================================================================== */
+
+.tmp-status-cell {
+    -fx-spacing: 8;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.tmp-status-dot {
+    -fx-stroke-width: 0;
+}
+
+.tmp-status-dot-neutral {
+    -fx-fill: -tmp-text-secondary;
+}
+
+.tmp-status-dot-warning {
+    -fx-fill: -tmp-warning;
+}
+
+.tmp-status-dot-warning-strong {
+    -fx-fill: -tmp-warning-strong;
+}
+
+.tmp-status-dot-info {
+    -fx-fill: -tmp-primary;
+}
+
+.tmp-status-dot-success {
+    -fx-fill: -tmp-success;
+}
+
+.tmp-status-dot-danger {
+    -fx-fill: -tmp-danger;
+}
+
+.tmp-status-caption {
+    -fx-text-fill: -tmp-text;
+}
+
+.tmp-filter-wrap {
+    -fx-hgap: 8;
+    -fx-vgap: 8;
+}
+
+.tmp-order-status-filters {
+    -fx-hgap: 12;
+    -fx-vgap: 4;
+}
+
+.tmp-customer-filter-popup {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-padding: 12;
+    -fx-spacing: 8;
 }

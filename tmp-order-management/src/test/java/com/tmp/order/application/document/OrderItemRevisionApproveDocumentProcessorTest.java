@@ -18,6 +18,7 @@ import com.tmp.order.api.OrderItemStatus;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.event.OrderItemRevisionApproved;
 import com.tmp.order.application.item.ApproveOrderItemRevisionUseCase;
+import com.tmp.order.application.order.InMemoryCustomerOrderRepository;
 import com.tmp.order.application.order.InMemoryOrderItemRepository;
 import com.tmp.order.application.payload.DocumentId;
 import com.tmp.order.application.payload.DocumentTypeCode;
@@ -34,6 +35,7 @@ import com.tmp.order.domain.OrderItem;
 import com.tmp.order.domain.OrderedQuantity;
 import com.tmp.order.domain.ProductCode;
 import com.tmp.order.domain.SpecificationLine;
+import com.tmp.order.testsupport.ParentOrderFixtures;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -51,6 +53,7 @@ class OrderItemRevisionApproveDocumentProcessorTest {
     private OrderDocumentPayloadPort payloads;
     private ProcessingRecordPort processing;
     private InMemoryOrderItemRepository items;
+    private InMemoryCustomerOrderRepository orders;
     private List<DomainEvent> published;
     private OrderItemRevisionApproveDocumentProcessor processor;
 
@@ -59,13 +62,14 @@ class OrderItemRevisionApproveDocumentProcessorTest {
         payloads = new InMemoryOrderDocumentPayloadPort();
         processing = new InMemoryProcessingRecordPort();
         items = new InMemoryOrderItemRepository();
+        orders = new InMemoryCustomerOrderRepository();
         published = new ArrayList<>();
         processor =
                 new OrderItemRevisionApproveDocumentProcessor(
                         payloads,
                         processing,
                         (TransactionalEventPublisher) published::add,
-                        new ApproveOrderItemRevisionUseCase(items, CLOCK),
+                        new ApproveOrderItemRevisionUseCase(orders, items, CLOCK),
                         CLOCK);
     }
 
@@ -121,7 +125,7 @@ class OrderItemRevisionApproveDocumentProcessorTest {
                 items.save(
                         OrderItem.create(
                                 OrderItemId.generate(),
-                                OrderId.generate(),
+                                seedDraftParent(),
                                 ItemCommercialData.of(ProductCode.of("P-1"), "Door", null),
                                 OrderedQuantity.of(1),
                                 CLOCK));
@@ -150,10 +154,11 @@ class OrderItemRevisionApproveDocumentProcessorTest {
     }
 
     private OrderItem seedDraftWithSpec() {
+        OrderId orderId = seedDraftParent();
         OrderItem draft =
                 OrderItem.create(
                         OrderItemId.generate(),
-                        OrderId.generate(),
+                        orderId,
                         ItemCommercialData.of(ProductCode.of("P-1"), "Door", null),
                         OrderedQuantity.of(1),
                         CLOCK);
@@ -166,6 +171,12 @@ class OrderItemRevisionApproveDocumentProcessorTest {
 
     private OrderItem seedActiveItem() {
         return items.save(seedDraftWithSpec().approveDraftRevision(CLOCK));
+    }
+
+    private OrderId seedDraftParent() {
+        OrderId orderId = OrderId.generate();
+        ParentOrderFixtures.saveDraft(orders, orderId, CLOCK);
+        return orderId;
     }
 
     private static SpecificationLine sampleLine() {
