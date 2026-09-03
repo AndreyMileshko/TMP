@@ -49,6 +49,7 @@ public final class OrderOperationalListService {
                         .createdToExclusive(request.createdToExclusive())
                         .quickSearch(request.quickSearch())
                         .customerRefs(request.customerRefs())
+                        .customerNames(request.customerNames())
                         .includeUnassignedCustomer(request.includeUnassignedCustomer())
                         .filterByCustomers(request.filterByCustomers())
                         .build();

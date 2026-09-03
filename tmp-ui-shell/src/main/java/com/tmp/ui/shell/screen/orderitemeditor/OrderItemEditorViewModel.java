@@ -350,10 +350,6 @@ public final class OrderItemEditorViewModel {
         itemStatus = snapshot.status();
         activeRevisionNumber = snapshot.activeRevisionNumber().orElse(null);
         draftRevisionNumber = snapshot.draftRevisionNumber().orElse(null);
-        title.set(
-                snapshot.productCode() == null || snapshot.productCode().isBlank()
-                        ? "Позиция"
-                        : "Позиция " + snapshot.productCode());
         productCode.set(nullToEmpty(snapshot.productCode()));
         name.set(nullToEmpty(snapshot.name()));
         comments.set(nullToEmpty(snapshot.comments()));
@@ -397,19 +393,30 @@ public final class OrderItemEditorViewModel {
             return;
         }
 
-        boolean draftItem = itemStatus == OrderItemStatus.DRAFT;
         boolean cancelled = itemStatus == OrderItemStatus.CANCELLED;
         boolean hasRevision = draftRevisionNumber != null || activeRevisionNumber != null;
+        boolean actuallyEditable =
+                hasEdit
+                        && OrderItemOperationalStatusDeriver.isItemDataEditable(
+                                parentOrderStatus, itemStatus);
 
-        fieldsEditable.set(draftItem && hasEdit && parentDraft && !cancelled);
-        canSave.set(draftItem && hasEdit && parentDraft && !cancelled);
-        canCancelItem.set(draftItem && hasCancel && parentDraft && !cancelled);
+        fieldsEditable.set(actuallyEditable);
+        canSave.set(actuallyEditable);
+        canCancelItem.set(
+                hasCancel
+                        && OrderItemOperationalStatusDeriver.isItemCancellable(
+                                parentOrderStatus, itemStatus));
         canOpenSpecification.set(hasRevision && hasSpecificationView && !cancelled);
+        refreshExistingTitle();
+    }
 
-        if (!parentDraft) {
-            fieldsEditable.set(false);
-            canSave.set(false);
-            canCancelItem.set(false);
+    private void refreshExistingTitle() {
+        String code = productCode.get();
+        boolean blank = code == null || code.isBlank();
+        if (fieldsEditable.get()) {
+            title.set(blank ? "Изменение позиции" : "Изменение позиции " + code);
+        } else {
+            title.set(blank ? "Позиция" : "Позиция " + code);
         }
     }
 

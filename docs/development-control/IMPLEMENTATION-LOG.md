@@ -4,6 +4,33 @@
 
 ---
 
+## UI Modernization Stage 3.4.5 — Direct Specification Navigation + Customer Filter Corrective — 2026-09-03
+
+**Date:** 2026-09-03
+**Stage:** UI Modernization 3.4.5; outside Stages 0–9 queue
+**Base checkpoint:** `31d7e79aa79da55883cfc11daa78596583d34398`
+**Status:** IMPLEMENTED / FINAL MANUAL UI ACCEPTANCE PENDING (no auto-commit); Stage 3.5 Warehouse NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+(A–C) Existing item double-click/Enter opens Specification directly; OrderItemEditor remains Create + explicit **Изменить данные позиции** (context menu, only when actually editable). Shell history uses `specificationEntry(itemId)` / `editItemEntry(itemId)` without a hidden item-editor hop on the normal path. (D) Item operational status: **Редактируется** only when parent `DRAFT` and item `DRAFT`; otherwise pre-transfer → **Готова к передаче** (`READY_FOR_TRANSFER` presentation-only). (E) Spec header shows quantity + same operational status. (F–L) Customer filter supports REF / NAME / UNASSIGNED keys; named null-ref Orders appear by name (not «Без заказчика»); visual merge of same display REF+NAME; prefs v2 with v1 backward compatibility.
+
+### Key changes
+
+- `OrderItemListController` / `OrderItemListViewModel`: openSpecification / editItem / cancelItem + context menu guards
+- `UiShellAutoConfiguration.OrderScreenNavigationBridge`: `specificationEntry` / `editItemEntry`
+- `OrderItemOperationalStatus.READY_FOR_TRANSFER` + deriver `isItemDataEditable`
+- `CustomerFilterKey` / `CustomerFilterOption`; OM `OrderCustomerOptionDto` identity kinds + `customerNames` criteria + JDBC catalogue/filter
+- `OrderListFilterPreference` VERSION=2 codec
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-03 Stage 3.4.5.
+
+---
+
 ## UI Modernization Stage 3.4.4 — Final Functional Corrective + Order Import UX — 2026-09-03
 
 **Date:** 2026-09-03

@@ -740,6 +740,7 @@ User-facing status is a separate read-model concept. Captions **MUST** be Russia
 | Operational status | Caption | Indicator |
 |---|---|---|
 | EDITING | Редактируется | neutral / gray indicator |
+| READY_FOR_TRANSFER | Готова к передаче | muted slate indicator |
 | AWAITING_PRODUCTION | Ожидает производства | bright amber indicator |
 | IN_PRODUCTION | В производстве | bright blue indicator |
 | COMPLETED | Выполнен | bright green indicator |
@@ -751,7 +752,9 @@ Status cell **MUST** be a colored indicator **plus** text (not color-only, not e
 
 `STATUS_UNAVAILABLE` is presentation-only. It **MUST NOT** be added to commercial `OrderStatus`. It means Production facts could not be read (AccessDenied or technical failure). The UI **MUST NOT** treat a failed Production read as zero manufactured / «Ожидает производства». Unavailable rows remain in the list and are always included by the status filter (no dedicated checkbox for this rare state).
 
-Derivation (manufacturing complete = all ordered items released; warehouse/shipment/installation are out of scope):
+`READY_FOR_TRANSFER` is presentation-only for **order items**. It **MUST NOT** be added to commercial `OrderItemStatus`. Order-list operational status (this table) is unchanged.
+
+Derivation for the **Orders list** (manufacturing complete = all ordered items released; warehouse/shipment/installation are out of scope):
 
 | Condition | Status |
 |---|---|
@@ -779,7 +782,7 @@ Open: double-click on a non-empty row, or Enter on the selected row. Click selec
 
 - One quick search: order number **OR** customer name (partial, case-insensitive). Not persisted between sessions. Restored by in-session Back memento.
 - Status checkboxes; default for a new user: all except «Отменён» and «Статус недоступен». Immediate refresh (small debounce allowed). Persisted per user. **At least one status checkbox MUST remain selected**; the last selected checkbox cannot be cleared (disabled or immediately re-selected). Empty/corrupt persisted status sets fall back to defaults.
-- Customer Excel-like multi-select on stable `customerRef`; UI shows `customerName`. Select-all means no customer predicate. Persisted per user. Customer option catalogue is **period-independent** (distinct known customers from Order Management across all Orders); **one `customerRef` = one option**, display name = latest known name from the newest Order. Period and customer filters are independent. Reconciliation runs only after a **successful** catalogue load: `persisted ∩ known`; a customer without Orders in the current period is **not** stale. True stale refs are dropped and cleaned preference may be rewritten once. If a subset becomes empty after successful reconciliation, the filter returns to «Заказчики: Все» (no invisible filter). Catalogue load failure must not clear selection, must not rewrite preference, must surface a user-facing error (technical exception logged), and **must not open** the customer popup. Empty option rows must not be interpreted as «select all».
+- Customer Excel-like multi-select. Options **MUST** match names shown in the Заказчик column. Identities: stable `customerRef` (latest known name), legacy null-ref with a meaningful `customerName`, and true unassigned (neither ref nor name). Named null-ref Orders **MUST NOT** be «Без заказчика». Same display name may merge a REF key with a matching legacy NAME key into one option; distinct refs with the same display name stay separate. Select-all means no customer predicate. Caption counts display options, not internal keys. Persisted per user (`CustomerFilterKey` tokens `REF:` / `NAME:` / `UNASSIGNED`); old raw-ref payloads are read as `REF:` keys. Catalogue is **period-independent**. Period and customer filters are independent. Reconciliation runs only after a **successful** catalogue load: `persisted ∩ known`; a customer without Orders in the current period is **not** stale. True stale keys are dropped and cleaned preference may be rewritten once. If a subset becomes empty after successful reconciliation, the filter returns to «Заказчики: Все» (no invisible filter). Catalogue load failure must not clear selection, must not rewrite preference, must surface a user-facing error (technical exception logged), and **must not open** the customer popup. Empty option rows must not be interpreted as «select all». Popup search is by display name only.
 - Period is mandatory (created-at). Presets: Сегодня, Последние 7 дней, Последние 30 дней (new-user default), Текущий месяц, Другой период. Dynamic presets recompute on login; custom stores exact dates. Half-open day bounds.
 
 Persistent filters are server-side, keyed by immutable user id. Quick search, selected row, page index, and navigation history are session-only.
@@ -796,7 +799,7 @@ Save creates/updates an editable `DRAFT`. Transfer to Work is one application op
 
 ## 39.5 Shell history
 
-Topbar **← / →** (tooltips Назад / Вперёд) is a session-only browser-like history for content screens. Back/Forward do not push. Branching clears forward. Logout clears history. Restored routes re-check permissions. Orders list memento restores search, filters, page, and selected row. Order item list memento restores page index and selected item after Back from an item card.
+Topbar **← / →** (tooltips Назад / Вперёд) is a session-only browser-like history for content screens. Back/Forward do not push. Branching clears forward. Logout clears history. Restored routes re-check permissions. Orders list memento restores search, filters, page, and selected row. Order item list memento restores page index and selected item after Back from Specification or from an explicit item-edit card. Opening an existing item from the list **MUST NOT** insert a hidden OrderItemEditor history entry.
 
 Keyboard: Alt+Left / Alt+Right when they do not conflict with OS/JavaFX.
 
@@ -810,33 +813,41 @@ Columns exactly: Код позиции, Наименование, Количес
 
 Status cell uses the same operational indicator pattern as the Orders list (`OperationalStatusIndicator`: colored dot + Russian caption), derived via `OrderItemOperationalStatusDeriver` from parent Order status, commercial item status, and a discriminated Production read result (`ItemProductionReadResult`):
 
+- item data actually mutable (parent `DRAFT` and item `DRAFT`) → **Редактируется**;
+- item no longer mutable and parent not yet transferred to work → **Готова к передаче**;
 - successful query with item state → derive from Production facts;
 - successful query with no Production row (not yet accepted) → **Ожидает производства**;
 - AccessDenied / technical failure → **Статус недоступен** — never invent zeros as «Ожидает производства».
+
+«Редактируется» **MUST NOT** be shown when the item cannot actually be changed. `READY_FOR_TRANSFER` is presentation-only and **MUST NOT** be added to commercial `OrderItemStatus`. The same deriver is used on the item list, item editor header, and specification header.
 
 Quantity comes from the item editor snapshot (`orderedQuantity`), formatted without trailing zeros. Missing snapshot → empty cell.
 
 Pagination footer (TMP Standard): **← Предыдущая** / `Страница N · M позиций` / **Следующая →**. Default page size 50. Production item states for the visible page are loaded via one batch Public Query (`getItemProductionStatesByOrderId`), not N+1.
 
-Open: double-click a non-empty row, or Enter on the selected row. Single click selects only. Empty-area double-click does nothing.
+Open existing item: double-click a non-empty row, or Enter on the selected row, opens **Specification** directly (`specificationEntry(itemId)`). Single click selects only. Empty-area double-click does nothing. OrderItemEditor is **not** on this path.
+
+Context menu on an existing row (only relevant actions): **Открыть спецификацию** when specification view is permitted; **Изменить данные позиции** only when the item is actually editable (item status + parent Order + edit permission); **Отменить позицию** when cancellation is permitted. Create remains the **Создать позицию** button.
 
 Table uses constrained column resize; Наименование gets the larger share of width.
 
 ## 39.7 Order item card
 
-Title: **Позиция {productCode}** or **Новая позиция**. Header status is an operational indicator graphic (not raw commercial enum text). Uses the same `ItemProductionReadResult` / `OrderItemOperationalStatusDeriver` semantics as the item list.
+OrderItemEditor is **only** for **Создать позицию** and explicit **Изменить данные позиции**. It is not the default open route for an existing item.
 
-Editable while parent Order is `DRAFT`: Код позиции, Наименование, Комментарий, Внешний номер позиции, Количество изделий.
+Title: **Изменение позиции {productCode}** when actually editable; **Позиция {productCode}** when opened read-only; **Новая позиция** for create. Header status is an operational indicator graphic (not raw commercial enum text). Uses the same `ItemProductionReadResult` / `OrderItemOperationalStatusDeriver` semantics as the item list.
+
+Editable while parent Order is `DRAFT` and the item is `DRAFT`: Код позиции, Наименование, Комментарий, Внешний номер позиции, Количество изделий.
 
 Visible actions when editable: **Сохранить** (application facade `saveNewItem` / `saveExistingItem` — not a technical begin/save/post chain in the controller), **Открыть спецификацию** (resolves current draft-or-active via `CurrentOrderItemSpecificationUiService`), **Отменить позицию** (danger secondary, when cancel is allowed).
 
 **MUST NOT** show: active/draft revision labels, copy-from-revision, commercial draft/post, create revision, save qty draft, post revision, approve, separate open-active / open-draft specification buttons.
 
-After transfer (parent not `DRAFT`): fields are read-only labels; only **Открыть спецификацию** (plus shell history) remains. Hide Save and Cancel — no wall of disabled technical buttons.
+After transfer (parent not `DRAFT`) or when the item is no longer `DRAFT`: fields are read-only labels; only **Открыть спецификацию** (plus shell history) remains. Hide Save and Cancel — no wall of disabled technical buttons.
 
 ## 39.8 Specification editor
 
-Title: **Спецификация позиции {productCode}**. Subtitle/label: **Количество изделий: N** (read-only; quantity edits belong on the item card). Spec persistence preserves the existing ordered quantity from the snapshot.
+Title: **Спецификация позиции {productCode}**. Subtitle/label: **Количество изделий: N** (read-only; quantity edits belong on the item card). If useful, show the same operational status indicator as the item list. Spec persistence preserves the existing ordered quantity from the snapshot. Direct open from the item list uses `specificationEntry(itemId)` / `openCurrent` and re-checks specification view permission.
 
 **MUST NOT** show: revision number / revision status, permanent line form under the table, permanent Добавить/Изменить/Удалить/Выше/Ниже/Очистить/Сохранить черновик/Провести изменение button wall.
 

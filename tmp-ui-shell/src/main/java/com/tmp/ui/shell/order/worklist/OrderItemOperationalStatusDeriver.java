@@ -10,6 +10,10 @@ import java.util.Objects;
  * Pure derivation of user-facing item operational status from parent Order commercial state,
  * commercial item status, and a discriminated Production read result. Does not query repositories.
  *
+ * <p>{@link OrderItemOperationalStatus#EDITING} is used only when the item is actually mutable
+ * (parent {@code DRAFT} and item {@code DRAFT}). A non-editable item on an order not yet transferred
+ * to work is {@link OrderItemOperationalStatus#READY_FOR_TRANSFER}.
+ *
  * <p>Successful empty Production state (not yet accepted) is {@link
  * OrderItemOperationalStatus#AWAITING_PRODUCTION}. Access denied / technical failure is {@link
  * OrderItemOperationalStatus#STATUS_UNAVAILABLE} — never invent zeros as awaiting.
@@ -29,11 +33,13 @@ public final class OrderItemOperationalStatusDeriver {
         if (itemStatus == OrderItemStatus.CANCELLED) {
             return OrderItemOperationalStatus.CANCELLED;
         }
-        if (parentOrderStatus == OrderStatus.DRAFT || parentOrderStatus == OrderStatus.APPROVED) {
-            return OrderItemOperationalStatus.EDITING;
-        }
         if (parentOrderStatus == OrderStatus.CANCELLED) {
             return OrderItemOperationalStatus.CANCELLED;
+        }
+        if (parentOrderStatus == OrderStatus.DRAFT || parentOrderStatus == OrderStatus.APPROVED) {
+            return isItemDataEditable(parentOrderStatus, itemStatus)
+                    ? OrderItemOperationalStatus.EDITING
+                    : OrderItemOperationalStatus.READY_FOR_TRANSFER;
         }
         // Parent ACTIVE (transferred to work)
         return switch (productionRead) {
@@ -65,5 +71,17 @@ public final class OrderItemOperationalStatusDeriver {
             return OrderItemOperationalStatus.IN_PRODUCTION;
         }
         return OrderItemOperationalStatus.AWAITING_PRODUCTION;
+    }
+
+    /**
+     * Actual item-card mutability: parent Order still {@code DRAFT} and the item itself is still
+     * {@code DRAFT}. Leftover {@code APPROVED} parent and {@code ACTIVE} items are not editable.
+     */
+    public static boolean isItemDataEditable(OrderStatus parentOrderStatus, OrderItemStatus itemStatus) {
+        return parentOrderStatus == OrderStatus.DRAFT && itemStatus == OrderItemStatus.DRAFT;
+    }
+
+    public static boolean isItemCancellable(OrderStatus parentOrderStatus, OrderItemStatus itemStatus) {
+        return isItemDataEditable(parentOrderStatus, itemStatus);
     }
 }

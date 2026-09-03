@@ -77,9 +77,11 @@ class OrderItemListViewModelTest {
         OrderItemId itemId = OrderItemId.generate();
         query.items = List.of(item(orderId, itemId));
         OrderItemListViewModel viewModel =
-                new OrderItemListViewModel(query, new FakeAuthorization());
+                new OrderItemListViewModel(
+                        query,
+                        new FakeAuthorization(Set.of(PermissionId.of("order.specification.view"))));
         AtomicBoolean opened = new AtomicBoolean(false);
-        viewModel.setOnOpenItem(id -> opened.set(id.equals(itemId)));
+        viewModel.setOnOpenSpecification(id -> opened.set(id.equals(itemId)));
         viewModel.openForOrder(orderId, OrderStatus.DRAFT);
         viewModel.selectedItemProperty().set(viewModel.items().get(0));
         viewModel.openSelected();
@@ -226,6 +228,52 @@ class OrderItemListViewModelTest {
         assertEquals(50, viewModel.items().size());
         assertEquals(1, production.batchCalls);
         assertEquals(0, production.singleCalls);
+    }
+
+    @Test
+    void draftParentActiveItemShowsReadyForTransferNotEditing() {
+        FakeQuery query = new FakeQuery();
+        OrderId orderId = OrderId.generate();
+        query.items = List.of(item(orderId, OrderItemId.generate(), OrderItemStatus.ACTIVE));
+        OrderItemListViewModel viewModel =
+                new OrderItemListViewModel(query, new FakeAuthorization());
+        viewModel.openForOrder(orderId, OrderStatus.DRAFT);
+        assertEquals(
+                OrderItemOperationalStatus.READY_FOR_TRANSFER,
+                viewModel.items().get(0).operationalStatus());
+        assertFalse(viewModel.canEditItem(viewModel.items().get(0)));
+    }
+
+    @Test
+    void editActionRequiresActualEditableAndPermission() {
+        FakeQuery query = new FakeQuery();
+        OrderId orderId = OrderId.generate();
+        OrderItemId itemId = OrderItemId.generate();
+        query.items = List.of(item(orderId, itemId, OrderItemStatus.DRAFT));
+        OrderItemListViewModel viewModel =
+                new OrderItemListViewModel(
+                        query,
+                        new FakeAuthorization(Set.of(PermissionId.of("order.item.edit"))));
+        viewModel.openForOrder(orderId, OrderStatus.DRAFT);
+        assertTrue(viewModel.canEditItem(viewModel.items().get(0)));
+        AtomicBoolean edited = new AtomicBoolean(false);
+        viewModel.setOnEditItem(id -> edited.set(id.equals(itemId)));
+        viewModel.selectedItemProperty().set(viewModel.items().get(0));
+        viewModel.editSelected();
+        assertTrue(edited.get());
+    }
+
+    @Test
+    void nonEditableItemDoesNotExposeEditAction() {
+        FakeQuery query = new FakeQuery();
+        OrderId orderId = OrderId.generate();
+        query.items = List.of(item(orderId, OrderItemId.generate(), OrderItemStatus.ACTIVE));
+        OrderItemListViewModel viewModel =
+                new OrderItemListViewModel(
+                        query,
+                        new FakeAuthorization(Set.of(PermissionId.of("order.item.edit"))));
+        viewModel.openForOrder(orderId, OrderStatus.DRAFT);
+        assertFalse(viewModel.canEditItem(viewModel.items().get(0)));
     }
 
     private static OrderItemDto item(OrderId orderId, OrderItemId itemId) {

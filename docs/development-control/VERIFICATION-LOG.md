@@ -3,8 +3,24 @@
 ## Latest result
 
 **Date:** 2026-09-03
-**Scope:** UI Modernization Stage 3.4.4 — Final Functional Corrective + Order Import UX
+**Scope:** UI Modernization Stage 3.4.5 — Direct Specification Navigation + Customer Filter Corrective
 **Overall:** PASS (targeted tests + quick build + package + launch on `tmp-stage5-pg`); interactive packaged GUI FINAL MANUAL UI ACCEPTANCE PENDING
+
+### Stage 3.4.5 Direct Specification Navigation + Customer Filter Corrective (2026-09-03)
+
+| Check | Result |
+|-------|--------|
+| OM: `JdbcOrderQueryReadAdapterIT` (legacy NAME catalogue + filter vs unassigned) | PASS (27) |
+| UI: CustomerFilterOption / deriver / preference codec / operational list / item list VM+FX / order list customer options+popup+corrective+prefs+VM / editors+spec / shell history / status indicator | PASS (115) |
+| UI: `OrderListControllerFxTest` (incl. 1024×700 / 1366×768) + `TmpUiStandardFxTest` | PASS (7+9) |
+| Working DB Docker | `tmp-stage5-pg` Up; host `localhost`; port `55432`; database `tmp_gui_stage5`; Flyway `34`; legacy named null-ref customers present (Грудев / СД Альфа Капитал ЗАО / Парус ООО / …); true unassigned=1; `tmp-stage34-smoke-pg` NOT USED (Exited) |
+| Quick install `mvn -pl :tmp-bootstrap-app -am install -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-03 15:38:49) |
+| Launch (env ≡ `scripts/run-tmp-package.ps1`) against `jdbc:postgresql://localhost:55432/tmp_gui_stage5` | PASS — Flyway V34 up-to-date; `Started DesktopBootstrap`; TMP processes alive (PID 1916/19420); startup exceptions NONE |
+| Interactive: direct Spec / Back-Forward / Edit context / status 2222 / customer popup | NOT AUTOMATED — requires user visual confirmation (TEST VERIFIED for code/FX/SQL paths; candidate order `TEST-002` / item `2222` → Готова к передаче) |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 Warehouse | NOT STARTED |
+| Auto-commit | NOT DONE |
 
 ### Stage 3.4.4 Final Functional Corrective + Order Import UX (2026-09-03)
 

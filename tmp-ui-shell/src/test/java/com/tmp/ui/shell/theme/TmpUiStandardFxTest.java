@@ -250,6 +250,7 @@ class TmpUiStandardFxTest {
         assertFalse(themeCss.contains(
                 ".table-view:focused .table-row-cell:filled:selected {\n    -fx-background-color: -tmp-primary-soft;"));
         assertTrue(themeCss.contains("-tmp-status-indicator-waiting:"));
+        assertTrue(themeCss.contains("-tmp-status-indicator-ready:"));
         assertTrue(themeCss.contains("-tmp-status-indicator-success:"));
         assertTrue(themeCss.contains("-tmp-success: #2E7D32"));
         assertTrue(themeCss.contains("-tmp-danger: #C62828"));

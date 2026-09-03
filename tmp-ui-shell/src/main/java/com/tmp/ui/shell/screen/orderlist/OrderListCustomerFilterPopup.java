@@ -1,6 +1,7 @@
 package com.tmp.ui.shell.screen.orderlist;
 
-import com.tmp.order.api.OrderCustomerOptionDto;
+import com.tmp.ui.shell.order.worklist.CustomerFilterKey;
+import com.tmp.ui.shell.order.worklist.CustomerFilterOption;
 import com.tmp.ui.shell.theme.TmpTheme;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -25,16 +26,15 @@ import javafx.stage.Popup;
  */
 final class OrderListCustomerFilterPopup {
 
-    record Selection(boolean selectAll, Set<String> customerRefs, boolean includeUnassigned) {}
+    record Selection(boolean selectAll, Set<CustomerFilterKey> keys) {}
 
     private OrderListCustomerFilterPopup() {}
 
     static Popup show(
             javafx.scene.Node owner,
-            List<OrderCustomerOptionDto> options,
+            List<CustomerFilterOption> options,
             boolean selectAll,
-            Set<String> selectedRefs,
-            boolean includeUnassigned,
+            Set<CustomerFilterKey> selectedKeys,
             Consumer<Selection> onApply) {
         Objects.requireNonNull(options, "options");
         Objects.requireNonNull(onApply, "onApply");
@@ -57,12 +57,9 @@ final class OrderListCustomerFilterPopup {
 
         VBox optionBox = new VBox(4);
         List<OptionRow> rows = new ArrayList<>();
-        for (OrderCustomerOptionDto option : options) {
-            CheckBox box = new CheckBox(displayName(option));
-            boolean checked =
-                    selectAll
-                            || (option.isUnassigned() && includeUnassigned)
-                            || (option.customerRef() != null && selectedRefs.contains(option.customerRef()));
+        for (CustomerFilterOption option : options) {
+            CheckBox box = new CheckBox(option.displayName());
+            boolean checked = selectAll || option.containsAny(selectedKeys);
             box.setSelected(checked);
             OptionRow row = new OptionRow(option, box);
             rows.add(row);
@@ -94,7 +91,9 @@ final class OrderListCustomerFilterPopup {
         search.textProperty().addListener((obs, old, value) -> {
             String q = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
             for (OptionRow row : rows) {
-                boolean visible = q.isEmpty() || displayName(row.option).toLowerCase(Locale.ROOT).contains(q);
+                boolean visible =
+                        q.isEmpty()
+                                || row.option.displayName().toLowerCase(Locale.ROOT).contains(q);
                 row.box.setVisible(visible);
                 row.box.setManaged(visible);
             }
@@ -147,32 +146,17 @@ final class OrderListCustomerFilterPopup {
         boolean all =
                 selectAllChecked
                         || (!rows.isEmpty() && rows.stream().allMatch(item -> item.box.isSelected()));
-        Set<String> refs = new LinkedHashSet<>();
-        boolean unassigned = false;
+        Set<CustomerFilterKey> keys = new LinkedHashSet<>();
         if (!all) {
             for (OptionRow row : rows) {
                 if (!row.box.isSelected()) {
                     continue;
                 }
-                if (row.option.isUnassigned()) {
-                    unassigned = true;
-                } else if (row.option.customerRef() != null) {
-                    refs.add(row.option.customerRef());
-                }
+                keys.addAll(row.option.keys());
             }
         }
-        return new Selection(all, refs, unassigned);
+        return new Selection(all, Set.copyOf(keys));
     }
 
-    private static String displayName(OrderCustomerOptionDto option) {
-        if (option.isUnassigned()) {
-            return "Без заказчика";
-        }
-        if (option.customerName() == null || option.customerName().isBlank()) {
-            return "—";
-        }
-        return option.customerName();
-    }
-
-    record OptionRow(OrderCustomerOptionDto option, CheckBox box) {}
+    record OptionRow(CustomerFilterOption option, CheckBox box) {}
 }

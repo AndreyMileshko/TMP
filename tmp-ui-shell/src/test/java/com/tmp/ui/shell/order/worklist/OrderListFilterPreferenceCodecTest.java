@@ -16,7 +16,7 @@ class OrderListFilterPreferenceCodecTest {
     @Test
     void roundTripPreservesSelection() {
         OrderListFilterPreference preference =
-                new OrderListFilterPreference(
+                OrderListFilterPreference.of(
                         EnumSet.of(OrderOperationalStatus.IN_PRODUCTION, OrderOperationalStatus.COMPLETED),
                         false,
                         Set.of("c-1", "c-2"),
@@ -75,5 +75,55 @@ class OrderListFilterPreferenceCodecTest {
                 "02.09.2026 13:19",
                 DateTimePresentation.format(instant, ZoneId.of("Europe/Moscow")));
         assertEquals("—", DateTimePresentation.customerDisplay(null));
+    }
+
+    @Test
+    void legacyV1CustomerRefsBecomeRefKeys() {
+        String raw =
+                "v=1;statuses=EDITING;allCustomers=false;customers=CUST-1;unassigned=false;period=LAST_30_DAYS;from=;to=;pageSize=50";
+        OrderListFilterPreference decoded = OrderListFilterPreferenceCodec.decode(raw);
+        assertEquals(Set.of("CUST-1"), decoded.customerRefs());
+        assertEquals(Set.of(CustomerFilterKey.ref("CUST-1")), decoded.customerKeys());
+        assertFalse(decoded.includeUnassignedCustomer());
+        assertFalse(decoded.selectAllCustomers());
+    }
+
+    @Test
+    void version2RoundTripPreservesRefNameAndUnassigned() {
+        OrderListFilterPreference preference =
+                new OrderListFilterPreference(
+                        EnumSet.of(OrderOperationalStatus.EDITING),
+                        false,
+                        Set.of(
+                                CustomerFilterKey.ref("CUST-1"),
+                                CustomerFilterKey.name("Парус ООО"),
+                                CustomerFilterKey.unassigned()),
+                        OrderListPeriod.Preset.LAST_30_DAYS,
+                        null,
+                        null,
+                        50);
+        OrderListFilterPreference decoded =
+                OrderListFilterPreferenceCodec.decode(OrderListFilterPreferenceCodec.encode(preference));
+        assertEquals(preference.customerKeys(), decoded.customerKeys());
+        assertEquals(Set.of("CUST-1"), decoded.customerRefs());
+        assertEquals(Set.of("Парус ООО"), decoded.customerNames());
+        assertTrue(decoded.includeUnassignedCustomer());
+    }
+
+    @Test
+    void unknownFutureCustomerKeyIsIgnored() {
+        String raw =
+                "v=2;statuses=EDITING;allCustomers=false;customers=REF:CUST-1,FUTURE:xyz;unassigned=false;period=LAST_30_DAYS;from=;to=;pageSize=50";
+        OrderListFilterPreference decoded = OrderListFilterPreferenceCodec.decode(raw);
+        assertEquals(Set.of(CustomerFilterKey.ref("CUST-1")), decoded.customerKeys());
+    }
+
+    @Test
+    void unknownVersionFallsBackToDefaults() {
+        String raw =
+                "v=99;statuses=EDITING;allCustomers=false;customers=REF:CUST-1;unassigned=false;period=LAST_30_DAYS;from=;to=;pageSize=50";
+        OrderListFilterPreference decoded = OrderListFilterPreferenceCodec.decode(raw);
+        assertTrue(decoded.selectAllCustomers());
+        assertTrue(decoded.customerKeys().isEmpty());
     }
 }

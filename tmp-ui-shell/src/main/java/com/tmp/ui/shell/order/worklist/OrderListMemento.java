@@ -13,8 +13,7 @@ public final class OrderListMemento {
     private final String quickSearch;
     private final Set<OrderOperationalStatus> statuses;
     private final boolean selectAllCustomers;
-    private final Set<String> customerRefs;
-    private final boolean includeUnassignedCustomer;
+    private final Set<CustomerFilterKey> customerKeys;
     private final OrderListPeriod.Preset periodPreset;
     private final LocalDate customFrom;
     private final LocalDate customTo;
@@ -25,8 +24,7 @@ public final class OrderListMemento {
             String quickSearch,
             Set<OrderOperationalStatus> statuses,
             boolean selectAllCustomers,
-            Set<String> customerRefs,
-            boolean includeUnassignedCustomer,
+            Set<CustomerFilterKey> customerKeys,
             OrderListPeriod.Preset periodPreset,
             LocalDate customFrom,
             LocalDate customTo,
@@ -35,8 +33,7 @@ public final class OrderListMemento {
         this.quickSearch = quickSearch == null ? "" : quickSearch;
         this.statuses = Set.copyOf(Objects.requireNonNull(statuses, "statuses"));
         this.selectAllCustomers = selectAllCustomers;
-        this.customerRefs = Set.copyOf(Objects.requireNonNull(customerRefs, "customerRefs"));
-        this.includeUnassignedCustomer = includeUnassignedCustomer;
+        this.customerKeys = Set.copyOf(Objects.requireNonNull(customerKeys, "customerKeys"));
         this.periodPreset = Objects.requireNonNull(periodPreset, "periodPreset");
         this.customFrom = customFrom;
         this.customTo = customTo;
@@ -56,12 +53,16 @@ public final class OrderListMemento {
         return selectAllCustomers;
     }
 
+    public Set<CustomerFilterKey> customerKeys() {
+        return customerKeys;
+    }
+
     public Set<String> customerRefs() {
-        return customerRefs;
+        return CustomerFilterKey.parts(customerKeys).refs();
     }
 
     public boolean includeUnassignedCustomer() {
-        return includeUnassignedCustomer;
+        return CustomerFilterKey.parts(customerKeys).unassigned();
     }
 
     public OrderListPeriod.Preset periodPreset() {

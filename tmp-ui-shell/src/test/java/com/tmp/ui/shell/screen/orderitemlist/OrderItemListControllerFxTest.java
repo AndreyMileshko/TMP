@@ -1,6 +1,7 @@
 package com.tmp.ui.shell.screen.orderitemlist;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,6 +39,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.input.KeyCode;
 import javafx.stage.Stage;
@@ -91,9 +93,11 @@ class OrderItemListControllerFxTest {
         OrderItemId itemId = OrderItemId.generate();
         query.items = List.of(item(orderId, itemId));
         OrderItemListViewModel viewModel =
-                new OrderItemListViewModel(query, new FakeAuthorization());
+                new OrderItemListViewModel(
+                        query,
+                        new FakeAuthorization(Set.of(PermissionId.of("order.specification.view"))));
         AtomicBoolean opened = new AtomicBoolean(false);
-        viewModel.setOnOpenItem(id -> opened.set(id.equals(itemId)));
+        viewModel.setOnOpenSpecification(id -> opened.set(id.equals(itemId)));
         viewModel.openForOrder(orderId, OrderStatus.DRAFT);
 
         Parent root = loadList(viewModel);
@@ -116,6 +120,122 @@ class OrderItemListControllerFxTest {
                                             false));
                 });
         assertTrue(opened.get());
+    }
+
+    @Test
+    void doubleClickOnExistingRowOpensSpecificationNotItemEditor() throws Exception {
+        FakeQuery query = new FakeQuery();
+        OrderId orderId = OrderId.generate();
+        OrderItemId itemId = OrderItemId.generate();
+        query.items = List.of(item(orderId, itemId));
+        OrderItemListViewModel viewModel =
+                new OrderItemListViewModel(
+                        query,
+                        new FakeAuthorization(Set.of(PermissionId.of("order.specification.view"))));
+        AtomicBoolean openedSpec = new AtomicBoolean(false);
+        AtomicBoolean openedEditor = new AtomicBoolean(false);
+        viewModel.setOnOpenSpecification(id -> openedSpec.set(id.equals(itemId)));
+        viewModel.setOnEditItem(id -> openedEditor.set(true));
+        viewModel.openForOrder(orderId, OrderStatus.DRAFT);
+
+        Parent root = loadList(viewModel);
+        @SuppressWarnings("unchecked")
+        TableView<OrderItemListRow> table = (TableView<OrderItemListRow>) root.lookup("#itemsTable");
+
+        runFx(
+                () -> {
+                    TableRow<OrderItemListRow> row = table.getRowFactory().call(table);
+                    forceRowItem(row, viewModel.items().get(0));
+                    row.getOnMouseClicked()
+                            .handle(
+                                    new javafx.scene.input.MouseEvent(
+                                            javafx.scene.input.MouseEvent.MOUSE_CLICKED,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            javafx.scene.input.MouseButton.PRIMARY,
+                                            2,
+                                            false,
+                                            false,
+                                            false,
+                                            false,
+                                            true,
+                                            false,
+                                            false,
+                                            false,
+                                            false,
+                                            false,
+                                            null));
+                });
+        assertTrue(openedSpec.get());
+        assertFalse(openedEditor.get());
+    }
+
+    @Test
+    void contextMenuShowsEditForEditableItemAndHidesItForActiveItem() throws Exception {
+        FakeQuery query = new FakeQuery();
+        OrderId orderId = OrderId.generate();
+        OrderItemId draftId = OrderItemId.generate();
+        query.items = List.of(item(orderId, draftId));
+        OrderItemListViewModel viewModel =
+                new OrderItemListViewModel(
+                        query,
+                        new FakeAuthorization(
+                                Set.of(
+                                        PermissionId.of("order.specification.view"),
+                                        PermissionId.of("order.item.edit"),
+                                        PermissionId.of("order.item.cancel"))));
+        viewModel.openForOrder(orderId, OrderStatus.DRAFT);
+        Parent root = loadList(viewModel);
+        @SuppressWarnings("unchecked")
+        TableView<OrderItemListRow> table = (TableView<OrderItemListRow>) root.lookup("#itemsTable");
+
+        runFx(
+                () -> {
+                    TableRow<OrderItemListRow> row = table.getRowFactory().call(table);
+                    forceRowItem(row, viewModel.items().get(0));
+                    javafx.scene.control.ContextMenu menu = row.getContextMenu();
+                    assertNotNull(menu);
+                    List<String> labels =
+                            menu.getItems().stream()
+                                    .filter(javafx.scene.control.MenuItem::isVisible)
+                                    .map(javafx.scene.control.MenuItem::getText)
+                                    .toList();
+                    assertTrue(labels.contains("Открыть спецификацию"));
+                    assertTrue(labels.contains("Изменить данные позиции"));
+                    assertTrue(labels.contains("Отменить позицию"));
+                });
+
+        query.items = List.of(item(orderId, OrderItemId.generate(), OrderItemStatus.ACTIVE));
+        runFx(viewModel::refresh);
+        runFx(
+                () -> {
+                    TableRow<OrderItemListRow> row = table.getRowFactory().call(table);
+                    forceRowItem(row, viewModel.items().get(0));
+                    javafx.scene.control.ContextMenu menu = row.getContextMenu();
+                    assertNotNull(menu);
+                    List<String> visible =
+                            menu.getItems().stream()
+                                    .filter(javafx.scene.control.MenuItem::isVisible)
+                                    .map(javafx.scene.control.MenuItem::getText)
+                                    .toList();
+                    assertTrue(visible.contains("Открыть спецификацию"));
+                    assertFalse(visible.contains("Изменить данные позиции"));
+                    assertFalse(visible.contains("Отменить позицию"));
+                });
+    }
+
+    private static void forceRowItem(TableRow<OrderItemListRow> row, OrderItemListRow item) {
+        try {
+            java.lang.reflect.Method updateItem =
+                    javafx.scene.control.Cell.class.getDeclaredMethod(
+                            "updateItem", Object.class, boolean.class);
+            updateItem.setAccessible(true);
+            updateItem.invoke(row, item, false);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("Unable to populate table row for FX test", ex);
+        }
     }
 
     private static Parent loadList(OrderItemListViewModel viewModel) throws Exception {
@@ -171,9 +291,13 @@ class OrderItemListControllerFxTest {
     }
 
     private static OrderItemDto item(OrderId orderId, OrderItemId itemId) {
+        return item(orderId, itemId, OrderItemStatus.DRAFT);
+    }
+
+    private static OrderItemDto item(OrderId orderId, OrderItemId itemId, OrderItemStatus status) {
         Instant now = Instant.parse("2026-07-27T10:00:00Z");
         return OrderItemDto.of(
-                itemId, orderId, "P-1", "Panel", null, null, OrderItemStatus.DRAFT, null, now, now);
+                itemId, orderId, "P-1", "Panel", null, null, status, null, now, now);
     }
 
     private static final class FakeQuery implements OrderQueryService {

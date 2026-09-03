@@ -52,7 +52,7 @@ class OrderListCorrectiveViewModelTest {
                         Instant.parse("2026-09-01T11:00:00Z")));
         OrderListTestSupport.InMemoryPreferences prefs = new OrderListTestSupport.InMemoryPreferences();
         OrderListFilterPreference stale =
-                new OrderListFilterPreference(
+                OrderListFilterPreference.of(
                         EnumSet.of(OrderOperationalStatus.EDITING),
                         false,
                         Set.of("c-a", "c-stale"),
@@ -94,7 +94,7 @@ class OrderListCorrectiveViewModelTest {
                         Instant.parse("2026-09-01T10:00:00Z")));
         OrderListTestSupport.InMemoryPreferences prefs = new OrderListTestSupport.InMemoryPreferences();
         OrderListFilterPreference staleOnly =
-                new OrderListFilterPreference(
+                OrderListFilterPreference.of(
                         EnumSet.of(OrderOperationalStatus.EDITING),
                         false,
                         Set.of("c-gone"),

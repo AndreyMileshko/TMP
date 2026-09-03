@@ -163,7 +163,7 @@ class OrderItemEditorViewModelTest {
         OrderItemEditorViewModel viewModel =
                 new OrderItemEditorViewModel(new FakeDocs(), query, auth(allItemPerms()));
         viewModel.openExisting(id);
-        assertEquals("Позиция P-1", viewModel.titleProperty().get());
+        assertEquals("Изменение позиции P-1", viewModel.titleProperty().get());
     }
 
     private static Set<PermissionId> allItemPerms() {

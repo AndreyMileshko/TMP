@@ -739,6 +739,79 @@ class JdbcOrderQueryReadAdapterIT {
         assertEquals("Альфа", options.getFirst().customerName());
     }
 
+    @Test
+    void knownCustomersExposeLegacyNamesAndTrueUnassignedSeparately() {
+        seedOrder("ORD-PARUS", null, "Парус ООО", OrderStatus.DRAFT, T2);
+        seedOrder("ORD-PARUS-2", null, "Парус ООО", OrderStatus.DRAFT, T3);
+        Clock clock = Clock.fixed(T2, ZoneOffset.UTC);
+        orderRepository.save(
+                CustomerOrder.create(
+                        OrderId.generate(),
+                        OrderNumber.of("ORD-BLANK"),
+                        OrderCommercialData.of(null, null, null, null, null, null, null),
+                        clock));
+
+        List<OrderCustomerOptionDto> options = readAdapter.listKnownCustomers();
+        assertTrue(options.stream().anyMatch(OrderCustomerOptionDto::isUnassigned));
+        List<OrderCustomerOptionDto> parus =
+                options.stream()
+                        .filter(option -> option.isLegacyName() && "Парус ООО".equals(option.customerName()))
+                        .toList();
+        assertEquals(1, parus.size());
+        assertFalse(parus.getFirst().isUnassigned());
+    }
+
+    @Test
+    void worklistCustomerFilterMatchesLegacyNameAndExcludesItFromUnassigned() {
+        seedOrder("ORD-PARUS", null, "Парус ООО", OrderStatus.DRAFT, T2);
+        seedOrder("ORD-REF", "CR-1", "Named", OrderStatus.DRAFT, T2);
+        Clock clock = Clock.fixed(T2, ZoneOffset.UTC);
+        orderRepository.save(
+                CustomerOrder.create(
+                        OrderId.generate(),
+                        OrderNumber.of("ORD-BLANK-F"),
+                        OrderCommercialData.of(null, null, null, null, null, null, null),
+                        clock));
+
+        List<OrderWorklistRowDto> byName =
+                readAdapter.listWorklistRows(
+                        OrderWorklistCriteria.builder()
+                                .createdFrom(T1)
+                                .createdToExclusive(T3.plusSeconds(1))
+                                .customerNames(Set.of("Парус ООО"))
+                                .filterByCustomers(true)
+                                .build());
+        assertEquals(1, byName.size());
+        assertEquals("ORD-PARUS", byName.getFirst().orderNumber());
+
+        List<OrderWorklistRowDto> unassigned =
+                readAdapter.listWorklistRows(
+                        OrderWorklistCriteria.builder()
+                                .createdFrom(T1)
+                                .createdToExclusive(T3.plusSeconds(1))
+                                .includeUnassignedCustomer(true)
+                                .filterByCustomers(true)
+                                .build());
+        assertEquals(1, unassigned.size());
+        assertEquals("ORD-BLANK-F", unassigned.getFirst().orderNumber());
+
+        List<OrderWorklistRowDto> mixed =
+                readAdapter.listWorklistRows(
+                        OrderWorklistCriteria.builder()
+                                .createdFrom(T1)
+                                .createdToExclusive(T3.plusSeconds(1))
+                                .customerRefs(Set.of("CR-1"))
+                                .customerNames(Set.of("Парус ООО"))
+                                .includeUnassignedCustomer(true)
+                                .filterByCustomers(true)
+                                .build());
+        assertEquals(
+                Set.of("ORD-PARUS", "ORD-REF", "ORD-BLANK-F"),
+                mixed.stream()
+                        .map(OrderWorklistRowDto::orderNumber)
+                        .collect(java.util.stream.Collectors.toSet()));
+    }
+
     private enum AllowingAuthorization implements AuthorizationService {
         INSTANCE;
 

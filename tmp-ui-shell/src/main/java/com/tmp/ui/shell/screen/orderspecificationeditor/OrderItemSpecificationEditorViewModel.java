@@ -1,9 +1,12 @@
 package com.tmp.ui.shell.screen.orderspecificationeditor;
 
 import com.tmp.order.api.OrderItemId;
+import com.tmp.order.api.OrderItemStatus;
 import com.tmp.order.api.OrderQueryService;
+import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
+import com.tmp.order.api.ui.CurrentOrderItemSpecificationUiService;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.order.api.ui.OrderItemEditorSnapshot;
@@ -11,6 +14,8 @@ import com.tmp.order.api.ui.OrderItemSpecificationEditorQueryService;
 import com.tmp.order.api.ui.OrderItemSpecificationEditorSnapshot;
 import com.tmp.order.api.ui.OrderItemSpecificationLineDraft;
 import com.tmp.order.api.ui.OrderItemSpecificationLineView;
+import com.tmp.production.api.ProductionQueryApi;
+import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
@@ -18,6 +23,10 @@ import com.tmp.ui.shell.order.DecimalUiFormat;
 import com.tmp.ui.shell.order.ProductQuantityUiValidation;
 import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
 import com.tmp.ui.shell.order.error.OrderUiOperation;
+import com.tmp.ui.shell.order.worklist.ItemProductionReadResult;
+import com.tmp.ui.shell.order.worklist.ItemProductionStateReader;
+import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatus;
+import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatusDeriver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,9 +59,13 @@ public final class OrderItemSpecificationEditorViewModel {
     private final AuthorizationService authorization;
     private final OrderItemEditorQueryService itemEditorQuery;
     private final OrderQueryService orderQueryService;
+    private final CurrentOrderItemSpecificationUiService currentSpecification;
+    private final ProductionQueryApi productionQuery;
 
     private final StringProperty title = new SimpleStringProperty("Спецификация");
     private final StringProperty orderedQuantityText = new SimpleStringProperty("");
+    private final ObjectProperty<OrderItemOperationalStatus> operationalStatus =
+            new SimpleObjectProperty<>();
     private final StringProperty orderedQuantity = new SimpleStringProperty("1");
     private final StringProperty errorMessage = new SimpleStringProperty("");
     private final StringProperty successMessage = new SimpleStringProperty("");
@@ -80,7 +93,7 @@ public final class OrderItemSpecificationEditorViewModel {
             OrderItemDocumentUiService itemDocuments,
             OrderItemSpecificationEditorQueryService specificationQuery,
             AuthorizationService authorization) {
-        this(itemDocuments, specificationQuery, authorization, null, null);
+        this(itemDocuments, specificationQuery, authorization, null, null, null, null);
     }
 
     public OrderItemSpecificationEditorViewModel(
@@ -89,12 +102,32 @@ public final class OrderItemSpecificationEditorViewModel {
             AuthorizationService authorization,
             OrderItemEditorQueryService itemEditorQuery,
             OrderQueryService orderQueryService) {
+        this(
+                itemDocuments,
+                specificationQuery,
+                authorization,
+                itemEditorQuery,
+                orderQueryService,
+                null,
+                null);
+    }
+
+    public OrderItemSpecificationEditorViewModel(
+            OrderItemDocumentUiService itemDocuments,
+            OrderItemSpecificationEditorQueryService specificationQuery,
+            AuthorizationService authorization,
+            OrderItemEditorQueryService itemEditorQuery,
+            OrderQueryService orderQueryService,
+            CurrentOrderItemSpecificationUiService currentSpecification,
+            ProductionQueryApi productionQuery) {
         this.itemDocuments = Objects.requireNonNull(itemDocuments, "itemDocuments");
         this.specificationQuery =
                 Objects.requireNonNull(specificationQuery, "specificationQuery");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.itemEditorQuery = itemEditorQuery;
         this.orderQueryService = orderQueryService;
+        this.currentSpecification = currentSpecification;
+        this.productionQuery = productionQuery;
         selectedIndex.addListener((obs, oldValue, newValue) -> onSelectionChanged());
     }
 
@@ -111,6 +144,36 @@ public final class OrderItemSpecificationEditorViewModel {
         documentId = null;
         payloadRevision = 0L;
         reloadSnapshot(false);
+    }
+
+    public void openCurrent(OrderItemId orderItemId) {
+        Objects.requireNonNull(orderItemId, "orderItemId");
+        clearMessages();
+        this.orderItemId = orderItemId;
+        this.revisionNumber = null;
+        documentId = null;
+        payloadRevision = 0L;
+        if (!authorization.hasPermission(
+                PermissionId.of(UiShellScreens.ORDER_SPECIFICATION_VIEW_PERMISSION))) {
+            showError(OrderUiErrorMapper.ACCESS_DENIED);
+            return;
+        }
+        if (currentSpecification == null) {
+            showError(OrderUiErrorMapper.NOT_FOUND);
+            return;
+        }
+        try {
+            var ref = currentSpecification.resolveCurrent(orderItemId);
+            if (ref.isEmpty()) {
+                errorMessage.set("Нет спецификации для открытия");
+                return;
+            }
+            open(ref.get().orderItemId(), ref.get().revisionNumber());
+        } catch (AccessDeniedException ex) {
+            showMappedError(ex, OrderUiOperation.LOAD);
+        } catch (RuntimeException ex) {
+            showMappedError(ex, OrderUiOperation.LOAD);
+        }
     }
 
     public void selectLine(int index) {
@@ -240,6 +303,10 @@ public final class OrderItemSpecificationEditorViewModel {
 
     public StringProperty orderedQuantityTextProperty() {
         return orderedQuantityText;
+    }
+
+    public ObjectProperty<OrderItemOperationalStatus> operationalStatusProperty() {
+        return operationalStatus;
     }
 
     public StringProperty orderedQuantityProperty() {
@@ -377,6 +444,7 @@ public final class OrderItemSpecificationEditorViewModel {
                 ProductQuantityUiValidation.formatForDisplay(snapshot.orderedQuantity());
         orderedQuantity.set(quantityDisplay);
         orderedQuantityText.set("Количество изделий: " + quantityDisplay);
+        operationalStatus.set(deriveOperationalStatus(orderItemId));
         lines.setAll(toRows(snapshot.lines()));
         if (lines.isEmpty()) {
             selectedIndex.set(-1);
@@ -408,6 +476,43 @@ public final class OrderItemSpecificationEditorViewModel {
             }
         }
         return "";
+    }
+
+    private OrderItemOperationalStatus deriveOperationalStatus(OrderItemId id) {
+        OrderItemStatus itemStatus = OrderItemStatus.DRAFT;
+        OrderStatus parent = OrderStatus.DRAFT;
+        if (itemEditorQuery != null) {
+            try {
+                Optional<OrderItemEditorSnapshot> snapshot = itemEditorQuery.getEditorSnapshot(id);
+                if (snapshot.isPresent()) {
+                    itemStatus = snapshot.get().status();
+                    if (orderQueryService != null) {
+                        parent =
+                                orderQueryService
+                                        .getOrder(snapshot.get().orderId())
+                                        .map(order -> order.status())
+                                        .orElse(OrderStatus.DRAFT);
+                    }
+                }
+            } catch (RuntimeException ignored) {
+                // fall through to defaults
+            }
+        } else if (orderQueryService != null) {
+            try {
+                itemStatus =
+                        orderQueryService
+                                .getOrderItem(id)
+                                .map(item -> item.status())
+                                .orElse(OrderItemStatus.ACTIVE);
+            } catch (RuntimeException ignored) {
+                // keep default
+            }
+        }
+        ItemProductionReadResult productionRead = ItemProductionReadResult.successNotAccepted();
+        if (parent == OrderStatus.ACTIVE) {
+            productionRead = ItemProductionStateReader.readOne(productionQuery, id.value());
+        }
+        return OrderItemOperationalStatusDeriver.derive(parent, itemStatus, productionRead);
     }
 
     private List<SpecificationLineRow> toRows(List<OrderItemSpecificationLineView> views) {

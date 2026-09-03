@@ -7,7 +7,6 @@ import com.tmp.ui.shell.order.worklist.OrderListPeriod;
 import com.tmp.ui.shell.order.worklist.OrderOperationalStatus;
 import com.tmp.ui.shell.order.worklist.OrderOperationalSummary;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.util.Set;
 import javafx.animation.PauseTransition;
 import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
@@ -249,7 +248,7 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
     }
 
     private void openCustomerFilterPopup() {
-        var loaded = viewModel.loadCustomerOptions();
+        var loaded = viewModel.loadCustomerFilterOptions();
         if (loaded.isEmpty()) {
             return;
         }
@@ -257,10 +256,8 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
                 customerFilterButton,
                 loaded.get(),
                 viewModel.selectAllCustomersProperty().get(),
-                Set.copyOf(viewModel.selectedCustomerRefs()),
-                viewModel.includeUnassignedCustomerProperty().get(),
-                selection -> viewModel.applyCustomerSelection(
-                        selection.selectAll(), selection.customerRefs(), selection.includeUnassigned()));
+                viewModel.selectedCustomerKeys(),
+                selection -> viewModel.applyCustomerSelection(selection.selectAll(), selection.keys()));
     }
 
     private void bindStatus(CheckBox checkBox, OrderOperationalStatus status) {

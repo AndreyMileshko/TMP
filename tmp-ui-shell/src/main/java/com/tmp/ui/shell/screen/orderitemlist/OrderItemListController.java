@@ -7,7 +7,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
@@ -56,8 +58,11 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
     @FXML
     private Label errorLabel;
 
+    private OrderItemListViewModel viewModel;
+
     @Override
     public void setViewModel(OrderItemListViewModel viewModel) {
+        this.viewModel = viewModel;
         titleLabel.textProperty().bind(viewModel.titleProperty());
         itemsTable.setItems(viewModel.items());
         itemsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
@@ -110,20 +115,7 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
                 viewModel.pageIndexProperty(),
                 viewModel.totalElementsProperty()));
 
-        itemsTable.setRowFactory(
-                table -> {
-                    TableRow<OrderItemListRow> row = new TableRow<>();
-                    row.setOnMouseClicked(
-                            event -> {
-                                if (event.getButton() == MouseButton.PRIMARY
-                                        && event.getClickCount() == 2
-                                        && !row.isEmpty()) {
-                                    viewModel.selectedItemProperty().set(row.getItem());
-                                    viewModel.openSelected();
-                                }
-                            });
-                    return row;
-                });
+        itemsTable.setRowFactory(table -> createItemRow());
         itemsTable.setOnKeyPressed(
                 event -> {
                     if (event.getCode() == KeyCode.ENTER
@@ -140,6 +132,88 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
                 },
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
+    }
+
+    private TableRow<OrderItemListRow> createItemRow() {
+        TableRow<OrderItemListRow> row = new TableRow<>();
+        MenuItem openSpec = new MenuItem("Открыть спецификацию");
+        MenuItem edit = new MenuItem("Изменить данные позиции");
+        MenuItem cancel = new MenuItem("Отменить позицию");
+        cancel.getStyleClass().add("tmp-menu-item-danger");
+        ContextMenu menu = new ContextMenu(openSpec, edit, cancel);
+
+        openSpec.visibleProperty()
+                .bind(
+                        Bindings.createBooleanBinding(
+                                () -> !row.isEmpty() && viewModel.hasSpecificationViewPermission(),
+                                row.emptyProperty(),
+                                row.itemProperty()));
+        edit.visibleProperty()
+                .bind(
+                        Bindings.createBooleanBinding(
+                                () -> !row.isEmpty() && viewModel.canEditItem(row.getItem()),
+                                row.emptyProperty(),
+                                row.itemProperty()));
+        cancel.visibleProperty()
+                .bind(
+                        Bindings.createBooleanBinding(
+                                () -> !row.isEmpty() && viewModel.canCancelItem(row.getItem()),
+                                row.emptyProperty(),
+                                row.itemProperty()));
+        row.contextMenuProperty()
+                .bind(
+                        Bindings.createObjectBinding(
+                                () -> {
+                                    if (row.isEmpty()) {
+                                        return null;
+                                    }
+                                    if (!openSpec.isVisible() && !edit.isVisible() && !cancel.isVisible()) {
+                                        return null;
+                                    }
+                                    return menu;
+                                },
+                                row.emptyProperty(),
+                                openSpec.visibleProperty(),
+                                edit.visibleProperty(),
+                                cancel.visibleProperty()));
+
+        openSpec.setOnAction(
+                e -> {
+                    if (!row.isEmpty()) {
+                        viewModel.selectedItemProperty().set(row.getItem());
+                        viewModel.openSpecification(row.getItem());
+                    }
+                });
+        edit.setOnAction(
+                e -> {
+                    if (!row.isEmpty()) {
+                        viewModel.editItem(row.getItem());
+                    }
+                });
+        cancel.setOnAction(
+                e -> {
+                    if (!row.isEmpty()) {
+                        viewModel.cancelItem(row.getItem());
+                    }
+                });
+
+        row.setOnContextMenuRequested(
+                event -> {
+                    if (!row.isEmpty()) {
+                        itemsTable.getSelectionModel().select(row.getItem());
+                        viewModel.selectedItemProperty().set(row.getItem());
+                    }
+                });
+        row.setOnMouseClicked(
+                event -> {
+                    if (event.getButton() == MouseButton.PRIMARY
+                            && event.getClickCount() == 2
+                            && !row.isEmpty()) {
+                        viewModel.selectedItemProperty().set(row.getItem());
+                        viewModel.openSelected();
+                    }
+                });
+        return row;
     }
 
     private static final class StatusTableCell

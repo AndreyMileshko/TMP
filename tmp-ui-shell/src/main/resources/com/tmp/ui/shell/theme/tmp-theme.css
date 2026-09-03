@@ -51,6 +51,7 @@
     -tmp-table-selection-hover-bg: rgba(95, 170, 110, 0.28);
 
     -tmp-status-indicator-editing: #7A8699;
+    -tmp-status-indicator-ready: #5C7A99;
     -tmp-status-indicator-waiting: #F2B705;
     -tmp-status-indicator-progress: #2196F3;
     -tmp-status-indicator-success: #32B85A;
@@ -992,6 +993,10 @@
 
 .tmp-status-dot-neutral {
     -fx-fill: -tmp-status-indicator-editing;
+}
+
+.tmp-status-dot-ready {
+    -fx-fill: -tmp-status-indicator-ready;
 }
 
 .tmp-status-dot-warning {

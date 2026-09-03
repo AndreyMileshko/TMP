@@ -127,10 +127,28 @@ public final class OrderListTestSupport {
                     }
                 }
                 if (criteria.filterByCustomers()) {
-                    boolean unassigned = row.customerRef() == null;
-                    boolean refMatch =
-                            row.customerRef() != null && criteria.customerRefs().contains(row.customerRef());
-                    if (!(refMatch || (unassigned && criteria.includeUnassignedCustomer()))) {
+                    boolean match = false;
+                    if (row.customerRef() != null
+                            && !row.customerRef().isBlank()
+                            && criteria.customerRefs().contains(row.customerRef())) {
+                        match = true;
+                    }
+                    boolean blankName =
+                            row.customerName() == null || row.customerName().isBlank();
+                    if (row.customerRef() == null || row.customerRef().isBlank()) {
+                        if (!blankName) {
+                            String normalized = row.customerName().trim();
+                            for (String name : criteria.customerNames()) {
+                                if (normalized.equals(name)) {
+                                    match = true;
+                                    break;
+                                }
+                            }
+                        } else if (criteria.includeUnassignedCustomer()) {
+                            match = true;
+                        }
+                    }
+                    if (!match) {
                         continue;
                     }
                 }
@@ -146,10 +164,27 @@ public final class OrderListTestSupport {
             }
             knownCustomerCalls++;
             Map<String, OrderWorklistRowDto> latestByRef = new LinkedHashMap<>();
+            Map<String, OrderWorklistRowDto> latestByName = new LinkedHashMap<>();
             boolean unassigned = false;
             for (OrderWorklistRowDto row : rows) {
-                if (row.customerRef() == null || row.customerRef().isBlank()) {
+                boolean blankRef = row.customerRef() == null || row.customerRef().isBlank();
+                boolean blankName = row.customerName() == null || row.customerName().isBlank();
+                if (blankRef && blankName) {
                     unassigned = true;
+                    continue;
+                }
+                if (blankRef) {
+                    String nameKey = row.customerName().trim();
+                    OrderWorklistRowDto previous = latestByName.get(nameKey);
+                    if (previous == null
+                            || row.createdAt().isAfter(previous.createdAt())
+                            || (row.createdAt().equals(previous.createdAt())
+                                    && row.orderId()
+                                            .value()
+                                            .compareTo(previous.orderId().value())
+                                            > 0)) {
+                        latestByName.put(nameKey, row);
+                    }
                     continue;
                 }
                 OrderWorklistRowDto previous = latestByRef.get(row.customerRef());
@@ -178,6 +213,12 @@ public final class OrderListTestSupport {
                 String refB = b.customerRef() == null ? "" : b.customerRef();
                 return refA.compareTo(refB);
             });
+            List<OrderCustomerOptionDto> nameOptions = new ArrayList<>();
+            for (OrderWorklistRowDto row : latestByName.values()) {
+                nameOptions.add(OrderCustomerOptionDto.legacyName(row.customerName()));
+            }
+            nameOptions.sort((a, b) -> a.customerName().compareToIgnoreCase(b.customerName()));
+            options.addAll(nameOptions);
             if (unassigned) {
                 options.add(0, OrderCustomerOptionDto.unassigned());
             }

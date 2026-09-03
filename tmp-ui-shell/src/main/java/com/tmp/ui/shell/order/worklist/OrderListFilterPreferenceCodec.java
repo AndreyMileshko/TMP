@@ -3,12 +3,16 @@ package com.tmp.ui.shell.order.worklist;
 import java.time.LocalDate;
 import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
 
 /**
  * Closed-schema encoder for {@link OrderListFilterPreference}. Invalid or stale values fall back
  * to defaults instead of failing the Orders screen.
+ *
+ * <p>Version 1 stored raw {@code customerRef} tokens plus an {@code unassigned} flag. Version 2
+ * stores {@link CustomerFilterKey} tokens ({@code REF:}, {@code NAME:}, {@code UNASSIGNED}).
  */
 public final class OrderListFilterPreferenceCodec {
 
@@ -20,8 +24,8 @@ public final class OrderListFilterPreferenceCodec {
             statuses.add(status.name());
         }
         StringJoiner customers = new StringJoiner(",");
-        for (String ref : preference.customerRefs()) {
-            customers.add(escape(ref));
+        for (CustomerFilterKey key : preference.customerKeys()) {
+            customers.add(escape(key.serialize()));
         }
         return "v="
                 + OrderListFilterPreference.VERSION
@@ -50,7 +54,8 @@ public final class OrderListFilterPreferenceCodec {
         }
         try {
             Parsed parsed = parse(raw);
-            if (parsed.version != OrderListFilterPreference.VERSION) {
+            if (parsed.version != OrderListFilterPreference.VERSION
+                    && parsed.version != OrderListFilterPreference.LEGACY_VERSION) {
                 return defaults;
             }
             Set<OrderOperationalStatus> statuses = new LinkedHashSet<>();
@@ -89,26 +94,39 @@ public final class OrderListFilterPreferenceCodec {
                 to = null;
             }
             int pageSize = parsed.pageSize < 1 ? defaults.pageSize() : parsed.pageSize;
-            Set<String> refs = new LinkedHashSet<>();
-            if (!parsed.customers.isEmpty()) {
-                for (String token : splitCustomers(parsed.customers)) {
-                    if (!token.isBlank()) {
-                        refs.add(token);
-                    }
-                }
-            }
+            Set<CustomerFilterKey> keys = decodeCustomerKeys(parsed);
             return new OrderListFilterPreference(
-                    statuses,
-                    parsed.allCustomers,
-                    refs,
-                    parsed.unassigned,
-                    preset,
-                    from,
-                    to,
-                    pageSize);
+                    statuses, parsed.allCustomers, keys, preset, from, to, pageSize);
         } catch (RuntimeException ex) {
             return defaults;
         }
+    }
+
+    private static Set<CustomerFilterKey> decodeCustomerKeys(Parsed parsed) {
+        Set<CustomerFilterKey> keys = new LinkedHashSet<>();
+        if (parsed.version == OrderListFilterPreference.LEGACY_VERSION) {
+            if (!parsed.customers.isEmpty()) {
+                for (String token : splitCustomers(parsed.customers)) {
+                    if (!token.isBlank()) {
+                        keys.add(CustomerFilterKey.ref(token.trim()));
+                    }
+                }
+            }
+            if (parsed.unassigned) {
+                keys.add(CustomerFilterKey.unassigned());
+            }
+            return Set.copyOf(keys);
+        }
+        if (!parsed.customers.isEmpty()) {
+            for (String token : splitCustomers(parsed.customers)) {
+                Optional<CustomerFilterKey> parsedKey = CustomerFilterKey.parse(token);
+                parsedKey.ifPresent(keys::add);
+            }
+        }
+        if (parsed.unassigned) {
+            keys.add(CustomerFilterKey.unassigned());
+        }
+        return Set.copyOf(keys);
     }
 
     private static LocalDate parseDate(String value) {

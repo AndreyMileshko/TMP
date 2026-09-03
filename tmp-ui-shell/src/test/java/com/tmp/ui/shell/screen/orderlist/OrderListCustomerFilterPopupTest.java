@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.tmp.order.api.OrderCustomerOptionDto;
 import com.tmp.ui.shell.JavaFxTestSupport;
+import com.tmp.ui.shell.order.worklist.CustomerFilterKey;
+import com.tmp.ui.shell.order.worklist.CustomerFilterOption;
 import java.util.List;
+import java.util.Set;
 import javafx.scene.control.CheckBox;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -26,7 +28,7 @@ class OrderListCustomerFilterPopupTest {
             OrderListCustomerFilterPopup.Selection all =
                     OrderListCustomerFilterPopup.resolveSelection(true, List.of());
             assertTrue(all.selectAll());
-            assertTrue(all.customerRefs().isEmpty());
+            assertTrue(all.keys().isEmpty());
         });
     }
 
@@ -40,13 +42,17 @@ class OrderListCustomerFilterPopupTest {
             List<OrderListCustomerFilterPopup.OptionRow> rows =
                     List.of(
                             new OrderListCustomerFilterPopup.OptionRow(
-                                    OrderCustomerOptionDto.of("c-a", "Alpha"), selected),
+                                    new CustomerFilterOption(
+                                            "Alpha", Set.of(CustomerFilterKey.ref("c-a"))),
+                                    selected),
                             new OrderListCustomerFilterPopup.OptionRow(
-                                    OrderCustomerOptionDto.of("c-b", "Beta"), unselected));
+                                    new CustomerFilterOption(
+                                            "Beta", Set.of(CustomerFilterKey.ref("c-b"))),
+                                    unselected));
             OrderListCustomerFilterPopup.Selection selection =
                     OrderListCustomerFilterPopup.resolveSelection(false, rows);
             assertFalse(selection.selectAll());
-            assertEquals(java.util.Set.of("c-a"), selection.customerRefs());
+            assertEquals(Set.of(CustomerFilterKey.ref("c-a")), selection.keys());
         });
     }
 }

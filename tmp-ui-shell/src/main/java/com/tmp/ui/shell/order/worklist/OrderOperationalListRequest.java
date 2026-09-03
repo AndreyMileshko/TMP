@@ -15,6 +15,7 @@ public final class OrderOperationalListRequest {
     private final String quickSearch;
     private final Set<OrderOperationalStatus> statuses;
     private final Set<String> customerRefs;
+    private final Set<String> customerNames;
     private final boolean includeUnassignedCustomer;
     private final boolean filterByCustomers;
     private final int pageIndex;
@@ -30,6 +31,30 @@ public final class OrderOperationalListRequest {
             boolean filterByCustomers,
             int pageIndex,
             int pageSize) {
+        this(
+                createdFrom,
+                createdToExclusive,
+                quickSearch,
+                statuses,
+                customerRefs,
+                Set.of(),
+                includeUnassignedCustomer,
+                filterByCustomers,
+                pageIndex,
+                pageSize);
+    }
+
+    public OrderOperationalListRequest(
+            Instant createdFrom,
+            Instant createdToExclusive,
+            String quickSearch,
+            Set<OrderOperationalStatus> statuses,
+            Set<String> customerRefs,
+            Set<String> customerNames,
+            boolean includeUnassignedCustomer,
+            boolean filterByCustomers,
+            int pageIndex,
+            int pageSize) {
         this.createdFrom = Objects.requireNonNull(createdFrom, "createdFrom");
         this.createdToExclusive = Objects.requireNonNull(createdToExclusive, "createdToExclusive");
         if (!createdFrom.isBefore(createdToExclusive)) {
@@ -38,6 +63,7 @@ public final class OrderOperationalListRequest {
         this.quickSearch = quickSearch;
         this.statuses = Set.copyOf(Objects.requireNonNull(statuses, "statuses"));
         this.customerRefs = Set.copyOf(Objects.requireNonNull(customerRefs, "customerRefs"));
+        this.customerNames = Set.copyOf(Objects.requireNonNull(customerNames, "customerNames"));
         this.includeUnassignedCustomer = includeUnassignedCustomer;
         this.filterByCustomers = filterByCustomers;
         if (pageIndex < 0) {
@@ -68,6 +94,10 @@ public final class OrderOperationalListRequest {
 
     public Set<String> customerRefs() {
         return customerRefs;
+    }
+
+    public Set<String> customerNames() {
+        return customerNames;
     }
 
     public boolean includeUnassignedCustomer() {

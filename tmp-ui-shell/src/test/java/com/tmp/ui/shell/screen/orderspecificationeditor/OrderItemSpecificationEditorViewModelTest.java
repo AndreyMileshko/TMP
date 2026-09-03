@@ -189,6 +189,31 @@ class OrderItemSpecificationEditorViewModelTest {
         assertEquals("8", docs.lastOrderedQuantity);
     }
 
+    @Test
+    void openCurrentResolvesDraftOrActiveWithoutGoingThroughItemEditor() {
+        TrackingDocs docs = new TrackingDocs();
+        EmptyQuery query = new EmptyQuery();
+        OrderItemId itemId = OrderItemId.generate();
+        RevisionNumber revision = RevisionNumber.first();
+        query.snapshot = draftSnapshot(itemId, revision, List.of());
+        OrderItemSpecificationEditorViewModel viewModel =
+                new OrderItemSpecificationEditorViewModel(
+                        docs,
+                        query,
+                        auth(allPerms()),
+                        null,
+                        null,
+                        orderItemId ->
+                                Optional.of(
+                                        com.tmp.order.api.ui.CurrentOrderItemSpecificationRef.of(
+                                                orderItemId, revision)),
+                        null);
+        viewModel.openCurrent(itemId);
+        assertEquals(itemId, viewModel.orderItemIdForTest());
+        assertEquals(revision, viewModel.revisionNumberForTest());
+        assertTrue(viewModel.titleProperty().get().startsWith("Спецификация позиции"));
+    }
+
     private static Set<PermissionId> allPerms() {
         return Set.of(
                 PermissionId.of("order.specification.view"),

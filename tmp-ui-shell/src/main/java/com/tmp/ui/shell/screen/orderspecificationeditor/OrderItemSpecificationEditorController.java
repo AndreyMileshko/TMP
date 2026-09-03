@@ -1,6 +1,8 @@
 package com.tmp.ui.shell.screen.orderspecificationeditor;
 
 import com.tmp.ui.shell.navigation.ViewModelAware;
+import com.tmp.ui.shell.order.worklist.OperationalStatusIndicator;
+import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatus;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
@@ -13,6 +15,7 @@ import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
+import javafx.scene.layout.HBox;
 import javafx.stage.Window;
 
 /**
@@ -29,6 +32,9 @@ public final class OrderItemSpecificationEditorController
 
     @FXML
     private Label orderedQuantityLabel;
+
+    @FXML
+    private HBox statusIndicatorBox;
 
     @FXML
     private Button addMaterialButton;
@@ -71,6 +77,10 @@ public final class OrderItemSpecificationEditorController
         this.viewModel = viewModel;
         titleLabel.textProperty().bind(viewModel.titleProperty());
         orderedQuantityLabel.textProperty().bind(viewModel.orderedQuantityTextProperty());
+        viewModel
+                .operationalStatusProperty()
+                .addListener((obs, oldValue, newValue) -> refreshStatusGraphic(newValue));
+        refreshStatusGraphic(viewModel.operationalStatusProperty().get());
 
         linesTable.setItems(viewModel.lines());
         configureSpecificationColumnWidths();
@@ -279,5 +289,15 @@ public final class OrderItemSpecificationEditorController
                 };
         linesTable.widthProperty().addListener((obs, oldWidth, newWidth) -> redistribute.run());
         redistribute.run();
+    }
+
+    private void refreshStatusGraphic(OrderItemOperationalStatus status) {
+        if (statusIndicatorBox == null) {
+            return;
+        }
+        statusIndicatorBox.getChildren().clear();
+        if (status != null) {
+            statusIndicatorBox.getChildren().add(OperationalStatusIndicator.create(status));
+        }
     }
 }

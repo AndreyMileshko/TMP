@@ -363,10 +363,123 @@ class OrderListCustomerOptionsViewModelTest {
         assertEquals("Альфа", named.getFirst().customerName());
     }
 
+    @Test
+    void v1PersistedCustomerRefIsRestoredAsRefKey() {
+        OrderListTestSupport.InMemoryWorklistQuery worklist = new OrderListTestSupport.InMemoryWorklistQuery();
+        worklist.rows.add(
+                OrderListTestSupport.row(
+                        "A-1",
+                        OrderStatus.DRAFT,
+                        "c-a",
+                        "Alpha",
+                        Instant.parse("2026-09-01T10:00:00Z")));
+        OrderListTestSupport.InMemoryPreferences prefs = new OrderListTestSupport.InMemoryPreferences();
+        prefs.save(
+                OrderListTestSupport.userId(),
+                OrderListFilterPreference.NAMESPACE,
+                OrderListFilterPreference.KEY,
+                OrderListFilterPreference.LEGACY_VERSION,
+                "v=1;statuses=EDITING;allCustomers=false;customers=c-a;unassigned=false;period=LAST_30_DAYS;from=;to=;pageSize=50");
+        OrderListViewModel viewModel =
+                OrderListTestSupport.viewModel(
+                        worklist,
+                        new OrderListTestSupport.MapProductionQuery(),
+                        new FakeAuthorization(),
+                        new OrderListTestSupport.SessionAuthn(OrderListTestSupport.userId()),
+                        prefs);
+        viewModel.refresh();
+        assertEquals(Set.of("c-a"), Set.copyOf(viewModel.selectedCustomerRefs()));
+        assertFalse(viewModel.selectAllCustomersProperty().get());
+        assertEquals(
+                Set.of(com.tmp.ui.shell.order.worklist.CustomerFilterKey.ref("c-a")),
+                viewModel.selectedCustomerKeys());
+    }
+
+    @Test
+    void legacyNamedNullRefIsACustomerOptionNotUnassigned() {
+        OrderListTestSupport.InMemoryWorklistQuery worklist = new OrderListTestSupport.InMemoryWorklistQuery();
+        worklist.rows.add(
+                OrderListTestSupport.row(
+                        "LEGACY-1",
+                        OrderStatus.DRAFT,
+                        null,
+                        "Парус ООО",
+                        Instant.parse("2026-09-01T10:00:00Z")));
+        worklist.rows.add(
+                OrderListTestSupport.row(
+                        "BLANK-1",
+                        OrderStatus.DRAFT,
+                        null,
+                        null,
+                        Instant.parse("2026-09-01T11:00:00Z")));
+        OrderListViewModel viewModel =
+                OrderListTestSupport.viewModel(
+                        worklist,
+                        new OrderListTestSupport.MapProductionQuery(),
+                        new FakeAuthorization(),
+                        new OrderListTestSupport.SessionAuthn(OrderListTestSupport.userId()),
+                        new OrderListTestSupport.InMemoryPreferences());
+        viewModel.refresh();
+        List<OrderCustomerOptionDto> options = viewModel.loadCustomerOptions().orElseThrow();
+        assertTrue(options.stream().anyMatch(OrderCustomerOptionDto::isUnassigned));
+        assertTrue(
+                options.stream()
+                        .anyMatch(
+                                option ->
+                                        option.isLegacyName() && "Парус ООО".equals(option.customerName())));
+        viewModel.applyCustomerSelection(
+                false, Set.of(com.tmp.ui.shell.order.worklist.CustomerFilterKey.unassigned()));
+        assertEquals(1, viewModel.orders().size());
+        assertEquals("BLANK-1", viewModel.orders().getFirst().orderNumber());
+        viewModel.applyCustomerSelection(
+                false,
+                Set.of(com.tmp.ui.shell.order.worklist.CustomerFilterKey.name("Парус ООО")));
+        assertEquals(1, viewModel.orders().size());
+        assertEquals("LEGACY-1", viewModel.orders().getFirst().orderNumber());
+    }
+
+    @Test
+    void mixedRefAndLegacyNameMultiselectUsesOrSemantics() {
+        OrderListTestSupport.InMemoryWorklistQuery worklist = new OrderListTestSupport.InMemoryWorklistQuery();
+        worklist.rows.add(
+                OrderListTestSupport.row(
+                        "REF-1",
+                        OrderStatus.DRAFT,
+                        "c-a",
+                        "Alpha",
+                        Instant.parse("2026-09-01T10:00:00Z")));
+        worklist.rows.add(
+                OrderListTestSupport.row(
+                        "NAME-1",
+                        OrderStatus.DRAFT,
+                        null,
+                        "Парус ООО",
+                        Instant.parse("2026-09-01T11:00:00Z")));
+        OrderListViewModel viewModel =
+                OrderListTestSupport.viewModel(
+                        worklist,
+                        new OrderListTestSupport.MapProductionQuery(),
+                        new FakeAuthorization(),
+                        new OrderListTestSupport.SessionAuthn(OrderListTestSupport.userId()),
+                        new OrderListTestSupport.InMemoryPreferences());
+        viewModel.refresh();
+        viewModel.applyCustomerSelection(
+                false,
+                Set.of(
+                        com.tmp.ui.shell.order.worklist.CustomerFilterKey.ref("c-a"),
+                        com.tmp.ui.shell.order.worklist.CustomerFilterKey.name("Парус ООО")));
+        assertEquals(
+                Set.of("REF-1", "NAME-1"),
+                viewModel.orders().stream()
+                        .map(row -> row.orderNumber())
+                        .collect(java.util.stream.Collectors.toSet()));
+        assertEquals("Заказчики: выбрано 2", viewModel.customerFilterLabelProperty().get());
+    }
+
     private static void saveCustomerPreference(
             OrderListTestSupport.InMemoryPreferences prefs, Set<String> customerRefs) {
         OrderListFilterPreference preference =
-                new OrderListFilterPreference(
+                OrderListFilterPreference.of(
                         EnumSet.of(OrderOperationalStatus.EDITING),
                         false,
                         customerRefs,

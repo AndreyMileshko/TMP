@@ -525,7 +525,7 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
 
     @Override
     public List<OrderCustomerOptionDto> listKnownCustomers() {
-        List<OrderCustomerOptionDto> options =
+        List<OrderCustomerOptionDto> refs =
                 jdbc.query(
                         """
                         SELECT canonical.customer_ref, canonical.customer_name
@@ -535,6 +535,7 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                                        o.customer_name
                                   FROM order_management.orders o
                                  WHERE o.customer_ref IS NOT NULL
+                                   AND btrim(o.customer_ref) <> ''
                                  ORDER BY o.customer_ref, o.created_at DESC, o.order_id DESC
                           ) canonical
                          ORDER BY canonical.customer_name NULLS LAST, canonical.customer_ref
@@ -542,18 +543,38 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                         (rs, rowNum) ->
                                 OrderCustomerOptionDto.of(
                                         rs.getString("customer_ref"), rs.getString("customer_name")));
+        List<OrderCustomerOptionDto> names =
+                jdbc.query(
+                        """
+                        SELECT canonical.customer_name
+                          FROM (
+                                SELECT DISTINCT ON (btrim(o.customer_name))
+                                       o.customer_name
+                                  FROM order_management.orders o
+                                 WHERE o.customer_ref IS NULL
+                                   AND o.customer_name IS NOT NULL
+                                   AND btrim(o.customer_name) <> ''
+                                 ORDER BY btrim(o.customer_name), o.created_at DESC, o.order_id DESC
+                          ) canonical
+                         ORDER BY canonical.customer_name
+                        """,
+                        (rs, rowNum) ->
+                                OrderCustomerOptionDto.legacyName(rs.getString("customer_name")));
         Integer unassigned =
                 jdbc.queryForObject(
                         """
                         SELECT COUNT(*)
                           FROM order_management.orders o
                          WHERE o.customer_ref IS NULL
+                           AND (o.customer_name IS NULL OR btrim(o.customer_name) = '')
                         """,
                         Integer.class);
-        List<OrderCustomerOptionDto> result = new ArrayList<>(options);
+        List<OrderCustomerOptionDto> result = new ArrayList<>();
         if (unassigned != null && unassigned > 0) {
-            result.add(0, OrderCustomerOptionDto.unassigned());
+            result.add(OrderCustomerOptionDto.unassigned());
         }
+        result.addAll(refs);
+        result.addAll(names);
         return List.copyOf(result);
     }
 
@@ -570,25 +591,52 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
         });
         if (criteria.filterByCustomers()) {
             Set<String> refs = criteria.customerRefs();
+            Set<String> names = criteria.customerNames();
             boolean unassigned = criteria.includeUnassignedCustomer();
-            if (refs.isEmpty() && !unassigned) {
+            if (refs.isEmpty() && names.isEmpty() && !unassigned) {
                 where.append(" AND 1=0");
-            } else if (refs.isEmpty()) {
-                where.append(" AND o.customer_ref IS NULL");
             } else {
-                where.append(" AND (o.customer_ref IN (");
+                where.append(" AND (");
                 boolean first = true;
-                for (String ref : refs) {
-                    if (!first) {
-                        where.append(", ");
+                if (!refs.isEmpty()) {
+                    where.append("o.customer_ref IN (");
+                    boolean refFirst = true;
+                    for (String ref : refs) {
+                        if (!refFirst) {
+                            where.append(", ");
+                        }
+                        refFirst = false;
+                        where.append('?');
+                        args.add(ref);
                     }
+                    where.append(')');
                     first = false;
-                    where.append('?');
-                    args.add(ref);
                 }
-                where.append(')');
+                if (!names.isEmpty()) {
+                    if (!first) {
+                        where.append(" OR ");
+                    }
+                    where.append('(');
+                    boolean nameFirst = true;
+                    for (String name : names) {
+                        if (!nameFirst) {
+                            where.append(" OR ");
+                        }
+                        nameFirst = false;
+                        where.append(
+                                "(o.customer_ref IS NULL AND btrim(o.customer_name) = btrim(?))");
+                        args.add(name);
+                    }
+                    where.append(')');
+                    first = false;
+                }
                 if (unassigned) {
-                    where.append(" OR o.customer_ref IS NULL");
+                    if (!first) {
+                        where.append(" OR ");
+                    }
+                    where.append(
+                            "(o.customer_ref IS NULL"
+                                    + " AND (o.customer_name IS NULL OR btrim(o.customer_name) = ''))");
                 }
                 where.append(')');
             }

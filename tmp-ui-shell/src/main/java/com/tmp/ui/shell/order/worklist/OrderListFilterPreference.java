@@ -12,12 +12,12 @@ public final class OrderListFilterPreference {
 
     public static final String NAMESPACE = "ui.orders.list.v1";
     public static final String KEY = "filters";
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
+    public static final int LEGACY_VERSION = 1;
 
     private final Set<OrderOperationalStatus> statuses;
     private final boolean selectAllCustomers;
-    private final Set<String> customerRefs;
-    private final boolean includeUnassignedCustomer;
+    private final Set<CustomerFilterKey> customerKeys;
     private final OrderListPeriod.Preset periodPreset;
     private final LocalDate customFrom;
     private final LocalDate customTo;
@@ -26,20 +26,37 @@ public final class OrderListFilterPreference {
     public OrderListFilterPreference(
             Set<OrderOperationalStatus> statuses,
             boolean selectAllCustomers,
-            Set<String> customerRefs,
-            boolean includeUnassignedCustomer,
+            Set<CustomerFilterKey> customerKeys,
             OrderListPeriod.Preset periodPreset,
             LocalDate customFrom,
             LocalDate customTo,
             int pageSize) {
         this.statuses = Set.copyOf(Objects.requireNonNull(statuses, "statuses"));
         this.selectAllCustomers = selectAllCustomers;
-        this.customerRefs = Set.copyOf(Objects.requireNonNull(customerRefs, "customerRefs"));
-        this.includeUnassignedCustomer = includeUnassignedCustomer;
+        this.customerKeys = Set.copyOf(Objects.requireNonNull(customerKeys, "customerKeys"));
         this.periodPreset = Objects.requireNonNull(periodPreset, "periodPreset");
         this.customFrom = customFrom;
         this.customTo = customTo;
         this.pageSize = pageSize;
+    }
+
+    public static OrderListFilterPreference of(
+            Set<OrderOperationalStatus> statuses,
+            boolean selectAllCustomers,
+            Set<String> customerRefs,
+            boolean includeUnassignedCustomer,
+            OrderListPeriod.Preset periodPreset,
+            LocalDate customFrom,
+            LocalDate customTo,
+            int pageSize) {
+        return new OrderListFilterPreference(
+                statuses,
+                selectAllCustomers,
+                CustomerFilterKey.fromLegacyRefs(customerRefs, includeUnassignedCustomer),
+                periodPreset,
+                customFrom,
+                customTo,
+                pageSize);
     }
 
     public static OrderListFilterPreference defaults() {
@@ -54,7 +71,6 @@ public final class OrderListFilterPreference {
                 statuses,
                 true,
                 Set.of(),
-                false,
                 OrderListPeriod.Preset.LAST_30_DAYS,
                 null,
                 null,
@@ -69,12 +85,20 @@ public final class OrderListFilterPreference {
         return selectAllCustomers;
     }
 
+    public Set<CustomerFilterKey> customerKeys() {
+        return customerKeys;
+    }
+
     public Set<String> customerRefs() {
-        return customerRefs;
+        return CustomerFilterKey.parts(customerKeys).refs();
+    }
+
+    public Set<String> customerNames() {
+        return CustomerFilterKey.parts(customerKeys).names();
     }
 
     public boolean includeUnassignedCustomer() {
-        return includeUnassignedCustomer;
+        return CustomerFilterKey.parts(customerKeys).unassigned();
     }
 
     public OrderListPeriod.Preset periodPreset() {

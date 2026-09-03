@@ -24,11 +24,21 @@ class OrderItemOperationalStatusDeriverTest {
     }
 
     @Test
-    void approvedParentIsEditing() {
+    void approvedParentNonEditableItemIsReadyForTransfer() {
         assertEquals(
-                OrderItemOperationalStatus.EDITING,
+                OrderItemOperationalStatus.READY_FOR_TRANSFER,
                 OrderItemOperationalStatusDeriver.derive(
                         OrderStatus.APPROVED,
+                        OrderItemStatus.ACTIVE,
+                        ItemProductionReadResult.successNotAccepted()));
+    }
+
+    @Test
+    void draftParentActiveItemIsReadyForTransfer() {
+        assertEquals(
+                OrderItemOperationalStatus.READY_FOR_TRANSFER,
+                OrderItemOperationalStatusDeriver.derive(
+                        OrderStatus.DRAFT,
                         OrderItemStatus.ACTIVE,
                         ItemProductionReadResult.successNotAccepted()));
     }

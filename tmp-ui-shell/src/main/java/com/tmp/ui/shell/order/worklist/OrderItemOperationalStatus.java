@@ -6,6 +6,7 @@ package com.tmp.ui.shell.order.worklist;
  */
 public enum OrderItemOperationalStatus {
     EDITING("Редактируется", "tmp-status-dot-neutral"),
+    READY_FOR_TRANSFER("Готова к передаче", "tmp-status-dot-ready"),
     AWAITING_PRODUCTION("Ожидает производства", "tmp-status-dot-warning"),
     IN_PRODUCTION("В производстве", "tmp-status-dot-info"),
     COMPLETED("Выполнена", "tmp-status-dot-success"),

@@ -7,6 +7,7 @@ import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
+import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.order.api.ui.OrderItemEditorSnapshot;
 import com.tmp.production.api.ProductionQueryApi;
@@ -57,6 +58,7 @@ public final class OrderItemListViewModel {
     private final AuthorizationService authorization;
     private final OrderItemEditorQueryService editorQuery;
     private final ProductionQueryApi productionQuery;
+    private final OrderItemDocumentUiService itemDocuments;
 
     private final ObservableList<OrderItemListRow> items = FXCollections.observableArrayList();
     private final ObjectProperty<OrderItemListRow> selectedItem = new SimpleObjectProperty<>();
@@ -77,12 +79,14 @@ public final class OrderItemListViewModel {
     };
     private Runnable onCreateItem = () -> {
     };
-    private Consumer<OrderItemId> onOpenItem = id -> {
+    private Consumer<OrderItemId> onOpenSpecification = id -> {
+    };
+    private Consumer<OrderItemId> onEditItem = id -> {
     };
 
     public OrderItemListViewModel(
             OrderQueryService orderQueryService, AuthorizationService authorization) {
-        this(orderQueryService, authorization, null, null);
+        this(orderQueryService, authorization, null, null, null);
     }
 
     public OrderItemListViewModel(
@@ -90,10 +94,20 @@ public final class OrderItemListViewModel {
             AuthorizationService authorization,
             OrderItemEditorQueryService editorQuery,
             ProductionQueryApi productionQuery) {
+        this(orderQueryService, authorization, editorQuery, productionQuery, null);
+    }
+
+    public OrderItemListViewModel(
+            OrderQueryService orderQueryService,
+            AuthorizationService authorization,
+            OrderItemEditorQueryService editorQuery,
+            ProductionQueryApi productionQuery,
+            OrderItemDocumentUiService itemDocuments) {
         this.orderQueryService = Objects.requireNonNull(orderQueryService, "orderQueryService");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.editorQuery = editorQuery;
         this.productionQuery = productionQuery;
+        this.itemDocuments = itemDocuments;
         selectedItem.addListener((obs, oldValue, newValue) -> canOpenSelected.set(newValue != null));
     }
 
@@ -105,8 +119,13 @@ public final class OrderItemListViewModel {
         this.onCreateItem = Objects.requireNonNull(onCreateItem, "onCreateItem");
     }
 
-    public void setOnOpenItem(Consumer<OrderItemId> onOpenItem) {
-        this.onOpenItem = Objects.requireNonNull(onOpenItem, "onOpenItem");
+    public void setOnOpenSpecification(Consumer<OrderItemId> onOpenSpecification) {
+        this.onOpenSpecification =
+                Objects.requireNonNull(onOpenSpecification, "onOpenSpecification");
+    }
+
+    public void setOnEditItem(Consumer<OrderItemId> onEditItem) {
+        this.onEditItem = Objects.requireNonNull(onEditItem, "onEditItem");
     }
 
     public void openForOrder(OrderId orderId, OrderStatus orderStatus) {
@@ -206,7 +225,79 @@ public final class OrderItemListViewModel {
         if (selected == null) {
             return;
         }
-        onOpenItem.accept(selected.orderItemId());
+        openSpecification(selected);
+    }
+
+    public void openSpecification(OrderItemListRow row) {
+        if (row == null) {
+            return;
+        }
+        if (!hasSpecificationViewPermission()) {
+            errorMessage.set(OrderUiErrorMapper.ACCESS_DENIED);
+            return;
+        }
+        onOpenSpecification.accept(row.orderItemId());
+    }
+
+    public void editSelected() {
+        OrderItemListRow selected = selectedItem.get();
+        if (selected == null || !canEditItem(selected)) {
+            return;
+        }
+        onEditItem.accept(selected.orderItemId());
+    }
+
+    public void editItem(OrderItemListRow row) {
+        if (row == null || !canEditItem(row)) {
+            return;
+        }
+        selectedItem.set(row);
+        onEditItem.accept(row.orderItemId());
+    }
+
+    public void cancelItem(OrderItemListRow row) {
+        if (row == null || !canCancelItem(row) || itemDocuments == null) {
+            return;
+        }
+        errorMessage.set("");
+        try {
+            java.util.UUID cancelDoc =
+                    itemDocuments.beginItemCancel(
+                            "ORDER_ITEM_CANCEL " + row.orderItemId().value(), row.orderItemId());
+            itemDocuments.postDocument(cancelDoc);
+            refresh();
+        } catch (AccessDeniedException ex) {
+            errorMessage.set(OrderUiErrorMapper.text(ex, OrderUiOperation.CANCEL));
+        } catch (RuntimeException ex) {
+            errorMessage.set(OrderUiErrorMapper.text(ex, OrderUiOperation.CANCEL));
+        }
+    }
+
+    public boolean canEditItem(OrderItemListRow row) {
+        if (row == null || orderStatus == null) {
+            return false;
+        }
+        boolean hasEdit =
+                authorization.hasPermission(
+                        PermissionId.of(UiShellScreens.ORDER_ITEM_EDIT_PERMISSION));
+        return hasEdit
+                && OrderItemOperationalStatusDeriver.isItemDataEditable(orderStatus, row.item().status());
+    }
+
+    public boolean canCancelItem(OrderItemListRow row) {
+        if (row == null || orderStatus == null) {
+            return false;
+        }
+        boolean hasCancel =
+                authorization.hasPermission(
+                        PermissionId.of(UiShellScreens.ORDER_ITEM_CANCEL_PERMISSION));
+        return hasCancel
+                && OrderItemOperationalStatusDeriver.isItemCancellable(orderStatus, row.item().status());
+    }
+
+    public boolean hasSpecificationViewPermission() {
+        return authorization.hasPermission(
+                PermissionId.of(UiShellScreens.ORDER_SPECIFICATION_VIEW_PERMISSION));
     }
 
     public void backToOrder() {

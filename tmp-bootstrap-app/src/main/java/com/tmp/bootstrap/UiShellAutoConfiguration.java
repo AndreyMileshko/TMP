@@ -175,12 +175,14 @@ public class UiShellAutoConfiguration {
             OrderQueryService orderQueryService,
             AuthorizationService authorizationService,
             OrderItemEditorQueryService orderItemEditorQueryService,
-            ProductionQueryApi productionQueryApi) {
+            ProductionQueryApi productionQueryApi,
+            OrderItemDocumentUiService orderItemDocumentUiService) {
         return new OrderItemListViewModel(
                 orderQueryService,
                 authorizationService,
                 orderItemEditorQueryService,
-                productionQueryApi);
+                productionQueryApi,
+                orderItemDocumentUiService);
     }
 
     @Bean
@@ -206,13 +208,17 @@ public class UiShellAutoConfiguration {
             OrderItemSpecificationEditorQueryService orderItemSpecificationEditorQueryService,
             AuthorizationService authorizationService,
             OrderItemEditorQueryService orderItemEditorQueryService,
-            OrderQueryService orderQueryService) {
+            OrderQueryService orderQueryService,
+            CurrentOrderItemSpecificationUiService currentOrderItemSpecificationUiService,
+            ProductionQueryApi productionQueryApi) {
         return new OrderItemSpecificationEditorViewModel(
                 orderItemDocumentUiService,
                 orderItemSpecificationEditorQueryService,
                 authorizationService,
                 orderItemEditorQueryService,
-                orderQueryService);
+                orderQueryService,
+                currentOrderItemSpecificationUiService,
+                productionQueryApi);
     }
 
     @Bean
@@ -378,12 +384,19 @@ public class UiShellAutoConfiguration {
                 mainWindowViewModel.replaceCurrent(itemListEntry(orderId));
                 mainWindowViewModel.navigate(itemCreateEntry(orderId));
             }));
-            orderItemListViewModel.setOnOpenItem((OrderItemId itemId) -> Platform.runLater(() -> {
+            orderItemListViewModel.setOnOpenSpecification((OrderItemId itemId) -> Platform.runLater(() -> {
                 OrderId orderId = orderItemListViewModel.currentOrderId();
                 if (orderId != null) {
                     mainWindowViewModel.replaceCurrent(itemListEntry(orderId));
                 }
-                mainWindowViewModel.navigate(itemEditorEntry(itemId));
+                mainWindowViewModel.navigate(specificationEntry(itemId));
+            }));
+            orderItemListViewModel.setOnEditItem((OrderItemId itemId) -> Platform.runLater(() -> {
+                OrderId orderId = orderItemListViewModel.currentOrderId();
+                if (orderId != null) {
+                    mainWindowViewModel.replaceCurrent(itemListEntry(orderId));
+                }
+                mainWindowViewModel.navigate(editItemEntry(itemId));
             }));
             orderImportViewModel.setOnOpenImportedOrder(orderId -> Platform.runLater(() -> {
                 orderListViewModel.refresh();
@@ -404,7 +417,7 @@ public class UiShellAutoConfiguration {
             orderItemEditorViewModel.setOnOpenSpecification(target -> Platform.runLater(() -> {
                 OrderItemId itemId = target.orderItemId();
                 mainWindowViewModel.replaceCurrent(itemEditorEntry(itemId));
-                mainWindowViewModel.navigate(specificationEntry(itemId, target.revisionNumber()));
+                mainWindowViewModel.navigate(specificationEntry(itemId));
             }));
         }
 
@@ -474,12 +487,18 @@ public class UiShellAutoConfiguration {
                     () -> orderItemEditorViewModel.openExisting(itemId));
         }
 
-        private ShellHistoryEntry specificationEntry(
-                OrderItemId itemId, com.tmp.order.api.RevisionNumber revisionNumber) {
+        private ShellHistoryEntry editItemEntry(OrderItemId itemId) {
+            return ShellHistoryEntry.of(
+                    UiShellScreens.ORDER_ITEM_EDITOR_SCREEN_ID,
+                    UiShellScreens.ORDER_ITEM_EDIT_PERMISSION,
+                    () -> orderItemEditorViewModel.openExisting(itemId));
+        }
+
+        private ShellHistoryEntry specificationEntry(OrderItemId itemId) {
             return ShellHistoryEntry.of(
                     UiShellScreens.ORDER_ITEM_SPECIFICATION_EDITOR_SCREEN_ID,
                     UiShellScreens.ORDER_SPECIFICATION_VIEW_PERMISSION,
-                    () -> orderItemSpecificationEditorViewModel.open(itemId, revisionNumber));
+                    () -> orderItemSpecificationEditorViewModel.openCurrent(itemId));
         }
     }
 

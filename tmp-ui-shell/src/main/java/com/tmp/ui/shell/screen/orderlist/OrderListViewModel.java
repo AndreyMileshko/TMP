@@ -14,6 +14,8 @@ import com.tmp.security.api.UserUiPreferenceService;
 import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
 import com.tmp.ui.shell.order.error.OrderUiOperation;
+import com.tmp.ui.shell.order.worklist.CustomerFilterKey;
+import com.tmp.ui.shell.order.worklist.CustomerFilterOption;
 import com.tmp.ui.shell.order.worklist.OrderListFilterPreference;
 import com.tmp.ui.shell.order.worklist.OrderListFilterPreferenceCodec;
 import com.tmp.ui.shell.order.worklist.OrderListMemento;
@@ -93,8 +95,10 @@ public final class OrderListViewModel {
             FXCollections.observableSet(EnumSet.noneOf(OrderOperationalStatus.class));
     private final BooleanProperty selectAllCustomers = new SimpleBooleanProperty(true);
     private final ObservableSet<String> selectedCustomerRefs = FXCollections.observableSet();
+    private final ObservableSet<String> selectedCustomerNames = FXCollections.observableSet();
     private final BooleanProperty includeUnassignedCustomer = new SimpleBooleanProperty(false);
     private final StringProperty customerFilterLabel = new SimpleStringProperty("Заказчики: Все");
+    private List<CustomerFilterOption> lastCustomerOptions = List.of();
     private boolean restoring;
     private boolean preferencesLoaded;
     private Runnable onCreateOrder = () -> {};
@@ -242,6 +246,14 @@ public final class OrderListViewModel {
         return selectedCustomerRefs;
     }
 
+    public ObservableSet<String> selectedCustomerNames() {
+        return selectedCustomerNames;
+    }
+
+    public Set<CustomerFilterKey> selectedCustomerKeys() {
+        return currentCustomerKeys();
+    }
+
     public BooleanProperty includeUnassignedCustomerProperty() {
         return includeUnassignedCustomer;
     }
@@ -286,6 +298,7 @@ public final class OrderListViewModel {
                                     blankToNull(quickSearch.get()),
                                     Set.copyOf(selectedStatuses),
                                     Set.copyOf(selectedCustomerRefs),
+                                    Set.copyOf(selectedCustomerNames),
                                     includeUnassignedCustomer.get(),
                                     !selectAllCustomers.get(),
                                     pageIndex.get(),
@@ -340,14 +353,19 @@ public final class OrderListViewModel {
 
     public void applyCustomerSelection(
             boolean allCustomers, Set<String> customerRefs, boolean includeUnassigned) {
+        applyCustomerSelection(
+                allCustomers, CustomerFilterKey.fromLegacyRefs(customerRefs, includeUnassigned));
+    }
+
+    public void applyCustomerSelection(boolean allCustomers, Set<CustomerFilterKey> customerKeys) {
         restoring = true;
         try {
             selectAllCustomers.set(allCustomers);
-            selectedCustomerRefs.clear();
-            if (!allCustomers) {
-                selectedCustomerRefs.addAll(customerRefs);
+            if (allCustomers) {
+                replaceCustomerKeys(Set.of());
+            } else {
+                replaceCustomerKeys(customerKeys == null ? Set.of() : customerKeys);
             }
-            includeUnassignedCustomer.set(!allCustomers && includeUnassigned);
             updateCustomerFilterLabel();
         } finally {
             restoring = false;
@@ -393,6 +411,17 @@ public final class OrderListViewModel {
         }
     }
 
+    public Optional<List<CustomerFilterOption>> loadCustomerFilterOptions() {
+        Optional<List<OrderCustomerOptionDto>> loaded = loadCustomerOptions();
+        if (loaded.isEmpty()) {
+            return Optional.empty();
+        }
+        List<CustomerFilterOption> composed = CustomerFilterOption.compose(loaded.get());
+        lastCustomerOptions = composed;
+        updateCustomerFilterLabel();
+        return Optional.of(composed);
+    }
+
     public void nextPage() {
         long total = totalElements.get();
         int size = clampPageSize(pageSize.get());
@@ -416,8 +445,7 @@ public final class OrderListViewModel {
                 quickSearch.get() == null ? "" : quickSearch.get(),
                 Set.copyOf(selectedStatuses),
                 selectAllCustomers.get(),
-                Set.copyOf(selectedCustomerRefs),
-                includeUnassignedCustomer.get(),
+                currentCustomerKeys(),
                 periodPreset.get(),
                 customFrom.get(),
                 customTo.get(),
@@ -437,9 +465,7 @@ public final class OrderListViewModel {
                 selectedStatuses.addAll(OrderListFilterPreference.defaults().statuses());
             }
             selectAllCustomers.set(memento.selectAllCustomers());
-            selectedCustomerRefs.clear();
-            selectedCustomerRefs.addAll(memento.customerRefs());
-            includeUnassignedCustomer.set(memento.includeUnassignedCustomer());
+            replaceCustomerKeys(memento.customerKeys());
             periodPreset.set(memento.periodPreset());
             customFrom.set(memento.customFrom());
             customTo.set(memento.customTo());
@@ -486,8 +512,7 @@ public final class OrderListViewModel {
                 new OrderListFilterPreference(
                         statuses,
                         selectAllCustomers.get(),
-                        Set.copyOf(selectedCustomerRefs),
-                        includeUnassignedCustomer.get(),
+                        currentCustomerKeys(),
                         periodPreset.get(),
                         customFrom.get(),
                         customTo.get(),
@@ -509,9 +534,7 @@ public final class OrderListViewModel {
                 selectedStatuses.addAll(OrderListFilterPreference.defaults().statuses());
             }
             selectAllCustomers.set(preference.selectAllCustomers());
-            selectedCustomerRefs.clear();
-            selectedCustomerRefs.addAll(preference.customerRefs());
-            includeUnassignedCustomer.set(preference.includeUnassignedCustomer());
+            replaceCustomerKeys(preference.customerKeys());
             periodPreset.set(preference.periodPreset());
             customFrom.set(preference.customFrom());
             customTo.set(preference.customTo());
@@ -533,11 +556,12 @@ public final class OrderListViewModel {
      */
     private String reconcileCustomerSelectionAgainstOptions() {
         if (selectAllCustomers.get()) {
-            if (!selectedCustomerRefs.isEmpty() || includeUnassignedCustomer.get()) {
+            if (!selectedCustomerRefs.isEmpty()
+                    || !selectedCustomerNames.isEmpty()
+                    || includeUnassignedCustomer.get()) {
                 restoring = true;
                 try {
-                    selectedCustomerRefs.clear();
-                    includeUnassignedCustomer.set(false);
+                    replaceCustomerKeys(Set.of());
                 } finally {
                     restoring = false;
                 }
@@ -554,37 +578,24 @@ public final class OrderListViewModel {
             updateCustomerFilterLabel();
             return OrderUiErrorMapper.text(ex, OrderUiOperation.LOAD);
         }
-        Set<String> validRefs = new LinkedHashSet<>();
-        boolean hasUnassignedOption = false;
-        for (OrderCustomerOptionDto option : options) {
-            if (option.isUnassigned()) {
-                hasUnassignedOption = true;
-            } else if (option.customerRef() != null && !option.customerRef().isBlank()) {
-                validRefs.add(option.customerRef());
+        List<CustomerFilterOption> composed = CustomerFilterOption.compose(options);
+        lastCustomerOptions = composed;
+        Set<CustomerFilterKey> known = CustomerFilterOption.knownKeys(composed);
+        Set<CustomerFilterKey> cleaned = new LinkedHashSet<>();
+        for (CustomerFilterKey key : currentCustomerKeys()) {
+            if (known.contains(key)) {
+                cleaned.add(key);
             }
         }
-        Set<String> cleaned = new LinkedHashSet<>();
-        for (String ref : selectedCustomerRefs) {
-            if (validRefs.contains(ref)) {
-                cleaned.add(ref);
-            }
-        }
-        boolean includeUnassigned = includeUnassignedCustomer.get() && hasUnassignedOption;
-        boolean becameEmpty = cleaned.isEmpty() && !includeUnassigned;
-        boolean changed =
-                becameEmpty
-                        || !cleaned.equals(Set.copyOf(selectedCustomerRefs))
-                        || includeUnassigned != includeUnassignedCustomer.get();
+        boolean becameEmpty = cleaned.isEmpty();
+        boolean changed = becameEmpty || !cleaned.equals(currentCustomerKeys());
         restoring = true;
         try {
             if (becameEmpty) {
                 selectAllCustomers.set(true);
-                selectedCustomerRefs.clear();
-                includeUnassignedCustomer.set(false);
+                replaceCustomerKeys(Set.of());
             } else {
-                selectedCustomerRefs.clear();
-                selectedCustomerRefs.addAll(cleaned);
-                includeUnassignedCustomer.set(includeUnassigned);
+                replaceCustomerKeys(cleaned);
             }
             updateCustomerFilterLabel();
         } finally {
@@ -630,8 +641,39 @@ public final class OrderListViewModel {
             customerFilterLabel.set("Заказчики: Все");
             return;
         }
-        int count = selectedCustomerRefs.size() + (includeUnassignedCustomer.get() ? 1 : 0);
+        int count;
+        if (!lastCustomerOptions.isEmpty()) {
+            count = CustomerFilterOption.selectedDisplayCount(lastCustomerOptions, currentCustomerKeys());
+        } else {
+            count =
+                    selectedCustomerRefs.size()
+                            + selectedCustomerNames.size()
+                            + (includeUnassignedCustomer.get() ? 1 : 0);
+        }
         customerFilterLabel.set("Заказчики: выбрано " + count);
+    }
+
+    private Set<CustomerFilterKey> currentCustomerKeys() {
+        Set<CustomerFilterKey> keys = new LinkedHashSet<>();
+        for (String ref : selectedCustomerRefs) {
+            keys.add(CustomerFilterKey.ref(ref));
+        }
+        for (String name : selectedCustomerNames) {
+            keys.add(CustomerFilterKey.name(name));
+        }
+        if (includeUnassignedCustomer.get()) {
+            keys.add(CustomerFilterKey.unassigned());
+        }
+        return Set.copyOf(keys);
+    }
+
+    private void replaceCustomerKeys(Set<CustomerFilterKey> keys) {
+        CustomerFilterKey.Parts parts = CustomerFilterKey.parts(keys);
+        selectedCustomerRefs.clear();
+        selectedCustomerRefs.addAll(parts.refs());
+        selectedCustomerNames.clear();
+        selectedCustomerNames.addAll(parts.names());
+        includeUnassignedCustomer.set(parts.unassigned());
     }
 
     private Optional<UserId> currentUserId() {

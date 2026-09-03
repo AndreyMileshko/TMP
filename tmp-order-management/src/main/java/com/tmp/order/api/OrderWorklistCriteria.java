@@ -11,8 +11,9 @@ import java.util.Set;
  * ({@code createdAt >= createdFrom} and {@code createdAt < createdToExclusive}).
  *
  * <p>{@code quickSearch} matches order number <em>or</em> customer name (partial,
- * case-insensitive). Customer filter uses stable {@code customerRef} values; when
- * {@link #filterByCustomers()} is {@code false} the customer predicate is absent.
+ * case-insensitive). Customer filter uses stable {@code customerRef} values, legacy
+ * null-ref {@code customerName} values, and true unassigned (neither ref nor name).
+ * When {@link #filterByCustomers()} is {@code false} the customer predicate is absent.
  */
 public final class OrderWorklistCriteria {
 
@@ -22,6 +23,7 @@ public final class OrderWorklistCriteria {
     private final Instant createdToExclusive;
     private final String quickSearch;
     private final Set<String> customerRefs;
+    private final Set<String> customerNames;
     private final boolean includeUnassignedCustomer;
     private final boolean filterByCustomers;
 
@@ -30,12 +32,14 @@ public final class OrderWorklistCriteria {
             Instant createdToExclusive,
             String quickSearch,
             Set<String> customerRefs,
+            Set<String> customerNames,
             boolean includeUnassignedCustomer,
             boolean filterByCustomers) {
         this.createdFrom = createdFrom;
         this.createdToExclusive = createdToExclusive;
         this.quickSearch = quickSearch;
         this.customerRefs = Set.copyOf(customerRefs);
+        this.customerNames = Set.copyOf(customerNames);
         this.includeUnassignedCustomer = includeUnassignedCustomer;
         this.filterByCustomers = filterByCustomers;
     }
@@ -60,6 +64,10 @@ public final class OrderWorklistCriteria {
         return customerRefs;
     }
 
+    public Set<String> customerNames() {
+        return customerNames;
+    }
+
     public boolean includeUnassignedCustomer() {
         return includeUnassignedCustomer;
     }
@@ -74,6 +82,7 @@ public final class OrderWorklistCriteria {
         private Instant createdToExclusive;
         private String quickSearch;
         private Set<String> customerRefs = Set.of();
+        private Set<String> customerNames = Set.of();
         private boolean includeUnassignedCustomer;
         private boolean filterByCustomers;
 
@@ -99,6 +108,11 @@ public final class OrderWorklistCriteria {
             return this;
         }
 
+        public Builder customerNames(Set<String> customerNames) {
+            this.customerNames = customerNames == null ? Set.of() : new LinkedHashSet<>(customerNames);
+            return this;
+        }
+
         public Builder includeUnassignedCustomer(boolean includeUnassignedCustomer) {
             this.includeUnassignedCustomer = includeUnassignedCustomer;
             return this;
@@ -119,23 +133,28 @@ public final class OrderWorklistCriteria {
                                 + " / "
                                 + createdToExclusive);
             }
-            Set<String> refs = new LinkedHashSet<>();
-            for (String ref : customerRefs) {
-                if (ref == null) {
-                    continue;
-                }
-                String trimmed = ref.trim();
-                if (!trimmed.isEmpty()) {
-                    refs.add(trimmed);
-                }
-            }
             return new OrderWorklistCriteria(
                     createdFrom,
                     createdToExclusive,
                     normalize(quickSearch),
-                    refs,
+                    copyNonBlank(customerRefs),
+                    copyNonBlank(customerNames),
                     includeUnassignedCustomer,
                     filterByCustomers);
+        }
+
+        private static Set<String> copyNonBlank(Set<String> values) {
+            Set<String> copied = new LinkedHashSet<>();
+            for (String value : values) {
+                if (value == null) {
+                    continue;
+                }
+                String trimmed = value.trim();
+                if (!trimmed.isEmpty()) {
+                    copied.add(trimmed);
+                }
+            }
+            return copied;
         }
 
         private static String normalize(String value) {
