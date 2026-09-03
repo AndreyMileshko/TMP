@@ -90,6 +90,20 @@ public final class DefaultProductionQueryApi implements ProductionQueryApi {
     }
 
     @Override
+    public Map<UUID, ProductionQueryApi.ItemProductionStateView> getItemProductionStatesByOrderId(
+            UUID orderId) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+        Objects.requireNonNull(orderId, "orderId");
+        List<ProductionItemState> states =
+                orderViewService.listItemStates(SourceOrderId.of(orderId));
+        Map<UUID, ProductionQueryApi.ItemProductionStateView> mapped = new LinkedHashMap<>();
+        for (ProductionItemState state : states) {
+            mapped.put(state.sourceOrderItemId().value(), map(state));
+        }
+        return Map.copyOf(mapped);
+    }
+
+    @Override
     public Optional<ProductionQueryApi.MaterialAvailabilityResultView> getMaterialAvailabilityResult(UUID orderId) {
         authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
         Objects.requireNonNull(orderId, "orderId");

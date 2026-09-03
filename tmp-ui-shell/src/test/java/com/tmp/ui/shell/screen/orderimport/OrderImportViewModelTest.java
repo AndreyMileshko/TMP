@@ -19,6 +19,7 @@ import com.tmp.order.api.imports.PreparedOrderImportPlan;
 import com.tmp.order.api.imports.StxtOrderFileParser;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
+import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
 import com.tmp.ui.shell.screen.orderlist.FakeAuthorization;
 import java.math.BigDecimal;
 import java.nio.file.Path;
@@ -45,14 +46,17 @@ class OrderImportViewModelTest {
         assertEquals("sample.stxt", viewModel.fileNameProperty().get());
         assertEquals(1, stxt.parseCalls.get());
         assertEquals(1, imports.previewCalls.get());
-        assertEquals("ORD-1", viewModel.previewOrderNumberProperty().get());
+        assertEquals("Заказ: ORD-1", viewModel.previewOrdersTextProperty().get());
+        assertEquals("", viewModel.previewOrderNumbersTextProperty().get());
         assertEquals("2", viewModel.previewPositionCountProperty().get());
         assertEquals("3", viewModel.previewProductQuantityProperty().get());
         assertEquals("4", viewModel.previewSpecificationLineCountProperty().get());
         assertEquals("Ошибки: 0", viewModel.previewErrorCountTextProperty().get());
         assertEquals("Предупреждения: 0", viewModel.previewWarningCountTextProperty().get());
         assertTrue(viewModel.canImportProperty().get());
-        assertEquals(OrderImportViewModel.MSG_PREVIEW_OK, viewModel.statusMessageProperty().get());
+        assertEquals(OrderImportViewModel.MSG_PREVIEW_OK, viewModel.previewStatusTextProperty().get());
+        assertEquals("Импортировать заказ №ORD-1?", viewModel.confirmationTitle());
+        assertEquals("Импортировать заказ", viewModel.confirmationConfirmLabel());
     }
 
     @Test
@@ -88,12 +92,17 @@ class OrderImportViewModelTest {
         assertFalse(viewModel.canImportProperty().get());
         assertNull(viewModel.preparedPlanForTest());
         assertFalse(viewModel.previewSucceededWithoutErrorsForTest());
+        assertEquals(1, viewModel.problems().size());
         assertEquals(1, viewModel.errors().size());
         assertEquals("Ошибки: 1", viewModel.previewErrorCountTextProperty().get());
         assertEquals("Предупреждения: 0", viewModel.previewWarningCountTextProperty().get());
         assertEquals(
+                OrderImportViewModel.MSG_PREVIEW_ERRORS, viewModel.previewStatusTextProperty().get());
+        assertEquals(
                 "Файл не содержит обязательную колонку Артикул",
-                viewModel.errorMessageProperty().get());
+                viewModel.problems().get(0).message());
+        assertTrue(viewModel.problemsTableVisibleProperty().get());
+        assertTrue(viewModel.errorMessageProperty().get().isBlank());
     }
 
     @Test
@@ -109,6 +118,23 @@ class OrderImportViewModelTest {
         assertNotNull(viewModel.preparedPlanForTest());
         assertTrue(viewModel.previewSucceededWithoutErrorsForTest());
         assertEquals("Ошибки: 0", viewModel.previewErrorCountTextProperty().get());
+        assertEquals(OrderImportViewModel.MSG_PREVIEW_OK, viewModel.previewStatusTextProperty().get());
+    }
+
+    @Test
+    void noProblemsShowsEmptyMessageAndHidesTable() {
+        FakeImportService imports = new FakeImportService();
+        imports.preview = successPreview("ORD-OK", 1, "1", 1);
+        OrderImportViewModel viewModel =
+                new OrderImportViewModel(imports, new FakeStxtParser(), createAuth());
+
+        viewModel.selectFile(Path.of("ok.stxt"));
+
+        assertTrue(viewModel.problems().isEmpty());
+        assertEquals(
+                OrderImportViewModel.MSG_NO_PROBLEMS, viewModel.problemsEmptyTextProperty().get());
+        assertFalse(viewModel.problemsTableVisibleProperty().get());
+        assertTrue(viewModel.canImportProperty().get());
     }
 
     @Test
@@ -137,11 +163,35 @@ class OrderImportViewModelTest {
 
         assertTrue(viewModel.canImportProperty().get());
         assertEquals(1, viewModel.warnings().size());
+        assertEquals(1, viewModel.problems().size());
         assertEquals("Ошибки: 0", viewModel.previewErrorCountTextProperty().get());
         assertEquals("Предупреждения: 1", viewModel.previewWarningCountTextProperty().get());
         assertEquals(
-                OrderImportViewModel.MSG_PREVIEW_WARNINGS, viewModel.statusMessageProperty().get());
+                OrderImportViewModel.MSG_PREVIEW_WARNINGS,
+                viewModel.previewStatusTextProperty().get());
+        assertTrue(viewModel.problemsTableVisibleProperty().get());
         assertTrue(viewModel.errorMessageProperty().get().isBlank());
+    }
+
+    @Test
+    void multiOrderPreviewShowsOrderCount() {
+        FakeImportService imports = new FakeImportService();
+        imports.preview = successPreview("ORD-A, ORD-B", 2, 4, "6", 8);
+        OrderImportViewModel viewModel =
+                new OrderImportViewModel(imports, new FakeStxtParser(), createAuth());
+
+        viewModel.selectFile(Path.of("multi.stxt"));
+
+        assertEquals(2, viewModel.previewOrderCountForTest());
+        assertEquals("Заказов: 2", viewModel.previewOrdersTextProperty().get());
+        assertEquals("Номера: ORD-A, ORD-B", viewModel.previewOrderNumbersTextProperty().get());
+        assertEquals("Импортировать заказы", viewModel.importButtonTextProperty().get());
+        assertEquals("Импортировать 2 заказа?", viewModel.confirmationTitle());
+        assertEquals(
+                "После импорта заказы будут переданы в работу и станут недоступны для редактирования.",
+                viewModel.confirmationBody());
+        assertEquals("Импортировать заказы", viewModel.confirmationConfirmLabel());
+        assertTrue(viewModel.canImportProperty().get());
     }
 
     @Test
@@ -161,9 +211,58 @@ class OrderImportViewModelTest {
 
         assertEquals(1, imports.confirmCalls.get());
         assertFalse(viewModel.canImportProperty().get());
+        assertTrue(viewModel.successVisibleProperty().get());
+        assertFalse(viewModel.workingVisibleProperty().get());
+        assertEquals("Импорт завершён", viewModel.successTitleProperty().get());
         assertEquals(
-                "Заказ 26062891 успешно импортирован.\nСоздано позиций: 5.\nСтрок спецификации: 20.",
+                "Заказ №26062891 создан и передан в работу.\nПозиций создано: 5\nСтрок спецификации: 20",
                 viewModel.successMessageProperty().get());
+        assertTrue(viewModel.canOpenImportedOrderProperty().get());
+    }
+
+    @Test
+    void singleSuccessEnablesOpenImportedOrder() {
+        FakeImportService imports = new FakeImportService();
+        imports.preview = successPreview("ORD-1", 1, "1", 1);
+        OrderId created = OrderId.generate();
+        imports.confirmResult = OrderImportConfirmResult.of(created, "ORD-1", 1, 1);
+        AtomicReference<OrderId> opened = new AtomicReference<>();
+        OrderImportViewModel viewModel =
+                new OrderImportViewModel(imports, new FakeStxtParser(), createAuth());
+        viewModel.setOnOpenImportedOrder(opened::set);
+        viewModel.selectFile(Path.of("ok.stxt"));
+
+        viewModel.confirmImport();
+        viewModel.openImportedOrder();
+
+        assertTrue(viewModel.canOpenImportedOrderProperty().get());
+        assertEquals(1, viewModel.lastConfirmResultForTest().createdOrderCount());
+        assertEquals(created, opened.get());
+    }
+
+    @Test
+    void multiSuccessDoesNotEnableOpenImportedOrder() {
+        FakeImportService imports = new FakeImportService();
+        imports.preview = successPreview("ORD-A, ORD-B", 2, 2, "2", 2);
+        imports.confirmResult = OrderImportConfirmResult.of(
+                List.of(
+                        OrderImportConfirmResult.ImportedOrder.of(OrderId.generate(), "ORD-A"),
+                        OrderImportConfirmResult.ImportedOrder.of(OrderId.generate(), "ORD-B")),
+                2,
+                2);
+        AtomicReference<OrderId> opened = new AtomicReference<>();
+        OrderImportViewModel viewModel =
+                new OrderImportViewModel(imports, new FakeStxtParser(), createAuth());
+        viewModel.setOnOpenImportedOrder(opened::set);
+        viewModel.selectFile(Path.of("multi.stxt"));
+
+        viewModel.confirmImport();
+        viewModel.openImportedOrder();
+
+        assertTrue(viewModel.successVisibleProperty().get());
+        assertFalse(viewModel.canOpenImportedOrderProperty().get());
+        assertNull(opened.get());
+        assertTrue(viewModel.successMessageProperty().get().contains("Импортировано заказов: 2"));
     }
 
     @Test
@@ -180,6 +279,7 @@ class OrderImportViewModelTest {
         assertEquals(
                 OrderImportConflictException.USER_MESSAGE, viewModel.errorMessageProperty().get());
         assertFalse(viewModel.canImportProperty().get());
+        assertFalse(viewModel.successVisibleProperty().get());
     }
 
     @Test
@@ -225,9 +325,56 @@ class OrderImportViewModelTest {
         assertTrue(cancelled.get());
         assertEquals("", viewModel.fileNameProperty().get());
         assertNull(viewModel.selectedFileForTest());
+        assertFalse(viewModel.fileSelectedProperty().get());
         assertFalse(viewModel.canImportProperty().get());
         assertEquals("Ошибки: 0", viewModel.previewErrorCountTextProperty().get());
-        assertEquals(OrderImportViewModel.MSG_CANCELLED, viewModel.statusMessageProperty().get());
+        assertEquals("", viewModel.statusMessageProperty().get());
+        assertFalse(viewModel.successVisibleProperty().get());
+    }
+
+    @Test
+    void importAnotherResetsToFileSelection() {
+        FakeImportService imports = new FakeImportService();
+        imports.preview = successPreview("ORD-1", 1, "1", 1);
+        imports.confirmResult = OrderImportConfirmResult.of(OrderId.generate(), "ORD-1", 1, 1);
+        OrderImportViewModel viewModel =
+                new OrderImportViewModel(imports, new FakeStxtParser(), createAuth());
+        viewModel.selectFile(Path.of("ok.stxt"));
+        viewModel.confirmImport();
+        assertTrue(viewModel.successVisibleProperty().get());
+
+        viewModel.importAnother();
+
+        assertFalse(viewModel.successVisibleProperty().get());
+        assertTrue(viewModel.workingVisibleProperty().get());
+        assertEquals("", viewModel.fileNameProperty().get());
+        assertFalse(viewModel.fileSelectedProperty().get());
+        assertNull(viewModel.selectedFileForTest());
+        assertFalse(viewModel.canImportProperty().get());
+        assertFalse(viewModel.canOpenImportedOrderProperty().get());
+        assertEquals("", viewModel.successMessageProperty().get());
+        assertEquals("", viewModel.previewOrdersTextProperty().get());
+        assertTrue(viewModel.canSelectFileProperty().get());
+    }
+
+    @Test
+    void missingCreatePermissionDisablesActions() {
+        FakeStxtParser stxt = new FakeStxtParser();
+        FakeImportService imports = new FakeImportService();
+        imports.preview = successPreview("ORD-1", 1, "1", 1);
+        OrderImportViewModel viewModel =
+                new OrderImportViewModel(imports, stxt, new FakeAuthorization());
+
+        assertFalse(viewModel.canSelectFileProperty().get());
+        assertFalse(viewModel.canImportProperty().get());
+        assertEquals(OrderUiErrorMapper.ACCESS_DENIED, viewModel.errorMessageProperty().get());
+
+        viewModel.selectFile(Path.of("denied.stxt"));
+
+        assertEquals(0, stxt.parseCalls.get());
+        assertEquals(0, imports.previewCalls.get());
+        assertFalse(viewModel.fileSelectedProperty().get());
+        assertFalse(viewModel.canImportProperty().get());
     }
 
     @Test
@@ -246,9 +393,15 @@ class OrderImportViewModelTest {
 
     private static OrderImportPreview successPreview(
             String orderNumber, int positions, String quantity, int lines) {
+        return successPreview(orderNumber, 1, positions, quantity, lines);
+    }
+
+    private static OrderImportPreview successPreview(
+            String orderNumber, int orderCount, int positions, String quantity, int lines) {
         return OrderImportPreview.of(
                 "file.stxt",
                 orderNumber,
+                orderCount,
                 positions,
                 new BigDecimal(quantity),
                 lines,

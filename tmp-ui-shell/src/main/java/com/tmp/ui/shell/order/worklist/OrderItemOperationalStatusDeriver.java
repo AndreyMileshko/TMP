@@ -5,14 +5,14 @@ import com.tmp.order.api.OrderStatus;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateStatus;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Pure derivation of user-facing item operational status from parent Order commercial state,
- * commercial item status, and optional Production item facts. Does not query repositories.
+ * commercial item status, and a discriminated Production read result. Does not query repositories.
  *
- * <p>Missing Production facts ({@link Optional#empty()}) after transfer mean the production-derived
- * status is unavailable — never treated as zero manufactured.
+ * <p>Successful empty Production state (not yet accepted) is {@link
+ * OrderItemOperationalStatus#AWAITING_PRODUCTION}. Access denied / technical failure is {@link
+ * OrderItemOperationalStatus#STATUS_UNAVAILABLE} — never invent zeros as awaiting.
  */
 public final class OrderItemOperationalStatusDeriver {
 
@@ -21,10 +21,10 @@ public final class OrderItemOperationalStatusDeriver {
     public static OrderItemOperationalStatus derive(
             OrderStatus parentOrderStatus,
             OrderItemStatus itemStatus,
-            Optional<ItemProductionStateView> productionFacts) {
+            ItemProductionReadResult productionRead) {
         Objects.requireNonNull(parentOrderStatus, "parentOrderStatus");
         Objects.requireNonNull(itemStatus, "itemStatus");
-        Objects.requireNonNull(productionFacts, "productionFacts");
+        Objects.requireNonNull(productionRead, "productionRead");
 
         if (itemStatus == OrderItemStatus.CANCELLED) {
             return OrderItemOperationalStatus.CANCELLED;
@@ -36,9 +36,13 @@ public final class OrderItemOperationalStatusDeriver {
             return OrderItemOperationalStatus.CANCELLED;
         }
         // Parent ACTIVE (transferred to work)
-        return productionFacts
-                .map(OrderItemOperationalStatusDeriver::deriveFromProduction)
-                .orElse(OrderItemOperationalStatus.STATUS_UNAVAILABLE);
+        return switch (productionRead) {
+            case ItemProductionReadResult.SuccessWithState(var state) -> deriveFromProduction(state);
+            case ItemProductionReadResult.SuccessNotAccepted() ->
+                    OrderItemOperationalStatus.AWAITING_PRODUCTION;
+            case ItemProductionReadResult.Unavailable() ->
+                    OrderItemOperationalStatus.STATUS_UNAVAILABLE;
+        };
     }
 
     private static OrderItemOperationalStatus deriveFromProduction(ItemProductionStateView state) {

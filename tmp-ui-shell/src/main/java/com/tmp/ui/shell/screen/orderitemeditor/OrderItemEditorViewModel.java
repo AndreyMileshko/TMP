@@ -13,7 +13,6 @@ import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.order.api.ui.OrderItemEditorSnapshot;
 import com.tmp.production.api.ProductionQueryApi;
-import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
@@ -21,11 +20,11 @@ import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.order.ProductQuantityUiValidation;
 import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
 import com.tmp.ui.shell.order.error.OrderUiOperation;
+import com.tmp.ui.shell.order.worklist.ItemProductionReadResult;
+import com.tmp.ui.shell.order.worklist.ItemProductionStateReader;
 import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatus;
 import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatusDeriver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.lang.System.Logger;
-import java.lang.System.Logger.Level;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,8 +45,6 @@ import javafx.beans.property.StringProperty;
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
         justification = "JavaFX ViewModel intentionally exposes observable properties")
 public final class OrderItemEditorViewModel {
-
-    private static final Logger LOGGER = System.getLogger(OrderItemEditorViewModel.class.getName());
 
     public enum Mode {
         CREATE,
@@ -368,26 +365,13 @@ public final class OrderItemEditorViewModel {
 
     private OrderItemOperationalStatus deriveOperationalStatus(OrderItemStatus status) {
         OrderStatus parent = parentOrderStatus == null ? OrderStatus.DRAFT : parentOrderStatus;
-        Optional<ItemProductionStateView> facts = Optional.empty();
+        ItemProductionReadResult productionRead = ItemProductionReadResult.successNotAccepted();
         if (parent == OrderStatus.ACTIVE && orderItemId != null) {
-            facts = loadProductionFacts(orderItemId);
+            productionRead = ItemProductionStateReader.readOne(productionQuery, orderItemId.value());
+        } else if (parent == OrderStatus.ACTIVE) {
+            productionRead = ItemProductionReadResult.unavailable();
         }
-        return OrderItemOperationalStatusDeriver.derive(parent, status, facts);
-    }
-
-    private Optional<ItemProductionStateView> loadProductionFacts(OrderItemId id) {
-        if (productionQuery == null) {
-            return Optional.empty();
-        }
-        try {
-            return productionQuery.getItemProductionState(id.value());
-        } catch (AccessDeniedException ex) {
-            LOGGER.log(Level.WARNING, "Production facts unavailable (access denied)", ex);
-            return Optional.empty();
-        } catch (RuntimeException ex) {
-            LOGGER.log(Level.WARNING, "Production facts unavailable", ex);
-            return Optional.empty();
-        }
+        return OrderItemOperationalStatusDeriver.derive(parent, status, productionRead);
     }
 
     private void refreshActionFlags() {

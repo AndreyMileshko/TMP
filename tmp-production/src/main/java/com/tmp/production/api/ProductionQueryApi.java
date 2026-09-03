@@ -47,6 +47,18 @@ public interface ProductionQueryApi {
 
     Optional<ItemProductionStateView> getItemProductionState(UUID orderItemId);
 
+    /**
+     * Batch read of item-owned Production states for one order.
+     *
+     * <p>Keys are {@code sourceOrderItemId}. A missing key means the item has not been accepted into
+     * Production (successful empty). The default implementation returns an empty map so test
+     * doubles compile; the production adapter MUST override with a single repository read.
+     */
+    default Map<UUID, ItemProductionStateView> getItemProductionStatesByOrderId(UUID orderId) {
+        Objects.requireNonNull(orderId, "orderId");
+        return Map.of();
+    }
+
     Optional<MaterialAvailabilityResultView> getMaterialAvailabilityResult(UUID orderId);
 
     List<ProductionHistoryEntryView> listProductionHistory(UUID orderId);

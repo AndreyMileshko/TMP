@@ -10,7 +10,6 @@ import com.tmp.order.api.PageResult;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.order.api.ui.OrderItemEditorSnapshot;
 import com.tmp.production.api.ProductionQueryApi;
-import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
@@ -18,6 +17,8 @@ import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.order.ProductQuantityUiValidation;
 import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
 import com.tmp.ui.shell.order.error.OrderUiOperation;
+import com.tmp.ui.shell.order.worklist.ItemProductionReadResult;
+import com.tmp.ui.shell.order.worklist.ItemProductionStateReader;
 import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatus;
 import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatusDeriver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -29,8 +30,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.LongProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
@@ -38,8 +43,8 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
 /**
- * Order item list ViewModel. Loads items through {@link OrderQueryService#getOrderItems} and
- * derives operational status / quantity for presentation.
+ * Order item list ViewModel. Loads items through {@link OrderQueryService#getOrderItems} with
+ * normal pagination and derives operational status / quantity for presentation.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
@@ -59,9 +64,15 @@ public final class OrderItemListViewModel {
     private final StringProperty errorMessage = new SimpleStringProperty("");
     private final BooleanProperty canCreate = new SimpleBooleanProperty(false);
     private final BooleanProperty canOpenSelected = new SimpleBooleanProperty(false);
+    private final IntegerProperty pageIndex = new SimpleIntegerProperty(0);
+    private final IntegerProperty pageSize = new SimpleIntegerProperty(PageRequest.DEFAULT_PAGE_SIZE);
+    private final LongProperty totalElements = new SimpleLongProperty(0);
+    private final BooleanProperty canGoPrevious = new SimpleBooleanProperty(false);
+    private final BooleanProperty canGoNext = new SimpleBooleanProperty(false);
 
     private OrderId orderId;
     private OrderStatus orderStatus;
+    private OrderItemId pendingSelection;
     private Runnable onBackToOrder = () -> {
     };
     private Runnable onCreateItem = () -> {
@@ -102,31 +113,84 @@ public final class OrderItemListViewModel {
         this.orderId = Objects.requireNonNull(orderId, "orderId");
         this.orderStatus = Objects.requireNonNull(orderStatus, "orderStatus");
         title.set("Позиции заказа");
+        pageIndex.set(0);
+        pendingSelection = null;
         refresh();
+    }
+
+    public void restoreMemento(OrderItemListMemento memento, OrderStatus orderStatus) {
+        Objects.requireNonNull(memento, "memento");
+        this.orderId = memento.orderId();
+        this.orderStatus = Objects.requireNonNull(orderStatus, "orderStatus");
+        title.set("Позиции заказа");
+        pageIndex.set(Math.max(0, memento.pageIndex()));
+        pendingSelection = memento.selectedItemId();
+        refresh();
+    }
+
+    public OrderItemListMemento captureMemento() {
+        if (orderId == null) {
+            return null;
+        }
+        OrderItemId selected =
+                selectedItem.get() == null ? null : selectedItem.get().orderItemId();
+        return new OrderItemListMemento(orderId, pageIndex.get(), selected);
     }
 
     public void refresh() {
         errorMessage.set("");
         if (orderId == null) {
             items.clear();
+            totalElements.set(0);
+            updatePaginationFlags();
             refreshActionFlags();
             return;
         }
         try {
-            PageResult<OrderItemDto> page =
-                    orderQueryService.getOrderItems(orderId, PageRequest.firstPage());
+            PageRequest request = PageRequest.of(pageIndex.get(), pageSize.get());
+            PageResult<OrderItemDto> page = orderQueryService.getOrderItems(orderId, request);
+            totalElements.set(page.totalElements());
+            pageIndex.set(page.pageIndex());
+            ItemProductionStateReader.BatchLoad productionBatch = loadProductionBatch();
             List<OrderItemListRow> rows = new ArrayList<>(page.content().size());
             for (OrderItemDto item : page.content()) {
-                rows.add(toRow(item));
+                rows.add(toRow(item, productionBatch));
             }
             items.setAll(rows);
+            restorePendingSelection();
+            updatePaginationFlags();
             refreshActionFlags();
         } catch (AccessDeniedException ex) {
             errorMessage.set(OrderUiErrorMapper.text(ex, OrderUiOperation.LOAD));
+            items.clear();
+            totalElements.set(0);
+            updatePaginationFlags();
             refreshActionFlags();
         } catch (RuntimeException ex) {
             errorMessage.set(OrderUiErrorMapper.text(ex, OrderUiOperation.LOAD));
+            items.clear();
+            totalElements.set(0);
+            updatePaginationFlags();
             refreshActionFlags();
+        }
+    }
+
+    public void nextPage() {
+        long total = totalElements.get();
+        int size = Math.max(1, pageSize.get());
+        int maxPage = total <= 0 ? 0 : (int) ((total - 1) / size);
+        if (pageIndex.get() < maxPage) {
+            pageIndex.set(pageIndex.get() + 1);
+            pendingSelection = null;
+            refresh();
+        }
+    }
+
+    public void previousPage() {
+        if (pageIndex.get() > 0) {
+            pageIndex.set(pageIndex.get() - 1);
+            pendingSelection = null;
+            refresh();
         }
     }
 
@@ -173,6 +237,26 @@ public final class OrderItemListViewModel {
         return canOpenSelected;
     }
 
+    public IntegerProperty pageIndexProperty() {
+        return pageIndex;
+    }
+
+    public IntegerProperty pageSizeProperty() {
+        return pageSize;
+    }
+
+    public LongProperty totalElementsProperty() {
+        return totalElements;
+    }
+
+    public BooleanProperty canGoPreviousProperty() {
+        return canGoPrevious;
+    }
+
+    public BooleanProperty canGoNextProperty() {
+        return canGoNext;
+    }
+
     public OrderId currentOrderId() {
         return orderId;
     }
@@ -181,9 +265,10 @@ public final class OrderItemListViewModel {
         return orderId;
     }
 
-    private OrderItemListRow toRow(OrderItemDto item) {
+    private OrderItemListRow toRow(
+            OrderItemDto item, ItemProductionStateReader.BatchLoad productionBatch) {
         String quantity = resolveQuantityDisplay(item.orderItemId());
-        OrderItemOperationalStatus status = resolveOperationalStatus(item);
+        OrderItemOperationalStatus status = resolveOperationalStatus(item, productionBatch);
         return new OrderItemListRow(item, quantity, status);
     }
 
@@ -203,34 +288,45 @@ public final class OrderItemListViewModel {
         }
     }
 
-    private OrderItemOperationalStatus resolveOperationalStatus(OrderItemDto item) {
+    private OrderItemOperationalStatus resolveOperationalStatus(
+            OrderItemDto item, ItemProductionStateReader.BatchLoad productionBatch) {
         OrderStatus parent = orderStatus == null ? OrderStatus.DRAFT : orderStatus;
-        Optional<ItemProductionStateView> productionFacts = Optional.empty();
+        ItemProductionReadResult productionRead = ItemProductionReadResult.successNotAccepted();
         if (parent == OrderStatus.ACTIVE) {
-            productionFacts = loadProductionFacts(item.orderItemId());
+            productionRead =
+                    ItemProductionStateReader.fromBatch(productionBatch, item.orderItemId().value());
         }
-        return OrderItemOperationalStatusDeriver.derive(parent, item.status(), productionFacts);
+        return OrderItemOperationalStatusDeriver.derive(parent, item.status(), productionRead);
     }
 
-    private Optional<ItemProductionStateView> loadProductionFacts(OrderItemId orderItemId) {
-        if (productionQuery == null) {
-            return Optional.empty();
+    private ItemProductionStateReader.BatchLoad loadProductionBatch() {
+        if (orderStatus != OrderStatus.ACTIVE || orderId == null) {
+            return ItemProductionStateReader.BatchLoad.ok(java.util.Map.of());
         }
-        try {
-            return productionQuery.getItemProductionState(orderItemId.value());
-        } catch (AccessDeniedException ex) {
-            LOGGER.log(
-                    Level.WARNING,
-                    "Production facts unavailable (access denied) for item " + orderItemId.value(),
-                    ex);
-            return Optional.empty();
-        } catch (RuntimeException ex) {
-            LOGGER.log(
-                    Level.WARNING,
-                    "Production facts unavailable for item " + orderItemId.value(),
-                    ex);
-            return Optional.empty();
+        return ItemProductionStateReader.loadBatch(productionQuery, orderId.value());
+    }
+
+    private void restorePendingSelection() {
+        if (pendingSelection == null) {
+            return;
         }
+        OrderItemId wanted = pendingSelection;
+        pendingSelection = null;
+        for (OrderItemListRow row : items) {
+            if (row.orderItemId().equals(wanted)) {
+                selectedItem.set(row);
+                return;
+            }
+        }
+    }
+
+    private void updatePaginationFlags() {
+        long total = totalElements.get();
+        int size = Math.max(1, pageSize.get());
+        int page = pageIndex.get();
+        int maxPage = total <= 0 ? 0 : (int) ((total - 1) / size);
+        canGoPrevious.set(page > 0);
+        canGoNext.set(page < maxPage);
     }
 
     private void refreshActionFlags() {

@@ -8,7 +8,6 @@ import com.tmp.production.api.ProductionQueryApi.ItemProductionStateStatus;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +18,9 @@ class OrderItemOperationalStatusDeriverTest {
         assertEquals(
                 OrderItemOperationalStatus.EDITING,
                 OrderItemOperationalStatusDeriver.derive(
-                        OrderStatus.DRAFT, OrderItemStatus.DRAFT, Optional.empty()));
+                        OrderStatus.DRAFT,
+                        OrderItemStatus.DRAFT,
+                        ItemProductionReadResult.successNotAccepted()));
     }
 
     @Test
@@ -27,7 +28,9 @@ class OrderItemOperationalStatusDeriverTest {
         assertEquals(
                 OrderItemOperationalStatus.EDITING,
                 OrderItemOperationalStatusDeriver.derive(
-                        OrderStatus.APPROVED, OrderItemStatus.ACTIVE, Optional.empty()));
+                        OrderStatus.APPROVED,
+                        OrderItemStatus.ACTIVE,
+                        ItemProductionReadResult.successNotAccepted()));
     }
 
     @Test
@@ -35,15 +38,29 @@ class OrderItemOperationalStatusDeriverTest {
         assertEquals(
                 OrderItemOperationalStatus.CANCELLED,
                 OrderItemOperationalStatusDeriver.derive(
-                        OrderStatus.DRAFT, OrderItemStatus.CANCELLED, Optional.empty()));
+                        OrderStatus.DRAFT,
+                        OrderItemStatus.CANCELLED,
+                        ItemProductionReadResult.successNotAccepted()));
     }
 
     @Test
-    void activeParentWithoutFactsIsUnavailable() {
+    void activeParentSuccessfulEmptyIsAwaitingProduction() {
+        assertEquals(
+                OrderItemOperationalStatus.AWAITING_PRODUCTION,
+                OrderItemOperationalStatusDeriver.derive(
+                        OrderStatus.ACTIVE,
+                        OrderItemStatus.ACTIVE,
+                        ItemProductionReadResult.successNotAccepted()));
+    }
+
+    @Test
+    void activeParentUnavailableIsStatusUnavailable() {
         assertEquals(
                 OrderItemOperationalStatus.STATUS_UNAVAILABLE,
                 OrderItemOperationalStatusDeriver.derive(
-                        OrderStatus.ACTIVE, OrderItemStatus.ACTIVE, Optional.empty()));
+                        OrderStatus.ACTIVE,
+                        OrderItemStatus.ACTIVE,
+                        ItemProductionReadResult.unavailable()));
     }
 
     @Test
@@ -53,7 +70,8 @@ class OrderItemOperationalStatusDeriverTest {
                 OrderItemOperationalStatusDeriver.derive(
                         OrderStatus.ACTIVE,
                         OrderItemStatus.ACTIVE,
-                        Optional.of(facts(10, 0, ItemProductionStateStatus.IN_PRODUCTION))));
+                        ItemProductionReadResult.successWithState(
+                                facts(10, 0, ItemProductionStateStatus.IN_PRODUCTION))));
     }
 
     @Test
@@ -63,7 +81,8 @@ class OrderItemOperationalStatusDeriverTest {
                 OrderItemOperationalStatusDeriver.derive(
                         OrderStatus.ACTIVE,
                         OrderItemStatus.ACTIVE,
-                        Optional.of(facts(10, 4, ItemProductionStateStatus.PARTIALLY_RELEASED))));
+                        ItemProductionReadResult.successWithState(
+                                facts(10, 4, ItemProductionStateStatus.PARTIALLY_RELEASED))));
     }
 
     @Test
@@ -73,7 +92,8 @@ class OrderItemOperationalStatusDeriverTest {
                 OrderItemOperationalStatusDeriver.derive(
                         OrderStatus.ACTIVE,
                         OrderItemStatus.ACTIVE,
-                        Optional.of(facts(10, 10, ItemProductionStateStatus.RELEASED))));
+                        ItemProductionReadResult.successWithState(
+                                facts(10, 10, ItemProductionStateStatus.RELEASED))));
     }
 
     @Test
@@ -83,7 +103,8 @@ class OrderItemOperationalStatusDeriverTest {
                 OrderItemOperationalStatusDeriver.derive(
                         OrderStatus.ACTIVE,
                         OrderItemStatus.ACTIVE,
-                        Optional.of(facts(10, 3, ItemProductionStateStatus.CANCELLED))));
+                        ItemProductionReadResult.successWithState(
+                                facts(10, 3, ItemProductionStateStatus.CANCELLED))));
     }
 
     @Test
@@ -93,7 +114,8 @@ class OrderItemOperationalStatusDeriverTest {
                 OrderItemOperationalStatusDeriver.derive(
                         OrderStatus.ACTIVE,
                         OrderItemStatus.ACTIVE,
-                        Optional.of(facts(10, 0, ItemProductionStateStatus.CANCELLED))));
+                        ItemProductionReadResult.successWithState(
+                                facts(10, 0, ItemProductionStateStatus.CANCELLED))));
     }
 
     private static ItemProductionStateView facts(
@@ -107,7 +129,7 @@ class OrderItemOperationalStatusDeriverTest {
                 ordered,
                 Math.max(0L, ordered - released),
                 released,
-                Optional.empty(),
+                java.util.Optional.empty(),
                 Instant.parse("2026-01-01T00:00:00Z"),
                 List.of());
     }

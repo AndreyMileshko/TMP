@@ -3,8 +3,28 @@
 ## Latest result
 
 **Date:** 2026-09-03
-**Scope:** UI Modernization Stage 3.4.3 — Final Orders UX Corrective (Parts A–T)
+**Scope:** UI Modernization Stage 3.4.4 — Final Functional Corrective + Order Import UX
 **Overall:** PASS (targeted tests + quick build + package + launch on `tmp-stage5-pg`); interactive packaged GUI FINAL MANUAL UI ACCEPTANCE PENDING
+
+### Stage 3.4.4 Final Functional Corrective + Order Import UX (2026-09-03)
+
+| Check | Result |
+|-------|--------|
+| UI: `OrderEditorCreateNavigationTest` | PASS (4) |
+| UI: `ItemProductionStateReaderTest` + `OrderItemOperationalStatusDeriverTest` | PASS (7+10) |
+| UI: `OrderItemListViewModelTest` (pagination 50/50/20, memento, N+1 batch, awaiting vs unavailable) | PASS (10) |
+| UI: `OrderItemListControllerFxTest` | PASS (2) |
+| UI: `OrderImportViewModelTest` + `OrderImportControllerFxTest` + `OrderImportProblemRowTest` | PASS (16+17+2) |
+| UI: `OrderEditorViewModelTest` / item editor / spec / `DecimalUiFormatTest` | PASS (10 / 7+3 / 7+3 / 4) |
+| Production: `ProductionQueryApiAuthorizationTest` (incl. batch by order) | PASS (12) |
+| Working DB Docker | `tmp-stage5-pg` Up; host `localhost`; port `55432`; database `tmp_gui_stage5`; Flyway `34`; `tmp-stage34-smoke-pg` NOT USED |
+| Quick install `mvn -pl :tmp-bootstrap-app -am install -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-03 13:51:04) |
+| Launch (env ≡ `scripts/run-tmp-package.ps1`) against `jdbc:postgresql://localhost:55432/tmp_gui_stage5` | PASS — Flyway V34 up-to-date; `Started DesktopBootstrap`; JavaFX-Launcher started; startup exceptions NONE (non-blocking JavaFX unnamed-module WARN) |
+| Interactive visual: New Order / pagination / spec widths / Import | NOT AUTOMATED — requires user visual confirmation (TEST VERIFIED for code paths) |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 Warehouse | NOT STARTED |
+| Auto-commit | NOT DONE |
 
 ### Stage 3.4.3 Final Orders UX Corrective verification (2026-09-03)
 

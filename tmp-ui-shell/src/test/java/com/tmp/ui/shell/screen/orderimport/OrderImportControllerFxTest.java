@@ -3,6 +3,7 @@ package com.tmp.ui.shell.screen.orderimport;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.api.OrderId;
@@ -36,7 +37,6 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
-import javafx.scene.control.TextField;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -51,15 +51,53 @@ class OrderImportControllerFxTest {
     @Test
     void opensImportScreen() throws Exception {
         Loaded loaded = loadScreen(newFakeViewModel(successService(), new FakeStxtParser()));
+        assertNotNull(loaded.root.lookup("#titleLabel"));
+        assertNotNull(loaded.root.lookup("#subtitleLabel"));
         assertNotNull(loaded.root.lookup("#selectFileButton"));
-        assertNotNull(loaded.root.lookup("#fileNameField"));
-        assertNotNull(loaded.root.lookup("#importButton"));
-        assertNotNull(loaded.root.lookup("#validateButton"));
-        assertNotNull(loaded.root.lookup("#cancelButton"));
+        assertNotNull(loaded.root.lookup("#formatHintLabel"));
+        assertNotNull(loaded.root.lookup("#emptyFilePane"));
+        assertNotNull(loaded.root.lookup("#selectedFilePane"));
+        assertNotNull(loaded.root.lookup("#selectedFileNameLabel"));
+        assertNotNull(loaded.root.lookup("#selectOtherFileButton"));
+        assertNotNull(loaded.root.lookup("#loadingLabel"));
+        assertNotNull(loaded.root.lookup("#previewPane"));
+        assertNotNull(loaded.root.lookup("#previewStatusLabel"));
+        assertNotNull(loaded.root.lookup("#previewOrdersLabel"));
+        assertNotNull(loaded.root.lookup("#previewOrderNumbersLabel"));
+        assertNotNull(loaded.root.lookup("#previewPositionCountLabel"));
+        assertNotNull(loaded.root.lookup("#previewProductQuantityLabel"));
+        assertNotNull(loaded.root.lookup("#previewSpecificationLineCountLabel"));
         assertNotNull(loaded.root.lookup("#previewErrorCountLabel"));
         assertNotNull(loaded.root.lookup("#previewWarningCountLabel"));
+        assertNotNull(loaded.root.lookup("#problemsEmptyLabel"));
+        assertNotNull(loaded.root.lookup("#problemsPane"));
+        assertNotNull(loaded.root.lookup("#problemsTable"));
+        @SuppressWarnings("unchecked")
+        TableView<OrderImportProblemRow> problemsTable =
+                (TableView<OrderImportProblemRow>) loaded.root.lookup("#problemsTable");
+        assertEquals(3, problemsTable.getColumns().size());
+        assertEquals("Тип", problemsTable.getColumns().get(0).getText());
+        assertEquals("Где", problemsTable.getColumns().get(1).getText());
+        assertEquals("Сообщение", problemsTable.getColumns().get(2).getText());
+        assertNotNull(loaded.root.lookup("#importButton"));
+        assertNotNull(loaded.root.lookup("#statusLabel"));
+        assertNotNull(loaded.root.lookup("#errorLabel"));
+        assertNotNull(loaded.root.lookup("#successPane"));
+        assertNotNull(loaded.root.lookup("#successTitleLabel"));
+        assertNotNull(loaded.root.lookup("#successMessageLabel"));
+        assertNotNull(loaded.root.lookup("#openImportedOrderButton"));
+        assertNotNull(loaded.root.lookup("#goToOrderListButton"));
+        assertNotNull(loaded.root.lookup("#importAnotherButton"));
+        assertNull(loaded.root.lookup("#fileNameField"));
+        assertNull(loaded.root.lookup("#validateButton"));
+        assertNull(loaded.root.lookup("#cancelButton"));
+        assertNull(loaded.root.lookup("#errorsTable"));
+        assertNull(loaded.root.lookup("#warningsTable"));
         assertEquals("Импорт заказа", ((Label) loaded.root.lookup("#titleLabel")).getText());
         assertEquals("Ошибки: 0", ((Label) loaded.root.lookup("#previewErrorCountLabel")).getText());
+        assertTrue(loaded.root.lookup("#emptyFilePane").isVisible());
+        assertFalse(loaded.root.lookup("#selectedFilePane").isVisible());
+        assertFalse(loaded.root.lookup("#successPane").isVisible());
     }
 
     @Test
@@ -77,14 +115,22 @@ class OrderImportControllerFxTest {
 
         assertEquals(1, stxt.parseCalls.get());
         assertEquals(1, imports.previewCalls.get());
-        assertEquals("preview.stxt", ((TextField) loaded.root.lookup("#fileNameField")).getText());
-        assertEquals("ORD-FX", ((Label) loaded.root.lookup("#previewOrderNumberLabel")).getText());
-        assertEquals("2", ((Label) loaded.root.lookup("#previewPositionCountLabel")).getText());
-        assertEquals("4", ((Label) loaded.root.lookup("#previewSpecificationLineCountLabel")).getText());
+        assertEquals("preview.stxt", ((Label) loaded.root.lookup("#selectedFileNameLabel")).getText());
+        assertTrue(loaded.root.lookup("#selectedFilePane").isVisible());
+        assertFalse(loaded.root.lookup("#emptyFilePane").isVisible());
+        assertEquals("Заказ: ORD-FX", ((Label) loaded.root.lookup("#previewOrdersLabel")).getText());
+        assertEquals("Позиций: 2", ((Label) loaded.root.lookup("#previewPositionCountLabel")).getText());
+        assertEquals("Изделий: 3", ((Label) loaded.root.lookup("#previewProductQuantityLabel")).getText());
+        assertEquals(
+                "Строк спецификации: 4",
+                ((Label) loaded.root.lookup("#previewSpecificationLineCountLabel")).getText());
         assertEquals("Ошибки: 0", ((Label) loaded.root.lookup("#previewErrorCountLabel")).getText());
         assertEquals(
                 "Предупреждения: 0",
                 ((Label) loaded.root.lookup("#previewWarningCountLabel")).getText());
+        assertEquals(
+                OrderImportViewModel.MSG_PREVIEW_OK,
+                ((Label) loaded.root.lookup("#previewStatusLabel")).getText());
     }
 
     @Test
@@ -101,8 +147,9 @@ class OrderImportControllerFxTest {
 
         assertEquals(0, stxt.parseCalls.get());
         assertEquals(0, imports.previewCalls.get());
-        assertEquals("", ((TextField) loaded.root.lookup("#fileNameField")).getText());
-        assertEquals("", ((Label) loaded.root.lookup("#previewOrderNumberLabel")).getText());
+        assertEquals("", ((Label) loaded.root.lookup("#selectedFileNameLabel")).getText());
+        assertTrue(loaded.root.lookup("#emptyFilePane").isVisible());
+        assertEquals("", ((Label) loaded.root.lookup("#previewOrdersLabel")).getText());
         assertTrue(((Label) loaded.root.lookup("#errorLabel")).getText().isBlank()
                 || !((Label) loaded.root.lookup("#errorLabel")).isVisible());
         assertEquals("Ошибки: 0", ((Label) loaded.root.lookup("#previewErrorCountLabel")).getText());
@@ -129,14 +176,18 @@ class OrderImportControllerFxTest {
         runFx(() -> viewModel.selectFile(Path.of("bad.stxt")));
 
         @SuppressWarnings("unchecked")
-        TableView<OrderImportProblem> errors =
-                (TableView<OrderImportProblem>) loaded.root.lookup("#errorsTable");
+        TableView<OrderImportProblemRow> problems =
+                (TableView<OrderImportProblemRow>) loaded.root.lookup("#problemsTable");
         Button importButton = (Button) loaded.root.lookup("#importButton");
-        assertEquals(1, errors.getItems().size());
+        assertEquals(1, problems.getItems().size());
         assertEquals(
                 "Файл не содержит обязательную колонку Артикул",
-                errors.getItems().get(0).message());
+                problems.getItems().get(0).message());
         assertEquals("Ошибки: 1", ((Label) loaded.root.lookup("#previewErrorCountLabel")).getText());
+        assertEquals(
+                OrderImportViewModel.MSG_PREVIEW_ERRORS,
+                ((Label) loaded.root.lookup("#previewStatusLabel")).getText());
+        assertTrue(loaded.root.lookup("#problemsPane").isVisible());
         assertTrue(importButton.isDisabled());
     }
 
@@ -157,6 +208,89 @@ class OrderImportControllerFxTest {
     }
 
     @Test
+    void noProblemsHidesProblemsTable() throws Exception {
+        OrderImportViewModel viewModel =
+                newFakeViewModel(successService(), new FakeStxtParser());
+        Loaded loaded = loadScreen(viewModel);
+
+        runFx(() -> viewModel.selectFile(Path.of("ok.stxt")));
+
+        assertEquals(
+                OrderImportViewModel.MSG_NO_PROBLEMS,
+                ((Label) loaded.root.lookup("#problemsEmptyLabel")).getText());
+        assertTrue(loaded.root.lookup("#problemsEmptyLabel").isVisible());
+        assertFalse(loaded.root.lookup("#problemsPane").isVisible());
+        assertFalse(((Button) loaded.root.lookup("#importButton")).isDisabled());
+    }
+
+    @Test
+    void warningsOnlyEnablesImport() throws Exception {
+        OrderImportViewModel viewModel = newFakeViewModel(warningService(), new FakeStxtParser());
+        Loaded loaded = loadScreen(viewModel);
+
+        runFx(() -> viewModel.selectFile(Path.of("warn.stxt")));
+
+        assertFalse(((Button) loaded.root.lookup("#importButton")).isDisabled());
+        assertTrue(loaded.root.lookup("#problemsPane").isVisible());
+        assertEquals(
+                OrderImportViewModel.MSG_PREVIEW_WARNINGS,
+                ((Label) loaded.root.lookup("#previewStatusLabel")).getText());
+        assertEquals("Предупреждения: 1", ((Label) loaded.root.lookup("#previewWarningCountLabel")).getText());
+    }
+
+    @Test
+    void multiOrderPreviewShowsOrderCount() throws Exception {
+        OrderImportViewModel viewModel = newFakeViewModel(multiSuccessService(), new FakeStxtParser());
+        Loaded loaded = loadScreen(viewModel);
+
+        runFx(() -> viewModel.selectFile(Path.of("multi.stxt")));
+
+        assertEquals("Заказов: 2", ((Label) loaded.root.lookup("#previewOrdersLabel")).getText());
+        assertEquals(
+                "Номера: ORD-A, ORD-B",
+                ((Label) loaded.root.lookup("#previewOrderNumbersLabel")).getText());
+        assertTrue(loaded.root.lookup("#previewOrderNumbersLabel").isVisible());
+        assertEquals("Импортировать заказы", ((Button) loaded.root.lookup("#importButton")).getText());
+        assertFalse(((Button) loaded.root.lookup("#importButton")).isDisabled());
+    }
+
+    @Test
+    void confirmDialogCancelDoesNotCallConfirm() throws Exception {
+        FakeImportService imports = successService();
+        imports.confirmResult = OrderImportConfirmResult.of(OrderId.generate(), "ORD-FX", 2, 4);
+        OrderImportViewModel viewModel = newFakeViewModel(imports, new FakeStxtParser());
+        Loaded loaded = loadScreen(viewModel);
+
+        runFx(() -> {
+            viewModel.selectFile(Path.of("ok.stxt"));
+            loaded.controller.setConfirmDialogOpenerForTest(() -> false);
+            loaded.controller.importForTest();
+        });
+
+        assertEquals(0, imports.confirmCalls.get());
+        assertFalse(loaded.root.lookup("#successPane").isVisible());
+        assertTrue(viewModel.canImportProperty().get());
+    }
+
+    @Test
+    void confirmDialogOkCallsConfirmOnce() throws Exception {
+        FakeImportService imports = successService();
+        imports.confirmResult = OrderImportConfirmResult.of(OrderId.generate(), "ORD-FX", 2, 4);
+        OrderImportViewModel viewModel = newFakeViewModel(imports, new FakeStxtParser());
+        Loaded loaded = loadScreen(viewModel);
+
+        runFx(() -> {
+            viewModel.selectFile(Path.of("ok.stxt"));
+            loaded.controller.setConfirmDialogOpenerForTest(() -> true);
+            loaded.controller.importForTest();
+        });
+
+        assertEquals(1, imports.confirmCalls.get());
+        assertNotNull(imports.lastConfirmedPlan.get());
+        assertTrue(loaded.root.lookup("#successPane").isVisible());
+    }
+
+    @Test
     void confirmSuccessCallsImportCoreAndShowsResult() throws Exception {
         FakeImportService imports = successService();
         imports.confirmResult = OrderImportConfirmResult.of(
@@ -169,17 +303,111 @@ class OrderImportControllerFxTest {
 
         runFx(() -> {
             viewModel.selectFile(Path.of("ok.stxt"));
-            viewModel.confirmImport();
+            loaded.controller.setConfirmDialogOpenerForTest(() -> true);
+            loaded.controller.importForTest();
         });
 
         assertEquals(1, imports.confirmCalls.get());
         assertNotNull(imports.lastConfirmedPlan.get());
-        Label success = (Label) loaded.root.lookup("#successLabel");
-        assertTrue(success.isVisible());
-        assertTrue(success.getText().contains("Заказ 26062891 успешно импортирован."));
-        assertTrue(success.getText().contains("Создано позиций: 5."));
-        assertTrue(success.getText().contains("Строк спецификации: 20."));
+        Label successTitle = (Label) loaded.root.lookup("#successTitleLabel");
+        Label success = (Label) loaded.root.lookup("#successMessageLabel");
+        assertTrue(loaded.root.lookup("#successPane").isVisible());
+        assertFalse(loaded.root.lookup("#workingPane").isVisible());
+        assertEquals("Импорт завершён", successTitle.getText());
+        assertTrue(success.getText().contains("Заказ №26062891 создан и передан в работу."));
+        assertTrue(success.getText().contains("Позиций создано: 5"));
+        assertTrue(success.getText().contains("Строк спецификации: 20"));
         assertTrue(((Button) loaded.root.lookup("#importButton")).isDisabled());
+        assertTrue(((Button) loaded.root.lookup("#openImportedOrderButton")).isVisible());
+    }
+
+    @Test
+    void singleSuccessShowsOpenOrderButton() throws Exception {
+        FakeImportService imports = successService();
+        OrderId created = OrderId.generate();
+        imports.confirmResult = OrderImportConfirmResult.of(created, "ORD-FX", 2, 4);
+        AtomicReference<OrderId> opened = new AtomicReference<>();
+        OrderImportViewModel viewModel = newFakeViewModel(imports, new FakeStxtParser());
+        viewModel.setOnOpenImportedOrder(opened::set);
+        Loaded loaded = loadScreen(viewModel);
+
+        runFx(() -> {
+            viewModel.selectFile(Path.of("ok.stxt"));
+            loaded.controller.setConfirmDialogOpenerForTest(() -> true);
+            loaded.controller.importForTest();
+            ((Button) loaded.root.lookup("#openImportedOrderButton")).fire();
+        });
+
+        assertTrue(((Button) loaded.root.lookup("#openImportedOrderButton")).isVisible());
+        assertEquals(created, opened.get());
+    }
+
+    @Test
+    void multiSuccessHidesOpenOrderButton() throws Exception {
+        FakeImportService imports = multiSuccessService();
+        OrderImportViewModel viewModel = newFakeViewModel(imports, new FakeStxtParser());
+        Loaded loaded = loadScreen(viewModel);
+
+        runFx(() -> {
+            viewModel.selectFile(Path.of("multi.stxt"));
+            loaded.controller.setConfirmDialogOpenerForTest(() -> true);
+            loaded.controller.importForTest();
+        });
+
+        assertTrue(loaded.root.lookup("#successPane").isVisible());
+        assertFalse(((Button) loaded.root.lookup("#openImportedOrderButton")).isVisible());
+        assertTrue(((Label) loaded.root.lookup("#successMessageLabel"))
+                .getText()
+                .contains("Импортировано заказов: 2"));
+    }
+
+    @Test
+    void importAnotherResetsToFileSelection() throws Exception {
+        FakeImportService imports = successService();
+        imports.confirmResult = OrderImportConfirmResult.of(OrderId.generate(), "ORD-FX", 2, 4);
+        OrderImportViewModel viewModel = newFakeViewModel(imports, new FakeStxtParser());
+        Loaded loaded = loadScreen(viewModel);
+
+        runFx(() -> {
+            viewModel.selectFile(Path.of("ok.stxt"));
+            loaded.controller.setConfirmDialogOpenerForTest(() -> true);
+            loaded.controller.importForTest();
+            ((Button) loaded.root.lookup("#importAnotherButton")).fire();
+        });
+
+        assertFalse(loaded.root.lookup("#successPane").isVisible());
+        assertTrue(loaded.root.lookup("#workingPane").isVisible());
+        assertTrue(loaded.root.lookup("#emptyFilePane").isVisible());
+        assertFalse(loaded.root.lookup("#selectedFilePane").isVisible());
+        assertEquals("", ((Label) loaded.root.lookup("#selectedFileNameLabel")).getText());
+        assertTrue(((Button) loaded.root.lookup("#importButton")).isDisabled());
+        assertFalse(((Button) loaded.root.lookup("#selectFileButton")).isDisabled());
+    }
+
+    @Test
+    void missingCreatePermissionDisablesActions() throws Exception {
+        FakeStxtParser stxt = new FakeStxtParser();
+        FakeImportService imports = successService();
+        OrderImportViewModel viewModel =
+                new OrderImportViewModel(imports, stxt, new FakeAuthorization());
+        Loaded loaded = loadScreen(viewModel);
+
+        assertTrue(((Button) loaded.root.lookup("#selectFileButton")).isDisabled());
+        assertTrue(((Button) loaded.root.lookup("#selectOtherFileButton")).isDisabled());
+        assertTrue(((Button) loaded.root.lookup("#importButton")).isDisabled());
+        assertFalse(viewModel.canSelectFileProperty().get());
+        assertFalse(viewModel.canImportProperty().get());
+
+        runFx(() -> {
+            loaded.controller.setFileChooserOpenerForTest(() -> new File("denied.stxt"));
+            loaded.controller.chooseFileForTest();
+            loaded.controller.importForTest();
+        });
+
+        assertEquals(0, stxt.parseCalls.get());
+        assertEquals(0, imports.previewCalls.get());
+        assertEquals(0, imports.confirmCalls.get());
+        assertTrue(loaded.root.lookup("#emptyFilePane").isVisible());
     }
 
     @Test
@@ -191,7 +419,8 @@ class OrderImportControllerFxTest {
 
         runFx(() -> {
             viewModel.selectFile(Path.of("ok.stxt"));
-            viewModel.confirmImport();
+            loaded.controller.setConfirmDialogOpenerForTest(() -> true);
+            loaded.controller.importForTest();
         });
 
         Label error = (Label) loaded.root.lookup("#errorLabel");
@@ -213,10 +442,12 @@ class OrderImportControllerFxTest {
         });
 
         assertEquals(0, imports.confirmCalls.get());
-        assertEquals("", ((TextField) loaded.root.lookup("#fileNameField")).getText());
-        assertEquals("", ((Label) loaded.root.lookup("#previewOrderNumberLabel")).getText());
+        assertEquals("", ((Label) loaded.root.lookup("#selectedFileNameLabel")).getText());
+        assertEquals("", ((Label) loaded.root.lookup("#previewOrdersLabel")).getText());
         assertEquals("Ошибки: 0", ((Label) loaded.root.lookup("#previewErrorCountLabel")).getText());
         assertTrue(((Button) loaded.root.lookup("#importButton")).isDisabled());
+        assertTrue(loaded.root.lookup("#emptyFilePane").isVisible());
+        assertNull(loaded.root.lookup("#cancelButton"));
     }
 
     private static OrderImportViewModel newFakeViewModel(
@@ -236,6 +467,48 @@ class OrderImportControllerFxTest {
                 List.of(),
                 List.of(),
                 new FakePlan("ORD-FX"));
+        return imports;
+    }
+
+    private static FakeImportService warningService() {
+        FakeImportService imports = new FakeImportService();
+        imports.preview = OrderImportPreview.of(
+                "file.stxt",
+                "ORD-W",
+                1,
+                new BigDecimal("1"),
+                1,
+                List.of(),
+                List.of(OrderImportProblem.warning(
+                        "UNKNOWN_HEADER",
+                        "header",
+                        null,
+                        null,
+                        "Extra",
+                        null,
+                        "Неизвестная колонка Extra")),
+                new FakePlan("ORD-W"));
+        return imports;
+    }
+
+    private static FakeImportService multiSuccessService() {
+        FakeImportService imports = new FakeImportService();
+        imports.preview = OrderImportPreview.of(
+                "file.stxt",
+                "ORD-A, ORD-B",
+                2,
+                2,
+                new BigDecimal("3"),
+                4,
+                List.of(),
+                List.of(),
+                new FakePlan("ORD-A, ORD-B"));
+        imports.confirmResult = OrderImportConfirmResult.of(
+                List.of(
+                        OrderImportConfirmResult.ImportedOrder.of(OrderId.generate(), "ORD-A"),
+                        OrderImportConfirmResult.ImportedOrder.of(OrderId.generate(), "ORD-B")),
+                5,
+                20);
         return imports;
     }
 

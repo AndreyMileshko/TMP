@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -79,6 +80,7 @@ public final class OrderEditorViewModel {
     private OrderStatus orderStatus;
     private OrderOperationalStatus operationalStatus = OrderOperationalStatus.EDITING;
     private Runnable onOpenItems = () -> {};
+    private Consumer<OrderId> onOrderCreated = id -> {};
 
     public OrderEditorViewModel(
             OrderQueryService orderQueryService,
@@ -93,6 +95,14 @@ public final class OrderEditorViewModel {
 
     public void setOnOpenItems(Runnable onOpenItems) {
         this.onOpenItems = Objects.requireNonNull(onOpenItems, "onOpenItems");
+    }
+
+    /**
+     * Invoked after the first successful save from CREATE mode so Shell history can replace the
+     * abstract create route with a stable existing-order entry.
+     */
+    public void setOnOrderCreated(Consumer<OrderId> onOrderCreated) {
+        this.onOrderCreated = Objects.requireNonNull(onOrderCreated, "onOrderCreated");
     }
 
     public void openCreate() {
@@ -146,6 +156,9 @@ public final class OrderEditorViewModel {
                 OrderId created = orderDocuments.saveNewOrder(draft);
                 showSuccess("Заказ сохранён");
                 reloadExisting(created);
+                if (orderId != null) {
+                    onOrderCreated.accept(orderId);
+                }
                 return;
             }
             if (orderId == null || orderStatus != OrderStatus.DRAFT) {

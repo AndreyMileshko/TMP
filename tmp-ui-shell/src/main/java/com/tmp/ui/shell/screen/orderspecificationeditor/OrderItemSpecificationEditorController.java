@@ -73,9 +73,7 @@ public final class OrderItemSpecificationEditorController
         orderedQuantityLabel.textProperty().bind(viewModel.orderedQuantityTextProperty());
 
         linesTable.setItems(viewModel.lines());
-        linesTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        materialCodeColumn.setMaxWidth(Double.MAX_VALUE);
-        materialNameColumn.setMaxWidth(Double.MAX_VALUE);
+        configureSpecificationColumnWidths();
 
         linesTable
                 .getSelectionModel()
@@ -245,5 +243,41 @@ public final class OrderItemSpecificationEditorController
             return linesTable.getScene().getWindow();
         }
         return null;
+    }
+
+    /**
+     * Compact columns stay fixed; Артикул (~35%) and Наименование (~65%) share remaining width.
+     * Avoids CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN giving leftover space to Unit.
+     */
+    private void configureSpecificationColumnWidths() {
+        linesTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        colorColumn.setMaxWidth(120);
+        lengthMmColumn.setMaxWidth(110);
+        lineQuantityColumn.setMaxWidth(110);
+        unitOfMeasureColumn.setMaxWidth(130);
+        materialCodeColumn.setMinWidth(100);
+        materialNameColumn.setMinWidth(160);
+        materialCodeColumn.setMaxWidth(Double.MAX_VALUE);
+        materialNameColumn.setMaxWidth(Double.MAX_VALUE);
+        Runnable redistribute =
+                () -> {
+                    double tableWidth = linesTable.getWidth();
+                    if (tableWidth <= 0) {
+                        return;
+                    }
+                    double compact =
+                            colorColumn.getWidth()
+                                    + lengthMmColumn.getWidth()
+                                    + lineQuantityColumn.getWidth()
+                                    + unitOfMeasureColumn.getWidth();
+                    if (compact <= 0) {
+                        compact = 90 + 90 + 90 + 110;
+                    }
+                    double flex = Math.max(260, tableWidth - compact - 20);
+                    materialCodeColumn.setPrefWidth(Math.max(100, flex * 0.35));
+                    materialNameColumn.setPrefWidth(Math.max(160, flex * 0.65));
+                };
+        linesTable.widthProperty().addListener((obs, oldWidth, newWidth) -> redistribute.run());
+        redistribute.run();
     }
 }

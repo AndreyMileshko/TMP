@@ -21,14 +21,19 @@ import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.RevisionStatus;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.order.api.ui.OrderItemEditorSnapshot;
+import com.tmp.production.api.ProductionQueryApi;
+import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.order.worklist.OrderItemOperationalStatus;
 import com.tmp.ui.shell.screen.orderlist.FakeAuthorization;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
@@ -118,10 +123,119 @@ class OrderItemListViewModelTest {
         assertEquals("", viewModel.items().get(0).quantityDisplay());
     }
 
+    @Test
+    void paginatesOneHundredTwentyItemsAcrossThreePages() {
+        FakeQuery query = new FakeQuery();
+        OrderId orderId = OrderId.generate();
+        List<OrderItemDto> all = new ArrayList<>(120);
+        for (int i = 0; i < 120; i++) {
+            all.add(item(orderId, OrderItemId.generate()));
+        }
+        query.items = all;
+        OrderItemListViewModel viewModel =
+                new OrderItemListViewModel(query, new FakeAuthorization());
+
+        viewModel.openForOrder(orderId, OrderStatus.DRAFT);
+        assertEquals(50, viewModel.items().size());
+        assertEquals(120L, viewModel.totalElementsProperty().get());
+        assertEquals(0, viewModel.pageIndexProperty().get());
+        assertTrue(viewModel.canGoNextProperty().get());
+        assertFalse(viewModel.canGoPreviousProperty().get());
+
+        viewModel.nextPage();
+        assertEquals(50, viewModel.items().size());
+        assertEquals(1, viewModel.pageIndexProperty().get());
+        assertTrue(viewModel.canGoNextProperty().get());
+        assertTrue(viewModel.canGoPreviousProperty().get());
+
+        viewModel.nextPage();
+        assertEquals(20, viewModel.items().size());
+        assertEquals(2, viewModel.pageIndexProperty().get());
+        assertFalse(viewModel.canGoNextProperty().get());
+        assertTrue(viewModel.canGoPreviousProperty().get());
+        assertEquals(120L, viewModel.totalElementsProperty().get());
+    }
+
+    @Test
+    void mementoRestoresPageIndexAndSelectedItem() {
+        FakeQuery query = new FakeQuery();
+        OrderId orderId = OrderId.generate();
+        List<OrderItemDto> all = new ArrayList<>(120);
+        for (int i = 0; i < 120; i++) {
+            all.add(item(orderId, OrderItemId.generate()));
+        }
+        query.items = all;
+        OrderItemListViewModel viewModel =
+                new OrderItemListViewModel(query, new FakeAuthorization());
+        viewModel.openForOrder(orderId, OrderStatus.DRAFT);
+        viewModel.nextPage();
+        OrderItemListRow selected = viewModel.items().get(3);
+        viewModel.selectedItemProperty().set(selected);
+        OrderItemListMemento memento = viewModel.captureMemento();
+
+        OrderItemListViewModel restored =
+                new OrderItemListViewModel(query, new FakeAuthorization());
+        restored.restoreMemento(memento, OrderStatus.DRAFT);
+
+        assertEquals(1, restored.pageIndexProperty().get());
+        assertEquals(50, restored.items().size());
+        assertEquals(selected.orderItemId(), restored.selectedItemProperty().get().orderItemId());
+    }
+
+    @Test
+    void activeParentWithEmptyProductionBatchIsAwaitingProduction() {
+        FakeQuery query = new FakeQuery();
+        OrderId orderId = OrderId.generate();
+        query.items = List.of(item(orderId, OrderItemId.generate(), OrderItemStatus.ACTIVE));
+        OrderItemListViewModel viewModel =
+                new OrderItemListViewModel(
+                        query, new FakeAuthorization(), null, new EmptyBatchProductionQuery());
+        viewModel.openForOrder(orderId, OrderStatus.ACTIVE);
+        assertEquals(
+                OrderItemOperationalStatus.AWAITING_PRODUCTION,
+                viewModel.items().get(0).operationalStatus());
+    }
+
+    @Test
+    void activeParentWithDeniedProductionBatchIsStatusUnavailable() {
+        FakeQuery query = new FakeQuery();
+        OrderId orderId = OrderId.generate();
+        query.items = List.of(item(orderId, OrderItemId.generate(), OrderItemStatus.ACTIVE));
+        OrderItemListViewModel viewModel =
+                new OrderItemListViewModel(
+                        query, new FakeAuthorization(), null, new DeniedBatchProductionQuery());
+        viewModel.openForOrder(orderId, OrderStatus.ACTIVE);
+        assertEquals(
+                OrderItemOperationalStatus.STATUS_UNAVAILABLE,
+                viewModel.items().get(0).operationalStatus());
+    }
+
+    @Test
+    void activePageUsesOneBatchProductionReadNotPerItem() {
+        FakeQuery query = new FakeQuery();
+        CountingBatchProductionQuery production = new CountingBatchProductionQuery();
+        OrderId orderId = OrderId.generate();
+        List<OrderItemDto> all = new ArrayList<>(50);
+        for (int i = 0; i < 50; i++) {
+            all.add(item(orderId, OrderItemId.generate(), OrderItemStatus.ACTIVE));
+        }
+        query.items = all;
+        OrderItemListViewModel viewModel =
+                new OrderItemListViewModel(query, new FakeAuthorization(), null, production);
+        viewModel.openForOrder(orderId, OrderStatus.ACTIVE);
+        assertEquals(50, viewModel.items().size());
+        assertEquals(1, production.batchCalls);
+        assertEquals(0, production.singleCalls);
+    }
+
     private static OrderItemDto item(OrderId orderId, OrderItemId itemId) {
+        return item(orderId, itemId, OrderItemStatus.DRAFT);
+    }
+
+    private static OrderItemDto item(OrderId orderId, OrderItemId itemId, OrderItemStatus status) {
         Instant now = Instant.parse("2026-07-27T10:00:00Z");
         return OrderItemDto.of(
-                itemId, orderId, "P-1", "Panel", null, null, OrderItemStatus.DRAFT, null, now, now);
+                itemId, orderId, "P-1", "Panel", null, null, status, null, now, now);
     }
 
     private static final class FakeEditorQuery implements OrderItemEditorQueryService {
@@ -130,6 +244,94 @@ class OrderItemListViewModelTest {
         @Override
         public Optional<OrderItemEditorSnapshot> getEditorSnapshot(OrderItemId orderItemId) {
             return Optional.ofNullable(snapshot);
+        }
+    }
+
+    private static final class EmptyBatchProductionQuery implements ProductionQueryApi {
+        @Override
+        public OrderProductionView getOrderProductionView(UUID orderId) {
+            return new OrderProductionView(
+                    orderId, OrderProductionViewStatus.NOT_ACCEPTED, 0, 0, 0, 0, 0);
+        }
+
+        @Override
+        public Optional<ItemProductionStateView> getItemProductionState(UUID orderItemId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Map<UUID, ItemProductionStateView> getItemProductionStatesByOrderId(UUID orderId) {
+            return Map.of();
+        }
+
+        @Override
+        public Optional<MaterialAvailabilityResultView> getMaterialAvailabilityResult(UUID orderId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<ProductionHistoryEntryView> listProductionHistory(UUID orderId) {
+            return List.of();
+        }
+    }
+
+    private static final class CountingBatchProductionQuery implements ProductionQueryApi {
+        private int batchCalls;
+        private int singleCalls;
+
+        @Override
+        public OrderProductionView getOrderProductionView(UUID orderId) {
+            return new OrderProductionView(
+                    orderId, OrderProductionViewStatus.NOT_ACCEPTED, 0, 0, 0, 0, 0);
+        }
+
+        @Override
+        public Optional<ItemProductionStateView> getItemProductionState(UUID orderItemId) {
+            singleCalls++;
+            return Optional.empty();
+        }
+
+        @Override
+        public Map<UUID, ItemProductionStateView> getItemProductionStatesByOrderId(UUID orderId) {
+            batchCalls++;
+            return Map.of();
+        }
+
+        @Override
+        public Optional<MaterialAvailabilityResultView> getMaterialAvailabilityResult(UUID orderId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<ProductionHistoryEntryView> listProductionHistory(UUID orderId) {
+            return List.of();
+        }
+    }
+
+    private static final class DeniedBatchProductionQuery implements ProductionQueryApi {
+        @Override
+        public OrderProductionView getOrderProductionView(UUID orderId) {
+            throw new AccessDeniedException("production.order.view");
+        }
+
+        @Override
+        public Optional<ItemProductionStateView> getItemProductionState(UUID orderItemId) {
+            throw new AccessDeniedException("production.item.view");
+        }
+
+        @Override
+        public Map<UUID, ItemProductionStateView> getItemProductionStatesByOrderId(UUID orderId) {
+            throw new AccessDeniedException("production.item.view");
+        }
+
+        @Override
+        public Optional<MaterialAvailabilityResultView> getMaterialAvailabilityResult(UUID orderId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<ProductionHistoryEntryView> listProductionHistory(UUID orderId) {
+            return List.of();
         }
     }
 
@@ -151,7 +353,17 @@ class OrderItemListViewModelTest {
         @Override
         public PageResult<OrderItemDto> getOrderItems(OrderId orderId, PageRequest pageRequest) {
             getOrderItemsCalls++;
-            return PageResult.of(items, 0, pageRequest.pageSize(), items.size());
+            int from = pageRequest.pageIndex() * pageRequest.pageSize();
+            if (from >= items.size()) {
+                return PageResult.of(
+                        List.of(), pageRequest.pageIndex(), pageRequest.pageSize(), items.size());
+            }
+            int to = Math.min(from + pageRequest.pageSize(), items.size());
+            return PageResult.of(
+                    items.subList(from, to),
+                    pageRequest.pageIndex(),
+                    pageRequest.pageSize(),
+                    items.size());
         }
 
         @Override
@@ -200,3 +412,4 @@ class OrderItemListViewModelTest {
         }
     }
 }
+

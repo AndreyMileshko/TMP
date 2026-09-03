@@ -5,65 +5,81 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
-<?import javafx.scene.control.TextField?>
-<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
 <?import javafx.scene.layout.VBox?>
 
 <VBox xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.tmp.ui.shell.screen.orderimport.OrderImportController"
+      styleClass="tmp-screen"
       spacing="12">
     <padding>
         <Insets top="16" right="16" bottom="16" left="16"/>
     </padding>
-    <Label fx:id="titleLabel" styleClass="order-import-title"/>
-    <HBox spacing="8" alignment="CENTER_LEFT">
-        <Button fx:id="selectFileButton" text="Выбрать файл"/>
-        <TextField fx:id="fileNameField" promptText="Имя файла" prefWidth="360"/>
-    </HBox>
-    <Label text="Предпросмотр" styleClass="order-import-section"/>
-    <GridPane hgap="12" vgap="6">
-        <Label text="Номер заказа:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
-        <Label fx:id="previewOrderNumberLabel" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
-        <Label text="Количество позиций:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
-        <Label fx:id="previewPositionCountLabel" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
-        <Label text="Количество изделий:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
-        <Label fx:id="previewProductQuantityLabel" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
-        <Label text="Количество строк спецификации:" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
-        <Label fx:id="previewSpecificationLineCountLabel" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
-        <Label fx:id="previewErrorCountLabel" GridPane.columnIndex="0" GridPane.rowIndex="4"
-               GridPane.columnSpan="2"/>
-        <Label fx:id="previewWarningCountLabel" GridPane.columnIndex="0" GridPane.rowIndex="5"
-               GridPane.columnSpan="2"/>
-    </GridPane>
-    <Label text="Ошибки" styleClass="order-import-section"/>
-    <TableView fx:id="errorsTable" prefHeight="160">
-        <columns>
-            <TableColumn fx:id="errorLevelColumn" text="Уровень" prefWidth="120"/>
-            <TableColumn fx:id="errorFieldColumn" text="Поле" prefWidth="140"/>
-            <TableColumn fx:id="errorRowColumn" text="Строка" prefWidth="160"/>
-            <TableColumn fx:id="errorMessageColumn" text="Сообщение" prefWidth="360"/>
-        </columns>
-    </TableView>
-    <Label text="Предупреждения" styleClass="order-import-section"/>
-    <TableView fx:id="warningsTable" prefHeight="120">
-        <columns>
-            <TableColumn fx:id="warningLevelColumn" text="Уровень" prefWidth="120"/>
-            <TableColumn fx:id="warningFieldColumn" text="Поле" prefWidth="140"/>
-            <TableColumn fx:id="warningRowColumn" text="Строка" prefWidth="160"/>
-            <TableColumn fx:id="warningMessageColumn" text="Сообщение" prefWidth="360"/>
-        </columns>
-    </TableView>
-    <HBox spacing="8">
-        <Button fx:id="validateButton" text="Проверить"/>
-        <Button fx:id="importButton" text="Импортировать"/>
-        <Button fx:id="cancelButton" text="Отмена" styleClass="tmp-button-secondary"/>
-    </HBox>
-    <Label fx:id="loadingLabel" text="Загрузка..." styleClass="order-import-loading"
-           visible="false" managed="false"/>
-    <Label fx:id="statusLabel" styleClass="order-import-status" wrapText="true"/>
-    <Label fx:id="successLabel" styleClass="order-import-success" wrapText="true"
-           visible="false" managed="false"/>
-    <Label fx:id="errorLabel" styleClass="order-import-error" wrapText="true"
-           visible="false" managed="false"/>
+
+    <VBox styleClass="tmp-screen-header" spacing="4">
+        <Label fx:id="titleLabel" styleClass="tmp-screen-title"/>
+        <Label fx:id="subtitleLabel" styleClass="tmp-screen-subtitle"/>
+    </VBox>
+
+    <VBox fx:id="workingPane" spacing="12" VBox.vgrow="ALWAYS">
+        <VBox fx:id="emptyFilePane" spacing="8">
+            <Button fx:id="selectFileButton" text="Выбрать файл"/>
+            <Label fx:id="formatHintLabel" text="Поддерживаются файлы STXT/TXT" styleClass="tmp-text-muted"/>
+        </VBox>
+
+        <VBox fx:id="selectedFilePane" spacing="6" visible="false" managed="false">
+            <Label text="Файл" styleClass="tmp-text-muted"/>
+            <Label fx:id="selectedFileNameLabel" styleClass="tmp-screen-title"/>
+            <Button fx:id="selectOtherFileButton" text="Выбрать другой файл" styleClass="tmp-button-secondary"/>
+        </VBox>
+
+        <Label fx:id="loadingLabel" text="Проверка файла..." styleClass="order-import-loading"
+               visible="false" managed="false"/>
+
+        <VBox fx:id="previewPane" spacing="10" visible="false" managed="false" VBox.vgrow="ALWAYS">
+            <Label fx:id="previewStatusLabel" styleClass="order-import-status" wrapText="true"/>
+            <FlowPane hgap="16" vgap="6">
+                <Label fx:id="previewOrdersLabel"/>
+                <Label fx:id="previewOrderNumbersLabel"/>
+                <Label fx:id="previewPositionCountLabel"/>
+                <Label fx:id="previewProductQuantityLabel"/>
+                <Label fx:id="previewSpecificationLineCountLabel"/>
+            </FlowPane>
+            <HBox spacing="16">
+                <Label fx:id="previewErrorCountLabel"/>
+                <Label fx:id="previewWarningCountLabel"/>
+            </HBox>
+            <Label fx:id="problemsEmptyLabel" styleClass="tmp-text-muted" wrapText="true"
+                   visible="false" managed="false"/>
+            <VBox fx:id="problemsPane" spacing="6" visible="false" managed="false" VBox.vgrow="ALWAYS">
+                <Label text="Замечания проверки" styleClass="order-import-section"/>
+                <TableView fx:id="problemsTable" VBox.vgrow="ALWAYS" minHeight="120">
+                    <columns>
+                        <TableColumn fx:id="problemTypeColumn" text="Тип" prefWidth="140" minWidth="110" maxWidth="180"/>
+                        <TableColumn fx:id="problemWhereColumn" text="Где" prefWidth="220" minWidth="140"/>
+                        <TableColumn fx:id="problemMessageColumn" text="Сообщение" prefWidth="360" minWidth="200"/>
+                    </columns>
+                </TableView>
+            </VBox>
+            <HBox spacing="8">
+                <Button fx:id="importButton" text="Импортировать заказ"/>
+            </HBox>
+        </VBox>
+
+        <Label fx:id="statusLabel" styleClass="order-import-status" wrapText="true"/>
+        <Label fx:id="errorLabel" styleClass="order-import-error" wrapText="true"
+               visible="false" managed="false"/>
+    </VBox>
+
+    <VBox fx:id="successPane" spacing="12" visible="false" managed="false">
+        <Label fx:id="successTitleLabel" styleClass="tmp-screen-title"/>
+        <Label fx:id="successMessageLabel" styleClass="order-import-success" wrapText="true"/>
+        <HBox spacing="8">
+            <Button fx:id="openImportedOrderButton" text="Открыть заказ"/>
+            <Button fx:id="goToOrderListButton" text="К списку заказов" styleClass="tmp-button-secondary"/>
+            <Button fx:id="importAnotherButton" text="Импортировать ещё" styleClass="tmp-button-secondary"/>
+        </HBox>
+    </VBox>
 </VBox>

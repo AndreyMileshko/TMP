@@ -790,11 +790,13 @@ User actions: **Сохранить**, **Передать в работу**, **О
 
 **MUST NOT** show: Сохранить черновик, Провести, Утвердить.
 
+**+ Новый заказ** always opens an explicit CREATE route (`openCreate()`), never reopens a previous `currentOrderId` from the long-lived editor ViewModel. Create route requires `order.order.create`. After the first successful Save, Shell history replaces the create entry with a stable existing-order entry so Back/Forward cannot reopen a blank create form.
+
 Save creates/updates an editable `DRAFT`. Transfer to Work is one application operation (approve+activate) with confirmation that the order becomes fully immutable. After transfer, header / items / specifications are read-only; backend also rejects mutations. New production launch requires a new order, not Revision N+1.
 
 ## 39.5 Shell history
 
-Topbar **← / →** (tooltips Назад / Вперёд) is a session-only browser-like history for content screens. Back/Forward do not push. Branching clears forward. Logout clears history. Restored routes re-check permissions. Orders list memento restores search, filters, page, and selected row.
+Topbar **← / →** (tooltips Назад / Вперёд) is a session-only browser-like history for content screens. Back/Forward do not push. Branching clears forward. Logout clears history. Restored routes re-check permissions. Orders list memento restores search, filters, page, and selected row. Order item list memento restores page index and selected item after Back from an item card.
 
 Keyboard: Alt+Left / Alt+Right when they do not conflict with OS/JavaFX.
 
@@ -806,9 +808,15 @@ Actions: **Создать позицию** only when the parent Order is `DRAFT`
 
 Columns exactly: Код позиции, Наименование, Количество, Статус. Do **not** show «Активная редакция» or commercial `ACTIVE`/`DRAFT` as the Status column value.
 
-Status cell uses the same operational indicator pattern as the Orders list (`OperationalStatusIndicator`: colored dot + Russian caption), derived via `OrderItemOperationalStatusDeriver` from parent Order status, commercial item status, and optional Production item facts. When Production facts cannot be read after transfer, show **Статус недоступен** — never invent zeros as «Ожидает производства».
+Status cell uses the same operational indicator pattern as the Orders list (`OperationalStatusIndicator`: colored dot + Russian caption), derived via `OrderItemOperationalStatusDeriver` from parent Order status, commercial item status, and a discriminated Production read result (`ItemProductionReadResult`):
+
+- successful query with item state → derive from Production facts;
+- successful query with no Production row (not yet accepted) → **Ожидает производства**;
+- AccessDenied / technical failure → **Статус недоступен** — never invent zeros as «Ожидает производства».
 
 Quantity comes from the item editor snapshot (`orderedQuantity`), formatted without trailing zeros. Missing snapshot → empty cell.
+
+Pagination footer (TMP Standard): **← Предыдущая** / `Страница N · M позиций` / **Следующая →**. Default page size 50. Production item states for the visible page are loaded via one batch Public Query (`getItemProductionStatesByOrderId`), not N+1.
 
 Open: double-click a non-empty row, or Enter on the selected row. Single click selects only. Empty-area double-click does nothing.
 
@@ -816,7 +824,7 @@ Table uses constrained column resize; Наименование gets the larger s
 
 ## 39.7 Order item card
 
-Title: **Позиция {productCode}** or **Новая позиция**. Header status is an operational indicator graphic (not raw commercial enum text).
+Title: **Позиция {productCode}** or **Новая позиция**. Header status is an operational indicator graphic (not raw commercial enum text). Uses the same `ItemProductionReadResult` / `OrderItemOperationalStatusDeriver` semantics as the item list.
 
 Editable while parent Order is `DRAFT`: Код позиции, Наименование, Комментарий, Внешний номер позиции, Количество изделий.
 
@@ -834,11 +842,23 @@ Title: **Спецификация позиции {productCode}**. Subtitle/label
 
 Editable UX: secondary **+ Добавить материал** opens a TMP-themed modal (Артикул, Наименование, Цвет, Длина, мм, Количество, Единица измерения). Double-click / Enter edits the selected row via the same dialog. Context menu: Изменить, Удалить, Переместить выше, Переместить ниже (row order has business meaning — line numbers on save). Delete uses a simple OK/Cancel confirmation (no typed DELETE). After add/edit/delete/move, persist immediately through the existing revision-update document API internally; the user does not see Save draft / Post.
 
-Table: constrained resize; Артикул and Наименование grow; compact Цвет / Длина, мм / Количество / Единица измерения. Display decimals via `DecimalUiFormat`.
+Table width: compact Цвет / Длина, мм / Количество / Единица измерения (bounded max widths). Remaining space is shared by **Артикул (~35%)** and **Наименование (~65%)** — Unit must not absorb leftover width. Display decimals via `DecimalUiFormat`.
 
 Read-only: hide add button and mutation context menu; double-click does nothing; table remains selectable/scrollable.
 
-## 39.9 Global selection and status presentation
+## 39.9 Order import
+
+Single-screen import-first workflow (not a multi-step wizard).
+
+Header: **Импорт заказа**. Subtitle: загрузка заказов и спецификаций из файла расчётной программы. Requires `order.order.create`.
+
+Empty state: **Выбрать файл** + STXT/TXT hint. No empty read-only filename TextField. Selecting a file auto-runs parse + preview validation (no permanent **Проверить**). Selected file shows the file name with **Выбрать другой файл**; full path may be a tooltip.
+
+After preview: readiness status (**Готов к импорту** / warnings / blocked), multi-order-aware summary (`orderCount`, numbers, positions, products, specification lines), and one unified **Замечания проверки** table (Тип / Где / Сообщение; errors first). No problems → compact «Ошибок и предупреждений нет» (no large empty tables). Errors block Import; warnings do not.
+
+Import confirmation explains existing ACTIVE / immutable landing (business semantics unchanged). Success state: single order → **Открыть заказ** / **К списку заказов** / **Импортировать ещё**; multi-order → list + import another (no arbitrary open-first). Shell **← Назад** replaces a duplicate local Cancel when history is available.
+
+## 39.10 Global selection and status presentation
 
 TableView selection uses soft translucent green (`-tmp-table-selection-bg`) from the global theme for both focused and unfocused tables. Screen-specific selection colors are prohibited.
 

@@ -4,6 +4,33 @@
 
 ---
 
+## UI Modernization Stage 3.4.4 — Final Functional Corrective + Order Import UX — 2026-09-03
+
+**Date:** 2026-09-03
+**Stage:** UI Modernization 3.4.4; outside Stages 0–9 queue
+**Base checkpoint:** `52edb573b0f2b8617dc41d462edf573acf6b9e84`
+**Status:** IMPLEMENTED / FINAL MANUAL UI ACCEPTANCE PENDING (no auto-commit); Stage 3.5 Warehouse NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+(A) New Order always opens explicit CREATE (`openCreate`) with `ORDER_CREATE_PERMISSION`; after first save history replaces create entry with stable existing-order route. (B) Item Production read discriminates SUCCESS_WITH_STATE / SUCCESS_NOT_ACCEPTED / UNAVAILABLE — not-yet-accepted ≠ Status unavailable. (C) Item list pagination (page size 50) + session memento + batch `getItemProductionStatesByOrderId`. (D) Spec table width prioritizes Article/Name. (E–L) Import-first UX: auto-validation, unified problems, ACTIVE/immutability confirmation, success actions.
+
+### Key changes
+
+- `OrderScreenNavigationBridge.createEditorEntry` always `openCreate`; `setOnOrderCreated` → `replaceCurrent(editorEntry)`
+- `ItemProductionReadResult` + `ItemProductionStateReader` + deriver update; Production Public Query batch by order
+- `OrderItemListViewModel` pagination + `OrderItemListMemento`
+- Spec column redistribute (~35% Article / ~65% Name)
+- Order Import FXML/VM/Controller redesign + confirmation dialog
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-03 Stage 3.4.4.
+
+---
+
 ## UI Modernization Stage 3.4.3 — Final Orders UX Corrective — 2026-09-03
 
 **Date:** 2026-09-03

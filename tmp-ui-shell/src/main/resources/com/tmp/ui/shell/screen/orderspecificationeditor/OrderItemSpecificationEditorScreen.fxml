@@ -19,14 +19,14 @@
     <HBox spacing="8">
         <Button fx:id="addMaterialButton" text="+ Добавить материал" styleClass="tmp-button-secondary"/>
     </HBox>
-    <TableView fx:id="linesTable" prefHeight="360">
+    <TableView fx:id="linesTable" prefHeight="360" VBox.vgrow="ALWAYS">
         <columns>
-            <TableColumn fx:id="materialCodeColumn" text="Артикул" prefWidth="140" minWidth="100"/>
-            <TableColumn fx:id="materialNameColumn" text="Наименование" prefWidth="240" minWidth="160"/>
-            <TableColumn fx:id="colorColumn" text="Цвет" prefWidth="100" minWidth="70"/>
-            <TableColumn fx:id="lengthMmColumn" text="Длина, мм" prefWidth="90" minWidth="70"/>
-            <TableColumn fx:id="lineQuantityColumn" text="Количество" prefWidth="90" minWidth="70"/>
-            <TableColumn fx:id="unitOfMeasureColumn" text="Единица измерения" prefWidth="120" minWidth="90"/>
+            <TableColumn fx:id="materialCodeColumn" text="Артикул" prefWidth="160" minWidth="100"/>
+            <TableColumn fx:id="materialNameColumn" text="Наименование" prefWidth="280" minWidth="160"/>
+            <TableColumn fx:id="colorColumn" text="Цвет" prefWidth="90" minWidth="70" maxWidth="120"/>
+            <TableColumn fx:id="lengthMmColumn" text="Длина, мм" prefWidth="90" minWidth="70" maxWidth="110"/>
+            <TableColumn fx:id="lineQuantityColumn" text="Количество" prefWidth="90" minWidth="70" maxWidth="110"/>
+            <TableColumn fx:id="unitOfMeasureColumn" text="Единица измерения" prefWidth="110" minWidth="90" maxWidth="130"/>
         </columns>
     </TableView>
     <Label fx:id="successLabel" styleClass="order-item-specification-editor-success" visible="false" managed="false" wrapText="true"/>

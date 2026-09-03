@@ -1,7 +1,5 @@
 package com.tmp.ui.shell.screen.orderimport;
 
-import com.tmp.order.api.imports.OrderImportProblem;
-import com.tmp.order.api.imports.OrderImportProblemSeverity;
 import com.tmp.ui.shell.navigation.ViewModelAware;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
@@ -13,12 +11,12 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
-import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
 
 /**
- * Order import FXML controller. FileChooser → ViewModel preview/confirm. No Spring imports.
+ * Order import FXML controller. FileChooser → auto preview → confirm dialog. No Spring imports.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
@@ -29,13 +27,43 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
     private Label titleLabel;
 
     @FXML
+    private Label subtitleLabel;
+
+    @FXML
+    private javafx.scene.layout.VBox workingPane;
+
+    @FXML
+    private javafx.scene.layout.VBox emptyFilePane;
+
+    @FXML
     private Button selectFileButton;
 
     @FXML
-    private TextField fileNameField;
+    private Label formatHintLabel;
 
     @FXML
-    private Label previewOrderNumberLabel;
+    private javafx.scene.layout.VBox selectedFilePane;
+
+    @FXML
+    private Label selectedFileNameLabel;
+
+    @FXML
+    private Button selectOtherFileButton;
+
+    @FXML
+    private Label loadingLabel;
+
+    @FXML
+    private javafx.scene.layout.VBox previewPane;
+
+    @FXML
+    private Label previewStatusLabel;
+
+    @FXML
+    private Label previewOrdersLabel;
+
+    @FXML
+    private Label previewOrderNumbersLabel;
 
     @FXML
     private Label previewPositionCountLabel;
@@ -53,112 +81,171 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
     private Label previewWarningCountLabel;
 
     @FXML
-    private TableView<OrderImportProblem> errorsTable;
+    private Label problemsEmptyLabel;
 
     @FXML
-    private TableColumn<OrderImportProblem, String> errorLevelColumn;
+    private javafx.scene.layout.VBox problemsPane;
 
     @FXML
-    private TableColumn<OrderImportProblem, String> errorFieldColumn;
+    private TableView<OrderImportProblemRow> problemsTable;
 
     @FXML
-    private TableColumn<OrderImportProblem, String> errorRowColumn;
+    private TableColumn<OrderImportProblemRow, String> problemTypeColumn;
 
     @FXML
-    private TableColumn<OrderImportProblem, String> errorMessageColumn;
+    private TableColumn<OrderImportProblemRow, String> problemWhereColumn;
 
     @FXML
-    private TableView<OrderImportProblem> warningsTable;
-
-    @FXML
-    private TableColumn<OrderImportProblem, String> warningLevelColumn;
-
-    @FXML
-    private TableColumn<OrderImportProblem, String> warningFieldColumn;
-
-    @FXML
-    private TableColumn<OrderImportProblem, String> warningRowColumn;
-
-    @FXML
-    private TableColumn<OrderImportProblem, String> warningMessageColumn;
-
-    @FXML
-    private Button validateButton;
+    private TableColumn<OrderImportProblemRow, String> problemMessageColumn;
 
     @FXML
     private Button importButton;
 
     @FXML
-    private Button cancelButton;
-
-    @FXML
-    private Label loadingLabel;
-
-    @FXML
     private Label statusLabel;
-
-    @FXML
-    private Label successLabel;
 
     @FXML
     private Label errorLabel;
 
+    @FXML
+    private javafx.scene.layout.VBox successPane;
+
+    @FXML
+    private Label successTitleLabel;
+
+    @FXML
+    private Label successMessageLabel;
+
+    @FXML
+    private Button openImportedOrderButton;
+
+    @FXML
+    private Button goToOrderListButton;
+
+    @FXML
+    private Button importAnotherButton;
+
     private OrderImportViewModel viewModel;
     private Supplier<File> fileChooserOpener = this::showOpenDialog;
+    private Supplier<Boolean> confirmDialogOpener;
 
     @Override
     public void setViewModel(OrderImportViewModel viewModel) {
         this.viewModel = viewModel;
+        this.confirmDialogOpener =
+                () ->
+                        OrderImportDialogs.confirmImport(
+                                        ownerWindow(),
+                                        viewModel.confirmationTitle(),
+                                        viewModel.confirmationBody(),
+                                        viewModel.confirmationConfirmLabel())
+                                .orElse(false);
+
         titleLabel.textProperty().bind(viewModel.titleProperty());
-        fileNameField.textProperty().bind(viewModel.fileNameProperty());
-        fileNameField.setEditable(false);
+        subtitleLabel.textProperty().bind(viewModel.subtitleProperty());
 
-        previewOrderNumberLabel.textProperty().bind(viewModel.previewOrderNumberProperty());
-        previewPositionCountLabel.textProperty().bind(viewModel.previewPositionCountProperty());
-        previewProductQuantityLabel.textProperty().bind(viewModel.previewProductQuantityProperty());
-        previewSpecificationLineCountLabel
-                .textProperty()
-                .bind(viewModel.previewSpecificationLineCountProperty());
-        previewErrorCountLabel.textProperty().bind(viewModel.previewErrorCountTextProperty());
-        previewWarningCountLabel.textProperty().bind(viewModel.previewWarningCountTextProperty());
+        emptyFilePane.visibleProperty().bind(viewModel.fileSelectedProperty().not()
+                .and(viewModel.successVisibleProperty().not()));
+        emptyFilePane.managedProperty().bind(emptyFilePane.visibleProperty());
 
-        bindProblemTable(
-                errorsTable,
-                errorLevelColumn,
-                errorFieldColumn,
-                errorRowColumn,
-                errorMessageColumn,
-                viewModel.errors());
-        bindProblemTable(
-                warningsTable,
-                warningLevelColumn,
-                warningFieldColumn,
-                warningRowColumn,
-                warningMessageColumn,
-                viewModel.warnings());
-
-        selectFileButton.disableProperty().bind(viewModel.canSelectFileProperty().not());
-        validateButton.disableProperty().bind(viewModel.canValidateProperty().not());
-        importButton.disableProperty().bind(viewModel.canImportProperty().not());
-
-        selectFileButton.setOnAction(e -> chooseFile());
-        validateButton.setOnAction(e -> viewModel.validatePreview());
-        importButton.setOnAction(e -> viewModel.confirmImport());
-        cancelButton.setOnAction(e -> viewModel.cancel());
+        selectedFilePane.visibleProperty().bind(viewModel.fileSelectedProperty()
+                .and(viewModel.successVisibleProperty().not()));
+        selectedFilePane.managedProperty().bind(selectedFilePane.visibleProperty());
+        selectedFileNameLabel.textProperty().bind(viewModel.fileNameProperty());
+        Tooltip pathTooltip = new Tooltip();
+        pathTooltip.textProperty().bind(viewModel.filePathTooltipProperty());
+        selectedFileNameLabel.setTooltip(pathTooltip);
 
         loadingLabel.visibleProperty().bind(viewModel.loadingProperty());
         loadingLabel.managedProperty().bind(loadingLabel.visibleProperty());
 
-        statusLabel.textProperty().bind(viewModel.statusMessageProperty());
-        successLabel.textProperty().bind(viewModel.successMessageProperty());
-        successLabel.visibleProperty().bind(Bindings.createBooleanBinding(
-                () -> {
-                    String message = viewModel.successMessageProperty().get();
-                    return message != null && !message.isBlank();
-                },
-                viewModel.successMessageProperty()));
-        successLabel.managedProperty().bind(successLabel.visibleProperty());
+        previewPane.visibleProperty().bind(viewModel.previewVisibleProperty()
+                .and(viewModel.successVisibleProperty().not()));
+        previewPane.managedProperty().bind(previewPane.visibleProperty());
 
+        previewStatusLabel.textProperty().bind(viewModel.previewStatusTextProperty());
+        previewOrdersLabel.textProperty().bind(viewModel.previewOrdersTextProperty());
+        previewOrderNumbersLabel.textProperty().bind(viewModel.previewOrderNumbersTextProperty());
+        previewOrderNumbersLabel.visibleProperty().bind(Bindings.createBooleanBinding(
+                () -> {
+                    String text = viewModel.previewOrderNumbersTextProperty().get();
+                    return text != null && !text.isBlank();
+                },
+                viewModel.previewOrderNumbersTextProperty()));
+        previewOrderNumbersLabel.managedProperty().bind(previewOrderNumbersLabel.visibleProperty());
+
+        previewPositionCountLabel.textProperty().bind(Bindings.createStringBinding(
+                () -> {
+                    String value = viewModel.previewPositionCountProperty().get();
+                    return value == null || value.isBlank() ? "" : "Позиций: " + value;
+                },
+                viewModel.previewPositionCountProperty()));
+        previewProductQuantityLabel.textProperty().bind(Bindings.createStringBinding(
+                () -> {
+                    String value = viewModel.previewProductQuantityProperty().get();
+                    return value == null || value.isBlank() ? "" : "Изделий: " + value;
+                },
+                viewModel.previewProductQuantityProperty()));
+        previewSpecificationLineCountLabel.textProperty().bind(Bindings.createStringBinding(
+                () -> {
+                    String value = viewModel.previewSpecificationLineCountProperty().get();
+                    return value == null || value.isBlank()
+                            ? ""
+                            : "Строк спецификации: " + value;
+                },
+                viewModel.previewSpecificationLineCountProperty()));
+
+        previewErrorCountLabel.textProperty().bind(viewModel.previewErrorCountTextProperty());
+        previewWarningCountLabel.textProperty().bind(viewModel.previewWarningCountTextProperty());
+
+        problemsEmptyLabel.textProperty().bind(viewModel.problemsEmptyTextProperty());
+        problemsEmptyLabel.visibleProperty().bind(Bindings.createBooleanBinding(
+                () -> {
+                    String text = viewModel.problemsEmptyTextProperty().get();
+                    return text != null && !text.isBlank();
+                },
+                viewModel.problemsEmptyTextProperty()));
+        problemsEmptyLabel.managedProperty().bind(problemsEmptyLabel.visibleProperty());
+
+        problemsPane.visibleProperty().bind(viewModel.problemsTableVisibleProperty());
+        problemsPane.managedProperty().bind(problemsPane.visibleProperty());
+
+        problemsTable.setItems(viewModel.problems());
+        problemsTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        problemTypeColumn.setMaxWidth(180);
+        problemWhereColumn.setMaxWidth(320);
+        problemMessageColumn.setMaxWidth(Double.MAX_VALUE);
+        problemTypeColumn.setCellValueFactory(
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().typeLabel()));
+        problemWhereColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().whereLabel()));
+        problemMessageColumn.setCellValueFactory(
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().message()));
+        problemsTable
+                .widthProperty()
+                .addListener(
+                        (obs, oldWidth, newWidth) -> {
+                            double width = newWidth.doubleValue();
+                            if (width <= 0) {
+                                return;
+                            }
+                            double compact = 140 + 220;
+                            problemMessageColumn.setPrefWidth(Math.max(200, width - compact - 24));
+                        });
+
+        selectFileButton.disableProperty().bind(viewModel.canSelectFileProperty().not());
+        selectOtherFileButton.disableProperty().bind(viewModel.canSelectFileProperty().not());
+        importButton.textProperty().bind(viewModel.importButtonTextProperty());
+        importButton.disableProperty().bind(viewModel.canImportProperty().not()
+                .or(viewModel.loadingProperty()));
+
+        selectFileButton.setOnAction(e -> chooseFile());
+        selectOtherFileButton.setOnAction(e -> chooseFile());
+        importButton.setOnAction(e -> onImportClicked());
+
+        statusLabel.textProperty().bind(viewModel.statusMessageProperty());
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
         errorLabel.visibleProperty().bind(Bindings.createBooleanBinding(
                 () -> {
@@ -168,6 +255,20 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
 
+        workingPane.visibleProperty().bind(viewModel.workingVisibleProperty());
+        workingPane.managedProperty().bind(workingPane.visibleProperty());
+
+        successPane.visibleProperty().bind(viewModel.successVisibleProperty());
+        successPane.managedProperty().bind(successPane.visibleProperty());
+        successTitleLabel.textProperty().bind(viewModel.successTitleProperty());
+        successMessageLabel.textProperty().bind(viewModel.successMessageProperty());
+
+        openImportedOrderButton.visibleProperty().bind(viewModel.canOpenImportedOrderProperty());
+        openImportedOrderButton.managedProperty().bind(openImportedOrderButton.visibleProperty());
+        openImportedOrderButton.setOnAction(e -> viewModel.openImportedOrder());
+        goToOrderListButton.setOnAction(e -> viewModel.goToOrderList());
+        importAnotherButton.setOnAction(e -> viewModel.importAnother());
+
         viewModel.open();
     }
 
@@ -176,8 +277,28 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
         this.fileChooserOpener = Objects.requireNonNull(fileChooserOpener, "fileChooserOpener");
     }
 
+    /** Test hook: replaces native confirmation dialog. */
+    void setConfirmDialogOpenerForTest(Supplier<Boolean> confirmDialogOpener) {
+        this.confirmDialogOpener =
+                Objects.requireNonNull(confirmDialogOpener, "confirmDialogOpener");
+    }
+
     void chooseFileForTest() {
         chooseFile();
+    }
+
+    void importForTest() {
+        onImportClicked();
+    }
+
+    private void onImportClicked() {
+        if (!viewModel.canImportProperty().get()) {
+            return;
+        }
+        Boolean confirmed = confirmDialogOpener.get();
+        if (Boolean.TRUE.equals(confirmed)) {
+            viewModel.confirmImport();
+        }
     }
 
     private void chooseFile() {
@@ -193,56 +314,17 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
         chooser.getExtensionFilters().addAll(
                 new FileChooser.ExtensionFilter("Файлы выгрузки STXT", "*.stxt", "*.txt"),
                 new FileChooser.ExtensionFilter("Все файлы", "*.*"));
-        Window window = selectFileButton.getScene() == null
-                ? null
-                : selectFileButton.getScene().getWindow();
+        Window window = ownerWindow();
         return chooser.showOpenDialog(window);
     }
 
-    private static void bindProblemTable(
-            TableView<OrderImportProblem> table,
-            TableColumn<OrderImportProblem, String> levelColumn,
-            TableColumn<OrderImportProblem, String> fieldColumn,
-            TableColumn<OrderImportProblem, String> rowColumn,
-            TableColumn<OrderImportProblem, String> messageColumn,
-            javafx.collections.ObservableList<OrderImportProblem> items) {
-        levelColumn.setCellValueFactory(cell ->
-                new javafx.beans.property.SimpleStringProperty(levelLabel(cell.getValue().severity())));
-        fieldColumn.setCellValueFactory(cell ->
-                new javafx.beans.property.SimpleStringProperty(
-                        nullToEmpty(cell.getValue().fieldName())));
-        rowColumn.setCellValueFactory(cell ->
-                new javafx.beans.property.SimpleStringProperty(rowLabel(cell.getValue())));
-        messageColumn.setCellValueFactory(cell ->
-                new javafx.beans.property.SimpleStringProperty(cell.getValue().message()));
-        table.setItems(items);
-    }
-
-    private static String levelLabel(OrderImportProblemSeverity severity) {
-        if (severity == OrderImportProblemSeverity.WARNING) {
-            return "Предупреждение";
+    private Window ownerWindow() {
+        if (selectFileButton.getScene() != null) {
+            return selectFileButton.getScene().getWindow();
         }
-        return "Ошибка";
-    }
-
-    private static String rowLabel(OrderImportProblem problem) {
-        if (problem.location() != null && !problem.location().isBlank()) {
-            return problem.location();
+        if (importButton.getScene() != null) {
+            return importButton.getScene().getWindow();
         }
-        StringBuilder builder = new StringBuilder();
-        if (problem.positionIndex() != null) {
-            builder.append("позиция ").append(problem.positionIndex());
-        }
-        if (problem.specificationLineIndex() != null) {
-            if (builder.length() > 0) {
-                builder.append(", ");
-            }
-            builder.append("строка ").append(problem.specificationLineIndex());
-        }
-        return builder.toString();
-    }
-
-    private static String nullToEmpty(String value) {
-        return value == null ? "" : value;
+        return null;
     }
 }

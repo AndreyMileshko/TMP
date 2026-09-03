@@ -110,6 +110,31 @@ class ProductionQueryApiAuthorizationTest {
     }
 
     @Test
+    void deniedItemStatesByOrderFailsBeforeAnyDownstreamRead() {
+        AuthorizationService authorizationService = Mockito.mock(AuthorizationService.class);
+        ProductionOrderViewService orderViewService = Mockito.mock(ProductionOrderViewService.class);
+        CurrentMaterialAvailabilityQueryService materialQueryService =
+                Mockito.mock(CurrentMaterialAvailabilityQueryService.class);
+        ProductionHistoryService historyService = Mockito.mock(ProductionHistoryService.class);
+
+        Mockito.doThrow(new AccessDeniedException("denied"))
+                .when(authorizationService)
+                .requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+
+        DefaultProductionQueryApi api =
+                new DefaultProductionQueryApi(
+                        authorizationService,
+                        orderViewService,
+                        materialQueryService,
+                        historyService);
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> api.getItemProductionStatesByOrderId(UUID.randomUUID()));
+        Mockito.verifyNoInteractions(orderViewService, materialQueryService, historyService);
+    }
+
+    @Test
     void deniedHistoryFailsBeforeAnyDownstreamRead() {
         AuthorizationService authorizationService = Mockito.mock(AuthorizationService.class);
         ProductionOrderViewService orderViewService = Mockito.mock(ProductionOrderViewService.class);
@@ -131,6 +156,39 @@ class ProductionQueryApiAuthorizationTest {
         assertThrows(
                 AccessDeniedException.class, () -> api.listProductionHistory(UUID.randomUUID()));
         Mockito.verifyNoInteractions(orderViewService, materialQueryService, historyService);
+    }
+
+    @Test
+    void itemStatesByOrderUsesSingleListItemStatesRead() {
+        AuthorizationService authorizationService = Mockito.mock(AuthorizationService.class);
+        ProductionOrderViewService orderViewService = Mockito.mock(ProductionOrderViewService.class);
+        CurrentMaterialAvailabilityQueryService materialQueryService =
+                Mockito.mock(CurrentMaterialAvailabilityQueryService.class);
+        ProductionHistoryService historyService = Mockito.mock(ProductionHistoryService.class);
+
+        Mockito.doNothing().when(authorizationService).requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        ProductionFoundation foundation = ProductionFoundation.freeze(orderId, itemId, specId, T0);
+        ProductionItemState launched =
+                ProductionItemState.launch(foundation, ProductionQuantity.positive(3), T0, CuttingPlanLinks.empty());
+        Mockito.when(orderViewService.listItemStates(orderId)).thenReturn(List.of(launched));
+
+        DefaultProductionQueryApi api =
+                new DefaultProductionQueryApi(
+                        authorizationService,
+                        orderViewService,
+                        materialQueryService,
+                        historyService);
+
+        var mapped = api.getItemProductionStatesByOrderId(orderId.value());
+        assertEquals(1, mapped.size());
+        assertEquals(3L, mapped.get(itemId.value()).orderedQuantity());
+        Mockito.verify(orderViewService, Mockito.times(1)).listItemStates(orderId);
+        Mockito.verifyNoMoreInteractions(orderViewService);
+        Mockito.verifyNoInteractions(materialQueryService, historyService);
     }
 
     @Test

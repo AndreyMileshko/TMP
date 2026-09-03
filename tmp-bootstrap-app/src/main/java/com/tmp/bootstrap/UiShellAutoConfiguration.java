@@ -36,6 +36,7 @@ import com.tmp.ui.shell.screen.main.MainWindowViewModel;
 import com.tmp.ui.shell.screen.ordereditor.OrderEditorViewModel;
 import com.tmp.ui.shell.screen.orderimport.OrderImportViewModel;
 import com.tmp.ui.shell.screen.orderitemeditor.OrderItemEditorViewModel;
+import com.tmp.ui.shell.screen.orderitemlist.OrderItemListMemento;
 import com.tmp.ui.shell.screen.orderitemlist.OrderItemListViewModel;
 import com.tmp.ui.shell.screen.orderlist.OrderListViewModel;
 import com.tmp.ui.shell.screen.orderspecificationeditor.OrderItemSpecificationEditorViewModel;
@@ -367,6 +368,8 @@ public class UiShellAutoConfiguration {
                 mainWindowViewModel.replaceCurrent(editorEntry(orderId));
                 mainWindowViewModel.navigate(itemListEntry(orderId));
             }));
+            orderEditorViewModel.setOnOrderCreated(orderId -> Platform.runLater(() ->
+                    mainWindowViewModel.replaceCurrent(editorEntry(orderId))));
             orderItemListViewModel.setOnCreateItem(() -> Platform.runLater(() -> {
                 OrderId orderId = orderItemListViewModel.currentOrderId();
                 if (orderId == null) {
@@ -381,6 +384,22 @@ public class UiShellAutoConfiguration {
                     mainWindowViewModel.replaceCurrent(itemListEntry(orderId));
                 }
                 mainWindowViewModel.navigate(itemEditorEntry(itemId));
+            }));
+            orderImportViewModel.setOnOpenImportedOrder(orderId -> Platform.runLater(() -> {
+                orderListViewModel.refresh();
+                mainWindowViewModel.navigate(editorEntry(orderId));
+            }));
+            orderImportViewModel.setOnGoToOrderList(() -> Platform.runLater(() -> {
+                orderListViewModel.refresh();
+                if (mainWindowViewModel.canGoBackProperty().get()) {
+                    mainWindowViewModel.goBack();
+                    return;
+                }
+                mainWindowViewModel.navigate(
+                        ShellHistoryEntry.of(
+                                UiShellScreens.ORDER_LIST_SCREEN_ID,
+                                UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION,
+                                orderListViewModel::refresh));
             }));
             orderItemEditorViewModel.setOnOpenSpecification(target -> Platform.runLater(() -> {
                 OrderItemId itemId = target.orderItemId();
@@ -401,14 +420,8 @@ public class UiShellAutoConfiguration {
         private ShellHistoryEntry createEditorEntry() {
             return ShellHistoryEntry.of(
                     UiShellScreens.ORDER_EDITOR_SCREEN_ID,
-                    UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION,
-                    () -> {
-                        if (orderEditorViewModel.currentOrderId() != null) {
-                            orderEditorViewModel.openExisting(orderEditorViewModel.currentOrderId());
-                        } else {
-                            orderEditorViewModel.openCreate();
-                        }
-                    });
+                    UiShellScreens.ORDER_CREATE_PERMISSION,
+                    orderEditorViewModel::openCreate);
         }
 
         private ShellHistoryEntry editorEntry(OrderId orderId) {
@@ -426,13 +439,22 @@ public class UiShellAutoConfiguration {
         }
 
         private ShellHistoryEntry itemListEntry(OrderId orderId) {
+            OrderItemListMemento memento = orderItemListViewModel.captureMemento();
+            boolean restoreMemento =
+                    memento != null && orderId.equals(memento.orderId());
+            OrderItemListMemento restore = restoreMemento ? memento : null;
             return ShellHistoryEntry.of(
                     UiShellScreens.ORDER_ITEM_LIST_SCREEN_ID,
                     UiShellScreens.ORDER_ITEM_VIEW_PERMISSION,
                     () -> {
                         orderEditorViewModel.openExisting(orderId);
                         OrderStatus status = orderEditorViewModel.currentOrderStatus();
-                        if (status != null) {
+                        if (status == null) {
+                            return;
+                        }
+                        if (restore != null) {
+                            orderItemListViewModel.restoreMemento(restore, status);
+                        } else {
                             orderItemListViewModel.openForOrder(orderId, status);
                         }
                     });

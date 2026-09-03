@@ -45,6 +45,15 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
     private TableColumn<OrderItemListRow, OrderItemOperationalStatus> statusColumn;
 
     @FXML
+    private Button previousPageButton;
+
+    @FXML
+    private Button nextPageButton;
+
+    @FXML
+    private Label pageLabel;
+
+    @FXML
     private Label errorLabel;
 
     @Override
@@ -56,6 +65,15 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
         itemsTable.getSelectionModel()
                 .selectedItemProperty()
                 .addListener((obs, oldValue, newValue) -> viewModel.selectedItemProperty().set(newValue));
+        viewModel.selectedItemProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> {
+                            if (newValue == null) {
+                                itemsTable.getSelectionModel().clearSelection();
+                            } else if (itemsTable.getSelectionModel().getSelectedItem() != newValue) {
+                                itemsTable.getSelectionModel().select(newValue);
+                            }
+                        });
 
         productCodeColumn.setCellValueFactory(
                 cell ->
@@ -78,6 +96,19 @@ public final class OrderItemListController implements ViewModelAware<OrderItemLi
         createItemButton.visibleProperty().bind(viewModel.canCreateProperty());
         createItemButton.managedProperty().bind(createItemButton.visibleProperty());
         createItemButton.setOnAction(e -> viewModel.createItem());
+
+        previousPageButton.setOnAction(e -> viewModel.previousPage());
+        nextPageButton.setOnAction(e -> viewModel.nextPage());
+        previousPageButton.disableProperty().bind(viewModel.canGoPreviousProperty().not());
+        nextPageButton.disableProperty().bind(viewModel.canGoNextProperty().not());
+        pageLabel.textProperty().bind(Bindings.createStringBinding(
+                () -> "Страница "
+                        + (viewModel.pageIndexProperty().get() + 1)
+                        + " · "
+                        + viewModel.totalElementsProperty().get()
+                        + " позиций",
+                viewModel.pageIndexProperty(),
+                viewModel.totalElementsProperty()));
 
         itemsTable.setRowFactory(
                 table -> {

@@ -6,6 +6,7 @@
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
 <?import javafx.scene.layout.VBox?>
 
 <VBox xmlns:fx="http://javafx.com/fxml"
@@ -18,7 +19,7 @@
     <HBox spacing="8">
         <Button fx:id="createItemButton" text="Создать позицию"/>
     </HBox>
-    <TableView fx:id="itemsTable" prefHeight="360">
+    <TableView fx:id="itemsTable" prefHeight="360" VBox.vgrow="ALWAYS">
         <columns>
             <TableColumn fx:id="productCodeColumn" text="Код позиции" prefWidth="140" minWidth="100"/>
             <TableColumn fx:id="nameColumn" text="Наименование" prefWidth="280" minWidth="160"/>
@@ -26,5 +27,10 @@
             <TableColumn fx:id="statusColumn" text="Статус" prefWidth="200" minWidth="140"/>
         </columns>
     </TableView>
+    <HBox spacing="16" alignment="CENTER">
+        <Button fx:id="previousPageButton" text="← Предыдущая" styleClass="tmp-button-secondary"/>
+        <Label fx:id="pageLabel"/>
+        <Button fx:id="nextPageButton" text="Следующая →" styleClass="tmp-button-secondary"/>
+    </HBox>
     <Label fx:id="errorLabel" styleClass="order-item-list-error" visible="false" managed="false" wrapText="true"/>
 </VBox>
