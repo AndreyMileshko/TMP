@@ -744,15 +744,19 @@ User-facing status is a separate read-model concept. Captions **MUST** be Russia
 | COMPLETED | Выполнен | success / green |
 | PARTIALLY_COMPLETED | Частично выполнен | warning-strong / orange |
 | CANCELLED | Отменён | danger / red |
+| STATUS_UNAVAILABLE | Статус недоступен | muted / unavailable |
 
 Status cell **MUST** be a colored indicator **plus** text (not color-only, not emoji).
+
+`STATUS_UNAVAILABLE` is presentation-only. It **MUST NOT** be added to commercial `OrderStatus`. It means Production facts could not be read (AccessDenied or technical failure). The UI **MUST NOT** treat a failed Production read as zero manufactured / «Ожидает производства». Unavailable rows remain in the list and are always included by the status filter (no dedicated checkbox for this rare state).
 
 Derivation (manufacturing complete = all ordered items released; warehouse/shipment/installation are out of scope):
 
 | Condition | Status |
 |---|---|
 | Commercial `DRAFT` or leftover `APPROVED` | Редактируется |
-| `ACTIVE`, 0 manufactured | Ожидает производства |
+| `ACTIVE`, Production facts unavailable | Статус недоступен |
+| `ACTIVE`, 0 manufactured (confirmed Production facts) | Ожидает производства |
 | `ACTIVE`, partial manufactured, work remains | В производстве |
 | All items manufactured | Выполнен |
 | Cancelled with 0 manufactured | Отменён |
@@ -773,8 +777,8 @@ Open: double-click on a non-empty row, or Enter on the selected row. Click selec
 ## 39.3 Filters
 
 - One quick search: order number **OR** customer name (partial, case-insensitive). Not persisted between sessions. Restored by in-session Back memento.
-- Status checkboxes; default for a new user: all except «Отменён». Immediate refresh (small debounce allowed). Persisted per user.
-- Customer Excel-like multi-select on stable `customerRef`; UI shows `customerName`. Select-all means no customer predicate. Persisted per user. Stale ids ignored.
+- Status checkboxes; default for a new user: all except «Отменён» and «Статус недоступен». Immediate refresh (small debounce allowed). Persisted per user. **At least one status checkbox MUST remain selected**; the last selected checkbox cannot be cleared (disabled or immediately re-selected). Empty/corrupt persisted status sets fall back to defaults.
+- Customer Excel-like multi-select on stable `customerRef`; UI shows `customerName`. Select-all means no customer predicate. Persisted per user. After loading current options, persisted refs are reconciled to `persisted ∩ current`; stale refs are dropped and cleaned preference may be rewritten once. If a subset becomes empty after reconciliation, the filter returns to «Заказчики: Все» (no invisible filter).
 - Period is mandatory (created-at). Presets: Сегодня, Последние 7 дней, Последние 30 дней (new-user default), Текущий месяц, Другой период. Dynamic presets recompute on login; custom stores exact dates. Half-open day bounds.
 
 Persistent filters are server-side, keyed by immutable user id. Quick search, selected row, page index, and navigation history are session-only.

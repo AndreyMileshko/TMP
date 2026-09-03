@@ -4,10 +4,14 @@ import com.tmp.order.api.OrderStatus;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionListFacts;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionViewStatus;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Pure derivation of user-facing operational status from commercial Order Management state and
  * Production facts. Does not query repositories.
+ *
+ * <p>Missing Production facts ({@link Optional#empty()}) mean the production-derived status is
+ * unavailable — never treated as zero manufactured.
  */
 public final class OrderOperationalStatusDeriver {
 
@@ -15,15 +19,24 @@ public final class OrderOperationalStatusDeriver {
 
     public static OrderOperationalStatus derive(
             OrderStatus commercialStatus, long orderedQuantity, OrderProductionListFacts facts) {
+        return derive(commercialStatus, orderedQuantity, Optional.ofNullable(facts));
+    }
+
+    public static OrderOperationalStatus derive(
+            OrderStatus commercialStatus,
+            long orderedQuantity,
+            Optional<OrderProductionListFacts> facts) {
         Objects.requireNonNull(commercialStatus, "commercialStatus");
+        Objects.requireNonNull(facts, "facts");
         if (orderedQuantity < 0L) {
             throw new IllegalArgumentException("orderedQuantity must be >= 0: " + orderedQuantity);
         }
-        OrderProductionListFacts production = facts == null ? emptyFacts() : facts;
         return switch (commercialStatus) {
             case DRAFT, APPROVED -> OrderOperationalStatus.EDITING;
             case CANCELLED -> OrderOperationalStatus.CANCELLED;
-            case ACTIVE -> deriveActive(orderedQuantity, production);
+            case ACTIVE -> facts
+                    .map(production -> deriveActive(orderedQuantity, production))
+                    .orElse(OrderOperationalStatus.STATUS_UNAVAILABLE);
         };
     }
 
@@ -49,15 +62,5 @@ public final class OrderOperationalStatusDeriver {
             return OrderOperationalStatus.IN_PRODUCTION;
         }
         return OrderOperationalStatus.AWAITING_PRODUCTION;
-    }
-
-    private static OrderProductionListFacts emptyFacts() {
-        return new OrderProductionListFacts(
-                java.util.UUID.fromString("00000000-0000-0000-0000-000000000000"),
-                OrderProductionViewStatus.NOT_ACCEPTED,
-                0L,
-                0L,
-                0L,
-                false);
     }
 }

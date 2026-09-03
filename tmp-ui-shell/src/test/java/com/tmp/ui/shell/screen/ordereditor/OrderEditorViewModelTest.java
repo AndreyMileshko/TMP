@@ -161,9 +161,94 @@ class OrderEditorViewModelTest {
         }
     }
 
+    @Test
+    void productionAccessDeniedShowsUnavailableNotFakeAwaiting() {
+        OrderId id = OrderId.generate();
+        FakeQuery query = new FakeQuery();
+        query.order = order(id, OrderStatus.ACTIVE);
+        OrderEditorViewModel viewModel =
+                new OrderEditorViewModel(query, new FakeDocs(), auth(allOrderPerms()), new DeniedProductionQuery());
+        viewModel.openExisting(id);
+        assertEquals(OrderOperationalStatus.STATUS_UNAVAILABLE, viewModel.operationalStatus());
+        assertEquals("Статус недоступен", viewModel.statusTextProperty().get());
+    }
+
+    @Test
+    void productionTechnicalFailureShowsUnavailableNotFakeZeros() {
+        OrderId id = OrderId.generate();
+        FakeQuery query = new FakeQuery();
+        query.order = order(id, OrderStatus.ACTIVE);
+        OrderEditorViewModel viewModel =
+                new OrderEditorViewModel(
+                        query, new FakeDocs(), auth(allOrderPerms()), new FailingProductionQuery());
+        viewModel.openExisting(id);
+        assertEquals(OrderOperationalStatus.STATUS_UNAVAILABLE, viewModel.operationalStatus());
+        assertFalse(viewModel.errorMessageProperty().get().isBlank());
+    }
+
     private static OrderEditorViewModel vm(
             OrderQueryService query, OrderDocumentUiService docs, Set<PermissionId> perms) {
         return new OrderEditorViewModel(query, docs, auth(perms), new EmptyProductionQuery());
+    }
+
+    private static final class DeniedProductionQuery implements com.tmp.production.api.ProductionQueryApi {
+        @Override
+        public OrderProductionView getOrderProductionView(java.util.UUID orderId) {
+            throw new com.tmp.security.api.AccessDeniedException("production.order.view");
+        }
+
+        @Override
+        public java.util.Map<java.util.UUID, OrderProductionListFacts> getOrderProductionListFacts(
+                java.util.Collection<java.util.UUID> orderIds) {
+            throw new com.tmp.security.api.AccessDeniedException("production.order.view");
+        }
+
+        @Override
+        public java.util.Optional<ItemProductionStateView> getItemProductionState(
+                java.util.UUID orderItemId) {
+            return java.util.Optional.empty();
+        }
+
+        @Override
+        public java.util.Optional<MaterialAvailabilityResultView> getMaterialAvailabilityResult(
+                java.util.UUID orderId) {
+            return java.util.Optional.empty();
+        }
+
+        @Override
+        public java.util.List<ProductionHistoryEntryView> listProductionHistory(java.util.UUID orderId) {
+            return java.util.List.of();
+        }
+    }
+
+    private static final class FailingProductionQuery implements com.tmp.production.api.ProductionQueryApi {
+        @Override
+        public OrderProductionView getOrderProductionView(java.util.UUID orderId) {
+            throw new IllegalStateException("production exploded");
+        }
+
+        @Override
+        public java.util.Map<java.util.UUID, OrderProductionListFacts> getOrderProductionListFacts(
+                java.util.Collection<java.util.UUID> orderIds) {
+            throw new IllegalStateException("production exploded");
+        }
+
+        @Override
+        public java.util.Optional<ItemProductionStateView> getItemProductionState(
+                java.util.UUID orderItemId) {
+            return java.util.Optional.empty();
+        }
+
+        @Override
+        public java.util.Optional<MaterialAvailabilityResultView> getMaterialAvailabilityResult(
+                java.util.UUID orderId) {
+            return java.util.Optional.empty();
+        }
+
+        @Override
+        public java.util.List<ProductionHistoryEntryView> listProductionHistory(java.util.UUID orderId) {
+            return java.util.List.of();
+        }
     }
 
     private static Set<PermissionId> allOrderPerms() {

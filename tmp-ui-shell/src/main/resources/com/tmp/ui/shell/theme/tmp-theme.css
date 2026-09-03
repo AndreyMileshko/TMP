@@ -991,6 +991,10 @@
     -fx-fill: -tmp-danger;
 }
 
+.tmp-status-dot-unavailable {
+    -fx-fill: -tmp-border;
+}
+
 .tmp-status-caption {
     -fx-text-fill: -tmp-text;
 }

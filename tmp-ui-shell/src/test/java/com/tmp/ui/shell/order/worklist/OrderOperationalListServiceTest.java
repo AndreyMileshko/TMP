@@ -121,9 +121,11 @@ class OrderOperationalListServiceTest {
     }
 
     @Test
-    void productionAccessDeniedStillReturnsEditingAndAwaitingRows() {
+    void productionAccessDeniedStillReturnsEditingAndUnavailableActiveRows() {
         InMemoryWorklistQuery worklist = new InMemoryWorklistQuery();
         worklist.rows.add(row(OrderId.generate(), "D-1", OrderStatus.DRAFT, 1L));
+        OrderId activeId = OrderId.generate();
+        worklist.rows.add(row(activeId, "A-1", OrderStatus.ACTIVE, 10L));
         MapProductionQuery production = new MapProductionQuery() {
             @Override
             public java.util.Map<UUID, OrderProductionListFacts> getOrderProductionListFacts(
@@ -132,9 +134,85 @@ class OrderOperationalListServiceTest {
             }
         };
         OrderOperationalListService service = new OrderOperationalListService(worklist, production);
-        OrderOperationalListResult result =
+        OrderOperationalListResult editingFilter =
                 service.search(request(Set.of(OrderOperationalStatus.EDITING), 0, 50));
+        // STATUS_UNAVAILABLE is always included even when not in the checkbox filter.
+        assertEquals(2, editingFilter.totalElements());
+        assertEquals(
+                OrderOperationalListResult.ProductionFactsState.ACCESS_DENIED,
+                editingFilter.productionFactsState());
+        assertTrue(
+                editingFilter.content().stream()
+                        .anyMatch(row -> row.operationalStatus() == OrderOperationalStatus.EDITING));
+        assertTrue(
+                editingFilter.content().stream()
+                        .anyMatch(
+                                row ->
+                                        row.operationalStatus()
+                                                == OrderOperationalStatus.STATUS_UNAVAILABLE));
+
+        OrderOperationalListResult defaults =
+                service.search(
+                        request(
+                                Set.of(
+                                        OrderOperationalStatus.EDITING,
+                                        OrderOperationalStatus.AWAITING_PRODUCTION),
+                                0,
+                                50));
+        assertEquals(2, defaults.totalElements());
+        assertTrue(
+                defaults.content().stream()
+                        .anyMatch(
+                                row ->
+                                        row.orderNumber().equals("A-1")
+                                                && row.operationalStatus()
+                                                        == OrderOperationalStatus.STATUS_UNAVAILABLE));
+        assertTrue(
+                defaults.content().stream()
+                        .noneMatch(
+                                row ->
+                                        row.operationalStatus()
+                                                == OrderOperationalStatus.AWAITING_PRODUCTION));
+    }
+
+    @Test
+    void productionTechnicalFailureDoesNotFabricateAwaitingProduction() {
+        InMemoryWorklistQuery worklist = new InMemoryWorklistQuery();
+        worklist.rows.add(row(OrderId.generate(), "A-1", OrderStatus.ACTIVE, 10L));
+        MapProductionQuery production = new MapProductionQuery() {
+            @Override
+            public java.util.Map<UUID, OrderProductionListFacts> getOrderProductionListFacts(
+                    java.util.Collection<UUID> orderIds) {
+                throw new IllegalStateException("production down");
+            }
+        };
+        OrderOperationalListService service = new OrderOperationalListService(worklist, production);
+        OrderOperationalListResult result =
+                service.search(request(Set.of(OrderOperationalStatus.AWAITING_PRODUCTION), 0, 50));
         assertEquals(1, result.totalElements());
+        assertEquals(OrderOperationalStatus.STATUS_UNAVAILABLE, result.content().getFirst().operationalStatus());
+        assertEquals(
+                OrderOperationalListResult.ProductionFactsState.TECHNICAL_FAILURE,
+                result.productionFactsState());
+        assertTrue(result.technicalFailure().isPresent());
+    }
+
+    @Test
+    void successfulProductionReadStillDerivesAwaitingWhenNotAccepted() {
+        InMemoryWorklistQuery worklist = new InMemoryWorklistQuery();
+        OrderId id = OrderId.generate();
+        worklist.rows.add(row(id, "A-1", OrderStatus.ACTIVE, 10L));
+        MapProductionQuery production = new MapProductionQuery();
+        production.put(
+                id,
+                facts(id.value(), OrderProductionViewStatus.NOT_ACCEPTED, 10L, 0L, 0L, false));
+        OrderOperationalListService service = new OrderOperationalListService(worklist, production);
+        OrderOperationalListResult result =
+                service.search(request(Set.of(OrderOperationalStatus.AWAITING_PRODUCTION), 0, 50));
+        assertEquals(1, result.totalElements());
+        assertEquals(OrderOperationalStatus.AWAITING_PRODUCTION, result.content().getFirst().operationalStatus());
+        assertEquals(
+                OrderOperationalListResult.ProductionFactsState.AVAILABLE, result.productionFactsState());
     }
 
     private static OrderOperationalListRequest request(Set<OrderOperationalStatus> statuses, int page, int size) {

@@ -9,7 +9,6 @@ import com.tmp.ui.shell.order.worklist.OrderListFilterPreference;
 import com.tmp.ui.shell.order.worklist.OrderListPeriod;
 import com.tmp.ui.shell.order.worklist.OrderOperationalStatus;
 import java.time.Instant;
-import java.util.EnumSet;
 import org.junit.jupiter.api.Test;
 
 class OrderListPreferenceViewModelTest {
@@ -98,8 +97,9 @@ class OrderListPreferenceViewModelTest {
                         prefs);
         viewModel.refresh();
         assertEquals(OrderListPeriod.Preset.LAST_30_DAYS, viewModel.periodPresetProperty().get());
-        assertEquals(EnumSet.complementOf(EnumSet.of(OrderOperationalStatus.CANCELLED)).size(), viewModel.selectedStatuses().size());
+        assertEquals(OrderListFilterPreference.defaults().statuses().size(), viewModel.selectedStatuses().size());
         assertFalse(viewModel.selectedStatuses().contains(OrderOperationalStatus.CANCELLED));
+        assertFalse(viewModel.selectedStatuses().contains(OrderOperationalStatus.STATUS_UNAVAILABLE));
         assertTrue(viewModel.selectedStatuses().contains(OrderOperationalStatus.EDITING));
     }
 }

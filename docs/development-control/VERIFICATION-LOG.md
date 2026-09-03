@@ -3,8 +3,21 @@
 ## Latest result
 
 **Date:** 2026-09-03
-**Scope:** UI Modernization Stage 3.4 — Orders
-**Overall:** PASS (module tests + package launch); interactive GUI Orders smoke limited (no JavaFX robot)
+**Scope:** UI Modernization Stage 3.4.1 — Orders Corrective Pass
+**Overall:** PASS (corrective tests + package launch + programmatic FX); interactive packaged GUI click-through ACCEPTANCE PENDING (no TestFX/desktop robot)
+
+### Stage 3.4.1 verification (2026-09-03)
+
+| Check | Result |
+|-------|--------|
+| Orders corrective / worklist / preference / editor / FX / shell history surefire subset | PASS (86 tests: 59 Orders subset + 20 Main/Editor + 7 ControllerFx incl. resize) |
+| Quick install `mvn -pl :tmp-bootstrap-app -am install -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-03 11:05:08) |
+| Launch isolated DB `tmp-stage34-smoke-pg:55433/tmp_stage34_orders` + warehouse env | PASS — `Started DesktopBootstrap`; Flyway V34 up-to-date; JavaFX launcher started; process remained running |
+| Production unavailable (AccessDenied / technical) automated | PASS — `STATUS_UNAVAILABLE`, no fake Awaiting |
+| FX resize 1024×700 / 1366×768 / 1920×1080 (maximized proxy) | PASS (`OrderListControllerFxTest.layoutAtRepresentativeSizesKeepsCriticalControls`) |
+| Interactive logout/login persistence / double-click / Transfer dialog on packaged GUI | NOT AUTOMATED — no desktop robot; requires manual confirmation |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
 
 ### Stage 3.4 verification (2026-09-03)
 
@@ -51,6 +64,7 @@
 | Stage 6 manual Warehouse Transfer Send preserved | PASS |
 | Stage 7 Production | DONE / 100% (unchanged task count 27/27) |
 | Stage 8 Cutting Optimization | NOT STARTED |
+| UI Stage 3.4 Orders | IMPLEMENTED; Stage 3.4.1 corrective ACCEPTANCE PENDING |
 | Active blockers | NONE |
 
 ---

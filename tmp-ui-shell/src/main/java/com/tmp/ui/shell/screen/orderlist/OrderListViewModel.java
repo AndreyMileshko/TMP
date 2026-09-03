@@ -20,6 +20,7 @@ import com.tmp.ui.shell.order.worklist.OrderListMemento;
 import com.tmp.ui.shell.order.worklist.OrderListPeriod;
 import com.tmp.ui.shell.order.worklist.OrderOperationalListRequest;
 import com.tmp.ui.shell.order.worklist.OrderOperationalListResult;
+import com.tmp.ui.shell.order.worklist.OrderOperationalListResult.ProductionFactsState;
 import com.tmp.ui.shell.order.worklist.OrderOperationalListService;
 import com.tmp.ui.shell.order.worklist.OrderOperationalStatus;
 import com.tmp.ui.shell.order.worklist.OrderOperationalSummary;
@@ -262,6 +263,7 @@ public final class OrderListViewModel {
 
     public void refresh() {
         ensurePreferencesLoaded();
+        reconcileCustomerSelectionAgainstOptions();
         refreshPermissions();
         loading.set(true);
         errorMessage.set("");
@@ -291,6 +293,7 @@ public final class OrderListViewModel {
             if (page.content().isEmpty()) {
                 statusMessage.set(emptyMessage());
             }
+            applyProductionFactsState(page);
             updateCustomerFilterLabel();
         } catch (IllegalArgumentException ex) {
             orders.clear();
@@ -338,19 +341,34 @@ public final class OrderListViewModel {
                 selectedCustomerRefs.addAll(customerRefs);
             }
             includeUnassignedCustomer.set(!allCustomers && includeUnassigned);
+            updateCustomerFilterLabel();
         } finally {
             restoring = false;
         }
         onFiltersChanged();
     }
 
+    /**
+     * At least one status checkbox must remain selected. Deselecting the last selected status is a
+     * no-op.
+     */
     public void toggleStatus(OrderOperationalStatus status, boolean selected) {
+        Objects.requireNonNull(status, "status");
+        if (status == OrderOperationalStatus.STATUS_UNAVAILABLE) {
+            return;
+        }
         if (selected) {
             selectedStatuses.add(status);
+        } else if (!canDeselectStatus(status)) {
+            return;
         } else {
             selectedStatuses.remove(status);
         }
         onFiltersChanged();
+    }
+
+    public boolean canDeselectStatus(OrderOperationalStatus status) {
+        return !(selectedStatuses.size() == 1 && selectedStatuses.contains(status));
     }
 
     public void setPeriodPreset(OrderListPeriod.Preset preset) {
@@ -408,6 +426,9 @@ public final class OrderListViewModel {
             quickSearch.set(memento.quickSearch());
             selectedStatuses.clear();
             selectedStatuses.addAll(memento.statuses());
+            if (selectedStatuses.isEmpty()) {
+                selectedStatuses.addAll(OrderListFilterPreference.defaults().statuses());
+            }
             selectAllCustomers.set(memento.selectAllCustomers());
             selectedCustomerRefs.clear();
             selectedCustomerRefs.addAll(memento.customerRefs());
@@ -449,9 +470,14 @@ public final class OrderListViewModel {
         if (userId.isEmpty()) {
             return;
         }
+        Set<OrderOperationalStatus> statuses = new LinkedHashSet<>(selectedStatuses);
+        statuses.remove(OrderOperationalStatus.STATUS_UNAVAILABLE);
+        if (statuses.isEmpty()) {
+            statuses.addAll(OrderListFilterPreference.defaults().statuses());
+        }
         OrderListFilterPreference preference =
                 new OrderListFilterPreference(
-                        Set.copyOf(selectedStatuses),
+                        statuses,
                         selectAllCustomers.get(),
                         Set.copyOf(selectedCustomerRefs),
                         includeUnassignedCustomer.get(),
@@ -472,6 +498,9 @@ public final class OrderListViewModel {
         try {
             selectedStatuses.clear();
             selectedStatuses.addAll(preference.statuses());
+            if (selectedStatuses.isEmpty()) {
+                selectedStatuses.addAll(OrderListFilterPreference.defaults().statuses());
+            }
             selectAllCustomers.set(preference.selectAllCustomers());
             selectedCustomerRefs.clear();
             selectedCustomerRefs.addAll(preference.customerRefs());
@@ -487,6 +516,75 @@ public final class OrderListViewModel {
         }
         if (persist) {
             persistFilters();
+        }
+    }
+
+    private void reconcileCustomerSelectionAgainstOptions() {
+        if (selectAllCustomers.get()) {
+            if (!selectedCustomerRefs.isEmpty() || includeUnassignedCustomer.get()) {
+                restoring = true;
+                try {
+                    selectedCustomerRefs.clear();
+                    includeUnassignedCustomer.set(false);
+                } finally {
+                    restoring = false;
+                }
+                persistFilters();
+            }
+            updateCustomerFilterLabel();
+            return;
+        }
+        List<OrderCustomerOptionDto> options = loadCustomerOptions();
+        Set<String> validRefs = new LinkedHashSet<>();
+        boolean hasUnassignedOption = false;
+        for (OrderCustomerOptionDto option : options) {
+            if (option.isUnassigned()) {
+                hasUnassignedOption = true;
+            } else if (option.customerRef() != null && !option.customerRef().isBlank()) {
+                validRefs.add(option.customerRef());
+            }
+        }
+        Set<String> cleaned = new LinkedHashSet<>();
+        for (String ref : selectedCustomerRefs) {
+            if (validRefs.contains(ref)) {
+                cleaned.add(ref);
+            }
+        }
+        boolean includeUnassigned = includeUnassignedCustomer.get() && hasUnassignedOption;
+        boolean becameEmpty = cleaned.isEmpty() && !includeUnassigned;
+        boolean changed =
+                becameEmpty
+                        || !cleaned.equals(Set.copyOf(selectedCustomerRefs))
+                        || includeUnassigned != includeUnassignedCustomer.get();
+        restoring = true;
+        try {
+            if (becameEmpty) {
+                selectAllCustomers.set(true);
+                selectedCustomerRefs.clear();
+                includeUnassignedCustomer.set(false);
+            } else {
+                selectedCustomerRefs.clear();
+                selectedCustomerRefs.addAll(cleaned);
+                includeUnassignedCustomer.set(includeUnassigned);
+            }
+            updateCustomerFilterLabel();
+        } finally {
+            restoring = false;
+        }
+        if (changed) {
+            persistFilters();
+        }
+    }
+
+    private void applyProductionFactsState(OrderOperationalListResult page) {
+        if (page.productionFactsState() == ProductionFactsState.TECHNICAL_FAILURE) {
+            RuntimeException failure =
+                    page.technicalFailure()
+                            .orElseGet(() -> new IllegalStateException("Production facts unavailable"));
+            errorMessage.set(OrderUiErrorMapper.text(failure, OrderUiOperation.LOAD));
+            if (statusMessage.get() == null || statusMessage.get().isBlank()) {
+                statusMessage.set("Статус производства недоступен для части заказов.");
+            }
         }
     }
 

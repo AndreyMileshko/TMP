@@ -52,6 +52,23 @@ class OrderListFilterPreferenceCodecTest {
     }
 
     @Test
+    void emptyStatusesFallBackToDefaults() {
+        String raw =
+                "v=1;statuses=;allCustomers=true;customers=;unassigned=false;period=LAST_30_DAYS;from=;to=;pageSize=50";
+        OrderListFilterPreference decoded = OrderListFilterPreferenceCodec.decode(raw);
+        assertEquals(OrderListFilterPreference.defaults().statuses(), decoded.statuses());
+        assertFalse(decoded.statuses().contains(OrderOperationalStatus.STATUS_UNAVAILABLE));
+    }
+
+    @Test
+    void statusUnavailableTokenIsIgnored() {
+        String raw =
+                "v=1;statuses=EDITING,STATUS_UNAVAILABLE;allCustomers=true;customers=;unassigned=false;period=LAST_30_DAYS;from=;to=;pageSize=50";
+        OrderListFilterPreference decoded = OrderListFilterPreferenceCodec.decode(raw);
+        assertEquals(Set.of(OrderOperationalStatus.EDITING), decoded.statuses());
+    }
+
+    @Test
     void dateTimePresentationFormatsLocalZone() {
         Instant instant = Instant.parse("2026-09-02T10:19:00Z");
         assertEquals(

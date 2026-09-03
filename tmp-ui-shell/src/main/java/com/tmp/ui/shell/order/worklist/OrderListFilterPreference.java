@@ -45,7 +45,8 @@ public final class OrderListFilterPreference {
     public static OrderListFilterPreference defaults() {
         Set<OrderOperationalStatus> statuses = new LinkedHashSet<>();
         for (OrderOperationalStatus status : OrderOperationalStatus.values()) {
-            if (status != OrderOperationalStatus.CANCELLED) {
+            if (status != OrderOperationalStatus.CANCELLED
+                    && status != OrderOperationalStatus.STATUS_UNAVAILABLE) {
                 statuses.add(status);
             }
         }

@@ -186,6 +186,11 @@ public final class OrderListTestSupport {
                 OrderProductionListFacts fact = facts.get(id);
                 if (fact != null) {
                     result.put(id, fact);
+                } else {
+                    result.put(
+                            id,
+                            new OrderProductionListFacts(
+                                    id, OrderProductionViewStatus.NOT_ACCEPTED, 0L, 0L, 0L, false));
                 }
             }
             return result;

@@ -185,6 +185,24 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
         bindStatus(statusCompletedCheck, OrderOperationalStatus.COMPLETED);
         bindStatus(statusPartialCheck, OrderOperationalStatus.PARTIALLY_COMPLETED);
         bindStatus(statusCancelledCheck, OrderOperationalStatus.CANCELLED);
+        refreshStatusCheckEnablement();
+        viewModel.selectedStatuses().addListener((javafx.collections.SetChangeListener<OrderOperationalStatus>) change -> {
+            if (binding) {
+                return;
+            }
+            binding = true;
+            try {
+                syncStatusCheck(statusEditingCheck, OrderOperationalStatus.EDITING);
+                syncStatusCheck(statusAwaitingCheck, OrderOperationalStatus.AWAITING_PRODUCTION);
+                syncStatusCheck(statusInProductionCheck, OrderOperationalStatus.IN_PRODUCTION);
+                syncStatusCheck(statusCompletedCheck, OrderOperationalStatus.COMPLETED);
+                syncStatusCheck(statusPartialCheck, OrderOperationalStatus.PARTIALLY_COMPLETED);
+                syncStatusCheck(statusCancelledCheck, OrderOperationalStatus.CANCELLED);
+                refreshStatusCheckEnablement();
+            } finally {
+                binding = false;
+            }
+        });
 
         customerFilterButton.setOnAction(e ->
                 OrderListCustomerFilterPopup.show(
@@ -243,10 +261,40 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
     private void bindStatus(CheckBox checkBox, OrderOperationalStatus status) {
         checkBox.setSelected(viewModel.selectedStatuses().contains(status));
         checkBox.selectedProperty().addListener((obs, old, selected) -> {
-            if (!binding) {
-                viewModel.toggleStatus(status, Boolean.TRUE.equals(selected));
+            if (binding) {
+                return;
             }
+            boolean wantSelected = Boolean.TRUE.equals(selected);
+            if (!wantSelected && !viewModel.canDeselectStatus(status)) {
+                binding = true;
+                try {
+                    checkBox.setSelected(true);
+                } finally {
+                    binding = false;
+                }
+                return;
+            }
+            viewModel.toggleStatus(status, wantSelected);
+            refreshStatusCheckEnablement();
         });
+    }
+
+    private void syncStatusCheck(CheckBox checkBox, OrderOperationalStatus status) {
+        checkBox.setSelected(viewModel.selectedStatuses().contains(status));
+    }
+
+    private void refreshStatusCheckEnablement() {
+        disableIfLast(statusEditingCheck, OrderOperationalStatus.EDITING);
+        disableIfLast(statusAwaitingCheck, OrderOperationalStatus.AWAITING_PRODUCTION);
+        disableIfLast(statusInProductionCheck, OrderOperationalStatus.IN_PRODUCTION);
+        disableIfLast(statusCompletedCheck, OrderOperationalStatus.COMPLETED);
+        disableIfLast(statusPartialCheck, OrderOperationalStatus.PARTIALLY_COMPLETED);
+        disableIfLast(statusCancelledCheck, OrderOperationalStatus.CANCELLED);
+    }
+
+    private void disableIfLast(CheckBox checkBox, OrderOperationalStatus status) {
+        boolean lastSelected = checkBox.isSelected() && !viewModel.canDeselectStatus(status);
+        checkBox.setDisable(lastSelected);
     }
 
     private void updateCustomPeriodVisibility(OrderListPeriod.Preset preset) {

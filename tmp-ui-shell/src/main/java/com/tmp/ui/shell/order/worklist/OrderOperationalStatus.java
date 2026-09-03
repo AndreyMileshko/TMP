@@ -10,7 +10,9 @@ public enum OrderOperationalStatus {
     IN_PRODUCTION("В производстве", "tmp-status-dot-info"),
     COMPLETED("Выполнен", "tmp-status-dot-success"),
     PARTIALLY_COMPLETED("Частично выполнен", "tmp-status-dot-warning-strong"),
-    CANCELLED("Отменён", "tmp-status-dot-danger");
+    CANCELLED("Отменён", "tmp-status-dot-danger"),
+    /** Presentation-only: Production facts could not be read. Not a commercial OrderStatus. */
+    STATUS_UNAVAILABLE("Статус недоступен", "tmp-status-dot-unavailable");
 
     private final String caption;
     private final String indicatorStyleClass;

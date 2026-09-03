@@ -62,7 +62,11 @@ public final class OrderListFilterPreferenceCodec {
                         continue;
                     }
                     try {
-                        statuses.add(OrderOperationalStatus.valueOf(token.trim().toUpperCase(Locale.ROOT)));
+                        OrderOperationalStatus status =
+                                OrderOperationalStatus.valueOf(token.trim().toUpperCase(Locale.ROOT));
+                        if (status != OrderOperationalStatus.STATUS_UNAVAILABLE) {
+                            statuses.add(status);
+                        }
                     } catch (IllegalArgumentException ignored) {
                         // stale enum — skip
                     }

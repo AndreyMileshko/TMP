@@ -21,6 +21,14 @@ class OrderOperationalStatusDeriverTest {
     }
 
     @Test
+    void activeWithMissingProductionFactsIsUnavailable() {
+        assertEquals(
+                OrderOperationalStatus.STATUS_UNAVAILABLE,
+                OrderOperationalStatusDeriver.derive(
+                        OrderStatus.ACTIVE, 10L, java.util.Optional.empty()));
+    }
+
+    @Test
     void activeWithZeroReleasedIsAwaitingProduction() {
         assertEquals(
                 OrderOperationalStatus.AWAITING_PRODUCTION,

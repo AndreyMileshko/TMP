@@ -8,7 +8,6 @@ import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderHeaderDraft;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionListFacts;
-import com.tmp.production.api.ProductionQueryApi.OrderProductionViewStatus;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
@@ -336,25 +335,26 @@ public final class OrderEditorViewModel {
         if (dto.status() == OrderStatus.CANCELLED) {
             return OrderOperationalStatus.CANCELLED;
         }
-        OrderProductionListFacts facts = loadProductionFacts(dto.orderId());
-        return OrderOperationalStatusDeriver.derive(dto.status(), facts.orderedQuantity(), facts);
+        Optional<OrderProductionListFacts> facts = loadProductionFacts(dto.orderId());
+        long orderedQuantity = facts.map(OrderProductionListFacts::orderedQuantity).orElse(0L);
+        return OrderOperationalStatusDeriver.derive(dto.status(), orderedQuantity, facts);
     }
 
-    private OrderProductionListFacts loadProductionFacts(OrderId id) {
+    /**
+     * Returns Production facts when the Public Query succeeds. AccessDenied and technical failures
+     * yield empty — never fake zero manufactured facts.
+     */
+    private Optional<OrderProductionListFacts> loadProductionFacts(OrderId id) {
         try {
-            return productionQueryApi
-                    .getOrderProductionListFacts(List.of(id.value()))
-                    .getOrDefault(id.value(), emptyFacts(id));
+            OrderProductionListFacts facts =
+                    productionQueryApi.getOrderProductionListFacts(List.of(id.value())).get(id.value());
+            return Optional.ofNullable(facts);
         } catch (AccessDeniedException ex) {
-            return emptyFacts(id);
+            return Optional.empty();
         } catch (RuntimeException ex) {
-            return emptyFacts(id);
+            showMappedError(ex, OrderUiOperation.LOAD);
+            return Optional.empty();
         }
-    }
-
-    private static OrderProductionListFacts emptyFacts(OrderId id) {
-        return new OrderProductionListFacts(
-                id.value(), OrderProductionViewStatus.NOT_ACCEPTED, 0L, 0L, 0L, false);
     }
 
     private void updateSubtitle() {

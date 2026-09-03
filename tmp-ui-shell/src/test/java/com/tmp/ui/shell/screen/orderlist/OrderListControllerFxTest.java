@@ -13,6 +13,7 @@ import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.navigation.NavigationServices;
 import com.tmp.ui.shell.navigation.ScreenRegistration;
 import com.tmp.ui.shell.order.worklist.DateTimePresentation;
+import com.tmp.ui.shell.order.worklist.OrderOperationalStatus;
 import com.tmp.ui.shell.order.worklist.OrderOperationalSummary;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -136,6 +137,69 @@ class OrderListControllerFxTest {
         Parent root = load(OrderListTestSupport.viewModel());
         TextField search = (TextField) root.lookup("#quickSearchField");
         assertEquals("Поиск по номеру или заказчику...", search.getPromptText());
+    }
+
+    @Test
+    void lastStatusCheckboxCannotBeClearedInUi() throws Exception {
+        OrderListViewModel viewModel = OrderListTestSupport.viewModel();
+        viewModel.selectedStatuses().clear();
+        viewModel.selectedStatuses().add(OrderOperationalStatus.EDITING);
+        Parent root = load(viewModel, "order-list-last-status");
+        JavaFxTestSupport.runOnFxThread(() -> {
+            CheckBox editing = (CheckBox) root.lookup("#statusEditingCheck");
+            assertTrue(editing.isSelected());
+            assertTrue(editing.isDisable());
+            editing.setSelected(false);
+            assertTrue(editing.isSelected());
+            assertTrue(viewModel.selectedStatuses().contains(OrderOperationalStatus.EDITING));
+        });
+    }
+
+    @Test
+    void layoutAtRepresentativeSizesKeepsCriticalControls() throws Exception {
+        layoutAtSize(1024, 700);
+        layoutAtSize(1366, 768);
+        layoutAtSize(1920, 1080);
+    }
+
+    private static void layoutAtSize(int width, int height) throws Exception {
+        OrderListViewModel viewModel = OrderListTestSupport.viewModel();
+        viewModel.refresh();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        Platform.runLater(() -> {
+            try {
+                var navigation = NavigationServices.createDefault();
+                navigation.register(
+                        new ScreenRegistration(
+                                "order-list-resize-" + width,
+                                UiShellScreens.ORDER_LIST_FXML,
+                                () -> viewModel));
+                Parent loaded = navigation.load("order-list-resize-" + width);
+                Stage stage = new Stage();
+                stage.setScene(new Scene(loaded, width, height));
+                stage.show();
+                loaded.applyCss();
+                loaded.autosize();
+                assertNotNull(loaded.lookup("#ordersTable"));
+                assertNotNull(loaded.lookup("#quickSearchField"));
+                assertNotNull(loaded.lookup("#customerFilterButton"));
+                assertNotNull(loaded.lookup("#periodCombo"));
+                assertNotNull(loaded.lookup("#statusEditingCheck"));
+                assertNotNull(loaded.lookup("#previousPageButton"));
+                assertNotNull(loaded.lookup("#nextPageButton"));
+                assertTrue(loaded.lookup("#ordersTable").getLayoutBounds().getWidth() > 0);
+                stage.close();
+            } catch (Throwable throwable) {
+                error.set(throwable);
+            } finally {
+                latch.countDown();
+            }
+        });
+        assertTrue(latch.await(15, TimeUnit.SECONDS));
+        if (error.get() != null) {
+            throw new AssertionError("Orders resize layout failed at " + width + "x" + height, error.get());
+        }
     }
 
     private static Parent load(OrderListViewModel viewModel) throws Exception {

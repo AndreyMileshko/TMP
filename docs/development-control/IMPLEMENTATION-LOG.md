@@ -4,12 +4,38 @@
 
 ---
 
+## UI Modernization Stage 3.4.1 — Orders Corrective Pass — 2026-09-03
+
+**Date:** 2026-09-03
+**Stage:** UI Modernization 3.4.1 (Orders corrective); outside Stages 0–9 queue
+**Base checkpoint:** `a022bc9ec83754056cf2df021a3c916e41ad4a88`
+**Status:** IMPLEMENTED / ACCEPTANCE PENDING (no auto-commit); Stage 3.5 Warehouse NOT STARTED
+**Commit:** none (per task)
+
+### Summary
+
+Corrective pass for four Stage 3.4 gaps: (A) never map Production AccessDenied/technical failure to fake zero facts / «Ожидает производства»; (B) reconcile stale customer preference refs; (C) forbid clearing the last status checkbox; (D) rebuild package + launch + programmatic FX smoke (interactive GUI still pending — no desktop robot).
+
+### Key corrective changes
+
+- `OrderOperationalStatus.STATUS_UNAVAILABLE` presentation-only; list always includes unavailable rows
+- `OrderOperationalListService` / `OrderEditorViewModel` stop fabricating `NOT_ACCEPTED` empty facts on AccessDenied/RuntimeException
+- Customer selection = `persisted ∩ current options`; empty subset → select-all; cleaned preference rewrite once
+- Last selected status checkbox disabled / cannot clear; codec empty statuses → defaults
+- TMP-UI-Standard §39.1 / §39.3 updated
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-03 Stage 3.4.1.
+
+---
+
 ## UI Modernization Stage 3.4 — Orders — 2026-09-03
 
 **Date:** 2026-09-03
 **Stage:** UI Modernization 3.4 (Orders); outside Stages 0–9 queue
 **Base checkpoint:** `2df1d941b0d1b481f7cf8fade5cd6df2ef8e3f0f`
-**Status:** IMPLEMENTED (no auto-commit); Stage 3.5 Warehouse NOT STARTED
+**Status:** IMPLEMENTED (superseded acceptance by 3.4.1 corrective); Stage 3.5 Warehouse NOT STARTED
 **Commit:** none (per task)
 
 ### Summary
