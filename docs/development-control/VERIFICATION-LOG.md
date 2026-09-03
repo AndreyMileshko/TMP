@@ -3,10 +3,25 @@
 ## Latest result
 
 **Date:** 2026-09-03
-**Scope:** UI Modernization Stage 3.4.1 — Orders Corrective Pass
-**Overall:** PASS (corrective tests + package launch + programmatic FX); interactive packaged GUI click-through ACCEPTANCE PENDING (no TestFX/desktop robot)
+**Scope:** UI Modernization Stage 3.4.2 — Final Acceptance Corrective (customer filter)
+**Overall:** PASS (code/tests/build/package/launch on `tmp-stage5-pg`); interactive packaged GUI click-through FINAL MANUAL UI ACCEPTANCE PENDING (no desktop robot)
+
+### Stage 3.4.2 verification (2026-09-03)
+
+| Check | Result |
+|-------|--------|
+| OM surefire: `JdbcOrderQueryReadAdapterIT` + query stubs | PASS (33) |
+| UI surefire: customer options / corrective / preference / ViewModel / ControllerFx / navigation / worklist / shell history | PASS (47) |
+| Working DB Docker | `tmp-stage5-pg` Up; host `localhost`; port `55432`; database `tmp_gui_stage5`; Flyway version `34`; orders count preserved `14`; `tmp-stage34-smoke-pg` NOT USED |
+| Quick install `mvn -pl :tmp-bootstrap-app -am install -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-03 11:32:29) |
+| Launch (same env as `scripts/run-tmp-package.ps1`) against `jdbc:postgresql://localhost:55432/tmp_gui_stage5` | PASS — Flyway V34 up-to-date; `Started DesktopBootstrap`; JavaFX-Launcher started; process remained running; DB connections to `127.0.0.1:55432`; startup exceptions NONE (non-blocking JavaFX unnamed-module WARN) |
+| Interactive Orders GUI smoke / logout-login persistence / packaged resize | NOT AUTOMATED — no desktop robot; FINAL MANUAL UI ACCEPTANCE PENDING |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
 
 ### Stage 3.4.1 verification (2026-09-03)
+
+**Overall (historical):** PASS (corrective tests + package launch + programmatic FX); interactive packaged GUI click-through ACCEPTANCE PENDING (no TestFX/desktop robot)
 
 | Check | Result |
 |-------|--------|

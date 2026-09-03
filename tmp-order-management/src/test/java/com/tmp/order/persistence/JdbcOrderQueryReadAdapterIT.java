@@ -686,10 +686,43 @@ class JdbcOrderQueryReadAdapterIT {
                         OrderCommercialData.of(null, null, null, null, null, null, null),
                         clock));
 
-        List<OrderCustomerOptionDto> options = readAdapter.listWorklistCustomers(T1, T3.plusSeconds(1));
+        List<OrderCustomerOptionDto> options = readAdapter.listKnownCustomers();
 
         assertTrue(options.stream().anyMatch(OrderCustomerOptionDto::isUnassigned));
         assertTrue(options.stream().anyMatch(option -> "CR-1".equals(option.customerRef())));
+    }
+
+    @Test
+    void knownCustomersAreIndependentOfWorklistPeriod() {
+        seedOrder("ORD-OLD", "CR-OLD", "Old Customer", OrderStatus.DRAFT, Instant.parse("2025-01-01T10:00:00Z"));
+        seedOrder("ORD-NEW", "CR-NEW", "New Customer", OrderStatus.DRAFT, T2);
+
+        List<OrderCustomerOptionDto> options = readAdapter.listKnownCustomers();
+
+        assertTrue(options.stream().anyMatch(option -> "CR-OLD".equals(option.customerRef())));
+        assertTrue(options.stream().anyMatch(option -> "CR-NEW".equals(option.customerRef())));
+        assertEquals(
+                List.of("New Customer", "Old Customer"),
+                options.stream()
+                        .filter(option -> !option.isUnassigned())
+                        .map(OrderCustomerOptionDto::customerName)
+                        .toList());
+    }
+
+    @Test
+    void knownCustomersPreserveDuplicateDisplayNamesWithDistinctRefs() {
+        seedOrder("ORD-A1", "CR-A1", "Alpha", OrderStatus.DRAFT, T2);
+        seedOrder("ORD-A2", "CR-A2", "Alpha", OrderStatus.DRAFT, T2);
+
+        List<OrderCustomerOptionDto> options = readAdapter.listKnownCustomers();
+        List<String> refs =
+                options.stream()
+                        .filter(option -> "Alpha".equals(option.customerName()))
+                        .map(OrderCustomerOptionDto::customerRef)
+                        .sorted()
+                        .toList();
+
+        assertEquals(List.of("CR-A1", "CR-A2"), refs);
     }
 
     private enum AllowingAuthorization implements AuthorizationService {

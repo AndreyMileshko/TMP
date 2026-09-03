@@ -16,7 +16,6 @@ import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.SpecificationId;
 import com.tmp.order.api.OrderWorklistCriteria;
 import com.tmp.order.api.OrderWorklistRowDto;
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -53,5 +52,6 @@ public interface OrderQueryReadPort {
 
     List<OrderWorklistRowDto> listWorklistRows(OrderWorklistCriteria criteria);
 
-    List<OrderCustomerOptionDto> listWorklistCustomers(Instant createdFrom, Instant createdToExclusive);
+    /** Distinct known customers across all Orders (period-independent). */
+    List<OrderCustomerOptionDto> listKnownCustomers();
 }

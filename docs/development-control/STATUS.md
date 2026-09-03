@@ -3,12 +3,12 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1 corrective pass 2026-09-03 — ACCEPTANCE PENDING (interactive GUI smoke incomplete; no desktop robot); Stage 3.5 Warehouse NOT STARTED
-**Current Task:** none (Stage 7 closed; Stage 8 Start Gate not passed; UI 3.4.1 corrective code verified, interactive acceptance pending)
-**Last completed task:** UI Modernization Stage 3.4.1 Orders Corrective Pass (2026-09-03); prior: Stage 3.4 Orders
+**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1/3.4.2 corrective — FINAL MANUAL UI ACCEPTANCE PENDING (interactive packaged GUI incomplete; no desktop robot); Stage 3.5 Warehouse NOT STARTED
+**Current Task:** none (Stage 7 closed; Stage 8 Start Gate not passed; UI 3.4.2 customer-filter corrective verified on tmp-stage5-pg, interactive acceptance pending)
+**Last completed task:** UI Modernization Stage 3.4.2 Final Acceptance Corrective (2026-09-03); prior: Stage 3.4.1 / Stage 3.4 Orders
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
-**Active blockers:** NONE (UI 3.4 acceptance pending interactive smoke, not a code blocker)
+**Active blockers:** NONE (UI 3.4 final manual UI acceptance pending interactive smoke, not a code blocker)
 **Stage 6 Warehouse:** DONE
 **Stage 7 Production:** DONE / 100%
 **Stage 7 Start Gate:** PASSED

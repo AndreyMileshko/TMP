@@ -4,6 +4,32 @@
 
 ---
 
+## UI Modernization Stage 3.4.2 — Final Acceptance Corrective — 2026-09-03
+
+**Date:** 2026-09-03
+**Stage:** UI Modernization 3.4.2 (Orders customer-filter corrective); outside Stages 0–9 queue
+**Base checkpoint:** `6271789a58ee0b4769e9414d642b16c4c91442ed`
+**Status:** IMPLEMENTED / FINAL MANUAL UI ACCEPTANCE PENDING (no auto-commit); Stage 3.5 Warehouse NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Final corrective for Orders customer filter: (1) known-customer catalogue is period-independent; (2) catalogue load failure must not reconcile or rewrite preferences.
+
+### Key corrective changes
+
+- Replaced period-bound `listWorklistCustomers(from,to)` with `listKnownCustomers()` (`SELECT DISTINCT` across all Orders)
+- ViewModel reconciles only after successful known-customer load; outside-period customers are not stale
+- Load failure: keep selection/preference, user-facing `OrderUiErrorMapper` error, technical log via `System.Logger`
+- TMP-UI-Standard §39.3 updated for period-independent catalogue + failure semantics
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-03 Stage 3.4.2.
+
+---
+
 ## UI Modernization Stage 3.4.1 — Orders Corrective Pass — 2026-09-03
 
 **Date:** 2026-09-03

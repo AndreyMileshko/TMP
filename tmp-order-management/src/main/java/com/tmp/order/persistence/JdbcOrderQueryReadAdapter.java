@@ -524,44 +524,26 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
     }
 
     @Override
-    public List<OrderCustomerOptionDto> listWorklistCustomers(
-            Instant createdFrom, Instant createdToExclusive) {
-        Objects.requireNonNull(createdFrom, "createdFrom");
-        Objects.requireNonNull(createdToExclusive, "createdToExclusive");
-        if (!createdFrom.isBefore(createdToExclusive)) {
-            throw new IllegalArgumentException(
-                    "createdFrom must be before createdToExclusive: "
-                            + createdFrom
-                            + " / "
-                            + createdToExclusive);
-        }
+    public List<OrderCustomerOptionDto> listKnownCustomers() {
         List<OrderCustomerOptionDto> options =
                 jdbc.query(
                         """
                         SELECT DISTINCT o.customer_ref, o.customer_name
                           FROM order_management.orders o
-                         WHERE o.created_at >= ?
-                           AND o.created_at < ?
-                           AND o.customer_ref IS NOT NULL
+                         WHERE o.customer_ref IS NOT NULL
                          ORDER BY o.customer_name NULLS LAST, o.customer_ref
                         """,
                         (rs, rowNum) ->
                                 OrderCustomerOptionDto.of(
-                                        rs.getString("customer_ref"), rs.getString("customer_name")),
-                        Timestamp.from(createdFrom),
-                        Timestamp.from(createdToExclusive));
+                                        rs.getString("customer_ref"), rs.getString("customer_name")));
         Integer unassigned =
                 jdbc.queryForObject(
                         """
                         SELECT COUNT(*)
                           FROM order_management.orders o
-                         WHERE o.created_at >= ?
-                           AND o.created_at < ?
-                           AND o.customer_ref IS NULL
+                         WHERE o.customer_ref IS NULL
                         """,
-                        Integer.class,
-                        Timestamp.from(createdFrom),
-                        Timestamp.from(createdToExclusive));
+                        Integer.class);
         List<OrderCustomerOptionDto> result = new ArrayList<>(options);
         if (unassigned != null && unassigned > 0) {
             result.add(0, OrderCustomerOptionDto.unassigned());

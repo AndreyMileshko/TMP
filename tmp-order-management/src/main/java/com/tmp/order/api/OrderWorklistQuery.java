@@ -1,13 +1,12 @@
 package com.tmp.order.api;
 
-import java.time.Instant;
 import java.util.List;
 
 /**
  * Read-only Order Management query for the operational Orders worklist.
  *
  * <p>Returns commercial rows only. Production-derived status is composed by a separate
- * integration/read layer. Period is mandatory. Row count is bounded by
+ * integration/read layer. Period is mandatory for worklist rows. Row count is bounded by
  * {@link OrderWorklistCriteria#MAX_ROWS}.
  */
 public interface OrderWorklistQuery {
@@ -20,8 +19,10 @@ public interface OrderWorklistQuery {
     List<OrderWorklistRowDto> listWorklistRows(OrderWorklistCriteria criteria);
 
     /**
-     * Distinct customers observed on orders in {@code [createdFrom, createdToExclusive)}.
-     * Includes an unassigned option when at least one matching order has a null {@code customerRef}.
+     * Distinct known customers observed across all Orders (period-independent filter catalogue).
+     * Includes an unassigned option when at least one order has a null {@code customerRef}.
+     * Ordered by {@code customerName}, then {@code customerRef}. Duplicate display names with
+     * distinct refs are preserved.
      */
-    List<OrderCustomerOptionDto> listWorklistCustomers(Instant createdFrom, Instant createdToExclusive);
+    List<OrderCustomerOptionDto> listKnownCustomers();
 }

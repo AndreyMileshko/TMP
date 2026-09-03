@@ -25,6 +25,8 @@ import com.tmp.ui.shell.order.worklist.OrderOperationalListService;
 import com.tmp.ui.shell.order.worklist.OrderOperationalStatus;
 import com.tmp.ui.shell.order.worklist.OrderOperationalSummary;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -57,6 +59,8 @@ import javafx.collections.ObservableSet;
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
         justification = "JavaFX ViewModel intentionally exposes observable properties")
 public final class OrderListViewModel {
+
+    private static final Logger LOGGER = System.getLogger(OrderListViewModel.class.getName());
 
     private final OrderOperationalListService listService;
     private final OrderWorklistQuery worklistQuery;
@@ -263,11 +267,11 @@ public final class OrderListViewModel {
 
     public void refresh() {
         ensurePreferencesLoaded();
-        reconcileCustomerSelectionAgainstOptions();
         refreshPermissions();
         loading.set(true);
         errorMessage.set("");
         statusMessage.set("");
+        String customerOptionsError = reconcileCustomerSelectionAgainstOptions();
         try {
             int size = clampPageSize(pageSize.get());
             if (pageSize.get() != size) {
@@ -295,6 +299,9 @@ public final class OrderListViewModel {
             }
             applyProductionFactsState(page);
             updateCustomerFilterLabel();
+            if (customerOptionsError != null) {
+                errorMessage.set(customerOptionsError);
+            }
         } catch (IllegalArgumentException ex) {
             orders.clear();
             totalElements.set(0);
@@ -378,9 +385,9 @@ public final class OrderListViewModel {
 
     public List<OrderCustomerOptionDto> loadCustomerOptions() {
         try {
-            OrderListPeriod.Range range = resolvePeriod();
-            return worklistQuery.listWorklistCustomers(range.fromInclusive(), range.toExclusive());
+            return worklistQuery.listKnownCustomers();
         } catch (RuntimeException ex) {
+            LOGGER.log(Level.ERROR, "Failed to load known customer options", ex);
             errorMessage.set(OrderUiErrorMapper.text(ex, OrderUiOperation.LOAD));
             return List.of();
         }
@@ -519,7 +526,12 @@ public final class OrderListViewModel {
         }
     }
 
-    private void reconcileCustomerSelectionAgainstOptions() {
+    /**
+     * Reconciles persisted customer selection against the full known-customer catalogue.
+     *
+     * @return user-facing error text when the catalogue load fails; {@code null} on success
+     */
+    private String reconcileCustomerSelectionAgainstOptions() {
         if (selectAllCustomers.get()) {
             if (!selectedCustomerRefs.isEmpty() || includeUnassignedCustomer.get()) {
                 restoring = true;
@@ -532,9 +544,16 @@ public final class OrderListViewModel {
                 persistFilters();
             }
             updateCustomerFilterLabel();
-            return;
+            return null;
         }
-        List<OrderCustomerOptionDto> options = loadCustomerOptions();
+        final List<OrderCustomerOptionDto> options;
+        try {
+            options = worklistQuery.listKnownCustomers();
+        } catch (RuntimeException ex) {
+            LOGGER.log(Level.ERROR, "Failed to load known customer options for reconciliation", ex);
+            updateCustomerFilterLabel();
+            return OrderUiErrorMapper.text(ex, OrderUiOperation.LOAD);
+        }
         Set<String> validRefs = new LinkedHashSet<>();
         boolean hasUnassignedOption = false;
         for (OrderCustomerOptionDto option : options) {
@@ -574,6 +593,7 @@ public final class OrderListViewModel {
         if (changed) {
             persistFilters();
         }
+        return null;
     }
 
     private void applyProductionFactsState(OrderOperationalListResult page) {

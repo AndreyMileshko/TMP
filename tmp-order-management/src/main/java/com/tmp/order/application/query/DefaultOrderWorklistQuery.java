@@ -7,7 +7,6 @@ import com.tmp.order.api.OrderWorklistRowDto;
 import com.tmp.order.capability.OrderManagementPermissions;
 import com.tmp.security.api.AuthorizationService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
@@ -42,11 +41,8 @@ public final class DefaultOrderWorklistQuery implements OrderWorklistQuery {
     }
 
     @Override
-    public List<OrderCustomerOptionDto> listWorklistCustomers(
-            Instant createdFrom, Instant createdToExclusive) {
-        Objects.requireNonNull(createdFrom, "createdFrom");
-        Objects.requireNonNull(createdToExclusive, "createdToExclusive");
+    public List<OrderCustomerOptionDto> listKnownCustomers() {
         authorization.requirePermission(OrderManagementPermissions.ORDER_VIEW);
-        return List.copyOf(readPort.listWorklistCustomers(createdFrom, createdToExclusive));
+        return List.copyOf(readPort.listKnownCustomers());
     }
 }

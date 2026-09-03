@@ -99,7 +99,9 @@ public final class OrderListTestSupport {
         public final List<OrderWorklistRowDto> rows = new ArrayList<>();
         public OrderWorklistCriteria lastCriteria;
         public int listCalls;
+        public int knownCustomerCalls;
         public RuntimeException deny;
+        public RuntimeException denyCustomers;
 
         @Override
         public List<OrderWorklistRowDto> listWorklistRows(OrderWorklistCriteria criteria) {
@@ -138,21 +140,34 @@ public final class OrderListTestSupport {
         }
 
         @Override
-        public List<OrderCustomerOptionDto> listWorklistCustomers(
-                Instant createdFrom, Instant createdToExclusive) {
+        public List<OrderCustomerOptionDto> listKnownCustomers() {
+            if (denyCustomers != null) {
+                throw denyCustomers;
+            }
+            knownCustomerCalls++;
             Map<String, OrderCustomerOptionDto> unique = new LinkedHashMap<>();
             boolean unassigned = false;
             for (OrderWorklistRowDto row : rows) {
-                if (row.createdAt().isBefore(createdFrom) || !row.createdAt().isBefore(createdToExclusive)) {
-                    continue;
-                }
                 if (row.customerRef() == null) {
                     unassigned = true;
                     continue;
                 }
-                unique.putIfAbsent(row.customerRef(), OrderCustomerOptionDto.of(row.customerRef(), row.customerName()));
+                unique.putIfAbsent(
+                        row.customerRef(),
+                        OrderCustomerOptionDto.of(row.customerRef(), row.customerName()));
             }
             List<OrderCustomerOptionDto> options = new ArrayList<>(unique.values());
+            options.sort((a, b) -> {
+                String nameA = a.customerName() == null ? "" : a.customerName();
+                String nameB = b.customerName() == null ? "" : b.customerName();
+                int byName = nameA.compareToIgnoreCase(nameB);
+                if (byName != 0) {
+                    return byName;
+                }
+                String refA = a.customerRef() == null ? "" : a.customerRef();
+                String refB = b.customerRef() == null ? "" : b.customerRef();
+                return refA.compareTo(refB);
+            });
             if (unassigned) {
                 options.add(0, OrderCustomerOptionDto.unassigned());
             }
@@ -214,6 +229,7 @@ public final class OrderListTestSupport {
 
     public static final class InMemoryPreferences implements UserUiPreferenceService {
         private final Map<String, String> values = new ConcurrentHashMap<>();
+        public int saveCalls;
 
         @Override
         public Optional<String> load(UserId userId, String namespace, String preferenceKey) {
@@ -223,6 +239,7 @@ public final class OrderListTestSupport {
         @Override
         public void save(
                 UserId userId, String namespace, String preferenceKey, int preferenceVersion, String value) {
+            saveCalls++;
             values.put(key(userId, namespace, preferenceKey), value);
         }
 

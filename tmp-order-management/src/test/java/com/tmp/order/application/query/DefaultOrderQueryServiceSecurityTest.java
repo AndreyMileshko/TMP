@@ -202,8 +202,7 @@ class DefaultOrderQueryServiceSecurityTest {
         }
 
         @Override
-        public List<com.tmp.order.api.OrderCustomerOptionDto> listWorklistCustomers(
-                java.time.Instant createdFrom, java.time.Instant createdToExclusive) {
+        public List<com.tmp.order.api.OrderCustomerOptionDto> listKnownCustomers() {
             return List.of();
         }
     }

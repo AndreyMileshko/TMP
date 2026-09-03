@@ -257,8 +257,7 @@ class DefaultOrderQueryServiceOrderForProductionTest {
         }
 
         @Override
-        public List<OrderCustomerOptionDto> listWorklistCustomers(
-                Instant createdFrom, Instant createdToExclusive) {
+        public List<OrderCustomerOptionDto> listKnownCustomers() {
             return List.of();
         }
     }
