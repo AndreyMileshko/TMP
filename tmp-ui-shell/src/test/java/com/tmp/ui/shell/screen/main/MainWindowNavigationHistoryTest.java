@@ -103,6 +103,105 @@ class MainWindowNavigationHistoryTest {
     }
 
     @Test
+    void itemCreateRouteDeniedForViewOnlyUser() {
+        NavigationService navigation = NavigationServices.createDefault();
+        register(navigation, UiShellScreens.ORDER_ITEM_EDITOR_SCREEN_ID);
+        GrantingAuthz authz =
+                new GrantingAuthz(
+                        java.util.Set.of(PermissionId.of(UiShellScreens.ORDER_ITEM_VIEW_PERMISSION)));
+        MainWindowViewModel viewModel =
+                new MainWindowViewModel(
+                        new MainWindowViewModelTestSupport.EmptyCatalogue(),
+                        authz,
+                        new MainWindowViewModelTestSupport.FakeAuthn(),
+                        navigation);
+        AtomicInteger restores = new AtomicInteger();
+        AtomicInteger denied = new AtomicInteger();
+        viewModel.setOnAccessDenied(message -> denied.incrementAndGet());
+        viewModel.navigate(
+                ShellHistoryEntry.of(
+                        UiShellScreens.ORDER_ITEM_EDITOR_SCREEN_ID,
+                        UiShellScreens.ORDER_ITEM_CREATE_PERMISSION,
+                        restores::incrementAndGet));
+        assertEquals(0, restores.get());
+        assertEquals(1, denied.get());
+    }
+
+    @Test
+    void itemCreateRouteAllowedWithCreatePermission() {
+        NavigationService navigation = NavigationServices.createDefault();
+        register(navigation, UiShellScreens.ORDER_ITEM_EDITOR_SCREEN_ID);
+        GrantingAuthz authz =
+                new GrantingAuthz(
+                        java.util.Set.of(PermissionId.of(UiShellScreens.ORDER_ITEM_CREATE_PERMISSION)));
+        MainWindowViewModel viewModel =
+                new MainWindowViewModel(
+                        new MainWindowViewModelTestSupport.EmptyCatalogue(),
+                        authz,
+                        new MainWindowViewModelTestSupport.FakeAuthn(),
+                        navigation);
+        AtomicInteger restores = new AtomicInteger();
+        viewModel.navigate(
+                ShellHistoryEntry.of(
+                        UiShellScreens.ORDER_ITEM_EDITOR_SCREEN_ID,
+                        UiShellScreens.ORDER_ITEM_CREATE_PERMISSION,
+                        restores::incrementAndGet));
+        assertEquals(1, restores.get());
+        assertEquals(
+                UiShellScreens.ORDER_ITEM_CREATE_PERMISSION,
+                viewModel.historyForTest().current().orElseThrow().requiredPermission());
+    }
+
+    @Test
+    void specificationRouteAllowedForViewWithoutCreate() {
+        NavigationService navigation = NavigationServices.createDefault();
+        register(navigation, UiShellScreens.ORDER_ITEM_SPECIFICATION_EDITOR_SCREEN_ID);
+        GrantingAuthz authz =
+                new GrantingAuthz(
+                        java.util.Set.of(
+                                PermissionId.of(UiShellScreens.ORDER_ITEM_VIEW_PERMISSION),
+                                PermissionId.of(UiShellScreens.ORDER_SPECIFICATION_VIEW_PERMISSION)));
+        MainWindowViewModel viewModel =
+                new MainWindowViewModel(
+                        new MainWindowViewModelTestSupport.EmptyCatalogue(),
+                        authz,
+                        new MainWindowViewModelTestSupport.FakeAuthn(),
+                        navigation);
+        AtomicInteger restores = new AtomicInteger();
+        AtomicInteger denied = new AtomicInteger();
+        viewModel.setOnAccessDenied(message -> denied.incrementAndGet());
+        viewModel.navigate(
+                ShellHistoryEntry.of(
+                        UiShellScreens.ORDER_ITEM_SPECIFICATION_EDITOR_SCREEN_ID,
+                        UiShellScreens.ORDER_SPECIFICATION_VIEW_PERMISSION,
+                        restores::incrementAndGet));
+        assertEquals(1, restores.get());
+        assertEquals(0, denied.get());
+    }
+
+    private static final class GrantingAuthz implements com.tmp.security.api.AuthorizationService {
+        private final java.util.Set<PermissionId> granted;
+
+        private GrantingAuthz(java.util.Set<PermissionId> granted) {
+            this.granted = java.util.Set.copyOf(granted);
+        }
+
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return granted.contains(permissionId);
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {
+        }
+
+        @Override
+        public java.util.Set<PermissionId> effectivePermissions() {
+            return granted;
+        }
+    }
+
+    @Test
     void sidebarSameScreenDoesNotDuplicateHistory() {
         MainWindowViewModelTestSupport.SingleEntryCatalogue catalogue =
                 new MainWindowViewModelTestSupport.SingleEntryCatalogue(

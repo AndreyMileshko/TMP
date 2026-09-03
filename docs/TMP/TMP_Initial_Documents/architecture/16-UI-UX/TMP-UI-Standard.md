@@ -778,6 +778,8 @@ Date format: `dd.MM.yyyy HH:mm` in the application timezone. Empty customer: `�
 
 Open: double-click on a non-empty row, or Enter on the selected row. Click selects only. Empty-space double-click does nothing.
 
+Table selection sync: ordinary click / keyboard selection **MUST NOT** force `scrollTo`. `scrollTo` is reserved for programmatic restoration (Back memento / initial bind) when the selected row is not already selected in the TableView.
+
 ## 39.3 Filters
 
 - One quick search: order number **OR** customer name (partial, case-insensitive). Not persisted between sessions. Restored by in-session Back memento.
@@ -807,7 +809,7 @@ Keyboard: Alt+Left / Alt+Right when they do not conflict with OS/JavaFX.
 
 Header: **Позиции заказа**.
 
-Actions: **Создать позицию** only when the parent Order is `DRAFT` and the user has create permission. No permanent **Открыть** toolbar button.
+Actions: **Создать позицию** only when the parent Order is `DRAFT` and the user has create permission. No permanent **Открыть** toolbar button. Shell create-item history (`itemCreateEntry`) requires `order.item.create`, not item view.
 
 Columns exactly: Код позиции, Наименование, Количество, Статус. Do **not** show «Активная редакция» or commercial `ACTIVE`/`DRAFT` as the Status column value.
 

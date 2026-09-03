@@ -162,6 +162,171 @@ class OrderListControllerFxTest {
         layoutAtSize(1920, 1080);
     }
 
+    @Test
+    void selectingAlreadyVisibleRowDoesNotMoveVerticalScrollbar() throws Exception {
+        OrderListViewModel viewModel = populatedListViewModel(100);
+        ShownTable shown = showTable(viewModel, "order-list-scroll-visible");
+        try {
+            JavaFxTestSupport.runOnFxThread(
+                    () -> {
+                        shown.table().scrollTo(35);
+                        shown.table().applyCss();
+                        shown.root().applyCss();
+                        shown.root().layout();
+                    });
+            JavaFxTestSupport.runOnFxThread(
+                    () -> {
+                        javafx.scene.control.ScrollBar bar = verticalBar(shown.table());
+                        assertNotNull(bar);
+                        assertTrue(bar.isVisible());
+                        double before = bar.getValue();
+                        shown.table().getSelectionModel().select(38);
+                        shown.table().layout();
+                        assertEquals(
+                                viewModel.orders().get(38).orderId(),
+                                viewModel.selectedOrderProperty().get().orderId());
+                        assertEquals(38, shown.table().getSelectionModel().getSelectedIndex());
+                        assertEquals(before, bar.getValue(), 0.01);
+                        shown.table().getSelectionModel().select(42);
+                        shown.table().layout();
+                        assertEquals(42, shown.table().getSelectionModel().getSelectedIndex());
+                        assertEquals(before, bar.getValue(), 0.01);
+                    });
+        } finally {
+            close(shown);
+        }
+    }
+
+    @Test
+    void programmaticRestoreScrollsFarRowIntoView() throws Exception {
+        OrderListViewModel viewModel = populatedListViewModel(100);
+        ShownTable shown = showTable(viewModel, "order-list-scroll-restore");
+        try {
+            JavaFxTestSupport.runOnFxThread(
+                    () -> {
+                        shown.table().scrollTo(0);
+                        shown.table().applyCss();
+                        shown.root().layout();
+                    });
+            JavaFxTestSupport.runOnFxThread(
+                    () -> {
+                        javafx.scene.control.ScrollBar bar = verticalBar(shown.table());
+                        assertNotNull(bar);
+                        double before = bar.getValue();
+                        OrderOperationalSummary far = viewModel.orders().get(85);
+                        viewModel.selectedOrderProperty().set(far);
+                        shown.table().layout();
+                        assertEquals(far.orderId(), shown.table().getSelectionModel().getSelectedItem().orderId());
+                        assertTrue(
+                                bar.getValue() > before + 0.05,
+                                "programmatic restore must scroll far row into view");
+                    });
+        } finally {
+            close(shown);
+        }
+    }
+
+    @Test
+    void mementoRestoreReselectsOrderAfterBind() throws Exception {
+        OrderListViewModel viewModel = populatedListViewModel(100);
+        viewModel.refresh();
+        viewModel.selectedOrderProperty().set(viewModel.orders().get(12));
+        var memento = viewModel.captureMemento();
+        viewModel.selectedOrderProperty().set(viewModel.orders().get(0));
+        viewModel.restoreMemento(memento);
+        Parent root = load(viewModel, "order-list-memento-bind");
+        JavaFxTestSupport.runOnFxThread(
+                () -> {
+                    @SuppressWarnings("unchecked")
+                    TableView<OrderOperationalSummary> table =
+                            (TableView<OrderOperationalSummary>) root.lookup("#ordersTable");
+                    assertEquals(
+                            memento.selectedOrderId(),
+                            table.getSelectionModel().getSelectedItem().orderId());
+                });
+    }
+
+    private static OrderListViewModel populatedListViewModel(int rows) {
+        OrderListTestSupport.InMemoryWorklistQuery worklist = new OrderListTestSupport.InMemoryWorklistQuery();
+        Instant created = Instant.parse("2026-09-01T10:00:00Z");
+        for (int i = 0; i < rows; i++) {
+            worklist.rows.add(
+                    OrderListTestSupport.row(
+                            "ORD-" + String.format("%03d", i),
+                            OrderStatus.DRAFT,
+                            "c-1",
+                            "Alpha",
+                            created));
+        }
+        OrderListViewModel viewModel =
+                OrderListTestSupport.viewModel(
+                        worklist,
+                        new OrderListTestSupport.MapProductionQuery(),
+                        new FakeAuthorization(
+                                PermissionId.of(UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION),
+                                PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION)),
+                        new OrderListTestSupport.SessionAuthn(OrderListTestSupport.userId()),
+                        new OrderListTestSupport.InMemoryPreferences());
+        viewModel.pageSizeProperty().set(100);
+        viewModel.refresh();
+        return viewModel;
+    }
+
+    private static ShownTable showTable(OrderListViewModel viewModel, String screenId) throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        AtomicReference<ShownTable> shown = new AtomicReference<>();
+        Platform.runLater(
+                () -> {
+                    try {
+                        var navigation = NavigationServices.createDefault();
+                        navigation.register(
+                                new ScreenRegistration(
+                                        screenId, UiShellScreens.ORDER_LIST_FXML, () -> viewModel));
+                        Parent loaded = navigation.load(screenId);
+                        Stage stage = new Stage();
+                        stage.setScene(new Scene(loaded, 1024, 420));
+                        stage.show();
+                        loaded.applyCss();
+                        loaded.layout();
+                        @SuppressWarnings("unchecked")
+                        TableView<OrderOperationalSummary> table =
+                                (TableView<OrderOperationalSummary>) loaded.lookup("#ordersTable");
+                        table.setPrefHeight(220);
+                        table.setMinHeight(220);
+                        table.setMaxHeight(220);
+                        loaded.layout();
+                        shown.set(new ShownTable(loaded, stage, table));
+                    } catch (Throwable throwable) {
+                        error.set(throwable);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+        assertTrue(latch.await(15, TimeUnit.SECONDS));
+        if (error.get() != null) {
+            throw new AssertionError("Order list FX show failed", error.get());
+        }
+        return shown.get();
+    }
+
+    private static void close(ShownTable shown) throws Exception {
+        JavaFxTestSupport.runOnFxThread(() -> shown.stage().close());
+    }
+
+    private static javafx.scene.control.ScrollBar verticalBar(TableView<?> table) {
+        for (javafx.scene.Node node : table.lookupAll(".scroll-bar")) {
+            if (node instanceof javafx.scene.control.ScrollBar bar
+                    && bar.getOrientation() == javafx.geometry.Orientation.VERTICAL
+                    && bar.isVisible()) {
+                return bar;
+            }
+        }
+        return null;
+    }
+
+    private record ShownTable(Parent root, Stage stage, TableView<OrderOperationalSummary> table) {}
+
     private static void layoutAtSize(int width, int height) throws Exception {
         OrderListViewModel viewModel = OrderListTestSupport.viewModel();
         viewModel.refresh();

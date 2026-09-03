@@ -3,8 +3,26 @@
 ## Latest result
 
 **Date:** 2026-09-03
-**Scope:** UI Modernization Stage 3.4.5 — Direct Specification Navigation + Customer Filter Corrective
+**Scope:** UI Modernization Stage 3.4.6 — Order List Selection Scroll Corrective + Item Create Route Permission
 **Overall:** PASS (targeted tests + quick build + package + launch on `tmp-stage5-pg`); interactive packaged GUI FINAL MANUAL UI ACCEPTANCE PENDING
+
+### Stage 3.4.6 Order List Selection Scroll + Item Create Permission (2026-09-03)
+
+| Check | Result |
+|-------|--------|
+| UI: `OrderListControllerFxTest` (visible-row no-jump, programmatic scrollTo, memento bind) | PASS (10) |
+| UI: `OrderListViewModelTest` + `OrderListNavigationTest` | PASS (8+3) |
+| UI: `MainWindowNavigationHistoryTest` (create denied/allowed, spec view-only) | PASS (7) |
+| UI regression: `OrderItemListControllerFxTest` + `OrderEditorCreateNavigationTest` | PASS (4+4) |
+| Working DB Docker | `tmp-stage5-pg` Up; host `localhost`; port `55432`; database `tmp_gui_stage5`; Flyway `34`; `tmp-stage34-smoke-pg` NOT USED (Exited) |
+| Quick install `mvn -pl :tmp-bootstrap-app -am install -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-03 16:05:08) |
+| Launch (env ≡ `scripts/run-tmp-package.ps1`) against `jdbc:postgresql://localhost:55432/tmp_gui_stage5` | PASS — Flyway V34 up-to-date; `Started DesktopBootstrap`; TMP PID 16700/15720 alive; startup exceptions NONE |
+| Interactive: middle-list click / Up-Down / Back restore | NOT AUTOMATED — requires user visual confirmation (FX TEST PASS for scroll/restore) |
+| Create Item permission-denied runtime role | TEST VERIFIED (history route tests) |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 Warehouse | NOT STARTED |
+| Auto-commit | NOT DONE |
 
 ### Stage 3.4.5 Direct Specification Navigation + Customer Filter Corrective (2026-09-03)
 

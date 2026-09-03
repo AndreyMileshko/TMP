@@ -4,6 +4,31 @@
 
 ---
 
+## UI Modernization Stage 3.4.6 — Order List Selection Scroll + Item Create Permission — 2026-09-03
+
+**Date:** 2026-09-03
+**Stage:** UI Modernization 3.4.6; outside Stages 0–9 queue
+**Base checkpoint:** `401bcaebdef743c617b5f3e62feb6b3e4163179e`
+**Status:** IMPLEMENTED / FINAL MANUAL UI ACCEPTANCE PENDING (no auto-commit); Stage 3.5 Warehouse NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+(A) Ordinary TableView click/keyboard selection no longer calls `scrollTo` when the same order is already selected (`orderId` equality). `scrollTo` remains for programmatic restore (Back memento / initial bind when TableView does not yet have that selection). (B) `itemCreateEntry` now requires `ORDER_ITEM_CREATE_PERMISSION`; `editItemEntry` already used edit permission; spec/view routes unchanged.
+
+### Key changes
+
+- `OrderListController.applyViewModelSelection`
+- `UiShellAutoConfiguration.itemCreateEntry` permission
+- TMP UI Standard §39.2 / §39.6
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-03 Stage 3.4.6.
+
+---
+
 ## UI Modernization Stage 3.4.5 — Direct Specification Navigation + Customer Filter Corrective — 2026-09-03
 
 **Date:** 2026-09-03

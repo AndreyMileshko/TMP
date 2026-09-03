@@ -127,17 +127,9 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
         ordersTable.getSelectionModel()
                 .selectedItemProperty()
                 .addListener((obs, oldValue, newValue) -> viewModel.selectedOrderProperty().set(newValue));
-        viewModel.selectedOrderProperty().addListener((obs, oldValue, newValue) -> {
-            if (newValue != null && ordersTable.getItems().contains(newValue)) {
-                ordersTable.getSelectionModel().select(newValue);
-                ordersTable.scrollTo(newValue);
-            }
-        });
-        OrderOperationalSummary alreadySelected = viewModel.selectedOrderProperty().get();
-        if (alreadySelected != null && ordersTable.getItems().contains(alreadySelected)) {
-            ordersTable.getSelectionModel().select(alreadySelected);
-            ordersTable.scrollTo(alreadySelected);
-        }
+        viewModel.selectedOrderProperty().addListener(
+                (obs, oldValue, newValue) -> applyViewModelSelection(newValue));
+        applyViewModelSelection(viewModel.selectedOrderProperty().get());
 
         createOrderButton.disableProperty().bind(viewModel.canCreateProperty().not());
         importOrderButton.disableProperty().bind(viewModel.canImportProperty().not());
@@ -245,6 +237,44 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
         binding = false;
+    }
+
+    /**
+     * Synchronizes TableView selection from the ViewModel. {@code scrollTo} runs only when the
+     * table does not already have that order selected — ordinary click/keyboard selection must
+     * not force a viewport jump. Programmatic restore (Back memento / initial bind) still
+     * scrolls the target into view.
+     */
+    private void applyViewModelSelection(OrderOperationalSummary newValue) {
+        if (newValue == null) {
+            ordersTable.getSelectionModel().clearSelection();
+            return;
+        }
+        OrderOperationalSummary tableItem = tableItemFor(newValue);
+        if (tableItem == null) {
+            return;
+        }
+        if (sameOrder(ordersTable.getSelectionModel().getSelectedItem(), tableItem)) {
+            return;
+        }
+        ordersTable.getSelectionModel().select(tableItem);
+        ordersTable.scrollTo(tableItem);
+    }
+
+    private OrderOperationalSummary tableItemFor(OrderOperationalSummary wanted) {
+        if (ordersTable.getItems().contains(wanted)) {
+            return wanted;
+        }
+        for (OrderOperationalSummary item : ordersTable.getItems()) {
+            if (sameOrder(item, wanted)) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    private static boolean sameOrder(OrderOperationalSummary left, OrderOperationalSummary right) {
+        return left != null && right != null && left.orderId().equals(right.orderId());
     }
 
     private void openCustomerFilterPopup() {

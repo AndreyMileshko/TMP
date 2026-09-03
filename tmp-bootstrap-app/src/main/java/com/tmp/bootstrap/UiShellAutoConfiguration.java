@@ -476,7 +476,7 @@ public class UiShellAutoConfiguration {
         private ShellHistoryEntry itemCreateEntry(OrderId orderId) {
             return ShellHistoryEntry.of(
                     UiShellScreens.ORDER_ITEM_EDITOR_SCREEN_ID,
-                    UiShellScreens.ORDER_ITEM_VIEW_PERMISSION,
+                    UiShellScreens.ORDER_ITEM_CREATE_PERMISSION,
                     () -> orderItemEditorViewModel.openCreate(orderId));
         }
 
