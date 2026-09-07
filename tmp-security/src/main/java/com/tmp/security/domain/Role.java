@@ -91,6 +91,19 @@ public final class Role {
         return new Role(id, name, description, next, version, createdAt, clock.instant());
     }
 
+    /**
+     * Replaces the entire permission set. Used by transactional bulk apply.
+     */
+    public Role withPermissions(Set<PermissionId> newPermissions, Clock clock) {
+        Objects.requireNonNull(newPermissions, "newPermissions");
+        Objects.requireNonNull(clock, "clock");
+        Set<PermissionId> next = new LinkedHashSet<>(newPermissions);
+        if (next.equals(permissions)) {
+            return this;
+        }
+        return new Role(id, name, description, next, version, createdAt, clock.instant());
+    }
+
     public RoleId id() {
         return id;
     }

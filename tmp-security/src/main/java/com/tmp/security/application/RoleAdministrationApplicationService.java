@@ -16,6 +16,7 @@ import com.tmp.security.domain.repository.SecurityAuditRepository;
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -80,6 +81,39 @@ public class RoleAdministrationApplicationService {
         Role updated = roleRepository.save(role.revokePermission(permissionId, clock));
         appendAudit(AuditOperation.ROLE_PERMISSIONS_CHANGED, updated.id(), "Role permission revoked");
         return updated;
+    }
+
+    /**
+     * Atomically replaces role permissions with exactly {@code targetPermissions}. Each granted or
+     * revoked permission is audited; on failure the previous set is preserved by the transaction.
+     */
+    @Transactional
+    public Role setRolePermissions(RoleId roleId, Set<PermissionId> targetPermissions) {
+        authorization.requirePermission(SecurityPermissions.PERMISSIONS_ASSIGN);
+        Objects.requireNonNull(targetPermissions, "targetPermissions");
+        Role role = requireRole(roleId);
+        Set<PermissionId> current = role.permissions();
+        Set<PermissionId> target = Set.copyOf(targetPermissions);
+        if (current.equals(target)) {
+            return role;
+        }
+        for (PermissionId permissionId : target) {
+            if (!current.contains(permissionId)) {
+                appendAudit(
+                        AuditOperation.ROLE_PERMISSIONS_CHANGED,
+                        roleId,
+                        "Role permission granted: " + permissionId.value());
+            }
+        }
+        for (PermissionId permissionId : current) {
+            if (!target.contains(permissionId)) {
+                appendAudit(
+                        AuditOperation.ROLE_PERMISSIONS_CHANGED,
+                        roleId,
+                        "Role permission revoked: " + permissionId.value());
+            }
+        }
+        return roleRepository.save(role.withPermissions(target, clock));
     }
 
     @Transactional

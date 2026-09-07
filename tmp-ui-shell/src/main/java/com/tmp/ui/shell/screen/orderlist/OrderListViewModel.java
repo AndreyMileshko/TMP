@@ -20,10 +20,13 @@ import com.tmp.ui.shell.order.worklist.OrderListFilterPreference;
 import com.tmp.ui.shell.order.worklist.OrderListFilterPreferenceCodec;
 import com.tmp.ui.shell.order.worklist.OrderListMemento;
 import com.tmp.ui.shell.order.worklist.OrderListPeriod;
+import com.tmp.ui.shell.order.worklist.OrderListSortDirection;
+import com.tmp.ui.shell.order.worklist.OrderListSortField;
 import com.tmp.ui.shell.order.worklist.OrderOperationalListRequest;
 import com.tmp.ui.shell.order.worklist.OrderOperationalListResult;
 import com.tmp.ui.shell.order.worklist.OrderOperationalListResult.ProductionFactsState;
 import com.tmp.ui.shell.order.worklist.OrderOperationalListService;
+import com.tmp.ui.shell.order.worklist.OrderOperationalListSorter;
 import com.tmp.ui.shell.order.worklist.OrderOperationalStatus;
 import com.tmp.ui.shell.order.worklist.OrderOperationalSummary;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -91,6 +94,10 @@ public final class OrderListViewModel {
     private final ObjectProperty<LocalDate> customTo = new SimpleObjectProperty<>();
     private final BooleanProperty canGoPrevious = new SimpleBooleanProperty(false);
     private final BooleanProperty canGoNext = new SimpleBooleanProperty(false);
+    private final ObjectProperty<OrderListSortField> sortField =
+            new SimpleObjectProperty<>(OrderOperationalListSorter.defaultField());
+    private final ObjectProperty<OrderListSortDirection> sortDirection =
+            new SimpleObjectProperty<>(OrderOperationalListSorter.defaultDirection());
     private final ObservableSet<OrderOperationalStatus> selectedStatuses =
             FXCollections.observableSet(EnumSet.noneOf(OrderOperationalStatus.class));
     private final BooleanProperty selectAllCustomers = new SimpleBooleanProperty(true);
@@ -234,6 +241,14 @@ public final class OrderListViewModel {
         return canGoNext;
     }
 
+    public ObjectProperty<OrderListSortField> sortFieldProperty() {
+        return sortField;
+    }
+
+    public ObjectProperty<OrderListSortDirection> sortDirectionProperty() {
+        return sortDirection;
+    }
+
     public ObservableSet<OrderOperationalStatus> selectedStatuses() {
         return selectedStatuses;
     }
@@ -302,7 +317,9 @@ public final class OrderListViewModel {
                                     includeUnassignedCustomer.get(),
                                     !selectAllCustomers.get(),
                                     pageIndex.get(),
-                                    size));
+                                    size,
+                                    sortField.get(),
+                                    sortDirection.get()));
             orders.setAll(page.content());
             totalElements.set(page.totalElements());
             pageIndex.set(page.pageIndex());
@@ -349,6 +366,31 @@ public final class OrderListViewModel {
         }
         pageIndex.set(0);
         refresh();
+    }
+
+    /**
+     * Applies ViewModel-owned sort for the full matched set. Resets to the first page. Clearing
+     * sort (null field) restores the default {@code createdAt DESC}.
+     */
+    public void applySort(OrderListSortField field, OrderListSortDirection direction) {
+        if (restoring) {
+            return;
+        }
+        OrderListSortField nextField =
+                field == null ? OrderOperationalListSorter.defaultField() : field;
+        OrderListSortDirection nextDirection =
+                direction == null ? OrderOperationalListSorter.defaultDirection() : direction;
+        if (nextField == sortField.get() && nextDirection == sortDirection.get()) {
+            return;
+        }
+        sortField.set(nextField);
+        sortDirection.set(nextDirection);
+        pageIndex.set(0);
+        refresh();
+    }
+
+    public void clearSortToDefault() {
+        applySort(null, null);
     }
 
     public void applyCustomerSelection(

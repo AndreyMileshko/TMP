@@ -170,6 +170,32 @@ public final class JdbcUserRepository implements UserRepository {
                 pageIndex * pageSize);
     }
 
+    @Override
+    public List<User> searchByLoginOrDisplayName(String query, int limit) {
+        String normalized = query == null ? "" : query.trim();
+        if (normalized.isEmpty() || limit < 1) {
+            return List.of();
+        }
+        String pattern = "%" + escapeLike(normalized).toLowerCase() + "%";
+        return jdbcTemplate.query(
+                """
+                SELECT * FROM security.users
+                WHERE status = ?
+                  AND (lower(login) LIKE ? ESCAPE '\\' OR lower(display_name) LIKE ? ESCAPE '\\')
+                ORDER BY login
+                LIMIT ?
+                """,
+                ROW_MAPPER,
+                UserStatus.ACTIVE.name(),
+                pattern,
+                pattern,
+                limit);
+    }
+
+    private static String escapeLike(String raw) {
+        return raw.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+    }
+
     private static User mapRow(ResultSet rs, int rowNum) throws SQLException {
         String activationHash = rs.getString("activation_code_hash");
         Timestamp activationExpires = rs.getTimestamp("activation_code_expires_at");

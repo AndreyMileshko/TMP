@@ -48,6 +48,11 @@ public final class DefaultUserAdministrationService implements UserAdministratio
     }
 
     @Override
+    public List<UserSummary> searchUsers(String query, int limit) {
+        return users.searchUsers(query, limit).stream().map(SecurityApiMapper::toSummary).toList();
+    }
+
+    @Override
     public void changeOwnPassword(char[] currentPassword, char[] newPassword) {
         passwords.changeOwnPassword(currentPassword, newPassword);
     }

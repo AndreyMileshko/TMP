@@ -51,4 +51,9 @@ final class AlwaysActiveUserRepository implements UserRepository {
     public List<User> findPage(int pageIndex, int pageSize, UserStatus statusFilter) {
         return List.of();
     }
+
+    @Override
+    public List<User> searchByLoginOrDisplayName(String query, int limit) {
+        return List.of();
+    }
 }

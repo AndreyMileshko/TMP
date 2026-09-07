@@ -780,6 +780,8 @@ Open: double-click on a non-empty row, or Enter on the selected row. Click selec
 
 Table selection sync: ordinary click / keyboard selection **MUST NOT** force `scrollTo`. `scrollTo` is reserved for programmatic restoration (Back memento / initial bind) when the selected row is not already selected in the TableView.
 
+Column header sorting applies to the **full filtered matched set before pagination**. TableView must not locally re-sort only the current page. Sort state is owned by the ViewModel (`sortField` / `sortDirection`). Supported fields: order number (natural/alphanumeric), customer display name (case-insensitive; blank last), created-at Instant, item quantity (numeric), operational status by explicit lifecycle rank (Редактируется → Ожидает производства → В производстве → Частично выполнен → Выполнен → Отменён → Статус недоступен). Default: created-at DESC. Changing sort resets to page 1. Header arrow must match ViewModel direction. JavaFX clear-sort (third click) restores the default.
+
 ## 39.3 Filters
 
 - One quick search: order number **OR** customer name (partial, case-insensitive). Not persisted between sessions. Restored by in-session Back memento.
@@ -876,6 +878,16 @@ Import confirmation explains existing ACTIVE / immutable landing (business seman
 TableView selection uses soft translucent green (`-tmp-table-selection-bg`) from the global theme for both focused and unfocused tables. Screen-specific selection colors are prohibited.
 
 Operational status cells and headers reuse `OperationalStatusIndicator` (Circle radius 6 + caption) with dedicated `tmp-status-dot-*` classes. Do not reuse/brighten the generic `-tmp-success` / `-tmp-danger` / `-tmp-warning` / `-tmp-info` message/button palette for status dots.
+
+---
+
+# 39A. Roles (Stage 3.2 corrective)
+
+Detail panel order after role selection: role header → **Назначение пользователю** → **Права роли**.
+
+Permissions are shown as a collapsible tree grouped by stable `PermissionId` area prefix (`security` → Администрирование, `order` → Заказы, `warehouse` → Склад, `production` → Производство, `cutting` → Раскрой, `analytics` → Аналитика; unknown prefixes remain visible under a humanized or «Прочее» group). Group checkboxes are tri-state (none / partial / all). Leaf and group edits change a local **desired** set; persistence is via **Применить права** calling transactional `setRolePermissions` (`PERMISSIONS_ASSIGN`). Search filters by display name and PermissionId; matching parents expand.
+
+User assignment: searchable user picker (login / display name) — not exact-login-only. Actual assignment is read via `listRolesForUser`. Desired state is a single checkbox «Роль назначена пользователю» + **Применить** (`ROLES_ASSIGN`). Separate **Отозвать** button is forbidden. Assignment section stays near the top; the permission tree grows with available height.
 
 ---
 

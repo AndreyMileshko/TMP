@@ -92,6 +92,32 @@ class OrderListViewModelTest {
     }
 
     @Test
+    void sortChangeResetsPageIndex() {
+        OrderListTestSupport.InMemoryWorklistQuery worklist = new OrderListTestSupport.InMemoryWorklistQuery();
+        for (int i = 0; i < 120; i++) {
+            worklist.rows.add(row("O-" + i));
+        }
+        OrderListViewModel viewModel =
+                OrderListTestSupport.viewModel(
+                        worklist,
+                        new OrderListTestSupport.MapProductionQuery(),
+                        new FakeAuthorization(),
+                        new OrderListTestSupport.SessionAuthn(OrderListTestSupport.userId()),
+                        new OrderListTestSupport.InMemoryPreferences());
+        viewModel.refresh();
+        viewModel.nextPage();
+        viewModel.nextPage();
+        assertEquals(2, viewModel.pageIndexProperty().get());
+        viewModel.applySort(
+                com.tmp.ui.shell.order.worklist.OrderListSortField.STATUS,
+                com.tmp.ui.shell.order.worklist.OrderListSortDirection.ASC);
+        assertEquals(0, viewModel.pageIndexProperty().get());
+        assertEquals(
+                com.tmp.ui.shell.order.worklist.OrderListSortField.STATUS,
+                viewModel.sortFieldProperty().get());
+    }
+
+    @Test
     void pageSizeIsClampedToMax() {
         OrderListViewModel viewModel = OrderListTestSupport.viewModel();
         viewModel.pageSizeProperty().set(500);

@@ -212,6 +212,21 @@ class BootstrapAdministratorApplicationServiceTest {
                     .limit(pageSize)
                     .toList();
         }
+
+        @Override
+        public List<User> searchByLoginOrDisplayName(String query, int limit) {
+            String normalized = query == null ? "" : query.trim().toLowerCase();
+            if (normalized.isEmpty() || limit < 1) {
+                return List.of();
+            }
+            return store.values().stream()
+                    .filter(u -> u.status() == com.tmp.security.domain.UserStatus.ACTIVE)
+                    .filter(u -> u.login().value().toLowerCase().contains(normalized)
+                            || u.displayName().value().toLowerCase().contains(normalized))
+                    .sorted(java.util.Comparator.comparing(u -> u.login().value(), String.CASE_INSENSITIVE_ORDER))
+                    .limit(limit)
+                    .toList();
+        }
     }
 
     private static final class InMemoryRoles implements RoleRepository {

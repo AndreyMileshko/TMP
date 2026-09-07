@@ -2,9 +2,34 @@
 
 ## Latest result
 
-**Date:** 2026-09-03
-**Scope:** UI Modernization Stage 3.4.6 — Order List Selection Scroll Corrective + Item Create Route Permission
+**Date:** 2026-09-04
+**Scope:** UI Corrective — Orders Global Sorting + Roles Permission Tree / User Assignment UX
 **Overall:** PASS (targeted tests + quick build + package + launch on `tmp-stage5-pg`); interactive packaged GUI FINAL MANUAL UI ACCEPTANCE PENDING
+
+### Orders Global Sorting + Roles Tree / Assignment UX (2026-09-04)
+
+| Check | Result |
+|-------|--------|
+| Security: `RoleAdministrationApplicationServiceTest` (incl. setRolePermissions + auth) | PASS (5) |
+| Security: `RoleAssignmentApplicationServiceTest` | PASS (4) |
+| Security: `UserAdministrationApplicationServiceTest` | PASS (3) |
+| UI: `OrderOperationalListSorterTest` | PASS (5) |
+| UI: `OrderOperationalListServiceTest` (incl. cross-page sort) | PASS (8) |
+| UI: `OrderListViewModelTest` (incl. page reset on sort) | PASS (9) |
+| UI: `OrderListControllerFxTest` (scroll regression retained) | PASS (10) |
+| UI: `PermissionNamespaceGroupTest` | PASS (1) |
+| UI: `RoleAdministrationViewModelTest` | PASS (8) |
+| UI: `RoleAdministrationControllerFxTest` | PASS (5) |
+| UI: `RoleAdministrationSelectionFxTest` | PASS (2) |
+| Working DB Docker | `tmp-stage5-pg` Up; host `localhost`; port `55432`; database `tmp_gui_stage5`; Flyway `34`; `tmp-stage34-smoke-pg` NOT USED (Exited) |
+| Quick install `mvn -pl :tmp-bootstrap-app -am install -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-04 07:43:29) |
+| Launch `scripts/run-tmp-package.ps1` against `jdbc:postgresql://localhost:55432/tmp_gui_stage5` | PASS — Flyway V34 up-to-date; `Started DesktopBootstrap`; TMP PID 4820/22444 alive; startup exceptions NONE (JavaFX unnamed-module WARN only) |
+| Interactive Orders sort / Roles tree / assignment / resize | NOT AUTOMATED — requires user visual confirmation (FX TEST PASS for Orders scroll + Roles 1024×700 structure) |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 Warehouse | NOT STARTED |
+| Auto-commit | NOT DONE |
+| Migrations | NONE |
 
 ### Stage 3.4.6 Order List Selection Scroll + Item Create Permission (2026-09-03)
 

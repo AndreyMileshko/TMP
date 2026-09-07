@@ -78,4 +78,9 @@ public final class ControllableUserRepository implements UserRepository {
     public List<User> findPage(int pageIndex, int pageSize, UserStatus statusFilter) {
         return delegate.findPage(pageIndex, pageSize, statusFilter);
     }
+
+    @Override
+    public List<User> searchByLoginOrDisplayName(String query, int limit) {
+        return delegate.searchByLoginOrDisplayName(query, limit);
+    }
 }

@@ -93,6 +93,12 @@ public class UserAdministrationApplicationService {
         return userRepository.findPage(pageIndex, pageSize, statusFilter);
     }
 
+    public List<User> searchUsers(String query, int limit) {
+        authorization.requirePermission(SecurityPermissions.USERS_VIEW);
+        int clamped = Math.min(Math.max(limit, 1), 50);
+        return userRepository.searchByLoginOrDisplayName(query, clamped);
+    }
+
     private void appendAudit(AuditOperation operation, UserId targetId, String description) {
         var actor = sessionContext.current();
         auditRepository.append(SecurityAuditEvent.record(

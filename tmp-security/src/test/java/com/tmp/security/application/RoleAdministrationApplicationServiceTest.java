@@ -104,6 +104,45 @@ class RoleAdministrationApplicationServiceTest {
         assertTrue(roles.findAll().isEmpty());
     }
 
+    @Test
+    void setRolePermissionsReplacesExactSetAndAuditsDeltas() {
+        Role role = service.createRole("R", "d");
+        service.grantPermissionToRole(role.id(), SecurityPermissions.USERS_VIEW);
+        service.grantPermissionToRole(role.id(), SecurityPermissions.ROLES_VIEW);
+        service.grantPermissionToRole(role.id(), SecurityPermissions.AUDIT_VIEW);
+        audit.events.clear();
+        Role updated = service.setRolePermissions(
+                role.id(),
+                Set.of(SecurityPermissions.USERS_VIEW, SecurityPermissions.USERS_CREATE));
+        assertEquals(
+                Set.of(SecurityPermissions.USERS_VIEW, SecurityPermissions.USERS_CREATE),
+                updated.permissions());
+        long permissionAudits = audit.events.stream()
+                .filter(e -> e.operation() == AuditOperation.ROLE_PERMISSIONS_CHANGED)
+                .count();
+        assertEquals(3, permissionAudits);
+    }
+
+    @Test
+    void setRolePermissionsRequiresPermissionsAssignNotRolesAssign() {
+        sessions.close();
+        UserId actor = UserId.generate();
+        sessions.open(Session.of(SessionId.generate(), actor, Login.of("assigner"), CLOCK.instant()));
+        Set<PermissionId> perms = Set.of(SecurityPermissions.ROLES_ASSIGN);
+        AuthorizationApplicationService authorization = new AuthorizationApplicationService(
+                sessions,
+                alwaysActiveUsers(),
+                engine(perms), emptyAssignments(), emptyRoles(), grantAll(actor, perms));
+        RoleAdministrationApplicationService limited = new RoleAdministrationApplicationService(
+                roles, assignments, authorization, audit, sessions, CLOCK);
+        Role role = Role.create(RoleId.generate(), "R", "", CLOCK);
+        roles.save(role);
+        assertThrows(
+                AccessDeniedException.class,
+                () -> limited.setRolePermissions(role.id(), Set.of(SecurityPermissions.USERS_VIEW)));
+        assertTrue(roles.findById(role.id()).orElseThrow().permissions().isEmpty());
+    }
+
     private static CapabilityEngine engine(Set<PermissionId> active) {
         return new CapabilityEngine() {
             @Override

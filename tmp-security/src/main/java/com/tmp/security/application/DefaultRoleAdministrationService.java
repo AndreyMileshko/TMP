@@ -49,6 +49,11 @@ public final class DefaultRoleAdministrationService implements RoleAdministratio
     }
 
     @Override
+    public RoleSummary setRolePermissions(RoleId roleId, java.util.Set<PermissionId> targetPermissions) {
+        return SecurityApiMapper.toSummary(roles.setRolePermissions(roleId, targetPermissions));
+    }
+
+    @Override
     public void deleteRole(RoleId roleId) {
         roles.deleteRole(roleId);
     }
@@ -66,6 +71,11 @@ public final class DefaultRoleAdministrationService implements RoleAdministratio
     @Override
     public void revokeRole(UserId userId, RoleId roleId) {
         assignments.revokeRole(userId, roleId);
+    }
+
+    @Override
+    public java.util.Set<RoleId> listRolesForUser(UserId userId) {
+        return assignments.listRolesForUser(userId);
     }
 
     @Override

@@ -4,12 +4,15 @@ import com.tmp.ui.shell.navigation.ViewModelAware;
 import com.tmp.ui.shell.order.worklist.DateTimePresentation;
 import com.tmp.ui.shell.order.worklist.OperationalStatusIndicator;
 import com.tmp.ui.shell.order.worklist.OrderListPeriod;
+import com.tmp.ui.shell.order.worklist.OrderListSortDirection;
+import com.tmp.ui.shell.order.worklist.OrderListSortField;
 import com.tmp.ui.shell.order.worklist.OrderOperationalStatus;
 import com.tmp.ui.shell.order.worklist.OrderOperationalSummary;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import javafx.animation.PauseTransition;
 import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -18,6 +21,7 @@ import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableColumn.SortType;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
@@ -92,6 +96,7 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
     private OrderListViewModel viewModel;
     private final PauseTransition searchDebounce = new PauseTransition(Duration.millis(300));
     private boolean binding;
+    private boolean syncingSort;
 
     @Override
     public void setViewModel(OrderListViewModel viewModel) {
@@ -116,6 +121,8 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
         statusColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleObjectProperty<>(cell.getValue()));
         statusColumn.setCellFactory(column -> new StatusTableCell());
+
+        configureServerSideSorting();
 
         ordersTable.setItems(viewModel.orders());
         ordersTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
@@ -237,6 +244,102 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
                 viewModel.errorMessageProperty()));
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
         binding = false;
+    }
+
+    /**
+     * TableView holds only the current page. Local {@link TableView#sort()} would reorder that page
+     * only. Sort state lives in the ViewModel and is applied to the full matched set before
+     * pagination. JavaFX 3-state cycle: ASC → DESC → clear (default {@code createdAt DESC}).
+     */
+    private void configureServerSideSorting() {
+        bindSortColumn(orderNumberColumn, OrderListSortField.ORDER_NUMBER);
+        bindSortColumn(customerNameColumn, OrderListSortField.CUSTOMER);
+        bindSortColumn(createdAtColumn, OrderListSortField.CREATED_AT);
+        bindSortColumn(itemCountColumn, OrderListSortField.ITEM_COUNT);
+        bindSortColumn(statusColumn, OrderListSortField.STATUS);
+
+        ordersTable.setSortPolicy(table -> true);
+        ordersTable
+                .getSortOrder()
+                .addListener((ListChangeListener<TableColumn<OrderOperationalSummary, ?>>) change -> {
+                    if (syncingSort || binding) {
+                        return;
+                    }
+                    applySortOrderFromTable();
+                });
+        syncSortIndicatorsFromViewModel();
+    }
+
+    private void bindSortColumn(
+            TableColumn<OrderOperationalSummary, ?> column, OrderListSortField field) {
+        column.setUserData(field);
+        column.setSortable(true);
+        column.sortTypeProperty().addListener((obs, oldType, newType) -> {
+            if (syncingSort || binding) {
+                return;
+            }
+            if (!ordersTable.getSortOrder().contains(column)) {
+                return;
+            }
+            applySortOrderFromTable();
+        });
+    }
+
+    private void applySortOrderFromTable() {
+        if (ordersTable.getSortOrder().isEmpty()) {
+            viewModel.clearSortToDefault();
+            syncSortIndicatorsFromViewModel();
+            return;
+        }
+        TableColumn<OrderOperationalSummary, ?> column = ordersTable.getSortOrder().getFirst();
+        Object data = column.getUserData();
+        if (!(data instanceof OrderListSortField field)) {
+            viewModel.clearSortToDefault();
+            syncSortIndicatorsFromViewModel();
+            return;
+        }
+        OrderListSortDirection direction =
+                column.getSortType() == SortType.DESCENDING
+                        ? OrderListSortDirection.DESC
+                        : OrderListSortDirection.ASC;
+        viewModel.applySort(field, direction);
+        syncSortIndicatorsFromViewModel();
+    }
+
+    private void syncSortIndicatorsFromViewModel() {
+        syncingSort = true;
+        try {
+            OrderListSortField field = viewModel.sortFieldProperty().get();
+            OrderListSortDirection direction = viewModel.sortDirectionProperty().get();
+            TableColumn<OrderOperationalSummary, ?> active = columnFor(field);
+            ordersTable.getSortOrder().clear();
+            if (active != null) {
+                active.setSortType(
+                        direction == OrderListSortDirection.DESC
+                                ? SortType.DESCENDING
+                                : SortType.ASCENDING);
+                ordersTable.getSortOrder().add(active);
+            } else {
+                // Default createdAt DESC still shows an arrow so UI matches ViewModel.
+                createdAtColumn.setSortType(SortType.DESCENDING);
+                ordersTable.getSortOrder().add(createdAtColumn);
+            }
+        } finally {
+            syncingSort = false;
+        }
+    }
+
+    private TableColumn<OrderOperationalSummary, ?> columnFor(OrderListSortField field) {
+        if (field == null) {
+            return null;
+        }
+        return switch (field) {
+            case ORDER_NUMBER -> orderNumberColumn;
+            case CUSTOMER -> customerNameColumn;
+            case CREATED_AT -> createdAtColumn;
+            case ITEM_COUNT -> itemCountColumn;
+            case STATUS -> statusColumn;
+        };
     }
 
     /**

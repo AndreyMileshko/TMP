@@ -215,6 +215,145 @@ class OrderOperationalListServiceTest {
                 OrderOperationalListResult.ProductionFactsState.AVAILABLE, result.productionFactsState());
     }
 
+    @Test
+    void sortsFullMatchedSetBeforePagination() {
+        InMemoryWorklistQuery worklist = new InMemoryWorklistQuery();
+        for (int i = 1; i <= 120; i++) {
+            worklist.rows.add(
+                    OrderWorklistRowDto.of(
+                            OrderId.generate(),
+                            "N-" + i,
+                            OrderStatus.DRAFT,
+                            "c",
+                            "C",
+                            Instant.parse("2026-09-01T10:00:00Z").plusSeconds(i),
+                            i));
+        }
+        OrderOperationalListService service =
+                new OrderOperationalListService(worklist, new MapProductionQuery());
+        OrderOperationalListResult page0 =
+                service.search(
+                        new OrderOperationalListRequest(
+                                FROM,
+                                TO,
+                                null,
+                                EnumSet.of(OrderOperationalStatus.EDITING),
+                                Set.of(),
+                                Set.of(),
+                                false,
+                                false,
+                                0,
+                                50,
+                                OrderListSortField.ITEM_COUNT,
+                                OrderListSortDirection.ASC));
+        OrderOperationalListResult page1 =
+                service.search(
+                        new OrderOperationalListRequest(
+                                FROM,
+                                TO,
+                                null,
+                                EnumSet.of(OrderOperationalStatus.EDITING),
+                                Set.of(),
+                                Set.of(),
+                                false,
+                                false,
+                                1,
+                                50,
+                                OrderListSortField.ITEM_COUNT,
+                                OrderListSortDirection.ASC));
+        OrderOperationalListResult page2 =
+                service.search(
+                        new OrderOperationalListRequest(
+                                FROM,
+                                TO,
+                                null,
+                                EnumSet.of(OrderOperationalStatus.EDITING),
+                                Set.of(),
+                                Set.of(),
+                                false,
+                                false,
+                                2,
+                                50,
+                                OrderListSortField.ITEM_COUNT,
+                                OrderListSortDirection.ASC));
+        assertEquals(120, page0.totalElements());
+        assertEquals(1L, page0.content().getFirst().itemQuantity());
+        assertEquals(50L, page0.content().getLast().itemQuantity());
+        assertEquals(51L, page1.content().getFirst().itemQuantity());
+        assertEquals(100L, page1.content().getLast().itemQuantity());
+        assertEquals(101L, page2.content().getFirst().itemQuantity());
+        assertEquals(120L, page2.content().getLast().itemQuantity());
+    }
+
+    @Test
+    void statusSortUsesBusinessOrderAcrossPages() {
+        InMemoryWorklistQuery worklist = new InMemoryWorklistQuery();
+        MapProductionQuery production = new MapProductionQuery();
+        addStatusFixture(worklist, production);
+        OrderOperationalListService service = new OrderOperationalListService(worklist, production);
+        OrderOperationalListResult page0 =
+                service.search(
+                        new OrderOperationalListRequest(
+                                FROM,
+                                TO,
+                                null,
+                                EnumSet.allOf(OrderOperationalStatus.class),
+                                Set.of(),
+                                Set.of(),
+                                false,
+                                false,
+                                0,
+                                3,
+                                OrderListSortField.STATUS,
+                                OrderListSortDirection.ASC));
+        OrderOperationalListResult page1 =
+                service.search(
+                        new OrderOperationalListRequest(
+                                FROM,
+                                TO,
+                                null,
+                                EnumSet.allOf(OrderOperationalStatus.class),
+                                Set.of(),
+                                Set.of(),
+                                false,
+                                false,
+                                1,
+                                3,
+                                OrderListSortField.STATUS,
+                                OrderListSortDirection.ASC));
+        assertEquals(OrderOperationalStatus.EDITING, page0.content().get(0).operationalStatus());
+        assertEquals(OrderOperationalStatus.AWAITING_PRODUCTION, page0.content().get(1).operationalStatus());
+        assertEquals(OrderOperationalStatus.IN_PRODUCTION, page0.content().get(2).operationalStatus());
+        assertEquals(OrderOperationalStatus.PARTIALLY_COMPLETED, page1.content().get(0).operationalStatus());
+        assertEquals(OrderOperationalStatus.COMPLETED, page1.content().get(1).operationalStatus());
+        assertEquals(OrderOperationalStatus.CANCELLED, page1.content().get(2).operationalStatus());
+    }
+
+    private static void addStatusFixture(InMemoryWorklistQuery worklist, MapProductionQuery production) {
+        OrderId doneId = OrderId.generate();
+        worklist.rows.add(row(doneId, "done", OrderStatus.ACTIVE, 10L));
+        production.put(doneId, facts(doneId.value(), OrderProductionViewStatus.MANUFACTURED, 10L, 10L, 0L, false));
+
+        worklist.rows.add(row(OrderId.generate(), "edit", OrderStatus.DRAFT, 1L));
+        worklist.rows.add(row(OrderId.generate(), "cancel", OrderStatus.CANCELLED, 1L));
+
+        OrderId prodId = OrderId.generate();
+        worklist.rows.add(row(prodId, "prod", OrderStatus.ACTIVE, 10L));
+        production.put(
+                prodId, facts(prodId.value(), OrderProductionViewStatus.IN_PRODUCTION, 10L, 3L, 7L, false));
+
+        OrderId awaitId = OrderId.generate();
+        worklist.rows.add(row(awaitId, "await", OrderStatus.ACTIVE, 10L));
+        production.put(
+                awaitId, facts(awaitId.value(), OrderProductionViewStatus.NOT_ACCEPTED, 10L, 0L, 0L, false));
+
+        OrderId partialId = OrderId.generate();
+        worklist.rows.add(row(partialId, "partial", OrderStatus.ACTIVE, 10L));
+        production.put(
+                partialId,
+                facts(partialId.value(), OrderProductionViewStatus.CANCELLED, 10L, 4L, 0L, true));
+    }
+
     private static OrderOperationalListRequest request(Set<OrderOperationalStatus> statuses, int page, int size) {
         return new OrderOperationalListRequest(
                 FROM, TO, null, statuses, Set.of(), false, false, page, size);

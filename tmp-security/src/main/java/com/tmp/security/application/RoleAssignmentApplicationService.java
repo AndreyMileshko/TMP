@@ -18,6 +18,7 @@ import com.tmp.security.domain.repository.SecurityAuditRepository;
 import com.tmp.security.domain.repository.UserRepository;
 import java.time.Clock;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -70,6 +71,12 @@ public class RoleAssignmentApplicationService {
         authorization.requirePermission(SecurityPermissions.ROLES_ASSIGN);
         roleAssignmentRepository.revoke(userId, roleId);
         appendAudit(AuditOperation.ROLE_REVOKED, userId, roleId, "Role revoked");
+    }
+
+    public Set<RoleId> listRolesForUser(UserId userId) {
+        authorization.requirePermission(SecurityPermissions.ROLES_ASSIGN);
+        Objects.requireNonNull(userId, "userId");
+        return Set.copyOf(roleAssignmentRepository.findRoleIdsForUser(userId));
     }
 
     private User requireActiveUser(UserId userId) {

@@ -3,6 +3,7 @@ package com.tmp.ui.shell.screen.roleadmin;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.security.api.AuthorizationService;
@@ -31,19 +32,20 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
-import javafx.event.ActionEvent;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.Scene;
-import javafx.scene.control.CheckBox;
+import javafx.scene.control.Button;
+import javafx.scene.control.CheckBoxTreeItem;
 import javafx.scene.control.TableView;
-import javafx.scene.layout.VBox;
+import javafx.scene.control.TreeItem;
+import javafx.scene.control.TreeView;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * Real FXML/Controller regression for DEFECT-5: permission checkbox must not clear role selection.
+ * Real FXML/Controller regression: permission tree edits must not clear role selection; Apply
+ * persists the target set.
  */
 class RoleAdministrationSelectionFxTest {
 
@@ -53,83 +55,16 @@ class RoleAdministrationSelectionFxTest {
     }
 
     @Test
-    void checkboxOnKeepsTableSelectionAndSelectedRoleId() throws Exception {
-        assertTogglePreservesSelection(true);
-    }
-
-    @Test
-    void checkboxOffKeepsTableSelectionAndSelectedRoleId() throws Exception {
-        assertTogglePreservesSelection(false);
-    }
-
-    @Test
-    void permissionPresentationUsesDisplayNameAndTechnicalId() {
-        PermissionSummary summary = new PermissionSummary(
-                PermissionId.of("order.order.create"), "Создание заказов", "", true);
-        assertEquals("Создание заказов", RoleAdministrationController.permissionDisplayName(summary));
-        assertEquals("order.order.create", RoleAdministrationController.permissionTechnicalId(summary));
-    }
-
-    @Test
-    void editablePermissionCheckBoxIsFocusTraversable() throws Exception {
+    void applyPermissionsKeepsTableSelectionAndSelectedRoleId() throws Exception {
         RecordingRoles roles = new RecordingRoles();
         PermissionId permission = SecurityPermissions.USERS_VIEW;
-        roles.addRole("Security Administrator", "admin role", Set.of());
+        RoleSummary role = roles.addRole("Security Administrator", "admin role", Set.of());
         roles.permissions.add(new PermissionSummary(permission, "Просмотр пользователей", "", true));
 
         RoleAdministrationViewModel viewModel =
                 new RoleAdministrationViewModel(roles, new EmptyUsers(), new AllowAll());
-        var navigation = NavigationServices.createDefault();
-        navigation.register(new ScreenRegistration(
-                "roles",
-                "com/tmp/ui/shell/screen/roleadmin/RoleAdministrationScreen.fxml",
-                () -> viewModel));
-
-        LoadedScreen loaded = loadScreen(navigation);
+        LoadedScreen loaded = loadScreen(viewModel);
         CountDownLatch latch = new CountDownLatch(1);
-        AtomicReference<Throwable> error = new AtomicReference<>();
-
-        Platform.runLater(() -> {
-            try {
-                loaded.table().getSelectionModel().selectFirst();
-                loaded.root().applyCss();
-                loaded.root().layout();
-                VBox permissionBox = (VBox) loaded.root().lookup("#permissionBox");
-                CheckBox permissionCheck = (CheckBox) permissionBox.getChildren().get(0);
-                assertFalse(permissionCheck.isDisable());
-                assertTrue(permissionCheck.isFocusTraversable());
-            } catch (Throwable throwable) {
-                error.set(throwable);
-            } finally {
-                latch.countDown();
-            }
-        });
-
-        assertTrue(latch.await(10, TimeUnit.SECONDS));
-        if (error.get() != null) {
-            throw new AssertionError("Permission checkbox focus regression failed", error.get());
-        }
-    }
-
-    private void assertTogglePreservesSelection(boolean grant) throws Exception {
-        RecordingRoles roles = new RecordingRoles();
-        PermissionId permission = SecurityPermissions.USERS_VIEW;
-        RoleSummary role = roles.addRole(
-                "Security Administrator",
-                "admin role",
-                grant ? Set.of() : Set.of(permission));
-        roles.permissions.add(new PermissionSummary(permission, "Просмотр пользователей", "", true));
-
-        RoleAdministrationViewModel viewModel =
-                new RoleAdministrationViewModel(roles, new EmptyUsers(), new AllowAll());
-        var navigation = NavigationServices.createDefault();
-        navigation.register(new ScreenRegistration(
-                "roles",
-                "com/tmp/ui/shell/screen/roleadmin/RoleAdministrationScreen.fxml",
-                () -> viewModel));
-
-        LoadedScreen loaded = loadScreen(navigation);
-        CountDownLatch actionLatch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
 
         Platform.runLater(() -> {
@@ -142,72 +77,30 @@ class RoleAdministrationSelectionFxTest {
                                 .orElseThrow());
                 loaded.root().applyCss();
                 loaded.root().layout();
-                VBox permissionBox = (VBox) loaded.root().lookup("#permissionBox");
-                assertNotNull(permissionBox);
+
+                @SuppressWarnings("unchecked")
+                TreeView<RoleAdministrationController.PermissionTreeNode> tree =
+                        (TreeView<RoleAdministrationController.PermissionTreeNode>)
+                                loaded.root().lookup("#permissionTree");
+                assertNotNull(tree);
+                assertNotNull(tree.getRoot());
+                CheckBoxTreeItem<RoleAdministrationController.PermissionTreeNode> leaf =
+                        findLeaf(tree.getRoot(), permission);
+                assertNotNull(leaf);
+                assertFalse(leaf.isSelected());
+                leaf.setSelected(true);
+                assertTrue(viewModel.permissionsDirtyProperty().get());
+
+                Button apply = (Button) loaded.root().lookup("#applyPermissionsButton");
+                assertNotNull(apply);
+                apply.fire();
+
                 assertEquals(role.id(), viewModel.selectedRoleId());
                 assertNotNull(roleTable.getSelectionModel().getSelectedItem());
                 assertEquals(role.id(), roleTable.getSelectionModel().getSelectedItem().id());
-
-                CheckBox permissionCheck = (CheckBox) permissionBox.getChildren().get(0);
-                assertEquals(!grant, permissionCheck.isSelected());
-                permissionCheck.setSelected(grant);
-                permissionCheck.getOnAction().handle(new ActionEvent(permissionCheck, permissionCheck));
-
-                assertEquals(role.id(), viewModel.selectedRoleId());
-                assertNotNull(
-                        roleTable.getSelectionModel().getSelectedItem(),
-                        "TableView selection must remain after checkbox toggle");
-                assertEquals(role.id(), roleTable.getSelectionModel().getSelectedItem().id());
-                assertEquals(grant, viewModel.isPermissionGrantedOnSelected(permission));
-                assertEquals(grant, ((CheckBox) permissionBox.getChildren().get(0)).isSelected());
-
-                viewModel.updateRole(role, "Renamed Role", role.description());
-                assertEquals(role.id(), viewModel.selectedRoleId());
-                assertEquals(role.id(), roles.lastUpdatedRoleId);
-                assertEquals("Renamed Role", roles.lastUpdatedName);
-                roleTable.getSelectionModel().select(
-                        roleTable.getItems().stream()
-                                .filter(item -> item.id().equals(role.id()))
-                                .findFirst()
-                                .orElseThrow());
-                assertNotNull(roleTable.getSelectionModel().getSelectedItem());
-                assertEquals(role.id(), roleTable.getSelectionModel().getSelectedItem().id());
-            } catch (Throwable throwable) {
-                error.set(throwable);
-            } finally {
-                actionLatch.countDown();
-            }
-        });
-
-        assertTrue(actionLatch.await(10, TimeUnit.SECONDS));
-        if (error.get() != null) {
-            throw new AssertionError("Role selection FX interaction failed", error.get());
-        }
-        if (grant) {
-            assertEquals(permission, roles.lastGrantedPermission);
-        } else {
-            assertEquals(permission, roles.lastRevokedPermission);
-        }
-    }
-
-    private static LoadedScreen loadScreen(
-            com.tmp.ui.shell.navigation.NavigationService navigation) throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
-        AtomicReference<Throwable> error = new AtomicReference<>();
-        AtomicReference<TableView<RoleSummary>> table = new AtomicReference<>();
-        AtomicReference<Parent> rootRef = new AtomicReference<>();
-
-        Platform.runLater(() -> {
-            try {
-                Parent root = navigation.load("roles");
-                Stage stage = new Stage();
-                Scene scene = new Scene(root, 1024, 700);
-                com.tmp.ui.shell.theme.TmpTheme.apply(scene);
-                stage.setScene(scene);
-                root.applyCss();
-                root.layout();
-                rootRef.set(root);
-                table.set((TableView<RoleSummary>) root.lookup("#roleTable"));
+                assertTrue(viewModel.isPermissionDesired(permission));
+                assertFalse(viewModel.permissionsDirtyProperty().get());
+                assertNull(loaded.root().lookup("#revokeButton"));
             } catch (Throwable throwable) {
                 error.set(throwable);
             } finally {
@@ -217,10 +110,65 @@ class RoleAdministrationSelectionFxTest {
 
         assertTrue(latch.await(10, TimeUnit.SECONDS));
         if (error.get() != null) {
-            throw new AssertionError("Role admin FX load failed", error.get());
+            throw new AssertionError("Permission apply selection regression failed", error.get());
         }
-        assertNotNull(table.get());
-        return new LoadedScreen(rootRef.get(), table.get());
+    }
+
+    @Test
+    void permissionPresentationUsesDisplayName() {
+        PermissionSummary summary = new PermissionSummary(
+                PermissionId.of("order.order.create"), "Создание заказов", "", true);
+        assertEquals("Создание заказов", summary.displayName());
+        assertEquals("order.order.create", summary.permissionId().value());
+    }
+
+    private static CheckBoxTreeItem<RoleAdministrationController.PermissionTreeNode> findLeaf(
+            TreeItem<RoleAdministrationController.PermissionTreeNode> root, PermissionId id) {
+        for (TreeItem<RoleAdministrationController.PermissionTreeNode> group : root.getChildren()) {
+            for (TreeItem<RoleAdministrationController.PermissionTreeNode> child : group.getChildren()) {
+                if (child.getValue() != null
+                        && child.getValue().permission() != null
+                        && id.equals(child.getValue().permission().permissionId())
+                        && child instanceof CheckBoxTreeItem<?> check) {
+                    @SuppressWarnings("unchecked")
+                    CheckBoxTreeItem<RoleAdministrationController.PermissionTreeNode> typed =
+                            (CheckBoxTreeItem<RoleAdministrationController.PermissionTreeNode>) check;
+                    return typed;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static LoadedScreen loadScreen(RoleAdministrationViewModel viewModel) throws Exception {
+        var navigation = NavigationServices.createDefault();
+        navigation.register(new ScreenRegistration(
+                "roles",
+                "com/tmp/ui/shell/screen/roleadmin/RoleAdministrationScreen.fxml",
+                () -> viewModel));
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<LoadedScreen> loaded = new AtomicReference<>();
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        Platform.runLater(() -> {
+            try {
+                Parent root = navigation.load("roles");
+                Stage stage = new Stage();
+                stage.setScene(new Scene(root, 1024, 700));
+                stage.show();
+                @SuppressWarnings("unchecked")
+                TableView<RoleSummary> table = (TableView<RoleSummary>) root.lookup("#roleTable");
+                loaded.set(new LoadedScreen(root, table));
+            } catch (Throwable throwable) {
+                error.set(throwable);
+            } finally {
+                latch.countDown();
+            }
+        });
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
+        if (error.get() != null) {
+            throw new AssertionError("Failed to load Roles screen", error.get());
+        }
+        return loaded.get();
     }
 
     private record LoadedScreen(Parent root, TableView<RoleSummary> table) {}
@@ -228,17 +176,13 @@ class RoleAdministrationSelectionFxTest {
     private static final class RecordingRoles implements RoleAdministrationService {
         private final List<RoleSummary> roles = new ArrayList<>();
         private final List<PermissionSummary> permissions = new ArrayList<>();
-        private RoleId lastUpdatedRoleId;
-        private String lastUpdatedName;
-        private PermissionId lastGrantedPermission;
-        private PermissionId lastRevokedPermission;
 
-        RoleSummary addRole(String name, String description, Set<PermissionId> permissionIds) {
+        RoleSummary addRole(String name, String description, Set<PermissionId> granted) {
             RoleSummary created = new RoleSummary(
                     RoleId.generate(),
                     name,
                     description,
-                    permissionIds,
+                    new HashSet<>(granted),
                     0L,
                     Instant.parse("2026-07-23T04:00:00Z"),
                     Instant.parse("2026-07-23T04:00:00Z"));
@@ -246,25 +190,13 @@ class RoleAdministrationSelectionFxTest {
             return created;
         }
 
-        private void replace(RoleSummary updated) {
-            for (int i = 0; i < roles.size(); i++) {
-                if (roles.get(i).id().equals(updated.id())) {
-                    roles.set(i, updated);
-                    return;
-                }
-            }
-            roles.add(updated);
-        }
-
         @Override
         public RoleSummary createRole(String name, String description) {
-            return addRole(name, description, Set.of());
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public RoleSummary updateRole(RoleId roleId, String name, String description) {
-            lastUpdatedRoleId = roleId;
-            lastUpdatedName = name;
             RoleSummary current = roles.stream().filter(r -> r.id().equals(roleId)).findFirst().orElseThrow();
             RoleSummary updated = new RoleSummary(
                     current.id(),
@@ -274,50 +206,37 @@ class RoleAdministrationSelectionFxTest {
                     current.version() + 1,
                     current.createdAt(),
                     Instant.parse("2026-07-23T05:00:00Z"));
-            replace(updated);
+            roles.set(roles.indexOf(current), updated);
             return updated;
         }
 
         @Override
         public RoleSummary grantPermissionToRole(RoleId roleId, PermissionId permissionId) {
-            lastGrantedPermission = permissionId;
-            RoleSummary current = roles.stream().filter(r -> r.id().equals(roleId)).findFirst().orElseThrow();
-            Set<PermissionId> next = new HashSet<>(current.permissionIds());
-            next.add(permissionId);
-            RoleSummary updated = new RoleSummary(
-                    current.id(),
-                    current.name(),
-                    current.description(),
-                    next,
-                    current.version() + 1,
-                    current.createdAt(),
-                    Instant.parse("2026-07-23T05:00:00Z"));
-            replace(updated);
-            return updated;
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public RoleSummary revokePermissionFromRole(RoleId roleId, PermissionId permissionId) {
-            lastRevokedPermission = permissionId;
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RoleSummary setRolePermissions(RoleId roleId, Set<PermissionId> targetPermissions) {
             RoleSummary current = roles.stream().filter(r -> r.id().equals(roleId)).findFirst().orElseThrow();
-            Set<PermissionId> next = new HashSet<>(current.permissionIds());
-            next.remove(permissionId);
             RoleSummary updated = new RoleSummary(
                     current.id(),
                     current.name(),
                     current.description(),
-                    next,
+                    Set.copyOf(targetPermissions),
                     current.version() + 1,
                     current.createdAt(),
                     Instant.parse("2026-07-23T05:00:00Z"));
-            replace(updated);
+            roles.set(roles.indexOf(current), updated);
             return updated;
         }
 
         @Override
-        public void deleteRole(RoleId roleId) {
-            roles.removeIf(r -> r.id().equals(roleId));
-        }
+        public void deleteRole(RoleId roleId) {}
 
         @Override
         public List<RoleSummary> listRoles() {
@@ -325,24 +244,24 @@ class RoleAdministrationSelectionFxTest {
         }
 
         @Override
-        public void assignRole(UserId userId, RoleId roleId) {
+        public void assignRole(UserId userId, RoleId roleId) {}
+
+        @Override
+        public void revokeRole(UserId userId, RoleId roleId) {}
+
+        @Override
+        public Set<RoleId> listRolesForUser(UserId userId) {
+            return Set.of();
         }
 
         @Override
-        public void revokeRole(UserId userId, RoleId roleId) {
-        }
+        public void grantIndividualPermission(UserId userId, PermissionId permissionId) {}
 
         @Override
-        public void grantIndividualPermission(UserId userId, PermissionId permissionId) {
-        }
+        public void revokeIndividualPermission(UserId userId, PermissionId permissionId) {}
 
         @Override
-        public void revokeIndividualPermission(UserId userId, PermissionId permissionId) {
-        }
-
-        @Override
-        public void removeOverride(UserId userId, PermissionId permissionId) {
-        }
+        public void removeOverride(UserId userId, PermissionId permissionId) {}
 
         @Override
         public List<PermissionSummary> listAllPermissionDefinitions() {
@@ -372,8 +291,12 @@ class RoleAdministrationSelectionFxTest {
         }
 
         @Override
-        public void changeOwnPassword(char[] currentPassword, char[] newPassword) {
+        public List<UserSummary> searchUsers(String query, int limit) {
+            return List.of();
         }
+
+        @Override
+        public void changeOwnPassword(char[] currentPassword, char[] newPassword) {}
 
         @Override
         public PasswordResetResult requestPasswordReset(UserId targetUserId) {
@@ -388,8 +311,7 @@ class RoleAdministrationSelectionFxTest {
         }
 
         @Override
-        public void requirePermission(PermissionId permissionId) {
-        }
+        public void requirePermission(PermissionId permissionId) {}
 
         @Override
         public Set<PermissionId> effectivePermissions() {

@@ -104,10 +104,57 @@ class RoleAdministrationViewModelTest {
         viewModel.togglePermission(SecurityPermissions.USERS_VIEW, true);
 
         assertEquals(existing.id(), viewModel.selectedRoleId());
-        assertTrue(viewModel.isPermissionGrantedOnSelected(SecurityPermissions.USERS_VIEW));
+        assertTrue(viewModel.isPermissionDesired(SecurityPermissions.USERS_VIEW));
         assertEquals(1, viewModel.roleList().size());
         assertEquals(existing.id(), viewModel.roleList().get(0).id());
         assertEquals(listCallsBeforeToggle, roles.listRolesCalls);
+    }
+
+    @Test
+    void applyPermissionsReplacesExactTargetSet() {
+        FakeRoles roles = new FakeRoles();
+        PermissionId a = SecurityPermissions.USERS_VIEW;
+        PermissionId b = SecurityPermissions.ROLES_VIEW;
+        PermissionId c = SecurityPermissions.AUDIT_VIEW;
+        PermissionId d = SecurityPermissions.USERS_CREATE;
+        RoleSummary existing = new RoleSummary(
+                RoleId.generate(), "Ops", "", Set.of(a, b, c), 0L,
+                Instant.parse("2026-07-23T04:00:00Z"), Instant.parse("2026-07-23T04:00:00Z"));
+        roles.roles.add(existing);
+        RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
+                roles, new EmptyUsers(), new AllowAll());
+        viewModel.select(existing);
+        viewModel.setDesiredPermission(b, false);
+        viewModel.setDesiredPermission(c, false);
+        viewModel.setDesiredPermission(d, true);
+        assertTrue(viewModel.permissionsDirtyProperty().get());
+        viewModel.applyPermissions();
+        assertEquals(Set.of(a, d), viewModel.selectedRole().permissionIds());
+        assertFalse(viewModel.permissionsDirtyProperty().get());
+    }
+
+    @Test
+    void assignAndRevokeThroughDesiredCheckbox() {
+        FakeRoles roles = new FakeRoles();
+        RoleSummary existing = new RoleSummary(
+                RoleId.generate(), "Ops", "", Set.of(), 0L,
+                Instant.parse("2026-07-23T04:00:00Z"), Instant.parse("2026-07-23T04:00:00Z"));
+        roles.roles.add(existing);
+        RecordingUsers users = new RecordingUsers();
+        UserSummary user = users.user;
+        RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
+                roles, users, new AllowAll());
+        viewModel.select(existing);
+        viewModel.selectUser(user);
+        assertFalse(viewModel.desiredRoleAssignedProperty().get());
+        viewModel.desiredRoleAssignedProperty().set(true);
+        viewModel.applyRoleAssignment();
+        assertEquals(1, roles.assignCalls);
+        assertTrue(viewModel.actualRoleAssignedProperty().get());
+        viewModel.desiredRoleAssignedProperty().set(false);
+        viewModel.applyRoleAssignment();
+        assertEquals(1, roles.revokeCalls);
+        assertFalse(viewModel.actualRoleAssignedProperty().get());
     }
 
     private static class FakeRoles implements RoleAdministrationService {
@@ -163,6 +210,21 @@ class RoleAdministrationViewModelTest {
         }
 
         @Override
+        public RoleSummary setRolePermissions(RoleId roleId, Set<PermissionId> targetPermissions) {
+            RoleSummary current = roles.stream().filter(r -> r.id().equals(roleId)).findFirst().orElseThrow();
+            RoleSummary updated = new RoleSummary(
+                    current.id(),
+                    current.name(),
+                    current.description(),
+                    Set.copyOf(targetPermissions),
+                    current.version() + 1,
+                    current.createdAt(),
+                    Instant.parse("2026-07-23T05:00:00Z"));
+            roles.set(roles.indexOf(current), updated);
+            return updated;
+        }
+
+        @Override
         public void deleteRole(RoleId roleId) {
             roles.removeIf(r -> r.id().equals(roleId));
         }
@@ -175,11 +237,27 @@ class RoleAdministrationViewModelTest {
 
         @Override
         public void assignRole(UserId userId, RoleId roleId) {
+            assignCalls++;
+            assignedUsers.add(userId);
         }
 
         @Override
         public void revokeRole(UserId userId, RoleId roleId) {
+            revokeCalls++;
+            assignedUsers.remove(userId);
         }
+
+        @Override
+        public Set<RoleId> listRolesForUser(UserId userId) {
+            if (assignedUsers.contains(userId) && !roles.isEmpty()) {
+                return Set.of(roles.getFirst().id());
+            }
+            return Set.of();
+        }
+
+        private final java.util.HashSet<UserId> assignedUsers = new java.util.HashSet<>();
+        private int assignCalls;
+        private int revokeCalls;
 
         @Override
         public void grantIndividualPermission(UserId userId, PermissionId permissionId) {
@@ -197,6 +275,51 @@ class RoleAdministrationViewModelTest {
         public List<PermissionSummary> listAllPermissionDefinitions() {
             return List.of(new PermissionSummary(
                     SecurityPermissions.ROLES_VIEW, "View roles", "", true));
+        }
+    }
+
+    private static final class RecordingUsers implements UserAdministrationService {
+        private final UserSummary user = new UserSummary(
+                UserId.generate(),
+                Login.of("operator"),
+                DisplayName.of("Operator"),
+                "ACTIVE",
+                0L,
+                Instant.parse("2026-07-23T04:00:00Z"),
+                Instant.parse("2026-07-23T04:00:00Z"));
+
+        @Override
+        public UserCreationResult createUser(Login login, DisplayName displayName) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public UserSummary updateUser(UserId userId, Login login, DisplayName newDisplayName) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public UserSummary deleteUser(UserId userId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<UserSummary> listUsers(int pageIndex, int pageSize, String statusFilter) {
+            return List.of(user);
+        }
+
+        @Override
+        public List<UserSummary> searchUsers(String query, int limit) {
+            return List.of(user);
+        }
+
+        @Override
+        public void changeOwnPassword(char[] currentPassword, char[] newPassword) {
+        }
+
+        @Override
+        public PasswordResetResult requestPasswordReset(UserId targetUserId) {
+            throw new UnsupportedOperationException();
         }
     }
 
@@ -218,6 +341,11 @@ class RoleAdministrationViewModelTest {
 
         @Override
         public List<UserSummary> listUsers(int pageIndex, int pageSize, String statusFilter) {
+            return List.of();
+        }
+
+        @Override
+        public List<UserSummary> searchUsers(String query, int limit) {
             return List.of();
         }
 

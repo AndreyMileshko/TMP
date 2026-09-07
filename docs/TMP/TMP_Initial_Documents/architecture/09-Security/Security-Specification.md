@@ -88,6 +88,12 @@ Security не содержит предметной бизнес-логики и
 
 Индивидуальные права имеют приоритет над шаблоном роли.
 
+Public administration operations (in addition to single grant/revoke):
+
+- `setRolePermissions(roleId, targetPermissions)` — transactional replace of the role permission set to exactly the target; requires `security.permissions.assign`; each granted/revoked permission remains auditable.
+- `listRolesForUser(userId)` — read assigned role ids; requires `security.roles.assign` (assignment UX).
+- `searchUsers(query, limit)` — case-insensitive partial match on login or display name (active users); requires `security.users.view`.
+
 ---
 
 # Право

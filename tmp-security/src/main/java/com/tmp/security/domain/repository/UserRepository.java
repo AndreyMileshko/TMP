@@ -31,4 +31,10 @@ public interface UserRepository {
      * Paged listing. {@code statusFilter} null means all statuses.
      */
     List<User> findPage(int pageIndex, int pageSize, UserStatus statusFilter);
+
+    /**
+     * Case-insensitive partial match on login or display name. Returns at most {@code limit} active
+     * users ordered by login.
+     */
+    List<User> searchByLoginOrDisplayName(String query, int limit);
 }

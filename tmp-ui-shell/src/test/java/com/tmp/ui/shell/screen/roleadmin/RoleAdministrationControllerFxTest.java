@@ -81,6 +81,13 @@ class RoleAdministrationControllerFxTest {
         assertNull(root.lookup("#updateButton"));
         assertNull(root.lookup("#deleteButton"));
         assertNull(root.lookup("#refreshButton"));
+        assertNull(root.lookup("#revokeButton"));
+        assertNull(root.lookup("#assignButton"));
+        assertNotNull(root.lookup("#applyAssignmentButton"));
+        assertNotNull(root.lookup("#applyPermissionsButton"));
+        assertNotNull(root.lookup("#permissionTree"));
+        assertNotNull(root.lookup("#roleAssignedCheck"));
+        assertNotNull(root.lookup("#userSearchField"));
     }
 
     @Test
@@ -228,6 +235,21 @@ class RoleAdministrationControllerFxTest {
         }
 
         @Override
+        public RoleSummary setRolePermissions(RoleId roleId, Set<PermissionId> targetPermissions) {
+            RoleSummary current = roles.stream().filter(r -> r.id().equals(roleId)).findFirst().orElseThrow();
+            RoleSummary updated = new RoleSummary(
+                    current.id(),
+                    current.name(),
+                    current.description(),
+                    Set.copyOf(targetPermissions),
+                    current.version() + 1,
+                    current.createdAt(),
+                    current.updatedAt());
+            roles.set(roles.indexOf(current), updated);
+            return updated;
+        }
+
+        @Override
         public void deleteRole(RoleId roleId) {
         }
 
@@ -242,6 +264,11 @@ class RoleAdministrationControllerFxTest {
 
         @Override
         public void revokeRole(UserId userId, RoleId roleId) {
+        }
+
+        @Override
+        public Set<RoleId> listRolesForUser(UserId userId) {
+            return Set.of();
         }
 
         @Override
@@ -284,6 +311,11 @@ class RoleAdministrationControllerFxTest {
         }
 
         @Override
+        public RoleSummary setRolePermissions(RoleId roleId, Set<PermissionId> targetPermissions) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void deleteRole(RoleId roleId) {
         }
 
@@ -298,6 +330,11 @@ class RoleAdministrationControllerFxTest {
 
         @Override
         public void revokeRole(UserId userId, RoleId roleId) {
+        }
+
+        @Override
+        public Set<RoleId> listRolesForUser(UserId userId) {
+            return Set.of();
         }
 
         @Override
@@ -336,6 +373,11 @@ class RoleAdministrationControllerFxTest {
 
         @Override
         public List<UserSummary> listUsers(int pageIndex, int pageSize, String statusFilter) {
+            return List.of();
+        }
+
+        @Override
+        public List<UserSummary> searchUsers(String query, int limit) {
             return List.of();
         }
 

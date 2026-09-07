@@ -20,7 +20,7 @@ import java.util.UUID;
 
 /**
  * Integration read for the operational Orders list: Order Management commercial rows plus a
- * Production batch, then status filter, then pagination.
+ * Production batch, then status filter, then sort of the full matched set, then pagination.
  *
  * <p>Production read failures never become fake zero facts. Rows that need Production data surface
  * {@link OrderOperationalStatus#STATUS_UNAVAILABLE} and remain visible.
@@ -76,6 +76,8 @@ public final class OrderOperationalListService {
                             row.status(),
                             status));
         }
+        OrderOperationalListSorter.sortInPlace(
+                matched, request.sortField(), request.sortDirection());
         long total = matched.size();
         int from = request.pageIndex() * request.pageSize();
         if (from >= matched.size()) {
@@ -89,7 +91,7 @@ public final class OrderOperationalListService {
         }
         int to = Math.min(from + request.pageSize(), matched.size());
         return new OrderOperationalListResult(
-                matched.subList(from, to),
+                List.copyOf(matched.subList(from, to)),
                 request.pageIndex(),
                 request.pageSize(),
                 total,

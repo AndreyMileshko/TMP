@@ -177,6 +177,11 @@ class AuthorizationApplicationServiceTest {
             public List<User> findPage(int pageIndex, int pageSize, com.tmp.security.domain.UserStatus statusFilter) {
                 return List.of();
             }
+
+            @Override
+            public List<User> searchByLoginOrDisplayName(String query, int limit) {
+                return List.of();
+            }
         };
     }
 

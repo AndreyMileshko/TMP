@@ -13,14 +13,18 @@
 }
 
 .role-admin-assignment {
-    -fx-padding: 8 0 0 0;
+    -fx-padding: 0 0 4 0;
 }
 
-.role-admin-permission-row {
-    -fx-alignment: CENTER_LEFT;
-    -fx-spacing: 8;
+.role-admin-permissions {
+    -fx-padding: 4 0 0 0;
+    -fx-min-height: 180;
 }
 
-.role-admin-permission-id {
-    -fx-font-size: 11px;
+.role-admin-permission-tree {
+    -fx-background-insets: 0;
+}
+
+.role-admin-user-results {
+    -fx-translate-y: 34;
 }

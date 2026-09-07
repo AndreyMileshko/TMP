@@ -181,6 +181,20 @@ class UserAdministrationViewModelTest {
         }
 
         @Override
+        public List<UserSummary> searchUsers(String query, int limit) {
+            String normalized = query == null ? "" : query.trim().toLowerCase();
+            if (normalized.isEmpty() || limit < 1) {
+                return List.of();
+            }
+            return users.stream()
+                    .filter(u -> "ACTIVE".equals(u.status()))
+                    .filter(u -> u.login().value().toLowerCase().contains(normalized)
+                            || u.displayName().value().toLowerCase().contains(normalized))
+                    .limit(limit)
+                    .toList();
+        }
+
+        @Override
         public void changeOwnPassword(char[] currentPassword, char[] newPassword) {
         }
 

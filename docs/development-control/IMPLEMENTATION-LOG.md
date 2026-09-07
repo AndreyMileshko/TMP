@@ -4,6 +4,32 @@
 
 ---
 
+## UI Corrective — Orders Global Sorting + Roles Permission Tree / User Assignment UX — 2026-09-04
+
+**Date:** 2026-09-04
+**Stage:** UI Modernization corrective (Orders 3.4 + Roles 3.2); outside Stages 0–9 queue
+**Base checkpoint:** `09720d760a0e4c0a85adbb561f14cf9bd563cd6d`
+**Status:** IMPLEMENTED / FINAL MANUAL UI ACCEPTANCE PENDING (no auto-commit); Stage 3.5 Warehouse NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+(A) Orders table sorting now sorts the full matched operational set before pagination (ViewModel `sortField`/`sortDirection`; type-aware comparators; status business rank; default createdAt DESC). TableView local page-only sort disabled via sortPolicy. (B) Roles detail: assignment block above permission tree; namespace-grouped CheckBoxTree with tri-state parents; desired/actual permission sets + transactional `setRolePermissions`; user search + `listRolesForUser` + assign/revoke via checkbox + Apply (no separate Revoke).
+
+### Key changes
+
+- `OrderOperationalListSorter`, `OrderListSortField`, `OrderListSortDirection`, list service/request/VM/controller
+- Security: `setRolePermissions`, `listRolesForUser`, `searchUsers` / JDBC search
+- Roles FXML/Controller/ViewModel tree + assignment UX
+- TMP UI Standard §39.2 + §39A; Security Spec Role section
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-04.
+
+---
+
 ## UI Modernization Stage 3.4.6 — Order List Selection Scroll + Item Create Permission — 2026-09-03
 
 **Date:** 2026-09-03

@@ -5,8 +5,8 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Filter request for the operational Orders list. Period is mandatory. Pagination is applied after
- * operational-status composition.
+ * Filter request for the operational Orders list. Period is mandatory. Sort is applied to the full
+ * matched set, then pagination.
  */
 public final class OrderOperationalListRequest {
 
@@ -20,6 +20,8 @@ public final class OrderOperationalListRequest {
     private final boolean filterByCustomers;
     private final int pageIndex;
     private final int pageSize;
+    private final OrderListSortField sortField;
+    private final OrderListSortDirection sortDirection;
 
     public OrderOperationalListRequest(
             Instant createdFrom,
@@ -41,7 +43,9 @@ public final class OrderOperationalListRequest {
                 includeUnassignedCustomer,
                 filterByCustomers,
                 pageIndex,
-                pageSize);
+                pageSize,
+                OrderOperationalListSorter.defaultField(),
+                OrderOperationalListSorter.defaultDirection());
     }
 
     public OrderOperationalListRequest(
@@ -55,6 +59,34 @@ public final class OrderOperationalListRequest {
             boolean filterByCustomers,
             int pageIndex,
             int pageSize) {
+        this(
+                createdFrom,
+                createdToExclusive,
+                quickSearch,
+                statuses,
+                customerRefs,
+                customerNames,
+                includeUnassignedCustomer,
+                filterByCustomers,
+                pageIndex,
+                pageSize,
+                OrderOperationalListSorter.defaultField(),
+                OrderOperationalListSorter.defaultDirection());
+    }
+
+    public OrderOperationalListRequest(
+            Instant createdFrom,
+            Instant createdToExclusive,
+            String quickSearch,
+            Set<OrderOperationalStatus> statuses,
+            Set<String> customerRefs,
+            Set<String> customerNames,
+            boolean includeUnassignedCustomer,
+            boolean filterByCustomers,
+            int pageIndex,
+            int pageSize,
+            OrderListSortField sortField,
+            OrderListSortDirection sortDirection) {
         this.createdFrom = Objects.requireNonNull(createdFrom, "createdFrom");
         this.createdToExclusive = Objects.requireNonNull(createdToExclusive, "createdToExclusive");
         if (!createdFrom.isBefore(createdToExclusive)) {
@@ -74,6 +106,8 @@ public final class OrderOperationalListRequest {
         }
         this.pageIndex = pageIndex;
         this.pageSize = pageSize;
+        this.sortField = Objects.requireNonNull(sortField, "sortField");
+        this.sortDirection = Objects.requireNonNull(sortDirection, "sortDirection");
     }
 
     public Instant createdFrom() {
@@ -114,5 +148,13 @@ public final class OrderOperationalListRequest {
 
     public int pageSize() {
         return pageSize;
+    }
+
+    public OrderListSortField sortField() {
+        return sortField;
+    }
+
+    public OrderListSortDirection sortDirection() {
+        return sortDirection;
     }
 }
