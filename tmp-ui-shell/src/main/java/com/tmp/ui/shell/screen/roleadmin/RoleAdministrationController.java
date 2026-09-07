@@ -38,6 +38,8 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 import javafx.scene.control.cell.CheckBoxTreeCell;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
@@ -135,8 +137,8 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
         createRoleButton.managedProperty().bind(viewModel.canCreateProperty());
         createRoleButton.setOnAction(e -> onCreateRole());
 
-        assignmentSection.visibleProperty().bind(viewModel.canAssignRoleProperty());
-        assignmentSection.managedProperty().bind(viewModel.canAssignRoleProperty());
+        assignmentSection.visibleProperty().bind(viewModel.canUseUserAssignmentProperty());
+        assignmentSection.managedProperty().bind(viewModel.canUseUserAssignmentProperty());
         userSearchField.textProperty().bindBidirectional(viewModel.userSearchQueryProperty());
         userSearchDebounce.setOnFinished(e -> {
             if (viewModel.selectedUserProperty().get() != null) {
@@ -205,7 +207,7 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
             rebuildPermissionTree();
         });
         permissionTree.setShowRoot(false);
-        permissionTree.setCellFactory(CheckBoxTreeCell.forTreeView());
+        permissionTree.setCellFactory(tree -> new PermissionCheckBoxTreeCell());
         applyPermissionsButton.visibleProperty().bind(viewModel.canManageRolePermissionsProperty());
         applyPermissionsButton.managedProperty().bind(viewModel.canManageRolePermissionsProperty());
         applyPermissionsButton.disableProperty().bind(
@@ -215,6 +217,7 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
             restoreTableSelection();
             updateDetailPanel();
         });
+        viewModel.canManageRolePermissionsProperty().addListener((obs, old, value) -> rebuildPermissionTree());
 
         statusLabel.textProperty().bind(viewModel.statusMessageProperty());
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
@@ -394,7 +397,7 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
                 userSearchField.setText(RoleAdministrationViewModel.formatUserLabel(user));
             }
             roleAssignedCheck.setSelected(viewModel.desiredRoleAssignedProperty().get());
-            boolean enabled = viewModel.canAssignRoleProperty().get()
+            boolean enabled = viewModel.canUseUserAssignmentProperty().get()
                     && viewModel.selectedUserProperty().get() != null;
             roleAssignedCheck.setDisable(!enabled);
             hideUserResults();
@@ -452,6 +455,8 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
                                     permission.permissionId(), Boolean.TRUE.equals(selected));
                             refreshGroupCheckState(groupItem);
                         });
+                    } else {
+                        installReadOnlyGuard(leaf);
                     }
                     groupItem.getChildren().add(leaf);
                 }
@@ -463,6 +468,8 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
                         }
                         onGroupCheckClicked(groupItem, Boolean.TRUE.equals(selected));
                     });
+                } else {
+                    installReadOnlyGuard(groupItem);
                 }
                 root.getChildren().add(groupItem);
             }
@@ -491,6 +498,70 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
             groupItem.setSelected(selected);
         } finally {
             syncingPermissionTree = false;
+        }
+    }
+
+    private void installReadOnlyGuard(CheckBoxTreeItem<PermissionTreeNode> item) {
+        item.selectedProperty().addListener((obs, old, selected) -> {
+            if (syncingPermissionTree) {
+                return;
+            }
+            syncingPermissionTree = true;
+            try {
+                item.setSelected(Boolean.TRUE.equals(old));
+            } finally {
+                syncingPermissionTree = false;
+            }
+        });
+        item.indeterminateProperty().addListener((obs, old, value) -> {
+            if (syncingPermissionTree) {
+                return;
+            }
+            syncingPermissionTree = true;
+            try {
+                item.setIndeterminate(Boolean.TRUE.equals(old));
+            } finally {
+                syncingPermissionTree = false;
+            }
+        });
+    }
+
+    private boolean canEditPermissionTree() {
+        return viewModel != null && viewModel.canManageRolePermissionsProperty().get();
+    }
+
+    /**
+     * CheckBoxTreeCell that keeps disclosure/expand usable while making checkboxes read-only when
+     * the user lacks {@code PERMISSIONS_ASSIGN}. Does not disable the TreeView itself.
+     */
+    private final class PermissionCheckBoxTreeCell extends CheckBoxTreeCell<PermissionTreeNode> {
+        private PermissionCheckBoxTreeCell() {
+            addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+                if (event.getCode() == KeyCode.SPACE && !canEditPermissionTree()) {
+                    event.consume();
+                }
+            });
+        }
+
+        @Override
+        public void updateItem(PermissionTreeNode item, boolean empty) {
+            super.updateItem(item, empty);
+            getStyleClass().remove("permission-tree-readonly");
+            if (empty || item == null) {
+                return;
+            }
+            boolean editable = canEditPermissionTree();
+            if (getGraphic() instanceof CheckBox checkBox) {
+                checkBox.setDisable(!editable);
+                checkBox.setMouseTransparent(!editable);
+                checkBox.setFocusTraversable(editable);
+                if (!editable) {
+                    checkBox.setOpacity(1.0);
+                }
+            }
+            if (!editable) {
+                getStyleClass().add("permission-tree-readonly");
+            }
         }
     }
 

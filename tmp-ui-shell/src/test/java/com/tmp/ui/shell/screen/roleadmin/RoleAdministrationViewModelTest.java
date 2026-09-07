@@ -86,7 +86,39 @@ class RoleAdministrationViewModelTest {
         RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
                 new FakeRoles(), new EmptyUsers(), new AssignOnlyAuth());
         assertTrue(viewModel.canAssignRoleProperty().get());
+        assertFalse(viewModel.canViewUsersProperty().get());
+        assertFalse(viewModel.canUseUserAssignmentProperty().get());
         assertFalse(viewModel.canManageRolePermissionsProperty().get());
+    }
+
+    @Test
+    void userAssignmentRequiresRolesAssignAndUsersView() {
+        RoleAdministrationViewModel both = new RoleAdministrationViewModel(
+                new FakeRoles(), new EmptyUsers(), new AssignAndViewUsersAuth());
+        assertTrue(both.canAssignRoleProperty().get());
+        assertTrue(both.canViewUsersProperty().get());
+        assertTrue(both.canUseUserAssignmentProperty().get());
+
+        RoleAdministrationViewModel viewOnly = new RoleAdministrationViewModel(
+                new FakeRoles(), new EmptyUsers(), new UsersViewOnlyAuth());
+        assertFalse(viewOnly.canAssignRoleProperty().get());
+        assertTrue(viewOnly.canViewUsersProperty().get());
+        assertFalse(viewOnly.canUseUserAssignmentProperty().get());
+
+        RoleAdministrationViewModel neither = new RoleAdministrationViewModel(
+                new FakeRoles(), new EmptyUsers(), new DenyAllAuth());
+        assertFalse(neither.canUseUserAssignmentProperty().get());
+    }
+
+    @Test
+    void searchUsersSkippedWithoutUserAssignmentCapability() {
+        RecordingUsers users = new RecordingUsers();
+        RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
+                new FakeRoles(), users, new AssignOnlyAuth());
+        viewModel.searchUsers("operator");
+        assertEquals(0, users.searchCalls);
+        assertTrue(viewModel.userSearchResults().isEmpty());
+        assertTrue(viewModel.errorMessageProperty().get().isEmpty());
     }
 
     @Test
@@ -287,6 +319,7 @@ class RoleAdministrationViewModelTest {
                 0L,
                 Instant.parse("2026-07-23T04:00:00Z"),
                 Instant.parse("2026-07-23T04:00:00Z"));
+        private int searchCalls;
 
         @Override
         public UserCreationResult createUser(Login login, DisplayName displayName) {
@@ -310,6 +343,7 @@ class RoleAdministrationViewModelTest {
 
         @Override
         public List<UserSummary> searchUsers(String query, int limit) {
+            searchCalls++;
             return List.of(user);
         }
 
@@ -388,6 +422,55 @@ class RoleAdministrationViewModelTest {
         @Override
         public Set<PermissionId> effectivePermissions() {
             return Set.of(SecurityPermissions.ROLES_ASSIGN);
+        }
+    }
+
+    private static final class AssignAndViewUsersAuth implements AuthorizationService {
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return SecurityPermissions.ROLES_ASSIGN.equals(permissionId)
+                    || SecurityPermissions.USERS_VIEW.equals(permissionId);
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {
+        }
+
+        @Override
+        public Set<PermissionId> effectivePermissions() {
+            return Set.of(SecurityPermissions.ROLES_ASSIGN, SecurityPermissions.USERS_VIEW);
+        }
+    }
+
+    private static final class UsersViewOnlyAuth implements AuthorizationService {
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return SecurityPermissions.USERS_VIEW.equals(permissionId);
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {
+        }
+
+        @Override
+        public Set<PermissionId> effectivePermissions() {
+            return Set.of(SecurityPermissions.USERS_VIEW);
+        }
+    }
+
+    private static final class DenyAllAuth implements AuthorizationService {
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return SecurityPermissions.ROLES_VIEW.equals(permissionId);
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {
+        }
+
+        @Override
+        public Set<PermissionId> effectivePermissions() {
+            return Set.of(SecurityPermissions.ROLES_VIEW);
         }
     }
 }

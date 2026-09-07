@@ -25,6 +25,11 @@
     -fx-background-insets: 0;
 }
 
+.role-admin-permission-tree .permission-tree-readonly .check-box,
+.role-admin-permission-tree .permission-tree-readonly .check-box:disabled {
+    -fx-opacity: 1.0;
+}
+
 .role-admin-user-results {
     -fx-translate-y: 34;
 }

@@ -2,9 +2,31 @@
 
 ## Latest result
 
-**Date:** 2026-09-04
-**Scope:** UI Corrective — Orders Global Sorting + Roles Permission Tree / User Assignment UX
+**Date:** 2026-09-07
+**Scope:** UI Corrective — Orders Customer DESC Sort + Roles Read-Only Permission Tree + Assignment Permission UX
 **Overall:** PASS (targeted tests + quick build + package + launch on `tmp-stage5-pg`); interactive packaged GUI FINAL MANUAL UI ACCEPTANCE PENDING
+
+### Orders Customer DESC + Roles Read-Only / Assignment Gating (2026-09-07)
+
+| Check | Result |
+|-------|--------|
+| UI: `OrderOperationalListSorterTest` (ASC/DESC nulls-last + whitespace) | PASS (7) |
+| UI: `OrderOperationalListServiceTest` (sort before pagination retained) | PASS (8) |
+| UI: `OrderListViewModelTest` | PASS (9) |
+| UI: `PermissionNamespaceGroupTest` | PASS (1) |
+| UI: `RoleAdministrationViewModelTest` (assignment capability + search gate) | PASS (10) |
+| UI: `RoleAdministrationControllerFxTest` | PASS (5) |
+| UI: `RoleAdministrationSelectionFxTest` (read-only tree, filtered group visible-only, assignment visibility) | PASS (5) |
+| Targeted suite total | PASS — tests=45, failures=0, errors=0, skipped=0 |
+| Working DB Docker | `tmp-stage5-pg` Up; host `localhost`; port `55432`; database `tmp_gui_stage5`; Flyway `34`; `tmp-stage34-smoke-pg` NOT USED (Exited) |
+| Quick install `mvn -pl :tmp-bootstrap-app -am install -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-07 15:51:19) |
+| Launch against `jdbc:postgresql://localhost:55432/tmp_gui_stage5` | PASS — Flyway V34 up-to-date; `Started DesktopBootstrap`; TMP PIDs alive; startup exceptions NONE (JavaFX unnamed-module WARN only) |
+| Interactive Orders Customer ASC/DESC / Roles read-only / assignment / resize | NOT AUTOMATED — FX TEST PASS (Roles 1024×700 + sorter unit); PACKAGED INTERACTIVE NOT VERIFIED (requires user visual confirmation) |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 Warehouse | NOT STARTED |
+| Auto-commit | NOT DONE |
+| Migrations | NONE |
 
 ### Orders Global Sorting + Roles Tree / Assignment UX (2026-09-04)
 

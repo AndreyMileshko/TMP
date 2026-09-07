@@ -4,6 +4,32 @@
 
 ---
 
+## UI Corrective — Orders Customer DESC Sort + Roles Read-Only Tree + Assignment UX — 2026-09-07
+
+**Date:** 2026-09-07
+**Stage:** UI Modernization corrective (Orders 3.4 + Roles 3.2); outside Stages 0–9 queue
+**Base checkpoint:** `110e8449acfa0a5d73d0f63905e1a1620f86c250`
+**Status:** IMPLEMENTED / FINAL MANUAL UI ACCEPTANCE PENDING (no auto-commit); Stage 3.5 Warehouse NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+(A) Customer column sort: null/blank/whitespace always last for ASC and DESC (direction applies only to non-empty names; no `reversed()` of `nullsLast`). (B) Roles permission tree read-only without `PERMISSIONS_ASSIGN` via custom `CheckBoxTreeCell` + selection guards; expand/collapse/search preserved; Apply hidden. Filtered group checkbox semantics intentionally visible-only (locked by regression test). (C) Assignment section requires `ROLES_ASSIGN` AND `USERS_VIEW` (`canUseUserAssignment`); no broken user-search UI; backend mutation auth unchanged.
+
+### Key changes
+
+- `OrderOperationalListSorter` customer comparator + sorter tests
+- `RoleAdministrationViewModel` `canViewUsers` / `canUseUserAssignment`; search gated
+- `RoleAdministrationController` `PermissionCheckBoxTreeCell`, assignment bind, read-only guards
+- TMP UI Standard §39.2 + §39A
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-07.
+
+---
+
 ## UI Corrective — Orders Global Sorting + Roles Permission Tree / User Assignment UX — 2026-09-04
 
 **Date:** 2026-09-04

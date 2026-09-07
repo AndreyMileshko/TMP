@@ -56,6 +56,8 @@ public final class RoleAdministrationViewModel {
     private final BooleanProperty canUpdate = new SimpleBooleanProperty(false);
     private final BooleanProperty canDelete = new SimpleBooleanProperty(false);
     private final BooleanProperty canAssignRole = new SimpleBooleanProperty(false);
+    private final BooleanProperty canViewUsers = new SimpleBooleanProperty(false);
+    private final BooleanProperty canUseUserAssignment = new SimpleBooleanProperty(false);
     private final BooleanProperty canManageRolePermissions = new SimpleBooleanProperty(false);
     private final BooleanProperty hasSelectedRole = new SimpleBooleanProperty(false);
     private final BooleanProperty permissionsDirty = new SimpleBooleanProperty(false);
@@ -133,6 +135,14 @@ public final class RoleAdministrationViewModel {
 
     public BooleanProperty canAssignRoleProperty() {
         return canAssignRole;
+    }
+
+    public BooleanProperty canViewUsersProperty() {
+        return canViewUsers;
+    }
+
+    public BooleanProperty canUseUserAssignmentProperty() {
+        return canUseUserAssignment;
     }
 
     public BooleanProperty canManageRolePermissionsProperty() {
@@ -301,6 +311,9 @@ public final class RoleAdministrationViewModel {
     public void searchUsers(String query) {
         userSearchQuery.set(query == null ? "" : query);
         userSearchResults.clear();
+        if (!canUseUserAssignment.get()) {
+            return;
+        }
         String q = userSearchQuery.get().trim();
         if (q.isEmpty()) {
             return;
@@ -367,7 +380,7 @@ public final class RoleAdministrationViewModel {
 
     private void reloadAssignmentState() {
         UserSummary user = selectedUser.get();
-        if (user == null || selectedRoleId == null || !canAssignRole.get()) {
+        if (user == null || selectedRoleId == null || !canUseUserAssignment.get()) {
             actualRoleAssigned.set(false);
             desiredRoleAssigned.set(false);
             recomputeAssignmentDirty();
@@ -432,6 +445,8 @@ public final class RoleAdministrationViewModel {
         canUpdate.set(authorization.hasPermission(SecurityPermissions.ROLES_UPDATE));
         canDelete.set(authorization.hasPermission(SecurityPermissions.ROLES_DELETE));
         canAssignRole.set(authorization.hasPermission(SecurityPermissions.ROLES_ASSIGN));
+        canViewUsers.set(authorization.hasPermission(SecurityPermissions.USERS_VIEW));
+        canUseUserAssignment.set(canAssignRole.get() && canViewUsers.get());
         canManageRolePermissions.set(authorization.hasPermission(SecurityPermissions.PERMISSIONS_ASSIGN));
     }
 

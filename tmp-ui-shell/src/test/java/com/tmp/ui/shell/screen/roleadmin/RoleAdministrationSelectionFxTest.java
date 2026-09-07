@@ -36,9 +36,13 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBoxTreeItem;
+import javafx.scene.control.TextField;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -120,6 +124,229 @@ class RoleAdministrationSelectionFxTest {
                 PermissionId.of("order.order.create"), "Создание заказов", "", true);
         assertEquals("Создание заказов", summary.displayName());
         assertEquals("order.order.create", summary.permissionId().value());
+    }
+
+    @Test
+    void readOnlyPermissionTreeBlocksMutationWithoutPermissionsAssign() throws Exception {
+        RecordingRoles roles = new RecordingRoles();
+        PermissionId granted = SecurityPermissions.USERS_VIEW;
+        PermissionId other = SecurityPermissions.ROLES_VIEW;
+        RoleSummary role = roles.addRole("Viewer", "view", Set.of(granted));
+        roles.permissions.add(new PermissionSummary(granted, "Просмотр пользователей", "", true));
+        roles.permissions.add(new PermissionSummary(other, "Просмотр ролей", "", true));
+
+        RoleAdministrationViewModel viewModel =
+                new RoleAdministrationViewModel(roles, new EmptyUsers(), new RolesViewOnly());
+        LoadedScreen loaded = loadScreen(viewModel);
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> error = new AtomicReference<>();
+
+        Platform.runLater(() -> {
+            try {
+                selectRole(loaded, role);
+                @SuppressWarnings("unchecked")
+                TreeView<RoleAdministrationController.PermissionTreeNode> tree =
+                        (TreeView<RoleAdministrationController.PermissionTreeNode>)
+                                loaded.root().lookup("#permissionTree");
+                CheckBoxTreeItem<RoleAdministrationController.PermissionTreeNode> grantedLeaf =
+                        findLeaf(tree.getRoot(), granted);
+                CheckBoxTreeItem<RoleAdministrationController.PermissionTreeNode> otherLeaf =
+                        findLeaf(tree.getRoot(), other);
+                CheckBoxTreeItem<RoleAdministrationController.PermissionTreeNode> group =
+                        findGroup(tree.getRoot(), "security");
+                assertTrue(grantedLeaf.isSelected());
+                assertFalse(otherLeaf.isSelected());
+
+                Button apply = (Button) loaded.root().lookup("#applyPermissionsButton");
+                assertFalse(apply.isVisible());
+                assertFalse(apply.isManaged());
+
+                grantedLeaf.setSelected(false);
+                otherLeaf.setSelected(true);
+                group.setSelected(true);
+                assertTrue(grantedLeaf.isSelected());
+                assertFalse(otherLeaf.isSelected());
+                assertFalse(viewModel.permissionsDirtyProperty().get());
+                assertTrue(viewModel.isPermissionDesired(granted));
+                assertFalse(viewModel.isPermissionDesired(other));
+
+                group.setExpanded(false);
+                assertFalse(group.isExpanded());
+                group.setExpanded(true);
+                assertTrue(group.isExpanded());
+
+                tree.getSelectionModel().select(grantedLeaf);
+                tree.fireEvent(
+                        new KeyEvent(
+                                KeyEvent.KEY_PRESSED,
+                                "",
+                                "",
+                                KeyCode.SPACE,
+                                false,
+                                false,
+                                false,
+                                false));
+                assertTrue(grantedLeaf.isSelected());
+                assertFalse(viewModel.permissionsDirtyProperty().get());
+
+                TextField search = (TextField) loaded.root().lookup("#permissionSearchField");
+                search.setText("Просмотр пользователей");
+                loaded.root().applyCss();
+                loaded.root().layout();
+                assertEquals(1, countLeaves(tree.getRoot()));
+                search.setText("");
+                loaded.root().applyCss();
+                loaded.root().layout();
+                assertEquals(2, countLeaves(tree.getRoot()));
+                assertTrue(viewModel.isPermissionDesired(granted));
+                assertFalse(viewModel.isPermissionDesired(other));
+            } catch (Throwable throwable) {
+                error.set(throwable);
+            } finally {
+                latch.countDown();
+            }
+        });
+
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
+        if (error.get() != null) {
+            throw new AssertionError("Read-only permission tree regression failed", error.get());
+        }
+    }
+
+    @Test
+    void filteredGroupCheckboxAffectsOnlyVisiblePermissions() throws Exception {
+        RecordingRoles roles = new RecordingRoles();
+        PermissionId p1 = PermissionId.of("warehouse.stock.view");
+        PermissionId p2 = PermissionId.of("warehouse.stock.adjust");
+        PermissionId p3 = PermissionId.of("warehouse.transfer.create");
+        PermissionId p4 = PermissionId.of("warehouse.structure.view");
+        RoleSummary role = roles.addRole("Wh", "wh", Set.of(p3, p4));
+        roles.permissions.add(new PermissionSummary(p1, "Сток P1", "", true));
+        roles.permissions.add(new PermissionSummary(p2, "Сток P2", "", true));
+        roles.permissions.add(new PermissionSummary(p3, "Перемещение P3", "", true));
+        roles.permissions.add(new PermissionSummary(p4, "Структура P4", "", true));
+
+        RoleAdministrationViewModel viewModel =
+                new RoleAdministrationViewModel(roles, new EmptyUsers(), new AllowAll());
+        LoadedScreen loaded = loadScreen(viewModel);
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> error = new AtomicReference<>();
+
+        Platform.runLater(() -> {
+            try {
+                selectRole(loaded, role);
+                TextField search = (TextField) loaded.root().lookup("#permissionSearchField");
+                search.setText("Сток");
+                loaded.root().applyCss();
+                loaded.root().layout();
+
+                @SuppressWarnings("unchecked")
+                TreeView<RoleAdministrationController.PermissionTreeNode> tree =
+                        (TreeView<RoleAdministrationController.PermissionTreeNode>)
+                                loaded.root().lookup("#permissionTree");
+                CheckBoxTreeItem<RoleAdministrationController.PermissionTreeNode> group =
+                        findGroup(tree.getRoot(), "warehouse");
+                assertNotNull(group);
+                assertEquals(2, group.getChildren().size());
+                assertTrue(group.isIndeterminate() || !group.isSelected());
+
+                group.setSelected(true);
+                assertTrue(viewModel.isPermissionDesired(p1));
+                assertTrue(viewModel.isPermissionDesired(p2));
+                assertTrue(viewModel.isPermissionDesired(p3));
+                assertTrue(viewModel.isPermissionDesired(p4));
+
+                group.setSelected(false);
+                assertFalse(viewModel.isPermissionDesired(p1));
+                assertFalse(viewModel.isPermissionDesired(p2));
+                assertTrue(viewModel.isPermissionDesired(p3));
+                assertTrue(viewModel.isPermissionDesired(p4));
+
+                search.setText("");
+                loaded.root().applyCss();
+                loaded.root().layout();
+                CheckBoxTreeItem<RoleAdministrationController.PermissionTreeNode> fullGroup =
+                        findGroup(tree.getRoot(), "warehouse");
+                assertEquals(4, fullGroup.getChildren().size());
+                assertTrue(fullGroup.isIndeterminate());
+                assertTrue(viewModel.isPermissionDesired(p3));
+                assertTrue(viewModel.isPermissionDesired(p4));
+                assertFalse(viewModel.isPermissionDesired(p1));
+                assertFalse(viewModel.isPermissionDesired(p2));
+            } catch (Throwable throwable) {
+                error.set(throwable);
+            } finally {
+                latch.countDown();
+            }
+        });
+
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
+        if (error.get() != null) {
+            throw new AssertionError("Filtered group visible-only semantics failed", error.get());
+        }
+    }
+
+    @Test
+    void assignmentSectionVisibleOnlyWithRolesAssignAndUsersView() throws Exception {
+        RecordingRoles roles = new RecordingRoles();
+        roles.addRole("Ops", "ops", Set.of());
+
+        RoleAdministrationViewModel assignOnly =
+                new RoleAdministrationViewModel(roles, new EmptyUsers(), new AssignOnly());
+        Parent assignOnlyRoot = loadScreen(assignOnly).root();
+        VBox assignOnlySection = (VBox) assignOnlyRoot.lookup("#assignmentSection");
+        assertFalse(assignOnlySection.isVisible());
+        assertFalse(assignOnlySection.isManaged());
+
+        RoleAdministrationViewModel both =
+                new RoleAdministrationViewModel(roles, new EmptyUsers(), new AssignAndViewUsers());
+        Parent bothRoot = loadScreen(both).root();
+        VBox bothSection = (VBox) bothRoot.lookup("#assignmentSection");
+        assertTrue(bothSection.isVisible());
+        assertTrue(bothSection.isManaged());
+        assertNull(bothRoot.lookup("#revokeButton"));
+
+        RoleAdministrationViewModel viewOnly =
+                new RoleAdministrationViewModel(roles, new EmptyUsers(), new UsersViewOnly());
+        Parent viewOnlyRoot = loadScreen(viewOnly).root();
+        VBox viewOnlySection = (VBox) viewOnlyRoot.lookup("#assignmentSection");
+        assertFalse(viewOnlySection.isVisible());
+        assertFalse(viewOnlySection.isManaged());
+    }
+
+    private static void selectRole(LoadedScreen loaded, RoleSummary role) {
+        TableView<RoleSummary> roleTable = loaded.table();
+        roleTable.getSelectionModel().select(
+                roleTable.getItems().stream()
+                        .filter(item -> item.id().equals(role.id()))
+                        .findFirst()
+                        .orElseThrow());
+        loaded.root().applyCss();
+        loaded.root().layout();
+    }
+
+    private static int countLeaves(TreeItem<RoleAdministrationController.PermissionTreeNode> root) {
+        int count = 0;
+        for (TreeItem<RoleAdministrationController.PermissionTreeNode> group : root.getChildren()) {
+            count += group.getChildren().size();
+        }
+        return count;
+    }
+
+    private static CheckBoxTreeItem<RoleAdministrationController.PermissionTreeNode> findGroup(
+            TreeItem<RoleAdministrationController.PermissionTreeNode> root, String namespace) {
+        for (TreeItem<RoleAdministrationController.PermissionTreeNode> child : root.getChildren()) {
+            if (child.getValue() != null
+                    && child.getValue().group() != null
+                    && namespace.equals(child.getValue().group().namespace())
+                    && child instanceof CheckBoxTreeItem<?> check) {
+                @SuppressWarnings("unchecked")
+                CheckBoxTreeItem<RoleAdministrationController.PermissionTreeNode> typed =
+                        (CheckBoxTreeItem<RoleAdministrationController.PermissionTreeNode>) check;
+                return typed;
+            }
+        }
+        return null;
     }
 
     private static CheckBoxTreeItem<RoleAdministrationController.PermissionTreeNode> findLeaf(
@@ -316,6 +543,73 @@ class RoleAdministrationSelectionFxTest {
         @Override
         public Set<PermissionId> effectivePermissions() {
             return Set.of();
+        }
+    }
+
+    private static final class RolesViewOnly implements AuthorizationService {
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return SecurityPermissions.ROLES_VIEW.equals(permissionId);
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {}
+
+        @Override
+        public Set<PermissionId> effectivePermissions() {
+            return Set.of(SecurityPermissions.ROLES_VIEW);
+        }
+    }
+
+    private static final class AssignOnly implements AuthorizationService {
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return SecurityPermissions.ROLES_VIEW.equals(permissionId)
+                    || SecurityPermissions.ROLES_ASSIGN.equals(permissionId);
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {}
+
+        @Override
+        public Set<PermissionId> effectivePermissions() {
+            return Set.of(SecurityPermissions.ROLES_VIEW, SecurityPermissions.ROLES_ASSIGN);
+        }
+    }
+
+    private static final class UsersViewOnly implements AuthorizationService {
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return SecurityPermissions.ROLES_VIEW.equals(permissionId)
+                    || SecurityPermissions.USERS_VIEW.equals(permissionId);
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {}
+
+        @Override
+        public Set<PermissionId> effectivePermissions() {
+            return Set.of(SecurityPermissions.ROLES_VIEW, SecurityPermissions.USERS_VIEW);
+        }
+    }
+
+    private static final class AssignAndViewUsers implements AuthorizationService {
+        @Override
+        public boolean hasPermission(PermissionId permissionId) {
+            return SecurityPermissions.ROLES_VIEW.equals(permissionId)
+                    || SecurityPermissions.ROLES_ASSIGN.equals(permissionId)
+                    || SecurityPermissions.USERS_VIEW.equals(permissionId);
+        }
+
+        @Override
+        public void requirePermission(PermissionId permissionId) {}
+
+        @Override
+        public Set<PermissionId> effectivePermissions() {
+            return Set.of(
+                    SecurityPermissions.ROLES_VIEW,
+                    SecurityPermissions.ROLES_ASSIGN,
+                    SecurityPermissions.USERS_VIEW);
         }
     }
 }

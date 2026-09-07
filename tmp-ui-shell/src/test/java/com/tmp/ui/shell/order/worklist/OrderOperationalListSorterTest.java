@@ -72,15 +72,53 @@ class OrderOperationalListSorterTest {
 
     @Test
     void blankCustomerSortsLastAscending() {
-        List<OrderOperationalSummary> rows = new ArrayList<>();
-        rows.add(named("a", "Beta", Instant.parse("2026-09-01T10:00:00Z")));
-        rows.add(named("b", null, Instant.parse("2026-09-01T11:00:00Z")));
-        rows.add(named("c", "alpha", Instant.parse("2026-09-01T12:00:00Z")));
+        List<OrderOperationalSummary> rows = customerFixture();
         OrderOperationalListSorter.sortInPlace(
                 rows, OrderListSortField.CUSTOMER, OrderListSortDirection.ASC);
-        assertEquals("c", rows.get(0).orderNumber());
-        assertEquals("a", rows.get(1).orderNumber());
+        assertEquals(List.of("1", "5", "2", "4", "3"), rows.stream().map(OrderOperationalSummary::orderNumber).toList());
+        assertTrue(isBlankCustomer(rows.get(3).customerName()));
+        assertTrue(isBlankCustomer(rows.get(4).customerName()));
+    }
+
+    @Test
+    void blankCustomerSortsLastDescending() {
+        List<OrderOperationalSummary> rows = customerFixture();
+        OrderOperationalListSorter.sortInPlace(
+                rows, OrderListSortField.CUSTOMER, OrderListSortDirection.DESC);
+        assertEquals(List.of("2", "5", "1", "4", "3"), rows.stream().map(OrderOperationalSummary::orderNumber).toList());
+        assertEquals("Парус", rows.get(0).customerName());
+        assertEquals("Бета", rows.get(1).customerName());
+        assertEquals("Альфа", rows.get(2).customerName());
+        assertTrue(isBlankCustomer(rows.get(3).customerName()));
+        assertTrue(isBlankCustomer(rows.get(4).customerName()));
+    }
+
+    @Test
+    void whitespaceCustomerTreatedAsEmptyAndSortsLast() {
+        List<OrderOperationalSummary> rows = new ArrayList<>();
+        rows.add(named("a", "Beta", Instant.parse("2026-09-01T10:00:00Z")));
+        rows.add(named("b", "   ", Instant.parse("2026-09-01T11:00:00Z")));
+        rows.add(named("c", "alpha", Instant.parse("2026-09-01T12:00:00Z")));
+        OrderOperationalListSorter.sortInPlace(
+                rows, OrderListSortField.CUSTOMER, OrderListSortDirection.DESC);
+        assertEquals("a", rows.get(0).orderNumber());
+        assertEquals("c", rows.get(1).orderNumber());
         assertEquals("b", rows.get(2).orderNumber());
+        assertEquals("   ", rows.get(2).customerName());
+    }
+
+    private static List<OrderOperationalSummary> customerFixture() {
+        List<OrderOperationalSummary> rows = new ArrayList<>();
+        rows.add(named("1", "Альфа", Instant.parse("2026-09-01T10:00:00Z")));
+        rows.add(named("2", "Парус", Instant.parse("2026-09-01T11:00:00Z")));
+        rows.add(named("3", null, Instant.parse("2026-09-01T12:00:00Z")));
+        rows.add(named("4", "", Instant.parse("2026-09-01T13:00:00Z")));
+        rows.add(named("5", "Бета", Instant.parse("2026-09-01T14:00:00Z")));
+        return rows;
+    }
+
+    private static boolean isBlankCustomer(String name) {
+        return name == null || name.isBlank();
     }
 
     private static OrderOperationalSummary row(

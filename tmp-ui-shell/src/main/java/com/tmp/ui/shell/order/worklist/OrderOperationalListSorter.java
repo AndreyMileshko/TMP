@@ -50,15 +50,14 @@ public final class OrderOperationalListSorter {
                 switch (field) {
                     case ORDER_NUMBER -> Comparator.comparing(
                             OrderOperationalSummary::orderNumber, OrderOperationalListSorter::compareNatural);
-                    case CUSTOMER -> Comparator.comparing(
-                            OrderOperationalListSorter::customerSortKey,
-                            Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+                    case CUSTOMER -> customerComparator(direction);
                     case CREATED_AT -> Comparator.comparing(OrderOperationalSummary::createdAt);
                     case ITEM_COUNT -> Comparator.comparingLong(OrderOperationalSummary::itemQuantity);
                     case STATUS -> Comparator.comparingInt(
                             row -> statusBusinessRank(row.operationalStatus()));
                 };
-        if (direction == OrderListSortDirection.DESC) {
+        // CUSTOMER applies ASC/DESC only to non-empty names; null/blank stay last (do not reverse).
+        if (field != OrderListSortField.CUSTOMER && direction == OrderListSortDirection.DESC) {
             primary = primary.reversed();
         }
         Comparator<OrderOperationalSummary> byCreatedAt = Comparator.comparing(OrderOperationalSummary::createdAt);
@@ -124,9 +123,17 @@ public final class OrderOperationalListSorter {
     }
 
     /**
-     * Blank / null customer names sort last in ASC (and first after DESC reverse of nullsLast).
-     * Uses the same display source as the Заказчик column (raw name; blank treated as missing).
+     * Customer sort: direction applies only to non-empty names; null/blank always last in ASC and
+     * DESC. Uses the same display source as the Заказчик column (raw name; whitespace = missing).
      */
+    private static Comparator<OrderOperationalSummary> customerComparator(OrderListSortDirection direction) {
+        Comparator<String> names = String.CASE_INSENSITIVE_ORDER;
+        if (direction == OrderListSortDirection.DESC) {
+            names = names.reversed();
+        }
+        return Comparator.comparing(OrderOperationalListSorter::customerSortKey, Comparator.nullsLast(names));
+    }
+
     private static String customerSortKey(OrderOperationalSummary row) {
         String name = row.customerName();
         if (name == null || name.isBlank()) {
