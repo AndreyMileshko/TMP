@@ -46,13 +46,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 public final class WarehouseOperationalInboxService {
 
     /**
-     * Bounded Document Engine scan page size. Inbox assembles all matching tasks within the scan
-     * bound then sorts; it does not fake responsibility-aware pagination.
+     * Bounded Document Engine scan page size. Inbox assembles all matching tasks by paging until a
+     * short page; it does not fake responsibility-aware pagination.
      */
     static final int DOCUMENT_SCAN_PAGE_SIZE = 100;
-
-    /** Maximum Document Engine pages scanned for one inbox query (hard correctness bound). */
-    static final int DOCUMENT_SCAN_MAX_PAGES = 20;
 
     private static final Comparator<WarehouseTaskView> TASK_ORDER =
             Comparator.comparingInt((WarehouseTaskView t) -> taskStateRank(t.taskState()))
@@ -198,7 +195,8 @@ public final class WarehouseOperationalInboxService {
 
     private List<DocumentMetadata> scanDraftTransferDocuments() {
         List<DocumentMetadata> all = new ArrayList<>();
-        for (int page = 0; page < DOCUMENT_SCAN_MAX_PAGES; page++) {
+        int page = 0;
+        while (true) {
             int offset = page * DOCUMENT_SCAN_PAGE_SIZE;
             List<DocumentMetadata> batch =
                     documentEngine.search(
@@ -213,6 +211,7 @@ public final class WarehouseOperationalInboxService {
             if (batch.size() < DOCUMENT_SCAN_PAGE_SIZE) {
                 break;
             }
+            page++;
         }
         return all;
     }

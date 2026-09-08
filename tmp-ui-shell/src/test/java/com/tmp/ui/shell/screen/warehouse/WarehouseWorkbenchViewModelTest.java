@@ -859,6 +859,12 @@ class WarehouseWorkbenchViewModelTest {
         }
 
         @Override
+        public com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult sendTransferDocument(
+                com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand command) {
+            throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
         public TransferDocumentView getTransferDocument(UUID documentId) {
             throw new UnsupportedOperationException();
         }

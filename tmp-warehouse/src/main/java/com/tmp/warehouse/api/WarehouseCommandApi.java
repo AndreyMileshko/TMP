@@ -10,7 +10,9 @@ import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
 import com.tmp.warehouse.api.WarehouseApi.ReceiptCommand;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
+import com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.UpdateTransferDocumentCommand;
@@ -72,6 +74,13 @@ public interface WarehouseCommandApi {
 
     /** Deletes a DRAFT Transfer Document (Document Engine metadata + Warehouse payload). */
     void deleteTransferDocument(UUID documentId);
+
+    /**
+     * Atomically physically sends a DRAFT multi-line Transfer Document (Stage 3.5.6): stages
+     * source-cell allocations, POSTs the document, creates one TRANSFER_SEND per allocation with
+     * deferred destination context. Destination stock is unchanged.
+     */
+    TransferDocumentSendResult sendTransferDocument(SendTransferDocumentCommand command);
 
     /**
      * Informational «Взять в работу» / takeover for a DRAFT Transfer preparation task. Current

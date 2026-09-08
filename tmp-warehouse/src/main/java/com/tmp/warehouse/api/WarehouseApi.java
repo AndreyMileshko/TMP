@@ -181,6 +181,50 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
+    /** One source-cell allocation for Transfer Document physical SEND (Stage 3.5.6). */
+    record TransferDocumentSourceAllocationInput(
+            UUID lineId, UUID sourceStorageCellId, BigDecimal quantity) {
+
+        public TransferDocumentSourceAllocationInput {
+            java.util.Objects.requireNonNull(lineId, "lineId");
+            java.util.Objects.requireNonNull(sourceStorageCellId, "sourceStorageCellId");
+            java.util.Objects.requireNonNull(quantity, "quantity");
+        }
+    }
+
+    /**
+     * Atomically send a DRAFT Transfer Document: stage source-cell allocations and POST (physical
+     * AVAILABLE → IN_TRANSIT). Destination cell remains deferred until receive.
+     */
+    record SendTransferDocumentCommand(
+            UUID documentId,
+            long expectedDocumentVersion,
+            long expectedPayloadRevision,
+            List<TransferDocumentSourceAllocationInput> sourceAllocations) {
+
+        public SendTransferDocumentCommand {
+            java.util.Objects.requireNonNull(documentId, "documentId");
+            sourceAllocations =
+                    sourceAllocations == null ? List.of() : List.copyOf(sourceAllocations);
+        }
+    }
+
+    /** Compact result of a successful Transfer Document physical SEND. */
+    record TransferDocumentSendResult(
+            UUID documentId,
+            String documentStatus,
+            long documentVersion,
+            long payloadRevision,
+            List<UUID> sendOperationIds) {
+
+        public TransferDocumentSendResult {
+            java.util.Objects.requireNonNull(documentId, "documentId");
+            java.util.Objects.requireNonNull(documentStatus, "documentStatus");
+            sendOperationIds =
+                    sendOperationIds == null ? List.of() : List.copyOf(sendOperationIds);
+        }
+    }
+
     /** Stage 3.5.5 preparation task kind (extensible enum; only TRANSFER_PREPARATION is live). */
     enum WarehouseTaskKind {
         TRANSFER_PREPARATION

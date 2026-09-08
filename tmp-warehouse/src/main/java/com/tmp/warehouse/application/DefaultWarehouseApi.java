@@ -11,6 +11,8 @@ import com.tmp.warehouse.api.MaterialReferenceDisplay;
 import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
 import com.tmp.warehouse.api.WarehouseApi.MaterialDemand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult;
+import com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.domain.MaterialReservationLink;
 import com.tmp.warehouse.domain.MaterialReference;
@@ -82,6 +84,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     private final TransferOperationContextRepository transferContexts;
     private final MaterialSourceRoutingService sourceRouting;
     private final WarehouseOperationalInboxService operationalInbox;
+    private final WarehouseTransferSendService transferSend;
 
     public DefaultWarehouseApi(
             AuthorizationService authorization,
@@ -186,6 +189,50 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             TransferOperationContextRepository transferContexts,
             MaterialSourceRoutingService sourceRouting,
             WarehouseOperationalInboxService operationalInbox) {
+        this(
+                authorization,
+                authentication,
+                responsibilityGuard,
+                responsibilities,
+                warehouses,
+                stockPositions,
+                materials,
+                materialDisplay,
+                reservationLinks,
+                receipts,
+                moves,
+                transfers,
+                transferDocuments,
+                consumptions,
+                adjustments,
+                operations,
+                transferContexts,
+                sourceRouting,
+                operationalInbox,
+                null);
+    }
+
+    public DefaultWarehouseApi(
+            AuthorizationService authorization,
+            AuthenticationService authentication,
+            WarehouseResponsibilityGuard responsibilityGuard,
+            WarehouseUserResponsibilityRepository responsibilities,
+            WarehouseCatalogRepository warehouses,
+            StockPositionRepository stockPositions,
+            MaterialReferenceRepository materials,
+            MaterialReferenceDisplayPort materialDisplay,
+            WarehouseReservationLinkService reservationLinks,
+            WarehouseReceiptService receipts,
+            WarehouseMoveService moves,
+            WarehouseTransferService transfers,
+            WarehouseTransferDocumentService transferDocuments,
+            WarehouseConsumptionService consumptions,
+            WarehouseAdjustmentService adjustments,
+            WarehouseOperationRepository operations,
+            TransferOperationContextRepository transferContexts,
+            MaterialSourceRoutingService sourceRouting,
+            WarehouseOperationalInboxService operationalInbox,
+            WarehouseTransferSendService transferSend) {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.authentication = Objects.requireNonNull(authentication, "authentication");
         this.responsibilityGuard =
@@ -206,6 +253,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         this.transferContexts = Objects.requireNonNull(transferContexts, "transferContexts");
         this.sourceRouting = Objects.requireNonNull(sourceRouting, "sourceRouting");
         this.operationalInbox = operationalInbox;
+        this.transferSend = transferSend;
     }
 
     @Override
@@ -630,6 +678,34 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     }
 
     @Override
+    public TransferDocumentSendResult sendTransferDocument(SendTransferDocumentCommand command) {
+        Objects.requireNonNull(command, "command");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
+        WarehouseTransferSendService.SendResult result =
+                requireTransferSend()
+                        .send(
+                                new WarehouseTransferSendService.SendCommand(
+                                        command.documentId(),
+                                        command.expectedDocumentVersion(),
+                                        command.expectedPayloadRevision(),
+                                        command.sourceAllocations().stream()
+                                                .map(
+                                                        a ->
+                                                                new WarehouseTransferSendService
+                                                                        .SourceAllocationInput(
+                                                                        a.lineId(),
+                                                                        a.sourceStorageCellId(),
+                                                                        a.quantity()))
+                                                .toList()));
+        return new TransferDocumentSendResult(
+                result.documentId(),
+                result.documentStatus(),
+                result.documentVersion(),
+                result.payloadRevision(),
+                result.sendOperationIds());
+    }
+
+    @Override
     public TransferDocumentView getTransferDocument(UUID documentId) {
         Objects.requireNonNull(documentId, "documentId");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
@@ -669,6 +745,13 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             throw new IllegalStateException("Warehouse operational inbox is not configured");
         }
         return operationalInbox;
+    }
+
+    private WarehouseTransferSendService requireTransferSend() {
+        if (transferSend == null) {
+            throw new IllegalStateException("Warehouse transfer document send is not configured");
+        }
+        return transferSend;
     }
 
     private static List<WarehouseTransferDocumentService.LineInput> mapLineInputs(

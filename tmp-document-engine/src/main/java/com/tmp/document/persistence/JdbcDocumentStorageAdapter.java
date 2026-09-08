@@ -108,7 +108,7 @@ public final class JdbcDocumentStorageAdapter implements DocumentStoragePort {
             sql.append(" AND document_number ILIKE ?");
             params.add("%" + numberPart + "%");
         });
-        sql.append(" ORDER BY created_at DESC LIMIT ? OFFSET ?");
+        sql.append(" ORDER BY created_at DESC, id ASC LIMIT ? OFFSET ?");
         params.add(query.limit());
         params.add(query.offset());
         return jdbcTemplate.query(sql.toString(), ROW_MAPPER, params.toArray());

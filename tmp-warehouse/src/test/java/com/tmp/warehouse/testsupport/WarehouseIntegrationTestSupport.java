@@ -28,11 +28,13 @@ import com.tmp.warehouse.application.WarehouseReceiptService;
 import com.tmp.warehouse.application.WarehouseReservationLinkService;
 import com.tmp.warehouse.application.WarehouseResponsibilityGuard;
 import com.tmp.warehouse.application.WarehouseTransferDocumentService;
+import com.tmp.warehouse.application.WarehouseTransferSendService;
 import com.tmp.warehouse.application.WarehouseTransferService;
 import com.tmp.warehouse.application.document.WarehouseTransferDocumentProcessor;
 import com.tmp.warehouse.domain.WarehouseTransferDocument;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
+import com.tmp.warehouse.domain.repository.TransferDocumentSendAllocationRepository;
 import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
 import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
@@ -41,6 +43,7 @@ import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
 import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.persistence.JdbcAvailableStockAggregationQuery;
 import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
+import com.tmp.warehouse.persistence.JdbcTransferDocumentSendAllocationRepository;
 import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
 import com.tmp.warehouse.persistence.JdbcTransferTaskStateRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseTransferDocumentRepository;
@@ -72,7 +75,10 @@ public final class WarehouseIntegrationTestSupport {
             WarehouseTransferDocumentRepository transferDocuments,
             WarehouseTransferDocumentService transferDocumentService,
             TransferTaskStateRepository taskStates,
-            WarehouseOperationalInboxService operationalInbox) {}
+            WarehouseOperationalInboxService operationalInbox,
+            TransferDocumentSendAllocationRepository sendAllocations,
+            WarehouseTransferSendService transferSend,
+            WarehouseOperationEngine operationEngine) {}
 
     /** Test helper: skips responsibility checks. Never use in production wiring. */
     public static WarehouseResponsibilityGuard permitAllResponsibility() {
@@ -146,10 +152,18 @@ public final class WarehouseIntegrationTestSupport {
 
         WarehouseTransferDocumentRepository transferDocumentRepository =
                 new JdbcWarehouseTransferDocumentRepository(jdbc, clock);
+        TransferDocumentSendAllocationRepository sendAllocations =
+                new JdbcTransferDocumentSendAllocationRepository(jdbc);
         TransferTaskStateRepository taskStates = new JdbcTransferTaskStateRepository(jdbc, clock);
         DocumentEngine documentEngine = createDocumentEngine(jdbc);
         documentEngine.registerProcessor(
-                new WarehouseTransferDocumentProcessor(transferDocumentRepository));
+                new WarehouseTransferDocumentProcessor(
+                        transferDocumentRepository,
+                        sendAllocations,
+                        engine,
+                        transferContexts,
+                        materials,
+                        catalog));
         WarehouseTransferDocumentService transferDocumentService =
                 new WarehouseTransferDocumentService(
                         documentEngine,
@@ -159,6 +173,16 @@ public final class WarehouseIntegrationTestSupport {
                         materials,
                         responsibilityGuard,
                         tx);
+        WarehouseTransferSendService transferSend =
+                new WarehouseTransferSendService(
+                        documentEngine,
+                        transferDocumentRepository,
+                        sendAllocations,
+                        taskStates,
+                        catalog,
+                        responsibilityGuard,
+                        tx,
+                        clock);
         WarehouseOperationalInboxService operationalInbox =
                 new WarehouseOperationalInboxService(
                         documentEngine,
@@ -194,7 +218,8 @@ public final class WarehouseIntegrationTestSupport {
                         transferContexts,
                         new MaterialSourceRoutingService(
                                 new JdbcAvailableStockAggregationQuery(jdbc)),
-                        operationalInbox);
+                        operationalInbox,
+                        transferSend);
         return new ApiBundle(
                 api,
                 jdbc,
@@ -208,7 +233,10 @@ public final class WarehouseIntegrationTestSupport {
                 transferDocumentRepository,
                 transferDocumentService,
                 taskStates,
-                operationalInbox);
+                operationalInbox,
+                sendAllocations,
+                transferSend,
+                engine);
     }
 
     public static DocumentEngine createDocumentEngine(JdbcTemplate jdbc) {
@@ -303,6 +331,11 @@ public final class WarehouseIntegrationTestSupport {
 
         @Override
         public Optional<WarehouseTransferDocument> findByDocumentId(UUID documentId) {
+            throw new UnsupportedOperationException("not used in unit test");
+        }
+
+        @Override
+        public Optional<WarehouseTransferDocument> lockByDocumentId(UUID documentId) {
             throw new UnsupportedOperationException("not used in unit test");
         }
 

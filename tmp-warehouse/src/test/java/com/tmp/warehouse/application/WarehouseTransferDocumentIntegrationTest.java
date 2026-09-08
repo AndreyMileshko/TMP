@@ -98,6 +98,8 @@ class WarehouseTransferDocumentIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM warehouse.transfer_document_send_allocation");
+        jdbc.update("DELETE FROM warehouse.transfer_task_state");
         jdbc.update("DELETE FROM warehouse.transfer_document_lines");
         jdbc.update("DELETE FROM warehouse.transfer_document_payload");
         jdbc.update("DELETE FROM documents.document_lifecycle_journal");
@@ -364,7 +366,7 @@ class WarehouseTransferDocumentIntegrationTest {
                         new CreateTransferDocumentCommand(
                                 sourceWarehouseId, destinationWarehouseId, List.of()));
         assertThrows(
-                UnsupportedOperationException.class,
+                com.tmp.warehouse.domain.InvalidWarehouseStateException.class,
                 () -> bundle.documentEngine().postDocument(created.documentId()));
         assertEquals(
                 DocumentStatus.DRAFT,
@@ -375,6 +377,12 @@ class WarehouseTransferDocumentIntegrationTest {
                         .findByDocumentId(created.documentId())
                         .orElseThrow()
                         .payloadRevision());
+        assertEquals(
+                0,
+                jdbc.queryForObject(
+                                "SELECT COUNT(*) FROM warehouse.transfer_document_send_allocation",
+                                Integer.class)
+                        .intValue());
     }
 
     @Test
@@ -590,6 +598,12 @@ class WarehouseTransferDocumentIntegrationTest {
         public java.util.Optional<com.tmp.warehouse.domain.WarehouseTransferDocument>
                 findByDocumentId(UUID documentId) {
             return delegate.findByDocumentId(documentId);
+        }
+
+        @Override
+        public java.util.Optional<com.tmp.warehouse.domain.WarehouseTransferDocument>
+                lockByDocumentId(UUID documentId) {
+            return delegate.lockByDocumentId(documentId);
         }
 
         @Override

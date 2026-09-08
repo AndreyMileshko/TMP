@@ -964,6 +964,12 @@ class ReleaseProductsPostgresIT {
         }
 
         @Override
+        public com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult sendTransferDocument(
+                com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand command) {
+            return delegate.sendTransferDocument(command);
+        }
+
+        @Override
         public WarehouseApi.WarehouseTaskView takeTransferTaskInWork(UUID documentId) {
             return delegate.takeTransferTaskInWork(documentId);
         }

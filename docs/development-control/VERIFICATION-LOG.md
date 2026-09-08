@@ -3,8 +3,29 @@
 ## Latest result
 
 **Date:** 2026-09-08
-**Scope:** Stage 3.5.5 Tasks / Operational Inbox Foundation
-**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); operational inbox INTEGRATION TEST VERIFIED; no new GUI
+**Scope:** Stage 3.5.6 Physical Multi-Line Send
+**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); multi-line physical send INTEGRATION TEST VERIFIED; no new GUI
+
+### Stage 3.5.6 Physical Multi-Line Send (2026-09-08)
+
+| Check | Result |
+|-------|--------|
+| HEAD vs expected base `48155a5…` | PASS (match at start) |
+| Flyway V39 `transfer_document_send_allocation` + same-document line FK | PASS (schema IT) |
+| `WarehouseTransferDocumentSendIntegrationTest` | PASS (9) |
+| `WarehouseTransferDocumentIntegrationTest` | PASS (10; direct POST without allocations → DRAFT) |
+| `WarehouseOperationalInboxIntegrationTest` | PASS (incl. >2000 scan corrective path in send IT) |
+| Legacy transfer ITs | PASS (`WarehouseTransferServiceIntegrationTest`, integrity) |
+| `JdbcDocumentStorageSearchOrderTest` | PASS (1) |
+| Production legacy transfer unit tests | PASS (23) |
+| Architecture Stage2/6/7 filtered | PASS (81) |
+| Quick install `-DskipTests` + static analysis skips | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests …` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-08 15:11:48) |
+| Launch against `tmp_gui_stage5` | PASS — Flyway validated 39; applied V39; stock_positions=31 preserved; Spring + JavaFX start; exceptions NONE (JavaFX unnamed-module WARN only) |
+| Multi-line physical SEND | INTEGRATION TEST VERIFIED |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 / 3.5.0–3.5.6 / 3.5.7 | IN PROGRESS / COMPLETE ×7 / NEXT NOT STARTED |
+| Auto-commit | NOT DONE |
 
 ### Stage 3.5.5 Tasks / Operational Inbox Foundation (2026-09-08)
 

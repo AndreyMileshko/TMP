@@ -500,6 +500,12 @@ class ConfirmMaterialReceiptServiceTest {
         }
 
         @Override
+        public com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult sendTransferDocument(
+                com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand command) {
+            throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
         public com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView takeTransferTaskInWork(
                 UUID documentId) {
             throw new UnsupportedOperationException("not used");

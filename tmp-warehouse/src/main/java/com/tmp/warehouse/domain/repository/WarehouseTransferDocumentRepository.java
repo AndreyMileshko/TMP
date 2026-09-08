@@ -17,6 +17,12 @@ public interface WarehouseTransferDocumentRepository {
     Optional<WarehouseTransferDocument> findByDocumentId(UUID documentId);
 
     /**
+     * Loads the payload row with {@code SELECT … FOR UPDATE} so concurrent document send is
+     * serialized (Stage 3.5.6).
+     */
+    Optional<WarehouseTransferDocument> lockByDocumentId(UUID documentId);
+
+    /**
      * Batch load payloads keyed by document id. Missing keys are omitted (no empty placeholders).
      */
     Map<UUID, WarehouseTransferDocument> findByDocumentIds(Collection<UUID> documentIds);

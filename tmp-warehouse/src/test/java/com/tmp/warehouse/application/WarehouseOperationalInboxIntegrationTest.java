@@ -107,6 +107,8 @@ class WarehouseOperationalInboxIntegrationTest {
     @BeforeEach
     void setUp() {
         jdbc.update("DELETE FROM warehouse.transfer_task_state");
+        jdbc.update("DELETE FROM warehouse.transfer_document_send_allocation");
+        jdbc.update("DELETE FROM warehouse.transfer_task_state");
         jdbc.update("DELETE FROM warehouse.transfer_document_lines");
         jdbc.update("DELETE FROM warehouse.transfer_document_payload");
         jdbc.update("DELETE FROM documents.document_lifecycle_journal");
@@ -608,6 +610,11 @@ class WarehouseOperationalInboxIntegrationTest {
         public Optional<WarehouseTransferDocument> findByDocumentId(UUID documentId) {
             singleFindCalls.incrementAndGet();
             return delegate.findByDocumentId(documentId);
+        }
+
+        @Override
+        public Optional<WarehouseTransferDocument> lockByDocumentId(UUID documentId) {
+            return delegate.lockByDocumentId(documentId);
         }
 
         @Override

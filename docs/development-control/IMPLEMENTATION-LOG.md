@@ -4,6 +4,34 @@
 
 ---
 
+## Stage 3.5.6 — Physical Multi-Line Send — 2026-09-08
+
+**Date:** 2026-09-08
+**Stage:** UI Modernization Stage 3.5.6 (Warehouse Transfer Document physical SEND); outside Stages 0–9 numbered queue
+**Base checkpoint:** `48155a5db78e8f0abaad2ca588ad78212870696a`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.7 NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Implemented atomic full-document physical SEND for Warehouse-owned multi-line Transfer Documents. Caller supplies explicit source-cell allocations; orchestrator stages execution-link rows, POSTs via Document Engine; processor runs one `WarehouseOperationEngine.transferSend` per allocation with deferred destination `TransferOperationContext`. Same local ACID TX: allocations + ops + movements + stock + contexts + DRAFT→POSTED + task clear. Inbox 2000-doc scan cap removed; Document Engine search order deterministic (`created_at DESC, id ASC`). No UI, no receive, no continuation, no partial send.
+
+### Key changes
+
+- Flyway `V39__transfer_document_send_allocation.sql` (+ composite same-document line FK)
+- `WarehouseTransferSendService` + `sendTransferDocument` public command
+- `WarehouseTransferDocumentProcessor.onPost` physical execution + direct-post protection
+- `lockByDocumentId` payload row lock; task state clear on success
+- Inbox page-until-short-batch; Document Engine stable search ORDER BY
+- Integration coverage: happy path, rollback, validation, concurrency, >2000 inbox, V39 schema
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-08 Stage 3.5.6.
+
+---
+
 ## Stage 3.5.5 — Tasks / Operational Inbox Foundation — 2026-09-08
 
 **Date:** 2026-09-08

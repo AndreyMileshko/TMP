@@ -70,6 +70,43 @@ public final class JdbcWarehouseTransferDocumentRepository
     }
 
     @Override
+    public Optional<WarehouseTransferDocument> lockByDocumentId(UUID documentId) {
+        Objects.requireNonNull(documentId, "documentId");
+        List<HeaderRow> headers =
+                jdbc.query(
+                        """
+                        SELECT document_id, source_warehouse_id, destination_warehouse_id,
+                               payload_schema_version, payload_revision
+                          FROM warehouse.transfer_document_payload
+                         WHERE document_id = ?
+                         FOR UPDATE
+                        """,
+                        (rs, rowNum) ->
+                                new HeaderRow(
+                                        (UUID) rs.getObject("document_id"),
+                                        (UUID) rs.getObject("source_warehouse_id"),
+                                        (UUID) rs.getObject("destination_warehouse_id"),
+                                        rs.getInt("payload_schema_version"),
+                                        rs.getLong("payload_revision")),
+                        documentId);
+        if (headers.isEmpty()) {
+            return Optional.empty();
+        }
+        HeaderRow header = headers.get(0);
+        List<WarehouseTransferLine> lines =
+                loadLinesForDocuments(List.of(documentId))
+                        .getOrDefault(documentId, List.of());
+        return Optional.of(
+                WarehouseTransferDocument.of(
+                        header.documentId(),
+                        WarehouseId.of(header.sourceWarehouseId()),
+                        WarehouseId.of(header.destinationWarehouseId()),
+                        header.payloadSchemaVersion(),
+                        header.payloadRevision(),
+                        lines));
+    }
+
+    @Override
     public Map<UUID, WarehouseTransferDocument> findByDocumentIds(Collection<UUID> documentIds) {
         Objects.requireNonNull(documentIds, "documentIds");
         if (documentIds.isEmpty()) {
