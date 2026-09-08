@@ -30,6 +30,7 @@ import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tmp.warehouse.application.CodeOnlyMaterialReferenceDisplayPort;
+import com.tmp.production.testsupport.WarehouseTestDoubles;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
 import com.tmp.warehouse.application.WarehouseConsumptionService;
@@ -164,8 +165,8 @@ class ConfirmMaterialReceiptPostgresIntegrationTest {
         warehouseApi =
                 new DefaultWarehouseApi(
                         authorizationAllowAll(),
-                        com.tmp.warehouse.application.UnauthenticatedAuthenticationService.INSTANCE,
-                        com.tmp.warehouse.application.WarehouseResponsibilityGuard.permitAll(),
+                        WarehouseTestDoubles.unauthenticated(),
+                        WarehouseTestDoubles.permitAllResponsibility(),
                         new com.tmp.warehouse.persistence.JdbcWarehouseUserResponsibilityRepository(jdbc, CLOCK),
                         catalog,
                         stockPositions,
@@ -177,6 +178,13 @@ class ConfirmMaterialReceiptPostgresIntegrationTest {
                         new WarehouseMoveService(engine),
                         new WarehouseTransferService(
                                 engine, operations, transferContexts, warehouseTx),
+                        WarehouseTestDoubles.transferDocumentService(
+                                jdbc,
+                                CLOCK,
+                                catalog,
+                                materials,
+                                WarehouseTestDoubles.permitAllResponsibility(),
+                                warehouseTx),
                         new WarehouseConsumptionService(engine, stockPositions),
                         new WarehouseAdjustmentService(engine, stockPositions),
                         operations,
@@ -732,6 +740,23 @@ class ConfirmMaterialReceiptPostgresIntegrationTest {
         @Override
         public WarehouseApi.OperationResult receiveTransfer(UUID sendOperationId) {
             return delegate.receiveTransfer(sendOperationId);
+        }
+
+        @Override
+        public WarehouseApi.TransferDocumentView createTransferDocument(
+                WarehouseApi.CreateTransferDocumentCommand command) {
+            return delegate.createTransferDocument(command);
+        }
+
+        @Override
+        public WarehouseApi.TransferDocumentView updateTransferDocument(
+                WarehouseApi.UpdateTransferDocumentCommand command) {
+            return delegate.updateTransferDocument(command);
+        }
+
+        @Override
+        public void deleteTransferDocument(UUID documentId) {
+            delegate.deleteTransferDocument(documentId);
         }
     }
 }

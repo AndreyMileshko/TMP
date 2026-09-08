@@ -3,8 +3,6 @@ package com.tmp.warehouse.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.tmp.security.api.AuthorizationService;
-import com.tmp.security.api.PermissionId;
 import com.tmp.warehouse.api.WarehouseApi.AvailabilityStatus;
 import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
@@ -12,17 +10,6 @@ import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
-import com.tmp.warehouse.application.DefaultWarehouseApi;
-import com.tmp.warehouse.application.FixedMaterialReferenceDisplayPort;
-import com.tmp.warehouse.application.UnauthenticatedAuthenticationService;
-import com.tmp.warehouse.application.WarehouseAdjustmentService;
-import com.tmp.warehouse.application.WarehouseConsumptionService;
-import com.tmp.warehouse.application.WarehouseMoveService;
-import com.tmp.warehouse.application.WarehouseOperationEngine;
-import com.tmp.warehouse.application.WarehouseReceiptService;
-import com.tmp.warehouse.application.WarehouseReservationLinkService;
-import com.tmp.warehouse.application.WarehouseResponsibilityGuard;
-import com.tmp.warehouse.application.WarehouseTransferService;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockQuantity;
@@ -33,31 +20,21 @@ import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
-import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
-import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
-import com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository;
-import com.tmp.warehouse.persistence.JdbcStockPositionRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
-import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
-import com.tmp.warehouse.persistence.JdbcWarehouseOperationRepository;
-import com.tmp.warehouse.persistence.JdbcWarehouseStockRepository;
-import com.tmp.warehouse.persistence.JdbcWarehouseUserResponsibilityRepository;
+import com.tmp.warehouse.testsupport.WarehouseIntegrationTestSupport;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Set;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -82,7 +59,6 @@ class WarehouseApiIntegrationTest {
     private MaterialReferenceRepository materials;
     private StockPositionRepository stockPositions;
     private WarehouseOperationRepository operations;
-    private WarehouseMovementRepository movements;
     private WarehouseApi api;
 
     @BeforeAll
@@ -104,6 +80,8 @@ class WarehouseApiIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM warehouse.transfer_document_lines");
+        jdbc.update("DELETE FROM warehouse.transfer_document_payload");
         jdbc.update("DELETE FROM warehouse.transfer_operation_context");
         jdbc.update("DELETE FROM warehouse.material_reservation_links");
         jdbc.update("DELETE FROM warehouse.warehouse_movements");
@@ -114,62 +92,12 @@ class WarehouseApiIntegrationTest {
         jdbc.update("DELETE FROM warehouse.warehouses");
         jdbc.update("DELETE FROM warehouse.material_references");
 
-        JdbcWarehouseStockRepository stockJdbc = new JdbcWarehouseStockRepository(jdbc, CLOCK);
-        materials = new JdbcMaterialReferenceRepository(jdbc, CLOCK);
-        catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);
-        operations = new JdbcWarehouseOperationRepository(stockJdbc, CLOCK);
-        stockPositions = new JdbcStockPositionRepository(stockJdbc);
-        movements = new JdbcWarehouseMovementRepository(jdbc);
-        var transferContexts = new com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository(jdbc);
-        WarehouseOperationEngine engine =
-                new WarehouseOperationEngine(
-                        operations,
-                        stockPositions,
-                        movements,
-                        new TransactionTemplate(new DataSourceTransactionManager(dataSource)),
-                        CLOCK);
-        api =
-                new DefaultWarehouseApi(
-                        AllowingAuthorization.INSTANCE,
-                        UnauthenticatedAuthenticationService.INSTANCE,
-                        WarehouseResponsibilityGuard.permitAll(),
-                        new JdbcWarehouseUserResponsibilityRepository(jdbc, CLOCK),
-                        catalog,
-                        stockPositions,
-                        materials,
-                        new FixedMaterialReferenceDisplayPort(),
-                        new WarehouseReservationLinkService(
-                                new JdbcMaterialReservationLinkRepository(jdbc), CLOCK),
-                        new WarehouseReceiptService(engine, stockPositions, materials),
-                        new WarehouseMoveService(engine),
-                        new WarehouseTransferService(
-                                engine,
-                                operations,
-                                transferContexts,
-                                new TransactionTemplate(new DataSourceTransactionManager(dataSource))),
-                        new WarehouseConsumptionService(engine, stockPositions),
-                        new WarehouseAdjustmentService(engine, stockPositions),
-                        operations,
-                        transferContexts);
-    }
-
-    private enum AllowingAuthorization implements AuthorizationService {
-        INSTANCE;
-
-        @Override
-        public boolean hasPermission(PermissionId permissionId) {
-            return true;
-        }
-
-        @Override
-        public void requirePermission(PermissionId permissionId) {
-            // allow all for Public API persistence integration tests
-        }
-
-        @Override
-        public Set<PermissionId> effectivePermissions() {
-            return Set.of();
-        }
+        var bundle = WarehouseIntegrationTestSupport.createApiBundle(dataSource, CLOCK);
+        catalog = (JdbcWarehouseCatalogRepository) bundle.catalog();
+        materials = bundle.materials();
+        stockPositions = bundle.stockPositions();
+        operations = bundle.operations();
+        api = bundle.api();
     }
 
     @Test

@@ -103,6 +103,84 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
+    /** One line of a multi-line Transfer Document command / view. */
+    record TransferDocumentLineInput(
+            UUID lineId, UUID materialReferenceId, BigDecimal quantity, Integer lineOrder) {
+
+        public TransferDocumentLineInput {
+            java.util.Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            java.util.Objects.requireNonNull(quantity, "quantity");
+        }
+    }
+
+    record TransferDocumentLineView(
+            UUID lineId, UUID materialReferenceId, BigDecimal quantity, int lineOrder) {
+
+        public TransferDocumentLineView {
+            java.util.Objects.requireNonNull(lineId, "lineId");
+            java.util.Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            java.util.Objects.requireNonNull(quantity, "quantity");
+        }
+    }
+
+    /**
+     * Create Warehouse-owned multi-line Transfer Document (Document Engine DRAFT + typed payload).
+     * Empty initial lines are allowed.
+     */
+    record CreateTransferDocumentCommand(
+            UUID sourceWarehouseId,
+            UUID destinationWarehouseId,
+            List<TransferDocumentLineInput> lines) {
+
+        public CreateTransferDocumentCommand {
+            java.util.Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+            java.util.Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+            lines = lines == null ? List.of() : List.copyOf(lines);
+        }
+    }
+
+    /**
+     * Atomically replace DRAFT Transfer Document warehouses and lines using payload optimistic
+     * lock.
+     */
+    record UpdateTransferDocumentCommand(
+            UUID documentId,
+            long expectedPayloadRevision,
+            UUID sourceWarehouseId,
+            UUID destinationWarehouseId,
+            List<TransferDocumentLineInput> lines) {
+
+        public UpdateTransferDocumentCommand {
+            java.util.Objects.requireNonNull(documentId, "documentId");
+            java.util.Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+            java.util.Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+            lines = lines == null ? List.of() : List.copyOf(lines);
+        }
+    }
+
+    /** Combined Document Engine metadata + Warehouse Transfer Document payload view. */
+    record TransferDocumentView(
+            UUID documentId,
+            String documentNumber,
+            String title,
+            String documentStatus,
+            UUID sourceWarehouseId,
+            UUID destinationWarehouseId,
+            int payloadSchemaVersion,
+            long payloadRevision,
+            List<TransferDocumentLineView> lines) {
+
+        public TransferDocumentView {
+            java.util.Objects.requireNonNull(documentId, "documentId");
+            java.util.Objects.requireNonNull(documentNumber, "documentNumber");
+            java.util.Objects.requireNonNull(title, "title");
+            java.util.Objects.requireNonNull(documentStatus, "documentStatus");
+            java.util.Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+            java.util.Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+            lines = lines == null ? List.of() : List.copyOf(lines);
+        }
+    }
+
     /**
      * Logical transfer status for a send reference (or receive operation).
      *

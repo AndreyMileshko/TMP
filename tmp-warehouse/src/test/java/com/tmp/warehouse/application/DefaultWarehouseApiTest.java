@@ -5,19 +5,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.security.api.AuthorizationService;
+import com.tmp.security.api.PermissionId;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.AvailabilityStatus;
 import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
+import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
-import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
-import com.tmp.security.api.AuthorizationService;
-import com.tmp.security.api.PermissionId;
-import com.tmp.warehouse.application.FixedMaterialReferenceDisplayPort;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.MaterialReservationLink;
 import com.tmp.warehouse.domain.MaterialReservationLinkId;
@@ -38,6 +37,10 @@ import com.tmp.warehouse.domain.repository.MaterialReservationLinkRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
+import com.tmp.warehouse.testsupport.InMemoryMaterialReferenceRepository;
+import com.tmp.warehouse.testsupport.InMemoryWarehouseUserResponsibilityRepository;
+import com.tmp.warehouse.testsupport.UnauthenticatedAuthenticationService;
+import com.tmp.warehouse.testsupport.WarehouseIntegrationTestSupport;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -54,8 +57,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.SimpleTransactionStatus;
-import com.tmp.warehouse.testsupport.InMemoryMaterialReferenceRepository;
-import com.tmp.warehouse.testsupport.InMemoryWarehouseUserResponsibilityRepository;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -90,7 +91,7 @@ class DefaultWarehouseApiTest {
                 new DefaultWarehouseApi(
                         AllowingAuthorization.INSTANCE,
                         UnauthenticatedAuthenticationService.INSTANCE,
-                        WarehouseResponsibilityGuard.permitAll(),
+                        WarehouseIntegrationTestSupport.permitAllResponsibility(),
                         new InMemoryWarehouseUserResponsibilityRepository(),
                         new EmptyWarehouseCatalog(),
                         stockPositions,
@@ -106,6 +107,8 @@ class DefaultWarehouseApiTest {
                         new WarehouseReceiptService(engine, stockPositions, materials),
                         new WarehouseMoveService(engine),
                         new WarehouseTransferService(engine, operations, transferContexts, new TransactionTemplate(new PassthroughTransactionManager())),
+                        WarehouseIntegrationTestSupport.unusedTransferDocumentService(
+                                new EmptyWarehouseCatalog(), materials),
                         new WarehouseConsumptionService(engine, stockPositions),
                         new WarehouseAdjustmentService(engine, stockPositions),
                         operations,

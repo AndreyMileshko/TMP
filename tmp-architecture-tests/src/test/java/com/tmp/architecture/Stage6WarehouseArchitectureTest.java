@@ -47,6 +47,18 @@ class Stage6WarehouseArchitectureTest {
                             "Cross-capability modules must use com.tmp.warehouse.api public contracts only");
 
     @ArchTest
+    static final ArchRule warehouseUsesOnlyDocumentEnginePublicApi =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.warehouse..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("com.tmp.document.persistence..")
+                    .because(
+                            "Warehouse may use only com.tmp.document.api; Document Engine "
+                                    + "persistence adapters stay inside Document Engine");
+
+    @ArchTest
     static final ArchRule warehouseDoesNotAccessSecurityInternals =
             noClasses()
                     .that()

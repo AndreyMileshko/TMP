@@ -7,6 +7,7 @@ import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
@@ -77,4 +78,10 @@ public interface WarehouseQueryApi {
 
     /** Lists Warehouse-owned transfer requests still in {@code DRAFT} (no stock movement yet). */
     List<TransferRequestView> listTransferDrafts();
+
+    /**
+     * Reads a Warehouse-owned multi-line Transfer Document (Document Engine metadata + typed
+     * payload). Does not mutate stock.
+     */
+    TransferDocumentView getTransferDocument(UUID documentId);
 }

@@ -11633,4 +11633,32 @@ Foundation User-Warehouse responsibility many-to-many + operational scope guards
 
 ### Next on success
 
-Stage 3.5.2 Transfer Document Layer — NOT STARTED.
+Stage 3.5.2 Transfer Document Foundation ? DONE (2026-09-08).
+
+---
+
+## STAGE-3.5.2 ? Warehouse Transfer Document Foundation
+
+**Status:** DONE
+**Stage:** 3.5
+**Depends on:** Stage 3.5.1
+**Module:** tmp-warehouse (primary); Production test doubles only; tmp-architecture-tests
+
+### Goal
+
+Additive Warehouse-owned multi-line Transfer Document foundation over Document Engine + typed payload. No stock mutation. Old one-line transfer APIs unchanged.
+
+### Acceptance criteria
+
+- [x] Document type `warehouse.transfer` + processor registration
+- [x] Flyway V36 payload tables + document type seed
+- [x] create/update/delete/get Transfer Document APIs
+- [x] DRAFT-only edit; payload_revision CAS; POST refused atomically
+- [x] RBAC + source responsibility (create/update/delete); source OR destination for read
+- [x] Processor onDelete cleans payload; no stock mutation
+- [x] Test-helper hardening (permitAll / unauthenticated moved out of main)
+- [x] Targeted tests + architecture + quick build + package + runtime V36 smoke
+
+### Next on success
+
+Stage 3.5.3 ? NEXT / NOT STARTED.

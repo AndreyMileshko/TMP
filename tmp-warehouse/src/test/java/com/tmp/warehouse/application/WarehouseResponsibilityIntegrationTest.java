@@ -92,6 +92,8 @@ class WarehouseResponsibilityIntegrationTest {
     @BeforeEach
     void setUp() {
         jdbc.update("DELETE FROM warehouse.warehouse_user_responsibility");
+        jdbc.update("DELETE FROM warehouse.transfer_document_lines");
+        jdbc.update("DELETE FROM warehouse.transfer_document_payload");
         jdbc.update("DELETE FROM warehouse.transfer_operation_context");
         jdbc.update("DELETE FROM warehouse.material_reservation_links");
         jdbc.update("DELETE FROM warehouse.warehouse_movements");
@@ -527,7 +529,7 @@ class WarehouseResponsibilityIntegrationTest {
                                                 WarehousePermissions.STORAGE_CELL_CREATE,
                                                 WarehousePermissions.WAREHOUSE_STRUCTURE_UPDATE,
                                                 WarehousePermissions.WAREHOUSE_STRUCTURE_VIEW)),
-                                WarehouseResponsibilityGuard.permitAll())
+                                WarehouseIntegrationTestSupport.permitAllResponsibility())
                         .api();
         WarehouseView wh =
                 structure.createWarehouse(new CreateWarehouseCommand(code, code, true));
@@ -600,56 +602,8 @@ class WarehouseResponsibilityIntegrationTest {
 
     private WarehouseIntegrationTestSupport.ApiBundle createBundle(
             AuthorizationService authorization, WarehouseResponsibilityGuard guard) {
-        var base = WarehouseIntegrationTestSupport.createApiBundle(dataSource, CLOCK);
-        DefaultWarehouseApi wired =
-                new DefaultWarehouseApi(
-                        authorization,
-                        authentication(),
-                        guard,
-                        base.responsibilities(),
-                        base.catalog(),
-                        base.stockPositions(),
-                        base.materials(),
-                        new FixedMaterialReferenceDisplayPort(),
-                        new WarehouseReservationLinkService(
-                                new com.tmp.warehouse.persistence
-                                        .JdbcMaterialReservationLinkRepository(jdbc),
-                                CLOCK),
-                        new WarehouseReceiptService(
-                                engineFrom(base), base.stockPositions(), base.materials()),
-                        new WarehouseMoveService(engineFrom(base)),
-                        new WarehouseTransferService(
-                                engineFrom(base),
-                                base.operations(),
-                                base.transferContexts(),
-                                new org.springframework.transaction.support.TransactionTemplate(
-                                        new org.springframework.jdbc.datasource
-                                                .DataSourceTransactionManager(dataSource))),
-                        new WarehouseConsumptionService(engineFrom(base), base.stockPositions()),
-                        new WarehouseAdjustmentService(engineFrom(base), base.stockPositions()),
-                        base.operations(),
-                        base.transferContexts());
-        return new WarehouseIntegrationTestSupport.ApiBundle(
-                wired,
-                base.jdbc(),
-                base.operations(),
-                base.transferContexts(),
-                base.materials(),
-                base.stockPositions(),
-                base.catalog(),
-                base.responsibilities());
-    }
-
-    private WarehouseOperationEngine engineFrom(WarehouseIntegrationTestSupport.ApiBundle base) {
-        var movements = new com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository(jdbc);
-        return new WarehouseOperationEngine(
-                base.operations(),
-                base.stockPositions(),
-                movements,
-                new org.springframework.transaction.support.TransactionTemplate(
-                        new org.springframework.jdbc.datasource.DataSourceTransactionManager(
-                                dataSource)),
-                CLOCK);
+        return WarehouseIntegrationTestSupport.createApiBundle(
+                dataSource, CLOCK, authorization, authentication(), guard);
     }
 
     private static SessionSummary sessionFor(UUID userId) {

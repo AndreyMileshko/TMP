@@ -15,9 +15,4 @@ public interface WarehouseResponsibilityGuard {
      * @throws com.tmp.security.api.AccessDeniedException when unauthenticated or not responsible
      */
     void requireResponsible(WarehouseId warehouseId);
-
-    /** Test / legacy IT helper: skips responsibility checks. Never wire in production. */
-    static WarehouseResponsibilityGuard permitAll() {
-        return warehouseId -> {};
-    }
 }

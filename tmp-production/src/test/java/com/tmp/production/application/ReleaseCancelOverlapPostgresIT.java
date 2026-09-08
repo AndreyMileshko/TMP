@@ -38,6 +38,7 @@ import com.tmp.security.api.PermissionId;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tmp.warehouse.application.CodeOnlyMaterialReferenceDisplayPort;
+import com.tmp.production.testsupport.WarehouseTestDoubles;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
 import com.tmp.warehouse.application.WarehouseConsumptionService;
@@ -183,8 +184,8 @@ class ReleaseCancelOverlapPostgresIT {
         warehouseApi =
                 new DefaultWarehouseApi(
                         authorizationAllowAll(),
-                        com.tmp.warehouse.application.UnauthenticatedAuthenticationService.INSTANCE,
-                        com.tmp.warehouse.application.WarehouseResponsibilityGuard.permitAll(),
+                        WarehouseTestDoubles.unauthenticated(),
+                        WarehouseTestDoubles.permitAllResponsibility(),
                         new com.tmp.warehouse.persistence.JdbcWarehouseUserResponsibilityRepository(jdbc, CLOCK),
                         catalog,
                         stockPositions,
@@ -196,6 +197,13 @@ class ReleaseCancelOverlapPostgresIT {
                         new WarehouseMoveService(engine),
                         new WarehouseTransferService(
                                 engine, operations, transferContexts, warehouseTx),
+                        WarehouseTestDoubles.transferDocumentService(
+                                jdbc,
+                                CLOCK,
+                                catalog,
+                                materials,
+                                WarehouseTestDoubles.permitAllResponsibility(),
+                                warehouseTx),
                         new WarehouseConsumptionService(engine, stockPositions),
                         new WarehouseAdjustmentService(engine, stockPositions),
                         operations,

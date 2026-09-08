@@ -72,6 +72,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     private final WarehouseReceiptService receipts;
     private final WarehouseMoveService moves;
     private final WarehouseTransferService transfers;
+    private final WarehouseTransferDocumentService transferDocuments;
     private final WarehouseConsumptionService consumptions;
     private final WarehouseAdjustmentService adjustments;
     private final WarehouseOperationRepository operations;
@@ -90,6 +91,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             WarehouseReceiptService receipts,
             WarehouseMoveService moves,
             WarehouseTransferService transfers,
+            WarehouseTransferDocumentService transferDocuments,
             WarehouseConsumptionService consumptions,
             WarehouseAdjustmentService adjustments,
             WarehouseOperationRepository operations,
@@ -107,6 +109,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         this.receipts = Objects.requireNonNull(receipts, "receipts");
         this.moves = Objects.requireNonNull(moves, "moves");
         this.transfers = Objects.requireNonNull(transfers, "transfers");
+        this.transferDocuments = Objects.requireNonNull(transferDocuments, "transferDocuments");
         this.consumptions = Objects.requireNonNull(consumptions, "consumptions");
         this.adjustments = Objects.requireNonNull(adjustments, "adjustments");
         this.operations = Objects.requireNonNull(operations, "operations");
@@ -494,6 +497,93 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         responsibilityGuard.requireResponsible(context.destinationWarehouseId());
         WarehouseOperation completed = transfers.receiveFromSend(sendId);
         return toOperationResult(OperationKind.TRANSFER_RECEIVE, completed);
+    }
+
+    @Override
+    public TransferDocumentView createTransferDocument(CreateTransferDocumentCommand command) {
+        Objects.requireNonNull(command, "command");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
+        WarehouseTransferDocumentService.CreatedTransferDocument created =
+                transferDocuments.create(
+                        new WarehouseTransferDocumentService.CreateCommand(
+                                command.sourceWarehouseId(),
+                                command.destinationWarehouseId(),
+                                mapLineInputs(command.lines())));
+        return toTransferDocumentView(created.metadata(), created.payload());
+    }
+
+    @Override
+    public TransferDocumentView updateTransferDocument(UpdateTransferDocumentCommand command) {
+        Objects.requireNonNull(command, "command");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
+        WarehouseTransferDocumentService.LoadedTransferDocument updated =
+                transferDocuments.update(
+                        new WarehouseTransferDocumentService.UpdateCommand(
+                                command.documentId(),
+                                command.expectedPayloadRevision(),
+                                command.sourceWarehouseId(),
+                                command.destinationWarehouseId(),
+                                mapLineInputs(command.lines())));
+        return toTransferDocumentView(updated.metadata(), updated.payload());
+    }
+
+    @Override
+    public void deleteTransferDocument(UUID documentId) {
+        Objects.requireNonNull(documentId, "documentId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
+        transferDocuments.delete(documentId);
+    }
+
+    @Override
+    public TransferDocumentView getTransferDocument(UUID documentId) {
+        Objects.requireNonNull(documentId, "documentId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        WarehouseTransferDocumentService.LoadedTransferDocument loaded =
+                transferDocuments
+                        .findByDocumentId(documentId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Transfer document not found: " + documentId));
+        return toTransferDocumentView(loaded.metadata(), loaded.payload());
+    }
+
+    private static List<WarehouseTransferDocumentService.LineInput> mapLineInputs(
+            List<TransferDocumentLineInput> lines) {
+        return lines.stream()
+                .map(
+                        line ->
+                                new WarehouseTransferDocumentService.LineInput(
+                                        line.lineId(),
+                                        line.materialReferenceId(),
+                                        line.quantity(),
+                                        line.lineOrder()))
+                .toList();
+    }
+
+    private static TransferDocumentView toTransferDocumentView(
+            com.tmp.document.api.DocumentMetadata metadata,
+            com.tmp.warehouse.domain.WarehouseTransferDocument payload) {
+        List<TransferDocumentLineView> lineViews =
+                payload.orderedLines().stream()
+                        .map(
+                                line ->
+                                        new TransferDocumentLineView(
+                                                line.id().value(),
+                                                line.materialReferenceId().value(),
+                                                line.quantity().value(),
+                                                line.lineOrder()))
+                        .toList();
+        return new TransferDocumentView(
+                metadata.id(),
+                metadata.documentNumber(),
+                metadata.title(),
+                metadata.status().name(),
+                payload.sourceWarehouseId().value(),
+                payload.destinationWarehouseId().value(),
+                payload.payloadSchemaVersion(),
+                payload.payloadRevision(),
+                lineViews);
     }
 
     private AvailabilityResult availabilityForMaterial(

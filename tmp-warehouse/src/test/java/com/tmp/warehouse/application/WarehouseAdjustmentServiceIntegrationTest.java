@@ -111,7 +111,7 @@ class WarehouseAdjustmentServiceIntegrationTest {
         inventory =
                 new WarehouseInventoryService(
                         AllowingAuthorization.INSTANCE,
-                        WarehouseResponsibilityGuard.permitAll(),
+                        warehouseId -> {},
                         adjustments,
                         stockPositions);
     }

@@ -4,6 +4,33 @@
 
 ---
 
+## Stage 3.5.2 — Warehouse Transfer Document Foundation — 2026-09-08
+
+**Date:** 2026-09-08
+**Stage:** UI Modernization Stage 3.5.2 (Transfer Document Foundation); outside Stages 0–9 numbered queue
+**Base checkpoint:** `955708a315fe5150545eeb29bd6e34e045bbb6c9`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.3 NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Implemented Warehouse-owned multi-line Transfer Document foundation (ADR-037 / ADR-028): Document Engine type `warehouse.transfer`, minimal processor (POST unsupported; onDelete deletes payload), typed payload tables (header + ordered lines), `payload_revision` optimistic lock, create/update/delete/get application APIs with RBAC + responsibility guards. No stock mutation. Old one-line `createTransferDraft`/`sendTransfer`/`receiveTransfer` unchanged. Production integration unchanged. Test-only `permitAll` / `UnauthenticatedAuthenticationService` removed from production sources.
+
+### Key changes
+
+- Flyway `V36__warehouse_transfer_document.sql` (+ `documents.document_types` seed)
+- Domain/repository/JDBC/service/processor + public API DTOs
+- `WarehouseAutoConfiguration` Document Engine wiring + processor registrar
+- Targeted domain/IT/auth/compat/architecture tests
+- Stage control docs
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-08 Stage 3.5.2.
+
+---
+
 ## Stage 3.5.1 — Warehouse Responsibility — 2026-09-08
 
 **Date:** 2026-09-08

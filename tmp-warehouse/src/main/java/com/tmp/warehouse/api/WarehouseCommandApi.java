@@ -3,6 +3,7 @@ package com.tmp.warehouse.api;
 import com.tmp.warehouse.api.WarehouseApi.ConsumptionCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand;
+import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateTransferDraftCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
@@ -10,7 +11,9 @@ import com.tmp.warehouse.api.WarehouseApi.OperationResult;
 import com.tmp.warehouse.api.WarehouseApi.ReceiptCommand;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
+import com.tmp.warehouse.api.WarehouseApi.UpdateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.util.UUID;
 
@@ -53,4 +56,19 @@ public interface WarehouseCommandApi {
 
     /** Receives a completed send: IN_TRANSIT → AVAILABLE at destination. */
     OperationResult receiveTransfer(UUID sendOperationId);
+
+    /**
+     * Creates a Warehouse-owned multi-line Transfer Document (Document Engine DRAFT + typed
+     * payload). Does not mutate stock.
+     */
+    TransferDocumentView createTransferDocument(CreateTransferDocumentCommand command);
+
+    /**
+     * Replaces DRAFT Transfer Document warehouses and lines (payload optimistic lock). Does not
+     * mutate stock.
+     */
+    TransferDocumentView updateTransferDocument(UpdateTransferDocumentCommand command);
+
+    /** Deletes a DRAFT Transfer Document (Document Engine metadata + Warehouse payload). */
+    void deleteTransferDocument(UUID documentId);
 }

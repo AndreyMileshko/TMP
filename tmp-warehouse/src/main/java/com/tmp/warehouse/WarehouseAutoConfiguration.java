@@ -1,5 +1,6 @@
 package com.tmp.warehouse;
 
+import com.tmp.document.api.DocumentEngine;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
@@ -17,7 +18,9 @@ import com.tmp.warehouse.application.WarehouseOperationEngine;
 import com.tmp.warehouse.application.WarehouseReceiptService;
 import com.tmp.warehouse.application.WarehouseReservationLinkService;
 import com.tmp.warehouse.application.WarehouseResponsibilityGuard;
+import com.tmp.warehouse.application.WarehouseTransferDocumentService;
 import com.tmp.warehouse.application.WarehouseTransferService;
+import com.tmp.warehouse.application.document.WarehouseTransferDocumentProcessor;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.MaterialReservationLinkRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
@@ -25,6 +28,7 @@ import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
+import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
 import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
@@ -34,9 +38,12 @@ import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseOperationRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseStockRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseTransferDocumentRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.security.WarehouseCapability;
+import jakarta.annotation.PostConstruct;
 import java.time.Clock;
+import java.util.Objects;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -55,7 +62,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 @AutoConfigureAfter(
         name = {
             "org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration",
-            "com.tmp.security.SecurityAutoConfiguration"
+            "com.tmp.security.SecurityAutoConfiguration",
+            "com.tmp.document.DocumentEngineAutoConfiguration"
         })
 public class WarehouseAutoConfiguration {
 
@@ -153,6 +161,43 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
+    WarehouseTransferDocumentRepository warehouseTransferDocumentRepository(
+            JdbcTemplate jdbcTemplate, Clock clock) {
+        return new JdbcWarehouseTransferDocumentRepository(jdbcTemplate, clock);
+    }
+
+    @Bean
+    WarehouseTransferDocumentProcessor warehouseTransferDocumentProcessor(
+            WarehouseTransferDocumentRepository warehouseTransferDocumentRepository) {
+        return new WarehouseTransferDocumentProcessor(warehouseTransferDocumentRepository);
+    }
+
+    @Bean
+    WarehouseTransferDocumentService warehouseTransferDocumentService(
+            DocumentEngine documentEngine,
+            WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
+            WarehouseCatalogRepository warehouseCatalogRepository,
+            MaterialReferenceRepository materialReferenceRepository,
+            WarehouseResponsibilityGuard warehouseResponsibilityGuard,
+            PlatformTransactionManager platformTransactionManager) {
+        return new WarehouseTransferDocumentService(
+                documentEngine,
+                warehouseTransferDocumentRepository,
+                warehouseCatalogRepository,
+                materialReferenceRepository,
+                warehouseResponsibilityGuard,
+                new TransactionTemplate(platformTransactionManager));
+    }
+
+    @Bean
+    WarehouseDocumentProcessorRegistrar warehouseDocumentProcessorRegistrar(
+            DocumentEngine documentEngine,
+            WarehouseTransferDocumentProcessor warehouseTransferDocumentProcessor) {
+        return new WarehouseDocumentProcessorRegistrar(
+                documentEngine, warehouseTransferDocumentProcessor);
+    }
+
+    @Bean
     WarehouseTransferService warehouseTransferService(
             WarehouseOperationEngine warehouseOperationEngine,
             WarehouseOperationRepository warehouseOperationRepository,
@@ -224,6 +269,7 @@ public class WarehouseAutoConfiguration {
             WarehouseReceiptService warehouseReceiptService,
             WarehouseMoveService warehouseMoveService,
             WarehouseTransferService warehouseTransferService,
+            WarehouseTransferDocumentService warehouseTransferDocumentService,
             WarehouseConsumptionService warehouseConsumptionService,
             WarehouseAdjustmentService warehouseAdjustmentService,
             WarehouseOperationRepository warehouseOperationRepository,
@@ -241,6 +287,7 @@ public class WarehouseAutoConfiguration {
                 warehouseReceiptService,
                 warehouseMoveService,
                 warehouseTransferService,
+                warehouseTransferDocumentService,
                 warehouseConsumptionService,
                 warehouseAdjustmentService,
                 warehouseOperationRepository,
@@ -260,5 +307,25 @@ public class WarehouseAutoConfiguration {
     @Bean
     WarehouseCapability warehouseCapability() {
         return new WarehouseCapability();
+    }
+
+    /** Registers Warehouse document processors on the Document Engine at startup. */
+    static final class WarehouseDocumentProcessorRegistrar {
+
+        private final DocumentEngine documentEngine;
+        private final WarehouseTransferDocumentProcessor transferProcessor;
+
+        WarehouseDocumentProcessorRegistrar(
+                DocumentEngine documentEngine,
+                WarehouseTransferDocumentProcessor transferProcessor) {
+            this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
+            this.transferProcessor =
+                    Objects.requireNonNull(transferProcessor, "transferProcessor");
+        }
+
+        @PostConstruct
+        void register() {
+            documentEngine.registerProcessor(transferProcessor);
+        }
     }
 }

@@ -19,7 +19,8 @@
 |---|---|---|
 | 3.5.0 | Architecture Alignment (docs / ADR / specs) | **COMPLETE** |
 | 3.5.1 | Warehouse Responsibility (User↔Warehouse many-to-many) | **COMPLETE** |
-| 3.5.2+ | Transfer document layer, routing, receive/continuation, UX | **NEXT / NOT STARTED** |
+| 3.5.2 | Transfer Document Foundation (Document Engine + typed payload) | **COMPLETE** |
+| 3.5.3+ | Destination cell at receive / routing / Tasks / send / continuation / UX | **NEXT / NOT STARTED** |
 
 ---
 

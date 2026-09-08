@@ -30,7 +30,10 @@ import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import com.tmp.warehouse.security.WarehousePermissions;
+import com.tmp.warehouse.testsupport.InMemoryMaterialReferenceRepository;
 import com.tmp.warehouse.testsupport.InMemoryWarehouseUserResponsibilityRepository;
+import com.tmp.warehouse.testsupport.UnauthenticatedAuthenticationService;
+import com.tmp.warehouse.testsupport.WarehouseIntegrationTestSupport;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -47,7 +50,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.SimpleTransactionStatus;
-import com.tmp.warehouse.testsupport.InMemoryMaterialReferenceRepository;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -292,7 +294,7 @@ class WarehouseSecurityAuthorizationTest {
         WarehouseInventoryService inventory =
                 new WarehouseInventoryService(
                         new FixedAuthorization(Set.of()),
-                        WarehouseResponsibilityGuard.permitAll(),
+                        warehouseId -> {},
                         adjustments,
                         stockPositions);
         assertThrows(
@@ -311,7 +313,7 @@ class WarehouseSecurityAuthorizationTest {
         WarehouseInventoryService inventory =
                 new WarehouseInventoryService(
                         new FixedAuthorization(Set.of(WarehousePermissions.WAREHOUSE_INVENTORY)),
-                        WarehouseResponsibilityGuard.permitAll(),
+                        warehouseId -> {},
                         adjustments,
                         stockPositions);
         assertDoesNotThrow(
@@ -347,7 +349,7 @@ class WarehouseSecurityAuthorizationTest {
         return new DefaultWarehouseApi(
                 new FixedAuthorization(granted),
                 UnauthenticatedAuthenticationService.INSTANCE,
-                WarehouseResponsibilityGuard.permitAll(),
+                WarehouseIntegrationTestSupport.permitAllResponsibility(),
                 new InMemoryWarehouseUserResponsibilityRepository(),
                 new EmptyWarehouseCatalog(),
                 stockPositions,
@@ -357,6 +359,8 @@ class WarehouseSecurityAuthorizationTest {
                 receipts,
                 moves,
                 transfers,
+                WarehouseIntegrationTestSupport.unusedTransferDocumentService(
+                        new EmptyWarehouseCatalog(), materials),
                 consumptions,
                 adjustments,
                 operations,

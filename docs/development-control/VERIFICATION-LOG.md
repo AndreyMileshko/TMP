@@ -3,10 +3,33 @@
 ## Latest result
 
 **Date:** 2026-09-08
-**Scope:** Stage 3.5.1 Warehouse Responsibility
-**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); responsibility GUI NOT IMPLEMENTED; guards TEST VERIFIED
+**Scope:** Stage 3.5.2 Warehouse Transfer Document Foundation
+**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); Transfer Document GUI NOT IMPLEMENTED; new document CRUD INTEGRATION TEST VERIFIED
+
+### Stage 3.5.2 Warehouse Transfer Document Foundation (2026-09-08)
+
+| Check | Result |
+|-------|--------|
+| HEAD vs expected base `955708a…` | PASS (match at start) |
+| Flyway V36 transfer document + document type seed | PASS (schema IT + runtime migrate 35→36) |
+| Domain `WarehouseTransferDocumentTest` | PASS (7) |
+| IT `WarehouseTransferDocumentIntegrationTest` | PASS (8) |
+| Schema `WarehouseSchemaFlywayTest` | PASS (8; includes V36) |
+| Architecture `Stage6WarehouseArchitectureTest` | PASS (5) |
+| Production ConfirmMaterialTransfer + ConfirmMaterialReceipt ITs | PASS (14) |
+| Quick install with spotbugs/checkstyle skip (project convention) | PASS |
+| Package + new `TMP.exe` (2026-09-08 12:17) | PASS |
+| Launch against `tmp_gui_stage5` | PASS — V36 applied; `warehouse.transfer` present; Spring + JavaFX start; stock_positions=31 |
+| New document CRUD | INTEGRATION TEST VERIFIED |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 / 3.5.0 / 3.5.1 / 3.5.2 / 3.5.3 | IN PROGRESS / COMPLETE / COMPLETE / COMPLETE / NEXT NOT STARTED |
+| Auto-commit | NOT DONE |
 
 ### Stage 3.5.1 Warehouse Responsibility (2026-09-08)
+
+**Date:** 2026-09-08
+**Scope:** Stage 3.5.1 Warehouse Responsibility
+**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); responsibility GUI NOT IMPLEMENTED; guards TEST VERIFIED
 
 | Check | Result |
 |-------|--------|

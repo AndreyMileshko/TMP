@@ -61,10 +61,10 @@ class WarehouseInventoryServiceTest {
                         CLOCK);
         WarehouseAdjustmentService adjustments =
                 new WarehouseAdjustmentService(engine, stockPositions);
-        inventory =
+                inventory =
                 new WarehouseInventoryService(
                         AllowingAuthorization.INSTANCE,
-                        WarehouseResponsibilityGuard.permitAll(),
+                        warehouseId -> {},
                         adjustments,
                         stockPositions);
     }

@@ -90,6 +90,47 @@ class WarehouseSchemaFlywayTest {
     }
 
     @Test
+    void flywayRecordsV36TransferDocumentMigration() {
+        Integer applied =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '36' AND success = TRUE
+                        """,
+                        Integer.class);
+        assertEquals(1, applied);
+
+        Integer header =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.tables
+                        WHERE table_schema = 'warehouse'
+                          AND table_name = 'transfer_document_payload'
+                        """,
+                        Integer.class);
+        assertEquals(1, header);
+
+        Integer lines =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.tables
+                        WHERE table_schema = 'warehouse'
+                          AND table_name = 'transfer_document_lines'
+                        """,
+                        Integer.class);
+        assertEquals(1, lines);
+
+        Integer type =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM documents.document_types
+                        WHERE id = 'warehouse.transfer'
+                        """,
+                        Integer.class);
+        assertEquals(1, type);
+    }
+
+    @Test
     void flywayRecordsV35ResponsibilityMigration() {
         Integer applied =
                 jdbc.queryForObject(
