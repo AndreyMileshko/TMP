@@ -3,8 +3,28 @@
 ## Latest result
 
 **Date:** 2026-09-08
-**Scope:** Stage 3.5.4 Automatic Source Routing + Source Cell Suggestion
-**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); routing INTEGRATION TEST VERIFIED; no new GUI
+**Scope:** Stage 3.5.5 Tasks / Operational Inbox Foundation
+**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); operational inbox INTEGRATION TEST VERIFIED; no new GUI
+
+### Stage 3.5.5 Tasks / Operational Inbox Foundation (2026-09-08)
+
+| Check | Result |
+|-------|--------|
+| HEAD vs expected base `9b537613…` | PASS (match at start) |
+| Flyway V38 `transfer_task_state` | PASS (schema IT + runtime migrate 37→38) |
+| `WarehouseOperationalInboxIntegrationTest` | PASS (16) |
+| `WarehouseSchemaFlywayTest` | PASS (10; includes V38) |
+| `WarehouseTransferDocumentIntegrationTest` | PASS (10; source-clear regression path covered in inbox IT) |
+| `MaterialSourceRoutingServiceTest` + `MaterialSourceRoutingIntegrationTest` | PASS (16) — Stage 3.5.4 regression |
+| Warehouse targeted total | PASS — 52 tests |
+| Production/UI stubs compile for additive Command/Query API | PASS (narrow compatibility only; no Production business change) |
+| Quick install `-DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package + new `TMP.exe` (2026-09-08 14:17:19) | PASS |
+| Launch against `tmp_gui_stage5` | PASS — Flyway validated 38; applied V38; stock_positions=31 preserved; Spring + JavaFX start; exceptions NONE (JavaFX unnamed-module WARN only) |
+| Operational inbox / take-in-work | INTEGRATION TEST VERIFIED |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 / 3.5.0 / 3.5.1 / 3.5.2 / 3.5.3 / 3.5.4 / 3.5.5 / 3.5.6 | IN PROGRESS / COMPLETE ×5 / COMPLETE / NEXT NOT STARTED |
+| Auto-commit | NOT DONE |
 
 ### Stage 3.5.4 Automatic Source Routing + Source Cell Suggestion (2026-09-08)
 

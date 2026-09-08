@@ -633,6 +633,12 @@ class ConfirmMaterialTransferServiceTest {
         public void deleteTransferDocument(UUID documentId) {
             throw new UnsupportedOperationException("not used");
         }
+
+        @Override
+        public com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView takeTransferTaskInWork(
+                UUID documentId) {
+            throw new UnsupportedOperationException("not used");
+        }
     }
 
     private static final class StubWarehouseQueryApi implements WarehouseQueryApi {
@@ -764,6 +770,12 @@ class ConfirmMaterialTransferServiceTest {
         public java.util.List<MaterialSourceRoutingResult> routeMaterials(
                 UUID destinationWarehouseId, java.util.List<MaterialDemand> demands) {
             throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
+        public List<com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView> listMyWarehouseTasks(
+                UUID warehouseId) {
+            return List.of();
         }
     }
 

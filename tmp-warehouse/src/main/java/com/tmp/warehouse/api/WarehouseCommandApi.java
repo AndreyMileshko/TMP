@@ -14,6 +14,7 @@ import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.UpdateTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.util.UUID;
 
@@ -71,4 +72,11 @@ public interface WarehouseCommandApi {
 
     /** Deletes a DRAFT Transfer Document (Document Engine metadata + Warehouse payload). */
     void deleteTransferDocument(UUID documentId);
+
+    /**
+     * Informational «Взять в работу» / takeover for a DRAFT Transfer preparation task. Current
+     * worker is resolved from the authenticated session (caller must not supply userId). Not an
+     * exclusive lock — another responsible user may take over.
+     */
+    WarehouseTaskView takeTransferTaskInWork(UUID documentId);
 }

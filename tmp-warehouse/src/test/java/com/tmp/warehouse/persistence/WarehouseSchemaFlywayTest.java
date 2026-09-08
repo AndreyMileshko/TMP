@@ -475,6 +475,138 @@ class WarehouseSchemaFlywayTest {
                         UUID.randomUUID()));
     }
 
+    @Test
+    void flywayRecordsV38TransferTaskStateMigration() {
+        Integer applied =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '38' AND success = TRUE
+                        """,
+                        Integer.class);
+        assertEquals(1, applied);
+
+        Integer tableCount =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.tables
+                        WHERE table_schema = 'warehouse'
+                          AND table_name = 'transfer_task_state'
+                        """,
+                        Integer.class);
+        assertEquals(1, tableCount);
+
+        Integer securityFk =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.table_constraints tc
+                        JOIN information_schema.constraint_column_usage ccu
+                          ON tc.constraint_name = ccu.constraint_name
+                         AND tc.table_schema = ccu.table_schema
+                        WHERE tc.table_schema = 'warehouse'
+                          AND tc.table_name = 'transfer_task_state'
+                          AND tc.constraint_type = 'FOREIGN KEY'
+                          AND ccu.table_schema = 'security'
+                        """,
+                        Integer.class);
+        assertEquals(0, securityFk, "working_user_id must not FK to Security");
+
+        Integer documentsFk =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.table_constraints tc
+                        JOIN information_schema.constraint_column_usage ccu
+                          ON tc.constraint_name = ccu.constraint_name
+                         AND tc.table_schema = ccu.table_schema
+                        WHERE tc.table_schema = 'warehouse'
+                          AND tc.table_name = 'transfer_task_state'
+                          AND tc.constraint_type = 'FOREIGN KEY'
+                          AND ccu.table_schema = 'documents'
+                        """,
+                        Integer.class);
+        assertEquals(0, documentsFk, "document_id must not FK to Document Engine schema");
+
+        Integer payloadFk =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.table_constraints tc
+                        JOIN information_schema.constraint_column_usage ccu
+                          ON tc.constraint_name = ccu.constraint_name
+                         AND tc.table_schema = ccu.table_schema
+                        WHERE tc.table_schema = 'warehouse'
+                          AND tc.table_name = 'transfer_task_state'
+                          AND tc.constraint_type = 'FOREIGN KEY'
+                          AND ccu.table_name = 'transfer_document_payload'
+                        """,
+                        Integer.class);
+        assertEquals(1, payloadFk);
+
+        String deleteRule =
+                jdbc.queryForObject(
+                        """
+                        SELECT rc.delete_rule
+                          FROM information_schema.referential_constraints rc
+                          JOIN information_schema.table_constraints tc
+                            ON rc.constraint_name = tc.constraint_name
+                           AND rc.constraint_schema = tc.table_schema
+                         WHERE tc.table_schema = 'warehouse'
+                           AND tc.table_name = 'transfer_task_state'
+                           AND tc.constraint_type = 'FOREIGN KEY'
+                        """,
+                        String.class);
+        assertEquals("CASCADE", deleteRule);
+
+        UUID warehouseA = UUID.randomUUID();
+        UUID warehouseB = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO warehouse.warehouses (id, code, name, active, version, created_at, updated_at)
+                VALUES (?, 'V38A', 'V38 A', TRUE, 0, NOW(), NOW()),
+                       (?, 'V38B', 'V38 B', TRUE, 0, NOW(), NOW())
+                """,
+                warehouseA,
+                warehouseB);
+        UUID documentId = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO warehouse.transfer_document_payload (
+                    document_id, source_warehouse_id, destination_warehouse_id,
+                    payload_schema_version, payload_revision, created_at, updated_at)
+                VALUES (?, ?, ?, 1, 0, NOW(), NOW())
+                """,
+                documentId,
+                warehouseA,
+                warehouseB);
+        UUID opaqueUser = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO warehouse.transfer_task_state (
+                    document_id, working_user_id, working_since, updated_at)
+                VALUES (?, ?, NOW(), NOW())
+                """,
+                documentId,
+                opaqueUser);
+
+        Integer stockBefore =
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM warehouse.stock_positions", Integer.class);
+
+        jdbc.update(
+                "DELETE FROM warehouse.transfer_document_payload WHERE document_id = ?",
+                documentId);
+        Integer taskRows =
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM warehouse.transfer_task_state WHERE document_id = ?",
+                        Integer.class,
+                        documentId);
+        assertEquals(0, taskRows);
+
+        Integer stockAfter =
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM warehouse.stock_positions", Integer.class);
+        assertEquals(stockBefore, stockAfter);
+    }
+
     private UUID insertMaterialReference(String article) {
         UUID materialId = UUID.randomUUID();
         jdbc.update(

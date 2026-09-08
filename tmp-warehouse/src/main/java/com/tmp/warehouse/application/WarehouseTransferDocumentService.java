@@ -13,6 +13,7 @@ import com.tmp.warehouse.domain.WarehouseTransferDocument;
 import com.tmp.warehouse.domain.WarehouseTransferLine;
 import com.tmp.warehouse.domain.WarehouseTransferLineId;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
+import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -37,6 +38,7 @@ public final class WarehouseTransferDocumentService {
 
     private final DocumentEngine documentEngine;
     private final WarehouseTransferDocumentRepository repository;
+    private final TransferTaskStateRepository taskStates;
     private final WarehouseCatalogRepository warehouses;
     private final MaterialReferenceRepository materials;
     private final WarehouseResponsibilityGuard responsibilityGuard;
@@ -49,8 +51,27 @@ public final class WarehouseTransferDocumentService {
             MaterialReferenceRepository materials,
             WarehouseResponsibilityGuard responsibilityGuard,
             TransactionTemplate transactionTemplate) {
+        this(
+                documentEngine,
+                repository,
+                NoOpTransferTaskStateRepository.INSTANCE,
+                warehouses,
+                materials,
+                responsibilityGuard,
+                transactionTemplate);
+    }
+
+    public WarehouseTransferDocumentService(
+            DocumentEngine documentEngine,
+            WarehouseTransferDocumentRepository repository,
+            TransferTaskStateRepository taskStates,
+            WarehouseCatalogRepository warehouses,
+            MaterialReferenceRepository materials,
+            WarehouseResponsibilityGuard responsibilityGuard,
+            TransactionTemplate transactionTemplate) {
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
         this.repository = Objects.requireNonNull(repository, "repository");
+        this.taskStates = Objects.requireNonNull(taskStates, "taskStates");
         this.warehouses = Objects.requireNonNull(warehouses, "warehouses");
         this.materials = Objects.requireNonNull(materials, "materials");
         this.responsibilityGuard =
@@ -125,6 +146,7 @@ public final class WarehouseTransferDocumentService {
                             }
 
                             List<WarehouseTransferLine> lines = mapLines(command.lines());
+                            boolean sourceChanged = !newSource.equals(existing.sourceWarehouseId());
                             WarehouseTransferDocument updated =
                                     existing.withContent(
                                             newSource,
@@ -132,6 +154,11 @@ public final class WarehouseTransferDocumentService {
                                             lines,
                                             command.expectedPayloadRevision());
                             repository.update(updated, command.expectedPayloadRevision());
+                            if (sourceChanged) {
+                                // Stale informational worker for previous source must clear
+                                // atomically with the payload update (Stage 3.5.5).
+                                taskStates.clear(command.documentId());
+                            }
                             WarehouseTransferDocument persisted =
                                     repository
                                             .findByDocumentId(command.documentId())
@@ -282,4 +309,32 @@ public final class WarehouseTransferDocumentService {
 
     public record LoadedTransferDocument(
             DocumentMetadata metadata, WarehouseTransferDocument payload) {}
+
+    /** No-op for unit tests that never exercise task assignment. */
+    private static final class NoOpTransferTaskStateRepository implements TransferTaskStateRepository {
+        static final NoOpTransferTaskStateRepository INSTANCE = new NoOpTransferTaskStateRepository();
+
+        @Override
+        public Optional<com.tmp.warehouse.domain.TransferTaskAssignment> findByDocumentId(
+                UUID documentId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public java.util.Map<UUID, com.tmp.warehouse.domain.TransferTaskAssignment> findByDocumentIds(
+                java.util.Collection<UUID> documentIds) {
+            return java.util.Map.of();
+        }
+
+        @Override
+        public com.tmp.warehouse.domain.TransferTaskAssignment takeInWork(
+                UUID documentId, UUID workingUserId, java.time.Instant workingSince) {
+            throw new UnsupportedOperationException("task state not wired");
+        }
+
+        @Override
+        public void clear(UUID documentId) {
+            // no-op when task persistence is not wired (unit stubs)
+        }
+    }
 }

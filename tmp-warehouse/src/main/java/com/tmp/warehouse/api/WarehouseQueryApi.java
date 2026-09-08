@@ -12,6 +12,7 @@ import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.math.BigDecimal;
 import java.util.List;
@@ -110,4 +111,15 @@ public interface WarehouseQueryApi {
                         List.of(new MaterialDemand("1", materialReferenceId, quantity)))
                 .get(0);
     }
+
+    /**
+     * Operational inbox: TRANSFER_PREPARATION projections for DRAFT Transfer Documents whose
+     * source warehouse is in the current user's responsibility scope (Stage 3.5.5).
+     *
+     * <p>{@code warehouseId} null = all responsible warehouses; non-null must be in that scope
+     * (otherwise access denied). Does not mutate stock. Destination responsibility alone does not
+     * create visibility. Ordering: NEW then IN_WORK, oldest {@code createdAt}, then {@code
+     * documentId}.
+     */
+    List<WarehouseTaskView> listMyWarehouseTasks(UUID warehouseId);
 }

@@ -51,6 +51,7 @@ import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.UpdateTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import java.math.BigDecimal;
@@ -800,6 +801,11 @@ class ReleaseProductsServiceTest {
         public void deleteTransferDocument(UUID documentId) {
             throw new UnsupportedOperationException("not used");
         }
+
+        @Override
+        public WarehouseTaskView takeTransferTaskInWork(UUID documentId) {
+            throw new UnsupportedOperationException("not used");
+        }
     }
 
     private static final class StubWarehouseQueryApi implements WarehouseQueryApi {
@@ -951,6 +957,11 @@ class ReleaseProductsServiceTest {
         public java.util.List<MaterialSourceRoutingResult> routeMaterials(
                 UUID destinationWarehouseId, java.util.List<MaterialDemand> demands) {
             throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
+        public List<WarehouseTaskView> listMyWarehouseTasks(UUID warehouseId) {
+            return List.of();
         }
     }
 

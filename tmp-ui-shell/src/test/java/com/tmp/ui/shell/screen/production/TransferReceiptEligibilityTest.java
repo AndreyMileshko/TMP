@@ -171,5 +171,11 @@ class TransferReceiptEligibilityTest {
                 List<com.tmp.warehouse.api.WarehouseApi.MaterialDemand> demands) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public List<com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView> listMyWarehouseTasks(
+                UUID warehouseId) {
+            return List.of();
+        }
     }
 }

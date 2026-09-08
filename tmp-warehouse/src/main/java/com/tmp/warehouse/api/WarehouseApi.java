@@ -181,6 +181,51 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
+    /** Stage 3.5.5 preparation task kind (extensible enum; only TRANSFER_PREPARATION is live). */
+    enum WarehouseTaskKind {
+        TRANSFER_PREPARATION
+    }
+
+    /** Derived informational task state: no assignment row → NEW; assignment present → IN_WORK. */
+    enum WarehouseTaskState {
+        NEW,
+        IN_WORK
+    }
+
+    /**
+     * Compact operational inbox projection over a DRAFT {@code warehouse.transfer} document.
+     * Task identity is {@code documentId}. Worker fields are opaque Security UUIDs / timestamps.
+     */
+    record WarehouseTaskView(
+            UUID documentId,
+            String documentNumber,
+            WarehouseTaskKind taskKind,
+            WarehouseTaskState taskState,
+            UUID sourceWarehouseId,
+            String sourceWarehouseCode,
+            String sourceWarehouseName,
+            UUID destinationWarehouseId,
+            String destinationWarehouseCode,
+            String destinationWarehouseName,
+            int lineCount,
+            UUID workingUserId,
+            java.time.Instant workingSince,
+            java.time.Instant createdAt) {
+
+        public WarehouseTaskView {
+            java.util.Objects.requireNonNull(documentId, "documentId");
+            java.util.Objects.requireNonNull(documentNumber, "documentNumber");
+            java.util.Objects.requireNonNull(taskKind, "taskKind");
+            java.util.Objects.requireNonNull(taskState, "taskState");
+            java.util.Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+            java.util.Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+            java.util.Objects.requireNonNull(createdAt, "createdAt");
+            if (lineCount < 0) {
+                throw new IllegalArgumentException("lineCount must not be negative");
+            }
+        }
+    }
+
     /**
      * Logical transfer status for a send reference (or receive operation).
      *

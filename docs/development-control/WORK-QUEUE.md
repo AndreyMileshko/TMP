@@ -11663,4 +11663,5 @@ Additive Warehouse-owned multi-line Transfer Document foundation over Document E
 
 Stage 3.5.3 ? Deferred Destination Cell at Receive = COMPLETE.
 Stage 3.5.4 ? Automatic Source Routing + Source Cell Suggestion = COMPLETE.
-Stage 3.5.5 ? Tasks / Operational Inbox = NEXT / NOT STARTED.
+Stage 3.5.5 ? Tasks / Operational Inbox = COMPLETE.
+Stage 3.5.6 ? Physical Multi-Line Send = NEXT / NOT STARTED.

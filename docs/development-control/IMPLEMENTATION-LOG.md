@@ -4,6 +4,33 @@
 
 ---
 
+## Stage 3.5.5 — Tasks / Operational Inbox Foundation — 2026-09-08
+
+**Date:** 2026-09-08
+**Stage:** UI Modernization Stage 3.5.5 (Warehouse operational inbox); outside Stages 0–9 numbered queue
+**Base checkpoint:** `9b537613b0afc9688150e3a038af76542949a4a7`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.6 NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Implemented Warehouse-owned operational inbox projection for DRAFT `warehouse.transfer` documents as `TRANSFER_PREPARATION` tasks (ADR-037 / Spec §15A). Informational «Взять в работу» with non-exclusive takeover; worker assignment in `warehouse.transfer_task_state` (V38); source warehouse change clears worker atomically; delete cascades via payload FK. No UI, no stock mutation, no Document Engine task document, no Stage 3.5.6 physical send.
+
+### Key changes
+
+- Flyway `V38__warehouse_transfer_task_state.sql`
+- `TransferTaskStateRepository` / JDBC UPSERT; batch payload + assignment reads
+- `WarehouseOperationalInboxService` + public `listMyWarehouseTasks` / `takeTransferTaskInWork`
+- Source-change clear inside Transfer Document update transaction
+- Integration + schema tests; Production/UI stub compile compatibility only
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-08 Stage 3.5.5.
+
+---
+
 ## Stage 3.5.4 — Automatic Source Routing + Source Cell Suggestion — 2026-09-08
 
 **Date:** 2026-09-08

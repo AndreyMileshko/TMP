@@ -593,6 +593,12 @@ class WarehouseTransferDocumentIntegrationTest {
         }
 
         @Override
+        public java.util.Map<UUID, com.tmp.warehouse.domain.WarehouseTransferDocument>
+                findByDocumentIds(java.util.Collection<UUID> documentIds) {
+            return delegate.findByDocumentIds(documentIds);
+        }
+
+        @Override
         public void update(
                 com.tmp.warehouse.domain.WarehouseTransferDocument document,
                 long expectedPayloadRevision) {

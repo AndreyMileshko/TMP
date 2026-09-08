@@ -14,11 +14,15 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.dao.EmptyResultDataAccessException;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -62,28 +66,44 @@ public final class JdbcWarehouseTransferDocumentRepository
     @Override
     public Optional<WarehouseTransferDocument> findByDocumentId(UUID documentId) {
         Objects.requireNonNull(documentId, "documentId");
-        try {
-            HeaderRow header =
-                    jdbc.queryForObject(
-                            """
-                            SELECT document_id, source_warehouse_id, destination_warehouse_id,
-                                   payload_schema_version, payload_revision
-                              FROM warehouse.transfer_document_payload
-                             WHERE document_id = ?
-                            """,
-                            (rs, rowNum) ->
-                                    new HeaderRow(
-                                            (UUID) rs.getObject("document_id"),
-                                            (UUID) rs.getObject("source_warehouse_id"),
-                                            (UUID) rs.getObject("destination_warehouse_id"),
-                                            rs.getInt("payload_schema_version"),
-                                            rs.getLong("payload_revision")),
-                            documentId);
-            if (header == null) {
-                return Optional.empty();
-            }
-            List<WarehouseTransferLine> lines = loadLines(documentId);
-            return Optional.of(
+        return Optional.ofNullable(findByDocumentIds(List.of(documentId)).get(documentId));
+    }
+
+    @Override
+    public Map<UUID, WarehouseTransferDocument> findByDocumentIds(Collection<UUID> documentIds) {
+        Objects.requireNonNull(documentIds, "documentIds");
+        if (documentIds.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> ids = List.copyOf(documentIds);
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        List<HeaderRow> headers =
+                jdbc.query(
+                        """
+                        SELECT document_id, source_warehouse_id, destination_warehouse_id,
+                               payload_schema_version, payload_revision
+                          FROM warehouse.transfer_document_payload
+                         WHERE document_id IN (%s)
+                        """
+                                .formatted(placeholders),
+                        (rs, rowNum) ->
+                                new HeaderRow(
+                                        (UUID) rs.getObject("document_id"),
+                                        (UUID) rs.getObject("source_warehouse_id"),
+                                        (UUID) rs.getObject("destination_warehouse_id"),
+                                        rs.getInt("payload_schema_version"),
+                                        rs.getLong("payload_revision")),
+                        ids.toArray());
+        if (headers.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, List<WarehouseTransferLine>> linesByDocument = loadLinesForDocuments(ids);
+        Map<UUID, WarehouseTransferDocument> result = new HashMap<>();
+        for (HeaderRow header : headers) {
+            List<WarehouseTransferLine> lines =
+                    linesByDocument.getOrDefault(header.documentId(), List.of());
+            result.put(
+                    header.documentId(),
                     WarehouseTransferDocument.of(
                             header.documentId(),
                             WarehouseId.of(header.sourceWarehouseId()),
@@ -91,9 +111,8 @@ public final class JdbcWarehouseTransferDocumentRepository
                             header.payloadSchemaVersion(),
                             header.payloadRevision(),
                             lines));
-        } catch (EmptyResultDataAccessException ex) {
-            return Optional.empty();
         }
+        return Map.copyOf(result);
     }
 
     @Override
@@ -175,25 +194,43 @@ public final class JdbcWarehouseTransferDocumentRepository
         }
     }
 
-    private List<WarehouseTransferLine> loadLines(UUID documentId) {
-        List<WarehouseTransferLine> lines =
+    private Map<UUID, List<WarehouseTransferLine>> loadLinesForDocuments(List<UUID> documentIds) {
+        if (documentIds.isEmpty()) {
+            return Map.of();
+        }
+        String placeholders = String.join(",", Collections.nCopies(documentIds.size(), "?"));
+        List<LineRow> rows =
                 jdbc.query(
                         """
-                        SELECT id, material_reference_id, quantity, line_order
+                        SELECT id, document_id, material_reference_id, quantity, line_order
                           FROM warehouse.transfer_document_lines
-                         WHERE document_id = ?
-                         ORDER BY line_order
-                        """,
+                         WHERE document_id IN (%s)
+                         ORDER BY document_id, line_order
+                        """
+                                .formatted(placeholders),
                         (rs, rowNum) ->
-                                WarehouseTransferLine.of(
-                                        WarehouseTransferLineId.of((UUID) rs.getObject("id")),
-                                        MaterialReferenceId.of(
-                                                (UUID) rs.getObject("material_reference_id")),
-                                        StockQuantity.of(rs.getBigDecimal("quantity")),
-                                        rs.getInt("line_order")),
-                        documentId);
-        return new ArrayList<>(lines);
+                                new LineRow(
+                                        (UUID) rs.getObject("document_id"),
+                                        WarehouseTransferLine.of(
+                                                WarehouseTransferLineId.of(
+                                                        (UUID) rs.getObject("id")),
+                                                MaterialReferenceId.of(
+                                                        (UUID)
+                                                                rs.getObject(
+                                                                        "material_reference_id")),
+                                                StockQuantity.of(rs.getBigDecimal("quantity")),
+                                                rs.getInt("line_order"))),
+                        documentIds.toArray());
+        return rows.stream()
+                .collect(
+                        Collectors.groupingBy(
+                                LineRow::documentId,
+                                Collectors.mapping(
+                                        LineRow::line,
+                                        Collectors.toCollection(ArrayList::new))));
     }
+
+    private record LineRow(UUID documentId, WarehouseTransferLine line) {}
 
     private record HeaderRow(
             UUID documentId,

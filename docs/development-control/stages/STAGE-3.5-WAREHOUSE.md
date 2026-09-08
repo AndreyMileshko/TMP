@@ -22,7 +22,8 @@
 | 3.5.2 | Transfer Document Foundation (Document Engine + typed payload) | **COMPLETE** |
 | 3.5.3 | Deferred Destination Cell at Receive | **COMPLETE** |
 | 3.5.4 | Automatic Source Routing + Source Cell Suggestion | **COMPLETE** |
-| 3.5.5 | Tasks / Operational Inbox | **NEXT / NOT STARTED** |
+| 3.5.5 | Tasks / Operational Inbox | **COMPLETE** |
+| 3.5.6 | Physical Multi-Line Send | **NEXT / NOT STARTED** |
 | 3.5.5+ | Tasks / send / continuation / UX | NOT STARTED |
 
 ---

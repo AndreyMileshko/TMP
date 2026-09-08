@@ -29,6 +29,7 @@ import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
 import com.tmp.warehouse.api.WarehouseApi.UpdateTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -884,6 +885,16 @@ class WarehouseWorkbenchViewModelTest {
                     command.warehouseId(),
                     command.storageCellId(),
                     command.quantity());
+        }
+
+        @Override
+        public List<WarehouseTaskView> listMyWarehouseTasks(UUID warehouseId) {
+            return List.of();
+        }
+
+        @Override
+        public WarehouseTaskView takeTransferTaskInWork(UUID documentId) {
+            throw new UnsupportedOperationException();
         }
     }
 }

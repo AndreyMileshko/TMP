@@ -1033,5 +1033,10 @@ class ProductionDomainEventsPostgresIT {
         public void deleteTransferDocument(UUID documentId) {
             delegate.deleteTransferDocument(documentId);
         }
+
+        @Override
+        public WarehouseApi.WarehouseTaskView takeTransferTaskInWork(UUID documentId) {
+            return delegate.takeTransferTaskInWork(documentId);
+        }
     }
 }

@@ -3,9 +3,9 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1ù3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) ù FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0 Architecture Alignment COMPLETE; 3.5.1 Warehouse Responsibility COMPLETE; 3.5.2 Transfer Document Foundation COMPLETE; 3.5.3 Deferred Destination Cell at Receive COMPLETE; **3.5.4 Automatic Source Routing + Source Cell Suggestion COMPLETE**; 3.5.5 NEXT / NOT STARTED)
-**Current Task:** none (Stage 3.5.4 complete; next 3.5.5 not started)
-**Last completed task:** Stage 3.5.4 Automatic Source Routing + Source Cell Suggestion (2026-09-08); prior: Stage 3.5.3 Deferred Destination Cell at Receive (2026-09-08)
+**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1ù3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) ù FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0 Architecture Alignment COMPLETE; 3.5.1 Warehouse Responsibility COMPLETE; 3.5.2 Transfer Document Foundation COMPLETE; 3.5.3 Deferred Destination Cell at Receive COMPLETE; 3.5.4 Automatic Source Routing + Source Cell Suggestion COMPLETE; **3.5.5 Tasks / Operational Inbox COMPLETE**; 3.5.6 NEXT / NOT STARTED)
+**Current Task:** none (Stage 3.5.5 complete; next 3.5.6 not started)
+**Last completed task:** Stage 3.5.5 Tasks / Operational Inbox (2026-09-08); prior: Stage 3.5.4 Automatic Source Routing + Source Cell Suggestion (2026-09-08)
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
 **Active blockers:** NONE (UI final manual acceptance pending interactive smoke, not a code blocker)
@@ -18,7 +18,7 @@
 **Production Specification:** v2.6 Accepted (Warehouse boundary aligned; Stage 7 runtime still CURRENT IMPLEMENTATION)
 **Warehouse Specification:** v1.8 Accepted (ADR-037; ù15A admin API note for 3.5.1)
 **Full verify baseline:** GREEN (2026-08-31 post-closure rerun)
-**First READY implementation task:** Stage 3.5.5 (NOT STARTED)
+**First READY implementation task:** Stage 3.5.6 (NOT STARTED)
 
 
 ```text
@@ -103,8 +103,9 @@ Stage 3.5.1 Warehouse Responsibility = COMPLETE
 Stage 3.5.2 Transfer Document Foundation = COMPLETE
 Stage 3.5.3 Deferred Destination Cell at Receive = COMPLETE
 Stage 3.5.4 Automatic Source Routing + Source Cell Suggestion = COMPLETE
-Stage 3.5.5 Tasks / Operational Inbox = NEXT / NOT STARTED
-First READY implementation task = Stage 3.5.5 (NOT STARTED)
+Stage 3.5.5 Tasks / Operational Inbox = COMPLETE
+Stage 3.5.6 Physical Multi-Line Send = NEXT / NOT STARTED
+First READY implementation task = Stage 3.5.6 (NOT STARTED)
 ```
 
 ---
@@ -121,7 +122,7 @@ First READY implementation task = Stage 3.5.5 (NOT STARTED)
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
 | 7 | Production | DONE | 100% |
-| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0-3.5.4 COMPLETE |
+| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0-3.5.5 COMPLETE |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 

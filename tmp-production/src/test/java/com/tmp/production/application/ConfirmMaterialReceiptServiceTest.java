@@ -500,6 +500,12 @@ class ConfirmMaterialReceiptServiceTest {
         }
 
         @Override
+        public com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView takeTransferTaskInWork(
+                UUID documentId) {
+            throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
         public List<com.tmp.warehouse.api.WarehouseApi.WarehouseView> listWarehouses() {
             return List.of();
         }
@@ -596,6 +602,12 @@ class ConfirmMaterialReceiptServiceTest {
         @Override
         public List<com.tmp.warehouse.api.WarehouseApi.ReservationLinkView> listReservationLinks(
                 String materialCode) {
+            return List.of();
+        }
+
+        @Override
+        public List<com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView> listMyWarehouseTasks(
+                UUID warehouseId) {
             return List.of();
         }
     }
