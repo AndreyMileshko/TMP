@@ -4,12 +4,39 @@
 
 ---
 
+## Stage 3.5.0 — Warehouse Architecture Alignment — 2026-09-08
+
+**Date:** 2026-09-08
+**Stage:** UI Modernization Stage 3.5.0 (Warehouse Start Gate / architecture alignment); outside Stages 0–9 numbered queue
+**Base checkpoint:** `233df326f9da9cf8fecbac374b49c79169f87743`
+**Status:** COMPLETE (documentation only; no auto-commit); Stage 3.5 IN PROGRESS; 3.5.1 NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Audited Warehouse foundation + Production integration. Created ADR-037 (operational workflow, responsibility, automatic routing, continuation). Superseded ADR-013 (full-only transfer) and ADR-014 (SPLIT). Qualified ADR-035 (recommendation / fixed main warehouse / Production multi-line grouping superseded in target scope; plan/fact + Warehouse ownership retained). Aligned Warehouse Spec v1.8, Production Spec v2.6 boundary (CURRENT vs TARGET), UI Standard §39B. Preserved Stage 6 inventory invariants. No Java/FXML/CSS/migration.
+
+### Key changes
+
+- `docs/.../05-ADR/TMP-Architecture-Decisions.md` (v1.14, ADR-037)
+- `docs/.../11-Warehouse/Warehouse-Specification.md` (v1.8)
+- `docs/.../12-Production/12-Production-Specification.md` (v2.6)
+- `docs/.../16-UI-UX/TMP-UI-Standard.md` (v1.2 §39B)
+- Stage control: STATUS, CONTEXT-MAP, STAGE-3.5-WAREHOUSE.md, VERIFICATION-LOG
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-08 Stage 3.5.0.
+
+---
+
 ## UI Corrective — Orders Customer DESC Sort + Roles Read-Only Tree + Assignment UX — 2026-09-07
 
 **Date:** 2026-09-07
 **Stage:** UI Modernization corrective (Orders 3.4 + Roles 3.2); outside Stages 0–9 queue
 **Base checkpoint:** `110e8449acfa0a5d73d0f63905e1a1620f86c250`
-**Status:** IMPLEMENTED / FINAL MANUAL UI ACCEPTANCE PENDING (no auto-commit); Stage 3.5 Warehouse NOT STARTED
+**Status:** IMPLEMENTED / FINAL MANUAL UI ACCEPTANCE PENDING (no auto-commit); Stage 3.5 Warehouse NOT STARTED (superseded by 3.5.0 entry above for Stage 3.5 status)
 **Commit:** none (per task)
 **Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
 

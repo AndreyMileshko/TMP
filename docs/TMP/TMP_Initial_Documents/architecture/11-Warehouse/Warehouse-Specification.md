@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.7
+**Version:** 1.8
 
 ---
 
@@ -20,6 +20,8 @@ Warehouse является единственным владельцем:
 
 Warehouse не рассчитывает производственную потребность и не определяет состав изделия.
 
+Warehouse **не** заменяется operational UX/document layer Stage 3.5: новый workflow работает **над** существующим inventory foundation (ADR-037).
+
 ---
 
 # 2. Границы ответственности
@@ -31,7 +33,10 @@ Warehouse не рассчитывает производственную пот�
 - операции поступления, списания, корректировки, инвентаризации;
 - информационное резервирование;
 - проверку доступности материалов;
-- ведение истории изменений (`Warehouse Movement`).
+- ведение истории изменений (`Warehouse Movement`);
+- User↔Warehouse responsibility (many-to-many) и operational transfer document/workflow (ADR-037);
+- automatic source warehouse routing по AVAILABLE для production requirements;
+- Warehouse task / operational inbox projection (не generic Messenger).
 
 ## 2.2 Warehouse не отвечает за
 
@@ -41,7 +46,9 @@ Warehouse не рассчитывает производственную пот�
 - спецификации изделий;
 - расчет производственной потребности;
 - определение бизнес-причины складской операции;
-- закупки, поставщиков, цены.
+- закупки, поставщиков, цены;
+- material→warehouse mapping в справочнике материалов;
+- матрицу разрешённых направлений warehouse→warehouse.
 
 ---
 
@@ -90,6 +97,15 @@ TMP:                         "VEKA 103.211 WHITE"
 - Warehouse не отвечает за сопоставление;
 - сопоставление не является складской операцией;
 - отсутствие сопоставления не блокирует импорт.
+
+**Запрещено** вводить постоянную конфигурацию:
+
+- Material → Main Warehouse;
+- Material → Supply Warehouse;
+- Material Group → Warehouse;
+- любой иной material→warehouse mapping в справочнике.
+
+Один материал физически может одновременно находиться на нескольких складах, в нескольких ячейках, в `IN_TRANSIT` — это нормально (ADR-037).
 
 ---
 
@@ -265,7 +281,45 @@ AVAILABLE
 - `SENT` — send выполнен (`AVAILABLE` → `IN_TRANSIT`);
 - `RECEIVED` — receive выполнен (`IN_TRANSIT` → destination `AVAILABLE`).
 
-Warehouse остаётся line-operation based: одна Warehouse Operation — одна строка материала. Группировка нескольких строк в одно пользовательское перемещение принадлежит Production (logical transfer reference → 1..N Warehouse operation references).
+Дополнительные operational statuses (reject / continuation NEW и т.п.) уточняются на implementation step; минимум ADR-037 обязателен.
+
+### 13.2.1 Execution layer vs operational document layer
+
+Warehouse **сохраняет** line-operation execution:
+
+- одна `Warehouse Operation` — одна строка материала;
+- `Warehouse Movement` — immutable fact;
+- Stock Position изменяется только через Operation.
+
+Над этим ядром появляется **Warehouse-owned** operational Transfer document/workflow (ADR-037):
+
+```text
+Transfer Document
+  → lines
+  → Warehouse Operations
+  → immutable Movements
+  → Stock Positions
+```
+
+Пользовательское перемещение может содержать несколько материалов. Группировка multi-line — ответственность Warehouse operational layer, **не** второй inventory engine и **не** Production-owned stock model.
+
+### 13.2.2 Source / destination cells
+
+После automatic выбора source warehouse TMP предлагает кладовщику source StorageCell allocations (подсказка); кладовщик может изменить allocations до фактической передачи.
+
+Отправитель выбирает destination **warehouse**; destination **cells** выбирает получатель при приёмке.
+
+### 13.2.3 Partial receive, shortfall continuation, reject
+
+- accepted quantity не может превышать sent quantity;
+- partial receive поддерживается архитектурно (точная state machine — DEFERRED);
+- shortfall → новое связанное continuation transfer (тот же source/destination, NEW/draft, parent/origin); stock уменьшается только при реальной последующей передаче; исходный проведённый факт не переписывается;
+- модель `SPLIT` / replacement document (бывший ADR-014) **не** используется;
+- reject требует обязательной причины; основное действие отправителя — «Вернуть материалы на склад» (не reverse-transfer UX); default return cells = исходные source cells с возможностью override.
+
+### 13.2.4 Directions
+
+Матрица разрешённых направлений warehouse→warehouse **не** вводится. При RBAC + responsibility за source допустим transfer на любой существующий destination warehouse.
 
 ---
 
@@ -288,27 +342,70 @@ Warehouse выполняет операцию и фиксирует резуль
 
 # 15. Интеграция с Production
 
+## 15.1 TARGET Stage 3.5 contract (ADR-037)
+
 Production:
 
-- получает ACTIVE Order / Order Items / current immutable Specification из Order Management;
-- рассчитывает плановую потребность (Specification и опционально Cutting Plan как рекомендация);
-- формирует редактируемый шаблон перемещения;
-- инициирует создание Warehouse-owned Transfer через Warehouse Application/Document commands;
-- может инициировать подтверждение получения (receive) из UI Production;
-- при выпуске инициирует Warehouse-owned Consumption фактического количества (не через Public Query API).
+- формирует Material Requirement (Order / selected items / Specifications → aggregated quantities);
+- до Submit мастер может редактировать итоговое требование (без dual calculated/requested model и без recommendation formula в target);
+- после Submit передаёт **финальное** требование в Warehouse;
+- не выбирает source warehouse;
+- не владеет Stock Position / Warehouse Movement / Warehouse Operation.
 
 Warehouse:
 
-- остаётся владельцем Transfer / Consumption documents и Stock Position;
-- выполняет send (основной склад → IN_TRANSIT);
-- выполняет receive (IN_TRANSIT → склад производства);
+- остаётся владельцем Transfer / Consumption documents, Stock Position и operational transfer workflow;
+- выполняет **automatic source warehouse routing** по AVAILABLE (исключая destination);
+- при необходимости создаёт несколько internal Warehouse tasks / transfer documents из одного требования;
+- предлагает source cell allocations; receive с destination cells выполняет получатель;
+- выполняет send (`AVAILABLE` → `IN_TRANSIT`) и receive (`IN_TRANSIT` → destination `AVAILABLE`);
 - проверяет наличие и выполняет Consumption;
 - не рассчитывает производственную потребность;
 - не изменяет производственное состояние Production.
 
+## 15.2 CURRENT IMPLEMENTATION (Stage 7 — until Stage 3.5 refactor)
+
+Текущий runtime (не удалять и не менять в 3.5.0):
+
+- `ProductionWarehouseScope(mainWarehouseId, productionWarehouseId)`;
+- `MaterialTransferRecommendationCalculator`: recommended = min(max(required − productionAvailable, 0), mainAvailable);
+- Production-owned Material Transfer Template с recommended/requested quantities;
+- confirm → N Warehouse line Transfer drafts; grouping refs в Production;
+- receive confirmation может инициироваться из Production UI.
+
+Это **CURRENT IMPLEMENTATION**, подлежащая refactor на последующих Stage 3.5 implementation steps. Документация target contract (§15.1) **не** утверждает, что код уже соответствует ADR-037.
+
 Production не создаёт вторую складскую модель и не пишет в таблицы Warehouse напрямую.
 
 Атомарность связки Production Release + Warehouse Consumption — ADR-035 (бизнес-граница) и ADR-036 (механизм: общая локальная ACID-транзакция).
+
+---
+
+# 15A. User ↔ Warehouse responsibility и operational inbox
+
+User ↔ Warehouse — many-to-many responsibility (ADR-037).
+
+- effective authorization = RBAC permission + warehouse responsibility;
+- отдельного material scope нет;
+- все ответственные видят задачи склада;
+- «Взять в работу» — informational ownership, не exclusive lock;
+- operational messaging = tasks + statuses + responsibility + notifications (не generic Messenger);
+- target primary UX: Мои склады → Задачи / Остатки / История (default = Задачи).
+
+Администрирование responsibility relation — future Security/Warehouse implementation step.
+
+---
+
+# 15B. Automatic source warehouse routing
+
+Для строки требования Material M, quantity Q, destination warehouse D алгоритм deterministic (ADR-037 §D):
+
+1. исключить D;
+2. склады с AVAILABLE(M) ≥ Q → выбрать max AVAILABLE(M);
+3. иначе → max положительный AVAILABLE(M);
+4. tie-breaker — стабильный warehouse identity/code.
+
+Пользователь не выбирает source warehouse. Persistent material→warehouse mapping запрещён.
 
 ---
 
@@ -436,7 +533,12 @@ Capability permissions (идентификаторы `PermissionId`):
 7. Reservation — информационная связь без изменения stock состояния.
 8. Stage 6 implementation code в рамках этого документа не стартует.
 9. Transfer quantity > 0.
-10. Completed `TRANSFER_SEND` may be received at most once.
+10. Completed `TRANSFER_SEND` may be received at most once per send fact (exactly-once на конкретный send); partial/continuation оформляются новыми связанными transfers (ADR-037).
+11. Operational Transfer layer не создаёт второй inventory engine.
+12. Material→warehouse mapping в справочнике запрещён.
+13. Source warehouse для production requirement выбирается автоматически по AVAILABLE.
+14. Accepted quantity на receive не превышает sent quantity.
+15. User↔Warehouse responsibility — many-to-many; RBAC + responsibility.
 
 ---
 
@@ -473,3 +575,4 @@ Warehouse выполняет только складскую часть опер
 | 1.5 | Corrective pass: §17 разделён на Public Query API и Warehouse Application/Document Commands (Constitution принцип 28). |
 | 1.6 | §15: атомарность Release + Consumption ссылается на ADR-036 (механизм) при сохранении ADR-035 (бизнес-граница). |
 | 1.7 | §13.2 / §20: Transfer quantity > 0; exactly-once receive на completed TRANSFER_SEND; логический статус DRAFT/SENT/RECEIVED; Warehouse остаётся line-operation, группировка — Production. |
+| 1.8 | Stage 3.5.0 / ADR-037: User↔Warehouse responsibility; no material→warehouse mapping; automatic source routing; Warehouse-owned multi-line Transfer document over Operation layer; source cell suggestion; destination cell on receive; shortfall continuation; reject/return; partial receive; CURRENT vs TARGET Production integration; supersede ADR-013/014; qualify ADR-035. |

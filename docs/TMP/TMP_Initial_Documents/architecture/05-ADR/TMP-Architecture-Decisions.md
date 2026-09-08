@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-005  
 **Status:** Accepted  
-**Version:** 1.13
+**Version:** 1.14
 
 ---
 
@@ -531,7 +531,7 @@ Accepted
 
 ### Статус
 
-Accepted
+Superseded (заменён ADR-037 в части запрета partial receive / shortfall continuation)
 
 ### Контекст
 
@@ -547,9 +547,12 @@ Accepted
 
 Жизненный цикл документа становится однозначным.
 
+> **Superseded by ADR-037:** operational Transfer допускает partial receive и shortfall continuation через новое связанное перемещение; проведённый факт исходного документа не переписывается. Запрет «принять больше sent» и инварианты Warehouse Operation / Movement сохраняются.
+
 ### Связанные документы
 
 - Warehouse-Specification.md
+- ADR-037
 
 ---
 
@@ -561,7 +564,7 @@ Warehouse может разделять документ перемещения.
 
 ### Статус
 
-Accepted
+Superseded (заменён ADR-037 в части SPLIT / replacement document)
 
 ### Контекст
 
@@ -584,9 +587,12 @@ Accepted
 
 Пользователь получает возможность продолжить работу без изменения исходного документа.
 
+> **Superseded by ADR-037:** модель `SPLIT` / replacement document заменена shortfall continuation — новым связанным Transfer (NEW/draft) без переписывания исходного проведённого факта. Автоматический multi-source routing внутри одного требования Production не использует статус `SPLIT`.
+
 ### Связанные документы
 
 - Warehouse-Specification.md
+- ADR-037
 
 ---
 
@@ -1547,7 +1553,7 @@ Production Material Transfer and Plan/Fact Consumption.
 
 ### Статус
 
-Accepted
+Accepted (qualified — scope superseded by ADR-037 where noted)
 
 ### Контекст
 
@@ -1570,12 +1576,19 @@ Accepted
 - Security: переиспользование Warehouse permissions где возможно;
 - atomicity mechanism → ADR-036.
 
+> **Qualified by ADR-037 (superseded scope only):**
+> - фиксированный `mainWarehouse` / formula `recommended = min(max(required − productionAvailable, 0), mainAvailable)` как **target** Stage 3.5 workflow — superseded;
+> - dual quantity model (`recommendedQuantity` / `requestedQuantity` / «изменено вручную») в target requirement — superseded;
+> - группировка multi-line пользовательского перемещения как Production-owned logical layer над line-operations — superseded: operational Transfer document/workflow становится **Warehouse-owned** над существующим Operation/Movement ядром.
+>
+> **Remains Accepted:** Warehouse ownership of Transfer/Consumption/Stock Position; two-phase send→IN_TRANSIT→receive; plan/fact Release + Consumption; Public Query vs Document command boundary; ADR-036 atomicity.
+
 ### Связанные документы
 
 - Production-Specification.md (v2.2)
 - Warehouse-Specification.md
 - Document-Engine-Specification.md (v1.2)
-- ADR-010, ADR-032, ADR-034, ADR-036
+- ADR-010, ADR-032, ADR-034, ADR-036, ADR-037
 
 ---
 
@@ -1626,6 +1639,122 @@ Constitution принцип 19 требует, чтобы бизнес-опер�
 
 ---
 
+# ADR-037
+
+## Название
+
+Warehouse Operational Workflow, Responsibility Scope, Automatic Source Routing and Transfer Continuation.
+
+### Статус
+
+Accepted
+
+### Контекст
+
+Stage 6 реализовал Warehouse inventory foundation (Stock Position, Warehouse Operation, Warehouse Movement, AVAILABLE/IN_TRANSIT/BLOCKED, Transfer send/receive, Receipt/Move/Consumption/Adjustment/Inventory). Stage 7 Production интегрировал фиксированный `mainWarehouse`/`productionWarehouse` scope и recommendation formula для Material Transfer Template; группировка multi-line перемещения жила в Production как logical layer над line-operations.
+
+Согласованная Stage 3.5 модель требует operational UX/document layer **над** существующим Warehouse ядром: User↔Warehouse responsibility, automatic source routing по AVAILABLE, multi-line Warehouse-owned Transfer, source-cell suggestion, destination-cell on receive, shortfall continuation, reject/return — без второго inventory engine и без material→warehouse mapping.
+
+ADR-013 (запрет partial) и ADR-014 (SPLIT) конфликтуют с continuation/partial receive. Часть ADR-035 (fixed main warehouse recommendation / dual quantities / Production-owned multi-line grouping) конфликтует с target Stage 3.5 workflow, сохраняя plan/fact Consumption и Warehouse ownership Transfer/Consumption.
+
+### Решение
+
+#### A. User ↔ Warehouse responsibility
+
+Связь User ↔ Warehouse — **many-to-many**. Один пользователь может отвечать за несколько складов; один склад — за нескольких пользователей. Отдельного material scope нет: доступ ко всем материалам закреплённого склада. Effective authorization = RBAC permission **+** warehouse responsibility. Не создавать роли вида «Кладовщик склада N».
+
+#### B. Multiple responsible users
+
+Все ответственные видят задачи склада. «Взять в работу» — informational ownership («В работе: Иванов»), **не** exclusive lock. Другой ответственный может продолжить документ. Без manager reassignment workflow и task locking.
+
+#### C. No material → warehouse mapping
+
+Материал не привязывается к складу в справочнике. Один материал может одновременно быть на обычном складе, производственном, в пути, в нескольких ячейках и при необходимости на нескольких складах.
+
+#### D. Automatic source warehouse routing
+
+Для требований производства TMP сама выбирает source warehouse по фактическому AVAILABLE. Пользователь source warehouse **не** выбирает. Deterministic алгоритм для Material M, quantity Q, destination D:
+
+1. исключить D;
+2. найти склады с AVAILABLE(M) ≥ Q; если есть — max AVAILABLE(M);
+3. иначе — склад с max положительным AVAILABLE(M);
+4. tie-breaker — стабильный warehouse identity/code.
+
+UI выбора склада-источника запрещён. Persistent material→warehouse mapping не создаётся.
+
+#### E. One requirement — internal routing
+
+Мастер работает с одним пользовательским требованием. Warehouse может внутри создать несколько tasks / transfer documents при маршрутизации на разные source warehouses. Production отвечает «что требуется»; Warehouse — «откуда и как переместить».
+
+#### F. Production material requirement
+
+На первом этапе: Order → selected Order Items → Specifications → aggregated quantities. До Submit мастер может менять/удалять/добавлять строки (если допускает application design). После Submit фиксируется отправленное требование. **Не** хранить dual concepts `calculatedQuantity` / `requestedQuantity` / `recommendedQuantity`; **не** показывать «изменено вручную»; **не** audit до Submit.
+
+#### G. No requirement recommendation formula (target)
+
+Target Stage 3.5 workflow **не** использует `spec − production − in_transit = recommend`. Текущая Stage 7 recommendation implementation сохраняется как CURRENT IMPLEMENTATION до отдельного refactor step; код на 3.5.0 не меняется.
+
+#### H. Source cell selection
+
+После выбора source warehouse TMP предлагает кладовщику StorageCell allocations; кладовщик может изменить до передачи. Ячейка — часть физической истины.
+
+#### I. Destination cell
+
+Отправитель выбирает destination warehouse, **не** обязан выбирать destination cell. Destination cells выбирает получатель при приёмке.
+
+#### J. Transfer document layer
+
+Над line/operation execution layer появляется **Warehouse-owned** operational transfer document/workflow (несколько материалов). Stock changes только через существующие WarehouseOperation → WarehouseMovement → StockPosition. SQL schema / class names — DEFERRED TO IMPLEMENTATION STEP.
+
+#### K. Send / receive physical truth
+
+Двухфазный Transfer сохраняется: send уменьшает AVAILABLE и переводит в IN_TRANSIT; receive фиксирует принятое количество и destination cells. Принять больше sent нельзя. Лишнее физически возвращают отправителю, не оформляя как приход по этому transfer.
+
+#### L. Shortfall / continuation
+
+При shortfall (требовали 100, подали/приняли 98) исходный документ фиксирует факт 98; на остаток TMP создаёт **новое** связанное перемещение (тот же source/destination, NEW/draft, reason=shortfall/continuation, parent=origin). Новое перемещение **не** уменьшает stock автоматически. Старый факт не переписывается. Без модели `SPLIT`.
+
+#### M. Partial acceptance
+
+Partial receive поддерживается архитектурно. Минимум: accepted ≤ sent; принятое проводится получателю; непринятое не исчезает из warehouse truth; continuation на недостающую потребность — новым связанным transfer. Точная state machine — DEFERRED TO IMPLEMENTATION STEP.
+
+#### N. Reject
+
+Получатель может отклонить transfer (причина обязательна). Отправитель получает task «Перемещение отклонено»; основное действие — «Вернуть материалы на склад» (не reverse-transfer UX). По умолчанию предлагаются исходные source cells; пользователь может изменить return cells. Внутренне Warehouse сохраняет корректный fact/history.
+
+#### O. Warehouse directions
+
+Матрица разрешённых направлений warehouse→warehouse **не** вводится. При RBAC + responsibility за source пользователь может создать transfer на любой допустимый destination warehouse.
+
+#### P. No Warehouse Messenger
+
+Generic Messenger capability не создаётся. Operational messaging = tasks + statuses + responsibility + notifications (projection над Warehouse workflow).
+
+#### Q. Target Warehouse UX
+
+Главный экран: Склад → [Все мои склады / конкретный] → [Задачи] [Остатки] [История]; default = Задачи. Не копировать старый Warehouse Workbench как primary UX. Окончательный FXML — вне этого ADR.
+
+#### Preserved foundation (non-negotiable)
+
+Warehouse владеет складским состоянием; StockPosition не изменяется напрямую; WarehouseOperation = execution primitive; WarehouseMovement immutable; AVAILABLE/IN_TRANSIT/BLOCKED; StorageCell; quantity/locking/negative-stock guards; Receipt/Move/Consumption/Adjustment/Inventory; существующий Warehouse Query foundation. Новый operational layer **не** создаёт второй inventory engine.
+
+### Последствия
+
+- ADR-013 и ADR-014 → Superseded (см. их записи).
+- ADR-035 → Accepted с qualified supersede scope (см. ADR-035).
+- Warehouse Specification v1.8 и Production Specification v2.6 boundary alignment.
+- Stage 3.5 implementation steps (responsibility, transfer document, routing, continuation, UX) опираются на этот ADR.
+- Точные schema/API/state-machine детали — DEFERRED TO IMPLEMENTATION STEP.
+
+### Связанные документы
+
+- Warehouse-Specification.md (v1.8)
+- Production-Specification.md (v2.6)
+- TMP-UI-Standard.md
+- ADR-005…ADR-010, ADR-015, ADR-016, ADR-032, ADR-035, ADR-036
+
+---
+
 # 5. Матрица соответствия спецификациям
 
 Данный раздел показывает, в какой спецификации подробно раскрывается каждое архитектурное решение.
@@ -1644,8 +1773,8 @@ Constitution принцип 19 требует, чтобы бизнес-опер�
 | ADR-010 | Warehouse-Specification.md |
 | ADR-011 | Warehouse-Specification.md |
 | ADR-012 | Warehouse-Specification.md |
-| ADR-013 | Warehouse-Specification.md |
-| ADR-014 | Warehouse-Specification.md |
+| ADR-013 | Warehouse-Specification.md (**Superseded → ADR-037**, partial/full-only transfer) |
+| ADR-014 | Warehouse-Specification.md (**Superseded → ADR-037**, SPLIT/replacement) |
 | ADR-015 | Warehouse-Specification.md |
 | ADR-016 | Warehouse-Specification.md |
 | ADR-017 | Order-Management-Specification.md |
@@ -1666,8 +1795,9 @@ Constitution принцип 19 требует, чтобы бизнес-опер�
 | ADR-032 | Order-Management-Specification.md, Warehouse-Specification.md, Production-Specification.md |
 | ADR-033 | Production-Specification.md, Order-Management-Specification.md |
 | ADR-034 | Cutting-Optimization-Specification.md, Production-Specification.md |
-| ADR-035 | Production-Specification.md, Warehouse-Specification.md, Document-Engine-Specification.md |
+| ADR-035 | Production-Specification.md, Warehouse-Specification.md, Document-Engine-Specification.md (**Accepted; qualified by ADR-037**) |
 | ADR-036 | Document-Engine-Specification.md, Production-Specification.md, Warehouse-Specification.md |
+| ADR-037 | Warehouse-Specification.md, Production-Specification.md, TMP-UI-Standard.md |
 
 > **Architecture Rule**  
 > Настоящий документ фиксирует только архитектурные решения. Подробная реализация и бизнес-логика описываются в соответствующих спецификациях.
@@ -1733,6 +1863,7 @@ Constitution принцип 19 требует, чтобы бизнес-опер�
 | 1.11 | Stage 7 Production model: ADR-033 (order-level UX + item-owned state, без OM Revision в Production contract); ADR-034 (Cutting Plan без Revision, рекомендательный характер; supersede ADR-023/025/026/027); ADR-035 (editable transfer template + plan/fact Consumption); уточнены ADR-031/032 Production-facing формулировки. |
 | 1.12 | Corrective pass Stage 7 docs: Specification ID reference; Cutting Plan 0..N by material; ADR-034 не уничтожает detailed Cutting scope; ADR-035 Query vs Document boundary. |
 | 1.13 | ADR-036: shared ACID transaction for cross-capability document orchestration; ADR-035 уточнён ссылкой на механизм атомарности без supersede. |
+| 1.14 | Stage 3.5.0 Warehouse Architecture Alignment: ADR-037 (operational workflow, User↔Warehouse responsibility, automatic source routing, transfer document layer, shortfall continuation, reject/return); ADR-013 и ADR-014 Superseded; ADR-035 qualified (recommendation/fixed main warehouse/Production multi-line grouping superseded in target scope). |
 
 ---
 

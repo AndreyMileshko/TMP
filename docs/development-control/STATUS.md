@@ -3,9 +3,9 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; Stage 3.5 Warehouse NOT STARTED
-**Current Task:** none (UI corrective 2026-09-07 verified: tests/build/package/launch PASS; interactive packaged acceptance pending)
-**Last completed task:** UI Corrective — Orders Customer DESC Sort + Roles Read-Only Permission Tree + Assignment Permission UX (2026-09-07); prior: Orders Global Sorting + Roles Permission Tree (2026-09-04)
+**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0 Architecture Alignment COMPLETE; 3.5.1 Warehouse Responsibility NEXT / NOT STARTED)
+**Current Task:** none (Stage 3.5.0 docs-only complete; no Java implementation started)
+**Last completed task:** Stage 3.5.0 Warehouse Architecture Alignment (2026-09-08); prior: UI Corrective — Orders Customer DESC Sort + Roles Read-Only Permission Tree + Assignment Permission UX (2026-09-07)
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
 **Active blockers:** NONE (UI final manual acceptance pending interactive smoke, not a code blocker)
@@ -15,9 +15,10 @@
 **Stage 7 Closure Audit:** PASS
 **Stage 7 Post-Closure Correction (2026-08-31):** PASS
 **Completed Stage 7 tasks:** 27 / 27 mandatory
-**Production Specification:** v2.4 Accepted
+**Production Specification:** v2.6 Accepted (Warehouse boundary aligned; Stage 7 runtime still CURRENT IMPLEMENTATION)
+**Warehouse Specification:** v1.8 Accepted (ADR-037)
 **Full verify baseline:** GREEN (2026-08-31 post-closure rerun)
-**First READY implementation task:** none (Stage 8 not started)
+**First READY implementation task:** Stage 3.5.1 Warehouse Responsibility — NOT STARTED (docs/ADR base ready)
 
 
 ```text
@@ -96,7 +97,10 @@ Stage 7 Production = DONE / 100% (27/27 mandatory)
 Stage 7 Start Gate = PASSED
 Stage 7 Closure Audit = PASS
 Full reactor baseline = GREEN
-First READY implementation task = none (Stage 8 NOT STARTED)
+Stage 3.5 Warehouse = IN PROGRESS
+Stage 3.5.0 Architecture Alignment = COMPLETE
+Stage 3.5.1 Warehouse Responsibility = NEXT / NOT STARTED
+First READY implementation task = Stage 3.5.1 (NOT STARTED; no code yet)
 ```
 
 ---
@@ -113,10 +117,15 @@ First READY implementation task = none (Stage 8 NOT STARTED)
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
 | 7 | Production | DONE | 100% |
+| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0 COMPLETE |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 
 ---
+
+## Stage 3.5.0 — Warehouse Architecture Alignment (2026-09-08)
+
+Documentation-only Start Gate for Stage 3.5. ADR-037 Accepted; ADR-013/014 Superseded; ADR-035 qualified; Warehouse Spec v1.8; Production Spec v2.6 boundary CURRENT vs TARGET; UI Standard §39B. No Java/FXML/CSS/migration. Next: 3.5.1 Warehouse Responsibility — NOT STARTED.
 
 ## Stage 5 — Final Closure (2026-08-06)
 

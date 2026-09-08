@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-UI-STD-001  
 **Status:** Accepted  
-**Version:** 1.1
+**Version:** 1.2
 
 ---
 
@@ -888,6 +888,49 @@ Detail panel order after role selection: role header → **Назначение 
 Permissions are shown as a collapsible tree grouped by stable `PermissionId` area prefix (`security` → Администрирование, `order` → Заказы, `warehouse` → Склад, `production` → Производство, `cutting` → Раскрой, `analytics` → Аналитика; unknown prefixes remain visible under a humanized or «Прочее» group). Group checkboxes are tri-state (none / partial / all). Leaf and group edits change a local **desired** set; persistence is via **Применить права** calling transactional `setRolePermissions` (`PERMISSIONS_ASSIGN`). Search filters by display name and PermissionId; matching parents expand. **While permission search is active, a group checkbox and its tri-state apply only to currently visible (filtered) children — intentional UX, not a defect.** Without `PERMISSIONS_ASSIGN`, the tree remains fully readable: expand/collapse and search stay usable, checkbox states reflect assigned permissions, but leaf/group checkboxes and Space must not mutate local or persisted state; **Применить права** is hidden.
 
 User assignment section is shown only when the user has **both** `ROLES_ASSIGN` and `USERS_VIEW` (usable picker requires user search/view). Searchable user picker (login / display name) — not exact-login-only. Actual assignment is read via `listRolesForUser`. Desired state is a single checkbox «Роль назначена пользователю» + **Применить** (`ROLES_ASSIGN` remains the mutation permission; `USERS_VIEW` is UI gating only). Separate **Отозвать** button is forbidden. Assignment section stays near the top; the permission tree grows with available height.
+
+---
+
+# 39B. Warehouse (Stage 3.5 principles — ADR-037)
+
+Normative UX principles for Stage 3.5 Warehouse modernization. **Do not** treat this section as a complete FXML design.
+
+## 39B.1 Workspace
+
+- User works primarily inside **Мои склады** (all responsible warehouses or one selected warehouse).
+- Multiple responsible users per warehouse are supported (RBAC + warehouse responsibility).
+- Default working area: **Задачи** (then Остатки, История).
+- Primary UX is **not** the legacy technical Warehouse Workbench as the main working screen.
+
+## 39B.2 Tasks and ownership
+
+- Tasks remain visible to **all** responsible users of the warehouse.
+- **Взять в работу** is informational ownership (`В работе: <user>`), not an exclusive lock.
+- Another responsible user may continue the document when needed.
+- No manager reassignment workflow and no task locking UI.
+
+## 39B.3 Transfer actions and routing
+
+Clear simple actions (Russian captions):
+
+- Взять в работу
+- Передать
+- Принять
+- Отклонить
+- Вернуть материалы на склад
+
+Rules:
+
+- source warehouse routing is **hidden** from the user (automatic by AVAILABLE);
+- source cell suggestion is shown and **editable** before send;
+- destination cell is selected by the **receiver** on accept;
+- no UI asking the user to pick among multiple source warehouses for the same material;
+- no reverse-transfer wizard for reject — return is the primary sender action after reject.
+
+## 39B.4 Status presentation
+
+- Statuses use **dot + readable Russian text** (same pattern as Orders operational status).
+- No unnecessary technical identifiers in primary UI.
 
 ---
 

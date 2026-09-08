@@ -35,9 +35,9 @@ Cursor обновляет реальные пути во время CONTROL-001.
 | 2 | Document Engine | Document Engine Specification | Database Specification; document ADR |
 | 3 | Capability Engine | Capability Engine Specification | Platform Core public API; capability ADR |
 | 4 | Security | Security Specification | Database Specification; audit and permission ADR |
-| 5 | Order Management | Order Management Specification (**v1.10**) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only); ADR v1.13 (incl. ADR-028…036); Stage 5 Manifest |
-| 6 | Warehouse | Warehouse Specification (**v1.7**) | Order public Query API; Production contracts; Database Specification |
-| 7 | Production | Production Specification (**v2.4**) | OM Public Query (`SpecificationId`); Warehouse Query + Document commands; Document Engine Spec v1.2 / ADR-036; ADR-033…036; Stage 7 Manifest; Cutting Spec только для Cutting Plan integration |
+| 5 | Order Management | Order Management Specification (**v1.10**) | Document Engine public API; Platform Core Event API; Capability Engine; Security public API; Database Specification; Production public contracts (boundary only); ADR v1.14 (incl. ADR-028…037); Stage 5 Manifest |
+| 6 | Warehouse | Warehouse Specification (**v1.8**) | Order public Query API; Production contracts; Database Specification; ADR-037 |
+| 7 | Production | Production Specification (**v2.6**) | OM Public Query (`SpecificationId`); Warehouse Query + Document commands; Document Engine Spec v1.2 / ADR-036; ADR-033…037; Stage 7 Manifest; Cutting Spec только для Cutting Plan integration |
 | 8 | Cutting Optimization | Cutting Optimization Specification (**v1.2**) | Production contracts; algorithm requirements; ADR-034 |
 | 9 | Analytics | Analytics Specification | Warehouse read-only Public API; Capability Engine registration API; Security permission API; Order Management read-only references; UI/UX report screen rules |
 
@@ -122,7 +122,7 @@ Read only:
 - `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Stage Manifest);
 - `docs/TMP/TMP_Initial_Documents/architecture/00-Constitution/TMP-Constitution.md` (v1.2, принцип 28);
 - релевантные ADR: ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**, **ADR-031 final**, **ADR-032**, **ADR-033** (ADR document **v1.13**);
-- Production Specification (**v2.4**) — **только** границы владения: item-owned Production state, `SpecificationId` reference, Production-facing contract без Order Item Revision, Public Query API / Domain Events (не для реализации Production до READY implementation task).
+- Production Specification (**v2.6**) — **только** границы владения: item-owned Production state, `SpecificationId` reference, Production-facing contract без Order Item Revision, Public Query API / Domain Events (не для реализации Production до READY implementation task). Warehouse boundary: CURRENT Stage 7 vs TARGET Stage 3.5 (ADR-037).
 
 Миграции Order Management (факт): latest = **V14**. `STAGE5-057` = **DONE**. `STAGE5-058` = **DONE**. Stage 5 = **DONE** (Final Closure 2026-08-06). Stage 6 = **DONE**. Stage 7 = **DONE / 100%** (Start Gate PASSED; `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` RESOLVED; closure audit `STAGE7-020` PASS).
 
@@ -226,7 +226,7 @@ Read only:
 Основные документы (минимальный набор):
 
 - `docs/development-control/stages/STAGE-7-PRODUCTION.md`;
-- `docs/TMP/TMP_Initial_Documents/architecture/12-Production/12-Production-Specification.md` (**v2.4**);
+- `docs/TMP/TMP_Initial_Documents/architecture/12-Production/12-Production-Specification.md` (**v2.6**);
 - релевантные ADR текущей задачи (обычно ADR-033 / ADR-034 / ADR-035 / ADR-036; не весь ADR-файл без нужды);
 - Order Management Public Query contract (`SpecificationId`, ACTIVE Order/Item) — только нужные разделы Spec;
 - Warehouse: Public Query API + Application/Document commands boundary — только нужные разделы Spec;
@@ -243,7 +243,7 @@ Read only:
 
 ### `stage7-production-domain`
 
-Разрешено: Production Spec v2.4; Stage 7 Manifest; ADR-033…036; OM Query (`getCurrentItemSpecification` / `getSpecificationById`); Warehouse Query + document command contracts; Document Engine TX contract v1.2.
+Разрешено: Production Spec v2.6; Stage 7 Manifest; ADR-033…037; OM Query (`getCurrentItemSpecification` / `getSpecificationById`); Warehouse Query + document command contracts; Document Engine TX contract v1.2.
 
 Запрещено: MES; Production Order; Material Master; Cutting Plan Revision; полная загрузка Stage 5/6 implementation; Stage 8 implementation.
 

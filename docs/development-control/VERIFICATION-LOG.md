@@ -2,9 +2,28 @@
 
 ## Latest result
 
-**Date:** 2026-09-07
-**Scope:** UI Corrective — Orders Customer DESC Sort + Roles Read-Only Permission Tree + Assignment Permission UX
-**Overall:** PASS (targeted tests + quick build + package + launch on `tmp-stage5-pg`); interactive packaged GUI FINAL MANUAL UI ACCEPTANCE PENDING
+**Date:** 2026-09-08
+**Scope:** Stage 3.5.0 Warehouse Architecture Alignment (documentation / Start Gate)
+**Overall:** PASS (docs-only + quick build + package + startup smoke on `tmp-stage5-pg`); new Warehouse UX NOT runtime-tested (does not exist yet)
+
+### Stage 3.5.0 Warehouse Architecture Alignment (2026-09-08)
+
+| Check | Result |
+|-------|--------|
+| HEAD vs expected base `233df326…` | PASS (match) |
+| Docs/ADR/Spec/UI Standard / Stage control updates | PASS |
+| Java / FXML / CSS / Flyway changes | NONE |
+| Working DB Docker | `tmp-stage5-pg` Up; host `localhost`; port `55432`; database `tmp_gui_stage5`; Flyway `34`; `tmp-stage34-smoke-pg` NOT USED |
+| Quick install `mvn -pl :tmp-bootstrap-app -am install -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-08 10:16:38) |
+| Launch `scripts/run-tmp-package.ps1` against `jdbc:postgresql://localhost:55432/tmp_gui_stage5` | PASS — Flyway V34 up-to-date; `Started DesktopBootstrap`; TMP PID alive; startup exceptions NONE (JavaFX unnamed-module WARN only) |
+| New Warehouse UX / responsibility / routing runtime | NOT TESTED — not implemented yet |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 Warehouse | IN PROGRESS |
+| Stage 3.5.0 | COMPLETE |
+| Stage 3.5.1 | NEXT / NOT STARTED |
+| Auto-commit | NOT DONE |
+| Migrations | NONE |
 
 ### Orders Customer DESC + Roles Read-Only / Assignment Gating (2026-09-07)
 

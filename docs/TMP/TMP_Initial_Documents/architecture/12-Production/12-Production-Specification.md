@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-012  
 **Status:** Accepted  
-**Version:** 2.4
+**Version:** 2.6
 
 ---
 
@@ -27,9 +27,8 @@ Production отвечает за:
 - принятие всего ACTIVE Order в производство;
 - отмену производства заказа целиком;
 - проверку наличия материалов (пользовательская команда / расчёт);
-- формирование редактируемого шаблона перемещения материалов на склад производства;
-- инициирование создания Warehouse-owned Transfer через штатный контракт Warehouse;
-- подтверждение физического получения материалов в UI Production с фактическим изменением склада только через Warehouse;
+- формирование Material Requirement и инициирование Warehouse-owned Transfer (target Stage 3.5 — ADR-037; CURRENT IMPLEMENTATION — editable transfer template, см. §13);
+- подтверждение физического получения материалов в UI Production с фактическим изменением склада только через Warehouse (CURRENT; target receive UX — Warehouse-centric);
 - выпуск изделий с фиксацией план/факт расхода материалов;
 - фиксацию Production Specification Reference (`Specification ID`) при принятии в производство;
 - набор ссылок MaterialReference → Cutting Plan ID (0..N на Order Item);
@@ -67,7 +66,7 @@ Production не отвечает за:
 8. Specification — нормативная основа состава изделия; Production не хранит копию содержимого Specification, но после Launch хранит стабильный `Specification ID` (Production Specification Reference).
 9. Cutting Plan необязателен и носит рекомендательный характер (ADR-024, ADR-034).
 10. При отсутствии Cutting Plan потребность полностью определяется по Specification.
-11. Для длинномерных материалов связанный Cutting Plan — рекомендуемый/default источник плановой потребности; мастер может скорректировать шаблон перемещения и фактический расход (ADR-034, ADR-035).
+11. Для длинномерных материалов связанный Cutting Plan — рекомендуемый/default источник плановой потребности; мастер может скорректировать требование/фактический расход (ADR-034; ADR-035 plan/fact; ADR-037 target requirement).
 12. Production хранит связи `MaterialReference → Cutting Plan ID` (0..N на Order Item; не одно поле на всю позицию; не Revision Cutting Plan).
 13. Production не управляет lifecycle Cutting Plan.
 14. Warehouse — единственный владелец Stock Position, Warehouse Movement и Warehouse Operation.
@@ -77,6 +76,7 @@ Production не отвечает за:
 18. Проведённые документы Production immutable; исправление — новым компенсирующим документом.
 19. Аналитика не входит в Public Query API Production.
 20. Stage 7 v1.0 независим от реализации Stage 8 Cutting Optimization.
+21. Target Stage 3.5: Production отвечает «что требуется»; Warehouse — automatic source routing и operational Transfer (ADR-037). Fixed `mainWarehouseId` и recommendation formula — CURRENT IMPLEMENTATION only.
 
 ---
 
@@ -345,6 +345,8 @@ Production:
 - дефицит;
 - источник плановой потребности: `Specification` или `Cutting Plan`.
 
+> **CURRENT IMPLEMENTATION note (Stage 7):** availability UI использует fixed `ProductionWarehouseScope` (main + production). **TARGET Stage 3.5 (ADR-037):** source warehouse не фиксируется конфигурацией material/main mapping; automatic routing — ответственность Warehouse; конкретный availability UI Production уточняется на implementation step без dual recommendation quantity model.
+
 Production не хранит и не рассчитывает складские остатки самостоятельно.
 
 ---
@@ -371,13 +373,43 @@ Production не использует внутренние объекты Cutting
 
 # 13. Создание перемещения материалов
 
-Команда UI: **Создать перемещение материалов**.
+Команда UI: **Создать перемещение материалов** (название UI может уточняться на Stage 3.5/3.6).
 
-Старая модель пассивной `generateMaterialTransferRecommendation()` как внешнего Public API **заменена**.
+## 13.0 TARGET Stage 3.5 contract (ADR-037)
 
-## 13.1 Шаблон
+Целевой поток Warehouse boundary:
 
-Production формирует **предзаполненный редактируемый шаблон**:
+```text
+Order Item / Specification
+  → Material Requirement (aggregated)
+  → master may edit before Submit
+  → Warehouse receives final requirement
+  → Warehouse performs automatic source routing
+```
+
+Правила target:
+
+- мастер работает с **одним** пользовательским требованием; не выбирает source warehouse;
+- до Submit может изменить количество, удалить/добавить строку (если допускает application design);
+- после Submit фиксируется отправленное требование;
+- **не** хранить dual `calculatedQuantity` / `requestedQuantity` / `recommendedQuantity`;
+- **не** показывать «изменено вручную»;
+- **не** использовать recommendation formula `spec − production − in_transit`;
+- Warehouse может внутри создать несколько transfer documents при multi-source routing;
+- multi-line operational Transfer document — **Warehouse-owned** (не Production inventory grouping).
+
+## 13.1 CURRENT IMPLEMENTATION (Stage 7 — until Stage 3.5 refactor)
+
+Старая модель пассивной `generateMaterialTransferRecommendation()` как внешнего Public API **заменена** Stage 7 editable template. Текущий runtime **ещё** использует:
+
+- `ProductionWarehouseScope(mainWarehouseId, productionWarehouseId)`;
+- recommended transfer = min(max(required − productionAvailable, 0), mainAvailable);
+- шаблон с recommended/requested quantities и `included` flags;
+- confirm → Warehouse-owned line Transfer drafts; Production хранит logical transfer refs.
+
+Это CURRENT IMPLEMENTATION. Код на architecture-alignment step **не** удаляется и **не** меняется; refactor — отдельный Stage 3.5 implementation step.
+
+Production формирует **предзаполненный редактируемый шаблон** (CURRENT):
 
 - материалы;
 - рекомендуемые количества;
@@ -385,7 +417,7 @@ Production формирует **предзаполненный редактир�
 - данные Cutting Plan для длинномеров, если карта используется;
 - привязка к Order ID / Order Item ID по необходимости аудита.
 
-Мастер:
+Мастер (CURRENT):
 
 1. проверяет шаблон;
 2. при необходимости корректирует количества;
@@ -393,7 +425,7 @@ Production формирует **предзаполненный редактир�
 
 ## 13.2 Владение
 
-После подтверждения создаётся **настоящий Warehouse-owned business document** (Transfer) через штатный контракт Warehouse.
+После подтверждения создаётся **настоящий Warehouse-owned** Transfer через штатный контракт Warehouse.
 
 Production:
 
@@ -401,7 +433,7 @@ Production:
 - не изменяет Stock Position;
 - не проводит складской документ самостоятельно как владелец данных.
 
-Создание и проведение складского документа выполняет Warehouse (document-driven модель Stage 6).
+Создание и проведение складского документа выполняет Warehouse (document-driven модель Stage 6 / ADR-037 operational layer).
 
 Для прав на фактическое создание Transfer по возможности используются существующие Warehouse permissions (`warehouse.transfer.create`), без дублирующего technical permission на каждый внутренний шаг.
 
@@ -409,17 +441,31 @@ Production:
 
 # 14. Передача на склад производства
 
-Используется существующая двухэтапная модель Warehouse:
+## 14.1 TARGET Stage 3.5
+
+Используется двухэтапная модель Warehouse (ADR-010, ADR-037):
 
 ```text
-основной склад
+source warehouse (auto-routed by AVAILABLE)
+→ Transfer send
+→ IN_TRANSIT
+→ Transfer receive (destination cells by receiver)
+→ destination warehouse (часто — склад производства)
+```
+
+Production отвечает «что требуется». Warehouse отвечает «откуда физически подать и как переместить». Мастер **не** выбирает supply/main warehouse.
+
+## 14.2 CURRENT IMPLEMENTATION (Stage 7)
+
+```text
+основной склад (fixed mainWarehouseId)
 → отправка (Transfer send)
 → IN_TRANSIT
 → получение (Transfer receive)
-→ склад производства
+→ склад производства (fixed productionWarehouseId)
 ```
 
-Пользовательский сценарий:
+Пользовательский сценарий (CURRENT):
 
 ```text
 Production: Создать перемещение
@@ -435,7 +481,7 @@ Warehouse: фиксирует получение (receive)
 материал на складе производства
 ```
 
-Команда **Подтвердить получение** может находиться в UI Production, но фактическое изменение складского состояния выполняет только Warehouse.
+Команда **Подтвердить получение** может находиться в UI Production (CURRENT), но фактическое изменение складского состояния выполняет только Warehouse. Target receive UX смещается к Warehouse-centric workspace (ADR-037); точный UI — Stage 3.5/3.6.
 
 Вторая конкурирующая складская модель внутри Production **запрещена**.
 
@@ -896,6 +942,7 @@ Order Management — владелец Order / Order Item / Revision / Specificat
 | 2.3 | §15.1.1: cumulative proportional allocation нормативного material plan для partial/repeated Production Release; final Release closes Specification `lineQuantity` exactly; scale 6 / HALF_UP; SPECIFICATION-only scope Stage 7; plan/fact separation сохранена. |
 | 2.4 | Production permission shorthand normalized to canonical 3-segment Security PermissionId format. Business semantics unchanged. Warehouse-owned permissions remain Warehouse-owned. |
 | 2.5 | §16: partial cancellation preserves RELEASED facts; Orders UI operational status «Частично выполнен» is a presentation/read-model, not a Production enum. |
+| 2.6 | Stage 3.5.0 Warehouse boundary alignment (ADR-037): TARGET Material Requirement → Warehouse routing; CURRENT IMPLEMENTATION (fixed mainWarehouse + recommendation formula + Production template) явно отделён; dual quantity / supply-warehouse choice superseded for target; plan/fact Release unchanged. |
 
 ---
 
