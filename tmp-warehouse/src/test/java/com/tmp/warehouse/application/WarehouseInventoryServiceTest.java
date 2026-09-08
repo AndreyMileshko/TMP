@@ -63,7 +63,10 @@ class WarehouseInventoryServiceTest {
                 new WarehouseAdjustmentService(engine, stockPositions);
         inventory =
                 new WarehouseInventoryService(
-                        AllowingAuthorization.INSTANCE, adjustments, stockPositions);
+                        AllowingAuthorization.INSTANCE,
+                        WarehouseResponsibilityGuard.permitAll(),
+                        adjustments,
+                        stockPositions);
     }
 
     private enum AllowingAuthorization implements AuthorizationService {

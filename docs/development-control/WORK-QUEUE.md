@@ -11604,3 +11604,33 @@ Finish and verify post-closure Production/Warehouse corrections from manual acce
 - Full reactor `mvn test` / `mvn verify` PASS on 2026-08-31. Stage 7 REMAINS DONE. Stage 8 NOT STARTED.
 
 See `POST-CLOSURE-CORRECTION-2026-08-31.md` for full record.
+
+---
+
+# Stage 3.5 — Warehouse Operational / UI
+
+## STAGE-3.5.1 — Warehouse Responsibility (User-Warehouse many-to-many)
+
+**Status:** DONE
+**Stage:** 3.5
+**Depends on:** Stage 3.5.0
+**Module:** tmp-warehouse (primary); test stubs in tmp-production / tmp-ui-shell; tmp-architecture-tests
+
+### Goal
+
+Foundation User-Warehouse responsibility many-to-many + operational scope guards (RBAC + responsibility). No new Warehouse UI.
+
+### Acceptance criteria
+
+- [x] Persistence relation + UNIQUE pair + V35 migration + compatibility backfill
+- [x] Repository assign/remove/isResponsible/list*
+- [x] Current user via AuthenticationService.currentSession()
+- [x] assign/remove/listResponsible + listMyWarehouses API
+- [x] Operational mutation guards; structural admin RBAC-only; no admin bypass
+- [x] Global listWarehouses / checkAvailability unchanged
+- [x] Targeted tests + architecture rule
+- [x] Quick build + package + runtime smoke on tmp_gui_stage5
+
+### Next on success
+
+Stage 3.5.2 Transfer Document Layer — NOT STARTED.

@@ -14,12 +14,14 @@ import com.tmp.warehouse.api.WarehouseApi.StockStateView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
 import com.tmp.warehouse.application.FixedMaterialReferenceDisplayPort;
+import com.tmp.warehouse.application.UnauthenticatedAuthenticationService;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
 import com.tmp.warehouse.application.WarehouseConsumptionService;
 import com.tmp.warehouse.application.WarehouseMoveService;
 import com.tmp.warehouse.application.WarehouseOperationEngine;
 import com.tmp.warehouse.application.WarehouseReceiptService;
 import com.tmp.warehouse.application.WarehouseReservationLinkService;
+import com.tmp.warehouse.application.WarehouseResponsibilityGuard;
 import com.tmp.warehouse.application.WarehouseTransferService;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.StockPosition;
@@ -40,6 +42,7 @@ import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseOperationRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseStockRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseUserResponsibilityRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -106,6 +109,7 @@ class WarehouseApiIntegrationTest {
         jdbc.update("DELETE FROM warehouse.warehouse_movements");
         jdbc.update("DELETE FROM warehouse.warehouse_operations");
         jdbc.update("DELETE FROM warehouse.stock_positions");
+        jdbc.update("DELETE FROM warehouse.warehouse_user_responsibility");
         jdbc.update("DELETE FROM warehouse.storage_cells");
         jdbc.update("DELETE FROM warehouse.warehouses");
         jdbc.update("DELETE FROM warehouse.material_references");
@@ -127,6 +131,9 @@ class WarehouseApiIntegrationTest {
         api =
                 new DefaultWarehouseApi(
                         AllowingAuthorization.INSTANCE,
+                        UnauthenticatedAuthenticationService.INSTANCE,
+                        WarehouseResponsibilityGuard.permitAll(),
+                        new JdbcWarehouseUserResponsibilityRepository(jdbc, CLOCK),
                         catalog,
                         stockPositions,
                         materials,

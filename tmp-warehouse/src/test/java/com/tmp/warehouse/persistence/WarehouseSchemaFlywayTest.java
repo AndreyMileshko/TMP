@@ -90,6 +90,28 @@ class WarehouseSchemaFlywayTest {
     }
 
     @Test
+    void flywayRecordsV35ResponsibilityMigration() {
+        Integer applied =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '35' AND success = TRUE
+                        """,
+                        Integer.class);
+        assertEquals(1, applied);
+
+        Integer table =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.tables
+                        WHERE table_schema = 'warehouse'
+                          AND table_name = 'warehouse_user_responsibility'
+                        """,
+                        Integer.class);
+        assertEquals(1, table);
+    }
+
+    @Test
     void flywayRecordsV15Migration() {
         Integer applied = jdbc.queryForObject(
                 """

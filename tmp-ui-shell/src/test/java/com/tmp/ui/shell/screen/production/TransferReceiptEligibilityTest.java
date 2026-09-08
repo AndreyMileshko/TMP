@@ -60,6 +60,16 @@ class TransferReceiptEligibilityTest {
         }
 
         @Override
+        public List<com.tmp.warehouse.api.WarehouseApi.WarehouseView> listMyWarehouses() {
+            return List.of();
+        }
+
+        @Override
+        public List<UUID> listResponsibleUserIds(UUID warehouseId) {
+            return List.of();
+        }
+
+        @Override
         public List<com.tmp.warehouse.api.WarehouseApi.StorageCellView> listStorageCells(
                 UUID warehouseId) {
             return List.of();

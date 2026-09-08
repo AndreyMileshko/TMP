@@ -3,20 +3,24 @@ package com.tmp.warehouse.testsupport;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
 import com.tmp.warehouse.application.FixedMaterialReferenceDisplayPort;
+import com.tmp.warehouse.application.UnauthenticatedAuthenticationService;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
 import com.tmp.warehouse.application.WarehouseConsumptionService;
 import com.tmp.warehouse.application.WarehouseMoveService;
 import com.tmp.warehouse.application.WarehouseOperationEngine;
 import com.tmp.warehouse.application.WarehouseReceiptService;
 import com.tmp.warehouse.application.WarehouseReservationLinkService;
+import com.tmp.warehouse.application.WarehouseResponsibilityGuard;
 import com.tmp.warehouse.application.WarehouseTransferService;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
+import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
 import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseUserResponsibilityRepository;
 import java.time.Clock;
 import javax.sql.DataSource;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -35,7 +39,8 @@ public final class WarehouseIntegrationTestSupport {
             TransferOperationContextRepository transferContexts,
             MaterialReferenceRepository materials,
             StockPositionRepository stockPositions,
-            WarehouseCatalogRepository catalog) {}
+            WarehouseCatalogRepository catalog,
+            WarehouseUserResponsibilityRepository responsibilities) {}
 
     public static ApiBundle createApiBundle(DataSource dataSource, Clock clock) {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
@@ -45,6 +50,8 @@ public final class WarehouseIntegrationTestSupport {
                 new com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository(jdbc, clock);
         WarehouseCatalogRepository catalog =
                 new com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository(jdbc, clock);
+        WarehouseUserResponsibilityRepository responsibilities =
+                new JdbcWarehouseUserResponsibilityRepository(jdbc, clock);
         WarehouseOperationRepository operations =
                 new com.tmp.warehouse.persistence.JdbcWarehouseOperationRepository(stockJdbc, clock);
         TransferOperationContextRepository transferContexts =
@@ -62,6 +69,9 @@ public final class WarehouseIntegrationTestSupport {
         DefaultWarehouseApi api =
                 new DefaultWarehouseApi(
                         authorizationAllowAll(),
+                        UnauthenticatedAuthenticationService.INSTANCE,
+                        WarehouseResponsibilityGuard.permitAll(),
+                        responsibilities,
                         catalog,
                         stockPositions,
                         materials,
@@ -79,7 +89,15 @@ public final class WarehouseIntegrationTestSupport {
                         new WarehouseAdjustmentService(engine, stockPositions),
                         operations,
                         transferContexts);
-        return new ApiBundle(api, jdbc, operations, transferContexts, materials, stockPositions, catalog);
+        return new ApiBundle(
+                api,
+                jdbc,
+                operations,
+                transferContexts,
+                materials,
+                stockPositions,
+                catalog,
+                responsibilities);
     }
 
     private static AuthorizationService authorizationAllowAll() {

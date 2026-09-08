@@ -392,7 +392,10 @@ User ↔ Warehouse — many-to-many responsibility (ADR-037).
 - operational messaging = tasks + statuses + responsibility + notifications (не generic Messenger);
 - target primary UX: Мои склады → Задачи / Остатки / История (default = Задачи).
 
-Администрирование responsibility relation — future Security/Warehouse implementation step.
+Администрирование responsibility relation: backend API в Stage 3.5.1
+(`assignUserToWarehouse` / `removeUserFromWarehouse` / `listResponsibleUserIds` /
+`listMyWarehouses`); UI администрирования — последующий substage. `userId` —
+opaque Security UUID без Warehouse→Security persistence coupling.
 
 ---
 

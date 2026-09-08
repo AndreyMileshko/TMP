@@ -1,5 +1,7 @@
 package com.tmp.warehouse.application;
 
+import com.tmp.security.api.AccessDeniedException;
+import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.warehouse.api.WarehouseApi;
@@ -22,18 +24,22 @@ import com.tmp.warehouse.domain.UnitOfMeasure;
 import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseOperation;
+import com.tmp.warehouse.domain.WarehouseOperationId;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
+import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.domain.WarehouseOperationStatus;
 import com.tmp.warehouse.domain.WarehouseOperationType;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import com.tmp.warehouse.security.WarehousePermissions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 
@@ -41,8 +47,13 @@ import org.springframework.dao.DataIntegrityViolationException;
  * Default Public API adapter for Warehouse (Specification §17 / §18).
  *
  * <p>Maps public DTOs to existing application services without changing Warehouse business rules.
- * Enforces Warehouse permissions via the public {@link AuthorizationService} before any operation.
- * Does not expose domain aggregates, does not allow direct Stock Position or Movement mutation.
+ * Enforces Warehouse permissions via the public {@link AuthorizationService} and operational
+ * warehouse responsibility via {@link WarehouseResponsibilityGuard} (ADR-037). Does not expose
+ * domain aggregates, does not allow direct Stock Position or Movement mutation.
+ *
+ * <p>Responsibility {@code userId} values are opaque Security user UUIDs; Warehouse does not
+ * validate user existence against Security persistence (no public exists-by-id API). Future
+ * administration UI selects users through Security public directory APIs.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -50,6 +61,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 public final class DefaultWarehouseApi implements WarehouseApi {
 
     private final AuthorizationService authorization;
+    private final AuthenticationService authentication;
+    private final WarehouseResponsibilityGuard responsibilityGuard;
+    private final WarehouseUserResponsibilityRepository responsibilities;
     private final WarehouseCatalogRepository warehouses;
     private final StockPositionRepository stockPositions;
     private final MaterialReferenceRepository materials;
@@ -65,6 +79,9 @@ public final class DefaultWarehouseApi implements WarehouseApi {
 
     public DefaultWarehouseApi(
             AuthorizationService authorization,
+            AuthenticationService authentication,
+            WarehouseResponsibilityGuard responsibilityGuard,
+            WarehouseUserResponsibilityRepository responsibilities,
             WarehouseCatalogRepository warehouses,
             StockPositionRepository stockPositions,
             MaterialReferenceRepository materials,
@@ -78,6 +95,10 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             WarehouseOperationRepository operations,
             TransferOperationContextRepository transferContexts) {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
+        this.authentication = Objects.requireNonNull(authentication, "authentication");
+        this.responsibilityGuard =
+                Objects.requireNonNull(responsibilityGuard, "responsibilityGuard");
+        this.responsibilities = Objects.requireNonNull(responsibilities, "responsibilities");
         this.warehouses = Objects.requireNonNull(warehouses, "warehouses");
         this.stockPositions = Objects.requireNonNull(stockPositions, "stockPositions");
         this.materials = Objects.requireNonNull(materials, "materials");
@@ -96,6 +117,38 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public List<WarehouseView> listWarehouses() {
         requireCatalogueListAccess(WarehousePermissions.WAREHOUSE_STRUCTURE_VIEW);
         return warehouses.findAll().stream().map(this::toWarehouseView).toList();
+    }
+
+    @Override
+    public List<WarehouseView> listMyWarehouses() {
+        requireCatalogueListAccess(WarehousePermissions.WAREHOUSE_STRUCTURE_VIEW);
+        UUID userId =
+                authentication
+                        .currentSession()
+                        .orElseThrow(
+                                () ->
+                                        new AccessDeniedException(
+                                                "Access denied: authentication required"))
+                        .userId()
+                        .value();
+        Set<UUID> responsible =
+                new HashSet<>(
+                        responsibilities.listWarehouseIdsForUser(userId).stream()
+                                .map(WarehouseId::value)
+                                .toList());
+        return warehouses.findAll().stream()
+                .filter(Warehouse::active)
+                .filter(warehouse -> responsible.contains(warehouse.id().value()))
+                .map(this::toWarehouseView)
+                .toList();
+    }
+
+    @Override
+    public List<UUID> listResponsibleUserIds(UUID warehouseId) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_STRUCTURE_VIEW);
+        requireWarehouseExists(WarehouseId.of(warehouseId));
+        return responsibilities.listUserIdsForWarehouse(WarehouseId.of(warehouseId));
     }
 
     @Override
@@ -130,11 +183,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         Objects.requireNonNull(command, "command");
         authorization.requirePermission(WarehousePermissions.STORAGE_CELL_CREATE);
         WarehouseId warehouseId = WarehouseId.of(command.warehouseId());
-        boolean warehouseExists =
-                warehouses.findAll().stream().anyMatch(w -> w.id().equals(warehouseId));
-        if (!warehouseExists) {
-            throw new IllegalArgumentException("Warehouse not found: " + command.warehouseId());
-        }
+        requireWarehouseExists(warehouseId);
         StorageCell cell =
                 StorageCell.of(
                         StorageCellId.generate(),
@@ -148,6 +197,24 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                     "Storage cell code already exists in warehouse: " + command.code().trim(),
                     ex);
         }
+    }
+
+    @Override
+    public void assignUserToWarehouse(UUID warehouseId, UUID userId) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        Objects.requireNonNull(userId, "userId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_STRUCTURE_UPDATE);
+        requireWarehouseExists(WarehouseId.of(warehouseId));
+        responsibilities.assign(userId, WarehouseId.of(warehouseId));
+    }
+
+    @Override
+    public void removeUserFromWarehouse(UUID warehouseId, UUID userId) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        Objects.requireNonNull(userId, "userId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_STRUCTURE_UPDATE);
+        requireWarehouseExists(WarehouseId.of(warehouseId));
+        responsibilities.remove(userId, WarehouseId.of(warehouseId));
     }
 
     @Override
@@ -339,6 +406,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public OperationResult receive(ReceiptCommand command) {
         Objects.requireNonNull(command, "command");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_RECEIPT);
+        responsibilityGuard.requireResponsible(WarehouseId.of(command.warehouseId()));
         WarehouseOperation completed =
                 receipts.receive(
                         new ReceiptRequest(
@@ -357,6 +425,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public OperationResult consume(ConsumptionCommand command) {
         Objects.requireNonNull(command, "command");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_CONSUMPTION);
+        responsibilityGuard.requireResponsible(WarehouseId.of(command.warehouseId()));
         WarehouseOperation completed =
                 consumptions.consume(
                         new ConsumptionRequest(
@@ -371,6 +440,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public TransferRequestView createTransferDraft(CreateTransferDraftCommand command) {
         Objects.requireNonNull(command, "command");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
+        responsibilityGuard.requireResponsible(WarehouseId.of(command.sourceWarehouseId()));
         WarehouseOperation draft =
                 transfers.createDraft(
                         new WarehouseTransferService.TransferDraftRequest(
@@ -395,10 +465,17 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public OperationResult sendTransfer(UUID transferDraftOperationId) {
         Objects.requireNonNull(transferDraftOperationId, "transferDraftOperationId");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
-        WarehouseOperation completed =
-                transfers.sendDraft(
-                        com.tmp.warehouse.domain.WarehouseOperationId.of(
-                                transferDraftOperationId));
+        WarehouseOperationId draftId = WarehouseOperationId.of(transferDraftOperationId);
+        WarehouseOperation draft =
+                operations
+                        .findById(draftId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Warehouse operation not found: "
+                                                        + transferDraftOperationId));
+        responsibilityGuard.requireResponsible(draft.warehouseId());
+        WarehouseOperation completed = transfers.sendDraft(draftId);
         return toOperationResult(OperationKind.TRANSFER_SEND, completed);
     }
 
@@ -406,9 +483,16 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public OperationResult receiveTransfer(UUID sendOperationId) {
         Objects.requireNonNull(sendOperationId, "sendOperationId");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
-        WarehouseOperation completed =
-                transfers.receiveFromSend(
-                        com.tmp.warehouse.domain.WarehouseOperationId.of(sendOperationId));
+        WarehouseOperationId sendId = WarehouseOperationId.of(sendOperationId);
+        TransferOperationContext context =
+                transferContexts
+                        .findByOperationId(sendId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Transfer context not found: " + sendOperationId));
+        responsibilityGuard.requireResponsible(context.destinationWarehouseId());
+        WarehouseOperation completed = transfers.receiveFromSend(sendId);
         return toOperationResult(OperationKind.TRANSFER_RECEIVE, completed);
     }
 
@@ -484,6 +568,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public OperationResult executeWarehouseOperation(ExecuteOperationCommand command) {
         Objects.requireNonNull(command, "command");
         requireOperationPermission(command.kind());
+        requireResponsibilityForExecute(command);
         WarehouseOperation completed =
                 switch (command.kind()) {
                     case RECEIPT ->
@@ -539,6 +624,24 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                                             StorageCellId.of(command.storageCellId())));
                 };
         return toOperationResult(command.kind(), completed);
+    }
+
+    private void requireResponsibilityForExecute(ExecuteOperationCommand command) {
+        switch (command.kind()) {
+            case RECEIPT, CONSUMPTION, ADJUSTMENT, MOVE, TRANSFER_SEND ->
+                    responsibilityGuard.requireResponsible(WarehouseId.of(command.warehouseId()));
+            case TRANSFER_RECEIVE ->
+                    responsibilityGuard.requireResponsible(
+                            WarehouseId.of(requireDestinationWarehouse(command)));
+        }
+    }
+
+    private void requireWarehouseExists(WarehouseId warehouseId) {
+        boolean warehouseExists =
+                warehouses.findAll().stream().anyMatch(w -> w.id().equals(warehouseId));
+        if (!warehouseExists) {
+            throw new IllegalArgumentException("Warehouse not found: " + warehouseId.value());
+        }
     }
 
     private static String logicalTransferStatus(

@@ -425,6 +425,16 @@ class ConfirmMaterialReceiptServiceTest {
         }
 
         @Override
+        public void assignUserToWarehouse(UUID warehouseId, UUID userId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void removeUserFromWarehouse(UUID warehouseId, UUID userId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public com.tmp.warehouse.api.WarehouseApi.ReservationLinkView createReservationLink(
                 com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand command) {
             throw new UnsupportedOperationException();
@@ -460,6 +470,16 @@ class ConfirmMaterialReceiptServiceTest {
 
         @Override
         public List<com.tmp.warehouse.api.WarehouseApi.WarehouseView> listWarehouses() {
+            return List.of();
+        }
+
+        @Override
+        public List<com.tmp.warehouse.api.WarehouseApi.WarehouseView> listMyWarehouses() {
+            return List.of();
+        }
+
+        @Override
+        public List<UUID> listResponsibleUserIds(UUID warehouseId) {
             return List.of();
         }
 

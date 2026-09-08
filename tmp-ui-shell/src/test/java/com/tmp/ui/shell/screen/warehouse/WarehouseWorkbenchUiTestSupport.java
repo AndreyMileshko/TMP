@@ -34,6 +34,26 @@ final class WarehouseWorkbenchUiTestSupport {
         }
 
         @Override
+        public List<WarehouseView> listMyWarehouses() {
+            return List.of();
+        }
+
+        @Override
+        public List<UUID> listResponsibleUserIds(UUID warehouseId) {
+            return List.of();
+        }
+
+        @Override
+        public void assignUserToWarehouse(UUID warehouseId, UUID userId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void removeUserFromWarehouse(UUID warehouseId, UUID userId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public WarehouseView createWarehouse(CreateWarehouseCommand command) {
             throw new UnsupportedOperationException();
         }

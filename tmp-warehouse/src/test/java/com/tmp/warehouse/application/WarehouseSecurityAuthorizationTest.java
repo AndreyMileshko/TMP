@@ -30,6 +30,7 @@ import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import com.tmp.warehouse.security.WarehousePermissions;
+import com.tmp.warehouse.testsupport.InMemoryWarehouseUserResponsibilityRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -290,7 +291,10 @@ class WarehouseSecurityAuthorizationTest {
     void inventoryIsDeniedWithoutInventoryPermission() {
         WarehouseInventoryService inventory =
                 new WarehouseInventoryService(
-                        new FixedAuthorization(Set.of()), adjustments, stockPositions);
+                        new FixedAuthorization(Set.of()),
+                        WarehouseResponsibilityGuard.permitAll(),
+                        adjustments,
+                        stockPositions);
         assertThrows(
                 AccessDeniedException.class,
                 () ->
@@ -307,6 +311,7 @@ class WarehouseSecurityAuthorizationTest {
         WarehouseInventoryService inventory =
                 new WarehouseInventoryService(
                         new FixedAuthorization(Set.of(WarehousePermissions.WAREHOUSE_INVENTORY)),
+                        WarehouseResponsibilityGuard.permitAll(),
                         adjustments,
                         stockPositions);
         assertDoesNotThrow(
@@ -341,6 +346,9 @@ class WarehouseSecurityAuthorizationTest {
     private DefaultWarehouseApi api(Set<PermissionId> granted) {
         return new DefaultWarehouseApi(
                 new FixedAuthorization(granted),
+                UnauthenticatedAuthenticationService.INSTANCE,
+                WarehouseResponsibilityGuard.permitAll(),
+                new InMemoryWarehouseUserResponsibilityRepository(),
                 new EmptyWarehouseCatalog(),
                 stockPositions,
                 materials,

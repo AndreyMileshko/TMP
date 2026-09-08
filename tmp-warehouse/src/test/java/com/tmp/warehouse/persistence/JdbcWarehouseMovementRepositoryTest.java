@@ -70,6 +70,7 @@ class JdbcWarehouseMovementRepositoryTest {
         jdbc.update("DELETE FROM warehouse.warehouse_movements");
         jdbc.update("DELETE FROM warehouse.warehouse_operations");
         jdbc.update("DELETE FROM warehouse.stock_positions");
+        jdbc.update("DELETE FROM warehouse.warehouse_user_responsibility");
         jdbc.update("DELETE FROM warehouse.storage_cells");
         jdbc.update("DELETE FROM warehouse.warehouses");
         jdbc.update("DELETE FROM warehouse.material_references");

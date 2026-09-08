@@ -4,6 +4,33 @@
 
 ---
 
+## Stage 3.5.1 — Warehouse Responsibility — 2026-09-08
+
+**Date:** 2026-09-08
+**Stage:** UI Modernization Stage 3.5.1 (Warehouse Responsibility); outside Stages 0–9 numbered queue
+**Base checkpoint:** `1f15ba2b5118644b16445ca17361563dcf628848`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.2 NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Implemented User↔Warehouse many-to-many responsibility (ADR-037): Flyway V35 table + one-time compatibility backfill (users with effective `warehouse.*` × existing warehouses), JDBC repository, `WarehouseResponsibilityGuard` (current session via Security public API; no admin bypass), public assign/remove/list + `listMyWarehouses`, operational mutation guards (RBAC + responsibility) including generic `executeWarehouseOperation` and inventory. Structural catalogue admin remains RBAC-only. Global `listWarehouses` / `checkAvailability` unchanged for Production. No Warehouse UI.
+
+### Key changes
+
+- `tmp-warehouse` Flyway `V35__warehouse_user_responsibility.sql`
+- Responsibility repository/guard + `DefaultWarehouseApi` wiring
+- Public API: `assignUserToWarehouse`, `removeUserFromWarehouse`, `listResponsibleUserIds`, `listMyWarehouses`
+- Targeted tests + Stage6 ArchUnit Security-internals rule
+- Warehouse Spec §15A admin API note; Stage 3.5 control docs
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-08 Stage 3.5.1.
+
+---
+
 ## Stage 3.5.0 — Warehouse Architecture Alignment — 2026-09-08
 
 **Date:** 2026-09-08

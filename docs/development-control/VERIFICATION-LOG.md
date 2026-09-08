@@ -3,8 +3,31 @@
 ## Latest result
 
 **Date:** 2026-09-08
-**Scope:** Stage 3.5.0 Warehouse Architecture Alignment (documentation / Start Gate)
-**Overall:** PASS (docs-only + quick build + package + startup smoke on `tmp-stage5-pg`); new Warehouse UX NOT runtime-tested (does not exist yet)
+**Scope:** Stage 3.5.1 Warehouse Responsibility
+**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); responsibility GUI NOT IMPLEMENTED; guards TEST VERIFIED
+
+### Stage 3.5.1 Warehouse Responsibility (2026-09-08)
+
+| Check | Result |
+|-------|--------|
+| HEAD vs expected base `1f15ba2b…` | PASS (match at start) |
+| Flyway V35 responsibility + backfill | PASS (migration IT + runtime) |
+| Targeted warehouse responsibility/security/schema/transfer tests | PASS — see commands below |
+| Architecture `Stage6WarehouseArchitectureTest` | PASS (4 rules) |
+| Production `CheckMaterialAvailabilityServiceTest` | PASS (20) — global availability unchanged |
+| Quick install `mvn -pl :tmp-bootstrap-app -am install -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-08 10:57:43) |
+| Launch `scripts/run-tmp-package.ps1` → `jdbc:postgresql://localhost:55432/tmp_gui_stage5` | PASS — Flyway validated 35 migrations; schema at V35; `Started DesktopBootstrap`; JavaFX WARN unnamed-module only; exceptions NONE |
+| Runtime responsibility rows after backfill | 3 |
+| Runtime stock preserved | stock_rows=31; stock_qty=1257.900000 (unchanged vs pre-launch) |
+| Responsibility GUI | NOT IMPLEMENTED |
+| Responsibility guard | TEST VERIFIED |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 | IN PROGRESS |
+| 3.5.0 | COMPLETE |
+| 3.5.1 | COMPLETE |
+| 3.5.2 | NEXT / NOT STARTED |
+| Auto-commit | NOT DONE |
 
 ### Stage 3.5.0 Warehouse Architecture Alignment (2026-09-08)
 

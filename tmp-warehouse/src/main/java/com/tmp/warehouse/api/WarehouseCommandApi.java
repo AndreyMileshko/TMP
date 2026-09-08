@@ -24,6 +24,15 @@ public interface WarehouseCommandApi {
 
     StorageCellView createStorageCell(CreateStorageCellCommand command);
 
+    /**
+     * Assigns opaque Security user id as responsible for the warehouse (idempotent). Structure
+     * administration — RBAC only; no responsibility guard on the catalogue itself.
+     */
+    void assignUserToWarehouse(UUID warehouseId, UUID userId);
+
+    /** Removes responsibility assignment (idempotent). */
+    void removeUserFromWarehouse(UUID warehouseId, UUID userId);
+
     ReservationLinkView createReservationLink(CreateReservationLinkCommand command);
 
     /** Stage 6 unified operation path (Warehouse UI). */

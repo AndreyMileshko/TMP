@@ -161,6 +161,7 @@ class ReleaseCancelOverlapPostgresIT {
         jdbc.update("DELETE FROM warehouse.warehouse_movements");
         jdbc.update("DELETE FROM warehouse.warehouse_operations");
         jdbc.update("DELETE FROM warehouse.stock_positions");
+        jdbc.update("DELETE FROM warehouse.warehouse_user_responsibility");
         jdbc.update("DELETE FROM warehouse.storage_cells");
         jdbc.update("DELETE FROM warehouse.warehouses");
         jdbc.update("DELETE FROM warehouse.material_references");
@@ -182,6 +183,9 @@ class ReleaseCancelOverlapPostgresIT {
         warehouseApi =
                 new DefaultWarehouseApi(
                         authorizationAllowAll(),
+                        com.tmp.warehouse.application.UnauthenticatedAuthenticationService.INSTANCE,
+                        com.tmp.warehouse.application.WarehouseResponsibilityGuard.permitAll(),
+                        new com.tmp.warehouse.persistence.JdbcWarehouseUserResponsibilityRepository(jdbc, CLOCK),
                         catalog,
                         stockPositions,
                         materials,

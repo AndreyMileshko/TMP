@@ -1,12 +1,14 @@
 package com.tmp.warehouse;
 
+import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
+import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tmp.warehouse.application.CodeOnlyMaterialReferenceDisplayPort;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
-import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
+import com.tmp.warehouse.application.DefaultWarehouseResponsibilityGuard;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
 import com.tmp.warehouse.application.WarehouseConsumptionService;
 import com.tmp.warehouse.application.WarehouseInventoryService;
@@ -14,22 +16,25 @@ import com.tmp.warehouse.application.WarehouseMoveService;
 import com.tmp.warehouse.application.WarehouseOperationEngine;
 import com.tmp.warehouse.application.WarehouseReceiptService;
 import com.tmp.warehouse.application.WarehouseReservationLinkService;
+import com.tmp.warehouse.application.WarehouseResponsibilityGuard;
 import com.tmp.warehouse.application.WarehouseTransferService;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.MaterialReservationLinkRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
+import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
+import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
 import com.tmp.warehouse.persistence.JdbcStockPositionRepository;
+import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseOperationRepository;
-import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
-import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseStockRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.security.WarehouseCapability;
 import java.time.Clock;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -43,7 +48,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Registers Warehouse Public API, application services, persistence adapters and Capability.
  *
- * <p>Does not create users, roles, or Warehouse-owned authorization tables.
+ * <p>Does not create users, roles, or Warehouse-owned authorization tables beyond responsibility
+ * assignments owned by Warehouse.
  */
 @AutoConfiguration
 @AutoConfigureAfter(
@@ -68,6 +74,20 @@ public class WarehouseAutoConfiguration {
     @Bean
     WarehouseCatalogRepository warehouseCatalogRepository(JdbcTemplate jdbcTemplate, Clock clock) {
         return new JdbcWarehouseCatalogRepository(jdbcTemplate, clock);
+    }
+
+    @Bean
+    WarehouseUserResponsibilityRepository warehouseUserResponsibilityRepository(
+            JdbcTemplate jdbcTemplate, Clock clock) {
+        return new JdbcWarehouseUserResponsibilityRepository(jdbcTemplate, clock);
+    }
+
+    @Bean
+    WarehouseResponsibilityGuard warehouseResponsibilityGuard(
+            AuthenticationService authenticationService,
+            WarehouseUserResponsibilityRepository warehouseUserResponsibilityRepository) {
+        return new DefaultWarehouseResponsibilityGuard(
+                authenticationService, warehouseUserResponsibilityRepository);
     }
 
     @Bean
@@ -162,10 +182,14 @@ public class WarehouseAutoConfiguration {
     @Bean
     WarehouseInventoryService warehouseInventoryService(
             AuthorizationService authorizationService,
+            WarehouseResponsibilityGuard warehouseResponsibilityGuard,
             WarehouseAdjustmentService warehouseAdjustmentService,
             StockPositionRepository stockPositionRepository) {
         return new WarehouseInventoryService(
-                authorizationService, warehouseAdjustmentService, stockPositionRepository);
+                authorizationService,
+                warehouseResponsibilityGuard,
+                warehouseAdjustmentService,
+                stockPositionRepository);
     }
 
     @Bean
@@ -189,6 +213,9 @@ public class WarehouseAutoConfiguration {
     @Bean
     WarehouseApi warehouseApi(
             AuthorizationService authorizationService,
+            AuthenticationService authenticationService,
+            WarehouseResponsibilityGuard warehouseResponsibilityGuard,
+            WarehouseUserResponsibilityRepository warehouseUserResponsibilityRepository,
             WarehouseCatalogRepository warehouseCatalogRepository,
             StockPositionRepository stockPositionRepository,
             MaterialReferenceRepository materialReferenceRepository,
@@ -203,6 +230,9 @@ public class WarehouseAutoConfiguration {
             TransferOperationContextRepository transferOperationContextRepository) {
         return new DefaultWarehouseApi(
                 authorizationService,
+                authenticationService,
+                warehouseResponsibilityGuard,
+                warehouseUserResponsibilityRepository,
                 warehouseCatalogRepository,
                 stockPositionRepository,
                 materialReferenceRepository,

@@ -18,8 +18,8 @@
 | Substage | Name | Status |
 |---|---|---|
 | 3.5.0 | Architecture Alignment (docs / ADR / specs) | **COMPLETE** |
-| 3.5.1 | Warehouse Responsibility (User↔Warehouse many-to-many) | **NEXT / NOT STARTED** |
-| 3.5.2+ | Transfer document layer, routing, receive/continuation, UX | NOT STARTED |
+| 3.5.1 | Warehouse Responsibility (User↔Warehouse many-to-many) | **COMPLETE** |
+| 3.5.2+ | Transfer document layer, routing, receive/continuation, UX | **NEXT / NOT STARTED** |
 
 ---
 

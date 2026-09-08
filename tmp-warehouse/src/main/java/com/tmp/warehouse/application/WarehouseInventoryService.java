@@ -17,7 +17,8 @@ import java.util.Optional;
  *
  * <p>Flow: Inventory Count → Difference → Adjustment Operation → Warehouse Movement → Stock
  * Position. Does not mutate stock directly and does not implement batch/FIFO/FEFO strategies.
- * Requires {@code WAREHOUSE_INVENTORY} via the public {@link AuthorizationService}.
+ * Requires {@code WAREHOUSE_INVENTORY} via the public {@link AuthorizationService} and
+ * responsibility for the inventoried warehouse (ADR-037).
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -25,14 +26,18 @@ import java.util.Optional;
 public final class WarehouseInventoryService {
 
     private final AuthorizationService authorization;
+    private final WarehouseResponsibilityGuard responsibilityGuard;
     private final WarehouseAdjustmentService adjustments;
     private final StockPositionRepository stockPositions;
 
     public WarehouseInventoryService(
             AuthorizationService authorization,
+            WarehouseResponsibilityGuard responsibilityGuard,
             WarehouseAdjustmentService adjustments,
             StockPositionRepository stockPositions) {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
+        this.responsibilityGuard =
+                Objects.requireNonNull(responsibilityGuard, "responsibilityGuard");
         this.adjustments = Objects.requireNonNull(adjustments, "adjustments");
         this.stockPositions = Objects.requireNonNull(stockPositions, "stockPositions");
     }
@@ -47,6 +52,7 @@ public final class WarehouseInventoryService {
     public Optional<WarehouseOperation> reconcile(InventoryCountRequest request) {
         Objects.requireNonNull(request, "request");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_INVENTORY);
+        responsibilityGuard.requireResponsible(request.warehouseId());
         BigDecimal current = currentAvailableQuantity(request);
         BigDecimal difference = request.countedQuantity().value().subtract(current);
         if (difference.signum() == 0) {

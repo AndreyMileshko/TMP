@@ -55,6 +55,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import com.tmp.warehouse.testsupport.InMemoryMaterialReferenceRepository;
+import com.tmp.warehouse.testsupport.InMemoryWarehouseUserResponsibilityRepository;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -88,6 +89,9 @@ class DefaultWarehouseApiTest {
         api =
                 new DefaultWarehouseApi(
                         AllowingAuthorization.INSTANCE,
+                        UnauthenticatedAuthenticationService.INSTANCE,
+                        WarehouseResponsibilityGuard.permitAll(),
+                        new InMemoryWarehouseUserResponsibilityRepository(),
                         new EmptyWarehouseCatalog(),
                         stockPositions,
                         materials,

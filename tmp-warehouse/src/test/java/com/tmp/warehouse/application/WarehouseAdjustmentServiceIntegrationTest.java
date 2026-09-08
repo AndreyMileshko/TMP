@@ -90,6 +90,7 @@ class WarehouseAdjustmentServiceIntegrationTest {
         jdbc.update("DELETE FROM warehouse.warehouse_movements");
         jdbc.update("DELETE FROM warehouse.warehouse_operations");
         jdbc.update("DELETE FROM warehouse.stock_positions");
+        jdbc.update("DELETE FROM warehouse.warehouse_user_responsibility");
         jdbc.update("DELETE FROM warehouse.storage_cells");
         jdbc.update("DELETE FROM warehouse.warehouses");
         jdbc.update("DELETE FROM warehouse.material_references");
@@ -109,7 +110,10 @@ class WarehouseAdjustmentServiceIntegrationTest {
         adjustments = new WarehouseAdjustmentService(engine, stockPositions);
         inventory =
                 new WarehouseInventoryService(
-                        AllowingAuthorization.INSTANCE, adjustments, stockPositions);
+                        AllowingAuthorization.INSTANCE,
+                        WarehouseResponsibilityGuard.permitAll(),
+                        adjustments,
+                        stockPositions);
     }
 
     private enum AllowingAuthorization implements AuthorizationService {

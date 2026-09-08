@@ -23,6 +23,15 @@ public interface WarehouseQueryApi {
 
     List<WarehouseView> listWarehouses();
 
+    /**
+     * Active warehouses for which the current authenticated user is responsible (ADR-037).
+     * Does not change {@link #listWarehouses()} global catalogue semantics.
+     */
+    List<WarehouseView> listMyWarehouses();
+
+    /** Responsible Security user ids for a warehouse (opaque UUIDs). */
+    List<UUID> listResponsibleUserIds(UUID warehouseId);
+
     List<StorageCellView> listStorageCells(UUID warehouseId);
 
     List<MaterialReferenceView> listMaterialReferences();
