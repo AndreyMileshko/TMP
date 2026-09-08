@@ -3,10 +3,36 @@
 ## Latest result
 
 **Date:** 2026-09-08
-**Scope:** Stage 3.5.2 Warehouse Transfer Document Foundation
-**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); Transfer Document GUI NOT IMPLEMENTED; new document CRUD INTEGRATION TEST VERIFIED
+**Scope:** Stage 3.5.3 Deferred Destination Cell at Receive (+ 3.5.2 title/atomic correctives)
+**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); deferred-cell workflow INTEGRATION TEST VERIFIED; no new GUI
+
+### Stage 3.5.3 Deferred Destination Cell at Receive (2026-09-08)
+
+| Check | Result |
+|-------|--------|
+| HEAD vs expected base `89dcdc19…` | PASS (match at start) |
+| Flyway V37 nullable destination cell | PASS (schema IT + runtime migrate 36→37) |
+| `TransferOperationContextTest` | PASS (3) |
+| `WarehouseTransferServiceTest` | PASS (14) |
+| `WarehouseTransferServiceIntegrationTest` | PASS (2) |
+| `WarehouseTransferDocumentIntegrationTest` | PASS (10; includes stable title + real atomic create) |
+| `WarehouseSchemaFlywayTest` | PASS (9; includes V37) |
+| `WarehouseTransferIntegrityIntegrationTest` | PASS (included in warehouse targeted run) |
+| Warehouse targeted suite total | PASS — 47 tests |
+| Production ConfirmMaterialTransfer + ConfirmMaterialReceipt (unit+IT) | PASS — 37 tests |
+| Quick install `-DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package + new `TMP.exe` (2026-09-08 12:52:31) | PASS |
+| Launch against `tmp_gui_stage5` | PASS — V37 applied; destination_storage_cell_id nullable YES; stock_positions=31; legacy contexts with cell=3; Spring + JavaFX start |
+| Deferred workflow | INTEGRATION TEST VERIFIED |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 / 3.5.0 / 3.5.1 / 3.5.2 / 3.5.3 / 3.5.4 | IN PROGRESS / COMPLETE / COMPLETE / COMPLETE / COMPLETE / NEXT NOT STARTED |
+| Auto-commit | NOT DONE |
 
 ### Stage 3.5.2 Warehouse Transfer Document Foundation (2026-09-08)
+
+**Date:** 2026-09-08
+**Scope:** Stage 3.5.2 Warehouse Transfer Document Foundation
+**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); Transfer Document GUI NOT IMPLEMENTED; new document CRUD INTEGRATION TEST VERIFIED
 
 | Check | Result |
 |-------|--------|

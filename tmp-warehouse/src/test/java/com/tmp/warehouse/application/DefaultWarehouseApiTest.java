@@ -106,7 +106,12 @@ class DefaultWarehouseApiTest {
                         new WarehouseReservationLinkService(links, CLOCK),
                         new WarehouseReceiptService(engine, stockPositions, materials),
                         new WarehouseMoveService(engine),
-                        new WarehouseTransferService(engine, operations, transferContexts, new TransactionTemplate(new PassthroughTransactionManager())),
+                        new WarehouseTransferService(
+                                engine,
+                                operations,
+                                transferContexts,
+                                new EmptyWarehouseCatalog(),
+                                new TransactionTemplate(new PassthroughTransactionManager())),
                         WarehouseIntegrationTestSupport.unusedTransferDocumentService(
                                 new EmptyWarehouseCatalog(), materials),
                         new WarehouseConsumptionService(engine, stockPositions),

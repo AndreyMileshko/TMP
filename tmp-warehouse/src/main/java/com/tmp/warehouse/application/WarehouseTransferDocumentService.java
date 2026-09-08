@@ -8,7 +8,6 @@ import com.tmp.warehouse.application.document.WarehouseTransferDocumentProcessor
 import com.tmp.warehouse.domain.InvalidWarehouseStateException;
 import com.tmp.warehouse.domain.MaterialReferenceId;
 import com.tmp.warehouse.domain.StockQuantity;
-import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseTransferDocument;
 import com.tmp.warehouse.domain.WarehouseTransferLine;
@@ -81,7 +80,7 @@ public final class WarehouseTransferDocumentService {
                                             new CreateDocumentCommand(
                                                     WarehouseTransferDocumentProcessor
                                                             .DOCUMENT_TYPE_ID,
-                                                    titleFor(source, destination)));
+                                                    titleFor()));
                             WarehouseTransferDocument payload =
                                     WarehouseTransferDocument.create(
                                             draft.id(), source, destination, lines);
@@ -249,16 +248,12 @@ public final class WarehouseTransferDocumentService {
         return lines;
     }
 
-    private String titleFor(WarehouseId source, WarehouseId destination) {
-        return "Transfer: " + label(source) + " → " + label(destination);
-    }
-
-    private String label(WarehouseId warehouseId) {
-        return warehouses.findAll().stream()
-                .filter(w -> w.id().equals(warehouseId))
-                .map(Warehouse::code)
-                .findFirst()
-                .orElse(warehouseId.value().toString());
+    /**
+     * Stable Document Engine title — must not embed mutable DRAFT source/destination route
+     * (Stage 3.5.2 corrective / 3.5.3).
+     */
+    private static String titleFor() {
+        return "Перемещение материалов";
     }
 
     public record LineInput(

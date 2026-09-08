@@ -1,10 +1,14 @@
 package com.tmp.warehouse.domain;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
- * Destination warehouse/cell for a TRANSFER draft or completed send, plus optional one-time receive
- * link.
+ * Destination warehouse (always required) and optional destination cell for a TRANSFER draft or
+ * completed send, plus optional one-time receive link.
+ *
+ * <p>Legacy contexts store a destination cell at draft time. Deferred-destination contexts leave
+ * the cell absent until receive selects it.
  */
 public final class TransferOperationContext {
 
@@ -13,13 +17,22 @@ public final class TransferOperationContext {
     private final StorageCellId destinationStorageCellId;
     private final WarehouseOperationId receiveOperationId;
 
+    /** Legacy context with a preselected destination cell. */
     public TransferOperationContext(
             WarehouseOperationId operationId,
             WarehouseId destinationWarehouseId,
             StorageCellId destinationStorageCellId) {
-        this(operationId, destinationWarehouseId, destinationStorageCellId, null);
+        this(
+                operationId,
+                destinationWarehouseId,
+                Objects.requireNonNull(destinationStorageCellId, "destinationStorageCellId"),
+                null);
     }
 
+    /**
+     * Full constructor. {@code destinationStorageCellId} may be {@code null} for deferred
+     * destination until receive.
+     */
     public TransferOperationContext(
             WarehouseOperationId operationId,
             WarehouseId destinationWarehouseId,
@@ -28,9 +41,14 @@ public final class TransferOperationContext {
         this.operationId = Objects.requireNonNull(operationId, "operationId");
         this.destinationWarehouseId =
                 Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
-        this.destinationStorageCellId =
-                Objects.requireNonNull(destinationStorageCellId, "destinationStorageCellId");
+        this.destinationStorageCellId = destinationStorageCellId;
         this.receiveOperationId = receiveOperationId;
+    }
+
+    /** Deferred-destination context: warehouse known, cell selected at receive. */
+    public static TransferOperationContext deferredDestination(
+            WarehouseOperationId operationId, WarehouseId destinationWarehouseId) {
+        return new TransferOperationContext(operationId, destinationWarehouseId, null, null);
     }
 
     public WarehouseOperationId operationId() {
@@ -41,8 +59,21 @@ public final class TransferOperationContext {
         return destinationWarehouseId;
     }
 
+    /**
+     * Destination cell when known; {@code null} when deferred until receive.
+     *
+     * <p>Prefer {@link #destinationStorageCellIdOptional()} to avoid accidental NPE.
+     */
     public StorageCellId destinationStorageCellId() {
         return destinationStorageCellId;
+    }
+
+    public Optional<StorageCellId> destinationStorageCellIdOptional() {
+        return Optional.ofNullable(destinationStorageCellId);
+    }
+
+    public boolean hasDestinationStorageCell() {
+        return destinationStorageCellId != null;
     }
 
     public WarehouseOperationId receiveOperationId() {
@@ -58,6 +89,19 @@ public final class TransferOperationContext {
                 operationId,
                 destinationWarehouseId,
                 destinationStorageCellId,
+                Objects.requireNonNull(receiveId, "receiveId"));
+    }
+
+    /**
+     * Records successful receive with the actual destination cell (sets cell when previously
+     * deferred).
+     */
+    public TransferOperationContext withReceiveClaim(
+            WarehouseOperationId receiveId, StorageCellId actualDestinationCellId) {
+        return new TransferOperationContext(
+                operationId,
+                destinationWarehouseId,
+                Objects.requireNonNull(actualDestinationCellId, "actualDestinationCellId"),
                 Objects.requireNonNull(receiveId, "receiveId"));
     }
 }

@@ -13,6 +13,7 @@ import com.tmp.warehouse.api.WarehouseApi.AvailabilityResult;
 import com.tmp.warehouse.api.WarehouseApi.AvailabilityStatus;
 import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand;
+import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
@@ -24,8 +25,10 @@ import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
+import com.tmp.warehouse.api.WarehouseApi.UpdateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -837,6 +840,26 @@ class WarehouseWorkbenchViewModelTest {
                     UUID.randomUUID(),
                     UUID.randomUUID(),
                     BigDecimal.ONE);
+        }
+
+        @Override
+        public TransferDocumentView createTransferDocument(CreateTransferDocumentCommand command) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TransferDocumentView updateTransferDocument(UpdateTransferDocumentCommand command) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void deleteTransferDocument(UUID documentId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TransferDocumentView getTransferDocument(UUID documentId) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

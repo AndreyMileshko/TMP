@@ -1,6 +1,8 @@
 package com.tmp.warehouse.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.warehouse.domain.MaterialReference;
@@ -29,6 +31,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
@@ -108,6 +111,7 @@ class WarehouseTransferServiceIntegrationTest {
                 engine,
                 operations,
                 new com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository(jdbc),
+                catalog,
                 new TransactionTemplate(new DataSourceTransactionManager(dataSource)));
     }
 
@@ -210,5 +214,110 @@ class WarehouseTransferServiceIntegrationTest {
                 WarehouseOperationType.TRANSFER_RECEIVE, receiveHistory.get(0).operationType());
         assertTrue(receiveHistory.get(0).quantityDelta().signum() > 0);
         assertEquals(0, receiveHistory.get(0).quantityDelta().compareTo(BigDecimal.valueOf(500L)));
+    }
+
+    @Test
+    void deferredDestinationDraftSendAndReceivePersistChosenCell() {
+        WarehouseId sourceWarehouse = WarehouseId.generate();
+        WarehouseId destinationWarehouse = WarehouseId.generate();
+        WarehouseId foreignWarehouse = WarehouseId.generate();
+        StorageCellId sourceCell = StorageCellId.generate();
+        StorageCellId destinationCell = StorageCellId.generate();
+        StorageCellId foreignCell = StorageCellId.generate();
+        catalog.insert(Warehouse.create(sourceWarehouse, "WH-DEF-S", "Source"));
+        catalog.insert(Warehouse.create(destinationWarehouse, "WH-DEF-D", "Destination"));
+        catalog.insert(Warehouse.create(foreignWarehouse, "WH-DEF-F", "Foreign"));
+        catalog.insert(StorageCell.create(sourceCell, sourceWarehouse, "A-01"));
+        catalog.insert(StorageCell.create(destinationCell, destinationWarehouse, "B-01"));
+        catalog.insert(StorageCell.create(foreignCell, foreignWarehouse, "C-01"));
+
+        MaterialReference material =
+                WarehouseJdbcTestSupport.persistLegacyArticle(jdbc, CLOCK, "DEF-CELL MAT");
+        stockPositions.create(
+                StockPosition.of(
+                        sourceWarehouse,
+                        sourceCell,
+                        material,
+                        StockState.AVAILABLE,
+                        StockQuantity.of(100L)));
+
+        WarehouseOperation draft =
+                transfers.createDeferredDestinationDraft(
+                        new WarehouseTransferService.DeferredDestinationDraftRequest(
+                                material,
+                                StockQuantity.of(40L),
+                                sourceWarehouse,
+                                sourceCell,
+                                destinationWarehouse));
+        assertEquals(WarehouseOperationStatus.DRAFT, draft.status());
+        UUID storedCell =
+                jdbc.queryForObject(
+                        """
+                        SELECT destination_storage_cell_id
+                        FROM warehouse.transfer_operation_context
+                        WHERE operation_id = ?
+                        """,
+                        UUID.class,
+                        draft.id().value());
+        assertNull(storedCell);
+
+        WarehouseOperation sent = transfers.sendDraft(draft.id());
+        assertEquals(WarehouseOperationStatus.COMPLETED, sent.status());
+        assertEquals(
+                StockQuantity.of(60L),
+                stockPositions
+                        .findByNaturalKey(
+                                sourceWarehouse, sourceCell, material, StockState.AVAILABLE)
+                        .orElseThrow()
+                        .quantity());
+        assertEquals(
+                StockQuantity.of(40L),
+                stockPositions
+                        .findByNaturalKey(
+                                sourceWarehouse, sourceCell, material, StockState.IN_TRANSIT)
+                        .orElseThrow()
+                        .quantity());
+
+        assertThrows(
+                com.tmp.warehouse.domain.InvalidWarehouseStateException.class,
+                () -> transfers.receiveFromSend(sent.id(), foreignCell));
+        assertThrows(
+                com.tmp.warehouse.domain.InvalidWarehouseStateException.class,
+                () -> transfers.receiveFromSend(sent.id()));
+
+        WarehouseOperation received = transfers.receiveFromSend(sent.id(), destinationCell);
+        assertEquals(WarehouseOperationType.TRANSFER_RECEIVE, received.type());
+
+        UUID claimedCell =
+                jdbc.queryForObject(
+                        """
+                        SELECT destination_storage_cell_id
+                        FROM warehouse.transfer_operation_context
+                        WHERE operation_id = ?
+                        """,
+                        UUID.class,
+                        sent.id().value());
+        assertEquals(destinationCell.value(), claimedCell);
+        UUID receiveOp =
+                jdbc.queryForObject(
+                        """
+                        SELECT receive_operation_id
+                        FROM warehouse.transfer_operation_context
+                        WHERE operation_id = ?
+                        """,
+                        UUID.class,
+                        sent.id().value());
+        assertEquals(received.id().value(), receiveOp);
+
+        assertEquals(
+                StockQuantity.of(40L),
+                stockPositions
+                        .findByNaturalKey(
+                                destinationWarehouse,
+                                destinationCell,
+                                material,
+                                StockState.AVAILABLE)
+                        .orElseThrow()
+                        .quantity());
     }
 }

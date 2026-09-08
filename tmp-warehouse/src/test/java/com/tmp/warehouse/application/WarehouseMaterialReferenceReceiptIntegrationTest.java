@@ -109,14 +109,15 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
                         CLOCK);
         receipts = new WarehouseReceiptService(engine, stockPositions, materials);
         moves = new WarehouseMoveService(engine);
+        JdbcWarehouseCatalogRepository catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);
         transfers = new WarehouseTransferService(
                 engine,
                 operations,
                 new com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository(jdbc),
+                catalog,
                 new TransactionTemplate(new DataSourceTransactionManager(dataSource)));
         consumptions = new WarehouseConsumptionService(engine, stockPositions);
 
-        JdbcWarehouseCatalogRepository catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);
         warehouseId = WarehouseId.generate();
         catalog.save(Warehouse.of(warehouseId, "WH-1", "Main", true));
         cellA = StorageCellId.generate();

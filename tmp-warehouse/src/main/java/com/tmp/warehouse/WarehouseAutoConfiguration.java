@@ -202,11 +202,13 @@ public class WarehouseAutoConfiguration {
             WarehouseOperationEngine warehouseOperationEngine,
             WarehouseOperationRepository warehouseOperationRepository,
             TransferOperationContextRepository transferOperationContextRepository,
+            WarehouseCatalogRepository warehouseCatalogRepository,
             PlatformTransactionManager platformTransactionManager) {
         return new WarehouseTransferService(
                 warehouseOperationEngine,
                 warehouseOperationRepository,
                 transferOperationContextRepository,
+                warehouseCatalogRepository,
                 new TransactionTemplate(platformTransactionManager));
     }
 

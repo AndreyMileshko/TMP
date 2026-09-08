@@ -158,5 +158,11 @@ class TransferReceiptEligibilityTest {
         public List<com.tmp.warehouse.api.WarehouseApi.TransferRequestView> listTransferDrafts() {
             return List.of();
         }
+
+        @Override
+        public com.tmp.warehouse.api.WarehouseApi.TransferDocumentView getTransferDocument(
+                UUID documentId) {
+            throw new UnsupportedOperationException();
+        }
     }
 }

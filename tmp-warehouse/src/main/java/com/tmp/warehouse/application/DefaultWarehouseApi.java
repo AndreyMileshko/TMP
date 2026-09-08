@@ -370,7 +370,10 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 operation.warehouseId().value(),
                 operation.storageCellId().value(),
                 context.map(ctx -> ctx.destinationWarehouseId().value()).orElse(null),
-                context.map(ctx -> ctx.destinationStorageCellId().value()).orElse(null),
+                context
+                        .flatMap(TransferOperationContext::destinationStorageCellIdOptional)
+                        .map(StorageCellId::value)
+                        .orElse(null),
                 receiveOperationId);
     }
 
@@ -402,7 +405,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 draft.warehouseId().value(),
                 draft.storageCellId().value(),
                 context.destinationWarehouseId().value(),
-                context.destinationStorageCellId().value());
+                context.destinationStorageCellIdOptional().map(StorageCellId::value).orElse(null));
     }
 
     @Override

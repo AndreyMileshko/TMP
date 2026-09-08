@@ -1,6 +1,7 @@
 package com.tmp.warehouse.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -87,6 +88,126 @@ class WarehouseSchemaFlywayTest {
                 """,
                 Integer.class);
         assertEquals(0, forbiddenTables);
+    }
+
+    @Test
+    void flywayRecordsV37DeferredDestinationCellMigration() {
+        Integer applied =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '37' AND success = TRUE
+                        """,
+                        Integer.class);
+        assertEquals(1, applied);
+
+        String nullable =
+                jdbc.queryForObject(
+                        """
+                        SELECT is_nullable FROM information_schema.columns
+                        WHERE table_schema = 'warehouse'
+                          AND table_name = 'transfer_operation_context'
+                          AND column_name = 'destination_storage_cell_id'
+                        """,
+                        String.class);
+        assertEquals("YES", nullable);
+
+        UUID warehouseId = UUID.randomUUID();
+        UUID otherWarehouseId = UUID.randomUUID();
+        UUID cellId = UUID.randomUUID();
+        UUID operationId = UUID.randomUUID();
+        UUID materialId = insertMaterialReference("MAT-V37");
+
+        jdbc.update(
+                """
+                INSERT INTO warehouse.warehouses (id, code, name, active, version, created_at, updated_at)
+                VALUES (?, 'WH-V37A', 'V37 A', TRUE, 0, NOW(), NOW())
+                """,
+                warehouseId);
+        jdbc.update(
+                """
+                INSERT INTO warehouse.warehouses (id, code, name, active, version, created_at, updated_at)
+                VALUES (?, 'WH-V37B', 'V37 B', TRUE, 0, NOW(), NOW())
+                """,
+                otherWarehouseId);
+        jdbc.update(
+                """
+                INSERT INTO warehouse.storage_cells
+                    (id, warehouse_id, code, active, version, created_at, updated_at)
+                VALUES (?, ?, 'V37-01', TRUE, 0, NOW(), NOW())
+                """,
+                cellId,
+                warehouseId);
+        jdbc.update(
+                """
+                INSERT INTO warehouse.warehouse_operations (
+                    id, operation_type, status, warehouse_id, storage_cell_id, material_reference_id,
+                    quantity, stock_state, version, created_at, updated_at)
+                VALUES (?, 'TRANSFER_SEND', 'DRAFT', ?, ?, ?, 1, 'IN_TRANSIT', 0, NOW(), NOW())
+                """,
+                operationId,
+                warehouseId,
+                cellId,
+                materialId);
+
+        // Deferred context with NULL destination cell is allowed.
+        jdbc.update(
+                """
+                INSERT INTO warehouse.transfer_operation_context (
+                    operation_id, destination_warehouse_id, destination_storage_cell_id,
+                    receive_operation_id)
+                VALUES (?, ?, NULL, NULL)
+                """,
+                operationId,
+                otherWarehouseId);
+
+        UUID preserved =
+                jdbc.queryForObject(
+                        """
+                        SELECT destination_storage_cell_id
+                        FROM warehouse.transfer_operation_context
+                        WHERE operation_id = ?
+                        """,
+                        UUID.class,
+                        operationId);
+        assertNull(preserved);
+
+        // Wrong warehouse/cell pair still rejected by composite FK when cell is non-null.
+        UUID badOp = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO warehouse.warehouse_operations (
+                    id, operation_type, status, warehouse_id, storage_cell_id, material_reference_id,
+                    quantity, stock_state, version, created_at, updated_at)
+                VALUES (?, 'TRANSFER_SEND', 'DRAFT', ?, ?, ?, 1, 'IN_TRANSIT', 0, NOW(), NOW())
+                """,
+                badOp,
+                warehouseId,
+                cellId,
+                materialId);
+        assertThrows(
+                DataIntegrityViolationException.class,
+                () ->
+                        jdbc.update(
+                                """
+                                INSERT INTO warehouse.transfer_operation_context (
+                                    operation_id, destination_warehouse_id, destination_storage_cell_id,
+                                    receive_operation_id)
+                                VALUES (?, ?, ?, NULL)
+                                """,
+                                badOp,
+                                otherWarehouseId,
+                                cellId));
+
+        // Stock tables untouched by V37 (still present; no destructive change).
+        Integer stockTable =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.tables
+                        WHERE table_schema = 'warehouse' AND table_name = 'stock_positions'
+                        """,
+                        Integer.class);
+        assertEquals(1, stockTable);
     }
 
     @Test

@@ -3,9 +3,9 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1ÔøΩ3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) ÔøΩ FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0 Architecture Alignment COMPLETE; 3.5.1 Warehouse Responsibility COMPLETE; **3.5.2 Transfer Document Foundation COMPLETE**; 3.5.3 NEXT / NOT STARTED)
-**Current Task:** none (Stage 3.5.2 complete; next 3.5.3 not started)
-**Last completed task:** Stage 3.5.2 Warehouse Transfer Document Foundation (2026-09-08); prior: Stage 3.5.1 Warehouse Responsibility (2026-09-08)
+**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1ù3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) ù FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0 Architecture Alignment COMPLETE; 3.5.1 Warehouse Responsibility COMPLETE; 3.5.2 Transfer Document Foundation COMPLETE; **3.5.3 Deferred Destination Cell at Receive COMPLETE**; 3.5.4 NEXT / NOT STARTED)
+**Current Task:** none (Stage 3.5.3 complete; next 3.5.4 not started)
+**Last completed task:** Stage 3.5.3 Deferred Destination Cell at Receive (2026-09-08); prior: Stage 3.5.2 Warehouse Transfer Document Foundation (2026-09-08)
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
 **Active blockers:** NONE (UI final manual acceptance pending interactive smoke, not a code blocker)
@@ -16,9 +16,9 @@
 **Stage 7 Post-Closure Correction (2026-08-31):** PASS
 **Completed Stage 7 tasks:** 27 / 27 mandatory
 **Production Specification:** v2.6 Accepted (Warehouse boundary aligned; Stage 7 runtime still CURRENT IMPLEMENTATION)
-**Warehouse Specification:** v1.8 Accepted (ADR-037; ÔøΩ15A admin API note for 3.5.1)
+**Warehouse Specification:** v1.8 Accepted (ADR-037; ù15A admin API note for 3.5.1)
 **Full verify baseline:** GREEN (2026-08-31 post-closure rerun)
-**First READY implementation task:** Stage 3.5.3 (NOT STARTED)
+**First READY implementation task:** Stage 3.5.4 (NOT STARTED)
 
 
 ```text
@@ -69,7 +69,7 @@ STAGE7-003 = DONE (Production persistence schema)
 STAGE7-004 = DONE (Production Launch document; originally item-level)
 STAGE7-004A = DONE (OM stable SpecificationId public contract)
 STAGE7-004B = DONE (SpecificationId Stability Fix)
-STAGE7-005 = DONE (Production Foundation ÔøΩ Specification Reference Freeze)
+STAGE7-005 = DONE (Production Foundation ù Specification Reference Freeze)
 STAGE7-005A = DONE (Whole-Order Production Launch Correction & Reactor Recovery)
 STAGE7-006 = DONE (Computed Order Production View)
 STAGE7-007 = DONE (Material availability via Warehouse Query)
@@ -101,8 +101,9 @@ Stage 3.5 Warehouse = IN PROGRESS
 Stage 3.5.0 Architecture Alignment = COMPLETE
 Stage 3.5.1 Warehouse Responsibility = COMPLETE
 Stage 3.5.2 Transfer Document Foundation = COMPLETE
-Stage 3.5.3 = NEXT / NOT STARTED
-First READY implementation task = Stage 3.5.3 (NOT STARTED)
+Stage 3.5.3 Deferred Destination Cell at Receive = COMPLETE
+Stage 3.5.4 = NEXT / NOT STARTED
+First READY implementation task = Stage 3.5.4 (NOT STARTED)
 ```
 
 ---
@@ -119,25 +120,25 @@ First READY implementation task = Stage 3.5.3 (NOT STARTED)
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
 | 7 | Production | DONE | 100% |
-| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0-3.5.2 COMPLETE |
+| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0-3.5.3 COMPLETE |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 
 ---
 
-## Stage 3.5.0 ÔøΩ Warehouse Architecture Alignment (2026-09-08)
+## Stage 3.5.0 ù Warehouse Architecture Alignment (2026-09-08)
 
-Documentation-only Start Gate for Stage 3.5. ADR-037 Accepted; ADR-013/014 Superseded; ADR-035 qualified; Warehouse Spec v1.8; Production Spec v2.6 boundary CURRENT vs TARGET; UI Standard ÔøΩ39B. No Java/FXML/CSS/migration. Next: 3.5.1 Warehouse Responsibility ÔøΩ NOT STARTED.
+Documentation-only Start Gate for Stage 3.5. ADR-037 Accepted; ADR-013/014 Superseded; ADR-035 qualified; Warehouse Spec v1.8; Production Spec v2.6 boundary CURRENT vs TARGET; UI Standard ù39B. No Java/FXML/CSS/migration. Next: 3.5.1 Warehouse Responsibility ù NOT STARTED.
 
-## Stage 5 ÔøΩ Final Closure (2026-08-06)
+## Stage 5 ù Final Closure (2026-08-06)
 
 Stage 5 Order Management and Order Intake Extension complete. All STAGE5 tasks DONE.
 
-## Stage 6 ÔøΩ Final Closure (2026-08-09)
+## Stage 6 ù Final Closure (2026-08-09)
 
 Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 
-## Stage 7 ÔøΩ Start Gate (2026-08-17)
+## Stage 7 ù Start Gate (2026-08-17)
 
 - Start Gate PASSED (`STAGE7-000`).
 - ADR-036 Accepted (cross-capability atomicity).
@@ -148,34 +149,34 @@ Stage 6 Warehouse complete. All STAGE6 tasks DONE.
 - `STAGE7-001` completed: `tmp-production` module foundation, package boundaries, reactor wiring, Stage 7 architecture guard.
 - `STAGE7-002` completed: Production domain identifiers, item-owned state model, quantity invariants, unit tests; Stage7ProductionArchitectureTest Cutting typo fixed; STAGE7-004A queued for OM SpecificationId alignment.
 - `STAGE7-003` completed: Production persistence schema (`production.production_item_states`), JDBC repository, entity?domain mapping, Flyway V23, persistence/integration tests; no Production Order / Revision tables.
-- `STAGE7-004` completed: Production Launch as Business Document ÔøΩ ProductionLaunchProcessor, ProductionLaunchPayload, ProductionLaunched event, AlreadyLaunchedForProductionException, ProductionLaunchService; Document Engine integration; duplicate Launch guard; after-commit domain event; architecture rule (only Processor uses Repository); unit tests PASS.
-- `STAGE7-004A` completed: OM stable SpecificationId public contract ÔøΩ Flyway V24 adds `specification_id` UUID to `item_specifications`; `SpecificationId`, `ProductionSpecificationDto` DTOs; `getCurrentItemSpecification()` + `getSpecificationById()` on `OrderQueryService`; JDBC adapter; deterministic UUID derivation; legacy revision API preserved; no RevisionNumber in Production-facing DTO; 366 OM tests PASS.
-- `STAGE7-004B` completed: SpecificationId Stability Fix ÔøΩ V25 migration corrects V24's `md5()::uuid` to proper UUID v3 (version/variant bits matching Java `UUID.nameUUIDFromBytes()`); `SpecificationIdMigrationConsistencyIT` proves SQL and Java produce identical UUIDs; Flyway version assertions updated; full `mvn verify` PASS.
-- `STAGE7-005` completed: Production Foundation ÔøΩ `ProductionFoundation` domain value object frozen at Launch; `ProductionLaunchService` resolves current spec once via OM Public Query; `ProductionFoundationQueryService` reads frozen spec via `getSpecificationById` only; no specification content snapshot duplication (reference-only per Production Spec ÔøΩ127); architecture rules enforce post-launch boundary.
+- `STAGE7-004` completed: Production Launch as Business Document ù ProductionLaunchProcessor, ProductionLaunchPayload, ProductionLaunched event, AlreadyLaunchedForProductionException, ProductionLaunchService; Document Engine integration; duplicate Launch guard; after-commit domain event; architecture rule (only Processor uses Repository); unit tests PASS.
+- `STAGE7-004A` completed: OM stable SpecificationId public contract ù Flyway V24 adds `specification_id` UUID to `item_specifications`; `SpecificationId`, `ProductionSpecificationDto` DTOs; `getCurrentItemSpecification()` + `getSpecificationById()` on `OrderQueryService`; JDBC adapter; deterministic UUID derivation; legacy revision API preserved; no RevisionNumber in Production-facing DTO; 366 OM tests PASS.
+- `STAGE7-004B` completed: SpecificationId Stability Fix ù V25 migration corrects V24's `md5()::uuid` to proper UUID v3 (version/variant bits matching Java `UUID.nameUUIDFromBytes()`); `SpecificationIdMigrationConsistencyIT` proves SQL and Java produce identical UUIDs; Flyway version assertions updated; full `mvn verify` PASS.
+- `STAGE7-005` completed: Production Foundation ù `ProductionFoundation` domain value object frozen at Launch; `ProductionLaunchService` resolves current spec once via OM Public Query; `ProductionFoundationQueryService` reads frozen spec via `getSpecificationById` only; no specification content snapshot duplication (reference-only per Production Spec ù127); architecture rules enforce post-launch boundary.
 - `STAGE7-005A` completed: corrective whole-order Launch. STAGE7-004 originally launched a single Order Item; audit found this violated Production Spec (one user operation accepts the entire ACTIVE Order). Launch now takes `SourceOrderId` only; OM Public Query supplies all ACTIVE items, quantities and SpecificationId; one multi-line Launch document is atomic; `OrderAcceptedIntoProduction` is the after-commit business event. `tmp-ui-shell` OrderQueryService test doubles restored to compile against the extended public contract. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-006` completed: computed Order Production View from item-owned states (`OrderProductionViewCalculator` + `ProductionOrderViewService`); no stored order-level status; empty states ? `NOT_ACCEPTED` (not AVAILABLE); Launch readiness distinguishes no ACTIVE items vs missing Specification with correct `OrderItemId`; `OrderAcceptedIntoProduction` count/list/duplicates invariant; STAGE7-007 dependency ? STAGE7-005A+006; STAGE7-014 ? STAGE7-005A; STAGE7-018 ACID Launch rollback requires real JDBC/PostgreSQL. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-007` completed: read-only Material Availability Check for `IN_PRODUCTION` orders. Frozen Specification path only; `lineQuantity` not multiplied by product quantity; material identity resolved via `WarehouseQueryApi.listMaterialReferences()` (article+color+UoM; `lengthMm` never mapped to Warehouse `size`); unresolved/ambiguous distinct from stock=0; `ProductionWarehouseScope` (injected main/production warehouse ids, no hardcoded roles); deficit from scoped AVAILABLE stock only; no Warehouse writes, no Production status mutation, no document, no Cutting. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-008` completed: Production-owned 0..N Cutting Plan links (`MaterialReferenceId` ? `CuttingPlanId`) on `ProductionItemState`; Flyway V26 child table; Launch payload ready with empty default; no Stage 8 dependency / Revision / cross-capability FK; Material Check stays on Specification when mere link present; STAGE7-008A PLANNED for post-launch association; STAGE7-009 READY. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-009` completed: Production-owned editable Material Transfer Template. `prepareMaterialTransferTemplate` uses STAGE7-007 Material Check snapshot; recommended transfer = min(max(required?production,0), main) with uncovered deficit; unresolved/ambiguous blocked; recommended vs requested quantities; exclude via `included=false`; optional CuttingPlanId informational only (`planningSource=SPECIFICATION`); Flyway V27 persistence + optimistic lock; no WarehouseCommandApi / stock mutation / Document Engine document. STAGE7-010 READY. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-010` completed: confirm Material Transfer Template ? Warehouse-owned Transfer DRAFTs via `WarehouseCommandApi.createTransferDraft` only. Precondition: atomic template save (TransactionTemplate REQUIRED) + real PostgreSQL child-insert rollback test. Explicit cell allocations (`templateLineId` + source/destination cells + quantity); WarehouseQueryApi cell membership/active validation; no hidden picking; 1 line ? 1..N drafts; Production `ProductionMaterialTransfer` grouping + operation refs (V28); DRAFT/CONFIRMED template lifecycle; idempotent confirm; edit blocked after confirm; stock unchanged; send?receive reference resolvable from stored draftOperationId (`getTransferStatus` / same id for `receiveTransfer`). STAGE7-011 READY. Full `mvn verify` BUILD SUCCESS.
-- `STAGE7-011` completed: ÔøΩ??????????? ?????????ÔøΩ for Production logical transfer. `ConfirmMaterialReceiptService` loads Warehouse refs from `ProductionMaterialTransferRepository` only (no UI Warehouse operation IDs). Full status snapshot via `WarehouseQueryApi.getTransferStatus` before any mutation; DRAFT/invalid reject; SENT ? `WarehouseCommandApi.receiveTransfer`; RECEIVED skipped; all-RECEIVED ? `ALREADY_RECEIVED` idempotent. Outer REQUIRED TX; real PostgreSQL partial-failure rollback; stored ref consistency; original send/draft id remains correlation. No Production receipt SoT, Document, history/audit, or stock writes. STAGE7-012 READY. Full `mvn verify` BUILD SUCCESS.
+- `STAGE7-011` completed: ù??????????? ?????????ù for Production logical transfer. `ConfirmMaterialReceiptService` loads Warehouse refs from `ProductionMaterialTransferRepository` only (no UI Warehouse operation IDs). Full status snapshot via `WarehouseQueryApi.getTransferStatus` before any mutation; DRAFT/invalid reject; SENT ? `WarehouseCommandApi.receiveTransfer`; RECEIVED skipped; all-RECEIVED ? `ALREADY_RECEIVED` idempotent. Outer REQUIRED TX; real PostgreSQL partial-failure rollback; stored ref consistency; original send/draft id remains correlation. No Production receipt SoT, Document, history/audit, or stock writes. STAGE7-012 READY. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-012` completed: Production Release document (`production.release`) with durable plan/fact persistence (Flyway V29), `ProductionReleaseProcessor`, internal `ProductionReleaseDocumentService` gateway for STAGE7-013 (no standalone user `releaseProducts`), item-owned `ProductionItemState.release`, full pre-validation, POSTED immutability, UNPOST unsupported. No Warehouse Consumption. Partial-release material plan formula absent from Accepted docs ? `BLK-STAGE7-PARTIAL-RELEASE-PLAN` OPEN; STAGE7-013 BLOCKED. Full `mvn test` / `mvn verify` BUILD SUCCESS.
-- `STAGE7-012A` completed: Accepted Production Specification **v2.3 ÔøΩ15.1.1** ÔøΩ cumulative proportional allocation for partial/repeated Release plan (`Q` = frozen `lineQuantity` on whole item, `N` = orderedQuantity, no `Q*N` double multiply; scale 6 HALF_UP; final Release closes exact `Q`). `BLK-STAGE7-PARTIAL-RELEASE-PLAN` RESOLVED. STAGE7-013 READY. Documentation-only; no business code. Full `mvn verify` BUILD SUCCESS.
-- `STAGE7-013` completed: `ReleaseProductsService` atomic Release + Warehouse Consumption orchestration (outer REQUIRED TX). System-computed partial plan per ÔøΩ15.1.1; confirmed actual + explicit production-warehouse cell allocations; `WarehouseCommandApi.consume`; internal document gateway; PostgreSQL rollback proofs. `ProductionReleased` deferred STAGE7-015. Full `mvn verify` BUILD SUCCESS.
-- `STAGE7-013A` completed: corrective Release preview/confirm split (`PrepareReleaseCommand` without actual/cells); plan always recomputed inside outer TX on `SELECT ÔøΩ FOR UPDATE` whole-order lock via `ProductionOrderStateLockService`; `OrderProductionViewCalculator` on locked snapshot; stronger ArchUnit guard for `ProductionReleaseDocumentService`; PostgreSQL concurrent Release tests; existing rollback proofs preserved. Full `mvn verify` BUILD SUCCESS.
+- `STAGE7-012A` completed: Accepted Production Specification **v2.3 ù15.1.1** ù cumulative proportional allocation for partial/repeated Release plan (`Q` = frozen `lineQuantity` on whole item, `N` = orderedQuantity, no `Q*N` double multiply; scale 6 HALF_UP; final Release closes exact `Q`). `BLK-STAGE7-PARTIAL-RELEASE-PLAN` RESOLVED. STAGE7-013 READY. Documentation-only; no business code. Full `mvn verify` BUILD SUCCESS.
+- `STAGE7-013` completed: `ReleaseProductsService` atomic Release + Warehouse Consumption orchestration (outer REQUIRED TX). System-computed partial plan per ù15.1.1; confirmed actual + explicit production-warehouse cell allocations; `WarehouseCommandApi.consume`; internal document gateway; PostgreSQL rollback proofs. `ProductionReleased` deferred STAGE7-015. Full `mvn verify` BUILD SUCCESS.
+- `STAGE7-013A` completed: corrective Release preview/confirm split (`PrepareReleaseCommand` without actual/cells); plan always recomputed inside outer TX on `SELECT ù FOR UPDATE` whole-order lock via `ProductionOrderStateLockService`; `OrderProductionViewCalculator` on locked snapshot; stronger ArchUnit guard for `ProductionReleaseDocumentService`; PostgreSQL concurrent Release tests; existing rollback proofs preserved. Full `mvn verify` BUILD SUCCESS.
 - `STAGE7-014` completed: whole-order Production Cancellation (`production.cancellation`) via `CancelOrderProductionService`; durable payload Flyway V30; `ProductionCancellationProcessor`; internal gateway; `ProductionCancellationQuery.hasPostedCancellation`; `ProductionOrderViewService` uses posted cancellation evidence for RELEASED+CANCELLED mix; reuses `ProductionOrderStateLockService`; no Warehouse/Cutting mutation; PostgreSQL atomicity + Release?Cancel ordering proofs. Full `mvn verify` BUILD SUCCESS.
-- `STAGE7-015` completed: Production domain events after-commit via public `TransactionalEventPublisher` ÔøΩ `OrderAcceptedIntoProduction` (existing), `ProductionReleased`, `OrderProductionCancelled`; Release/Cancellation processors schedule one event per document POST; STAGE7-014 verification gap closed with true overlapping Release?Cancel row-lock serialization proofs; rollback delivers 0 events. Full `mvn verify` BUILD SUCCESS.
-- `STAGE7-015A` completed: Production-owned immutable business history (`production.production_history`, Flyway V31). Append-only JDBC store with DB triggers rejecting UPDATE/DELETE. Seven Spec ÔøΩ22 types recorded in the same business transaction as Launch/Check/Transfer/Receipt/Release/Cancellation. Internal `listByOrder` query; no Public Query API, Security Audit, or Analytics. STAGE7-015 domain events unchanged. Full `mvn verify` BUILD SUCCESS.
-- `STAGE7-016A` completed: Production Public Query API (`com.tmp.production.api.ProductionQueryApi`) ÔøΩ four read-only operations; `production.order.view` before any downstream read; current side-effect-free material availability via `CurrentMaterialAvailabilityQueryService`; ProductionCapability contributes exactly one public service; Platform ServiceRegistry lookup proof. STAGE7-017 READY. Full `mvn verify` BUILD SUCCESS.
-- `STAGE7-017` completed: Production Workbench UI in `tmp-ui-shell` (`com.tmp.ui.shell.screen.production`) + STAGE7-016A post-review corrections (unresolved/ambiguous `totalAvailable=0`; dead duplicate Check calculation removed; magic Warehouse UUIDs replaced by `tmp.production.warehouse.*` / explicit `ProductionWarehouseScope` bean). Order-centric workbench with 6 commands via `ProductionApplicationApi`; reads via `ProductionQueryApi`; Capability nav ÔøΩ????????????ÔøΩ. Full `mvn test` / `mvn verify` BUILD SUCCESS. STAGE7-018 READY.
-- `STAGE7-018` completed: final public-boundary integration suite `com.tmp.production.integration.publicboundary` ÔøΩ `ProductionPublicBoundaryPostgresIT` (9 PostgreSQL scenarios) + `PublicBoundaryImportGuardTest`; OM via `OrderImportService` + `OrderQueryService`; Warehouse via `WarehouseCommandApi` + `WarehouseQueryApi`; real Document Engine + Production JDBC; Launch/Transfer/Receipt/Release+Consumption/Cancellation matrix; STAGE7-017 deferred full reactor regression PASS. Full `mvn test` / `mvn verify` BUILD SUCCESS.
-- `STAGE7-019` completed: Production ArchUnit closure in `Stage7ProductionArchitectureTest` ÔøΩ Production uses only Warehouse/OM `*.api` (no internals including security/infrastructure); Cutting internals forbidden; UI shell must not contain Production domain and may use only `com.tmp.production.api`; Production has no JavaFX. Incremental feature rules retained. `mvn -pl :tmp-architecture-tests -am test` BUILD SUCCESS (145 architecture-module tests; 72 Stage 7 rules). STAGE7-020 READY.
+- `STAGE7-015` completed: Production domain events after-commit via public `TransactionalEventPublisher` ù `OrderAcceptedIntoProduction` (existing), `ProductionReleased`, `OrderProductionCancelled`; Release/Cancellation processors schedule one event per document POST; STAGE7-014 verification gap closed with true overlapping Release?Cancel row-lock serialization proofs; rollback delivers 0 events. Full `mvn verify` BUILD SUCCESS.
+- `STAGE7-015A` completed: Production-owned immutable business history (`production.production_history`, Flyway V31). Append-only JDBC store with DB triggers rejecting UPDATE/DELETE. Seven Spec ù22 types recorded in the same business transaction as Launch/Check/Transfer/Receipt/Release/Cancellation. Internal `listByOrder` query; no Public Query API, Security Audit, or Analytics. STAGE7-015 domain events unchanged. Full `mvn verify` BUILD SUCCESS.
+- `STAGE7-016A` completed: Production Public Query API (`com.tmp.production.api.ProductionQueryApi`) ù four read-only operations; `production.order.view` before any downstream read; current side-effect-free material availability via `CurrentMaterialAvailabilityQueryService`; ProductionCapability contributes exactly one public service; Platform ServiceRegistry lookup proof. STAGE7-017 READY. Full `mvn verify` BUILD SUCCESS.
+- `STAGE7-017` completed: Production Workbench UI in `tmp-ui-shell` (`com.tmp.ui.shell.screen.production`) + STAGE7-016A post-review corrections (unresolved/ambiguous `totalAvailable=0`; dead duplicate Check calculation removed; magic Warehouse UUIDs replaced by `tmp.production.warehouse.*` / explicit `ProductionWarehouseScope` bean). Order-centric workbench with 6 commands via `ProductionApplicationApi`; reads via `ProductionQueryApi`; Capability nav ù????????????ù. Full `mvn test` / `mvn verify` BUILD SUCCESS. STAGE7-018 READY.
+- `STAGE7-018` completed: final public-boundary integration suite `com.tmp.production.integration.publicboundary` ù `ProductionPublicBoundaryPostgresIT` (9 PostgreSQL scenarios) + `PublicBoundaryImportGuardTest`; OM via `OrderImportService` + `OrderQueryService`; Warehouse via `WarehouseCommandApi` + `WarehouseQueryApi`; real Document Engine + Production JDBC; Launch/Transfer/Receipt/Release+Consumption/Cancellation matrix; STAGE7-017 deferred full reactor regression PASS. Full `mvn test` / `mvn verify` BUILD SUCCESS.
+- `STAGE7-019` completed: Production ArchUnit closure in `Stage7ProductionArchitectureTest` ù Production uses only Warehouse/OM `*.api` (no internals including security/infrastructure); Cutting internals forbidden; UI shell must not contain Production domain and may use only `com.tmp.production.api`; Production has no JavaFX. Incremental feature rules retained. `mvn -pl :tmp-architecture-tests -am test` BUILD SUCCESS (145 architecture-module tests; 72 Stage 7 rules). STAGE7-020 READY.
 - `STAGE7-020` completed: Stage 7 final closure audit. Production Specification v2.4 Accepted; 27/27 mandatory tasks DONE; ownership, no Production Order, computed order status, frozen Specification, opaque 0..N Cutting links, material identity/availability, Warehouse-owned Transfer/Consumption, atomic Release + Consumption, whole-order Cancellation, after-commit events, append-only History, exactly 7 canonical permissions, read-only Public Query API, Capability registration and order-centric Workbench all verified against code and tests. Public-boundary integration (real PostgreSQL + Document Engine + Production JDBC, OM/Warehouse public contracts only) PASS; architecture closure 72/72 Stage 7 rules PASS. Control-doc drift fixed (CONTEXT-MAP Production Spec v2.2 ? v2.4, Stage 7 status, legacy `production.view` ? `production.order.view`; WORK-QUEUE Stage 7 header v2.3 ? v2.4); no production code changes. Full verification on current HEAD: `mvn -pl :tmp-production -am test` PASS (334), `mvn -pl :tmp-ui-shell -am test` PASS (230), `mvn -pl :tmp-architecture-tests -am test` PASS (145), `mvn test` PASS (1690), `mvn verify` PASS (1690 unit + 184 IT), `git diff --check` clean.
 
-## Stage 7 ÔøΩ Final Closure (2026-08-25)
+## Stage 7 ù Final Closure (2026-08-25)
 
 Stage 7 Production complete. 27/27 mandatory tasks DONE. `STAGE7-008A` remains PLANNED post-launch and is excluded from the 27; it does not block closure. Active blockers NONE. Stage 8 Cutting Optimization = NOT STARTED (no Stage 8 tasks created; no runtime dependency from Production). Production v1.0 is feature complete, architecture verified, integration verified and closure verified; future changes go through separate stage/change tasks.
 
-## Stage 7 ÔøΩ Post-Closure Corrective Pass (2026-08-31)
+## Stage 7 ù Post-Closure Corrective Pass (2026-08-31)
 
 Stage 7 had already been formally closed on 2026-08-25. Manual acceptance testing (PROD-MANUAL-004/005/006/007) exposed post-closure defects in Production/Warehouse UI and public-boundary proof gaps. Corrective work started from base commit `2c7113b6d150f9f87218417b6828ac937be73f3e`. Previous verification evidence from 2026-08-25 does not constitute verification of the 2026-08-31 code changes. Full reactor regression was rerun after corrections. Stage 6 manual Warehouse Transfer Send UI preserved alongside Production-created DRAFT workflow. Stage 7 remains DONE only after new full verification green. Stage 8 remains NOT STARTED.

@@ -7,6 +7,7 @@ import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.AvailabilityResult;
 import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand;
+import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
@@ -15,8 +16,10 @@ import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
+import com.tmp.warehouse.api.WarehouseApi.UpdateTransferDocumentCommand;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
@@ -180,6 +183,26 @@ final class WarehouseWorkbenchUiTestSupport {
 
         @Override
         public OperationResult receiveTransfer(UUID sendOperationId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TransferDocumentView createTransferDocument(CreateTransferDocumentCommand command) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TransferDocumentView updateTransferDocument(UpdateTransferDocumentCommand command) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void deleteTransferDocument(UUID documentId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TransferDocumentView getTransferDocument(UUID documentId) {
             throw new UnsupportedOperationException();
         }
 

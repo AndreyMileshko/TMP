@@ -1,6 +1,8 @@
 package com.tmp.warehouse.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -10,7 +12,10 @@ import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockPositionId;
 import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
+import com.tmp.warehouse.domain.StorageCell;
 import com.tmp.warehouse.domain.StorageCellId;
+import com.tmp.warehouse.domain.TransferOperationContext;
+import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseMovement;
 import com.tmp.warehouse.domain.WarehouseOperation;
@@ -20,6 +25,8 @@ import com.tmp.warehouse.domain.WarehouseOperationType;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
+import com.tmp.warehouse.testsupport.InMemoryTransferOperationContextRepository;
+import com.tmp.warehouse.testsupport.InMemoryWarehouseCatalogRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -44,6 +51,8 @@ class WarehouseTransferServiceTest {
     private InMemoryOperationRepository operations;
     private InMemoryStockPositionRepository stockPositions;
     private InMemoryMovementRepository movements;
+    private InMemoryTransferOperationContextRepository transferContexts;
+    private InMemoryWarehouseCatalogRepository catalog;
     private WarehouseTransferService transfers;
 
     @BeforeEach
@@ -51,6 +60,8 @@ class WarehouseTransferServiceTest {
         operations = new InMemoryOperationRepository();
         stockPositions = new InMemoryStockPositionRepository();
         movements = new InMemoryMovementRepository();
+        transferContexts = new InMemoryTransferOperationContextRepository();
+        catalog = new InMemoryWarehouseCatalogRepository();
         WarehouseOperationEngine engine =
                 new WarehouseOperationEngine(
                         operations,
@@ -58,8 +69,13 @@ class WarehouseTransferServiceTest {
                         movements,
                         new TransactionTemplate(new PassthroughTransactionManager()),
                         CLOCK);
-        transfers = new WarehouseTransferService(
-                engine, operations, new com.tmp.warehouse.testsupport.InMemoryTransferOperationContextRepository(), new TransactionTemplate(new PassthroughTransactionManager()));
+        transfers =
+                new WarehouseTransferService(
+                        engine,
+                        operations,
+                        transferContexts,
+                        catalog,
+                        new TransactionTemplate(new PassthroughTransactionManager()));
     }
 
     @Test
@@ -307,6 +323,256 @@ class WarehouseTransferServiceTest {
                                 destination, destinationCell, material, StockState.AVAILABLE)
                         .orElseThrow()
                         .quantity());
+    }
+
+    @Test
+    void deferredDestinationDraftDoesNotMutateStockAndOmitsCell() {
+        WarehouseId source = WarehouseId.generate();
+        WarehouseId destination = WarehouseId.generate();
+        StorageCellId sourceCell = StorageCellId.generate();
+        MaterialReference material = MaterialReference.legacyArticle("DEF-DRAFT");
+        stockPositions.create(
+                StockPosition.of(
+                        source, sourceCell, material, StockState.AVAILABLE, StockQuantity.of(10L)));
+
+        WarehouseOperation draft =
+                transfers.createDeferredDestinationDraft(
+                        new WarehouseTransferService.DeferredDestinationDraftRequest(
+                                material,
+                                StockQuantity.of(4L),
+                                source,
+                                sourceCell,
+                                destination));
+
+        assertEquals(WarehouseOperationStatus.DRAFT, draft.status());
+        TransferOperationContext context =
+                transferContexts.findByOperationId(draft.id()).orElseThrow();
+        assertEquals(destination, context.destinationWarehouseId());
+        assertFalse(context.hasDestinationStorageCell());
+        assertTrue(context.destinationStorageCellIdOptional().isEmpty());
+        assertNull(context.destinationStorageCellId());
+        assertTrue(movements.all.isEmpty());
+        assertEquals(
+                StockQuantity.of(10L),
+                stockPositions
+                        .findByNaturalKey(source, sourceCell, material, StockState.AVAILABLE)
+                        .orElseThrow()
+                        .quantity());
+    }
+
+    @Test
+    void deferredSendMovesSourceWithoutDestinationCell() {
+        WarehouseId source = WarehouseId.generate();
+        WarehouseId destination = WarehouseId.generate();
+        StorageCellId sourceCell = StorageCellId.generate();
+        MaterialReference material = MaterialReference.legacyArticle("DEF-SEND");
+        stockPositions.create(
+                StockPosition.of(
+                        source, sourceCell, material, StockState.AVAILABLE, StockQuantity.of(20L)));
+
+        WarehouseOperation draft =
+                transfers.createDeferredDestinationDraft(
+                        new WarehouseTransferService.DeferredDestinationDraftRequest(
+                                material,
+                                StockQuantity.of(7L),
+                                source,
+                                sourceCell,
+                                destination));
+        WarehouseOperation sent = transfers.sendDraft(draft.id());
+
+        assertEquals(WarehouseOperationStatus.COMPLETED, sent.status());
+        assertEquals(
+                StockQuantity.of(13L),
+                stockPositions
+                        .findByNaturalKey(source, sourceCell, material, StockState.AVAILABLE)
+                        .orElseThrow()
+                        .quantity());
+        assertEquals(
+                StockQuantity.of(7L),
+                stockPositions
+                        .findByNaturalKey(source, sourceCell, material, StockState.IN_TRANSIT)
+                        .orElseThrow()
+                        .quantity());
+        assertFalse(
+                transferContexts.findByOperationId(sent.id()).orElseThrow().hasDestinationStorageCell());
+    }
+
+    @Test
+    void deferredReceiveWithChosenCellPersistsCellAndStock() {
+        WarehouseId source = WarehouseId.generate();
+        WarehouseId destination = WarehouseId.generate();
+        StorageCellId sourceCell = StorageCellId.generate();
+        StorageCellId destinationCell = StorageCellId.generate();
+        MaterialReference material = MaterialReference.legacyArticle("DEF-RCV");
+        catalog.save(Warehouse.create(destination, "DST", "Destination"));
+        catalog.save(StorageCell.create(destinationCell, destination, "D-01"));
+        stockPositions.create(
+                StockPosition.of(
+                        source, sourceCell, material, StockState.AVAILABLE, StockQuantity.of(15L)));
+
+        WarehouseOperation draft =
+                transfers.createDeferredDestinationDraft(
+                        new WarehouseTransferService.DeferredDestinationDraftRequest(
+                                material,
+                                StockQuantity.of(6L),
+                                source,
+                                sourceCell,
+                                destination));
+        WarehouseOperation sent = transfers.sendDraft(draft.id());
+        WarehouseOperation received = transfers.receiveFromSend(sent.id(), destinationCell);
+
+        assertEquals(WarehouseOperationType.TRANSFER_RECEIVE, received.type());
+        TransferOperationContext context =
+                transferContexts.findByOperationId(sent.id()).orElseThrow();
+        assertEquals(destinationCell, context.destinationStorageCellId());
+        assertEquals(received.id(), context.receiveOperationId());
+        assertEquals(
+                StockQuantity.of(6L),
+                stockPositions
+                        .findByNaturalKey(
+                                destination, destinationCell, material, StockState.AVAILABLE)
+                        .orElseThrow()
+                        .quantity());
+    }
+
+    @Test
+    void deferredReceiveRejectsWrongWarehouseCellWithoutMutation() {
+        WarehouseId source = WarehouseId.generate();
+        WarehouseId destination = WarehouseId.generate();
+        WarehouseId other = WarehouseId.generate();
+        StorageCellId sourceCell = StorageCellId.generate();
+        StorageCellId foreignCell = StorageCellId.generate();
+        MaterialReference material = MaterialReference.legacyArticle("DEF-WRONG");
+        catalog.save(Warehouse.create(destination, "DST", "Destination"));
+        catalog.save(Warehouse.create(other, "OTH", "Other"));
+        catalog.save(StorageCell.create(foreignCell, other, "X-01"));
+        stockPositions.create(
+                StockPosition.of(
+                        source, sourceCell, material, StockState.AVAILABLE, StockQuantity.of(12L)));
+
+        WarehouseOperation draft =
+                transfers.createDeferredDestinationDraft(
+                        new WarehouseTransferService.DeferredDestinationDraftRequest(
+                                material,
+                                StockQuantity.of(5L),
+                                source,
+                                sourceCell,
+                                destination));
+        WarehouseOperation sent = transfers.sendDraft(draft.id());
+        int movementsBefore = movements.all.size();
+
+        assertThrows(
+                InvalidWarehouseStateException.class,
+                () -> transfers.receiveFromSend(sent.id(), foreignCell));
+
+        TransferOperationContext context =
+                transferContexts.findByOperationId(sent.id()).orElseThrow();
+        assertFalse(context.isReceived());
+        assertFalse(context.hasDestinationStorageCell());
+        assertEquals(movementsBefore, movements.all.size());
+        assertEquals(
+                StockQuantity.of(5L),
+                stockPositions
+                        .findByNaturalKey(source, sourceCell, material, StockState.IN_TRANSIT)
+                        .orElseThrow()
+                        .quantity());
+    }
+
+    @Test
+    void deferredReceiveWithoutExplicitCellIsRejected() {
+        WarehouseId source = WarehouseId.generate();
+        WarehouseId destination = WarehouseId.generate();
+        StorageCellId sourceCell = StorageCellId.generate();
+        MaterialReference material = MaterialReference.legacyArticle("DEF-NOCELL");
+        stockPositions.create(
+                StockPosition.of(
+                        source, sourceCell, material, StockState.AVAILABLE, StockQuantity.of(9L)));
+
+        WarehouseOperation draft =
+                transfers.createDeferredDestinationDraft(
+                        new WarehouseTransferService.DeferredDestinationDraftRequest(
+                                material,
+                                StockQuantity.of(3L),
+                                source,
+                                sourceCell,
+                                destination));
+        WarehouseOperation sent = transfers.sendDraft(draft.id());
+
+        InvalidWarehouseStateException ex =
+                assertThrows(
+                        InvalidWarehouseStateException.class,
+                        () -> transfers.receiveFromSend(sent.id()));
+        assertTrue(ex.getMessage().contains("destination cell must be selected at receive"));
+        assertFalse(transferContexts.findByOperationId(sent.id()).orElseThrow().isReceived());
+    }
+
+    @Test
+    void explicitReceiveOnLegacyContextAllowsSameCellAndRejectsDifferent() {
+        WarehouseId source = WarehouseId.generate();
+        WarehouseId destination = WarehouseId.generate();
+        StorageCellId sourceCell = StorageCellId.generate();
+        StorageCellId destinationCell = StorageCellId.generate();
+        StorageCellId otherCell = StorageCellId.generate();
+        MaterialReference material = MaterialReference.legacyArticle("LEG-EXPL");
+        catalog.save(Warehouse.create(destination, "DST", "Destination"));
+        catalog.save(StorageCell.create(destinationCell, destination, "D-01"));
+        catalog.save(StorageCell.create(otherCell, destination, "D-02"));
+        stockPositions.create(
+                StockPosition.of(
+                        source, sourceCell, material, StockState.AVAILABLE, StockQuantity.of(10L)));
+
+        WarehouseOperation draft =
+                transfers.createDraft(
+                        new WarehouseTransferService.TransferDraftRequest(
+                                material,
+                                StockQuantity.of(4L),
+                                source,
+                                sourceCell,
+                                destination,
+                                destinationCell));
+        WarehouseOperation sent = transfers.sendDraft(draft.id());
+
+        assertThrows(
+                InvalidWarehouseStateException.class,
+                () -> transfers.receiveFromSend(sent.id(), otherCell));
+        assertFalse(transferContexts.findByOperationId(sent.id()).orElseThrow().isReceived());
+
+        WarehouseOperation received = transfers.receiveFromSend(sent.id(), destinationCell);
+        assertEquals(WarehouseOperationType.TRANSFER_RECEIVE, received.type());
+        assertEquals(
+                destinationCell,
+                transferContexts.findByOperationId(sent.id()).orElseThrow().destinationStorageCellId());
+    }
+
+    @Test
+    void deferredExactlyOnceReceiveIsPreserved() {
+        WarehouseId source = WarehouseId.generate();
+        WarehouseId destination = WarehouseId.generate();
+        StorageCellId sourceCell = StorageCellId.generate();
+        StorageCellId destinationCell = StorageCellId.generate();
+        MaterialReference material = MaterialReference.legacyArticle("DEF-ONCE");
+        catalog.save(Warehouse.create(destination, "DST", "Destination"));
+        catalog.save(StorageCell.create(destinationCell, destination, "D-01"));
+        stockPositions.create(
+                StockPosition.of(
+                        source, sourceCell, material, StockState.AVAILABLE, StockQuantity.of(10L)));
+
+        WarehouseOperation draft =
+                transfers.createDeferredDestinationDraft(
+                        new WarehouseTransferService.DeferredDestinationDraftRequest(
+                                material,
+                                StockQuantity.of(4L),
+                                source,
+                                sourceCell,
+                                destination));
+        WarehouseOperation sent = transfers.sendDraft(draft.id());
+        transfers.receiveFromSend(sent.id(), destinationCell);
+        int movementsAfter = movements.all.size();
+
+        assertThrows(
+                InvalidWarehouseStateException.class,
+                () -> transfers.receiveFromSend(sent.id(), destinationCell));
+        assertEquals(movementsAfter, movements.all.size());
     }
 
     private static final class PassthroughTransactionManager

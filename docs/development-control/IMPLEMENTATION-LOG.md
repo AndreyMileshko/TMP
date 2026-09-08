@@ -4,6 +4,33 @@
 
 ---
 
+## Stage 3.5.3 — Deferred Destination Cell at Receive — 2026-09-08
+
+**Date:** 2026-09-08
+**Stage:** UI Modernization Stage 3.5.3 (Deferred Destination Cell at Receive); outside Stages 0–9 numbered queue
+**Base checkpoint:** `89dcdc19d88f5d391a69d7b8ba703f0593222038`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.4 NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Evolved low-level Warehouse transfer so destination storage cell may be absent until receive (ADR-037). Added internal `createDeferredDestinationDraft` + `receiveFromSend(sendId, cellId)`; legacy draft/receive with preselected cell unchanged. Flyway V37 makes `destination_storage_cell_id` nullable. Exactly-once claim now persists actual destination cell atomically. Stage 3.5.2 correctives: stable Transfer Document title; real post-create payload rollback test. No Transfer Document POST, no multi-line send/receive, no UI, no Production migration.
+
+### Key changes
+
+- Flyway `V37__transfer_context_deferred_destination_cell.sql`
+- `TransferOperationContext` optional cell + `claimReceiveIfAbsent(..., actualCell)`
+- `WarehouseTransferService` deferred draft / explicit receive + catalogue membership validation
+- Query DTO null-safety; Transfer Document title `Перемещение материалов`
+- Targeted unit/IT/schema/Production compatibility tests; UI test stubs for Transfer Document API (compile)
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-08 Stage 3.5.3.
+
+---
+
 ## Stage 3.5.2 — Warehouse Transfer Document Foundation — 2026-09-08
 
 **Date:** 2026-09-08

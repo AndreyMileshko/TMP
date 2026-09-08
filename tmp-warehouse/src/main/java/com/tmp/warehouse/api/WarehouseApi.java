@@ -99,7 +99,7 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             java.util.Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
             java.util.Objects.requireNonNull(sourceStorageCellId, "sourceStorageCellId");
             java.util.Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
-            java.util.Objects.requireNonNull(destinationStorageCellId, "destinationStorageCellId");
+            // destinationStorageCellId may be null for deferred-destination drafts (Stage 3.5.3)
         }
     }
 

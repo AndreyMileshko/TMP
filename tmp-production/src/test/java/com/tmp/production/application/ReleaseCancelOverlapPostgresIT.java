@@ -195,8 +195,7 @@ class ReleaseCancelOverlapPostgresIT {
                                 new JdbcMaterialReservationLinkRepository(jdbc), CLOCK),
                         new WarehouseReceiptService(engine, stockPositions, materials),
                         new WarehouseMoveService(engine),
-                        new WarehouseTransferService(
-                                engine, operations, transferContexts, warehouseTx),
+                        new WarehouseTransferService(engine, operations, transferContexts, catalog, warehouseTx),
                         WarehouseTestDoubles.transferDocumentService(
                                 jdbc,
                                 CLOCK,

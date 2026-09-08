@@ -165,7 +165,8 @@ public final class WarehouseIntegrationTestSupport {
                                 new JdbcMaterialReservationLinkRepository(jdbc), clock),
                         new WarehouseReceiptService(engine, stockPositions, materials),
                         new WarehouseMoveService(engine),
-                        new WarehouseTransferService(engine, operations, transferContexts, tx),
+                        new WarehouseTransferService(
+                                engine, operations, transferContexts, catalog, tx),
                         transferDocumentService,
                         new WarehouseConsumptionService(engine, stockPositions),
                         new WarehouseAdjustmentService(engine, stockPositions),

@@ -255,6 +255,72 @@ class WarehouseTransferDocumentIntegrationTest {
     }
 
     @Test
+    void createRollsBackDocumentWhenPayloadInsertFailsAfterDocumentEngineCreate() {
+        WarehouseTransferDocumentService failingService =
+                new WarehouseTransferDocumentService(
+                        bundle.documentEngine(),
+                        new FailingInsertTransferDocumentRepository(bundle.transferDocuments()),
+                        bundle.catalog(),
+                        bundle.materials(),
+                        new DefaultWarehouseResponsibilityGuard(
+                                authenticationFromSession(),
+                                new com.tmp.warehouse.persistence
+                                        .JdbcWarehouseUserResponsibilityRepository(jdbc, CLOCK)),
+                        new org.springframework.transaction.support.TransactionTemplate(
+                                new org.springframework.jdbc.datasource.DataSourceTransactionManager(
+                                        dataSource)));
+
+        assertThrows(
+                RuntimeException.class,
+                () ->
+                        failingService.create(
+                                new WarehouseTransferDocumentService.CreateCommand(
+                                        sourceWarehouseId,
+                                        destinationWarehouseId,
+                                        List.of(
+                                                new WarehouseTransferDocumentService.LineInput(
+                                                        null, materialA, BigDecimal.ONE, 1)))));
+
+        Integer docs =
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM documents.documents WHERE document_type_id = ?",
+                        Integer.class,
+                        WarehouseTransferDocumentProcessor.DOCUMENT_TYPE_ID);
+        assertEquals(0, docs);
+        Integer payloads =
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM warehouse.transfer_document_payload", Integer.class);
+        assertEquals(0, payloads);
+    }
+
+    @Test
+    void documentTitleIsStableWhenDraftRouteChanges() {
+        TransferDocumentView created =
+                api.createTransferDocument(
+                        new CreateTransferDocumentCommand(
+                                sourceWarehouseId, destinationWarehouseId, List.of()));
+        assertEquals("Перемещение материалов", created.title());
+        assertFalse(created.title().contains("SRC"));
+        assertFalse(created.title().contains("DST"));
+
+        var other = api.createWarehouse(new CreateWarehouseCommand("ALT", "Alternate", true));
+        api.assignUserToWarehouse(other.warehouseId(), userSource);
+        TransferDocumentView updated =
+                api.updateTransferDocument(
+                        new UpdateTransferDocumentCommand(
+                                created.documentId(),
+                                0L,
+                                other.warehouseId(),
+                                destinationWarehouseId,
+                                List.of()));
+        assertEquals("Перемещение материалов", updated.title());
+        assertEquals(other.warehouseId(), updated.sourceWarehouseId());
+        assertEquals(
+                "Перемещение материалов",
+                bundle.documentEngine().findById(created.documentId()).orElseThrow().title());
+    }
+
+    @Test
     void staleUpdateRejectedAndWinnerPreserved() {
         TransferDocumentView created =
                 api.createTransferDocument(
@@ -498,5 +564,49 @@ class WarehouseTransferDocumentIntegrationTest {
                 return permissions.get();
             }
         };
+    }
+
+    /**
+     * Test-only decorator: fails the first {@link #insert} after Document Engine create so the
+     * surrounding transaction must roll back.
+     */
+    private static final class FailingInsertTransferDocumentRepository
+            implements com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository {
+
+        private final com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository
+                delegate;
+
+        private FailingInsertTransferDocumentRepository(
+                com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void insert(com.tmp.warehouse.domain.WarehouseTransferDocument document) {
+            throw new RuntimeException("forced payload insert failure after document create");
+        }
+
+        @Override
+        public java.util.Optional<com.tmp.warehouse.domain.WarehouseTransferDocument>
+                findByDocumentId(UUID documentId) {
+            return delegate.findByDocumentId(documentId);
+        }
+
+        @Override
+        public void update(
+                com.tmp.warehouse.domain.WarehouseTransferDocument document,
+                long expectedPayloadRevision) {
+            delegate.update(document, expectedPayloadRevision);
+        }
+
+        @Override
+        public void deleteByDocumentId(UUID documentId) {
+            delegate.deleteByDocumentId(documentId);
+        }
+
+        @Override
+        public boolean existsByDocumentId(UUID documentId) {
+            return delegate.existsByDocumentId(documentId);
+        }
     }
 }

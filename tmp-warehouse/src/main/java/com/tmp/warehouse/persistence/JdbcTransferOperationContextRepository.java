@@ -41,7 +41,7 @@ public final class JdbcTransferOperationContextRepository
                 """,
                 context.operationId().value(),
                 context.destinationWarehouseId().value(),
-                context.destinationStorageCellId().value(),
+                context.destinationStorageCellIdOptional().map(StorageCellId::value).orElse(null),
                 context.receiveOperationId() == null ? null : context.receiveOperationId().value());
     }
 
@@ -68,19 +68,29 @@ public final class JdbcTransferOperationContextRepository
 
     @Override
     public boolean claimReceiveIfAbsent(
-            WarehouseOperationId sendOperationId, WarehouseOperationId receiveOperationId) {
+            WarehouseOperationId sendOperationId,
+            WarehouseOperationId receiveOperationId,
+            StorageCellId actualDestinationCellId) {
         Objects.requireNonNull(sendOperationId, "sendOperationId");
         Objects.requireNonNull(receiveOperationId, "receiveOperationId");
+        Objects.requireNonNull(actualDestinationCellId, "actualDestinationCellId");
         int updated =
                 jdbcTemplate.update(
                         """
                         UPDATE warehouse.transfer_operation_context
-                        SET receive_operation_id = ?
+                        SET receive_operation_id = ?,
+                            destination_storage_cell_id = COALESCE(destination_storage_cell_id, ?)
                         WHERE operation_id = ?
                           AND receive_operation_id IS NULL
+                          AND (
+                            destination_storage_cell_id IS NULL
+                            OR destination_storage_cell_id = ?
+                          )
                         """,
                         receiveOperationId.value(),
-                        sendOperationId.value());
+                        actualDestinationCellId.value(),
+                        sendOperationId.value(),
+                        actualDestinationCellId.value());
         return updated == 1;
     }
 
@@ -95,10 +105,11 @@ public final class JdbcTransferOperationContextRepository
 
     private static TransferOperationContext mapContext(ResultSet rs) throws SQLException {
         UUID receiveId = rs.getObject("receive_operation_id", UUID.class);
+        UUID destinationCellId = rs.getObject("destination_storage_cell_id", UUID.class);
         return new TransferOperationContext(
                 WarehouseOperationId.of(rs.getObject("operation_id", UUID.class)),
                 WarehouseId.of(rs.getObject("destination_warehouse_id", UUID.class)),
-                StorageCellId.of(rs.getObject("destination_storage_cell_id", UUID.class)),
+                destinationCellId == null ? null : StorageCellId.of(destinationCellId),
                 receiveId == null ? null : WarehouseOperationId.of(receiveId));
     }
 }

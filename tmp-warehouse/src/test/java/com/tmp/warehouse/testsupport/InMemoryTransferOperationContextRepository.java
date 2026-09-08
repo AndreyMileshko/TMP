@@ -1,10 +1,12 @@
 package com.tmp.warehouse.testsupport;
 
+import com.tmp.warehouse.domain.StorageCellId;
 import com.tmp.warehouse.domain.TransferOperationContext;
 import com.tmp.warehouse.domain.WarehouseOperationId;
 import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 public final class InMemoryTransferOperationContextRepository
@@ -39,12 +41,21 @@ public final class InMemoryTransferOperationContextRepository
 
     @Override
     public synchronized boolean claimReceiveIfAbsent(
-            WarehouseOperationId sendOperationId, WarehouseOperationId receiveOperationId) {
+            WarehouseOperationId sendOperationId,
+            WarehouseOperationId receiveOperationId,
+            StorageCellId actualDestinationCellId) {
+        Objects.requireNonNull(actualDestinationCellId, "actualDestinationCellId");
         TransferOperationContext current = store.get(sendOperationId);
         if (current == null || current.isReceived()) {
             return false;
         }
-        store.put(sendOperationId, current.withReceiveOperationId(receiveOperationId));
+        if (current.hasDestinationStorageCell()
+                && !actualDestinationCellId.equals(current.destinationStorageCellId())) {
+            return false;
+        }
+        store.put(
+                sendOperationId,
+                current.withReceiveClaim(receiveOperationId, actualDestinationCellId));
         return true;
     }
 }
