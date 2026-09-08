@@ -317,6 +317,8 @@ class WarehouseTransferDocumentSendIntegrationTest {
 
         assertEquals(DocumentStatus.POSTED.name(), sent.documentStatus());
         assertEquals(3, sent.sendOperationIds().size());
+        assertEquals(created.payloadRevision(), sent.payloadRevision());
+        assertEquals(null, sent.continuationDocumentId());
         assertEquals(
                 DocumentStatus.POSTED,
                 bundle.documentEngine().findById(created.documentId()).orElseThrow().status());
@@ -422,9 +424,7 @@ class WarehouseTransferDocumentSendIntegrationTest {
                                         created.documentId(),
                                         documentVersion(created.documentId()),
                                         created.payloadRevision(),
-                                        List.of(
-                                                new TransferDocumentSourceAllocationInput(
-                                                        lineA, cellA1, new BigDecimal("20"))))));
+                                        List.of())));
 
         assertThrows(
                 InvalidWarehouseStateException.class,

@@ -702,7 +702,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 result.documentStatus(),
                 result.documentVersion(),
                 result.payloadRevision(),
-                result.sendOperationIds());
+                result.sendOperationIds(),
+                result.continuationDocumentId());
     }
 
     @Override
@@ -789,7 +790,9 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 payload.destinationWarehouseId().value(),
                 payload.payloadSchemaVersion(),
                 payload.payloadRevision(),
-                lineViews);
+                lineViews,
+                payload.continuationOfDocumentId().orElse(null),
+                payload.continuationReason().map(Enum::name).orElse(null));
     }
 
     private AvailabilityResult availabilityForMaterial(

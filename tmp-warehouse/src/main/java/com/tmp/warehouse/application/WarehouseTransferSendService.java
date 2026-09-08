@@ -9,6 +9,7 @@ import com.tmp.warehouse.domain.StorageCellId;
 import com.tmp.warehouse.domain.TransferDocumentOptimisticLockException;
 import com.tmp.warehouse.domain.TransferDocumentSendAllocation;
 import com.tmp.warehouse.domain.WarehouseTransferDocument;
+import com.tmp.warehouse.domain.WarehouseTransferLine;
 import com.tmp.warehouse.domain.WarehouseTransferLineId;
 import com.tmp.warehouse.domain.repository.TransferDocumentSendAllocationRepository;
 import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
@@ -25,10 +26,14 @@ import java.util.UUID;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Application orchestrator for atomic physical SEND of a Warehouse Transfer Document (Stage 3.5.6).
+ * Application orchestrator for atomic physical SEND of a Warehouse Transfer Document (Stage 3.5.6
+ * / 3.5.7).
  *
- * <p>Persists send allocations then calls {@link DocumentEngine#postDocument(UUID)}; the processor
- * performs physical {@code transferSend} + deferred contexts inside the same local transaction.
+ * <p>Full send: stage allocations → POST → clear task (payload unchanged).
+ *
+ * <p>Shortfall: shrink DRAFT payload to actual sent quantities → create continuation DRAFT for
+ * remainder → stage allocations against retained original line IDs → POST adjusted original → clear
+ * original task. Processor still requires exact coverage of the posted payload.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -37,6 +42,7 @@ public final class WarehouseTransferSendService {
 
     private final DocumentEngine documentEngine;
     private final WarehouseTransferDocumentRepository transferDocuments;
+    private final WarehouseTransferDocumentService transferDocumentService;
     private final TransferDocumentSendAllocationRepository sendAllocations;
     private final TransferTaskStateRepository taskStates;
     private final WarehouseCatalogRepository catalog;
@@ -47,6 +53,7 @@ public final class WarehouseTransferSendService {
     public WarehouseTransferSendService(
             DocumentEngine documentEngine,
             WarehouseTransferDocumentRepository transferDocuments,
+            WarehouseTransferDocumentService transferDocumentService,
             TransferDocumentSendAllocationRepository sendAllocations,
             TransferTaskStateRepository taskStates,
             WarehouseCatalogRepository catalog,
@@ -55,6 +62,8 @@ public final class WarehouseTransferSendService {
             Clock clock) {
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
         this.transferDocuments = Objects.requireNonNull(transferDocuments, "transferDocuments");
+        this.transferDocumentService =
+                Objects.requireNonNull(transferDocumentService, "transferDocumentService");
         this.sendAllocations = Objects.requireNonNull(sendAllocations, "sendAllocations");
         this.taskStates = Objects.requireNonNull(taskStates, "taskStates");
         this.catalog = Objects.requireNonNull(catalog, "catalog");
@@ -120,11 +129,21 @@ public final class WarehouseTransferSendService {
 
                             List<TransferDocumentSendAllocationValidator.AllocationInput> inputs =
                                     mapInputs(command.allocations());
-                            TransferDocumentSendAllocationValidator.requireCompleteCoverage(
-                                    payload, inputs);
+                            TransferDocumentSendAllocationValidator.SendSupplyAnalysis supply =
+                                    TransferDocumentSendAllocationValidator.analyzeSendSupply(
+                                            payload, inputs);
                             TransferDocumentSendAllocationValidator
                                     .requireSourceCellsBelongToSourceWarehouse(
                                             payload.sourceWarehouseId(), inputs, catalog);
+
+                            WarehouseTransferDocument payloadForPost = payload;
+                            UUID continuationDocumentId = null;
+                            if (!supply.fullSend()) {
+                                ShortfallPreparation prepared =
+                                        prepareShortfall(payload, supply, command);
+                                payloadForPost = prepared.adjustedPayload();
+                                continuationDocumentId = prepared.continuationDocumentId();
+                            }
 
                             Instant now = clock.instant();
                             List<TransferDocumentSendAllocation> rows =
@@ -163,13 +182,76 @@ public final class WarehouseTransferSendService {
                                     posted.id(),
                                     posted.status().name(),
                                     posted.version(),
-                                    payload.payloadRevision(),
-                                    sendOperationIds);
+                                    payloadForPost.payloadRevision(),
+                                    sendOperationIds,
+                                    continuationDocumentId);
                         });
         if (result == null) {
             throw new IllegalStateException("Transfer document send returned null");
         }
         return result;
+    }
+
+    private ShortfallPreparation prepareShortfall(
+            WarehouseTransferDocument original,
+            TransferDocumentSendAllocationValidator.SendSupplyAnalysis supply,
+            SendCommand command) {
+        List<WarehouseTransferLine> actualSentLines = new ArrayList<>();
+        List<WarehouseTransferLine> remainderLines = new ArrayList<>();
+        for (WarehouseTransferLine line : original.orderedLines()) {
+            UUID lineId = line.id().value();
+            BigDecimal sent = supply.sentByLine().getOrDefault(lineId, BigDecimal.ZERO);
+            BigDecimal remaining =
+                    supply.remainderByLine().getOrDefault(lineId, BigDecimal.ZERO);
+            if (sent.signum() > 0) {
+                actualSentLines.add(
+                        WarehouseTransferLine.of(
+                                line.id(),
+                                line.materialReferenceId(),
+                                StockQuantity.of(sent),
+                                line.lineOrder()));
+            }
+            if (remaining.signum() > 0) {
+                // Preserve original relative lineOrder (gaps allowed by domain uniqueness).
+                remainderLines.add(
+                        WarehouseTransferLine.of(
+                                WarehouseTransferLineId.generate(),
+                                line.materialReferenceId(),
+                                StockQuantity.of(remaining),
+                                line.lineOrder()));
+            }
+        }
+        if (actualSentLines.isEmpty() || remainderLines.isEmpty()) {
+            throw new IllegalStateException(
+                    "Shortfall preparation requires both sent and remainder lines: documentId="
+                            + command.documentId());
+        }
+
+        long expectedRevision = original.payloadRevision();
+        WarehouseTransferDocument adjusted =
+                original.withContent(
+                        original.sourceWarehouseId(),
+                        original.destinationWarehouseId(),
+                        actualSentLines,
+                        expectedRevision);
+        transferDocuments.update(adjusted, expectedRevision);
+
+        WarehouseTransferDocumentService.CreatedTransferDocument continuation =
+                transferDocumentService.createShortfallContinuation(
+                        original.documentId(),
+                        original.sourceWarehouseId(),
+                        original.destinationWarehouseId(),
+                        remainderLines);
+
+        WarehouseTransferDocument persisted =
+                transferDocuments
+                        .findByDocumentId(command.documentId())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "Transfer document missing after shortfall shrink: "
+                                                        + command.documentId()));
+        return new ShortfallPreparation(persisted, continuation.metadata().id());
     }
 
     private static List<TransferDocumentSendAllocationValidator.AllocationInput> mapInputs(
@@ -186,6 +268,9 @@ public final class WarehouseTransferSendService {
         }
         return inputs;
     }
+
+    private record ShortfallPreparation(
+            WarehouseTransferDocument adjustedPayload, UUID continuationDocumentId) {}
 
     public record SourceAllocationInput(
             UUID lineId, UUID sourceStorageCellId, BigDecimal quantity) {
@@ -212,7 +297,8 @@ public final class WarehouseTransferSendService {
             String documentStatus,
             long documentVersion,
             long payloadRevision,
-            List<UUID> sendOperationIds) {
+            List<UUID> sendOperationIds,
+            UUID continuationDocumentId) {
         public SendResult {
             Objects.requireNonNull(documentId, "documentId");
             Objects.requireNonNull(documentStatus, "documentStatus");

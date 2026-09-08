@@ -177,6 +177,7 @@ public final class WarehouseIntegrationTestSupport {
                 new WarehouseTransferSendService(
                         documentEngine,
                         transferDocumentRepository,
+                        transferDocumentService,
                         sendAllocations,
                         taskStates,
                         catalog,

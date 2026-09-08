@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -12,6 +13,9 @@ import java.util.UUID;
  *
  * <p>Keyed by Document Engine {@code DocumentId}. Editability is gated by Document Engine DRAFT
  * status (not duplicated here). {@code payloadRevision} is the payload optimistic lock.
+ *
+ * <p>Optional continuation lineage (Stage 3.5.7) is immutable once set: ordinary DRAFT content
+ * updates must preserve it.
  */
 public final class WarehouseTransferDocument {
 
@@ -23,6 +27,8 @@ public final class WarehouseTransferDocument {
     private final int payloadSchemaVersion;
     private final long payloadRevision;
     private final List<WarehouseTransferLine> lines;
+    private final UUID continuationOfDocumentId;
+    private final TransferContinuationReason continuationReason;
 
     private WarehouseTransferDocument(
             UUID documentId,
@@ -30,13 +36,17 @@ public final class WarehouseTransferDocument {
             WarehouseId destinationWarehouseId,
             int payloadSchemaVersion,
             long payloadRevision,
-            List<WarehouseTransferLine> lines) {
+            List<WarehouseTransferLine> lines,
+            UUID continuationOfDocumentId,
+            TransferContinuationReason continuationReason) {
         this.documentId = documentId;
         this.sourceWarehouseId = sourceWarehouseId;
         this.destinationWarehouseId = destinationWarehouseId;
         this.payloadSchemaVersion = payloadSchemaVersion;
         this.payloadRevision = payloadRevision;
         this.lines = List.copyOf(lines);
+        this.continuationOfDocumentId = continuationOfDocumentId;
+        this.continuationReason = continuationReason;
     }
 
     public static WarehouseTransferDocument create(
@@ -44,7 +54,39 @@ public final class WarehouseTransferDocument {
             WarehouseId sourceWarehouseId,
             WarehouseId destinationWarehouseId,
             List<WarehouseTransferLine> lines) {
-        return of(documentId, sourceWarehouseId, destinationWarehouseId, SCHEMA_VERSION, 0L, lines);
+        return of(
+                documentId,
+                sourceWarehouseId,
+                destinationWarehouseId,
+                SCHEMA_VERSION,
+                0L,
+                lines,
+                null,
+                null);
+    }
+
+    /**
+     * Creates a shortfall continuation payload for a newly created Document Engine DRAFT. Lineage
+     * is set once and must not be forgeable via ordinary create/update commands.
+     */
+    public static WarehouseTransferDocument createContinuation(
+            UUID documentId,
+            UUID continuationOfDocumentId,
+            TransferContinuationReason continuationReason,
+            WarehouseId sourceWarehouseId,
+            WarehouseId destinationWarehouseId,
+            List<WarehouseTransferLine> lines) {
+        Objects.requireNonNull(continuationOfDocumentId, "continuationOfDocumentId");
+        Objects.requireNonNull(continuationReason, "continuationReason");
+        return of(
+                documentId,
+                sourceWarehouseId,
+                destinationWarehouseId,
+                SCHEMA_VERSION,
+                0L,
+                lines,
+                continuationOfDocumentId,
+                continuationReason);
     }
 
     public static WarehouseTransferDocument of(
@@ -54,6 +96,26 @@ public final class WarehouseTransferDocument {
             int payloadSchemaVersion,
             long payloadRevision,
             List<WarehouseTransferLine> lines) {
+        return of(
+                documentId,
+                sourceWarehouseId,
+                destinationWarehouseId,
+                payloadSchemaVersion,
+                payloadRevision,
+                lines,
+                null,
+                null);
+    }
+
+    public static WarehouseTransferDocument of(
+            UUID documentId,
+            WarehouseId sourceWarehouseId,
+            WarehouseId destinationWarehouseId,
+            int payloadSchemaVersion,
+            long payloadRevision,
+            List<WarehouseTransferLine> lines,
+            UUID continuationOfDocumentId,
+            TransferContinuationReason continuationReason) {
         Objects.requireNonNull(documentId, "documentId");
         Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
         Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
@@ -71,6 +133,11 @@ public final class WarehouseTransferDocument {
             throw new IllegalArgumentException(
                     "payloadRevision must not be negative: " + payloadRevision);
         }
+        validateLineagePair(continuationOfDocumentId, continuationReason);
+        if (continuationOfDocumentId != null && continuationOfDocumentId.equals(documentId)) {
+            throw new InvalidWarehouseStateException(
+                    "Transfer continuation cannot reference itself: documentId=" + documentId);
+        }
         validateLines(lines);
         return new WarehouseTransferDocument(
                 documentId,
@@ -78,9 +145,15 @@ public final class WarehouseTransferDocument {
                 destinationWarehouseId,
                 payloadSchemaVersion,
                 payloadRevision,
-                lines);
+                lines,
+                continuationOfDocumentId,
+                continuationReason);
     }
 
+    /**
+     * Replaces warehouses and lines while preserving immutable continuation lineage and bumping
+     * {@code payloadRevision}.
+     */
     public WarehouseTransferDocument withContent(
             WarehouseId newSourceWarehouseId,
             WarehouseId newDestinationWarehouseId,
@@ -96,7 +169,20 @@ public final class WarehouseTransferDocument {
                 newDestinationWarehouseId,
                 payloadSchemaVersion,
                 payloadRevision + 1,
-                newLines);
+                newLines,
+                continuationOfDocumentId,
+                continuationReason);
+    }
+
+    private static void validateLineagePair(
+            UUID continuationOfDocumentId, TransferContinuationReason continuationReason) {
+        boolean hasParent = continuationOfDocumentId != null;
+        boolean hasReason = continuationReason != null;
+        if (hasParent != hasReason) {
+            throw new InvalidWarehouseStateException(
+                    "Transfer continuation lineage requires both parent document id and reason,"
+                            + " or neither");
+        }
     }
 
     private static void validateLines(List<WarehouseTransferLine> lines) {
@@ -116,7 +202,7 @@ public final class WarehouseTransferDocument {
         }
     }
 
-    /** Returns lines sorted by {@code lineOrder}. */
+    /** Returns lines sorted by {@code lineOrder}. Gaps in order are allowed. */
     public List<WarehouseTransferLine> orderedLines() {
         List<WarehouseTransferLine> sorted = new ArrayList<>(lines);
         sorted.sort((a, b) -> Integer.compare(a.lineOrder(), b.lineOrder()));
@@ -145,6 +231,14 @@ public final class WarehouseTransferDocument {
 
     public List<WarehouseTransferLine> lines() {
         return lines;
+    }
+
+    public Optional<UUID> continuationOfDocumentId() {
+        return Optional.ofNullable(continuationOfDocumentId);
+    }
+
+    public Optional<TransferContinuationReason> continuationReason() {
+        return Optional.ofNullable(continuationReason);
     }
 
     @Override

@@ -135,4 +135,50 @@ class WarehouseTransferDocumentTest {
                         List.of());
         assertTrue(document.lines().isEmpty());
     }
+
+    @Test
+    void withContentPreservesContinuationLineage() {
+        UUID parent = UUID.randomUUID();
+        WarehouseTransferLine line =
+                WarehouseTransferLine.of(
+                        WarehouseTransferLineId.generate(),
+                        MaterialReferenceId.generate(),
+                        StockQuantity.of(BigDecimal.TEN),
+                        1);
+        WarehouseTransferDocument continuation =
+                WarehouseTransferDocument.createContinuation(
+                        UUID.randomUUID(),
+                        parent,
+                        TransferContinuationReason.SHORTFALL,
+                        WarehouseId.generate(),
+                        WarehouseId.generate(),
+                        List.of(line));
+        WarehouseTransferDocument updated =
+                continuation.withContent(
+                        continuation.sourceWarehouseId(),
+                        continuation.destinationWarehouseId(),
+                        List.of(line),
+                        0L);
+        assertEquals(1L, updated.payloadRevision());
+        assertEquals(parent, updated.continuationOfDocumentId().orElseThrow());
+        assertEquals(
+                TransferContinuationReason.SHORTFALL,
+                updated.continuationReason().orElseThrow());
+    }
+
+    @Test
+    void rejectsPartialLineagePair() {
+        assertThrows(
+                InvalidWarehouseStateException.class,
+                () ->
+                        WarehouseTransferDocument.of(
+                                UUID.randomUUID(),
+                                WarehouseId.generate(),
+                                WarehouseId.generate(),
+                                1,
+                                0L,
+                                List.of(),
+                                UUID.randomUUID(),
+                                null));
+    }
 }

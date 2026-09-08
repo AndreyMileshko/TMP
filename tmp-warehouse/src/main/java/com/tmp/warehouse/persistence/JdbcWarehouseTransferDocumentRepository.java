@@ -2,6 +2,7 @@ package com.tmp.warehouse.persistence;
 
 import com.tmp.warehouse.domain.MaterialReferenceId;
 import com.tmp.warehouse.domain.StockQuantity;
+import com.tmp.warehouse.domain.TransferContinuationReason;
 import com.tmp.warehouse.domain.TransferDocumentOptimisticLockException;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseTransferDocument;
@@ -9,7 +10,6 @@ import com.tmp.warehouse.domain.WarehouseTransferLine;
 import com.tmp.warehouse.domain.WarehouseTransferLineId;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -50,14 +50,18 @@ public final class JdbcWarehouseTransferDocumentRepository
                 """
                 INSERT INTO warehouse.transfer_document_payload (
                     document_id, source_warehouse_id, destination_warehouse_id,
-                    payload_schema_version, payload_revision, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    payload_schema_version, payload_revision,
+                    continuation_of_document_id, continuation_reason,
+                    created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 document.documentId(),
                 document.sourceWarehouseId().value(),
                 document.destinationWarehouseId().value(),
                 document.payloadSchemaVersion(),
                 document.payloadRevision(),
+                document.continuationOfDocumentId().orElse(null),
+                document.continuationReason().map(Enum::name).orElse(null),
                 Timestamp.from(now),
                 Timestamp.from(now));
         insertLines(document);
@@ -76,18 +80,13 @@ public final class JdbcWarehouseTransferDocumentRepository
                 jdbc.query(
                         """
                         SELECT document_id, source_warehouse_id, destination_warehouse_id,
-                               payload_schema_version, payload_revision
+                               payload_schema_version, payload_revision,
+                               continuation_of_document_id, continuation_reason
                           FROM warehouse.transfer_document_payload
                          WHERE document_id = ?
                          FOR UPDATE
                         """,
-                        (rs, rowNum) ->
-                                new HeaderRow(
-                                        (UUID) rs.getObject("document_id"),
-                                        (UUID) rs.getObject("source_warehouse_id"),
-                                        (UUID) rs.getObject("destination_warehouse_id"),
-                                        rs.getInt("payload_schema_version"),
-                                        rs.getLong("payload_revision")),
+                        (rs, rowNum) -> mapHeader(rs),
                         documentId);
         if (headers.isEmpty()) {
             return Optional.empty();
@@ -96,14 +95,7 @@ public final class JdbcWarehouseTransferDocumentRepository
         List<WarehouseTransferLine> lines =
                 loadLinesForDocuments(List.of(documentId))
                         .getOrDefault(documentId, List.of());
-        return Optional.of(
-                WarehouseTransferDocument.of(
-                        header.documentId(),
-                        WarehouseId.of(header.sourceWarehouseId()),
-                        WarehouseId.of(header.destinationWarehouseId()),
-                        header.payloadSchemaVersion(),
-                        header.payloadRevision(),
-                        lines));
+        return Optional.of(toDocument(header, lines));
     }
 
     @Override
@@ -118,18 +110,13 @@ public final class JdbcWarehouseTransferDocumentRepository
                 jdbc.query(
                         """
                         SELECT document_id, source_warehouse_id, destination_warehouse_id,
-                               payload_schema_version, payload_revision
+                               payload_schema_version, payload_revision,
+                               continuation_of_document_id, continuation_reason
                           FROM warehouse.transfer_document_payload
                          WHERE document_id IN (%s)
                         """
                                 .formatted(placeholders),
-                        (rs, rowNum) ->
-                                new HeaderRow(
-                                        (UUID) rs.getObject("document_id"),
-                                        (UUID) rs.getObject("source_warehouse_id"),
-                                        (UUID) rs.getObject("destination_warehouse_id"),
-                                        rs.getInt("payload_schema_version"),
-                                        rs.getLong("payload_revision")),
+                        (rs, rowNum) -> mapHeader(rs),
                         ids.toArray());
         if (headers.isEmpty()) {
             return Map.of();
@@ -139,15 +126,7 @@ public final class JdbcWarehouseTransferDocumentRepository
         for (HeaderRow header : headers) {
             List<WarehouseTransferLine> lines =
                     linesByDocument.getOrDefault(header.documentId(), List.of());
-            result.put(
-                    header.documentId(),
-                    WarehouseTransferDocument.of(
-                            header.documentId(),
-                            WarehouseId.of(header.sourceWarehouseId()),
-                            WarehouseId.of(header.destinationWarehouseId()),
-                            header.payloadSchemaVersion(),
-                            header.payloadRevision(),
-                            lines));
+            result.put(header.documentId(), toDocument(header, lines));
         }
         return Map.copyOf(result);
     }
@@ -156,6 +135,8 @@ public final class JdbcWarehouseTransferDocumentRepository
     public void update(WarehouseTransferDocument document, long expectedPayloadRevision) {
         Objects.requireNonNull(document, "document");
         Instant now = clock.instant();
+        // Lineage columns are intentionally omitted from SET — ordinary DRAFT updates must
+        // preserve immutable continuation metadata (Stage 3.5.7).
         int updated =
                 jdbc.update(
                         """
@@ -267,6 +248,35 @@ public final class JdbcWarehouseTransferDocumentRepository
                                         Collectors.toCollection(ArrayList::new))));
     }
 
+    private static HeaderRow mapHeader(java.sql.ResultSet rs) throws java.sql.SQLException {
+        String reasonRaw = rs.getString("continuation_reason");
+        TransferContinuationReason reason =
+                reasonRaw == null || reasonRaw.isBlank()
+                        ? null
+                        : TransferContinuationReason.parse(reasonRaw);
+        return new HeaderRow(
+                (UUID) rs.getObject("document_id"),
+                (UUID) rs.getObject("source_warehouse_id"),
+                (UUID) rs.getObject("destination_warehouse_id"),
+                rs.getInt("payload_schema_version"),
+                rs.getLong("payload_revision"),
+                (UUID) rs.getObject("continuation_of_document_id"),
+                reason);
+    }
+
+    private static WarehouseTransferDocument toDocument(
+            HeaderRow header, List<WarehouseTransferLine> lines) {
+        return WarehouseTransferDocument.of(
+                header.documentId(),
+                WarehouseId.of(header.sourceWarehouseId()),
+                WarehouseId.of(header.destinationWarehouseId()),
+                header.payloadSchemaVersion(),
+                header.payloadRevision(),
+                lines,
+                header.continuationOfDocumentId(),
+                header.continuationReason());
+    }
+
     private record LineRow(UUID documentId, WarehouseTransferLine line) {}
 
     private record HeaderRow(
@@ -274,5 +284,7 @@ public final class JdbcWarehouseTransferDocumentRepository
             UUID sourceWarehouseId,
             UUID destinationWarehouseId,
             int payloadSchemaVersion,
-            long payloadRevision) {}
+            long payloadRevision,
+            UUID continuationOfDocumentId,
+            TransferContinuationReason continuationReason) {}
 }

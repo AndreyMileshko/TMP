@@ -4,6 +4,34 @@
 
 ---
 
+## Stage 3.5.7 — Shortfall / Automatic Continuation Transfer — 2026-09-08
+
+**Date:** 2026-09-08
+**Stage:** UI Modernization Stage 3.5.7 (Warehouse Transfer Document shortfall / continuation); outside Stages 0–9 numbered queue
+**Base checkpoint:** `f0bc77cbc2db38d6f9fa4aeae63a743743adf56c`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.8 NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Extended Transfer Document physical SEND to allow under-supply without dual quantity fields. On shortfall the orchestrator shrinks the DRAFT original payload to actual sent quantities (preserving sent line IDs), creates one SHORTFALL continuation DRAFT for remainder (same source/destination, new line IDs, immediate-parent lineage), then POSTs the adjusted original. Processor exact-coverage invariant unchanged. Full send path unchanged. Continuation is the operational notification (NEW inbox task).
+
+### Key changes
+
+- Flyway `V40__transfer_document_continuation_lineage.sql` (pair CHECK; warehouse-internal self-FK)
+- `TransferContinuationReason.SHORTFALL`; immutable lineage on `WarehouseTransferDocument`
+- `TransferDocumentSendAllocationValidator.analyzeSendSupply` (0≤sent≤requested; reject all-zero/over)
+- `WarehouseTransferSendService` shortfall path + `createShortfallContinuation` internal API
+- Public DTO additives: send `continuationDocumentId`; view/task lineage fields
+- Integration coverage: 100→98→2, multi-line, multi-cell, full-send regression, rollback, concurrency, V40
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-08 Stage 3.5.7.
+
+---
+
 ## Stage 3.5.6 — Physical Multi-Line Send — 2026-09-08
 
 **Date:** 2026-09-08

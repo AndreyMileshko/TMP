@@ -265,7 +265,9 @@ public final class WarehouseOperationalInboxService {
                 payload.orderedLines().size(),
                 assignment == null ? null : assignment.workingUserId(),
                 assignment == null ? null : assignment.workingSince(),
-                metadata.createdAt());
+                metadata.createdAt(),
+                payload.continuationOfDocumentId().orElse(null),
+                payload.continuationReason().map(Enum::name).orElse(null));
     }
 
     private static int taskStateRank(WarehouseTaskState state) {

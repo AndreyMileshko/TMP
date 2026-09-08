@@ -168,7 +168,9 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             UUID destinationWarehouseId,
             int payloadSchemaVersion,
             long payloadRevision,
-            List<TransferDocumentLineView> lines) {
+            List<TransferDocumentLineView> lines,
+            UUID continuationOfDocumentId,
+            String continuationReason) {
 
         public TransferDocumentView {
             java.util.Objects.requireNonNull(documentId, "documentId");
@@ -215,7 +217,8 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             String documentStatus,
             long documentVersion,
             long payloadRevision,
-            List<UUID> sendOperationIds) {
+            List<UUID> sendOperationIds,
+            UUID continuationDocumentId) {
 
         public TransferDocumentSendResult {
             java.util.Objects.requireNonNull(documentId, "documentId");
@@ -254,7 +257,9 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             int lineCount,
             UUID workingUserId,
             java.time.Instant workingSince,
-            java.time.Instant createdAt) {
+            java.time.Instant createdAt,
+            UUID continuationOfDocumentId,
+            String continuationReason) {
 
         public WarehouseTaskView {
             java.util.Objects.requireNonNull(documentId, "documentId");

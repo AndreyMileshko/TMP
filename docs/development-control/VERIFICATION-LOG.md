@@ -3,8 +3,29 @@
 ## Latest result
 
 **Date:** 2026-09-08
-**Scope:** Stage 3.5.6 Physical Multi-Line Send
-**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); multi-line physical send INTEGRATION TEST VERIFIED; no new GUI
+**Scope:** Stage 3.5.7 Shortfall / Automatic Continuation Transfer
+**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); shortfall workflow INTEGRATION TEST VERIFIED; no new GUI
+
+### Stage 3.5.7 Shortfall / Continuation (2026-09-08)
+
+| Check | Result |
+|-------|--------|
+| HEAD vs expected base `f0bc77cb…` | PASS (match at start) |
+| Flyway V40 continuation lineage + pair CHECK + self-FK | PASS (schema IT + runtime migrate 39→40) |
+| `WarehouseTransferDocumentShortfallIntegrationTest` | PASS (12) |
+| `WarehouseTransferDocumentSendIntegrationTest` | PASS (9; full-send regression + empty/over rejection) |
+| `WarehouseTransferDocumentIntegrationTest` | PASS (10) |
+| `WarehouseOperationalInboxIntegrationTest` | PASS (16) |
+| `WarehouseTransferDocumentTest` | PASS (9; lineage preserve) |
+| Warehouse targeted total | PASS — 56 tests |
+| Architecture `*Warehouse*` filter | PASS (5) |
+| Quick install `-DskipTests` + static analysis skips | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests …` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-08 16:31:54) |
+| Launch against `tmp_gui_stage5` | PASS — Flyway validated 40; applied V40; stock_positions=31 preserved; Spring + JavaFX start; exceptions NONE (JavaFX unnamed-module WARN only) |
+| Shortfall / continuation SEND | INTEGRATION TEST VERIFIED |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 / 3.5.0–3.5.7 / 3.5.8 | IN PROGRESS / COMPLETE ×8 / NEXT NOT STARTED |
+| Auto-commit | NOT DONE |
 
 ### Stage 3.5.6 Physical Multi-Line Send (2026-09-08)
 

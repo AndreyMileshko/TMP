@@ -11665,4 +11665,38 @@ Stage 3.5.3 ? Deferred Destination Cell at Receive = COMPLETE.
 Stage 3.5.4 ? Automatic Source Routing + Source Cell Suggestion = COMPLETE.
 Stage 3.5.5 ? Tasks / Operational Inbox = COMPLETE.
 Stage 3.5.6 ? Physical Multi-Line Send = COMPLETE.
-Stage 3.5.7 ? Shortfall / Continuation = NEXT / NOT STARTED.
+Stage 3.5.7 ? Shortfall / Continuation = COMPLETE (2026-09-08).
+Stage 3.5.8 ? Partial Receive + Reject + Return = NEXT / NOT STARTED.
+
+---
+
+## STAGE-3.5.7 ? Shortfall / Automatic Continuation Transfer
+
+**Status:** DONE
+**Stage:** 3.5
+**Depends on:** Stage 3.5.6
+**Module:** tmp-warehouse (primary); additive public DTO fields; no Production/UI feature work
+
+### Goal
+
+Allow physical SEND of less than DRAFT Transfer Document line quantities while preserving exact warehouse truth: shrink original DRAFT to actual sent quantities before POST; create one SHORTFALL continuation DRAFT for remainder (same source/destination); full send unchanged.
+
+### Acceptance criteria
+
+- [x] Full send unchanged (no continuation; payloadRevision unchanged)
+- [x] Shortfall: 0 < sent ? requested; all-zero / over-supply rejected
+- [x] Original DRAFT transformed to actual sent before POST; unsent lines removed; line IDs preserved
+- [x] One continuation DRAFT with new line IDs, SHORTFALL lineage, same warehouses
+- [x] V40 continuation_of_document_id + continuation_reason (pair CHECK; self-FK RESTRICT)
+- [x] Lineage immutable / not forgeable via public create/update
+- [x] Stock mutation = sent only; continuation no ops/allocations/stock
+- [x] Continuation visible as NEW TRANSFER_PREPARATION task with lineage fields
+- [x] Single TX rollback (physical failure + continuation-create failure)
+- [x] Concurrent shortfall exactly-once
+- [x] Processor exact-coverage invariant preserved
+- [x] No UI / no partial receive / no reject-return / legacy APIs unchanged
+- [x] Targeted tests + quick build + package + runtime V40 smoke on tmp_gui_stage5
+
+### Next on success
+
+Stage 3.5.8 ? Partial Receive + Reject + Return = NEXT / NOT STARTED.

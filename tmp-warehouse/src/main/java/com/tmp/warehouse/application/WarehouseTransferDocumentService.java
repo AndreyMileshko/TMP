@@ -8,6 +8,7 @@ import com.tmp.warehouse.application.document.WarehouseTransferDocumentProcessor
 import com.tmp.warehouse.domain.InvalidWarehouseStateException;
 import com.tmp.warehouse.domain.MaterialReferenceId;
 import com.tmp.warehouse.domain.StockQuantity;
+import com.tmp.warehouse.domain.TransferContinuationReason;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseTransferDocument;
 import com.tmp.warehouse.domain.WarehouseTransferLine;
@@ -95,23 +96,67 @@ public final class WarehouseTransferDocumentService {
 
         CreatedTransferDocument created =
                 transactionTemplate.execute(
-                        status -> {
-                            DocumentMetadata draft =
-                                    documentEngine.createDocument(
-                                            new CreateDocumentCommand(
-                                                    WarehouseTransferDocumentProcessor
-                                                            .DOCUMENT_TYPE_ID,
-                                                    titleFor()));
-                            WarehouseTransferDocument payload =
-                                    WarehouseTransferDocument.create(
-                                            draft.id(), source, destination, lines);
-                            repository.insert(payload);
-                            return new CreatedTransferDocument(draft, payload);
-                        });
+                        status -> insertOrdinaryDraft(source, destination, lines));
         if (created == null) {
             throw new IllegalStateException("Transfer document create returned null");
         }
         return created;
+    }
+
+    /**
+     * Internal Stage 3.5.7 shortfall continuation: Document Engine DRAFT + typed payload + lineage
+     * for the same source/destination route. Must run inside the caller's outer transaction.
+     * Does not invoke source routing and does not assign a worker.
+     */
+    public CreatedTransferDocument createShortfallContinuation(
+            UUID parentDocumentId,
+            WarehouseId sourceWarehouseId,
+            WarehouseId destinationWarehouseId,
+            List<WarehouseTransferLine> remainderLines) {
+        Objects.requireNonNull(parentDocumentId, "parentDocumentId");
+        Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+        Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+        Objects.requireNonNull(remainderLines, "remainderLines");
+        if (remainderLines.isEmpty()) {
+            throw new InvalidWarehouseStateException(
+                    "Shortfall continuation requires at least one remainder line: parentDocumentId="
+                            + parentDocumentId);
+        }
+        if (sourceWarehouseId.equals(destinationWarehouseId)) {
+            throw new InvalidWarehouseStateException(
+                    "Transfer document requires distinct warehouses: warehouseId="
+                            + sourceWarehouseId);
+        }
+        if (!repository.existsByDocumentId(parentDocumentId)) {
+            throw new IllegalArgumentException(
+                    "Continuation parent transfer payload not found: " + parentDocumentId);
+        }
+        DocumentMetadata draft =
+                documentEngine.createDocument(
+                        new CreateDocumentCommand(
+                                WarehouseTransferDocumentProcessor.DOCUMENT_TYPE_ID, titleFor()));
+        WarehouseTransferDocument payload =
+                WarehouseTransferDocument.createContinuation(
+                        draft.id(),
+                        parentDocumentId,
+                        TransferContinuationReason.SHORTFALL,
+                        sourceWarehouseId,
+                        destinationWarehouseId,
+                        remainderLines);
+        repository.insert(payload);
+        return new CreatedTransferDocument(draft, payload);
+    }
+
+    private CreatedTransferDocument insertOrdinaryDraft(
+            WarehouseId source, WarehouseId destination, List<WarehouseTransferLine> lines) {
+        DocumentMetadata draft =
+                documentEngine.createDocument(
+                        new CreateDocumentCommand(
+                                WarehouseTransferDocumentProcessor.DOCUMENT_TYPE_ID, titleFor()));
+        WarehouseTransferDocument payload =
+                WarehouseTransferDocument.create(draft.id(), source, destination, lines);
+        repository.insert(payload);
+        return new CreatedTransferDocument(draft, payload);
     }
 
     public LoadedTransferDocument update(UpdateCommand command) {
