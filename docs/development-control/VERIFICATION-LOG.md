@@ -3,8 +3,26 @@
 ## Latest result
 
 **Date:** 2026-09-08
-**Scope:** Stage 3.5.3 Deferred Destination Cell at Receive (+ 3.5.2 title/atomic correctives)
-**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); deferred-cell workflow INTEGRATION TEST VERIFIED; no new GUI
+**Scope:** Stage 3.5.4 Automatic Source Routing + Source Cell Suggestion
+**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); routing INTEGRATION TEST VERIFIED; no new GUI
+
+### Stage 3.5.4 Automatic Source Routing + Source Cell Suggestion (2026-09-08)
+
+| Check | Result |
+|-------|--------|
+| HEAD vs expected base `27c98b57…` | PASS (match at start) |
+| DB migration | NONE (Flyway remains V37) |
+| `MaterialSourceRoutingServiceTest` | PASS (13) |
+| `MaterialSourceRoutingIntegrationTest` | PASS (3) — batch aggregation, no-mutation, global vs responsibility |
+| Warehouse routing targeted total | PASS — 16 tests |
+| Production/UI stubs compile for additive Query API | PASS (narrow compatibility only; no Production business change) |
+| Quick install `-DskipTests -Dspotbugs.skip=true -Dcheckstyle.skip=true` | PASS |
+| Package + new `TMP.exe` (2026-09-08 13:38:43) | PASS |
+| Launch against `tmp_gui_stage5` | PASS — Flyway validated 37; schema up-to-date V37; stock_positions=31 preserved; Spring + JavaFX start; exceptions NONE (JavaFX unnamed-module WARN only) |
+| Routing behavior | INTEGRATION TEST VERIFIED |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 / 3.5.0 / 3.5.1 / 3.5.2 / 3.5.3 / 3.5.4 / 3.5.5 | IN PROGRESS / COMPLETE / COMPLETE / COMPLETE / COMPLETE / COMPLETE / NEXT NOT STARTED |
+| Auto-commit | NOT DONE |
 
 ### Stage 3.5.3 Deferred Destination Cell at Receive (2026-09-08)
 

@@ -164,5 +164,12 @@ class TransferReceiptEligibilityTest {
                 UUID documentId) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public List<com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult> routeMaterials(
+                UUID destinationWarehouseId,
+                List<com.tmp.warehouse.api.WarehouseApi.MaterialDemand> demands) {
+            throw new UnsupportedOperationException();
+        }
     }
 }

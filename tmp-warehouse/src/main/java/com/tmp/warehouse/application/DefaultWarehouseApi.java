@@ -9,6 +9,8 @@ import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tmp.warehouse.api.MaterialReferenceDisplay;
 import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
+import com.tmp.warehouse.api.WarehouseApi.MaterialDemand;
+import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult;
 import com.tmp.warehouse.domain.MaterialReservationLink;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.MaterialReferenceId;
@@ -77,6 +79,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     private final WarehouseAdjustmentService adjustments;
     private final WarehouseOperationRepository operations;
     private final TransferOperationContextRepository transferContexts;
+    private final MaterialSourceRoutingService sourceRouting;
 
     public DefaultWarehouseApi(
             AuthorizationService authorization,
@@ -96,6 +99,48 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             WarehouseAdjustmentService adjustments,
             WarehouseOperationRepository operations,
             TransferOperationContextRepository transferContexts) {
+        this(
+                authorization,
+                authentication,
+                responsibilityGuard,
+                responsibilities,
+                warehouses,
+                stockPositions,
+                materials,
+                materialDisplay,
+                reservationLinks,
+                receipts,
+                moves,
+                transfers,
+                transferDocuments,
+                consumptions,
+                adjustments,
+                operations,
+                transferContexts,
+                new MaterialSourceRoutingService(
+                        new CatalogAvailableStockAggregationQuery(
+                                stockPositions, warehouses, materials)));
+    }
+
+    public DefaultWarehouseApi(
+            AuthorizationService authorization,
+            AuthenticationService authentication,
+            WarehouseResponsibilityGuard responsibilityGuard,
+            WarehouseUserResponsibilityRepository responsibilities,
+            WarehouseCatalogRepository warehouses,
+            StockPositionRepository stockPositions,
+            MaterialReferenceRepository materials,
+            MaterialReferenceDisplayPort materialDisplay,
+            WarehouseReservationLinkService reservationLinks,
+            WarehouseReceiptService receipts,
+            WarehouseMoveService moves,
+            WarehouseTransferService transfers,
+            WarehouseTransferDocumentService transferDocuments,
+            WarehouseConsumptionService consumptions,
+            WarehouseAdjustmentService adjustments,
+            WarehouseOperationRepository operations,
+            TransferOperationContextRepository transferContexts,
+            MaterialSourceRoutingService sourceRouting) {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.authentication = Objects.requireNonNull(authentication, "authentication");
         this.responsibilityGuard =
@@ -114,6 +159,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         this.adjustments = Objects.requireNonNull(adjustments, "adjustments");
         this.operations = Objects.requireNonNull(operations, "operations");
         this.transferContexts = Objects.requireNonNull(transferContexts, "transferContexts");
+        this.sourceRouting = Objects.requireNonNull(sourceRouting, "sourceRouting");
     }
 
     @Override
@@ -549,6 +595,14 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                                         new IllegalArgumentException(
                                                 "Transfer document not found: " + documentId));
         return toTransferDocumentView(loaded.metadata(), loaded.payload());
+    }
+
+    @Override
+    public List<MaterialSourceRoutingResult> routeMaterials(
+            UUID destinationWarehouseId, List<MaterialDemand> demands) {
+        // Capability planning query: no RBAC / responsibility filter (ADR-037 / Stage 3.5.4).
+        // Caller use-case owns user-facing authorization. Does not mutate warehouse facts.
+        return sourceRouting.routeMaterials(destinationWarehouseId, demands);
     }
 
     private static List<WarehouseTransferDocumentService.LineInput> mapLineInputs(

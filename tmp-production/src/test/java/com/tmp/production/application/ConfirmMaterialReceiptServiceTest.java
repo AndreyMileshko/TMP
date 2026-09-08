@@ -18,6 +18,8 @@ import com.tmp.production.domain.repository.ProductionMaterialTransferRepository
 import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
 import com.tmp.production.testsupport.ProductionHistoryTestSupport;
 import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.MaterialDemand;
+import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
@@ -382,6 +384,12 @@ class ConfirmMaterialReceiptServiceTest {
 
         @Override
         public TransferDocumentView getTransferDocument(UUID documentId) {
+            throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
+        public java.util.List<MaterialSourceRoutingResult> routeMaterials(
+                UUID destinationWarehouseId, java.util.List<MaterialDemand> demands) {
             throw new UnsupportedOperationException("not used");
         }
 

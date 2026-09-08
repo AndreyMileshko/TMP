@@ -605,6 +605,14 @@ final class ProductionWorkbenchUiTestSupport {
         public TransferDocumentView getTransferDocument(UUID documentId) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public java.util.List<com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult>
+                routeMaterials(
+                        UUID destinationWarehouseId,
+                        java.util.List<com.tmp.warehouse.api.WarehouseApi.MaterialDemand> demands) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     static OrderDto order(UUID orderId, String number) {

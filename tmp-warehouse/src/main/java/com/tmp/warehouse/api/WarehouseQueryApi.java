@@ -1,9 +1,11 @@
 package com.tmp.warehouse.api;
 
 import com.tmp.warehouse.api.WarehouseApi.AvailabilityResult;
+import com.tmp.warehouse.api.WarehouseApi.MaterialDemand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialIdentityRequest;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
+import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
@@ -84,4 +86,28 @@ public interface WarehouseQueryApi {
      * payload). Does not mutate stock.
      */
     TransferDocumentView getTransferDocument(UUID documentId);
+
+    /**
+     * Batch automatic source warehouse routing + source cell suggestions (ADR-037 / Stage 3.5.4).
+     *
+     * <p>Planning/query only: does not mutate stock, create reservations, operations, movements, or
+     * transfer documents. Destination warehouse is excluded from candidates. Uses AVAILABLE stock
+     * on active cells of active warehouses only. Results preserve input demand order via {@code
+     * demandKey}. Does not apply {@code listMyWarehouses} / responsibility filters. Caller owns
+     * user-facing authorization.
+     */
+    List<MaterialSourceRoutingResult> routeMaterials(
+            UUID destinationWarehouseId, List<MaterialDemand> demands);
+
+    /**
+     * Single-material convenience wrapper over {@link #routeMaterials}. Uses demand key {@code
+     * "1"}.
+     */
+    default MaterialSourceRoutingResult routeMaterial(
+            UUID destinationWarehouseId, UUID materialReferenceId, BigDecimal quantity) {
+        return routeMaterials(
+                        destinationWarehouseId,
+                        List.of(new MaterialDemand("1", materialReferenceId, quantity)))
+                .get(0);
+    }
 }

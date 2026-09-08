@@ -863,6 +863,14 @@ class WarehouseWorkbenchViewModelTest {
         }
 
         @Override
+        public java.util.List<com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult>
+                routeMaterials(
+                        UUID destinationWarehouseId,
+                        java.util.List<com.tmp.warehouse.api.WarehouseApi.MaterialDemand> demands) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public OperationResult executeWarehouseOperation(ExecuteOperationCommand command) {
             executeCalls.add(command);
             return new OperationResult(

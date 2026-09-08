@@ -4,6 +4,33 @@
 
 ---
 
+## Stage 3.5.4 — Automatic Source Routing + Source Cell Suggestion — 2026-09-08
+
+**Date:** 2026-09-08
+**Stage:** UI Modernization Stage 3.5.4 (Automatic Source Routing + Source Cell Suggestion); outside Stages 0–9 numbered queue
+**Base checkpoint:** `27c98b579746aadcf7b9e004cdc839b4eef4067d`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.5 NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Implemented Warehouse capability query/planning for automatic source warehouse selection by AVAILABLE stock (ADR-037) and deterministic source-cell suggestions. Batch-friendly JDBC aggregation (AVAILABLE only; active warehouse/cell; destination excluded). No stock mutation, reservation, Transfer Document, WarehouseOperation, UI, Production workflow change, or DB migration.
+
+### Key changes
+
+- `AvailableStockAggregationQuery` + `JdbcAvailableStockAggregationQuery` (single IN/SUM/GROUP BY query)
+- `MaterialSourceRoutingService` (warehouse selection + greedy cell suggestion + tie-breakers)
+- Additive `WarehouseQueryApi.routeMaterials` / `routeMaterial` + public DTOs
+- `DefaultWarehouseApi` / `WarehouseAutoConfiguration` wiring (no RBAC/responsibility on routing)
+- Unit + JDBC IT coverage; Production/UI test stub compile compatibility only
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-08 Stage 3.5.4.
+
+---
+
 ## Stage 3.5.3 — Deferred Destination Cell at Receive — 2026-09-08
 
 **Date:** 2026-09-08

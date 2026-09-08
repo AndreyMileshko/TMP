@@ -18,9 +18,11 @@ import com.tmp.warehouse.application.WarehouseOperationEngine;
 import com.tmp.warehouse.application.WarehouseReceiptService;
 import com.tmp.warehouse.application.WarehouseReservationLinkService;
 import com.tmp.warehouse.application.WarehouseResponsibilityGuard;
+import com.tmp.warehouse.application.MaterialSourceRoutingService;
 import com.tmp.warehouse.application.WarehouseTransferDocumentService;
 import com.tmp.warehouse.application.WarehouseTransferService;
 import com.tmp.warehouse.application.document.WarehouseTransferDocumentProcessor;
+import com.tmp.warehouse.domain.repository.AvailableStockAggregationQuery;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.MaterialReservationLinkRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
@@ -32,6 +34,7 @@ import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
 import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
+import com.tmp.warehouse.persistence.JdbcAvailableStockAggregationQuery;
 import com.tmp.warehouse.persistence.JdbcStockPositionRepository;
 import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
@@ -258,6 +261,17 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
+    AvailableStockAggregationQuery availableStockAggregationQuery(JdbcTemplate jdbcTemplate) {
+        return new JdbcAvailableStockAggregationQuery(jdbcTemplate);
+    }
+
+    @Bean
+    MaterialSourceRoutingService materialSourceRoutingService(
+            AvailableStockAggregationQuery availableStockAggregationQuery) {
+        return new MaterialSourceRoutingService(availableStockAggregationQuery);
+    }
+
+    @Bean
     WarehouseApi warehouseApi(
             AuthorizationService authorizationService,
             AuthenticationService authenticationService,
@@ -275,7 +289,8 @@ public class WarehouseAutoConfiguration {
             WarehouseConsumptionService warehouseConsumptionService,
             WarehouseAdjustmentService warehouseAdjustmentService,
             WarehouseOperationRepository warehouseOperationRepository,
-            TransferOperationContextRepository transferOperationContextRepository) {
+            TransferOperationContextRepository transferOperationContextRepository,
+            MaterialSourceRoutingService materialSourceRoutingService) {
         return new DefaultWarehouseApi(
                 authorizationService,
                 authenticationService,
@@ -293,7 +308,8 @@ public class WarehouseAutoConfiguration {
                 warehouseConsumptionService,
                 warehouseAdjustmentService,
                 warehouseOperationRepository,
-                transferOperationContextRepository);
+                transferOperationContextRepository,
+                materialSourceRoutingService);
     }
 
     @Bean

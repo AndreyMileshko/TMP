@@ -625,4 +625,77 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             Objects.requireNonNull(quantity, "quantity");
         }
     }
+
+    /**
+     * One material demand line for automatic source routing. {@code demandKey} correlates batch
+     * input to result; duplicate material ids are not merged.
+     */
+    record MaterialDemand(String demandKey, UUID materialReferenceId, BigDecimal quantity) {
+
+        public MaterialDemand {
+            Objects.requireNonNull(demandKey, "demandKey");
+            if (demandKey.isBlank()) {
+                throw new IllegalArgumentException("demandKey must not be blank");
+            }
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            Objects.requireNonNull(quantity, "quantity");
+        }
+    }
+
+    /** Outcome of automatic source warehouse selection. */
+    enum MaterialSourceRoutingOutcome {
+        SOURCE_SELECTED,
+        NO_AVAILABLE_SOURCE
+    }
+
+    /**
+     * Suggested pick from one source cell. Suggestion only — not a reservation or stock mutation.
+     * Future UI may replace allocations before send.
+     */
+    record SourceCellSuggestion(
+            UUID storageCellId,
+            String storageCellCode,
+            BigDecimal availableQuantity,
+            BigDecimal suggestedQuantity) {
+
+        public SourceCellSuggestion {
+            Objects.requireNonNull(storageCellId, "storageCellId");
+            Objects.requireNonNull(storageCellCode, "storageCellCode");
+            Objects.requireNonNull(availableQuantity, "availableQuantity");
+            Objects.requireNonNull(suggestedQuantity, "suggestedQuantity");
+        }
+    }
+
+    /**
+     * Automatic source routing result for one demand line. Destination cell is intentionally
+     * absent (deferred to receive).
+     */
+    record MaterialSourceRoutingResult(
+            String demandKey,
+            UUID materialReferenceId,
+            BigDecimal quantity,
+            MaterialSourceRoutingOutcome outcome,
+            UUID sourceWarehouseId,
+            String sourceWarehouseCode,
+            BigDecimal availableAtSelectedSource,
+            BigDecimal routedQuantity,
+            BigDecimal uncoveredQuantity,
+            List<SourceCellSuggestion> sourceCellSuggestions) {
+
+        public MaterialSourceRoutingResult {
+            Objects.requireNonNull(demandKey, "demandKey");
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            Objects.requireNonNull(quantity, "quantity");
+            Objects.requireNonNull(outcome, "outcome");
+            Objects.requireNonNull(availableAtSelectedSource, "availableAtSelectedSource");
+            Objects.requireNonNull(routedQuantity, "routedQuantity");
+            Objects.requireNonNull(uncoveredQuantity, "uncoveredQuantity");
+            Objects.requireNonNull(sourceCellSuggestions, "sourceCellSuggestions");
+            sourceCellSuggestions = List.copyOf(sourceCellSuggestions);
+            if (outcome == MaterialSourceRoutingOutcome.SOURCE_SELECTED) {
+                Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+                Objects.requireNonNull(sourceWarehouseCode, "sourceWarehouseCode");
+            }
+        }
+    }
 }

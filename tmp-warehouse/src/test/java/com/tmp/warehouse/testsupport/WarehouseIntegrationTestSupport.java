@@ -18,6 +18,7 @@ import com.tmp.document.persistence.JdbcLifecycleJournalAdapter;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
 import com.tmp.warehouse.application.FixedMaterialReferenceDisplayPort;
+import com.tmp.warehouse.application.MaterialSourceRoutingService;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
 import com.tmp.warehouse.application.WarehouseConsumptionService;
 import com.tmp.warehouse.application.WarehouseMoveService;
@@ -36,6 +37,7 @@ import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
 import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
+import com.tmp.warehouse.persistence.JdbcAvailableStockAggregationQuery;
 import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
 import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseTransferDocumentRepository;
@@ -171,7 +173,9 @@ public final class WarehouseIntegrationTestSupport {
                         new WarehouseConsumptionService(engine, stockPositions),
                         new WarehouseAdjustmentService(engine, stockPositions),
                         operations,
-                        transferContexts);
+                        transferContexts,
+                        new MaterialSourceRoutingService(
+                                new JdbcAvailableStockAggregationQuery(jdbc)));
         return new ApiBundle(
                 api,
                 jdbc,
