@@ -25,12 +25,13 @@
 | 3.5.5 | Tasks / Operational Inbox | **COMPLETE** |
 | 3.5.6 | Physical Multi-Line Send | **COMPLETE** |
 | 3.5.7 | Shortfall / Continuation | **COMPLETE** |
-| 3.5.8 | Partial Receive + Reject + Return | **IN PROGRESS** |
+| 3.5.8 | Partial Receive + Reject + Return | **COMPLETE** |
 | 3.5.8.1 | Settlement + Full Document Receive + Receiver Task | **COMPLETE** |
 | 3.5.8.2 | Partial Acceptance + RECEIVE_SHORTFALL + RETURN_PENDING | **COMPLETE** |
-| 3.5.8.3 | Reject + TRANSFER_RETURN + Return Task + Close | **NEXT / NOT STARTED** |
+| 3.5.8.3 | Reject + TRANSFER_RETURN + Return Task + Close | **COMPLETE** |
+| 3.5.9 | Production Material Requirement Refactor | **NEXT / NOT STARTED** |
 
-**Locked business decision (for 3.5.8.3):** Full reject MUST NOT automatically create a continuation. Full reject → accepted=0, rejection reason required, RETURN_PENDING, sender return task only.
+**Locked business decision (3.5.8.3 DONE):** Full reject MUST NOT automatically create a continuation. Full reject → accepted=0, rejection reason required, RETURN_PENDING, sender return task only.
 
 ---
 

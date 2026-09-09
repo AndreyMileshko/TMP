@@ -12,8 +12,13 @@ import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
 import com.tmp.warehouse.api.WarehouseApi.MaterialDemand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult;
 import com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.RejectTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.ReturnTransferMaterialsCommand;
 import com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentRejectResult;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnAllocationInput;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.domain.InvalidWarehouseStateException;
@@ -27,8 +32,12 @@ import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
 import com.tmp.warehouse.domain.StorageCell;
 import com.tmp.warehouse.domain.StorageCellId;
+import com.tmp.warehouse.domain.TransferDocumentSendAllocation;
 import com.tmp.warehouse.domain.TransferDocumentSettlement;
 import com.tmp.warehouse.domain.TransferOperationContext;
+import com.tmp.warehouse.domain.TransferReceiptSettlementItem;
+import com.tmp.warehouse.domain.TransferReturnSettlementItem;
+import com.tmp.warehouse.domain.TransferSettlementDecision;
 import com.tmp.warehouse.domain.TransferSettlementState;
 import com.tmp.warehouse.domain.UnitOfMeasure;
 import com.tmp.warehouse.domain.Warehouse;
@@ -40,6 +49,8 @@ import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.domain.repository.TransferDocumentSendAllocationRepository;
 import com.tmp.warehouse.domain.repository.TransferDocumentSettlementRepository;
 import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
+import com.tmp.warehouse.domain.repository.TransferReceiptSettlementItemRepository;
+import com.tmp.warehouse.domain.repository.TransferReturnSettlementItemRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.domain.WarehouseOperationStatus;
@@ -93,8 +104,12 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     private final WarehouseOperationalInboxService operationalInbox;
     private final WarehouseTransferSendService transferSend;
     private final WarehouseTransferReceiveService transferReceive;
+    private final WarehouseTransferRejectService transferReject;
+    private final WarehouseTransferReturnService transferReturn;
     private final TransferDocumentSendAllocationRepository sendAllocations;
     private final TransferDocumentSettlementRepository settlements;
+    private final TransferReceiptSettlementItemRepository receiptItems;
+    private final TransferReturnSettlementItemRepository returnItems;
 
     public DefaultWarehouseApi(
             AuthorizationService authorization,
@@ -180,6 +195,10 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
                 null);
     }
 
@@ -223,6 +242,10 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 transferContexts,
                 sourceRouting,
                 operationalInbox,
+                null,
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -273,6 +296,10 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 transferSend,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
                 null);
     }
 
@@ -300,6 +327,64 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             WarehouseTransferReceiveService transferReceive,
             TransferDocumentSendAllocationRepository sendAllocations,
             TransferDocumentSettlementRepository settlements) {
+        this(
+                authorization,
+                authentication,
+                responsibilityGuard,
+                responsibilities,
+                warehouses,
+                stockPositions,
+                materials,
+                materialDisplay,
+                reservationLinks,
+                receipts,
+                moves,
+                transfers,
+                transferDocuments,
+                consumptions,
+                adjustments,
+                operations,
+                transferContexts,
+                sourceRouting,
+                operationalInbox,
+                transferSend,
+                transferReceive,
+                null,
+                null,
+                sendAllocations,
+                settlements,
+                null,
+                null);
+    }
+
+    public DefaultWarehouseApi(
+            AuthorizationService authorization,
+            AuthenticationService authentication,
+            WarehouseResponsibilityGuard responsibilityGuard,
+            WarehouseUserResponsibilityRepository responsibilities,
+            WarehouseCatalogRepository warehouses,
+            StockPositionRepository stockPositions,
+            MaterialReferenceRepository materials,
+            MaterialReferenceDisplayPort materialDisplay,
+            WarehouseReservationLinkService reservationLinks,
+            WarehouseReceiptService receipts,
+            WarehouseMoveService moves,
+            WarehouseTransferService transfers,
+            WarehouseTransferDocumentService transferDocuments,
+            WarehouseConsumptionService consumptions,
+            WarehouseAdjustmentService adjustments,
+            WarehouseOperationRepository operations,
+            TransferOperationContextRepository transferContexts,
+            MaterialSourceRoutingService sourceRouting,
+            WarehouseOperationalInboxService operationalInbox,
+            WarehouseTransferSendService transferSend,
+            WarehouseTransferReceiveService transferReceive,
+            WarehouseTransferRejectService transferReject,
+            WarehouseTransferReturnService transferReturn,
+            TransferDocumentSendAllocationRepository sendAllocations,
+            TransferDocumentSettlementRepository settlements,
+            TransferReceiptSettlementItemRepository receiptItems,
+            TransferReturnSettlementItemRepository returnItems) {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.authentication = Objects.requireNonNull(authentication, "authentication");
         this.responsibilityGuard =
@@ -322,8 +407,12 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         this.operationalInbox = operationalInbox;
         this.transferSend = transferSend;
         this.transferReceive = transferReceive;
+        this.transferReject = transferReject;
+        this.transferReturn = transferReturn;
         this.sendAllocations = sendAllocations;
         this.settlements = settlements;
+        this.receiptItems = receiptItems;
+        this.returnItems = returnItems;
     }
 
     @Override
@@ -608,12 +697,59 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 transferContexts.findByOperationId(send.id()).orElse(null);
         TransferDocumentSettlement settlement =
                 settlements == null ? null : settlements.findByDocumentId(documentId).orElse(null);
+        TransferDocumentSendAllocation allocation =
+                sendAllocations.findByDocumentId(documentId).stream()
+                        .filter(
+                                a ->
+                                        a.sendOperationIdOptional()
+                                                .map(id -> id.equals(send.id()))
+                                                .orElse(false))
+                        .findFirst()
+                        .orElse(null);
         String status;
         if (send.status() == WarehouseOperationStatus.DRAFT) {
             status = "DRAFT";
-        } else if (settlement != null
-                && settlement.settlementState() == TransferSettlementState.SETTLED) {
-            status = "RECEIVED";
+        } else if (settlement == null) {
+            status =
+                    send.status() == WarehouseOperationStatus.COMPLETED
+                            ? "SENT"
+                            : send.status().name();
+        } else if (settlement.settlementState() == TransferSettlementState.AWAITING_RECEIPT) {
+            status =
+                    send.status() == WarehouseOperationStatus.COMPLETED
+                            ? "SENT"
+                            : send.status().name();
+        } else if (settlement.settlementState() == TransferSettlementState.RETURN_PENDING) {
+            TransferSettlementDecision decision = settlement.decision().orElse(null);
+            if (decision == TransferSettlementDecision.REJECTED) {
+                status = "REJECTED";
+            } else {
+                status = "PARTIALLY_RECEIVED";
+            }
+        } else if (settlement.settlementState() == TransferSettlementState.SETTLED) {
+            TransferSettlementDecision decision = settlement.decision().orElse(null);
+            if (decision == TransferSettlementDecision.REJECTED) {
+                status = "RETURNED";
+            } else if (allocation == null
+                    || receiptItems == null
+                    || returnItems == null) {
+                status = "RECEIVED";
+            } else {
+                BigDecimal accepted =
+                        receiptItems.findBySendAllocationIds(List.of(allocation.id())).stream()
+                                .map(item -> item.quantity().value())
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal returned =
+                        returnItems.findBySendAllocationIds(List.of(allocation.id())).stream()
+                                .map(item -> item.quantity().value())
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                if (accepted.compareTo(allocation.quantity().value()) == 0
+                        && returned.signum() == 0) {
+                    status = "RECEIVED";
+                } else {
+                    status = "PARTIALLY_RECEIVED";
+                }
+            }
         } else if (send.status() == WarehouseOperationStatus.COMPLETED) {
             status = "SENT";
         } else {
@@ -794,6 +930,56 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     }
 
     @Override
+    public TransferDocumentRejectResult rejectTransferDocument(
+            RejectTransferDocumentCommand command) {
+        Objects.requireNonNull(command, "command");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
+        WarehouseTransferRejectService.RejectResult result =
+                requireTransferReject()
+                        .reject(
+                                new WarehouseTransferRejectService.RejectCommand(
+                                        command.documentId(),
+                                        command.expectedOperationalRevision(),
+                                        command.rejectionReason()));
+        return new TransferDocumentRejectResult(
+                result.documentId(),
+                result.documentStatus(),
+                result.settlementState(),
+                result.decision(),
+                result.operationalRevision(),
+                result.rejectionReason());
+    }
+
+    @Override
+    public TransferDocumentReturnResult returnTransferMaterials(
+            ReturnTransferMaterialsCommand command) {
+        Objects.requireNonNull(command, "command");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
+        WarehouseTransferReturnService.ReturnResult result =
+                requireTransferReturn()
+                        .returnMaterials(
+                                new WarehouseTransferReturnService.ReturnCommand(
+                                        command.documentId(),
+                                        command.expectedOperationalRevision(),
+                                        command.returnAllocations().stream()
+                                                .map(
+                                                        a ->
+                                                                new WarehouseTransferReturnService
+                                                                        .ReturnTargetInput(
+                                                                        a.lineId(),
+                                                                        a.returnStorageCellId(),
+                                                                        a.quantity()))
+                                                .toList()));
+        return new TransferDocumentReturnResult(
+                result.documentId(),
+                result.documentStatus(),
+                result.settlementState(),
+                result.decision(),
+                result.operationalRevision(),
+                result.returnOperationIds());
+    }
+
+    @Override
     public TransferDocumentView createTransferDocument(CreateTransferDocumentCommand command) {
         Objects.requireNonNull(command, "command");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
@@ -914,6 +1100,22 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         return transferReceive;
     }
 
+    private WarehouseTransferRejectService requireTransferReject() {
+        if (transferReject == null) {
+            throw new IllegalStateException(
+                    "Warehouse transfer document reject is not configured");
+        }
+        return transferReject;
+    }
+
+    private WarehouseTransferReturnService requireTransferReturn() {
+        if (transferReturn == null) {
+            throw new IllegalStateException(
+                    "Warehouse transfer document return is not configured");
+        }
+        return transferReturn;
+    }
+
     private static List<WarehouseTransferDocumentService.LineInput> mapLineInputs(
             List<TransferDocumentLineInput> lines) {
         return lines.stream()
@@ -957,7 +1159,11 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 payload.continuationOfDocumentId().orElse(null),
                 payload.continuationReason().map(Enum::name).orElse(null),
                 settlement == null ? null : settlement.settlementState().name(),
-                settlement == null ? null : settlement.operationalRevision());
+                settlement == null ? null : settlement.operationalRevision(),
+                settlement == null
+                        ? null
+                        : settlement.decision().map(Enum::name).orElse(null),
+                settlement == null ? null : settlement.rejectionReason().orElse(null));
     }
 
     private AvailabilityResult availabilityForMaterial(
@@ -1086,6 +1292,9 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                                             command.quantity(),
                                             WarehouseId.of(command.warehouseId()),
                                             StorageCellId.of(command.storageCellId())));
+                    case TRANSFER_RETURN ->
+                            throw new InvalidWarehouseStateException(
+                                    "TRANSFER_RETURN must be executed via Transfer Document settlement return command");
                 };
         return toOperationResult(command.kind(), completed);
     }
@@ -1097,6 +1306,9 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             case TRANSFER_RECEIVE ->
                     responsibilityGuard.requireResponsible(
                             WarehouseId.of(requireDestinationWarehouse(command)));
+            case TRANSFER_RETURN ->
+                    throw new InvalidWarehouseStateException(
+                            "TRANSFER_RETURN must be executed via Transfer Document settlement return command");
         }
     }
 
@@ -1143,7 +1355,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         switch (kind) {
             case RECEIPT -> authorization.requirePermission(WarehousePermissions.WAREHOUSE_RECEIPT);
             case MOVE -> authorization.requirePermission(WarehousePermissions.WAREHOUSE_MOVE);
-            case TRANSFER_SEND, TRANSFER_RECEIVE ->
+            case TRANSFER_SEND, TRANSFER_RECEIVE, TRANSFER_RETURN ->
                     authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
             case CONSUMPTION ->
                     authorization.requirePermission(WarehousePermissions.WAREHOUSE_CONSUMPTION);

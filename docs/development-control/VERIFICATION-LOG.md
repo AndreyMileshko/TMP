@@ -3,6 +3,35 @@
 ## Latest result
 
 **Date:** 2026-09-09
+**Scope:** Stage 3.5.8.3 Reject + Physical Return + Final Settlement
+**Overall:** PASS (targeted tests + architecture + quick build + package + startup smoke on `tmp-stage5-pg`); reject/return INTEGRATION TEST VERIFIED; V41→V42 ISOLATED MIGRATION TEST VERIFIED; no new GUI
+
+### Stage 3.5.8.3 Reject + Return (2026-09-09)
+
+| Check | Result |
+|-------|--------|
+| HEAD vs expected base `53cbaf966df391b5426ce1356206b8eac991f196` | PASS (match) |
+| Flyway V42 | PASS (TRANSFER_RETURN CHECKs + return settlement table) |
+| `WarehouseTransferDocumentRejectReturnIntegrationTest` | PASS (22) |
+| `WarehouseOperationEngineTransferReturnTest` | PASS (2) |
+| `TransferDocumentSettlementRejectReturnTest` | PASS (5) |
+| `TransferReturnSettlementV41ToV42MigrationIT` | PASS (1) |
+| Partial/full receive + mapping + batch regression suite | PASS (65 combined prior run incl. V42 migrate) |
+| Send IT + ApiContract | PASS (9 + 8) |
+| Architecture `Stage6WarehouseArchitectureTest` | PASS (5) |
+| Quick install `-DskipTests` + static analysis skips | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests …` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-09 14:13:53) |
+| Launch against `tmp_gui_stage5` | PASS — Flyway validated 42; schema V42 up to date; stock_positions=31 / sum 1257.9 preserved; settlements=0; Spring + JavaFX start; exceptions NONE (JavaFX unnamed-module WARN only) |
+| Reject / return | INTEGRATION TEST VERIFIED |
+| V41→V42 upgrade | ISOLATED MIGRATION TEST VERIFIED |
+| Full reactor `mvn test` | NOT RUN |
+| `mvn verify` | NOT RUN |
+
+---
+
+## Previous latest result
+
+**Date:** 2026-09-09
 **Scope:** Stage 3.5.8.2 Partial Acceptance + RECEIVE_SHORTFALL + RETURN_PENDING
 **Overall:** PASS (targeted tests + architecture + production unit + quick build + package + startup smoke on `tmp-stage5-pg`); partial acceptance INTEGRATION TEST VERIFIED; V40→V41 ISOLATED MIGRATION TEST VERIFIED; no new GUI
 

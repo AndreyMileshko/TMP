@@ -4,6 +4,42 @@
 
 ---
 
+## Stage 3.5.8.3 — Reject + Physical Return + Final Settlement — 2026-09-09
+
+**Date:** 2026-09-09
+**Stage:** UI Modernization Stage 3.5.8.3 (Warehouse Transfer Document reject + TRANSFER_RETURN); outside Stages 0–9 numbered queue
+**Base checkpoint:** `53cbaf966df391b5426ce1356206b8eac991f196`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.8 COMPLETE; 3.5.9 NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Completed post-send physical settlement. Whole-document reject sets RETURN_PENDING/REJECTED with mandatory reason, no stock mutation, and no continuation. Physical return via WarehouseOperationEngine.transferReturn (TRANSFER_RETURN) restores source AVAILABLE from IN_TRANSIT with per-sendAllocation conservation; settlement SETTLED preserves ACCEPTED/REJECTED metadata; Document Engine closes atomically. Document-managed transfer status and public receive/task Javadoc corrected.
+
+### Locked decision
+
+Full reject MUST NOT automatically create a continuation.
+
+### Key changes
+
+- Flyway V42: TRANSFER_RETURN in operation/movement CHECKs + `transfer_return_settlement_item`
+- `WarehouseTransferRejectService` / `WarehouseTransferReturnService`
+- Domain transitions `markRejectedAndReturnPending` / `markReturnedAndSettled`
+- Engine `transferReturn` (same-cell allowed); onClose accepted+returned=sent
+- Public API reject/return commands; task/document rejection reason fields; status corrective
+- Production/UI test stubs only for new CommandApi methods
+
+### Verification
+
+Targeted warehouse + architecture PASS; quick build PASS; jpackage TMP.exe rebuilt; runtime Flyway validated 42 / schema V42; stock_positions 31 / sum 1257.9 preserved.
+
+### Next
+
+Stage 3.5.9 Production Material Requirement Refactor = NOT STARTED.
+
+---
+
 ## Stage 3.5.8.2 — Partial Acceptance + RECEIVE_SHORTFALL + RETURN_PENDING — 2026-09-09
 
 **Date:** 2026-09-09

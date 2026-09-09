@@ -126,6 +126,133 @@ public final class JdbcTransferDocumentSettlementRepository
                 "markAcceptedAndReturnPending");
     }
 
+    @Override
+    public void markRejectedAndReturnPending(
+            UUID documentId, long expectedOperationalRevision, TransferDocumentSettlement updated) {
+        Objects.requireNonNull(documentId, "documentId");
+        Objects.requireNonNull(updated, "updated");
+        if (!documentId.equals(updated.documentId())) {
+            throw new IllegalArgumentException("documentId mismatch");
+        }
+        if (updated.settlementState() != TransferSettlementState.RETURN_PENDING
+                || updated.decision().orElse(null) != TransferSettlementDecision.REJECTED) {
+            throw new IllegalArgumentException(
+                    "markRejectedAndReturnPending requires RETURN_PENDING/REJECTED");
+        }
+        if (updated.operationalRevision() != expectedOperationalRevision + 1) {
+            throw new IllegalArgumentException(
+                    "updated revision must be expected + 1: expected="
+                            + expectedOperationalRevision
+                            + ", updated="
+                            + updated.operationalRevision());
+        }
+        String reason =
+                updated
+                        .rejectionReason()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "REJECTED settlement requires rejectionReason"));
+        Instant rejectedAt =
+                updated
+                        .rejectedAt()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "REJECTED settlement requires rejectedAt"));
+        UUID rejectedBy =
+                updated
+                        .rejectedBy()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "REJECTED settlement requires rejectedBy"));
+        int rows =
+                jdbc.update(
+                        """
+                        UPDATE warehouse.transfer_document_settlement
+                           SET settlement_state = ?,
+                               decision = ?,
+                               rejection_reason = ?,
+                               rejected_at = ?,
+                               rejected_by = ?,
+                               operational_revision = ?,
+                               updated_at = ?
+                         WHERE document_id = ?
+                           AND operational_revision = ?
+                           AND settlement_state = ?
+                           AND decision IS NULL
+                        """,
+                        TransferSettlementState.RETURN_PENDING.name(),
+                        TransferSettlementDecision.REJECTED.name(),
+                        reason,
+                        Timestamp.from(rejectedAt),
+                        rejectedBy,
+                        updated.operationalRevision(),
+                        Timestamp.from(updated.updatedAt()),
+                        documentId,
+                        expectedOperationalRevision,
+                        TransferSettlementState.AWAITING_RECEIPT.name());
+        if (rows != 1) {
+            throwOptimisticOrState(documentId, expectedOperationalRevision, "reject");
+        }
+    }
+
+    @Override
+    public void markReturnedAndSettled(
+            UUID documentId, long expectedOperationalRevision, TransferDocumentSettlement updated) {
+        Objects.requireNonNull(documentId, "documentId");
+        Objects.requireNonNull(updated, "updated");
+        if (!documentId.equals(updated.documentId())) {
+            throw new IllegalArgumentException("documentId mismatch");
+        }
+        if (updated.settlementState() != TransferSettlementState.SETTLED) {
+            throw new IllegalArgumentException("markReturnedAndSettled requires SETTLED");
+        }
+        TransferSettlementDecision decision =
+                updated
+                        .decision()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "markReturnedAndSettled requires decided settlement"));
+        if (decision != TransferSettlementDecision.ACCEPTED
+                && decision != TransferSettlementDecision.REJECTED) {
+            throw new IllegalArgumentException(
+                    "markReturnedAndSettled requires ACCEPTED or REJECTED");
+        }
+        if (updated.operationalRevision() != expectedOperationalRevision + 1) {
+            throw new IllegalArgumentException(
+                    "updated revision must be expected + 1: expected="
+                            + expectedOperationalRevision
+                            + ", updated="
+                            + updated.operationalRevision());
+        }
+        int rows =
+                jdbc.update(
+                        """
+                        UPDATE warehouse.transfer_document_settlement
+                           SET settlement_state = ?,
+                               operational_revision = ?,
+                               updated_at = ?
+                         WHERE document_id = ?
+                           AND operational_revision = ?
+                           AND settlement_state = ?
+                           AND decision IN (?, ?)
+                        """,
+                        TransferSettlementState.SETTLED.name(),
+                        updated.operationalRevision(),
+                        Timestamp.from(updated.updatedAt()),
+                        documentId,
+                        expectedOperationalRevision,
+                        TransferSettlementState.RETURN_PENDING.name(),
+                        TransferSettlementDecision.ACCEPTED.name(),
+                        TransferSettlementDecision.REJECTED.name());
+        if (rows != 1) {
+            throwOptimisticOrState(documentId, expectedOperationalRevision, "return");
+        }
+    }
+
     private void markAcceptedTransition(
             UUID documentId,
             long expectedOperationalRevision,
@@ -170,25 +297,34 @@ public final class JdbcTransferDocumentSettlementRepository
                         expectedOperationalRevision,
                         TransferSettlementState.AWAITING_RECEIPT.name());
         if (rows != 1) {
-            TransferDocumentSettlement current =
-                    findByDocumentId(documentId)
-                            .orElseThrow(
-                                    () ->
-                                            new InvalidWarehouseStateException(
-                                                    "Settlement missing after failed accept: "
-                                                            + documentId));
-            if (current.operationalRevision() != expectedOperationalRevision) {
-                throw new TransferSettlementOptimisticLockException(
-                        documentId, expectedOperationalRevision, current.operationalRevision());
-            }
-            throw new InvalidWarehouseStateException(
-                    "Cannot mark settlement accepted: documentId="
-                            + documentId
-                            + ", state="
-                            + current.settlementState()
-                            + ", decision="
-                            + current.decision().orElse(null));
+            throwOptimisticOrState(documentId, expectedOperationalRevision, "accept");
         }
+    }
+
+    private void throwOptimisticOrState(
+            UUID documentId, long expectedOperationalRevision, String action) {
+        TransferDocumentSettlement current =
+                findByDocumentId(documentId)
+                        .orElseThrow(
+                                () ->
+                                        new InvalidWarehouseStateException(
+                                                "Settlement missing after failed "
+                                                        + action
+                                                        + ": "
+                                                        + documentId));
+        if (current.operationalRevision() != expectedOperationalRevision) {
+            throw new TransferSettlementOptimisticLockException(
+                    documentId, expectedOperationalRevision, current.operationalRevision());
+        }
+        throw new InvalidWarehouseStateException(
+                "Cannot mark settlement "
+                        + action
+                        + ": documentId="
+                        + documentId
+                        + ", state="
+                        + current.settlementState()
+                        + ", decision="
+                        + current.decision().orElse(null));
     }
 
     private Optional<TransferDocumentSettlement> queryOne(String sql, UUID documentId) {

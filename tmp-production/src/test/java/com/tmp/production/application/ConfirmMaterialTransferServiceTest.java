@@ -25,6 +25,7 @@ import com.tmp.production.domain.repository.MaterialTransferTemplateRepository;
 import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
 import com.tmp.production.testsupport.ProductionHistoryTestSupport;
+import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateTransferDraftCommand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialDemand;
@@ -578,6 +579,18 @@ class ConfirmMaterialTransferServiceTest {
                 receiveTransferDocument(
                         com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand command) {
             throw new UnsupportedOperationException("receiveTransferDocument must not be called");
+        }
+
+        @Override
+        public WarehouseApi.TransferDocumentRejectResult rejectTransferDocument(
+                WarehouseApi.RejectTransferDocumentCommand command) {
+            throw new UnsupportedOperationException("rejectTransferDocument");
+        }
+
+        @Override
+        public WarehouseApi.TransferDocumentReturnResult returnTransferMaterials(
+                WarehouseApi.ReturnTransferMaterialsCommand command) {
+            throw new UnsupportedOperationException("returnTransferMaterials");
         }
 
         @Override

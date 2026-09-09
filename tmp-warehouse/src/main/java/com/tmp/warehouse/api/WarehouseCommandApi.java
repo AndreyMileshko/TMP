@@ -11,9 +11,13 @@ import com.tmp.warehouse.api.WarehouseApi.OperationResult;
 import com.tmp.warehouse.api.WarehouseApi.ReceiptCommand;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.RejectTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.ReturnTransferMaterialsCommand;
 import com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentRejectResult;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
@@ -85,16 +89,31 @@ public interface WarehouseCommandApi {
     TransferDocumentSendResult sendTransferDocument(SendTransferDocumentCommand command);
 
     /**
-     * Full document-level receive of a POSTED Transfer Document (Stage 3.5.8.1). Destination
-     * allocation totals must equal posted line quantities exactly. Requires destination warehouse
-     * responsibility.
+     * Document-level acceptance of a POSTED Transfer Document (Stage 3.5.8.1 / 3.5.8.2). Supports
+     * full or partial acceptance: total accepted must be {@code > 0}; per-line accepted must be
+     * {@code <=} sent. Full reject uses {@link #rejectTransferDocument}. Requires destination
+     * warehouse responsibility.
      */
     TransferDocumentReceiveResult receiveTransferDocument(ReceiveTransferDocumentCommand command);
 
     /**
-     * Informational «Взять в работу» / takeover for a Transfer preparation or receipt task. Current
-     * worker is resolved from the authenticated session (caller must not supply userId). Not an
-     * exclusive lock — another responsible user may take over.
+     * Whole-document reject of a POSTED Transfer Document awaiting receipt (Stage 3.5.8.3). No stock
+     * mutation and no continuation. Requires destination warehouse responsibility. RejectedBy is
+     * resolved from the authenticated session.
+     */
+    TransferDocumentRejectResult rejectTransferDocument(RejectTransferDocumentCommand command);
+
+    /**
+     * Physically returns outstanding Transfer Document materials to the source warehouse (Stage
+     * 3.5.8.3). Settles and closes the document atomically. Requires source warehouse
+     * responsibility.
+     */
+    TransferDocumentReturnResult returnTransferMaterials(ReturnTransferMaterialsCommand command);
+
+    /**
+     * Informational «Взять в работу» / takeover for a Transfer preparation, receipt, or return
+     * materials task. Current worker is resolved from the authenticated session (caller must not
+     * supply userId). Not an exclusive lock — another responsible user may take over.
      */
     WarehouseTaskView takeTransferTaskInWork(UUID documentId);
 }

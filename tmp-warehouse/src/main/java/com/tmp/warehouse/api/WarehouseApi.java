@@ -172,7 +172,9 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             UUID continuationOfDocumentId,
             String continuationReason,
             String settlementState,
-            Long operationalRevision) {
+            Long operationalRevision,
+            String settlementDecision,
+            String rejectionReason) {
 
         public TransferDocumentView {
             java.util.Objects.requireNonNull(documentId, "documentId");
@@ -197,8 +199,9 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     }
 
     /**
-     * Full document-level receive of a POSTED Transfer Document (Stage 3.5.8.1). Destination
-     * allocation totals must equal posted line quantities exactly.
+     * Document-level acceptance of a POSTED Transfer Document (Stage 3.5.8.1 / 3.5.8.2). Supports
+     * full or partial acceptance: total accepted must be {@code > 0}; per-line accepted must be
+     * {@code <=} sent. Full reject uses {@link WarehouseCommandApi#rejectTransferDocument}.
      */
     record ReceiveTransferDocumentCommand(
             UUID documentId,
@@ -231,6 +234,81 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             java.util.Objects.requireNonNull(settlementState, "settlementState");
             receiveOperationIds =
                     receiveOperationIds == null ? List.of() : List.copyOf(receiveOperationIds);
+        }
+    }
+
+    /**
+     * Whole-document reject of a POSTED Transfer Document awaiting receipt (Stage 3.5.8.3).
+     * {@code rejectionReason} is mandatory (non-blank after trim, max 500). Caller must not supply
+     * rejectedBy — resolved from the authenticated session.
+     */
+    record RejectTransferDocumentCommand(
+            UUID documentId, long expectedOperationalRevision, String rejectionReason) {
+
+        public RejectTransferDocumentCommand {
+            java.util.Objects.requireNonNull(documentId, "documentId");
+        }
+    }
+
+    /** Compact result of a successful Transfer Document reject. */
+    record TransferDocumentRejectResult(
+            UUID documentId,
+            String documentStatus,
+            String settlementState,
+            String decision,
+            long operationalRevision,
+            String rejectionReason) {
+
+        public TransferDocumentRejectResult {
+            java.util.Objects.requireNonNull(documentId, "documentId");
+            java.util.Objects.requireNonNull(documentStatus, "documentStatus");
+            java.util.Objects.requireNonNull(settlementState, "settlementState");
+        }
+    }
+
+    /** One return-cell allocation for Transfer Document physical RETURN (Stage 3.5.8.3). */
+    record TransferDocumentReturnAllocationInput(
+            UUID lineId, UUID returnStorageCellId, BigDecimal quantity) {
+
+        public TransferDocumentReturnAllocationInput {
+            java.util.Objects.requireNonNull(lineId, "lineId");
+            java.util.Objects.requireNonNull(returnStorageCellId, "returnStorageCellId");
+            java.util.Objects.requireNonNull(quantity, "quantity");
+        }
+    }
+
+    /**
+     * Physical return of outstanding Transfer Document materials to the source warehouse. Empty
+     * {@code returnAllocations} uses the default plan (original source cells). Non-empty list is a
+     * complete override covering outstanding quantity exactly.
+     */
+    record ReturnTransferMaterialsCommand(
+            UUID documentId,
+            long expectedOperationalRevision,
+            List<TransferDocumentReturnAllocationInput> returnAllocations) {
+
+        public ReturnTransferMaterialsCommand {
+            java.util.Objects.requireNonNull(documentId, "documentId");
+            returnAllocations =
+                    returnAllocations == null ? List.of() : List.copyOf(returnAllocations);
+        }
+    }
+
+    /** Compact result of a successful Transfer Document physical return. */
+    record TransferDocumentReturnResult(
+            UUID documentId,
+            String documentStatus,
+            String settlementState,
+            String decision,
+            long operationalRevision,
+            List<UUID> returnOperationIds) {
+
+        public TransferDocumentReturnResult {
+            java.util.Objects.requireNonNull(documentId, "documentId");
+            java.util.Objects.requireNonNull(documentStatus, "documentStatus");
+            java.util.Objects.requireNonNull(settlementState, "settlementState");
+            returnOperationIds =
+                    returnOperationIds == null ? List.of() : List.copyOf(returnOperationIds);
         }
     }
 
@@ -298,6 +376,8 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     /**
      * Compact operational inbox projection over a {@code warehouse.transfer} document.
      * Task identity is {@code documentId}. Worker fields are opaque Security UUIDs / timestamps.
+     * For {@code RETURN_MATERIALS}, {@code settlementDecision}/{@code rejectionReason} expose
+     * reject metadata when decision is {@code REJECTED}.
      */
     record WarehouseTaskView(
             UUID documentId,
@@ -317,7 +397,9 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             UUID continuationOfDocumentId,
             String continuationReason,
             String settlementState,
-            Long operationalRevision) {
+            Long operationalRevision,
+            String settlementDecision,
+            String rejectionReason) {
 
         public WarehouseTaskView {
             java.util.Objects.requireNonNull(documentId, "documentId");
@@ -336,9 +418,9 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     /**
      * Logical transfer status for a send reference (or receive operation).
      *
-     * <p>{@code status} is {@code DRAFT}, {@code SENT}, {@code RECEIVED}, or the underlying
-     * operation status when the send failed. After receive, a query by the original send id returns
-     * {@code RECEIVED} rather than {@code COMPLETED}.
+     * <p>Legacy (non-document) transfers use {@code DRAFT}, {@code SENT}, {@code RECEIVED}.
+     * Document-managed send allocations use settlement-aware statuses: {@code SENT}, {@code
+     * PARTIALLY_RECEIVED}, {@code REJECTED}, {@code RETURNED}, {@code RECEIVED}.
      */
     record TransferStatusView(
             UUID operationId,
@@ -582,13 +664,17 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     /**
      * Warehouse Operation kinds exposed through Public API.
      *
-     * <p>Transfer is two-stage: {@link #TRANSFER_SEND} then {@link #TRANSFER_RECEIVE}.
+     * <p>Transfer stages: {@link #TRANSFER_SEND}, {@link #TRANSFER_RECEIVE}, and {@link
+     * #TRANSFER_RETURN}. {@link #TRANSFER_RETURN} is a read/result representation only — it must not
+     * be executed via unrestricted {@link WarehouseCommandApi#executeWarehouseOperation}; physical
+     * return is owned by Transfer Document settlement.
      */
     enum OperationKind {
         RECEIPT,
         MOVE,
         TRANSFER_SEND,
         TRANSFER_RECEIVE,
+        TRANSFER_RETURN,
         CONSUMPTION,
         ADJUSTMENT
     }

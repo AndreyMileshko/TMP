@@ -953,6 +953,18 @@ class ReleaseProductsPostgresIT {
         }
 
         @Override
+        public WarehouseApi.TransferDocumentRejectResult rejectTransferDocument(
+                WarehouseApi.RejectTransferDocumentCommand command) {
+            return delegate.rejectTransferDocument(command);
+        }
+
+        @Override
+        public WarehouseApi.TransferDocumentReturnResult returnTransferMaterials(
+                WarehouseApi.ReturnTransferMaterialsCommand command) {
+            return delegate.returnTransferMaterials(command);
+        }
+
+        @Override
         public WarehouseApi.TransferDocumentView createTransferDocument(
                 WarehouseApi.CreateTransferDocumentCommand command) {
             return delegate.createTransferDocument(command);

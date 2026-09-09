@@ -29,6 +29,8 @@ import com.tmp.warehouse.application.WarehouseReservationLinkService;
 import com.tmp.warehouse.application.WarehouseResponsibilityGuard;
 import com.tmp.warehouse.application.WarehouseTransferDocumentService;
 import com.tmp.warehouse.application.WarehouseTransferReceiveService;
+import com.tmp.warehouse.application.WarehouseTransferRejectService;
+import com.tmp.warehouse.application.WarehouseTransferReturnService;
 import com.tmp.warehouse.application.WarehouseTransferSendService;
 import com.tmp.warehouse.application.WarehouseTransferService;
 import com.tmp.warehouse.application.document.WarehouseTransferDocumentProcessor;
@@ -39,6 +41,7 @@ import com.tmp.warehouse.domain.repository.TransferDocumentSendAllocationReposit
 import com.tmp.warehouse.domain.repository.TransferDocumentSettlementRepository;
 import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
 import com.tmp.warehouse.domain.repository.TransferReceiptSettlementItemRepository;
+import com.tmp.warehouse.domain.repository.TransferReturnSettlementItemRepository;
 import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
@@ -50,6 +53,7 @@ import com.tmp.warehouse.persistence.JdbcTransferDocumentSendAllocationRepositor
 import com.tmp.warehouse.persistence.JdbcTransferDocumentSettlementRepository;
 import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
 import com.tmp.warehouse.persistence.JdbcTransferReceiptSettlementItemRepository;
+import com.tmp.warehouse.persistence.JdbcTransferReturnSettlementItemRepository;
 import com.tmp.warehouse.persistence.JdbcTransferTaskStateRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseTransferDocumentRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseUserResponsibilityRepository;
@@ -86,7 +90,10 @@ public final class WarehouseIntegrationTestSupport {
             WarehouseOperationEngine operationEngine,
             TransferDocumentSettlementRepository settlements,
             TransferReceiptSettlementItemRepository receiptItems,
-            WarehouseTransferReceiveService transferReceive) {}
+            TransferReturnSettlementItemRepository returnItems,
+            WarehouseTransferReceiveService transferReceive,
+            WarehouseTransferRejectService transferReject,
+            WarehouseTransferReturnService transferReturn) {}
 
     /** Test helper: skips responsibility checks. Never use in production wiring. */
     public static WarehouseResponsibilityGuard permitAllResponsibility() {
@@ -166,6 +173,8 @@ public final class WarehouseIntegrationTestSupport {
                 new JdbcTransferDocumentSettlementRepository(jdbc);
         TransferReceiptSettlementItemRepository receiptItems =
                 new JdbcTransferReceiptSettlementItemRepository(jdbc);
+        TransferReturnSettlementItemRepository returnItems =
+                new JdbcTransferReturnSettlementItemRepository(jdbc);
         TransferTaskStateRepository taskStates = new JdbcTransferTaskStateRepository(jdbc, clock);
         DocumentEngine documentEngine = createDocumentEngine(jdbc);
         documentEngine.registerProcessor(
@@ -178,6 +187,7 @@ public final class WarehouseIntegrationTestSupport {
                         catalog,
                         settlements,
                         receiptItems,
+                        returnItems,
                         clock));
         WarehouseTransferDocumentService transferDocumentService =
                 new WarehouseTransferDocumentService(
@@ -207,6 +217,33 @@ public final class WarehouseIntegrationTestSupport {
                         settlements,
                         sendAllocations,
                         receiptItems,
+                        taskStates,
+                        engine,
+                        materials,
+                        catalog,
+                        responsibilityGuard,
+                        tx,
+                        clock);
+        WarehouseTransferRejectService transferReject =
+                new WarehouseTransferRejectService(
+                        documentEngine,
+                        transferDocumentRepository,
+                        settlements,
+                        sendAllocations,
+                        receiptItems,
+                        taskStates,
+                        responsibilityGuard,
+                        authentication,
+                        tx,
+                        clock);
+        WarehouseTransferReturnService transferReturn =
+                new WarehouseTransferReturnService(
+                        documentEngine,
+                        transferDocumentRepository,
+                        settlements,
+                        sendAllocations,
+                        receiptItems,
+                        returnItems,
                         taskStates,
                         engine,
                         materials,
@@ -253,8 +290,12 @@ public final class WarehouseIntegrationTestSupport {
                         operationalInbox,
                         transferSend,
                         transferReceive,
+                        transferReject,
+                        transferReturn,
                         sendAllocations,
-                        settlements);
+                        settlements,
+                        receiptItems,
+                        returnItems);
         return new ApiBundle(
                 api,
                 jdbc,
@@ -274,7 +315,10 @@ public final class WarehouseIntegrationTestSupport {
                 engine,
                 settlements,
                 receiptItems,
-                transferReceive);
+                returnItems,
+                transferReceive,
+                transferReject,
+                transferReturn);
     }
 
     public static DocumentEngine createDocumentEngine(JdbcTemplate jdbc) {

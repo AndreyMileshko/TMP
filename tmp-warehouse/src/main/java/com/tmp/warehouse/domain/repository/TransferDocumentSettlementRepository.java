@@ -34,4 +34,18 @@ public interface TransferDocumentSettlementRepository {
      */
     void markAcceptedAndReturnPending(
             UUID documentId, long expectedOperationalRevision, TransferDocumentSettlement updated);
+
+    /**
+     * Persists {@code AWAITING_RECEIPT → RETURN_PENDING} with {@code REJECTED} and rejection
+     * metadata when revision/state match. Increments revision exactly once.
+     */
+    void markRejectedAndReturnPending(
+            UUID documentId, long expectedOperationalRevision, TransferDocumentSettlement updated);
+
+    /**
+     * Persists {@code RETURN_PENDING → SETTLED} preserving decision/rejection metadata when revision
+     * matches. Increments revision exactly once.
+     */
+    void markReturnedAndSettled(
+            UUID documentId, long expectedOperationalRevision, TransferDocumentSettlement updated);
 }

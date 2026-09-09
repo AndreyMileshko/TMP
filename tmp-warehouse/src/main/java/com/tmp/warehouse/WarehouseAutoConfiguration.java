@@ -22,6 +22,8 @@ import com.tmp.warehouse.application.MaterialSourceRoutingService;
 import com.tmp.warehouse.application.WarehouseOperationalInboxService;
 import com.tmp.warehouse.application.WarehouseTransferDocumentService;
 import com.tmp.warehouse.application.WarehouseTransferReceiveService;
+import com.tmp.warehouse.application.WarehouseTransferRejectService;
+import com.tmp.warehouse.application.WarehouseTransferReturnService;
 import com.tmp.warehouse.application.WarehouseTransferSendService;
 import com.tmp.warehouse.application.WarehouseTransferService;
 import com.tmp.warehouse.application.document.WarehouseTransferDocumentProcessor;
@@ -33,6 +35,7 @@ import com.tmp.warehouse.domain.repository.TransferDocumentSendAllocationReposit
 import com.tmp.warehouse.domain.repository.TransferDocumentSettlementRepository;
 import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
 import com.tmp.warehouse.domain.repository.TransferReceiptSettlementItemRepository;
+import com.tmp.warehouse.domain.repository.TransferReturnSettlementItemRepository;
 import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
@@ -47,6 +50,7 @@ import com.tmp.warehouse.persistence.JdbcTransferDocumentSendAllocationRepositor
 import com.tmp.warehouse.persistence.JdbcTransferDocumentSettlementRepository;
 import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
 import com.tmp.warehouse.persistence.JdbcTransferReceiptSettlementItemRepository;
+import com.tmp.warehouse.persistence.JdbcTransferReturnSettlementItemRepository;
 import com.tmp.warehouse.persistence.JdbcTransferTaskStateRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
@@ -204,6 +208,12 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
+    TransferReturnSettlementItemRepository transferReturnSettlementItemRepository(
+            JdbcTemplate jdbcTemplate) {
+        return new JdbcTransferReturnSettlementItemRepository(jdbcTemplate);
+    }
+
+    @Bean
     WarehouseTransferDocumentProcessor warehouseTransferDocumentProcessor(
             WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
             TransferDocumentSendAllocationRepository transferDocumentSendAllocationRepository,
@@ -213,6 +223,7 @@ public class WarehouseAutoConfiguration {
             WarehouseCatalogRepository warehouseCatalogRepository,
             TransferDocumentSettlementRepository transferDocumentSettlementRepository,
             TransferReceiptSettlementItemRepository transferReceiptSettlementItemRepository,
+            TransferReturnSettlementItemRepository transferReturnSettlementItemRepository,
             Clock clock) {
         return new WarehouseTransferDocumentProcessor(
                 warehouseTransferDocumentRepository,
@@ -223,6 +234,7 @@ public class WarehouseAutoConfiguration {
                 warehouseCatalogRepository,
                 transferDocumentSettlementRepository,
                 transferReceiptSettlementItemRepository,
+                transferReturnSettlementItemRepository,
                 clock);
     }
 
@@ -290,6 +302,62 @@ public class WarehouseAutoConfiguration {
                 transferDocumentSettlementRepository,
                 transferDocumentSendAllocationRepository,
                 transferReceiptSettlementItemRepository,
+                transferTaskStateRepository,
+                warehouseOperationEngine,
+                materialReferenceRepository,
+                warehouseCatalogRepository,
+                warehouseResponsibilityGuard,
+                new TransactionTemplate(platformTransactionManager),
+                clock);
+    }
+
+    @Bean
+    WarehouseTransferRejectService warehouseTransferRejectService(
+            DocumentEngine documentEngine,
+            WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
+            TransferDocumentSettlementRepository transferDocumentSettlementRepository,
+            TransferDocumentSendAllocationRepository transferDocumentSendAllocationRepository,
+            TransferReceiptSettlementItemRepository transferReceiptSettlementItemRepository,
+            TransferTaskStateRepository transferTaskStateRepository,
+            WarehouseResponsibilityGuard warehouseResponsibilityGuard,
+            AuthenticationService authenticationService,
+            PlatformTransactionManager platformTransactionManager,
+            Clock clock) {
+        return new WarehouseTransferRejectService(
+                documentEngine,
+                warehouseTransferDocumentRepository,
+                transferDocumentSettlementRepository,
+                transferDocumentSendAllocationRepository,
+                transferReceiptSettlementItemRepository,
+                transferTaskStateRepository,
+                warehouseResponsibilityGuard,
+                authenticationService,
+                new TransactionTemplate(platformTransactionManager),
+                clock);
+    }
+
+    @Bean
+    WarehouseTransferReturnService warehouseTransferReturnService(
+            DocumentEngine documentEngine,
+            WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
+            TransferDocumentSettlementRepository transferDocumentSettlementRepository,
+            TransferDocumentSendAllocationRepository transferDocumentSendAllocationRepository,
+            TransferReceiptSettlementItemRepository transferReceiptSettlementItemRepository,
+            TransferReturnSettlementItemRepository transferReturnSettlementItemRepository,
+            TransferTaskStateRepository transferTaskStateRepository,
+            WarehouseOperationEngine warehouseOperationEngine,
+            MaterialReferenceRepository materialReferenceRepository,
+            WarehouseCatalogRepository warehouseCatalogRepository,
+            WarehouseResponsibilityGuard warehouseResponsibilityGuard,
+            PlatformTransactionManager platformTransactionManager,
+            Clock clock) {
+        return new WarehouseTransferReturnService(
+                documentEngine,
+                warehouseTransferDocumentRepository,
+                transferDocumentSettlementRepository,
+                transferDocumentSendAllocationRepository,
+                transferReceiptSettlementItemRepository,
+                transferReturnSettlementItemRepository,
                 transferTaskStateRepository,
                 warehouseOperationEngine,
                 materialReferenceRepository,
@@ -426,8 +494,12 @@ public class WarehouseAutoConfiguration {
             WarehouseOperationalInboxService warehouseOperationalInboxService,
             WarehouseTransferSendService warehouseTransferSendService,
             WarehouseTransferReceiveService warehouseTransferReceiveService,
+            WarehouseTransferRejectService warehouseTransferRejectService,
+            WarehouseTransferReturnService warehouseTransferReturnService,
             TransferDocumentSendAllocationRepository transferDocumentSendAllocationRepository,
-            TransferDocumentSettlementRepository transferDocumentSettlementRepository) {
+            TransferDocumentSettlementRepository transferDocumentSettlementRepository,
+            TransferReceiptSettlementItemRepository transferReceiptSettlementItemRepository,
+            TransferReturnSettlementItemRepository transferReturnSettlementItemRepository) {
         return new DefaultWarehouseApi(
                 authorizationService,
                 authenticationService,
@@ -450,8 +522,12 @@ public class WarehouseAutoConfiguration {
                 warehouseOperationalInboxService,
                 warehouseTransferSendService,
                 warehouseTransferReceiveService,
+                warehouseTransferRejectService,
+                warehouseTransferReturnService,
                 transferDocumentSendAllocationRepository,
-                transferDocumentSettlementRepository);
+                transferDocumentSettlementRepository,
+                transferReceiptSettlementItemRepository,
+                transferReturnSettlementItemRepository);
     }
 
     @Bean

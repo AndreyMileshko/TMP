@@ -197,6 +197,18 @@ final class WarehouseWorkbenchUiTestSupport {
         }
 
         @Override
+        public WarehouseApi.TransferDocumentRejectResult rejectTransferDocument(
+                WarehouseApi.RejectTransferDocumentCommand command) {
+            throw new UnsupportedOperationException("rejectTransferDocument");
+        }
+
+        @Override
+        public WarehouseApi.TransferDocumentReturnResult returnTransferMaterials(
+                WarehouseApi.ReturnTransferMaterialsCommand command) {
+            throw new UnsupportedOperationException("returnTransferMaterials");
+        }
+
+        @Override
         public TransferDocumentView createTransferDocument(CreateTransferDocumentCommand command) {
             throw new UnsupportedOperationException();
         }

@@ -290,6 +290,82 @@ public final class WarehouseOperationEngine {
     }
 
     /**
+     * Transfer return (Stage 3.5.8.3): decreases source {@code IN_TRANSIT} at the original send cell
+     * and increases source {@code AVAILABLE} at the selected return cell. Same-cell return is valid
+     * because stock states differ. Not exposed as a generic user {@code execute} operation.
+     */
+    public WarehouseOperation transferReturn(
+            MaterialReference material,
+            WarehouseId warehouseId,
+            StorageCellId inTransitSourceCellId,
+            StorageCellId returnStorageCellId,
+            StockQuantity quantity) {
+        Objects.requireNonNull(material, "material");
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        Objects.requireNonNull(inTransitSourceCellId, "inTransitSourceCellId");
+        Objects.requireNonNull(returnStorageCellId, "returnStorageCellId");
+        Objects.requireNonNull(quantity, "quantity");
+        requirePositiveQuantity(quantity, "Transfer return");
+
+        WarehouseOperationId operationId = WarehouseOperationId.generate();
+        try {
+            return requireTransactionResult(
+                    transactionTemplate.execute(
+                            status -> {
+                                StockPosition inTransit =
+                                        stockPositions
+                                                .findByNaturalKey(
+                                                        warehouseId,
+                                                        inTransitSourceCellId,
+                                                        material,
+                                                        StockState.IN_TRANSIT)
+                                                .orElseThrow(
+                                                        () ->
+                                                                new InvalidWarehouseStateException(
+                                                                        "Insufficient IN_TRANSIT stock for transfer return: cell="
+                                                                                + inTransitSourceCellId));
+                                if (inTransit.quantity().value().compareTo(quantity.value()) < 0) {
+                                    throw new InvalidWarehouseStateException(
+                                            "Insufficient IN_TRANSIT stock for transfer return: available="
+                                                    + inTransit.quantity().value()
+                                                    + ", requested="
+                                                    + quantity.value());
+                                }
+
+                                WarehouseOperation draft =
+                                        operations.create(
+                                                WarehouseOperation.draft(
+                                                        operationId,
+                                                        WarehouseOperationType.TRANSFER_RETURN,
+                                                        material,
+                                                        warehouseId,
+                                                        returnStorageCellId,
+                                                        StockState.AVAILABLE,
+                                                        quantity));
+
+                                applyQuantityDelta(
+                                        inTransit,
+                                        StockState.IN_TRANSIT,
+                                        quantity.value().negate(),
+                                        WarehouseOperationType.TRANSFER_RETURN);
+                                applyDestinationAvailableIncrease(
+                                        warehouseId,
+                                        returnStorageCellId,
+                                        material,
+                                        quantity,
+                                        WarehouseOperationType.TRANSFER_RETURN);
+                                return operations.update(draft.complete());
+                            }),
+                    "Warehouse transfer return returned null: operationId=" + operationId);
+        } catch (RuntimeException ex) {
+            markFailedBestEffort(operationId);
+            rethrowOperationFailure(
+                    ex, "Warehouse transfer return failed: operationId=" + operationId);
+            throw new AssertionError("unreachable");
+        }
+    }
+
+    /**
      * Executes an internal Move: one MOVE operation, source (−qty) and destination (+qty)
      * movements, stock updates in a single transaction. Quantity on the operation is the moved
      * amount; material and warehouse are unchanged.
@@ -559,7 +635,8 @@ public final class WarehouseOperationEngine {
         WarehouseOperationType type = operation.type();
         if (type == WarehouseOperationType.MOVE
                 || type == WarehouseOperationType.TRANSFER_SEND
-                || type == WarehouseOperationType.TRANSFER_RECEIVE) {
+                || type == WarehouseOperationType.TRANSFER_RECEIVE
+                || type == WarehouseOperationType.TRANSFER_RETURN) {
             throw new InvalidWarehouseStateException(
                     type + " operations must be executed via dedicated engine methods: operationId="
                             + operation.id());

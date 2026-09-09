@@ -17,6 +17,7 @@ import com.tmp.production.domain.WarehouseTransferOperationRef;
 import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.testsupport.InMemoryProductionHistoryRepository;
 import com.tmp.production.testsupport.ProductionHistoryTestSupport;
+import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialDemand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult;
@@ -434,6 +435,18 @@ class ConfirmMaterialReceiptServiceTest {
         public TransferDocumentReceiveResult receiveTransferDocument(
                 ReceiveTransferDocumentCommand command) {
             throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
+        public WarehouseApi.TransferDocumentRejectResult rejectTransferDocument(
+                WarehouseApi.RejectTransferDocumentCommand command) {
+            throw new UnsupportedOperationException("rejectTransferDocument");
+        }
+
+        @Override
+        public WarehouseApi.TransferDocumentReturnResult returnTransferMaterials(
+                WarehouseApi.ReturnTransferMaterialsCommand command) {
+            throw new UnsupportedOperationException("returnTransferMaterials");
         }
 
         @Override

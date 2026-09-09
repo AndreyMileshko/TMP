@@ -3,9 +3,9 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.7 COMPLETE; **3.5.8 IN PROGRESS**; **3.5.8.1 COMPLETE**; **3.5.8.2 Partial Acceptance COMPLETE**; 3.5.8.3 NEXT / NOT STARTED)
-**Current Task:** none (Stage 3.5.8.2 complete; next 3.5.8.3 not started)
-**Last completed task:** Stage 3.5.8.2 Partial Acceptance + RECEIVE_SHORTFALL + RETURN_PENDING (2026-09-09); prior: Stage 3.5.8.1 Settlement + Full Document Receive (2026-09-09)
+**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.7 COMPLETE; **3.5.8 COMPLETE**; **3.5.8.1 COMPLETE**; **3.5.8.2 COMPLETE**; **3.5.8.3 Reject + Return COMPLETE**; 3.5.9 NEXT / NOT STARTED)
+**Current Task:** none (Stage 3.5.8.3 complete; next 3.5.9 not started)
+**Last completed task:** Stage 3.5.8.3 Reject + Physical Return + Final Settlement (2026-09-09); prior: Stage 3.5.8.2 Partial Acceptance (2026-09-09)
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
 **Active blockers:** NONE (UI final manual acceptance pending interactive smoke, not a code blocker)
@@ -18,7 +18,7 @@
 **Production Specification:** v2.6 Accepted (Warehouse boundary aligned; Stage 7 runtime still CURRENT IMPLEMENTATION)
 **Warehouse Specification:** v1.8 Accepted (ADR-037; �15A admin API note for 3.5.1)
 **Full verify baseline:** GREEN (2026-08-31 post-closure rerun)
-**First READY implementation task:** Stage 3.5.8.3 (NOT STARTED)
+**First READY implementation task:** Stage 3.5.9 (NOT STARTED)
 
 
 ```text
@@ -69,7 +69,7 @@ STAGE7-003 = DONE (Production persistence schema)
 STAGE7-004 = DONE (Production Launch document; originally item-level)
 STAGE7-004A = DONE (OM stable SpecificationId public contract)
 STAGE7-004B = DONE (SpecificationId Stability Fix)
-STAGE7-005 = DONE (Production Foundation � Specification Reference Freeze)
+STAGE7-005 = DONE (Production Foundation — Specification Reference Freeze)
 STAGE7-005A = DONE (Whole-Order Production Launch Correction & Reactor Recovery)
 STAGE7-006 = DONE (Computed Order Production View)
 STAGE7-007 = DONE (Material availability via Warehouse Query)
@@ -106,11 +106,12 @@ Stage 3.5.4 Automatic Source Routing + Source Cell Suggestion = COMPLETE
 Stage 3.5.5 Tasks / Operational Inbox = COMPLETE
 Stage 3.5.6 Physical Multi-Line Send = COMPLETE
 Stage 3.5.7 Shortfall / Continuation = COMPLETE
-Stage 3.5.8 Partial Receive + Reject + Return = IN PROGRESS
+Stage 3.5.8 Partial Receive + Reject + Return = COMPLETE
 Stage 3.5.8.1 Settlement + Full Document Receive = COMPLETE
 Stage 3.5.8.2 Partial Acceptance = COMPLETE
-Stage 3.5.8.3 Reject + Return = NEXT / NOT STARTED
-First READY implementation task = Stage 3.5.8.3 (NOT STARTED)
+Stage 3.5.8.3 Reject + Return = COMPLETE
+Stage 3.5.9 Production Material Requirement Refactor = NEXT / NOT STARTED
+First READY implementation task = Stage 3.5.9 (NOT STARTED)
 ```
 
 ---

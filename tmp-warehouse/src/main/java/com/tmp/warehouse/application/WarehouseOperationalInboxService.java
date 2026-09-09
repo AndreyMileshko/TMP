@@ -388,7 +388,11 @@ public final class WarehouseOperationalInboxService {
                 payload.continuationOfDocumentId().orElse(null),
                 payload.continuationReason().map(Enum::name).orElse(null),
                 settlement == null ? null : settlement.settlementState().name(),
-                settlement == null ? null : settlement.operationalRevision());
+                settlement == null ? null : settlement.operationalRevision(),
+                settlement == null
+                        ? null
+                        : settlement.decision().map(Enum::name).orElse(null),
+                settlement == null ? null : settlement.rejectionReason().orElse(null));
     }
 
     private static int taskStateRank(WarehouseTaskState state) {

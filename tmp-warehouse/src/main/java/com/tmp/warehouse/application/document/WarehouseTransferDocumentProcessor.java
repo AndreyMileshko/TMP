@@ -11,6 +11,7 @@ import com.tmp.warehouse.domain.TransferDocumentSendAllocation;
 import com.tmp.warehouse.domain.TransferDocumentSettlement;
 import com.tmp.warehouse.domain.TransferOperationContext;
 import com.tmp.warehouse.domain.TransferReceiptSettlementItem;
+import com.tmp.warehouse.domain.TransferReturnSettlementItem;
 import com.tmp.warehouse.domain.TransferSettlementState;
 import com.tmp.warehouse.domain.WarehouseOperation;
 import com.tmp.warehouse.domain.WarehouseTransferDocument;
@@ -20,6 +21,7 @@ import com.tmp.warehouse.domain.repository.TransferDocumentSendAllocationReposit
 import com.tmp.warehouse.domain.repository.TransferDocumentSettlementRepository;
 import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
 import com.tmp.warehouse.domain.repository.TransferReceiptSettlementItemRepository;
+import com.tmp.warehouse.domain.repository.TransferReturnSettlementItemRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -54,11 +56,12 @@ public final class WarehouseTransferDocumentProcessor implements DocumentProcess
     private final WarehouseCatalogRepository catalog;
     private final TransferDocumentSettlementRepository settlements;
     private final TransferReceiptSettlementItemRepository receiptItems;
+    private final TransferReturnSettlementItemRepository returnItems;
     private final Clock clock;
 
     /** Stage 3.5.2 foundation constructor — POST remains unsupported without send wiring. */
     public WarehouseTransferDocumentProcessor(WarehouseTransferDocumentRepository repository) {
-        this(repository, null, null, null, null, null, null, null, null);
+        this(repository, null, null, null, null, null, null, null, null, null);
     }
 
     /** Stage 3.5.6 send wiring without settlement (tests may still use this overload). */
@@ -78,7 +81,32 @@ public final class WarehouseTransferDocumentProcessor implements DocumentProcess
                 catalog,
                 null,
                 null,
+                null,
                 null);
+    }
+
+    /** Stage 3.5.8.1/3.5.8.2 settlement wiring without return items. */
+    public WarehouseTransferDocumentProcessor(
+            WarehouseTransferDocumentRepository repository,
+            TransferDocumentSendAllocationRepository sendAllocations,
+            WarehouseOperationEngine operationEngine,
+            TransferOperationContextRepository transferContexts,
+            MaterialReferenceRepository materials,
+            WarehouseCatalogRepository catalog,
+            TransferDocumentSettlementRepository settlements,
+            TransferReceiptSettlementItemRepository receiptItems,
+            Clock clock) {
+        this(
+                repository,
+                sendAllocations,
+                operationEngine,
+                transferContexts,
+                materials,
+                catalog,
+                settlements,
+                receiptItems,
+                null,
+                clock);
     }
 
     public WarehouseTransferDocumentProcessor(
@@ -90,6 +118,7 @@ public final class WarehouseTransferDocumentProcessor implements DocumentProcess
             WarehouseCatalogRepository catalog,
             TransferDocumentSettlementRepository settlements,
             TransferReceiptSettlementItemRepository receiptItems,
+            TransferReturnSettlementItemRepository returnItems,
             Clock clock) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.sendAllocations = sendAllocations;
@@ -99,6 +128,7 @@ public final class WarehouseTransferDocumentProcessor implements DocumentProcess
         this.catalog = catalog;
         this.settlements = settlements;
         this.receiptItems = receiptItems;
+        this.returnItems = returnItems;
         this.clock = clock;
     }
 
@@ -236,22 +266,35 @@ public final class WarehouseTransferDocumentProcessor implements DocumentProcess
         List<TransferDocumentSendAllocation> allocations =
                 sendAllocations.findByDocumentId(documentId);
         List<TransferReceiptSettlementItem> items = receiptItems.findByDocumentId(documentId);
+        List<TransferReturnSettlementItem> returns =
+                returnItems == null
+                        ? List.of()
+                        : returnItems.findByDocumentId(documentId);
         Map<UUID, BigDecimal> acceptedByAllocation = new HashMap<>();
         for (TransferReceiptSettlementItem item : items) {
             acceptedByAllocation.merge(
                     item.sendAllocationId(), item.quantity().value(), BigDecimal::add);
         }
+        Map<UUID, BigDecimal> returnedByAllocation = new HashMap<>();
+        for (TransferReturnSettlementItem item : returns) {
+            returnedByAllocation.merge(
+                    item.sendAllocationId(), item.quantity().value(), BigDecimal::add);
+        }
         for (TransferDocumentSendAllocation allocation : allocations) {
             BigDecimal accepted =
                     acceptedByAllocation.getOrDefault(allocation.id(), BigDecimal.ZERO);
-            if (accepted.compareTo(allocation.quantity().value()) != 0) {
+            BigDecimal returned =
+                    returnedByAllocation.getOrDefault(allocation.id(), BigDecimal.ZERO);
+            if (accepted.add(returned).compareTo(allocation.quantity().value()) != 0) {
                 throw new InvalidWarehouseStateException(
                         "Transfer close conservation failed: sendAllocationId="
                                 + allocation.id()
                                 + ", sent="
                                 + allocation.quantity().value()
                                 + ", accepted="
-                                + accepted);
+                                + accepted
+                                + ", returned="
+                                + returned);
             }
         }
     }

@@ -123,6 +123,7 @@ class WarehouseTransferDocumentReceiveIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM warehouse.transfer_return_settlement_item");
         jdbc.update("DELETE FROM warehouse.transfer_receipt_settlement_item");
         jdbc.update("DELETE FROM warehouse.transfer_document_settlement");
         jdbc.update("DELETE FROM warehouse.transfer_document_send_allocation");

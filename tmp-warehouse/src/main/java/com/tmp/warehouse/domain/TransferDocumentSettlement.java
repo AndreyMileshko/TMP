@@ -9,9 +9,9 @@ import java.util.UUID;
  * Warehouse-owned post-send settlement header for a Transfer Document (Stage 3.5.8).
  *
  * <p>{@code operationalRevision} is the concurrency token for receive/reject/return decisions.
- * Rejection metadata columns exist for 3.5.8.3. Stage 3.5.8.2 transitions to {@link
- * TransferSettlementState#SETTLED} (full accept) or {@link TransferSettlementState#RETURN_PENDING}
- * (partial accept), both with {@link TransferSettlementDecision#ACCEPTED}.
+ * Stage 3.5.8.3 adds full reject ({@link TransferSettlementDecision#REJECTED} + {@link
+ * TransferSettlementState#RETURN_PENDING}) and physical return ({@link
+ * TransferSettlementState#SETTLED} preserving decision/rejection metadata).
  */
 public final class TransferDocumentSettlement {
 
@@ -105,6 +105,98 @@ public final class TransferDocumentSettlement {
     public TransferDocumentSettlement markAcceptedAndReturnPending(
             long expectedRevision, Instant updatedAt) {
         return markAccepted(TransferSettlementState.RETURN_PENDING, expectedRevision, updatedAt);
+    }
+
+    /**
+     * Full reject: {@code AWAITING_RECEIPT → RETURN_PENDING} with {@code REJECTED}. Physical stock
+     * is unchanged; no continuation is created.
+     */
+    public TransferDocumentSettlement markRejectedAndReturnPending(
+            long expectedRevision,
+            String rejectionReason,
+            Instant rejectedAt,
+            UUID rejectedBy) {
+        Objects.requireNonNull(rejectedAt, "rejectedAt");
+        Objects.requireNonNull(rejectedBy, "rejectedBy");
+        if (expectedRevision != operationalRevision) {
+            throw new TransferSettlementOptimisticLockException(
+                    documentId, expectedRevision, operationalRevision);
+        }
+        if (settlementState != TransferSettlementState.AWAITING_RECEIPT) {
+            throw new InvalidWarehouseStateException(
+                    "Settlement reject requires AWAITING_RECEIPT: documentId="
+                            + documentId
+                            + ", state="
+                            + settlementState);
+        }
+        if (decision != null) {
+            throw new InvalidWarehouseStateException(
+                    "Settlement already decided: documentId=" + documentId + ", decision=" + decision);
+        }
+        String normalizedReason = requireNormalizedRejectionReason(rejectionReason);
+        return of(
+                documentId,
+                TransferSettlementState.RETURN_PENDING,
+                operationalRevision + 1,
+                TransferSettlementDecision.REJECTED,
+                normalizedReason,
+                rejectedAt,
+                rejectedBy,
+                createdAt,
+                rejectedAt);
+    }
+
+    /**
+     * Physical return complete: {@code RETURN_PENDING → SETTLED}. Preserves {@code ACCEPTED} or
+     * {@code REJECTED} decision and rejection metadata.
+     */
+    public TransferDocumentSettlement markReturnedAndSettled(
+            long expectedRevision, Instant updatedAt) {
+        Objects.requireNonNull(updatedAt, "updatedAt");
+        if (expectedRevision != operationalRevision) {
+            throw new TransferSettlementOptimisticLockException(
+                    documentId, expectedRevision, operationalRevision);
+        }
+        if (settlementState != TransferSettlementState.RETURN_PENDING) {
+            throw new InvalidWarehouseStateException(
+                    "Settlement return requires RETURN_PENDING: documentId="
+                            + documentId
+                            + ", state="
+                            + settlementState);
+        }
+        if (decision != TransferSettlementDecision.ACCEPTED
+                && decision != TransferSettlementDecision.REJECTED) {
+            throw new InvalidWarehouseStateException(
+                    "Settlement return requires ACCEPTED or REJECTED decision: documentId="
+                            + documentId
+                            + ", decision="
+                            + decision);
+        }
+        return of(
+                documentId,
+                TransferSettlementState.SETTLED,
+                operationalRevision + 1,
+                decision,
+                rejectionReason,
+                rejectedAt,
+                rejectedBy,
+                createdAt,
+                updatedAt);
+    }
+
+    public static String requireNormalizedRejectionReason(String rejectionReason) {
+        if (rejectionReason == null) {
+            throw new InvalidWarehouseStateException("Rejection reason is required");
+        }
+        String trimmed = rejectionReason.trim();
+        if (trimmed.isEmpty()) {
+            throw new InvalidWarehouseStateException("Rejection reason must not be blank");
+        }
+        if (trimmed.length() > 500) {
+            throw new InvalidWarehouseStateException(
+                    "Rejection reason must be at most 500 characters");
+        }
+        return trimmed;
     }
 
     private TransferDocumentSettlement markAccepted(
