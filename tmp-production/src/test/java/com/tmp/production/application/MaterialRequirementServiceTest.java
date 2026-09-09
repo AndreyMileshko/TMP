@@ -8,9 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedMaterialLine;
 import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedSpecification;
-import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
-import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.MaterialReferenceEntry;
-import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.WarehouseCatalogEntry;
+import com.tmp.production.application.port.WarehouseReferenceQueryPort;
+import com.tmp.production.application.port.WarehouseReferenceQueryPort.MaterialReferenceEntry;
+import com.tmp.production.application.port.WarehouseReferenceQueryPort.WarehouseReferenceEntry;
 import com.tmp.production.domain.CuttingPlanLinks;
 import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementId;
@@ -72,8 +72,8 @@ class MaterialRequirementServiceTest {
         warehouseQuery = new TrackingWarehouseQuery();
         warehouseQuery.warehouses =
                 List.of(
-                        new WarehouseCatalogEntry(PROD_WAREHOUSE, "PROD", "Production", true),
-                        new WarehouseCatalogEntry(OTHER_WAREHOUSE, "OTHER", "Other", true));
+                        new WarehouseReferenceEntry(PROD_WAREHOUSE, "PROD", "Production", true),
+                        new WarehouseReferenceEntry(OTHER_WAREHOUSE, "OTHER", "Other", true));
 
         ProductionOrderViewService viewService = new ProductionOrderViewService(itemRepository);
         ProductionFoundationQueryService foundationQuery =
@@ -288,10 +288,55 @@ class MaterialRequirementServiceTest {
         MaterialRequirementLineId lineId = requirement.lines().getFirst().lineId();
 
         MaterialRequirement edited =
-                service.changeQuantity(requirement.requirementId(), lineId, BigDecimal.valueOf(30));
+                service.changeQuantity(
+                        requirement.requirementId(),
+                        lineId,
+                        BigDecimal.valueOf(30),
+                        requirement.version());
 
         assertEquals(0, edited.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(30)));
         assertEquals(1L, edited.version());
+    }
+
+    @Test
+    void rejectsStaleExpectedVersionOnChange() {
+        MaterialRequirement requirement = prepareSimpleRequirement(BigDecimal.TEN);
+        MaterialRequirementLineId lineId = requirement.lines().getFirst().lineId();
+
+        assertThrows(
+                MaterialRequirementOptimisticLockException.class,
+                () ->
+                        service.changeQuantity(
+                                requirement.requirementId(),
+                                lineId,
+                                BigDecimal.valueOf(30),
+                                requirement.version() + 1));
+    }
+
+    @Test
+    void rejectsUnknownRequirementOnChange() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        service.changeQuantity(
+                                MaterialRequirementId.generate(),
+                                MaterialRequirementLineId.generate(),
+                                BigDecimal.TEN,
+                                0L));
+    }
+
+    @Test
+    void rejectsUnknownLineOnChange() {
+        MaterialRequirement requirement = prepareSimpleRequirement(BigDecimal.TEN);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        service.changeQuantity(
+                                requirement.requirementId(),
+                                MaterialRequirementLineId.generate(),
+                                BigDecimal.TEN,
+                                requirement.version()));
     }
 
     @Test
@@ -303,12 +348,18 @@ class MaterialRequirementServiceTest {
                 IllegalArgumentException.class,
                 () ->
                         service.changeQuantity(
-                                requirement.requirementId(), lineId, BigDecimal.ZERO));
+                                requirement.requirementId(),
+                                lineId,
+                                BigDecimal.ZERO,
+                                requirement.version()));
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
                         service.changeQuantity(
-                                requirement.requirementId(), lineId, BigDecimal.valueOf(-1)));
+                                requirement.requirementId(),
+                                lineId,
+                                BigDecimal.valueOf(-1),
+                                requirement.version()));
     }
 
     @Test
@@ -353,8 +404,8 @@ class MaterialRequirementServiceTest {
     void prepareDoesNotCallAvailableQuantity() {
         prepareSimpleRequirement(BigDecimal.TEN);
         assertEquals(0, warehouseQuery.availableQuantityCalls.get());
-        assertTrue(warehouseQuery.listMaterialReferencesCalls.get() >= 1);
-        assertTrue(warehouseQuery.listWarehousesCalls.get() >= 1);
+        assertTrue(warehouseQuery.findMaterialReferencesCalls.get() >= 1);
+        assertTrue(warehouseQuery.getWarehouseCalls.get() >= 1);
     }
 
     @Test
@@ -627,29 +678,34 @@ class MaterialRequirementServiceTest {
         }
     }
 
-    private static final class TrackingWarehouseQuery implements WarehouseAvailabilityQueryPort {
-        List<WarehouseCatalogEntry> warehouses = List.of();
+    private static final class TrackingWarehouseQuery implements WarehouseReferenceQueryPort {
+        List<WarehouseReferenceEntry> warehouses = List.of();
         List<MaterialReferenceEntry> materialReferences = List.of();
-        final AtomicInteger listWarehousesCalls = new AtomicInteger();
-        final AtomicInteger listMaterialReferencesCalls = new AtomicInteger();
+        final AtomicInteger getWarehouseCalls = new AtomicInteger();
+        final AtomicInteger findMaterialReferencesCalls = new AtomicInteger();
         final AtomicInteger availableQuantityCalls = new AtomicInteger();
 
         @Override
-        public List<WarehouseCatalogEntry> listWarehouses() {
-            listWarehousesCalls.incrementAndGet();
-            return warehouses;
+        public Optional<WarehouseReferenceEntry> getWarehouse(UUID warehouseId) {
+            getWarehouseCalls.incrementAndGet();
+            return warehouses.stream()
+                    .filter(entry -> entry.warehouseId().equals(warehouseId))
+                    .findFirst();
         }
 
         @Override
-        public List<MaterialReferenceEntry> listMaterialReferences() {
-            listMaterialReferencesCalls.incrementAndGet();
-            return materialReferences;
-        }
-
-        @Override
-        public BigDecimal availableQuantity(UUID materialReferenceId, UUID warehouseId) {
-            availableQuantityCalls.incrementAndGet();
-            return BigDecimal.ZERO;
+        public List<MaterialReferenceEntry> findMaterialReferencesByIdentity(
+                String article, String color, String unitOfMeasure) {
+            findMaterialReferencesCalls.incrementAndGet();
+            String colorKey = color == null ? "" : color.trim();
+            String unitKey = unitOfMeasure.trim();
+            return materialReferences.stream()
+                    .filter(
+                            entry ->
+                                    entry.article().equals(article)
+                                            && entry.color().trim().equals(colorKey)
+                                            && entry.unitOfMeasure().trim().equals(unitKey))
+                    .toList();
         }
     }
 }

@@ -101,6 +101,15 @@ class WarehouseSecurityAuthorizationTest {
     }
 
     @Test
+    void listMaterialReferencesRequiresWarehousePermission() {
+        DefaultWarehouseApi denied = api(Set.of());
+        DefaultWarehouseApi allowed = api(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
+
+        assertThrows(AccessDeniedException.class, denied::listMaterialReferences);
+        assertDoesNotThrow(allowed::listMaterialReferences);
+    }
+
+    @Test
     void viewOperationsRequireWarehouseView() {
         materials.create(MaterialReference.legacyArticle("ALU-6060"));
         DefaultWarehouseApi denied = api(Set.of());

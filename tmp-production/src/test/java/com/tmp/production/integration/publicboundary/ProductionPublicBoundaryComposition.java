@@ -27,9 +27,11 @@ import com.tmp.production.application.internal.ProductionReleaseDocumentService;
 import com.tmp.production.application.port.DefaultOrderForProductionQueryAdapter;
 import com.tmp.production.application.port.DefaultOrderSpecificationQueryAdapter;
 import com.tmp.production.application.port.DefaultWarehouseAvailabilityQueryAdapter;
+import com.tmp.production.application.port.DefaultWarehouseReferenceQueryAdapter;
 import com.tmp.production.application.port.OrderForProductionQueryPort;
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
+import com.tmp.production.application.port.WarehouseReferenceQueryPort;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
 import com.tmp.production.domain.repository.ProductionCancellationQuery;
 import com.tmp.production.domain.repository.ProductionCancellationRepository;
@@ -44,6 +46,7 @@ import com.tmp.production.persistence.JdbcProductionReleaseRepository;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
+import com.tmp.warehouse.api.WarehouseReferenceQueryApi;
 import java.time.Clock;
 import java.util.Objects;
 import java.util.UUID;
@@ -93,6 +96,7 @@ final class ProductionPublicBoundaryComposition {
             OrderQueryService orderQueryService,
             WarehouseQueryApi warehouseQueryApi,
             WarehouseCommandApi warehouseCommandApi,
+            WarehouseReferenceQueryApi warehouseReferenceQueryApi,
             UUID productionWarehouseId) {
         Objects.requireNonNull(jdbc, "jdbc");
         Objects.requireNonNull(txManager, "txManager");
@@ -103,6 +107,7 @@ final class ProductionPublicBoundaryComposition {
         Objects.requireNonNull(orderQueryService, "orderQueryService");
         Objects.requireNonNull(warehouseQueryApi, "warehouseQueryApi");
         Objects.requireNonNull(warehouseCommandApi, "warehouseCommandApi");
+        Objects.requireNonNull(warehouseReferenceQueryApi, "warehouseReferenceQueryApi");
 
         ControllableProductionItemStateRepository itemStates =
                 new ControllableProductionItemStateRepository(
@@ -131,6 +136,8 @@ final class ProductionPublicBoundaryComposition {
                 new DefaultOrderForProductionQueryAdapter(orderQueryService);
         WarehouseAvailabilityQueryPort warehouseAvailabilityQuery =
                 new DefaultWarehouseAvailabilityQueryAdapter(warehouseQueryApi);
+        WarehouseReferenceQueryPort warehouseReferenceQuery =
+                new DefaultWarehouseReferenceQueryAdapter(warehouseReferenceQueryApi);
 
         ProductionOrderViewService orderViewService =
                 new ProductionOrderViewService(
@@ -186,7 +193,7 @@ final class ProductionPublicBoundaryComposition {
                         orderViewService,
                         foundationQuery,
                         destination,
-                        warehouseAvailabilityQuery,
+                        warehouseReferenceQuery,
                         requirements,
                         clock);
         ConfirmMaterialReceiptService confirmReceiptService =

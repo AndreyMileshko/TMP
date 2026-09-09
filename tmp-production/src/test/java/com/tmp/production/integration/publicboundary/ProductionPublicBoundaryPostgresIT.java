@@ -55,6 +55,7 @@ import com.tmp.production.domain.ProductionHistoryEntry;
 import com.tmp.production.domain.ProductionMaterialTransfer;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.WarehouseTransferOperationRef;
+import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
@@ -75,6 +76,7 @@ import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
+import com.tmp.warehouse.api.WarehouseReferenceQueryApi;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -142,6 +144,7 @@ class ProductionPublicBoundaryPostgresIT {
     @Autowired private OrderQueryService orderQueryService;
     @Autowired private WarehouseCommandApi warehouseCommandApi;
     @Autowired private WarehouseQueryApi warehouseQueryApi;
+    @Autowired private WarehouseReferenceQueryApi warehouseReferenceQueryApi;
     @Autowired private DocumentEngine documentEngine;
     @Autowired
     @Qualifier("transactionalEventPublisher")
@@ -423,6 +426,84 @@ class ProductionPublicBoundaryPostgresIT {
         assertEquals(0, movementsBefore - countRows("warehouse.warehouse_movements"));
         assertEquals(0, stockSumBefore.compareTo(stockQuantitySum()));
         assertEquals(0, transferDocsBefore - countRows("warehouse.transfer_document_payload"));
+    }
+
+    @Test
+    void materialRequirementWorksWithProductionTransferPermissionOnly() {
+        ImportedOrder order = importStandardOrder();
+        production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
+
+        loginAsProductionTransferOnlyUser();
+
+        assertThrows(AccessDeniedException.class, () -> warehouseQueryApi.listWarehouses());
+        assertThrows(AccessDeniedException.class, () -> warehouseQueryApi.listMaterialReferences());
+
+        MaterialRequirementView requirement =
+                production
+                        .applicationApi()
+                        .prepareMaterialRequirement(
+                                order.orderId(), List.of(order.itemAId(), order.itemBId()));
+        assertEquals(MaterialRequirementStatusView.DRAFT, requirement.status());
+        assertTrue(!requirement.lines().isEmpty());
+
+        var line = requirement.lines().getFirst();
+        MaterialRequirementView edited =
+                production
+                        .applicationApi()
+                        .changeMaterialRequirementQuantity(
+                                requirement.requirementId(),
+                                line.lineId(),
+                                line.quantity().add(bd(1)),
+                                requirement.version());
+        assertEquals(requirement.version() + 1, edited.version());
+
+        assertThrows(AccessDeniedException.class, () -> warehouseQueryApi.listWarehouses());
+        assertThrows(AccessDeniedException.class, () -> warehouseQueryApi.listMaterialReferences());
+    }
+
+    private void loginAsProductionTransferOnlyUser() {
+        authenticationService.logout();
+        authenticationService.login(Login.of("admin"), "bootstrap-secret-value".toCharArray());
+        Optional<UserSummary> existing =
+                userAdministrationService.listUsers(0, 100, null).stream()
+                        .filter(user -> "pb-prod-transfer".equalsIgnoreCase(user.login().value()))
+                        .findFirst();
+        String activationCode = null;
+        UserSummary user;
+        if (existing.isPresent()) {
+            user = existing.get();
+        } else {
+            var creation =
+                    userAdministrationService.createUser(
+                            Login.of("pb-prod-transfer"),
+                            DisplayName.of("Production Transfer Only"));
+            user = creation.user();
+            activationCode = creation.activationCode();
+        }
+        for (PermissionId permission : PublicBoundaryPermissions.WAREHOUSE_COMMAND_AND_QUERY) {
+            roleAdministrationService.revokeIndividualPermission(user.id(), permission);
+        }
+        for (PermissionId permission : PublicBoundaryPermissions.PRODUCTION_ALL) {
+            roleAdministrationService.revokeIndividualPermission(user.id(), permission);
+        }
+        for (PermissionId permission : PublicBoundaryPermissions.ORDER_IMPORT_AND_VIEW) {
+            roleAdministrationService.revokeIndividualPermission(user.id(), permission);
+        }
+        roleAdministrationService.grantIndividualPermission(
+                user.id(), PermissionId.of("production.transfer.create"));
+        // Frozen Specification resolution goes through OM Public Query (not Warehouse).
+        roleAdministrationService.grantIndividualPermission(
+                user.id(), PermissionId.of("order.specification.view"));
+        authenticationService.logout();
+        if (existing.isPresent()) {
+            authenticationService.login(Login.of("pb-prod-transfer"), OPERATOR_PASSWORD.clone());
+        } else {
+            authenticationService.completePasswordSetup(
+                    Login.of("pb-prod-transfer"),
+                    activationCode,
+                    OPERATOR_PASSWORD.clone(),
+                    OPERATOR_PASSWORD.clone());
+        }
     }
 
     private int countRows(String qualifiedTable) {
@@ -1125,6 +1206,7 @@ class ProductionPublicBoundaryPostgresIT {
                             orderQueryService,
                             warehouseQueryApi,
                             warehouseCommandApi,
+                            warehouseReferenceQueryApi,
                             productionWarehouseId);
         }
         ensureOperatorResponsibleForWarehouses();

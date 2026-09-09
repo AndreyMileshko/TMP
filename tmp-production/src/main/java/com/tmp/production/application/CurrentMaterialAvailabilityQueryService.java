@@ -135,7 +135,7 @@ public final class CurrentMaterialAvailabilityQueryService {
             List<WarehouseCatalogEntry> warehouses) {
         SpecificationMaterialIdentity identity = requirement.identity();
         MaterialReferenceResolver.Result resolution =
-                materialReferenceResolver.resolve(identity, catalog);
+                materialReferenceResolver.resolve(identity, toCatalog(catalog));
 
         if (resolution.status() == MaterialReferenceResolver.ResolutionStatus.UNRESOLVED) {
             return unresolvedLine(requirement, MaterialAvailabilityLineStatus.MATERIAL_UNRESOLVED);
@@ -233,5 +233,18 @@ public final class CurrentMaterialAvailabilityQueryService {
     private static BigDecimal deficit(BigDecimal required, BigDecimal available) {
         BigDecimal difference = required.subtract(available);
         return difference.signum() > 0 ? difference : BigDecimal.ZERO;
+    }
+
+    private static List<MaterialReferenceResolver.CatalogEntry> toCatalog(
+            List<MaterialReferenceEntry> catalog) {
+        return catalog.stream()
+                .map(
+                        entry ->
+                                new MaterialReferenceResolver.CatalogEntry(
+                                        entry.materialReferenceId(),
+                                        entry.article(),
+                                        entry.color(),
+                                        entry.unitOfMeasure()))
+                .toList();
     }
 }

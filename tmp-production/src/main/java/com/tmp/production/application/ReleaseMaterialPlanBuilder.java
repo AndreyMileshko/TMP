@@ -71,7 +71,8 @@ public final class ReleaseMaterialPlanBuilder {
             SpecificationMaterialIdentity identity =
                     SpecificationMaterialIdentity.of(
                             specLine.materialCode(), specLine.color(), specLine.unitOfMeasure());
-            Result resolution = materialReferenceResolver.resolve(identity, materialCatalog);
+            Result resolution =
+                    materialReferenceResolver.resolve(identity, toCatalog(materialCatalog));
             if (resolution.status() == ResolutionStatus.UNRESOLVED) {
                 throw new ReleaseProductsException(
                         "MATERIAL_UNRESOLVED for item "
@@ -115,6 +116,19 @@ public final class ReleaseMaterialPlanBuilder {
                             aggregate.materialName));
         }
         return List.copyOf(lines);
+    }
+
+    private static List<MaterialReferenceResolver.CatalogEntry> toCatalog(
+            List<MaterialReferenceEntry> catalog) {
+        return catalog.stream()
+                .map(
+                        entry ->
+                                new MaterialReferenceResolver.CatalogEntry(
+                                        entry.materialReferenceId(),
+                                        entry.article(),
+                                        entry.color(),
+                                        entry.unitOfMeasure()))
+                .toList();
     }
 
     public record PlannedMaterialLine(

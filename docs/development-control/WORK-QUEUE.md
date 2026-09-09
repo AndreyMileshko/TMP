@@ -11809,9 +11809,23 @@ Replace Stage 7 active Material Transfer Template recommendation workflow with P
 - [x] Package + runtime smoke V43; stock preservation
 - [x] No Warehouse routing/submit (3.5.10)
 
+### Corrective (2026-09-09) — concurrency + Warehouse reference boundary
+
+**Status:** DONE
+**Baseline HEAD:** `cafd797be06d736f3398ce03bed3ea4eafd247ef`
+
+- [x] `expectedVersion` participates in `MaterialRequirementService.changeQuantity` (no facade `requireExpectedVersion` TOCTOU)
+- [x] Real PostgreSQL concurrent changeQuantity: exactly 1 success / 1 optimistic conflict / version N+1
+- [x] Sequential stale-version + quantity/line/requirement rejection tests
+- [x] `WarehouseReferenceQueryApi` cross-capability read (no Warehouse user RBAC); Production adapter uses it for prepare
+- [x] User-facing `WarehouseQueryApi.listWarehouses` / `listMaterialReferences` guards preserved
+- [x] Production-only `production.transfer.create` can prepare/change; Warehouse catalogue still denied
+- [x] No V44; Warehouse mutation deltas remain 0 on prepare/edit
+- [x] Targeted verification + quick build + package + V43 launch smoke PASS
+
 ### Verification
 
-See VERIFICATION-LOG Stage 3.5.9 entry (2026-09-09).
+See VERIFICATION-LOG Stage 3.5.9 corrective entry (2026-09-09).
 
 ### Next on success
 

@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -113,10 +115,40 @@ class DefaultProductionApplicationApiTest {
     }
 
     @Test
-    void changeMaterialRequirementQuantityRejectsStaleVersion() {
+    void changeMaterialRequirementQuantityDelegatesExpectedVersion() {
         MaterialRequirement requirement = sampleRequirement();
-        when(materialRequirementService.findById(requirement.requirementId()))
-                .thenReturn(Optional.of(requirement));
+        when(materialRequirementService.changeQuantity(
+                        eq(requirement.requirementId()),
+                        eq(requirement.lines().getFirst().lineId()),
+                        eq(BigDecimal.TEN),
+                        eq(requirement.version())))
+                .thenReturn(requirement);
+
+        MaterialRequirementView view =
+                api.changeMaterialRequirementQuantity(
+                        requirement.requirementId().value(),
+                        requirement.lines().getFirst().lineId().value(),
+                        BigDecimal.TEN,
+                        requirement.version());
+
+        verify(authorizationService)
+                .requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
+        verify(materialRequirementService)
+                .changeQuantity(
+                        requirement.requirementId(),
+                        requirement.lines().getFirst().lineId(),
+                        BigDecimal.TEN,
+                        requirement.version());
+        assertEquals(requirement.requirementId().value(), view.requirementId());
+    }
+
+    @Test
+    void changeMaterialRequirementQuantityPropagatesOptimisticLock() {
+        MaterialRequirement requirement = sampleRequirement();
+        when(materialRequirementService.changeQuantity(any(), any(), any(), anyLong()))
+                .thenThrow(
+                        new MaterialRequirementOptimisticLockException(
+                                requirement.requirementId(), requirement.version() + 1));
 
         assertThrows(
                 MaterialRequirementOptimisticLockException.class,

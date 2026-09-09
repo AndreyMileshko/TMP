@@ -10,6 +10,7 @@ import com.tmp.order.api.OrderQueryService;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tmp.production.domain.repository.ProductionHistoryRepository;
+import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaField;
 import com.tngtech.archunit.core.domain.JavaMethod;
@@ -375,6 +376,36 @@ class Stage7ProductionArchitectureTest {
                             "java..")
                     .because(
                             "Warehouse availability adapter must depend on WarehouseQueryApi only");
+
+    @ArchTest
+    static final ArchRule warehouseReferenceAdapterUsesReferenceQueryApiOnly =
+            classes()
+                    .that()
+                    .haveSimpleName("DefaultWarehouseReferenceQueryAdapter")
+                    .should()
+                    .onlyDependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.tmp.production.application.port..",
+                            "com.tmp.warehouse.api..",
+                            "java..")
+                    .because(
+                            "Material Requirement Warehouse reference adapter must use"
+                                    + " WarehouseReferenceQueryApi only");
+
+    @ArchTest
+    static final ArchRule materialRequirementMustNotUseUserFacingWarehouseCatalogue =
+            noClasses()
+                    .that()
+                    .haveSimpleName("MaterialRequirementService")
+                    .or()
+                    .haveSimpleName("DefaultWarehouseReferenceQueryAdapter")
+                    .should()
+                    .callMethod(WarehouseQueryApi.class, "listWarehouses")
+                    .orShould()
+                    .callMethod(WarehouseQueryApi.class, "listMaterialReferences")
+                    .because(
+                            "Material Requirement must not require Warehouse user catalogue"
+                                    + " permissions");
 
     @ArchTest
     static final ArchRule materialRequirementCalculatorIsPure =

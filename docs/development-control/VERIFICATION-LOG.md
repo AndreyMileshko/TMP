@@ -3,6 +3,34 @@
 ## Latest result
 
 **Date:** 2026-09-09
+**Scope:** Stage 3.5.9 Corrective — Material Requirement concurrency + Warehouse reference boundary
+**Overall:** PASS (targeted tests + architecture + UI + quick build + package + startup smoke on `tmp-stage5-pg`); Flyway remains V43 (no V44); stock preserved; no commit
+
+### Stage 3.5.9 Corrective (2026-09-09)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `cafd797be06d736f3398ce03bed3ea4eafd247ef` | PASS |
+| `MaterialRequirementServiceTest` | PASS (20) |
+| `MaterialRequirementPostgresIT` (incl. concurrent optimistic lock + sequential stale) | PASS (5) |
+| `DefaultProductionApplicationApiTest` | PASS (8) |
+| `DefaultWarehouseReferenceQueryAdapterTest` | PASS (2) |
+| `DefaultWarehouseReferenceQueryApiTest` | PASS (4) |
+| `WarehouseSecurityAuthorizationTest` (incl. listMaterialReferences guard) | PASS (15) |
+| `ProductionPublicBoundaryPostgresIT` (incl. production-transfer-only security) | PASS (15) |
+| `Stage7ProductionArchitectureTest` | PASS (77) |
+| Production Workbench UI tests | PASS (19) |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests …` | PASS |
+| Package `pre-integration-test -Ppackage` → `dist/jpackage/TMP/TMP.exe` | PASS (2026-09-09 17:07:07) |
+| Launch against `tmp_gui_stage5` | PASS — Flyway validated 43 / schema V43; `Started DesktopBootstrap`; JavaFX WARN unnamed-module only; exceptions NONE |
+| Stock preservation | PASS — stock_positions=31 / sum 1257.9 unchanged |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+
+---
+
+## Previous latest result
+
+**Date:** 2026-09-09
 **Scope:** Stage 3.5.9 Production Material Requirement Refactor
 **Overall:** PASS (targeted tests + architecture + UI + quick build + package + startup smoke on `tmp-stage5-pg`); V42→V43 migration applied; stock preserved; no commit
 

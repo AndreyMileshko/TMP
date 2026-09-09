@@ -27,9 +27,11 @@ import com.tmp.production.application.internal.ProductionReleaseDocumentService;
 import com.tmp.production.application.port.DefaultOrderForProductionQueryAdapter;
 import com.tmp.production.application.port.DefaultOrderSpecificationQueryAdapter;
 import com.tmp.production.application.port.DefaultWarehouseAvailabilityQueryAdapter;
+import com.tmp.production.application.port.DefaultWarehouseReferenceQueryAdapter;
 import com.tmp.production.application.port.OrderForProductionQueryPort;
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
+import com.tmp.production.application.port.WarehouseReferenceQueryPort;
 import com.tmp.production.config.ProductionWarehouseProperties;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
 import com.tmp.production.domain.repository.MaterialTransferTemplateRepository;
@@ -50,6 +52,7 @@ import com.tmp.production.security.ProductionCapability;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
+import com.tmp.warehouse.api.WarehouseReferenceQueryApi;
 import jakarta.annotation.PostConstruct;
 import java.time.Clock;
 import java.util.Objects;
@@ -178,6 +181,13 @@ public class ProductionAutoConfiguration {
     }
 
     @Bean
+    WarehouseReferenceQueryPort warehouseReferenceQueryPort(
+            @Qualifier("warehouseReferenceQueryApi")
+                    WarehouseReferenceQueryApi warehouseReferenceQueryApi) {
+        return new DefaultWarehouseReferenceQueryAdapter(warehouseReferenceQueryApi);
+    }
+
+    @Bean
     CurrentMaterialAvailabilityQueryService currentMaterialAvailabilityQueryService(
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQueryService,
@@ -261,14 +271,14 @@ public class ProductionAutoConfiguration {
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQueryService,
             ProductionDestinationWarehouse destinationWarehouse,
-            WarehouseAvailabilityQueryPort warehouseAvailabilityQueryPort,
+            WarehouseReferenceQueryPort warehouseReferenceQueryPort,
             MaterialRequirementRepository materialRequirementRepository,
             Clock clock) {
         return new MaterialRequirementService(
                 orderViewService,
                 foundationQueryService,
                 destinationWarehouse,
-                warehouseAvailabilityQueryPort,
+                warehouseReferenceQueryPort,
                 materialRequirementRepository,
                 clock);
     }

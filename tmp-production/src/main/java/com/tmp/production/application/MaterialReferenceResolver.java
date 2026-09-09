@@ -1,6 +1,5 @@
 package com.tmp.production.application;
 
-import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.MaterialReferenceEntry;
 import com.tmp.production.domain.SpecificationMaterialIdentity;
 import java.util.List;
 import java.util.Objects;
@@ -19,6 +18,18 @@ public final class MaterialReferenceResolver {
         RESOLVED,
         UNRESOLVED,
         AMBIGUOUS
+    }
+
+    /** Minimal catalogue projection used for identity matching. */
+    public record CatalogEntry(
+            UUID materialReferenceId, String article, String color, String unitOfMeasure) {
+
+        public CatalogEntry {
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            Objects.requireNonNull(article, "article");
+            Objects.requireNonNull(color, "color");
+            Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
+        }
     }
 
     public record Result(UUID materialReferenceId, ResolutionStatus status) {
@@ -46,10 +57,10 @@ public final class MaterialReferenceResolver {
         }
     }
 
-    public Result resolve(SpecificationMaterialIdentity identity, List<MaterialReferenceEntry> catalog) {
+    public Result resolve(SpecificationMaterialIdentity identity, List<CatalogEntry> catalog) {
         Objects.requireNonNull(identity, "identity");
         Objects.requireNonNull(catalog, "catalog");
-        List<MaterialReferenceEntry> candidates =
+        List<CatalogEntry> candidates =
                 catalog.stream()
                         .filter(
                                 entry ->

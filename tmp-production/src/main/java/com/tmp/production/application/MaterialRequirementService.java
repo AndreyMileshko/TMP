@@ -1,9 +1,9 @@
 package com.tmp.production.application;
 
 import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedMaterialLine;
-import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
-import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.MaterialReferenceEntry;
-import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.WarehouseCatalogEntry;
+import com.tmp.production.application.port.WarehouseReferenceQueryPort;
+import com.tmp.production.application.port.WarehouseReferenceQueryPort.MaterialReferenceEntry;
+import com.tmp.production.application.port.WarehouseReferenceQueryPort.WarehouseReferenceEntry;
 import com.tmp.production.domain.AggregatedMaterialRequirement;
 import com.tmp.production.domain.InvalidProductionDestinationWarehouseException;
 import com.tmp.production.domain.MaterialReferenceId;
@@ -13,6 +13,7 @@ import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineId;
 import com.tmp.production.domain.MaterialRequirementNotAllowedException;
 import com.tmp.production.domain.MaterialRequirementNotReadyException;
+import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSelectionException;
 import com.tmp.production.domain.OrderProductionView;
 import com.tmp.production.domain.OrderProductionViewStatus;
@@ -47,7 +48,7 @@ public final class MaterialRequirementService {
     private final ProductionOrderViewService orderViewService;
     private final ProductionFoundationQueryService foundationQuery;
     private final ProductionDestinationWarehouse destinationWarehouse;
-    private final WarehouseAvailabilityQueryPort warehouseQuery;
+    private final WarehouseReferenceQueryPort warehouseReferences;
     private final MaterialRequirementRepository requirementRepository;
     private final SpecificationMaterialRequirementCalculator requirementCalculator;
     private final MaterialReferenceResolver materialReferenceResolver;
@@ -57,14 +58,14 @@ public final class MaterialRequirementService {
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQuery,
             ProductionDestinationWarehouse destinationWarehouse,
-            WarehouseAvailabilityQueryPort warehouseQuery,
+            WarehouseReferenceQueryPort warehouseReferences,
             MaterialRequirementRepository requirementRepository,
             Clock clock) {
         this(
                 orderViewService,
                 foundationQuery,
                 destinationWarehouse,
-                warehouseQuery,
+                warehouseReferences,
                 requirementRepository,
                 new SpecificationMaterialRequirementCalculator(),
                 new MaterialReferenceResolver(),
@@ -75,7 +76,7 @@ public final class MaterialRequirementService {
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQuery,
             ProductionDestinationWarehouse destinationWarehouse,
-            WarehouseAvailabilityQueryPort warehouseQuery,
+            WarehouseReferenceQueryPort warehouseReferences,
             MaterialRequirementRepository requirementRepository,
             SpecificationMaterialRequirementCalculator requirementCalculator,
             MaterialReferenceResolver materialReferenceResolver,
@@ -84,7 +85,8 @@ public final class MaterialRequirementService {
         this.foundationQuery = Objects.requireNonNull(foundationQuery, "foundationQuery");
         this.destinationWarehouse =
                 Objects.requireNonNull(destinationWarehouse, "destinationWarehouse");
-        this.warehouseQuery = Objects.requireNonNull(warehouseQuery, "warehouseQuery");
+        this.warehouseReferences =
+                Objects.requireNonNull(warehouseReferences, "warehouseReferences");
         this.requirementRepository =
                 Objects.requireNonNull(requirementRepository, "requirementRepository");
         this.requirementCalculator =
@@ -169,20 +171,19 @@ public final class MaterialRequirementService {
 
         List<AggregatedMaterialRequirement> aggregates =
                 requirementCalculator.aggregate(collectedLines);
-        List<MaterialReferenceEntry> catalog = warehouseQuery.listMaterialReferences();
-        Map<UUID, MaterialReferenceEntry> catalogById =
-                catalog.stream()
-                        .collect(
-                                Collectors.toMap(
-                                        MaterialReferenceEntry::materialReferenceId,
-                                        Function.identity(),
-                                        (left, right) -> left));
 
         List<MaterialRequirementLine> lines = new ArrayList<>();
         for (AggregatedMaterialRequirement aggregate : aggregates) {
             if (aggregate.requiredQuantity().signum() <= 0) {
                 continue;
             }
+            List<MaterialReferenceEntry> candidates =
+                    warehouseReferences.findMaterialReferencesByIdentity(
+                            aggregate.identity().materialCode(),
+                            aggregate.identity().color(),
+                            aggregate.identity().unitOfMeasure());
+            List<MaterialReferenceResolver.CatalogEntry> catalog =
+                    candidates.stream().map(this::toCatalogEntry).toList();
             MaterialReferenceResolver.Result resolution =
                     materialReferenceResolver.resolve(aggregate.identity(), catalog);
             if (resolution.status() == MaterialReferenceResolver.ResolutionStatus.UNRESOLVED) {
@@ -198,12 +199,18 @@ public final class MaterialRequirementService {
                         MaterialRequirementNotReadyException.Problem.AMBIGUOUS);
             }
 
-            MaterialReferenceEntry catalogEntry = catalogById.get(resolution.materialReferenceId());
+            MaterialReferenceEntry matched =
+                    candidates.stream()
+                            .filter(
+                                    entry ->
+                                            entry.materialReferenceId()
+                                                    .equals(resolution.materialReferenceId()))
+                            .findFirst()
+                            .orElse(null);
             String materialName =
-                    catalogEntry != null ? catalogEntry.name() : aggregate.materialName();
+                    matched != null ? matched.name() : aggregate.materialName();
             Set<SourceOrderItemId> contributors =
-                    contributorsByIdentity.getOrDefault(
-                            aggregate.identity(), Set.of());
+                    contributorsByIdentity.getOrDefault(aggregate.identity(), Set.of());
 
             lines.add(
                     MaterialRequirementLine.create(
@@ -231,8 +238,15 @@ public final class MaterialRequirementService {
         return requirementRepository.findById(id);
     }
 
+    /**
+     * Changes line quantity with caller {@code expectedVersion} participating in the same load →
+     * compare → mutate → optimistic save flow (no separate facade pre-check).
+     */
     public MaterialRequirement changeQuantity(
-            MaterialRequirementId id, MaterialRequirementLineId lineId, BigDecimal quantity) {
+            MaterialRequirementId id,
+            MaterialRequirementLineId lineId,
+            BigDecimal quantity,
+            long expectedVersion) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(lineId, "lineId");
         Objects.requireNonNull(quantity, "quantity");
@@ -243,6 +257,9 @@ public final class MaterialRequirementService {
                                 () ->
                                         new IllegalArgumentException(
                                                 "Material requirement not found: " + id));
+        if (requirement.version() != expectedVersion) {
+            throw new MaterialRequirementOptimisticLockException(id, expectedVersion);
+        }
         MaterialRequirement edited =
                 requirement.changeLineQuantity(lineId, quantity, clock.instant());
         return requirementRepository.save(edited);
@@ -250,11 +267,9 @@ public final class MaterialRequirementService {
 
     private void validateDestinationWarehouse() {
         UUID warehouseId = destinationWarehouse.productionWarehouseId();
-        List<WarehouseCatalogEntry> warehouses = warehouseQuery.listWarehouses();
-        WarehouseCatalogEntry entry =
-                warehouses.stream()
-                        .filter(candidate -> candidate.warehouseId().equals(warehouseId))
-                        .findFirst()
+        WarehouseReferenceEntry entry =
+                warehouseReferences
+                        .getWarehouse(warehouseId)
                         .orElseThrow(
                                 () ->
                                         InvalidProductionDestinationWarehouseException
@@ -262,5 +277,13 @@ public final class MaterialRequirementService {
         if (!entry.active()) {
             throw InvalidProductionDestinationWarehouseException.warehouseInactive(warehouseId);
         }
+    }
+
+    private MaterialReferenceResolver.CatalogEntry toCatalogEntry(MaterialReferenceEntry entry) {
+        return new MaterialReferenceResolver.CatalogEntry(
+                entry.materialReferenceId(),
+                entry.article(),
+                entry.color(),
+                entry.unitOfMeasure());
     }
 }

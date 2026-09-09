@@ -1,17 +1,21 @@
 package com.tmp.production.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedMaterialLine;
 import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedSpecification;
-import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
-import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.MaterialReferenceEntry;
-import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.WarehouseCatalogEntry;
+import com.tmp.production.application.port.WarehouseReferenceQueryPort;
+import com.tmp.production.application.port.WarehouseReferenceQueryPort.MaterialReferenceEntry;
+import com.tmp.production.application.port.WarehouseReferenceQueryPort.WarehouseReferenceEntry;
 import com.tmp.production.domain.CuttingPlanLinks;
 import com.tmp.production.domain.MaterialRequirement;
+import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementLine;
+import com.tmp.production.domain.MaterialRequirementLineId;
+import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
@@ -27,6 +31,13 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
@@ -100,7 +111,7 @@ class MaterialRequirementPostgresIT {
         specificationQuery = new TrackingSpecificationQuery();
         warehouseQuery = new TrackingWarehouseQuery();
         warehouseQuery.warehouses =
-                List.of(new WarehouseCatalogEntry(PROD_WAREHOUSE, "PROD", "Production", true));
+                List.of(new WarehouseReferenceEntry(PROD_WAREHOUSE, "PROD", "Production", true));
         service =
                 new MaterialRequirementService(
                         new ProductionOrderViewService(itemStates),
@@ -147,7 +158,10 @@ class MaterialRequirementPostgresIT {
         MaterialRequirementLine line = prepared.lines().getFirst();
         MaterialRequirement edited =
                 service.changeQuantity(
-                        prepared.requirementId(), line.lineId(), BigDecimal.valueOf(12));
+                        prepared.requirementId(),
+                        line.lineId(),
+                        BigDecimal.valueOf(12),
+                        prepared.version());
         assertEquals(1L, edited.version());
         assertEquals(0, edited.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(12)));
 
@@ -157,7 +171,165 @@ class MaterialRequirementPostgresIT {
         assertEquals(0, reloaded.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(12)));
 
         assertWarehouseUnchanged(before, snapshotWarehouse());
-        assertEquals(0, warehouseQuery.availableQuantityCalls);
+        assertTrue(warehouseQuery.findMaterialReferencesCalls >= 1);
+    }
+
+    @Test
+    void sequentialStaleVersionIsRejected() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        launchItem(orderId, itemId, specId);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        new ResolvedSpecification(
+                                specId,
+                                itemId,
+                                BigDecimal.ONE,
+                                List.of(
+                                        new ResolvedMaterialLine(
+                                                "MAT-STALE",
+                                                "S",
+                                                "WHITE",
+                                                null,
+                                                BigDecimal.TEN,
+                                                "PCS"))));
+        warehouseQuery.materialReferences =
+                List.of(
+                        new MaterialReferenceEntry(
+                                UUID.randomUUID(), "MAT-STALE", "S", "WHITE", "", "PCS"));
+
+        MaterialRequirement prepared =
+                service.prepareMaterialRequirement(orderId, List.of(itemId));
+        MaterialRequirementLine line = prepared.lines().getFirst();
+        service.changeQuantity(
+                prepared.requirementId(), line.lineId(), BigDecimal.valueOf(11), prepared.version());
+
+        assertThrows(
+                com.tmp.production.domain.MaterialRequirementOptimisticLockException.class,
+                () ->
+                        service.changeQuantity(
+                                prepared.requirementId(),
+                                line.lineId(),
+                                BigDecimal.valueOf(99),
+                                prepared.version()));
+    }
+
+    @Test
+    void concurrentChangeQuantityExactlyOneWins() throws Exception {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        launchItem(orderId, itemId, specId);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        new ResolvedSpecification(
+                                specId,
+                                itemId,
+                                BigDecimal.ONE,
+                                List.of(
+                                        new ResolvedMaterialLine(
+                                                "MAT-CONC",
+                                                "C",
+                                                "WHITE",
+                                                null,
+                                                BigDecimal.valueOf(10),
+                                                "PCS"))));
+        warehouseQuery.materialReferences =
+                List.of(
+                        new MaterialReferenceEntry(
+                                UUID.randomUUID(), "MAT-CONC", "C", "WHITE", "", "PCS"));
+
+        MaterialRequirement prepared =
+                service.prepareMaterialRequirement(orderId, List.of(itemId));
+        MaterialRequirementLineId lineId = prepared.lines().getFirst().lineId();
+        long versionN = prepared.version();
+        BigDecimal qtyA = BigDecimal.valueOf(21);
+        BigDecimal qtyB = BigDecimal.valueOf(34);
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        AtomicInteger successes = new AtomicInteger();
+        AtomicInteger optimisticFailures = new AtomicInteger();
+        AtomicReference<Throwable> unexpected = new AtomicReference<>();
+        AtomicReference<BigDecimal> winnerQuantity = new AtomicReference<>();
+
+        Future<?> threadA =
+                executor.submit(
+                        () ->
+                                runConcurrentChange(
+                                        prepared.requirementId(),
+                                        lineId,
+                                        qtyA,
+                                        versionN,
+                                        ready,
+                                        start,
+                                        successes,
+                                        optimisticFailures,
+                                        unexpected,
+                                        winnerQuantity));
+        Future<?> threadB =
+                executor.submit(
+                        () ->
+                                runConcurrentChange(
+                                        prepared.requirementId(),
+                                        lineId,
+                                        qtyB,
+                                        versionN,
+                                        ready,
+                                        start,
+                                        successes,
+                                        optimisticFailures,
+                                        unexpected,
+                                        winnerQuantity));
+
+        assertTrue(ready.await(10, TimeUnit.SECONDS));
+        start.countDown();
+        threadA.get(30, TimeUnit.SECONDS);
+        threadB.get(30, TimeUnit.SECONDS);
+        executor.shutdownNow();
+
+        if (unexpected.get() != null) {
+            throw new AssertionError("Unexpected concurrent failure", unexpected.get());
+        }
+        assertEquals(1, successes.get());
+        assertEquals(1, optimisticFailures.get());
+
+        MaterialRequirement finalState = service.findById(prepared.requirementId()).orElseThrow();
+        assertEquals(versionN + 1, finalState.version());
+        assertEquals(0, winnerQuantity.get().compareTo(finalState.lines().getFirst().quantity()));
+        assertTrue(
+                finalState.lines().getFirst().quantity().compareTo(qtyA) == 0
+                        || finalState.lines().getFirst().quantity().compareTo(qtyB) == 0);
+    }
+
+    private void runConcurrentChange(
+            MaterialRequirementId requirementId,
+            MaterialRequirementLineId lineId,
+            BigDecimal quantity,
+            long expectedVersion,
+            CountDownLatch ready,
+            CountDownLatch start,
+            AtomicInteger successes,
+            AtomicInteger optimisticFailures,
+            AtomicReference<Throwable> unexpected,
+            AtomicReference<BigDecimal> winnerQuantity) {
+        ready.countDown();
+        try {
+            assertTrue(start.await(10, TimeUnit.SECONDS));
+            MaterialRequirement saved =
+                    service.changeQuantity(requirementId, lineId, quantity, expectedVersion);
+            successes.incrementAndGet();
+            winnerQuantity.set(saved.lines().getFirst().quantity());
+        } catch (MaterialRequirementOptimisticLockException ex) {
+            optimisticFailures.incrementAndGet();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            unexpected.compareAndSet(null, ex);
+        } catch (RuntimeException ex) {
+            unexpected.compareAndSet(null, ex);
+        }
     }
 
     @Test
@@ -186,7 +358,8 @@ class MaterialRequirementPostgresIT {
         service.changeQuantity(
                 prepared.requirementId(),
                 prepared.lines().getFirst().lineId(),
-                BigDecimal.valueOf(3));
+                BigDecimal.valueOf(3),
+                prepared.version());
         assertWarehouseUnchanged(before, snapshotWarehouse());
         assertEquals(0, before.operations());
         assertEquals(0, before.movements());
@@ -300,25 +473,31 @@ class MaterialRequirementPostgresIT {
         }
     }
 
-    private static final class TrackingWarehouseQuery implements WarehouseAvailabilityQueryPort {
-        List<WarehouseCatalogEntry> warehouses = List.of();
+    private static final class TrackingWarehouseQuery implements WarehouseReferenceQueryPort {
+        List<WarehouseReferenceEntry> warehouses = List.of();
         List<MaterialReferenceEntry> materialReferences = List.of();
-        int availableQuantityCalls;
+        int findMaterialReferencesCalls;
 
         @Override
-        public List<WarehouseCatalogEntry> listWarehouses() {
-            return warehouses;
+        public Optional<WarehouseReferenceEntry> getWarehouse(UUID warehouseId) {
+            return warehouses.stream()
+                    .filter(entry -> entry.warehouseId().equals(warehouseId))
+                    .findFirst();
         }
 
         @Override
-        public List<MaterialReferenceEntry> listMaterialReferences() {
-            return materialReferences;
-        }
-
-        @Override
-        public BigDecimal availableQuantity(UUID materialReferenceId, UUID warehouseId) {
-            availableQuantityCalls++;
-            return BigDecimal.ZERO;
+        public List<MaterialReferenceEntry> findMaterialReferencesByIdentity(
+                String article, String color, String unitOfMeasure) {
+            findMaterialReferencesCalls++;
+            String colorKey = color == null ? "" : color.trim();
+            String unitKey = unitOfMeasure.trim();
+            return materialReferences.stream()
+                    .filter(
+                            entry ->
+                                    entry.article().equals(article)
+                                            && entry.color().trim().equals(colorKey)
+                                            && entry.unitOfMeasure().trim().equals(unitKey))
+                    .toList();
         }
     }
 }

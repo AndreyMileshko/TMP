@@ -7,8 +7,10 @@ import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
+import com.tmp.warehouse.api.WarehouseReferenceQueryApi;
 import com.tmp.warehouse.application.CodeOnlyMaterialReferenceDisplayPort;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
+import com.tmp.warehouse.application.DefaultWarehouseReferenceQueryApi;
 import com.tmp.warehouse.application.DefaultWarehouseResponsibilityGuard;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
 import com.tmp.warehouse.application.WarehouseConsumptionService;
@@ -538,6 +540,14 @@ public class WarehouseAutoConfiguration {
     @Bean
     WarehouseCommandApi warehouseCommandApi(WarehouseApi warehouseApi) {
         return warehouseApi;
+    }
+
+    @Bean
+    WarehouseReferenceQueryApi warehouseReferenceQueryApi(
+            WarehouseCatalogRepository warehouseCatalogRepository,
+            MaterialReferenceRepository materialReferenceRepository) {
+        return new DefaultWarehouseReferenceQueryApi(
+                warehouseCatalogRepository, materialReferenceRepository);
     }
 
     @Bean

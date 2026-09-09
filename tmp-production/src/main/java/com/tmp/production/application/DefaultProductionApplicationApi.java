@@ -10,7 +10,6 @@ import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineId;
-import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementStatus;
 import com.tmp.production.domain.ProductionMaterialTransfer;
 import com.tmp.production.domain.ProductionMaterialTransferId;
@@ -119,11 +118,12 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         Objects.requireNonNull(requirementId, "requirementId");
         Objects.requireNonNull(lineId, "lineId");
         Objects.requireNonNull(quantity, "quantity");
-        MaterialRequirementId id = MaterialRequirementId.of(requirementId);
-        requireExpectedVersion(id, expectedVersion);
         return map(
                 materialRequirementService.changeQuantity(
-                        id, MaterialRequirementLineId.of(lineId), quantity));
+                        MaterialRequirementId.of(requirementId),
+                        MaterialRequirementLineId.of(lineId),
+                        quantity,
+                        expectedVersion));
     }
 
     @Override
@@ -191,19 +191,6 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         Objects.requireNonNull(reason, "reason");
         cancelOrderProductionService.cancelOrderProduction(
                 new CancelOrderProductionCommand(orderId, reason));
-    }
-
-    private void requireExpectedVersion(MaterialRequirementId requirementId, long expectedVersion) {
-        MaterialRequirement requirement =
-                materialRequirementService
-                        .findById(requirementId)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalArgumentException(
-                                                "Material requirement not found: " + requirementId));
-        if (requirement.version() != expectedVersion) {
-            throw new MaterialRequirementOptimisticLockException(requirementId, expectedVersion);
-        }
     }
 
     private List<ItemRelease> mapItemReleases(List<ItemReleaseView> itemReleases) {

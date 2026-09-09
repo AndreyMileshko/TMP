@@ -4,6 +4,32 @@
 
 ---
 
+## Stage 3.5.9 Corrective — Material Requirement concurrency + Warehouse reference boundary — 2026-09-09
+
+**Date:** 2026-09-09
+**Stage:** UI Modernization Stage 3.5.9 corrective (outside Stages 0–9 numbered queue)
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.9 COMPLETE; 3.5.10 NEXT / NOT STARTED
+**Commit:** none (per task); baseline HEAD `cafd797be06d736f3398ce03bed3ea4eafd247ef`
+
+### Summary
+
+Closed TOCTOU optimistic-lock race on Material Requirement quantity edits and removed hidden Warehouse user-permission dependency from Material Requirement prepare/edit.
+
+### Key changes
+
+- `MaterialRequirementService.changeQuantity(..., expectedVersion)`: single load → compare → mutate → repository optimistic UPDATE; facade `requireExpectedVersion` removed
+- Real PostgreSQL concurrent IT: exactly one winner / one `MaterialRequirementOptimisticLockException` / final version N+1
+- New Warehouse-owned `WarehouseReferenceQueryApi` + `DefaultWarehouseReferenceQueryApi` (no RBAC / no responsibility / no mutation)
+- Production `WarehouseReferenceQueryPort` / adapter for destination warehouse existence+active and Spec→MaterialReference identity candidates
+- User-facing `WarehouseQueryApi.listWarehouses` / `listMaterialReferences` guards unchanged
+- No V44 / schema change
+
+### Next
+
+Stage 3.5.10 — Requirement → Automatic Warehouse Tasks (NOT STARTED).
+
+---
+
 ## Stage 3.5.9 — Production Material Requirement Refactor — 2026-09-09
 
 **Date:** 2026-09-09
