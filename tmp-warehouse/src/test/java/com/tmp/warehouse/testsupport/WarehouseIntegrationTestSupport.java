@@ -203,6 +203,7 @@ public final class WarehouseIntegrationTestSupport {
                 new WarehouseTransferReceiveService(
                         documentEngine,
                         transferDocumentRepository,
+                        transferDocumentService,
                         settlements,
                         sendAllocations,
                         receiptItems,

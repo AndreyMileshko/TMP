@@ -113,13 +113,12 @@ public interface WarehouseQueryApi {
     }
 
     /**
-     * Operational inbox: TRANSFER_PREPARATION projections for DRAFT Transfer Documents whose
-     * source warehouse is in the current user's responsibility scope (Stage 3.5.5).
+     * Operational inbox: TRANSFER_PREPARATION (DRAFT / source), TRANSFER_RECEIPT (POSTED +
+     * AWAITING_RECEIPT / destination), RETURN_MATERIALS (POSTED + RETURN_PENDING / source).
      *
      * <p>{@code warehouseId} null = all responsible warehouses; non-null must be in that scope
-     * (otherwise access denied). Does not mutate stock. Destination responsibility alone does not
-     * create visibility. Ordering: NEW then IN_WORK, oldest {@code createdAt}, then {@code
-     * documentId}.
+     * (otherwise access denied). Does not mutate stock. Ordering: NEW then IN_WORK, oldest {@code
+     * createdAt}, then {@code documentId}.
      */
     List<WarehouseTaskView> listMyWarehouseTasks(UUID warehouseId);
 }

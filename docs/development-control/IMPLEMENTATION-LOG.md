@@ -4,6 +4,39 @@
 
 ---
 
+## Stage 3.5.8.2 — Partial Acceptance + RECEIVE_SHORTFALL + RETURN_PENDING — 2026-09-09
+
+**Date:** 2026-09-09
+**Stage:** UI Modernization Stage 3.5.8.2 (Warehouse Transfer Document partial receive); outside Stages 0–9 numbered queue
+**Base checkpoint:** `ea8b469d0215a37514fb770daf837e66bc11f0e5`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.8 IN PROGRESS; 3.5.8.3 NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Extended document receive to allow partial acceptance without shrinking the immutable POSTED original. Accepted quantity is physically received; outstanding remains IN_TRANSIT; settlement becomes RETURN_PENDING/ACCEPTED; one RECEIVE_SHORTFALL continuation DRAFT inherits the same source/destination route via an internal continuation factory (no current-user source responsibility re-check). Inbox projects RETURN_MATERIALS for source-responsible users. Full receive path remains SETTLED+CLOSED. Full reject is explicitly out of scope (3.5.8.3; no auto-continuation on full reject).
+
+### Locked later decision (3.5.8.3)
+
+Full reject MUST NOT automatically create a continuation.
+
+### Key changes
+
+- `TransferContinuationReason.RECEIVE_SHORTFALL` (no Flyway; VARCHAR reason)
+- `WarehouseTransferReceiveService` partial path + coverage/mapping
+- `createContinuation(...)` shared internal factory; SHORTFALL reuses it
+- Settlement `markAcceptedAndReturnPending`; receive result `continuationDocumentId`
+- Inbox `RETURN_MATERIALS` + take-in-work source responsibility
+- Corrective: genuine batch `findByDocumentIds`; real V40→V41 migration IT
+- No V42 / TRANSFER_RETURN / reject / UI
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-09 Stage 3.5.8.2.
+
+---
+
 ## Stage 3.5.8.1 — Settlement + Full Document Receive + Receiver Task — 2026-09-09
 
 **Date:** 2026-09-09

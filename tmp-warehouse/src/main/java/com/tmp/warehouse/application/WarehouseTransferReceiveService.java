@@ -9,15 +9,16 @@ import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StorageCell;
 import com.tmp.warehouse.domain.StorageCellId;
+import com.tmp.warehouse.domain.TransferContinuationReason;
 import com.tmp.warehouse.domain.TransferDocumentSendAllocation;
 import com.tmp.warehouse.domain.TransferDocumentSettlement;
 import com.tmp.warehouse.domain.TransferReceiptSettlementItem;
 import com.tmp.warehouse.domain.TransferSettlementOptimisticLockException;
 import com.tmp.warehouse.domain.TransferSettlementState;
 import com.tmp.warehouse.domain.WarehouseOperation;
-import com.tmp.warehouse.domain.WarehouseOperationId;
 import com.tmp.warehouse.domain.WarehouseTransferDocument;
 import com.tmp.warehouse.domain.WarehouseTransferLine;
+import com.tmp.warehouse.domain.WarehouseTransferLineId;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.TransferDocumentSendAllocationRepository;
 import com.tmp.warehouse.domain.repository.TransferDocumentSettlementRepository;
@@ -42,10 +43,10 @@ import java.util.UUID;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Full document-level receive for POSTED Warehouse Transfer Documents (Stage 3.5.8.1).
+ * Document-level receive for POSTED Warehouse Transfer Documents (Stage 3.5.8.1 / 3.5.8.2).
  *
- * <p>Partial acceptance, reject, and return are out of scope — destination allocation totals must
- * equal posted line quantities exactly.
+ * <p>Full accept → SETTLED + Document CLOSED. Partial accept → RETURN_PENDING + RECEIVE_SHORTFALL
+ * continuation; original POSTED payload remains immutable. Full reject is Stage 3.5.8.3.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -54,6 +55,7 @@ public final class WarehouseTransferReceiveService {
 
     private final DocumentEngine documentEngine;
     private final WarehouseTransferDocumentRepository transferDocuments;
+    private final WarehouseTransferDocumentService transferDocumentService;
     private final TransferDocumentSettlementRepository settlements;
     private final TransferDocumentSendAllocationRepository sendAllocations;
     private final TransferReceiptSettlementItemRepository receiptItems;
@@ -68,6 +70,7 @@ public final class WarehouseTransferReceiveService {
     public WarehouseTransferReceiveService(
             DocumentEngine documentEngine,
             WarehouseTransferDocumentRepository transferDocuments,
+            WarehouseTransferDocumentService transferDocumentService,
             TransferDocumentSettlementRepository settlements,
             TransferDocumentSendAllocationRepository sendAllocations,
             TransferReceiptSettlementItemRepository receiptItems,
@@ -80,6 +83,8 @@ public final class WarehouseTransferReceiveService {
             Clock clock) {
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
         this.transferDocuments = Objects.requireNonNull(transferDocuments, "transferDocuments");
+        this.transferDocumentService =
+                Objects.requireNonNull(transferDocumentService, "transferDocumentService");
         this.settlements = Objects.requireNonNull(settlements, "settlements");
         this.sendAllocations = Objects.requireNonNull(sendAllocations, "sendAllocations");
         this.receiptItems = Objects.requireNonNull(receiptItems, "receiptItems");
@@ -169,11 +174,16 @@ public final class WarehouseTransferReceiveService {
                             List<DestinationAllocationInput> normalized =
                                     normalizeDestinationAllocations(
                                             payload, command.destinationAllocations());
-                            requireExactLineCoverage(payload, normalized);
+                            LineAcceptanceCoverage coverage =
+                                    requireLineAcceptanceCoverage(payload, normalized);
                             requireDestinationCells(payload.destinationWarehouseId(), normalized);
 
                             List<ReceiveSegment> segments =
-                                    mapSendToReceive(payload, allocations, normalized);
+                                    mapSendToReceive(
+                                            payload,
+                                            allocations,
+                                            normalized,
+                                            coverage.partial());
 
                             Instant now = clock.instant();
                             List<TransferReceiptSettlementItem> items =
@@ -211,6 +221,41 @@ public final class WarehouseTransferReceiveService {
                             }
                             receiptItems.insertAll(command.documentId(), items);
 
+                            if (coverage.partial()) {
+                                List<WarehouseTransferLine> remainderLines =
+                                        buildRemainderLines(payload, coverage.acceptedByLine());
+                                WarehouseTransferDocumentService.CreatedTransferDocument
+                                        continuation =
+                                                transferDocumentService.createContinuation(
+                                                        payload.documentId(),
+                                                        TransferContinuationReason
+                                                                .RECEIVE_SHORTFALL,
+                                                        payload.sourceWarehouseId(),
+                                                        payload.destinationWarehouseId(),
+                                                        remainderLines);
+                                TransferDocumentSettlement returnPending =
+                                        locked.markAcceptedAndReturnPending(
+                                                command.expectedOperationalRevision(), now);
+                                settlements.markAcceptedAndReturnPending(
+                                        command.documentId(),
+                                        command.expectedOperationalRevision(),
+                                        returnPending);
+                                taskStates.clear(command.documentId());
+                                DocumentMetadata stillPosted =
+                                        documentEngine
+                                                .findById(command.documentId())
+                                                .orElseThrow();
+                                return new ReceiveResult(
+                                        stillPosted.id(),
+                                        stillPosted.status().name(),
+                                        stillPosted.version(),
+                                        returnPending.settlementState().name(),
+                                        returnPending.decision().map(Enum::name).orElse(null),
+                                        returnPending.operationalRevision(),
+                                        receiveOperationIds,
+                                        continuation.metadata().id());
+                            }
+
                             TransferDocumentSettlement settled =
                                     locked.markAcceptedAndSettled(
                                             command.expectedOperationalRevision(), now);
@@ -229,7 +274,8 @@ public final class WarehouseTransferReceiveService {
                                     settled.settlementState().name(),
                                     settled.decision().map(Enum::name).orElse(null),
                                     settled.operationalRevision(),
-                                    receiveOperationIds);
+                                    receiveOperationIds,
+                                    null);
                         });
         if (result == null) {
             throw new IllegalStateException("Transfer document receive returned null");
@@ -240,7 +286,7 @@ public final class WarehouseTransferReceiveService {
     /**
      * Normalizes destination allocations: rejects blank/non-positive quantities and duplicate
      * (lineId, destinationCellId) pairs; preserves quantities; orders by document lineOrder then
-     * destination cell UUID.
+     * destination cell UUID. Empty list is rejected (full reject belongs to 3.5.8.3).
      */
     static List<DestinationAllocationInput> normalizeDestinationAllocations(
             WarehouseTransferDocument payload, List<DestinationAllocationInput> inputs) {
@@ -249,7 +295,8 @@ public final class WarehouseTransferReceiveService {
         if (inputs.isEmpty()) {
             throw new InvalidWarehouseStateException(
                     "Transfer receive requires destination allocations: documentId="
-                            + payload.documentId());
+                            + payload.documentId()
+                            + " (document-level accepted quantity must be > 0; full reject is Stage 3.5.8.3)");
         }
         Map<UUID, Integer> lineOrderById = new HashMap<>();
         for (WarehouseTransferLine line : payload.orderedLines()) {
@@ -287,7 +334,11 @@ public final class WarehouseTransferReceiveService {
         return List.copyOf(copy);
     }
 
-    static void requireExactLineCoverage(
+    /**
+     * Validates per-line {@code 0 <= accepted <= sent} and document-level {@code totalAccepted > 0}.
+     * Per-line zero (omitted line) is allowed when other lines accept quantity.
+     */
+    static LineAcceptanceCoverage requireLineAcceptanceCoverage(
             WarehouseTransferDocument payload, List<DestinationAllocationInput> allocations) {
         Map<UUID, BigDecimal> totals = new LinkedHashMap<>();
         for (WarehouseTransferLine line : payload.orderedLines()) {
@@ -296,21 +347,13 @@ public final class WarehouseTransferReceiveService {
         for (DestinationAllocationInput allocation : allocations) {
             totals.merge(allocation.lineId(), allocation.quantity(), BigDecimal::add);
         }
+        boolean partial = false;
+        BigDecimal totalAccepted = BigDecimal.ZERO;
         for (WarehouseTransferLine line : payload.orderedLines()) {
             UUID lineId = line.id().value();
             BigDecimal accepted = totals.getOrDefault(lineId, BigDecimal.ZERO);
             BigDecimal sent = line.quantity().value();
-            int cmp = accepted.compareTo(sent);
-            if (cmp < 0) {
-                throw new InvalidWarehouseStateException(
-                        "Partial receive is not supported in Stage 3.5.8.1: lineId="
-                                + lineId
-                                + ", accepted="
-                                + accepted
-                                + ", sent="
-                                + sent);
-            }
-            if (cmp > 0) {
+            if (accepted.compareTo(sent) > 0) {
                 throw new InvalidWarehouseStateException(
                         "Over-receive is forbidden: lineId="
                                 + lineId
@@ -319,15 +362,17 @@ public final class WarehouseTransferReceiveService {
                                 + ", sent="
                                 + sent);
             }
-        }
-        for (UUID lineId : totals.keySet()) {
-            boolean known =
-                    payload.orderedLines().stream().anyMatch(l -> l.id().value().equals(lineId));
-            if (!known) {
-                throw new InvalidWarehouseStateException(
-                        "Destination allocation references unknown line: lineId=" + lineId);
+            if (accepted.compareTo(sent) < 0) {
+                partial = true;
             }
+            totalAccepted = totalAccepted.add(accepted);
         }
+        if (totalAccepted.signum() <= 0) {
+            throw new InvalidWarehouseStateException(
+                    "Document-level accepted quantity must be > 0 (full reject is Stage 3.5.8.3): documentId="
+                            + payload.documentId());
+        }
+        return new LineAcceptanceCoverage(partial, Map.copyOf(totals));
     }
 
     private Map<UUID, StorageCell> requireDestinationCells(
@@ -360,11 +405,15 @@ public final class WarehouseTransferReceiveService {
     /**
      * Deterministic two-pointer mapping: send allocations ordered by {@code created_at, id}
      * (repository order); destination allocations already ordered by lineOrder then cell id.
+     *
+     * <p>For partial accept, destination allocations must be fully consumed; unconsumed source
+     * send allocations remain outstanding IN_TRANSIT.
      */
     static List<ReceiveSegment> mapSendToReceive(
             WarehouseTransferDocument payload,
             List<TransferDocumentSendAllocation> allocations,
-            List<DestinationAllocationInput> destinations) {
+            List<DestinationAllocationInput> destinations,
+            boolean partial) {
         Map<UUID, List<TransferDocumentSendAllocation>> byLine = new LinkedHashMap<>();
         for (WarehouseTransferLine line : payload.orderedLines()) {
             byLine.put(line.id().value(), new ArrayList<>());
@@ -381,7 +430,6 @@ public final class WarehouseTransferReceiveService {
             }
             list.add(allocation);
         }
-        // Repository already returns ORDER BY created_at, id — preserve that order within each line.
         Map<UUID, List<DestinationAllocationInput>> destByLine = new LinkedHashMap<>();
         for (DestinationAllocationInput dest : destinations) {
             destByLine.computeIfAbsent(dest.lineId(), ignored -> new ArrayList<>()).add(dest);
@@ -393,12 +441,19 @@ public final class WarehouseTransferReceiveService {
             List<TransferDocumentSendAllocation> sources = byLine.get(lineId);
             List<DestinationAllocationInput> dests =
                     destByLine.getOrDefault(lineId, List.of());
+            if (dests.isEmpty()) {
+                if (!partial) {
+                    throw new InvalidWarehouseStateException(
+                            "Failed to map send allocations to destination allocations for line: "
+                                    + lineId);
+                }
+                continue;
+            }
             int si = 0;
             int di = 0;
             BigDecimal sourceRemaining =
                     sources.isEmpty() ? BigDecimal.ZERO : sources.get(0).quantity().value();
-            BigDecimal destRemaining =
-                    dests.isEmpty() ? BigDecimal.ZERO : dests.get(0).quantity();
+            BigDecimal destRemaining = dests.get(0).quantity();
             while (si < sources.size() && di < dests.size()) {
                 BigDecimal qty = sourceRemaining.min(destRemaining);
                 if (qty.signum() > 0) {
@@ -427,15 +482,42 @@ public final class WarehouseTransferReceiveService {
                     }
                 }
             }
-            if (si < sources.size() || di < dests.size()
-                    || sourceRemaining.signum() != 0
-                    || destRemaining.signum() != 0) {
+            if (di < dests.size() || destRemaining.signum() != 0) {
+                throw new InvalidWarehouseStateException(
+                        "Failed to map send allocations to destination allocations for line: "
+                                + lineId);
+            }
+            if (!partial
+                    && (si < sources.size() || sourceRemaining.signum() != 0)) {
                 throw new InvalidWarehouseStateException(
                         "Failed to map send allocations to destination allocations for line: "
                                 + lineId);
             }
         }
         return List.copyOf(segments);
+    }
+
+    static List<WarehouseTransferLine> buildRemainderLines(
+            WarehouseTransferDocument payload, Map<UUID, BigDecimal> acceptedByLine) {
+        List<WarehouseTransferLine> remainder = new ArrayList<>();
+        for (WarehouseTransferLine line : payload.orderedLines()) {
+            BigDecimal accepted =
+                    acceptedByLine.getOrDefault(line.id().value(), BigDecimal.ZERO);
+            BigDecimal outstanding = line.quantity().value().subtract(accepted);
+            if (outstanding.signum() > 0) {
+                remainder.add(
+                        WarehouseTransferLine.of(
+                                WarehouseTransferLineId.generate(),
+                                line.materialReferenceId(),
+                                StockQuantity.of(outstanding),
+                                line.lineOrder()));
+            }
+        }
+        if (remainder.isEmpty()) {
+            throw new IllegalStateException(
+                    "Partial receive requires remainder lines: documentId=" + payload.documentId());
+        }
+        return List.copyOf(remainder);
     }
 
     public record DestinationAllocationInput(
@@ -467,13 +549,20 @@ public final class WarehouseTransferReceiveService {
             String settlementState,
             String decision,
             long operationalRevision,
-            List<UUID> receiveOperationIds) {
+            List<UUID> receiveOperationIds,
+            UUID continuationDocumentId) {
         public ReceiveResult {
             Objects.requireNonNull(documentId, "documentId");
             Objects.requireNonNull(documentStatus, "documentStatus");
             Objects.requireNonNull(settlementState, "settlementState");
             receiveOperationIds =
                     receiveOperationIds == null ? List.of() : List.copyOf(receiveOperationIds);
+        }
+    }
+
+    record LineAcceptanceCoverage(boolean partial, Map<UUID, BigDecimal> acceptedByLine) {
+        LineAcceptanceCoverage {
+            acceptedByLine = acceptedByLine == null ? Map.of() : Map.copyOf(acceptedByLine);
         }
     }
 

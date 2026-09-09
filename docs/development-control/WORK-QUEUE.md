@@ -11668,8 +11668,8 @@ Stage 3.5.6 ? Physical Multi-Line Send = COMPLETE.
 Stage 3.5.7 ? Shortfall / Continuation = COMPLETE (2026-09-08).
 Stage 3.5.8 ? Partial Receive + Reject + Return = IN PROGRESS.
 Stage 3.5.8.1 ? Settlement + Full Document Receive = COMPLETE (2026-09-09).
-Stage 3.5.8.2 ? Partial Acceptance = NEXT / NOT STARTED.
-Stage 3.5.8.3 ? Reject + Return = NOT STARTED.
+Stage 3.5.8.2 ? Partial Acceptance = COMPLETE (2026-09-09).
+Stage 3.5.8.3 ? Reject + Return = NEXT / NOT STARTED.
 
 ---
 
@@ -11707,10 +11707,49 @@ Full reject MUST NOT auto-create continuation (RETURN_PENDING + return task only
 
 ### Next on success
 
-Stage 3.5.8.2 ? Partial Acceptance = NEXT / NOT STARTED.
+Stage 3.5.8.2 ? Partial Acceptance = COMPLETE (2026-09-09).
+Stage 3.5.8.3 ? Reject + Return = NEXT / NOT STARTED.
 
 ---
 
+## STAGE-3.5.8.2 ? Partial Acceptance + RECEIVE_SHORTFALL + RETURN_PENDING
+
+**Status:** DONE
+**Stage:** 3.5
+**Depends on:** Stage 3.5.8.1
+**Module:** tmp-warehouse (primary); additive public API; no Production/UI feature work
+
+### Goal
+
+Allow partial document-level acceptance of a POSTED Warehouse Transfer Document: physical receive of accepted quantity only, RETURN_PENDING settlement, RECEIVE_SHORTFALL continuation DRAFT for remainder, RETURN_MATERIALS source task projection. Full reject remains Stage 3.5.8.3 (no auto-continuation on full reject).
+
+### Locked later decision (3.5.8.3)
+
+Full reject MUST NOT automatically create a continuation.
+
+### Acceptance criteria
+
+- [x] Full receive path unchanged (SETTLED + CLOSED; no continuation)
+- [x] Partial accept: 0 < totalAccepted; per-line 0 <= accepted <= sent; over-receive rejected
+- [x] Document-level accepted=0 / empty allocations rejected (full reject not implemented)
+- [x] Original POSTED payload immutable; payloadRevision unchanged
+- [x] Physical receive = accepted only; outstanding remains IN_TRANSIT
+- [x] Settlement AWAITING_RECEIPT to RETURN_PENDING + ACCEPTED; revision +1
+- [x] One RECEIVE_SHORTFALL continuation DRAFT (same route; new line IDs; no stock mutation)
+- [x] Internal continuation factory; destination-only receiver may create continuation
+- [x] Public source-responsibility create guard preserved
+- [x] SHORTFALL and RECEIVE_SHORTFALL continuations remain independent
+- [x] RETURN_MATERIALS task for source; take-in-work/takeover informational
+- [x] No physical return / TRANSFER_RETURN / reject API / V42
+- [x] Settlement findByDocumentIds genuine batch IN query
+- [x] Real V40 to V41 Flyway upgrade IT
+- [x] Targeted tests + quick build + package + runtime V41 smoke
+
+### Next on success
+
+Stage 3.5.8.3 ? Reject + Return = NEXT / NOT STARTED.
+
+---
 ## STAGE-3.5.7 ? Shortfall / Automatic Continuation Transfer
 
 **Status:** DONE
@@ -11741,4 +11780,4 @@ Allow physical SEND of less than DRAFT Transfer Document line quantities while p
 ### Next on success
 
 Stage 3.5.8 ? Partial Receive + Reject + Return = IN PROGRESS.
-Stage 3.5.8.1 = COMPLETE; 3.5.8.2 = NEXT / NOT STARTED; 3.5.8.3 = NOT STARTED.
+Stage 3.5.8.1 = COMPLETE; 3.5.8.2 = COMPLETE; 3.5.8.3 = NEXT / NOT STARTED.

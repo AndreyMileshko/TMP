@@ -272,6 +272,7 @@ public class WarehouseAutoConfiguration {
     WarehouseTransferReceiveService warehouseTransferReceiveService(
             DocumentEngine documentEngine,
             WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
+            WarehouseTransferDocumentService warehouseTransferDocumentService,
             TransferDocumentSettlementRepository transferDocumentSettlementRepository,
             TransferDocumentSendAllocationRepository transferDocumentSendAllocationRepository,
             TransferReceiptSettlementItemRepository transferReceiptSettlementItemRepository,
@@ -285,6 +286,7 @@ public class WarehouseAutoConfiguration {
         return new WarehouseTransferReceiveService(
                 documentEngine,
                 warehouseTransferDocumentRepository,
+                warehouseTransferDocumentService,
                 transferDocumentSettlementRepository,
                 transferDocumentSendAllocationRepository,
                 transferReceiptSettlementItemRepository,

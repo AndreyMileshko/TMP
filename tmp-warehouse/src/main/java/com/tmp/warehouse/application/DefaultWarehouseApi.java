@@ -789,7 +789,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 result.settlementState(),
                 result.decision(),
                 result.operationalRevision(),
-                result.receiveOperationIds());
+                result.receiveOperationIds(),
+                result.continuationDocumentId());
     }
 
     @Override

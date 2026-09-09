@@ -27,4 +27,11 @@ public interface TransferDocumentSettlementRepository {
      */
     void markAcceptedAndSettled(
             UUID documentId, long expectedOperationalRevision, TransferDocumentSettlement updated);
+
+    /**
+     * Persists {@code AWAITING_RECEIPT → RETURN_PENDING} with {@code ACCEPTED} when {@code
+     * expectedOperationalRevision} matches. Increments revision exactly once.
+     */
+    void markAcceptedAndReturnPending(
+            UUID documentId, long expectedOperationalRevision, TransferDocumentSettlement updated);
 }

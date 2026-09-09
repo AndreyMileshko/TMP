@@ -6,11 +6,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Warehouse-owned post-send settlement header for a Transfer Document (Stage 3.5.8.1).
+ * Warehouse-owned post-send settlement header for a Transfer Document (Stage 3.5.8).
  *
  * <p>{@code operationalRevision} is the concurrency token for receive/reject/return decisions.
- * Rejection metadata columns exist for 3.5.8.3; 3.5.8.1 only transitions to {@link
- * TransferSettlementState#SETTLED} with {@link TransferSettlementDecision#ACCEPTED}.
+ * Rejection metadata columns exist for 3.5.8.3. Stage 3.5.8.2 transitions to {@link
+ * TransferSettlementState#SETTLED} (full accept) or {@link TransferSettlementState#RETURN_PENDING}
+ * (partial accept), both with {@link TransferSettlementDecision#ACCEPTED}.
  */
 public final class TransferDocumentSettlement {
 
@@ -94,7 +95,22 @@ public final class TransferDocumentSettlement {
 
     public TransferDocumentSettlement markAcceptedAndSettled(
             long expectedRevision, Instant updatedAt) {
+        return markAccepted(TransferSettlementState.SETTLED, expectedRevision, updatedAt);
+    }
+
+    /**
+     * Partial acceptance: {@code AWAITING_RECEIPT → RETURN_PENDING} with {@code ACCEPTED}. Outstanding
+     * IN_TRANSIT quantity remains for Stage 3.5.8.3 physical return.
+     */
+    public TransferDocumentSettlement markAcceptedAndReturnPending(
+            long expectedRevision, Instant updatedAt) {
+        return markAccepted(TransferSettlementState.RETURN_PENDING, expectedRevision, updatedAt);
+    }
+
+    private TransferDocumentSettlement markAccepted(
+            TransferSettlementState targetState, long expectedRevision, Instant updatedAt) {
         Objects.requireNonNull(updatedAt, "updatedAt");
+        Objects.requireNonNull(targetState, "targetState");
         if (expectedRevision != operationalRevision) {
             throw new TransferSettlementOptimisticLockException(
                     documentId, expectedRevision, operationalRevision);
@@ -112,7 +128,7 @@ public final class TransferDocumentSettlement {
         }
         return of(
                 documentId,
-                TransferSettlementState.SETTLED,
+                targetState,
                 operationalRevision + 1,
                 TransferSettlementDecision.ACCEPTED,
                 null,

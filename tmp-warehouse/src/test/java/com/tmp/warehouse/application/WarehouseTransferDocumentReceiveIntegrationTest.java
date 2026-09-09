@@ -399,6 +399,7 @@ class WarehouseTransferDocumentReceiveIntegrationTest {
         assertEquals("ACCEPTED", received.decision());
         assertEquals(1L, received.operationalRevision());
         assertEquals(1, received.receiveOperationIds().size());
+        assertNull(received.continuationDocumentId());
 
         assertEquals(
                 0,
@@ -540,19 +541,86 @@ class WarehouseTransferDocumentReceiveIntegrationTest {
     }
 
     @Test
-    void partialReceiveRejectedInThisSlice() {
+    void partialReceiveTransitionsToReturnPending() {
         TransferDocumentSendResult sent = sendPostedDocument(materialA, cellA1, "100");
         UUID line = singleLineId(sent.documentId());
+        long payloadRevisionBefore =
+                jdbc.queryForObject(
+                        """
+                        SELECT payload_revision FROM warehouse.transfer_document_payload
+                         WHERE document_id = ?
+                        """,
+                        Long.class,
+                        sent.documentId());
+
+        session.set(sessionFor(userDestination));
+        TransferDocumentReceiveResult received =
+                receiveFull(
+                        sent.documentId(),
+                        0L,
+                        List.of(destAlloc(line, cellB1, "98")));
+
+        assertEquals(DocumentStatus.POSTED.name(), received.documentStatus());
+        assertEquals(TransferSettlementState.RETURN_PENDING.name(), received.settlementState());
+        assertEquals("ACCEPTED", received.decision());
+        assertEquals(1L, received.operationalRevision());
+        assertNotNull(received.continuationDocumentId());
+        assertEquals("ACCEPTED", settlementDecision(sent.documentId()));
+
+        assertEquals(
+                DocumentStatus.POSTED,
+                bundle.documentEngine().findById(sent.documentId()).orElseThrow().status());
+        assertEquals(
+                0,
+                jdbc.queryForObject(
+                                """
+                                SELECT quantity FROM warehouse.transfer_document_lines
+                                 WHERE document_id = ? AND id = ?
+                                """,
+                                BigDecimal.class,
+                                sent.documentId(),
+                                line)
+                        .compareTo(new BigDecimal("100")));
+        assertEquals(
+                payloadRevisionBefore,
+                jdbc.queryForObject(
+                        """
+                        SELECT payload_revision FROM warehouse.transfer_document_payload
+                         WHERE document_id = ?
+                        """,
+                        Long.class,
+                        sent.documentId()));
+        assertEquals(
+                0,
+                stockQty(destinationWarehouseId, cellB1, materialA, StockState.AVAILABLE)
+                        .compareTo(new BigDecimal("98")));
+        assertEquals(
+                0,
+                stockQty(sourceWarehouseId, cellA1, materialA, StockState.IN_TRANSIT)
+                        .compareTo(new BigDecimal("2")));
+
+        TransferDocumentView continuation =
+                api.getTransferDocument(received.continuationDocumentId());
+        assertEquals(DocumentStatus.DRAFT.name(), continuation.documentStatus());
+        assertEquals(sent.documentId(), continuation.continuationOfDocumentId());
+        assertEquals(
+                com.tmp.warehouse.domain.TransferContinuationReason.RECEIVE_SHORTFALL.name(),
+                continuation.continuationReason());
+        assertEquals(1, continuation.lines().size());
+        assertEquals(0, continuation.lines().get(0).quantity().compareTo(new BigDecimal("2")));
+        assertEquals(sourceWarehouseId, continuation.sourceWarehouseId());
+        assertEquals(destinationWarehouseId, continuation.destinationWarehouseId());
+    }
+
+    @Test
+    void allZeroReceiveRejected() {
+        TransferDocumentSendResult sent = sendPostedDocument(materialA, cellA1, "100");
         PhysicalSnapshot before = snapshotPhysical(sent.documentId());
 
         session.set(sessionFor(userDestination));
         assertThrows(
                 InvalidWarehouseStateException.class,
-                () ->
-                        receiveFull(
-                                sent.documentId(),
-                                0L,
-                                List.of(destAlloc(line, cellB1, "98"))));
+                () -> receiveFull(sent.documentId(), 0L, List.of()));
 
         assertUnchangedAwaiting(sent.documentId(), before);
     }
@@ -1102,6 +1170,16 @@ class WarehouseTransferDocumentReceiveIntegrationTest {
         return jdbc.queryForObject(
                 """
                 SELECT settlement_state FROM warehouse.transfer_document_settlement
+                 WHERE document_id = ?
+                """,
+                String.class,
+                documentId);
+    }
+
+    private String settlementDecision(UUID documentId) {
+        return jdbc.queryForObject(
+                """
+                SELECT decision FROM warehouse.transfer_document_settlement
                  WHERE document_id = ?
                 """,
                 String.class,

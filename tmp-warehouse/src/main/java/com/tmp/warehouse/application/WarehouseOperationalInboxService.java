@@ -37,11 +37,14 @@ import java.util.UUID;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Warehouse operational inbox projection (Stage 3.5.5 / 3.5.8.1).
+ * Warehouse operational inbox projection (Stage 3.5.5 / 3.5.8.1 / 3.5.8.2).
  *
  * <p>TRANSFER_PREPARATION: DRAFT documents for source-responsible users.
  *
  * <p>TRANSFER_RECEIPT: POSTED + AWAITING_RECEIPT for destination-responsible users.
+ *
+ * <p>RETURN_MATERIALS: POSTED + RETURN_PENDING for source-responsible users (physical return in
+ * 3.5.8.3).
  *
  * <p>Worker assignment is informational (not an exclusive lock).
  */
@@ -121,7 +124,7 @@ public final class WarehouseOperationalInboxService {
     }
 
     /**
-     * Lists preparation and receipt tasks for the current user's responsible warehouses.
+     * Lists preparation, receipt, and return tasks for the current user's responsible warehouses.
      *
      * @param warehouseIdFilter optional single warehouse filter (must be in responsibility scope)
      */
@@ -180,22 +183,35 @@ public final class WarehouseOperationalInboxService {
             if (payload == null) {
                 continue;
             }
-            if (!responsible.contains(payload.destinationWarehouseId().value())) {
-                continue;
-            }
             TransferDocumentSettlement settlement = settlementById.get(metadata.id());
-            if (settlement == null
-                    || settlement.settlementState() != TransferSettlementState.AWAITING_RECEIPT) {
+            if (settlement == null) {
                 continue;
             }
-            tasks.add(
-                    toTaskView(
-                            metadata,
-                            payload,
-                            WarehouseTaskKind.TRANSFER_RECEIPT,
-                            assignments.get(metadata.id()),
-                            settlement,
-                            warehouseById));
+            if (settlement.settlementState() == TransferSettlementState.AWAITING_RECEIPT) {
+                if (!responsible.contains(payload.destinationWarehouseId().value())) {
+                    continue;
+                }
+                tasks.add(
+                        toTaskView(
+                                metadata,
+                                payload,
+                                WarehouseTaskKind.TRANSFER_RECEIPT,
+                                assignments.get(metadata.id()),
+                                settlement,
+                                warehouseById));
+            } else if (settlement.settlementState() == TransferSettlementState.RETURN_PENDING) {
+                if (!responsible.contains(payload.sourceWarehouseId().value())) {
+                    continue;
+                }
+                tasks.add(
+                        toTaskView(
+                                metadata,
+                                payload,
+                                WarehouseTaskKind.RETURN_MATERIALS,
+                                assignments.get(metadata.id()),
+                                settlement,
+                                warehouseById));
+            }
         }
         tasks.sort(TASK_ORDER);
         return List.copyOf(tasks);
@@ -203,7 +219,8 @@ public final class WarehouseOperationalInboxService {
 
     /**
      * Informational take-in-work / takeover. Responsibility scope is derived from the current task
-     * phase (source for preparation, destination for receipt) — not from a caller-supplied kind.
+     * phase (source for preparation/return, destination for receipt) — not from a caller-supplied
+     * kind.
      */
     public WarehouseTaskView takeTransferTaskInWork(UUID documentId) {
         Objects.requireNonNull(documentId, "documentId");
@@ -251,22 +268,28 @@ public final class WarehouseOperationalInboxService {
                                                 .orElseThrow(
                                                         () ->
                                                                 new IllegalStateException(
-                                                                        "Transfer settlement missing for receipt task: "
+                                                                        "Transfer settlement missing for posted task: "
                                                                                 + documentId));
                                 if (settlement.settlementState()
-                                        != TransferSettlementState.AWAITING_RECEIPT) {
+                                        == TransferSettlementState.AWAITING_RECEIPT) {
+                                    kind = WarehouseTaskKind.TRANSFER_RECEIPT;
+                                    responsibilityGuard.requireResponsible(
+                                            payload.destinationWarehouseId());
+                                } else if (settlement.settlementState()
+                                        == TransferSettlementState.RETURN_PENDING) {
+                                    kind = WarehouseTaskKind.RETURN_MATERIALS;
+                                    responsibilityGuard.requireResponsible(
+                                            payload.sourceWarehouseId());
+                                } else {
                                     throw new IllegalStateException(
-                                            "Transfer receipt task exists only for AWAITING_RECEIPT: documentId="
+                                            "Transfer task take-in-work requires AWAITING_RECEIPT or RETURN_PENDING: documentId="
                                                     + documentId
                                                     + ", state="
                                                     + settlement.settlementState());
                                 }
-                                kind = WarehouseTaskKind.TRANSFER_RECEIPT;
-                                responsibilityGuard.requireResponsible(
-                                        payload.destinationWarehouseId());
                             } else {
                                 throw new IllegalStateException(
-                                        "Transfer task take-in-work requires DRAFT or POSTED AWAITING_RECEIPT: documentId="
+                                        "Transfer task take-in-work requires DRAFT or POSTED operational settlement: documentId="
                                                 + documentId
                                                 + ", status="
                                                 + metadata.status());

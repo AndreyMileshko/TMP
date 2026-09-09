@@ -214,7 +214,7 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
-    /** Compact result of a successful Transfer Document full receive. */
+    /** Compact result of a successful Transfer Document receive (full or partial). */
     record TransferDocumentReceiveResult(
             UUID documentId,
             String documentStatus,
@@ -222,7 +222,8 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             String settlementState,
             String decision,
             long operationalRevision,
-            List<UUID> receiveOperationIds) {
+            List<UUID> receiveOperationIds,
+            UUID continuationDocumentId) {
 
         public TransferDocumentReceiveResult {
             java.util.Objects.requireNonNull(documentId, "documentId");
@@ -278,10 +279,14 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
-    /** Stage 3.5 task kinds (TRANSFER_PREPARATION + TRANSFER_RECEIPT live; return later). */
+    /**
+     * Stage 3.5 task kinds: preparation (DRAFT), receipt (POSTED+AWAITING_RECEIPT), return materials
+     * (POSTED+RETURN_PENDING). Physical return action is Stage 3.5.8.3.
+     */
     enum WarehouseTaskKind {
         TRANSFER_PREPARATION,
-        TRANSFER_RECEIPT
+        TRANSFER_RECEIPT,
+        RETURN_MATERIALS
     }
 
     /** Derived informational task state: no assignment row → NEW; assignment present → IN_WORK. */

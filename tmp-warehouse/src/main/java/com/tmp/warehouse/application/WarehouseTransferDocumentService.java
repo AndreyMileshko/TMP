@@ -113,14 +113,36 @@ public final class WarehouseTransferDocumentService {
             WarehouseId sourceWarehouseId,
             WarehouseId destinationWarehouseId,
             List<WarehouseTransferLine> remainderLines) {
+        return createContinuation(
+                parentDocumentId,
+                TransferContinuationReason.SHORTFALL,
+                sourceWarehouseId,
+                destinationWarehouseId,
+                remainderLines);
+    }
+
+    /**
+     * Capability-internal continuation factory (SHORTFALL / RECEIVE_SHORTFALL). Invoked only after
+     * the caller has authorized the parent operation and locked trusted parent payload. Does not
+     * re-check current-user source responsibility — system-owned orchestration, not a public bypass.
+     */
+    public CreatedTransferDocument createContinuation(
+            UUID parentDocumentId,
+            TransferContinuationReason reason,
+            WarehouseId sourceWarehouseId,
+            WarehouseId destinationWarehouseId,
+            List<WarehouseTransferLine> remainderLines) {
         Objects.requireNonNull(parentDocumentId, "parentDocumentId");
+        Objects.requireNonNull(reason, "reason");
         Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
         Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
         Objects.requireNonNull(remainderLines, "remainderLines");
         if (remainderLines.isEmpty()) {
             throw new InvalidWarehouseStateException(
-                    "Shortfall continuation requires at least one remainder line: parentDocumentId="
-                            + parentDocumentId);
+                    "Continuation requires at least one remainder line: parentDocumentId="
+                            + parentDocumentId
+                            + ", reason="
+                            + reason);
         }
         if (sourceWarehouseId.equals(destinationWarehouseId)) {
             throw new InvalidWarehouseStateException(
@@ -139,7 +161,7 @@ public final class WarehouseTransferDocumentService {
                 WarehouseTransferDocument.createContinuation(
                         draft.id(),
                         parentDocumentId,
-                        TransferContinuationReason.SHORTFALL,
+                        reason,
                         sourceWarehouseId,
                         destinationWarehouseId,
                         remainderLines);

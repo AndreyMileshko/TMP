@@ -12,7 +12,9 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,6 +28,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
         justification = "Stores Spring-managed JdbcTemplate.")
 public final class JdbcTransferDocumentSettlementRepository
         implements TransferDocumentSettlementRepository {
+
+    /** Upper bound for a single {@code IN (...)} batch to stay within typical JDBC parameter limits. */
+    private static final int BATCH_IN_CHUNK_SIZE = 500;
 
     private static final String SELECT_COLUMNS =
             """
@@ -75,9 +80,20 @@ public final class JdbcTransferDocumentSettlementRepository
         if (documentIds.isEmpty()) {
             return Map.of();
         }
+        List<UUID> ids = List.copyOf(documentIds);
         Map<UUID, TransferDocumentSettlement> result = new HashMap<>();
-        for (UUID documentId : documentIds) {
-            findByDocumentId(documentId).ifPresent(s -> result.put(documentId, s));
+        for (int offset = 0; offset < ids.size(); offset += BATCH_IN_CHUNK_SIZE) {
+            List<UUID> chunk =
+                    ids.subList(offset, Math.min(offset + BATCH_IN_CHUNK_SIZE, ids.size()));
+            String placeholders = String.join(",", Collections.nCopies(chunk.size(), "?"));
+            String sql = SELECT_COLUMNS + " WHERE document_id IN (" + placeholders + ")";
+            jdbc.query(
+                    sql,
+                    rs -> {
+                        TransferDocumentSettlement settlement = mapRow(rs);
+                        result.put(settlement.documentId(), settlement);
+                    },
+                    chunk.toArray());
         }
         return Map.copyOf(result);
     }
@@ -91,14 +107,40 @@ public final class JdbcTransferDocumentSettlementRepository
     @Override
     public void markAcceptedAndSettled(
             UUID documentId, long expectedOperationalRevision, TransferDocumentSettlement updated) {
+        markAcceptedTransition(
+                documentId,
+                expectedOperationalRevision,
+                updated,
+                TransferSettlementState.SETTLED,
+                "markAcceptedAndSettled");
+    }
+
+    @Override
+    public void markAcceptedAndReturnPending(
+            UUID documentId, long expectedOperationalRevision, TransferDocumentSettlement updated) {
+        markAcceptedTransition(
+                documentId,
+                expectedOperationalRevision,
+                updated,
+                TransferSettlementState.RETURN_PENDING,
+                "markAcceptedAndReturnPending");
+    }
+
+    private void markAcceptedTransition(
+            UUID documentId,
+            long expectedOperationalRevision,
+            TransferDocumentSettlement updated,
+            TransferSettlementState targetState,
+            String methodName) {
         Objects.requireNonNull(documentId, "documentId");
         Objects.requireNonNull(updated, "updated");
         if (!documentId.equals(updated.documentId())) {
             throw new IllegalArgumentException("documentId mismatch");
         }
-        if (updated.settlementState() != TransferSettlementState.SETTLED
+        if (updated.settlementState() != targetState
                 || updated.decision().orElse(null) != TransferSettlementDecision.ACCEPTED) {
-            throw new IllegalArgumentException("markAcceptedAndSettled requires SETTLED/ACCEPTED");
+            throw new IllegalArgumentException(
+                    methodName + " requires " + targetState + "/ACCEPTED");
         }
         if (updated.operationalRevision() != expectedOperationalRevision + 1) {
             throw new IllegalArgumentException(
@@ -120,7 +162,7 @@ public final class JdbcTransferDocumentSettlementRepository
                            AND settlement_state = ?
                            AND decision IS NULL
                         """,
-                        TransferSettlementState.SETTLED.name(),
+                        targetState.name(),
                         TransferSettlementDecision.ACCEPTED.name(),
                         updated.operationalRevision(),
                         Timestamp.from(updated.updatedAt()),

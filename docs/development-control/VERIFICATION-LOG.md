@@ -3,8 +3,34 @@
 ## Latest result
 
 **Date:** 2026-09-09
-**Scope:** Stage 3.5.8.1 Settlement Foundation + Full Document Receive + Receiver Task
-**Overall:** PASS (targeted tests + architecture + quick build + package + startup smoke on `tmp-stage5-pg`); full document receive INTEGRATION TEST VERIFIED; no new GUI
+**Scope:** Stage 3.5.8.2 Partial Acceptance + RECEIVE_SHORTFALL + RETURN_PENDING
+**Overall:** PASS (targeted tests + architecture + production unit + quick build + package + startup smoke on `tmp-stage5-pg`); partial acceptance INTEGRATION TEST VERIFIED; V40→V41 ISOLATED MIGRATION TEST VERIFIED; no new GUI
+
+### Stage 3.5.8.2 Partial Acceptance (2026-09-09)
+
+| Check | Result |
+|-------|--------|
+| HEAD vs expected base `ea8b469d…` | PASS (match at start) |
+| Flyway migration added | NONE (runtime remains V41) |
+| `WarehouseTransferDocumentPartialReceiveIntegrationTest` | PASS (12) |
+| `WarehouseTransferDocumentReceiveIntegrationTest` | PASS (21; full + partial + all-zero) |
+| `WarehouseTransferDocumentShortfallIntegrationTest` | PASS (12) |
+| `WarehouseTransferReceiveMappingTest` | PASS (1) |
+| `JdbcTransferDocumentSettlementRepositoryBatchTest` | PASS (3) |
+| `TransferDocumentSettlementV40ToV41MigrationIT` | PASS (1) |
+| `WarehouseOperationalInboxIntegrationTest` | PASS (16) |
+| `WarehouseTransferServiceIntegrationTest` | PASS (2) |
+| Warehouse targeted total (primary suite) | PASS — 50 (+ inbox/legacy 18) |
+| Architecture `Stage6WarehouseArchitectureTest` | PASS (5) |
+| Production `ConfirmMaterialReceipt/Transfer` unit | PASS (23) |
+| Quick install `-DskipTests` + static analysis skips | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests …` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-09 12:36:26) |
+| Launch against `tmp_gui_stage5` | PASS — Flyway validated 41; schema up to date; stock_positions=31 / sum 1257.9 preserved; settlements=0; Spring + JavaFX start; exceptions NONE (JavaFX unnamed-module WARN only) |
+| Partial acceptance | INTEGRATION TEST VERIFIED |
+| V40→V41 upgrade | ISOLATED MIGRATION TEST VERIFIED |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 / 3.5.8 / 3.5.8.1 / 3.5.8.2 / 3.5.8.3 | IN PROGRESS / IN PROGRESS / COMPLETE / COMPLETE / NEXT NOT STARTED |
+| Auto-commit | NOT DONE |
 
 ### Stage 3.5.8.1 Settlement + Full Receive (2026-09-09)
 
