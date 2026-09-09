@@ -398,14 +398,21 @@ Order Item / Specification
 - Warehouse может внутри создать несколько transfer documents при multi-source routing;
 - multi-line operational Transfer document — **Warehouse-owned** (не Production inventory grouping).
 
-## 13.1 CURRENT IMPLEMENTATION note (after Stage 3.5.9)
+## 13.1 CURRENT IMPLEMENTATION note (after Stage 3.5.10)
+
+**Stage 3.5.10 COMPLETE:** Submit of a Production-owned Material Requirement DRAFT:
+
+- Production orchestrates Submit (`production.transfer.create`); Warehouse owns source routing and DRAFT Transfer Document creation via `WarehouseDemandCommandApi`;
+- existing `MaterialSourceRoutingService` is reused; Transfer Document line quantity is the full requirement quantity (routed/uncovered is an audit snapshot only);
+- one generated initial Transfer Document per source warehouse; operational inbox shows ordinary `TRANSFER_PREPARATION` tasks;
+- Submit is one ACID transaction, idempotent for already-SUBMITTED requirements, and does not mutate stock.
 
 **Stage 3.5.9 COMPLETE:** active Production Material Requirement DRAFT workflow uses:
 
 - selected Order Items → frozen `SpecificationId` aggregation → single editable `quantity`;
 - `ProductionDestinationWarehouse` / `productionWarehouseId` only (no fixed `mainWarehouseId` in requirement path);
 - no recommendation formula, no dual recommended/requested quantities, no `included` flags;
-- UI command **Запросить материалы**; Submit → Warehouse automatic routing is **Stage 3.5.10** (not yet implemented).
+- UI commands **Запросить материалы** and **Отправить требование**.
 
 Legacy Stage 7 Material Transfer Template tables / historical logical transfers remain readable for completed records; they are not the active planning algorithm.
 
@@ -431,7 +438,7 @@ Master (CURRENT after 3.5.9):
 1. selects Order Items;
 2. reviews aggregated requirement;
 3. may change quantity;
-4. saves DRAFT (Submit to Warehouse = Stage 3.5.10).
+4. submits DRAFT → Warehouse DRAFT Transfer Documents + TRANSFER_PREPARATION tasks (Stage 3.5.10 COMPLETE).
 
 ## 13.2 Владение
 

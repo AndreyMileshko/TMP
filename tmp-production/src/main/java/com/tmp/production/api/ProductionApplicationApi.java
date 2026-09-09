@@ -42,6 +42,14 @@ public interface ProductionApplicationApi {
     MaterialRequirementView changeMaterialRequirementQuantity(
             UUID requirementId, UUID lineId, BigDecimal quantity, long expectedVersion);
 
+    /**
+     * Submits a DRAFT Material Requirement to the Warehouse (Stage 3.5.10): automatic source
+     * routing + grouped DRAFT Transfer Documents in one ACID transaction. Idempotent for an
+     * already-SUBMITTED requirement. Does not move physical stock.
+     */
+    SubmitMaterialRequirementResultView submitMaterialRequirement(
+            UUID requirementId, long expectedVersion);
+
     List<LogicalTransferView> listLogicalTransfers(UUID orderId);
 
     ReceiptResultView confirmMaterialReceipt(UUID logicalTransferId);
@@ -62,7 +70,8 @@ public interface ProductionApplicationApi {
     }
 
     enum MaterialRequirementStatusView {
-        DRAFT
+        DRAFT,
+        SUBMITTED
     }
 
     enum MaterialPlanningSourceView {
@@ -106,6 +115,8 @@ public interface ProductionApplicationApi {
             Instant updatedAt,
             long version,
             MaterialRequirementStatusView status,
+            Optional<Instant> submittedAt,
+            Optional<String> submittedBy,
             List<MaterialRequirementLineView> lines) {
         public MaterialRequirementView {
             Objects.requireNonNull(requirementId, "requirementId");
@@ -114,8 +125,38 @@ public interface ProductionApplicationApi {
             Objects.requireNonNull(createdAt, "createdAt");
             Objects.requireNonNull(updatedAt, "updatedAt");
             Objects.requireNonNull(status, "status");
+            Objects.requireNonNull(submittedAt, "submittedAt");
+            Objects.requireNonNull(submittedBy, "submittedBy");
             Objects.requireNonNull(lines, "lines");
             lines = List.copyOf(lines);
+        }
+    }
+
+    /** One generated DRAFT Warehouse Transfer Document reference (Stage 3.5.10). */
+    record GeneratedTransferDocumentView(
+            UUID documentId, UUID sourceWarehouseId, UUID destinationWarehouseId) {
+        public GeneratedTransferDocumentView {
+            Objects.requireNonNull(documentId, "documentId");
+            Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+            Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+        }
+    }
+
+    /**
+     * Result of Submit. {@code created} is {@code true} for a fresh Submit, {@code false} for an
+     * idempotent retry of an already-SUBMITTED requirement.
+     */
+    record SubmitMaterialRequirementResultView(
+            UUID requirementId,
+            long version,
+            MaterialRequirementStatusView status,
+            boolean created,
+            List<GeneratedTransferDocumentView> documents) {
+        public SubmitMaterialRequirementResultView {
+            Objects.requireNonNull(requirementId, "requirementId");
+            Objects.requireNonNull(status, "status");
+            Objects.requireNonNull(documents, "documents");
+            documents = List.copyOf(documents);
         }
     }
 

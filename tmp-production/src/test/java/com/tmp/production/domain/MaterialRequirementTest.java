@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -70,6 +71,27 @@ class MaterialRequirementTest {
                 () ->
                         requirement.changeLineQuantity(
                                 MaterialRequirementLineId.generate(), bd(6), T1));
+    }
+
+    @Test
+    void submitTransitionsDraftToSubmittedAndFreezesLines() {
+        MaterialRequirementLine line = sampleLine(bd(100));
+        MaterialRequirement requirement =
+                MaterialRequirement.create(SourceOrderId.generate(), PROD, T0, List.of(line));
+
+        MaterialRequirement submitted = requirement.submit("user-1", T1);
+
+        assertEquals(MaterialRequirementStatus.SUBMITTED, submitted.status());
+        assertEquals(Optional.of(T1), submitted.submittedAt());
+        assertEquals(Optional.of("user-1"), submitted.submittedBy());
+        assertEquals(requirement.version(), submitted.version());
+        assertEquals(requirement.destinationWarehouseId(), submitted.destinationWarehouseId());
+        assertEquals(line.lineId(), submitted.lines().getFirst().lineId());
+        assertEquals(0, submitted.lines().getFirst().quantity().compareTo(bd(100)));
+        assertThrows(
+                IllegalStateException.class,
+                () -> submitted.changeLineQuantity(line.lineId(), bd(90), T1));
+        assertThrows(IllegalStateException.class, () -> submitted.submit("user-2", T1));
     }
 
     private static MaterialRequirementLine sampleLine(BigDecimal quantity) {

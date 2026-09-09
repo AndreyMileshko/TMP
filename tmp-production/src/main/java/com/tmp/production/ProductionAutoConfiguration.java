@@ -18,6 +18,7 @@ import com.tmp.production.application.ProductionHistoryService;
 import com.tmp.production.application.ProductionLaunchService;
 import com.tmp.production.application.ProductionOrderViewService;
 import com.tmp.production.application.ReleaseProductsService;
+import com.tmp.production.application.SubmitMaterialRequirementService;
 import com.tmp.production.application.document.ProductionCancellationProcessor;
 import com.tmp.production.application.document.ProductionLaunchPayloadHolder;
 import com.tmp.production.application.document.ProductionLaunchProcessor;
@@ -34,6 +35,7 @@ import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
 import com.tmp.production.application.port.WarehouseReferenceQueryPort;
 import com.tmp.production.config.ProductionWarehouseProperties;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
+import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository;
 import com.tmp.production.domain.repository.MaterialTransferTemplateRepository;
 import com.tmp.production.domain.repository.ProductionCancellationQuery;
 import com.tmp.production.domain.repository.ProductionCancellationRepository;
@@ -42,6 +44,7 @@ import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.domain.repository.ProductionReleaseRepository;
 import com.tmp.production.persistence.JdbcMaterialRequirementRepository;
+import com.tmp.production.persistence.JdbcMaterialRequirementSubmissionRepository;
 import com.tmp.production.persistence.JdbcMaterialTransferTemplateRepository;
 import com.tmp.production.persistence.JdbcProductionCancellationRepository;
 import com.tmp.production.persistence.JdbcProductionHistoryRepository;
@@ -49,8 +52,10 @@ import com.tmp.production.persistence.JdbcProductionItemStateRepository;
 import com.tmp.production.persistence.JdbcProductionMaterialTransferRepository;
 import com.tmp.production.persistence.JdbcProductionReleaseRepository;
 import com.tmp.production.security.ProductionCapability;
+import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.warehouse.api.WarehouseCommandApi;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tmp.warehouse.api.WarehouseReferenceQueryApi;
 import jakarta.annotation.PostConstruct;
@@ -132,6 +137,12 @@ public class ProductionAutoConfiguration {
     MaterialRequirementRepository materialRequirementRepository(
             JdbcTemplate jdbcTemplate, Clock clock, PlatformTransactionManager transactionManager) {
         return new JdbcMaterialRequirementRepository(jdbcTemplate, clock, transactionManager);
+    }
+
+    @Bean
+    MaterialRequirementSubmissionRepository materialRequirementSubmissionRepository(
+            JdbcTemplate jdbcTemplate) {
+        return new JdbcMaterialRequirementSubmissionRepository(jdbcTemplate);
     }
 
     @Bean
@@ -284,6 +295,21 @@ public class ProductionAutoConfiguration {
     }
 
     @Bean
+    SubmitMaterialRequirementService submitMaterialRequirementService(
+            MaterialRequirementRepository materialRequirementRepository,
+            MaterialRequirementSubmissionRepository materialRequirementSubmissionRepository,
+            @Qualifier("warehouseDemandCommandApi") WarehouseDemandCommandApi warehouseDemandCommandApi,
+            PlatformTransactionManager transactionManager,
+            Clock clock) {
+        return new SubmitMaterialRequirementService(
+                materialRequirementRepository,
+                materialRequirementSubmissionRepository,
+                warehouseDemandCommandApi,
+                transactionManager,
+                clock);
+    }
+
+    @Bean
     ConfirmMaterialReceiptService confirmMaterialReceiptService(
             ProductionMaterialTransferRepository transferRepository,
             @Qualifier("warehouseCommandApi") WarehouseCommandApi warehouseCommandApi,
@@ -357,20 +383,24 @@ public class ProductionAutoConfiguration {
     @Bean
     ProductionApplicationApi productionApplicationApi(
             AuthorizationService authorizationService,
+            AuthenticationService authenticationService,
             ProductionDestinationWarehouse destinationWarehouse,
             ProductionLaunchService launchService,
             CheckMaterialAvailabilityService checkMaterialAvailabilityService,
             MaterialRequirementService materialRequirementService,
+            SubmitMaterialRequirementService submitMaterialRequirementService,
             ConfirmMaterialReceiptService confirmMaterialReceiptService,
             ReleaseProductsService releaseProductsService,
             CancelOrderProductionService cancelOrderProductionService,
             ProductionMaterialTransferRepository materialTransferRepository) {
         return new DefaultProductionApplicationApi(
                 authorizationService,
+                authenticationService,
                 destinationWarehouse,
                 launchService,
                 checkMaterialAvailabilityService,
                 materialRequirementService,
+                submitMaterialRequirementService,
                 confirmMaterialReceiptService,
                 releaseProductsService,
                 cancelOrderProductionService,

@@ -75,6 +75,13 @@ public final class ProductionUiErrorMapper {
             if (lower.contains("ambiguous") || lower.contains("неоднознач")) {
                 return MATERIAL_AMBIGUOUS;
             }
+            if (simple.contains("MaterialRequirementShortage")
+                    || simple.contains("DemandSourceUnavailable")) {
+                if (containsCyrillic(message) && !message.isBlank()) {
+                    return message;
+                }
+                return "Сейчас нет ни одного склада-источника с доступным остатком.";
+            }
             if (lower.contains("insufficient") || lower.contains("недостат")) {
                 return INSUFFICIENT_STOCK;
             }

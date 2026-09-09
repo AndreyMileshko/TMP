@@ -187,6 +187,9 @@ public final class ProductionWorkbenchController
     private Button applyRequirementQtyButton;
 
     @FXML
+    private Button submitRequirementButton;
+
+    @FXML
     private VBox releasePanel;
 
     @FXML
@@ -448,6 +451,9 @@ public final class ProductionWorkbenchController
                                     }
                                 });
 
+        applyRequirementQtyButton
+                .disableProperty()
+                .bind(viewModel.requirementSubmittedProperty());
         applyRequirementQtyButton.setOnAction(
                 e -> {
                     MaterialRequirementLineRow selected =
@@ -456,6 +462,15 @@ public final class ProductionWorkbenchController
                         viewModel.applyRequirementQuantity(selected);
                     }
                 });
+
+        submitRequirementButton
+                .disableProperty()
+                .bind(
+                        viewModel
+                                .canTransferProperty()
+                                .not()
+                                .or(viewModel.requirementSubmittedProperty()));
+        submitRequirementButton.setOnAction(e -> viewModel.submitMaterialRequirement());
     }
 
     private void bindReleasePanel() {

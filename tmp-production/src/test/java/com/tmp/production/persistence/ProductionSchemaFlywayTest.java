@@ -52,8 +52,10 @@ class ProductionSchemaFlywayTest {
 
         assertEquals(
                 List.of(
+                        "material_requirement_generated_documents",
                         "material_requirement_line_source_items",
                         "material_requirement_lines",
+                        "material_requirement_routing_snapshot",
                         "material_requirements",
                         "material_transfer_operation_refs",
                         "material_transfer_template_line_cutting_refs",
@@ -105,7 +107,7 @@ class ProductionSchemaFlywayTest {
     }
 
     @Test
-    void flywayRecordsV23V26V27V28V29V30V31AndV43Migrations() {
+    void flywayRecordsV23V26V27V28V29V30V31AndV43V44Migrations() {
         Integer applied23 =
                 jdbc.queryForObject(
                         """
@@ -162,6 +164,13 @@ class ProductionSchemaFlywayTest {
                         WHERE version = '43' AND success = TRUE
                         """,
                         Integer.class);
+        Integer applied44 =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '44' AND success = TRUE
+                        """,
+                        Integer.class);
         assertEquals(1, applied23);
         assertEquals(1, applied26);
         assertEquals(1, applied27);
@@ -170,6 +179,7 @@ class ProductionSchemaFlywayTest {
         assertEquals(1, applied30);
         assertEquals(1, applied31);
         assertEquals(1, applied43);
+        assertEquals(1, applied44);
 
         String latest =
                 jdbc.queryForObject(
@@ -180,7 +190,7 @@ class ProductionSchemaFlywayTest {
                         LIMIT 1
                         """,
                         String.class);
-        assertEquals("43", latest);
+        assertEquals("44", latest);
     }
 
     @Test

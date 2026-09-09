@@ -82,4 +82,23 @@ class Stage6WarehouseArchitectureTest {
                     .dependOnClassesThat()
                     .resideInAnyPackage("javafx..")
                     .because("Warehouse module must not depend on JavaFX; UI lives in tmp-ui-shell");
+    @ArchTest
+    static final ArchRule uiShellMustNotDependOnWarehouseDemandCommandApi =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.ui.shell..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("WarehouseDemandCommandApi")
+                    .because("WarehouseDemandCommandApi is trusted backend orchestration, not a UI API");
+
+    @ArchTest
+    static final ArchRule uiShellMustNotDependOnWarehouseReferenceQueryApi =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.ui.shell..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("WarehouseReferenceQueryApi")
+                    .because("UI must not call the no-RBAC WarehouseReferenceQueryApi");
 }

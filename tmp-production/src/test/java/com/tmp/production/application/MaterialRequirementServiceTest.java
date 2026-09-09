@@ -641,6 +641,8 @@ class MaterialRequirementServiceTest {
                             requirement.updatedAt(),
                             existing == null ? 0L : requirement.version() + 1,
                             requirement.status(),
+                            requirement.submittedAt().orElse(null),
+                            requirement.submittedBy().orElse(null),
                             requirement.lines());
             store.put(saved.requirementId(), saved);
             return saved;
@@ -649,6 +651,34 @@ class MaterialRequirementServiceTest {
         @Override
         public Optional<MaterialRequirement> findById(MaterialRequirementId id) {
             return Optional.ofNullable(store.get(id));
+        }
+
+        @Override
+        public Optional<MaterialRequirement> findByIdForUpdate(MaterialRequirementId id) {
+            return findById(id);
+        }
+
+        @Override
+        public MaterialRequirement markSubmitted(MaterialRequirement requirement) {
+            MaterialRequirement existing = store.get(requirement.requirementId());
+            if (existing == null || existing.version() != requirement.version()) {
+                throw new MaterialRequirementOptimisticLockException(
+                        requirement.requirementId(), requirement.version());
+            }
+            MaterialRequirement saved =
+                    MaterialRequirement.rehydrate(
+                            requirement.requirementId(),
+                            requirement.sourceOrderId(),
+                            requirement.destinationWarehouseId(),
+                            requirement.createdAt(),
+                            requirement.updatedAt(),
+                            requirement.version() + 1,
+                            requirement.status(),
+                            requirement.submittedAt().orElse(null),
+                            requirement.submittedBy().orElse(null),
+                            requirement.lines());
+            store.put(saved.requirementId(), saved);
+            return saved;
         }
     }
 

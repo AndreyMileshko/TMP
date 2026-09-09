@@ -16,7 +16,10 @@ import com.tmp.production.domain.ProductionMaterialTransferId;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
+import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.GeneratedDocumentLink;
 import com.tmp.production.security.ProductionPermissions;
+import com.tmp.security.api.AccessDeniedException;
+import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
@@ -36,10 +39,12 @@ import java.util.UUID;
 public final class DefaultProductionApplicationApi implements ProductionApplicationApi {
 
     private final AuthorizationService authorizationService;
+    private final AuthenticationService authenticationService;
     private final ProductionDestinationWarehouse destinationWarehouse;
     private final ProductionLaunchService launchService;
     private final CheckMaterialAvailabilityService checkMaterialAvailabilityService;
     private final MaterialRequirementService materialRequirementService;
+    private final SubmitMaterialRequirementService submitMaterialRequirementService;
     private final ConfirmMaterialReceiptService confirmMaterialReceiptService;
     private final ReleaseProductsService releaseProductsService;
     private final CancelOrderProductionService cancelOrderProductionService;
@@ -47,16 +52,20 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
 
     public DefaultProductionApplicationApi(
             AuthorizationService authorizationService,
+            AuthenticationService authenticationService,
             ProductionDestinationWarehouse destinationWarehouse,
             ProductionLaunchService launchService,
             CheckMaterialAvailabilityService checkMaterialAvailabilityService,
             MaterialRequirementService materialRequirementService,
+            SubmitMaterialRequirementService submitMaterialRequirementService,
             ConfirmMaterialReceiptService confirmMaterialReceiptService,
             ReleaseProductsService releaseProductsService,
             CancelOrderProductionService cancelOrderProductionService,
             ProductionMaterialTransferRepository materialTransferRepository) {
         this.authorizationService =
                 Objects.requireNonNull(authorizationService, "authorizationService");
+        this.authenticationService =
+                Objects.requireNonNull(authenticationService, "authenticationService");
         this.destinationWarehouse =
                 Objects.requireNonNull(destinationWarehouse, "destinationWarehouse");
         this.launchService = Objects.requireNonNull(launchService, "launchService");
@@ -65,6 +74,9 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                         checkMaterialAvailabilityService, "checkMaterialAvailabilityService");
         this.materialRequirementService =
                 Objects.requireNonNull(materialRequirementService, "materialRequirementService");
+        this.submitMaterialRequirementService =
+                Objects.requireNonNull(
+                        submitMaterialRequirementService, "submitMaterialRequirementService");
         this.confirmMaterialReceiptService =
                 Objects.requireNonNull(
                         confirmMaterialReceiptService, "confirmMaterialReceiptService");
@@ -124,6 +136,47 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                         MaterialRequirementLineId.of(lineId),
                         quantity,
                         expectedVersion));
+    }
+
+    @Override
+    public SubmitMaterialRequirementResultView submitMaterialRequirement(
+            UUID requirementId, long expectedVersion) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
+        Objects.requireNonNull(requirementId, "requirementId");
+        String submittedBy = currentUserRef();
+        SubmitMaterialRequirementResult result =
+                submitMaterialRequirementService.submit(
+                        MaterialRequirementId.of(requirementId), expectedVersion, submittedBy);
+        MaterialRequirement requirement = result.requirement();
+        List<GeneratedTransferDocumentView> documents =
+                result.documents().stream()
+                        .map(this::map)
+                        .toList();
+        return new SubmitMaterialRequirementResultView(
+                requirement.requirementId().value(),
+                requirement.version(),
+                map(requirement.status()),
+                result.created(),
+                documents);
+    }
+
+    private String currentUserRef() {
+        return authenticationService
+                .currentSession()
+                .orElseThrow(
+                        () ->
+                                new AccessDeniedException(
+                                        "Access denied: authentication required"))
+                .userId()
+                .value()
+                .toString();
+    }
+
+    private GeneratedTransferDocumentView map(GeneratedDocumentLink link) {
+        return new GeneratedTransferDocumentView(
+                link.warehouseDocumentId(),
+                link.sourceWarehouseId(),
+                link.destinationWarehouseId());
     }
 
     @Override
@@ -228,6 +281,8 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 requirement.updatedAt(),
                 requirement.version(),
                 map(requirement.status()),
+                requirement.submittedAt(),
+                requirement.submittedBy(),
                 requirement.lines().stream().map(this::map).toList());
     }
 
@@ -290,6 +345,7 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     private MaterialRequirementStatusView map(MaterialRequirementStatus status) {
         return switch (status) {
             case DRAFT -> MaterialRequirementStatusView.DRAFT;
+            case SUBMITTED -> MaterialRequirementStatusView.SUBMITTED;
         };
     }
 

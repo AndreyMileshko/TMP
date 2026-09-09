@@ -19,6 +19,7 @@ import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
+import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
 import com.tmp.production.application.MaterialReceiptConfirmationResult.MaterialReceiptConfirmationStatus;
 import com.tmp.production.application.ReleaseProductsResult.ItemResult;
 import com.tmp.production.application.ReleaseProductsResult.MaterialResult;
@@ -34,9 +35,15 @@ import com.tmp.production.domain.ProductionMaterialTransferId;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.WarehouseTransferOperationRef;
+import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.GeneratedDocumentLink;
 import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.security.ProductionPermissions;
+import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
+import com.tmp.security.api.Login;
+import com.tmp.security.api.SessionId;
+import com.tmp.security.api.SessionSummary;
+import com.tmp.security.api.UserId;
 import java.lang.reflect.RecordComponent;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -56,9 +63,11 @@ class DefaultProductionApplicationApiTest {
     private static final UUID PROD_WH = UUID.fromString("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
 
     private AuthorizationService authorizationService;
+    private AuthenticationService authenticationService;
     private ProductionLaunchService launchService;
     private CheckMaterialAvailabilityService checkMaterialAvailabilityService;
     private MaterialRequirementService materialRequirementService;
+    private SubmitMaterialRequirementService submitMaterialRequirementService;
     private ConfirmMaterialReceiptService confirmMaterialReceiptService;
     private ReleaseProductsService releaseProductsService;
     private CancelOrderProductionService cancelOrderProductionService;
@@ -68,9 +77,19 @@ class DefaultProductionApplicationApiTest {
     @BeforeEach
     void setUp() {
         authorizationService = mock(AuthorizationService.class);
+        authenticationService = mock(AuthenticationService.class);
+        when(authenticationService.currentSession())
+                .thenReturn(
+                        Optional.of(
+                                new SessionSummary(
+                                        SessionId.of(UUID.randomUUID()),
+                                        UserId.of(UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")),
+                                        Login.of("master"),
+                                        Instant.parse("2026-09-10T00:00:00Z"))));
         launchService = mock(ProductionLaunchService.class);
         checkMaterialAvailabilityService = mock(CheckMaterialAvailabilityService.class);
         materialRequirementService = mock(MaterialRequirementService.class);
+        submitMaterialRequirementService = mock(SubmitMaterialRequirementService.class);
         confirmMaterialReceiptService = mock(ConfirmMaterialReceiptService.class);
         releaseProductsService = mock(ReleaseProductsService.class);
         cancelOrderProductionService = mock(CancelOrderProductionService.class);
@@ -78,10 +97,12 @@ class DefaultProductionApplicationApiTest {
         api =
                 new DefaultProductionApplicationApi(
                         authorizationService,
+                        authenticationService,
                         new ProductionDestinationWarehouse(PROD_WH),
                         launchService,
                         checkMaterialAvailabilityService,
                         materialRequirementService,
+                        submitMaterialRequirementService,
                         confirmMaterialReceiptService,
                         releaseProductsService,
                         cancelOrderProductionService,
@@ -112,6 +133,8 @@ class DefaultProductionApplicationApiTest {
                 view.lines().getFirst().lineId());
         assertEquals(
                 requirement.lines().getFirst().quantity(), view.lines().getFirst().quantity());
+        assertTrue(view.submittedAt().isEmpty());
+        assertTrue(view.submittedBy().isEmpty());
     }
 
     @Test
@@ -158,6 +181,41 @@ class DefaultProductionApplicationApiTest {
                                 requirement.lines().getFirst().lineId().value(),
                                 BigDecimal.TEN,
                                 requirement.version() + 1));
+    }
+
+    @Test
+    void submitMaterialRequirementUsesAuthenticatedUserAndCreateTransferPermission() {
+        MaterialRequirement requirement =
+                sampleRequirement().submit("user-1", Instant.parse("2026-09-10T01:00:00Z"));
+        UUID documentId = UUID.randomUUID();
+        UUID sourceWarehouseId = UUID.randomUUID();
+        when(submitMaterialRequirementService.submit(any(), anyLong(), any()))
+                .thenReturn(
+                        new SubmitMaterialRequirementResult(
+                                requirement,
+                                List.of(
+                                        new GeneratedDocumentLink(
+                                                documentId,
+                                                sourceWarehouseId,
+                                                PROD_WH,
+                                                1,
+                                                Instant.parse("2026-09-10T01:00:00Z"))),
+                                List.of(),
+                                true));
+
+        SubmitMaterialRequirementResultView view =
+                api.submitMaterialRequirement(requirement.requirementId().value(), 0L);
+
+        verify(authorizationService)
+                .requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
+        verify(submitMaterialRequirementService)
+                .submit(requirement.requirementId(), 0L, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+        assertEquals(requirement.requirementId().value(), view.requirementId());
+        assertEquals(MaterialRequirementStatusView.SUBMITTED, view.status());
+        assertTrue(view.created());
+        assertEquals(1, view.documents().size());
+        assertEquals(documentId, view.documents().getFirst().documentId());
+        assertEquals(sourceWarehouseId, view.documents().getFirst().sourceWarehouseId());
     }
 
     @Test

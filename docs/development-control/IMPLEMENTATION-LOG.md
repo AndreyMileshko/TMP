@@ -4,7 +4,34 @@
 
 ---
 
+## Stage 3.5.10 — Requirement → Automatic Warehouse Tasks — 2026-09-10
+
+**Date:** 2026-09-10
+**Stage:** UI Modernization Stage 3.5.10 (Requirement Submit → Warehouse DRAFT transfers); outside Stages 0–9 numbered queue
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.10 COMPLETE; 3.5.11 NEXT / NOT STARTED
+**Commit:** none (per task); baseline HEAD `ca5c9182c5ea34ed1d9968f5e1a398c5af27c2cd`
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
+
+### Summary
+
+Production Submit orchestrates Warehouse-owned demand routing: a Material Requirement DRAFT becomes SUBMITTED, Warehouse creates grouped DRAFT Transfer Documents (full requirement quantity), and existing operational inbox shows `TRANSFER_PREPARATION`. Submit does not move stock. Stage 3.5.7 remains the only continuation creator at actual partial send.
+
+### Key changes
+
+- Warehouse `WarehouseDemandCommandApi.createRoutedTransferDocuments` reuses `MaterialSourceRoutingService`; `createDemandDraft` shares `insertOrdinaryDraft` without `WarehouseResponsibilityGuard`
+- Production `SubmitMaterialRequirementService`: `FOR UPDATE`, `expectedVersion` on first submit, idempotent SUBMITTED retry, one REQUIRED outer transaction
+- Flyway V44: `DRAFT|SUBMITTED` + submission metadata CHECK; `material_requirement_generated_documents`; `material_requirement_routing_snapshot` (uncovered_quantity audit-only)
+- UI: «Отправить требование»; auth `production.transfer.create` only
+- ArchUnit: UI must not call demand/reference APIs; Production must not call user-facing `createTransferDocument`
+
+### Next
+
+Stage 3.5.11 — Modern Остатки (NOT STARTED).
+
+---
+
 ## Stage 3.5.9 Corrective — Material Requirement concurrency + Warehouse reference boundary — 2026-09-09
+
 
 **Date:** 2026-09-09
 **Stage:** UI Modernization Stage 3.5.9 corrective (outside Stages 0–9 numbered queue)

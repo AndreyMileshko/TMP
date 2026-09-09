@@ -2,6 +2,36 @@
 
 ## Latest result
 
+**Date:** 2026-09-10
+**Scope:** Stage 3.5.10 — Requirement → Automatic Warehouse Tasks
+**Overall:** PASS (targeted tests + architecture + UI + quick build + package + startup smoke on `tmp-stage5-pg`); Flyway V43→V44; stock preserved on Submit/launch; no commit
+
+### Stage 3.5.10 Requirement → Automatic Warehouse Tasks (2026-09-10)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `ca5c9182c5ea34ed1d9968f5e1a398c5af27c2cd` | PASS |
+| `WarehouseDemandCommandApiIntegrationTest` + routing unit/IT | PASS (12 + 13 + 3) |
+| `WarehouseTransferDocumentIntegrationTest` + Shortfall IT | PASS (10 + 12) |
+| `SubmitMaterialRequirementServiceTest` + `SubmitMaterialRequirementPostgresIT` | PASS (5 + 9) |
+| Material Requirement domain/JDBC/Flyway V43 + V43→V44 IT | PASS (5 + 4 + 4 + 1) |
+| `MaterialRequirementServiceTest` + `MaterialRequirementPostgresIT` | PASS (20 + 5) |
+| `DefaultProductionApplicationApiTest` + `ProductionAutoConfigurationTest` | PASS (9 + 6) |
+| `ProductionSchemaFlywayTest` | PASS (14) |
+| `ProductionPublicBoundaryPostgresIT` (submit without warehouse.transfer / spec.view) | PASS (17) |
+| `Stage6WarehouseArchitectureTest` + `Stage7ProductionArchitectureTest` | PASS (7 + 83) |
+| Production Workbench UI (`ViewModelTest` + `ControllerFxTest`) | PASS (19 + 2) |
+| `mvn -pl tmp-production,tmp-warehouse,tmp-ui-shell -am test-compile` | PASS |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests …` | PASS |
+| Package `pre-integration-test -Ppackage` → `dist/jpackage/TMP/TMP.exe` | PASS (2026-09-10 00:46:57) |
+| Launch against `tmp_gui_stage5` | PASS — Flyway validated 44 / schema V44; `Started DesktopBootstrap`; JavaFX WARN unnamed-module only; exceptions NONE |
+| Stock preservation V43→V44 launch | PASS — stock_positions=31 / sum 1257.9; ops=61; mov=82 unchanged |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+
+---
+
+## Previous latest result
+
 **Date:** 2026-09-09
 **Scope:** Stage 3.5.9 Corrective — Material Requirement concurrency + Warehouse reference boundary
 **Overall:** PASS (targeted tests + architecture + UI + quick build + package + startup smoke on `tmp-stage5-pg`); Flyway remains V43 (no V44); stock preserved; no commit

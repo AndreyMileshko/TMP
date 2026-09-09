@@ -6,10 +6,12 @@ import com.tmp.security.api.AuthorizationService;
 import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseCommandApi;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tmp.warehouse.api.WarehouseReferenceQueryApi;
 import com.tmp.warehouse.application.CodeOnlyMaterialReferenceDisplayPort;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
+import com.tmp.warehouse.application.DefaultWarehouseDemandCommandApi;
 import com.tmp.warehouse.application.DefaultWarehouseReferenceQueryApi;
 import com.tmp.warehouse.application.DefaultWarehouseResponsibilityGuard;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
@@ -530,6 +532,21 @@ public class WarehouseAutoConfiguration {
                 transferDocumentSettlementRepository,
                 transferReceiptSettlementItemRepository,
                 transferReturnSettlementItemRepository);
+    }
+
+    @Bean
+    WarehouseDemandCommandApi warehouseDemandCommandApi(
+            MaterialSourceRoutingService materialSourceRoutingService,
+            WarehouseTransferDocumentService warehouseTransferDocumentService,
+            WarehouseCatalogRepository warehouseCatalogRepository,
+            MaterialReferenceRepository materialReferenceRepository,
+            PlatformTransactionManager platformTransactionManager) {
+        return new DefaultWarehouseDemandCommandApi(
+                materialSourceRoutingService,
+                warehouseTransferDocumentService,
+                warehouseCatalogRepository,
+                materialReferenceRepository,
+                new TransactionTemplate(platformTransactionManager));
     }
 
     @Bean

@@ -30,7 +30,8 @@
 | 3.5.8.2 | Partial Acceptance + RECEIVE_SHORTFALL + RETURN_PENDING | **COMPLETE** |
 | 3.5.8.3 | Reject + TRANSFER_RETURN + Return Task + Close | **COMPLETE** |
 | 3.5.9 | Production Material Requirement Refactor | **COMPLETE** (+ corrective concurrency/boundary PASS) |
-| 3.5.10 | Requirement → Automatic Warehouse Tasks | **NEXT / NOT STARTED** |
+| 3.5.10 | Requirement → Automatic Warehouse Tasks | **COMPLETE** |
+| 3.5.11 | Modern Остатки | **NEXT / NOT STARTED** |
 
 **Locked business decision (3.5.8.3 DONE):** Full reject MUST NOT automatically create a continuation. Full reject → accepted=0, rejection reason required, RETURN_PENDING, sender return task only.
 

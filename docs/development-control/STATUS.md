@@ -3,9 +3,9 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.7 COMPLETE; **3.5.8 COMPLETE**; **3.5.8.1 COMPLETE**; **3.5.8.2 COMPLETE**; **3.5.8.3 COMPLETE**; **3.5.9 Production Material Requirement Refactor COMPLETE** + **3.5.9 corrective (optimistic lock + Warehouse reference boundary) COMPLETE**; 3.5.10 NEXT / NOT STARTED)
-**Current Task:** none (Stage 3.5.9 corrective complete; next 3.5.10 not started)
-**Last completed task:** Stage 3.5.9 Corrective — Material Requirement concurrency + Production/Warehouse reference boundary (2026-09-09); prior: Stage 3.5.9 Production Material Requirement Refactor
+**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.7 COMPLETE; **3.5.8 COMPLETE**; **3.5.8.1 COMPLETE**; **3.5.8.2 COMPLETE**; **3.5.8.3 COMPLETE**; **3.5.9 Production Material Requirement Refactor COMPLETE** + **3.5.9 corrective COMPLETE**; **3.5.10 Requirement → Automatic Warehouse Tasks COMPLETE**; 3.5.11 NEXT / NOT STARTED)
+**Current Task:** none (Stage 3.5.10 complete; next 3.5.11 not started)
+**Last completed task:** Stage 3.5.10 Requirement → Automatic Warehouse Tasks (2026-09-10); prior: Stage 3.5.9 Corrective
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
 **Active blockers:** NONE (UI final manual acceptance pending interactive smoke, not a code blocker)
@@ -15,10 +15,10 @@
 **Stage 7 Closure Audit:** PASS
 **Stage 7 Post-Closure Correction (2026-08-31):** PASS
 **Completed Stage 7 tasks:** 27 / 27 mandatory
-**Production Specification:** v2.6 Accepted (Warehouse boundary aligned; Stage 3.5.9 Material Requirement DRAFT live; Submit/routing = 3.5.10)
+**Production Specification:** v2.6 Accepted (Warehouse boundary aligned; Stage 3.5.9 Material Requirement DRAFT live; Stage 3.5.10 Submit → Warehouse demand routing COMPLETE)
 **Warehouse Specification:** v1.8 Accepted (ADR-037; §15A admin API note for 3.5.1)
 **Full verify baseline:** GREEN (2026-08-31 post-closure rerun)
-**First READY implementation task:** Stage 3.5.10 Requirement → Automatic Warehouse Tasks (NOT STARTED)
+**First READY implementation task:** Stage 3.5.11 Modern Остатки (NOT STARTED)
 
 
 ```text
@@ -112,8 +112,8 @@ Stage 3.5.8.2 Partial Acceptance = COMPLETE
 Stage 3.5.8.3 Reject + Return = COMPLETE
 Stage 3.5.9 Production Material Requirement Refactor = COMPLETE
 Stage 3.5.9 Corrective (optimistic lock + Warehouse reference boundary) = COMPLETE
-Stage 3.5.10 Requirement → Automatic Warehouse Tasks = NEXT / NOT STARTED
-First READY implementation task = Stage 3.5.10 (NOT STARTED)
+Stage 3.5.10 Requirement → Automatic Warehouse Tasks = COMPLETE
+First READY implementation task = Stage 3.5.11 (NOT STARTED)
 ```
 
 ---
@@ -130,7 +130,7 @@ First READY implementation task = Stage 3.5.10 (NOT STARTED)
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
 | 7 | Production | DONE | 100% |
-| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0-3.5.7 COMPLETE |
+| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0–3.5.10 COMPLETE; 3.5.11 NOT STARTED |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 

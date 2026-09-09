@@ -26,6 +26,8 @@ import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
+import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
+import com.tmp.production.api.ProductionApplicationApi.GeneratedTransferDocumentView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
@@ -193,6 +195,7 @@ final class ProductionWorkbenchUiTestSupport {
         final List<UUID> prepareMaterialRequirementCalls = new CopyOnWriteArrayList<>();
         final List<List<UUID>> prepareMaterialRequirementItemIds = new CopyOnWriteArrayList<>();
         final List<Object[]> changeQtyCalls = new CopyOnWriteArrayList<>();
+        final List<Object[]> submitCalls = new CopyOnWriteArrayList<>();
         final List<UUID> receiptCalls = new CopyOnWriteArrayList<>();
         final List<List<ItemReleaseView>> prepareReleaseCalls = new CopyOnWriteArrayList<>();
         final List<List<ItemReleaseView>> releaseProductCalls = new CopyOnWriteArrayList<>();
@@ -201,6 +204,7 @@ final class ProductionWorkbenchUiTestSupport {
         final List<Optional<String>> cancelReasons = new CopyOnWriteArrayList<>();
 
         MaterialRequirementView requirement;
+        RuntimeException submitFailure;
         ReleasePreviewView releasePreview;
         List<LogicalTransferView> logicalTransfers = List.of();
         ReceiptResultView receiptResult =
@@ -263,9 +267,48 @@ final class ProductionWorkbenchUiTestSupport {
                                 Instant.parse("2026-01-02T00:00:00Z"),
                                 requirement.version() + 1,
                                 MaterialRequirementStatusView.DRAFT,
+                                Optional.empty(),
+                                Optional.empty(),
                                 lines);
             }
             return requirement;
+        }
+
+        @Override
+        public SubmitMaterialRequirementResultView submitMaterialRequirement(
+                UUID requirementId, long expectedVersion) {
+            submitCalls.add(new Object[] {requirementId, expectedVersion});
+            if (submitFailure != null) {
+                throw submitFailure;
+            }
+            if (requirement != null) {
+                requirement =
+                        new MaterialRequirementView(
+                                requirement.requirementId(),
+                                requirement.sourceOrderId(),
+                                requirement.destinationWarehouseId(),
+                                requirement.createdAt(),
+                                Instant.parse("2026-01-03T00:00:00Z"),
+                                requirement.version() + 1,
+                                MaterialRequirementStatusView.SUBMITTED,
+                                Optional.of(Instant.parse("2026-01-03T00:00:00Z")),
+                                Optional.of("master"),
+                                requirement.lines());
+            }
+            List<GeneratedTransferDocumentView> documents =
+                    requirement == null
+                            ? List.of()
+                            : List.of(
+                                    new GeneratedTransferDocumentView(
+                                            UUID.fromString("dddddddd-dddd-4ddd-8ddd-dddddddddddd"),
+                                            UUID.fromString("11111111-1111-4111-8111-111111111111"),
+                                            requirement.destinationWarehouseId()));
+            return new SubmitMaterialRequirementResultView(
+                    requirementId,
+                    requirement == null ? expectedVersion : requirement.version(),
+                    MaterialRequirementStatusView.SUBMITTED,
+                    submitCalls.size() == 1,
+                    documents);
         }
 
         @Override

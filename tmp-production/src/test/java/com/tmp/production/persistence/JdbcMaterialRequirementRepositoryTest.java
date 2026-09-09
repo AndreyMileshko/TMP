@@ -17,6 +17,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -66,6 +67,8 @@ class JdbcMaterialRequirementRepositoryTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM production.material_requirement_routing_snapshot");
+        jdbc.update("DELETE FROM production.material_requirement_generated_documents");
         jdbc.update("DELETE FROM production.material_requirement_line_source_items");
         jdbc.update("DELETE FROM production.material_requirement_lines");
         jdbc.update("DELETE FROM production.material_requirements");
@@ -145,6 +148,25 @@ class JdbcMaterialRequirementRepositoryTest {
                         created.lines().getFirst().lineId(), BigDecimal.valueOf(3), T0);
         assertThrows(
                 MaterialRequirementOptimisticLockException.class, () -> repository.save(stale));
+    }
+
+    @Test
+    void markSubmittedIncrementsVersionAndPersistsMetadata() {
+        MaterialRequirement created =
+                repository.save(
+                        MaterialRequirement.create(
+                                SourceOrderId.generate(),
+                                PROD,
+                                T0,
+                                List.of(sampleLine(BigDecimal.TEN))));
+        MaterialRequirement submitted = created.submit("user-1", T0);
+        MaterialRequirement saved = repository.markSubmitted(submitted);
+        MaterialRequirement loaded = repository.findById(saved.requirementId()).orElseThrow();
+
+        assertEquals(MaterialRequirementStatus.SUBMITTED, loaded.status());
+        assertEquals(1L, loaded.version());
+        assertEquals(Optional.of("user-1"), loaded.submittedBy());
+        assertTrue(repository.findByIdForUpdate(loaded.requirementId()).isPresent());
     }
 
     private static MaterialRequirementLine sampleLine(BigDecimal quantity) {

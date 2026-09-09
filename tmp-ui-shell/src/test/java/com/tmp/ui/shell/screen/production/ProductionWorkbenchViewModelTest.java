@@ -317,6 +317,49 @@ class ProductionWorkbenchViewModelTest {
     }
 
     @Test
+    void submitMaterialRequirementShowsCreatedTransfersAndLocksQuantity() {
+        seedInProduction();
+        applicationApi.requirement = sampleTemplate(new BigDecimal("10"));
+        viewModel.openForOrder(OrderId.of(orderId));
+        viewModel.prepareMaterialRequirement();
+
+        viewModel.submitMaterialRequirement();
+
+        assertEquals(1, applicationApi.submitCalls.size());
+        assertEquals(templateId, applicationApi.submitCalls.get(0)[0]);
+        assertEquals(1L, applicationApi.submitCalls.get(0)[1]);
+        assertTrue(viewModel.requirementSubmittedProperty().get());
+        assertTrue(
+                viewModel.statusMessageProperty()
+                        .get()
+                        .contains("Требование отправлено на склад"));
+        assertTrue(viewModel.statusMessageProperty().get().contains("Создано перемещений: 1"));
+
+        viewModel.applyRequirementQuantity(viewModel.requirementLines().get(0));
+        assertTrue(
+                viewModel.errorMessageProperty()
+                        .get()
+                        .contains("количество изменить нельзя"));
+    }
+
+    @Test
+    void submitMaterialRequirementShortageShowsSourceUnavailableMessage() {
+        seedInProduction();
+        applicationApi.requirement = sampleTemplate(new BigDecimal("10"));
+        viewModel.openForOrder(OrderId.of(orderId));
+        viewModel.prepareMaterialRequirement();
+        applicationApi.submitFailure =
+                new MaterialRequirementShortageException(
+                        "Сейчас нет ни одного склада-источника с доступным остатком для: ART-1");
+
+        viewModel.submitMaterialRequirement();
+
+        assertTrue(viewModel.errorMessageProperty().get().contains("ART-1"));
+        assertTrue(viewModel.errorMessageProperty().get().contains("склада-источника"));
+        assertFalse(viewModel.requirementSubmittedProperty().get());
+    }
+
+    @Test
     void prepareMaterialRequirementRequiresSelectedItems() {
         seedInProduction();
         applicationApi.requirement = sampleTemplate(new BigDecimal("10"));
@@ -589,6 +632,8 @@ class ProductionWorkbenchViewModelTest {
                 Instant.parse("2026-01-01T12:00:00Z"),
                 1L,
                 MaterialRequirementStatusView.DRAFT,
+                Optional.empty(),
+                Optional.empty(),
                 List.of(
                         new MaterialRequirementLineView(
                                 lineId,
@@ -669,5 +714,12 @@ class ProductionWorkbenchViewModelTest {
                 BigDecimal.ZERO,
                 MaterialAvailabilityLineStatus.MATERIAL_AMBIGUOUS,
                 com.tmp.production.api.ProductionQueryApi.MaterialPlanningSourceView.SPECIFICATION);
+    }
+
+    /** Test-local stand-in: mapper keys off simple class name, not the Production domain type. */
+    private static final class MaterialRequirementShortageException extends RuntimeException {
+        private MaterialRequirementShortageException(String message) {
+            super(message);
+        }
     }
 }

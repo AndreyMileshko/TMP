@@ -76,7 +76,18 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
     @Override
     public Optional<MaterialRequirement> findById(MaterialRequirementId id) {
         Objects.requireNonNull(id, "id");
-        Optional<HeaderRow> header = findHeader(id);
+        return load(id, findHeader(id));
+    }
+
+    @Override
+    public Optional<MaterialRequirement> findByIdForUpdate(MaterialRequirementId id) {
+        Objects.requireNonNull(id, "id");
+        // No own TransactionTemplate: uses the caller's ambient transaction so the FOR UPDATE row
+        // lock is held until the outer Submit transaction commits.
+        return load(id, findHeaderForUpdate(id));
+    }
+
+    private Optional<MaterialRequirement> load(MaterialRequirementId id, Optional<HeaderRow> header) {
         if (header.isEmpty()) {
             return Optional.empty();
         }
@@ -91,7 +102,40 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                         row.updatedAt(),
                         row.version(),
                         row.status(),
+                        row.submittedAt(),
+                        row.submittedBy(),
                         lines));
+    }
+
+    @Override
+    public MaterialRequirement markSubmitted(MaterialRequirement requirement) {
+        Objects.requireNonNull(requirement, "requirement");
+        // Header-only optimistic update; participates in the caller's ambient transaction.
+        Instant now = clock.instant();
+        long nextVersion = requirement.version() + 1;
+        int updated =
+                jdbcTemplate.update(
+                        """
+                        UPDATE production.material_requirements
+                        SET status = ?,
+                            submitted_at = ?,
+                            submitted_by = ?,
+                            updated_at = ?,
+                            version = ?
+                        WHERE id = ? AND version = ?
+                        """,
+                        requirement.status().name(),
+                        requirement.submittedAt().map(Timestamp::from).orElse(null),
+                        requirement.submittedBy().orElse(null),
+                        Timestamp.from(now),
+                        nextVersion,
+                        requirement.requirementId().value(),
+                        requirement.version());
+        if (updated == 0) {
+            throw new MaterialRequirementOptimisticLockException(
+                    requirement.requirementId(), requirement.version());
+        }
+        return findById(requirement.requirementId()).orElseThrow();
     }
 
     private void insert(MaterialRequirement requirement) {
@@ -100,8 +144,8 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                 """
                 INSERT INTO production.material_requirements (
                     id, source_order_id, destination_warehouse_id,
-                    created_at, updated_at, version, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    created_at, updated_at, version, status, submitted_at, submitted_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 requirement.requirementId().value(),
                 requirement.sourceOrderId().value(),
@@ -109,7 +153,9 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                 Timestamp.from(requirement.createdAt()),
                 Timestamp.from(now),
                 0L,
-                requirement.status().name());
+                requirement.status().name(),
+                requirement.submittedAt().map(Timestamp::from).orElse(null),
+                requirement.submittedBy().orElse(null));
         insertLines(requirement.requirementId(), requirement.lines());
     }
 
@@ -124,7 +170,9 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                             destination_warehouse_id = ?,
                             updated_at = ?,
                             version = ?,
-                            status = ?
+                            status = ?,
+                            submitted_at = ?,
+                            submitted_by = ?
                         WHERE id = ? AND version = ?
                         """,
                         requirement.sourceOrderId().value(),
@@ -132,6 +180,8 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                         Timestamp.from(now),
                         nextVersion,
                         requirement.status().name(),
+                        requirement.submittedAt().map(Timestamp::from).orElse(null),
+                        requirement.submittedBy().orElse(null),
                         requirement.requirementId().value(),
                         requirement.version());
         if (updated == 0) {
@@ -255,15 +305,26 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
     }
 
     private Optional<HeaderRow> findHeader(MaterialRequirementId requirementId) {
+        return queryHeader(requirementId, false);
+    }
+
+    private Optional<HeaderRow> findHeaderForUpdate(MaterialRequirementId requirementId) {
+        return queryHeader(requirementId, true);
+    }
+
+    private Optional<HeaderRow> queryHeader(MaterialRequirementId requirementId, boolean forUpdate) {
+        String sql =
+                """
+                SELECT id, source_order_id, destination_warehouse_id,
+                       created_at, updated_at, version, status, submitted_at, submitted_by
+                FROM production.material_requirements
+                WHERE id = ?
+                """
+                        + (forUpdate ? " FOR UPDATE" : "");
         try {
             HeaderRow row =
                     jdbcTemplate.queryForObject(
-                            """
-                            SELECT id, source_order_id, destination_warehouse_id,
-                                   created_at, updated_at, version, status
-                            FROM production.material_requirements
-                            WHERE id = ?
-                            """,
+                            sql,
                             (rs, rowNum) ->
                                     new HeaderRow(
                                             rs.getObject("source_order_id", UUID.class),
@@ -272,7 +333,11 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                                             rs.getTimestamp("updated_at").toInstant(),
                                             rs.getLong("version"),
                                             MaterialRequirementStatus.valueOf(
-                                                    rs.getString("status"))),
+                                                    rs.getString("status")),
+                                            rs.getTimestamp("submitted_at") == null
+                                                    ? null
+                                                    : rs.getTimestamp("submitted_at").toInstant(),
+                                            rs.getString("submitted_by")),
                             requirementId.value());
             return Optional.ofNullable(row);
         } catch (EmptyResultDataAccessException ex) {
@@ -286,7 +351,9 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
             Instant createdAt,
             Instant updatedAt,
             long version,
-            MaterialRequirementStatus status) {}
+            MaterialRequirementStatus status,
+            Instant submittedAt,
+            String submittedBy) {}
 
     private record LineRow(
             UUID id,

@@ -169,6 +169,36 @@ public final class WarehouseTransferDocumentService {
         return new CreatedTransferDocument(draft, payload);
     }
 
+    /**
+     * Capability-internal demand-driven DRAFT creation (Stage 3.5.10). Reuses the same Document
+     * Engine + payload + repository + material/warehouse validation primitive as the ordinary
+     * user-facing {@link #create}, but does NOT check current-user source responsibility — it is
+     * trusted backend orchestration (Warehouse demand command), not a public UI bypass. Must run
+     * inside the caller's outer transaction (participates via ambient TX); does not open its own.
+     */
+    public CreatedTransferDocument createDemandDraft(
+            WarehouseId sourceWarehouseId,
+            WarehouseId destinationWarehouseId,
+            List<LineInput> lineInputs) {
+        Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+        Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+        Objects.requireNonNull(lineInputs, "lineInputs");
+        requireWarehouseExists(sourceWarehouseId);
+        requireWarehouseExists(destinationWarehouseId);
+        if (sourceWarehouseId.equals(destinationWarehouseId)) {
+            throw new InvalidWarehouseStateException(
+                    "Transfer document requires distinct warehouses: warehouseId="
+                            + sourceWarehouseId);
+        }
+        if (lineInputs.isEmpty()) {
+            throw new InvalidWarehouseStateException(
+                    "Demand-driven transfer document requires at least one line: source="
+                            + sourceWarehouseId);
+        }
+        List<WarehouseTransferLine> lines = mapLines(lineInputs);
+        return insertOrdinaryDraft(sourceWarehouseId, destinationWarehouseId, lines);
+    }
+
     private CreatedTransferDocument insertOrdinaryDraft(
             WarehouseId source, WarehouseId destination, List<WarehouseTransferLine> lines) {
         DocumentMetadata draft =

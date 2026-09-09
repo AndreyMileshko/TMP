@@ -544,7 +544,74 @@ class Stage7ProductionArchitectureTest {
                     .should()
                     .dependOnClassesThat()
                     .haveSimpleName("WarehouseCommandApi")
-                    .because("Stage 3.5.9 Material Requirement must not create Warehouse transfers");
+                    .because("Stage 3.5.9/3.5.10 Material Requirement must not use user-facing WarehouseCommandApi");
+
+    @ArchTest
+    static final ArchRule submitMaterialRequirementUsesWarehouseDemandCommandApi =
+            classes()
+                    .that()
+                    .haveSimpleName("SubmitMaterialRequirementService")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("WarehouseDemandCommandApi")
+                    .because("Production Submit orchestrates Warehouse only via the demand command contract");
+
+    @ArchTest
+    static final ArchRule productionMustNotCallUserFacingCreateTransferDocument =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .should()
+                    .callMethod(
+                            com.tmp.warehouse.api.WarehouseCommandApi.class,
+                            "createTransferDocument",
+                            com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand.class)
+                    .because("Production Submit must not call user-facing WarehouseCommandApi.createTransferDocument");
+
+    @ArchTest
+    static final ArchRule productionMustNotImplementMaterialSourceRoutingService =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .should()
+                    .haveSimpleName("MaterialSourceRoutingService")
+                    .because("Source routing stays Warehouse-owned; Production must not implement a second selector");
+
+    @ArchTest
+    static final ArchRule uiShellMustNotDependOnWarehouseDemandCommandApi =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.ui.shell..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("WarehouseDemandCommandApi")
+                    .because("WarehouseDemandCommandApi is a trusted backend contract, not a UI API");
+
+    @ArchTest
+    static final ArchRule uiShellMustNotDependOnWarehouseReferenceQueryApi =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.ui.shell..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("WarehouseReferenceQueryApi")
+                    .because("UI must not call the no-RBAC WarehouseReferenceQueryApi");
+
+    @ArchTest
+    static final ArchRule demandDraftCreationIsOwnedByDemandCommandApi =
+            noClasses()
+                    .that()
+                    .doNotHaveSimpleName("DefaultWarehouseDemandCommandApi")
+                    .should()
+                    .callMethod(
+                            com.tmp.warehouse.application.WarehouseTransferDocumentService.class,
+                            "createDemandDraft",
+                            com.tmp.warehouse.domain.WarehouseId.class,
+                            com.tmp.warehouse.domain.WarehouseId.class,
+                            java.util.List.class)
+                    .because(
+                            "createDemandDraft is the single trusted demand-driven creation path"
+                                    + " without the responsibility guard");
 
     @ArchTest
     static final ArchRule materialRequirementMustNotUseRecommendationOrLegacyScope =
@@ -597,10 +664,17 @@ class Stage7ProductionArchitectureTest {
             classes()
                     .that()
                     .haveSimpleNameContaining("MaterialRequirement")
+                    .and()
+                    .haveSimpleNameNotContaining("Submit")
+                    .and()
+                    .haveSimpleNameNotContaining("Submission")
                     .should(notUseLegacyTransferFieldsOrRecommendationCalculator())
                     .because(
-                            "Stage 3.5.9 Material Requirement must not use mainWarehouseId, "
-                                    + "recommendedQuantity, or MaterialTransferRecommendationCalculator");
+                            "Stage 3.5.9 Material Requirement DRAFT must not use mainWarehouseId, "
+                                    + "sourceWarehouseId, recommendedQuantity, or "
+                                    + "MaterialTransferRecommendationCalculator; Stage 3.5.10 "
+                                    + "submission links/snapshot may record Warehouse-owned "
+                                    + "sourceWarehouseId as traceability only");
 
     @ArchTest
     static final ArchRule confirmMaterialTransferUsesWarehousePublicApiOnly =

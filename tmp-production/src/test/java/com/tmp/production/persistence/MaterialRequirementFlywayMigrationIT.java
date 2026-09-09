@@ -15,9 +15,10 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * Stage 3.5.9: verifies production classpath migrations apply V43 Material Requirement tables.
+ * Stage 3.5.10: verifies production classpath migrations apply V43 Material Requirement tables
+ * and V44 Submit lifecycle/traceability.
  *
- * <p>Production module migrations are V23–V31 + V43 (warehouse owns V32–V42 in the full app).
+ * <p>Production module migrations are V23–V31 + V43–V44 (warehouse owns V32–V42 in the full app).
  */
 @Testcontainers
 class MaterialRequirementFlywayMigrationIT {
@@ -45,7 +46,7 @@ class MaterialRequirementFlywayMigrationIT {
     }
 
     @Test
-    void flywayHistoryIncludesVersion43() {
+    void flywayHistoryIncludesVersion43And44() {
         Integer applied43 =
                 jdbc.queryForObject(
                         """
@@ -54,6 +55,14 @@ class MaterialRequirementFlywayMigrationIT {
                         """,
                         Integer.class);
         assertEquals(1, applied43);
+        Integer applied44 =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '44' AND success = TRUE
+                        """,
+                        Integer.class);
+        assertEquals(1, applied44);
 
         String latest =
                 jdbc.queryForObject(
@@ -64,7 +73,7 @@ class MaterialRequirementFlywayMigrationIT {
                         LIMIT 1
                         """,
                         String.class);
-        assertEquals("43", latest);
+        assertEquals("44", latest);
 
         Integer applied42 =
                 jdbc.queryForObject(
@@ -107,8 +116,10 @@ class MaterialRequirementFlywayMigrationIT {
                         String.class);
         assertEquals(
                 List.of(
+                        "material_requirement_generated_documents",
                         "material_requirement_line_source_items",
                         "material_requirement_lines",
+                        "material_requirement_routing_snapshot",
                         "material_requirements"),
                 tables);
     }
@@ -148,15 +159,15 @@ class MaterialRequirementFlywayMigrationIT {
                         Integer.class);
         assertEquals(1, quantityColumns);
 
-        Integer draftOnly =
+        Integer submittedAllowed =
                 jdbc.queryForObject(
                         """
                         SELECT COUNT(*) FROM information_schema.check_constraints
                         WHERE constraint_schema = 'production'
                           AND constraint_name = 'chk_material_requirements_status'
-                          AND check_clause ILIKE '%DRAFT%'
+                          AND check_clause ILIKE '%SUBMITTED%'
                         """,
                         Integer.class);
-        assertTrue(draftOnly >= 1);
+        assertTrue(submittedAllowed >= 1);
     }
 }

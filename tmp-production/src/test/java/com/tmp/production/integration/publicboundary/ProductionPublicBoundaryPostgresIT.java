@@ -30,6 +30,7 @@ import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
+import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
@@ -65,6 +66,7 @@ import com.tmp.security.api.UserAdministrationService;
 import com.tmp.security.api.UserSummary;
 import com.tmp.warehouse.WarehouseAutoConfiguration;
 import com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand;
+import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateTransferDraftCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
@@ -75,6 +77,7 @@ import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import com.tmp.warehouse.api.WarehouseCommandApi;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tmp.warehouse.api.WarehouseReferenceQueryApi;
 import java.math.BigDecimal;
@@ -144,6 +147,7 @@ class ProductionPublicBoundaryPostgresIT {
     @Autowired private OrderQueryService orderQueryService;
     @Autowired private WarehouseCommandApi warehouseCommandApi;
     @Autowired private WarehouseQueryApi warehouseQueryApi;
+    @Autowired private WarehouseDemandCommandApi warehouseDemandCommandApi;
     @Autowired private WarehouseReferenceQueryApi warehouseReferenceQueryApi;
     @Autowired private DocumentEngine documentEngine;
     @Autowired
@@ -461,6 +465,64 @@ class ProductionPublicBoundaryPostgresIT {
         assertThrows(AccessDeniedException.class, () -> warehouseQueryApi.listMaterialReferences());
     }
 
+    @Test
+    void submitMaterialRequirementDoesNotRequireWarehouseTransferOrResponsibility() {
+        ImportedOrder order = importStandardOrder();
+        production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
+        MaterialRequirementView prepared =
+                production
+                        .applicationApi()
+                        .prepareMaterialRequirement(
+                                order.orderId(), List.of(order.itemAId(), order.itemBId()));
+        seedOtherMaterialOnMain(bd(10));
+        int opsBefore = countRows("warehouse.warehouse_operations");
+        int movesBefore = countRows("warehouse.warehouse_movements");
+        BigDecimal stockBefore = stockQuantitySum();
+
+        loginAsProductionTransferOnlyUser();
+        assertThrows(AccessDeniedException.class, () -> warehouseQueryApi.listWarehouses());
+
+        SubmitMaterialRequirementResultView submitted =
+                production
+                        .applicationApi()
+                        .submitMaterialRequirement(prepared.requirementId(), prepared.version());
+
+        assertEquals(MaterialRequirementStatusView.SUBMITTED, submitted.status());
+        assertTrue(submitted.created());
+        assertTrue(!submitted.documents().isEmpty());
+        assertEquals(opsBefore, countRows("warehouse.warehouse_operations"));
+        assertEquals(movesBefore, countRows("warehouse.warehouse_movements"));
+        assertEquals(0, stockBefore.compareTo(stockQuantitySum()));
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        warehouseCommandApi.createTransferDocument(
+                                new CreateTransferDocumentCommand(
+                                        mainWarehouseId,
+                                        productionWarehouseId,
+                                        List.of())));
+    }
+
+    @Test
+    void submitExistingRequirementDoesNotRequireSpecificationView() {
+        ImportedOrder order = importStandardOrder();
+        production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
+        MaterialRequirementView prepared =
+                production
+                        .applicationApi()
+                        .prepareMaterialRequirement(
+                                order.orderId(), List.of(order.itemAId(), order.itemBId()));
+
+        seedOtherMaterialOnMain(bd(10));
+
+        loginAsProductionTransferSubmitOnlyUser();
+        SubmitMaterialRequirementResultView submitted =
+                production
+                        .applicationApi()
+                        .submitMaterialRequirement(prepared.requirementId(), prepared.version());
+        assertEquals(MaterialRequirementStatusView.SUBMITTED, submitted.status());
+    }
+
     private void loginAsProductionTransferOnlyUser() {
         authenticationService.logout();
         authenticationService.login(Login.of("admin"), "bootstrap-secret-value".toCharArray());
@@ -500,6 +562,50 @@ class ProductionPublicBoundaryPostgresIT {
         } else {
             authenticationService.completePasswordSetup(
                     Login.of("pb-prod-transfer"),
+                    activationCode,
+                    OPERATOR_PASSWORD.clone(),
+                    OPERATOR_PASSWORD.clone());
+        }
+    }
+
+    private void loginAsProductionTransferSubmitOnlyUser() {
+        authenticationService.logout();
+        authenticationService.login(Login.of("admin"), "bootstrap-secret-value".toCharArray());
+        Optional<UserSummary> existing =
+                userAdministrationService.listUsers(0, 100, null).stream()
+                        .filter(user -> "pb-prod-submit".equalsIgnoreCase(user.login().value()))
+                        .findFirst();
+        String activationCode = null;
+        UserSummary user;
+        if (existing.isPresent()) {
+            user = existing.get();
+        } else {
+            var creation =
+                    userAdministrationService.createUser(
+                            Login.of("pb-prod-submit"),
+                            DisplayName.of("Production Submit Only"));
+            user = creation.user();
+            activationCode = creation.activationCode();
+        }
+        for (PermissionId permission : PublicBoundaryPermissions.WAREHOUSE_COMMAND_AND_QUERY) {
+            roleAdministrationService.revokeIndividualPermission(user.id(), permission);
+        }
+        for (PermissionId permission : PublicBoundaryPermissions.PRODUCTION_ALL) {
+            roleAdministrationService.revokeIndividualPermission(user.id(), permission);
+        }
+        for (PermissionId permission : PublicBoundaryPermissions.ORDER_IMPORT_AND_VIEW) {
+            roleAdministrationService.revokeIndividualPermission(user.id(), permission);
+        }
+        roleAdministrationService.revokeIndividualPermission(
+                user.id(), PermissionId.of("order.specification.view"));
+        roleAdministrationService.grantIndividualPermission(
+                user.id(), PermissionId.of("production.transfer.create"));
+        authenticationService.logout();
+        if (existing.isPresent()) {
+            authenticationService.login(Login.of("pb-prod-submit"), OPERATOR_PASSWORD.clone());
+        } else {
+            authenticationService.completePasswordSetup(
+                    Login.of("pb-prod-submit"),
                     activationCode,
                     OPERATOR_PASSWORD.clone(),
                     OPERATOR_PASSWORD.clone());
@@ -1203,9 +1309,11 @@ class ProductionPublicBoundaryPostgresIT {
                             documentEngine,
                             eventPublisher,
                             authorizationService,
+                            authenticationService,
                             orderQueryService,
                             warehouseQueryApi,
                             warehouseCommandApi,
+                            warehouseDemandCommandApi,
                             warehouseReferenceQueryApi,
                             productionWarehouseId);
         }
@@ -1307,6 +1415,19 @@ class ProductionPublicBoundaryPostgresIT {
                         cellPX));
     }
 
+    private void seedOtherMaterialOnMain(BigDecimal qty) {
+        warehouseCommandApi.receive(
+                new ReceiptCommand(
+                        OTHER_CODE,
+                        "Other material",
+                        OTHER_COLOR,
+                        "",
+                        MATERIAL_UOM,
+                        qty,
+                        mainWarehouseId,
+                        cellMA));
+    }
+
     private void ensureOperator() {
         authenticationService.login(Login.of("admin"), "bootstrap-secret-value".toCharArray());
         Optional<UserSummary> existing =
@@ -1361,8 +1482,20 @@ class ProductionPublicBoundaryPostgresIT {
         jdbc.update("DELETE FROM production.material_transfer_templates");
         jdbc.update("DELETE FROM production.production_cancellation_item_lines");
         jdbc.update("DELETE FROM production.production_cancellations");
+        jdbc.update("DELETE FROM production.material_requirement_routing_snapshot");
+        jdbc.update("DELETE FROM production.material_requirement_generated_documents");
+        jdbc.update("DELETE FROM production.material_requirement_line_source_items");
+        jdbc.update("DELETE FROM production.material_requirement_lines");
+        jdbc.update("DELETE FROM production.material_requirements");
         jdbc.update("DELETE FROM production.production_item_cutting_plan_links");
         jdbc.update("DELETE FROM production.production_item_states");
+        jdbc.update("DELETE FROM warehouse.transfer_return_settlement_item");
+        jdbc.update("DELETE FROM warehouse.transfer_receipt_settlement_item");
+        jdbc.update("DELETE FROM warehouse.transfer_document_settlement");
+        jdbc.update("DELETE FROM warehouse.transfer_document_send_allocation");
+        jdbc.update("DELETE FROM warehouse.transfer_task_state");
+        jdbc.update("DELETE FROM warehouse.transfer_document_lines");
+        jdbc.update("DELETE FROM warehouse.transfer_document_payload");
         jdbc.update("DELETE FROM warehouse.transfer_operation_context");
         jdbc.update("DELETE FROM warehouse.warehouse_movements");
         jdbc.update("DELETE FROM warehouse.warehouse_operations");

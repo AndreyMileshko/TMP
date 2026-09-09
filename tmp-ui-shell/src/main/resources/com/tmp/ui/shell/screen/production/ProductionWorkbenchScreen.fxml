@@ -101,7 +101,7 @@
 
                 <VBox fx:id="materialRequirementPanel" spacing="8" visible="false" managed="false">
                     <Separator/>
-                    <Label text="Потребность в материалах (черновик)"/>
+                    <Label text="Потребность в материалах"/>
                     <TableView fx:id="requirementLinesTable" prefHeight="160">
                         <columns>
                             <TableColumn fx:id="requirementCodeColumn" text="Артикул" prefWidth="120"/>
@@ -113,6 +113,7 @@
                     </TableView>
                     <HBox spacing="8">
                         <Button fx:id="applyRequirementQtyButton" text="Применить количество"/>
+                        <Button fx:id="submitRequirementButton" text="Отправить требование"/>
                     </HBox>
                 </VBox>
 

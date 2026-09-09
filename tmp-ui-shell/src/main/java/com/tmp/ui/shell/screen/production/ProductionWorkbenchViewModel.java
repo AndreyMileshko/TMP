@@ -13,8 +13,10 @@ import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
+import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
 import com.tmp.production.api.ProductionApplicationApi.ReleaseResultView;
@@ -84,6 +86,7 @@ public final class ProductionWorkbenchViewModel {
     private final BooleanProperty loading = new SimpleBooleanProperty(false);
     private final BooleanProperty orderSelected = new SimpleBooleanProperty(false);
     private final BooleanProperty materialRequirementPanelVisible = new SimpleBooleanProperty(false);
+    private final BooleanProperty requirementSubmitted = new SimpleBooleanProperty(false);
     private final BooleanProperty releasePanelVisible = new SimpleBooleanProperty(false);
 
     private final BooleanProperty canAccept = new SimpleBooleanProperty(false);
@@ -215,6 +218,10 @@ public final class ProductionWorkbenchViewModel {
             errorMessage.set(ProductionUiErrorMapper.VALIDATION);
             return;
         }
+        if (currentRequirement.status() == MaterialRequirementStatusView.SUBMITTED) {
+            errorMessage.set("Требование отправлено на склад — количество изменить нельзя.");
+            return;
+        }
         UUID lineId = row.lineId();
         run(
                 "Количество потребности обновлено",
@@ -227,6 +234,34 @@ public final class ProductionWorkbenchViewModel {
                                     qty,
                                     currentRequirement.version());
                     applyRequirement(updated, lineId);
+                },
+                true);
+    }
+
+    public void submitMaterialRequirement() {
+        if (!canTransfer.get()) {
+            deny();
+            return;
+        }
+        if (currentRequirement == null) {
+            errorMessage.set("Сначала подготовьте требование в материалах.");
+            return;
+        }
+        if (currentRequirement.status() == MaterialRequirementStatusView.SUBMITTED) {
+            statusMessage.set("Требование уже отправлено на склад.");
+            return;
+        }
+        run(
+                null,
+                () -> {
+                    SubmitMaterialRequirementResultView result =
+                            applicationApi.submitMaterialRequirement(
+                                    currentRequirement.requirementId(),
+                                    currentRequirement.version());
+                    applySubmitted(result);
+                    statusMessage.set(
+                            "Требование отправлено на склад. Создано перемещений: "
+                                    + result.documents().size());
                 },
                 true);
     }
@@ -369,6 +404,10 @@ public final class ProductionWorkbenchViewModel {
 
     public BooleanProperty materialRequirementPanelVisibleProperty() {
         return materialRequirementPanelVisible;
+    }
+
+    public BooleanProperty requirementSubmittedProperty() {
+        return requirementSubmitted;
     }
 
     public BooleanProperty releasePanelVisibleProperty() {
@@ -553,12 +592,35 @@ public final class ProductionWorkbenchViewModel {
                             line.quantity().toPlainString()));
         }
         requirementLines.setAll(rows);
+        requirementSubmitted.set(
+                requirement.status() == MaterialRequirementStatusView.SUBMITTED);
         if (reselectLineId != null
                 && rows.stream().anyMatch(row -> row.lineId().equals(reselectLineId))) {
             selectedRequirementLineId.set(reselectLineId);
         } else if (reselectLineId != null) {
             selectedRequirementLineId.set(null);
         }
+    }
+
+    private void applySubmitted(SubmitMaterialRequirementResultView result) {
+        MaterialRequirementView current = currentRequirement;
+        if (current == null) {
+            return;
+        }
+        currentRequirement =
+                new MaterialRequirementView(
+                        current.requirementId(),
+                        current.sourceOrderId(),
+                        current.destinationWarehouseId(),
+                        current.createdAt(),
+                        current.updatedAt(),
+                        result.version(),
+                        result.status(),
+                        current.submittedAt(),
+                        current.submittedBy(),
+                        current.lines());
+        requirementSubmitted.set(
+                result.status() == MaterialRequirementStatusView.SUBMITTED);
     }
 
     private void applyReleasePreview(ReleasePreviewView preview, UUID productionWarehouseId) {
@@ -833,6 +895,7 @@ public final class ProductionWorkbenchViewModel {
         selectedLogicalTransfer.set(null);
         selectedRequirementLineId.set(null);
         materialRequirementPanelVisible.set(false);
+        requirementSubmitted.set(false);
         releasePanelVisible.set(false);
         refreshActionPolicy();
     }

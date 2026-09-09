@@ -13,8 +13,11 @@ import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.application.ProductionDestinationWarehouse;
 import com.tmp.production.security.ProductionCapability;
 import com.tmp.security.api.AuthorizationService;
+import com.tmp.security.api.AuthenticationService;
 import com.tmp.warehouse.api.WarehouseCommandApi;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
+import com.tmp.warehouse.api.WarehouseReferenceQueryApi;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -38,6 +41,15 @@ class ProductionAutoConfigurationTest {
                     .withBean(OrderQueryService.class, () -> Mockito.mock(OrderQueryService.class))
                     .withBean(WarehouseQueryApi.class, () -> Mockito.mock(WarehouseQueryApi.class))
                     .withBean(WarehouseCommandApi.class, () -> Mockito.mock(WarehouseCommandApi.class))
+                    .withBean(
+                            WarehouseDemandCommandApi.class,
+                            () -> Mockito.mock(WarehouseDemandCommandApi.class))
+                    .withBean(
+                            WarehouseReferenceQueryApi.class,
+                            () -> Mockito.mock(WarehouseReferenceQueryApi.class))
+                    .withBean(
+                            AuthenticationService.class,
+                            () -> Mockito.mock(AuthenticationService.class))
                     .withBean(DocumentEngine.class, () -> Mockito.mock(DocumentEngine.class))
                     .withBean(
                             TransactionalEventPublisher.class,

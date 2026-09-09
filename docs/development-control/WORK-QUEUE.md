@@ -11829,7 +11829,42 @@ See VERIFICATION-LOG Stage 3.5.9 corrective entry (2026-09-09).
 
 ### Next on success
 
-Stage 3.5.10 — Requirement → Automatic Warehouse Tasks = NEXT / NOT STARTED
+Stage 3.5.10 — Requirement → Automatic Warehouse Tasks = COMPLETE.
+
+---
+
+## STAGE-3.5.10 — Requirement → Automatic Warehouse Tasks
+
+**Status:** DONE
+**Stage:** 3.5
+**Depends on:** Stage 3.5.9 (+ corrective)
+**Module:** `tmp-warehouse` (demand command) + `tmp-production` (Submit orchestration) + Production Workbench UI
+
+### Goal
+
+Submit a Production-owned Material Requirement DRAFT to Warehouse: automatic source routing, grouped DRAFT Transfer Documents, operational inbox `TRANSFER_PREPARATION` tasks, Requirement `SUBMITTED`. No physical stock mutation.
+
+### Acceptance criteria
+
+- [x] Warehouse-owned `WarehouseDemandCommandApi` (not user-facing; no `WarehouseResponsibilityGuard` / `warehouse.transfer`)
+- [x] Reuse `MaterialSourceRoutingService`; document quantity = full demand (not routed quantity)
+- [x] Route-all then create; one initial document per (requirementId, sourceWarehouseId)
+- [x] NO_AVAILABLE_SOURCE fails closed (Requirement stays DRAFT, 0 docs)
+- [x] Production `DRAFT → SUBMITTED` + `submittedAt`/`submittedBy`; SUBMITTED immutable
+- [x] Submit `expectedVersion` on first submit; FOR UPDATE lock; idempotent SUBMITTED retry
+- [x] One outer REQUIRED transaction; rollback proofs A/B/C
+- [x] Flyway V44 Production-owned submission metadata + generated-document links + routing snapshot
+- [x] UI «Отправить требование»; Production master needs `production.transfer.create` only
+- [x] Generated DRAFT docs appear as ordinary `TRANSFER_PREPARATION`; Stage 3.5.7 shortfall unchanged
+- [x] Targeted tests + architecture + UI + quick build + package + V44 launch smoke PASS
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.10 entry (2026-09-10).
+
+### Next on success
+
+Stage 3.5.11 — Modern Остатки = NEXT / NOT STARTED
 
 ---
 ## STAGE-3.5.7 ? Shortfall / Automatic Continuation Transfer
@@ -11864,4 +11899,5 @@ Allow physical SEND of less than DRAFT Transfer Document line quantities while p
 Stage 3.5.8 ? Partial Receive + Reject + Return = IN PROGRESS.
 Stage 3.5.8.1 = COMPLETE; 3.5.8.2 = COMPLETE; 3.5.8.3 = COMPLETE.
 Stage 3.5.9 = COMPLETE.
-Stage 3.5.10 = NEXT / NOT STARTED.
+Stage 3.5.10 = COMPLETE.
+Stage 3.5.11 = NEXT / NOT STARTED.

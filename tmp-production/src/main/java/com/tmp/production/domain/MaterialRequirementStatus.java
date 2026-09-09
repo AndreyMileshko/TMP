@@ -1,10 +1,12 @@
 package com.tmp.production.domain;
 
 /**
- * Minimal lifecycle for a Production-owned Material Requirement (Stage 3.5.9).
+ * Lifecycle for a Production-owned Material Requirement.
  *
- * <p>Submit / routing lifecycle is Stage 3.5.10.
+ * <p>{@code DRAFT} → {@code SUBMITTED} (Stage 3.5.10). {@code SUBMITTED} is immutable: lines and
+ * destination are frozen and submission metadata is set.
  */
 public enum MaterialRequirementStatus {
-    DRAFT
+    DRAFT,
+    SUBMITTED
 }

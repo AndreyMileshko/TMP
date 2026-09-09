@@ -96,6 +96,8 @@ class MaterialRequirementPostgresIT {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM production.material_requirement_routing_snapshot");
+        jdbc.update("DELETE FROM production.material_requirement_generated_documents");
         jdbc.update("DELETE FROM production.material_requirement_line_source_items");
         jdbc.update("DELETE FROM production.material_requirement_lines");
         jdbc.update("DELETE FROM production.material_requirements");
@@ -377,6 +379,14 @@ class MaterialRequirementPostgresIT {
                         """,
                         Integer.class);
         assertEquals(1, applied43);
+        Integer applied44 =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '44' AND success = TRUE
+                        """,
+                        Integer.class);
+        assertEquals(1, applied44);
 
         List<String> tables =
                 jdbc.queryForList(
@@ -389,8 +399,10 @@ class MaterialRequirementPostgresIT {
                         String.class);
         assertEquals(
                 List.of(
+                        "material_requirement_generated_documents",
                         "material_requirement_line_source_items",
                         "material_requirement_lines",
+                        "material_requirement_routing_snapshot",
                         "material_requirements"),
                 tables);
         assertTrue(tableExists("warehouse", "warehouse_operations"));

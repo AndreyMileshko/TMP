@@ -18,6 +18,7 @@ import com.tmp.production.application.ProductionHistoryService;
 import com.tmp.production.application.ProductionLaunchService;
 import com.tmp.production.application.ProductionOrderViewService;
 import com.tmp.production.application.ReleaseProductsService;
+import com.tmp.production.application.SubmitMaterialRequirementService;
 import com.tmp.production.application.document.ProductionCancellationProcessor;
 import com.tmp.production.application.document.ProductionLaunchPayloadHolder;
 import com.tmp.production.application.document.ProductionLaunchProcessor;
@@ -33,18 +34,22 @@ import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
 import com.tmp.production.application.port.WarehouseReferenceQueryPort;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
+import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository;
 import com.tmp.production.domain.repository.ProductionCancellationQuery;
 import com.tmp.production.domain.repository.ProductionCancellationRepository;
 import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.domain.repository.ProductionReleaseRepository;
 import com.tmp.production.persistence.JdbcMaterialRequirementRepository;
+import com.tmp.production.persistence.JdbcMaterialRequirementSubmissionRepository;
 import com.tmp.production.persistence.JdbcProductionCancellationRepository;
 import com.tmp.production.persistence.JdbcProductionHistoryRepository;
 import com.tmp.production.persistence.JdbcProductionItemStateRepository;
 import com.tmp.production.persistence.JdbcProductionMaterialTransferRepository;
 import com.tmp.production.persistence.JdbcProductionReleaseRepository;
+import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.warehouse.api.WarehouseCommandApi;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tmp.warehouse.api.WarehouseReferenceQueryApi;
 import java.time.Clock;
@@ -93,9 +98,11 @@ final class ProductionPublicBoundaryComposition {
             DocumentEngine documentEngine,
             TransactionalEventPublisher eventPublisher,
             AuthorizationService authorizationService,
+            AuthenticationService authenticationService,
             OrderQueryService orderQueryService,
             WarehouseQueryApi warehouseQueryApi,
             WarehouseCommandApi warehouseCommandApi,
+            WarehouseDemandCommandApi warehouseDemandCommandApi,
             WarehouseReferenceQueryApi warehouseReferenceQueryApi,
             UUID productionWarehouseId) {
         Objects.requireNonNull(jdbc, "jdbc");
@@ -104,9 +111,11 @@ final class ProductionPublicBoundaryComposition {
         Objects.requireNonNull(documentEngine, "documentEngine");
         Objects.requireNonNull(eventPublisher, "eventPublisher");
         Objects.requireNonNull(authorizationService, "authorizationService");
+        Objects.requireNonNull(authenticationService, "authenticationService");
         Objects.requireNonNull(orderQueryService, "orderQueryService");
         Objects.requireNonNull(warehouseQueryApi, "warehouseQueryApi");
         Objects.requireNonNull(warehouseCommandApi, "warehouseCommandApi");
+        Objects.requireNonNull(warehouseDemandCommandApi, "warehouseDemandCommandApi");
         Objects.requireNonNull(warehouseReferenceQueryApi, "warehouseReferenceQueryApi");
 
         ControllableProductionItemStateRepository itemStates =
@@ -125,6 +134,8 @@ final class ProductionPublicBoundaryComposition {
                 new JdbcProductionReleaseRepository(jdbc, clock);
         MaterialRequirementRepository requirements =
                 new JdbcMaterialRequirementRepository(jdbc, clock, txManager);
+        MaterialRequirementSubmissionRepository submissions =
+                new JdbcMaterialRequirementSubmissionRepository(jdbc);
         ProductionMaterialTransferRepository materialTransfers =
                 new JdbcProductionMaterialTransferRepository(jdbc, txManager);
 
@@ -196,6 +207,9 @@ final class ProductionPublicBoundaryComposition {
                         warehouseReferenceQuery,
                         requirements,
                         clock);
+        SubmitMaterialRequirementService submitMaterialRequirementService =
+                new SubmitMaterialRequirementService(
+                        requirements, submissions, warehouseDemandCommandApi, txManager, clock);
         ConfirmMaterialReceiptService confirmReceiptService =
                 new ConfirmMaterialReceiptService(
                         materialTransfers,
@@ -231,10 +245,12 @@ final class ProductionPublicBoundaryComposition {
         ProductionApplicationApi applicationApi =
                 new DefaultProductionApplicationApi(
                         authorizationService,
+                        authenticationService,
                         destination,
                         launchService,
                         checkService,
                         materialRequirementService,
+                        submitMaterialRequirementService,
                         confirmReceiptService,
                         releaseProductsService,
                         cancelService,

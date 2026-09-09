@@ -93,6 +93,11 @@ class ProductionWorkbenchControllerFxTest {
                         assertNotNull(scrollContent.lookup("#materialRequirementPanel"));
                         assertNotNull(scrollContent.lookup("#requirementLinesTable"));
                         assertNotNull(scrollContent.lookup("#applyRequirementQtyButton"));
+                        assertNotNull(scrollContent.lookup("#submitRequirementButton"));
+                        assertEquals(
+                                "Отправить требование",
+                                ((Button) scrollContent.lookup("#submitRequirementButton"))
+                                        .getText());
                         assertNull(scrollContent.lookup("#transferAllocationsTable"));
                         assertNull(scrollContent.lookup("#confirmTransferButton"));
                         assertNotNull(scrollContent.lookup("#releaseAllocationsTable"));
@@ -174,6 +179,8 @@ class ProductionWorkbenchControllerFxTest {
                         Instant.parse("2026-01-01T12:00:00Z"),
                         1L,
                         MaterialRequirementStatusView.DRAFT,
+                        Optional.empty(),
+                        Optional.empty(),
                         List.of(
                                 new MaterialRequirementLineView(
                                         lineId,
