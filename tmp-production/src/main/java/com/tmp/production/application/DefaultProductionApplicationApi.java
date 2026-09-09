@@ -1,20 +1,17 @@
 package com.tmp.production.application;
 
 import com.tmp.production.api.ProductionApplicationApi;
-import com.tmp.production.application.ConfirmMaterialTransferCommand.CellAllocation;
 import com.tmp.production.application.ReleaseMaterialPlanBuilder.PlannedMaterialLine;
 import com.tmp.production.application.ReleaseProductsCommand.ItemRelease;
 import com.tmp.production.application.ReleaseProductsCommand.MaterialActualUsage;
 import com.tmp.production.application.ReleaseProductsResult.PrepareReleasePreview;
-import com.tmp.production.domain.CuttingLinkStatus;
-import com.tmp.production.domain.CuttingPlanId;
 import com.tmp.production.domain.MaterialPlanningSource;
-import com.tmp.production.domain.MaterialTransferTemplate;
-import com.tmp.production.domain.MaterialTransferTemplateId;
-import com.tmp.production.domain.MaterialTransferTemplateLine;
-import com.tmp.production.domain.MaterialTransferTemplateLineId;
-import com.tmp.production.domain.MaterialTransferTemplateOptimisticLockException;
-import com.tmp.production.domain.MaterialTransferTemplateStatus;
+import com.tmp.production.domain.MaterialRequirement;
+import com.tmp.production.domain.MaterialRequirementId;
+import com.tmp.production.domain.MaterialRequirementLine;
+import com.tmp.production.domain.MaterialRequirementLineId;
+import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
+import com.tmp.production.domain.MaterialRequirementStatus;
 import com.tmp.production.domain.ProductionMaterialTransfer;
 import com.tmp.production.domain.ProductionMaterialTransferId;
 import com.tmp.production.domain.SourceOrderId;
@@ -40,11 +37,10 @@ import java.util.UUID;
 public final class DefaultProductionApplicationApi implements ProductionApplicationApi {
 
     private final AuthorizationService authorizationService;
-    private final ProductionWarehouseScope warehouseScope;
+    private final ProductionDestinationWarehouse destinationWarehouse;
     private final ProductionLaunchService launchService;
     private final CheckMaterialAvailabilityService checkMaterialAvailabilityService;
-    private final MaterialTransferTemplateService transferTemplateService;
-    private final ConfirmMaterialTransferService confirmMaterialTransferService;
+    private final MaterialRequirementService materialRequirementService;
     private final ConfirmMaterialReceiptService confirmMaterialReceiptService;
     private final ReleaseProductsService releaseProductsService;
     private final CancelOrderProductionService cancelOrderProductionService;
@@ -52,27 +48,24 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
 
     public DefaultProductionApplicationApi(
             AuthorizationService authorizationService,
-            ProductionWarehouseScope warehouseScope,
+            ProductionDestinationWarehouse destinationWarehouse,
             ProductionLaunchService launchService,
             CheckMaterialAvailabilityService checkMaterialAvailabilityService,
-            MaterialTransferTemplateService transferTemplateService,
-            ConfirmMaterialTransferService confirmMaterialTransferService,
+            MaterialRequirementService materialRequirementService,
             ConfirmMaterialReceiptService confirmMaterialReceiptService,
             ReleaseProductsService releaseProductsService,
             CancelOrderProductionService cancelOrderProductionService,
             ProductionMaterialTransferRepository materialTransferRepository) {
         this.authorizationService =
                 Objects.requireNonNull(authorizationService, "authorizationService");
-        this.warehouseScope = Objects.requireNonNull(warehouseScope, "warehouseScope");
+        this.destinationWarehouse =
+                Objects.requireNonNull(destinationWarehouse, "destinationWarehouse");
         this.launchService = Objects.requireNonNull(launchService, "launchService");
         this.checkMaterialAvailabilityService =
                 Objects.requireNonNull(
                         checkMaterialAvailabilityService, "checkMaterialAvailabilityService");
-        this.transferTemplateService =
-                Objects.requireNonNull(transferTemplateService, "transferTemplateService");
-        this.confirmMaterialTransferService =
-                Objects.requireNonNull(
-                        confirmMaterialTransferService, "confirmMaterialTransferService");
+        this.materialRequirementService =
+                Objects.requireNonNull(materialRequirementService, "materialRequirementService");
         this.confirmMaterialReceiptService =
                 Objects.requireNonNull(
                         confirmMaterialReceiptService, "confirmMaterialReceiptService");
@@ -86,10 +79,9 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     }
 
     @Override
-    public WarehouseScopeView warehouseScope() {
+    public DestinationWarehouseView destinationWarehouse() {
         authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
-        return new WarehouseScopeView(
-                warehouseScope.mainWarehouseId(), warehouseScope.productionWarehouseId());
+        return new DestinationWarehouseView(destinationWarehouse.productionWarehouseId());
     }
 
     @Override
@@ -108,73 +100,30 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     }
 
     @Override
-    public TransferTemplateView prepareMaterialTransferTemplate(UUID orderId) {
+    public MaterialRequirementView prepareMaterialRequirement(
+            UUID orderId, List<UUID> selectedOrderItemIds) {
         authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
         Objects.requireNonNull(orderId, "orderId");
-        return map(transferTemplateService.prepareMaterialTransferTemplate(SourceOrderId.of(orderId)));
+        Objects.requireNonNull(selectedOrderItemIds, "selectedOrderItemIds");
+        List<SourceOrderItemId> itemIds =
+                selectedOrderItemIds.stream().map(SourceOrderItemId::of).toList();
+        return map(
+                materialRequirementService.prepareMaterialRequirement(
+                        SourceOrderId.of(orderId), itemIds));
     }
 
     @Override
-    public TransferTemplateView changeTransferRequestedQuantity(
-            UUID templateId, UUID lineId, BigDecimal quantity, long expectedVersion) {
+    public MaterialRequirementView changeMaterialRequirementQuantity(
+            UUID requirementId, UUID lineId, BigDecimal quantity, long expectedVersion) {
         authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
-        Objects.requireNonNull(templateId, "templateId");
+        Objects.requireNonNull(requirementId, "requirementId");
         Objects.requireNonNull(lineId, "lineId");
         Objects.requireNonNull(quantity, "quantity");
-        MaterialTransferTemplateId id = MaterialTransferTemplateId.of(templateId);
+        MaterialRequirementId id = MaterialRequirementId.of(requirementId);
         requireExpectedVersion(id, expectedVersion);
         return map(
-                transferTemplateService.changeRequestedQuantity(
-                        id, MaterialTransferTemplateLineId.of(lineId), quantity));
-    }
-
-    @Override
-    public TransferTemplateView excludeTransferLine(
-            UUID templateId, UUID lineId, long expectedVersion) {
-        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
-        Objects.requireNonNull(templateId, "templateId");
-        Objects.requireNonNull(lineId, "lineId");
-        MaterialTransferTemplateId id = MaterialTransferTemplateId.of(templateId);
-        requireExpectedVersion(id, expectedVersion);
-        return map(
-                transferTemplateService.excludeLine(id, MaterialTransferTemplateLineId.of(lineId)));
-    }
-
-    @Override
-    public TransferTemplateView restoreTransferLine(
-            UUID templateId, UUID lineId, long expectedVersion) {
-        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
-        Objects.requireNonNull(templateId, "templateId");
-        Objects.requireNonNull(lineId, "lineId");
-        MaterialTransferTemplateId id = MaterialTransferTemplateId.of(templateId);
-        requireExpectedVersion(id, expectedVersion);
-        return map(
-                transferTemplateService.restoreLine(id, MaterialTransferTemplateLineId.of(lineId)));
-    }
-
-    @Override
-    public LogicalTransferView confirmMaterialTransferCreate(
-            UUID templateId, long expectedVersion, List<TransferCellAllocation> allocations) {
-        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
-        Objects.requireNonNull(templateId, "templateId");
-        Objects.requireNonNull(allocations, "allocations");
-        List<CellAllocation> domainAllocations =
-                allocations.stream()
-                        .map(
-                                a ->
-                                        new CellAllocation(
-                                                MaterialTransferTemplateLineId.of(a.templateLineId()),
-                                                a.sourceStorageCellId(),
-                                                a.destinationStorageCellId(),
-                                                a.quantity()))
-                        .toList();
-        ProductionMaterialTransfer transfer =
-                confirmMaterialTransferService.confirmMaterialTransferCreate(
-                        new ConfirmMaterialTransferCommand(
-                                MaterialTransferTemplateId.of(templateId),
-                                expectedVersion,
-                                domainAllocations));
-        return map(transfer);
+                materialRequirementService.changeQuantity(
+                        id, MaterialRequirementLineId.of(lineId), quantity));
     }
 
     @Override
@@ -244,17 +193,16 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 new CancelOrderProductionCommand(orderId, reason));
     }
 
-    private void requireExpectedVersion(MaterialTransferTemplateId templateId, long expectedVersion) {
-        MaterialTransferTemplate template =
-                transferTemplateService
-                        .findTemplateById(templateId)
+    private void requireExpectedVersion(MaterialRequirementId requirementId, long expectedVersion) {
+        MaterialRequirement requirement =
+                materialRequirementService
+                        .findById(requirementId)
                         .orElseThrow(
                                 () ->
                                         new IllegalArgumentException(
-                                                "Material transfer template not found: "
-                                                        + templateId));
-        if (template.version() != expectedVersion) {
-            throw new MaterialTransferTemplateOptimisticLockException(templateId, expectedVersion);
+                                                "Material requirement not found: " + requirementId));
+        if (requirement.version() != expectedVersion) {
+            throw new MaterialRequirementOptimisticLockException(requirementId, expectedVersion);
         }
     }
 
@@ -284,40 +232,28 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 .toList();
     }
 
-    private TransferTemplateView map(MaterialTransferTemplate template) {
-        return new TransferTemplateView(
-                template.templateId().value(),
-                template.sourceOrderId().value(),
-                template.sourceWarehouseId(),
-                template.destinationWarehouseId(),
-                template.createdAt(),
-                template.updatedAt(),
-                template.version(),
-                map(template.status()),
-                template.confirmedAt(),
-                template.lines().stream().map(this::map).toList());
+    private MaterialRequirementView map(MaterialRequirement requirement) {
+        return new MaterialRequirementView(
+                requirement.requirementId().value(),
+                requirement.sourceOrderId().value(),
+                requirement.destinationWarehouseId(),
+                requirement.createdAt(),
+                requirement.updatedAt(),
+                requirement.version(),
+                map(requirement.status()),
+                requirement.lines().stream().map(this::map).toList());
     }
 
-    private TransferTemplateLineView map(MaterialTransferTemplateLine line) {
-        return new TransferTemplateLineView(
+    private MaterialRequirementLineView map(MaterialRequirementLine line) {
+        return new MaterialRequirementLineView(
                 line.lineId().value(),
                 line.materialReferenceId().value(),
                 line.materialCode(),
                 line.materialName() == null ? "" : line.materialName(),
                 line.color(),
                 line.unitOfMeasure(),
-                line.recommendedQuantity(),
-                line.requestedQuantity(),
-                line.included(),
-                map(line.planningSource()),
-                line.cuttingPlanId().map(CuttingPlanId::value),
-                map(line.cuttingLinkStatus()),
-                line.cuttingPlanReferences().stream().map(CuttingPlanId::value).toList(),
-                line.sourceOrderItemIds().stream().map(SourceOrderItemId::value).toList(),
-                line.requiredQuantity(),
-                line.mainWarehouseAvailable(),
-                line.productionWarehouseAvailable(),
-                line.uncoveredDeficit());
+                line.quantity(),
+                line.sourceOrderItemIds().stream().map(SourceOrderItemId::value).toList());
     }
 
     private LogicalTransferView map(ProductionMaterialTransfer transfer) {
@@ -364,10 +300,9 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 Optional.ofNullable(line.materialName()));
     }
 
-    private TransferTemplateStatusView map(MaterialTransferTemplateStatus status) {
+    private MaterialRequirementStatusView map(MaterialRequirementStatus status) {
         return switch (status) {
-            case DRAFT -> TransferTemplateStatusView.DRAFT;
-            case CONFIRMED -> TransferTemplateStatusView.CONFIRMED;
+            case DRAFT -> MaterialRequirementStatusView.DRAFT;
         };
     }
 
@@ -375,14 +310,6 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         return switch (source) {
             case SPECIFICATION -> MaterialPlanningSourceView.SPECIFICATION;
             case CUTTING_PLAN -> MaterialPlanningSourceView.CUTTING_PLAN;
-        };
-    }
-
-    private CuttingLinkStatusView map(CuttingLinkStatus status) {
-        return switch (status) {
-            case NONE -> CuttingLinkStatusView.NONE;
-            case SINGLE -> CuttingLinkStatusView.SINGLE;
-            case MULTIPLE_REFERENCES -> CuttingLinkStatusView.MULTIPLE_REFERENCES;
         };
     }
 }

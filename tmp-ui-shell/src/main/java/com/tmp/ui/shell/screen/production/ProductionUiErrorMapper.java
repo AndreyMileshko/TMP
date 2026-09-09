@@ -65,7 +65,8 @@ public final class ProductionUiErrorMapper {
                             || lower.contains("не отправл"))) {
                 return TRANSFER_NOT_SENT;
             }
-            if (simple.contains("MaterialTransferTemplateNotReady")
+            if (simple.contains("MaterialRequirementNotReady")
+                    || simple.contains("MaterialTransferTemplateNotReady")
                     || lower.contains("unresolved")
                     || lower.contains("material_unresolved")
                     || lower.contains("не сопоставл")) {

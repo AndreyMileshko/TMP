@@ -7,6 +7,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -93,6 +94,9 @@ public final class ProductionWorkbenchController
     private TableView<ProductionItemRow> itemsTable;
 
     @FXML
+    private TableColumn<ProductionItemRow, Boolean> itemSelectedColumn;
+
+    @FXML
     private TableColumn<ProductionItemRow, String> itemPositionColumn;
 
     @FXML
@@ -159,55 +163,28 @@ public final class ProductionWorkbenchController
     private ComboBox<LogicalTransferRow> logicalTransferCombo;
 
     @FXML
-    private VBox transferPanel;
+    private VBox materialRequirementPanel;
 
     @FXML
-    private TableView<TransferLineRow> transferLinesTable;
+    private TableView<MaterialRequirementLineRow> requirementLinesTable;
 
     @FXML
-    private TableColumn<TransferLineRow, String> transferMaterialColumn;
+    private TableColumn<MaterialRequirementLineRow, String> requirementCodeColumn;
 
     @FXML
-    private TableColumn<TransferLineRow, String> transferRecommendedColumn;
+    private TableColumn<MaterialRequirementLineRow, String> requirementNameColumn;
 
     @FXML
-    private TableColumn<TransferLineRow, String> transferRequestedColumn;
+    private TableColumn<MaterialRequirementLineRow, String> requirementColorColumn;
 
     @FXML
-    private TableColumn<TransferLineRow, String> transferIncludedColumn;
+    private TableColumn<MaterialRequirementLineRow, String> requirementQtyColumn;
 
     @FXML
-    private TableColumn<TransferLineRow, String> transferAllocationSummaryColumn;
+    private TableColumn<MaterialRequirementLineRow, String> requirementUomColumn;
 
     @FXML
-    private TableView<TransferAllocationRow> transferAllocationsTable;
-
-    @FXML
-    private TableColumn<TransferAllocationRow, StorageCellChoice> transferAllocSourceColumn;
-
-    @FXML
-    private TableColumn<TransferAllocationRow, StorageCellChoice> transferAllocDestColumn;
-
-    @FXML
-    private TableColumn<TransferAllocationRow, String> transferAllocQtyColumn;
-
-    @FXML
-    private Button addTransferAllocationButton;
-
-    @FXML
-    private Button removeTransferAllocationButton;
-
-    @FXML
-    private Button applyRequestedQtyButton;
-
-    @FXML
-    private Button excludeTransferLineButton;
-
-    @FXML
-    private Button restoreTransferLineButton;
-
-    @FXML
-    private Button confirmTransferButton;
+    private Button applyRequirementQtyButton;
 
     @FXML
     private VBox releasePanel;
@@ -247,9 +224,6 @@ public final class ProductionWorkbenchController
 
     private ProductionWorkbenchViewModel viewModel;
 
-    private final ObservableList<TransferAllocationRow> emptyTransferAllocations =
-            FXCollections.observableArrayList();
-
     private final ObservableList<ReleaseCellAllocationRow> emptyReleaseAllocations =
             FXCollections.observableArrayList();
 
@@ -284,7 +258,7 @@ public final class ProductionWorkbenchController
 
         acceptButton.setOnAction(e -> viewModel.acceptOrder());
         checkMaterialsButton.setOnAction(e -> viewModel.checkMaterials());
-        prepareTransferButton.setOnAction(e -> viewModel.prepareTransfer());
+        prepareTransferButton.setOnAction(e -> viewModel.prepareMaterialRequirement());
         confirmReceiptButton.setOnAction(e -> viewModel.confirmReceipt());
         prepareReleaseButton.setOnAction(e -> viewModel.prepareRelease());
         cancelProductionButton.setOnAction(e -> confirmCancel());
@@ -292,7 +266,7 @@ public final class ProductionWorkbenchController
         bindItemsTable();
         bindMaterialsTable();
         bindHistoryTable();
-        bindTransferPanel();
+        bindMaterialRequirementPanel();
         bindReleasePanel();
 
         logicalTransferCombo.setItems(viewModel.logicalTransfers());
@@ -303,6 +277,45 @@ public final class ProductionWorkbenchController
 
     private void bindItemsTable() {
         itemsTable.setEditable(true);
+        itemSelectedColumn.setCellValueFactory(
+                c ->
+                        new javafx.beans.property.SimpleBooleanProperty(
+                                c.getValue().isSelected()));
+        itemSelectedColumn.setCellFactory(
+                col ->
+                        new TableCell<>() {
+                            private final CheckBox checkBox = new CheckBox();
+
+                            {
+                                checkBox.setOnAction(
+                                        e -> {
+                                            ProductionItemRow row =
+                                                    getTableRow() == null
+                                                            ? null
+                                                            : getTableRow().getItem();
+                                            if (row != null && row.isSelectable()) {
+                                                row.setSelected(checkBox.isSelected());
+                                            } else if (row != null) {
+                                                checkBox.setSelected(false);
+                                            }
+                                        });
+                            }
+
+                            @Override
+                            protected void updateItem(Boolean item, boolean empty) {
+                                super.updateItem(item, empty);
+                                if (empty
+                                        || getTableRow() == null
+                                        || getTableRow().getItem() == null) {
+                                    setGraphic(null);
+                                    return;
+                                }
+                                ProductionItemRow row = getTableRow().getItem();
+                                checkBox.setDisable(!row.isSelectable());
+                                checkBox.setSelected(row.isSelected());
+                                setGraphic(checkBox);
+                            }
+                        });
         itemPositionColumn.setCellValueFactory(
                 c -> new javafx.beans.property.SimpleStringProperty(c.getValue().positionLabel()));
         itemStatusColumn.setCellValueFactory(
@@ -357,223 +370,92 @@ public final class ProductionWorkbenchController
         historyTable.setItems(viewModel.historyRows());
     }
 
-    private void bindTransferPanel() {
-        transferPanel.visibleProperty().bind(viewModel.transferPanelVisibleProperty());
-        transferPanel.managedProperty().bind(viewModel.transferPanelVisibleProperty());
-        transferLinesTable.setEditable(true);
-        transferMaterialColumn.setCellValueFactory(
-                c -> new javafx.beans.property.SimpleStringProperty(c.getValue().materialLabel()));
-        transferRecommendedColumn.setCellValueFactory(
-                c ->
-                        new javafx.beans.property.SimpleStringProperty(
-                                c.getValue().recommendedQuantity()));
-        transferRequestedColumn.setCellFactory(TextFieldTableCell.forTableColumn());
-        transferRequestedColumn.setCellValueFactory(
-                c ->
-                        new javafx.beans.property.SimpleStringProperty(
-                                c.getValue().requestedQuantity()));
-        transferRequestedColumn.setOnEditCommit(
-                event -> event.getRowValue().setRequestedQuantity(event.getNewValue()));
-        transferIncludedColumn.setCellValueFactory(
-                c ->
-                        new javafx.beans.property.SimpleStringProperty(
-                                c.getValue().included() ? "Да" : "Нет"));
-        transferAllocationSummaryColumn.setCellValueFactory(
-                c ->
-                        new javafx.beans.property.SimpleStringProperty(
-                                c.getValue().allocationSummary()));
-        transferLinesTable.setItems(viewModel.transferLines());
-
-        transferAllocationsTable.setItems(emptyTransferAllocations);
-        transferAllocationsTable.setEditable(true);
-        transferAllocQtyColumn.setCellFactory(TextFieldTableCell.forTableColumn());
-        transferAllocQtyColumn.setCellValueFactory(
+    private void bindMaterialRequirementPanel() {
+        materialRequirementPanel
+                .visibleProperty()
+                .bind(viewModel.materialRequirementPanelVisibleProperty());
+        materialRequirementPanel
+                .managedProperty()
+                .bind(viewModel.materialRequirementPanelVisibleProperty());
+        requirementLinesTable.setEditable(true);
+        requirementCodeColumn.setCellValueFactory(
+                c -> new javafx.beans.property.SimpleStringProperty(c.getValue().materialCode()));
+        requirementNameColumn.setCellValueFactory(
+                c -> new javafx.beans.property.SimpleStringProperty(c.getValue().materialName()));
+        requirementColorColumn.setCellValueFactory(
+                c -> new javafx.beans.property.SimpleStringProperty(c.getValue().color()));
+        requirementQtyColumn.setCellFactory(TextFieldTableCell.forTableColumn());
+        requirementQtyColumn.setCellValueFactory(
                 c -> new javafx.beans.property.SimpleStringProperty(c.getValue().quantity()));
-        transferAllocQtyColumn.setOnEditCommit(
+        requirementQtyColumn.setOnEditCommit(
                 event -> event.getRowValue().setQuantity(event.getNewValue()));
-        transferAllocSourceColumn.setCellValueFactory(
-                c -> new javafx.beans.property.SimpleObjectProperty<>(c.getValue().sourceCell()));
-        transferAllocSourceColumn.setCellFactory(
-                col ->
-                        new TableCell<>() {
-                            private final ComboBox<StorageCellChoice> combo = new ComboBox<>();
+        requirementUomColumn.setCellValueFactory(
+                c -> new javafx.beans.property.SimpleStringProperty(c.getValue().unitOfMeasure()));
+        requirementLinesTable.setItems(viewModel.requirementLines());
 
-                            {
-                                combo.setMaxWidth(Double.MAX_VALUE);
-                                combo.valueProperty()
-                                        .addListener(
-                                                (obs, oldValue, newValue) -> {
-                                                    TransferAllocationRow row =
-                                                            getTableRow() == null
-                                                                    ? null
-                                                                    : getTableRow().getItem();
-                                                    if (row != null) {
-                                                        row.setSourceCell(newValue);
-                                                    }
-                                                });
-                            }
-
-                            @Override
-                            protected void updateItem(StorageCellChoice item, boolean empty) {
-                                super.updateItem(item, empty);
-                                if (empty
-                                        || getTableRow() == null
-                                        || getTableRow().getItem() == null) {
-                                    setGraphic(null);
-                                    return;
-                                }
-                                TransferAllocationRow row = getTableRow().getItem();
-                                combo.setItems(row.sourceCellChoices());
-                                combo.setValue(row.sourceCell());
-                                setGraphic(combo);
-                            }
-                        });
-        transferAllocDestColumn.setCellValueFactory(
-                c ->
-                        new javafx.beans.property.SimpleObjectProperty<>(
-                                c.getValue().destinationCell()));
-        transferAllocDestColumn.setCellFactory(
-                col ->
-                        new TableCell<>() {
-                            private final ComboBox<StorageCellChoice> combo = new ComboBox<>();
-
-                            {
-                                combo.setMaxWidth(Double.MAX_VALUE);
-                                combo.valueProperty()
-                                        .addListener(
-                                                (obs, oldValue, newValue) -> {
-                                                    TransferAllocationRow row =
-                                                            getTableRow() == null
-                                                                    ? null
-                                                                    : getTableRow().getItem();
-                                                    if (row != null) {
-                                                        row.setDestinationCell(newValue);
-                                                    }
-                                                });
-                            }
-
-                            @Override
-                            protected void updateItem(StorageCellChoice item, boolean empty) {
-                                super.updateItem(item, empty);
-                                if (empty
-                                        || getTableRow() == null
-                                        || getTableRow().getItem() == null) {
-                                    setGraphic(null);
-                                    return;
-                                }
-                                TransferAllocationRow row = getTableRow().getItem();
-                                combo.setItems(row.destinationCellChoices());
-                                combo.setValue(row.destinationCell());
-                                setGraphic(combo);
-                            }
-                        });
-
-        transferLinesTable.setRowFactory(
+        requirementLinesTable.setRowFactory(
                 table -> {
-                    TableRow<TransferLineRow> row = new TableRow<>();
+                    TableRow<MaterialRequirementLineRow> row = new TableRow<>();
                     row.addEventHandler(
                             MouseEvent.MOUSE_PRESSED,
                             event -> {
                                 if (!row.isEmpty()) {
-                                    TransferLineRow item = row.getItem();
+                                    MaterialRequirementLineRow item = row.getItem();
                                     table.getSelectionModel().select(item);
-                                    viewModel.selectTransferLine(item.lineId());
-                                    syncTransferAllocationsTable();
+                                    viewModel.selectRequirementLine(item.lineId());
                                 }
                             });
                     return row;
                 });
 
-        transferLinesTable
+        requirementLinesTable
                 .getSelectionModel()
                 .selectedItemProperty()
                 .addListener(
                         (obs, oldValue, selected) -> {
                             if (selected != null) {
-                                viewModel.selectTransferLine(selected.lineId());
+                                viewModel.selectRequirementLine(selected.lineId());
                             }
-                            syncTransferAllocationsTable();
-                            transferLinesTable.refresh();
+                            requirementLinesTable.refresh();
                         });
 
         viewModel
-                .selectedTransferLineIdProperty()
+                .selectedRequirementLineIdProperty()
                 .addListener(
                         (obs, oldValue, lineId) -> {
                             if (lineId != null) {
-                                TransferLineRow row = viewModel.findTransferLine(lineId);
+                                MaterialRequirementLineRow row =
+                                        viewModel.findRequirementLine(lineId);
                                 if (row != null) {
-                                    transferLinesTable.getSelectionModel().select(row);
+                                    requirementLinesTable.getSelectionModel().select(row);
                                 }
                             }
-                            syncTransferAllocationsTable();
                         });
 
         viewModel
-                .transferLines()
+                .requirementLines()
                 .addListener(
-                        (ListChangeListener<TransferLineRow>)
+                        (ListChangeListener<MaterialRequirementLineRow>)
                                 change -> {
                                     UUID lineId =
-                                            viewModel.selectedTransferLineIdProperty().get();
+                                            viewModel.selectedRequirementLineIdProperty().get();
                                     if (lineId != null) {
-                                        TransferLineRow row = viewModel.findTransferLine(lineId);
+                                        MaterialRequirementLineRow row =
+                                                viewModel.findRequirementLine(lineId);
                                         if (row != null) {
-                                            transferLinesTable.getSelectionModel().select(row);
+                                            requirementLinesTable.getSelectionModel().select(row);
                                         }
                                     }
-                                    syncTransferAllocationsTable();
                                 });
 
-        addTransferAllocationButton.setOnAction(
+        applyRequirementQtyButton.setOnAction(
                 e -> {
-                    TransferLineRow selected =
-                            transferLinesTable.getSelectionModel().getSelectedItem();
+                    MaterialRequirementLineRow selected =
+                            requirementLinesTable.getSelectionModel().getSelectedItem();
                     if (selected != null) {
-                        viewModel.addTransferAllocation(selected);
-                        syncTransferAllocationsTable();
-                        transferLinesTable.refresh();
+                        viewModel.applyRequirementQuantity(selected);
                     }
                 });
-        removeTransferAllocationButton.setOnAction(
-                e -> {
-                    TransferLineRow line =
-                            transferLinesTable.getSelectionModel().getSelectedItem();
-                    TransferAllocationRow allocation =
-                            transferAllocationsTable.getSelectionModel().getSelectedItem();
-                    if (line != null && allocation != null) {
-                        viewModel.removeTransferAllocation(line, allocation);
-                        syncTransferAllocationsTable();
-                        transferLinesTable.refresh();
-                    }
-                });
-        applyRequestedQtyButton.setOnAction(
-                e -> {
-                    TransferLineRow selected =
-                            transferLinesTable.getSelectionModel().getSelectedItem();
-                    if (selected != null) {
-                        viewModel.applyTransferRequestedQuantity(selected);
-                        syncTransferAllocationsTable();
-                    }
-                });
-        excludeTransferLineButton.setOnAction(
-                e -> {
-                    TransferLineRow selected =
-                            transferLinesTable.getSelectionModel().getSelectedItem();
-                    if (selected != null) {
-                        viewModel.excludeTransferLine(selected);
-                    }
-                });
-        restoreTransferLineButton.setOnAction(
-                e -> {
-                    TransferLineRow selected =
-                            transferLinesTable.getSelectionModel().getSelectedItem();
-                    if (selected != null) {
-                        viewModel.restoreTransferLine(selected);
-                    }
-                });
-        confirmTransferButton.disableProperty().bind(viewModel.canTransferProperty().not());
-        confirmTransferButton.setOnAction(e -> viewModel.confirmTransfer());
     }
 
     private void bindReleasePanel() {
@@ -693,21 +575,6 @@ public final class ProductionWorkbenchController
                 });
         confirmReleaseButton.disableProperty().bind(viewModel.canReleaseProperty().not());
         confirmReleaseButton.setOnAction(e -> viewModel.confirmRelease());
-    }
-
-    private void syncTransferAllocationsTable() {
-        TransferLineRow selected = transferLinesTable.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            UUID lineId = viewModel.selectedTransferLineIdProperty().get();
-            if (lineId != null) {
-                selected = viewModel.findTransferLine(lineId);
-            }
-        }
-        if (selected == null) {
-            transferAllocationsTable.setItems(emptyTransferAllocations);
-            return;
-        }
-        transferAllocationsTable.setItems(selected.allocations());
     }
 
     private void syncReleaseAllocationsTable() {

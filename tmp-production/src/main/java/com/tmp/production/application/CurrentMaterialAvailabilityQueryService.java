@@ -5,7 +5,7 @@ import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.MaterialReferenceEntry;
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.WarehouseCatalogEntry;
 import com.tmp.production.domain.AggregatedMaterialRequirement;
-import com.tmp.production.domain.InvalidProductionWarehouseScopeException;
+import com.tmp.production.domain.InvalidProductionDestinationWarehouseException;
 import com.tmp.production.domain.MaterialAvailabilityCheckResult;
 import com.tmp.production.domain.MaterialAvailabilityLine;
 import com.tmp.production.domain.MaterialAvailabilityLineStatus;
@@ -29,13 +29,16 @@ import java.util.UUID;
  *
  * <p>Authoritative calculator used by both Public Query and explicit Check. Does not append
  * {@code MATERIALS_CHECKED} history and does not mutate Production/Warehouse.
+ *
+ * <p>Informational only: production stock plus sum of AVAILABLE stock across all other active
+ * warehouses (no fixed main warehouse; no transfer recommendation).
  */
 public final class CurrentMaterialAvailabilityQueryService {
 
     private final ProductionOrderViewService orderViewService;
     private final ProductionFoundationQueryService foundationQuery;
     private final WarehouseAvailabilityQueryPort warehouseQuery;
-    private final ProductionWarehouseScope warehouseScope;
+    private final ProductionDestinationWarehouse destinationWarehouse;
     private final SpecificationMaterialRequirementCalculator requirementCalculator;
     private final MaterialReferenceResolver materialReferenceResolver;
     private final Clock clock;
@@ -44,13 +47,13 @@ public final class CurrentMaterialAvailabilityQueryService {
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQuery,
             WarehouseAvailabilityQueryPort warehouseQuery,
-            ProductionWarehouseScope warehouseScope,
+            ProductionDestinationWarehouse destinationWarehouse,
             Clock clock) {
         this(
                 orderViewService,
                 foundationQuery,
                 warehouseQuery,
-                warehouseScope,
+                destinationWarehouse,
                 new SpecificationMaterialRequirementCalculator(),
                 new MaterialReferenceResolver(),
                 clock);
@@ -60,14 +63,15 @@ public final class CurrentMaterialAvailabilityQueryService {
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQuery,
             WarehouseAvailabilityQueryPort warehouseQuery,
-            ProductionWarehouseScope warehouseScope,
+            ProductionDestinationWarehouse destinationWarehouse,
             SpecificationMaterialRequirementCalculator requirementCalculator,
             MaterialReferenceResolver materialReferenceResolver,
             Clock clock) {
         this.orderViewService = Objects.requireNonNull(orderViewService, "orderViewService");
         this.foundationQuery = Objects.requireNonNull(foundationQuery, "foundationQuery");
         this.warehouseQuery = Objects.requireNonNull(warehouseQuery, "warehouseQuery");
-        this.warehouseScope = Objects.requireNonNull(warehouseScope, "warehouseScope");
+        this.destinationWarehouse =
+                Objects.requireNonNull(destinationWarehouse, "destinationWarehouse");
         this.requirementCalculator =
                 Objects.requireNonNull(requirementCalculator, "requirementCalculator");
         this.materialReferenceResolver =
@@ -88,7 +92,8 @@ public final class CurrentMaterialAvailabilityQueryService {
             throw new MaterialCheckNotAllowedException(sourceOrderId, view.status());
         }
 
-        validateWarehouseScope();
+        List<WarehouseCatalogEntry> warehouses = warehouseQuery.listWarehouses();
+        validateDestinationWarehouse(warehouses);
 
         List<ResolvedMaterialLine> allMaterialLines = new ArrayList<>();
         for (ProductionItemState state : orderViewService.listItemStates(sourceOrderId)) {
@@ -102,36 +107,32 @@ public final class CurrentMaterialAvailabilityQueryService {
 
         List<MaterialAvailabilityLine> lines = new ArrayList<>(requirements.size());
         for (AggregatedMaterialRequirement requirement : requirements) {
-            lines.add(buildLine(requirement, materialCatalog));
+            lines.add(buildLine(requirement, materialCatalog, warehouses));
         }
 
         return new MaterialAvailabilityCheckResult(
                 sourceOrderId, clock.instant(), resolveOverallStatus(lines), lines);
     }
 
-    private void validateWarehouseScope() {
-        List<WarehouseCatalogEntry> warehouses = warehouseQuery.listWarehouses();
-        validateWarehouse(warehouses, warehouseScope.mainWarehouseId());
-        validateWarehouse(warehouses, warehouseScope.productionWarehouseId());
-    }
-
-    private static void validateWarehouse(
-            List<WarehouseCatalogEntry> warehouses, UUID warehouseId) {
+    private void validateDestinationWarehouse(List<WarehouseCatalogEntry> warehouses) {
+        UUID warehouseId = destinationWarehouse.productionWarehouseId();
         WarehouseCatalogEntry entry =
                 warehouses.stream()
                         .filter(candidate -> candidate.warehouseId().equals(warehouseId))
                         .findFirst()
                         .orElseThrow(
                                 () ->
-                                        InvalidProductionWarehouseScopeException.warehouseNotFound(
-                                                warehouseId));
+                                        InvalidProductionDestinationWarehouseException
+                                                .warehouseNotFound(warehouseId));
         if (!entry.active()) {
-            throw InvalidProductionWarehouseScopeException.warehouseInactive(warehouseId);
+            throw InvalidProductionDestinationWarehouseException.warehouseInactive(warehouseId);
         }
     }
 
     private MaterialAvailabilityLine buildLine(
-            AggregatedMaterialRequirement requirement, List<MaterialReferenceEntry> catalog) {
+            AggregatedMaterialRequirement requirement,
+            List<MaterialReferenceEntry> catalog,
+            List<WarehouseCatalogEntry> warehouses) {
         SpecificationMaterialIdentity identity = requirement.identity();
         MaterialReferenceResolver.Result resolution =
                 materialReferenceResolver.resolve(identity, catalog);
@@ -144,13 +145,12 @@ public final class CurrentMaterialAvailabilityQueryService {
         }
 
         UUID materialReferenceId = resolution.materialReferenceId();
-        BigDecimal mainAvailable =
-                warehouseQuery.availableQuantity(
-                        materialReferenceId, warehouseScope.mainWarehouseId());
+        UUID destinationWarehouseId = destinationWarehouse.productionWarehouseId();
         BigDecimal productionAvailable =
-                warehouseQuery.availableQuantity(
-                        materialReferenceId, warehouseScope.productionWarehouseId());
-        BigDecimal totalAvailable = mainAvailable.add(productionAvailable);
+                warehouseQuery.availableQuantity(materialReferenceId, destinationWarehouseId);
+        BigDecimal supplyAvailable =
+                sumSupplyAvailable(materialReferenceId, destinationWarehouseId, warehouses);
+        BigDecimal totalAvailable = productionAvailable.add(supplyAvailable);
         BigDecimal deficit = deficit(requirement.requiredQuantity(), totalAvailable);
         MaterialAvailabilityLineStatus status =
                 deficit.signum() > 0
@@ -164,12 +164,32 @@ public final class CurrentMaterialAvailabilityQueryService {
                 identity.unitOfMeasure(),
                 materialReferenceId,
                 requirement.requiredQuantity(),
-                mainAvailable,
+                supplyAvailable,
                 productionAvailable,
                 totalAvailable,
                 deficit,
                 status,
                 MaterialPlanningSource.SPECIFICATION);
+    }
+
+    private BigDecimal sumSupplyAvailable(
+            UUID materialReferenceId,
+            UUID destinationWarehouseId,
+            List<WarehouseCatalogEntry> warehouses) {
+        BigDecimal sum = BigDecimal.ZERO;
+        for (WarehouseCatalogEntry warehouse : warehouses) {
+            if (!warehouse.active()) {
+                continue;
+            }
+            if (warehouse.warehouseId().equals(destinationWarehouseId)) {
+                continue;
+            }
+            sum =
+                    sum.add(
+                            warehouseQuery.availableQuantity(
+                                    materialReferenceId, warehouse.warehouseId()));
+        }
+        return sum;
     }
 
     private static MaterialAvailabilityLine unresolvedLine(

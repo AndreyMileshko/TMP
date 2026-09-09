@@ -10,7 +10,7 @@ import com.tmp.document.api.TransactionalEventPublisher;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.production.api.ProductionApplicationApi;
 import com.tmp.production.api.ProductionQueryApi;
-import com.tmp.production.application.ProductionWarehouseScope;
+import com.tmp.production.application.ProductionDestinationWarehouse;
 import com.tmp.production.security.ProductionCapability;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.warehouse.api.WarehouseCommandApi;
@@ -27,8 +27,6 @@ class ProductionAutoConfigurationTest {
 
     private static final UUID MAIN = UUID.fromString("11111111-1111-4111-8111-111111111111");
     private static final UUID PROD = UUID.fromString("22222222-2222-4222-8222-222222222222");
-    private static final UUID MAGIC_MAIN =
-            UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID MAGIC_PROD =
             UUID.fromString("00000000-0000-0000-0000-000000000002");
 
@@ -49,50 +47,43 @@ class ProductionAutoConfigurationTest {
                             () -> Mockito.mock(PlatformTransactionManager.class));
 
     @Test
-    void registersProductionBeansWhenWarehouseScopeConfiguredViaProperties() {
+    void registersProductionBeansWhenDestinationWarehouseConfiguredViaProperties() {
         baseRunner
-                .withPropertyValues(
-                        "tmp.production.warehouse.main-warehouse-id=" + MAIN,
-                        "tmp.production.warehouse.production-warehouse-id=" + PROD)
+                .withPropertyValues("tmp.production.warehouse.production-warehouse-id=" + PROD)
                 .run(
                         context -> {
                             assertNotNull(context.getBean(ProductionQueryApi.class));
                             assertNotNull(context.getBean(ProductionApplicationApi.class));
                             assertNotNull(context.getBean(ProductionCapability.class));
                             assertEquals(1, context.getBeansOfType(ProductionCapability.class).size());
-                            ProductionWarehouseScope scope =
-                                    context.getBean(ProductionWarehouseScope.class);
-                            assertEquals(MAIN, scope.mainWarehouseId());
-                            assertEquals(PROD, scope.productionWarehouseId());
+                            ProductionDestinationWarehouse destination =
+                                    context.getBean(ProductionDestinationWarehouse.class);
+                            assertEquals(PROD, destination.productionWarehouseId());
                         });
     }
 
     @Test
-    void acceptsExplicitProductionWarehouseScopeBeanWithoutProperties() {
+    void acceptsExplicitProductionDestinationWarehouseBeanWithoutProperties() {
         baseRunner
                 .withBean(
-                        ProductionWarehouseScope.class,
-                        () -> new ProductionWarehouseScope(MAIN, PROD))
+                        ProductionDestinationWarehouse.class,
+                        () -> new ProductionDestinationWarehouse(PROD))
                 .run(
                         context -> {
                             assertNotNull(context.getBean(ProductionQueryApi.class));
                             assertNotNull(context.getBean(ProductionApplicationApi.class));
-                            ProductionWarehouseScope scope =
-                                    context.getBean(ProductionWarehouseScope.class);
-                            assertEquals(MAIN, scope.mainWarehouseId());
-                            assertEquals(PROD, scope.productionWarehouseId());
+                            ProductionDestinationWarehouse destination =
+                                    context.getBean(ProductionDestinationWarehouse.class);
+                            assertEquals(PROD, destination.productionWarehouseId());
                         });
     }
 
     @Test
-    void failsFastWithoutWarehouseScopeConfiguration() {
+    void failsFastWithoutDestinationWarehouseConfiguration() {
         baseRunner.run(
                 context -> {
                     assertTrue(context.getStartupFailure() != null);
                     Throwable root = rootCause(context.getStartupFailure());
-                    assertTrue(
-                            root.getMessage().contains("main warehouse ID")
-                                    || root.getMessage().contains("main-warehouse-id"));
                     assertTrue(
                             root.getMessage().contains("production warehouse ID")
                                     || root.getMessage().contains("production-warehouse-id"));
@@ -102,20 +93,17 @@ class ProductionAutoConfigurationTest {
     @Test
     void doesNotInventMagicWarehouseIds() {
         baseRunner
-                .withPropertyValues(
-                        "tmp.production.warehouse.main-warehouse-id=" + MAIN,
-                        "tmp.production.warehouse.production-warehouse-id=" + PROD)
+                .withPropertyValues("tmp.production.warehouse.production-warehouse-id=" + PROD)
                 .run(
                         context -> {
-                            ProductionWarehouseScope scope =
-                                    context.getBean(ProductionWarehouseScope.class);
-                            assertTrue(!MAGIC_MAIN.equals(scope.mainWarehouseId()));
-                            assertTrue(!MAGIC_PROD.equals(scope.productionWarehouseId()));
+                            ProductionDestinationWarehouse destination =
+                                    context.getBean(ProductionDestinationWarehouse.class);
+                            assertTrue(!MAGIC_PROD.equals(destination.productionWarehouseId()));
                         });
     }
 
     @Test
-    void failsWhenOnlyOneWarehouseIdConfigured() {
+    void mainWarehouseIdAloneIsNotSufficient() {
         assertThrows(
                 IllegalStateException.class,
                 () ->
@@ -128,6 +116,20 @@ class ProductionAutoConfigurationTest {
                                                 throw asIllegalState(context.getStartupFailure());
                                             }
                                         }));
+    }
+
+    @Test
+    void productionWarehouseIdAloneIsSufficientEvenWithoutMain() {
+        baseRunner
+                .withPropertyValues("tmp.production.warehouse.production-warehouse-id=" + PROD)
+                .run(
+                        context -> {
+                            assertNotNull(context.getBean(ProductionApplicationApi.class));
+                            assertEquals(
+                                    PROD,
+                                    context.getBean(ProductionDestinationWarehouse.class)
+                                            .productionWarehouseId());
+                        });
     }
 
     private static Throwable rootCause(Throwable throwable) {

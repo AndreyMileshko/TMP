@@ -46,7 +46,7 @@
     <HBox spacing="8">
         <Button fx:id="acceptButton" text="Принять в производство"/>
         <Button fx:id="checkMaterialsButton" text="Проверить наличие материалов"/>
-        <Button fx:id="prepareTransferButton" text="Создать перемещение материалов"/>
+        <Button fx:id="prepareTransferButton" text="Запросить материалы"/>
         <Button fx:id="confirmReceiptButton" text="Подтвердить получение"/>
         <Button fx:id="prepareReleaseButton" text="Выпустить изделия"/>
         <Button fx:id="cancelProductionButton" text="Отменить производство заказа"/>
@@ -59,6 +59,7 @@
                 <Label text="Позиции"/>
                 <TableView fx:id="itemsTable" prefHeight="200">
                     <columns>
+                        <TableColumn fx:id="itemSelectedColumn" text="Выбор" prefWidth="70"/>
                         <TableColumn fx:id="itemPositionColumn" text="Позиция" prefWidth="180"/>
                         <TableColumn fx:id="itemStatusColumn" text="Статус" prefWidth="140"/>
                         <TableColumn fx:id="itemOrderedColumn" text="Заказано" prefWidth="80"/>
@@ -75,7 +76,7 @@
                     <columns>
                         <TableColumn fx:id="materialNameColumn" text="Материал" prefWidth="220"/>
                         <TableColumn fx:id="materialRequiredColumn" text="Требуется" prefWidth="90"/>
-                        <TableColumn fx:id="materialMainColumn" text="Основной склад" prefWidth="110"/>
+                        <TableColumn fx:id="materialMainColumn" text="Другие склады" prefWidth="110"/>
                         <TableColumn fx:id="materialProductionColumn" text="Склад производства" prefWidth="130"/>
                         <TableColumn fx:id="materialTotalColumn" text="Доступно всего" prefWidth="110"/>
                         <TableColumn fx:id="materialDeficitColumn" text="Дефицит" prefWidth="160"/>
@@ -98,33 +99,20 @@
                     <ComboBox fx:id="logicalTransferCombo" prefWidth="360" promptText="Выберите перемещение"/>
                 </HBox>
 
-                <VBox fx:id="transferPanel" spacing="8" visible="false" managed="false">
+                <VBox fx:id="materialRequirementPanel" spacing="8" visible="false" managed="false">
                     <Separator/>
-                    <Label text="Шаблон перемещения материалов"/>
-                    <TableView fx:id="transferLinesTable" prefHeight="160">
+                    <Label text="Потребность в материалах (черновик)"/>
+                    <TableView fx:id="requirementLinesTable" prefHeight="160">
                         <columns>
-                            <TableColumn fx:id="transferMaterialColumn" text="Материал" prefWidth="220"/>
-                            <TableColumn fx:id="transferRecommendedColumn" text="Рекомендовано" prefWidth="100"/>
-                            <TableColumn fx:id="transferRequestedColumn" text="Запрошено" prefWidth="100"/>
-                            <TableColumn fx:id="transferIncludedColumn" text="Включено" prefWidth="80"/>
-                            <TableColumn fx:id="transferAllocationSummaryColumn" text="Распределения" prefWidth="140"/>
-                        </columns>
-                    </TableView>
-                    <Label text="Распределения выбранной строки (источник → назначение)"/>
-                    <TableView fx:id="transferAllocationsTable" prefHeight="140">
-                        <columns>
-                            <TableColumn fx:id="transferAllocSourceColumn" text="Ячейка источника" prefWidth="160"/>
-                            <TableColumn fx:id="transferAllocDestColumn" text="Ячейка назначения" prefWidth="160"/>
-                            <TableColumn fx:id="transferAllocQtyColumn" text="Количество" prefWidth="120"/>
+                            <TableColumn fx:id="requirementCodeColumn" text="Артикул" prefWidth="120"/>
+                            <TableColumn fx:id="requirementNameColumn" text="Наименование" prefWidth="220"/>
+                            <TableColumn fx:id="requirementColorColumn" text="Цвет" prefWidth="100"/>
+                            <TableColumn fx:id="requirementQtyColumn" text="Количество" prefWidth="100"/>
+                            <TableColumn fx:id="requirementUomColumn" text="Ед." prefWidth="70"/>
                         </columns>
                     </TableView>
                     <HBox spacing="8">
-                        <Button fx:id="addTransferAllocationButton" text="Добавить распределение"/>
-                        <Button fx:id="removeTransferAllocationButton" text="Удалить распределение"/>
-                        <Button fx:id="applyRequestedQtyButton" text="Применить количество"/>
-                        <Button fx:id="excludeTransferLineButton" text="Исключить строку"/>
-                        <Button fx:id="restoreTransferLineButton" text="Восстановить строку"/>
-                        <Button fx:id="confirmTransferButton" text="Подтвердить создание перемещения"/>
+                        <Button fx:id="applyRequirementQtyButton" text="Применить количество"/>
                     </HBox>
                 </VBox>
 

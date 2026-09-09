@@ -1,6 +1,7 @@
 package com.tmp.production.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -10,23 +11,22 @@ import static org.mockito.Mockito.when;
 
 import com.tmp.production.api.ProductionApplicationApi;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateStatusView;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateView;
 import com.tmp.production.application.MaterialReceiptConfirmationResult.MaterialReceiptConfirmationStatus;
 import com.tmp.production.application.ReleaseProductsResult.ItemResult;
 import com.tmp.production.application.ReleaseProductsResult.MaterialResult;
 import com.tmp.production.application.ReleaseProductsResult.PrepareReleasePreview;
-import com.tmp.production.domain.CuttingLinkStatus;
-import com.tmp.production.domain.MaterialPlanningSource;
 import com.tmp.production.domain.MaterialReferenceId;
-import com.tmp.production.domain.MaterialTransferTemplate;
+import com.tmp.production.domain.MaterialRequirement;
+import com.tmp.production.domain.MaterialRequirementLine;
+import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialTransferTemplateId;
-import com.tmp.production.domain.MaterialTransferTemplateLine;
 import com.tmp.production.domain.MaterialTransferTemplateLineId;
-import com.tmp.production.domain.MaterialTransferTemplateOptimisticLockException;
 import com.tmp.production.domain.ProductionMaterialTransfer;
 import com.tmp.production.domain.ProductionMaterialTransferId;
 import com.tmp.production.domain.SourceOrderId;
@@ -35,26 +35,28 @@ import com.tmp.production.domain.WarehouseTransferOperationRef;
 import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.security.ProductionPermissions;
 import com.tmp.security.api.AuthorizationService;
+import java.lang.reflect.RecordComponent;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class DefaultProductionApplicationApiTest {
 
-    private static final UUID MAIN_WH = UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     private static final UUID PROD_WH = UUID.fromString("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
 
     private AuthorizationService authorizationService;
     private ProductionLaunchService launchService;
     private CheckMaterialAvailabilityService checkMaterialAvailabilityService;
-    private MaterialTransferTemplateService transferTemplateService;
-    private ConfirmMaterialTransferService confirmMaterialTransferService;
+    private MaterialRequirementService materialRequirementService;
     private ConfirmMaterialReceiptService confirmMaterialReceiptService;
     private ReleaseProductsService releaseProductsService;
     private CancelOrderProductionService cancelOrderProductionService;
@@ -66,8 +68,7 @@ class DefaultProductionApplicationApiTest {
         authorizationService = mock(AuthorizationService.class);
         launchService = mock(ProductionLaunchService.class);
         checkMaterialAvailabilityService = mock(CheckMaterialAvailabilityService.class);
-        transferTemplateService = mock(MaterialTransferTemplateService.class);
-        confirmMaterialTransferService = mock(ConfirmMaterialTransferService.class);
+        materialRequirementService = mock(MaterialRequirementService.class);
         confirmMaterialReceiptService = mock(ConfirmMaterialReceiptService.class);
         releaseProductsService = mock(ReleaseProductsService.class);
         cancelOrderProductionService = mock(CancelOrderProductionService.class);
@@ -75,11 +76,10 @@ class DefaultProductionApplicationApiTest {
         api =
                 new DefaultProductionApplicationApi(
                         authorizationService,
-                        new ProductionWarehouseScope(MAIN_WH, PROD_WH),
+                        new ProductionDestinationWarehouse(PROD_WH),
                         launchService,
                         checkMaterialAvailabilityService,
-                        transferTemplateService,
-                        confirmMaterialTransferService,
+                        materialRequirementService,
                         confirmMaterialReceiptService,
                         releaseProductsService,
                         cancelOrderProductionService,
@@ -87,40 +87,71 @@ class DefaultProductionApplicationApiTest {
     }
 
     @Test
-    void prepareMaterialTransferTemplateMapsDomainToDto() {
-        MaterialTransferTemplate template = sampleTemplate();
-        when(transferTemplateService.prepareMaterialTransferTemplate(any())).thenReturn(template);
+    void prepareMaterialRequirementMapsDomainToDto() {
+        MaterialRequirement requirement = sampleRequirement();
+        when(materialRequirementService.prepareMaterialRequirement(any(), any()))
+                .thenReturn(requirement);
 
-        TransferTemplateView view =
-                api.prepareMaterialTransferTemplate(template.sourceOrderId().value());
+        MaterialRequirementView view =
+                api.prepareMaterialRequirement(
+                        requirement.sourceOrderId().value(),
+                        requirement.lines().getFirst().sourceOrderItemIds().stream()
+                                .map(SourceOrderItemId::value)
+                                .toList());
 
         verify(authorizationService)
                 .requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
-        assertEquals(template.templateId().value(), view.templateId());
-        assertEquals(template.sourceOrderId().value(), view.sourceOrderId());
-        assertEquals(TransferTemplateStatusView.DRAFT, view.status());
+        assertEquals(requirement.requirementId().value(), view.requirementId());
+        assertEquals(requirement.sourceOrderId().value(), view.sourceOrderId());
+        assertEquals(MaterialRequirementStatusView.DRAFT, view.status());
         assertEquals(1, view.lines().size());
         assertEquals(
-                template.lines().getFirst().lineId().value(), view.lines().getFirst().lineId());
+                requirement.lines().getFirst().lineId().value(),
+                view.lines().getFirst().lineId());
         assertEquals(
-                template.lines().getFirst().requestedQuantity(),
-                view.lines().getFirst().requestedQuantity());
+                requirement.lines().getFirst().quantity(), view.lines().getFirst().quantity());
     }
 
     @Test
-    void changeTransferRequestedQuantityRejectsStaleVersion() {
-        MaterialTransferTemplate template = sampleTemplate();
-        when(transferTemplateService.findTemplateById(template.templateId()))
-                .thenReturn(Optional.of(template));
+    void changeMaterialRequirementQuantityRejectsStaleVersion() {
+        MaterialRequirement requirement = sampleRequirement();
+        when(materialRequirementService.findById(requirement.requirementId()))
+                .thenReturn(Optional.of(requirement));
 
         assertThrows(
-                MaterialTransferTemplateOptimisticLockException.class,
+                MaterialRequirementOptimisticLockException.class,
                 () ->
-                        api.changeTransferRequestedQuantity(
-                                template.templateId().value(),
-                                template.lines().getFirst().lineId().value(),
+                        api.changeMaterialRequirementQuantity(
+                                requirement.requirementId().value(),
+                                requirement.lines().getFirst().lineId().value(),
                                 BigDecimal.TEN,
-                                template.version() + 1));
+                                requirement.version() + 1));
+    }
+
+    @Test
+    void materialRequirementLineViewHasOnlyExpectedComponents() {
+        Set<String> names =
+                Arrays.stream(MaterialRequirementLineView.class.getRecordComponents())
+                        .map(RecordComponent::getName)
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+        assertEquals(
+                Set.of(
+                        "lineId",
+                        "materialReferenceId",
+                        "materialCode",
+                        "materialName",
+                        "color",
+                        "unitOfMeasure",
+                        "quantity",
+                        "sourceOrderItemIds"),
+                names);
+        assertFalse(names.contains("recommendedQuantity"));
+        assertFalse(names.contains("requestedQuantity"));
+        assertFalse(names.contains("mainWarehouseAvailable"));
+        assertFalse(names.contains("productionWarehouseAvailable"));
+        assertFalse(names.contains("uncoveredDeficit"));
+        assertFalse(names.contains("sourceWarehouseId"));
+        assertFalse(names.contains("mainWarehouseId"));
     }
 
     @Test
@@ -225,30 +256,19 @@ class DefaultProductionApplicationApiTest {
         assertEquals(Optional.of("stop"), captor.getValue().reason());
     }
 
-    private static MaterialTransferTemplate sampleTemplate() {
-        UUID main = UUID.fromString("11111111-1111-4111-8111-111111111111");
-        UUID production = UUID.fromString("22222222-2222-4222-8222-222222222222");
-        MaterialTransferTemplateLine line =
-                MaterialTransferTemplateLine.create(
+    private static MaterialRequirement sampleRequirement() {
+        MaterialRequirementLine line =
+                MaterialRequirementLine.create(
                         MaterialReferenceId.generate(),
                         "MAT-1",
                         "Material 1",
                         "RED",
                         "m",
                         new BigDecimal("5.000"),
-                        MaterialPlanningSource.SPECIFICATION,
-                        null,
-                        CuttingLinkStatus.NONE,
-                        List.of(),
-                        Set.of(SourceOrderItemId.generate()),
-                        new BigDecimal("8.000"),
-                        new BigDecimal("10.000"),
-                        BigDecimal.ZERO,
-                        new BigDecimal("3.000"));
-        return MaterialTransferTemplate.create(
+                        Set.of(SourceOrderItemId.generate()));
+        return MaterialRequirement.create(
                 SourceOrderId.generate(),
-                main,
-                production,
+                PROD_WH,
                 Instant.parse("2026-08-20T09:00:00Z"),
                 List.of(line));
     }

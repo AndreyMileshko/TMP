@@ -4,10 +4,10 @@ import java.util.UUID;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Explicit runtime configuration for Production warehouse scope.
+ * Explicit runtime configuration for the Production destination warehouse.
  *
- * <p>Bound from {@code tmp.production.warehouse.*}. No fake defaults — missing ids fail fast when
- * the scope bean is created.
+ * <p>Bound from {@code tmp.production.warehouse.*}. Only {@code productionWarehouseId} is required.
+ * {@code mainWarehouseId} remains optional for YAML compatibility and is unused by active runtime.
  */
 @ConfigurationProperties(prefix = "tmp.production.warehouse")
 public class ProductionWarehouseProperties {
@@ -31,7 +31,8 @@ public class ProductionWarehouseProperties {
         this.productionWarehouseId = productionWarehouseId;
     }
 
+    /** Destination warehouse configured for Material Requirement / availability / release. */
     public boolean isComplete() {
-        return mainWarehouseId != null && productionWarehouseId != null;
+        return productionWarehouseId != null;
     }
 }

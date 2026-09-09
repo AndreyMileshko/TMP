@@ -345,7 +345,7 @@ Production:
 - дефицит;
 - источник плановой потребности: `Specification` или `Cutting Plan`.
 
-> **CURRENT IMPLEMENTATION note (Stage 7):** availability UI использует fixed `ProductionWarehouseScope` (main + production). **TARGET Stage 3.5 (ADR-037):** source warehouse не фиксируется конфигурацией material/main mapping; automatic routing — ответственность Warehouse; конкретный availability UI Production уточняется на implementation step без dual recommendation quantity model.
+> **CURRENT IMPLEMENTATION note (after Stage 3.5.9):** availability UI shows required quantity, destination (production) warehouse AVAILABLE, sum of AVAILABLE at other active warehouses (informational — not a fixed main warehouse), total, and deficit. Availability does **not** drive Material Requirement quantity. Material Requirement uses frozen Specification aggregation only.
 
 Production не хранит и не рассчитывает складские остатки самостоятельно.
 
@@ -398,30 +398,40 @@ Order Item / Specification
 - Warehouse может внутри создать несколько transfer documents при multi-source routing;
 - multi-line operational Transfer document — **Warehouse-owned** (не Production inventory grouping).
 
-## 13.1 CURRENT IMPLEMENTATION (Stage 7 — until Stage 3.5 refactor)
+## 13.1 CURRENT IMPLEMENTATION note (after Stage 3.5.9)
 
-Старая модель пассивной `generateMaterialTransferRecommendation()` как внешнего Public API **заменена** Stage 7 editable template. Текущий runtime **ещё** использует:
+**Stage 3.5.9 COMPLETE:** active Production Material Requirement DRAFT workflow uses:
+
+- selected Order Items → frozen `SpecificationId` aggregation → single editable `quantity`;
+- `ProductionDestinationWarehouse` / `productionWarehouseId` only (no fixed `mainWarehouseId` in requirement path);
+- no recommendation formula, no dual recommended/requested quantities, no `included` flags;
+- UI command **Запросить материалы**; Submit → Warehouse automatic routing is **Stage 3.5.10** (not yet implemented).
+
+Legacy Stage 7 Material Transfer Template tables / historical logical transfers remain readable for completed records; they are not the active planning algorithm.
+
+## 13.1a HISTORICAL Stage 7 (pre-3.5.9) — retained for audit trail
+
+Until Stage 3.5.9 the runtime used:
 
 - `ProductionWarehouseScope(mainWarehouseId, productionWarehouseId)`;
 - recommended transfer = min(max(required − productionAvailable, 0), mainAvailable);
-- шаблон с recommended/requested quantities и `included` flags;
-- confirm → Warehouse-owned line Transfer drafts; Production хранит logical transfer refs.
+- template with recommended/requested quantities and `included` flags;
+- confirm → Warehouse-owned line Transfer drafts; Production stored logical transfer refs.
 
-Это CURRENT IMPLEMENTATION. Код на architecture-alignment step **не** удаляется и **не** меняется; refactor — отдельный Stage 3.5 implementation step.
+That active recommendation path is retired. Historical persistence may remain.
 
-Production формирует **предзаполненный редактируемый шаблон** (CURRENT):
+Production forms an **editable Material Requirement DRAFT** (CURRENT after 3.5.9):
 
-- материалы;
-- рекомендуемые количества;
-- источник расчёта (`Specification` / `Cutting Plan`);
-- данные Cutting Plan для длинномеров, если карта используется;
-- привязка к Order ID / Order Item ID по необходимости аудита.
+- materials;
+- one quantity per line (initially aggregated from frozen Specification);
+- provenance to Order Item IDs as needed for audit.
 
-Мастер (CURRENT):
+Master (CURRENT after 3.5.9):
 
-1. проверяет шаблон;
-2. при необходимости корректирует количества;
-3. подтверждает **Создать перемещение**.
+1. selects Order Items;
+2. reviews aggregated requirement;
+3. may change quantity;
+4. saves DRAFT (Submit to Warehouse = Stage 3.5.10).
 
 ## 13.2 Владение
 

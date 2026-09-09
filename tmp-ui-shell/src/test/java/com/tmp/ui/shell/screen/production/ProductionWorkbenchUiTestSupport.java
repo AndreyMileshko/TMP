@@ -18,18 +18,18 @@ import com.tmp.order.api.ProductionSpecificationDto;
 import com.tmp.order.api.RevisionNumber;
 import com.tmp.order.api.SpecificationId;
 import com.tmp.production.api.ProductionApplicationApi;
+import com.tmp.production.api.ProductionApplicationApi.DestinationWarehouseView;
 import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
 import com.tmp.production.api.ProductionApplicationApi.ReleaseResultView;
-import com.tmp.production.api.ProductionApplicationApi.TransferCellAllocation;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateLineView;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateView;
-import com.tmp.production.api.ProductionApplicationApi.WarehouseScopeView;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthenticationService;
@@ -190,11 +190,9 @@ final class ProductionWorkbenchUiTestSupport {
         final List<UUID> acceptCalls = new CopyOnWriteArrayList<>();
         final List<String> acceptActors = new CopyOnWriteArrayList<>();
         final List<UUID> checkCalls = new CopyOnWriteArrayList<>();
-        final List<UUID> prepareTransferCalls = new CopyOnWriteArrayList<>();
+        final List<UUID> prepareMaterialRequirementCalls = new CopyOnWriteArrayList<>();
+        final List<List<UUID>> prepareMaterialRequirementItemIds = new CopyOnWriteArrayList<>();
         final List<Object[]> changeQtyCalls = new CopyOnWriteArrayList<>();
-        final List<UUID> confirmTransferCalls = new CopyOnWriteArrayList<>();
-        final List<List<TransferCellAllocation>> confirmTransferAllocationCalls =
-                new CopyOnWriteArrayList<>();
         final List<UUID> receiptCalls = new CopyOnWriteArrayList<>();
         final List<List<ItemReleaseView>> prepareReleaseCalls = new CopyOnWriteArrayList<>();
         final List<List<ItemReleaseView>> releaseProductCalls = new CopyOnWriteArrayList<>();
@@ -202,18 +200,17 @@ final class ProductionWorkbenchUiTestSupport {
         final List<UUID> cancelCalls = new CopyOnWriteArrayList<>();
         final List<Optional<String>> cancelReasons = new CopyOnWriteArrayList<>();
 
-        TransferTemplateView template;
+        MaterialRequirementView requirement;
         ReleasePreviewView releasePreview;
         List<LogicalTransferView> logicalTransfers = List.of();
         ReceiptResultView receiptResult =
                 new ReceiptResultView(ReceiptStatusView.RECEIVED, "ok");
         ReleaseResultView releaseResult;
-        UUID mainWarehouseId = UUID.fromString("11111111-1111-4111-8111-111111111111");
         UUID productionWarehouseId = UUID.fromString("22222222-2222-4222-8222-222222222222");
 
         @Override
-        public WarehouseScopeView warehouseScope() {
-            return new WarehouseScopeView(mainWarehouseId, productionWarehouseId);
+        public DestinationWarehouseView destinationWarehouse() {
+            return new DestinationWarehouseView(productionWarehouseId);
         }
 
         @Override
@@ -228,78 +225,47 @@ final class ProductionWorkbenchUiTestSupport {
         }
 
         @Override
-        public TransferTemplateView prepareMaterialTransferTemplate(UUID orderId) {
-            prepareTransferCalls.add(orderId);
-            return template;
+        public MaterialRequirementView prepareMaterialRequirement(
+                UUID orderId, List<UUID> selectedOrderItemIds) {
+            prepareMaterialRequirementCalls.add(orderId);
+            prepareMaterialRequirementItemIds.add(List.copyOf(selectedOrderItemIds));
+            return requirement;
         }
 
         @Override
-        public TransferTemplateView changeTransferRequestedQuantity(
-                UUID templateId, UUID lineId, BigDecimal quantity, long expectedVersion) {
-            changeQtyCalls.add(new Object[] {templateId, lineId, quantity, expectedVersion});
-            if (template != null) {
-                List<TransferTemplateLineView> lines = new ArrayList<>();
-                for (TransferTemplateLineView line : template.lines()) {
+        public MaterialRequirementView changeMaterialRequirementQuantity(
+                UUID requirementId, UUID lineId, BigDecimal quantity, long expectedVersion) {
+            changeQtyCalls.add(new Object[] {requirementId, lineId, quantity, expectedVersion});
+            if (requirement != null) {
+                List<MaterialRequirementLineView> lines = new ArrayList<>();
+                for (MaterialRequirementLineView line : requirement.lines()) {
                     if (line.lineId().equals(lineId)) {
                         lines.add(
-                                new TransferTemplateLineView(
+                                new MaterialRequirementLineView(
                                         line.lineId(),
                                         line.materialReferenceId(),
                                         line.materialCode(),
                                         line.materialName(),
                                         line.color(),
                                         line.unitOfMeasure(),
-                                        line.recommendedQuantity(),
                                         quantity,
-                                        line.included(),
-                                        line.planningSource(),
-                                        line.cuttingPlanId(),
-                                        line.cuttingLinkStatus(),
-                                        line.cuttingPlanReferences(),
-                                        line.sourceOrderItemIds(),
-                                        line.requiredQuantity(),
-                                        line.mainWarehouseAvailable(),
-                                        line.productionWarehouseAvailable(),
-                                        line.uncoveredDeficit()));
+                                        line.sourceOrderItemIds()));
                     } else {
                         lines.add(line);
                     }
                 }
-                template =
-                        new TransferTemplateView(
-                                template.templateId(),
-                                template.sourceOrderId(),
-                                template.sourceWarehouseId(),
-                                template.destinationWarehouseId(),
-                                template.createdAt(),
+                requirement =
+                        new MaterialRequirementView(
+                                requirement.requirementId(),
+                                requirement.sourceOrderId(),
+                                requirement.destinationWarehouseId(),
+                                requirement.createdAt(),
                                 Instant.parse("2026-01-02T00:00:00Z"),
-                                template.version() + 1,
-                                template.status(),
-                                template.confirmedAt(),
+                                requirement.version() + 1,
+                                MaterialRequirementStatusView.DRAFT,
                                 lines);
             }
-            return template;
-        }
-
-        @Override
-        public TransferTemplateView excludeTransferLine(
-                UUID templateId, UUID lineId, long expectedVersion) {
-            return template;
-        }
-
-        @Override
-        public TransferTemplateView restoreTransferLine(
-                UUID templateId, UUID lineId, long expectedVersion) {
-            return template;
-        }
-
-        @Override
-        public LogicalTransferView confirmMaterialTransferCreate(
-                UUID templateId, long expectedVersion, List<TransferCellAllocation> allocations) {
-            confirmTransferCalls.add(templateId);
-            confirmTransferAllocationCalls.add(List.copyOf(allocations));
-            return new LogicalTransferView(
-                    UUID.randomUUID(), templateId, Instant.now(), List.of());
+            return requirement;
         }
 
         @Override

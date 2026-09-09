@@ -79,7 +79,7 @@ class CheckMaterialAvailabilityServiceTest {
                         viewService,
                         foundationQuery,
                         warehouseQuery,
-                        new ProductionWarehouseScope(MAIN_WAREHOUSE, PROD_WAREHOUSE),
+                        new ProductionDestinationWarehouse(PROD_WAREHOUSE),
                         historyService,
                         ProductionHistoryTestSupport.noOpTransactionManager(),
                         Clock.fixed(T0, ZoneOffset.UTC));
@@ -543,7 +543,7 @@ class CheckMaterialAvailabilityServiceTest {
     }
 
     @Test
-    void otherWarehouseStockDoesNotMaskDeficit() {
+    void sumsSupplyAcrossAllNonDestinationActiveWarehouses() {
         SpecificationId specId = SpecificationId.generate();
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         launchItem(orderId, itemId, specId, 1);
@@ -564,12 +564,14 @@ class CheckMaterialAvailabilityServiceTest {
         MaterialAvailabilityCheckResult result = service.check(orderId);
 
         var line = result.lines().getFirst();
-        assertEquals(0, line.totalAvailable().compareTo(BigDecimal.valueOf(3)));
-        assertEquals(0, line.deficit().compareTo(BigDecimal.valueOf(7)));
+        assertEquals(0, line.productionWarehouseAvailable().compareTo(BigDecimal.valueOf(1)));
+        assertEquals(0, line.mainWarehouseAvailable().compareTo(BigDecimal.valueOf(102)));
+        assertEquals(0, line.totalAvailable().compareTo(BigDecimal.valueOf(103)));
+        assertEquals(0, line.deficit().compareTo(BigDecimal.ZERO));
     }
 
     @Test
-    void usesScopedWarehouseAvailabilityQueryOnly() {
+    void queriesDestinationThenAllOtherActiveWarehouses() {
         SpecificationId specId = SpecificationId.generate();
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         launchItem(orderId, itemId, specId, 1);
@@ -588,9 +590,12 @@ class CheckMaterialAvailabilityServiceTest {
 
         service.check(orderId);
 
-        assertTrue(warehouseQuery.availableQuantityCalls >= 2);
-        assertEquals(MAIN_WAREHOUSE, warehouseQuery.lastWarehouseIds.get(0));
-        assertEquals(PROD_WAREHOUSE, warehouseQuery.lastWarehouseIds.get(1));
+        assertTrue(warehouseQuery.availableQuantityCalls >= 3);
+        assertEquals(PROD_WAREHOUSE, warehouseQuery.lastWarehouseIds.get(0));
+        assertTrue(warehouseQuery.lastWarehouseIds.contains(MAIN_WAREHOUSE));
+        assertTrue(warehouseQuery.lastWarehouseIds.contains(OTHER_WAREHOUSE));
+        assertTrue(!warehouseQuery.lastWarehouseIds.subList(1, warehouseQuery.lastWarehouseIds.size())
+                .contains(PROD_WAREHOUSE));
     }
 
     @Test

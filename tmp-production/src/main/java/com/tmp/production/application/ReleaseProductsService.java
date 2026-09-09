@@ -63,7 +63,7 @@ public final class ReleaseProductsService {
     private final WarehouseAvailabilityQueryPort warehouseAvailabilityQuery;
     private final WarehouseCommandApi warehouseCommandApi;
     private final WarehouseQueryApi warehouseQueryApi;
-    private final ProductionWarehouseScope warehouseScope;
+    private final ProductionDestinationWarehouse destinationWarehouse;
     private final ProductionReleaseDocumentService releaseDocumentService;
     private final ProductionOrderStateLockService stateLockService;
     private final ReleaseMaterialPlanBuilder planBuilder;
@@ -77,7 +77,7 @@ public final class ReleaseProductsService {
             WarehouseAvailabilityQueryPort warehouseAvailabilityQuery,
             WarehouseCommandApi warehouseCommandApi,
             WarehouseQueryApi warehouseQueryApi,
-            ProductionWarehouseScope warehouseScope,
+            ProductionDestinationWarehouse destinationWarehouse,
             ProductionReleaseDocumentService releaseDocumentService,
             PlatformTransactionManager transactionManager,
             Clock clock) {
@@ -86,7 +86,7 @@ public final class ReleaseProductsService {
                 warehouseAvailabilityQuery,
                 warehouseCommandApi,
                 warehouseQueryApi,
-                warehouseScope,
+                destinationWarehouse,
                 releaseDocumentService,
                 new ProductionOrderStateLockService(orderViewService),
                 new ReleaseMaterialPlanBuilder(),
@@ -100,7 +100,7 @@ public final class ReleaseProductsService {
             WarehouseAvailabilityQueryPort warehouseAvailabilityQuery,
             WarehouseCommandApi warehouseCommandApi,
             WarehouseQueryApi warehouseQueryApi,
-            ProductionWarehouseScope warehouseScope,
+            ProductionDestinationWarehouse destinationWarehouse,
             ProductionReleaseDocumentService releaseDocumentService,
             ProductionOrderStateLockService stateLockService,
             ReleaseMaterialPlanBuilder planBuilder,
@@ -113,7 +113,8 @@ public final class ReleaseProductsService {
         this.warehouseCommandApi =
                 Objects.requireNonNull(warehouseCommandApi, "warehouseCommandApi");
         this.warehouseQueryApi = Objects.requireNonNull(warehouseQueryApi, "warehouseQueryApi");
-        this.warehouseScope = Objects.requireNonNull(warehouseScope, "warehouseScope");
+        this.destinationWarehouse =
+                Objects.requireNonNull(destinationWarehouse, "destinationWarehouse");
         this.releaseDocumentService =
                 Objects.requireNonNull(releaseDocumentService, "releaseDocumentService");
         this.stateLockService = Objects.requireNonNull(stateLockService, "stateLockService");
@@ -170,7 +171,7 @@ public final class ReleaseProductsService {
                             rejectDuplicateItems(command.itemReleases());
                             Map<UUID, StorageCellView> productionCells =
                                     indexActiveProductionCells(
-                                            warehouseScope.productionWarehouseId());
+                                            destinationWarehouse.productionWarehouseId());
                             PreparedRelease prepared =
                                     prepareConfirmRelease(
                                             command, lockedStates, productionCells);
@@ -191,7 +192,7 @@ public final class ReleaseProductsService {
                         toDocumentCommand(command.sourceOrderId(), releasedAt, prepared));
 
         List<ConsumptionReference> consumptionReferences = new ArrayList<>();
-        UUID productionWarehouseId = warehouseScope.productionWarehouseId();
+        UUID productionWarehouseId = destinationWarehouse.productionWarehouseId();
         for (MaterialActualUsage usage : command.materialActualUsages()) {
             if (usage.actualQuantity().signum() == 0) {
                 continue;
@@ -432,7 +433,7 @@ public final class ReleaseProductsService {
     }
 
     private void precheckStock(MaterialActualUsage actual) {
-        UUID productionWarehouseId = warehouseScope.productionWarehouseId();
+        UUID productionWarehouseId = destinationWarehouse.productionWarehouseId();
         List<StockView> stockViews =
                 warehouseQueryApi.getStockByMaterialReferenceId(actual.materialReferenceId());
         for (CellAllocation allocation : actual.allocations()) {

@@ -3,6 +3,31 @@
 ## Latest result
 
 **Date:** 2026-09-09
+**Scope:** Stage 3.5.9 Production Material Requirement Refactor
+**Overall:** PASS (targeted tests + architecture + UI + quick build + package + startup smoke on `tmp-stage5-pg`); V42→V43 migration applied; stock preserved; no commit
+
+### Stage 3.5.9 Material Requirement Refactor (2026-09-09)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `992401f` clean WT | PASS |
+| Material Requirement unit/IT set (service/domain/JDBC/Flyway/API/availability/autoconfig/calculator) | PASS (69) |
+| `MaterialRequirementPostgresIT` (incl. zero Warehouse mutation) | PASS (in 69) |
+| `ProductionPublicBoundaryPostgresIT` + Release/Receipt/Transfer/Schema | PASS (74) |
+| `Stage7ProductionArchitectureTest` | PASS (75) |
+| Production Workbench UI tests | PASS (19) |
+| `mvn -pl :tmp-production,:tmp-ui-shell -am test-compile` | PASS |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests …` | PASS |
+| Package `pre-integration-test -Ppackage` → `dist/jpackage/TMP/TMP.exe` | PASS (2026-09-09 16:31:30) |
+| Launch against `tmp_gui_stage5` | PASS — Flyway V43; `Started DesktopBootstrap`; JavaFX WARN unnamed-module only; exceptions NONE |
+| Stock preservation V42→V43 | PASS — ops=61 mov=82 stock_sum=1257.9 transfers=0 (unchanged) |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+
+---
+
+## Previous latest result
+
+**Date:** 2026-09-09
 **Scope:** Stage 3.5.8.3 Reject + Physical Return + Final Settlement
 **Overall:** PASS (targeted tests + architecture + quick build + package + startup smoke on `tmp-stage5-pg`); reject/return INTEGRATION TEST VERIFIED; V41→V42 ISOLATED MIGRATION TEST VERIFIED; no new GUI
 

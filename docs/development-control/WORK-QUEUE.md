@@ -11781,7 +11781,41 @@ Full reject MUST NOT automatically create a continuation.
 
 ### Next on success
 
-Stage 3.5.9 ? Production Material Requirement Refactor = NEXT / NOT STARTED.
+Stage 3.5.9 — Production Material Requirement Refactor = COMPLETE.
+
+---
+
+## STAGE-3.5.9 — Production Material Requirement Refactor
+
+**Status:** DONE
+**Stage:** 3.5
+**Depends on:** Stage 3.5.8.3
+**Module:** `tmp-production` (+ Production Workbench UI)
+
+### Goal
+
+Replace Stage 7 active Material Transfer Template recommendation workflow with Production-owned Material Requirement DRAFT: selected Order Items → frozen Specifications → aggregated single `quantity` → master edit. Destination-only warehouse. No Warehouse routing/submit (3.5.10).
+
+### Acceptance criteria
+
+- [x] Domain: MaterialRequirement / Line / IDs / DRAFT status / exceptions
+- [x] `ProductionDestinationWarehouse` (destination-only); no mainWarehouse in requirement workflow
+- [x] Flyway V43 tables without source warehouse / recommendation / availability columns
+- [x] Service: prepare + changeQuantity; fail closed on unresolved/ambiguous; no availableQuantity on prepare
+- [x] Application API: prepare/change Material Requirement; transfer-template mutate methods removed
+- [x] Availability/Release/config use ProductionDestinationWarehouse
+- [x] UI: «Запросить материалы» + DRAFT panel (single quantity)
+- [x] Unit + JDBC + Flyway + public-boundary + architecture + UI tests PASS
+- [x] Package + runtime smoke V43; stock preservation
+- [x] No Warehouse routing/submit (3.5.10)
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.9 entry (2026-09-09).
+
+### Next on success
+
+Stage 3.5.10 — Requirement → Automatic Warehouse Tasks = NEXT / NOT STARTED
 
 ---
 ## STAGE-3.5.7 ? Shortfall / Automatic Continuation Transfer
@@ -11815,4 +11849,5 @@ Allow physical SEND of less than DRAFT Transfer Document line quantities while p
 
 Stage 3.5.8 ? Partial Receive + Reject + Return = IN PROGRESS.
 Stage 3.5.8.1 = COMPLETE; 3.5.8.2 = COMPLETE; 3.5.8.3 = COMPLETE.
-Stage 3.5.9 = NEXT / NOT STARTED.
+Stage 3.5.9 = COMPLETE.
+Stage 3.5.10 = NEXT / NOT STARTED.

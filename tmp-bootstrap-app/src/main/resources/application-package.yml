@@ -25,10 +25,9 @@ tmp:
       diagnostic: false
   production:
     warehouse:
-      # Required when Production is on the classpath. Set to real Warehouse IDs for the package
-      # environment, or inject via TMP_PRODUCTION_WAREHOUSE_* / Spring property overrides.
-      # main-warehouse-id: ${TMP_PRODUCTION_WAREHOUSE_MAIN_ID}
+      # Required when Production is on the classpath. Destination (production) warehouse only.
       # production-warehouse-id: ${TMP_PRODUCTION_WAREHOUSE_PRODUCTION_ID}
+      # Optional legacy main-warehouse-id is unused by Stage 3.5.9 Material Requirement runtime.
 
 logging:
   level:

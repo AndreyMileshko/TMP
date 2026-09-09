@@ -8,16 +8,15 @@ import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.application.CancelOrderProductionService;
 import com.tmp.production.application.CheckMaterialAvailabilityService;
 import com.tmp.production.application.ConfirmMaterialReceiptService;
-import com.tmp.production.application.ConfirmMaterialTransferService;
 import com.tmp.production.application.CurrentMaterialAvailabilityQueryService;
 import com.tmp.production.application.DefaultProductionApplicationApi;
 import com.tmp.production.application.DefaultProductionQueryApi;
-import com.tmp.production.application.MaterialTransferTemplateService;
+import com.tmp.production.application.MaterialRequirementService;
+import com.tmp.production.application.ProductionDestinationWarehouse;
 import com.tmp.production.application.ProductionFoundationQueryService;
 import com.tmp.production.application.ProductionHistoryService;
 import com.tmp.production.application.ProductionLaunchService;
 import com.tmp.production.application.ProductionOrderViewService;
-import com.tmp.production.application.ProductionWarehouseScope;
 import com.tmp.production.application.ReleaseProductsService;
 import com.tmp.production.application.document.ProductionCancellationProcessor;
 import com.tmp.production.application.document.ProductionLaunchPayloadHolder;
@@ -32,6 +31,7 @@ import com.tmp.production.application.port.OrderForProductionQueryPort;
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
 import com.tmp.production.config.ProductionWarehouseProperties;
+import com.tmp.production.domain.repository.MaterialRequirementRepository;
 import com.tmp.production.domain.repository.MaterialTransferTemplateRepository;
 import com.tmp.production.domain.repository.ProductionCancellationQuery;
 import com.tmp.production.domain.repository.ProductionCancellationRepository;
@@ -39,6 +39,7 @@ import com.tmp.production.domain.repository.ProductionHistoryRepository;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.domain.repository.ProductionReleaseRepository;
+import com.tmp.production.persistence.JdbcMaterialRequirementRepository;
 import com.tmp.production.persistence.JdbcMaterialTransferTemplateRepository;
 import com.tmp.production.persistence.JdbcProductionCancellationRepository;
 import com.tmp.production.persistence.JdbcProductionHistoryRepository;
@@ -66,8 +67,8 @@ import org.springframework.transaction.PlatformTransactionManager;
  * Registers Production Capability contributions and read/write runtime beans.
  *
  * <p>Does not create users, roles, or Production-owned authorization tables. Does not invent fake
- * Warehouse ids — {@link ProductionWarehouseScope} must be provided explicitly or configured via
- * {@code tmp.production.warehouse.main-warehouse-id} / {@code production-warehouse-id}.
+ * Warehouse ids — {@link ProductionDestinationWarehouse} must be provided explicitly or configured
+ * via {@code tmp.production.warehouse.production-warehouse-id}.
  */
 @AutoConfiguration
 @AutoConfigureAfter(
@@ -90,17 +91,16 @@ public class ProductionAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    ProductionWarehouseScope productionWarehouseScope(ProductionWarehouseProperties properties) {
-        if (!properties.isComplete()) {
+    ProductionDestinationWarehouse productionDestinationWarehouse(
+            ProductionWarehouseProperties properties) {
+        if (properties.getProductionWarehouseId() == null) {
             throw new IllegalStateException(
-                    "Production warehouse scope is not configured. Required:"
-                            + " tmp.production.warehouse.main-warehouse-id (main warehouse ID) and"
+                    "Production destination warehouse is not configured. Required:"
                             + " tmp.production.warehouse.production-warehouse-id (production"
-                            + " warehouse ID). Provide both explicitly or register a"
-                            + " ProductionWarehouseScope bean.");
+                            + " warehouse ID). Provide it explicitly or register a"
+                            + " ProductionDestinationWarehouse bean.");
         }
-        return new ProductionWarehouseScope(
-                properties.getMainWarehouseId(), properties.getProductionWarehouseId());
+        return new ProductionDestinationWarehouse(properties.getProductionWarehouseId());
     }
 
     @Bean
@@ -123,6 +123,12 @@ public class ProductionAutoConfiguration {
     MaterialTransferTemplateRepository materialTransferTemplateRepository(
             JdbcTemplate jdbcTemplate, Clock clock, PlatformTransactionManager transactionManager) {
         return new JdbcMaterialTransferTemplateRepository(jdbcTemplate, clock, transactionManager);
+    }
+
+    @Bean
+    MaterialRequirementRepository materialRequirementRepository(
+            JdbcTemplate jdbcTemplate, Clock clock, PlatformTransactionManager transactionManager) {
+        return new JdbcMaterialRequirementRepository(jdbcTemplate, clock, transactionManager);
     }
 
     @Bean
@@ -176,10 +182,14 @@ public class ProductionAutoConfiguration {
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQueryService,
             WarehouseAvailabilityQueryPort warehouseQueryPort,
-            ProductionWarehouseScope warehouseScope,
+            ProductionDestinationWarehouse destinationWarehouse,
             Clock clock) {
         return new CurrentMaterialAvailabilityQueryService(
-                orderViewService, foundationQueryService, warehouseQueryPort, warehouseScope, clock);
+                orderViewService,
+                foundationQueryService,
+                warehouseQueryPort,
+                destinationWarehouse,
+                clock);
     }
 
     @Bean
@@ -247,38 +257,19 @@ public class ProductionAutoConfiguration {
     }
 
     @Bean
-    MaterialTransferTemplateService materialTransferTemplateService(
-            CheckMaterialAvailabilityService checkMaterialAvailabilityService,
+    MaterialRequirementService materialRequirementService(
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQueryService,
-            ProductionWarehouseScope warehouseScope,
-            MaterialTransferTemplateRepository templateRepository,
+            ProductionDestinationWarehouse destinationWarehouse,
+            WarehouseAvailabilityQueryPort warehouseAvailabilityQueryPort,
+            MaterialRequirementRepository materialRequirementRepository,
             Clock clock) {
-        return new MaterialTransferTemplateService(
-                checkMaterialAvailabilityService,
+        return new MaterialRequirementService(
                 orderViewService,
                 foundationQueryService,
-                warehouseScope,
-                templateRepository,
-                clock);
-    }
-
-    @Bean
-    ConfirmMaterialTransferService confirmMaterialTransferService(
-            MaterialTransferTemplateRepository templateRepository,
-            ProductionMaterialTransferRepository transferRepository,
-            @Qualifier("warehouseCommandApi") WarehouseCommandApi warehouseCommandApi,
-            @Qualifier("warehouseQueryApi") WarehouseQueryApi warehouseQueryApi,
-            ProductionHistoryService historyService,
-            PlatformTransactionManager transactionManager,
-            Clock clock) {
-        return new ConfirmMaterialTransferService(
-                templateRepository,
-                transferRepository,
-                warehouseCommandApi,
-                warehouseQueryApi,
-                historyService,
-                transactionManager,
+                destinationWarehouse,
+                warehouseAvailabilityQueryPort,
+                materialRequirementRepository,
                 clock);
     }
 
@@ -306,7 +297,7 @@ public class ProductionAutoConfiguration {
             WarehouseAvailabilityQueryPort warehouseAvailabilityQueryPort,
             @Qualifier("warehouseCommandApi") WarehouseCommandApi warehouseCommandApi,
             @Qualifier("warehouseQueryApi") WarehouseQueryApi warehouseQueryApi,
-            ProductionWarehouseScope warehouseScope,
+            ProductionDestinationWarehouse destinationWarehouse,
             DocumentEngine documentEngine,
             ProductionReleaseRepository releaseRepository,
             PlatformTransactionManager transactionManager,
@@ -319,7 +310,7 @@ public class ProductionAutoConfiguration {
                 warehouseAvailabilityQueryPort,
                 warehouseCommandApi,
                 warehouseQueryApi,
-                warehouseScope,
+                destinationWarehouse,
                 releaseDocumentService,
                 transactionManager,
                 clock);
@@ -356,22 +347,20 @@ public class ProductionAutoConfiguration {
     @Bean
     ProductionApplicationApi productionApplicationApi(
             AuthorizationService authorizationService,
-            ProductionWarehouseScope warehouseScope,
+            ProductionDestinationWarehouse destinationWarehouse,
             ProductionLaunchService launchService,
             CheckMaterialAvailabilityService checkMaterialAvailabilityService,
-            MaterialTransferTemplateService transferTemplateService,
-            ConfirmMaterialTransferService confirmMaterialTransferService,
+            MaterialRequirementService materialRequirementService,
             ConfirmMaterialReceiptService confirmMaterialReceiptService,
             ReleaseProductsService releaseProductsService,
             CancelOrderProductionService cancelOrderProductionService,
             ProductionMaterialTransferRepository materialTransferRepository) {
         return new DefaultProductionApplicationApi(
                 authorizationService,
-                warehouseScope,
+                destinationWarehouse,
                 launchService,
                 checkMaterialAvailabilityService,
-                transferTemplateService,
-                confirmMaterialTransferService,
+                materialRequirementService,
                 confirmMaterialReceiptService,
                 releaseProductsService,
                 cancelOrderProductionService,

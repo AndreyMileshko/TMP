@@ -2,12 +2,10 @@ package com.tmp.ui.shell.screen.production;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.api.OrderId;
 import com.tmp.production.api.ProductionApplicationApi.CellAllocationView;
-import com.tmp.production.api.ProductionApplicationApi.CuttingLinkStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
@@ -17,10 +15,9 @@ import com.tmp.production.api.ProductionApplicationApi.MaterialPlanningSourceVie
 import com.tmp.production.api.ProductionApplicationApi.PlannedMaterialLineView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
 import com.tmp.production.api.ProductionApplicationApi.ReleaseResultView;
-import com.tmp.production.api.ProductionApplicationApi.TransferCellAllocation;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateLineView;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateStatusView;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionQueryApi.CuttingPlanLinkView;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateStatus;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
@@ -119,7 +116,6 @@ class ProductionWorkbenchViewModelTest {
                 List.of(
                         new StorageCellView(destCell, destWh, "P-X", true),
                         new StorageCellView(destCellB, destWh, "P-Y", true)));
-        applicationApi.mainWarehouseId = sourceWh;
         applicationApi.productionWarehouseId = destWh;
     }
 
@@ -204,16 +200,11 @@ class ProductionWorkbenchViewModelTest {
         viewModel.checkMaterials();
         assertEquals(List.of(orderId), applicationApi.checkCalls);
 
-        applicationApi.template = sampleTemplate(new BigDecimal("5"));
-        viewModel.prepareTransfer();
-        assertEquals(1, applicationApi.prepareTransferCalls.size());
-        TransferLineRow row = viewModel.transferLines().get(0);
-        TransferAllocationRow transferAlloc = row.addAllocation();
-        transferAlloc.setSourceCell(row.sourceCellChoices().get(0));
-        transferAlloc.setDestinationCell(row.destinationCellChoices().get(0));
-        transferAlloc.setQuantity("5");
-        viewModel.confirmTransfer();
-        assertEquals(1, applicationApi.confirmTransferCalls.size());
+        applicationApi.requirement = sampleTemplate(new BigDecimal("5"));
+        viewModel.prepareMaterialRequirement();
+        assertEquals(1, applicationApi.prepareMaterialRequirementCalls.size());
+        assertEquals(List.of(itemId), applicationApi.prepareMaterialRequirementItemIds.get(0));
+        assertEquals(1, viewModel.requirementLines().size());
 
         applicationApi.logicalTransfers =
                 List.of(
@@ -234,7 +225,7 @@ class ProductionWorkbenchViewModelTest {
         applicationApi.releasePreview = sampleReleasePreview();
         applicationApi.releaseResult =
                 new ReleaseResultView(UUID.randomUUID(), orderId, Instant.now());
-        applicationApi.template = sampleTemplate(new BigDecimal("5"));
+        applicationApi.requirement = sampleTemplate(new BigDecimal("5"));
         viewModel.prepareRelease();
         assertEquals(1, applicationApi.prepareReleaseCalls.size());
         ReleaseMaterialRow materialRow = viewModel.releaseMaterialRows().get(0);
@@ -253,22 +244,24 @@ class ProductionWorkbenchViewModelTest {
     }
 
     @Test
-    void transferEditChangesRequestedQuantityNotRecommended() {
+    void requirementEditChangesQuantity() {
         seedInProduction();
-        applicationApi.template = sampleTemplate(new BigDecimal("5"));
+        applicationApi.requirement = sampleTemplate(new BigDecimal("5"));
         viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.prepareTransfer();
+        viewModel.prepareMaterialRequirement();
 
-        TransferLineRow row = viewModel.transferLines().get(0);
-        assertEquals("5", row.recommendedQuantity());
-        assertEquals("5", row.requestedQuantity());
-        row.setRequestedQuantity("3");
-        viewModel.applyTransferRequestedQuantity(row);
+        MaterialRequirementLineRow row = viewModel.requirementLines().get(0);
+        assertEquals("5", row.quantity());
+        assertEquals("ART-1", row.materialCode());
+        assertEquals("Материал", row.materialName());
+        assertEquals("белый", row.color());
+        assertEquals("шт", row.unitOfMeasure());
+        row.setQuantity("3");
+        viewModel.applyRequirementQuantity(row);
 
         assertEquals(1, applicationApi.changeQtyCalls.size());
         assertEquals(new BigDecimal("3"), applicationApi.changeQtyCalls.get(0)[2]);
-        assertEquals("5", viewModel.transferLines().get(0).recommendedQuantity());
-        assertEquals("3", viewModel.transferLines().get(0).requestedQuantity());
+        assertEquals("3", viewModel.requirementLines().get(0).quantity());
     }
 
     @Test
@@ -289,7 +282,7 @@ class ProductionWorkbenchViewModelTest {
         applicationApi.releasePreview = sampleReleasePreview();
         applicationApi.releaseResult =
                 new ReleaseResultView(UUID.randomUUID(), orderId, Instant.now());
-        applicationApi.template = sampleTemplate(new BigDecimal("1"));
+        applicationApi.requirement = sampleTemplate(new BigDecimal("1"));
 
         viewModel.prepareRelease();
         List<ItemReleaseView> prepared = applicationApi.prepareReleaseCalls.get(0);
@@ -309,104 +302,53 @@ class ProductionWorkbenchViewModelTest {
     }
 
     @Test
-    void transferSupportsMultipleCellAllocationsForOneTemplateLine() {
+    void prepareMaterialRequirementShowsEditableQuantity() {
         seedInProduction();
-        applicationApi.template = sampleTemplate(new BigDecimal("10"));
+        applicationApi.requirement = sampleTemplate(new BigDecimal("10"));
         viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.prepareTransfer();
+        assertTrue(viewModel.itemRows().get(0).isSelected());
+        assertTrue(viewModel.itemRows().get(0).isSelectable());
+        viewModel.prepareMaterialRequirement();
 
-        TransferLineRow row = viewModel.transferLines().get(0);
-        TransferAllocationRow first = row.addAllocation();
-        first.setSourceCell(choiceById(row.sourceCellChoices(), sourceCell));
-        first.setDestinationCell(choiceById(row.destinationCellChoices(), destCell));
-        first.setQuantity("6");
-        TransferAllocationRow second = row.addAllocation();
-        second.setSourceCell(choiceById(row.sourceCellChoices(), sourceCellB));
-        second.setDestinationCell(choiceById(row.destinationCellChoices(), destCell));
-        second.setQuantity("4");
-
-        viewModel.confirmTransfer();
-
-        assertEquals(1, applicationApi.confirmTransferAllocationCalls.size());
-        List<TransferCellAllocation> allocations =
-                applicationApi.confirmTransferAllocationCalls.get(0);
-        assertEquals(2, allocations.size());
-        assertEquals(lineId, allocations.get(0).templateLineId());
-        assertEquals(lineId, allocations.get(1).templateLineId());
-        assertEquals(sourceCell, allocations.get(0).sourceStorageCellId());
-        assertEquals(destCell, allocations.get(0).destinationStorageCellId());
-        assertEquals(new BigDecimal("6"), allocations.get(0).quantity());
-        assertEquals(sourceCellB, allocations.get(1).sourceStorageCellId());
-        assertEquals(destCell, allocations.get(1).destinationStorageCellId());
-        assertEquals(new BigDecimal("4"), allocations.get(1).quantity());
+        MaterialRequirementLineRow row = viewModel.requirementLines().get(0);
+        assertEquals("10", row.quantity());
+        assertEquals("ART-1", row.materialCode());
+        assertTrue(viewModel.materialRequirementPanelVisibleProperty().get());
     }
 
     @Test
-    void transferSupportsMultipleDestinationsForOneTemplateLine() {
+    void prepareMaterialRequirementRequiresSelectedItems() {
         seedInProduction();
-        applicationApi.template = sampleTemplate(new BigDecimal("10"));
+        applicationApi.requirement = sampleTemplate(new BigDecimal("10"));
         viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.prepareTransfer();
+        viewModel.itemRows().get(0).setSelected(false);
+        viewModel.prepareMaterialRequirement();
 
-        TransferLineRow row = viewModel.transferLines().get(0);
-        TransferAllocationRow first = row.addAllocation();
-        first.setSourceCell(choiceById(row.sourceCellChoices(), sourceCell));
-        first.setDestinationCell(choiceById(row.destinationCellChoices(), destCell));
-        first.setQuantity("6");
-        TransferAllocationRow second = row.addAllocation();
-        second.setSourceCell(choiceById(row.sourceCellChoices(), sourceCellB));
-        second.setDestinationCell(choiceById(row.destinationCellChoices(), destCellB));
-        second.setQuantity("4");
-
-        viewModel.confirmTransfer();
-
-        List<TransferCellAllocation> allocations =
-                applicationApi.confirmTransferAllocationCalls.get(0);
-        assertEquals(2, allocations.size());
-        assertEquals(destCell, allocations.get(0).destinationStorageCellId());
-        assertEquals(destCellB, allocations.get(1).destinationStorageCellId());
-        assertEquals(new BigDecimal("6"), allocations.get(0).quantity());
-        assertEquals(new BigDecimal("4"), allocations.get(1).quantity());
+        assertEquals(0, applicationApi.prepareMaterialRequirementCalls.size());
+        assertTrue(viewModel.errorMessageProperty().get().contains("позицию"));
+        assertFalse(viewModel.materialRequirementPanelVisibleProperty().get());
     }
 
     @Test
-    void transferAllocationMismatchBlocksConfirm() {
+    void releasedItemsAreNotSelectedByDefault() {
         seedInProduction();
-        applicationApi.template = sampleTemplate(new BigDecimal("10"));
+        queryApi.itemStates.put(
+                itemId,
+                new ItemProductionStateView(
+                        orderId,
+                        itemId,
+                        specId,
+                        ItemProductionStateStatus.RELEASED,
+                        10,
+                        0,
+                        0,
+                        10,
+                        Optional.empty(),
+                        Instant.parse("2026-01-01T10:00:00Z"),
+                        List.of()));
         viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.prepareTransfer();
-
-        TransferLineRow row = viewModel.transferLines().get(0);
-        TransferAllocationRow first = row.addAllocation();
-        first.setSourceCell(choiceById(row.sourceCellChoices(), sourceCell));
-        first.setDestinationCell(choiceById(row.destinationCellChoices(), destCell));
-        first.setQuantity("6");
-        TransferAllocationRow second = row.addAllocation();
-        second.setSourceCell(choiceById(row.sourceCellChoices(), sourceCellB));
-        second.setDestinationCell(choiceById(row.destinationCellChoices(), destCell));
-        second.setQuantity("3");
-
-        viewModel.confirmTransfer();
-
-        assertEquals(0, applicationApi.confirmTransferCalls.size());
-        assertTrue(viewModel.errorMessageProperty().get().contains("Сумма распределений"));
-    }
-
-    @Test
-    void transferPrepareLeavesAllocationsEmptyWithoutAutoCellPick() {
-        seedInProduction();
-        applicationApi.template = sampleTemplate(new BigDecimal("10"));
-        viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.prepareTransfer();
-
-        TransferLineRow row = viewModel.transferLines().get(0);
-        assertEquals(2, row.sourceCellChoices().size());
-        assertEquals(2, row.destinationCellChoices().size());
-        assertTrue(row.allocations().isEmpty());
-        TransferAllocationRow added = row.addAllocation();
-        assertNull(added.sourceCell());
-        assertNull(added.destinationCell());
-        assertEquals("", added.quantity());
+        assertFalse(viewModel.itemRows().get(0).isSelected());
+        assertFalse(viewModel.itemRows().get(0).isSelectable());
     }
 
     @Test
@@ -521,30 +463,19 @@ class ProductionWorkbenchViewModelTest {
     }
 
     @Test
-    void transferReselectionRetainsVisibleAllocations() {
+    void requirementLineSelectionIsRetainedAcrossQuantityEdit() {
         seedInProduction();
-        applicationApi.template = sampleTemplate(new BigDecimal("1.000000"));
+        applicationApi.requirement = sampleTemplate(new BigDecimal("1.000000"));
         viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.prepareTransfer();
+        viewModel.prepareMaterialRequirement();
 
-        TransferLineRow line = viewModel.transferLines().get(0);
-        TransferAllocationRow first = line.addAllocation();
-        first.setSourceCell(choiceById(line.sourceCellChoices(), sourceCell));
-        first.setDestinationCell(choiceById(line.destinationCellChoices(), destCell));
-        first.setQuantity("0.600000");
-        TransferAllocationRow second = line.addAllocation();
-        second.setSourceCell(choiceById(line.sourceCellChoices(), sourceCellB));
-        second.setDestinationCell(choiceById(line.destinationCellChoices(), destCellB));
-        second.setQuantity("0.400000");
+        MaterialRequirementLineRow line = viewModel.requirementLines().get(0);
+        viewModel.selectRequirementLine(line.lineId());
+        line.setQuantity("0.600000");
+        viewModel.applyRequirementQuantity(line);
 
-        viewModel.selectTransferLine(line.lineId());
-        assertEquals(2, viewModel.findTransferLine(line.lineId()).allocations().size());
-
-        viewModel.selectTransferLine(null);
-        viewModel.selectTransferLine(line.lineId());
-        assertEquals(2, viewModel.findTransferLine(line.lineId()).allocations().size());
-        assertEquals("0.600000", line.allocations().get(0).quantity());
-        assertEquals("0.400000", line.allocations().get(1).quantity());
+        assertEquals(line.lineId(), viewModel.selectedRequirementLineIdProperty().get());
+        assertEquals("0.600000", viewModel.requirementLines().get(0).quantity());
     }
 
     @Test
@@ -649,37 +580,25 @@ class ProductionWorkbenchViewModelTest {
         applicationApi.logicalTransfers = List.of();
     }
 
-    private TransferTemplateView sampleTemplate(BigDecimal recommended) {
-        return new TransferTemplateView(
+    private MaterialRequirementView sampleTemplate(BigDecimal quantity) {
+        return new MaterialRequirementView(
                 templateId,
                 orderId,
-                sourceWh,
                 destWh,
                 Instant.parse("2026-01-01T12:00:00Z"),
                 Instant.parse("2026-01-01T12:00:00Z"),
                 1L,
-                TransferTemplateStatusView.DRAFT,
-                Optional.empty(),
+                MaterialRequirementStatusView.DRAFT,
                 List.of(
-                        new TransferTemplateLineView(
+                        new MaterialRequirementLineView(
                                 lineId,
                                 materialRef,
                                 "ART-1",
                                 "Материал",
                                 "белый",
                                 "шт",
-                                recommended,
-                                recommended,
-                                true,
-                                MaterialPlanningSourceView.SPECIFICATION,
-                                Optional.empty(),
-                                CuttingLinkStatusView.NONE,
-                                List.of(),
-                                List.of(itemId),
-                                new BigDecimal("10"),
-                                new BigDecimal("20"),
-                                new BigDecimal("0"),
-                                BigDecimal.ZERO)));
+                                quantity,
+                                List.of(itemId))));
     }
 
     private ReleasePreviewView sampleReleasePreview() {

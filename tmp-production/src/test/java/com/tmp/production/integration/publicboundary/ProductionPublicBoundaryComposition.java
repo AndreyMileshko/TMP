@@ -8,16 +8,15 @@ import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.application.CancelOrderProductionService;
 import com.tmp.production.application.CheckMaterialAvailabilityService;
 import com.tmp.production.application.ConfirmMaterialReceiptService;
-import com.tmp.production.application.ConfirmMaterialTransferService;
 import com.tmp.production.application.CurrentMaterialAvailabilityQueryService;
 import com.tmp.production.application.DefaultProductionApplicationApi;
 import com.tmp.production.application.DefaultProductionQueryApi;
-import com.tmp.production.application.MaterialTransferTemplateService;
+import com.tmp.production.application.MaterialRequirementService;
+import com.tmp.production.application.ProductionDestinationWarehouse;
 import com.tmp.production.application.ProductionFoundationQueryService;
 import com.tmp.production.application.ProductionHistoryService;
 import com.tmp.production.application.ProductionLaunchService;
 import com.tmp.production.application.ProductionOrderViewService;
-import com.tmp.production.application.ProductionWarehouseScope;
 import com.tmp.production.application.ReleaseProductsService;
 import com.tmp.production.application.document.ProductionCancellationProcessor;
 import com.tmp.production.application.document.ProductionLaunchPayloadHolder;
@@ -31,12 +30,12 @@ import com.tmp.production.application.port.DefaultWarehouseAvailabilityQueryAdap
 import com.tmp.production.application.port.OrderForProductionQueryPort;
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
-import com.tmp.production.domain.repository.MaterialTransferTemplateRepository;
+import com.tmp.production.domain.repository.MaterialRequirementRepository;
 import com.tmp.production.domain.repository.ProductionCancellationQuery;
 import com.tmp.production.domain.repository.ProductionCancellationRepository;
 import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.domain.repository.ProductionReleaseRepository;
-import com.tmp.production.persistence.JdbcMaterialTransferTemplateRepository;
+import com.tmp.production.persistence.JdbcMaterialRequirementRepository;
 import com.tmp.production.persistence.JdbcProductionCancellationRepository;
 import com.tmp.production.persistence.JdbcProductionHistoryRepository;
 import com.tmp.production.persistence.JdbcProductionItemStateRepository;
@@ -67,7 +66,7 @@ final class ProductionPublicBoundaryComposition {
     private final ProductionMaterialTransferRepository materialTransfers;
     private final ProductionApplicationApi applicationApi;
     private final ProductionQueryApi queryApi;
-    private final ProductionWarehouseScope warehouseScope;
+    private final ProductionDestinationWarehouse destinationWarehouse;
 
     private ProductionPublicBoundaryComposition(
             ControllableProductionItemStateRepository itemStates,
@@ -75,13 +74,13 @@ final class ProductionPublicBoundaryComposition {
             ProductionMaterialTransferRepository materialTransfers,
             ProductionApplicationApi applicationApi,
             ProductionQueryApi queryApi,
-            ProductionWarehouseScope warehouseScope) {
+            ProductionDestinationWarehouse destinationWarehouse) {
         this.itemStates = itemStates;
         this.historyRepository = historyRepository;
         this.materialTransfers = materialTransfers;
         this.applicationApi = applicationApi;
         this.queryApi = queryApi;
-        this.warehouseScope = warehouseScope;
+        this.destinationWarehouse = destinationWarehouse;
     }
 
     static ProductionPublicBoundaryComposition wire(
@@ -94,7 +93,6 @@ final class ProductionPublicBoundaryComposition {
             OrderQueryService orderQueryService,
             WarehouseQueryApi warehouseQueryApi,
             WarehouseCommandApi warehouseCommandApi,
-            UUID mainWarehouseId,
             UUID productionWarehouseId) {
         Objects.requireNonNull(jdbc, "jdbc");
         Objects.requireNonNull(txManager, "txManager");
@@ -120,13 +118,13 @@ final class ProductionPublicBoundaryComposition {
                 new JdbcProductionCancellationRepository(jdbc, clock);
         ProductionReleaseRepository releaseRepository =
                 new JdbcProductionReleaseRepository(jdbc, clock);
-        MaterialTransferTemplateRepository templates =
-                new JdbcMaterialTransferTemplateRepository(jdbc, clock, txManager);
+        MaterialRequirementRepository requirements =
+                new JdbcMaterialRequirementRepository(jdbc, clock, txManager);
         ProductionMaterialTransferRepository materialTransfers =
                 new JdbcProductionMaterialTransferRepository(jdbc, txManager);
 
-        ProductionWarehouseScope scope =
-                new ProductionWarehouseScope(mainWarehouseId, productionWarehouseId);
+        ProductionDestinationWarehouse destination =
+                new ProductionDestinationWarehouse(productionWarehouseId);
         OrderSpecificationQueryPort specificationQuery =
                 new DefaultOrderSpecificationQueryAdapter(orderQueryService);
         OrderForProductionQueryPort orderForProductionQuery =
@@ -142,7 +140,11 @@ final class ProductionPublicBoundaryComposition {
                 new ProductionFoundationQueryService(specificationQuery);
         CurrentMaterialAvailabilityQueryService currentAvailability =
                 new CurrentMaterialAvailabilityQueryService(
-                        orderViewService, foundationQuery, warehouseAvailabilityQuery, scope, clock);
+                        orderViewService,
+                        foundationQuery,
+                        warehouseAvailabilityQuery,
+                        destination,
+                        clock);
 
         ProductionLaunchPayloadHolder payloadHolder = SHARED_LAUNCH_PAYLOAD_HOLDER;
         if (PROCESSORS_REGISTERED.compareAndSet(false, true)) {
@@ -179,17 +181,13 @@ final class ProductionPublicBoundaryComposition {
         CheckMaterialAvailabilityService checkService =
                 new CheckMaterialAvailabilityService(
                         currentAvailability, historyService, txManager);
-        MaterialTransferTemplateService transferTemplateService =
-                new MaterialTransferTemplateService(
-                        checkService, orderViewService, foundationQuery, scope, templates, clock);
-        ConfirmMaterialTransferService confirmTransferService =
-                new ConfirmMaterialTransferService(
-                        templates,
-                        materialTransfers,
-                        warehouseCommandApi,
-                        warehouseQueryApi,
-                        historyService,
-                        txManager,
+        MaterialRequirementService materialRequirementService =
+                new MaterialRequirementService(
+                        orderViewService,
+                        foundationQuery,
+                        destination,
+                        warehouseAvailabilityQuery,
+                        requirements,
                         clock);
         ConfirmMaterialReceiptService confirmReceiptService =
                 new ConfirmMaterialReceiptService(
@@ -208,7 +206,7 @@ final class ProductionPublicBoundaryComposition {
                         warehouseAvailabilityQuery,
                         warehouseCommandApi,
                         warehouseQueryApi,
-                        scope,
+                        destination,
                         releaseDocumentService,
                         txManager,
                         clock);
@@ -226,11 +224,10 @@ final class ProductionPublicBoundaryComposition {
         ProductionApplicationApi applicationApi =
                 new DefaultProductionApplicationApi(
                         authorizationService,
-                        scope,
+                        destination,
                         launchService,
                         checkService,
-                        transferTemplateService,
-                        confirmTransferService,
+                        materialRequirementService,
                         confirmReceiptService,
                         releaseProductsService,
                         cancelService,
@@ -245,7 +242,7 @@ final class ProductionPublicBoundaryComposition {
                 materialTransfers,
                 applicationApi,
                 queryApi,
-                scope);
+                destination);
     }
 
     ControllableProductionItemStateRepository itemStates() {
@@ -268,7 +265,7 @@ final class ProductionPublicBoundaryComposition {
         return queryApi;
     }
 
-    ProductionWarehouseScope warehouseScope() {
-        return warehouseScope;
+    ProductionDestinationWarehouse destinationWarehouse() {
+        return destinationWarehouse;
     }
 }

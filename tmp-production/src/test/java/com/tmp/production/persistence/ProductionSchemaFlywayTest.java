@@ -13,7 +13,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** Verifies production-owned Flyway migrations V23–V31. */
+/** Verifies production-owned Flyway migrations V23–V31 and V43. */
 @Testcontainers
 class ProductionSchemaFlywayTest {
 
@@ -52,6 +52,9 @@ class ProductionSchemaFlywayTest {
 
         assertEquals(
                 List.of(
+                        "material_requirement_line_source_items",
+                        "material_requirement_lines",
+                        "material_requirements",
                         "material_transfer_operation_refs",
                         "material_transfer_template_line_cutting_refs",
                         "material_transfer_template_line_source_items",
@@ -102,7 +105,7 @@ class ProductionSchemaFlywayTest {
     }
 
     @Test
-    void flywayRecordsV23V26V27V28V29V30AndV31Migrations() {
+    void flywayRecordsV23V26V27V28V29V30V31AndV43Migrations() {
         Integer applied23 =
                 jdbc.queryForObject(
                         """
@@ -152,6 +155,13 @@ class ProductionSchemaFlywayTest {
                         WHERE version = '31' AND success = TRUE
                         """,
                         Integer.class);
+        Integer applied43 =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '43' AND success = TRUE
+                        """,
+                        Integer.class);
         assertEquals(1, applied23);
         assertEquals(1, applied26);
         assertEquals(1, applied27);
@@ -159,6 +169,18 @@ class ProductionSchemaFlywayTest {
         assertEquals(1, applied29);
         assertEquals(1, applied30);
         assertEquals(1, applied31);
+        assertEquals(1, applied43);
+
+        String latest =
+                jdbc.queryForObject(
+                        """
+                        SELECT version FROM flyway_schema_history
+                        WHERE success = TRUE
+                        ORDER BY installed_rank DESC
+                        LIMIT 1
+                        """,
+                        String.class);
+        assertEquals("43", latest);
     }
 
     @Test

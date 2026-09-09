@@ -3,7 +3,7 @@ package com.tmp.ui.shell.screen.production;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Read-only presentation row for a production order item. */
+/** Presentation row for a production order item, including Material Requirement selection. */
 public final class ProductionItemRow {
 
     private final UUID orderItemId;
@@ -15,6 +15,8 @@ public final class ProductionItemRow {
     private final String specificationId;
     private final String cuttingPlanRefs;
     private final long activeQuantityValue;
+    private final boolean selectable;
+    private boolean selected;
     private String releaseQuantityInput;
 
     public ProductionItemRow(
@@ -27,7 +29,9 @@ public final class ProductionItemRow {
             String specificationId,
             String cuttingPlanRefs,
             long activeQuantityValue,
-            String releaseQuantityInput) {
+            String releaseQuantityInput,
+            boolean selectable,
+            boolean selected) {
         this.orderItemId = Objects.requireNonNull(orderItemId, "orderItemId");
         this.positionLabel = Objects.requireNonNull(positionLabel, "positionLabel");
         this.statusLabel = Objects.requireNonNull(statusLabel, "statusLabel");
@@ -37,6 +41,8 @@ public final class ProductionItemRow {
         this.specificationId = Objects.requireNonNull(specificationId, "specificationId");
         this.cuttingPlanRefs = Objects.requireNonNull(cuttingPlanRefs, "cuttingPlanRefs");
         this.activeQuantityValue = activeQuantityValue;
+        this.selectable = selectable;
+        this.selected = selectable && selected;
         this.releaseQuantityInput =
                 releaseQuantityInput == null ? "" : releaseQuantityInput.trim();
     }
@@ -75,6 +81,22 @@ public final class ProductionItemRow {
 
     public long activeQuantityValue() {
         return activeQuantityValue;
+    }
+
+    public boolean isSelectable() {
+        return selectable;
+    }
+
+    public boolean isSelected() {
+        return selected;
+    }
+
+    public void setSelected(boolean selected) {
+        if (!selectable) {
+            this.selected = false;
+            return;
+        }
+        this.selected = selected;
     }
 
     public String releaseQuantityInput() {

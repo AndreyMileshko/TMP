@@ -537,7 +537,7 @@ class CancelOrderProductionPostgresIT {
                 warehouseAvailabilityQuery,
                 warehouseApi,
                 warehouseApi,
-                new ProductionWarehouseScope(MAIN, PROD),
+                new ProductionDestinationWarehouse(PROD),
                 releaseDocumentService,
                 txManager,
                 CLOCK);

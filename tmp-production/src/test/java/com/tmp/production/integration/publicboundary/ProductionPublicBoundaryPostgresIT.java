@@ -28,13 +28,11 @@ import com.tmp.production.api.ProductionApplicationApi.CellAllocationView;
 import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
-import com.tmp.production.api.ProductionApplicationApi.MaterialPlanningSourceView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
-import com.tmp.production.api.ProductionApplicationApi.TransferCellAllocation;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateLineView;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateView;
 import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateStatus;
@@ -50,6 +48,9 @@ import com.tmp.production.application.event.OrderAcceptedIntoProduction;
 import com.tmp.production.application.event.ProductionReleased;
 import com.tmp.production.domain.CancelOrderProductionException;
 import com.tmp.production.domain.MaterialReceiptConfirmationException;
+import com.tmp.production.domain.MaterialReferenceId;
+import com.tmp.production.domain.MaterialTransferTemplateId;
+import com.tmp.production.domain.MaterialTransferTemplateLineId;
 import com.tmp.production.domain.ProductionHistoryEntry;
 import com.tmp.production.domain.ProductionMaterialTransfer;
 import com.tmp.production.domain.SourceOrderId;
@@ -63,6 +64,7 @@ import com.tmp.security.api.UserAdministrationService;
 import com.tmp.security.api.UserSummary;
 import com.tmp.warehouse.WarehouseAutoConfiguration;
 import com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand;
+import com.tmp.warehouse.api.WarehouseApi.CreateTransferDraftCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
 import com.tmp.warehouse.api.WarehouseApi.ReceiptCommand;
@@ -75,7 +77,9 @@ import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -300,33 +304,15 @@ class ProductionPublicBoundaryPostgresIT {
         ImportedOrder order = importStandardOrder();
         production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
 
-        TransferTemplateView template =
-                production.applicationApi().prepareMaterialTransferTemplate(order.orderId());
-        assertEquals(mainWarehouseId, template.sourceWarehouseId());
-        assertEquals(productionWarehouseId, template.destinationWarehouseId());
-        TransferTemplateLineView primaryLine =
-                template.lines().stream()
-                        .filter(line -> MATERIAL_CODE.equals(line.materialCode()))
-                        .findFirst()
-                        .orElseThrow();
-        assertEquals(primaryMaterialRefId, primaryLine.materialReferenceId());
-        assertEquals(MaterialPlanningSourceView.SPECIFICATION, primaryLine.planningSource());
-        assertEquals(0, bd(10).compareTo(primaryLine.requestedQuantity()));
-
         BigDecimal mainBefore = availableInWarehouse(mainWarehouseId, primaryMaterialRefId);
         BigDecimal prodBefore = availableInWarehouse(productionWarehouseId, primaryMaterialRefId);
 
         LogicalTransferView logical =
-                production
-                        .applicationApi()
-                        .confirmMaterialTransferCreate(
-                                template.templateId(),
-                                template.version(),
-                                List.of(
-                                        new TransferCellAllocation(
-                                                primaryLine.lineId(), cellMA, cellPX, bd(6)),
-                                        new TransferCellAllocation(
-                                                primaryLine.lineId(), cellMB, cellPY, bd(4))));
+                createLogicalTransfer(
+                        order.orderId(),
+                        List.of(
+                                new CellMove(cellMA, cellPX, bd(6)),
+                                new CellMove(cellMB, cellPY, bd(4))));
 
         List<UUID> warehouseOperationIds =
                 logical.warehouseOperations().stream()
@@ -392,6 +378,66 @@ class ProductionPublicBoundaryPostgresIT {
         assertHistoryCount(order.orderId(), ProductionHistoryType.MATERIAL_RECEIPT_CONFIRMED, 1);
     }
 
+    @Test
+    void materialRequirementPrepareAndEditDoesNotMutateWarehouseStock() {
+        ImportedOrder order = importStandardOrder();
+        production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
+
+        BigDecimal mainBefore = availableInWarehouse(mainWarehouseId, primaryMaterialRefId);
+        BigDecimal prodBefore = availableInWarehouse(productionWarehouseId, primaryMaterialRefId);
+        int operationsBefore = countRows("warehouse.warehouse_operations");
+        int movementsBefore = countRows("warehouse.warehouse_movements");
+        BigDecimal stockSumBefore = stockQuantitySum();
+        int transferDocsBefore = countRows("warehouse.transfer_document_payload");
+
+        MaterialRequirementView requirement =
+                production
+                        .applicationApi()
+                        .prepareMaterialRequirement(
+                                order.orderId(), List.of(order.itemAId(), order.itemBId()));
+        assertEquals(MaterialRequirementStatusView.DRAFT, requirement.status());
+        assertEquals(productionWarehouseId, requirement.destinationWarehouseId());
+        assertTrue(!requirement.lines().isEmpty());
+
+        var line = requirement.lines().getFirst();
+        MaterialRequirementView edited =
+                production
+                        .applicationApi()
+                        .changeMaterialRequirementQuantity(
+                                requirement.requirementId(),
+                                line.lineId(),
+                                line.quantity().add(bd(1)),
+                                requirement.version());
+        assertEquals(requirement.version() + 1, edited.version());
+        assertEquals(0, line.quantity().add(bd(1)).compareTo(edited.lines().getFirst().quantity()));
+
+        assertEquals(
+                0,
+                mainBefore.compareTo(availableInWarehouse(mainWarehouseId, primaryMaterialRefId)));
+        assertEquals(
+                0,
+                prodBefore.compareTo(
+                        availableInWarehouse(productionWarehouseId, primaryMaterialRefId)));
+        assertTrue(warehouseQueryApi.listTransferDrafts().isEmpty());
+        assertEquals(0, operationsBefore - countRows("warehouse.warehouse_operations"));
+        assertEquals(0, movementsBefore - countRows("warehouse.warehouse_movements"));
+        assertEquals(0, stockSumBefore.compareTo(stockQuantitySum()));
+        assertEquals(0, transferDocsBefore - countRows("warehouse.transfer_document_payload"));
+    }
+
+    private int countRows(String qualifiedTable) {
+        Integer count =
+                jdbc.queryForObject("SELECT COUNT(*) FROM " + qualifiedTable, Integer.class);
+        return count == null ? 0 : count;
+    }
+
+    private BigDecimal stockQuantitySum() {
+        BigDecimal sum =
+                jdbc.queryForObject(
+                        "SELECT COALESCE(SUM(quantity), 0) FROM warehouse.stock_positions",
+                        BigDecimal.class);
+        return sum == null ? BigDecimal.ZERO : sum;
+    }
     @Test
     void releasePreviewNoMutationThenMultiCellConsumptionHappyPath() {
         ImportedOrder order = launchTransferReceiveReady(importStandardOrder());
@@ -490,25 +536,9 @@ class ProductionPublicBoundaryPostgresIT {
         seedStockForOrderMaterial(bd(17));
         putOtherMaterialInProduction(bd(1));
         production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
-        TransferTemplateView template =
-                production.applicationApi().prepareMaterialTransferTemplate(order.orderId());
-        TransferTemplateLineView primaryLine =
-                template.lines().stream()
-                        .filter(line -> MATERIAL_CODE.equals(line.materialCode()))
-                        .findFirst()
-                        .orElseThrow();
         LogicalTransferView logical =
-                production
-                        .applicationApi()
-                        .confirmMaterialTransferCreate(
-                                template.templateId(),
-                                template.version(),
-                                List.of(
-                                        new TransferCellAllocation(
-                                                primaryLine.lineId(),
-                                                cellMA,
-                                                cellPX,
-                                                primaryLine.requestedQuantity())));
+                createLogicalTransfer(
+                        order.orderId(), List.of(new CellMove(cellMA, cellPX, bd(17))));
         ProductionMaterialTransfer durable =
                 production
                         .materialTransfers()
@@ -870,24 +900,12 @@ class ProductionPublicBoundaryPostgresIT {
     void transferReceiptLifecycleFailClosedThroughPublicBoundary() {
         ImportedOrder order = importStandardOrder();
         production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
-        TransferTemplateView template =
-                production.applicationApi().prepareMaterialTransferTemplate(order.orderId());
-        TransferTemplateLineView primaryLine =
-                template.lines().stream()
-                        .filter(line -> MATERIAL_CODE.equals(line.materialCode()))
-                        .findFirst()
-                        .orElseThrow();
         LogicalTransferView logical =
-                production
-                        .applicationApi()
-                        .confirmMaterialTransferCreate(
-                                template.templateId(),
-                                template.version(),
-                                List.of(
-                                        new TransferCellAllocation(
-                                                primaryLine.lineId(), cellMA, cellPX, bd(6)),
-                                        new TransferCellAllocation(
-                                                primaryLine.lineId(), cellMB, cellPY, bd(4))));
+                createLogicalTransfer(
+                        order.orderId(),
+                        List.of(
+                                new CellMove(cellMA, cellPX, bd(6)),
+                                new CellMove(cellMB, cellPY, bd(4))));
         List<UUID> operationIds =
                 logical.warehouseOperations().stream()
                         .map(WarehouseTransferRefView::warehouseDraftOperationId)
@@ -916,25 +934,9 @@ class ProductionPublicBoundaryPostgresIT {
     }
 
     private void transferSingleMaterialToProduction(ImportedOrder order, BigDecimal quantity) {
-        TransferTemplateView template =
-                production.applicationApi().prepareMaterialTransferTemplate(order.orderId());
-        TransferTemplateLineView primaryLine =
-                template.lines().stream()
-                        .filter(line -> MATERIAL_CODE.equals(line.materialCode()))
-                        .findFirst()
-                        .orElseThrow();
         LogicalTransferView logical =
-                production
-                        .applicationApi()
-                        .confirmMaterialTransferCreate(
-                                template.templateId(),
-                                template.version(),
-                                List.of(
-                                        new TransferCellAllocation(
-                                                primaryLine.lineId(),
-                                                cellMA,
-                                                cellPX,
-                                                quantity)));
+                createLogicalTransfer(
+                        order.orderId(), List.of(new CellMove(cellMA, cellPX, quantity)));
         for (WarehouseTransferRefView ref : logical.warehouseOperations()) {
             warehouseCommandApi.sendTransfer(ref.warehouseDraftOperationId());
         }
@@ -943,24 +945,12 @@ class ProductionPublicBoundaryPostgresIT {
 
     private void transferMultiCellMaterialToProduction(
             ImportedOrder order, BigDecimal pxQuantity, BigDecimal pyQuantity) {
-        TransferTemplateView template =
-                production.applicationApi().prepareMaterialTransferTemplate(order.orderId());
-        TransferTemplateLineView primaryLine =
-                template.lines().stream()
-                        .filter(line -> MATERIAL_CODE.equals(line.materialCode()))
-                        .findFirst()
-                        .orElseThrow();
         LogicalTransferView logical =
-                production
-                        .applicationApi()
-                        .confirmMaterialTransferCreate(
-                                template.templateId(),
-                                template.version(),
-                                List.of(
-                                        new TransferCellAllocation(
-                                                primaryLine.lineId(), cellMA, cellPX, pxQuantity),
-                                        new TransferCellAllocation(
-                                                primaryLine.lineId(), cellMB, cellPY, pyQuantity)));
+                createLogicalTransfer(
+                        order.orderId(),
+                        List.of(
+                                new CellMove(cellMA, cellPX, pxQuantity),
+                                new CellMove(cellMB, cellPY, pyQuantity)));
         for (WarehouseTransferRefView ref : logical.warehouseOperations()) {
             warehouseCommandApi.sendTransfer(ref.warehouseDraftOperationId());
         }
@@ -969,30 +959,81 @@ class ProductionPublicBoundaryPostgresIT {
 
     private ImportedOrder launchTransferReceiveReady(ImportedOrder order) {
         production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
-        TransferTemplateView template =
-                production.applicationApi().prepareMaterialTransferTemplate(order.orderId());
-        TransferTemplateLineView primaryLine =
-                template.lines().stream()
-                        .filter(line -> MATERIAL_CODE.equals(line.materialCode()))
-                        .findFirst()
-                        .orElseThrow();
         LogicalTransferView logical =
-                production
-                        .applicationApi()
-                        .confirmMaterialTransferCreate(
-                                template.templateId(),
-                                template.version(),
-                                List.of(
-                                        new TransferCellAllocation(
-                                                primaryLine.lineId(), cellMA, cellPX, bd(6)),
-                                        new TransferCellAllocation(
-                                                primaryLine.lineId(), cellMB, cellPY, bd(4))));
+                createLogicalTransfer(
+                        order.orderId(),
+                        List.of(
+                                new CellMove(cellMA, cellPX, bd(6)),
+                                new CellMove(cellMB, cellPY, bd(4))));
         for (WarehouseTransferRefView ref : logical.warehouseOperations()) {
             warehouseCommandApi.sendTransfer(ref.warehouseDraftOperationId());
         }
         production.applicationApi().confirmMaterialReceipt(logical.id());
         return order;
     }
+
+    private LogicalTransferView createLogicalTransfer(UUID orderId, List<CellMove> moves) {
+        MaterialTransferTemplateId templateId = MaterialTransferTemplateId.generate();
+        MaterialTransferTemplateLineId syntheticLineId = MaterialTransferTemplateLineId.generate();
+        // Legacy Stage 7 FK: material_transfers.template_id → material_transfer_templates.
+        // Stage 3.5.9 no longer creates templates via Application API; insert a stub for fixtures.
+        Instant now = Instant.now(clock);
+        jdbc.update(
+                """
+                INSERT INTO production.material_transfer_templates (
+                    id, source_order_id, source_warehouse_id, destination_warehouse_id,
+                    created_at, updated_at, version, status, confirmed_at)
+                VALUES (?, ?, ?, ?, ?, ?, 0, 'CONFIRMED', ?)
+                """,
+                templateId.value(),
+                orderId,
+                mainWarehouseId,
+                productionWarehouseId,
+                java.sql.Timestamp.from(now),
+                java.sql.Timestamp.from(now),
+                java.sql.Timestamp.from(now));
+        List<WarehouseTransferOperationRef> refs = new ArrayList<>();
+        for (CellMove move : moves) {
+            TransferRequestView draft =
+                    warehouseCommandApi.createTransferDraft(
+                            new CreateTransferDraftCommand(
+                                    primaryMaterialRefId,
+                                    move.quantity(),
+                                    mainWarehouseId,
+                                    move.sourceCellId(),
+                                    productionWarehouseId,
+                                    move.destinationCellId()));
+            refs.add(
+                    new WarehouseTransferOperationRef(
+                            syntheticLineId,
+                            draft.operationId(),
+                            MaterialReferenceId.of(primaryMaterialRefId),
+                            move.quantity(),
+                            move.sourceCellId(),
+                            move.destinationCellId()));
+        }
+        ProductionMaterialTransfer transfer =
+                ProductionMaterialTransfer.create(
+                        templateId,
+                        SourceOrderId.of(orderId),
+                        now,
+                        refs);
+        ProductionMaterialTransfer saved = production.materialTransfers().save(transfer);
+        return new LogicalTransferView(
+                saved.logicalTransferId().value(),
+                saved.templateId().value(),
+                saved.createdAt(),
+                saved.warehouseOperationRefs().stream()
+                        .map(
+                                ref ->
+                                        new WarehouseTransferRefView(
+                                                ref.warehouseDraftOperationId(),
+                                                ref.materialReferenceId().value(),
+                                                ref.quantity()))
+                        .toList());
+    }
+
+    private record CellMove(UUID sourceCellId, UUID destinationCellId, BigDecimal quantity) {}
 
     private ImportedOrder importStandardOrder() {
         return importOrder(bd(10), 10, bd(1), 5);
@@ -1066,28 +1107,34 @@ class ProductionPublicBoundaryPostgresIT {
     }
 
     private void ensureWarehousesAndProductionRuntime() {
-        if (production != null) {
-            return;
+        if (production == null) {
+            WarehouseView main =
+                    findOrCreateWarehouse("PB-MAIN", "Main Warehouse");
+            WarehouseView prod =
+                    findOrCreateWarehouse("PB-PROD", "Production Warehouse");
+            mainWarehouseId = main.warehouseId();
+            productionWarehouseId = prod.warehouseId();
+            production =
+                    ProductionPublicBoundaryComposition.wire(
+                            jdbc,
+                            transactionManager,
+                            clock,
+                            documentEngine,
+                            eventPublisher,
+                            authorizationService,
+                            orderQueryService,
+                            warehouseQueryApi,
+                            warehouseCommandApi,
+                            productionWarehouseId);
         }
-        WarehouseView main =
-                findOrCreateWarehouse("PB-MAIN", "Main Warehouse");
-        WarehouseView prod =
-                findOrCreateWarehouse("PB-PROD", "Production Warehouse");
-        mainWarehouseId = main.warehouseId();
-        productionWarehouseId = prod.warehouseId();
-        production =
-                ProductionPublicBoundaryComposition.wire(
-                        jdbc,
-                        transactionManager,
-                        clock,
-                        documentEngine,
-                        eventPublisher,
-                        authorizationService,
-                        orderQueryService,
-                        warehouseQueryApi,
-                        warehouseCommandApi,
-                        mainWarehouseId,
-                        productionWarehouseId);
+        ensureOperatorResponsibleForWarehouses();
+    }
+
+    private void ensureOperatorResponsibleForWarehouses() {
+        UUID userId =
+                authenticationService.currentSession().orElseThrow().userId().value();
+        warehouseCommandApi.assignUserToWarehouse(mainWarehouseId, userId);
+        warehouseCommandApi.assignUserToWarehouse(productionWarehouseId, userId);
     }
 
     private WarehouseView findOrCreateWarehouse(String code, String name) {

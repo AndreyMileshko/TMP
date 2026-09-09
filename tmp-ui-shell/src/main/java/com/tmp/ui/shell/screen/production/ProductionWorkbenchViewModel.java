@@ -13,13 +13,11 @@ import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
 import com.tmp.production.api.ProductionApplicationApi.ReleaseResultView;
-import com.tmp.production.api.ProductionApplicationApi.TransferCellAllocation;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateLineView;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateView;
 import com.tmp.production.api.ProductionApplicationApi.CellAllocationView;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
@@ -40,10 +38,8 @@ import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -87,7 +83,7 @@ public final class ProductionWorkbenchViewModel {
     private final StringProperty errorMessage = new SimpleStringProperty("");
     private final BooleanProperty loading = new SimpleBooleanProperty(false);
     private final BooleanProperty orderSelected = new SimpleBooleanProperty(false);
-    private final BooleanProperty transferPanelVisible = new SimpleBooleanProperty(false);
+    private final BooleanProperty materialRequirementPanelVisible = new SimpleBooleanProperty(false);
     private final BooleanProperty releasePanelVisible = new SimpleBooleanProperty(false);
 
     private final BooleanProperty canAccept = new SimpleBooleanProperty(false);
@@ -104,7 +100,7 @@ public final class ProductionWorkbenchViewModel {
             FXCollections.observableArrayList();
     private final ObservableList<LogicalTransferRow> logicalTransfers =
             FXCollections.observableArrayList();
-    private final ObservableList<TransferLineRow> transferLines =
+    private final ObservableList<MaterialRequirementLineRow> requirementLines =
             FXCollections.observableArrayList();
     private final ObservableList<ReleaseMaterialRow> releaseMaterialRows =
             FXCollections.observableArrayList();
@@ -114,11 +110,11 @@ public final class ProductionWorkbenchViewModel {
     private final ObjectProperty<LogicalTransferRow> selectedLogicalTransfer =
             new SimpleObjectProperty<>();
 
-    private final ObjectProperty<UUID> selectedTransferLineId = new SimpleObjectProperty<>();
+    private final ObjectProperty<UUID> selectedRequirementLineId = new SimpleObjectProperty<>();
 
     private UUID currentOrderId;
     private OrderProductionViewStatus currentStatus;
-    private TransferTemplateView currentTemplate;
+    private MaterialRequirementView currentRequirement;
     private ReleasePreviewView currentReleasePreview;
     private UUID releaseProductionWarehouseId;
 
@@ -186,111 +182,53 @@ public final class ProductionWorkbenchViewModel {
                 });
     }
 
-    public void prepareTransfer() {
+    public void prepareMaterialRequirement() {
         if (!canTransfer.get() || currentOrderId == null) {
             deny();
             return;
         }
+        List<UUID> selectedItemIds =
+                itemRows.stream()
+                        .filter(ProductionItemRow::isSelected)
+                        .map(ProductionItemRow::orderItemId)
+                        .toList();
+        if (selectedItemIds.isEmpty()) {
+            errorMessage.set("Выберите хотя бы одну позицию заказа.");
+            statusMessage.set("");
+            return;
+        }
         run(
-                "Шаблон перемещения подготовлен",
+                "Потребность в материалах подготовлена",
                 () -> {
-                    TransferTemplateView template =
-                            applicationApi.prepareMaterialTransferTemplate(currentOrderId);
-                    applyTemplate(template);
-                    transferPanelVisible.set(true);
+                    MaterialRequirementView requirement =
+                            applicationApi.prepareMaterialRequirement(
+                                    currentOrderId, selectedItemIds);
+                    applyRequirement(requirement);
+                    materialRequirementPanelVisible.set(true);
                     releasePanelVisible.set(false);
                 });
     }
 
-    public void applyTransferRequestedQuantity(TransferLineRow row) {
+    public void applyRequirementQuantity(MaterialRequirementLineRow row) {
         Objects.requireNonNull(row, "row");
-        if (currentTemplate == null) {
+        if (currentRequirement == null) {
             errorMessage.set(ProductionUiErrorMapper.VALIDATION);
             return;
         }
         UUID lineId = row.lineId();
         run(
-                "Количество перемещения обновлено",
+                "Количество потребности обновлено",
                 () -> {
-                    BigDecimal qty = parseNonNegativeDecimal(row.requestedQuantity(), "количество");
-                    TransferTemplateView updated =
-                            applicationApi.changeTransferRequestedQuantity(
-                                    currentTemplate.templateId(),
+                    BigDecimal qty = parsePositiveDecimal(row.quantity(), "количество");
+                    MaterialRequirementView updated =
+                            applicationApi.changeMaterialRequirementQuantity(
+                                    currentRequirement.requirementId(),
                                     lineId,
                                     qty,
-                                    currentTemplate.version());
-                    applyTemplate(updated, lineId);
+                                    currentRequirement.version());
+                    applyRequirement(updated, lineId);
                 },
                 true);
-    }
-
-    public void excludeTransferLine(TransferLineRow row) {
-        Objects.requireNonNull(row, "row");
-        if (currentTemplate == null) {
-            return;
-        }
-        run(
-                "Строка исключена",
-                () -> {
-                    UUID lineId = row.lineId();
-                    TransferTemplateView updated =
-                            applicationApi.excludeTransferLine(
-                                    currentTemplate.templateId(),
-                                    lineId,
-                                    currentTemplate.version());
-                    applyTemplate(updated, lineId);
-                },
-                true);
-    }
-
-    public void restoreTransferLine(TransferLineRow row) {
-        Objects.requireNonNull(row, "row");
-        if (currentTemplate == null) {
-            return;
-        }
-        run(
-                "Строка восстановлена",
-                () -> {
-                    UUID lineId = row.lineId();
-                    TransferTemplateView updated =
-                            applicationApi.restoreTransferLine(
-                                    currentTemplate.templateId(),
-                                    lineId,
-                                    currentTemplate.version());
-                    applyTemplate(updated, lineId);
-                },
-                true);
-    }
-
-    public void confirmTransfer() {
-        if (!canTransfer.get() || currentTemplate == null) {
-            deny();
-            return;
-        }
-        run(
-                "Перемещение создано",
-                () -> {
-                    List<TransferCellAllocation> allocations = buildTransferAllocations();
-                    applicationApi.confirmMaterialTransferCreate(
-                            currentTemplate.templateId(),
-                            currentTemplate.version(),
-                            allocations);
-                    transferPanelVisible.set(false);
-                    currentTemplate = null;
-                    transferLines.clear();
-                    reloadCurrentOrder();
-                });
-    }
-
-    public TransferAllocationRow addTransferAllocation(TransferLineRow line) {
-        Objects.requireNonNull(line, "line");
-        return line.addAllocation();
-    }
-
-    public void removeTransferAllocation(TransferLineRow line, TransferAllocationRow allocation) {
-        Objects.requireNonNull(line, "line");
-        Objects.requireNonNull(allocation, "allocation");
-        line.removeAllocation(allocation);
     }
 
     public ReleaseCellAllocationRow addReleaseAllocation(ReleaseMaterialRow material) {
@@ -341,10 +279,10 @@ public final class ProductionWorkbenchViewModel {
                     ReleasePreviewView preview =
                             applicationApi.prepareRelease(currentOrderId, releases);
                     UUID productionWarehouseId =
-                            applicationApi.warehouseScope().productionWarehouseId();
+                            applicationApi.destinationWarehouse().productionWarehouseId();
                     applyReleasePreview(preview, productionWarehouseId);
                     releasePanelVisible.set(true);
-                    transferPanelVisible.set(false);
+                    materialRequirementPanelVisible.set(false);
                 });
     }
 
@@ -429,8 +367,8 @@ public final class ProductionWorkbenchViewModel {
         return orderSelected;
     }
 
-    public BooleanProperty transferPanelVisibleProperty() {
-        return transferPanelVisible;
+    public BooleanProperty materialRequirementPanelVisibleProperty() {
+        return materialRequirementPanelVisible;
     }
 
     public BooleanProperty releasePanelVisibleProperty() {
@@ -477,8 +415,8 @@ public final class ProductionWorkbenchViewModel {
         return logicalTransfers;
     }
 
-    public ObservableList<TransferLineRow> transferLines() {
-        return transferLines;
+    public ObservableList<MaterialRequirementLineRow> requirementLines() {
+        return requirementLines;
     }
 
     public ObservableList<ReleaseMaterialRow> releaseMaterialRows() {
@@ -493,19 +431,19 @@ public final class ProductionWorkbenchViewModel {
         return selectedLogicalTransfer;
     }
 
-    public ObjectProperty<UUID> selectedTransferLineIdProperty() {
-        return selectedTransferLineId;
+    public ObjectProperty<UUID> selectedRequirementLineIdProperty() {
+        return selectedRequirementLineId;
     }
 
-    public void selectTransferLine(UUID lineId) {
-        selectedTransferLineId.set(lineId);
+    public void selectRequirementLine(UUID lineId) {
+        selectedRequirementLineId.set(lineId);
     }
 
-    public TransferLineRow findTransferLine(UUID lineId) {
+    public MaterialRequirementLineRow findRequirementLine(UUID lineId) {
         if (lineId == null) {
             return null;
         }
-        return transferLines.stream()
+        return requirementLines.stream()
                 .filter(row -> row.lineId().equals(lineId))
                 .findFirst()
                 .orElse(null);
@@ -519,8 +457,8 @@ public final class ProductionWorkbenchViewModel {
         return currentStatus;
     }
 
-    public TransferTemplateView currentTemplate() {
-        return currentTemplate;
+    public MaterialRequirementView currentRequirement() {
+        return currentRequirement;
     }
 
     public ReleasePreviewView currentReleasePreview() {
@@ -596,56 +534,30 @@ public final class ProductionWorkbenchViewModel {
         refreshActionPolicy();
     }
 
-    private void applyTemplate(TransferTemplateView template) {
-        applyTemplate(template, selectedTransferLineId.get());
+    private void applyRequirement(MaterialRequirementView requirement) {
+        applyRequirement(requirement, selectedRequirementLineId.get());
     }
 
-    private void applyTemplate(TransferTemplateView template, UUID reselectLineId) {
-        currentTemplate = template;
-        releaseProductionWarehouseId = template.destinationWarehouseId();
-        List<StorageCellChoice> sourceCells =
-                loadCells(template.sourceWarehouseId());
-        List<StorageCellChoice> destCells =
-                loadCells(template.destinationWarehouseId());
-        Map<UUID, List<PreservedTransferAllocation>> previous =
-                snapshotTransferAllocations();
-        List<TransferLineRow> rows = new ArrayList<>();
-        for (TransferTemplateLineView line : template.lines()) {
-            TransferLineRow row =
-                    new TransferLineRow(
+    private void applyRequirement(MaterialRequirementView requirement, UUID reselectLineId) {
+        currentRequirement = requirement;
+        releaseProductionWarehouseId = requirement.destinationWarehouseId();
+        List<MaterialRequirementLineRow> rows = new ArrayList<>();
+        for (var line : requirement.lines()) {
+            rows.add(
+                    new MaterialRequirementLineRow(
                             line.lineId(),
-                            line.materialReferenceId(),
-                            formatMaterial(
-                                    line.materialCode(),
-                                    line.materialName(),
-                                    line.color(),
-                                    line.unitOfMeasure()),
-                            line.recommendedQuantity().toPlainString(),
-                            line.requiredQuantity().toPlainString(),
-                            line.requestedQuantity().toPlainString(),
-                            line.included());
-            row.sourceCellChoices().setAll(sourceCells);
-            row.destinationCellChoices().setAll(destCells);
-            // No auto-first-cell selection. Excluded lines stay empty; included lines keep
-            // prior explicit allocations (not scaled) when requested quantity changes.
-            if (line.included()) {
-                List<PreservedTransferAllocation> preserved =
-                        previous.getOrDefault(line.lineId(), List.of());
-                for (PreservedTransferAllocation item : preserved) {
-                    TransferAllocationRow allocation = row.addAllocation();
-                    allocation.setSourceCell(findChoice(sourceCells, item.sourceCellId()));
-                    allocation.setDestinationCell(findChoice(destCells, item.destinationCellId()));
-                    allocation.setQuantity(item.quantity());
-                }
-            }
-            rows.add(row);
+                            blankToEmpty(line.materialCode()),
+                            blankToEmpty(line.materialName()),
+                            blankToEmpty(line.color()),
+                            blankToEmpty(line.unitOfMeasure()),
+                            line.quantity().toPlainString()));
         }
-        transferLines.setAll(rows);
+        requirementLines.setAll(rows);
         if (reselectLineId != null
                 && rows.stream().anyMatch(row -> row.lineId().equals(reselectLineId))) {
-            selectedTransferLineId.set(reselectLineId);
+            selectedRequirementLineId.set(reselectLineId);
         } else if (reselectLineId != null) {
-            selectedTransferLineId.set(null);
+            selectedRequirementLineId.set(null);
         }
     }
 
@@ -681,56 +593,6 @@ public final class ProductionWorkbenchViewModel {
             rows.add(row);
         }
         releaseMaterialRows.setAll(rows);
-    }
-
-    private List<TransferCellAllocation> buildTransferAllocations() {
-        List<TransferCellAllocation> allocations = new ArrayList<>();
-        for (TransferLineRow row : transferLines) {
-            if (!row.included()) {
-                continue;
-            }
-            if (row.allocations().isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Добавьте хотя бы одно распределение ячеек для каждой включённой строки");
-            }
-            BigDecimal requested =
-                    parseNonNegativeDecimal(row.requestedQuantity(), "запрошенное количество");
-            BigDecimal sum = BigDecimal.ZERO;
-            Set<String> pairs = new HashSet<>();
-            for (TransferAllocationRow allocation : row.allocations()) {
-                if (allocation.sourceCell() == null || allocation.destinationCell() == null) {
-                    throw new IllegalArgumentException(
-                            "Выберите ячейки источника и назначения для каждого распределения");
-                }
-                String pairKey =
-                        allocation.sourceCell().id() + "->" + allocation.destinationCell().id();
-                if (!pairs.add(pairKey)) {
-                    throw new IllegalArgumentException(
-                            "Дублирующая пара ячеек источника/назначения в одной строке шаблона");
-                }
-                BigDecimal qty =
-                        parsePositiveDecimal(allocation.quantity(), "количество размещения");
-                sum = sum.add(qty);
-                allocations.add(
-                        new TransferCellAllocation(
-                                row.lineId(),
-                                allocation.sourceCell().id(),
-                                allocation.destinationCell().id(),
-                                qty));
-            }
-            if (sum.compareTo(requested) != 0) {
-                throw new IllegalArgumentException(
-                        "Сумма распределений ("
-                                + sum.toPlainString()
-                                + ") должна равняться запрошенному количеству ("
-                                + requested.toPlainString()
-                                + ")");
-            }
-        }
-        if (allocations.isEmpty()) {
-            throw new IllegalArgumentException("Нет строк для создания перемещения");
-        }
-        return allocations;
     }
 
     private List<ItemReleaseView> buildItemReleasesFromRows() {
@@ -814,44 +676,6 @@ public final class ProductionWorkbenchViewModel {
         return usages;
     }
 
-    private Map<UUID, List<PreservedTransferAllocation>> snapshotTransferAllocations() {
-        Map<UUID, List<PreservedTransferAllocation>> snapshot = new HashMap<>();
-        for (TransferLineRow row : transferLines) {
-            if (!row.included() || row.allocations().isEmpty()) {
-                continue;
-            }
-            List<PreservedTransferAllocation> items = new ArrayList<>();
-            for (TransferAllocationRow allocation : row.allocations()) {
-                items.add(
-                        new PreservedTransferAllocation(
-                                allocation.sourceCell() == null
-                                        ? null
-                                        : allocation.sourceCell().id(),
-                                allocation.destinationCell() == null
-                                        ? null
-                                        : allocation.destinationCell().id(),
-                                allocation.quantity()));
-            }
-            snapshot.put(row.lineId(), items);
-        }
-        return snapshot;
-    }
-
-    private static StorageCellChoice findChoice(List<StorageCellChoice> choices, UUID cellId) {
-        if (cellId == null) {
-            return null;
-        }
-        for (StorageCellChoice choice : choices) {
-            if (choice.id().equals(cellId)) {
-                return choice;
-            }
-        }
-        return null;
-    }
-
-    private record PreservedTransferAllocation(
-            UUID sourceCellId, UUID destinationCellId, String quantity) {}
-
     private List<StorageCellChoice> loadCells(UUID warehouseId) {
         List<StorageCellView> cells = warehouseApi.listStorageCells(warehouseId);
         List<StorageCellChoice> choices = new ArrayList<>();
@@ -879,8 +703,16 @@ public final class ProductionWorkbenchViewModel {
                     "—",
                     "—",
                     0L,
-                    "");
+                    "",
+                    false,
+                    false);
         }
+        boolean eligible =
+                state.status()
+                                == ProductionQueryApi.ItemProductionStateStatus.IN_PRODUCTION
+                        || state.status()
+                                == ProductionQueryApi.ItemProductionStateStatus
+                                        .PARTIALLY_RELEASED;
         return new ProductionItemRow(
                 item.orderItemId().value(),
                 position,
@@ -891,7 +723,9 @@ public final class ProductionWorkbenchViewModel {
                 state.specificationId().toString(),
                 ProductionPresentationLabels.cuttingPlanRefs(state),
                 state.activeProductionQuantity(),
-                "");
+                "",
+                eligible,
+                eligible);
     }
 
     private List<MaterialAvailabilityRow> mapMaterialRows(MaterialAvailabilityResultView result) {
@@ -981,7 +815,7 @@ public final class ProductionWorkbenchViewModel {
     private void clearOrderState() {
         currentOrderId = null;
         currentStatus = null;
-        currentTemplate = null;
+        currentRequirement = null;
         currentReleasePreview = null;
         orderSelected.set(false);
         orderNumber.set("");
@@ -993,12 +827,12 @@ public final class ProductionWorkbenchViewModel {
         materialRows.clear();
         historyRows.clear();
         logicalTransfers.clear();
-        transferLines.clear();
+        requirementLines.clear();
         releaseMaterialRows.clear();
         productionCellChoices.clear();
         selectedLogicalTransfer.set(null);
-        selectedTransferLineId.set(null);
-        transferPanelVisible.set(false);
+        selectedRequirementLineId.set(null);
+        materialRequirementPanelVisible.set(false);
         releasePanelVisible.set(false);
         refreshActionPolicy();
     }

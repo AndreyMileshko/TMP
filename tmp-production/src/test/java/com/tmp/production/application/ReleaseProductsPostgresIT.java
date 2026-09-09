@@ -575,7 +575,7 @@ class ReleaseProductsPostgresIT {
                 warehouseAvailabilityQuery,
                 commands,
                 warehouseApi,
-                new ProductionWarehouseScope(MAIN, PROD),
+                new ProductionDestinationWarehouse(PROD),
                 documentService,
                 txManager,
                 CLOCK);

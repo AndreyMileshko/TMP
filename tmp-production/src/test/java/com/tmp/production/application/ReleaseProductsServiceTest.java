@@ -126,7 +126,7 @@ class ReleaseProductsServiceTest {
                         warehouseAvailabilityQuery,
                         warehouseCommands,
                         warehouseQueries,
-                        new ProductionWarehouseScope(MAIN, PROD),
+                        new ProductionDestinationWarehouse(PROD),
                         releaseDocumentService,
                         new PassthroughTransactionManager(),
                         Clock.fixed(T0, ZoneOffset.UTC));

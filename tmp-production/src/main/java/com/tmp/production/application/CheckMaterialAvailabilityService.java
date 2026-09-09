@@ -42,13 +42,17 @@ public final class CheckMaterialAvailabilityService {
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQuery,
             com.tmp.production.application.port.WarehouseAvailabilityQueryPort warehouseQuery,
-            ProductionWarehouseScope warehouseScope,
+            ProductionDestinationWarehouse destinationWarehouse,
             ProductionHistoryService historyService,
             PlatformTransactionManager transactionManager,
             java.time.Clock clock) {
         this(
                 new CurrentMaterialAvailabilityQueryService(
-                        orderViewService, foundationQuery, warehouseQuery, warehouseScope, clock),
+                        orderViewService,
+                        foundationQuery,
+                        warehouseQuery,
+                        destinationWarehouse,
+                        clock),
                 historyService,
                 transactionManager);
     }
@@ -57,7 +61,7 @@ public final class CheckMaterialAvailabilityService {
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQuery,
             com.tmp.production.application.port.WarehouseAvailabilityQueryPort warehouseQuery,
-            ProductionWarehouseScope warehouseScope,
+            ProductionDestinationWarehouse destinationWarehouse,
             SpecificationMaterialRequirementCalculator requirementCalculator,
             MaterialReferenceResolver materialReferenceResolver,
             ProductionHistoryService historyService,
@@ -68,7 +72,7 @@ public final class CheckMaterialAvailabilityService {
                         orderViewService,
                         foundationQuery,
                         warehouseQuery,
-                        warehouseScope,
+                        destinationWarehouse,
                         requirementCalculator,
                         materialReferenceResolver,
                         clock),

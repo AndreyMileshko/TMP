@@ -10,10 +10,19 @@ import com.tmp.order.api.OrderQueryService;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tmp.production.domain.repository.ProductionHistoryRepository;
+import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaField;
+import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.domain.JavaMethodCall;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
+import java.util.Locale;
+import java.util.Set;
 
 /**
  * Stage 7 Production architecture boundaries.
@@ -307,7 +316,7 @@ class Stage7ProductionArchitectureTest {
                     .or()
                     .haveSimpleName("SpecificationMaterialRequirementCalculator")
                     .or()
-                    .haveSimpleName("ProductionWarehouseScope")
+                    .haveSimpleName("ProductionDestinationWarehouse")
                     .or()
                     .haveSimpleNameContaining("MaterialAvailability")
                     .should()
@@ -449,22 +458,18 @@ class Stage7ProductionArchitectureTest {
                     .that()
                     .haveSimpleNameContaining("MaterialTransferTemplate")
                     .or()
-                    .haveSimpleName("MaterialTransferRecommendationCalculator")
-                    .or()
                     .haveSimpleName("JdbcMaterialTransferTemplateRepository")
                     .should()
                     .dependOnClassesThat()
                     .haveSimpleName("WarehouseCommandApi")
                     .because(
-                            "STAGE7-009 Material Transfer Template must not call Warehouse commands");
+                            "Legacy Material Transfer Template domain must not call Warehouse commands");
 
     @ArchTest
     static final ArchRule materialTransferTemplateMustNotUseWarehouseInternals =
             noClasses()
                     .that()
                     .haveSimpleNameContaining("MaterialTransferTemplate")
-                    .or()
-                    .haveSimpleName("MaterialTransferRecommendationCalculator")
                     .or()
                     .haveSimpleName("JdbcMaterialTransferTemplateRepository")
                     .should()
@@ -482,22 +487,10 @@ class Stage7ProductionArchitectureTest {
             noClasses()
                     .that()
                     .haveSimpleNameContaining("MaterialTransferTemplate")
-                    .or()
-                    .haveSimpleName("MaterialTransferRecommendationCalculator")
                     .should()
                     .dependOnClassesThat()
                     .resideInAnyPackage("com.tmp.cutting..")
                     .because("Mere CuttingPlanId must not pull Stage 8 Cutting runtime");
-
-    @ArchTest
-    static final ArchRule materialTransferTemplateMustNotUseCurrentSpecificationApi =
-            noClasses()
-                    .that()
-                    .haveSimpleName("MaterialTransferTemplateService")
-                    .should()
-                    .callMethod(OrderQueryService.class, "getCurrentItemSpecification")
-                    .because(
-                            "Transfer template must resolve frozen SpecificationId only via Material Check path");
 
     @ArchTest
     static final ArchRule materialTransferTemplateIsNotDocumentProcessor =
@@ -511,15 +504,73 @@ class Stage7ProductionArchitectureTest {
                                     + "Document Engine business document");
 
     @ArchTest
-    static final ArchRule materialTransferTemplateServiceDoesNotUseItemStateRepositoryDirectly =
+    static final ArchRule materialRequirementMustNotUseWarehouseCommandApi =
             noClasses()
                     .that()
-                    .haveSimpleName("MaterialTransferTemplateService")
+                    .haveSimpleNameContaining("MaterialRequirement")
+                    .or()
+                    .haveSimpleName("MaterialRequirementService")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("WarehouseCommandApi")
+                    .because("Stage 3.5.9 Material Requirement must not create Warehouse transfers");
+
+    @ArchTest
+    static final ArchRule materialRequirementMustNotUseRecommendationOrLegacyScope =
+            noClasses()
+                    .that()
+                    .haveSimpleName("MaterialRequirementService")
+                    .or()
+                    .haveSimpleName("MaterialRequirement")
+                    .or()
+                    .haveSimpleName("MaterialRequirementLine")
+                    .or()
+                    .haveSimpleName("DefaultProductionApplicationApi")
+                    .should()
+                    .dependOnClassesThat(
+                            com.tngtech.archunit.core.domain.JavaClass.Predicates
+                                            .simpleNameContaining(
+                                                    "MaterialTransferRecommendation")
+                                    .or(
+                                            com.tngtech.archunit.core.domain.JavaClass.Predicates
+                                                    .simpleName("MaterialTransferTemplateService")))
+                    .because(
+                            "Material Requirement path must not use transfer recommendation or active template planning");
+
+    @ArchTest
+    static final ArchRule materialRequirementServiceDoesNotUseItemStateRepositoryDirectly =
+            noClasses()
+                    .that()
+                    .haveSimpleName("MaterialRequirementService")
                     .should()
                     .dependOnClassesThat()
                     .haveSimpleName("ProductionItemStateRepository")
                     .because(
-                            "Template service reads item state via ProductionOrderViewService only");
+                            "Material Requirement service reads item state via ProductionOrderViewService only");
+
+    @ArchTest
+    static final ArchRule noActiveMaterialTransferRecommendationCalculator =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .and()
+                    .haveSimpleName("MaterialTransferRecommendationCalculator")
+                    .should()
+                    .beInterfaces()
+                    .because(
+                            "Stage 3.5.9 retires MaterialTransferRecommendationCalculator from active runtime")
+                    .allowEmptyShould(true);
+
+    @ArchTest
+    static final ArchRule materialRequirementRejectsLegacyTransferFieldsAndCalculator =
+            classes()
+                    .that()
+                    .haveSimpleNameContaining("MaterialRequirement")
+                    .should(notUseLegacyTransferFieldsOrRecommendationCalculator())
+                    .because(
+                            "Stage 3.5.9 Material Requirement must not use mainWarehouseId, "
+                                    + "recommendedQuantity, or MaterialTransferRecommendationCalculator");
+
     @ArchTest
     static final ArchRule confirmMaterialTransferUsesWarehousePublicApiOnly =
             classes()
@@ -1094,4 +1145,77 @@ class Stage7ProductionArchitectureTest {
                     .because(
                             "Production workbench must not reach repositories, JDBC adapters,"
                                     + " Document Processors or DocumentEngine");
+
+    private static final Set<String> FORBIDDEN_MATERIAL_REQUIREMENT_NAMES =
+            Set.of(
+                    "mainwarehouseid",
+                    "sourcewarehouseid",
+                    "recommendedquantity",
+                    "requestedquantity",
+                    "mainwarehouseavailable",
+                    "productionwarehouseavailable",
+                    "uncovereddeficit",
+                    "materialtransferrecommendationcalculator");
+
+    private static ArchCondition<JavaClass> notUseLegacyTransferFieldsOrRecommendationCalculator() {
+        return new ArchCondition<>(
+                "not declare/access mainWarehouseId, recommendedQuantity, or"
+                        + " MaterialTransferRecommendationCalculator") {
+            @Override
+            public void check(JavaClass javaClass, ConditionEvents events) {
+                for (JavaField field : javaClass.getFields()) {
+                    if (isForbiddenLegacyName(field.getName())
+                            || isForbiddenLegacyName(field.getRawType().getSimpleName())) {
+                        events.add(
+                                SimpleConditionEvent.violated(
+                                        field,
+                                        javaClass.getName()
+                                                + " declares forbidden field "
+                                                + field.getName()
+                                                + " / type "
+                                                + field.getRawType().getSimpleName()));
+                    }
+                }
+                for (JavaMethod method : javaClass.getMethods()) {
+                    if (isForbiddenLegacyName(method.getName())) {
+                        events.add(
+                                SimpleConditionEvent.violated(
+                                        method,
+                                        javaClass.getName()
+                                                + " declares forbidden method "
+                                                + method.getName()));
+                    }
+                }
+                for (JavaMethodCall call : javaClass.getMethodCallsFromSelf()) {
+                    String targetName = call.getName();
+                    String targetOwner = call.getTargetOwner().getSimpleName();
+                    if (isForbiddenLegacyName(targetName) || isForbiddenLegacyName(targetOwner)) {
+                        events.add(
+                                SimpleConditionEvent.violated(
+                                        call,
+                                        javaClass.getName()
+                                                + " calls forbidden "
+                                                + targetOwner
+                                                + "."
+                                                + targetName));
+                    }
+                }
+                javaClass.getDirectDependenciesFromSelf().stream()
+                        .map(dependency -> dependency.getTargetClass().getSimpleName())
+                        .filter(Stage7ProductionArchitectureTest::isForbiddenLegacyName)
+                        .forEach(
+                                simpleName ->
+                                        events.add(
+                                                SimpleConditionEvent.violated(
+                                                        javaClass,
+                                                        javaClass.getName()
+                                                                + " depends on forbidden type "
+                                                                + simpleName)));
+            }
+        };
+    }
+
+    private static boolean isForbiddenLegacyName(String name) {
+        return FORBIDDEN_MATERIAL_REQUIREMENT_NAMES.contains(name.toLowerCase(Locale.ROOT));
+    }
 }

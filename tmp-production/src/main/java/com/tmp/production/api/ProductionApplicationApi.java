@@ -16,10 +16,10 @@ import java.util.UUID;
 public interface ProductionApplicationApi {
 
     /**
-     * Returns the configured Production warehouse scope (main + production warehouse ids). Does not
-     * invent or select warehouses; values come from explicit runtime configuration.
+     * Returns the configured Production destination warehouse id. Does not invent or select
+     * warehouses; value comes from explicit runtime configuration.
      */
-    WarehouseScopeView warehouseScope();
+    DestinationWarehouseView destinationWarehouse();
 
     void acceptOrderIntoProduction(UUID orderId, String createdBy);
 
@@ -29,17 +29,18 @@ public interface ProductionApplicationApi {
      */
     void checkMaterialAvailability(UUID orderId);
 
-    TransferTemplateView prepareMaterialTransferTemplate(UUID orderId);
+    /**
+     * Creates a DRAFT Material Requirement from selected Order Items (Stage 3.5.9). Does not create
+     * Warehouse transfers or mutate stock.
+     */
+    MaterialRequirementView prepareMaterialRequirement(
+            UUID orderId, List<UUID> selectedOrderItemIds);
 
-    TransferTemplateView changeTransferRequestedQuantity(
-            UUID templateId, UUID lineId, BigDecimal quantity, long expectedVersion);
-
-    TransferTemplateView excludeTransferLine(UUID templateId, UUID lineId, long expectedVersion);
-
-    TransferTemplateView restoreTransferLine(UUID templateId, UUID lineId, long expectedVersion);
-
-    LogicalTransferView confirmMaterialTransferCreate(
-            UUID templateId, long expectedVersion, List<TransferCellAllocation> allocations);
+    /**
+     * Edits one Material Requirement line quantity with optimistic concurrency (Stage 3.5.9).
+     */
+    MaterialRequirementView changeMaterialRequirementQuantity(
+            UUID requirementId, UUID lineId, BigDecimal quantity, long expectedVersion);
 
     List<LogicalTransferView> listLogicalTransfers(UUID orderId);
 
@@ -54,16 +55,14 @@ public interface ProductionApplicationApi {
 
     void cancelOrderProduction(UUID orderId, Optional<String> reason);
 
-    record WarehouseScopeView(UUID mainWarehouseId, UUID productionWarehouseId) {
-        public WarehouseScopeView {
-            Objects.requireNonNull(mainWarehouseId, "mainWarehouseId");
+    record DestinationWarehouseView(UUID productionWarehouseId) {
+        public DestinationWarehouseView {
             Objects.requireNonNull(productionWarehouseId, "productionWarehouseId");
         }
     }
 
-    enum TransferTemplateStatusView {
-        DRAFT,
-        CONFIRMED
+    enum MaterialRequirementStatusView {
+        DRAFT
     }
 
     enum MaterialPlanningSourceView {
@@ -77,90 +76,51 @@ public interface ProductionApplicationApi {
         MULTIPLE_REFERENCES
     }
 
-    record TransferTemplateLineView(
+    record MaterialRequirementLineView(
             UUID lineId,
             UUID materialReferenceId,
             String materialCode,
             String materialName,
             String color,
             String unitOfMeasure,
-            BigDecimal recommendedQuantity,
-            BigDecimal requestedQuantity,
-            boolean included,
-            MaterialPlanningSourceView planningSource,
-            Optional<UUID> cuttingPlanId,
-            CuttingLinkStatusView cuttingLinkStatus,
-            List<UUID> cuttingPlanReferences,
-            List<UUID> sourceOrderItemIds,
-            BigDecimal requiredQuantity,
-            BigDecimal mainWarehouseAvailable,
-            BigDecimal productionWarehouseAvailable,
-            BigDecimal uncoveredDeficit) {
-        public TransferTemplateLineView {
+            BigDecimal quantity,
+            List<UUID> sourceOrderItemIds) {
+        public MaterialRequirementLineView {
             Objects.requireNonNull(lineId, "lineId");
             Objects.requireNonNull(materialReferenceId, "materialReferenceId");
             Objects.requireNonNull(materialCode, "materialCode");
             Objects.requireNonNull(materialName, "materialName");
             Objects.requireNonNull(color, "color");
             Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
-            Objects.requireNonNull(recommendedQuantity, "recommendedQuantity");
-            Objects.requireNonNull(requestedQuantity, "requestedQuantity");
-            Objects.requireNonNull(planningSource, "planningSource");
-            Objects.requireNonNull(cuttingPlanId, "cuttingPlanId");
-            Objects.requireNonNull(cuttingLinkStatus, "cuttingLinkStatus");
-            Objects.requireNonNull(cuttingPlanReferences, "cuttingPlanReferences");
+            Objects.requireNonNull(quantity, "quantity");
             Objects.requireNonNull(sourceOrderItemIds, "sourceOrderItemIds");
-            Objects.requireNonNull(requiredQuantity, "requiredQuantity");
-            Objects.requireNonNull(mainWarehouseAvailable, "mainWarehouseAvailable");
-            Objects.requireNonNull(productionWarehouseAvailable, "productionWarehouseAvailable");
-            Objects.requireNonNull(uncoveredDeficit, "uncoveredDeficit");
-            cuttingPlanReferences = List.copyOf(cuttingPlanReferences);
             sourceOrderItemIds = List.copyOf(sourceOrderItemIds);
         }
     }
 
-    record TransferTemplateView(
-            UUID templateId,
+    record MaterialRequirementView(
+            UUID requirementId,
             UUID sourceOrderId,
-            UUID sourceWarehouseId,
             UUID destinationWarehouseId,
             Instant createdAt,
             Instant updatedAt,
             long version,
-            TransferTemplateStatusView status,
-            Optional<Instant> confirmedAt,
-            List<TransferTemplateLineView> lines) {
-        public TransferTemplateView {
-            Objects.requireNonNull(templateId, "templateId");
+            MaterialRequirementStatusView status,
+            List<MaterialRequirementLineView> lines) {
+        public MaterialRequirementView {
+            Objects.requireNonNull(requirementId, "requirementId");
             Objects.requireNonNull(sourceOrderId, "sourceOrderId");
-            Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
             Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
             Objects.requireNonNull(createdAt, "createdAt");
             Objects.requireNonNull(updatedAt, "updatedAt");
             Objects.requireNonNull(status, "status");
-            Objects.requireNonNull(confirmedAt, "confirmedAt");
             Objects.requireNonNull(lines, "lines");
             lines = List.copyOf(lines);
         }
     }
 
-    record TransferCellAllocation(
-            UUID templateLineId,
-            UUID sourceStorageCellId,
-            UUID destinationStorageCellId,
-            BigDecimal quantity) {
-        public TransferCellAllocation {
-            Objects.requireNonNull(templateLineId, "templateLineId");
-            Objects.requireNonNull(sourceStorageCellId, "sourceStorageCellId");
-            Objects.requireNonNull(destinationStorageCellId, "destinationStorageCellId");
-            Objects.requireNonNull(quantity, "quantity");
-        }
-    }
-
     record WarehouseTransferRefView(
-            UUID warehouseDraftOperationId,
-            UUID materialReferenceId,
-            BigDecimal quantity) {
+            UUID warehouseDraftOperationId, UUID materialReferenceId, BigDecimal quantity) {
         public WarehouseTransferRefView {
             Objects.requireNonNull(warehouseDraftOperationId, "warehouseDraftOperationId");
             Objects.requireNonNull(materialReferenceId, "materialReferenceId");

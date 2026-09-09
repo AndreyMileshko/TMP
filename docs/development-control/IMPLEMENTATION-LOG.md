@@ -4,6 +4,32 @@
 
 ---
 
+## Stage 3.5.9 — Production Material Requirement Refactor — 2026-09-09
+
+**Date:** 2026-09-09
+**Stage:** UI Modernization Stage 3.5.9 (Production Material Requirement DRAFT); outside Stages 0–9 numbered queue
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.9 COMPLETE; 3.5.10 NEXT / NOT STARTED
+**Commit:** none (per task); baseline HEAD `992401f8ea81acd435b80efb87c5648873766a5d`
+
+### Summary
+
+Replaced Stage 7 active Material Transfer Template recommendation workflow with Production-owned Material Requirement DRAFT: selected Order Items → frozen Specifications → aggregated single `quantity` → master edit. Destination-only warehouse (`ProductionDestinationWarehouse` / `productionWarehouseId`). No source routing, no Warehouse Transfer Documents / Tasks / stock mutation, no Submit (Stage 3.5.10).
+
+### Key changes
+
+- Domain/API: `MaterialRequirement` / Line / Views; `prepareMaterialRequirement` + `changeMaterialRequirementQuantity`
+- Flyway V43: `production.material_requirements` (+ lines + source items); legacy V27/V28 template tables retained for history
+- Deleted active: `MaterialTransferRecommendationCalculator`, `MaterialTransferTemplateService`, `ProductionWarehouseScope`
+- Availability: destination + sum of other active warehouses (informational); no recommendation formula
+- UI: «Запросить материалы»; item checkboxes; DRAFT panel Артикул|Наименование|Цвет|Количество|Ед.
+- Legacy: template JDBC + logical transfer receipt kept for historical records
+
+### Next
+
+Stage 3.5.10 — Requirement → Automatic Warehouse Tasks (NOT STARTED).
+
+---
+
 ## Stage 3.5.8.3 — Reject + Physical Return + Final Settlement — 2026-09-09
 
 **Date:** 2026-09-09

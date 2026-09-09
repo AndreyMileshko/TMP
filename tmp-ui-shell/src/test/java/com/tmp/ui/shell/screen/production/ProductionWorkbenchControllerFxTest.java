@@ -3,14 +3,13 @@ package com.tmp.ui.shell.screen.production;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.api.OrderId;
-import com.tmp.production.api.ProductionApplicationApi.CuttingLinkStatusView;
-import com.tmp.production.api.ProductionApplicationApi.MaterialPlanningSourceView;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateLineView;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateStatusView;
-import com.tmp.production.api.ProductionApplicationApi.TransferTemplateView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateStatus;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionView;
@@ -32,6 +31,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.BeforeAll;
@@ -84,22 +84,35 @@ class ProductionWorkbenchControllerFxTest {
                         assertEquals(
                                 "Принять в производство",
                                 ((Button) root.lookup("#acceptButton")).getText());
-                        ScrollPane scroll =
-                                (ScrollPane) root.lookup("#rootScroll");
+                        assertEquals(
+                                "Запросить материалы",
+                                ((Button) root.lookup("#prepareTransferButton")).getText());
+                        ScrollPane scroll = (ScrollPane) root.lookup("#rootScroll");
                         assertNotNull(scroll);
                         Parent scrollContent = (Parent) scroll.getContent();
-                        assertNotNull(scrollContent.lookup("#addTransferAllocationButton"));
-                        assertNotNull(scrollContent.lookup("#transferAllocationsTable"));
+                        assertNotNull(scrollContent.lookup("#materialRequirementPanel"));
+                        assertNotNull(scrollContent.lookup("#requirementLinesTable"));
+                        assertNotNull(scrollContent.lookup("#applyRequirementQtyButton"));
+                        assertNull(scrollContent.lookup("#transferAllocationsTable"));
+                        assertNull(scrollContent.lookup("#confirmTransferButton"));
+                        assertNotNull(scrollContent.lookup("#releaseAllocationsTable"));
                         @SuppressWarnings("unchecked")
-                        TableView<TransferAllocationRow> transferAllocationsTable =
-                                (TableView<TransferAllocationRow>)
-                                        scrollContent.lookup("#transferAllocationsTable");
+                        TableView<ProductionItemRow> itemsTable =
+                                (TableView<ProductionItemRow>) scrollContent.lookup("#itemsTable");
+                        assertTrue(
+                                itemsTable.getColumns().stream()
+                                        .anyMatch(c -> "Выбор".equals(c.getText())));
+                        @SuppressWarnings("unchecked")
+                        TableView<MaterialAvailabilityRow> materialsTable =
+                                (TableView<MaterialAvailabilityRow>)
+                                        scrollContent.lookup("#materialsTable");
+                        assertTrue(
+                                materialsTable.getColumns().stream()
+                                        .anyMatch(c -> "Другие склады".equals(c.getText())));
                         @SuppressWarnings("unchecked")
                         TableView<ReleaseCellAllocationRow> releaseAllocationsTable =
                                 (TableView<ReleaseCellAllocationRow>)
                                         scrollContent.lookup("#releaseAllocationsTable");
-                        assertNotNull(transferAllocationsTable.getItems());
-                        assertTrue(transferAllocationsTable.getItems().isEmpty());
                         assertNotNull(releaseAllocationsTable.getItems());
                         assertTrue(releaseAllocationsTable.getItems().isEmpty());
                         ok.set(true);
@@ -119,16 +132,12 @@ class ProductionWorkbenchControllerFxTest {
     }
 
     @Test
-    void transferLineReselectionKeepsAllocationRowsVisibleInTable() throws Exception {
+    void materialRequirementPrepareAndQuantityEditKeepLineSelection() throws Exception {
         UUID orderId = UUID.fromString("11111111-1111-1111-1111-111111111111");
         UUID itemId = UUID.fromString("22222222-2222-2222-2222-222222222222");
         UUID specId = UUID.fromString("33333333-3333-3333-3333-333333333333");
-        UUID sourceWh = UUID.fromString("44444444-4444-4444-4444-444444444444");
         UUID destWh = UUID.fromString("55555555-5555-5555-5555-555555555555");
-        UUID sourceCell = UUID.fromString("66666666-6666-6666-6666-666666666666");
-        UUID sourceCellB = UUID.fromString("66666666-6666-6666-6666-666666666667");
         UUID destCell = UUID.fromString("77777777-7777-7777-7777-777777777777");
-        UUID destCellB = UUID.fromString("77777777-7777-7777-7777-777777777778");
         UUID materialRef = UUID.fromString("88888888-8888-8888-8888-888888888888");
         UUID templateId = UUID.fromString("99999999-9999-9999-9999-999999999999");
         UUID lineId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
@@ -155,21 +164,18 @@ class ProductionWorkbenchControllerFxTest {
 
         ProductionWorkbenchUiTestSupport.StubApplicationApi applicationApi =
                 new ProductionWorkbenchUiTestSupport.StubApplicationApi();
-        applicationApi.mainWarehouseId = sourceWh;
         applicationApi.productionWarehouseId = destWh;
-        applicationApi.template =
-                new TransferTemplateView(
+        applicationApi.requirement =
+                new MaterialRequirementView(
                         templateId,
                         orderId,
-                        sourceWh,
                         destWh,
                         Instant.parse("2026-01-01T12:00:00Z"),
                         Instant.parse("2026-01-01T12:00:00Z"),
                         1L,
-                        TransferTemplateStatusView.DRAFT,
-                        Optional.empty(),
+                        MaterialRequirementStatusView.DRAFT,
                         List.of(
-                                new TransferTemplateLineView(
+                                new MaterialRequirementLineView(
                                         lineId,
                                         materialRef,
                                         "ART-1",
@@ -177,17 +183,7 @@ class ProductionWorkbenchControllerFxTest {
                                         "белый",
                                         "шт",
                                         new BigDecimal("1.000000"),
-                                        new BigDecimal("1.000000"),
-                                        true,
-                                        MaterialPlanningSourceView.SPECIFICATION,
-                                        Optional.empty(),
-                                        CuttingLinkStatusView.NONE,
-                                        List.of(),
-                                        List.of(itemId),
-                                        new BigDecimal("10"),
-                                        new BigDecimal("20"),
-                                        new BigDecimal("0"),
-                                        BigDecimal.ZERO)));
+                                        List.of(itemId))));
 
         ProductionWorkbenchUiTestSupport.StubOrderQuery orderQuery =
                 new ProductionWorkbenchUiTestSupport.StubOrderQuery();
@@ -197,15 +193,7 @@ class ProductionWorkbenchControllerFxTest {
         ProductionWorkbenchUiTestSupport.StubWarehouseApi warehouseApi =
                 new ProductionWorkbenchUiTestSupport.StubWarehouseApi();
         warehouseApi.cellsByWarehouse.put(
-                sourceWh,
-                List.of(
-                        new StorageCellView(sourceCell, sourceWh, "S-A", true),
-                        new StorageCellView(sourceCellB, sourceWh, "S-B", true)));
-        warehouseApi.cellsByWarehouse.put(
-                destWh,
-                List.of(
-                        new StorageCellView(destCell, destWh, "P-X", true),
-                        new StorageCellView(destCellB, destWh, "P-Y", true)));
+                destWh, List.of(new StorageCellView(destCell, destWh, "P-X", true)));
 
         ProductionWorkbenchViewModel viewModel =
                 new ProductionWorkbenchViewModel(
@@ -237,77 +225,38 @@ class ProductionWorkbenchControllerFxTest {
                         stage.show();
 
                         viewModel.openForOrder(OrderId.of(orderId));
-                        viewModel.prepareTransfer();
+                        viewModel.prepareMaterialRequirement();
 
                         ScrollPane scroll = (ScrollPane) root.lookup("#rootScroll");
                         Parent scrollContent = (Parent) scroll.getContent();
                         @SuppressWarnings("unchecked")
-                        TableView<TransferLineRow> transferLinesTable =
-                                (TableView<TransferLineRow>)
-                                        scrollContent.lookup("#transferLinesTable");
-                        @SuppressWarnings("unchecked")
-                        TableView<TransferAllocationRow> transferAllocationsTable =
-                                (TableView<TransferAllocationRow>)
-                                        scrollContent.lookup("#transferAllocationsTable");
-                        Button addAllocationButton =
-                                (Button) scrollContent.lookup("#addTransferAllocationButton");
-                        Button applyRequestedQtyButton =
-                                (Button) scrollContent.lookup("#applyRequestedQtyButton");
+                        TableView<MaterialRequirementLineRow> requirementLinesTable =
+                                (TableView<MaterialRequirementLineRow>)
+                                        scrollContent.lookup("#requirementLinesTable");
+                        Button applyRequirementQtyButton =
+                                (Button) scrollContent.lookup("#applyRequirementQtyButton");
+                        assertEquals(
+                                "Применить количество", applyRequirementQtyButton.getText());
+                        assertEquals(5, requirementLinesTable.getColumns().size());
+                        assertEquals(
+                                List.of("Артикул", "Наименование", "Цвет", "Количество", "Ед."),
+                                requirementLinesTable.getColumns().stream()
+                                        .map(TableColumn::getText)
+                                        .toList());
 
-                        TransferLineRow line = viewModel.transferLines().get(0);
-                        transferLinesTable.getSelectionModel().select(line);
-                        viewModel.selectTransferLine(line.lineId());
+                        MaterialRequirementLineRow line = viewModel.requirementLines().get(0);
+                        requirementLinesTable.getSelectionModel().select(line);
+                        viewModel.selectRequirementLine(line.lineId());
+                        assertEquals("1.000000", line.quantity());
 
-                        addAllocationButton.fire();
-                        TransferAllocationRow first = line.allocations().get(0);
-                        first.setSourceCell(
-                                line.sourceCellChoices().stream()
-                                        .filter(c -> c.id().equals(sourceCell))
-                                        .findFirst()
-                                        .orElseThrow());
-                        first.setDestinationCell(
-                                line.destinationCellChoices().stream()
-                                        .filter(c -> c.id().equals(destCell))
-                                        .findFirst()
-                                        .orElseThrow());
-                        first.setQuantity("0.600000");
-
-                        addAllocationButton.fire();
-                        TransferAllocationRow second = line.allocations().get(1);
-                        second.setSourceCell(
-                                line.sourceCellChoices().stream()
-                                        .filter(c -> c.id().equals(sourceCellB))
-                                        .findFirst()
-                                        .orElseThrow());
-                        second.setDestinationCell(
-                                line.destinationCellChoices().stream()
-                                        .filter(c -> c.id().equals(destCellB))
-                                        .findFirst()
-                                        .orElseThrow());
-                        second.setQuantity("0.400000");
-
-                        transferLinesTable.getSelectionModel().clearSelection();
-                        viewModel.selectTransferLine(null);
-                        assertNotNull(transferAllocationsTable.getItems());
-                        assertTrue(transferAllocationsTable.getItems().isEmpty());
-
-                        transferLinesTable.getSelectionModel().select(line);
-                        viewModel.selectTransferLine(line.lineId());
-
-                        assertNotNull(transferAllocationsTable.getItems());
-                        assertEquals(2, transferAllocationsTable.getItems().size());
-                        assertEquals("0.600000", transferAllocationsTable.getItems().get(0).quantity());
-                        assertEquals("0.400000", transferAllocationsTable.getItems().get(1).quantity());
-
-                        applyRequestedQtyButton.fire();
-                        assertEquals(line.lineId(), viewModel.selectedTransferLineIdProperty().get());
-                        assertEquals(2, transferAllocationsTable.getItems().size());
-                        assertEquals("0.600000", transferAllocationsTable.getItems().get(0).quantity());
-                        assertEquals("0.400000", transferAllocationsTable.getItems().size() > 1
-                                ? transferAllocationsTable.getItems().get(1).quantity()
-                                : null);
-                        assertNotNull(transferAllocationsTable.getItems().get(0).sourceCell());
-                        assertNotNull(transferAllocationsTable.getItems().get(0).destinationCell());
+                        line.setQuantity("2.000000");
+                        applyRequirementQtyButton.fire();
+                        assertEquals(
+                                line.lineId(),
+                                viewModel.selectedRequirementLineIdProperty().get());
+                        assertEquals(
+                                "2.000000", viewModel.requirementLines().get(0).quantity());
+                        assertEquals(1, applicationApi.changeQtyCalls.size());
                     } catch (Throwable throwable) {
                         error.set(throwable);
                     } finally {
@@ -317,7 +266,7 @@ class ProductionWorkbenchControllerFxTest {
 
         assertTrue(latch.await(30, TimeUnit.SECONDS));
         if (error.get() != null) {
-            throw new AssertionError("Transfer allocation FX regression failed", error.get());
+            throw new AssertionError("Material requirement FX regression failed", error.get());
         }
     }
 }

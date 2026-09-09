@@ -30,6 +30,7 @@ final class PublicBoundaryPermissions {
                     PermissionId.of("warehouse.consumption.create"),
                     PermissionId.of("warehouse.warehouse.view"),
                     PermissionId.of("warehouse.warehouse.create"),
+                    PermissionId.of("warehouse.warehouse.update"),
                     PermissionId.of("warehouse.storage-cell.view"),
                     PermissionId.of("warehouse.storage-cell.create"));
 
