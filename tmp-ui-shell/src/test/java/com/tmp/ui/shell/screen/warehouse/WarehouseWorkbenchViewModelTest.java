@@ -18,6 +18,8 @@ import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
+import com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
@@ -841,6 +843,12 @@ class WarehouseWorkbenchViewModelTest {
                     UUID.randomUUID(),
                     UUID.randomUUID(),
                     BigDecimal.ONE);
+        }
+
+        @Override
+        public TransferDocumentReceiveResult receiveTransferDocument(
+                ReceiveTransferDocumentCommand command) {
+            throw new UnsupportedOperationException("not used");
         }
 
         @Override

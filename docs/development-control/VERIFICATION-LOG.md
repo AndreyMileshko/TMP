@@ -2,9 +2,32 @@
 
 ## Latest result
 
-**Date:** 2026-09-08
-**Scope:** Stage 3.5.7 Shortfall / Automatic Continuation Transfer
-**Overall:** PASS (targeted tests + quick build + package + startup smoke on `tmp-stage5-pg`); shortfall workflow INTEGRATION TEST VERIFIED; no new GUI
+**Date:** 2026-09-09
+**Scope:** Stage 3.5.8.1 Settlement Foundation + Full Document Receive + Receiver Task
+**Overall:** PASS (targeted tests + architecture + quick build + package + startup smoke on `tmp-stage5-pg`); full document receive INTEGRATION TEST VERIFIED; no new GUI
+
+### Stage 3.5.8.1 Settlement + Full Receive (2026-09-09)
+
+| Check | Result |
+|-------|--------|
+| HEAD vs expected base `282f0cf68…` | PASS (match at start) |
+| Flyway V41 settlement + receipt items + POSTED backfill | PASS (schema IT + runtime migrate) |
+| `WarehouseTransferDocumentReceiveIntegrationTest` | PASS (20) |
+| `WarehouseTransferDocumentSendIntegrationTest` | PASS (9) |
+| `WarehouseTransferDocumentShortfallIntegrationTest` | PASS (12) |
+| `WarehouseOperationalInboxIntegrationTest` | PASS (16) |
+| `WarehouseTransferIntegrityIntegrationTest` | PASS (9) |
+| `WarehouseTransferServiceIntegrationTest` | PASS (2) |
+| `WarehouseSchemaFlywayTest` | PASS (10) |
+| Warehouse targeted total | PASS — 78 tests |
+| Architecture `Stage6WarehouseArchitectureTest` | PASS (5) |
+| Quick install `-DskipTests` + static analysis skips | PASS |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests …` | PASS; new `dist/jpackage/TMP/TMP.exe` (2026-09-09 09:41:56) |
+| Launch against `tmp_gui_stage5` | PASS — Flyway validated 41; applied V41; stock_positions=31 preserved; settlements backfill=0 (no POSTED transfers); Spring + JavaFX start; exceptions NONE (JavaFX unnamed-module WARN only) |
+| Full document receive | INTEGRATION TEST VERIFIED |
+| Full reactor `mvn test` / `mvn verify` | NOT RUN |
+| Stage 3.5 / 3.5.8 / 3.5.8.1 / 3.5.8.2 | IN PROGRESS / IN PROGRESS / COMPLETE / NEXT NOT STARTED |
+| Auto-commit | NOT DONE |
 
 ### Stage 3.5.7 Shortfall / Continuation (2026-09-08)
 

@@ -46,9 +46,11 @@ import com.tmp.warehouse.api.WarehouseApi.MaterialDemand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
+import com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.UpdateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
@@ -785,6 +787,12 @@ class ReleaseProductsServiceTest {
         @Override
         public OperationResult receiveTransfer(UUID sendOperationId) {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TransferDocumentReceiveResult receiveTransferDocument(
+                ReceiveTransferDocumentCommand command) {
+            throw new UnsupportedOperationException("not used");
         }
 
         @Override

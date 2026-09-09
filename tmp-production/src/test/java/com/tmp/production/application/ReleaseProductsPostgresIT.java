@@ -947,6 +947,12 @@ class ReleaseProductsPostgresIT {
         }
 
         @Override
+        public WarehouseApi.TransferDocumentReceiveResult receiveTransferDocument(
+                WarehouseApi.ReceiveTransferDocumentCommand command) {
+            return delegate.receiveTransferDocument(command);
+        }
+
+        @Override
         public WarehouseApi.TransferDocumentView createTransferDocument(
                 WarehouseApi.CreateTransferDocumentCommand command) {
             return delegate.createTransferDocument(command);

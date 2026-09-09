@@ -12,10 +12,12 @@ import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
+import com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
@@ -185,6 +187,12 @@ final class WarehouseWorkbenchUiTestSupport {
 
         @Override
         public OperationResult receiveTransfer(UUID sendOperationId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TransferDocumentReceiveResult receiveTransferDocument(
+                ReceiveTransferDocumentCommand command) {
             throw new UnsupportedOperationException();
         }
 

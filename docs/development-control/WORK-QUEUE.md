@@ -1,44 +1,44 @@
 # TMP Work Queue
 
-## Правила
+## ???????
 
-- Очередь выполняется сверху вниз.
-- Одновременно `IN_PROGRESS` может быть только одна задача.
-- Новые задачи текущего Stage Cursor добавляет на основании Stage Manifest и утверждённых спецификаций.
-- Задача будущего Stage не может получить READY до закрытия предыдущего Stage.
-- Каждая задача должна использовать шаблон из `templates/TASK-TEMPLATE.md`.
+- ??????? ??????????? ?????? ????.
+- ???????????? `IN_PROGRESS` ????? ???? ?????? ???? ??????.
+- ????? ?????? ???????? Stage Cursor ????????? ?? ????????? Stage Manifest ? ???????????? ????????????.
+- ?????? ???????? Stage ?? ????? ???????? READY ?? ???????? ??????????? Stage.
+- ?????? ?????? ?????? ???????????? ?????? ?? `templates/TASK-TEMPLATE.md`.
 
 ---
 
 # Control Initialization
 
-## CONTROL-001 — Validate development sources
+## CONTROL-001 ? Validate development sources
 
 **Status:** DONE
 **Stage:** Control
-**Goal:** Проверить наличие и непротиворечивость обязательных документов проекта перед генерацией полной очереди Stage 0.
+**Goal:** ????????? ??????? ? ?????????????????? ???????????? ?????????? ??????? ????? ?????????? ?????? ??????? Stage 0.
 **Required documents:** Constitution, ADR, Architecture Overview, Database Specification, Development Guide, Code Quality Standards, Master Implementation Plan, Cursor AI Guide.
 **Allowed code scope:** none.
-**Acceptance criteria:** сформирован реестр найденных документов; отсутствующие или конфликтующие документы зафиксированы как blockers; `CONTEXT-MAP.md` актуализирован.
-**Verification:** ручная сверка путей и статусов документов.
+**Acceptance criteria:** ??????????? ?????? ????????? ??????????; ????????????? ??? ????????????? ????????? ????????????? ??? blockers; `CONTEXT-MAP.md` ??????????????.
+**Verification:** ?????? ?????? ????? ? ???????? ??????????.
 **Next on success:** CONTROL-002.
 
-## CONTROL-002 — Build Stage 0 task queue
+## CONTROL-002 ? Build Stage 0 task queue
 
 **Status:** DONE
 **Stage:** Control
-**Goal:** Декомпозировать Stage 0 в готовые автономные задачи на основании архитектуры и Master Implementation Plan.
-**Required documents:** Stage 0 Manifest и документы, подтверждённые CONTROL-001.
+**Goal:** ??????????????? Stage 0 ? ??????? ?????????? ?????? ?? ????????? ??????????? ? Master Implementation Plan.
+**Required documents:** Stage 0 Manifest ? ?????????, ?????????????? CONTROL-001.
 **Allowed code scope:** none.
-**Acceptance criteria:** все задачи Stage 0 имеют Scope, контекст, критерии, проверки и зависимости; первая задача Stage 0 получила READY.
-**Verification:** проверка соответствия task-size rules и Stage 0 exit criteria.
-**Next on success:** первая READY-задача Stage 0.
+**Acceptance criteria:** ??? ?????? Stage 0 ????? Scope, ????????, ????????, ???????? ? ???????????; ?????? ?????? Stage 0 ???????? READY.
+**Verification:** ???????? ???????????? task-size rules ? Stage 0 exit criteria.
+**Next on success:** ?????? READY-?????? Stage 0.
 
 ---
 
-# Stage 0 — Development Foundation
+# Stage 0 ? Development Foundation
 
-## STAGE0-001 — Bootstrap repository reactor and parent pom
+## STAGE0-001 ? Bootstrap repository reactor and parent pom
 
 **Status:** DONE
 **Stage:** 0
@@ -47,7 +47,7 @@
 
 ### Goal
 
-Создать минимальный Maven reactor с родительским pom и корректной структурой модулей без бизнес-логики.
+??????? ??????????? Maven reactor ? ???????????? pom ? ?????????? ?????????? ??????? ??? ??????-??????.
 
 ### Required documents
 
@@ -58,34 +58,34 @@
 
 ### Required code context
 
-- корневые `pom.xml` и настройки сборки в репозитории.
+- ???????? `pom.xml` ? ????????? ?????? ? ???????????.
 
 ### Allowed code scope
 
 - `pom.xml`;
-- `*/pom.xml` в новых технических модулях Stage 0;
-- файлы Maven wrapper при необходимости синхронизации.
+- `*/pom.xml` ? ????? ??????????? ??????? Stage 0;
+- ????? Maven wrapper ??? ????????????? ?????????????.
 
 ### Forbidden
 
-- бизнес-модули и предметные пакеты;
-- implementation Java-классов вне минимального bootstrap.
+- ??????-?????? ? ?????????? ??????;
+- implementation Java-??????? ??? ???????????? bootstrap.
 
 ### Implementation requirements
 
-- определить parent pom с едиными properties;
-- объявить reactor modules для Stage 0 foundation;
-- зафиксировать Java/Maven baseline.
+- ?????????? parent pom ? ??????? properties;
+- ???????? reactor modules ??? Stage 0 foundation;
+- ????????????? Java/Maven baseline.
 
 ### Acceptance criteria
 
-- [ ] `mvn -q -DskipTests validate` проходит на чистом проекте;
-- [ ] реактор собирает все пустые Stage 0 модули;
-- [ ] нет доменной функциональности.
+- [ ] `mvn -q -DskipTests validate` ???????? ?? ?????? ???????;
+- [ ] ??????? ???????? ??? ?????? Stage 0 ??????;
+- [ ] ??? ???????? ????????????????.
 
 ### Required tests
 
-- smoke validate сборки reactor.
+- smoke validate ?????? reactor.
 
 ### Verification commands
 
@@ -100,7 +100,7 @@ mvn -q -DskipTests validate
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
 
-## STAGE0-002 — Configure dependency and plugin management baseline
+## STAGE0-002 ? Configure dependency and plugin management baseline
 
 **Status:** DONE
 **Stage:** 0
@@ -109,7 +109,7 @@ mvn -q -DskipTests validate
 
 ### Goal
 
-Централизовать версии зависимостей и плагинов для Stage 0.
+?????????????? ?????? ???????????? ? ???????? ??? Stage 0.
 
 ### Required documents
 
@@ -120,26 +120,26 @@ mvn -q -DskipTests validate
 ### Required code context
 
 - root `pom.xml`;
-- module `pom.xml`, созданные в STAGE0-001.
+- module `pom.xml`, ????????? ? STAGE0-001.
 
 ### Allowed code scope
 
 - root `pom.xml`;
-- `.mvn/**` при необходимости.
+- `.mvn/**` ??? ?????????????.
 
 ### Forbidden
 
-- добавление неутвержденных runtime-зависимостей.
+- ?????????? ?????????????? runtime-????????????.
 
 ### Implementation requirements
 
-- вынести версии в `dependencyManagement` и `pluginManagement`;
-- подключить обязательные build plugins для quality gates.
+- ??????? ?????? ? `dependencyManagement` ? `pluginManagement`;
+- ?????????? ???????????? build plugins ??? quality gates.
 
 ### Acceptance criteria
 
-- [ ] все module poms используют управление версиями из parent;
-- [ ] `mvn -q -DskipTests help:effective-pom` проходит для ключевого модуля.
+- [ ] ??? module poms ?????????? ?????????? ???????? ?? parent;
+- [ ] `mvn -q -DskipTests help:effective-pom` ???????? ??? ????????? ??????.
 
 ### Required tests
 
@@ -158,7 +158,7 @@ mvn -q -DskipTests help:effective-pom
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
 
-## STAGE0-003 — Wire formatting and static analysis gates
+## STAGE0-003 ? Wire formatting and static analysis gates
 
 **Status:** DONE
 **Stage:** 0
@@ -167,7 +167,7 @@ mvn -q -DskipTests help:effective-pom
 
 ### Goal
 
-Подключить форматирование и статический анализ в `mvn verify`.
+?????????? ?????????????? ? ??????????? ?????? ? `mvn verify`.
 
 ### Required documents
 
@@ -176,26 +176,26 @@ mvn -q -DskipTests help:effective-pom
 
 ### Required code context
 
-- build plugin config в root `pom.xml`.
+- build plugin config ? root `pom.xml`.
 
 ### Allowed code scope
 
 - root `pom.xml`;
-- конфиги quality tools в корне проекта.
+- ??????? quality tools ? ????? ???????.
 
 ### Forbidden
 
-- отключение проверок ради прохождения сборки.
+- ?????????? ???????? ???? ??????????? ??????.
 
 ### Implementation requirements
 
-- добавить formatter/checkstyle/spotbugs (утвержденный набор);
-- привязать проверки к lifecycle verify.
+- ???????? formatter/checkstyle/spotbugs (???????????? ?????);
+- ????????? ???????? ? lifecycle verify.
 
 ### Acceptance criteria
 
-- [ ] `mvn -q verify -DskipTests` запускает quality gates;
-- [ ] нарушения дают fail.
+- [ ] `mvn -q verify -DskipTests` ????????? quality gates;
+- [ ] ????????? ???? fail.
 
 ### Required tests
 
@@ -214,7 +214,7 @@ mvn -q verify -DskipTests
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
 
-## STAGE0-004 — Establish test baseline and test module conventions
+## STAGE0-004 ? Establish test baseline and test module conventions
 
 **Status:** DONE
 **Stage:** 0
@@ -223,7 +223,7 @@ mvn -q verify -DskipTests
 
 ### Goal
 
-Подготовить единый baseline для unit/integration тестов без бизнес-логики.
+??????????? ?????? baseline ??? unit/integration ?????? ??? ??????-??????.
 
 ### Required documents
 
@@ -233,30 +233,30 @@ mvn -q verify -DskipTests
 
 ### Required code context
 
-- root и module pom test dependencies.
+- root ? module pom test dependencies.
 
 ### Allowed code scope
 
 - root `pom.xml`;
-- test source roots в foundation модулях.
+- test source roots ? foundation ???????.
 
 ### Forbidden
 
-- создание доменных тестов с бизнес-сценариями.
+- ???????? ???????? ?????? ? ??????-??????????.
 
 ### Implementation requirements
 
-- стандартизировать JUnit 5 baseline;
-- настроить surefire/failsafe разделение.
+- ????????????????? JUnit 5 baseline;
+- ????????? surefire/failsafe ??????????.
 
 ### Acceptance criteria
 
-- [ ] `mvn -q test` успешно выполняет базовые test suites;
-- [ ] есть пример smoke test для bootstrap.
+- [ ] `mvn -q test` ??????? ????????? ??????? test suites;
+- [ ] ???? ?????? smoke test ??? bootstrap.
 
 ### Required tests
 
-- базовый unit smoke test.
+- ??????? unit smoke test.
 
 ### Verification commands
 
@@ -271,7 +271,7 @@ mvn -q test
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
 
-## STAGE0-005 — Create Spring composition root skeleton
+## STAGE0-005 ? Create Spring composition root skeleton
 
 **Status:** DONE
 **Stage:** 0
@@ -280,7 +280,7 @@ mvn -q test
 
 ### Goal
 
-Собрать каркас composition root для Spring без доменной логики.
+??????? ?????? composition root ??? Spring ??? ???????? ??????.
 
 ### Required documents
 
@@ -289,7 +289,7 @@ mvn -q test
 
 ### Required code context
 
-- bootstrap module structure и entry-point package.
+- bootstrap module structure ? entry-point package.
 
 ### Allowed code scope
 
@@ -298,17 +298,17 @@ mvn -q test
 
 ### Forbidden
 
-- бизнес-сервисы и use case logic.
+- ??????-??????? ? use case logic.
 
 ### Implementation requirements
 
-- добавить Spring bootstrapping configuration;
-- определить минимальные инфраструктурные beans.
+- ???????? Spring bootstrapping configuration;
+- ?????????? ??????????? ???????????????? beans.
 
 ### Acceptance criteria
 
-- [ ] Spring context стартует в smoke test;
-- [ ] отсутствуют бизнес-компоненты.
+- [ ] Spring context ???????? ? smoke test;
+- [ ] ??????????? ??????-??????????.
 
 ### Required tests
 
@@ -327,7 +327,7 @@ mvn -q -pl :app-bootstrap test
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
 
-## STAGE0-006 — Implement JavaFX empty shell bootstrap
+## STAGE0-006 ? Implement JavaFX empty shell bootstrap
 
 **Status:** DONE
 **Stage:** 0
@@ -336,7 +336,7 @@ mvn -q -pl :app-bootstrap test
 
 ### Goal
 
-Запустить пустое JavaFX окно с корректным lifecycle вместе со Spring.
+????????? ?????? JavaFX ???? ? ?????????? lifecycle ?????? ?? Spring.
 
 ### Required documents
 
@@ -351,21 +351,21 @@ mvn -q -pl :app-bootstrap test
 ### Allowed code scope
 
 - `ui-shell` module;
-- startup classes в app module.
+- startup classes ? app module.
 
 ### Forbidden
 
-- любые бизнес-экраны.
+- ????? ??????-??????.
 
 ### Implementation requirements
 
-- интегрировать JavaFX startup;
-- отрисовать пустой главный shell.
+- ????????????? JavaFX startup;
+- ?????????? ?????? ??????? shell.
 
 ### Acceptance criteria
 
-- [ ] приложение открывает пустое окно;
-- [ ] lifecycle shutdown корректный.
+- [ ] ?????????? ????????? ?????? ????;
+- [ ] lifecycle shutdown ??????????.
 
 ### Required tests
 
@@ -384,7 +384,7 @@ mvn -q -pl :ui-shell test
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
 
-## STAGE0-007 — Configure PostgreSQL connectivity profiles
+## STAGE0-007 ? Configure PostgreSQL connectivity profiles
 
 **Status:** DONE
 **Stage:** 0
@@ -393,7 +393,7 @@ mvn -q -pl :ui-shell test
 
 ### Goal
 
-Подготовить профили и базовую конфигурацию подключения PostgreSQL.
+??????????? ??????? ? ??????? ???????????? ??????????? PostgreSQL.
 
 ### Required documents
 
@@ -408,21 +408,21 @@ mvn -q -pl :ui-shell test
 ### Allowed code scope
 
 - infra-db module;
-- конфигурационные файлы.
+- ???????????????? ?????.
 
 ### Forbidden
 
-- создание бизнес-таблиц и доменных сущностей.
+- ???????? ??????-?????? ? ???????? ?????????.
 
 ### Implementation requirements
 
-- добавить dev/test профили БД;
-- определить datasource properties.
+- ???????? dev/test ??????? ??;
+- ?????????? datasource properties.
 
 ### Acceptance criteria
 
-- [ ] приложение поднимает datasource в тестовом контексте;
-- [ ] profile override работает.
+- [ ] ?????????? ????????? datasource ? ???????? ?????????;
+- [ ] profile override ????????.
 
 ### Required tests
 
@@ -441,7 +441,7 @@ mvn -q -pl :infra-db test
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
 
-## STAGE0-008 — Add Flyway baseline migration flow
+## STAGE0-008 ? Add Flyway baseline migration flow
 
 **Status:** DONE
 **Stage:** 0
@@ -450,7 +450,7 @@ mvn -q -pl :infra-db test
 
 ### Goal
 
-Настроить baseline миграцию Flyway и её запуск на старте.
+????????? baseline ???????? Flyway ? ?? ?????? ?? ??????.
 
 ### Required documents
 
@@ -469,17 +469,17 @@ mvn -q -pl :infra-db test
 
 ### Forbidden
 
-- доменная схема и таблицы бизнес-модулей.
+- ???????? ????? ? ??????? ??????-???????.
 
 ### Implementation requirements
 
-- создать baseline migration;
-- включить Flyway в bootstrap.
+- ??????? baseline migration;
+- ???????? Flyway ? bootstrap.
 
 ### Acceptance criteria
 
-- [ ] baseline миграция применяется в integration test;
-- [ ] schema history создается корректно.
+- [ ] baseline ???????? ??????????? ? integration test;
+- [ ] schema history ????????? ?????????.
 
 ### Required tests
 
@@ -498,7 +498,7 @@ mvn -q -pl :infra-db verify
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
 
-## STAGE0-009 — Integrate Testcontainers for PostgreSQL tests
+## STAGE0-009 ? Integrate Testcontainers for PostgreSQL tests
 
 **Status:** DONE
 **Stage:** 0
@@ -507,7 +507,7 @@ mvn -q -pl :infra-db verify
 
 ### Goal
 
-Подключить Testcontainers для reproducible DB интеграционных тестов.
+?????????? Testcontainers ??? reproducible DB ?????????????? ??????.
 
 ### Required documents
 
@@ -521,22 +521,22 @@ mvn -q -pl :infra-db verify
 
 ### Allowed code scope
 
-- `src/test/**` в infra/bootstrap модулях;
+- `src/test/**` ? infra/bootstrap ???????;
 - test dependencies in poms.
 
 ### Forbidden
 
-- внешние ручные зависимости от локальной БД в CI test path.
+- ??????? ?????? ??????????? ?? ????????? ?? ? CI test path.
 
 ### Implementation requirements
 
-- создать общий testcontainer bootstrap;
-- перевести integration tests на containerized PostgreSQL.
+- ??????? ????? testcontainer bootstrap;
+- ????????? integration tests ?? containerized PostgreSQL.
 
 ### Acceptance criteria
 
-- [ ] integration tests стартуют PostgreSQL контейнер автоматически;
-- [ ] тесты не требуют локальной установленной БД.
+- [ ] integration tests ???????? PostgreSQL ????????? ?????????????;
+- [ ] ????? ?? ??????? ????????? ????????????? ??.
 
 ### Required tests
 
@@ -555,7 +555,7 @@ mvn -q -pl :infra-db failsafe:integration-test failsafe:verify
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
 
-## STAGE0-010 — Create ArchUnit baseline architecture tests
+## STAGE0-010 ? Create ArchUnit baseline architecture tests
 
 **Status:** DONE
 **Stage:** 0
@@ -564,7 +564,7 @@ mvn -q -pl :infra-db failsafe:integration-test failsafe:verify
 
 ### Goal
 
-Ввести baseline ArchUnit-правила на слои и границы модулей.
+?????? baseline ArchUnit-??????? ?? ???? ? ??????? ???????.
 
 ### Required documents
 
@@ -584,17 +584,17 @@ mvn -q -pl :infra-db failsafe:integration-test failsafe:verify
 
 ### Forbidden
 
-- проверка бизнес-правил через ArchUnit на Stage 0.
+- ???????? ??????-?????? ????? ArchUnit ?? Stage 0.
 
 ### Implementation requirements
 
-- добавить базовые ArchUnit tests;
-- включить их в verify.
+- ???????? ??????? ArchUnit tests;
+- ???????? ?? ? verify.
 
 ### Acceptance criteria
 
-- [ ] архитектурные тесты выполняются в `mvn verify`;
-- [ ] нарушение границ даёт fail.
+- [ ] ????????????? ????? ??????????? ? `mvn verify`;
+- [ ] ????????? ?????? ???? fail.
 
 ### Required tests
 
@@ -613,7 +613,7 @@ mvn -q verify -DskipITs
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
 
-## STAGE0-011 — Configure logging, runtime profiles, and packaging
+## STAGE0-011 ? Configure logging, runtime profiles, and packaging
 
 **Status:** DONE
 **Stage:** 0
@@ -622,7 +622,7 @@ mvn -q verify -DskipITs
 
 ### Goal
 
-Настроить логирование, профили запуска и jlink/jpackage pipeline.
+????????? ???????????, ??????? ??????? ? jlink/jpackage pipeline.
 
 ### Required documents
 
@@ -642,17 +642,17 @@ mvn -q verify -DskipITs
 
 ### Forbidden
 
-- platform-specific hacks без profile isolation.
+- platform-specific hacks ??? profile isolation.
 
 ### Implementation requirements
 
-- определить profiles (dev/test/package);
-- добавить jlink/jpackage configuration.
+- ?????????? profiles (dev/test/package);
+- ???????? jlink/jpackage configuration.
 
 ### Acceptance criteria
 
-- [x] package artifact создается для целевой ОС;
-- [x] логирование работает в startup.
+- [x] package artifact ????????? ??? ??????? ??;
+- [x] ??????????? ???????? ? startup.
 
 ### Required tests
 
@@ -671,7 +671,7 @@ mvn -q -Ppackage verify
 - IMPLEMENTATION-LOG;
 - VERIFICATION-LOG.
 
-## STAGE0-012 — Run complete Stage 0 verification gate
+## STAGE0-012 ? Run complete Stage 0 verification gate
 
 **Status:** DONE
 **Stage:** 0
@@ -680,7 +680,7 @@ mvn -q -Ppackage verify
 
 ### Goal
 
-Выполнить финальную комплексную верификацию Stage 0 против exit criteria.
+????????? ????????? ??????????? ??????????? Stage 0 ?????? exit criteria.
 
 ### Required documents
 
@@ -689,7 +689,7 @@ mvn -q -Ppackage verify
 
 ### Required code context
 
-- итоговый reactor build;
+- ???????? reactor build;
 - verification scripts/logs.
 
 ### Allowed code scope
@@ -699,18 +699,18 @@ mvn -q -Ppackage verify
 
 ### Forbidden
 
-- новые feature-изменения вне исправления verification defects.
+- ????? feature-????????? ??? ??????????? verification defects.
 
 ### Implementation requirements
 
-- запустить полный verify pipeline;
-- зафиксировать результаты и готовность Stage 0.
+- ????????? ?????? verify pipeline;
+- ????????????? ?????????? ? ?????????? Stage 0.
 
 ### Acceptance criteria
 
-- [x] все exit criteria Stage 0 подтверждены;
-- [x] полный `mvn verify` успешен;
-- [x] статус Stage 0 готов к закрытию.
+- [x] ??? exit criteria Stage 0 ????????????;
+- [x] ?????? `mvn verify` ???????;
+- [x] ?????? Stage 0 ????? ? ????????.
 
 ### Required tests
 
@@ -731,9 +731,9 @@ mvn -q verify
 
 ---
 
-# Stage 1 — Platform Core
+# Stage 1 ? Platform Core
 
-## STAGE1-001 — Bootstrap tmp-platform-core module and Core API boundaries
+## STAGE1-001 ? Bootstrap tmp-platform-core module and Core API boundaries
 
 **Status:** DONE
 **Stage:** 1
@@ -742,7 +742,7 @@ mvn -q verify
 
 ### Goal
 
-Создать Maven-модуль `tmp-platform-core` с пакетом стабильного публичного API `com.tmp.core.api` без бизнес-логики.
+??????? Maven-?????? `tmp-platform-core` ? ??????? ??????????? ?????????? API `com.tmp.core.api` ??? ??????-??????.
 
 ### Required documents
 
@@ -758,15 +758,15 @@ mvn -q verify
 
 ### Forbidden
 
-- бизнес-модули; Document Engine; Capability Engine; Security.
+- ??????-??????; Document Engine; Capability Engine; Security.
 
 ### Implementation requirements
 
-- модуль в reactor; API отделён от implementation; только Spring Boot starter.
+- ?????? ? reactor; API ??????? ?? implementation; ?????? Spring Boot starter.
 
 ### Acceptance criteria
 
-- [x] `mvn -q -DskipTests validate` проходит; [x] `com.tmp.core.api` без бизнес-логики.
+- [x] `mvn -q -DskipTests validate` ????????; [x] `com.tmp.core.api` ??? ??????-??????.
 
 ### Required tests
 
@@ -782,7 +782,7 @@ mvn -q -DskipTests validate
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-002 — Define PlatformComponent contract and module metadata
+## STAGE1-002 ? Define PlatformComponent contract and module metadata
 
 **Status:** DONE
 **Stage:** 1
@@ -791,7 +791,7 @@ mvn -q -DskipTests validate
 
 ### Goal
 
-Определить контракт `PlatformComponent`, метаданные и `CapabilityDescriptor`.
+?????????? ???????? `PlatformComponent`, ?????????? ? `CapabilityDescriptor`.
 
 ### Required documents
 
@@ -799,7 +799,7 @@ mvn -q -DskipTests validate
 
 ### Required code context
 
-- `com.tmp.core.api` из STAGE1-001.
+- `com.tmp.core.api` ?? STAGE1-001.
 
 ### Allowed code scope
 
@@ -807,7 +807,7 @@ mvn -q -DskipTests validate
 
 ### Forbidden
 
-- загрузка Capability internals; JPA/SQL в Core API.
+- ???????? Capability internals; JPA/SQL ? Core API.
 
 ### Implementation requirements
 
@@ -815,7 +815,7 @@ mvn -q -DskipTests validate
 
 ### Acceptance criteria
 
-- [x] контракты компилируются; [x] нет предметных типов.
+- [x] ????????? ?????????????; [x] ??? ?????????? ?????.
 
 ### Required tests
 
@@ -831,7 +831,7 @@ mvn -q -pl :tmp-platform-core test
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-003 — Implement Platform Registry
+## STAGE1-003 ? Implement Platform Registry
 
 **Status:** DONE
 **Stage:** 1
@@ -840,7 +840,7 @@ mvn -q -pl :tmp-platform-core test
 
 ### Goal
 
-Реализовать регистрацию и поиск platform components.
+??????????? ??????????? ? ????? platform components.
 
 ### Required documents
 
@@ -856,7 +856,7 @@ mvn -q -pl :tmp-platform-core test
 
 ### Forbidden
 
-- прямой доступ к Capability internals.
+- ?????? ?????? ? Capability internals.
 
 ### Implementation requirements
 
@@ -864,7 +864,7 @@ mvn -q -pl :tmp-platform-core test
 
 ### Acceptance criteria
 
-- [x] register/find/list работают; [x] duplicate → fail.
+- [x] register/find/list ????????; [x] duplicate ? fail.
 
 ### Required tests
 
@@ -880,7 +880,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultPlatformRegistryTest
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-004 — Implement Service Registry
+## STAGE1-004 ? Implement Service Registry
 
 **Status:** DONE
 **Stage:** 1
@@ -889,7 +889,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultPlatformRegistryTest
 
 ### Goal
 
-Реализовать регистрацию и lookup инфраструктурных сервисов.
+??????????? ??????????? ? lookup ???????????????? ????????.
 
 ### Required documents
 
@@ -905,7 +905,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultPlatformRegistryTest
 
 ### Forbidden
 
-- доменные use-case сервисы.
+- ???????? use-case ???????.
 
 ### Implementation requirements
 
@@ -913,7 +913,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultPlatformRegistryTest
 
 ### Acceptance criteria
 
-- [x] register + lookup работает.
+- [x] register + lookup ????????.
 
 ### Required tests
 
@@ -929,7 +929,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultServiceRegistryTest
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-005 — Implement Capability Registry
+## STAGE1-005 ? Implement Capability Registry
 
 **Status:** DONE
 **Stage:** 1
@@ -938,7 +938,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultServiceRegistryTest
 
 ### Goal
 
-Регистрация metadata Capability без Capability Engine.
+??????????? metadata Capability ??? Capability Engine.
 
 ### Required documents
 
@@ -962,7 +962,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultServiceRegistryTest
 
 ### Acceptance criteria
 
-- [x] capability metadata регистрируется и читается.
+- [x] capability metadata ?????????????? ? ????????.
 
 ### Required tests
 
@@ -978,7 +978,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultCapabilityRegistryTest
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-006 — Define Event Bus contracts
+## STAGE1-006 ? Define Event Bus contracts
 
 **Status:** DONE
 **Stage:** 1
@@ -987,11 +987,11 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultCapabilityRegistryTest
 
 ### Goal
 
-Контракты Platform Events и Domain Events.
+????????? Platform Events ? Domain Events.
 
 ### Required documents
 
-- `Database-Specification.md` §9; `Code Quality Standards.md`.
+- `Database-Specification.md` �9; `Code Quality Standards.md`.
 
 ### Required code context
 
@@ -1011,7 +1011,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultCapabilityRegistryTest
 
 ### Acceptance criteria
 
-- [x] контракты без broker-зависимостей.
+- [x] ????????? ??? broker-????????????.
 
 ### Required tests
 
@@ -1027,7 +1027,7 @@ mvn -q -pl :tmp-platform-core compile
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-007 — Implement synchronous Event Bus
+## STAGE1-007 ? Implement synchronous Event Bus
 
 **Status:** DONE
 **Stage:** 1
@@ -1036,11 +1036,11 @@ mvn -q -pl :tmp-platform-core compile
 
 ### Goal
 
-Синхронный in-process publish/subscribe.
+?????????? in-process publish/subscribe.
 
 ### Required documents
 
-- `Database-Specification.md` §9.
+- `Database-Specification.md` �9.
 
 ### Required code context
 
@@ -1076,7 +1076,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=SynchronousEventBusTest
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-008 — Implement Lifecycle Management
+## STAGE1-008 ? Implement Lifecycle Management
 
 **Status:** DONE
 **Stage:** 1
@@ -1085,7 +1085,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=SynchronousEventBusTest
 
 ### Goal
 
-Управление жизненным циклом platform components.
+?????????? ????????? ?????? platform components.
 
 ### Required documents
 
@@ -1101,7 +1101,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=SynchronousEventBusTest
 
 ### Forbidden
 
-- управление бизнес-состоянием Capability.
+- ?????????? ??????-?????????? Capability.
 
 ### Implementation requirements
 
@@ -1109,7 +1109,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=SynchronousEventBusTest
 
 ### Acceptance criteria
 
-- [x] initialize → start → stop lifecycle works.
+- [x] initialize ? start ? stop lifecycle works.
 
 ### Required tests
 
@@ -1125,7 +1125,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultLifecycleManagerTest
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-009 — Implement Platform Configuration access
+## STAGE1-009 ? Implement Platform Configuration access
 
 **Status:** DONE
 **Stage:** 1
@@ -1134,7 +1134,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=DefaultLifecycleManagerTest
 
 ### Goal
 
-Read-only доступ к конфигурации через Core API.
+Read-only ?????? ? ???????????? ????? Core API.
 
 ### Required documents
 
@@ -1174,7 +1174,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=PlatformCoreAutoConfigurationTest
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-010 — Wire Platform Core into bootstrap
+## STAGE1-010 ? Wire Platform Core into bootstrap
 
 **Status:** DONE
 **Stage:** 1
@@ -1183,7 +1183,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=PlatformCoreAutoConfigurationTest
 
 ### Goal
 
-Подключить Platform Core к composition root.
+?????????? Platform Core ? composition root.
 
 ### Required documents
 
@@ -1199,7 +1199,7 @@ mvn -q -pl :tmp-platform-core test -Dtest=PlatformCoreAutoConfigurationTest
 
 ### Forbidden
 
-- изменение Stage 0 DB wiring; business beans.
+- ????????? Stage 0 DB wiring; business beans.
 
 ### Implementation requirements
 
@@ -1223,7 +1223,7 @@ mvn -q -pl :tmp-bootstrap-app verify
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-011 — Add Stage 1 architecture tests
+## STAGE1-011 ? Add Stage 1 architecture tests
 
 **Status:** DONE
 **Stage:** 1
@@ -1232,7 +1232,7 @@ mvn -q -pl :tmp-bootstrap-app verify
 
 ### Goal
 
-ArchUnit-правила границ Platform Core.
+ArchUnit-??????? ?????? Platform Core.
 
 ### Required documents
 
@@ -1248,11 +1248,11 @@ ArchUnit-правила границ Platform Core.
 
 ### Forbidden
 
-- ослабление Stage 0 rules.
+- ?????????? Stage 0 rules.
 
 ### Implementation requirements
 
-- core ⊥ ui/infra; external → api only; ui ⊥ core.
+- core ? ui/infra; external ? api only; ui ? core.
 
 ### Acceptance criteria
 
@@ -1272,7 +1272,7 @@ mvn -q -pl :tmp-architecture-tests test
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-012 — Minimal platform status UI visibility
+## STAGE1-012 ? Minimal platform status UI visibility
 
 **Status:** DONE
 **Stage:** 1
@@ -1281,7 +1281,7 @@ mvn -q -pl :tmp-architecture-tests test
 
 ### Goal
 
-Технический статус Platform Core в empty shell без coupling UI к Core.
+??????????? ?????? Platform Core ? empty shell ??? coupling UI ? Core.
 
 ### Required documents
 
@@ -1301,7 +1301,7 @@ mvn -q -pl :tmp-architecture-tests test
 
 ### Implementation requirements
 
-- `platformCore.status().summary()` → launcher → bottom label.
+- `platformCore.status().summary()` ? launcher ? bottom label.
 
 ### Acceptance criteria
 
@@ -1321,7 +1321,7 @@ mvn -q -pl :tmp-ui-shell test
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-013 — Run complete Stage 1 verification gate
+## STAGE1-013 ? Run complete Stage 1 verification gate
 
 **Status:** DONE
 **Stage:** 1
@@ -1330,7 +1330,7 @@ mvn -q -pl :tmp-ui-shell test
 
 ### Goal
 
-Финальная верификация Stage 1 против exit criteria.
+????????? ??????????? Stage 1 ?????? exit criteria.
 
 ### Required documents
 
@@ -1346,7 +1346,7 @@ mvn -q -pl :tmp-ui-shell test
 
 ### Forbidden
 
-- feature changes; переход к Stage 2.
+- feature changes; ??????? ? Stage 2.
 
 ### Implementation requirements
 
@@ -1371,7 +1371,7 @@ mvn clean verify -Ppackage
 
 - WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-014 — Fix Stage 1 acceptance review blockers (BLK-005..007)
+## STAGE1-014 ? Fix Stage 1 acceptance review blockers (BLK-005..007)
 
 **Status:** DONE
 **Stage:** 1
@@ -1380,7 +1380,7 @@ mvn clean verify -Ppackage
 
 ### Goal
 
-Устранить три блокирующих дефекта acceptance review Stage 1 без перехода к Stage 2.
+????????? ??? ??????????? ??????? acceptance review Stage 1 ??? ???????? ? Stage 2.
 
 ### Required documents
 
@@ -1407,9 +1407,9 @@ mvn clean verify -Ppackage
 
 ### Acceptance criteria
 
-- [x] BLK-005 RESOLVED — stable eventId/occurredAt, expanded EventBus tests.
-- [x] BLK-006 RESOLVED — lifecycle failure/rollback tests.
-- [x] BLK-007 RESOLVED — `PlatformCore.registerComponent()` only public path.
+- [x] BLK-005 RESOLVED ? stable eventId/occurredAt, expanded EventBus tests.
+- [x] BLK-006 RESOLVED ? lifecycle failure/rollback tests.
+- [x] BLK-007 RESOLVED ? `PlatformCore.registerComponent()` only public path.
 - [x] Service registry and architecture test enhancements.
 - [x] `mvn clean verify` and `mvn clean verify -Ppackage` PASSED.
 - [x] Manual TMP.exe launch verified.
@@ -1431,7 +1431,7 @@ Manual: `dist/jpackage/TMP/TMP.exe` with `TMP_DB_URL`, `TMP_DB_USERNAME`, `TMP_D
 
 - STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## Stage 2 — Document Engine (decomposition)
+## Stage 2 ? Document Engine (decomposition)
 
 | Task | Status | Scope |
 |---|---|---|
@@ -1467,9 +1467,9 @@ Manual: `dist/jpackage/TMP/TMP.exe` with `TMP_DB_URL`, `TMP_DB_USERNAME`, `TMP_D
 - Document Engine remains domain-independent and contains no business module logic.
 - One document type maps to exactly one registered `DocumentProcessor`.
 - Module depends on Platform Core public API only.
-- STAGE2-022..026 closed residual BLK-011/BLK-013; Stage 2 CLOSED — stop before Stage 3.
+- STAGE2-022..026 closed residual BLK-011/BLK-013; Stage 2 CLOSED ? stop before Stage 3.
 
-## STAGE2-022 — Registry rollback compensation (BLK-011 reopen)
+## STAGE2-022 ? Registry rollback compensation (BLK-011 reopen)
 
 **Status:** DONE
 **Stage:** 2
@@ -1478,7 +1478,7 @@ Manual: `dist/jpackage/TMP/TMP.exe` with `TMP_DB_URL`, `TMP_DB_USERNAME`, `TMP_D
 
 ### Goal
 
-Сделать итог `registerProcessor` согласованным с финальным outcome транзакции: при любом rollback processor не остаётся в registry.
+??????? ???? `registerProcessor` ????????????? ? ????????? outcome ??????????: ??? ????? rollback processor ?? ???????? ? registry.
 
 ### Required documents
 
@@ -1494,14 +1494,14 @@ Manual: `dist/jpackage/TMP/TMP.exe` with `TMP_DB_URL`, `TMP_DB_USERNAME`, `TMP_D
 
 ### Forbidden
 
-- Stage 3; изменение Platform Core EventBus; message broker.
+- Stage 3; ????????? Platform Core EventBus; message broker.
 
 ### Implementation requirements
 
-- После DB write + registry register: compensating `unregister` в `afterCompletion` если status != COMMITTED.
-- Guard create: тип должен существовать в `documents.document_types`.
-- Deterministic `TransactionTemplate` test: register → rollbackOnly → no DB type, no registry entry → retry succeeds.
-- Покрыть commit-failure path (`beforeCommit` throw).
+- ????? DB write + registry register: compensating `unregister` ? `afterCompletion` ???? status != COMMITTED.
+- Guard create: ??? ?????? ???????????? ? `documents.document_types`.
+- Deterministic `TransactionTemplate` test: register ? rollbackOnly ? no DB type, no registry entry ? retry succeeds.
+- ??????? commit-failure path (`beforeCommit` throw).
 
 ### Acceptance criteria
 
@@ -1525,7 +1525,7 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineRegistration*
 
 - STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE2-023 — After-commit handler failure policy (BLK-013)
+## STAGE2-023 ? After-commit handler failure policy (BLK-013)
 
 **Status:** DONE
 **Stage:** 2
@@ -1534,7 +1534,7 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineRegistration*
 
 ### Goal
 
-Документная операция не должна выглядеть откатившейся из-за падения after-commit подписчика; зафиксировать best-effort delivery policy без изменения Platform Core.
+??????????? ???????? ?? ?????? ????????? ???????????? ??-?? ??????? after-commit ??????????; ????????????? best-effort delivery policy ??? ????????? Platform Core.
 
 ### Required documents
 
@@ -1550,7 +1550,7 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineRegistration*
 
 ### Forbidden
 
-- Изменение Platform Core EventBus failure contract; message broker; unsafe auto-retry API.
+- ????????? Platform Core EventBus failure contract; message broker; unsafe auto-retry API.
 
 ### Implementation requirements
 
@@ -1579,7 +1579,7 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineTransactionEven
 
 - STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE2-024 — PostgreSQL Testcontainers Document Engine ITs
+## STAGE2-024 ? PostgreSQL Testcontainers Document Engine ITs
 
 **Status:** DONE
 **Stage:** 2
@@ -1588,11 +1588,11 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineTransactionEven
 
 ### Goal
 
-Подтвердить PostgreSQL semantics для rollback/concurrency/events/storage; H2 оставить как быстрые component tests.
+??????????? PostgreSQL semantics ??? rollback/concurrency/events/storage; H2 ???????? ??? ??????? component tests.
 
 ### Required documents
 
-- `STAGE-2-DOCUMENT-ENGINE.md`; Database Specification § naming/FK module rules.
+- `STAGE-2-DOCUMENT-ENGINE.md`; Database Specification � naming/FK module rules.
 
 ### Required code context
 
@@ -1638,7 +1638,7 @@ mvn -q -pl :tmp-document-engine test -Dtest=*Postgres*
 
 - STATUS; WORK-QUEUE; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE2-025 — FK document_type_id decision and invariant
+## STAGE2-025 ? FK document_type_id decision and invariant
 
 **Status:** DONE
 **Stage:** 2
@@ -1647,11 +1647,11 @@ mvn -q -pl :tmp-document-engine test -Dtest=*Postgres*
 
 ### Goal
 
-Зафиксировать решение по FK `documents.document_type_id → document_types.id` и обеспечить инвариант отсутствия orphan types.
+????????????? ??????? ?? FK `documents.document_type_id ? document_types.id` ? ?????????? ????????? ?????????? orphan types.
 
 ### Required documents
 
-- Database Specification §12 (inter-module FK ban; intra-module FK allowed).
+- Database Specification �12 (inter-module FK ban; intra-module FK allowed).
 
 ### Required code context
 
@@ -1691,7 +1691,7 @@ mvn -q -pl :tmp-document-engine test -Dtest=*Registration*,*Postgres*,*Lifecycle
 
 - STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE2-026 — Final Stage 2 re-verification gate (re-review)
+## STAGE2-026 ? Final Stage 2 re-verification gate (re-review)
 
 **Status:** DONE
 **Stage:** 2
@@ -1700,7 +1700,7 @@ mvn -q -pl :tmp-document-engine test -Dtest=*Registration*,*Postgres*,*Lifecycle
 
 ### Goal
 
-Закрыть Stage 2 после residual blockers, full verify и ручного TMP.exe; не начинать Stage 3.
+??????? Stage 2 ????? residual blockers, full verify ? ??????? TMP.exe; ?? ???????? Stage 3.
 
 ### Required documents
 
@@ -1748,7 +1748,7 @@ Manual: `dist/jpackage/TMP/TMP.exe`
 
 - STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE2-017 — Fix duplicate DocumentEngine beans (BLK-010)
+## STAGE2-017 ? Fix duplicate DocumentEngine beans (BLK-010)
 
 **Status:** DONE
 **Stage:** 2
@@ -1757,7 +1757,7 @@ Manual: `dist/jpackage/TMP/TMP.exe`
 
 ### Goal
 
-Оставить ровно один Spring bean типа `DocumentEngine` и подтвердить уникальный lookup из bootstrap context.
+???????? ????? ???? Spring bean ???? `DocumentEngine` ? ??????????? ?????????? lookup ?? bootstrap context.
 
 ### Required documents
 
@@ -1775,25 +1775,25 @@ Manual: `dist/jpackage/TMP/TMP.exe`
 
 ### Forbidden
 
-- Stage 3 features; business logic; ослабление quality gates.
+- Stage 3 features; business logic; ?????????? quality gates.
 
 ### Implementation requirements
 
-- Удалить `documentEngineFacade` bean; единственный `@Bean DocumentEngine`.
-- Обновить `DocumentEnginePlatformRegistrar` на `DocumentEngine`.
-- Добавить тест `getBean(DocumentEngine.class)` в bootstrap context.
-- Добавить DesktopBootstrap lookup smoke test.
+- ??????? `documentEngineFacade` bean; ???????????? `@Bean DocumentEngine`.
+- ???????? `DocumentEnginePlatformRegistrar` ?? `DocumentEngine`.
+- ???????? ???? `getBean(DocumentEngine.class)` ? bootstrap context.
+- ???????? DesktopBootstrap lookup smoke test.
 
 ### Acceptance criteria
 
-- [x] Ровно один bean типа `DocumentEngine` в контексте.
-- [x] `applicationContext.getBean(DocumentEngine.class)` возвращает bean без ambiguity.
-- [x] DesktopBootstrap lookup smoke test проходит.
+- [x] ????? ???? bean ???? `DocumentEngine` ? ?????????.
+- [x] `applicationContext.getBean(DocumentEngine.class)` ?????????? bean ??? ambiguity.
+- [x] DesktopBootstrap lookup smoke test ????????.
 - [x] BLK-010 RESOLVED.
 
 ### Required tests
 
-- `DocumentEngineBeanLookupTest` или расширение `SpringContextSmokeTest`.
+- `DocumentEngineBeanLookupTest` ??? ?????????? `SpringContextSmokeTest`.
 - `DesktopBootstrapLookupSmokeTest`.
 
 ### Verification commands
@@ -1806,7 +1806,7 @@ mvn -q -pl :tmp-bootstrap-app test -Dtest=SpringContextSmokeTest,DocumentEngineB
 
 - STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE2-018 — Atomic processor registration (BLK-011)
+## STAGE2-018 ? Atomic processor registration (BLK-011)
 
 **Status:** DONE
 **Stage:** 2
@@ -1815,7 +1815,7 @@ mvn -q -pl :tmp-bootstrap-app test -Dtest=SpringContextSmokeTest,DocumentEngineB
 
 ### Goal
 
-Сделать регистрацию processor + document type атомарной без partial in-memory state при DB failure.
+??????? ??????????? processor + document type ????????? ??? partial in-memory state ??? DB failure.
 
 ### Required documents
 
@@ -1831,19 +1831,19 @@ mvn -q -pl :tmp-bootstrap-app test -Dtest=SpringContextSmokeTest,DocumentEngineB
 
 ### Forbidden
 
-- Изменение Platform Core; message broker.
+- ????????? Platform Core; message broker.
 
 ### Implementation requirements
 
-- DB `registerDocumentType` перед in-memory `processorRegistry.register`.
-- Метод в одной `@Transactional` границе.
-- Тест с намеренной DB failure; повторная регистрация после failure проходит.
+- DB `registerDocumentType` ????? in-memory `processorRegistry.register`.
+- ????? ? ????? `@Transactional` ???????.
+- ???? ? ?????????? DB failure; ????????? ??????????? ????? failure ????????.
 
 ### Acceptance criteria
 
-- [x] При DB failure processor не остаётся в registry.
-- [x] Повторная корректная регистрация успешна.
-- [x] Duplicate processor registration по-прежнему отклоняется.
+- [x] ??? DB failure processor ?? ???????? ? registry.
+- [x] ????????? ?????????? ??????????? ???????.
+- [x] Duplicate processor registration ??-???????? ???????????.
 - [x] BLK-011 RESOLVED.
 
 ### Required tests
@@ -1860,7 +1860,7 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineRegistrationTes
 
 - STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE2-019 — Post-commit event publishing (BLK-012)
+## STAGE2-019 ? Post-commit event publishing (BLK-012)
 
 **Status:** DONE
 **Stage:** 2
@@ -1869,11 +1869,11 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineRegistrationTes
 
 ### Goal
 
-Публиковать DocumentCreated/Posted/Unposted/Closed/Deleted только после успешного transaction commit.
+??????????? DocumentCreated/Posted/Unposted/Closed/Deleted ?????? ????? ????????? transaction commit.
 
 ### Required documents
 
-- `Document-Engine-Specification.md`; `Database-Specification.md` §9; acceptance review BLK-012.
+- `Document-Engine-Specification.md`; `Database-Specification.md` �9; acceptance review BLK-012.
 
 ### Required code context
 
@@ -1889,8 +1889,8 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineRegistrationTes
 
 ### Implementation requirements
 
-- `TransactionAfterCommitEventPublisher` через `TransactionSynchronizationManager.afterCommit`.
-- События не публикуются при rollback.
+- `TransactionAfterCommitEventPublisher` ????? `TransactionSynchronizationManager.afterCommit`.
+- ??????? ?? ??????????? ??? rollback.
 - Transaction integration tests.
 
 ### Acceptance criteria
@@ -1914,7 +1914,7 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineTransactionEven
 
 - STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE2-020 — Expanded lifecycle/rollback/concurrency tests
+## STAGE2-020 ? Expanded lifecycle/rollback/concurrency tests
 
 **Status:** DONE
 **Stage:** 2
@@ -1923,7 +1923,7 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineTransactionEven
 
 ### Goal
 
-Покрыть обязательные сценарии acceptance review: rollback, lifecycle guards, optimistic locking, concurrency, file storage.
+??????? ???????????? ???????? acceptance review: rollback, lifecycle guards, optimistic locking, concurrency, file storage.
 
 ### Required documents
 
@@ -1939,7 +1939,7 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineTransactionEven
 
 ### Forbidden
 
-- Ослабление существующих тестов; business document types.
+- ?????????? ???????????? ??????; business document types.
 
 ### Implementation requirements
 
@@ -1951,7 +1951,7 @@ mvn -q -pl :tmp-document-engine test -Dtest=DefaultDocumentEngineTransactionEven
 
 ### Acceptance criteria
 
-- [x] Все перечисленные сценарии покрыты тестами.
+- [x] ??? ????????????? ???????? ??????? ???????.
 - [x] `mvn -q -pl :tmp-document-engine,:tmp-bootstrap-app test` PASSED.
 
 ### Required tests
@@ -1968,7 +1968,7 @@ mvn -q -pl :tmp-document-engine,:tmp-bootstrap-app test
 
 - STATUS; WORK-QUEUE; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE2-021 — Final Stage 2 re-verification gate
+## STAGE2-021 ? Final Stage 2 re-verification gate
 
 **Status:** DONE
 **Stage:** 2
@@ -1977,7 +1977,7 @@ mvn -q -pl :tmp-document-engine,:tmp-bootstrap-app test
 
 ### Goal
 
-Закрыть Stage 2 после устранения всех blockers, полной verification и ручного запуска TMP.exe.
+??????? Stage 2 ????? ?????????? ???? blockers, ?????? verification ? ??????? ??????? TMP.exe.
 
 ### Required documents
 
@@ -1993,20 +1993,20 @@ mvn -q -pl :tmp-document-engine,:tmp-bootstrap-app test
 
 ### Forbidden
 
-- Stage 3 features; новые feature-изменения вне defect fixes.
+- Stage 3 features; ????? feature-????????? ??? defect fixes.
 
 ### Implementation requirements
 
-- `mvn clean verify` и `mvn clean verify -Ppackage` PASSED.
-- Ручной запуск `dist/jpackage/TMP/TMP.exe`.
-- Все blockers BLK-010..012 RESOLVED.
+- `mvn clean verify` ? `mvn clean verify -Ppackage` PASSED.
+- ?????? ?????? `dist/jpackage/TMP/TMP.exe`.
+- ??? blockers BLK-010..012 RESOLVED.
 
 ### Acceptance criteria
 
 - [x] Full verify PASSED.
 - [x] Package verify PASSED.
-- [x] TMP.exe запускается.
-- [x] Stage 2 exit criteria подтверждены.
+- [x] TMP.exe ???????????.
+- [x] Stage 2 exit criteria ????????????.
 
 ### Required tests
 
@@ -2025,7 +2025,7 @@ Manual: `dist/jpackage/TMP/TMP.exe`
 
 - STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-016 — Fix registration/lifecycle race condition (BLK-009)
+## STAGE1-016 ? Fix registration/lifecycle race condition (BLK-009)
 
 **Status:** DONE
 **Stage:** 1
@@ -2034,7 +2034,7 @@ Manual: `dist/jpackage/TMP/TMP.exe`
 
 ### Goal
 
-Устранить race condition между `registerComponent()` и `startAll()`/`stopAll()` через единый synchronization boundary.
+????????? race condition ????? `registerComponent()` ? `startAll()`/`stopAll()` ????? ?????? synchronization boundary.
 
 ### Required documents
 
@@ -2081,7 +2081,7 @@ mvn clean verify -Ppackage
 
 - STATUS; WORK-QUEUE; BLOCKERS; IMPLEMENTATION-LOG; VERIFICATION-LOG.
 
-## STAGE1-015 — Fix Stage 1 re-review remaining defects (BLK-008)
+## STAGE1-015 ? Fix Stage 1 re-review remaining defects (BLK-008)
 
 **Status:** DONE
 **Stage:** 1
@@ -2090,7 +2090,7 @@ mvn clean verify -Ppackage
 
 ### Goal
 
-Устранить оставшиеся дефекты повторной проверки Stage 1 без перехода к Stage 2.
+????????? ?????????? ??????? ????????? ???????? Stage 1 ??? ???????? ? Stage 2.
 
 ### Required documents
 
@@ -2142,19 +2142,19 @@ mvn clean verify -Ppackage
 
 ---
 
-# Stage 3 — Capability Engine (decomposition)
+# Stage 3 ? Capability Engine (decomposition)
 
 ## Design decisions fixed for this Stage
 
 1. Module: `tmp-capability-engine`. Public API package: `com.tmp.capability.api` (mirrors `com.tmp.document.api`). Internal implementation packages: `com.tmp.capability.*` (registry, lifecycle, validation, discovery, contribution).
 2. Capability Engine registers **itself** as exactly one `PlatformComponent` in Platform Core (same pattern as `DocumentEnginePlatformRegistrar`). Individual Capabilities are **not** registered as `PlatformComponent`s; they are discovered/managed internally by Capability Engine.
-3. Discovery mechanism: Spring beans implementing `com.tmp.capability.api.Capability` are collected via constructor injection of `List<Capability>` into the discovery component — explicit, deterministic, no classloading, no plugin framework.
-4. `CapabilityLifecycleState`: `DISCOVERED, VALIDATED, REGISTERED, INITIALIZED, ACTIVE, STOPPED, DEACTIVATED, FAILED` — fixed set of allowed transitions defined and unit-tested in STAGE3-008.
-5. Version compatibility rule (no ADR/spec-defined semantics found; minimal domain-independent technical contract, self-implemented, no external SemVer library): `CapabilityVersion` is immutable, parsed from `MAJOR.MINOR.PATCH` (non-negative integers only, no pre-release/build metadata). A dependency requirement declares a minimum required `CapabilityVersion`. A declared capability version is **compatible** with a requirement if and only if `actual.major() == required.major() && (actual.minor() > required.minor() || (actual.minor() == required.minor() && actual.patch() >= required.patch()))`. Different major version ⇒ incompatible (breaking-change boundary). This rule is documented in `CapabilityVersion` Javadoc and covered by dedicated tests. It is an internal algorithm behind a stable method signature (`isCompatibleWith`), so it can be revisited later without breaking the public shape of the value object.
-6. **Atomic registration/compensation design (resolves potential blocker without changing Stage 1/2 public API):** verified from actual Stage 1/2 implementations that (a) `DocumentEngine.registerProcessor()` is self-atomic (Stage 2 BLK-011/018 — throws before mutating on duplicate, never partially registers); (b) `ServiceRegistry.register()` and `EventBus.subscribe*()` are unconditionally successful by current contract (pure in-memory add, no duplicate rejection); (c) `PlatformCore.capabilityRegistry().register()` only mutates on success (`putIfAbsent`-based), and Capability Engine already enforces global ID uniqueness in its own registry before reaching this call. Given these verified facts, atomic registration is achieved by performing all Capability-Engine-owned catalog mutations first (always reversible), then external calls in the fixed order [Platform Core `CapabilityRegistry.register` → Document Engine `registerProcessor` (the only call with genuine, pre-validated failure risk) → Platform Core `ServiceRegistry.register` → Platform Core `EventBus.subscribe*`], with pre-validation (duplicate lookups) performed before every external mutating call under Capability Engine's single registration lock. This eliminates the realistic failure window without requiring any Stage 1/2 public API change. The residual theoretical risk (a future Platform Core contract change making `ServiceRegistry.register`/`EventBus.subscribe*` fail after Document Engine registration already succeeded) is documented as a known limitation in `CapabilityRegistrationService` Javadoc, not hidden. No blocker raised for this design choice.
+3. Discovery mechanism: Spring beans implementing `com.tmp.capability.api.Capability` are collected via constructor injection of `List<Capability>` into the discovery component ? explicit, deterministic, no classloading, no plugin framework.
+4. `CapabilityLifecycleState`: `DISCOVERED, VALIDATED, REGISTERED, INITIALIZED, ACTIVE, STOPPED, DEACTIVATED, FAILED` ? fixed set of allowed transitions defined and unit-tested in STAGE3-008.
+5. Version compatibility rule (no ADR/spec-defined semantics found; minimal domain-independent technical contract, self-implemented, no external SemVer library): `CapabilityVersion` is immutable, parsed from `MAJOR.MINOR.PATCH` (non-negative integers only, no pre-release/build metadata). A dependency requirement declares a minimum required `CapabilityVersion`. A declared capability version is **compatible** with a requirement if and only if `actual.major() == required.major() && (actual.minor() > required.minor() || (actual.minor() == required.minor() && actual.patch() >= required.patch()))`. Different major version ? incompatible (breaking-change boundary). This rule is documented in `CapabilityVersion` Javadoc and covered by dedicated tests. It is an internal algorithm behind a stable method signature (`isCompatibleWith`), so it can be revisited later without breaking the public shape of the value object.
+6. **Atomic registration/compensation design (resolves potential blocker without changing Stage 1/2 public API):** verified from actual Stage 1/2 implementations that (a) `DocumentEngine.registerProcessor()` is self-atomic (Stage 2 BLK-011/018 ? throws before mutating on duplicate, never partially registers); (b) `ServiceRegistry.register()` and `EventBus.subscribe*()` are unconditionally successful by current contract (pure in-memory add, no duplicate rejection); (c) `PlatformCore.capabilityRegistry().register()` only mutates on success (`putIfAbsent`-based), and Capability Engine already enforces global ID uniqueness in its own registry before reaching this call. Given these verified facts, atomic registration is achieved by performing all Capability-Engine-owned catalog mutations first (always reversible), then external calls in the fixed order [Platform Core `CapabilityRegistry.register` ? Document Engine `registerProcessor` (the only call with genuine, pre-validated failure risk) ? Platform Core `ServiceRegistry.register` ? Platform Core `EventBus.subscribe*`], with pre-validation (duplicate lookups) performed before every external mutating call under Capability Engine's single registration lock. This eliminates the realistic failure window without requiring any Stage 1/2 public API change. The residual theoretical risk (a future Platform Core contract change making `ServiceRegistry.register`/`EventBus.subscribe*` fail after Document Engine registration already succeeded) is documented as a known limitation in `CapabilityRegistrationService` Javadoc, not hidden. No blocker raised for this design choice.
 7. Sample technical Capability lives in `tmp-capability-engine` under a clearly-named sample package (not a business module), used for architecture, unit, integration and Testcontainers tests, and for bootstrap/UI smoke visibility.
 
-## STAGE3-001 — Bootstrap `tmp-capability-engine` module and public API package skeleton
+## STAGE3-001 ? Bootstrap `tmp-capability-engine` module and public API package skeleton
 
 **Status:** DONE
 **Stage:** 3
@@ -2163,12 +2163,12 @@ mvn clean verify -Ppackage
 
 ### Goal
 
-Создать Maven-модуль `tmp-capability-engine`, подключить его в root reactor, объявить зависимости только на публичные API Platform Core и Document Engine, создать пустой пакет `com.tmp.capability.api` без бизнес-логики и без единого класса контракта (контракты появляются в следующих задачах).
+??????? Maven-?????? `tmp-capability-engine`, ?????????? ??? ? root reactor, ???????? ??????????? ?????? ?? ????????? API Platform Core ? Document Engine, ??????? ?????? ????? `com.tmp.capability.api` ??? ??????-?????? ? ??? ??????? ?????? ????????? (????????? ?????????? ? ????????? ???????).
 
 ### Required documents
 
-- `Capability-Engine-Specification.md` (Назначение, Определение Capability, Ответственность, Что не входит, Архитектура);
-- `Platform-Core-Specification.md` (Зависимости, Architecture Rules AR-001..AR-005);
+- `Capability-Engine-Specification.md` (??????????, ??????????? Capability, ???????????????, ??? ?? ??????, ???????????);
+- `Platform-Core-Specification.md` (???????????, Architecture Rules AR-001..AR-005);
 - Stage 1/2 module bootstrap precedent (`tmp-platform-core/pom.xml`, `tmp-document-engine/pom.xml`).
 
 ### Required code context
@@ -2221,11 +2221,11 @@ mvn -q -pl :tmp-capability-engine compile
 
 ### Expected result
 
-`tmp-capability-engine` exists in the reactor, compiles, and has zero implementation — a clean starting point for the public API contracts.
+`tmp-capability-engine` exists in the reactor, compiles, and has zero implementation ? a clean starting point for the public API contracts.
 
 ---
 
-## STAGE3-002 — CapabilityId and CapabilityVersion value objects with version compatibility rule
+## STAGE3-002 ? CapabilityId and CapabilityVersion value objects with version compatibility rule
 
 **Status:** DONE
 **Stage:** 3
@@ -2234,16 +2234,16 @@ mvn -q -pl :tmp-capability-engine compile
 
 ### Goal
 
-Определить immutable value objects `CapabilityId` и `CapabilityVersion` (с deterministic сравнением и правилом совместимости версий), являющиеся основой всех остальных контрактов Capability.
+?????????? immutable value objects `CapabilityId` ? `CapabilityVersion` (? deterministic ?????????? ? ???????? ????????????? ??????), ?????????? ??????? ???? ????????? ?????????? Capability.
 
 ### Required documents
 
-- `Capability-Engine-Specification.md` (Контракт Capability — id/version; раздел "Зависимости" — совместимость версии упомянута, но не детализирована);
-- this file's "Design decisions" §5 (version compatibility rule fixed above — no ADR/spec-defined semantics exist, so this task implements the documented minimal technical contract).
+- `Capability-Engine-Specification.md` (???????? Capability ? id/version; ?????? "???????????" ? ????????????? ?????? ?????????, ?? ?? ??????????????);
+- this file's "Design decisions" �5 (version compatibility rule fixed above ? no ADR/spec-defined semantics exist, so this task implements the documented minimal technical contract).
 
 ### Required code context
 
-- `com.tmp.core.api.capability.CapabilityDescriptor` (Stage 1, for naming/style precedent only — not reused directly, Capability Engine needs a richer descriptor).
+- `com.tmp.core.api.capability.CapabilityDescriptor` (Stage 1, for naming/style precedent only ? not reused directly, Capability Engine needs a richer descriptor).
 
 ### Allowed code scope
 
@@ -2260,7 +2260,7 @@ mvn -q -pl :tmp-capability-engine compile
 ### Implementation requirements
 
 - `CapabilityId`: immutable wrapper over a non-blank `String`, validated (not null, not blank, trimmed equality semantics documented), `equals`/`hashCode`/`toString`.
-- `CapabilityVersion`: immutable, parsed via a static factory `CapabilityVersion.of(String)` from `MAJOR.MINOR.PATCH` (regex-validated non-negative integers only); implements `Comparable<CapabilityVersion>` with deterministic ordering; exposes `isCompatibleWith(CapabilityVersion required)` implementing the rule fixed in "Design decisions" §5; malformed input throws `IllegalArgumentException` with a precise message.
+- `CapabilityVersion`: immutable, parsed via a static factory `CapabilityVersion.of(String)` from `MAJOR.MINOR.PATCH` (regex-validated non-negative integers only); implements `Comparable<CapabilityVersion>` with deterministic ordering; exposes `isCompatibleWith(CapabilityVersion required)` implementing the rule fixed in "Design decisions" �5; malformed input throws `IllegalArgumentException` with a precise message.
 - Both classes documented with Javadoc explaining they carry no business meaning (technical identity/version only).
 
 ### Public contracts that may change
@@ -2296,7 +2296,7 @@ Stable, fully-tested identity and version value objects usable by every later de
 
 ---
 
-## STAGE3-003 — Dependency descriptor and dependency validation error contract
+## STAGE3-003 ? Dependency descriptor and dependency validation error contract
 
 **Status:** DONE
 **Stage:** 3
@@ -2305,11 +2305,11 @@ Stable, fully-tested identity and version value objects usable by every later de
 
 ### Goal
 
-Определить immutable `DependencyDescriptor` (target capability id + minimum required version) и типизированный контракт ошибок валидации зависимостей, используемый последующей dependency-validation задачей.
+?????????? immutable `DependencyDescriptor` (target capability id + minimum required version) ? ?????????????? ???????? ?????? ????????? ????????????, ???????????? ??????????? dependency-validation ???????.
 
 ### Required documents
 
-- `Capability-Engine-Specification.md` (раздел "Зависимости": явное объявление, запрет циклов, зависимость только от публичного контракта);
+- `Capability-Engine-Specification.md` (?????? "???????????": ????? ??????????, ?????? ??????, ??????????? ?????? ?? ?????????? ?????????);
 - Stage 3 manifest domain 4 (`dependency validation`).
 
 ### Required code context
@@ -2329,8 +2329,8 @@ Stable, fully-tested identity and version value objects usable by every later de
 
 ### Implementation requirements
 
-- `DependencyDescriptor(CapabilityId dependencyId, CapabilityVersion minimumVersion)` — immutable, null-checked;
-- `DependencyValidationException` — unchecked, carries a `DependencyValidationReason` enum (`MISSING_DEPENDENCY, SELF_DEPENDENCY, DUPLICATE_DEPENDENCY, INCOMPATIBLE_VERSION, CYCLIC_DEPENDENCY`) and the offending `CapabilityId`(s) for precise diagnostics.
+- `DependencyDescriptor(CapabilityId dependencyId, CapabilityVersion minimumVersion)` ? immutable, null-checked;
+- `DependencyValidationException` ? unchecked, carries a `DependencyValidationReason` enum (`MISSING_DEPENDENCY, SELF_DEPENDENCY, DUPLICATE_DEPENDENCY, INCOMPATIBLE_VERSION, CYCLIC_DEPENDENCY`) and the offending `CapabilityId`(s) for precise diagnostics.
 
 ### Public contracts that may change
 
@@ -2362,7 +2362,7 @@ A reusable, precise dependency contract ready for graph validation.
 
 ---
 
-## STAGE3-004 — Command, View, Navigation and Permission descriptor contracts
+## STAGE3-004 ? Command, View, Navigation and Permission descriptor contracts
 
 **Status:** DONE
 **Stage:** 3
@@ -2371,12 +2371,12 @@ A reusable, precise dependency contract ready for graph validation.
 
 ### Goal
 
-Определить доменно-независимые immutable metadata contracts для команд, представлений, навигации и прав — без реальных бизнес-экранов и без логики авторизации.
+?????????? ???????-??????????? immutable metadata contracts ??? ??????, ?????????????, ????????? ? ???? ? ??? ???????? ??????-??????? ? ??? ?????? ???????????.
 
 ### Required documents
 
-- `Capability-Engine-Specification.md` (Контракт Capability; "Права доступа"; "Рабочие места"; command/view/navigation contribution scope items);
-- `UI-UX-Specification.md` (раздел "Навигация" — навигация строится автоматически на основании зарегистрированных Capability; один экран открыт одновременно — informs that `NavigationContribution` carries only routing metadata, not screen implementation).
+- `Capability-Engine-Specification.md` (???????? Capability; "????? ???????"; "??????? ?????"; command/view/navigation contribution scope items);
+- `UI-UX-Specification.md` (?????? "?????????" ? ????????? ???????? ????????????? ?? ????????? ?????????????????? Capability; ???? ????? ?????? ???????????? ? informs that `NavigationContribution` carries only routing metadata, not screen implementation).
 
 ### Required code context
 
@@ -2398,10 +2398,10 @@ A reusable, precise dependency contract ready for graph validation.
 
 ### Implementation requirements
 
-- `PermissionDescriptor(String permissionId, String displayName, String description)` — immutable, non-blank id;
-- `CommandDescriptor(String commandId, String displayName, List<String> requiredPermissionIds)` — immutable, defensive copy of list;
-- `ViewDescriptor(String viewId, String displayName, String navigationTargetId)` — immutable metadata only (no FXML reference resolution, no screen instantiation — that is deferred to future UI stages);
-- `NavigationContribution(String navigationId, String displayName, String viewId, int order)` — immutable metadata for building the navigation tree.
+- `PermissionDescriptor(String permissionId, String displayName, String description)` ? immutable, non-blank id;
+- `CommandDescriptor(String commandId, String displayName, List<String> requiredPermissionIds)` ? immutable, defensive copy of list;
+- `ViewDescriptor(String viewId, String displayName, String navigationTargetId)` ? immutable metadata only (no FXML reference resolution, no screen instantiation ? that is deferred to future UI stages);
+- `NavigationContribution(String navigationId, String displayName, String viewId, int order)` ? immutable metadata for building the navigation tree.
 - All four types validate non-blank identifiers and are pure data (no behavior beyond accessors/equality).
 
 ### Public contracts that may change
@@ -2434,7 +2434,7 @@ Four independent, fully-tested UI/command metadata contracts with zero business 
 
 ---
 
-## STAGE3-005 — Public service, event, settings and document contribution contracts
+## STAGE3-005 ? Public service, event, settings and document contribution contracts
 
 **Status:** DONE
 **Stage:** 3
@@ -2443,12 +2443,12 @@ Four independent, fully-tested UI/command metadata contracts with zero business 
 
 ### Goal
 
-Определить доменно-независимые immutable metadata contracts для публичных сервисов, публикуемых событий, настроек и документных contributions.
+?????????? ???????-??????????? immutable metadata contracts ??? ????????? ????????, ??????????? ???????, ???????? ? ??????????? contributions.
 
 ### Required documents
 
-- `Capability-Engine-Specification.md` ("Документы и Document Processor"; "Публичный API"; "События"; document/service/event/settings contribution scope items);
-- `Document-Engine-Specification.md` public API section (already read: `DocumentProcessor`, `DocumentTypeDescriptor` — this task's `DocumentContribution` wraps a `DocumentProcessor` reference plus owning capability, it does not redefine Document Engine's own contracts).
+- `Capability-Engine-Specification.md` ("????????? ? Document Processor"; "????????? API"; "???????"; document/service/event/settings contribution scope items);
+- `Document-Engine-Specification.md` public API section (already read: `DocumentProcessor`, `DocumentTypeDescriptor` ? this task's `DocumentContribution` wraps a `DocumentProcessor` reference plus owning capability, it does not redefine Document Engine's own contracts).
 
 ### Required code context
 
@@ -2470,10 +2470,10 @@ Four independent, fully-tested UI/command metadata contracts with zero business 
 
 ### Implementation requirements
 
-- `PublicServiceContribution<T>(Class<T> serviceType, T serviceInstance)` — immutable holder; `serviceType` and `serviceInstance` non-null; `serviceInstance` must be assignable to `serviceType` (validated in constructor);
-- `EventContribution(String eventTypeId, String description)` — immutable, describes a published domain event type (no payload interpretation, per spec "Capability Engine не интерпретирует содержимое событий");
-- `SettingsContribution(String settingKey, String displayName, String description, String defaultValue)` — immutable descriptor only, no storage;
-- `DocumentContribution(String documentTypeId, String displayName, String description, com.tmp.document.api.DocumentProcessor processor)` — immutable, `processor.documentTypeId()` must equal `documentTypeId` (validated in constructor, fail fast on mismatch).
+- `PublicServiceContribution<T>(Class<T> serviceType, T serviceInstance)` ? immutable holder; `serviceType` and `serviceInstance` non-null; `serviceInstance` must be assignable to `serviceType` (validated in constructor);
+- `EventContribution(String eventTypeId, String description)` ? immutable, describes a published domain event type (no payload interpretation, per spec "Capability Engine ?? ?????????????? ?????????? ???????");
+- `SettingsContribution(String settingKey, String displayName, String description, String defaultValue)` ? immutable descriptor only, no storage;
+- `DocumentContribution(String documentTypeId, String displayName, String description, com.tmp.document.api.DocumentProcessor processor)` ? immutable, `processor.documentTypeId()` must equal `documentTypeId` (validated in constructor, fail fast on mismatch).
 
 ### Public contracts that may change
 
@@ -2506,7 +2506,7 @@ Complete, fully-tested set of integration-facing contribution contracts ready to
 
 ---
 
-## STAGE3-006 — CapabilityDescriptor aggregate, CapabilityLifecycleState and Capability SPI contract
+## STAGE3-006 ? CapabilityDescriptor aggregate, CapabilityLifecycleState and Capability SPI contract
 
 **Status:** DONE
 **Stage:** 3
@@ -2515,12 +2515,12 @@ Complete, fully-tested set of integration-facing contribution contracts ready to
 
 ### Goal
 
-Собрать immutable `CapabilityDescriptor`, объединяющий все контракты из STAGE3-002..005, определить `CapabilityLifecycleState` enum и SPI-интерфейс `Capability`, который реализуют технические Capability (включая sample Capability из STAGE3-016).
+??????? immutable `CapabilityDescriptor`, ???????????? ??? ????????? ?? STAGE3-002..005, ?????????? `CapabilityLifecycleState` enum ? SPI-????????? `Capability`, ??????? ????????? ??????????? Capability (??????? sample Capability ?? STAGE3-016).
 
 ### Required documents
 
-- `Capability-Engine-Specification.md` ("Контракт Capability" — полный список обязательных полей; "Жизненный цикл Capability" — 7 стадий + FAILED per DISCOVERED..DEACTIVATED model);
-- this file's "Design decisions" §4 (fixed lifecycle state set).
+- `Capability-Engine-Specification.md` ("???????? Capability" ? ?????? ?????? ???????????? ?????; "????????? ???? Capability" ? 7 ?????? + FAILED per DISCOVERED..DEACTIVATED model);
+- this file's "Design decisions" �4 (fixed lifecycle state set).
 
 ### Required code context
 
@@ -2541,9 +2541,9 @@ Complete, fully-tested set of integration-facing contribution contracts ready to
 ### Implementation requirements
 
 - `CapabilityLifecycleState` enum: `DISCOVERED, VALIDATED, REGISTERED, INITIALIZED, ACTIVE, STOPPED, DEACTIVATED, FAILED`.
-- `CapabilityDescriptor`: immutable, built via a `Builder`; required fields — `CapabilityId id`, `String name`, `CapabilityVersion version`, `String description`; collection fields (defensive-copied, unmodifiable) — `List<DependencyDescriptor> dependencies`, `List<PermissionDescriptor> permissions`, `List<CommandDescriptor> commands`, `List<ViewDescriptor> views`, `List<NavigationContribution> navigationContributions`, `List<DocumentContribution> documents`, `List<PublicServiceContribution<?>> publicServices`, `List<EventContribution> events`, `List<SettingsContribution> settings`;
-- constructor/builder validates: `id` non-null; **duplicate contribution IDs within the same descriptor are rejected** (duplicate permission id, duplicate command id, duplicate view id, duplicate navigation id, duplicate event type id, duplicate settings key, duplicate document type id, duplicate dependency target id) — this is descriptor-level self-consistency, distinct from cross-capability uniqueness (STAGE3-007/010);
-- `Capability` SPI interface: `CapabilityDescriptor descriptor(); void onInitialize(); void onActivate(); void onDeactivate(); void onStop();` — lifecycle hooks a capability implementation provides; Capability Engine calls these, never the reverse — no `PlatformCore`/`DocumentEngine` reference is injected into this SPI (a capability obtains public services exclusively through the same public registries any other module would use, per ADR-003/AR rules).
+- `CapabilityDescriptor`: immutable, built via a `Builder`; required fields ? `CapabilityId id`, `String name`, `CapabilityVersion version`, `String description`; collection fields (defensive-copied, unmodifiable) ? `List<DependencyDescriptor> dependencies`, `List<PermissionDescriptor> permissions`, `List<CommandDescriptor> commands`, `List<ViewDescriptor> views`, `List<NavigationContribution> navigationContributions`, `List<DocumentContribution> documents`, `List<PublicServiceContribution<?>> publicServices`, `List<EventContribution> events`, `List<SettingsContribution> settings`;
+- constructor/builder validates: `id` non-null; **duplicate contribution IDs within the same descriptor are rejected** (duplicate permission id, duplicate command id, duplicate view id, duplicate navigation id, duplicate event type id, duplicate settings key, duplicate document type id, duplicate dependency target id) ? this is descriptor-level self-consistency, distinct from cross-capability uniqueness (STAGE3-007/010);
+- `Capability` SPI interface: `CapabilityDescriptor descriptor(); void onInitialize(); void onActivate(); void onDeactivate(); void onStop();` ? lifecycle hooks a capability implementation provides; Capability Engine calls these, never the reverse ? no `PlatformCore`/`DocumentEngine` reference is injected into this SPI (a capability obtains public services exclusively through the same public registries any other module would use, per ADR-003/AR rules).
 
 ### Public contracts that may change
 
@@ -2577,7 +2577,7 @@ The complete, immutable Capability contract required by the specification, ready
 
 ---
 
-## STAGE3-007 — Capability Registry (read-only catalog, uniqueness, immutable snapshots)
+## STAGE3-007 ? Capability Registry (read-only catalog, uniqueness, immutable snapshots)
 
 **Status:** DONE
 **Stage:** 3
@@ -2586,37 +2586,37 @@ The complete, immutable Capability contract required by the specification, ready
 
 ### Goal
 
-Реализовать внутренний (Capability-Engine-owned) реестр Capability: уникальность ID, поиск по ID, список всех, текущее lifecycle state, immutable snapshot, защита от partial state — как основу для discovery/registration/lifecycle задач.
+??????????? ?????????? (Capability-Engine-owned) ?????? Capability: ???????????? ID, ????? ?? ID, ?????? ????, ??????? lifecycle state, immutable snapshot, ?????? ?? partial state ? ??? ?????? ??? discovery/registration/lifecycle ?????.
 
 ### Required documents
 
-- `Capability-Engine-Specification.md` ("Ответственность Capability Engine" — обнаружение/регистрация/уникальность/каталог).
+- `Capability-Engine-Specification.md` ("??????????????? Capability Engine" ? ???????????/???????????/????????????/???????).
 
 ### Required code context
 
 - `CapabilityDescriptor`, `CapabilityLifecycleState`, `Capability` (STAGE3-006);
-- `com.tmp.core.registry.DefaultCapabilityRegistry` (Stage 1, read for precedent only — different registry, not reused/extended).
+- `com.tmp.core.registry.DefaultCapabilityRegistry` (Stage 1, read for precedent only ? different registry, not reused/extended).
 
 ### Allowed code scope
 
-- `tmp-capability-engine/src/main/java/com/tmp/capability/registry/CapabilityRegistry.java` (new, internal — not in `.api`, this is Capability Engine's own richer registry, distinct from `com.tmp.core.api.CapabilityRegistry`);
-- `tmp-capability-engine/src/main/java/com/tmp/capability/registry/CapabilityRegistration.java` (new — immutable snapshot record: descriptor + current state + owning `Capability` instance);
+- `tmp-capability-engine/src/main/java/com/tmp/capability/registry/CapabilityRegistry.java` (new, internal ? not in `.api`, this is Capability Engine's own richer registry, distinct from `com.tmp.core.api.CapabilityRegistry`);
+- `tmp-capability-engine/src/main/java/com/tmp/capability/registry/CapabilityRegistration.java` (new ? immutable snapshot record: descriptor + current state + owning `Capability` instance);
 - `tmp-capability-engine/src/test/java/com/tmp/capability/registry/CapabilityRegistryTest.java` (new).
 
 ### Forbidden
 
 - dependency validation, discovery, or contribution-catalog logic (later tasks);
-- persistence (in-memory only — no persistence added without a direct specification requirement).
+- persistence (in-memory only ? no persistence added without a direct specification requirement).
 
 ### Implementation requirements
 
 - Thread-safe (`ConcurrentHashMap`/synchronized, matching Stage 1 registry style);
-- `reserve(CapabilityId id)` — atomically claims an id for in-flight registration, throws on duplicate (used later for concurrent-registration protection);
-- `release(CapabilityId id)` — releases a reservation on rollback;
-- `commit(CapabilityRegistration registration)` — finalizes a registration, replacing the reservation;
-- `updateState(CapabilityId id, CapabilityLifecycleState newState)` — atomic state transition record (transition legality enforced by STAGE3-008, this registry only stores the result);
+- `reserve(CapabilityId id)` ? atomically claims an id for in-flight registration, throws on duplicate (used later for concurrent-registration protection);
+- `release(CapabilityId id)` ? releases a reservation on rollback;
+- `commit(CapabilityRegistration registration)` ? finalizes a registration, replacing the reservation;
+- `updateState(CapabilityId id, CapabilityLifecycleState newState)` ? atomic state transition record (transition legality enforced by STAGE3-008, this registry only stores the result);
 - `findById(CapabilityId id) -> Optional<CapabilityRegistration>`;
-- `findAll() -> List<CapabilityRegistration>` — returns an immutable snapshot (`List.copyOf`), sorted deterministically by id, safe to iterate while registrations change concurrently (no `ConcurrentModificationException`);
+- `findAll() -> List<CapabilityRegistration>` ? returns an immutable snapshot (`List.copyOf`), sorted deterministically by id, safe to iterate while registrations change concurrently (no `ConcurrentModificationException`);
 - duplicate id at `reserve` or `commit` throws `IllegalStateException` with the offending id.
 
 ### Public contracts that may change
@@ -2650,7 +2650,7 @@ A thread-safe, in-memory, immutable-snapshot capability catalog ready to back di
 
 ---
 
-## STAGE3-008 — Capability lifecycle state machine (allowed transitions)
+## STAGE3-008 ? Capability lifecycle state machine (allowed transitions)
 
 **Status:** DONE
 **Stage:** 3
@@ -2659,11 +2659,11 @@ A thread-safe, in-memory, immutable-snapshot capability catalog ready to back di
 
 ### Goal
 
-Зафиксировать и протестировать допустимые переходы между `CapabilityLifecycleState` в виде явного, независимого от остальной логики контракта, используемого регистрацией и lifecycle-менеджером.
+????????????? ? ?????????????? ?????????? ???????? ????? `CapabilityLifecycleState` ? ???? ??????, ???????????? ?? ????????? ?????? ?????????, ????????????? ???????????? ? lifecycle-??????????.
 
 ### Required documents
 
-- `Capability-Engine-Specification.md` ("Жизненный цикл Capability" — 7 стадий; "Ошибка при инициализации одной Capability не должна приводить к повреждению конфигурации других" — implies `FAILED` is reachable from `INITIALIZED`/`ACTIVE`).
+- `Capability-Engine-Specification.md` ("????????? ???? Capability" ? 7 ??????; "?????? ??? ????????????? ????? Capability ?? ?????? ????????? ? ??????????? ???????????? ??????" ? implies `FAILED` is reachable from `INITIALIZED`/`ACTIVE`).
 
 ### Required code context
 
@@ -2671,12 +2671,12 @@ A thread-safe, in-memory, immutable-snapshot capability catalog ready to back di
 
 ### Allowed code scope
 
-- `tmp-capability-engine/src/main/java/com/tmp/capability/lifecycle/CapabilityStateTransition.java` (new — internal transition-table utility);
+- `tmp-capability-engine/src/main/java/com/tmp/capability/lifecycle/CapabilityStateTransition.java` (new ? internal transition-table utility);
 - `tmp-capability-engine/src/test/java/com/tmp/capability/lifecycle/CapabilityStateTransitionTest.java` (new).
 
 ### Forbidden
 
-- actual lifecycle orchestration (initialize/activate/deactivate execution — STAGE3-013);
+- actual lifecycle orchestration (initialize/activate/deactivate execution ? STAGE3-013);
 - any I/O or external call.
 
 ### Implementation requirements
@@ -2691,9 +2691,9 @@ A thread-safe, in-memory, immutable-snapshot capability catalog ready to back di
   - `STOPPED -> DEACTIVATED`
   - `DISCOVERED|VALIDATED|REGISTERED|INITIALIZED -> FAILED` (validation/registration/initialization failure);
   - `ACTIVE -> FAILED` (runtime/operational failure surfaced by lifecycle manager);
-  - no transition is allowed out of `DEACTIVATED` or `FAILED` (terminal states for this Stage — re-activation of a deactivated capability is out of scope per specification without a defined re-activation rule; this is a deliberate, documented scope limitation, not an oversight).
-- Deactivation from `ACTIVE` must pass through `STOPPED` first (enforced by the lifecycle manager orchestration in STAGE3-013, not by relaxing this table) — this table only allows `STOPPED -> DEACTIVATED` directly.
-- `CapabilityStateTransition.isAllowed(CapabilityLifecycleState from, CapabilityLifecycleState to)` — pure function, exhaustively tested.
+  - no transition is allowed out of `DEACTIVATED` or `FAILED` (terminal states for this Stage ? re-activation of a deactivated capability is out of scope per specification without a defined re-activation rule; this is a deliberate, documented scope limitation, not an oversight).
+- Deactivation from `ACTIVE` must pass through `STOPPED` first (enforced by the lifecycle manager orchestration in STAGE3-013, not by relaxing this table) ? this table only allows `STOPPED -> DEACTIVATED` directly.
+- `CapabilityStateTransition.isAllowed(CapabilityLifecycleState from, CapabilityLifecycleState to)` ? pure function, exhaustively tested.
 
 ### Public contracts that may change
 
@@ -2725,7 +2725,7 @@ An explicit, exhaustively-tested state transition contract that the lifecycle ma
 
 ---
 
-## STAGE3-009 — Discovery of Capability beans (Spring composition, deterministic ordering)
+## STAGE3-009 ? Discovery of Capability beans (Spring composition, deterministic ordering)
 
 **Status:** DONE
 **Stage:** 3
@@ -2734,7 +2734,7 @@ An explicit, exhaustively-tested state transition contract that the lifecycle ma
 
 ### Goal
 
-Реализовать discovery доступных Capability через явную Spring-композицию (`List<Capability>` beans), без classloading/hot-deployment/plugin marketplace, с детерминированным результатом обнаружения.
+??????????? discovery ????????? Capability ????? ????? Spring-?????????? (`List<Capability>` beans), ??? classloading/hot-deployment/plugin marketplace, ? ????????????????? ??????????? ???????????.
 
 ### Required documents
 
@@ -2756,9 +2756,9 @@ An explicit, exhaustively-tested state transition contract that the lifecycle ma
 
 ### Implementation requirements
 
-- `CapabilityDiscovery(List<Capability> discoveredCapabilities)` — plain constructor injection (Spring supplies the list; this class itself has no Spring annotation, keeping it framework-agnostic and unit-testable);
-- `discover() -> List<Capability>` — returns capabilities sorted deterministically by `CapabilityId` (stable ordering regardless of Spring bean injection order);
-- duplicate discovered `CapabilityId` across two distinct `Capability` instances is detected here and reported as a distinct, precise error (`IllegalStateException`) — this is discovery-time detection, independent of the later registry-level `reserve` duplicate check, so a duplicate is caught with capability-discovery context rather than a generic registry error.
+- `CapabilityDiscovery(List<Capability> discoveredCapabilities)` ? plain constructor injection (Spring supplies the list; this class itself has no Spring annotation, keeping it framework-agnostic and unit-testable);
+- `discover() -> List<Capability>` ? returns capabilities sorted deterministically by `CapabilityId` (stable ordering regardless of Spring bean injection order);
+- duplicate discovered `CapabilityId` across two distinct `Capability` instances is detected here and reported as a distinct, precise error (`IllegalStateException`) ? this is discovery-time detection, independent of the later registry-level `reserve` duplicate check, so a duplicate is caught with capability-discovery context rather than a generic registry error.
 
 ### Public contracts that may change
 
@@ -2766,15 +2766,15 @@ An explicit, exhaustively-tested state transition contract that the lifecycle ma
 
 ### Acceptance criteria
 
-- [ ] zero capabilities discovered ⇒ empty list, no error;
-- [ ] one capability discovered ⇒ singleton list;
-- [ ] multiple capabilities discovered ⇒ deterministic sorted list;
-- [ ] duplicate discovered id ⇒ `IllegalStateException` naming both capability ids/classes;
+- [ ] zero capabilities discovered ? empty list, no error;
+- [ ] one capability discovered ? singleton list;
+- [ ] multiple capabilities discovered ? deterministic sorted list;
+- [ ] duplicate discovered id ? `IllegalStateException` naming both capability ids/classes;
 - [ ] repeated calls to `discover()` return an equal, deterministically-ordered result (no reliance on `HashMap`/injection-order iteration).
 
 ### Required tests
 
-- `CapabilityDiscoveryTest`: zero; one; multiple (order-independence — feed list in two different input orders, assert same sorted output); duplicate discovered id; deterministic repeat calls.
+- `CapabilityDiscoveryTest`: zero; one; multiple (order-independence ? feed list in two different input orders, assert same sorted output); duplicate discovered id; deterministic repeat calls.
 
 ### Verification commands
 
@@ -2792,7 +2792,7 @@ A minimal, framework-light discovery step producing a deterministic, duplicate-c
 
 ---
 
-## STAGE3-010 — Dependency graph validation (missing/self/duplicate/version/cycles) and topological order
+## STAGE3-010 ? Dependency graph validation (missing/self/duplicate/version/cycles) and topological order
 
 **Status:** DONE
 **Stage:** 3
@@ -2801,11 +2801,11 @@ A minimal, framework-light discovery step producing a deterministic, duplicate-c
 
 ### Goal
 
-Реализовать проверку зависимостей между обнаруженными Capability и построение детерминированного topological order для инициализации, а также reverse order для остановки.
+??????????? ???????? ???????????? ????? ????????????? Capability ? ?????????? ?????????????????? topological order ??? ?????????????, ? ????? reverse order ??? ?????????.
 
 ### Required documents
 
-- `Capability-Engine-Specification.md` ("Зависимости" — явное объявление, запрет циклов, только публичный контракт).
+- `Capability-Engine-Specification.md` ("???????????" ? ????? ??????????, ?????? ??????, ?????? ????????? ????????).
 
 ### Required code context
 
@@ -2829,11 +2829,11 @@ A minimal, framework-light discovery step producing a deterministic, duplicate-c
 - checks performed, each raising `DependencyValidationException` with the matching `DependencyValidationReason`:
   - missing dependency (target id not present among discovered capabilities);
   - self-dependency (a capability depends on its own id);
-  - duplicate dependency declaration (same target id listed twice in one descriptor — re-verified here defensively against the actual discovered graph, not just the descriptor in isolation);
+  - duplicate dependency declaration (same target id listed twice in one descriptor ? re-verified here defensively against the actual discovered graph, not just the descriptor in isolation);
   - incompatible version (`CapabilityVersion.isCompatibleWith` returns false against the dependency's actual declared version);
   - direct cycle (`A -> B -> A`);
   - indirect cycle (`A -> B -> C -> A`);
-- "dependency only on a public contract" rule (spec: "Capability не должна зависеть от внутренней реализации другой Capability") is enforced structurally, not at runtime: `DependencyDescriptor` only ever references a `CapabilityId`, never a concrete class, so this rule is satisfied by construction and documented as such in Javadoc (no separate runtime check needed or possible without reflection, which is forbidden).
+- "dependency only on a public contract" rule (spec: "Capability ?? ?????? ???????? ?? ?????????? ?????????? ?????? Capability") is enforced structurally, not at runtime: `DependencyDescriptor` only ever references a `CapabilityId`, never a concrete class, so this rule is satisfied by construction and documented as such in Javadoc (no separate runtime check needed or possible without reflection, which is forbidden).
 
 ### Public contracts that may change
 
@@ -2870,7 +2870,7 @@ A fully-tested, deterministic dependency validator and topological sorter, the f
 
 ---
 
-## STAGE3-011 — Internal contribution catalogs (permission, command, view, navigation, settings, event descriptor)
+## STAGE3-011 ? Internal contribution catalogs (permission, command, view, navigation, settings, event descriptor)
 
 **Status:** DONE
 **Stage:** 3
@@ -2879,7 +2879,7 @@ A fully-tested, deterministic dependency validator and topological sorter, the f
 
 ### Goal
 
-Реализовать Capability-Engine-owned каталоги активных contributions (permissions, commands, views, navigation, settings, event descriptors) с owner tracking, atomic add/remove-by-owner и active-only выборкой.
+??????????? Capability-Engine-owned ???????? ???????? contributions (permissions, commands, views, navigation, settings, event descriptors) ? owner tracking, atomic add/remove-by-owner ? active-only ????????.
 
 ### Required documents
 
@@ -2893,8 +2893,8 @@ A fully-tested, deterministic dependency validator and topological sorter, the f
 
 ### Allowed code scope
 
-- `tmp-capability-engine/src/main/java/com/tmp/capability/contribution/ContributionCatalog.java` (new — single generic-ish catalog abstraction reused per contribution type, OR one dedicated class per catalog if generics reduce clarity; implementer chooses the clearer of the two, documented in Javadoc);
-- `tmp-capability-engine/src/main/java/com/tmp/capability/contribution/CapabilityContributionCatalogs.java` (new — aggregates the six catalogs behind one cohesive component used by the registration orchestrator);
+- `tmp-capability-engine/src/main/java/com/tmp/capability/contribution/ContributionCatalog.java` (new ? single generic-ish catalog abstraction reused per contribution type, OR one dedicated class per catalog if generics reduce clarity; implementer chooses the clearer of the two, documented in Javadoc);
+- `tmp-capability-engine/src/main/java/com/tmp/capability/contribution/CapabilityContributionCatalogs.java` (new ? aggregates the six catalogs behind one cohesive component used by the registration orchestrator);
 - `tmp-capability-engine/src/test/java/com/tmp/capability/contribution/ContributionCatalogTest.java` (new);
 - `tmp-capability-engine/src/test/java/com/tmp/capability/contribution/CapabilityContributionCatalogsTest.java` (new).
 
@@ -2905,10 +2905,10 @@ A fully-tested, deterministic dependency validator and topological sorter, the f
 
 ### Implementation requirements
 
-- Each catalog: `add(CapabilityId owner, <Descriptor> descriptor)` — rejects duplicate descriptor id across **all** owners (cross-capability id conflict), returns nothing on success, throws `IllegalStateException` on conflict;
-- `removeAllForOwner(CapabilityId owner)` — atomic bulk removal used both for rollback-on-failure and for deactivation;
-- `activeEntries() -> List<Descriptor>` — immutable snapshot, excludes anything removed;
-- `ownerOf(String descriptorId) -> Optional<CapabilityId>` — owner tracking query;
+- Each catalog: `add(CapabilityId owner, <Descriptor> descriptor)` ? rejects duplicate descriptor id across **all** owners (cross-capability id conflict), returns nothing on success, throws `IllegalStateException` on conflict;
+- `removeAllForOwner(CapabilityId owner)` ? atomic bulk removal used both for rollback-on-failure and for deactivation;
+- `activeEntries() -> List<Descriptor>` ? immutable snapshot, excludes anything removed;
+- `ownerOf(String descriptorId) -> Optional<CapabilityId>` ? owner tracking query;
 - thread-safe (`ConcurrentHashMap`-backed), no `ConcurrentModificationException` under concurrent add/remove/read.
 
 ### Public contracts that may change
@@ -2944,7 +2944,7 @@ Six consistent, owner-tracked, atomically-rollback-able contribution catalogs re
 
 ---
 
-## STAGE3-012 — Atomic registration orchestrator (Document Engine + Platform Core external contributions with rollback)
+## STAGE3-012 ? Atomic registration orchestrator (Document Engine + Platform Core external contributions with rollback)
 
 **Status:** DONE
 **Stage:** 3
@@ -2953,11 +2953,11 @@ Six consistent, owner-tracked, atomically-rollback-able contribution catalogs re
 
 ### Goal
 
-Реализовать единственную точку атомарной регистрации Capability: internal catalogs → Platform Core `CapabilityRegistry` → Document Engine document contribution → Platform Core `ServiceRegistry` → Platform Core `EventBus` subscriptions, с полным rollback при ошибке любого шага, точно в порядке, зафиксированном в "Design decisions" §6 этого файла.
+??????????? ???????????? ????? ????????? ??????????? Capability: internal catalogs ? Platform Core `CapabilityRegistry` ? Document Engine document contribution ? Platform Core `ServiceRegistry` ? Platform Core `EventBus` subscriptions, ? ?????? rollback ??? ?????? ?????? ????, ????? ? ???????, ??????????????? ? "Design decisions" �6 ????? ?????.
 
 ### Required documents
 
-- `Capability-Engine-Specification.md` ("Регистрация" — 11 обязательных шагов; "Активация и деактивация"; atomic contribution registration requirements from the governing task brief §6/§13);
+- `Capability-Engine-Specification.md` ("???????????" ? 11 ???????????? ?????; "????????? ? ???????????"; atomic contribution registration requirements from the governing task brief �6/�13);
 - `com.tmp.core.api.CapabilityRegistry`, `com.tmp.core.api.ServiceRegistry`, `com.tmp.core.api.EventBus` (Platform Core public API, already verified non-partially-failing by current implementation);
 - `com.tmp.document.api.DocumentEngine.registerProcessor` (Document Engine public API, already verified self-atomic by Stage 2 BLK-011/018).
 
@@ -2969,7 +2969,7 @@ Six consistent, owner-tracked, atomically-rollback-able contribution catalogs re
 
 ### Allowed code scope
 
-- `tmp-capability-engine/src/main/java/com/tmp/capability/registration/CapabilityRegistrationService.java` (new — the orchestrator, internal, not `.api`);
+- `tmp-capability-engine/src/main/java/com/tmp/capability/registration/CapabilityRegistrationService.java` (new ? the orchestrator, internal, not `.api`);
 - `tmp-capability-engine/src/main/java/com/tmp/capability/registration/CapabilityRegistrationException.java` (new);
 - `tmp-capability-engine/src/test/java/com/tmp/capability/registration/CapabilityRegistrationServiceTest.java` (new).
 
@@ -2981,16 +2981,16 @@ Six consistent, owner-tracked, atomically-rollback-able contribution catalogs re
 
 ### Implementation requirements
 
-- Single public entry point `register(Capability capability)` executing exactly the sequence fixed in "Design decisions" §6:
-  1. reserve id in `CapabilityRegistry` (STAGE3-007) — fails fast on duplicate/concurrent registration;
-  2. register internal contribution catalogs (permissions, commands, views, navigation, settings, event descriptors) via `CapabilityContributionCatalogs` — fully reversible;
-  3. register basic descriptor (id/name/version) into Platform Core `capabilityRegistry()` — pre-checked uniqueness makes this call safe;
-  4. if a `DocumentContribution` is present: pre-check via `documentEngine.registeredTypes()` for an existing conflicting type id, then call `documentEngine.registerProcessor(...)` — the one call with genuine (pre-validated) failure risk;
+- Single public entry point `register(Capability capability)` executing exactly the sequence fixed in "Design decisions" �6:
+  1. reserve id in `CapabilityRegistry` (STAGE3-007) ? fails fast on duplicate/concurrent registration;
+  2. register internal contribution catalogs (permissions, commands, views, navigation, settings, event descriptors) via `CapabilityContributionCatalogs` ? fully reversible;
+  3. register basic descriptor (id/name/version) into Platform Core `capabilityRegistry()` ? pre-checked uniqueness makes this call safe;
+  4. if a `DocumentContribution` is present: pre-check via `documentEngine.registeredTypes()` for an existing conflicting type id, then call `documentEngine.registerProcessor(...)` ? the one call with genuine (pre-validated) failure risk;
   5. if `PublicServiceContribution`s are present: register each via `platformCore.serviceRegistry().register(...)`;
-  6. if `EventContribution`s are present: no separate action beyond cataloging (event **publishing** metadata only, per spec "Capability Engine не интерпретирует содержимое событий"; actual subscriptions in this Stage are created directly by capabilities through the public `EventBus` inside their own `onActivate()`/`onInitialize()` hooks, tracked by the capability itself via `EventSubscription.unsubscribe()` on `onStop()`/`onDeactivate()` — Capability Engine does not intermediate subscriptions);
+  6. if `EventContribution`s are present: no separate action beyond cataloging (event **publishing** metadata only, per spec "Capability Engine ?? ?????????????? ?????????? ???????"; actual subscriptions in this Stage are created directly by capabilities through the public `EventBus` inside their own `onActivate()`/`onInitialize()` hooks, tracked by the capability itself via `EventSubscription.unsubscribe()` on `onStop()`/`onDeactivate()` ? Capability Engine does not intermediate subscriptions);
   7. on success: `commit` the registration in `CapabilityRegistry`, transition state to `REGISTERED`.
 - On failure at any step: unwind exactly the steps that mutated Capability-Engine-owned state (contribution catalogs, registry reservation) using `try/finally`-based compensation (mirrors `DefaultLifecycleManager.registerComponentWithRegistry` rollback style); preserve the original exception as the thrown cause, attach any compensation failure as a suppressed exception (mirrors `DefaultLifecycleManager.rollbackStartedComponents`); transition state to `FAILED`.
-- Document in Javadoc, verbatim, the residual known limitation from "Design decisions" §6 (no compensation possible for `ServiceRegistry`/Document Engine calls that already succeeded before a later step fails, mitigated by ordering + pre-validation, not eliminated by contract).
+- Document in Javadoc, verbatim, the residual known limitation from "Design decisions" �6 (no compensation possible for `ServiceRegistry`/Document Engine calls that already succeeded before a later step fails, mitigated by ordering + pre-validation, not eliminated by contract).
 
 ### Public contracts that may change
 
@@ -3026,7 +3026,7 @@ A single, fully-tested atomic registration entry point satisfying the specificat
 
 ---
 
-## STAGE3-013 — Lifecycle manager: initialization order, activation/deactivation, dependents check, reverse shutdown
+## STAGE3-013 ? Lifecycle manager: initialization order, activation/deactivation, dependents check, reverse shutdown
 
 **Status:** DONE
 **Stage:** 3
@@ -3035,12 +3035,12 @@ A single, fully-tested atomic registration entry point satisfying the specificat
 
 ### Goal
 
-Реализовать управление жизненным циклом зарегистрированных Capability: инициализация в порядке зависимостей, активация только после успешной регистрации+инициализации, деактивация с проверкой активных dependents, остановка в обратном порядке.
+??????????? ?????????? ????????? ?????? ?????????????????? Capability: ????????????? ? ??????? ????????????, ????????? ?????? ????? ???????? ???????????+?????????????, ??????????? ? ????????? ???????? dependents, ????????? ? ???????? ???????.
 
 ### Required documents
 
-- `Capability-Engine-Specification.md` ("Активация и деактивация"; initialization-order and failure-isolation requirements from the governing task brief §10-12);
-- `DefaultLifecycleManager` (Stage 1, read for structural precedent — reverse-order stop, rollback-on-failure style, not reused directly since it operates on `PlatformComponent`, not `Capability`).
+- `Capability-Engine-Specification.md` ("????????? ? ???????????"; initialization-order and failure-isolation requirements from the governing task brief �10-12);
+- `DefaultLifecycleManager` (Stage 1, read for structural precedent ? reverse-order stop, rollback-on-failure style, not reused directly since it operates on `PlatformComponent`, not `Capability`).
 
 ### Required code context
 
@@ -3056,14 +3056,14 @@ A single, fully-tested atomic registration entry point satisfying the specificat
 
 ### Forbidden
 
-- automatic cascading deactivation of dependents (explicitly forbidden unless required by the specification — it is not);
-- deletion of business data/documents (not applicable — this module owns no business data).
+- automatic cascading deactivation of dependents (explicitly forbidden unless required by the specification ? it is not);
+- deletion of business data/documents (not applicable ? this module owns no business data).
 
 ### Implementation requirements
 
 - `initializeAll()`: iterates capabilities in topological order (STAGE3-010); for each, calls `onInitialize()`, transitions `REGISTERED -> INITIALIZED`; on failure, transitions the failing capability to `FAILED`, does **not** roll back already-initialized independent capabilities (failure isolation), and skips (never initializes/activates) any capability that transitively depends on the failed one, recording those as `FAILED` too with a distinct "dependency failed" cause chained to the original;
-- `activateAll()`: for each `INITIALIZED` capability in topological order, calls `onActivate()`, transitions to `ACTIVE`; repeated activation of an already-`ACTIVE` capability is rejected (`IllegalStateException`, per "повторная недопустимая активация отклоняется");
-- `deactivate(CapabilityId id)`: rejects if any other **active** capability depends on `id` (queries the dependency graph for active dependents, throws `IllegalStateException` naming the blocking dependents, per "деактивация проверяет активные dependents"); on success, calls `onStop()` then `onDeactivate()`, removes the capability's contributions from all catalogs (`CapabilityContributionCatalogs.removeAllForOwner`, STAGE3-011), transitions `ACTIVE -> STOPPED -> DEACTIVATED`;
+- `activateAll()`: for each `INITIALIZED` capability in topological order, calls `onActivate()`, transitions to `ACTIVE`; repeated activation of an already-`ACTIVE` capability is rejected (`IllegalStateException`, per "????????? ???????????? ????????? ???????????");
+- `deactivate(CapabilityId id)`: rejects if any other **active** capability depends on `id` (queries the dependency graph for active dependents, throws `IllegalStateException` naming the blocking dependents, per "??????????? ????????? ???????? dependents"); on success, calls `onStop()` then `onDeactivate()`, removes the capability's contributions from all catalogs (`CapabilityContributionCatalogs.removeAllForOwner`, STAGE3-011), transitions `ACTIVE -> STOPPED -> DEACTIVATED`;
 - `stopAll()`: stops all `ACTIVE` capabilities in **reverse** topological order, calling `onStop()`, transitioning to `STOPPED` (used for platform shutdown, distinct from single-capability `deactivate`, which also proceeds to `DEACTIVATED`);
 - every transition uses `CapabilityStateTransition.isAllowed` as a guard before mutating state (defensive, matches STAGE3-008 contract instead of re-deriving rules).
 
@@ -3084,7 +3084,7 @@ A single, fully-tested atomic registration entry point satisfying the specificat
 
 ### Required tests
 
-- `CapabilityLifecycleManagerTest`: successful discovery→validation→registration→initialization→activation chain (using STAGE3-009/010/012 collaborators, or light fakes matching their contracts); invalid transition attempts rejected; repeated activation rejected; normal stop; normal deactivation; deactivation with active dependents rejected; failed initialization isolates only the failed capability and its dependents; failed activation isolates only the failed capability and its dependents; independent capability remains valid/active after another capability fails; reverse shutdown order verified against a 3+ capability dependency chain.
+- `CapabilityLifecycleManagerTest`: successful discovery?validation?registration?initialization?activation chain (using STAGE3-009/010/012 collaborators, or light fakes matching their contracts); invalid transition attempts rejected; repeated activation rejected; normal stop; normal deactivation; deactivation with active dependents rejected; failed initialization isolates only the failed capability and its dependents; failed activation isolates only the failed capability and its dependents; independent capability remains valid/active after another capability fails; reverse shutdown order verified against a 3+ capability dependency chain.
 
 ### Verification commands
 
@@ -3102,7 +3102,7 @@ A fully-tested lifecycle manager enforcing correct ordering, activation guards, 
 
 ---
 
-## STAGE3-014 — CapabilityEngine public facade and status snapshot
+## STAGE3-014 ? CapabilityEngine public facade and status snapshot
 
 **Status:** DONE
 **Stage:** 3
@@ -3111,12 +3111,12 @@ A fully-tested lifecycle manager enforcing correct ordering, activation guards, 
 
 ### Goal
 
-Определить и реализовать стабильный публичный API `com.tmp.capability.api.CapabilityEngine`, объединяющий discovery/dependency-validation/registration/lifecycle в единую точку входа, плюс read-only каталог для формирования рабочих мест (permissions/commands/views/navigation активных Capability) и `CapabilityEngineStatus` для технической UI-видимости.
+?????????? ? ??????????? ?????????? ????????? API `com.tmp.capability.api.CapabilityEngine`, ???????????? discovery/dependency-validation/registration/lifecycle ? ?????? ????? ?????, ???? read-only ??????? ??? ???????????? ??????? ???? (permissions/commands/views/navigation ???????? Capability) ? `CapabilityEngineStatus` ??? ??????????? UI-?????????.
 
 ### Required documents
 
-- `Capability-Engine-Specification.md` ("Рабочие места" — read-only данные для формирования рабочих мест без принятия решений о доступе);
-- `Platform-Core-Specification.md` (AR-005 — новая Capability подключается без изменения Platform Core, informs that this facade must be self-sufficient).
+- `Capability-Engine-Specification.md` ("??????? ?????" ? read-only ?????? ??? ???????????? ??????? ???? ??? ???????? ??????? ? ???????);
+- `Platform-Core-Specification.md` (AR-005 ? ????? Capability ???????????? ??? ????????? Platform Core, informs that this facade must be self-sufficient).
 
 ### Required code context
 
@@ -3129,21 +3129,21 @@ A fully-tested lifecycle manager enforcing correct ordering, activation guards, 
 
 ### Allowed code scope
 
-- `tmp-capability-engine/src/main/java/com/tmp/capability/api/CapabilityEngine.java` (new — interface);
-- `tmp-capability-engine/src/main/java/com/tmp/capability/api/CapabilityEngineStatus.java` (new — record);
-- `tmp-capability-engine/src/main/java/com/tmp/capability/DefaultCapabilityEngine.java` (new — implementation, internal package `com.tmp.capability`, not `.api`);
+- `tmp-capability-engine/src/main/java/com/tmp/capability/api/CapabilityEngine.java` (new ? interface);
+- `tmp-capability-engine/src/main/java/com/tmp/capability/api/CapabilityEngineStatus.java` (new ? record);
+- `tmp-capability-engine/src/main/java/com/tmp/capability/DefaultCapabilityEngine.java` (new ? implementation, internal package `com.tmp.capability`, not `.api`);
 - `tmp-capability-engine/src/test/java/com/tmp/capability/DefaultCapabilityEngineTest.java` (new).
 
 ### Forbidden
 
-- any access-decision logic ("не принимать решения о доступе конкретного пользователя");
-- exposing internal collaborator types (`CapabilityRegistrationService`, etc.) through the interface — only `.api` types in method signatures.
+- any access-decision logic ("?? ????????? ??????? ? ??????? ??????????? ????????????");
+- exposing internal collaborator types (`CapabilityRegistrationService`, etc.) through the interface ? only `.api` types in method signatures.
 
 ### Implementation requirements
 
 - `CapabilityEngine` interface: `void discoverAndRegisterAll(); void activateAll(); void deactivate(CapabilityId id); void stopAll(); Optional<CapabilityDescriptor> findById(CapabilityId id); List<CapabilityDescriptor> registeredCapabilities(); CapabilityLifecycleState stateOf(CapabilityId id); List<PermissionDescriptor> activePermissions(); List<CommandDescriptor> activeCommands(); List<ViewDescriptor> activeViews(); List<NavigationContribution> activeNavigation(); CapabilityEngineStatus status();`
-- `CapabilityEngineStatus(int discoveredCount, int registeredCount, int activeCount, int failedCount)` — matches the minimal technical UI visibility requirement (counts + per-capability listing via `registeredCapabilities()`/`stateOf`);
-- `DefaultCapabilityEngine` wires the four internal collaborators; `discoverAndRegisterAll()` = discover → validate dependencies (topological order) → register each in order (STAGE3-012) → initialize each in order (STAGE3-013); `activateAll()` delegates to the lifecycle manager.
+- `CapabilityEngineStatus(int discoveredCount, int registeredCount, int activeCount, int failedCount)` ? matches the minimal technical UI visibility requirement (counts + per-capability listing via `registeredCapabilities()`/`stateOf`);
+- `DefaultCapabilityEngine` wires the four internal collaborators; `discoverAndRegisterAll()` = discover ? validate dependencies (topological order) ? register each in order (STAGE3-012) ? initialize each in order (STAGE3-013); `activateAll()` delegates to the lifecycle manager.
 
 ### Public contracts that may change
 
@@ -3151,14 +3151,14 @@ A fully-tested lifecycle manager enforcing correct ordering, activation guards, 
 
 ### Acceptance criteria
 
-- [ ] facade correctly sequences discovery → validation → registration → initialization → activation for a multi-capability dependency graph;
+- [ ] facade correctly sequences discovery ? validation ? registration ? initialization ? activation for a multi-capability dependency graph;
 - [ ] `activePermissions()`/`activeCommands()`/`activeViews()`/`activeNavigation()` reflect only currently-active capabilities' contributions;
 - [ ] `status()` counts match actual registry/catalog state at call time;
 - [ ] no method on the interface exposes an internal (non-`.api`) type.
 
 ### Required tests
 
-- `DefaultCapabilityEngineTest`: end-to-end discover→register→initialize→activate with 2+ capabilities (one depending on the other); active-only queries exclude deactivated capability's contributions; status counts correct at each lifecycle stage; deactivate then re-query catalogs shows contributions removed.
+- `DefaultCapabilityEngineTest`: end-to-end discover?register?initialize?activate with 2+ capabilities (one depending on the other); active-only queries exclude deactivated capability's contributions; status counts correct at each lifecycle stage; deactivate then re-query catalogs shows contributions removed.
 
 ### Verification commands
 
@@ -3172,11 +3172,11 @@ mvn -q -pl :tmp-capability-engine test -Dtest=DefaultCapabilityEngineTest
 
 ### Expected result
 
-A stable, minimal public `CapabilityEngine` API — the only type external modules and the bootstrap layer are allowed to depend on for capability orchestration.
+A stable, minimal public `CapabilityEngine` API ? the only type external modules and the bootstrap layer are allowed to depend on for capability orchestration.
 
 ---
 
-## STAGE3-015 — Spring Boot auto-configuration and Platform Core component registration
+## STAGE3-015 ? Spring Boot auto-configuration and Platform Core component registration
 
 **Status:** DONE
 **Stage:** 3
@@ -3185,22 +3185,22 @@ A stable, minimal public `CapabilityEngine` API — the only type external modul
 
 ### Goal
 
-Подключить Capability Engine к Spring Boot через auto-configuration и зарегистрировать его как единственный `PlatformComponent` в Platform Core, повторяя проверенный паттерн `DocumentEngineAutoConfiguration`/`DocumentEnginePlatformRegistrar`.
+?????????? Capability Engine ? Spring Boot ????? auto-configuration ? ???????????????? ??? ??? ???????????? `PlatformComponent` ? Platform Core, ???????? ??????????? ??????? `DocumentEngineAutoConfiguration`/`DocumentEnginePlatformRegistrar`.
 
 ### Required documents
 
-- `Platform-Core-Specification.md` ("Компоненты платформы" — единый контракт `PlatformComponent`);
+- `Platform-Core-Specification.md` ("?????????? ?????????" ? ?????? ???????? `PlatformComponent`);
 - Stage 2 precedent: `DocumentEngineAutoConfiguration.java`, `DocumentEnginePlatformRegistrar.java` (structural template).
 
 ### Required code context
 
 - `CapabilityEngine`, `DefaultCapabilityEngine` (STAGE3-014);
-- `com.tmp.core.api.component.PlatformComponent`, `PlatformComponentMetadata`, `ComponentType` (Stage 1 — note: the Capability Engine infrastructural component registers with `ComponentType.SERVICE` since it is infrastructure, not a business capability instance; `ComponentType.CAPABILITY` remains unused by this Stage, documented in Javadoc to avoid ambiguity for later stages).
+- `com.tmp.core.api.component.PlatformComponent`, `PlatformComponentMetadata`, `ComponentType` (Stage 1 ? note: the Capability Engine infrastructural component registers with `ComponentType.SERVICE` since it is infrastructure, not a business capability instance; `ComponentType.CAPABILITY` remains unused by this Stage, documented in Javadoc to avoid ambiguity for later stages).
 
 ### Allowed code scope
 
 - `tmp-capability-engine/src/main/java/com/tmp/capability/CapabilityEngineAutoConfiguration.java` (new);
-- `tmp-capability-engine/src/main/java/com/tmp/capability/CapabilityEnginePlatformComponent.java` (new — adapts `DefaultCapabilityEngine` to `PlatformComponent`: `initialize()` calls `discoverAndRegisterAll()`, `start()` calls `activateAll()`, `stop()` calls `stopAll()`);
+- `tmp-capability-engine/src/main/java/com/tmp/capability/CapabilityEnginePlatformComponent.java` (new ? adapts `DefaultCapabilityEngine` to `PlatformComponent`: `initialize()` calls `discoverAndRegisterAll()`, `start()` calls `activateAll()`, `stop()` calls `stopAll()`);
 - `tmp-capability-engine/src/test/java/com/tmp/capability/CapabilityEngineAutoConfigurationTest.java` (new).
 
 ### Forbidden
@@ -3244,7 +3244,7 @@ Capability Engine is a properly auto-configured, singly-registered Platform Core
 
 ---
 
-## STAGE3-016 — Sample technical Capability (end-to-end fixture, no business logic)
+## STAGE3-016 ? Sample technical Capability (end-to-end fixture, no business logic)
 
 **Status:** DONE
 **Stage:** 3
@@ -3253,11 +3253,11 @@ Capability Engine is a properly auto-configured, singly-registered Platform Core
 
 ### Goal
 
-Реализовать sample technical Capability, покрывающую discovery, dependencies (двух Capability, одна зависит от другой), lifecycle и все обязательные contribution types (включая один document contribution через публичный API Document Engine), без бизнес-логики и без предметных сущностей Warehouse/Production/Order/Cutting.
+??????????? sample technical Capability, ??????????? discovery, dependencies (???? Capability, ???? ??????? ?? ??????), lifecycle ? ??? ???????????? contribution types (??????? ???? document contribution ????? ????????? API Document Engine), ??? ??????-?????? ? ??? ?????????? ????????? Warehouse/Production/Order/Cutting.
 
 ### Required documents
 
-- `Capability-Engine-Specification.md` (explicit sample-capability constraints from the governing task brief §26).
+- `Capability-Engine-Specification.md` (explicit sample-capability constraints from the governing task brief �26).
 
 ### Required code context
 
@@ -3268,9 +3268,9 @@ Capability Engine is a properly auto-configured, singly-registered Platform Core
 ### Allowed code scope
 
 - `tmp-capability-engine/src/main/java/com/tmp/capability/sample/SampleTechnicalCapability.java` (new);
-- `tmp-capability-engine/src/main/java/com/tmp/capability/sample/SampleDependentTechnicalCapability.java` (new — declares a dependency on `SampleTechnicalCapability`);
-- `tmp-capability-engine/src/main/java/com/tmp/capability/sample/SampleTechnicalDocumentProcessor.java` (new — trivial processor, no business rules);
-- `tmp-capability-engine/src/main/java/com/tmp/capability/sample/SampleTechnicalService.java` (new — trivial public service interface + implementation used to prove cross-capability service resolution);
+- `tmp-capability-engine/src/main/java/com/tmp/capability/sample/SampleDependentTechnicalCapability.java` (new ? declares a dependency on `SampleTechnicalCapability`);
+- `tmp-capability-engine/src/main/java/com/tmp/capability/sample/SampleTechnicalDocumentProcessor.java` (new ? trivial processor, no business rules);
+- `tmp-capability-engine/src/main/java/com/tmp/capability/sample/SampleTechnicalService.java` (new ? trivial public service interface + implementation used to prove cross-capability service resolution);
 - `tmp-capability-engine/src/test/java/com/tmp/capability/sample/SampleTechnicalCapabilityIntegrationTest.java` (new).
 
 ### Forbidden
@@ -3297,7 +3297,7 @@ Capability Engine is a properly auto-configured, singly-registered Platform Core
 
 ### Required tests
 
-- `SampleTechnicalCapabilityIntegrationTest`: full discover→register→initialize→activate for both sample capabilities; dependency order assertion; service resolution assertion; document creation through `DocumentEngine` for the contributed type; deactivation of the independent capability rejected while the dependent is active; deactivation succeeds after the dependent is stopped/deactivated first.
+- `SampleTechnicalCapabilityIntegrationTest`: full discover?register?initialize?activate for both sample capabilities; dependency order assertion; service resolution assertion; document creation through `DocumentEngine` for the contributed type; deactivation of the independent capability rejected while the dependent is active; deactivation succeeds after the dependent is stopped/deactivated first.
 
 ### Verification commands
 
@@ -3315,7 +3315,7 @@ A complete, non-business, end-to-end proof that a new Capability can be discover
 
 ---
 
-## STAGE3-017 — Bootstrap integration and minimal technical capability status UI
+## STAGE3-017 ? Bootstrap integration and minimal technical capability status UI
 
 **Status:** DONE
 **Stage:** 3
@@ -3324,11 +3324,11 @@ A complete, non-business, end-to-end proof that a new Capability can be discover
 
 ### Goal
 
-Подключить `tmp-capability-engine` к `tmp-bootstrap-app` и добавить минимальный технический статус (discovered/active count, список id и state sample Capability) в существующую техническую панель, без создания рабочих мест бизнес-модулей.
+?????????? `tmp-capability-engine` ? `tmp-bootstrap-app` ? ???????? ??????????? ??????????? ?????? (discovered/active count, ?????? id ? state sample Capability) ? ???????????? ??????????? ??????, ??? ???????? ??????? ???? ??????-???????.
 
 ### Required documents
 
-- `UI-UX-Specification.md` ("Навигация" — навигация строится автоматически на основании зарегистрированных Capability, но полная навигация — вне Stage 3 scope);
+- `UI-UX-Specification.md` ("?????????" ? ????????? ???????? ????????????? ?? ????????? ?????????????????? Capability, ?? ?????? ????????? ? ??? Stage 3 scope);
 - Stage 1/2 precedent: `DesktopBootstrap.java` (`formatDocumentPanel` pattern), `JavaFxShellLauncher`/`EmptyMainShell` status label wiring.
 
 ### Required code context
@@ -3338,14 +3338,14 @@ A complete, non-business, end-to-end proof that a new Capability can be discover
 
 ### Allowed code scope
 
-- `tmp-bootstrap-app/src/main/java/com/tmp/bootstrap/DesktopBootstrap.java` (modify — add capability status formatting, additive only, do not remove existing document panel logic);
+- `tmp-bootstrap-app/src/main/java/com/tmp/bootstrap/DesktopBootstrap.java` (modify ? add capability status formatting, additive only, do not remove existing document panel logic);
 - `tmp-bootstrap-app/pom.xml` (add `tmp-capability-engine` dependency);
 - `tmp-bootstrap-app/src/test/java/com/tmp/bootstrap/CapabilityEngineBeanLookupTest.java` (new, mirrors `DocumentEngineBeanLookupTest`).
 
 ### Forbidden
 
 - business workplace screens;
-- ui-shell dependency on `tmp-capability-engine` or `tmp-core`/`tmp-document` internals (architecture rule from Stage 1/2 preserved — only bootstrap bridges plain strings to the shell, exactly like the existing document panel).
+- ui-shell dependency on `tmp-capability-engine` or `tmp-core`/`tmp-document` internals (architecture rule from Stage 1/2 preserved ? only bootstrap bridges plain strings to the shell, exactly like the existing document panel).
 
 ### Implementation requirements
 
@@ -3383,7 +3383,7 @@ The packaged desktop application exposes Capability Engine's technical status al
 
 ---
 
-## STAGE3-018 — Stage 3 architecture tests
+## STAGE3-018 ? Stage 3 architecture tests
 
 **Status:** DONE
 **Stage:** 3
@@ -3392,12 +3392,12 @@ The packaged desktop application exposes Capability Engine's technical status al
 
 ### Goal
 
-Зафиксировать архитектурные границы Capability Engine в ArchUnit-тестах, аналогично `Stage1PlatformCoreArchitectureTest`/`Stage2DocumentEngineArchitectureTest`, без ослабления существующих правил.
+????????????? ????????????? ??????? Capability Engine ? ArchUnit-??????, ?????????? `Stage1PlatformCoreArchitectureTest`/`Stage2DocumentEngineArchitectureTest`, ??? ?????????? ???????????? ??????.
 
 ### Required documents
 
-- Governing task brief §7 "Architecture" required-test list;
-- `Capability-Engine-Specification.md` ("Что не входит в Capability Engine"; "Ограничения").
+- Governing task brief �7 "Architecture" required-test list;
+- `Capability-Engine-Specification.md` ("??? ?? ?????? ? Capability Engine"; "???????????").
 
 ### Required code context
 
@@ -3416,14 +3416,14 @@ The packaged desktop application exposes Capability Engine's technical status al
 
 Rules (ArchUnit, `noClasses()...should()...because(...)` style):
 
-- `capabilityEngineDoesNotDependOnBusinessModules` — no class in `com.tmp.capability..` depends on `com.tmp.order..`, `com.tmp.warehouse..`, `com.tmp.production..`, `com.tmp.cutting..`, `com.tmp.analytics..`, `com.tmp.security..`;
-- `capabilityEngineUsesOnlyCorePublicApi` — no class in `com.tmp.capability..` depends on `com.tmp.core..` outside `com.tmp.core.api..`;
-- `capabilityEngineUsesOnlyDocumentPublicApi` — no class in `com.tmp.capability..` depends on `com.tmp.document..` outside `com.tmp.document.api..`;
-- `externalModulesUseOnlyCapabilityPublicApi` — no class outside `com.tmp.capability..` depends on `com.tmp.capability..` outside `com.tmp.capability.api..`;
-- `platformCoreDoesNotDependOnCapabilityEngine` — no class in `com.tmp.core..` depends on `com.tmp.capability..`;
-- `documentEngineDoesNotDependOnCapabilityEngine` — no class in `com.tmp.document..` depends on `com.tmp.capability..`;
-- `uiShellDoesNotDependOnCapabilityEngine` — no class in `com.tmp.ui..` depends on `com.tmp.capability..`;
-- `sampleCapabilityUsesOnlyPublicApis` — no class in `com.tmp.capability.sample..` depends on `com.tmp.core..` outside `com.tmp.core.api..`, nor on `com.tmp.document..` outside `com.tmp.document.api..`.
+- `capabilityEngineDoesNotDependOnBusinessModules` ? no class in `com.tmp.capability..` depends on `com.tmp.order..`, `com.tmp.warehouse..`, `com.tmp.production..`, `com.tmp.cutting..`, `com.tmp.analytics..`, `com.tmp.security..`;
+- `capabilityEngineUsesOnlyCorePublicApi` ? no class in `com.tmp.capability..` depends on `com.tmp.core..` outside `com.tmp.core.api..`;
+- `capabilityEngineUsesOnlyDocumentPublicApi` ? no class in `com.tmp.capability..` depends on `com.tmp.document..` outside `com.tmp.document.api..`;
+- `externalModulesUseOnlyCapabilityPublicApi` ? no class outside `com.tmp.capability..` depends on `com.tmp.capability..` outside `com.tmp.capability.api..`;
+- `platformCoreDoesNotDependOnCapabilityEngine` ? no class in `com.tmp.core..` depends on `com.tmp.capability..`;
+- `documentEngineDoesNotDependOnCapabilityEngine` ? no class in `com.tmp.document..` depends on `com.tmp.capability..`;
+- `uiShellDoesNotDependOnCapabilityEngine` ? no class in `com.tmp.ui..` depends on `com.tmp.capability..`;
+- `sampleCapabilityUsesOnlyPublicApis` ? no class in `com.tmp.capability.sample..` depends on `com.tmp.core..` outside `com.tmp.core.api..`, nor on `com.tmp.document..` outside `com.tmp.document.api..`.
 
 ### Public contracts that may change
 
@@ -3455,7 +3455,7 @@ Automated, permanent enforcement of every module-boundary rule mandated for Stag
 
 ---
 
-## STAGE3-019 — PostgreSQL Testcontainers integration test for document contribution
+## STAGE3-019 ? PostgreSQL Testcontainers integration test for document contribution
 
 **Status:** DONE
 **Stage:** 3
@@ -3464,11 +3464,11 @@ Automated, permanent enforcement of every module-boundary rule mandated for Stag
 
 ### Goal
 
-Подтвердить реальную транзакционную семантику регистрации document contribution через Document Engine на PostgreSQL (Testcontainers), а не только на H2/fake-адаптерах, используемых в unit-тестах STAGE3-012/016.
+??????????? ???????? ?????????????? ????????? ??????????? document contribution ????? Document Engine ?? PostgreSQL (Testcontainers), ? ?? ?????? ?? H2/fake-?????????, ???????????? ? unit-?????? STAGE3-012/016.
 
 ### Required documents
 
-- Governing task brief §30 (PostgreSQL Testcontainers only where document contribution + real transactional check is required);
+- Governing task brief �30 (PostgreSQL Testcontainers only where document contribution + real transactional check is required);
 - Stage 2 precedent: `DocumentEnginePostgresIntegrationIT` (structural template for Testcontainers setup in this codebase).
 
 ### Required code context
@@ -3522,7 +3522,7 @@ Verified, real-database proof of atomic document contribution registration and r
 
 ---
 
-## STAGE3-020 — Concurrency tests (registration race, activation/deactivation race, snapshot safety)
+## STAGE3-020 ? Concurrency tests (registration race, activation/deactivation race, snapshot safety)
 
 **Status:** DONE
 **Stage:** 3
@@ -3531,11 +3531,11 @@ Verified, real-database proof of atomic document contribution registration and r
 
 ### Goal
 
-Покрыть обязательные concurrency-сценарии Stage 3, не покрытые точечно в STAGE3-007/012/013 (тем задачам разрешалось включать по одному concurrency-тесту как минимум; здесь собирается недостающая, более сложная комбинация: activation-vs-deactivation race и стабильность read-only snapshot во время lifecycle-изменений).
+??????? ???????????? concurrency-???????? Stage 3, ?? ???????? ??????? ? STAGE3-007/012/013 (??? ??????? ??????????? ???????? ?? ?????? concurrency-????? ??? ???????; ????? ?????????? ???????????, ????? ??????? ??????????: activation-vs-deactivation race ? ???????????? read-only snapshot ?? ????? lifecycle-?????????).
 
 ### Required documents
 
-- Governing task brief §7 "Concurrency" required-test list.
+- Governing task brief �7 "Concurrency" required-test list.
 
 ### Required code context
 
@@ -3554,9 +3554,9 @@ Verified, real-database proof of atomic document contribution registration and r
 
 ### Implementation requirements
 
-- Test 1: N threads attempt to register the same capability id concurrently — exactly one succeeds, others fail deterministically, no partial state afterward;
-- Test 2: one thread calls `activateAll()`/`activate` while another concurrently calls `deactivate` on the same capability — the outcome is deterministic given the lifecycle manager's single synchronization boundary (no `ACTIVE` capability with incomplete contributions is ever observable, and no `ConcurrentModificationException` is thrown);
-- Test 3: a reader thread repeatedly calls `registeredCapabilities()`/`activeCommands()` (or equivalent catalog snapshot methods) while a writer thread registers/deactivates capabilities — reader never observes a `ConcurrentModificationException` and never observes a torn/partial snapshot (each snapshot is a valid state that existed at some point in time).
+- Test 1: N threads attempt to register the same capability id concurrently ? exactly one succeeds, others fail deterministically, no partial state afterward;
+- Test 2: one thread calls `activateAll()`/`activate` while another concurrently calls `deactivate` on the same capability ? the outcome is deterministic given the lifecycle manager's single synchronization boundary (no `ACTIVE` capability with incomplete contributions is ever observable, and no `ConcurrentModificationException` is thrown);
+- Test 3: a reader thread repeatedly calls `registeredCapabilities()`/`activeCommands()` (or equivalent catalog snapshot methods) while a writer thread registers/deactivates capabilities ? reader never observes a `ConcurrentModificationException` and never observes a torn/partial snapshot (each snapshot is a valid state that existed at some point in time).
 
 ### Public contracts that may change
 
@@ -3589,7 +3589,7 @@ Deterministic proof that Capability Engine's shared state survives concurrent re
 
 ---
 
-## STAGE3-021 — Final Stage 3 verification gate
+## STAGE3-021 ? Final Stage 3 verification gate
 
 **Status:** DONE
 **Stage:** 3
@@ -3598,7 +3598,7 @@ Deterministic proof that Capability Engine's shared state survives concurrent re
 
 ### Goal
 
-Выполнить финальную комплексную верификацию Stage 3 против exit criteria `STAGE-3-CAPABILITY-ENGINE.md`, включая package profile и ручной запуск `TMP.exe`, без перехода к Stage 4.
+????????? ????????? ??????????? ??????????? Stage 3 ?????? exit criteria `STAGE-3-CAPABILITY-ENGINE.md`, ??????? package profile ? ?????? ?????? `TMP.exe`, ??? ???????? ? Stage 4.
 
 ### Required documents
 
@@ -3615,7 +3615,7 @@ Deterministic proof that Capability Engine's shared state survives concurrent re
 
 ### Forbidden
 
-- Stage 4 — Security features;
+- Stage 4 ? Security features;
 - any new Capability Engine feature not already covered by STAGE3-001..020.
 
 ### Implementation requirements
@@ -3659,7 +3659,7 @@ Stage 3 fully verified end-to-end; `STATUS.md` updated to `Stage 3: DONE 100%`; 
 
 ---
 
-## STAGE3-022 — Stage 3 acceptance rework (BLK-014)
+## STAGE3-022 ? Stage 3 acceptance rework (BLK-014)
 
 **Status:** DONE
 **Stage:** 3
@@ -3668,7 +3668,7 @@ Stage 3 fully verified end-to-end; `STATUS.md` updated to `Stage 3: DONE 100%`; 
 
 ### Goal
 
-Устранить блокирующие дефекты acceptance review: полностью атомарная регистрация Capability с compensation handles, корректная деактивация и lifecycle failure handling, reversible public API Stage 1–2.
+????????? ??????????? ??????? acceptance review: ????????? ????????? ??????????? Capability ? compensation handles, ?????????? ??????????? ? lifecycle failure handling, reversible public API Stage 1?2.
 
 ### Required documents
 
@@ -3708,7 +3708,7 @@ Stage 3 returned to IN_PROGRESS during rework; ready for `STAGE3-023` full re-ve
 
 ---
 
-## STAGE3-023 — Re-verification gate after acceptance rework
+## STAGE3-023 ? Re-verification gate after acceptance rework
 
 **Status:** DONE
 **Stage:** 3
@@ -3717,7 +3717,7 @@ Stage 3 returned to IN_PROGRESS during rework; ready for `STAGE3-023` full re-ve
 
 ### Goal
 
-Повторная полная верификация Stage 3 после устранения `BLK-014`, без перехода к Stage 4.
+????????? ?????? ??????????? Stage 3 ????? ?????????? `BLK-014`, ??? ???????? ? Stage 4.
 
 ### Verification commands
 
@@ -3737,11 +3737,11 @@ Manual: `dist/jpackage/TMP/TMP.exe`
 
 ### Expected result
 
-`STATUS.md` → Stage 3 DONE 100%; `STAGE3-023` DONE.
+`STATUS.md` ? Stage 3 DONE 100%; `STAGE3-023` DONE.
 
 ---
 
-## STAGE3-024 — Lifecycle contribution cleanup (BLK-015)
+## STAGE3-024 ? Lifecycle contribution cleanup (BLK-015)
 
 **Status:** DONE
 **Stage:** 3
@@ -3750,14 +3750,14 @@ Manual: `dist/jpackage/TMP/TMP.exe`
 
 ### Goal
 
-Устранить residual lifecycle cleanup defect: при initialize/activate/stop/deactivation failure снимать все contributions; `DEACTIVATED` только после успешной полной cleanup; не терять исходные exceptions; агрегировать unsubscribe/cleanup failures как suppressed.
+????????? residual lifecycle cleanup defect: ??? initialize/activate/stop/deactivation failure ??????? ??? contributions; `DEACTIVATED` ?????? ????? ???????? ?????? cleanup; ?? ?????? ???????? exceptions; ???????????? unsubscribe/cleanup failures ??? suppressed.
 
 ### Implementation requirements
 
-- Единый `cleanupFailedCapability` / `cleanupContributions` для initialize, activation, stop, deactivation failures;
+- ?????? `cleanupFailedCapability` / `cleanupContributions` ??? initialize, activation, stop, deactivation failures;
 - Cleanup: event subscriptions, internal catalogs, public services, document processors, Platform Core capability metadata;
 - Continue after cleanup step failures; preserve original lifecycle exception; attach cleanup failures as suppressed;
-- `DEACTIVATED` only after successful callbacks and successful full cleanup; cleanup failure → `FAILED`;
+- `DEACTIVATED` only after successful callbacks and successful full cleanup; cleanup failure ? `FAILED`;
 - `unsubscribeAll` must not silently swallow errors.
 
 ### Acceptance criteria
@@ -3765,7 +3765,7 @@ Manual: `dist/jpackage/TMP/TMP.exe`
 - [x] initialize failure removes public service, Document Processor, Platform Core metadata, internal catalogs;
 - [x] independent Capability still becomes ACTIVE;
 - [x] activation failure preserves original exception; cleanup errors suppressed; remaining cleanup steps execute;
-- [x] deactivation cleanup failure → FAILED (not DEACTIVATED); no stale service/subscription;
+- [x] deactivation cleanup failure ? FAILED (not DEACTIVATED); no stale service/subscription;
 - [x] unsubscribe failure is observable;
 - [x] stopAll continues reverse shutdown after cleanup failure;
 - [x] PostgreSQL IT: failed init after document registration; new ops rejected; existing data preserved;
@@ -3786,7 +3786,7 @@ Stage 3 re-verified; stop before Stage 4.
 
 ---
 
-## STAGE3-025 — Re-verification gate after BLK-015
+## STAGE3-025 ? Re-verification gate after BLK-015
 
 **Status:** DONE
 **Stage:** 3
@@ -3795,7 +3795,7 @@ Stage 3 re-verified; stop before Stage 4.
 
 ### Goal
 
-Повторная полная верификация Stage 3 после устранения `BLK-015`, без перехода к Stage 4.
+????????? ?????? ??????????? Stage 3 ????? ?????????? `BLK-015`, ??? ???????? ? Stage 4.
 
 ### Acceptance criteria
 
@@ -3806,30 +3806,30 @@ Stage 3 re-verified; stop before Stage 4.
 
 ### Expected result
 
-`STATUS.md` → Stage 3 DONE 100%; stop before Stage 4.
+`STATUS.md` ? Stage 3 DONE 100%; stop before Stage 4.
 
 ---
 
-# Stage 4 — Security (decomposition)
+# Stage 4 ? Security (decomposition)
 
 ## Design decisions fixed for this Stage
 
 1. Module: `tmp-security` (new). Public API package: `com.tmp.security.api` (mirrors `com.tmp.capability.api` / `com.tmp.document.api`). Internal packages: `com.tmp.security.domain` (+ `com.tmp.security.domain.repository` ports), `com.tmp.security.application`, `com.tmp.security.persistence`, `com.tmp.security.capability`, `com.tmp.security` (auto-configuration + `PlatformComponent`). Identity/value-object types that other modules must reference at call sites (`UserId`, `RoleId`, `PermissionId`, `AuditEventId`, `SessionId`, `Login`, `DisplayName`) are defined directly in `com.tmp.security.api`, matching the precedent of `com.tmp.capability.api.CapabilityId`. Richer mutable-behaviour aggregates (`User`, `Role`, `PermissionDefinition`, `RoleAssignment`, `IndividualPermissionOverride`, `SecurityAuditEvent`) stay in `com.tmp.security.domain`, exposed to callers only through DTOs/services in `com.tmp.security.api`.
-2. Persistence technology follows the Stage 2 precedent, **not** the Database Specification §13 JPA/Hibernate section literally: `tmp-document-engine` already uses plain `spring-boot-starter-jdbc` (`JdbcTemplate`) with hand-written Repository ports/adapters/mappers, no Hibernate anywhere in the reactor. `tmp-security` follows the same established pattern for consistency (Repository interface in Domain, `Jdbc*Repository` implementation in `com.tmp.security.persistence`, manual row-mapping, no JPA entities). This is a normal technical decision following existing in-repo precedent, not a deviation requiring a blocker.
+2. Persistence technology follows the Stage 2 precedent, **not** the Database Specification �13 JPA/Hibernate section literally: `tmp-document-engine` already uses plain `spring-boot-starter-jdbc` (`JdbcTemplate`) with hand-written Repository ports/adapters/mappers, no Hibernate anywhere in the reactor. `tmp-security` follows the same established pattern for consistency (Repository interface in Domain, `Jdbc*Repository` implementation in `com.tmp.security.persistence`, manual row-mapping, no JPA entities). This is a normal technical decision following existing in-repo precedent, not a deviation requiring a blocker.
 3. Flyway: single global `classpath:db/migration` scan (existing `tmp-infra-db` configuration, unchanged) is shared by all modules; each module ships its own numbered scripts. Existing highest version is `V3` (`tmp-document-engine`); `tmp-capability-engine` has no persistence. Security's migration starts at `V4__security_schema.sql` in `tmp-security/src/main/resources/db/migration/`.
-4. `PermissionId` format: `<area>.<resource>.<action>` (3 dot-separated lowercase segments, `[a-z][a-z0-9-]*` per segment), exactly as stated in the Security Specification's format rule and in the Stage 4 task's permission catalogue (`security.users.view`, `security.roles.assign`, `security.permissions.assign`, `security.audit.view`, etc.). The Security Specification's illustrative examples (`order.view`, `warehouse.issue` — 2 segments) are informal shorthand from an earlier doc revision and do not override the explicit 3-segment rule stated in the same document and repeated in the Stage 4 task; validation implements the 3-segment rule. Not a blocker: the authoritative rule text is consistent across both sources, only the illustrative examples are imprecise.
-5. Capability Engine integration: Security registers exactly one Spring bean implementing `com.tmp.capability.api.Capability` ("Security Administration Capability"), discovered the same way `SampleTechnicalCapability` is (constructor injection into `List<Capability>` in `CapabilityDiscovery`). Its `onInitialize/onActivate/onDeactivate/onStop` hooks are no-ops (it contributes only `PermissionDescriptor`/`CommandDescriptor`/`NavigationContribution`/`ViewDescriptor` metadata — no `PublicServiceContribution`, no `DocumentContribution` — Security's own services are consumed directly as ordinary Spring beans by `tmp-ui-shell`/`tmp-bootstrap-app`, exactly like `PlatformCore`/`DocumentEngine`/`CapabilityEngine` are today, **not** through the Capability Engine's public-service mechanism, because Security is itself a platform-level component, not a business Capability providing services to other Capabilities).
-6. Permission-definition catalogue and "active" status: Security never reads Capability Engine internals. It uses only `CapabilityEngine.registeredCapabilities()` (full declared catalogue, any lifecycle state) + `CapabilityDescriptor.permissions()` to learn every declared `PermissionDescriptor`, and `CapabilityEngine.activePermissions()` (or `stateOf(id) == ACTIVE`) to know which are currently active. `Authorization.requirePermission()` denies whenever the given `PermissionId` is absent from `CapabilityEngine.activePermissions()`, regardless of role/individual grants (Stage 4 task §7/§11). No Capability Engine API change is needed for this; if a real gap is later found, a blocker will be raised rather than a workaround.
-7. Startup ordering (no Capability Engine/Platform Core change needed): `DefaultLifecycleManager.startAll()` iterates registered `PlatformComponent`s in **registration order**, calling `initialize()` then `start()` on each before moving to the next (verified in `tmp-platform-core` source). `SecurityAutoConfiguration` declares `@AutoConfigureAfter(name = {"com.tmp.core.PlatformCoreAutoConfiguration", "com.tmp.infra.db.DatabaseAutoConfiguration", "com.tmp.capability.CapabilityEngineAutoConfiguration"})`, so Security's `@PostConstruct` component registrar runs after Capability Engine's, and Security's `PlatformComponent` therefore lands later in the registration-ordered map. Consequently, when `startAll()` reaches Security, Capability Engine's `initialize()` (discovery/registration) **and** `start()` (`activateAll()`) have already completed — safe point to run permission-catalogue synchronization and bootstrap-administrator creation inside Security's own `initialize()`/`start()`. Security's own Capability bean is created eagerly by Spring because `CapabilityEngineAutoConfiguration.capabilityDiscovery(List<Capability> discoveredCapabilities)` depends on the full `Capability` bean collection — ordinary Spring DI, unaffected by `@AutoConfigureAfter` (which only orders auto-configuration *class* processing, not bean instantiation).
-8. UI screens (Login, Main Window, Access Denied, User Administration, Role Administration, Security Audit) are **all** implemented in `tmp-ui-shell` (FXML + Controller + ViewModel), never inside `tmp-security`. Rationale: (a) `tmp-security`'s allowed dependencies are limited to `com.tmp.core.api..`/`com.tmp.capability.api..` (Stage 4 task §4.10) — it must not depend on JavaFX/`tmp-ui-shell`; (b) `tmp-ui-shell` has no such restriction and may freely depend on `com.tmp.security.api` (an "external module" per Stage 4 task §7, exactly as `tmp-bootstrap-app` already depends on `com.tmp.capability.api`/`com.tmp.document.api`); (c) `ViewDescriptor`/`NavigationContribution` are documented in `tmp-capability-engine` as pure metadata that intentionally does **not** reference any FXML/Controller/ViewModel class ("resolving this metadata into an actual screen is deferred to future UI stages") — Stage 4 is that future stage, and the concrete FXML resource path ↔ screen-id mapping is owned entirely by `tmp-ui-shell`'s new Navigation Service (a small internal registry, not a new public contract). This keeps `tmp-ui-shell` as the only JavaFX-aware module (unchanged Stage 0–3 precedent: `EmptyMainShell`/`JavaFxShellLauncher` have zero business-module dependencies) while satisfying "Controller is not a Spring Bean" (FXMLLoader instantiates Controllers by reflection via `fx:controller`) and "ViewModel is created by Spring" (ViewModels become ordinary `@Bean`s inside a new `UiShellAutoConfiguration` in `tmp-ui-shell`, calling `com.tmp.security.api`/`com.tmp.capability.api` services). Navigation-item-to-permission gating convention (needed because `NavigationContribution`/`ViewDescriptor` carry no permission field): Security declares one `CommandDescriptor` per admin screen whose `commandId()` equals the corresponding `NavigationContribution.navigationId()` (e.g. both `"security.nav.users"`); the Navigation Service looks up that command among `CapabilityEngine.activeCommands()` and hides the navigation item unless `Authorization.hasPermission(...)` holds for every id in `requiredPermissionIds()`. This is a local `tmp-ui-shell` implementation convention, not a Capability Engine API change.
-9. `JavaFxShellLauncher`/`JavaFxShellApplication` keep the existing "static hand-off" pattern (JavaFX requires a no-arg-constructible `Application` subclass, so Spring cannot construct it): `DesktopBootstrap` now looks up a `UiShellEntryPoint` bean (defined in `tmp-ui-shell`, exposing the Navigation Service + initial screen id) and passes it into `JavaFxShellLauncher.launch(...)` the same way it already passes `onStopCallback`/status strings, so `JavaFxShellApplication.start(Stage)` can build the real Login → Main Window flow with full Spring-backed ViewModels.
-10. Config: bootstrap administrator credentials are read via `@ConfigurationProperties(prefix = "tmp.security.bootstrap")` bound from `TMP_SECURITY_BOOTSTRAP_ADMIN_LOGIN` / `TMP_SECURITY_BOOTSTRAP_ADMIN_DISPLAY_NAME` / `TMP_SECURITY_BOOTSTRAP_ADMIN_PASSWORD` env vars (Spring relaxed binding), matching the existing `TMP_DB_*` → `spring.datasource.*` convention in `tmp-bootstrap-app/application-package.yml`. No default/fallback password is ever hard-coded.
-11. `BCryptPasswordHasher` (infrastructure adapter of the Domain `PasswordHasher` port) is the single implementation, backed by `org.springframework.security:spring-security-crypto:BCryptPasswordEncoder` (version managed transitively by the already-imported `spring-boot-dependencies` BOM — no new version property needed). No `spring-security-core`, no servlet/web starter is added anywhere.
+4. `PermissionId` format: `<area>.<resource>.<action>` (3 dot-separated lowercase segments, `[a-z][a-z0-9-]*` per segment), exactly as stated in the Security Specification's format rule and in the Stage 4 task's permission catalogue (`security.users.view`, `security.roles.assign`, `security.permissions.assign`, `security.audit.view`, etc.). The Security Specification's illustrative examples (`order.view`, `warehouse.issue` ? 2 segments) are informal shorthand from an earlier doc revision and do not override the explicit 3-segment rule stated in the same document and repeated in the Stage 4 task; validation implements the 3-segment rule. Not a blocker: the authoritative rule text is consistent across both sources, only the illustrative examples are imprecise.
+5. Capability Engine integration: Security registers exactly one Spring bean implementing `com.tmp.capability.api.Capability` ("Security Administration Capability"), discovered the same way `SampleTechnicalCapability` is (constructor injection into `List<Capability>` in `CapabilityDiscovery`). Its `onInitialize/onActivate/onDeactivate/onStop` hooks are no-ops (it contributes only `PermissionDescriptor`/`CommandDescriptor`/`NavigationContribution`/`ViewDescriptor` metadata ? no `PublicServiceContribution`, no `DocumentContribution` ? Security's own services are consumed directly as ordinary Spring beans by `tmp-ui-shell`/`tmp-bootstrap-app`, exactly like `PlatformCore`/`DocumentEngine`/`CapabilityEngine` are today, **not** through the Capability Engine's public-service mechanism, because Security is itself a platform-level component, not a business Capability providing services to other Capabilities).
+6. Permission-definition catalogue and "active" status: Security never reads Capability Engine internals. It uses only `CapabilityEngine.registeredCapabilities()` (full declared catalogue, any lifecycle state) + `CapabilityDescriptor.permissions()` to learn every declared `PermissionDescriptor`, and `CapabilityEngine.activePermissions()` (or `stateOf(id) == ACTIVE`) to know which are currently active. `Authorization.requirePermission()` denies whenever the given `PermissionId` is absent from `CapabilityEngine.activePermissions()`, regardless of role/individual grants (Stage 4 task �7/�11). No Capability Engine API change is needed for this; if a real gap is later found, a blocker will be raised rather than a workaround.
+7. Startup ordering (no Capability Engine/Platform Core change needed): `DefaultLifecycleManager.startAll()` iterates registered `PlatformComponent`s in **registration order**, calling `initialize()` then `start()` on each before moving to the next (verified in `tmp-platform-core` source). `SecurityAutoConfiguration` declares `@AutoConfigureAfter(name = {"com.tmp.core.PlatformCoreAutoConfiguration", "com.tmp.infra.db.DatabaseAutoConfiguration", "com.tmp.capability.CapabilityEngineAutoConfiguration"})`, so Security's `@PostConstruct` component registrar runs after Capability Engine's, and Security's `PlatformComponent` therefore lands later in the registration-ordered map. Consequently, when `startAll()` reaches Security, Capability Engine's `initialize()` (discovery/registration) **and** `start()` (`activateAll()`) have already completed ? safe point to run permission-catalogue synchronization and bootstrap-administrator creation inside Security's own `initialize()`/`start()`. Security's own Capability bean is created eagerly by Spring because `CapabilityEngineAutoConfiguration.capabilityDiscovery(List<Capability> discoveredCapabilities)` depends on the full `Capability` bean collection ? ordinary Spring DI, unaffected by `@AutoConfigureAfter` (which only orders auto-configuration *class* processing, not bean instantiation).
+8. UI screens (Login, Main Window, Access Denied, User Administration, Role Administration, Security Audit) are **all** implemented in `tmp-ui-shell` (FXML + Controller + ViewModel), never inside `tmp-security`. Rationale: (a) `tmp-security`'s allowed dependencies are limited to `com.tmp.core.api..`/`com.tmp.capability.api..` (Stage 4 task �4.10) ? it must not depend on JavaFX/`tmp-ui-shell`; (b) `tmp-ui-shell` has no such restriction and may freely depend on `com.tmp.security.api` (an "external module" per Stage 4 task �7, exactly as `tmp-bootstrap-app` already depends on `com.tmp.capability.api`/`com.tmp.document.api`); (c) `ViewDescriptor`/`NavigationContribution` are documented in `tmp-capability-engine` as pure metadata that intentionally does **not** reference any FXML/Controller/ViewModel class ("resolving this metadata into an actual screen is deferred to future UI stages") ? Stage 4 is that future stage, and the concrete FXML resource path ? screen-id mapping is owned entirely by `tmp-ui-shell`'s new Navigation Service (a small internal registry, not a new public contract). This keeps `tmp-ui-shell` as the only JavaFX-aware module (unchanged Stage 0?3 precedent: `EmptyMainShell`/`JavaFxShellLauncher` have zero business-module dependencies) while satisfying "Controller is not a Spring Bean" (FXMLLoader instantiates Controllers by reflection via `fx:controller`) and "ViewModel is created by Spring" (ViewModels become ordinary `@Bean`s inside a new `UiShellAutoConfiguration` in `tmp-ui-shell`, calling `com.tmp.security.api`/`com.tmp.capability.api` services). Navigation-item-to-permission gating convention (needed because `NavigationContribution`/`ViewDescriptor` carry no permission field): Security declares one `CommandDescriptor` per admin screen whose `commandId()` equals the corresponding `NavigationContribution.navigationId()` (e.g. both `"security.nav.users"`); the Navigation Service looks up that command among `CapabilityEngine.activeCommands()` and hides the navigation item unless `Authorization.hasPermission(...)` holds for every id in `requiredPermissionIds()`. This is a local `tmp-ui-shell` implementation convention, not a Capability Engine API change.
+9. `JavaFxShellLauncher`/`JavaFxShellApplication` keep the existing "static hand-off" pattern (JavaFX requires a no-arg-constructible `Application` subclass, so Spring cannot construct it): `DesktopBootstrap` now looks up a `UiShellEntryPoint` bean (defined in `tmp-ui-shell`, exposing the Navigation Service + initial screen id) and passes it into `JavaFxShellLauncher.launch(...)` the same way it already passes `onStopCallback`/status strings, so `JavaFxShellApplication.start(Stage)` can build the real Login ? Main Window flow with full Spring-backed ViewModels.
+10. Config: bootstrap administrator credentials are read via `@ConfigurationProperties(prefix = "tmp.security.bootstrap")` bound from `TMP_SECURITY_BOOTSTRAP_ADMIN_LOGIN` / `TMP_SECURITY_BOOTSTRAP_ADMIN_DISPLAY_NAME` / `TMP_SECURITY_BOOTSTRAP_ADMIN_PASSWORD` env vars (Spring relaxed binding), matching the existing `TMP_DB_*` ? `spring.datasource.*` convention in `tmp-bootstrap-app/application-package.yml`. No default/fallback password is ever hard-coded.
+11. `BCryptPasswordHasher` (infrastructure adapter of the Domain `PasswordHasher` port) is the single implementation, backed by `org.springframework.security:spring-security-crypto:BCryptPasswordEncoder` (version managed transitively by the already-imported `spring-boot-dependencies` BOM ? no new version property needed). No `spring-security-core`, no servlet/web starter is added anywhere.
 12. Login case-insensitive uniqueness is enforced at the database via a unique index on `lower(login)` (named `uk_users_login`, functional index), not a stored normalized column; the Domain `Login` value object preserves the user's original casing for display and trims/validates non-blank input only.
-13. Audit is Security's own append-only table (`security.security_audit_events`), per the Stage 4 task's explicit table list. The Database Specification §14 "единый Audit Service Platform Core" phrase is a non-binding recommendation ("рекомендуется... либо отдельный платформенный модуль") and Platform Core currently exposes no audit facility at all — implementing Security's own audit inside its own schema is one of the two options the specification itself allows, and is what the Stage 4 task explicitly mandates. Not a conflict, not a blocker.
-14. Out of scope, per explicit Stage 4 restrictions (§4.18) and confirmed absent from the Security Specification: LDAP/AD/OAuth/OIDC/JWT/2FA/email password recovery/external IdP/auto user lockout/password expiry/password history/remember-me/session timeout/network session. No such code, dependency, or table column is introduced anywhere in this Stage.
+13. Audit is Security's own append-only table (`security.security_audit_events`), per the Stage 4 task's explicit table list. The Database Specification �14 "?????? Audit Service Platform Core" phrase is a non-binding recommendation ("?????????????... ???? ????????? ????????????? ??????") and Platform Core currently exposes no audit facility at all ? implementing Security's own audit inside its own schema is one of the two options the specification itself allows, and is what the Stage 4 task explicitly mandates. Not a conflict, not a blocker.
+14. Out of scope, per explicit Stage 4 restrictions (�4.18) and confirmed absent from the Security Specification: LDAP/AD/OAuth/OIDC/JWT/2FA/email password recovery/external IdP/auto user lockout/password expiry/password history/remember-me/session timeout/network session. No such code, dependency, or table column is introduced anywhere in this Stage.
 
-## STAGE4-001 — Bootstrap `tmp-security` module and public API package skeleton
+## STAGE4-001 ? Bootstrap `tmp-security` module and public API package skeleton
 
 **Status:** DONE
 **Stage:** 4
@@ -3838,13 +3838,13 @@ Stage 3 re-verified; stop before Stage 4.
 
 ### Goal
 
-Создать Maven-модуль `tmp-security`, подключить его в root reactor и `dependencyManagement`, объявить зависимости только на `tmp-platform-core` и `tmp-capability-engine` (публичные API) плюс `spring-boot-starter`/`spring-boot-starter-jdbc`/`spring-security-crypto`/test dependencies (JUnit, H2, Testcontainers postgresql — mirroring `tmp-document-engine/pom.xml`), создать пустой пакет `com.tmp.security.api` с `package-info.java` без единого класса контракта.
+??????? Maven-?????? `tmp-security`, ?????????? ??? ? root reactor ? `dependencyManagement`, ???????? ??????????? ?????? ?? `tmp-platform-core` ? `tmp-capability-engine` (????????? API) ???? `spring-boot-starter`/`spring-boot-starter-jdbc`/`spring-security-crypto`/test dependencies (JUnit, H2, Testcontainers postgresql ? mirroring `tmp-document-engine/pom.xml`), ??????? ?????? ????? `com.tmp.security.api` ? `package-info.java` ??? ??????? ?????? ?????????.
 
 ### Required documents
 
-- `Security-Specification.md` (Назначение; Основные принципы);
+- `Security-Specification.md` (??????????; ???????? ????????);
 - `TMP-Architecture-Decisions.md` ADR-001..003, ADR-019 (module boundaries, public-API-only interaction);
-- this file's "Design decisions" §1–2, §11 above.
+- this file's "Design decisions" �1?2, �11 above.
 
 ### Required code context
 
@@ -3865,7 +3865,7 @@ Stage 3 re-verified; stop before Stage 4.
 
 ### Implementation requirements
 
-- `tmp-security/pom.xml`: `<parent>` = `tmp-parent`; dependencies = `tmp-platform-core`, `tmp-capability-engine`, `spring-boot-starter`, `spring-boot-starter-jdbc`, `spring-security-crypto` (no explicit version — BOM-managed), `tmp-infra-db` (for shared datasource/profile convention, matching `tmp-document-engine`), test-scope `spring-boot-starter-test`, `junit-jupiter`, `h2`, `testcontainers` (`junit-jupiter`, `postgresql`), `spotbugs-annotations` (`provided`, matching `tmp-document-engine`);
+- `tmp-security/pom.xml`: `<parent>` = `tmp-parent`; dependencies = `tmp-platform-core`, `tmp-capability-engine`, `spring-boot-starter`, `spring-boot-starter-jdbc`, `spring-security-crypto` (no explicit version ? BOM-managed), `tmp-infra-db` (for shared datasource/profile convention, matching `tmp-document-engine`), test-scope `spring-boot-starter-test`, `junit-jupiter`, `h2`, `testcontainers` (`junit-jupiter`, `postgresql`), `spotbugs-annotations` (`provided`, matching `tmp-document-engine`);
 - add module to root `pom.xml` `<modules>` (after `tmp-capability-engine`, before `tmp-bootstrap-app`) and to `<dependencyManagement>`;
 - no other production code in this task.
 
@@ -3900,7 +3900,7 @@ mvn -q -pl :tmp-security compile
 
 ---
 
-## STAGE4-002 — Identity value objects: `UserId`, `RoleId`, `PermissionId`, `AuditEventId`, `SessionId`, `Login`, `DisplayName`
+## STAGE4-002 ? Identity value objects: `UserId`, `RoleId`, `PermissionId`, `AuditEventId`, `SessionId`, `Login`, `DisplayName`
 
 **Status:** DONE
 **Stage:** 4
@@ -3909,13 +3909,13 @@ mvn -q -pl :tmp-security compile
 
 ### Goal
 
-Определить immutable value objects идентичности в `com.tmp.security.api`, включая формат-валидацию `PermissionId` (`<area>.<resource>.<action>`).
+?????????? immutable value objects ???????????? ? `com.tmp.security.api`, ??????? ??????-????????? `PermissionId` (`<area>.<resource>.<action>`).
 
 ### Required documents
 
-- `Security-Specification.md` (Право — формат идентификатора; Пользователь);
-- Stage 4 task §5 (перечень value objects, требование неизменяемости `PermissionId` после регистрации);
-- this file's "Design decisions" §4, §12 above.
+- `Security-Specification.md` (????? ? ?????? ??????????????; ????????????);
+- Stage 4 task �5 (???????? value objects, ?????????? ?????????????? `PermissionId` ????? ???????????);
+- this file's "Design decisions" �4, �12 above.
 
 ### Required code context
 
@@ -3940,8 +3940,8 @@ mvn -q -pl :tmp-security compile
 ### Implementation requirements
 
 - `UserId`/`RoleId`/`AuditEventId`/`SessionId`: immutable `UUID`-backed wrappers, static factory `of(UUID)` + `generate()` (random), `equals`/`hashCode`/`toString`;
-- `PermissionId`: immutable `String`-backed wrapper; `of(String)` validates against `^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$`, throws `IllegalArgumentException` with precise message otherwise; no setter, no mutation — identifiers are immutable by construction (registration-time immutability is an application-layer invariant, enforced in STAGE4-006/017, not by this type);
-- `Login`: immutable `String`-backed wrapper; `of(String)` trims, rejects blank/null, rejects length > 128, preserves original case; documents that DB-level uniqueness is case-insensitive (Design decision §12) but this type does not itself lowercase;
+- `PermissionId`: immutable `String`-backed wrapper; `of(String)` validates against `^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$`, throws `IllegalArgumentException` with precise message otherwise; no setter, no mutation ? identifiers are immutable by construction (registration-time immutability is an application-layer invariant, enforced in STAGE4-006/017, not by this type);
+- `Login`: immutable `String`-backed wrapper; `of(String)` trims, rejects blank/null, rejects length > 128, preserves original case; documents that DB-level uniqueness is case-insensitive (Design decision �12) but this type does not itself lowercase;
 - `DisplayName`: immutable `String`-backed wrapper; `of(String)` trims, rejects blank/null, rejects length > 255.
 - Every type's Javadoc states it carries no password/credential data.
 
@@ -3952,7 +3952,7 @@ mvn -q -pl :tmp-security compile
 ### Acceptance criteria
 
 - [x] valid inputs construct successfully for every type;
-- [x] `PermissionId` accepts exactly the 12 catalogue ids from Stage 4 task §7 and rejects 1-segment/2-segment/4-segment/uppercase/blank input;
+- [x] `PermissionId` accepts exactly the 12 catalogue ids from Stage 4 task �7 and rejects 1-segment/2-segment/4-segment/uppercase/blank input;
 - [x] blank/null input rejected for every type with `IllegalArgumentException`;
 - [x] `equals`/`hashCode` consistent with wrapped value; `toString` never leaks anything beyond the wrapped identity value.
 
@@ -3979,7 +3979,7 @@ Stable, fully-tested identity value objects usable by every later Domain/Applica
 
 ---
 
-## STAGE4-003 — `PasswordHash` value object and `PasswordHasher` domain port
+## STAGE4-003 ? `PasswordHash` value object and `PasswordHasher` domain port
 
 **Status:** DONE
 **Stage:** 4
@@ -3988,13 +3988,13 @@ Stable, fully-tested identity value objects usable by every later Domain/Applica
 
 ### Goal
 
-Определить `PasswordHash` (никогда не содержит plaintext, безопасный `toString`) и порт `PasswordHasher` (Domain-интерфейс, без знания о BCrypt/Spring), не позволяющие паролю попасть в DTO/log/audit.
+?????????? `PasswordHash` (??????? ?? ???????? plaintext, ?????????? `toString`) ? ???? `PasswordHasher` (Domain-?????????, ??? ?????? ? BCrypt/Spring), ?? ??????????? ?????? ??????? ? DTO/log/audit.
 
 ### Required documents
 
-- `Security-Specification.md` (Пароль);
-- Stage 4 task §5, §9 (password never a plaintext field; hash differs from plaintext; port abstraction implied by "Domain не зависит от Spring/JDBC/persistence/JavaFX");
-- Database Specification §13 (Domain independent of the persistence technology — same principle applied to the hashing technology).
+- `Security-Specification.md` (??????);
+- Stage 4 task �5, �9 (password never a plaintext field; hash differs from plaintext; port abstraction implied by "Domain ?? ??????? ?? Spring/JDBC/persistence/JavaFX");
+- Database Specification �13 (Domain independent of the persistence technology ? same principle applied to the hashing technology).
 
 ### Required code context
 
@@ -4047,7 +4047,7 @@ A safe password-hash carrier and a Domain-owned hashing port ready for a BCrypt 
 
 ---
 
-## STAGE4-004 — `User` aggregate, `UserStatus`, `UserRepository` port, domain exceptions
+## STAGE4-004 ? `User` aggregate, `UserStatus`, `UserRepository` port, domain exceptions
 
 **Status:** DONE
 **Stage:** 4
@@ -4056,13 +4056,13 @@ A safe password-hash carrier and a Domain-owned hashing port ready for a BCrypt 
 
 ### Goal
 
-Реализовать immutable-snapshot `User` aggregate (создание, смена пароля/hash, логическое удаление) со статусами `ACTIVE`/`DELETED`, без физического удаления, и Domain repository port.
+??????????? immutable-snapshot `User` aggregate (????????, ????? ??????/hash, ?????????? ????????) ?? ????????? `ACTIVE`/`DELETED`, ??? ??????????? ????????, ? Domain repository port.
 
 ### Required documents
 
-- `Security-Specification.md` (Пользователь; Пароль);
-- Stage 4 task §5 (допустимые состояния; запрет физического удаления; поведение удалённого пользователя);
-- Database Specification §5 (`id/created_at/updated_at/version/created_by/updated_by`), §7 (Optimistic Locking).
+- `Security-Specification.md` (????????????; ??????);
+- Stage 4 task �5 (?????????? ?????????; ?????? ??????????? ????????; ????????? ?????????? ????????????);
+- Database Specification �5 (`id/created_at/updated_at/version/created_by/updated_by`), �7 (Optimistic Locking).
 
 ### Required code context
 
@@ -4085,8 +4085,8 @@ A safe password-hash carrier and a Domain-owned hashing port ready for a BCrypt 
 ### Implementation requirements
 
 - `UserStatus` enum: `ACTIVE`, `DELETED`.
-- `User`: immutable aggregate (`UserId id, Login login, DisplayName displayName, PasswordHash passwordHash, UserStatus status, long version, Instant createdAt, Instant updatedAt`); factory `User.createActive(UserId, Login, DisplayName, PasswordHash, Clock)`; behaviour methods return **new** `User` snapshots (`withDisplayName`, `withPasswordHash`, `deleted(Clock)` — throws `UserAlreadyDeletedException` if already `DELETED`); `isActive()`/`isDeleted()` helpers; `toString()` never includes `passwordHash`'s raw value (relies on `PasswordHash.toString()` redaction, and does not print `passwordHash` field name/value pair with anything but the redacted marker).
-- `UserRepository` port (Domain interface): `save(User)` (insert-or-update, optimistic-lock aware — throws a dedicated `OptimisticLockException`-style exception, defined here or reused from a shared location — define `com.tmp.security.domain.OptimisticLockConflictException` in this task since it's the first aggregate needing it), `findById(UserId)`, `findByLoginIgnoreCase(Login)`, `existsByLoginIgnoreCase(Login)`, `findAll(paging/filter DTO placeholder deferred to STAGE4-023 if needed)` — for this task only `save/findById/findByLoginIgnoreCase/existsByLoginIgnoreCase` are required; a paging query method is added in STAGE4-023 together with its concrete use, to avoid speculative API.
+- `User`: immutable aggregate (`UserId id, Login login, DisplayName displayName, PasswordHash passwordHash, UserStatus status, long version, Instant createdAt, Instant updatedAt`); factory `User.createActive(UserId, Login, DisplayName, PasswordHash, Clock)`; behaviour methods return **new** `User` snapshots (`withDisplayName`, `withPasswordHash`, `deleted(Clock)` ? throws `UserAlreadyDeletedException` if already `DELETED`); `isActive()`/`isDeleted()` helpers; `toString()` never includes `passwordHash`'s raw value (relies on `PasswordHash.toString()` redaction, and does not print `passwordHash` field name/value pair with anything but the redacted marker).
+- `UserRepository` port (Domain interface): `save(User)` (insert-or-update, optimistic-lock aware ? throws a dedicated `OptimisticLockException`-style exception, defined here or reused from a shared location ? define `com.tmp.security.domain.OptimisticLockConflictException` in this task since it's the first aggregate needing it), `findById(UserId)`, `findByLoginIgnoreCase(Login)`, `existsByLoginIgnoreCase(Login)`, `findAll(paging/filter DTO placeholder deferred to STAGE4-023 if needed)` ? for this task only `save/findById/findByLoginIgnoreCase/existsByLoginIgnoreCase` are required; a paging query method is added in STAGE4-023 together with its concrete use, to avoid speculative API.
 
 ### Public contracts that may change
 
@@ -4120,7 +4120,7 @@ A fully-tested, persistence-agnostic `User` aggregate ready for the JDBC adapter
 
 ---
 
-## STAGE4-005 — `Role` aggregate and `RoleRepository` port
+## STAGE4-005 ? `Role` aggregate and `RoleRepository` port
 
 **Status:** DONE
 **Stage:** 4
@@ -4129,12 +4129,12 @@ A fully-tested, persistence-agnostic `User` aggregate ready for the JDBC adapter
 
 ### Goal
 
-Реализовать `Role` aggregate как шаблон набора разрешений (immutable snapshot, добавление/отзыв `PermissionId`, изменение имени/описания) и Domain repository port.
+??????????? `Role` aggregate ??? ?????? ?????? ?????????? (immutable snapshot, ??????????/????? `PermissionId`, ????????? ?????/????????) ? Domain repository port.
 
 ### Required documents
 
-- `Security-Specification.md` (Роль);
-- Stage 4 task §6 (создание/изменение/назначение/отзыв разрешений роли; удаление роли только при отсутствии назначенных пользователей — the "no assigned users" check itself belongs to the Application Service, STAGE4-025, since it requires cross-aggregate knowledge; this task only models the Role's own permission set).
+- `Security-Specification.md` (????);
+- Stage 4 task �6 (????????/?????????/??????????/????? ?????????? ????; ???????? ???? ?????? ??? ?????????? ??????????? ????????????? ? the "no assigned users" check itself belongs to the Application Service, STAGE4-025, since it requires cross-aggregate knowledge; this task only models the Role's own permission set).
 
 ### Required code context
 
@@ -4149,12 +4149,12 @@ A fully-tested, persistence-agnostic `User` aggregate ready for the JDBC adapter
 ### Forbidden
 
 - any Spring/JPA/JDBC import;
-- any reference to `User`/`UserId` (Role does not know which users hold it — that link is `RoleAssignment`, STAGE4-007).
+- any reference to `User`/`UserId` (Role does not know which users hold it ? that link is `RoleAssignment`, STAGE4-007).
 
 ### Implementation requirements
 
-- `Role`: immutable aggregate (`RoleId id, String name, String description, Set<PermissionId> permissions, long version, Instant createdAt, Instant updatedAt`); factory `Role.create(RoleId, String name, String description, Clock)`; behaviour methods return new snapshots: `withName`, `withDescription`, `grantPermission(PermissionId)` (idempotent — no-op if already present), `revokePermission(PermissionId)` (idempotent); `permissions()` returns an unmodifiable `Set`.
-- `RoleRepository` port: `save(Role)` (optimistic-lock aware, reuses `OptimisticLockConflictException` from STAGE4-004), `findById(RoleId)`, `findAll()`, `deleteById(RoleId)` (physical delete is allowed here — roles are configuration, not business history; the "cannot delete while assigned" rule is enforced by the Application Service before calling this, per Stage 4 task §6).
+- `Role`: immutable aggregate (`RoleId id, String name, String description, Set<PermissionId> permissions, long version, Instant createdAt, Instant updatedAt`); factory `Role.create(RoleId, String name, String description, Clock)`; behaviour methods return new snapshots: `withName`, `withDescription`, `grantPermission(PermissionId)` (idempotent ? no-op if already present), `revokePermission(PermissionId)` (idempotent); `permissions()` returns an unmodifiable `Set`.
+- `RoleRepository` port: `save(Role)` (optimistic-lock aware, reuses `OptimisticLockConflictException` from STAGE4-004), `findById(RoleId)`, `findAll()`, `deleteById(RoleId)` (physical delete is allowed here ? roles are configuration, not business history; the "cannot delete while assigned" rule is enforced by the Application Service before calling this, per Stage 4 task �6).
 
 ### Public contracts that may change
 
@@ -4186,7 +4186,7 @@ A fully-tested `Role` aggregate ready for persistence (STAGE4-011) and Role Admi
 
 ---
 
-## STAGE4-006 — `PermissionDefinition` domain concept and `PermissionDefinitionRepository` port
+## STAGE4-006 ? `PermissionDefinition` domain concept and `PermissionDefinitionRepository` port
 
 **Status:** DONE
 **Stage:** 4
@@ -4195,12 +4195,12 @@ A fully-tested `Role` aggregate ready for persistence (STAGE4-011) and Role Admi
 
 ### Goal
 
-Моделировать зарегистрированное разрешение (`PermissionId` + метаданные + признак активности), без знания о Capability Engine внутри Domain.
+???????????? ?????????????????? ?????????? (`PermissionId` + ?????????? + ??????? ??????????), ??? ?????? ? Capability Engine ?????? Domain.
 
 ### Required documents
 
-- `Security-Specification.md` (Право; Capability; Проверка доступа);
-- Stage 4 task §7 (Security регистрирует определения разрешений; деактивация Capability не удаляет назначения; identifier immutable after registration).
+- `Security-Specification.md` (?????; Capability; ???????? ???????);
+- Stage 4 task �7 (Security ???????????? ??????????? ??????????; ??????????? Capability ?? ??????? ??????????; identifier immutable after registration).
 
 ### Required code context
 
@@ -4214,12 +4214,12 @@ A fully-tested `Role` aggregate ready for persistence (STAGE4-011) and Role Admi
 
 ### Forbidden
 
-- any reference to `com.tmp.capability.api.*` from this package (that mapping happens only in the Application layer, STAGE4-017 — Domain stays capability-agnostic, knowing only "a permission id with an active flag");
+- any reference to `com.tmp.capability.api.*` from this package (that mapping happens only in the Application layer, STAGE4-017 ? Domain stays capability-agnostic, knowing only "a permission id with an active flag");
 - allowing `permissionId` to be replaced/changed after construction (only `active`/`displayName`/`description` may evolve).
 
 ### Implementation requirements
 
-- `PermissionDefinition`: immutable snapshot (`PermissionId permissionId, String displayName, String description, boolean active, Instant registeredAt, long version`); factory `PermissionDefinition.register(PermissionId, String displayName, String description, Clock)` (starts `active = true`); `withDisplayName`, `withDescription`, `activated()`, `deactivated()` — all return new snapshots; `permissionId()` never changes across snapshots derived from the same original (enforced by construction, not by a runtime check, since the id is only ever set once via the factory and copy methods never take a new id parameter).
+- `PermissionDefinition`: immutable snapshot (`PermissionId permissionId, String displayName, String description, boolean active, Instant registeredAt, long version`); factory `PermissionDefinition.register(PermissionId, String displayName, String description, Clock)` (starts `active = true`); `withDisplayName`, `withDescription`, `activated()`, `deactivated()` ? all return new snapshots; `permissionId()` never changes across snapshots derived from the same original (enforced by construction, not by a runtime check, since the id is only ever set once via the factory and copy methods never take a new id parameter).
 - `PermissionDefinitionRepository` port: `save(PermissionDefinition)` (optimistic-lock aware), `findById(PermissionId)`, `findAll()`.
 
 ### Public contracts that may change
@@ -4252,7 +4252,7 @@ A capability-agnostic permission-registry Domain concept ready for persistence (
 
 ---
 
-## STAGE4-007 — `RoleAssignment`, `IndividualPermissionOverride`, and their repository ports
+## STAGE4-007 ? `RoleAssignment`, `IndividualPermissionOverride`, and their repository ports
 
 **Status:** DONE
 **Stage:** 4
@@ -4261,12 +4261,12 @@ A capability-agnostic permission-registry Domain concept ready for persistence (
 
 ### Goal
 
-Моделировать назначение ролей пользователям и индивидуальные GRANT/REVOKE разрешений, как отдельные association aggregates (не поля `User`/`Role`, чтобы избежать конкурентных конфликтов версий при массовом назначении).
+???????????? ?????????? ????? ????????????? ? ?????????????? GRANT/REVOKE ??????????, ??? ????????? association aggregates (?? ???? `User`/`Role`, ????? ???????? ???????????? ?????????? ?????? ??? ???????? ??????????).
 
 ### Required documents
 
-- `Security-Specification.md` (Роль; Право);
-- Stage 4 task §6 (индивидуальные разрешения: отсутствие решения / GRANT / REVOKE).
+- `Security-Specification.md` (????; ?????);
+- Stage 4 task �6 (?????????????? ??????????: ?????????? ??????? / GRANT / REVOKE).
 
 ### Required code context
 
@@ -4283,15 +4283,15 @@ A capability-agnostic permission-registry Domain concept ready for persistence (
 
 ### Forbidden
 
-- storing a *set* of overrides inside `User`/`Role` (would create false optimistic-lock conflicts between unrelated administrative actions — this is a deliberate modelling choice, not a spec requirement, documented here to keep the reviewer from expecting it inside `User`).
+- storing a *set* of overrides inside `User`/`Role` (would create false optimistic-lock conflicts between unrelated administrative actions ? this is a deliberate modelling choice, not a spec requirement, documented here to keep the reviewer from expecting it inside `User`).
 
 ### Implementation requirements
 
-- `RoleAssignment`: immutable value (`UserId userId, RoleId roleId, Instant assignedAt`); no version field (assignment either exists or does not — deletion is physical removal of the pairing row, not a lifecycle).
+- `RoleAssignment`: immutable value (`UserId userId, RoleId roleId, Instant assignedAt`); no version field (assignment either exists or does not ? deletion is physical removal of the pairing row, not a lifecycle).
 - `PermissionOverrideDecision`: enum `GRANT`, `REVOKE`.
-- `IndividualPermissionOverride`: immutable value (`UserId userId, PermissionId permissionId, PermissionOverrideDecision decision, Instant updatedAt, long version`); factory `IndividualPermissionOverride.of(UserId, PermissionId, PermissionOverrideDecision, Clock)`; `withDecision(PermissionOverrideDecision, Clock)` returns a new snapshot (used when flipping GRANT↔REVOKE without a remove/re-add round trip).
-- `RoleAssignmentRepository`: `assign(RoleAssignment)` (idempotent — no-op if already present), `revoke(UserId, RoleId)`, `findRoleIdsForUser(UserId)`, `findUserIdsForRole(RoleId)`, `countUsersForRole(RoleId)` (used by the "cannot delete role while assigned" rule in STAGE4-025).
-- `PermissionOverrideRepository`: `save(IndividualPermissionOverride)` (optimistic-lock aware — insert-or-update on the natural key), `remove(UserId, PermissionId)`, `findByUser(UserId)`, `findByUserAndPermission(UserId, PermissionId)`.
+- `IndividualPermissionOverride`: immutable value (`UserId userId, PermissionId permissionId, PermissionOverrideDecision decision, Instant updatedAt, long version`); factory `IndividualPermissionOverride.of(UserId, PermissionId, PermissionOverrideDecision, Clock)`; `withDecision(PermissionOverrideDecision, Clock)` returns a new snapshot (used when flipping GRANT?REVOKE without a remove/re-add round trip).
+- `RoleAssignmentRepository`: `assign(RoleAssignment)` (idempotent ? no-op if already present), `revoke(UserId, RoleId)`, `findRoleIdsForUser(UserId)`, `findUserIdsForRole(RoleId)`, `countUsersForRole(RoleId)` (used by the "cannot delete role while assigned" rule in STAGE4-025).
+- `PermissionOverrideRepository`: `save(IndividualPermissionOverride)` (optimistic-lock aware ? insert-or-update on the natural key), `remove(UserId, PermissionId)`, `findByUser(UserId)`, `findByUserAndPermission(UserId, PermissionId)`.
 
 ### Public contracts that may change
 
@@ -4322,7 +4322,7 @@ Association-level Domain types ready for the effective-permission calculator (ST
 
 ---
 
-## STAGE4-008 — `EffectivePermissionCalculator` domain service
+## STAGE4-008 ? `EffectivePermissionCalculator` domain service
 
 **Status:** DONE
 **Stage:** 4
@@ -4331,12 +4331,12 @@ Association-level Domain types ready for the effective-permission calculator (ST
 
 ### Goal
 
-Реализовать чистую функцию расчёта effective permission (individual REVOKE > individual GRANT > union ролей > deny), без сохранения вычисленного множества.
+??????????? ?????? ??????? ??????? effective permission (individual REVOKE > individual GRANT > union ????? > deny), ??? ?????????? ???????????? ?????????.
 
 ### Required documents
 
-- Stage 4 task §6 (алгоритм расчёта, 4 шага, порядок приоритета);
-- `TMP-Architecture-Decisions.md` ADR-020 (вычисляемые состояния не хранятся — reinforces "no caching of the computed set as source of truth").
+- Stage 4 task �6 (???????? ???????, 4 ????, ??????? ??????????);
+- `TMP-Architecture-Decisions.md` ADR-020 (??????????? ????????? ?? ???????? ? reinforces "no caching of the computed set as source of truth").
 
 ### Required code context
 
@@ -4349,13 +4349,13 @@ Association-level Domain types ready for the effective-permission calculator (ST
 
 ### Forbidden
 
-- any persistence call inside this class (pure function of its input parameters only — inputs are supplied already-loaded by the caller, per ADR-020: never stored, always recomputed);
-- any Capability Engine reference (inactive-permission filtering is applied by the *caller*, `AuthorizationApplicationService` in STAGE4-022, before/after this calculator — this class only implements the role/override precedence algorithm from the Security Specification, treating "declared and active" as an external input).
+- any persistence call inside this class (pure function of its input parameters only ? inputs are supplied already-loaded by the caller, per ADR-020: never stored, always recomputed);
+- any Capability Engine reference (inactive-permission filtering is applied by the *caller*, `AuthorizationApplicationService` in STAGE4-022, before/after this calculator ? this class only implements the role/override precedence algorithm from the Security Specification, treating "declared and active" as an external input).
 
 ### Implementation requirements
 
-- Static method `boolean isGranted(PermissionId permissionId, Set<IndividualPermissionOverride> overrides, Set<Role> assignedRoles)`: 1) if an override for `permissionId` with decision `REVOKE` exists → `false`; 2) else if an override with decision `GRANT` exists → `true`; 3) else if any role in `assignedRoles` has `permissions().contains(permissionId)` → `true`; 4) else `false`.
-- Additional method `Set<PermissionId> effectivePermissions(Set<PermissionId> declaredActivePermissionIds, Set<IndividualPermissionOverride> overrides, Set<Role> assignedRoles)`: applies the same 4-step rule per id, restricted to `declaredActivePermissionIds` (the caller passes only currently-active ids, so an individual GRANT for a currently-inactive permission correctly yields no access — Stage 4 task §7 "новые операции с ними запрещаются").
+- Static method `boolean isGranted(PermissionId permissionId, Set<IndividualPermissionOverride> overrides, Set<Role> assignedRoles)`: 1) if an override for `permissionId` with decision `REVOKE` exists ? `false`; 2) else if an override with decision `GRANT` exists ? `true`; 3) else if any role in `assignedRoles` has `permissions().contains(permissionId)` ? `true`; 4) else `false`.
+- Additional method `Set<PermissionId> effectivePermissions(Set<PermissionId> declaredActivePermissionIds, Set<IndividualPermissionOverride> overrides, Set<Role> assignedRoles)`: applies the same 4-step rule per id, restricted to `declaredActivePermissionIds` (the caller passes only currently-active ids, so an individual GRANT for a currently-inactive permission correctly yields no access ? Stage 4 task �7 "????? ???????? ? ???? ???????????").
 
 ### Public contracts that may change
 
@@ -4366,7 +4366,7 @@ Association-level Domain types ready for the effective-permission calculator (ST
 - [ ] individual REVOKE wins over any role grant;
 - [ ] individual GRANT wins when no REVOKE exists, even with no matching role;
 - [ ] union of multiple roles grants a permission if *any* role grants it;
-- [ ] no override and no role ⇒ denied;
+- [ ] no override and no role ? denied;
 - [ ] a permission absent from `declaredActivePermissionIds` is never returned as effective, even with an individual GRANT override present.
 
 ### Required tests
@@ -4389,7 +4389,7 @@ A fully-tested, persistence-free effective-permission algorithm, the single sour
 
 ---
 
-## STAGE4-009 — `SecurityAuditEvent` aggregate, `AuditOperation`, `SecurityAuditRepository` port
+## STAGE4-009 ? `SecurityAuditEvent` aggregate, `AuditOperation`, `SecurityAuditRepository` port
 
 **Status:** DONE
 **Stage:** 4
@@ -4398,13 +4398,13 @@ A fully-tested, persistence-free effective-permission algorithm, the single sour
 
 ### Goal
 
-Моделировать append-only событие аудита Security с безопасным описанием (без пароля/hash), фиксированным набором операций.
+???????????? append-only ??????? ?????? Security ? ?????????? ????????? (??? ??????/hash), ????????????? ??????? ????????.
 
 ### Required documents
 
-- `Security-Specification.md` (Аудит);
-- Stage 4 task §12 (что фиксируется; что запрещено сохранять; append-only);
-- Database Specification §14 (минимальный состав записи аудита; допустимый набор операций; append-only, только INSERT).
+- `Security-Specification.md` (?????);
+- Stage 4 task �12 (??? ???????????; ??? ????????? ?????????; append-only);
+- Database Specification �14 (??????????? ?????? ?????? ??????; ?????????? ????? ????????; append-only, ?????? INSERT).
 
 ### Required code context
 
@@ -4420,14 +4420,14 @@ A fully-tested, persistence-free effective-permission algorithm, the single sour
 
 ### Forbidden
 
-- any field or constructor parameter capable of carrying a password/hash (no `String password`, no `PasswordHash`, no `char[]` parameter anywhere in this class — enforced by the class simply never declaring such a parameter);
-- any `update`/`delete` method — this type has no mutation methods at all beyond construction (append-only by construction, not just by convention).
+- any field or constructor parameter capable of carrying a password/hash (no `String password`, no `PasswordHash`, no `char[]` parameter anywhere in this class ? enforced by the class simply never declaring such a parameter);
+- any `update`/`delete` method ? this type has no mutation methods at all beyond construction (append-only by construction, not just by convention).
 
 ### Implementation requirements
 
-- `AuditOperation` enum: `LOGIN_SUCCESS, LOGIN_FAILURE, LOGOUT, USER_CREATED, USER_UPDATED, USER_DELETED, PASSWORD_CHANGED, PASSWORD_RESET, ROLE_CREATED, ROLE_UPDATED, ROLE_DELETED, ROLE_ASSIGNED, ROLE_REVOKED, ROLE_PERMISSIONS_CHANGED, PERMISSION_GRANTED, PERMISSION_REVOKED, PERMISSION_OVERRIDE_REMOVED, PERMISSION_DEFINITION_REGISTERED` (exact set required by Stage 4 task §12, mapped onto Database Specification §14's generic operation vocabulary where applicable).
-- `SecurityAuditEvent`: immutable, single constructor only (no builder mutation), fields `AuditEventId id, Instant occurredAt, UserId actorUserId (nullable), String actorLoginSnapshot, AuditOperation operation, String targetType, String targetIdentifier (nullable), String safeDescription, AuditResult result`; static factory `SecurityAuditEvent.record(...)` performs `Objects.requireNonNull` on all non-nullable params and rejects a `safeDescription` containing suspicious markers is **not** attempted (impossible to generically detect) — instead the Javadoc explicitly documents that callers (Application layer, later tasks) must never pass password/hash material into `safeDescription`, and a dedicated test in STAGE4-021/023/024/026 asserts no audit call site ever does.
-- `SecurityAuditRepository` port: `append(SecurityAuditEvent)` only (no update/delete method exists on the port at all) plus read methods `findPage(AuditQueryFilter, int pageIndex, int pageSize)` and `count(AuditQueryFilter)` — define a minimal `AuditQueryFilter` record here (`Instant from, Instant to, UserId actorUserId, AuditOperation operation` — all nullable/optional) since the query capability is required by Stage 4 task §18 ("pagination и filtering").
+- `AuditOperation` enum: `LOGIN_SUCCESS, LOGIN_FAILURE, LOGOUT, USER_CREATED, USER_UPDATED, USER_DELETED, PASSWORD_CHANGED, PASSWORD_RESET, ROLE_CREATED, ROLE_UPDATED, ROLE_DELETED, ROLE_ASSIGNED, ROLE_REVOKED, ROLE_PERMISSIONS_CHANGED, PERMISSION_GRANTED, PERMISSION_REVOKED, PERMISSION_OVERRIDE_REMOVED, PERMISSION_DEFINITION_REGISTERED` (exact set required by Stage 4 task �12, mapped onto Database Specification �14's generic operation vocabulary where applicable).
+- `SecurityAuditEvent`: immutable, single constructor only (no builder mutation), fields `AuditEventId id, Instant occurredAt, UserId actorUserId (nullable), String actorLoginSnapshot, AuditOperation operation, String targetType, String targetIdentifier (nullable), String safeDescription, AuditResult result`; static factory `SecurityAuditEvent.record(...)` performs `Objects.requireNonNull` on all non-nullable params and rejects a `safeDescription` containing suspicious markers is **not** attempted (impossible to generically detect) ? instead the Javadoc explicitly documents that callers (Application layer, later tasks) must never pass password/hash material into `safeDescription`, and a dedicated test in STAGE4-021/023/024/026 asserts no audit call site ever does.
+- `SecurityAuditRepository` port: `append(SecurityAuditEvent)` only (no update/delete method exists on the port at all) plus read methods `findPage(AuditQueryFilter, int pageIndex, int pageSize)` and `count(AuditQueryFilter)` ? define a minimal `AuditQueryFilter` record here (`Instant from, Instant to, UserId actorUserId, AuditOperation operation` ? all nullable/optional) since the query capability is required by Stage 4 task �18 ("pagination ? filtering").
 
 ### Public contracts that may change
 
@@ -4441,7 +4441,7 @@ A fully-tested, persistence-free effective-permission algorithm, the single sour
 
 ### Required tests
 
-- `SecurityAuditEventTest`: construction success/failure paths, immutability (no reflection-discoverable setter — a simple check that the class declares no non-final fields).
+- `SecurityAuditEventTest`: construction success/failure paths, immutability (no reflection-discoverable setter ? a simple check that the class declares no non-final fields).
 - `AuditOperationTest`: all 17 enum constants present (guards against accidental removal).
 
 ### Verification commands
@@ -4460,7 +4460,7 @@ An append-only-by-construction audit Domain model, ready for the JDBC adapter (S
 
 ---
 
-## STAGE4-010 — Flyway migration `V4__security_schema.sql`
+## STAGE4-010 ? Flyway migration `V4__security_schema.sql`
 
 **Status:** DONE
 **Stage:** 4
@@ -4469,12 +4469,12 @@ An append-only-by-construction audit Domain model, ready for the JDBC adapter (S
 
 ### Goal
 
-Создать единственную Flyway-миграцию, создающую схему `security` со всеми обязательными таблицами, constraints и индексами.
+??????? ???????????? Flyway-????????, ????????? ????? `security` ?? ????? ????????????? ?????????, constraints ? ?????????.
 
 ### Required documents
 
-- Database Specification §3 (Schema per Module), §4 (UUID identifiers), §5 (общие технические поля), §7 (Optimistic Locking), §10 (Flyway), §11 (правила именования), §12 (связи между модулями — internal FK only), Приложение А/Б;
-- Stage 4 task §13 (список таблиц; case-insensitive unique login; отсутствие plaintext password columns; password_hash NOT NULL).
+- Database Specification �3 (Schema per Module), �4 (UUID identifiers), �5 (????? ??????????? ????), �7 (Optimistic Locking), �10 (Flyway), �11 (??????? ??????????), �12 (????? ????? ???????? ? internal FK only), ?????????? ?/?;
+- Stage 4 task �13 (?????? ??????; case-insensitive unique login; ?????????? plaintext password columns; password_hash NOT NULL).
 
 ### Required code context
 
@@ -4501,7 +4501,7 @@ An append-only-by-construction audit Domain model, ready for the JDBC adapter (S
 - `security.user_roles(user_id UUID NOT NULL, role_id UUID NOT NULL, assigned_at TIMESTAMPTZ NOT NULL, CONSTRAINT pk_user_roles PRIMARY KEY (user_id, role_id), CONSTRAINT fk_user_roles_user FOREIGN KEY (user_id) REFERENCES security.users(id), CONSTRAINT fk_user_roles_role FOREIGN KEY (role_id) REFERENCES security.roles(id))`.
 - `security.user_permission_overrides(user_id UUID NOT NULL, permission_id VARCHAR(160) NOT NULL, decision VARCHAR(16) NOT NULL CHECK (decision IN ('GRANT','REVOKE')), updated_at TIMESTAMPTZ NOT NULL, version BIGINT NOT NULL DEFAULT 0, CONSTRAINT pk_user_permission_overrides PRIMARY KEY (user_id, permission_id), CONSTRAINT fk_user_permission_overrides_user FOREIGN KEY (user_id) REFERENCES security.users(id), CONSTRAINT fk_user_permission_overrides_permission FOREIGN KEY (permission_id) REFERENCES security.permission_definitions(permission_id))`.
 - `security.security_audit_events(id UUID PK, occurred_at TIMESTAMPTZ NOT NULL, actor_user_id UUID, actor_login VARCHAR(128), operation VARCHAR(64) NOT NULL, target_type VARCHAR(64) NOT NULL, target_id VARCHAR(160), safe_description TEXT NOT NULL DEFAULT '', result VARCHAR(16) NOT NULL CHECK (result IN ('SUCCESS','FAILURE')), CONSTRAINT fk_security_audit_events_actor FOREIGN KEY (actor_user_id) REFERENCES security.users(id))`; `CREATE INDEX idx_security_audit_events_occurred_at ON security.security_audit_events (occurred_at DESC);`; `CREATE INDEX idx_security_audit_events_target ON security.security_audit_events (target_type, target_id);`; `CREATE INDEX idx_security_audit_events_actor ON security.security_audit_events (actor_user_id);`.
-- all PK/FK/UK/CHECK/index names follow Appendix A exactly (`pk_*`, `fk_*`, `uk_*`, `idx_*`, `chk_*` — CHECK constraints above are inline `CHECK` without explicit name; add explicit `CONSTRAINT chk_users_status`/`CONSTRAINT chk_user_permission_overrides_decision`/`CONSTRAINT chk_security_audit_events_result` names to match the naming appendix precisely).
+- all PK/FK/UK/CHECK/index names follow Appendix A exactly (`pk_*`, `fk_*`, `uk_*`, `idx_*`, `chk_*` ? CHECK constraints above are inline `CHECK` without explicit name; add explicit `CONSTRAINT chk_users_status`/`CONSTRAINT chk_user_permission_overrides_decision`/`CONSTRAINT chk_security_audit_events_result` names to match the naming appendix precisely).
 
 ### Public contracts that may change
 
@@ -4533,7 +4533,7 @@ mvn -q -pl :tmp-security -DskipTests compile
 
 ---
 
-## STAGE4-011 — JDBC `UserRepository` and `RoleRepository` adapters
+## STAGE4-011 ? JDBC `UserRepository` and `RoleRepository` adapters
 
 **Status:** DONE
 **Stage:** 4
@@ -4542,12 +4542,12 @@ mvn -q -pl :tmp-security -DskipTests compile
 
 ### Goal
 
-Реализовать `JdbcUserRepository`/`JdbcRoleRepository` с optimistic locking и case-insensitive проверкой login.
+??????????? `JdbcUserRepository`/`JdbcRoleRepository` ? optimistic locking ? case-insensitive ????????? login.
 
 ### Required documents
 
-- Database Specification §7 (Optimistic Locking — conflict must fail, no auto-overwrite), §11 (naming);
-- Stage 4 task §13 (uniqueness без учёта регистра; password_hash NOT NULL).
+- Database Specification �7 (Optimistic Locking ? conflict must fail, no auto-overwrite), �11 (naming);
+- Stage 4 task �13 (uniqueness ??? ????? ????????; password_hash NOT NULL).
 
 ### Required code context
 
@@ -4574,7 +4574,7 @@ mvn -q -pl :tmp-security -DskipTests compile
 
 ### Public contracts that may change
 
-- new internal Domain exception `DuplicateLoginException` (in `com.tmp.security.domain`) and `OptimisticLockConflictException` (already introduced in STAGE4-004) — both internal, not in `com.tmp.security.api`.
+- new internal Domain exception `DuplicateLoginException` (in `com.tmp.security.domain`) and `OptimisticLockConflictException` (already introduced in STAGE4-004) ? both internal, not in `com.tmp.security.api`.
 
 ### Acceptance criteria
 
@@ -4604,7 +4604,7 @@ Working, unit-tested persistence for `User`/`Role`, ready for PostgreSQL confirm
 
 ---
 
-## STAGE4-012 — JDBC `PermissionDefinitionRepository`, `RoleAssignmentRepository`, `PermissionOverrideRepository` adapters
+## STAGE4-012 ? JDBC `PermissionDefinitionRepository`, `RoleAssignmentRepository`, `PermissionOverrideRepository` adapters
 
 **Status:** DONE
 **Stage:** 4
@@ -4613,12 +4613,12 @@ Working, unit-tested persistence for `User`/`Role`, ready for PostgreSQL confirm
 
 ### Goal
 
-Реализовать оставшиеся JDBC-адаптеры для реестра разрешений, назначений ролей и индивидуальных override.
+??????????? ?????????? JDBC-???????? ??? ??????? ??????????, ?????????? ????? ? ?????????????? override.
 
 ### Required documents
 
-- Database Specification §7 (Optimistic Locking), §11 (naming);
-- Stage 4 task §6/§7 (assignment/override semantics).
+- Database Specification �7 (Optimistic Locking), �11 (naming);
+- Stage 4 task �6/�7 (assignment/override semantics).
 
 ### Required code context
 
@@ -4638,7 +4638,7 @@ Working, unit-tested persistence for `User`/`Role`, ready for PostgreSQL confirm
 
 ### Implementation requirements
 
-- `JdbcPermissionDefinitionRepository`: optimistic-lock aware `save()` (PK is `permission_id`, not a surrogate UUID — update by PK+version, insert on first registration).
+- `JdbcPermissionDefinitionRepository`: optimistic-lock aware `save()` (PK is `permission_id`, not a surrogate UUID ? update by PK+version, insert on first registration).
 - `JdbcRoleAssignmentRepository`: `assign()` = `INSERT ... ON CONFLICT (user_id, role_id) DO NOTHING`; `revoke()` = `DELETE`; `countUsersForRole()` = `SELECT COUNT(*) ... WHERE role_id = ?`.
 - `JdbcPermissionOverrideRepository`: `save()` = `INSERT ... ON CONFLICT (user_id, permission_id) DO UPDATE SET decision = ?, updated_at = ?, version = version + 1 WHERE user_permission_overrides.version = ?` (optimistic, translate 0-row update on an existing key to `OptimisticLockConflictException`); `remove()` = `DELETE`.
 
@@ -4651,7 +4651,7 @@ Working, unit-tested persistence for `User`/`Role`, ready for PostgreSQL confirm
 - [ ] permission-definition round-trip incl. `active` flag toggle with optimistic locking;
 - [ ] role assignment is idempotent (`assign()` called twice does not error and does not duplicate);
 - [ ] `countUsersForRole` reflects assignments accurately after assign/revoke;
-- [ ] override save/remove round-trips correctly, including flipping `GRANT`↔`REVOKE` on the same key.
+- [ ] override save/remove round-trips correctly, including flipping `GRANT`?`REVOKE` on the same key.
 
 ### Required tests
 
@@ -4673,7 +4673,7 @@ Full persistence coverage for the permission/assignment/override side of the mod
 
 ---
 
-## STAGE4-013 — JDBC `SecurityAuditRepository` adapter (append-only insert, paginated/filtered read)
+## STAGE4-013 ? JDBC `SecurityAuditRepository` adapter (append-only insert, paginated/filtered read)
 
 **Status:** DONE
 **Stage:** 4
@@ -4682,12 +4682,12 @@ Full persistence coverage for the permission/assignment/override side of the mod
 
 ### Goal
 
-Реализовать append-only персистентность аудита с фильтрацией/пагинацией для чтения.
+??????????? append-only ??????????????? ?????? ? ???????????/?????????? ??? ??????.
 
 ### Required documents
 
-- Database Specification §14 (append-only; только INSERT);
-- Stage 4 task §12, §18 (pagination и filtering).
+- Database Specification �14 (append-only; ?????? INSERT);
+- Stage 4 task �12, �18 (pagination ? filtering).
 
 ### Required code context
 
@@ -4700,8 +4700,8 @@ Full persistence coverage for the permission/assignment/override side of the mod
 
 ### Forbidden
 
-- any `UPDATE`/`DELETE` SQL statement anywhere in this class (append-only enforced structurally — the class simply never issues such statements);
-- storing `password`/`password_hash`/raw credentials in `safe_description` (verified by test, not by runtime filtering — this class has no way to know what a caller puts in the string, so the guarantee comes from upstream Application Services, tested there).
+- any `UPDATE`/`DELETE` SQL statement anywhere in this class (append-only enforced structurally ? the class simply never issues such statements);
+- storing `password`/`password_hash`/raw credentials in `safe_description` (verified by test, not by runtime filtering ? this class has no way to know what a caller puts in the string, so the guarantee comes from upstream Application Services, tested there).
 
 ### Implementation requirements
 
@@ -4739,7 +4739,7 @@ Working append-only audit persistence, ready for PostgreSQL confirmation (STAGE4
 
 ---
 
-## STAGE4-014 — PostgreSQL Testcontainers IT: schema, constraints, optimistic locking, case-insensitive uniqueness, logical deletion
+## STAGE4-014 ? PostgreSQL Testcontainers IT: schema, constraints, optimistic locking, case-insensitive uniqueness, logical deletion
 
 **Status:** DONE
 **Stage:** 4
@@ -4748,11 +4748,11 @@ Working append-only audit persistence, ready for PostgreSQL confirmation (STAGE4
 
 ### Goal
 
-Подтвердить всю схему `security` и её адаптеры на реальном PostgreSQL через Testcontainers.
+??????????? ??? ????? `security` ? ?? ???????? ?? ???????? PostgreSQL ????? Testcontainers.
 
 ### Required documents
 
-- Stage 4 task §18 (полный список обязательных проверок Testcontainers для схемы/constraints/locking/deletion, за исключением bootstrap admin и BCrypt/audit end-to-end, которые проверяются в STAGE4-019/030).
+- Stage 4 task �18 (?????? ?????? ???????????? ???????? Testcontainers ??? ?????/constraints/locking/deletion, ?? ??????????? bootstrap admin ? BCrypt/audit end-to-end, ??????? ??????????? ? STAGE4-019/030).
 
 ### Required code context
 
@@ -4770,7 +4770,7 @@ Working append-only audit persistence, ready for PostgreSQL confirmation (STAGE4
 ### Implementation requirements
 
 - `@Testcontainers` PostgreSQL container (same image/version as `tmp-document-engine`'s IT), Flyway migrates `V1..V4` on start;
-- test cases: table/constraint presence (via `information_schema` queries) for all 7 tables; no plaintext password column exists (`information_schema.columns` does not contain any column named like `password` other than `password_hash`, and `password_hash` is `NOT NULL`); case-insensitive unique login (`INSERT` two users differing only by case inside two separate transactions → second fails with a unique-violation, not silently succeeding); concurrent duplicate user creation (two threads/transactions racing to insert the same login → exactly one succeeds); optimistic locking on `users` and `roles` (stale-version update affects 0 rows); logical deletion (`User.deleted()` persists as `status = 'DELETED'`, row still physically present, still readable by `findById`); deleted-user-not-authenticatable is verified in STAGE4-021's IT, not here (needs the Authentication Application Service).
+- test cases: table/constraint presence (via `information_schema` queries) for all 7 tables; no plaintext password column exists (`information_schema.columns` does not contain any column named like `password` other than `password_hash`, and `password_hash` is `NOT NULL`); case-insensitive unique login (`INSERT` two users differing only by case inside two separate transactions ? second fails with a unique-violation, not silently succeeding); concurrent duplicate user creation (two threads/transactions racing to insert the same login ? exactly one succeeds); optimistic locking on `users` and `roles` (stale-version update affects 0 rows); logical deletion (`User.deleted()` persists as `status = 'DELETED'`, row still physically present, still readable by `findById`); deleted-user-not-authenticatable is verified in STAGE4-021's IT, not here (needs the Authentication Application Service).
 
 ### Public contracts that may change
 
@@ -4779,7 +4779,7 @@ Working append-only audit persistence, ready for PostgreSQL confirmation (STAGE4
 ### Acceptance criteria
 
 - [ ] every checklist item above passes against a real PostgreSQL Testcontainers instance;
-- [ ] test suite is deterministic (no flaky timing assumptions for the concurrency case — uses an explicit synchronization barrier, matching the pattern already used in `CapabilityLifecycleConcurrencyTest`).
+- [ ] test suite is deterministic (no flaky timing assumptions for the concurrency case ? uses an explicit synchronization barrier, matching the pattern already used in `CapabilityLifecycleConcurrencyTest`).
 
 ### Required tests
 
@@ -4801,7 +4801,7 @@ Schema-level correctness confirmed against real PostgreSQL.
 
 ---
 
-## STAGE4-015 — `BCryptPasswordHasher` infrastructure adapter
+## STAGE4-015 ? `BCryptPasswordHasher` infrastructure adapter
 
 **Status:** DONE
 **Stage:** 4
@@ -4810,11 +4810,11 @@ Schema-level correctness confirmed against real PostgreSQL.
 
 ### Goal
 
-Реализовать единственную реализацию `PasswordHasher` на основе `spring-security-crypto` `BCryptPasswordEncoder`, как единственный централизованный `PasswordEncoder` bean.
+??????????? ???????????? ?????????? `PasswordHasher` ?? ?????? `spring-security-crypto` `BCryptPasswordEncoder`, ??? ???????????? ???????????????? `PasswordEncoder` bean.
 
 ### Required documents
 
-- Stage 4 task §4.20 (approved `PasswordEncoder`, `spring-security-crypto`, no servlet/web stack), §9 (hash differs from plaintext; same password → different hashes).
+- Stage 4 task �4.20 (approved `PasswordEncoder`, `spring-security-crypto`, no servlet/web stack), �9 (hash differs from plaintext; same password ? different hashes).
 
 ### Required code context
 
@@ -4822,12 +4822,12 @@ Schema-level correctness confirmed against real PostgreSQL.
 
 ### Allowed code scope
 
-- `tmp-security/src/main/java/com/tmp/security/infrastructure/BCryptPasswordHasher.java` (new — new `com.tmp.security.infrastructure` package for this single technology-facing adapter; `package-info.java` added alongside);
+- `tmp-security/src/main/java/com/tmp/security/infrastructure/BCryptPasswordHasher.java` (new ? new `com.tmp.security.infrastructure` package for this single technology-facing adapter; `package-info.java` added alongside);
 - matching tests under `tmp-security/src/test/java/com/tmp/security/infrastructure/`.
 
 ### Forbidden
 
-- any `spring-security-web`/`spring-security-config`/servlet dependency (none added to `pom.xml` — `spring-security-crypto` was already added in STAGE4-001);
+- any `spring-security-web`/`spring-security-config`/servlet dependency (none added to `pom.xml` ? `spring-security-crypto` was already added in STAGE4-001);
 - exposing the underlying `BCryptPasswordEncoder` instance through any public method beyond the `PasswordHasher` port methods.
 
 ### Implementation requirements
@@ -4846,7 +4846,7 @@ Schema-level correctness confirmed against real PostgreSQL.
 
 ### Required tests
 
-- `BCryptPasswordHasherTest`: hash≠plaintext, same-password-different-hashes, matches-true/false.
+- `BCryptPasswordHasherTest`: hash?plaintext, same-password-different-hashes, matches-true/false.
 
 ### Verification commands
 
@@ -4864,7 +4864,7 @@ A working, tested BCrypt adapter ready to be the sole `PasswordEncoder`-backed b
 
 ---
 
-## STAGE4-016 — Security Administration Capability descriptor and permission-id constants
+## STAGE4-016 ? Security Administration Capability descriptor and permission-id constants
 
 **Status:** DONE
 **Stage:** 4
@@ -4873,12 +4873,12 @@ A working, tested BCrypt adapter ready to be the sole `PasswordEncoder`-backed b
 
 ### Goal
 
-Объявить единственный `Capability` bean "Security Administration", предоставляющий 12 разрешений Stage 4 §7 и связанные Command/Navigation/View метаданные для будущих UI-экранов, зависимый только от публичного API Capability Engine.
+???????? ???????????? `Capability` bean "Security Administration", ??????????????? 12 ?????????? Stage 4 �7 ? ????????? Command/Navigation/View ?????????? ??? ??????? UI-???????, ????????? ?????? ?? ?????????? API Capability Engine.
 
 ### Required documents
 
-- Stage 4 task §7 (точный список 12 разрешений), §15 (обязательные экраны — навигация нужна для User Administration/Role Administration/Security Audit screens);
-- this file's "Design decisions" §5, §8 (no-op lifecycle hooks; navigation-id ↔ command-id convention for permission gating).
+- Stage 4 task �7 (?????? ?????? 12 ??????????), �15 (???????????? ?????? ? ????????? ????? ??? User Administration/Role Administration/Security Audit screens);
+- this file's "Design decisions" �5, �8 (no-op lifecycle hooks; navigation-id ? command-id convention for permission gating).
 
 ### Required code context
 
@@ -4887,7 +4887,7 @@ A working, tested BCrypt adapter ready to be the sole `PasswordEncoder`-backed b
 
 ### Allowed code scope
 
-- `tmp-security/src/main/java/com/tmp/security/capability/SecurityPermissions.java` (new — `public final class` of `public static final PermissionId` constants for the 12 catalogue ids, placed in `com.tmp.security.capability` since it is an internal wiring detail, **not** re-exported from `com.tmp.security.api` — Application Services in later tasks reference these constants directly within the module);
+- `tmp-security/src/main/java/com/tmp/security/capability/SecurityPermissions.java` (new ? `public final class` of `public static final PermissionId` constants for the 12 catalogue ids, placed in `com.tmp.security.capability` since it is an internal wiring detail, **not** re-exported from `com.tmp.security.api` ? Application Services in later tasks reference these constants directly within the module);
 - `tmp-security/src/main/java/com/tmp/security/capability/SecurityAdministrationCapability.java` (new);
 - `tmp-security/src/main/java/com/tmp/security/capability/package-info.java` (new);
 - matching tests under `tmp-security/src/test/java/com/tmp/security/capability/`.
@@ -4895,13 +4895,13 @@ A working, tested BCrypt adapter ready to be the sole `PasswordEncoder`-backed b
 ### Forbidden
 
 - declaring any dependency (`DependencyDescriptor`) on another Capability (Security Administration Capability has none);
-- declaring a `PublicServiceContribution` or `DocumentContribution` (per Design decision §5);
-- inventing any permission id beyond the 12 listed in Stage 4 task §7.
+- declaring a `PublicServiceContribution` or `DocumentContribution` (per Design decision �5);
+- inventing any permission id beyond the 12 listed in Stage 4 task �7.
 
 ### Implementation requirements
 
-- `SecurityPermissions`: 12 `public static final PermissionId` constants named `USERS_VIEW, USERS_CREATE, USERS_UPDATE, USERS_DELETE, USERS_RESET_PASSWORD, ROLES_VIEW, ROLES_CREATE, ROLES_UPDATE, ROLES_DELETE, ROLES_ASSIGN, PERMISSIONS_ASSIGN, AUDIT_VIEW`, values exactly `security.users.view` … `security.audit.view`.
-- `SecurityAdministrationCapability implements Capability`: `descriptor()` returns a `CapabilityDescriptor` with `id = CapabilityId.of("security-administration")`, `version = CapabilityVersion.of("1.0.0")`, no dependencies, `permissions()` = the 12 `PermissionDescriptor`s (one per constant, human-readable display name/description), `commands()` = one `CommandDescriptor` per admin screen (`"security.nav.users"` requiring `USERS_VIEW`; `"security.nav.roles"` requiring `ROLES_VIEW`; `"security.nav.audit"` requiring `AUDIT_VIEW`), `navigationContributions()` = matching `NavigationContribution`s (same ids, pointing at `viewId`s `"security.view.users"`/`"security.view.roles"`/`"security.view.audit"`), `views()` = matching `ViewDescriptor`s; `onInitialize/onActivate/onDeactivate/onStop` are no-ops (per Design decision §5).
+- `SecurityPermissions`: 12 `public static final PermissionId` constants named `USERS_VIEW, USERS_CREATE, USERS_UPDATE, USERS_DELETE, USERS_RESET_PASSWORD, ROLES_VIEW, ROLES_CREATE, ROLES_UPDATE, ROLES_DELETE, ROLES_ASSIGN, PERMISSIONS_ASSIGN, AUDIT_VIEW`, values exactly `security.users.view` ? `security.audit.view`.
+- `SecurityAdministrationCapability implements Capability`: `descriptor()` returns a `CapabilityDescriptor` with `id = CapabilityId.of("security-administration")`, `version = CapabilityVersion.of("1.0.0")`, no dependencies, `permissions()` = the 12 `PermissionDescriptor`s (one per constant, human-readable display name/description), `commands()` = one `CommandDescriptor` per admin screen (`"security.nav.users"` requiring `USERS_VIEW`; `"security.nav.roles"` requiring `ROLES_VIEW`; `"security.nav.audit"` requiring `AUDIT_VIEW`), `navigationContributions()` = matching `NavigationContribution`s (same ids, pointing at `viewId`s `"security.view.users"`/`"security.view.roles"`/`"security.view.audit"`), `views()` = matching `ViewDescriptor`s; `onInitialize/onActivate/onDeactivate/onStop` are no-ops (per Design decision �5).
 
 ### Public contracts that may change
 
@@ -4915,7 +4915,7 @@ A working, tested BCrypt adapter ready to be the sole `PasswordEncoder`-backed b
 
 ### Required tests
 
-- `SecurityAdministrationCapabilityTest`: descriptor builds, permission id set equality against `SecurityPermissions` constants, navigation↔command id matching, no dependencies declared, lifecycle hooks are no-ops (call each, assert no exception/no side effect observable).
+- `SecurityAdministrationCapabilityTest`: descriptor builds, permission id set equality against `SecurityPermissions` constants, navigation?command id matching, no dependencies declared, lifecycle hooks are no-ops (call each, assert no exception/no side effect observable).
 
 ### Verification commands
 
@@ -4929,11 +4929,11 @@ mvn -q -pl :tmp-security test -Dtest=SecurityAdministrationCapabilityTest
 
 ### Expected result
 
-A ready-to-discover Capability bean (wired in STAGE4-029) declaring Security's own permission catalogue through the public Capability Engine mechanism, as required by Stage 4 task §7.
+A ready-to-discover Capability bean (wired in STAGE4-029) declaring Security's own permission catalogue through the public Capability Engine mechanism, as required by Stage 4 task �7.
 
 ---
 
-## STAGE4-017 — Permission Synchronization Application Service
+## STAGE4-017 ? Permission Synchronization Application Service
 
 **Status:** DONE
 **Stage:** 4
@@ -4942,12 +4942,12 @@ A ready-to-discover Capability bean (wired in STAGE4-029) declaring Security's o
 
 ### Goal
 
-Синхронизировать `PermissionDefinition` registry с полным каталогом разрешений, объявленных активными и зарегистрированными Capability, включая пометку неактивных.
+???????????????? `PermissionDefinition` registry ? ?????? ????????? ??????????, ??????????? ????????? ? ??????????????????? Capability, ??????? ??????? ??????????.
 
 ### Required documents
 
-- Stage 4 task §7 (регистрация; деактивация не удаляет назначения; повторная активация восстанавливает применимость);
-- this file's "Design decisions" §6.
+- Stage 4 task �7 (???????????; ??????????? ?? ??????? ??????????; ????????? ????????? ??????????????? ????????????);
+- this file's "Design decisions" �6.
 
 ### Required code context
 
@@ -4963,12 +4963,12 @@ A ready-to-discover Capability bean (wired in STAGE4-029) declaring Security's o
 ### Forbidden
 
 - reflection or internal-registry access into `tmp-capability-engine` (only `com.tmp.capability.api` types used);
-- deleting a `PermissionDefinition` row when its Capability becomes inactive (only the `active` flag toggles — assignments referencing it via FK must remain valid).
+- deleting a `PermissionDefinition` row when its Capability becomes inactive (only the `active` flag toggles ? assignments referencing it via FK must remain valid).
 
 ### Implementation requirements
 
-- `synchronize()` (called once at startup by `SecurityPlatformComponent`, STAGE4-029, and safe to call again idempotently): for every `CapabilityDescriptor` in `capabilityEngine.registeredCapabilities()`, for every `PermissionDescriptor` in `descriptor.permissions()` — if no `PermissionDefinition` exists for that `PermissionId`, register it (`active` = `stateOf(descriptor.id()) == ACTIVE`), audit `PERMISSION_DEFINITION_REGISTERED`; if one exists, reconcile only its `active` flag to match current capability state (never touch `permissionId`, `displayName`/`description` are only updated if they actually differ, to avoid pointless optimistic-lock churn); permissions belonging to a capability not currently `ACTIVE` are marked `active = false` but never removed.
-- Whole `synchronize()` call runs inside one `@Transactional` boundary per Stage 4 task §14 ("mutating operation ... фиксируется одной транзакцией") — since this may touch many rows, this is the one documented exception where "one business operation" legitimately spans many aggregate instances of the *same* aggregate type (`PermissionDefinition`), not a cross-aggregate-type violation.
+- `synchronize()` (called once at startup by `SecurityPlatformComponent`, STAGE4-029, and safe to call again idempotently): for every `CapabilityDescriptor` in `capabilityEngine.registeredCapabilities()`, for every `PermissionDescriptor` in `descriptor.permissions()` ? if no `PermissionDefinition` exists for that `PermissionId`, register it (`active` = `stateOf(descriptor.id()) == ACTIVE`), audit `PERMISSION_DEFINITION_REGISTERED`; if one exists, reconcile only its `active` flag to match current capability state (never touch `permissionId`, `displayName`/`description` are only updated if they actually differ, to avoid pointless optimistic-lock churn); permissions belonging to a capability not currently `ACTIVE` are marked `active = false` but never removed.
+- Whole `synchronize()` call runs inside one `@Transactional` boundary per Stage 4 task �14 ("mutating operation ... ??????????? ????? ???????????") ? since this may touch many rows, this is the one documented exception where "one business operation" legitimately spans many aggregate instances of the *same* aggregate type (`PermissionDefinition`), not a cross-aggregate-type violation.
 
 ### Public contracts that may change
 
@@ -4976,7 +4976,7 @@ A ready-to-discover Capability bean (wired in STAGE4-029) declaring Security's o
 
 ### Acceptance criteria
 
-- [ ] first sync run registers exactly the permissions declared by all currently-registered capabilities (Security's own 12 plus the diagnostic sample capability's, if enabled — test asserts by explicit id set, not by count, to stay independent of unrelated sample-capability changes);
+- [ ] first sync run registers exactly the permissions declared by all currently-registered capabilities (Security's own 12 plus the diagnostic sample capability's, if enabled ? test asserts by explicit id set, not by count, to stay independent of unrelated sample-capability changes);
 - [ ] re-running sync after a capability is deactivated flips only that capability's permissions to `active = false`, leaves rows intact;
 - [ ] re-activating flips them back to `active = true`;
 - [ ] every registration is audited exactly once (no duplicate audit rows on repeated `synchronize()` calls for an already-registered permission).
@@ -5001,7 +5001,7 @@ A working synchronization service ready to be invoked from `SecurityPlatformComp
 
 ---
 
-## STAGE4-018 — Bootstrap Administrator Application Service and `TMP_SECURITY_*` configuration
+## STAGE4-018 ? Bootstrap Administrator Application Service and `TMP_SECURITY_*` configuration
 
 **Status:** DONE
 **Stage:** 4
@@ -5010,12 +5010,12 @@ A working synchronization service ready to be invoked from `SecurityPlatformComp
 
 ### Goal
 
-Создать первого администратора один раз при первом запуске, транзакционно, идемпотентно и защищённо от конкурентного запуска, с ролью Security Administrator, ограниченной 12 разрешениями Security Administration Capability.
+??????? ??????? ?????????????? ???? ??? ??? ?????? ???????, ?????????????, ???????????? ? ????????? ?? ????????????? ???????, ? ????? Security Administrator, ???????????? 12 ???????????? Security Administration Capability.
 
 ### Required documents
 
-- Stage 4 task §8 (полные требования: fail-fast без пароля, идемпотентность, конкурентная защита, роль ограничена только Security Administration Capability);
-- this file's "Design decisions" §7, §10.
+- Stage 4 task �8 (?????? ??????????: fail-fast ??? ??????, ???????????????, ???????????? ??????, ???? ?????????? ?????? Security Administration Capability);
+- this file's "Design decisions" �7, �10.
 
 ### Required code context
 
@@ -5036,8 +5036,8 @@ A working synchronization service ready to be invoked from `SecurityPlatformComp
 ### Implementation requirements
 
 - `SecurityBootstrapProperties`: `String adminLogin, String adminDisplayName, String adminPassword` (no defaults); binds from `TMP_SECURITY_BOOTSTRAP_ADMIN_LOGIN`/`_DISPLAY_NAME`/`_PASSWORD` via Spring relaxed binding on prefix `tmp.security.bootstrap` (property names `admin-login`/`admin-display-name`/`admin-password`).
-- `BootstrapAdministratorApplicationService.ensureBootstrapAdministrator()`: if `userRepository` reports any user exists at all (any status) → no-op, return; else if any of the three properties is blank/missing → throw `MissingBootstrapConfigurationException` with a clear technical message (no password value in the message); else, in one transaction: create+save the `Role` "Security Administrator" granted exactly the 12 `SecurityPermissions` constants (create-or-reuse-if-already-exists-by-name is **not** needed since this only runs when zero users exist — a fresh role is always created); create+save the admin `User` (`ACTIVE`, hashed password via `PasswordHasher`); assign the role to the user; append `SecurityAuditEvent` (`operation = USER_CREATED`, actor = the new admin's own id or a `null` system actor — choose `null` actor with `actorLoginSnapshot = "system-bootstrap"`, documented as the one legitimate `null`-actor case besides failed pre-auth login).
-- Concurrency safety: the "any user exists" check plus the multi-row insert must be safe under two JVM instances racing at first startup. Achieved via the DB-level unique constraint on `users.login` (STAGE4-010) as the ultimate arbiter — if a race causes two bootstrap attempts, the second's `User` insert fails with `DuplicateLoginException` (STAGE4-011), which this service catches and treats as "another instance already bootstrapped" (logs at INFO, does not fail startup), rather than relying solely on the initial existence check (which has a race window by itself, hence the DB constraint back-stop). Document this reasoning in the class Javadoc.
+- `BootstrapAdministratorApplicationService.ensureBootstrapAdministrator()`: if `userRepository` reports any user exists at all (any status) ? no-op, return; else if any of the three properties is blank/missing ? throw `MissingBootstrapConfigurationException` with a clear technical message (no password value in the message); else, in one transaction: create+save the `Role` "Security Administrator" granted exactly the 12 `SecurityPermissions` constants (create-or-reuse-if-already-exists-by-name is **not** needed since this only runs when zero users exist ? a fresh role is always created); create+save the admin `User` (`ACTIVE`, hashed password via `PasswordHasher`); assign the role to the user; append `SecurityAuditEvent` (`operation = USER_CREATED`, actor = the new admin's own id or a `null` system actor ? choose `null` actor with `actorLoginSnapshot = "system-bootstrap"`, documented as the one legitimate `null`-actor case besides failed pre-auth login).
+- Concurrency safety: the "any user exists" check plus the multi-row insert must be safe under two JVM instances racing at first startup. Achieved via the DB-level unique constraint on `users.login` (STAGE4-010) as the ultimate arbiter ? if a race causes two bootstrap attempts, the second's `User` insert fails with `DuplicateLoginException` (STAGE4-011), which this service catches and treats as "another instance already bootstrapped" (logs at INFO, does not fail startup), rather than relying solely on the initial existence check (which has a race window by itself, hence the DB constraint back-stop). Document this reasoning in the class Javadoc.
 
 ### Public contracts that may change
 
@@ -5071,7 +5071,7 @@ A safe, idempotent bootstrap service ready for real-transaction/real-concurrency
 
 ---
 
-## STAGE4-019 — PostgreSQL Testcontainers IT: bootstrap administrator exactly-once, concurrent bootstrap, missing-config fail-fast, permission-sync inactive denial
+## STAGE4-019 ? PostgreSQL Testcontainers IT: bootstrap administrator exactly-once, concurrent bootstrap, missing-config fail-fast, permission-sync inactive denial
 
 **Status:** DONE
 **Stage:** 4
@@ -5080,11 +5080,11 @@ A safe, idempotent bootstrap service ready for real-transaction/real-concurrency
 
 ### Goal
 
-Подтвердить bootstrap admin и permission synchronization на реальном PostgreSQL с реальной транзакционностью и конкурентностью.
+??????????? bootstrap admin ? permission synchronization ?? ???????? PostgreSQL ? ???????? ????????????????? ? ???????????????.
 
 ### Required documents
 
-- Stage 4 task §8, §18 (bootstrap admin exactly-once; concurrent bootstrap; missing bootstrap config fail-fast; permission synchronization; inactive permission denial — the "inactive permission denial" behavioural check itself is completed in STAGE4-022/030 once `Authorization` exists; here only the *data* side — `active` flag correctness after sync — is confirmed).
+- Stage 4 task �8, �18 (bootstrap admin exactly-once; concurrent bootstrap; missing bootstrap config fail-fast; permission synchronization; inactive permission denial ? the "inactive permission denial" behavioural check itself is completed in STAGE4-022/030 once `Authorization` exists; here only the *data* side ? `active` flag correctness after sync ? is confirmed).
 
 ### Required code context
 
@@ -5100,7 +5100,7 @@ A safe, idempotent bootstrap service ready for real-transaction/real-concurrency
 
 ### Implementation requirements
 
-- Real Spring context (`@SpringBootTest`-style, using `tmp-security`'s auto-configuration once available from STAGE4-029 — if this task lands before STAGE4-029 completes, construct the service graph manually with real JDBC repositories against the Testcontainers datasource, without full Spring Boot autoconfiguration, and revisit with `@SpringBootTest` wiring once STAGE4-029 exists; record whichever approach is actually used in the Implementation Log) against a real PostgreSQL container with `V1..V4` migrated;
+- Real Spring context (`@SpringBootTest`-style, using `tmp-security`'s auto-configuration once available from STAGE4-029 ? if this task lands before STAGE4-029 completes, construct the service graph manually with real JDBC repositories against the Testcontainers datasource, without full Spring Boot autoconfiguration, and revisit with `@SpringBootTest` wiring once STAGE4-029 exists; record whichever approach is actually used in the Implementation Log) against a real PostgreSQL container with `V1..V4` migrated;
 - test cases: (1) bootstrap with valid config on empty DB creates admin+role+assignment+audit exactly once; (2) two concurrent bootstrap attempts (real threads, real transactions) against the same schema result in exactly one admin user, no duplicate-login DB error escaping as a startup failure for the "loser" thread; (3) missing config on empty DB throws and leaves zero rows in `users`/`roles`; (4) permission synchronization after this module's own registered Capability produces the exact 12 active `permission_definitions` rows.
 
 ### Public contracts that may change
@@ -5132,7 +5132,7 @@ Bootstrap correctness confirmed under real transactions and real concurrency.
 
 ---
 
-## STAGE4-020 — `Session` model and `SessionContext`
+## STAGE4-020 ? `Session` model and `SessionContext`
 
 **Status:** DONE
 **Stage:** 4
@@ -5141,12 +5141,12 @@ Bootstrap correctness confirmed under real transactions and real concurrency.
 
 ### Goal
 
-Реализовать immutable in-memory `Session` и thread-safe application-wide `SessionContext` (не персистентный, без timeout).
+??????????? immutable in-memory `Session` ? thread-safe application-wide `SessionContext` (?? ?????????????, ??? timeout).
 
 ### Required documents
 
-- Security Specification (Пользовательская сессия);
-- Stage 4 task §10 (сессия действует до logout/закрытия приложения; не хранится в PostgreSQL; не содержит password hash; thread-safe для чтения; очищается при logout/shutdown).
+- Security Specification (???????????????? ??????);
+- Stage 4 task �10 (?????? ????????? ?? logout/???????? ??????????; ?? ???????? ? PostgreSQL; ?? ???????? password hash; thread-safe ??? ??????; ????????? ??? logout/shutdown).
 
 ### Required code context
 
@@ -5165,8 +5165,8 @@ Bootstrap correctness confirmed under real transactions and real concurrency.
 
 ### Implementation requirements
 
-- `Session`: immutable value (`SessionId id, UserId userId, Login login, Instant startedAt`); no permission snapshot stored on `Session` itself (per Design decision reinforcing ADR-020 — effective permissions are always recomputed live via `AuthorizationApplicationService`, STAGE4-022, never cached on the session).
-- `SessionContext`: a single application-scoped bean holding at most one current `Session` (single logged-in user per running desktop process, consistent with "Пользователь входит в систему при запуске приложения" — one session per process); `open(Session)`, `close()`, `current()` returns `Optional<Session>`; internally uses a `volatile` reference or `AtomicReference` for thread-safe reads without needing a lock (writes only happen on login/logout/shutdown, all rare, serialized by the caller).
+- `Session`: immutable value (`SessionId id, UserId userId, Login login, Instant startedAt`); no permission snapshot stored on `Session` itself (per Design decision reinforcing ADR-020 ? effective permissions are always recomputed live via `AuthorizationApplicationService`, STAGE4-022, never cached on the session).
+- `SessionContext`: a single application-scoped bean holding at most one current `Session` (single logged-in user per running desktop process, consistent with "???????????? ?????? ? ??????? ??? ??????? ??????????" ? one session per process); `open(Session)`, `close()`, `current()` returns `Optional<Session>`; internally uses a `volatile` reference or `AtomicReference` for thread-safe reads without needing a lock (writes only happen on login/logout/shutdown, all rare, serialized by the caller).
 
 ### Public contracts that may change
 
@@ -5198,7 +5198,7 @@ A safe, non-persistent session holder ready for Authentication (STAGE4-021) and 
 
 ---
 
-## STAGE4-021 — Authentication Application Service (login/logout/currentSession/isAuthenticated)
+## STAGE4-021 ? Authentication Application Service (login/logout/currentSession/isAuthenticated)
 
 **Status:** DONE
 **Stage:** 4
@@ -5207,12 +5207,12 @@ A safe, non-persistent session holder ready for Authentication (STAGE4-021) and 
 
 ### Goal
 
-Реализовать вход/выход с единым generic сообщением об ошибке и аудитом обоих исходов, без раскрытия существования пользователя.
+??????????? ????/????? ? ?????? generic ?????????? ?? ?????? ? ??????? ????? ???????, ??? ????????? ????????????? ????????????.
 
 ### Required documents
 
-- Security Specification (Пароль; Пользовательская сессия);
-- Stage 4 task §10 (точные требования к успешному/неуспешному входу; §12 audit — "исключение составляют события безопасности" per Database Spec §14, meaning login audit is written even though the session itself is not part of a "business" rollback boundary).
+- Security Specification (??????; ???????????????? ??????);
+- Stage 4 task �10 (?????? ?????????? ? ?????????/??????????? ?????; �12 audit ? "?????????? ?????????? ??????? ????????????" per Database Spec �14, meaning login audit is written even though the session itself is not part of a "business" rollback boundary).
 
 ### Required code context
 
@@ -5226,19 +5226,19 @@ A safe, non-persistent session holder ready for Authentication (STAGE4-021) and 
 
 ### Forbidden
 
-- any branch of the failure path that returns a *different* message for "user not found" vs "wrong password" vs "user deleted" (single generic message string for all three, per Stage 4 task §10);
+- any branch of the failure path that returns a *different* message for "user not found" vs "wrong password" vs "user deleted" (single generic message string for all three, per Stage 4 task �10);
 - logging the attempted password anywhere, success or failure.
 
 ### Implementation requirements
 
-- `login(Login login, char[] password)`: looks up `findByLoginIgnoreCase`; if absent, or `status != ACTIVE`, or `passwordHasher.matches(password, user.passwordHash())` is `false` → append `SecurityAuditEvent(LOGIN_FAILURE, actorUserId = user's id if found else null, actorLoginSnapshot = the attempted login text, ...)` in its own transaction (audited even though authentication "failed" — Stage 4 task explicitly requires failed-login audit) and throw `AuthenticationFailedException("Неверный логин или пароль")`; if all checks pass → `sessionContext.open(new Session(...))`, append `SecurityAuditEvent(LOGIN_SUCCESS, actorUserId = user.id(), ...)` in the same transaction as the audit write (the session itself is never persisted, so "same transaction" here means the DB audit INSERT commits atomically — there is nothing else to roll back), return a session view.
+- `login(Login login, char[] password)`: looks up `findByLoginIgnoreCase`; if absent, or `status != ACTIVE`, or `passwordHasher.matches(password, user.passwordHash())` is `false` ? append `SecurityAuditEvent(LOGIN_FAILURE, actorUserId = user's id if found else null, actorLoginSnapshot = the attempted login text, ...)` in its own transaction (audited even though authentication "failed" ? Stage 4 task explicitly requires failed-login audit) and throw `AuthenticationFailedException("???????? ????? ??? ??????")`; if all checks pass ? `sessionContext.open(new Session(...))`, append `SecurityAuditEvent(LOGIN_SUCCESS, actorUserId = user.id(), ...)` in the same transaction as the audit write (the session itself is never persisted, so "same transaction" here means the DB audit INSERT commits atomically ? there is nothing else to roll back), return a session view.
 - `logout()`: if a session is open, append `SecurityAuditEvent(LOGOUT, ...)`, then `sessionContext.close()`.
 - `currentSession()`/`isAuthenticated()`: thin delegations to `SessionContext`.
 - Every code path clears any local `char[]` copy of the password as soon as it is no longer needed (best-effort defensive clearing, documented, not a strict guarantee against a debugger, but present).
 
 ### Public contracts that may change
 
-- none in `com.tmp.security.api` yet (the public-facing `AuthenticationService` façade is assembled in STAGE4-028 by delegating to this Application Service).
+- none in `com.tmp.security.api` yet (the public-facing `AuthenticationService` fa�ade is assembled in STAGE4-028 by delegating to this Application Service).
 
 ### Acceptance criteria
 
@@ -5264,11 +5264,11 @@ mvn -q -pl :tmp-security test -Dtest=AuthenticationApplicationServiceTest
 
 ### Expected result
 
-A fully-tested Authentication Application Service ready for the public façade (STAGE4-028) and the Login Screen (STAGE4-032).
+A fully-tested Authentication Application Service ready for the public fa�ade (STAGE4-028) and the Login Screen (STAGE4-032).
 
 ---
 
-## STAGE4-022 — Authorization Application Service, `AccessDeniedException`, secured-operation fixture
+## STAGE4-022 ? Authorization Application Service, `AccessDeniedException`, secured-operation fixture
 
 **Status:** DONE
 **Stage:** 4
@@ -5277,12 +5277,12 @@ A fully-tested Authentication Application Service ready for the public façade (
 
 ### Goal
 
-Реализовать централизованную проверку доступа (`hasPermission`/`requirePermission`/`effectivePermissions`) с учётом активности разрешения, плюс технический fixture, демонстрирующий, что скрытие UI-команды не заменяет проверку.
+??????????? ???????????????? ???????? ??????? (`hasPermission`/`requirePermission`/`effectivePermissions`) ? ?????? ?????????? ??????????, ???? ??????????? fixture, ???????????????, ??? ??????? UI-??????? ?? ???????? ????????.
 
 ### Required documents
 
-- Stage 4 task §11 (полные требования к Authorization API; secured-operation fixture);
-- this file's "Design decisions" §6.
+- Stage 4 task �11 (?????? ?????????? ? Authorization API; secured-operation fixture);
+- this file's "Design decisions" �6.
 
 ### Required code context
 
@@ -5292,31 +5292,31 @@ A fully-tested Authentication Application Service ready for the public façade (
 
 - `tmp-security/src/main/java/com/tmp/security/domain/AccessDeniedException.java` (new; Domain-level, since "access denied" is a Domain-meaningful outcome, not an infrastructure error);
 - `tmp-security/src/main/java/com/tmp/security/application/AuthorizationApplicationService.java` (new);
-- `tmp-security/src/main/java/com/tmp/security/application/securedfixture/SecuredOperationFixture.java` (new — a tiny technical demo class: one method `void performSecuredOperation(PermissionId required)` that calls `requirePermission(required)` then returns a fixed success marker; used only by tests, not wired into any real screen);
+- `tmp-security/src/main/java/com/tmp/security/application/securedfixture/SecuredOperationFixture.java` (new ? a tiny technical demo class: one method `void performSecuredOperation(PermissionId required)` that calls `requirePermission(required)` then returns a fixed success marker; used only by tests, not wired into any real screen);
 - matching tests under `tmp-security/src/test/java/com/tmp/security/application/`.
 
 ### Forbidden
 
-- caching/storing the computed effective-permission set anywhere beyond the single method call that computed it (per ADR-020 / Design decision — always recomputed, never a session field);
-- letting `requirePermission` succeed when there is no open session (absence of session ⇒ deny, per Stage 4 task §11).
+- caching/storing the computed effective-permission set anywhere beyond the single method call that computed it (per ADR-020 / Design decision ? always recomputed, never a session field);
+- letting `requirePermission` succeed when there is no open session (absence of session ? deny, per Stage 4 task �11).
 
 ### Implementation requirements
 
-- `hasPermission(PermissionId id)`: `false` if no open session; else compute `EffectivePermissionCalculator.isGranted(id, currentUserOverrides, currentUserRoles)` **and** `id` is present in `capabilityEngine.activePermissions()` (both conditions required — inactive permission always denies, per Design decision §6); never throws.
-- `requirePermission(PermissionId id)`: calls `hasPermission(id)`; if `false`, throws `AccessDeniedException` with a message that names the permission id but never leaks other users' data or password material (permission ids are not secret — they are public metadata already visible via `CapabilityEngine.activePermissions()`).
+- `hasPermission(PermissionId id)`: `false` if no open session; else compute `EffectivePermissionCalculator.isGranted(id, currentUserOverrides, currentUserRoles)` **and** `id` is present in `capabilityEngine.activePermissions()` (both conditions required ? inactive permission always denies, per Design decision �6); never throws.
+- `requirePermission(PermissionId id)`: calls `hasPermission(id)`; if `false`, throws `AccessDeniedException` with a message that names the permission id but never leaks other users' data or password material (permission ids are not secret ? they are public metadata already visible via `CapabilityEngine.activePermissions()`).
 - `effectivePermissions()`: returns the full computed `Set<PermissionId>` for the current session's user (empty set if no session).
-- `SecuredOperationFixture`: constructor takes an `AuthorizationApplicationService`; `performSecuredOperation(PermissionId required)` unconditionally calls `authorization.requirePermission(required)` before doing anything else — used by the fixture test (and later, STAGE4-034's UI test) to prove that even if a caller bypasses a hidden UI command, the direct call still enforces the check.
+- `SecuredOperationFixture`: constructor takes an `AuthorizationApplicationService`; `performSecuredOperation(PermissionId required)` unconditionally calls `authorization.requirePermission(required)` before doing anything else ? used by the fixture test (and later, STAGE4-034's UI test) to prove that even if a caller bypasses a hidden UI command, the direct call still enforces the check.
 
 ### Public contracts that may change
 
-- none in `com.tmp.security.api` yet (public façade assembled in STAGE4-028).
+- none in `com.tmp.security.api` yet (public fa�ade assembled in STAGE4-028).
 
 ### Acceptance criteria
 
-- [ ] no session ⇒ `hasPermission` is `false` for every id, `requirePermission` always throws;
-- [ ] a permission granted via role but currently inactive (its owning Capability deactivated) ⇒ denied;
-- [ ] individual REVOKE overrides a role grant ⇒ denied even though role grants it and the permission is active;
-- [ ] `SecuredOperationFixture.performSecuredOperation(...)` throws `AccessDeniedException` when the required permission is missing, and succeeds when granted — proving direct invocation is always checked regardless of any UI-level hiding decision made elsewhere.
+- [ ] no session ? `hasPermission` is `false` for every id, `requirePermission` always throws;
+- [ ] a permission granted via role but currently inactive (its owning Capability deactivated) ? denied;
+- [ ] individual REVOKE overrides a role grant ? denied even though role grants it and the permission is active;
+- [ ] `SecuredOperationFixture.performSecuredOperation(...)` throws `AccessDeniedException` when the required permission is missing, and succeeds when granted ? proving direct invocation is always checked regardless of any UI-level hiding decision made elsewhere.
 
 ### Required tests
 
@@ -5335,11 +5335,11 @@ mvn -q -pl :tmp-security test -Dtest=AuthorizationApplicationServiceTest,Secured
 
 ### Expected result
 
-A fully-tested Authorization Application Service and a reusable secured-operation fixture, ready for the public façade (STAGE4-028) and the Access Denied Screen / navigation-gating UI (STAGE4-033/034).
+A fully-tested Authorization Application Service and a reusable secured-operation fixture, ready for the public fa�ade (STAGE4-028) and the Access Denied Screen / navigation-gating UI (STAGE4-033/034).
 
 ---
 
-## STAGE4-023 — User Administration Application Service (create/update/logical delete)
+## STAGE4-023 ? User Administration Application Service (create/update/logical delete)
 
 **Status:** DONE
 **Stage:** 4
@@ -5348,12 +5348,12 @@ A fully-tested Authorization Application Service and a reusable secured-operatio
 
 ### Goal
 
-Реализовать транзакционные операции администрирования пользователей с обязательной проверкой прав и аудитом в одной транзакции.
+??????????? ?????????????? ???????? ????????????????? ????????????? ? ???????????? ????????? ???? ? ??????? ? ????? ??????????.
 
 ### Required documents
 
-- Stage 4 task §14 (mutating operation pipeline: validate → authorize → mutate domain → persist → audit → one transaction);
-- Security Specification (Администрирование).
+- Stage 4 task �14 (mutating operation pipeline: validate ? authorize ? mutate domain ? persist ? audit ? one transaction);
+- Security Specification (?????????????????).
 
 ### Required code context
 
@@ -5367,19 +5367,19 @@ A fully-tested Authorization Application Service and a reusable secured-operatio
 
 ### Forbidden
 
-- creating/updating a user without first calling `authorization.requirePermission(...)` (no operation may skip this — even for the very first bootstrap admin, which is created by a separate, non-`requirePermission`-gated bootstrap path in STAGE4-018, explicitly documented as the one exception since no session/permission exists yet at first boot);
-- returning `User`/`PasswordHash` directly from any method (only DTOs, defined together with the public façade in STAGE4-028 — this task may return the Domain `User` internally to callers *within the module* for now, with the DTO mapping added in STAGE4-028, since the public API package does not exist as consumable yet outside the module boundary at this point in the sequence).
+- creating/updating a user without first calling `authorization.requirePermission(...)` (no operation may skip this ? even for the very first bootstrap admin, which is created by a separate, non-`requirePermission`-gated bootstrap path in STAGE4-018, explicitly documented as the one exception since no session/permission exists yet at first boot);
+- returning `User`/`PasswordHash` directly from any method (only DTOs, defined together with the public fa�ade in STAGE4-028 ? this task may return the Domain `User` internally to callers *within the module* for now, with the DTO mapping added in STAGE4-028, since the public API package does not exist as consumable yet outside the module boundary at this point in the sequence).
 
 ### Implementation requirements
 
 - `createUser(Login, DisplayName, char[] initialPassword)`: `requirePermission(USERS_CREATE)`; construct `User.createActive(...)` with hashed password; `save()` (translates `DuplicateLoginException` to a clear caller-facing exception); audit `USER_CREATED`; all in one `@Transactional` method.
 - `updateUser(UserId, DisplayName newDisplayName)`: `requirePermission(USERS_UPDATE)`; load, `withDisplayName`, save (optimistic lock surfaces as-is to the caller), audit `USER_UPDATED`; one transaction.
-- `deleteUser(UserId)`: `requirePermission(USERS_DELETE)`; load, `deleted(clock)`, save, audit `USER_DELETED`; one transaction. (Login change is intentionally not offered as a separate operation — not required by the Security Specification and would complicate the case-insensitive-uniqueness invariant without a stated business need; noted here so the omission is a documented decision, not an oversight.)
+- `deleteUser(UserId)`: `requirePermission(USERS_DELETE)`; load, `deleted(clock)`, save, audit `USER_DELETED`; one transaction. (Login change is intentionally not offered as a separate operation ? not required by the Security Specification and would complicate the case-insensitive-uniqueness invariant without a stated business need; noted here so the omission is a documented decision, not an oversight.)
 - `listUsers(int pageIndex, int pageSize, UserStatus statusFilter)`: `requirePermission(USERS_VIEW)`; delegates to the new `UserRepository.findPage(...)`.
 
 ### Public contracts that may change
 
-- `UserRepository` (internal Domain port) gains `findPage(...)` — internal contract, not yet public.
+- `UserRepository` (internal Domain port) gains `findPage(...)` ? internal contract, not yet public.
 
 ### Acceptance criteria
 
@@ -5405,11 +5405,11 @@ mvn -q -pl :tmp-security test -Dtest=UserAdministrationApplicationServiceTest,Jd
 
 ### Expected result
 
-Fully-tested user administration, ready for password operations (STAGE4-024), the public façade (STAGE4-028), and the User Administration Screen (STAGE4-035).
+Fully-tested user administration, ready for password operations (STAGE4-024), the public fa�ade (STAGE4-028), and the User Administration Screen (STAGE4-035).
 
 ---
 
-## STAGE4-024 — Password change / reset Application Services
+## STAGE4-024 ? Password change / reset Application Services
 
 **Status:** DONE
 **Stage:** 4
@@ -5418,11 +5418,11 @@ Fully-tested user administration, ready for password operations (STAGE4-024), th
 
 ### Goal
 
-Реализовать самостоятельную смену пароля (с проверкой старого) и административный сброс (с проверкой прав, без старого пароля), с аудитом в одной транзакции.
+??????????? ??????????????? ????? ?????? (? ????????? ???????) ? ???????????????? ????? (? ????????? ????, ??? ??????? ??????), ? ??????? ? ????? ??????????.
 
 ### Required documents
 
-- Stage 4 task §9 (точные требования: old-password check for self-change; reset needs no old password but needs permission; hash differs each time; никогда в audit/exception/log).
+- Stage 4 task �9 (?????? ??????????: old-password check for self-change; reset needs no old password but needs permission; hash differs each time; ??????? ? audit/exception/log).
 
 ### Required code context
 
@@ -5436,13 +5436,13 @@ Fully-tested user administration, ready for password operations (STAGE4-024), th
 
 ### Forbidden
 
-- accepting an old-password parameter on the admin-reset method (its absence *is* the enforcement — no parameter to check means no old-password verification path exists at all, matching the spec exactly);
+- accepting an old-password parameter on the admin-reset method (its absence *is* the enforcement ? no parameter to check means no old-password verification path exists at all, matching the spec exactly);
 - including any password/hash value in `InvalidCurrentPasswordException`'s message.
 
 ### Implementation requirements
 
-- `changeOwnPassword(char[] currentPassword, char[] newPassword)`: requires an open session (self-service, no explicit `requirePermission` call — every authenticated user may change their own password, per Security Specification "Пользователь может самостоятельно изменить пароль"); loads the current session's user, verifies `passwordHasher.matches(currentPassword, user.passwordHash())`, else throws `InvalidCurrentPasswordException`; on success, `withPasswordHash(hash(newPassword))`, save, audit `PASSWORD_CHANGED` (actor = self); one transaction.
-- `resetPassword(UserId targetUserId, char[] newPassword)`: `requirePermission(USERS_RESET_PASSWORD)`; loads target user (any caller, including resetting another admin's password — no additional restriction stated in the spec), `withPasswordHash(hash(newPassword))`, save, audit `PASSWORD_RESET` (actor = the acting admin, target = `targetUserId`); one transaction; no old-password parameter exists.
+- `changeOwnPassword(char[] currentPassword, char[] newPassword)`: requires an open session (self-service, no explicit `requirePermission` call ? every authenticated user may change their own password, per Security Specification "???????????? ????? ?????????????? ???????? ??????"); loads the current session's user, verifies `passwordHasher.matches(currentPassword, user.passwordHash())`, else throws `InvalidCurrentPasswordException`; on success, `withPasswordHash(hash(newPassword))`, save, audit `PASSWORD_CHANGED` (actor = self); one transaction.
+- `resetPassword(UserId targetUserId, char[] newPassword)`: `requirePermission(USERS_RESET_PASSWORD)`; loads target user (any caller, including resetting another admin's password ? no additional restriction stated in the spec), `withPasswordHash(hash(newPassword))`, save, audit `PASSWORD_RESET` (actor = the acting admin, target = `targetUserId`); one transaction; no old-password parameter exists.
 
 ### Public contracts that may change
 
@@ -5472,11 +5472,11 @@ mvn -q -pl :tmp-security test -Dtest=PasswordApplicationServiceTest
 
 ### Expected result
 
-Fully-tested password operations, ready for the public façade (STAGE4-028) and the User Administration Screen (STAGE4-035).
+Fully-tested password operations, ready for the public fa�ade (STAGE4-028) and the User Administration Screen (STAGE4-035).
 
 ---
 
-## STAGE4-025 — Role Administration Application Service (create/update/delete-if-unassigned)
+## STAGE4-025 ? Role Administration Application Service (create/update/delete-if-unassigned)
 
 **Status:** DONE
 **Stage:** 4
@@ -5485,11 +5485,11 @@ Fully-tested password operations, ready for the public façade (STAGE4-028) and 
 
 ### Goal
 
-Реализовать транзакционные операции администрирования ролей, включая запрет удаления назначенной роли.
+??????????? ?????????????? ???????? ????????????????? ?????, ??????? ?????? ???????? ??????????? ????.
 
 ### Required documents
 
-- Stage 4 task §6 (удаление роли только при отсутствии назначенных пользователей), §14 (transaction pipeline).
+- Stage 4 task �6 (???????? ???? ?????? ??? ?????????? ??????????? ?????????????), �14 (transaction pipeline).
 
 ### Required code context
 
@@ -5503,14 +5503,14 @@ Fully-tested password operations, ready for the public façade (STAGE4-028) and 
 
 ### Forbidden
 
-- deleting a role's `role_permissions` rows without deleting the role itself in the same operation (no orphaned permission rows — handled naturally by the FK `ON DELETE` default `NO ACTION`, meaning delete must be blocked at the application layer *before* attempting the SQL delete, which this task implements; no cascading delete is introduced).
+- deleting a role's `role_permissions` rows without deleting the role itself in the same operation (no orphaned permission rows ? handled naturally by the FK `ON DELETE` default `NO ACTION`, meaning delete must be blocked at the application layer *before* attempting the SQL delete, which this task implements; no cascading delete is introduced).
 
 ### Implementation requirements
 
 - `createRole(String name, String description)`: `requirePermission(ROLES_CREATE)`; `Role.create(...)`, save, audit `ROLE_CREATED`; one transaction.
 - `updateRole(RoleId, String name, String description)`: `requirePermission(ROLES_UPDATE)`; load, `withName`/`withDescription`, save, audit `ROLE_UPDATED`; one transaction.
 - `grantPermissionToRole(RoleId, PermissionId)` / `revokePermissionFromRole(RoleId, PermissionId)`: `requirePermission(PERMISSIONS_ASSIGN)`; load, `grantPermission`/`revokePermission`, save, audit `ROLE_PERMISSIONS_CHANGED`; one transaction each.
-- `deleteRole(RoleId)`: `requirePermission(ROLES_DELETE)`; if `roleAssignmentRepository.countUsersForRole(id) > 0` → throw `RoleInUseException` (no persistence performed); else `roleRepository.deleteById(id)`, audit `ROLE_DELETED`; one transaction.
+- `deleteRole(RoleId)`: `requirePermission(ROLES_DELETE)`; if `roleAssignmentRepository.countUsersForRole(id) > 0` ? throw `RoleInUseException` (no persistence performed); else `roleRepository.deleteById(id)`, audit `ROLE_DELETED`; one transaction.
 
 ### Public contracts that may change
 
@@ -5519,7 +5519,7 @@ Fully-tested password operations, ready for the public façade (STAGE4-028) and 
 ### Acceptance criteria
 
 - [ ] each method enforces its stated permission and performs zero persistence on denial;
-- [ ] `deleteRole` on a role with ≥1 assigned user throws `RoleInUseException` and does not delete the row;
+- [ ] `deleteRole` on a role with ?1 assigned user throws `RoleInUseException` and does not delete the row;
 - [ ] `deleteRole` on an unassigned role succeeds and audits `ROLE_DELETED`;
 - [ ] `grantPermissionToRole` is idempotent (calling twice with the same permission does not error, per `Role.grantPermission`'s idempotency from STAGE4-005) and audits once per call regardless.
 
@@ -5539,11 +5539,11 @@ mvn -q -pl :tmp-security test -Dtest=RoleAdministrationApplicationServiceTest
 
 ### Expected result
 
-Fully-tested role administration, ready for the public façade (STAGE4-028) and the Role Administration Screen (STAGE4-036).
+Fully-tested role administration, ready for the public fa�ade (STAGE4-028) and the Role Administration Screen (STAGE4-036).
 
 ---
 
-## STAGE4-026 — Role assignment/revocation and individual permission grant/revoke/remove-override Application Services
+## STAGE4-026 ? Role assignment/revocation and individual permission grant/revoke/remove-override Application Services
 
 **Status:** DONE
 **Stage:** 4
@@ -5552,11 +5552,11 @@ Fully-tested role administration, ready for the public façade (STAGE4-028) and 
 
 ### Goal
 
-Реализовать назначение/отзыв ролей пользователю и индивидуальные GRANT/REVOKE/удаление override, с аудитом в одной транзакции.
+??????????? ??????????/????? ????? ???????????? ? ?????????????? GRANT/REVOKE/???????? override, ? ??????? ? ????? ??????????.
 
 ### Required documents
 
-- Stage 4 task §6 (assign/revoke role; individual grant/revoke; §12 audit list — assignment, revocation, individual GRANT, individual REVOKE, override removal).
+- Stage 4 task �6 (assign/revoke role; individual grant/revoke; �12 audit list ? assignment, revocation, individual GRANT, individual REVOKE, override removal).
 
 ### Required code context
 
@@ -5570,7 +5570,7 @@ Fully-tested role administration, ready for the public façade (STAGE4-028) and 
 
 ### Forbidden
 
-- assigning a role or granting a permission to a `DELETED` user (validated by loading the `User` and checking `isActive()` before mutating the assignment/override tables — a deleted user "остаётся доступным для аудита и исторических ссылок" but not for new grants).
+- assigning a role or granting a permission to a `DELETED` user (validated by loading the `User` and checking `isActive()` before mutating the assignment/override tables ? a deleted user "???????? ????????? ??? ?????? ? ???????????? ??????" but not for new grants).
 
 ### Implementation requirements
 
@@ -5606,11 +5606,11 @@ mvn -q -pl :tmp-security test -Dtest=RoleAssignmentApplicationServiceTest,Permis
 
 ### Expected result
 
-Fully-tested assignment/override administration, ready for the public façade (STAGE4-028) and the Role Administration Screen (STAGE4-036).
+Fully-tested assignment/override administration, ready for the public fa�ade (STAGE4-028) and the Role Administration Screen (STAGE4-036).
 
 ---
 
-## STAGE4-027 — Audit Query Application Service (read-only, paginated/filtered)
+## STAGE4-027 ? Audit Query Application Service (read-only, paginated/filtered)
 
 **Status:** DONE
 **Stage:** 4
@@ -5619,11 +5619,11 @@ Fully-tested assignment/override administration, ready for the public façade (S
 
 ### Goal
 
-Реализовать read-only просмотр аудита, доступный только с разрешением `security.audit.view`.
+??????????? read-only ???????? ??????, ????????? ?????? ? ??????????? `security.audit.view`.
 
 ### Required documents
 
-- Stage 4 task §12 ("Audit API read-only"), §18 (pagination/filtering).
+- Stage 4 task �12 ("Audit API read-only"), �18 (pagination/filtering).
 
 ### Required code context
 
@@ -5636,7 +5636,7 @@ Fully-tested assignment/override administration, ready for the public façade (S
 
 ### Forbidden
 
-- any mutating method on this class (query-only, matching "Audit API read-only" literally — the class has no method that writes).
+- any mutating method on this class (query-only, matching "Audit API read-only" literally ? the class has no method that writes).
 
 ### Implementation requirements
 
@@ -5667,11 +5667,11 @@ mvn -q -pl :tmp-security test -Dtest=AuditQueryApplicationServiceTest
 
 ### Expected result
 
-A fully-tested, read-only audit query service, ready for the public façade (STAGE4-028) and the Security Audit Screen (STAGE4-037).
+A fully-tested, read-only audit query service, ready for the public fa�ade (STAGE4-028) and the Security Audit Screen (STAGE4-037).
 
 ---
 
-## STAGE4-028 — Public `com.tmp.security.api` facade types, DTOs, and exceptions
+## STAGE4-028 ? Public `com.tmp.security.api` facade types, DTOs, and exceptions
 
 **Status:** DONE
 **Stage:** 4
@@ -5680,15 +5680,15 @@ A fully-tested, read-only audit query service, ready for the public façade (STA
 
 ### Goal
 
-Собрать окончательные публичные контракты `com.tmp.security.api`, делегирующие ко всем ранее реализованным Application Services, без единого поля/метода, раскрывающего пароль или его хеш.
+??????? ????????????? ????????? ????????? `com.tmp.security.api`, ???????????? ?? ???? ????? ????????????? Application Services, ??? ??????? ????/??????, ????????????? ?????? ??? ??? ???.
 
 ### Required documents
 
-- Stage 4 task §3 (публичный API `com.tmp.security.api..`; внутренняя реализация недоступна другим модулям), §10/§11 (Authentication/Authorization API shapes), §14 (application services list).
+- Stage 4 task �3 (????????? API `com.tmp.security.api..`; ?????????? ?????????? ?????????? ?????? ???????), �10/�11 (Authentication/Authorization API shapes), �14 (application services list).
 
 ### Required code context
 
-- every Application Service produced in STAGE4-017..027 (this task only wires/wraps, adds no new business logic — "Application Services будущих модулей должны использовать публичный Authorization API Security" means these wrappers are the *only* thing external modules ever call).
+- every Application Service produced in STAGE4-017..027 (this task only wires/wraps, adds no new business logic ? "Application Services ??????? ??????? ?????? ???????????? ????????? Authorization API Security" means these wrappers are the *only* thing external modules ever call).
 
 ### Allowed code scope
 
@@ -5697,7 +5697,7 @@ A fully-tested, read-only audit query service, ready for the public façade (STA
 - `tmp-security/src/main/java/com/tmp/security/api/UserAdministrationService.java` (new, interface wrapping STAGE4-023/024);
 - `tmp-security/src/main/java/com/tmp/security/api/RoleAdministrationService.java` (new, interface wrapping STAGE4-025/026);
 - `tmp-security/src/main/java/com/tmp/security/api/AuditQueryService.java` (new, interface wrapping STAGE4-027);
-- `tmp-security/src/main/java/com/tmp/security/api/AccessDeniedException.java` (new, public re-throwable type — or expose the Domain one directly if its package placement already satisfies "public API"; **decision**: move `AccessDeniedException`/`AuthenticationFailedException` from `com.tmp.security.domain` into `com.tmp.security.api` in this task, since external callers must be able to catch them by type, matching how `com.tmp.capability.api.DependencyValidationException` lives in the Capability Engine's `api` package rather than an internal one);
+- `tmp-security/src/main/java/com/tmp/security/api/AccessDeniedException.java` (new, public re-throwable type ? or expose the Domain one directly if its package placement already satisfies "public API"; **decision**: move `AccessDeniedException`/`AuthenticationFailedException` from `com.tmp.security.domain` into `com.tmp.security.api` in this task, since external callers must be able to catch them by type, matching how `com.tmp.capability.api.DependencyValidationException` lives in the Capability Engine's `api` package rather than an internal one);
 - DTOs: `UserSummary`, `RoleSummary`, `PermissionSummary`, `AuditEventSummary`, `SessionSummary` (new, in `com.tmp.security.api`, immutable records/classes, **no** `PasswordHash`/password field anywhere);
 - `tmp-security/src/main/java/com/tmp/security/api/package-info.java` update (finalize documentation);
 - adjust STAGE4-021/022 files to move the two exception classes as described (small, mechanical, within this task's allowed scope since it directly serves this task's goal).
@@ -5709,8 +5709,8 @@ A fully-tested, read-only audit query service, ready for the public façade (STA
 
 ### Implementation requirements
 
-- Each public interface's implementation is a thin adapter class in `com.tmp.security.application` (e.g. `DefaultAuthenticationService implements AuthenticationService`) that maps DTOs ↔ Domain types and delegates to the corresponding Application Service — no new business rule is introduced here.
-- `UserSummary`/etc. carry only display-safe fields (`UserId`, `Login`, `DisplayName`, `UserStatus`, `version`, timestamps for `UserSummary` — explicitly no `passwordHash` field, not even a redacted placeholder field, since the type should not even hint at internal hashing details).
+- Each public interface's implementation is a thin adapter class in `com.tmp.security.application` (e.g. `DefaultAuthenticationService implements AuthenticationService`) that maps DTOs ? Domain types and delegates to the corresponding Application Service ? no new business rule is introduced here.
+- `UserSummary`/etc. carry only display-safe fields (`UserId`, `Login`, `DisplayName`, `UserStatus`, `version`, timestamps for `UserSummary` ? explicitly no `passwordHash` field, not even a redacted placeholder field, since the type should not even hint at internal hashing details).
 
 ### Public contracts that may change
 
@@ -5724,7 +5724,7 @@ A fully-tested, read-only audit query service, ready for the public façade (STA
 
 ### Required tests
 
-- `SecurityApiSurfaceNoCredentialLeakTest` (reflection-based, scans `com.tmp.security.api` classes/records for any field/return type matching a small denylist of type names — `PasswordHash`, `char[]`, "Hash" in a suspicious position).
+- `SecurityApiSurfaceNoCredentialLeakTest` (reflection-based, scans `com.tmp.security.api` classes/records for any field/return type matching a small denylist of type names ? `PasswordHash`, `char[]`, "Hash" in a suspicious position).
 - `DefaultAuthenticationServiceTest`, `DefaultAuthorizationServiceTest`, `DefaultUserAdministrationServiceTest`, `DefaultRoleAdministrationServiceTest`, `DefaultAuditQueryServiceTest`: adapter delegation correctness (thin, mostly mapping-verification tests).
 
 ### Verification commands
@@ -5743,7 +5743,7 @@ The complete, stable `com.tmp.security.api` surface that `tmp-ui-shell` and any 
 
 ---
 
-## STAGE4-029 — Security Spring auto-configuration, `PlatformComponent`, and startup wiring
+## STAGE4-029 ? Security Spring auto-configuration, `PlatformComponent`, and startup wiring
 
 **Status:** DONE
 **Stage:** 4
@@ -5752,12 +5752,12 @@ The complete, stable `com.tmp.security.api` surface that `tmp-ui-shell` and any 
 
 ### Goal
 
-Собрать единственные beans для facade/services/`PasswordEncoder`/`SessionContext`, зарегистрировать Security как Platform Component, обеспечить порядок запуска (persistence → permission sync → bootstrap admin).
+??????? ???????????? beans ??? facade/services/`PasswordEncoder`/`SessionContext`, ???????????????? Security ??? Platform Component, ?????????? ??????? ??????? (persistence ? permission sync ? bootstrap admin).
 
 ### Required documents
 
-- Stage 4 task §16 (все требования к auto-configuration и bean cardinality);
-- this file's "Design decisions" §7.
+- Stage 4 task �16 (??? ?????????? ? auto-configuration ? bean cardinality);
+- this file's "Design decisions" �7.
 
 ### Required code context
 
@@ -5773,13 +5773,13 @@ The complete, stable `com.tmp.security.api` surface that `tmp-ui-shell` and any 
 
 ### Forbidden
 
-- defining more than one bean of any public façade/service/`PasswordEncoder`/`SessionContext` type (enforced by simply not declaring duplicates — verified by a Spring context test asserting exactly one bean per type, same style as `CapabilityEngineAutoConfigurationTest`);
+- defining more than one bean of any public fa�ade/service/`PasswordEncoder`/`SessionContext` type (enforced by simply not declaring duplicates ? verified by a Spring context test asserting exactly one bean per type, same style as `CapabilityEngineAutoConfigurationTest`);
 - calling `bootstrapAdministratorApplicationService.ensureBootstrapAdministrator()` from anywhere other than `SecurityPlatformComponent.initialize()`/`start()` (single, well-defined trigger point).
 
 ### Implementation requirements
 
-- `SecurityAutoConfiguration`: `@AutoConfiguration` `@AutoConfigureAfter(name = {"com.tmp.core.PlatformCoreAutoConfiguration", "com.tmp.infra.db.DatabaseAutoConfiguration", "com.tmp.capability.CapabilityEngineAutoConfiguration"})`; `@Bean` methods for: `BCryptPasswordHasher` (as the sole `PasswordHasher`), all `Jdbc*Repository` adapters, `SessionContext`, every Application Service (STAGE4-017..027), every public façade adapter (STAGE4-028), `SecurityAdministrationCapability` (STAGE4-016, so it's discoverable in `List<Capability>`), `SecurityPlatformComponent`, and a `@PostConstruct`-driven registrar (mirroring `CapabilityEnginePlatformRegistrar`) that calls `platformCore.registerComponent(securityPlatformComponent)`.
-- `SecurityPlatformComponent implements PlatformComponent`: `metadata()` = `ComponentType.SERVICE`, id `"security"`; `initialize(PlatformCore)` calls `permissionSynchronizationApplicationService.synchronize()` then `bootstrapAdministratorApplicationService.ensureBootstrapAdministrator()`; `start()`/`stop()` are no-ops (nothing further to start/stop — sessions are cleared explicitly on logout/shutdown by the UI/bootstrap layer, STAGE4-038, not by this component's lifecycle).
+- `SecurityAutoConfiguration`: `@AutoConfiguration` `@AutoConfigureAfter(name = {"com.tmp.core.PlatformCoreAutoConfiguration", "com.tmp.infra.db.DatabaseAutoConfiguration", "com.tmp.capability.CapabilityEngineAutoConfiguration"})`; `@Bean` methods for: `BCryptPasswordHasher` (as the sole `PasswordHasher`), all `Jdbc*Repository` adapters, `SessionContext`, every Application Service (STAGE4-017..027), every public fa�ade adapter (STAGE4-028), `SecurityAdministrationCapability` (STAGE4-016, so it's discoverable in `List<Capability>`), `SecurityPlatformComponent`, and a `@PostConstruct`-driven registrar (mirroring `CapabilityEnginePlatformRegistrar`) that calls `platformCore.registerComponent(securityPlatformComponent)`.
+- `SecurityPlatformComponent implements PlatformComponent`: `metadata()` = `ComponentType.SERVICE`, id `"security"`; `initialize(PlatformCore)` calls `permissionSynchronizationApplicationService.synchronize()` then `bootstrapAdministratorApplicationService.ensureBootstrapAdministrator()`; `start()`/`stop()` are no-ops (nothing further to start/stop ? sessions are cleared explicitly on logout/shutdown by the UI/bootstrap layer, STAGE4-038, not by this component's lifecycle).
 - `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` lists `com.tmp.security.SecurityAutoConfiguration`.
 
 ### Public contracts that may change
@@ -5788,7 +5788,7 @@ The complete, stable `com.tmp.security.api` surface that `tmp-ui-shell` and any 
 
 ### Acceptance criteria
 
-- [ ] full Spring context (`tmp-bootstrap-app`-style test, or a focused `@SpringBootTest` within `tmp-security` using H2/Testcontainers) starts with exactly one bean of each public façade/service type;
+- [ ] full Spring context (`tmp-bootstrap-app`-style test, or a focused `@SpringBootTest` within `tmp-security` using H2/Testcontainers) starts with exactly one bean of each public fa�ade/service type;
 - [ ] `SecurityPlatformComponent` registers and initializes strictly after `CapabilityEnginePlatformComponent` (verified via `LifecycleManager.allStates()`/ordering assertion, or via a synchronization-sensitive fake `CapabilityEngine` that records whether `activateAll()` was already called when Security's `initialize()` runs).
 
 ### Required tests
@@ -5811,7 +5811,7 @@ A fully-wired, single-bean-per-contract Security module, ready to be added as a 
 
 ---
 
-## STAGE4-030 — `tmp-security` end-to-end PostgreSQL Testcontainers IT (mutation+audit same-transaction rollback, full role/permission flow)
+## STAGE4-030 ? `tmp-security` end-to-end PostgreSQL Testcontainers IT (mutation+audit same-transaction rollback, full role/permission flow)
 
 **Status:** DONE
 **Stage:** 4
@@ -5820,11 +5820,11 @@ A fully-wired, single-bean-per-contract Security module, ready to be added as a 
 
 ### Goal
 
-Подтвердить полный поток (bootstrap → login → создание пользователя/роли → назначение → эффективные права → аудит) на реальном PostgreSQL с реальным Spring-контекстом, включая rollback mutation+audit при ошибке.
+??????????? ?????? ????? (bootstrap ? login ? ???????? ????????????/???? ? ?????????? ? ??????????? ????? ? ?????) ?? ???????? PostgreSQL ? ???????? Spring-??????????, ??????? rollback mutation+audit ??? ??????.
 
 ### Required documents
 
-- Stage 4 task §18 (mutation+audit rollback; permission synchronization; inactive permission denial — full behavioural confirmation, closing out what STAGE4-014/019 left to Authorization/Authentication).
+- Stage 4 task �18 (mutation+audit rollback; permission synchronization; inactive permission denial ? full behavioural confirmation, closing out what STAGE4-014/019 left to Authorization/Authentication).
 
 ### Required code context
 
@@ -5841,7 +5841,7 @@ A fully-wired, single-bean-per-contract Security module, ready to be added as a 
 ### Implementation requirements
 
 - Full `@SpringBootTest`-style context against a real PostgreSQL Testcontainers instance with the complete `tmp-security` auto-configuration active;
-- scenarios: bootstrap admin creation → admin login succeeds; admin creates a second user + a role with 2 permissions, assigns role, grants one individual override → `effectivePermissions()` for that user matches the expected union; forcing a simulated failure between the domain mutation and the audit write (e.g. a role-permission grant where the audit insert is made to fail via a test-only hook/spy) rolls back **both** the mutation and the audit row (transaction atomicity, per Stage 4 task §14); deactivating Security's own Capability (test-only toggle) causes a previously-granted `security.audit.view`-style check to be denied even though the role still lists it — demonstrating inactive-permission denial end-to-end.
+- scenarios: bootstrap admin creation ? admin login succeeds; admin creates a second user + a role with 2 permissions, assigns role, grants one individual override ? `effectivePermissions()` for that user matches the expected union; forcing a simulated failure between the domain mutation and the audit write (e.g. a role-permission grant where the audit insert is made to fail via a test-only hook/spy) rolls back **both** the mutation and the audit row (transaction atomicity, per Stage 4 task �14); deactivating Security's own Capability (test-only toggle) causes a previously-granted `security.audit.view`-style check to be denied even though the role still lists it ? demonstrating inactive-permission denial end-to-end.
 
 ### Public contracts that may change
 
@@ -5867,11 +5867,11 @@ mvn -q -pl :tmp-security verify -Dit.test=SecurityEndToEndPostgresIntegrationIT
 
 ### Expected result
 
-End-to-end Security correctness confirmed against real PostgreSQL with the fully wired module — closes out all `tmp-security`-internal Stage 4 work before UI tasks begin.
+End-to-end Security correctness confirmed against real PostgreSQL with the fully wired module ? closes out all `tmp-security`-internal Stage 4 work before UI tasks begin.
 
 ---
 
-## STAGE4-031 — `tmp-ui-shell` Spring wiring and Navigation Service foundation
+## STAGE4-031 ? `tmp-ui-shell` Spring wiring and Navigation Service foundation
 
 **Status:** DONE
 **Stage:** 4
@@ -5880,23 +5880,23 @@ End-to-end Security correctness confirmed against real PostgreSQL with the fully
 
 ### Goal
 
-Ввести Spring в `tmp-ui-shell` впервые, создать generic Navigation Service (screen registry + FXML loader утилита), не создавая ни одного конкретного экрана в этой задаче.
+?????? Spring ? `tmp-ui-shell` ???????, ??????? generic Navigation Service (screen registry + FXML loader ???????), ?? ???????? ?? ?????? ??????????? ?????? ? ???? ??????.
 
 ### Required documents
 
-- UI/UX Specification (Архитектура UI; FXML; Controller; ViewModel; JavaFX и Spring);
-- this file's "Design decisions" §8, §9.
+- UI/UX Specification (??????????? UI; FXML; Controller; ViewModel; JavaFX ? Spring);
+- this file's "Design decisions" �8, �9.
 
 ### Required code context
 
-- current `tmp-ui-shell` classes (`JavaFxShellApplication`, `JavaFxShellLauncher`, `EmptyMainShell` — all read in full during Stage 4 planning);
+- current `tmp-ui-shell` classes (`JavaFxShellApplication`, `JavaFxShellLauncher`, `EmptyMainShell` ? all read in full during Stage 4 planning);
 - `CapabilityEngineAutoConfiguration`/`DocumentEngineAutoConfiguration` as `@AutoConfiguration` + `META-INF/spring/...imports` precedent.
 
 ### Allowed code scope
 
 - `tmp-ui-shell/pom.xml` (add `spring-boot-starter`, `com.tmp:tmp-security`, `com.tmp:tmp-capability-engine`, `com.tmp:tmp-platform-core` dependencies; test-scope `spring-boot-starter-test`);
-- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/navigation/ScreenRegistration.java` (new — record: `screenId, fxmlClasspathResource, Supplier<Object> viewModelSupplier`);
-- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/navigation/NavigationService.java` (new — interface: `register(ScreenRegistration)`, `Parent load(String screenId)`; a small `ViewModelAware<T>` marker interface `setViewModel(T viewModel)` that Controllers may implement);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/navigation/ScreenRegistration.java` (new ? record: `screenId, fxmlClasspathResource, Supplier<Object> viewModelSupplier`);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/navigation/NavigationService.java` (new ? interface: `register(ScreenRegistration)`, `Parent load(String screenId)`; a small `ViewModelAware<T>` marker interface `setViewModel(T viewModel)` that Controllers may implement);
 - `tmp-ui-shell/src/main/java/com/tmp/ui/shell/navigation/DefaultNavigationService.java` (new, package-private);
 - `tmp-ui-shell/src/main/java/com/tmp/ui/shell/UiShellAutoConfiguration.java` (new, `@AutoConfiguration` `@AutoConfigureAfter(name = "com.tmp.security.SecurityAutoConfiguration")`, defines the `NavigationService` bean);
 - `tmp-ui-shell/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` (new);
@@ -5904,12 +5904,12 @@ End-to-end Security correctness confirmed against real PostgreSQL with the fully
 
 ### Forbidden
 
-- creating any concrete `.fxml` file or screen-specific Controller/ViewModel in this task (pure infrastructure — screens follow in STAGE4-032..037);
+- creating any concrete `.fxml` file or screen-specific Controller/ViewModel in this task (pure infrastructure ? screens follow in STAGE4-032..037);
 - making `NavigationService` depend on any concrete screen type.
 
 ### Implementation requirements
 
-- `DefaultNavigationService.load(String screenId)`: looks up the registered `ScreenRegistration`, creates an `FXMLLoader` for the classpath resource, calls `load()` (default controller factory — reflection via `fx:controller`), then if the resulting controller implements `ViewModelAware`, calls `setViewModel(viewModelSupplier.get())`; returns the loaded `Parent`.
+- `DefaultNavigationService.load(String screenId)`: looks up the registered `ScreenRegistration`, creates an `FXMLLoader` for the classpath resource, calls `load()` (default controller factory ? reflection via `fx:controller`), then if the resulting controller implements `ViewModelAware`, calls `setViewModel(viewModelSupplier.get())`; returns the loaded `Parent`.
 - `register(ScreenRegistration)` rejects a duplicate `screenId` (`IllegalStateException`) to catch wiring mistakes early.
 
 ### Public contracts that may change
@@ -5942,7 +5942,7 @@ A generic, screen-agnostic Navigation Service ready for the six concrete screens
 
 ---
 
-## STAGE4-032 — Login Screen (FXML/Controller/ViewModel) and login-gated startup
+## STAGE4-032 ? Login Screen (FXML/Controller/ViewModel) and login-gated startup
 
 **Status:** DONE
 **Stage:** 4
@@ -5951,12 +5951,12 @@ A generic, screen-agnostic Navigation Service ready for the six concrete screens
 
 ### Goal
 
-Реализовать экран входа (FXML/Controller/ViewModel), интегрированный с `AuthenticationService`, отображаемый до открытия рабочего места.
+??????????? ????? ????? (FXML/Controller/ViewModel), ??????????????? ? `AuthenticationService`, ???????????? ?? ???????? ???????? ?????.
 
 ### Required documents
 
-- UI/UX Specification (Обязательные технические экраны — экран входа; Сообщения пользователю — ошибки без stack trace);
-- Security Specification (Пользовательская сессия); Stage 4 task §15 (Login Screen requirements exactly).
+- UI/UX Specification (???????????? ??????????? ?????? ? ????? ?????; ????????? ???????????? ? ?????? ??? stack trace);
+- Security Specification (???????????????? ??????); Stage 4 task �15 (Login Screen requirements exactly).
 
 ### Required code context
 
@@ -5974,15 +5974,15 @@ A generic, screen-agnostic Navigation Service ready for the six concrete screens
 
 ### Forbidden
 
-- `LoginController` implementing `ApplicationContextAware`, being annotated `@Component`/`@Controller`, or holding any Spring reference (per UI/UX Spec Controller rules — it only implements `ViewModelAware<LoginViewModel>` and talks to the injected ViewModel);
+- `LoginController` implementing `ApplicationContextAware`, being annotated `@Component`/`@Controller`, or holding any Spring reference (per UI/UX Spec Controller rules ? it only implements `ViewModelAware<LoginViewModel>` and talks to the injected ViewModel);
 - displaying the underlying `AuthenticationFailedException`'s stack trace or any technical detail beyond its message.
 
 ### Implementation requirements
 
-- `LoginScreen.fxml`: login `TextField`, password `PasswordField`, login `Button`, an error `Label` (hidden by default), no self-registration/password-recovery control anywhere on the screen (matching Stage 4 task §15 exactly).
+- `LoginScreen.fxml`: login `TextField`, password `PasswordField`, login `Button`, an error `Label` (hidden by default), no self-registration/password-recovery control anywhere on the screen (matching Stage 4 task �15 exactly).
 - `LoginViewModel` (Spring `@Bean`, not `@Component`, defined explicitly in `UiShellAutoConfiguration`): exposes JavaFX properties (`StringProperty login`, `StringProperty errorMessage`) and a `submit(char[] password)` method that calls `authenticationService.login(...)`; on `AuthenticationFailedException`, sets `errorMessage` to the caught exception's message (already the generic, safe message from STAGE4-021) and returns `false`; on success returns `true` and exposes the resulting `SessionSummary`.
 - `LoginController implements ViewModelAware<LoginViewModel>`: wires FXML fields to the ViewModel's properties/bindings, calls `submit(...)` on button click, shows/hides the error label based on `errorMessage` being blank.
-- Bootstrap integration: `DesktopBootstrap` now looks up the `NavigationService` bean (via the Spring context it already holds) and passes a small `UiShellEntryPoint` (new tiny record/interface in `tmp-ui-shell`, containing the `NavigationService` and the initial screen id `"login"`) into `JavaFxShellLauncher.launch(...)` (extending its static-field pattern per Design decision §9); `JavaFxShellApplication.start(Stage)` now calls `navigationService.load("login")` and sets it as the scene root, instead of `EmptyMainShell.attach(...)` directly (the Main Window flow itself is completed in STAGE4-033 — for this task, a successful login may temporarily just show a placeholder "Login OK" state, finalized in STAGE4-033).
+- Bootstrap integration: `DesktopBootstrap` now looks up the `NavigationService` bean (via the Spring context it already holds) and passes a small `UiShellEntryPoint` (new tiny record/interface in `tmp-ui-shell`, containing the `NavigationService` and the initial screen id `"login"`) into `JavaFxShellLauncher.launch(...)` (extending its static-field pattern per Design decision �9); `JavaFxShellApplication.start(Stage)` now calls `navigationService.load("login")` and sets it as the scene root, instead of `EmptyMainShell.attach(...)` directly (the Main Window flow itself is completed in STAGE4-033 ? for this task, a successful login may temporarily just show a placeholder "Login OK" state, finalized in STAGE4-033).
 
 ### Public contracts that may change
 
@@ -6015,7 +6015,7 @@ A working Login Screen gating application startup, ready for the Main Window red
 
 ---
 
-## STAGE4-033 — Main Window redesign: permission-filtered navigation and logout
+## STAGE4-033 ? Main Window redesign: permission-filtered navigation and logout
 
 **Status:** DONE
 **Stage:** 4
@@ -6024,15 +6024,15 @@ A working Login Screen gating application startup, ready for the Main Window red
 
 ### Goal
 
-Заменить `EmptyMainShell` реальным главным окном с панелью навигации, построенной из активных Capability и отфильтрованной по правам, плюс действие "выход".
+???????? `EmptyMainShell` ???????? ??????? ????? ? ??????? ?????????, ??????????? ?? ???????? Capability ? ??????????????? ?? ??????, ???? ???????? "?????".
 
 ### Required documents
 
-- UI/UX Specification (Главное окно; Навигация; Architecture Rules AR-005); Stage 4 task §15/§16 (navigation filtered by permissions; logout returns Login Screen).
+- UI/UX Specification (??????? ????; ?????????; Architecture Rules AR-005); Stage 4 task �15/�16 (navigation filtered by permissions; logout returns Login Screen).
 
 ### Required code context
 
-- `CapabilityEngine.activeNavigation()`/`activeCommands()`/`activeViews()` (`com.tmp.capability.api`); `AuthorizationService.hasPermission(...)` (`com.tmp.security.api`, STAGE4-028); `AuthenticationService.logout()`; this file's "Design decisions" §8 (navigation-id ↔ command-id gating convention).
+- `CapabilityEngine.activeNavigation()`/`activeCommands()`/`activeViews()` (`com.tmp.capability.api`); `AuthorizationService.hasPermission(...)` (`com.tmp.security.api`, STAGE4-028); `AuthenticationService.logout()`; this file's "Design decisions" �8 (navigation-id ? command-id gating convention).
 
 ### Allowed code scope
 
@@ -6041,18 +6041,18 @@ A working Login Screen gating application startup, ready for the Main Window red
 - `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/main/MainWindowController.java` (new);
 - `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/main/MainWindowViewModel.java` (new);
 - `tmp-ui-shell/src/main/java/com/tmp/ui/shell/UiShellAutoConfiguration.java` (extend: register main window screen + ViewModel);
-- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/EmptyMainShell.java` (remove — fully superseded; confirm no remaining production reference before deleting; test file removed alongside if it becomes dead code);
+- `tmp-ui-shell/src/main/java/com/tmp/ui/shell/EmptyMainShell.java` (remove ? fully superseded; confirm no remaining production reference before deleting; test file removed alongside if it becomes dead code);
 - matching tests under `tmp-ui-shell/src/test/java/com/tmp/ui/shell/screen/main/`.
 
 ### Forbidden
 
-- hardcoding a static list of navigation items (must be built from `CapabilityEngine.activeNavigation()` every time the window opens/refreshes, per UI/UX Spec "Навигация строится автоматически");
+- hardcoding a static list of navigation items (must be built from `CapabilityEngine.activeNavigation()` every time the window opens/refreshes, per UI/UX Spec "????????? ???????? ?????????????");
 - allowing a hidden (permission-denied) navigation item to still be reachable via any enabled control on this screen (the Access Denied Screen's own bypass-prevention proof is STAGE4-034's concern, using the fixture; this screen's own job is simply to not render/enable what the user cannot see).
 
 ### Implementation requirements
 
-- `MainWindowViewModel`: on construction/refresh, iterates `capabilityEngine.activeNavigation()`; for each item, looks up the matching `CommandDescriptor` (by `navigationId == commandId`, per Design decision §8) among `activeCommands()`; if found, item is shown only if `authorizationService.hasPermission(...)` holds for every `requiredPermissionIds()`; if no matching command exists, item is shown unconditionally (unrestricted navigation item); exposes an observable list of visible nav items (id + display name) and a `selectNavigation(String navigationId)` method that resolves the item's `viewId` and calls `navigationService.load(viewId)` to swap the content area; also exposes `logout()` delegating to `authenticationService.logout()`.
-- `MainWindowController`: BorderPane layout (top bar, left navigation list, center content area, bottom status bar — reusing the existing `EmptyMainShell` visual structure as a starting point, per UI/UX Spec's main-window diagram), wires the nav list to `selectNavigation`, wires a logout button to `logout()` and then instructs the shell (via a callback passed at construction, not via Spring) to return to the Login Screen.
+- `MainWindowViewModel`: on construction/refresh, iterates `capabilityEngine.activeNavigation()`; for each item, looks up the matching `CommandDescriptor` (by `navigationId == commandId`, per Design decision �8) among `activeCommands()`; if found, item is shown only if `authorizationService.hasPermission(...)` holds for every `requiredPermissionIds()`; if no matching command exists, item is shown unconditionally (unrestricted navigation item); exposes an observable list of visible nav items (id + display name) and a `selectNavigation(String navigationId)` method that resolves the item's `viewId` and calls `navigationService.load(viewId)` to swap the content area; also exposes `logout()` delegating to `authenticationService.logout()`.
+- `MainWindowController`: BorderPane layout (top bar, left navigation list, center content area, bottom status bar ? reusing the existing `EmptyMainShell` visual structure as a starting point, per UI/UX Spec's main-window diagram), wires the nav list to `selectNavigation`, wires a logout button to `logout()` and then instructs the shell (via a callback passed at construction, not via Spring) to return to the Login Screen.
 - Remove `EmptyMainShell`/its test once `MainWindowController` fully supersedes it and `JavaFxShellApplication` no longer references it.
 
 ### Public contracts that may change
@@ -6087,7 +6087,7 @@ A real, permission-aware Main Window replacing the Stage 0 placeholder, ready to
 
 ---
 
-## STAGE4-034 — Access Denied Screen and secured-operation UI bypass-prevention proof
+## STAGE4-034 ? Access Denied Screen and secured-operation UI bypass-prevention proof
 
 **Status:** DONE
 **Stage:** 4
@@ -6096,19 +6096,19 @@ A real, permission-aware Main Window replacing the Stage 0 placeholder, ready to
 
 ### Goal
 
-Реализовать экран отсутствия доступа и продемонстрировать, что скрытие UI-команды не заменяет проверку доступа (прямой вызов защищённой операции всё равно проверяется).
+??????????? ????? ?????????? ??????? ? ??????????????????, ??? ??????? UI-??????? ?? ???????? ???????? ??????? (?????? ????? ?????????? ???????? ??? ????? ???????????).
 
 ### Required documents
 
-- UI/UX Specification (Обязательные технические экраны — экран отсутствия доступа); Stage 4 task §11 (secured-operation fixture: UI hides command; direct call still enforces; bypass not possible), §15 (Access Denied Screen).
+- UI/UX Specification (???????????? ??????????? ?????? ? ????? ?????????? ???????); Stage 4 task �11 (secured-operation fixture: UI hides command; direct call still enforces; bypass not possible), �15 (Access Denied Screen).
 
 ### Required code context
 
-- `AccessDeniedException` (`com.tmp.security.api`, STAGE4-028); `SecuredOperationFixture` (`com.tmp.security.application`, STAGE4-022 — used here as the concrete demonstration target, exposed to `tmp-ui-shell` tests through a small public wrapper if needed, or referenced directly since it is package-private to `tmp-security` — **decision**: add a thin public `com.tmp.security.api.SecuredOperationDemo` wrapping the fixture, since `tmp-ui-shell`, as an external module, cannot reach `com.tmp.security.application` at all).
+- `AccessDeniedException` (`com.tmp.security.api`, STAGE4-028); `SecuredOperationFixture` (`com.tmp.security.application`, STAGE4-022 ? used here as the concrete demonstration target, exposed to `tmp-ui-shell` tests through a small public wrapper if needed, or referenced directly since it is package-private to `tmp-security` ? **decision**: add a thin public `com.tmp.security.api.SecuredOperationDemo` wrapping the fixture, since `tmp-ui-shell`, as an external module, cannot reach `com.tmp.security.application` at all).
 
 ### Allowed code scope
 
-- `tmp-security/src/main/java/com/tmp/security/api/SecuredOperationDemo.java` (new, thin public wrapper delegating to `SecuredOperationFixture` — small addition to `tmp-security`, justified because this task's core goal is proving the UI cannot bypass authorization, which requires a public entry point);
+- `tmp-security/src/main/java/com/tmp/security/api/SecuredOperationDemo.java` (new, thin public wrapper delegating to `SecuredOperationFixture` ? small addition to `tmp-security`, justified because this task's core goal is proving the UI cannot bypass authorization, which requires a public entry point);
 - `tmp-security/src/main/java/com/tmp/security/SecurityAutoConfiguration.java` (extend: register `SecuredOperationDemo` bean);
 - `tmp-ui-shell/src/main/resources/com/tmp/ui/shell/screen/accessdenied/AccessDeniedScreen.fxml` (new);
 - `tmp-ui-shell/src/main/java/com/tmp/ui/shell/screen/accessdenied/AccessDeniedController.java` (new);
@@ -6118,13 +6118,13 @@ A real, permission-aware Main Window replacing the Stage 0 placeholder, ready to
 
 ### Forbidden
 
-- making the Access Denied Screen itself perform any authorization check (it only displays a message — the check already happened before this screen was shown, exactly matching "Скрытие UI-команды не является проверкой доступа" / "Окончательная проверка выполняется непосредственно перед защищённой операцией").
+- making the Access Denied Screen itself perform any authorization check (it only displays a message ? the check already happened before this screen was shown, exactly matching "??????? UI-??????? ?? ???????? ????????? ???????" / "????????????? ???????? ??????????? ??????????????? ????? ?????????? ?????????").
 
 ### Implementation requirements
 
 - `SecuredOperationDemo` (public, `com.tmp.security.api`): single method `performSecuredOperation(PermissionId required)`, delegates straight to the internal fixture, throwing `AccessDeniedException` on denial exactly like the fixture.
-- `AccessDeniedScreen.fxml`/`Controller`/`ViewModel`: displays a fixed, non-technical message (e.g. "У вас нет доступа к этой операции.") and a "Back" action; `AccessDeniedViewModel` takes the triggering `AccessDeniedException`'s message as display text, no stack trace shown.
-- Bypass-prevention proof test (the real deliverable of this task): a test that (a) as a user without the required permission, confirms `MainWindowViewModel` hides the corresponding navigation item (reusing STAGE4-033's mechanism), **and** (b) directly calls `SecuredOperationDemo.performSecuredOperation(sameRequiredPermission)` bypassing the UI entirely, and asserts it still throws `AccessDeniedException` — proving hiding the command is cosmetic only.
+- `AccessDeniedScreen.fxml`/`Controller`/`ViewModel`: displays a fixed, non-technical message (e.g. "? ??? ??? ??????? ? ???? ????????.") and a "Back" action; `AccessDeniedViewModel` takes the triggering `AccessDeniedException`'s message as display text, no stack trace shown.
+- Bypass-prevention proof test (the real deliverable of this task): a test that (a) as a user without the required permission, confirms `MainWindowViewModel` hides the corresponding navigation item (reusing STAGE4-033's mechanism), **and** (b) directly calls `SecuredOperationDemo.performSecuredOperation(sameRequiredPermission)` bypassing the UI entirely, and asserts it still throws `AccessDeniedException` ? proving hiding the command is cosmetic only.
 
 ### Public contracts that may change
 
@@ -6155,11 +6155,11 @@ mvn -q -pl :tmp-ui-shell test -Dtest=AccessDeniedBypassPreventionTest,AccessDeni
 
 ### Expected result
 
-A working Access Denied Screen and a concrete, tested proof that UI-level hiding never substitutes for the real authorization check, satisfying Stage 4 task §11's explicit requirement.
+A working Access Denied Screen and a concrete, tested proof that UI-level hiding never substitutes for the real authorization check, satisfying Stage 4 task �11's explicit requirement.
 
 ---
 
-## STAGE4-035 — User Administration Screen
+## STAGE4-035 ? User Administration Screen
 
 **Status:** DONE
 **Stage:** 4
@@ -6168,11 +6168,11 @@ A working Access Denied Screen and a concrete, tested proof that UI-level hiding
 
 ### Goal
 
-Реализовать минимальный экран администрирования пользователей: список, создание, изменение, логическое удаление, сброс пароля.
+??????????? ??????????? ????? ????????????????? ?????????????: ??????, ????????, ?????????, ?????????? ????????, ????? ??????.
 
 ### Required documents
 
-- UI/UX Specification (Экраны; FXML; Controller; ViewModel; Длительные операции); Stage 4 task §15/§17 (minimal user/role admin UI); Security Specification (Администрирование).
+- UI/UX Specification (??????; FXML; Controller; ViewModel; ?????????? ????????); Stage 4 task �15/�17 (minimal user/role admin UI); Security Specification (?????????????????).
 
 ### Required code context
 
@@ -6189,12 +6189,12 @@ A working Access Denied Screen and a concrete, tested proof that UI-level hiding
 ### Forbidden
 
 - calling any repository/persistence type directly (only `UserAdministrationService`);
-- performing the permission check only in the ViewModel and skipping it in the Application Service (defence stays in `tmp-security`; the UI-level check here is only for control enabling/disabling, matching Stage 4 task §11).
+- performing the permission check only in the ViewModel and skipping it in the Application Service (defence stays in `tmp-security`; the UI-level check here is only for control enabling/disabling, matching Stage 4 task �11).
 
 ### Implementation requirements
 
-- `UserAdministrationViewModel`: observable list of `UserSummary` (loaded via `listUsers(...)`, paginated); `createUser(...)`, `updateUser(...)`, `deleteUser(...)`, `resetPassword(...)` methods delegating to `UserAdministrationService`/`PasswordApplicationService`-backed façade methods (via `com.tmp.security.api` only), each wrapped to surface `AccessDeniedException`/validation failures as a bound error message (no stack trace).
-- `UserAdministrationController`: a `TableView<UserSummary>` (login, display name, status) + a simple create/edit form + reset-password action + delete action, with create/edit/delete/reset buttons' `disableProperty()` bound to the corresponding `AuthorizationService.hasPermission(...)` result (cosmetic convenience only — the real enforcement remains in `tmp-security`).
+- `UserAdministrationViewModel`: observable list of `UserSummary` (loaded via `listUsers(...)`, paginated); `createUser(...)`, `updateUser(...)`, `deleteUser(...)`, `resetPassword(...)` methods delegating to `UserAdministrationService`/`PasswordApplicationService`-backed fa�ade methods (via `com.tmp.security.api` only), each wrapped to surface `AccessDeniedException`/validation failures as a bound error message (no stack trace).
+- `UserAdministrationController`: a `TableView<UserSummary>` (login, display name, status) + a simple create/edit form + reset-password action + delete action, with create/edit/delete/reset buttons' `disableProperty()` bound to the corresponding `AuthorizationService.hasPermission(...)` result (cosmetic convenience only ? the real enforcement remains in `tmp-security`).
 
 ### Public contracts that may change
 
@@ -6203,7 +6203,7 @@ A working Access Denied Screen and a concrete, tested proof that UI-level hiding
 ### Acceptance criteria
 
 - [ ] table lists users with correct status;
-- [ ] create/update/delete/reset actions call the correct façade methods and refresh the list on success;
+- [ ] create/update/delete/reset actions call the correct fa�ade methods and refresh the list on success;
 - [ ] a denied action surfaces the `AccessDeniedException` message without a stack trace;
 - [ ] buttons are disabled when the corresponding permission is missing.
 
@@ -6228,7 +6228,7 @@ A working, minimal User Administration Screen.
 
 ---
 
-## STAGE4-036 — Role Administration Screen
+## STAGE4-036 ? Role Administration Screen
 
 **Status:** DONE
 **Stage:** 4
@@ -6237,11 +6237,11 @@ A working, minimal User Administration Screen.
 
 ### Goal
 
-Реализовать минимальный экран администрирования ролей: список, создание/изменение, назначение/отзыв разрешений, назначение/отзыв ролей пользователям, удаление с учётом ограничения.
+??????????? ??????????? ????? ????????????????? ?????: ??????, ????????/?????????, ??????????/????? ??????????, ??????????/????? ????? ?????????????, ???????? ? ?????? ???????????.
 
 ### Required documents
 
-- Same as STAGE4-035, applied to roles; Stage 4 task §6 (deletion restriction) surfaced as a UI-level error message, not re-implemented.
+- Same as STAGE4-035, applied to roles; Stage 4 task �6 (deletion restriction) surfaced as a UI-level error message, not re-implemented.
 
 ### Required code context
 
@@ -6257,16 +6257,16 @@ A working, minimal User Administration Screen.
 
 ### Forbidden
 
-- re-implementing the "role in use" delete guard in the UI layer (the UI only surfaces the `RoleInUseException` message from the Application Service — the guard itself lives exclusively in `tmp-security`).
+- re-implementing the "role in use" delete guard in the UI layer (the UI only surfaces the `RoleInUseException` message from the Application Service ? the guard itself lives exclusively in `tmp-security`).
 
 ### Implementation requirements
 
-- `RoleAdministrationViewModel`: observable list of `RoleSummary`; create/update/delete role; a permission-assignment sub-view (checklist of all known `PermissionSummary`s — from `AuditQueryService`? no — from a new read method exposed via `RoleAdministrationService`/`AuditQueryService`'s neighbours; **use** `RoleAdministrationService`'s permission-catalogue listing, which this task adds as a small extension: `List<PermissionSummary> listAllPermissionDefinitions()` on `com.tmp.security.api.RoleAdministrationService`, backed by `PermissionDefinitionRepository.findAll()` mapped to DTO — small, justified public-API extension since the UI genuinely needs the full catalogue, not just a role's current set); a user-role assignment sub-view (assign/revoke by user id/login lookup).
+- `RoleAdministrationViewModel`: observable list of `RoleSummary`; create/update/delete role; a permission-assignment sub-view (checklist of all known `PermissionSummary`s ? from `AuditQueryService`? no ? from a new read method exposed via `RoleAdministrationService`/`AuditQueryService`'s neighbours; **use** `RoleAdministrationService`'s permission-catalogue listing, which this task adds as a small extension: `List<PermissionSummary> listAllPermissionDefinitions()` on `com.tmp.security.api.RoleAdministrationService`, backed by `PermissionDefinitionRepository.findAll()` mapped to DTO ? small, justified public-API extension since the UI genuinely needs the full catalogue, not just a role's current set); a user-role assignment sub-view (assign/revoke by user id/login lookup).
 - `RoleAdministrationController`: roles table + permission checklist + user-assignment controls, delete button disabled/error-surfaced per the in-use guard.
 
 ### Public contracts that may change
 
-- `com.tmp.security.api.RoleAdministrationService` gains `listAllPermissionDefinitions()` — additive, backward-compatible.
+- `com.tmp.security.api.RoleAdministrationService` gains `listAllPermissionDefinitions()` ? additive, backward-compatible.
 
 ### Acceptance criteria
 
@@ -6293,11 +6293,11 @@ mvn -q -pl :tmp-ui-shell test -Dtest=RoleAdministrationViewModelTest,RoleAdminis
 
 ### Expected result
 
-A working, minimal Role Administration Screen, completing the required minimal user/role admin UI (Stage 4 task §17).
+A working, minimal Role Administration Screen, completing the required minimal user/role admin UI (Stage 4 task �17).
 
 ---
 
-## STAGE4-037 — Security Audit Screen
+## STAGE4-037 ? Security Audit Screen
 
 **Status:** DONE
 **Stage:** 4
@@ -6306,11 +6306,11 @@ A working, minimal Role Administration Screen, completing the required minimal u
 
 ### Goal
 
-Реализовать read-only экран просмотра журнала аудита с пагинацией и фильтрацией.
+??????????? read-only ????? ????????? ??????? ?????? ? ?????????? ? ???????????.
 
 ### Required documents
 
-- Stage 4 task §12/§15/§18 (read-only audit UI with pagination/filtering).
+- Stage 4 task �12/�15/�18 (read-only audit UI with pagination/filtering).
 
 ### Required code context
 
@@ -6365,7 +6365,7 @@ A working, read-only Security Audit Screen, completing all five mandatory Stage 
 
 ---
 
-## STAGE4-038 — Bootstrap integration finalization (login-gated startup, logout-to-login, shutdown session cleanup)
+## STAGE4-038 ? Bootstrap integration finalization (login-gated startup, logout-to-login, shutdown session cleanup)
 
 **Status:** DONE
 **Stage:** 4
@@ -6374,11 +6374,11 @@ A working, read-only Security Audit Screen, completing all five mandatory Stage 
 
 ### Goal
 
-Завершить сквозной поток запуска: главное окно не открывается до успешного login; logout возвращает Login Screen; shutdown очищает сессию.
+????????? ???????? ????? ???????: ??????? ???? ?? ??????????? ?? ????????? login; logout ?????????? Login Screen; shutdown ??????? ??????.
 
 ### Required documents
 
-- Stage 4 task §16 (bootstrap admin выполняется после persistence/permissions — already true via STAGE4-029's ordering; главное окно не открывается до успешного login; shutdown очищает session; logout возвращает Login Screen).
+- Stage 4 task �16 (bootstrap admin ??????????? ????? persistence/permissions ? already true via STAGE4-029's ordering; ??????? ???? ?? ??????????? ?? ????????? login; shutdown ??????? session; logout ?????????? Login Screen).
 
 ### Required code context
 
@@ -6394,7 +6394,7 @@ A working, read-only Security Audit Screen, completing all five mandatory Stage 
 ### Forbidden
 
 - opening the Main Window scene before `AuthenticationService.isAuthenticated()` is `true`;
-- leaving any old direct call to `platformCore.status()`/`documentEngine.search(...)` string-formatting in `DesktopBootstrap` now that the Main Window renders its own live navigation (superseded by STAGE4-033) — remove dead code, do not leave it commented out (per governance §6, no commented-out code).
+- leaving any old direct call to `platformCore.status()`/`documentEngine.search(...)` string-formatting in `DesktopBootstrap` now that the Main Window renders its own live navigation (superseded by STAGE4-033) ? remove dead code, do not leave it commented out (per governance �6, no commented-out code).
 
 ### Implementation requirements
 
@@ -6417,7 +6417,7 @@ A working, read-only Security Audit Screen, completing all five mandatory Stage 
 ### Required tests
 
 - `DesktopBootstrapWiringTest` (extends the existing bean-lookup smoke test style, e.g. alongside `CapabilityEngineBeanLookupTest`): confirms the `UiShellEntryPoint`/`NavigationService`/`AuthenticationService` beans are all resolvable from the real Spring context.
-- `JavaFxShellApplicationFlowTest` (`tmp-ui-shell`): login-fail-stays, login-success-swaps-to-main, logout-swaps-to-login, stop()-clears-session — using fakes for the Navigation/Authentication services.
+- `JavaFxShellApplicationFlowTest` (`tmp-ui-shell`): login-fail-stays, login-success-swaps-to-main, logout-swaps-to-login, stop()-clears-session ? using fakes for the Navigation/Authentication services.
 
 ### Verification commands
 
@@ -6436,7 +6436,7 @@ A fully login-gated desktop application flow, ready for the architecture tests (
 
 ---
 
-## STAGE4-039 — Stage 4 architecture tests
+## STAGE4-039 ? Stage 4 architecture tests
 
 **Status:** DONE
 **Stage:** 4
@@ -6445,11 +6445,11 @@ A fully login-gated desktop application flow, ready for the architecture tests (
 
 ### Goal
 
-Добавить `Stage4SecurityArchitectureTest`, покрывающий все правила Stage 4 task §19.
+???????? `Stage4SecurityArchitectureTest`, ??????????? ??? ??????? Stage 4 task �19.
 
 ### Required documents
 
-- Stage 4 task §19 (полный список обязательных правил);
+- Stage 4 task �19 (?????? ?????? ???????????? ??????);
 - `Stage3CapabilityEngineArchitectureTest`/`Stage2DocumentEngineArchitectureTest` as the ArchUnit style precedent.
 
 ### Required code context
@@ -6464,11 +6464,11 @@ A fully login-gated desktop application flow, ready for the architecture tests (
 ### Forbidden
 
 - weakening any existing `Stage0`/`Stage1`/`Stage2`/`Stage3ArchitectureTest` rule to make the new test pass;
-- adding any rule not derivable from Stage 4 task §19.
+- adding any rule not derivable from Stage 4 task �19.
 
 ### Implementation requirements
 
-ArchUnit rules, one method per bullet of Stage 4 task §19:
+ArchUnit rules, one method per bullet of Stage 4 task �19:
 - `tmp-security` (`com.tmp.security..`) does not depend on any business-module package (none exist yet, but assert no dependency on `com.tmp.document..`/`com.tmp.ui..`/`com.tmp.bootstrap..`, matching the "only core.api/capability.api" rule);
 - `com.tmp.security..` (excluding `com.tmp.security.api..`) depends only on `com.tmp.core.api..`, `com.tmp.capability.api..`, `java..`, `org.springframework..`, `org.springframework.security.crypto..`, JDBC/`javax.sql`/`org.postgresql..`, and its own module packages;
 - external packages (`com.tmp.ui..`, `com.tmp.bootstrap..`, `com.tmp.architecture..`) that reference `com.tmp.security..` reference only `com.tmp.security.api..`;
@@ -6476,7 +6476,7 @@ ArchUnit rules, one method per bullet of Stage 4 task §19:
 - `com.tmp.ui.shell..` Controller classes (`*Controller`) do not depend on `org.springframework.context..`/are not annotated with any Spring stereotype;
 - `com.tmp.ui.shell..` Controller classes do not depend on any `*Repository`/`com.tmp.security.persistence..`/`com.tmp.security.application..` package;
 - no class in `com.tmp.security.api..` has a field or method whose type name matches `PasswordHash`/`char\[\]` in a password-shaped position (reuse/extend the reflection check from STAGE4-028's `SecurityApiSurfaceNoCredentialLeakTest`, promoted here as an ArchUnit `ArchCondition` for durability across future additions);
-- no `groupId` in the reactor is `org.springframework.security` other than `spring-security-crypto` (no `spring-security-web`/`spring-security-config`/`spring-security-oauth2-*`/`spring-security-ldap`), and no dependency named containing `jwt`/`oauth`/`ldap`/`saml` exists anywhere in the reactor's effective dependencies (checked via a Maven-dependency-tree-based test or a `pom.xml` text-scan test, whichever fits the existing `Stage0ArchitectureBaselineTest` convention — inspect that file first to match its exact checking mechanism, since ArchUnit itself cannot inspect Maven dependencies);
+- no `groupId` in the reactor is `org.springframework.security` other than `spring-security-crypto` (no `spring-security-web`/`spring-security-config`/`spring-security-oauth2-*`/`spring-security-ldap`), and no dependency named containing `jwt`/`oauth`/`ldap`/`saml` exists anywhere in the reactor's effective dependencies (checked via a Maven-dependency-tree-based test or a `pom.xml` text-scan test, whichever fits the existing `Stage0ArchitectureBaselineTest` convention ? inspect that file first to match its exact checking mechanism, since ArchUnit itself cannot inspect Maven dependencies);
 - no `com.tmp.order..`/`com.tmp.warehouse..`/`com.tmp.production..`/`com.tmp.cutting..`/`com.tmp.analytics..` package exists anywhere in the reactor (Stage 5+ absence check).
 
 ### Public contracts that may change
@@ -6508,7 +6508,7 @@ Automated, durable enforcement of every Stage 4 architectural boundary.
 
 ---
 
-## STAGE4-040 — Final Stage 4 verification gate
+## STAGE4-040 ? Final Stage 4 verification gate
 
 **Status:** DONE
 **Stage:** 4
@@ -6518,15 +6518,15 @@ Automated, durable enforcement of every Stage 4 architectural boundary.
 
 ### Goal
 
-Полная верификация Stage 4 (`mvn clean verify`, package profile, PostgreSQL Testcontainers, jpackage app-image, manual `TMP.exe` smoke test) и закрытие Stage 4 на 100%.
+?????? ??????????? Stage 4 (`mvn clean verify`, package profile, PostgreSQL Testcontainers, jpackage app-image, manual `TMP.exe` smoke test) ? ???????? Stage 4 ?? 100%.
 
 ### Required documents
 
-- Stage 4 task §22 (полный чек-лист Final Stage Gate); `STAGE-4-SECURITY.md` (exit criteria).
+- Stage 4 task �22 (?????? ???-???? Final Stage Gate); `STAGE-4-SECURITY.md` (exit criteria).
 
 ### Required code context
 
-- none beyond the already-implemented module set; this task performs verification only, no new production code (a genuine defect found here re-opens the specific earlier task that owns the affected area, per governance rules — this task itself does not silently patch around a failure).
+- none beyond the already-implemented module set; this task performs verification only, no new production code (a genuine defect found here re-opens the specific earlier task that owns the affected area, per governance rules ? this task itself does not silently patch around a failure).
 
 ### Allowed code scope
 
@@ -6534,7 +6534,7 @@ Automated, durable enforcement of every Stage 4 architectural boundary.
 
 ### Forbidden
 
-- skipping any check in Stage 4 task §22's checklist;
+- skipping any check in Stage 4 task �22's checklist;
 - marking DONE while any check fails.
 
 ### Implementation requirements
@@ -6547,7 +6547,7 @@ Automated, durable enforcement of every Stage 4 architectural boundary.
 
 ### Acceptance criteria
 
-- [x] every item in Stage 4 task §22 passes (automated subset via STAGE4-053; manual packaged GUI checklist confirmed by user 2026-07-24; formal Stage close recorded in STAGE4-054).
+- [x] every item in Stage 4 task �22 passes (automated subset via STAGE4-053; manual packaged GUI checklist confirmed by user 2026-07-24; formal Stage close recorded in STAGE4-054).
 
 ### Required tests
 
@@ -6563,17 +6563,17 @@ dist/jpackage/TMP/TMP.exe
 
 ### Documentation updates
 
-- Formal Stage 4 close status fields and residual backlog are applied by `STAGE4-054` (supersedes the original “Last completed task: STAGE4-040” wording).
+- Formal Stage 4 close status fields and residual backlog are applied by `STAGE4-054` (supersedes the original ?Last completed task: STAGE4-040? wording).
 
 ### Expected result
 
-Stage 4 fully DONE; explicit stop before Stage 5 per governance §9 ("завершён текущий Stage и следующий Stage ещё не прошёл Start Gate").
+Stage 4 fully DONE; explicit stop before Stage 5 per governance �9 ("???????? ??????? Stage ? ????????? Stage ??? ?? ?????? Start Gate").
 
 ---
 
-# Stage 4 — Security (BLK-016 corrective tasks)
+# Stage 4 ? Security (BLK-016 corrective tasks)
 
-## STAGE4-041 — Authentication transaction and session consistency
+## STAGE4-041 ? Authentication transaction and session consistency
 
 **Status:** DONE
 **Stage:** 4
@@ -6582,7 +6582,7 @@ Stage 4 fully DONE; explicit stop before Stage 5 per governance §9 ("завер
 
 ### Goal
 
-Разделить DB-транзакцию аутентификации и in-memory открытие session так, чтобы failed-login audit коммитился отдельно, session открывалась только после успешного commit success-audit, и при любом login failure session отсутствовала.
+????????? DB-?????????? ?????????????? ? in-memory ???????? session ???, ????? failed-login audit ?????????? ????????, session ??????????? ?????? ????? ????????? commit success-audit, ? ??? ????? login failure session ?????????????.
 
 ### Required documents
 
@@ -6642,7 +6642,7 @@ Login audit/session consistency matches Security Specification and BLK-016 block
 
 ---
 
-## STAGE4-042 — Login timing side-channel mitigation
+## STAGE4-042 ? Login timing side-channel mitigation
 
 **Status:** DONE
 **Stage:** 4
@@ -6651,7 +6651,7 @@ Login audit/session consistency matches Security Specification and BLK-016 block
 
 ### Goal
 
-Устранить timing side-channel: для неизвестного login всегда выполнять BCrypt verification против постоянного dummy hash; одинаковое сообщение для unknown/wrong/deleted без раскрытия существования login.
+????????? timing side-channel: ??? ???????????? login ?????? ????????? BCrypt verification ?????? ??????????? dummy hash; ?????????? ????????? ??? unknown/wrong/deleted ??? ????????? ????????????? login.
 
 ### Required documents
 
@@ -6703,7 +6703,7 @@ No login-existence timing oracle via skipped BCrypt.
 
 ---
 
-## STAGE4-043 — Atomic bootstrap administrator and unique role name
+## STAGE4-043 ? Atomic bootstrap administrator and unique role name
 
 **Status:** DONE
 **Stage:** 4
@@ -6712,7 +6712,7 @@ No login-existence timing oracle via skipped BCrypt.
 
 ### Goal
 
-Сделать bootstrap administrator атомарным под PostgreSQL transaction-scoped lock с повторной проверкой `existsAny`, без поглощения исключений, допускающих partial commit; добавить case-insensitive unique index на role name.
+??????? bootstrap administrator ????????? ??? PostgreSQL transaction-scoped lock ? ????????? ????????? `existsAny`, ??? ?????????? ??????????, ??????????? partial commit; ???????? case-insensitive unique index ?? role name.
 
 ### Required documents
 
@@ -6766,7 +6766,7 @@ Bootstrap is race-safe and atomic.
 
 ---
 
-## STAGE4-044 — Remove bootstrap secret defaults from repository YAML
+## STAGE4-044 ? Remove bootstrap secret defaults from repository YAML
 
 **Status:** DONE
 **Stage:** 4
@@ -6775,7 +6775,7 @@ Bootstrap is race-safe and atomic.
 
 ### Goal
 
-Удалить default admin password / bootstrap credentials из `application-dev.yml`; credentials только через `TMP_SECURITY_BOOTSTRAP_*`; fail-fast на пустой DB без конфигурации; password не в log/exception.
+??????? default admin password / bootstrap credentials ?? `application-dev.yml`; credentials ?????? ????? `TMP_SECURITY_BOOTSTRAP_*`; fail-fast ?? ?????? DB ??? ????????????; password ?? ? log/exception.
 
 ### Required documents
 
@@ -6797,7 +6797,7 @@ Bootstrap is race-safe and atomic.
 ### Implementation requirements
 
 - Remove `${...:default}` bootstrap password/login/display-name defaults from `application-dev.yml`.
-- Empty DB + missing env → startup fails with `MissingBootstrapConfigurationException` without password value.
+- Empty DB + missing env ? startup fails with `MissingBootstrapConfigurationException` without password value.
 - Package profile continues to require env vars.
 
 ### Acceptance criteria
@@ -6826,7 +6826,7 @@ No bootstrap secrets in repository defaults.
 
 ---
 
-## STAGE4-045 — Permission ownership migration and synchronization
+## STAGE4-045 ? Permission ownership migration and synchronization
 
 **Status:** DONE
 **Stage:** 4
@@ -6835,7 +6835,7 @@ No bootstrap secrets in repository defaults.
 
 ### Goal
 
-Добавить `owner_capability_id` (NOT NULL + index) новой Flyway migration без изменения V4; расширить domain/repository; sync сохраняет owner, детектит конфликты PermissionId между Capability, деактивирует definitions не-ACTIVE Capability и orphan definitions, не удаляя role assignments/overrides.
+???????? `owner_capability_id` (NOT NULL + index) ????? Flyway migration ??? ????????? V4; ????????? domain/repository; sync ????????? owner, ???????? ????????? PermissionId ????? Capability, ???????????? definitions ??-ACTIVE Capability ? orphan definitions, ?? ?????? role assignments/overrides.
 
 ### Required documents
 
@@ -6886,7 +6886,7 @@ Permission definitions are capability-owned and sync-safe.
 
 ---
 
-## STAGE4-046 — Deleted user cannot keep an active secured session
+## STAGE4-046 ? Deleted user cannot keep an active secured session
 
 **Status:** DONE
 **Stage:** 4
@@ -6895,7 +6895,7 @@ Permission definitions are capability-owned and sync-safe.
 
 ### Goal
 
-Удалённый пользователь не может выполнять secured operations; Authorization учитывает актуальный `UserStatus`; удаление текущего пользователя очищает session; concurrency test login/authorization vs logical delete.
+????????? ???????????? ?? ????? ????????? secured operations; Authorization ????????? ?????????? `UserStatus`; ???????? ???????? ???????????? ??????? session; concurrency test login/authorization vs logical delete.
 
 ### Required documents
 
@@ -6916,7 +6916,7 @@ Permission definitions are capability-owned and sync-safe.
 
 ### Implementation requirements
 
-- Authorization loads current user status; DELETED → deny.
+- Authorization loads current user status; DELETED ? deny.
 - `deleteUser` clears session when deleting the authenticated user.
 - Concurrency PostgreSQL IT: login/authorization vs logical delete.
 
@@ -6946,7 +6946,7 @@ Logical delete immediately stops secured access for that user.
 
 ---
 
-## STAGE4-047 — Idempotent document contribution registration on restart
+## STAGE4-047 ? Idempotent document contribution registration on restart
 
 **Status:** DONE
 **Stage:** 4
@@ -6955,7 +6955,7 @@ Logical delete immediately stops secured access for that user.
 
 ### Goal
 
-Повторный запуск packaged app против той же PostgreSQL DB не падает на `Document type already registered` для sample/technical document contributions: registration must treat DB-persisted types as restart-safe while still rejecting in-process duplicate processor registration.
+????????? ?????? packaged app ?????? ??? ?? PostgreSQL DB ?? ?????? ?? `Document type already registered` ??? sample/technical document contributions: registration must treat DB-persisted types as restart-safe while still rejecting in-process duplicate processor registration.
 
 ### Required documents
 
@@ -7008,7 +7008,7 @@ Packaged app restart is stable with persisted document types.
 
 ---
 
-## STAGE4-048 — VERIFICATION-LOG remediation for Stage 4
+## STAGE4-048 ? VERIFICATION-LOG remediation for Stage 4
 
 **Status:** DONE
 **Stage:** 4
@@ -7017,11 +7017,11 @@ Packaged app restart is stable with persisted document types.
 
 ### Goal
 
-Исправить `VERIFICATION-LOG.md`: Latest result отражает Stage 4; добавить отдельные записи STAGE4-019..023 либо честно зафиксировать пакетное выполнение; не закрывать задачи без focused verification notes.
+????????? `VERIFICATION-LOG.md`: Latest result ???????? Stage 4; ???????? ????????? ?????? STAGE4-019..023 ???? ?????? ????????????? ???????? ??????????; ?? ????????? ?????? ??? focused verification notes.
 
 ### Required documents
 
-- BLK-016 additional items 2–4.
+- BLK-016 additional items 2?4.
 
 ### Required code context
 
@@ -7066,9 +7066,9 @@ Verification log is trustworthy for Stage 4 review.
 
 ---
 
-# Stage 4 — Security (BLK-017 residual corrective tasks)
+# Stage 4 ? Security (BLK-017 residual corrective tasks)
 
-## STAGE4-049 — Legacy permission ownership claim on V4→V5 upgrade
+## STAGE4-049 ? Legacy permission ownership claim on V4?V5 upgrade
 
 **Status:** DONE
 **Stage:** 4
@@ -7077,7 +7077,7 @@ Verification log is trustworthy for Stage 4 review.
 
 ### Goal
 
-Безопасно одноразово принять `owner_capability_id = legacy.unassigned` при synchronization после V5 upgrade, без изменения V4/V5 SQL; сохранить role permissions и individual overrides; после claim обычные ownership conflicts снова отклоняются.
+????????? ?????????? ??????? `owner_capability_id = legacy.unassigned` ??? synchronization ????? V5 upgrade, ??? ????????? V4/V5 SQL; ????????? role permissions ? individual overrides; ????? claim ??????? ownership conflicts ????? ???????????.
 
 ### Required documents
 
@@ -7101,14 +7101,14 @@ Verification log is trustworthy for Stage 4 review.
 
 ### Implementation requirements
 
-- `PermissionDefinition.claimLegacyOwnership(String capabilityId)` — only when owner is `legacy.unassigned`.
+- `PermissionDefinition.claimLegacyOwnership(String capabilityId)` ? only when owner is `legacy.unassigned`.
 - Sync claims legacy ownership for the contributing Capability, then continues reconciliation.
-- PostgreSQL Testcontainers upgrade IT: Flyway target V4 → seed V4 permission(+role permission/+override) → V5 → synchronize → owner=`security-administration` → assignments preserved → idempotent re-sync → other Capability rejected.
+- PostgreSQL Testcontainers upgrade IT: Flyway target V4 ? seed V4 permission(+role permission/+override) ? V5 ? synchronize ? owner=`security-administration` ? assignments preserved ? idempotent re-sync ? other Capability rejected.
 
 ### Acceptance criteria
 
 - [x] Legacy owner is claimable once by contributing Capability.
-- [x] Upgrade IT covers V4→V5→sync path.
+- [x] Upgrade IT covers V4?V5?sync path.
 - [x] Subsequent ownership conflicts still fail.
 - [x] Role permissions and overrides survive.
 
@@ -7133,7 +7133,7 @@ Existing V4 DBs upgrade through V5 and Security startup without ownership confli
 
 ---
 
-## STAGE4-050 — Logout clears session on audit failure
+## STAGE4-050 ? Logout clears session on audit failure
 
 **Status:** DONE
 **Stage:** 4
@@ -7142,7 +7142,7 @@ Existing V4 DBs upgrade through V5 and Security startup without ownership confli
 
 ### Goal
 
-Гарантировать закрытие session при logout независимо от результата logout audit; audit failure не оставляет пользователя authenticated и не скрывается.
+????????????? ???????? session ??? logout ?????????? ?? ?????????? logout audit; audit failure ?? ????????? ???????????? authenticated ? ?? ??????????.
 
 ### Required documents
 
@@ -7164,7 +7164,7 @@ Existing V4 DBs upgrade through V5 and Security startup without ownership confli
 ### Implementation requirements
 
 - `try/finally` (or equivalent): always `sessionContext.close()` after logout attempt.
-- Unit test + PostgreSQL IT with controllable audit: `isAuthenticated()==false`, `requirePermission` → `AccessDeniedException`.
+- Unit test + PostgreSQL IT with controllable audit: `isAuthenticated()==false`, `requirePermission` ? `AccessDeniedException`.
 
 ### Acceptance criteria
 
@@ -7193,7 +7193,7 @@ Logout always ends authentication even if audit write fails.
 
 ---
 
-## STAGE4-051 — Close prior session before login attempt
+## STAGE4-051 ? Close prior session before login attempt
 
 **Status:** DONE
 **Stage:** 4
@@ -7202,7 +7202,7 @@ Logout always ends authentication even if audit write fails.
 
 ### Goal
 
-Зафиксировать desktop TMP контракт: перед новой попыткой login закрывать предыдущую session; failed login не оставляёт ни новую, ни старую session; successful login создаёт только новую.
+????????????? desktop TMP ????????: ????? ????? ???????? login ????????? ?????????? session; failed login ?? ????????? ?? ?????, ?? ?????? session; successful login ??????? ?????? ?????.
 
 ### Required documents
 
@@ -7224,7 +7224,7 @@ Logout always ends authentication even if audit write fails.
 ### Implementation requirements
 
 - Close current session at the start of every `login` attempt.
-- Tests: active session + wrong/unknown/deleted login → no session; active + other valid user → only new session; audit events без password/hash.
+- Tests: active session + wrong/unknown/deleted login ? no session; active + other valid user ? only new session; audit events ??? password/hash.
 
 ### Acceptance criteria
 
@@ -7253,7 +7253,7 @@ Login failure never leaves a prior authenticated session.
 
 ---
 
-## STAGE4-052 — Login vs user-delete race: status re-check before session open
+## STAGE4-052 ? Login vs user-delete race: status re-check before session open
 
 **Status:** DONE
 **Stage:** 4
@@ -7262,7 +7262,7 @@ Login failure never leaves a prior authenticated session.
 
 ### Goal
 
-Не открывать session для DELETED user, даже если password check прошёл по ранее прочитанному ACTIVE snapshot; зафиксировать политику re-check `UserStatus` непосредственно перед `sessionContext.open`.
+?? ????????? session ??? DELETED user, ???? ???? password check ?????? ?? ????? ???????????? ACTIVE snapshot; ????????????? ???????? re-check `UserStatus` ??????????????? ????? `sessionContext.open`.
 
 ### Required documents
 
@@ -7312,7 +7312,7 @@ Login/delete race cannot authenticate a deleted user.
 
 ---
 
-## STAGE4-053 — Automated verification after BLK-017 fixes
+## STAGE4-053 ? Automated verification after BLK-017 fixes
 
 **Status:** DONE
 **Stage:** 4
@@ -7321,7 +7321,7 @@ Login/delete race cannot authenticate a deleted user.
 
 ### Goal
 
-Выполнить полный automated gate после residual fixes: `mvn clean verify`, `mvn clean verify -Ppackage`, detached `TMP.exe` smoke (включая upgrade path evidence via IT). Не закрывать Stage 4 и не стартовать Stage 5. Финальный gate остаётся STAGE4-040 после ручного GUI подтверждения пользователя.
+????????? ?????? automated gate ????? residual fixes: `mvn clean verify`, `mvn clean verify -Ppackage`, detached `TMP.exe` smoke (??????? upgrade path evidence via IT). ?? ????????? Stage 4 ? ?? ?????????? Stage 5. ????????? gate ???????? STAGE4-040 ????? ??????? GUI ????????????? ????????????.
 
 ### Required documents
 
@@ -7333,7 +7333,7 @@ Login/delete race cannot authenticate a deleted user.
 
 ### Allowed code scope
 
-- docs control files; no production code unless verification finds a genuine defect owned by STAGE4-049…052.
+- docs control files; no production code unless verification finds a genuine defect owned by STAGE4-049?052.
 
 ### Forbidden
 
@@ -7377,7 +7377,7 @@ Automated residual gate green; STAGE4-040 waiting on user GUI confirmation.
 
 ---
 
-## STAGE4-054 — Final Stage 4 close after manual packaged GUI confirmation
+## STAGE4-054 ? Final Stage 4 close after manual packaged GUI confirmation
 
 **Status:** DONE
 **Stage:** 4
@@ -7386,11 +7386,11 @@ Automated residual gate green; STAGE4-040 waiting on user GUI confirmation.
 
 ### Goal
 
-Зафиксировать подтверждение ручной packaged GUI-проверки пользователя, закрыть финальный verification gate Stage 4 (включая STAGE4-040) и установить Stage 4 в DONE 100% / `STAGE_COMPLETE`, без перехода к Stage 5 и без исправления некритичного UI-дефекта кодировки пагинации.
+????????????? ????????????? ?????? packaged GUI-???????? ????????????, ??????? ????????? verification gate Stage 4 (??????? STAGE4-040) ? ?????????? Stage 4 ? DONE 100% / `STAGE_COMPLETE`, ??? ???????? ? Stage 5 ? ??? ??????????? ???????????? UI-??????? ????????? ?????????.
 
 ### Required documents
 
-- Stage 4 task §22; `STAGE-4-SECURITY.md` (exit criteria); `templates/STAGE-CLOSE-TEMPLATE.md`; user confirmation of manual packaged GUI smoke (2026-07-24).
+- Stage 4 task �22; `STAGE-4-SECURITY.md` (exit criteria); `templates/STAGE-CLOSE-TEMPLATE.md`; user confirmation of manual packaged GUI smoke (2026-07-24).
 
 ### Required code context
 
@@ -7402,7 +7402,7 @@ Automated residual gate green; STAGE4-040 waiting on user GUI confirmation.
 
 ### Forbidden
 
-- production-code changes (except if strictly required for documentation correctness — not needed here);
+- production-code changes (except if strictly required for documentation correctness ? not needed here);
 - fixing Security Audit pagination encoding in this task (tracked as `BACKLOG-001`);
 - starting Stage 5 / Stage 5 Start Gate;
 - any Git commands (commit, branch, tag, push).
@@ -7441,7 +7441,7 @@ Prior automated: mvn clean verify; mvn clean verify -Ppackage (STAGE4-053)
 
 ### Documentation updates
 
-- STATUS.md → `Project status: STAGE_COMPLETE`, `Current Stage: Stage 4 — Security`, `Current Task: None`, `Last completed task: STAGE4-054`, `Active blocker: None`, `Stage 4: DONE 100%`;
+- STATUS.md ? `Project status: STAGE_COMPLETE`, `Current Stage: Stage 4 ? Security`, `Current Task: None`, `Last completed task: STAGE4-054`, `Active blocker: None`, `Stage 4: DONE 100%`;
 - WORK-QUEUE (this task + STAGE4-040 DONE + BACKLOG-001);
 - IMPLEMENTATION-LOG; VERIFICATION-LOG; BLOCKERS.
 
@@ -7453,16 +7453,16 @@ Stage 4 fully closed; non-blocking pagination encoding backlog only; explicit st
 
 # Backlog (non-blocking / post-Stage)
 
-## BACKLOG-001 — Fix Security Audit pagination text encoding
+## BACKLOG-001 ? Fix Security Audit pagination text encoding
 
 **Status:** PLANNED
-**Stage:** Backlog (post–Stage 4; does not block Stage 4 close)
+**Stage:** Backlog (post?Stage 4; does not block Stage 4 close)
 **Depends on:** STAGE4-054
 **Module:** `tmp-ui-shell` (Security Audit Screen)
 
 ### Goal
 
-Исправить неправильную кодировку текста пагинации в нижней части экрана Security Audit (некритичный UI-дефект, обнаруженный при ручном packaged GUI smoke 2026-07-24).
+????????? ???????????? ????????? ?????? ????????? ? ?????? ????? ?????? Security Audit (??????????? UI-??????, ???????????? ??? ?????? packaged GUI smoke 2026-07-24).
 
 ### Required documents
 
@@ -7500,7 +7500,7 @@ Stage 4 fully closed; non-blocking pagination encoding backlog only; explicit st
 ### Verification commands
 
 ```text
-Manual: dist/jpackage/TMP/TMP.exe → Security Audit → inspect pagination footer encoding
+Manual: dist/jpackage/TMP/TMP.exe ? Security Audit ? inspect pagination footer encoding
 ```
 
 ### Documentation updates
@@ -7513,11 +7513,11 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ---
 
-# Stage 5 — Order Management
+# Stage 5 ? Order Management
 
-> **Обязательно к прочтению перед любой задачей Stage 5:** `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (полный Manifest) и `Order-Management-Specification.md` **v1.3**. Правила контекста — `CONTEXT-MAP.md` → «Stage 5 — Order Management Context». Границы: Order Management владеет коммерческими данными заказа/позиции/редакции/спецификации и typed payload своих документов (по `DocumentId`, ADR-028); производственное состояние принадлежит Production (не хранится в Stage 5). Изменения — только через Document Engine; проведение атомарно и идемпотентно. Внешним Capability доступны только Public Query API (только active Revision) и Domain Events. Одновременно только одна задача в статусе `IN_PROGRESS`. `STAGE5-051` нельзя начинать, пока `STAGE5-050` не `DONE`. Git-операции запрещены (выполняет пользователь).
+> **??????????? ? ????????? ????? ????? ??????? Stage 5:** `docs/development-control/stages/STAGE-5-ORDER-MANAGEMENT.md` (?????? Manifest) ? `Order-Management-Specification.md` **v1.3**. ??????? ????????? ? `CONTEXT-MAP.md` ? �Stage 5 ? Order Management Context�. ???????: Order Management ??????? ????????????? ??????? ??????/???????/????????/???????????? ? typed payload ????? ?????????? (?? `DocumentId`, ADR-028); ???????????????? ????????? ??????????? Production (?? ???????? ? Stage 5). ????????? ? ?????? ????? Document Engine; ?????????? ???????? ? ????????????. ??????? Capability ???????? ?????? Public Query API (?????? active Revision) ? Domain Events. ???????????? ?????? ???? ?????? ? ??????? `IN_PROGRESS`. `STAGE5-051` ?????? ????????, ???? `STAGE5-050` ?? `DONE`. Git-???????? ????????? (????????? ????????????).
 
-## STAGE5-000 — Stage 5 Start Gate and Specification Reconciliation
+## STAGE5-000 ? Stage 5 Start Gate and Specification Reconciliation
 
 **Status:** DONE
 **Stage:** 5
@@ -7526,1064 +7526,1064 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ### Goal
 
-Устранить первичные противоречия документации Order Management, обновить Specification до v1.1, Stage Manifest и Context Map, пройти первичный documentation gate и сформировать очередь Stage 5 — без изменения Java-кода.
+????????? ????????? ???????????? ???????????? Order Management, ???????? Specification ?? v1.1, Stage Manifest ? Context Map, ?????? ????????? documentation gate ? ???????????? ??????? Stage 5 ? ??? ????????? Java-????.
 
 ### Acceptance result
 
-- [x] спецификация обновлена (v1.1); владение производственными статусами вынесено в Production;
-- [x] документные операции формализованы; transition matrices определены;
-- [x] Stage Manifest и Context Map обновлены; первичная очередь Stage 5 сформирована;
-- [x] Java-код не изменялся.
+- [x] ???????????? ????????? (v1.1); ???????? ????????????????? ????????? ???????? ? Production;
+- [x] ??????????? ???????? ?????????????; transition matrices ??????????;
+- [x] Stage Manifest ? Context Map ?????????; ????????? ??????? Stage 5 ????????????;
+- [x] Java-??? ?? ?????????.
 
 ### Expected result
 
-Первичный Start Gate пройден. Последующая ревизия выявила документационные дефекты — см. `STAGE5-000-FIX`.
+????????? Start Gate ???????. ??????????? ??????? ??????? ???????????????? ??????? ? ??. `STAGE5-000-FIX`.
 
 ---
 
-## STAGE5-000-FIX — Stage 5 Documentation Gate Corrections
+## STAGE5-000-FIX ? Stage 5 Documentation Gate Corrections
 
 **Status:** COMPLETED
 **Stage:** 5
 **Depends on:** STAGE5-000
 **Module:** documentation only
 
-- **Goal:** Исправить документационные дефекты после STAGE5-000, повторно пройти Documentation Gate и вернуть `STAGE5-001` в READY. Только документация и планирование.
-- **Scope:** capability-owned typed document payload (ADR-028); подтверждение транзакционной границы Document Engine; уточнение Constitution (п.28) и ADR-003/ADR-004; разделение active/draft Revision и документ `ORDER_ITEM_REVISION_UPDATE`; безопасные правила отмены Stage 5; расширение Public Query API (поиск/пагинация); document lifecycle policy и idempotency; Specification → v1.2; Stage Manifest; Context Map; полная пересборка очереди Stage 5.
-- **Out of scope:** Java-код, Maven-модули, `pom.xml`, SQL, FXML/CSS, тесты, старт `STAGE5-001`, Git.
-- **Required documents:** Constitution; ADR; Order-Management-Specification; Production-Specification; Document Engine Specification + публичные API; Stage 5 Manifest; control docs.
+- **Goal:** ????????? ???????????????? ??????? ????? STAGE5-000, ???????? ?????? Documentation Gate ? ??????? `STAGE5-001` ? READY. ?????? ???????????? ? ????????????.
+- **Scope:** capability-owned typed document payload (ADR-028); ????????????? ?????????????? ??????? Document Engine; ????????? Constitution (?.28) ? ADR-003/ADR-004; ?????????? active/draft Revision ? ???????? `ORDER_ITEM_REVISION_UPDATE`; ?????????? ??????? ?????? Stage 5; ?????????? Public Query API (?????/?????????); document lifecycle policy ? idempotency; Specification ? v1.2; Stage Manifest; Context Map; ?????? ?????????? ??????? Stage 5.
+- **Out of scope:** Java-???, Maven-??????, `pom.xml`, SQL, FXML/CSS, ?????, ????? `STAGE5-001`, Git.
+- **Required documents:** Constitution; ADR; Order-Management-Specification; Production-Specification; Document Engine Specification + ????????? API; Stage 5 Manifest; control docs.
 - **Required code context (verification only):** `com.tmp.document.api..` (`DocumentProcessor`, `DocumentOperationContext`, `DocumentMetadata`, `Create/UpdateDocumentCommand`); `DefaultDocumentEngine`, `DocumentOperationContextImpl`, `TransactionAfterCommitEventPublisher`; `com.tmp.core.api` Event API.
 - **Files allowed to change:** Constitution, ADR file, Order-Management-Specification, STAGE-5 Manifest, CONTEXT-MAP, WORK-QUEUE, STATUS, BLOCKERS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Acceptance criteria:** все gates §18 пройдены; Specification v1.2; ADR-028 добавлен; Constitution п.28 и ADR-003/004 согласованы; очередь пересобрана; только `STAGE5-001` READY; Java-код не изменялся.
+- **Acceptance criteria:** ??? gates �18 ????????; Specification v1.2; ADR-028 ????????; Constitution ?.28 ? ADR-003/004 ???????????; ??????? ???????????; ?????? `STAGE5-001` READY; Java-??? ?? ?????????.
 - **Verification commands:** `Documentation cross-reference only (no Maven build; no code/build changes).`
-- **Documentation updates:** все перечисленные control и architecture документы.
-- **Stop conditions:** отсутствие `DocumentId` в operation context; невозможность связать payload с документом или определить транзакционную границу; конфликт lifecycle Document Engine с политикой; остаточные противоречия ADR. (Не сработали — контракт подтверждён.)
+- **Documentation updates:** ??? ????????????? control ? architecture ?????????.
+- **Stop conditions:** ?????????? `DocumentId` ? operation context; ????????????? ??????? payload ? ?????????? ??? ?????????? ?????????????? ???????; ???????? lifecycle Document Engine ? ?????????; ?????????? ???????????? ADR. (?? ????????? ? ???????? ???????????.)
 
 ---
 
-## STAGE5-000-FIX2 — Final Documentation Corrections
+## STAGE5-000-FIX2 ? Final Documentation Corrections
 
 **Status:** COMPLETED
 **Stage:** 5
 **Depends on:** STAGE5-000-FIX
 **Module:** documentation only
 
-- **Goal:** Устранить оставшиеся замечания подготовки Stage 5: публичный after-commit контракт `TransactionalEventPublisher`; физическая модель typed payload; корректная семантика idempotency (`void onPost`); транзакционный контракт в Document Engine Specification; синхронизация версий и номеров задач. Только документация.
-- **Scope:** Document-Engine-Specification → v1.1; Order-Management-Specification §11.5/§12/§14/§16/§19; Stage Manifest; CONTEXT-MAP (v1.2, публичный publisher); полная пересборка очереди Stage 5 с prerequisite `TransactionalEventPublisher` до первого Document Processor; синхронизация номеров (`STAGE5-001..050`, GUI smoke `STAGE5-050`).
-- **Out of scope:** Java-код, модули, `pom.xml`, миграции, тесты, старт `STAGE5-001`, Git.
-- **Required documents:** Document-Engine-Specification; Order-Management-Specification; Stage 5 Manifest; CONTEXT-MAP; control docs; публичные контракты и минимальная реализация Document Engine (только для проверки транзакций).
-- **Required code context (verification only):** `com.tmp.document.api..`; `DefaultDocumentEngine`, `TransactionAfterCommitEventPublisher` (только для подтверждения фактического поведения транзакций).
+- **Goal:** ????????? ?????????? ????????? ?????????? Stage 5: ????????? after-commit ???????? `TransactionalEventPublisher`; ?????????? ?????? typed payload; ?????????? ????????? idempotency (`void onPost`); ?????????????? ???????? ? Document Engine Specification; ????????????? ?????? ? ??????? ?????. ?????? ????????????.
+- **Scope:** Document-Engine-Specification ? v1.1; Order-Management-Specification �11.5/�12/�14/�16/�19; Stage Manifest; CONTEXT-MAP (v1.2, ????????? publisher); ?????? ?????????? ??????? Stage 5 ? prerequisite `TransactionalEventPublisher` ?? ??????? Document Processor; ????????????? ??????? (`STAGE5-001..050`, GUI smoke `STAGE5-050`).
+- **Out of scope:** Java-???, ??????, `pom.xml`, ????????, ?????, ????? `STAGE5-001`, Git.
+- **Required documents:** Document-Engine-Specification; Order-Management-Specification; Stage 5 Manifest; CONTEXT-MAP; control docs; ????????? ????????? ? ??????????? ?????????? Document Engine (?????? ??? ???????? ??????????).
+- **Required code context (verification only):** `com.tmp.document.api..`; `DefaultDocumentEngine`, `TransactionAfterCommitEventPublisher` (?????? ??? ????????????? ???????????? ????????? ??????????).
 - **Files allowed to change:** Document-Engine-Specification, Order-Management-Specification, STAGE-5 Manifest, CONTEXT-MAP, WORK-QUEUE, STATUS, BLOCKERS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Acceptance criteria:** Documentation Gate §9 пройден; after-commit механизм публичный; Order Management не использует внутренние классы Document Engine; физическое хранение typed payload определено; JSON payload не используется; idempotency соответствует `void onPost`; повторный публичный post отклоняется lifecycle validation; Document Engine Specification фиксирует транзакционный контракт; очередь и версии/номера синхронизированы; только `STAGE5-001` READY; Java-код не изменялся.
+- **Acceptance criteria:** Documentation Gate �9 ???????; after-commit ???????? ?????????; Order Management ?? ?????????? ?????????? ?????? Document Engine; ?????????? ???????? typed payload ??????????; JSON payload ?? ????????????; idempotency ????????????? `void onPost`; ????????? ????????? post ??????????? lifecycle validation; Document Engine Specification ????????? ?????????????? ????????; ??????? ? ??????/?????? ????????????????; ?????? `STAGE5-001` READY; Java-??? ?? ?????????.
 - **Verification commands:** `Documentation cross-reference only (no Maven build; no code/build changes).`
-- **Documentation updates:** все перечисленные документы.
-- **Stop conditions:** after-commit не может быть публичным; невозможно определить физическое хранение payload; idempotency не сводится к `void onPost`; транзакционный контракт не фиксируется. (Не сработали.)
+- **Documentation updates:** ??? ????????????? ?????????.
+- **Stop conditions:** after-commit ?? ????? ???? ?????????; ?????????? ?????????? ?????????? ???????? payload; idempotency ?? ???????? ? `void onPost`; ?????????????? ???????? ?? ???????????. (?? ?????????.)
 
 ---
 
-## STAGE5-001 — Bootstrap `tmp-order-management` module
+## STAGE5-001 ? Bootstrap `tmp-order-management` module
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-000-FIX2
 **Module:** `tmp-order-management` (new)
 
-- **Goal:** Создать Maven-модуль `tmp-order-management`, подключить к reactor, задать package skeleton и разрешённые зависимости. Без агрегатов, таблиц, документов, UI.
-- **Scope:** новый модуль; пакеты `com.tmp.order.api|domain|application|persistence|capability`; зависимости только `com.tmp.core.api`, `com.tmp.capability.api`, `com.tmp.document.api`, `com.tmp.security.api`.
-- **Out of scope:** любая доменная/persistence/UI логика; изменение других модулей кроме reactor pom.
-- **Required documents:** Manifest §3/§13; Database Spec (Schema per Module).
-- **Required code context:** root `pom.xml`; существующие module pom как образец.
-- **Files allowed to change:** root `pom.xml`, `tmp-order-management/pom.xml`, пустые package-info.
-- **Acceptance criteria:** модуль в reactor; `mvn -q -pl tmp-order-management -am validate` зелёный; запрещённые зависимости отсутствуют.
+- **Goal:** ??????? Maven-?????? `tmp-order-management`, ?????????? ? reactor, ?????? package skeleton ? ??????????? ???????????. ??? ?????????, ??????, ??????????, UI.
+- **Scope:** ????? ??????; ?????? `com.tmp.order.api|domain|application|persistence|capability`; ??????????? ?????? `com.tmp.core.api`, `com.tmp.capability.api`, `com.tmp.document.api`, `com.tmp.security.api`.
+- **Out of scope:** ????? ????????/persistence/UI ??????; ????????? ?????? ??????? ????? reactor pom.
+- **Required documents:** Manifest �3/�13; Database Spec (Schema per Module).
+- **Required code context:** root `pom.xml`; ???????????? module pom ??? ???????.
+- **Files allowed to change:** root `pom.xml`, `tmp-order-management/pom.xml`, ?????? package-info.
+- **Acceptance criteria:** ?????? ? reactor; `mvn -q -pl tmp-order-management -am validate` ???????; ??????????? ??????????? ???????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am validate`
 - **Documentation updates:** WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** невозможно подключить модуль без изменения чужой реализации.
+- **Stop conditions:** ?????????? ?????????? ?????? ??? ????????? ????? ??????????.
 
 ---
 
-## STAGE5-002 — Architecture boundaries and dependency rules
+## STAGE5-002 ? Architecture boundaries and dependency rules
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-001
 
-- **Goal:** Зафиксировать архитектурные правила модуля (границы пакетов, запрет mutating API наружу, запрет production-данных, запрет импорта внутренних классов Document Engine) как ArchUnit-правила скелетом.
-- **Scope:** правила: `api` не зависит от `persistence`; наружу только Query API; отсутствие импорта внутренних пакетов других Capability и внутренних классов Document Engine; отсутствие JavaFX.
-- **Out of scope:** доменная логика; реальные агрегаты.
-- **Required documents:** Manifest §3/§16; ADR-003/004/019/028.
-- **Required code context:** `tmp-architecture-tests` конвенции; `com.tmp.*.api`.
-- **Files allowed to change:** `tmp-architecture-tests` (новые правила для order), `tmp-order-management` package-info.
-- **Acceptance criteria:** architecture tests компилируются и проходят на пустом модуле; правило «no internal Document Engine imports» присутствует.
+- **Goal:** ????????????? ????????????? ??????? ?????? (??????? ???????, ?????? mutating API ??????, ?????? production-??????, ?????? ??????? ?????????? ??????? Document Engine) ??? ArchUnit-??????? ????????.
+- **Scope:** ???????: `api` ?? ??????? ?? `persistence`; ?????? ?????? Query API; ?????????? ??????? ?????????? ??????? ?????? Capability ? ?????????? ??????? Document Engine; ?????????? JavaFX.
+- **Out of scope:** ???????? ??????; ???????? ????????.
+- **Required documents:** Manifest �3/�16; ADR-003/004/019/028.
+- **Required code context:** `tmp-architecture-tests` ?????????; `com.tmp.*.api`.
+- **Files allowed to change:** `tmp-architecture-tests` (????? ??????? ??? order), `tmp-order-management` package-info.
+- **Acceptance criteria:** architecture tests ????????????? ? ???????? ?? ?????? ??????; ??????? �no internal Document Engine imports� ????????????.
 - **Verification commands:** `mvn -q -pl tmp-architecture-tests -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** правило требует доступа к внутренней реализации другой Capability.
+- **Stop conditions:** ??????? ??????? ??????? ? ?????????? ?????????? ?????? Capability.
 
 ---
 
-## STAGE5-003 — Identifiers and common value objects
+## STAGE5-003 ? Identifiers and common value objects
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-002
 
-- **Goal:** Определить идентификаторы и базовые value objects (`OrderId`, `OrderItemId`, `RevisionNumber`, статусы, `PayloadSchemaVersion`, `PayloadRevision`).
-- **Scope:** типобезопасные идентификаторы и enums в `com.tmp.order.api`/`domain`.
-- **Out of scope:** агрегаты, persistence.
-- **Required documents:** Spec §5/§8/§9/§11.2.
-- **Required code context:** собственный домен.
+- **Goal:** ?????????? ?????????????? ? ??????? value objects (`OrderId`, `OrderItemId`, `RevisionNumber`, ???????, `PayloadSchemaVersion`, `PayloadRevision`).
+- **Scope:** ?????????????? ?????????????? ? enums ? `com.tmp.order.api`/`domain`.
+- **Out of scope:** ????????, persistence.
+- **Required documents:** Spec �5/�8/�9/�11.2.
+- **Required code context:** ??????????? ?????.
 - **Files allowed to change:** `tmp-order-management/.../api`, `.../domain`.
-- **Acceptance criteria:** unit-тесты валидации идентификаторов проходят.
+- **Acceptance criteria:** unit-????? ????????? ??????????????? ????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** требуется идентификатор чужой Capability как владелец.
+- **Stop conditions:** ????????? ????????????? ????? Capability ??? ????????.
 
 ---
 
-## STAGE5-004 — Domain aggregate: Customer Order
+## STAGE5-004 ? Domain aggregate: Customer Order
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-003
 
-- **Goal:** Реализовать агрегат Customer Order со статусами `DRAFT/APPROVED/CANCELLED` и инвариантами §8.
-- **Scope:** доменные объекты, инварианты, переходы (без persistence/документов).
-- **Out of scope:** persistence, документы, события, UI.
-- **Required documents:** Spec §5.1/§8; ADR-017.
-- **Required code context:** собственный домен.
+- **Goal:** ??????????? ??????? Customer Order ?? ????????? `DRAFT/APPROVED/CANCELLED` ? ???????????? �8.
+- **Scope:** ???????? ???????, ??????????, ???????? (??? persistence/??????????).
+- **Out of scope:** persistence, ?????????, ???????, UI.
+- **Required documents:** Spec �5.1/�8; ADR-017.
+- **Required code context:** ??????????? ?????.
 - **Files allowed to change:** `tmp-order-management/.../domain`.
-- **Acceptance criteria:** unit-тесты инвариантов и переходов (в т.ч. запрет `APPROVED→CANCELLED`).
+- **Acceptance criteria:** unit-????? ??????????? ? ????????? (? ?.?. ?????? `APPROVED?CANCELLED`).
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** статус без полного transition rule.
+- **Stop conditions:** ?????? ??? ??????? transition rule.
 
 ---
 
-## STAGE5-005 — Domain aggregate: Order Item
+## STAGE5-005 ? Domain aggregate: Order Item
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-004
 
-- **Goal:** Реализовать агрегат Order Item со статусами `DRAFT/ACTIVE/CANCELLED`, коммерческими полями и указателями `activeRevisionNumber`/`draftRevisionNumber`.
-- **Scope:** доменные инварианты §9 (в т.ч. запрет `ACTIVE→CANCELLED`).
-- **Out of scope:** Revision-детали (STAGE5-006), persistence, документы.
-- **Required documents:** Spec §5.2/§9; ADR-017.
-- **Required code context:** собственный домен.
+- **Goal:** ??????????? ??????? Order Item ?? ????????? `DRAFT/ACTIVE/CANCELLED`, ????????????? ?????? ? ??????????? `activeRevisionNumber`/`draftRevisionNumber`.
+- **Scope:** ???????? ?????????? �9 (? ?.?. ?????? `ACTIVE?CANCELLED`).
+- **Out of scope:** Revision-?????? (STAGE5-006), persistence, ?????????.
+- **Required documents:** Spec �5.2/�9; ADR-017.
+- **Required code context:** ??????????? ?????.
 - **Files allowed to change:** `tmp-order-management/.../domain`.
-- **Acceptance criteria:** unit-тесты инвариантов позиции и переходов.
+- **Acceptance criteria:** unit-????? ??????????? ??????? ? ?????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** статус без полного transition rule.
+- **Stop conditions:** ?????? ??? ??????? transition rule.
 
 ---
 
-## STAGE5-006 — Active/draft Revision model
+## STAGE5-006 ? Active/draft Revision model
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-005
 
-- **Goal:** Реализовать `OrderItemRevision` с разделением active/draft: ≤ 1 draft; active immutable; создание N+1 не меняет active; утверждение атомарно переключает active и снимает draft.
-- **Scope:** доменная логика редакций §6/§9.3.
-- **Out of scope:** Specification-детали (STAGE5-007), документы, persistence.
-- **Required documents:** Spec §5.3/§6/§9.3; ADR-018.
-- **Required code context:** собственный домен.
+- **Goal:** ??????????? `OrderItemRevision` ? ??????????? active/draft: ? 1 draft; active immutable; ???????? N+1 ?? ?????? active; ??????????? ???????? ??????????? active ? ??????? draft.
+- **Scope:** ???????? ?????? ???????? �6/�9.3.
+- **Out of scope:** Specification-?????? (STAGE5-007), ?????????, persistence.
+- **Required documents:** Spec �5.3/�6/�9.3; ADR-018.
+- **Required code context:** ??????????? ?????.
 - **Files allowed to change:** `tmp-order-management/.../domain`.
-- **Acceptance criteria:** unit-тесты: одна draft; active не заменяется до утверждения; предыдущие revision immutable; утверждение атомарно.
+- **Acceptance criteria:** unit-?????: ???? draft; active ?? ?????????? ?? ???????????; ?????????? revision immutable; ??????????? ????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** невозможно гарантировать единственность draft в домене.
+- **Stop conditions:** ?????????? ????????????? ?????????????? draft ? ??????.
 
 ---
 
-## STAGE5-007 — Immutable Item Specification
+## STAGE5-007 ? Immutable Item Specification
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-006
 
-- **Goal:** Реализовать Item Specification (состав/нормы) в границе Revision; после утверждения Immutable (ADR-018).
-- **Scope:** доменная модель спецификации и её инвариант неизменяемости.
-- **Out of scope:** persistence, документы, UI.
-- **Required documents:** Spec §5.4/§7; ADR-018.
-- **Required code context:** собственный домен.
+- **Goal:** ??????????? Item Specification (??????/?????) ? ??????? Revision; ????? ??????????? Immutable (ADR-018).
+- **Scope:** ???????? ?????? ???????????? ? ?? ????????? ??????????????.
+- **Out of scope:** persistence, ?????????, UI.
+- **Required documents:** Spec �5.4/�7; ADR-018.
+- **Required code context:** ??????????? ?????.
 - **Files allowed to change:** `tmp-order-management/.../domain`.
-- **Acceptance criteria:** unit-тесты: изменение утверждённой спецификации запрещено; изменение только новой Revision.
+- **Acceptance criteria:** unit-?????: ????????? ???????????? ???????????? ?????????; ????????? ?????? ????? Revision.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** нарушается инвариант immutability.
+- **Stop conditions:** ?????????? ????????? immutability.
 
 ---
 
-## STAGE5-008 — Repository ports
+## STAGE5-008 ? Repository ports
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-007
 
-- **Goal:** Определить domain-facing repository ports для Order/Item/Revision/Specification (интерфейсы, optimistic locking контракт).
-- **Scope:** только порты (интерфейсы), без adapters.
-- **Out of scope:** JDBC-адаптеры, миграции.
-- **Required documents:** Spec §19; Database Spec (Optimistic Locking).
-- **Required code context:** собственный домен/`repository`.
+- **Goal:** ?????????? domain-facing repository ports ??? Order/Item/Revision/Specification (??????????, optimistic locking ????????).
+- **Scope:** ?????? ????? (??????????), ??? adapters.
+- **Out of scope:** JDBC-????????, ????????.
+- **Required documents:** Spec �19; Database Spec (Optimistic Locking).
+- **Required code context:** ??????????? ?????/`repository`.
 - **Files allowed to change:** `tmp-order-management/.../domain/repository`.
-- **Acceptance criteria:** порты компилируются; контракт версии/конкурентности выражен.
+- **Acceptance criteria:** ????? ?????????????; ???????? ??????/?????????????? ???????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** порт требует чужого хранилища.
+- **Stop conditions:** ???? ??????? ?????? ?????????.
 
 ---
 
-## STAGE5-009 — Public Query API contracts and DTO
+## STAGE5-009 ? Public Query API contracts and DTO
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-008
 
-- **Goal:** Определить Public Query API (`getOrder`, `getOrderItems`, `getOrderItem`, `getOrderItemRevisions`, `getOrderItemRevision`, `getActiveOrderItemRevision`, `getItemSpecification`) и Query DTO.
-- **Scope:** интерфейсы и DTO в `com.tmp.order.api`; DTO только данные Order Management; различие active/draft; внешне только active.
-- **Out of scope:** реализация, пагинация (STAGE5-010), mutating операции.
-- **Required documents:** Spec §15.1/§15.1.3; ADR-003.
+- **Goal:** ?????????? Public Query API (`getOrder`, `getOrderItems`, `getOrderItem`, `getOrderItemRevisions`, `getOrderItemRevision`, `getActiveOrderItemRevision`, `getItemSpecification`) ? Query DTO.
+- **Scope:** ?????????? ? DTO ? `com.tmp.order.api`; DTO ?????? ?????? Order Management; ???????? active/draft; ?????? ?????? active.
+- **Out of scope:** ??????????, ????????? (STAGE5-010), mutating ????????.
+- **Required documents:** Spec �15.1/�15.1.3; ADR-003.
 - **Required code context:** `com.tmp.order.api`.
 - **Files allowed to change:** `tmp-order-management/.../api`.
-- **Acceptance criteria:** DTO не содержат Production/Stock/Cutting; не раскрывают entities; draft недоступен внешне.
+- **Acceptance criteria:** DTO ?? ???????? Production/Stock/Cutting; ?? ?????????? entities; draft ?????????? ??????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** DTO вынуждены содержать чужие данные.
+- **Stop conditions:** DTO ????????? ????????? ????? ??????.
 
 ---
 
-## STAGE5-010 — Paginated search contracts
+## STAGE5-010 ? Paginated search contracts
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-009
 
-- **Goal:** Определить `searchOrders(criteria, pageRequest)`, критерии поиска, page request и sort whitelist.
-- **Scope:** search criteria (order number/status/customer/created from/to); pagination (default 50, max 100, zero-based); sort по умолчанию `createdAt DESC, orderId DESC`; whitelist sort fields.
-- **Out of scope:** реализация репозитория, UI.
-- **Required documents:** Spec §15.1.1/§15.1.2.
+- **Goal:** ?????????? `searchOrders(criteria, pageRequest)`, ???????? ??????, page request ? sort whitelist.
+- **Scope:** search criteria (order number/status/customer/created from/to); pagination (default 50, max 100, zero-based); sort ?? ????????? `createdAt DESC, orderId DESC`; whitelist sort fields.
+- **Out of scope:** ?????????? ???????????, UI.
+- **Required documents:** Spec �15.1.1/�15.1.2.
 - **Required code context:** `com.tmp.order.api`.
 - **Files allowed to change:** `tmp-order-management/.../api`.
-- **Acceptance criteria:** только поля из модели; max page size enforced; недопустимый sort отклоняется.
+- **Acceptance criteria:** ?????? ???? ?? ??????; max page size enforced; ???????????? sort ???????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** требуется фильтр по несуществующему полю.
+- **Stop conditions:** ????????? ?????? ?? ??????????????? ????.
 
 ---
-## STAGE5-011 — Typed payload models: Order documents
+## STAGE5-011 ? Typed payload models: Order documents
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-010
 
-- **Goal:** Определить typed payload модели документов заказа (`OrderCreatePayload`, `OrderUpdatePayload`, `OrderApprovePayload`, `OrderCancelPayload`) с полями identity §11.2.
-- **Scope:** типизированные Java-модели; поля identity; связь по `DocumentId`; без JSON.
+- **Goal:** ?????????? typed payload ?????? ?????????? ?????? (`OrderCreatePayload`, `OrderUpdatePayload`, `OrderApprovePayload`, `OrderCancelPayload`) ? ?????? identity �11.2.
+- **Scope:** ?????????????? Java-??????; ???? identity; ????? ?? `DocumentId`; ??? JSON.
 - **Out of scope:** persistence, processors, generic JSON.
-- **Required documents:** Spec §11/§11.2; ADR-028.
+- **Required documents:** Spec �11/�11.2; ADR-028.
 - **Required code context:** `com.tmp.document.api` (`DocumentMetadata`/`DocumentId`).
 - **Files allowed to change:** `tmp-order-management/.../application` (payload).
-- **Acceptance criteria:** модели типизированы и versioned; отсутствует generic JSON.
+- **Acceptance criteria:** ?????? ???????????? ? versioned; ??????????? generic JSON.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** payload нельзя связать с `DocumentId`.
+- **Stop conditions:** payload ?????? ??????? ? `DocumentId`.
 
 ---
 
-## STAGE5-012 — Typed payload models: Item documents
+## STAGE5-012 ? Typed payload models: Item documents
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-011
 
-- **Goal:** Определить typed payload модели документов позиции (`OrderItemCreatePayload`, `OrderItemUpdatePayload`, `OrderItemCancelPayload`).
-- **Scope:** типизированные модели с identity §11.2; `ORDER_ITEM_UPDATE` — только коммерческие поля (не Revision/Specification).
+- **Goal:** ?????????? typed payload ?????? ?????????? ??????? (`OrderItemCreatePayload`, `OrderItemUpdatePayload`, `OrderItemCancelPayload`).
+- **Scope:** ?????????????? ?????? ? identity �11.2; `ORDER_ITEM_UPDATE` ? ?????? ???????????? ???? (?? Revision/Specification).
 - **Out of scope:** persistence, processors.
-- **Required documents:** Spec §11/§13; ADR-028.
+- **Required documents:** Spec �11/�13; ADR-028.
 - **Required code context:** `com.tmp.document.api`.
 - **Files allowed to change:** `tmp-order-management/.../application` (payload).
-- **Acceptance criteria:** `OrderItemUpdatePayload` не содержит spec/revision полей.
+- **Acceptance criteria:** `OrderItemUpdatePayload` ?? ???????? spec/revision ?????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** payload смешивает коммерческие и revision данные.
+- **Stop conditions:** payload ????????? ???????????? ? revision ??????.
 
 ---
 
-## STAGE5-013 — Typed payload models: Revision documents
+## STAGE5-013 ? Typed payload models: Revision documents
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-012
 
-- **Goal:** Определить typed payload модели документов редакции (`OrderItemRevisionCreatePayload`, `OrderItemRevisionUpdatePayload`, `OrderItemRevisionApprovePayload`) и строки спецификации (payload line).
-- **Scope:** модели редакции/спецификации с identity §11.2; коллекция строк как отдельная типизированная модель; `ORDER_ITEM_REVISION_UPDATE` изменяет только draft revision.
+- **Goal:** ?????????? typed payload ?????? ?????????? ???????? (`OrderItemRevisionCreatePayload`, `OrderItemRevisionUpdatePayload`, `OrderItemRevisionApprovePayload`) ? ?????? ???????????? (payload line).
+- **Scope:** ?????? ????????/???????????? ? identity �11.2; ????????? ????? ??? ????????? ?????????????? ??????; `ORDER_ITEM_REVISION_UPDATE` ???????? ?????? draft revision.
 - **Out of scope:** persistence, processors.
-- **Required documents:** Spec §6/§11/§13; ADR-028.
+- **Required documents:** Spec �6/�11/�13; ADR-028.
 - **Required code context:** `com.tmp.document.api`.
 - **Files allowed to change:** `tmp-order-management/.../application` (payload).
-- **Acceptance criteria:** update-payload адресует только draft revision; строки спецификации — типизированная коллекция.
+- **Acceptance criteria:** update-payload ???????? ?????? draft revision; ?????? ???????????? ? ?????????????? ?????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** payload позволяет менять утверждённую revision.
+- **Stop conditions:** payload ????????? ?????? ???????????? revision.
 
 ---
 
-## STAGE5-014 — Payload application use cases (draft edit + optimistic lock)
+## STAGE5-014 ? Payload application use cases (draft edit + optimistic lock)
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-013
 
-- **Goal:** Реализовать внутренние use cases создания/изменения draft payload с optimistic locking (`PayloadRevision`) и immutability после проведения.
-- **Scope:** application use cases (только внутренние); редактирование только пока документ Draft.
-- **Out of scope:** persistence-адаптер (STAGE5-020), processors.
-- **Required documents:** Spec §11.3/§11.4.
-- **Required code context:** собственный application; payload port (интерфейс использования).
+- **Goal:** ??????????? ?????????? use cases ????????/????????? draft payload ? optimistic locking (`PayloadRevision`) ? immutability ????? ??????????.
+- **Scope:** application use cases (?????? ??????????); ?????????????? ?????? ???? ???????? Draft.
+- **Out of scope:** persistence-??????? (STAGE5-020), processors.
+- **Required documents:** Spec �11.3/�11.4.
+- **Required code context:** ??????????? application; payload port (????????? ?????????????).
 - **Files allowed to change:** `tmp-order-management/.../application`.
-- **Acceptance criteria:** unit-тесты: конфликт `PayloadRevision` отклоняется; правка после проведения запрещена.
+- **Acceptance criteria:** unit-?????: ???????? `PayloadRevision` ???????????; ?????? ????? ?????????? ?????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** невозможно выразить optimistic lock.
+- **Stop conditions:** ?????????? ???????? optimistic lock.
 
 ---
 
-## STAGE5-015 — Payload persistence port
+## STAGE5-015 ? Payload persistence port
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-014
 
-- **Goal:** Определить persistence port для typed payload (load/store by `DocumentId`, версия схемы, `PayloadRevision`, каскадное удаление Draft).
-- **Scope:** только порт (интерфейс).
-- **Out of scope:** JDBC adapter, миграции.
-- **Required documents:** Spec §11.5/§19.
+- **Goal:** ?????????? persistence port ??? typed payload (load/store by `DocumentId`, ?????? ?????, `PayloadRevision`, ????????? ???????? Draft).
+- **Scope:** ?????? ???? (?????????).
+- **Out of scope:** JDBC adapter, ????????.
+- **Required documents:** Spec �11.5/�19.
 - **Required code context:** `com.tmp.document.api` (`DocumentId`).
-- **Files allowed to change:** `tmp-order-management/.../application` (port) или `.../persistence` (интерфейс порта).
-- **Acceptance criteria:** порт компилируется; ключ — `DocumentId`; операции purge для Draft определены.
+- **Files allowed to change:** `tmp-order-management/.../application` (port) ??? `.../persistence` (????????? ?????).
+- **Acceptance criteria:** ???? ?????????????; ???? ? `DocumentId`; ???????? purge ??? Draft ??????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** payload нельзя ключевать по `DocumentId`.
+- **Stop conditions:** payload ?????? ????????? ?? `DocumentId`.
 
 ---
 
-## STAGE5-016 — Payload physical schema (Flyway typed tables)
+## STAGE5-016 ? Payload physical schema (Flyway typed tables)
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-015
 
-- **Goal:** Создать Flyway-миграцию физической модели payload (Spec §11.5): `order_document_payload` + typed-таблицы (`order_create_payload`, `order_update_payload`, `order_status_payload`, `order_item_create_payload`, `order_item_update_payload`, `order_item_status_payload`, `order_item_revision_create_payload`, `order_item_revision_update_payload`, `order_item_revision_approve_payload`) + `order_item_revision_payload_line`.
-- **Scope:** только SQL-миграция payload (следующая свободная версия ≥ V6); FK на `order_document_payload(document_id)`; `payload_revision` для optimistic lock; каскадное удаление; typed-колонки без JSON.
-- **Out of scope:** adapter, агрегатные/processing таблицы.
-- **Required documents:** Spec §11.5/§19; Database Spec; Flyway (highest = V5).
-- **Required code context:** `tmp-infra-db` конвенции.
+- **Goal:** ??????? Flyway-???????? ?????????? ?????? payload (Spec �11.5): `order_document_payload` + typed-??????? (`order_create_payload`, `order_update_payload`, `order_status_payload`, `order_item_create_payload`, `order_item_update_payload`, `order_item_status_payload`, `order_item_revision_create_payload`, `order_item_revision_update_payload`, `order_item_revision_approve_payload`) + `order_item_revision_payload_line`.
+- **Scope:** ?????? SQL-???????? payload (????????? ????????? ?????? ? V6); FK ?? `order_document_payload(document_id)`; `payload_revision` ??? optimistic lock; ????????? ????????; typed-??????? ??? JSON.
+- **Out of scope:** adapter, ??????????/processing ???????.
+- **Required documents:** Spec �11.5/�19; Database Spec; Flyway (highest = V5).
+- **Required code context:** `tmp-infra-db` ?????????.
 - **Files allowed to change:** `src/main/resources/db/migration/Vx__order_payload_schema.sql`.
-- **Acceptance criteria:** миграция применяется; FK и `payload_revision` присутствуют; нет JSON-колонок; нет generic payload в Platform Core.
+- **Acceptance criteria:** ???????? ???????????; FK ? `payload_revision` ????????????; ??? JSON-???????; ??? generic payload ? Platform Core.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** схема вынуждает JSON/сериализацию.
+- **Stop conditions:** ????? ????????? JSON/????????????.
 
 ---
 
-## STAGE5-017 — Public TransactionalEventPublisher contract and adapter (prerequisite)
+## STAGE5-017 ? Public TransactionalEventPublisher contract and adapter (prerequisite)
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-016
 
-- **Goal:** Реализовать публичный контракт `TransactionalEventPublisher { void publishAfterCommit(DomainEvent event); }` и Spring transaction synchronization adapter в публичном API платформы/Document Engine, чтобы Capability публиковали события после commit без импорта внутренних классов Document Engine. Prerequisite до первого Document Processor.
-- **Scope:** публичный интерфейс; adapter на основе transaction synchronization; тесты publish-only-after-commit и no-publish-after-rollback.
-- **Out of scope:** Order Management processors; изменение бизнес-логики Document Engine.
-- **Required documents:** Document Engine Specification (v1.1); Spec §12; Manifest §11.
-- **Required code context:** `com.tmp.document.api`/`com.tmp.core.api` (`DomainEvent`, Event API); существующий after-commit механизм как reference (без экспонирования внутренних классов).
-- **Files allowed to change:** публичный контракт и adapter (платформа/Document Engine public API) + их тесты.
-- **Acceptance criteria:** контракт публичный; событие доставляется только после commit; при rollback не публикуется; Capability может зависеть только от публичного интерфейса.
+- **Goal:** ??????????? ????????? ???????? `TransactionalEventPublisher { void publishAfterCommit(DomainEvent event); }` ? Spring transaction synchronization adapter ? ????????? API ?????????/Document Engine, ????? Capability ??????????? ??????? ????? commit ??? ??????? ?????????? ??????? Document Engine. Prerequisite ?? ??????? Document Processor.
+- **Scope:** ????????? ?????????; adapter ?? ?????? transaction synchronization; ????? publish-only-after-commit ? no-publish-after-rollback.
+- **Out of scope:** Order Management processors; ????????? ??????-?????? Document Engine.
+- **Required documents:** Document Engine Specification (v1.1); Spec �12; Manifest �11.
+- **Required code context:** `com.tmp.document.api`/`com.tmp.core.api` (`DomainEvent`, Event API); ???????????? after-commit ???????? ??? reference (??? ?????????????? ?????????? ???????).
+- **Files allowed to change:** ????????? ???????? ? adapter (?????????/Document Engine public API) + ?? ?????.
+- **Acceptance criteria:** ???????? ?????????; ??????? ???????????? ?????? ????? commit; ??? rollback ?? ???????????; Capability ????? ???????? ?????? ?? ?????????? ??????????.
 - **Verification commands:** `mvn -q -pl tmp-document-engine -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** невозможно вынести after-commit в публичный контракт — остановить очередь, открыть blocker.
+- **Stop conditions:** ?????????? ??????? after-commit ? ????????? ???????? ? ?????????? ???????, ??????? blocker.
 
 ---
 
-## STAGE5-018 — Processing record and idempotency model
+## STAGE5-018 ? Processing record and idempotency model
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-017
 
-- **Goal:** Определить модель processing record и idempotency guard (`DocumentId`, `DocumentTypeCode`, `Operation`, `ProcessingStatus`, `PayloadRevision`, `ProcessedAt`, `ResultReference`), уникальность `DocumentId + Operation`; семантика `void onPost` (already processed без повторного изменения/события, без возврата результата).
-- **Scope:** доменная/application модель + порт + guard-логика.
-- **Out of scope:** SQL-миграция (STAGE5-019), adapter (STAGE5-020).
-- **Required documents:** Spec §14.1/§16; ADR-028.
+- **Goal:** ?????????? ?????? processing record ? idempotency guard (`DocumentId`, `DocumentTypeCode`, `Operation`, `ProcessingStatus`, `PayloadRevision`, `ProcessedAt`, `ResultReference`), ???????????? `DocumentId + Operation`; ????????? `void onPost` (already processed ??? ?????????? ?????????/???????, ??? ???????? ??????????).
+- **Scope:** ????????/application ?????? + ???? + guard-??????.
+- **Out of scope:** SQL-???????? (STAGE5-019), adapter (STAGE5-020).
+- **Required documents:** Spec �14.1/�16; ADR-028.
 - **Required code context:** `com.tmp.document.api` (`DocumentId`).
 - **Files allowed to change:** `tmp-order-management/.../application` / `.../domain`.
-- **Acceptance criteria:** unit-тесты: при существующей processing record повторная обработка не меняет агрегат, не публикует событие, не создаёт запись; `onPost` возвращает `void`; результат не возвращается наружу.
+- **Acceptance criteria:** unit-?????: ??? ???????????? processing record ????????? ????????? ?? ?????? ???????, ?? ????????? ???????, ?? ??????? ??????; `onPost` ?????????? `void`; ????????? ?? ???????????? ??????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** невозможно определить idempotency guard без возврата результата.
+- **Stop conditions:** ?????????? ?????????? idempotency guard ??? ???????? ??????????.
 
 ---
 
-## STAGE5-019 — Processing record schema (Flyway)
+## STAGE5-019 ? Processing record schema (Flyway)
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-018
 
-- **Goal:** Создать Flyway-миграцию таблицы processing record с уникальным ограничением `document_id + operation`.
-- **Scope:** только SQL-миграция (следующая свободная версия).
-- **Out of scope:** adapter, агрегатные таблицы.
-- **Required documents:** Spec §16/§19; Database Spec; Flyway.
-- **Required code context:** `tmp-infra-db` конвенции.
+- **Goal:** ??????? Flyway-???????? ??????? processing record ? ?????????? ???????????? `document_id + operation`.
+- **Scope:** ?????? SQL-???????? (????????? ????????? ??????).
+- **Out of scope:** adapter, ?????????? ???????.
+- **Required documents:** Spec �16/�19; Database Spec; Flyway.
+- **Required code context:** `tmp-infra-db` ?????????.
 - **Files allowed to change:** `src/main/resources/db/migration/Vx__order_processing_record.sql`.
-- **Acceptance criteria:** миграция применяется; unique constraint присутствует.
+- **Acceptance criteria:** ???????? ???????????; unique constraint ????????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** невозможно обеспечить уникальность `document_id + operation`.
+- **Stop conditions:** ?????????? ?????????? ???????????? `document_id + operation`.
 
 ---
 
-## STAGE5-020 — Payload and processing-record persistence adapters
+## STAGE5-020 ? Payload and processing-record persistence adapters
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-019
 
-- **Goal:** Реализовать JDBC-адаптеры payload persistence port (STAGE5-015) и processing-record port (STAGE5-018): typed-таблицы §11.5, ключ `DocumentId`, optimistic lock `payload_revision`, каскадное удаление Draft, уникальность `DocumentId + Operation`.
-- **Scope:** только адаптеры payload/processing (без JSON/сериализации).
-- **Out of scope:** миграции (STAGE5-016/019), UI, processors.
-- **Required documents:** Spec §11.5/§16/§19.
-- **Required code context:** `tmp-infra-db` конвенции; собственные порты; `com.tmp.document.api`.
+- **Goal:** ??????????? JDBC-???????? payload persistence port (STAGE5-015) ? processing-record port (STAGE5-018): typed-??????? �11.5, ???? `DocumentId`, optimistic lock `payload_revision`, ????????? ???????? Draft, ???????????? `DocumentId + Operation`.
+- **Scope:** ?????? ???????? payload/processing (??? JSON/????????????).
+- **Out of scope:** ???????? (STAGE5-016/019), UI, processors.
+- **Required documents:** Spec �11.5/�16/�19.
+- **Required code context:** `tmp-infra-db` ?????????; ??????????? ?????; `com.tmp.document.api`.
 - **Files allowed to change:** `tmp-order-management/.../persistence`.
-- **Acceptance criteria:** адаптеры реализуют optimistic lock, каскадное удаление Draft, идемпотентную запись processing record; без JSON.
+- **Acceptance criteria:** ???????? ????????? optimistic lock, ????????? ???????? Draft, ????????????? ?????? processing record; ??? JSON.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** невозможно обеспечить уникальность/лок на уровне адаптера.
+- **Stop conditions:** ?????????? ?????????? ????????????/??? ?? ?????? ????????.
 
 ---
-## STAGE5-021 — Business document type registration model
+## STAGE5-021 ? Business document type registration model
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-020
 
-- **Goal:** Определить каталог document type codes Order Management и их дескрипторы (тип ↔ payload ↔ schema version ↔ required capability) без реализации processors.
-- **Scope:** реестр типов документов §13; связь с payload и capability.
-- **Out of scope:** processors, lifecycle-логика.
-- **Required documents:** Spec §13; ADR-004/028.
-- **Required code context:** `com.tmp.document.api` (registration контракт).
+- **Goal:** ?????????? ??????? document type codes Order Management ? ?? ??????????? (??? ? payload ? schema version ? required capability) ??? ?????????? processors.
+- **Scope:** ?????? ????? ?????????? �13; ????? ? payload ? capability.
+- **Out of scope:** processors, lifecycle-??????.
+- **Required documents:** Spec �13; ADR-004/028.
+- **Required code context:** `com.tmp.document.api` (registration ????????).
 - **Files allowed to change:** `tmp-order-management/.../application` / `.../capability`.
-- **Acceptance criteria:** все 10 типов описаны; каждому сопоставлены payload type и capability.
+- **Acceptance criteria:** ??? 10 ????? ???????; ??????? ???????????? payload type ? capability.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** тип без payload/capability.
+- **Stop conditions:** ??? ??? payload/capability.
 
 ---
 
-## STAGE5-022 — Document lifecycle policy base
+## STAGE5-022 ? Document lifecycle policy base
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-021
 
-- **Goal:** Реализовать общий базовый lifecycle-контракт processors: `void onPost` (idempotency guard, load payload by `DocumentId`, проверка schema version + optimistic lock + предусловий, единственное бизнес-изменение, запись processing record, публикация события через публичный `TransactionalEventPublisher`); `onUnpost` = reject (NOT SUPPORTED); `onClose` = no business change; `onDelete` = draft only + удаление payload.
-- **Scope:** абстрактный базовый processor/шаблон lifecycle §14 (без конкретных типов); использование публичного `TransactionalEventPublisher` (без внутренних классов Document Engine).
-- **Out of scope:** конкретные document processors (STAGE5-023+).
-- **Required documents:** Spec §14; ADR-028; Document Engine Spec v1.1.
-- **Required code context:** `com.tmp.document.api` (`DocumentProcessor`, `DocumentOperationContext`, публичный `TransactionalEventPublisher`).
+- **Goal:** ??????????? ????? ??????? lifecycle-???????? processors: `void onPost` (idempotency guard, load payload by `DocumentId`, ???????? schema version + optimistic lock + ???????????, ???????????? ??????-?????????, ?????? processing record, ?????????? ??????? ????? ????????? `TransactionalEventPublisher`); `onUnpost` = reject (NOT SUPPORTED); `onClose` = no business change; `onDelete` = draft only + ???????? payload.
+- **Scope:** ??????????? ??????? processor/?????? lifecycle �14 (??? ?????????? ?????); ????????????? ?????????? `TransactionalEventPublisher` (??? ?????????? ??????? Document Engine).
+- **Out of scope:** ?????????? document processors (STAGE5-023+).
+- **Required documents:** Spec �14; ADR-028; Document Engine Spec v1.1.
+- **Required code context:** `com.tmp.document.api` (`DocumentProcessor`, `DocumentOperationContext`, ????????? `TransactionalEventPublisher`).
 - **Files allowed to change:** `tmp-order-management/.../application`.
-- **Acceptance criteria:** unit-тесты: `onUnpost` бросает; `onDelete` требует draft; `onClose` не меняет бизнес-состояние; `onPost` возвращает `void` и использует публичный publisher.
+- **Acceptance criteria:** unit-?????: `onUnpost` ???????; `onDelete` ??????? draft; `onClose` ?? ?????? ??????-?????????; `onPost` ?????????? `void` ? ?????????? ????????? publisher.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** lifecycle Document Engine противоречит политике.
+- **Stop conditions:** lifecycle Document Engine ???????????? ????????.
 
 ---
 
-## STAGE5-023 — Document processor: ORDER_CREATE
+## STAGE5-023 ? Document processor: ORDER_CREATE
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-022
 
-- **Goal:** Реализовать application command `createOrder`, processor `ORDER_CREATE` (`void onPost`: guard, load payload, validate, create order `DRAFT`, processing record, публикация `OrderCreated` через публичный publisher), регистрацию типа.
-- **Scope:** один document type (create order).
-- **Out of scope:** другие типы; persistence-адаптеры агрегатов (STAGE5-033).
-- **Required documents:** Spec §8/§13/§14/§16/§17.
-- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
+- **Goal:** ??????????? application command `createOrder`, processor `ORDER_CREATE` (`void onPost`: guard, load payload, validate, create order `DRAFT`, processing record, ?????????? `OrderCreated` ????? ????????? publisher), ??????????? ????.
+- **Scope:** ???? document type (create order).
+- **Out of scope:** ?????? ????; persistence-???????? ????????? (STAGE5-033).
+- **Required documents:** Spec �8/�13/�14/�16/�17.
+- **Required code context:** `com.tmp.document.api` (????????? publisher), ??????????? ?????/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: создаёт заказ `DRAFT`; idempotency guard; событие после commit; `onPost` void.
+- **Acceptance criteria:** unit-?????: ??????? ????? `DRAFT`; idempotency guard; ??????? ????? commit; `onPost` void.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** невозможно загрузить payload по `DocumentId`.
+- **Stop conditions:** ?????????? ????????? payload ?? `DocumentId`.
 
 ---
 
-## STAGE5-024 — Document processor: ORDER_UPDATE
+## STAGE5-024 ? Document processor: ORDER_UPDATE
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-023
 
-- **Goal:** Реализовать `updateOrder` и processor `ORDER_UPDATE` (только коммерческие поля, заказ `DRAFT`), событие `OrderUpdated`.
-- **Scope:** один document type (update order).
-- **Out of scope:** другие типы; изменение утверждённого заказа.
-- **Required documents:** Spec §8/§13/§14.
-- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
+- **Goal:** ??????????? `updateOrder` ? processor `ORDER_UPDATE` (?????? ???????????? ????, ????? `DRAFT`), ??????? `OrderUpdated`.
+- **Scope:** ???? document type (update order).
+- **Out of scope:** ?????? ????; ????????? ????????????? ??????.
+- **Required documents:** Spec �8/�13/�14.
+- **Required code context:** `com.tmp.document.api` (????????? publisher), ??????????? ?????/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: правка только `DRAFT`; idempotency guard; `onPost` void.
+- **Acceptance criteria:** unit-?????: ?????? ?????? `DRAFT`; idempotency guard; `onPost` void.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** payload затрагивает нерелевантные данные.
+- **Stop conditions:** payload ??????????? ????????????? ??????.
 
 ---
 
-## STAGE5-025 — Document processor: ORDER_APPROVE
+## STAGE5-025 ? Document processor: ORDER_APPROVE
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-024
 
-- **Goal:** Реализовать `approveOrder` и processor `ORDER_APPROVE` (≥1 active позиция), событие `OrderApproved`.
-- **Scope:** один document type (approve order).
-- **Out of scope:** другие типы.
-- **Required documents:** Spec §8/§13/§14.
-- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
+- **Goal:** ??????????? `approveOrder` ? processor `ORDER_APPROVE` (?1 active ???????), ??????? `OrderApproved`.
+- **Scope:** ???? document type (approve order).
+- **Out of scope:** ?????? ????.
+- **Required documents:** Spec �8/�13/�14.
+- **Required code context:** `com.tmp.document.api` (????????? publisher), ??????????? ?????/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: утверждение без active позиций отклоняется; idempotency guard.
+- **Acceptance criteria:** unit-?????: ??????????? ??? active ??????? ???????????; idempotency guard.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** предусловие невозможно проверить.
+- **Stop conditions:** ??????????? ?????????? ?????????.
 
 ---
 
-## STAGE5-026 — Document processor: ORDER_CANCEL (draft only)
+## STAGE5-026 ? Document processor: ORDER_CANCEL (draft only)
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-025
 
-- **Goal:** Реализовать `cancelOrder` и processor `ORDER_CANCEL` только для `DRAFT` заказа, событие `OrderCancelled`.
-- **Scope:** один document type; запрет `APPROVED→CANCELLED`.
-- **Out of scope:** компенсационная отмена утверждённого заказа (future scope).
-- **Required documents:** Spec §8/§13/§22/§23.
-- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
+- **Goal:** ??????????? `cancelOrder` ? processor `ORDER_CANCEL` ?????? ??? `DRAFT` ??????, ??????? `OrderCancelled`.
+- **Scope:** ???? document type; ?????? `APPROVED?CANCELLED`.
+- **Out of scope:** ??????????????? ?????? ????????????? ?????? (future scope).
+- **Required documents:** Spec �8/�13/�22/�23.
+- **Required code context:** `com.tmp.document.api` (????????? publisher), ??????????? ?????/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: отмена `APPROVED` отклоняется; отмена `DRAFT` работает.
+- **Acceptance criteria:** unit-?????: ?????? `APPROVED` ???????????; ?????? `DRAFT` ????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** политика отмены неоднозначна.
+- **Stop conditions:** ???????? ?????? ????????????.
 
 ---
 
-## STAGE5-027 — Document processor: ORDER_ITEM_CREATE
+## STAGE5-027 ? Document processor: ORDER_ITEM_CREATE
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-026
 
-- **Goal:** Реализовать `createOrderItem` и processor `ORDER_ITEM_CREATE` (позиция `DRAFT` + Revision 1 `DRAFT`, родительский заказ `DRAFT`), события `OrderItemCreated`, `OrderItemRevisionCreated`.
-- **Scope:** один document type; запрет добавления позиции в `APPROVED`/`CANCELLED` заказ.
-- **Out of scope:** редактирование revision (STAGE5-030).
-- **Required documents:** Spec §9/§13/§14/§17.
-- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
+- **Goal:** ??????????? `createOrderItem` ? processor `ORDER_ITEM_CREATE` (??????? `DRAFT` + Revision 1 `DRAFT`, ???????????? ????? `DRAFT`), ??????? `OrderItemCreated`, `OrderItemRevisionCreated`.
+- **Scope:** ???? document type; ?????? ?????????? ??????? ? `APPROVED`/`CANCELLED` ?????.
+- **Out of scope:** ?????????????? revision (STAGE5-030).
+- **Required documents:** Spec �9/�13/�14/�17.
+- **Required code context:** `com.tmp.document.api` (????????? publisher), ??????????? ?????/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: добавление в `APPROVED` заказ отклоняется; создаётся Revision 1 draft.
+- **Acceptance criteria:** unit-?????: ?????????? ? `APPROVED` ????? ???????????; ????????? Revision 1 draft.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** нарушение состава утверждённого заказа.
+- **Stop conditions:** ????????? ??????? ????????????? ??????.
 
 ---
 
-## STAGE5-028 — Document processor: ORDER_ITEM_UPDATE (commercial fields only)
+## STAGE5-028 ? Document processor: ORDER_ITEM_UPDATE (commercial fields only)
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-027
 
-- **Goal:** Реализовать `updateOrderItem` и processor `ORDER_ITEM_UPDATE` только для коммерческих полей позиции (не Revision/Specification), событие `OrderItemUpdated`.
-- **Scope:** один document type; запрет скрытого изменения revision.
-- **Out of scope:** изменение spec/revision (STAGE5-030).
-- **Required documents:** Spec §5.2/§6.3/§13.
-- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
+- **Goal:** ??????????? `updateOrderItem` ? processor `ORDER_ITEM_UPDATE` ?????? ??? ???????????? ????? ??????? (?? Revision/Specification), ??????? `OrderItemUpdated`.
+- **Scope:** ???? document type; ?????? ???????? ????????? revision.
+- **Out of scope:** ????????? spec/revision (STAGE5-030).
+- **Required documents:** Spec �5.2/�6.3/�13.
+- **Required code context:** `com.tmp.document.api` (????????? publisher), ??????????? ?????/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: попытка изменить revision/spec через этот документ отклоняется.
+- **Acceptance criteria:** unit-?????: ??????? ???????? revision/spec ????? ???? ???????? ???????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** payload позволяет менять revision.
+- **Stop conditions:** payload ????????? ?????? revision.
 
 ---
-## STAGE5-029 — Document processor: ORDER_ITEM_REVISION_CREATE
+## STAGE5-029 ? Document processor: ORDER_ITEM_REVISION_CREATE
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-028
 
-- **Goal:** Реализовать `createOrderItemRevision` и processor `ORDER_ITEM_REVISION_CREATE` (Revision N+1 `DRAFT` для active позиции; не меняет active; требует отсутствия draft), событие `OrderItemRevisionCreated`.
-- **Scope:** один document type; ≤ 1 draft.
-- **Out of scope:** редактирование draft (STAGE5-030), утверждение (STAGE5-031).
-- **Required documents:** Spec §6.2/§9.3/§13.
-- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
+- **Goal:** ??????????? `createOrderItemRevision` ? processor `ORDER_ITEM_REVISION_CREATE` (Revision N+1 `DRAFT` ??? active ???????; ?? ?????? active; ??????? ?????????? draft), ??????? `OrderItemRevisionCreated`.
+- **Scope:** ???? document type; ? 1 draft.
+- **Out of scope:** ?????????????? draft (STAGE5-030), ??????????? (STAGE5-031).
+- **Required documents:** Spec �6.2/�9.3/�13.
+- **Required code context:** `com.tmp.document.api` (????????? publisher), ??????????? ?????/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: вторая draft отклоняется; active не меняется.
+- **Acceptance criteria:** unit-?????: ?????? draft ???????????; active ?? ????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** невозможно гарантировать единственность draft.
+- **Stop conditions:** ?????????? ????????????? ?????????????? draft.
 
 ---
 
-## STAGE5-030 — Document processor: ORDER_ITEM_REVISION_UPDATE
+## STAGE5-030 ? Document processor: ORDER_ITEM_REVISION_UPDATE
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-029
 
-- **Goal:** Реализовать `updateOrderItemRevision` и processor `ORDER_ITEM_REVISION_UPDATE`, изменяющий только текущую Draft Revision (spec/количество, строки спецификации), событие `OrderItemRevisionUpdated`.
-- **Scope:** один document type; только draft revision.
-- **Out of scope:** утверждение; изменение утверждённой revision.
-- **Required documents:** Spec §6.3/§9.3/§13.
-- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
+- **Goal:** ??????????? `updateOrderItemRevision` ? processor `ORDER_ITEM_REVISION_UPDATE`, ?????????? ?????? ??????? Draft Revision (spec/??????????, ?????? ????????????), ??????? `OrderItemRevisionUpdated`.
+- **Scope:** ???? document type; ?????? draft revision.
+- **Out of scope:** ???????????; ????????? ???????????? revision.
+- **Required documents:** Spec �6.3/�9.3/�13.
+- **Required code context:** `com.tmp.document.api` (????????? publisher), ??????????? ?????/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: правка утверждённой revision отклоняется; правка draft работает; idempotency guard.
+- **Acceptance criteria:** unit-?????: ?????? ???????????? revision ???????????; ?????? draft ????????; idempotency guard.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** отсутствует draft для изменения.
+- **Stop conditions:** ??????????? draft ??? ?????????.
 
 ---
 
-## STAGE5-031 — Document processor: ORDER_ITEM_REVISION_APPROVE
+## STAGE5-031 ? Document processor: ORDER_ITEM_REVISION_APPROVE
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-030
 
-- **Goal:** Реализовать `approveOrderItemRevision` и processor `ORDER_ITEM_REVISION_APPROVE`: проверка draft + полноты spec; draft → immutable; атомарное назначение новой `activeRevision`; снятие `draftRevision`; сохранение предыдущей; событие `OrderItemRevisionApproved`; позиция → `ACTIVE`.
-- **Scope:** один document type; атомарное переключение active.
-- **Out of scope:** внешние потребители события (Production — не в Stage 5).
-- **Required documents:** Spec §6.4/§9.3/§17.
-- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
+- **Goal:** ??????????? `approveOrderItemRevision` ? processor `ORDER_ITEM_REVISION_APPROVE`: ???????? draft + ??????? spec; draft ? immutable; ????????? ?????????? ????? `activeRevision`; ?????? `draftRevision`; ?????????? ??????????; ??????? `OrderItemRevisionApproved`; ??????? ? `ACTIVE`.
+- **Scope:** ???? document type; ????????? ???????????? active.
+- **Out of scope:** ??????? ??????????? ??????? (Production ? ?? ? Stage 5).
+- **Required documents:** Spec �6.4/�9.3/�17.
+- **Required code context:** `com.tmp.document.api` (????????? publisher), ??????????? ?????/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: утверждение переключает active атомарно; предыдущая revision immutable; невалидная spec отклоняется.
+- **Acceptance criteria:** unit-?????: ??????????? ??????????? active ????????; ?????????? revision immutable; ?????????? spec ???????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** переключение active не атомарно.
+- **Stop conditions:** ???????????? active ?? ????????.
 
 ---
 
-## STAGE5-032 — Document processor: ORDER_ITEM_CANCEL (draft only)
+## STAGE5-032 ? Document processor: ORDER_ITEM_CANCEL (draft only)
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-031
 
-- **Goal:** Реализовать `cancelOrderItem` и processor `ORDER_ITEM_CANCEL` только для `DRAFT` позиции, событие `OrderItemCancelled`.
-- **Scope:** один document type; запрет `ACTIVE→CANCELLED`.
-- **Out of scope:** компенсационная отмена active позиции (future scope).
-- **Required documents:** Spec §9/§22/§23.
-- **Required code context:** `com.tmp.document.api` (публичный publisher), собственный домен/application.
+- **Goal:** ??????????? `cancelOrderItem` ? processor `ORDER_ITEM_CANCEL` ?????? ??? `DRAFT` ???????, ??????? `OrderItemCancelled`.
+- **Scope:** ???? document type; ?????? `ACTIVE?CANCELLED`.
+- **Out of scope:** ??????????????? ?????? active ??????? (future scope).
+- **Required documents:** Spec �9/�22/�23.
+- **Required code context:** `com.tmp.document.api` (????????? publisher), ??????????? ?????/application.
 - **Files allowed to change:** `tmp-order-management/.../application`, `.../capability`.
-- **Acceptance criteria:** unit-тесты: отмена active отклоняется; отмена draft работает.
+- **Acceptance criteria:** unit-?????: ?????? active ???????????; ?????? draft ????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** политика отмены неоднозначна.
+- **Stop conditions:** ???????? ?????? ????????????.
 
 ---
 
-## STAGE5-033 — Aggregate persistence adapters
+## STAGE5-033 ? Aggregate persistence adapters
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-032
 
-- **Goal:** Реализовать JDBC-адаптеры repository ports для Order/Item/Revision/Specification с optimistic locking.
-- **Scope:** только адаптеры (реализация портов STAGE5-008).
-- **Out of scope:** SQL-миграции (STAGE5-034), UI.
-- **Required documents:** Spec §19; Database Spec (Optimistic Locking, Транзакции).
-- **Required code context:** `tmp-infra-db`/`JdbcTemplate` конвенции; собственные порты.
+- **Goal:** ??????????? JDBC-???????? repository ports ??? Order/Item/Revision/Specification ? optimistic locking.
+- **Scope:** ?????? ???????? (?????????? ?????? STAGE5-008).
+- **Out of scope:** SQL-???????? (STAGE5-034), UI.
+- **Required documents:** Spec �19; Database Spec (Optimistic Locking, ??????????).
+- **Required code context:** `tmp-infra-db`/`JdbcTemplate` ?????????; ??????????? ?????.
 - **Files allowed to change:** `tmp-order-management/.../persistence`.
-- **Acceptance criteria:** адаптеры компилируются; реализуют контракт версии; без JPA.
+- **Acceptance criteria:** ???????? ?????????????; ????????? ???????? ??????; ??? JPA.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** адаптер требует чужой схемы.
+- **Stop conditions:** ??????? ??????? ????? ?????.
 
 ---
 
-## STAGE5-034 — Aggregate Flyway migration (order_management schema)
+## STAGE5-034 ? Aggregate Flyway migration (order_management schema)
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-033
 
-- **Goal:** Создать Flyway-миграцию агрегатных таблиц (`orders`, `order_items`, `order_item_revisions`, `item_specifications`, `item_specification_lines`) в схеме `order_management`.
-- **Scope:** только SQL-миграция агрегатов (следующая свободная версия).
-- **Out of scope:** payload/processing схемы (уже созданы), adapters.
-- **Required documents:** Spec §19; Database Spec; Flyway.
-- **Required code context:** `tmp-infra-db` конвенции.
+- **Goal:** ??????? Flyway-???????? ?????????? ?????? (`orders`, `order_items`, `order_item_revisions`, `item_specifications`, `item_specification_lines`) ? ????? `order_management`.
+- **Scope:** ?????? SQL-???????? ????????? (????????? ????????? ??????).
+- **Out of scope:** payload/processing ????? (??? ???????), adapters.
+- **Required documents:** Spec �19; Database Spec; Flyway.
+- **Required code context:** `tmp-infra-db` ?????????.
 - **Files allowed to change:** `src/main/resources/db/migration/Vx__order_management_schema.sql`.
-- **Acceptance criteria:** миграция применяется на чистой БД; не хранит production/warehouse/cutting данных.
+- **Acceptance criteria:** ???????? ??????????? ?? ?????? ??; ?? ?????? production/warehouse/cutting ??????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** схема вынуждает хранить чужие данные.
+- **Stop conditions:** ????? ????????? ??????? ????? ??????.
 
 ---
 
-## STAGE5-035 — Security capabilities registration
+## STAGE5-035 ? Security capabilities registration
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-034
 
-- **Goal:** Зарегистрировать capabilities Order Management (`order.order.*`, `order.item.*`, `order.revision.create/edit`, `order.specification.view`) через Capability Engine/Security.
-- **Scope:** дескрипторы разрешений и команд; 3-сегментный `PermissionId`.
-- **Out of scope:** внутренняя реализация Security; UI.
-- **Required documents:** Spec §18; Security `PermissionId` формат.
+- **Goal:** ???????????????? capabilities Order Management (`order.order.*`, `order.item.*`, `order.revision.create/edit`, `order.specification.view`) ????? Capability Engine/Security.
+- **Scope:** ??????????? ?????????? ? ??????; 3-?????????? `PermissionId`.
+- **Out of scope:** ?????????? ?????????? Security; UI.
+- **Required documents:** Spec �18; Security `PermissionId` ??????.
 - **Required code context:** `com.tmp.capability.api`, `com.tmp.security.api`.
 - **Files allowed to change:** `tmp-order-management/.../capability`.
-- **Acceptance criteria:** все capability коды валидны (3 сегмента); соответствуют документам §13.
+- **Acceptance criteria:** ??? capability ???? ??????? (3 ????????); ????????????? ?????????? �13.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** код не соответствует формату `PermissionId`.
+- **Stop conditions:** ??? ?? ????????????? ??????? `PermissionId`.
 
 ---
 
-## STAGE5-035A — Query API implementation
+## STAGE5-035A ? Query API implementation
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-035
 
-- **Goal:** Реализовать `DefaultOrderQueryService` и read-only JDBC adapter Public Query API (Specification §15.1).
+- **Goal:** ??????????? `DefaultOrderQueryService` ? read-only JDBC adapter Public Query API (Specification �15.1).
 - **Scope:** Query service, read port, JDBC read adapter, PostgreSQL IT.
 - **Out of scope:** Security wiring (STAGE5-035B), UI (STAGE5-036+), mutating API.
-- **Required documents:** Spec §15.1; Database Spec.
+- **Required documents:** Spec �15.1; Database Spec.
 - **Required code context:** `com.tmp.order.api`; aggregate JDBC schema; tests.
 - **Files allowed to change:** `tmp-order-management/.../application/query`, `tmp-order-management/.../persistence` (read adapter), tests.
-- **Acceptance criteria:** все методы `OrderQueryService` реализованы; Draft Revision скрыта; только DTO; нет mutating SQL.
+- **Acceptance criteria:** ??? ?????? `OrderQueryService` ???????????; Draft Revision ??????; ?????? DTO; ??? mutating SQL.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`; `mvn -q -pl tmp-order-management -am verify`
 - **Documentation updates:** WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** невозможно проецировать DTO без нарушения инвариантов.
+- **Stop conditions:** ?????????? ???????????? DTO ??? ????????? ???????????.
 
 ---
 
-## STAGE5-035B — Query API runtime wiring and security
+## STAGE5-035B ? Query API runtime wiring and security
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-035A
 
-- **Goal:** Зарегистрировать Query API beans и проверить permissions через публичный Security API.
+- **Goal:** ???????????????? Query API beans ? ????????? permissions ????? ????????? Security API.
 - **Scope:** AutoConfiguration / bean wiring; `order.order.view` / `order.item.view` / `order.specification.view`.
-- **Out of scope:** UI; назначение permissions пользователям/ролям; изменение Security internals.
-- **Required documents:** Spec §15.1/§18; Security public API.
+- **Out of scope:** UI; ?????????? permissions ?????????????/?????; ????????? Security internals.
+- **Required documents:** Spec �15.1/�18; Security public API.
 - **Required code context:** `com.tmp.security.api`; existing AutoConfiguration examples.
 - **Files allowed to change:** `tmp-order-management` (wiring + permission checks); bootstrap dependency if required; tests.
-- **Acceptance criteria:** beans создаются; denied без permission; нет internal Security imports; нет циклов.
+- **Acceptance criteria:** beans ?????????; denied ??? permission; ??? internal Security imports; ??? ??????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am verify`; `mvn -q -pl tmp-security -am test`; `mvn -q -pl tmp-bootstrap-app -am test`; `mvn -q -pl tmp-architecture-tests -am test`
 - **Documentation updates:** WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** публичный Security API не позволяет проверить permission.
+- **Stop conditions:** ????????? Security API ?? ????????? ????????? permission.
 
 ---
 
-## STAGE5-036 — UI navigation contribution
+## STAGE5-036 ? UI navigation contribution
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-035B
 
-- **Goal:** Добавить навигацию Order Management в `tmp-ui-shell` (пункт меню/раздел), управляемую capability.
-- **Scope:** только навигация; без экранов данных.
-- **Out of scope:** списки/редакторы (STAGE5-037+).
-- **Required documents:** UI/UX Spec (Навигация); Manifest §14.
-- **Required code context:** `tmp-ui-shell` навигация; `com.tmp.order.api`.
-- **Files allowed to change:** `tmp-ui-shell` (навигация), при необходимости `com.tmp.order.capability` (NavigationContribution).
-- **Acceptance criteria:** пункт появляется при наличии capability; скрыт без прав.
+- **Goal:** ???????? ????????? Order Management ? `tmp-ui-shell` (????? ????/??????), ??????????? capability.
+- **Scope:** ?????? ?????????; ??? ??????? ??????.
+- **Out of scope:** ??????/????????? (STAGE5-037+).
+- **Required documents:** UI/UX Spec (?????????); Manifest �14.
+- **Required code context:** `tmp-ui-shell` ?????????; `com.tmp.order.api`.
+- **Files allowed to change:** `tmp-ui-shell` (?????????), ??? ????????????? `com.tmp.order.capability` (NavigationContribution).
+- **Acceptance criteria:** ????? ?????????? ??? ??????? capability; ????? ??? ????.
 - **Verification commands:** `mvn -q -pl tmp-ui-shell -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** навигация требует прямых мутаций из UI.
+- **Stop conditions:** ????????? ??????? ?????? ??????? ?? UI.
 
 ---
 
-## STAGE5-037 — UI: Order list (paginated Query API)
+## STAGE5-037 ? UI: Order list (paginated Query API)
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-036
 
-- **Goal:** Реализовать экран списка заказов через `searchOrders`/пагинацию (только Query API), с фильтрами §15.1.1 и сортировкой по умолчанию.
-- **Scope:** список, фильтры, пагинация; read-only.
-- **Out of scope:** редактирование (STAGE5-038+), прямые мутации.
-- **Required documents:** UI/UX Spec (Экраны); Spec §15.1.
+- **Goal:** ??????????? ????? ?????? ??????? ????? `searchOrders`/????????? (?????? Query API), ? ????????? �15.1.1 ? ??????????? ?? ?????????.
+- **Scope:** ??????, ???????, ?????????; read-only.
+- **Out of scope:** ?????????????? (STAGE5-038+), ?????? ???????.
+- **Required documents:** UI/UX Spec (??????); Spec �15.1.
 - **Required code context:** `com.tmp.order.api` (Query/DTO); `tmp-ui-shell`.
-- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel списка).
-- **Acceptance criteria:** список работает только через Query API; page size ≤ 100; сортировка стабильна.
+- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel ??????).
+- **Acceptance criteria:** ?????? ???????? ?????? ????? Query API; page size ? 100; ?????????? ?????????.
 - **Verification commands:** `mvn -q -pl tmp-ui-shell -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** список требует mutating API или чужих данных.
+- **Stop conditions:** ?????? ??????? mutating API ??? ????? ??????.
 
 ---
 
-## STAGE5-038 — UI: Order editor (document-driven)
+## STAGE5-038 ? UI: Order editor (document-driven)
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-037
 
-- **Goal:** Реализовать редактор заказа: создать платформенный документ, сохранить typed draft payload, запросить проведение (`ORDER_CREATE`/`ORDER_UPDATE`/`ORDER_APPROVE`/`ORDER_CANCEL`).
-- **Scope:** экран заказа + document flow через внутренние use cases; `com.tmp.order.api.ui.OrderDocumentUiService`; 9B list fixes.
-- **Out of scope:** позиции/редакции (STAGE5-039).
-- **Required documents:** UI/UX Spec; Spec §11.4/§14; Manifest §14.
+- **Goal:** ??????????? ???????? ??????: ??????? ????????????? ????????, ????????? typed draft payload, ????????? ?????????? (`ORDER_CREATE`/`ORDER_UPDATE`/`ORDER_APPROVE`/`ORDER_CANCEL`).
+- **Scope:** ????? ?????? + document flow ????? ?????????? use cases; `com.tmp.order.api.ui.OrderDocumentUiService`; 9B list fixes.
+- **Out of scope:** ???????/???????? (STAGE5-039).
+- **Required documents:** UI/UX Spec; Spec �11.4/�14; Manifest �14.
 - **Required code context:** `com.tmp.order.api` (Query), `com.tmp.document.api`; `tmp-ui-shell`.
-- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel заказа/списка); `tmp-order-management` (`api.ui`, AutoConfiguration wiring for document UI flow); `tmp-bootstrap-app` (screen wiring).
-- **Acceptance criteria:** UI создаёт документ, сохраняет draft payload, инициирует проведение; нет прямых мутаций агрегата.
+- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel ??????/??????); `tmp-order-management` (`api.ui`, AutoConfiguration wiring for document UI flow); `tmp-bootstrap-app` (screen wiring).
+- **Acceptance criteria:** UI ??????? ????????, ????????? draft payload, ?????????? ??????????; ??? ?????? ??????? ????????.
 - **Verification commands:** `mvn -q -pl tmp-ui-shell -am verify`; `mvn -q -pl tmp-order-management -am verify`; `mvn -q -pl tmp-bootstrap-app -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** UI вынужден менять агрегат напрямую.
+- **Stop conditions:** UI ???????? ?????? ??????? ????????.
 - **Completed (2026-07-27):** 9B list single-load + `canGoPrevious`/`canGoNext`; `OrderDocumentUiService` + order-level processors; Order editor CREATE/VIEW_EXISTING; list create/open navigation; permissions; local errors; Spring wiring tests. STAGE5-039 not started.
 
 ---
 
-## STAGE5-039 — UI: Item and Revision editor
+## STAGE5-039 ? UI: Item and Revision editor
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-038
 
-- **Goal:** Реализовать редактор позиций и редакций: `ORDER_ITEM_*` и `ORDER_ITEM_REVISION_*` через document flow; различать active/draft revision; draft доступен только во внутреннем UI use case.
-- **Scope:** экраны позиции/редакции + document flow.
-- **Out of scope:** спецификация (STAGE5-040).
-- **Required documents:** UI/UX Spec; Spec §6/§9/§11.4.
+- **Goal:** ??????????? ???????? ??????? ? ????????: `ORDER_ITEM_*` ? `ORDER_ITEM_REVISION_*` ????? document flow; ????????? active/draft revision; draft ???????? ?????? ?? ?????????? UI use case.
+- **Scope:** ?????? ???????/???????? + document flow.
+- **Out of scope:** ???????????? (STAGE5-040).
+- **Required documents:** UI/UX Spec; Spec �6/�9/�11.4.
 - **Required code context:** `com.tmp.order.api`, `com.tmp.document.api`; `tmp-ui-shell`.
-- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel позиции/редакции); `tmp-order-management` (`api.ui` + AutoConfiguration processors); `tmp-bootstrap-app` (wiring).
-- **Acceptance criteria:** UI показывает active и draft раздельно; создание/правка draft через документы; утверждение переключает active.
+- **Files allowed to change:** `tmp-ui-shell` (FXML/Controller/ViewModel ???????/????????); `tmp-order-management` (`api.ui` + AutoConfiguration processors); `tmp-bootstrap-app` (wiring).
+- **Acceptance criteria:** UI ?????????? active ? draft ?????????; ????????/?????? draft ????? ?????????; ??????????? ??????????? active.
 - **Verification commands:** `mvn -q -pl tmp-ui-shell -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** draft revision раскрывается как внешняя спецификация.
+- **Stop conditions:** draft revision ???????????? ??? ??????? ????????????.
 - **Completed (2026-07-27):** Preflight (Javadoc CREATE via processing record; success message preserved after reload; fixed item list order `created_at ASC, order_item_id ASC`). `OrderItemDocumentUiService` + `OrderItemEditorQueryService`/`OrderItemEditorSnapshot`; 6 item/revision processors registered (10 total with order-level); item list + item/revision editor screens; permissions via public Security API. STAGE5-040 not started.
 
 ---
 
-## STAGE5-040 — UI: Specification editor (immutable after approve)
+## STAGE5-040 ? UI: Specification editor (immutable after approve)
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-039
 
-- **Goal:** Реализовать редактор спецификации draft revision; после утверждения — read-only.
-- **Scope:** экран спецификации через document flow (`ORDER_ITEM_REVISION_UPDATE`); UI-facing read model + save draft lines в `tmp-order-management` (`api.ui`); wiring в `tmp-bootstrap-app`.
+- **Goal:** ??????????? ???????? ???????????? draft revision; ????? ??????????? ? read-only.
+- **Scope:** ????? ???????????? ????? document flow (`ORDER_ITEM_REVISION_UPDATE`); UI-facing read model + save draft lines ? `tmp-order-management` (`api.ui`); wiring ? `tmp-bootstrap-app`.
 - **Out of scope:** STAGE5-041; Public Query API; Production/Warehouse/Cutting; auto-assign permissions.
-- **Required documents:** UI/UX Spec; Spec §5.4/§7/§9/§11.4/§13.2/§14.
+- **Required documents:** UI/UX Spec; Spec �5.4/�7/�9/�11.4/�13.2/�14.
 - **Required code context:** `com.tmp.order.api.ui`, `com.tmp.document.api`; `tmp-ui-shell`; bootstrap UI wiring.
-- **Files allowed to change:** `tmp-order-management` (api.ui + application.ui); `tmp-ui-shell` (FXML/Controller/ViewModel спецификации + Item Editor navigation); `tmp-bootstrap-app` (UI wiring only).
-- **Acceptance criteria:** утверждённая спецификация только для чтения; правка только draft через `ORDER_ITEM_REVISION_UPDATE`; Draft не в Public Query API.
+- **Files allowed to change:** `tmp-order-management` (api.ui + application.ui); `tmp-ui-shell` (FXML/Controller/ViewModel ???????????? + Item Editor navigation); `tmp-bootstrap-app` (UI wiring only).
+- **Acceptance criteria:** ???????????? ???????????? ?????? ??? ??????; ?????? ?????? draft ????? `ORDER_ITEM_REVISION_UPDATE`; Draft ?? ? Public Query API.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am verify`; `mvn -q -pl tmp-ui-shell -am verify`; `mvn -q -pl tmp-bootstrap-app -am test`; `mvn -q -pl tmp-document-engine -am test`; `mvn -q -pl tmp-architecture-tests -am test`
 - **Documentation updates:** WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** UI позволяет менять утверждённую спецификацию.
+- **Stop conditions:** UI ????????? ?????? ???????????? ????????????.
 - **Completed (2026-07-27):** UI-facing `OrderItemSpecificationEditorQueryService` / Snapshot / LineView; `OrderItemSpecificationLineDraft` + full `saveRevisionUpdateDraft`; Specification Editor screen; Item Editor open active/draft spec; bootstrap wiring. STAGE5-041 left PLANNED (not READY).
 
 ---
 
-## STAGE5-041 — UI: Error handling and user messages
+## STAGE5-041 ? UI: Error handling and user messages
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-040
 
-- **Goal:** Реализовать единообразную обработку ошибок домена/проведения (optimistic lock, запрещённые переходы, отклонённый unpost, отклонённый повторный post) и сообщения пользователю.
-- **Scope:** OrderUiErrorMapper + wiring во все Order Management ViewModels; preflight dirty state для Specification Editor.
-- **Out of scope:** STAGE5-042; новые экраны; lifecycle/idempotency Document Engine; Public Query API.
-- **Required documents:** UI/UX Spec (Сообщения пользователю); Spec §14/§16.
+- **Goal:** ??????????? ????????????? ????????? ?????? ??????/?????????? (optimistic lock, ??????????? ????????, ??????????? unpost, ??????????? ????????? post) ? ????????? ????????????.
+- **Scope:** OrderUiErrorMapper + wiring ?? ??? Order Management ViewModels; preflight dirty state ??? Specification Editor.
+- **Out of scope:** STAGE5-042; ????? ??????; lifecycle/idempotency Document Engine; Public Query API.
+- **Required documents:** UI/UX Spec (????????? ????????????); Spec �14/�16.
 - **Required code context:** `tmp-ui-shell`; `com.tmp.order.api`; `com.tmp.security.api.AccessDeniedException`.
-- **Files allowed to change:** `tmp-ui-shell` (mapper + ViewModels/FXML сообщений); control docs; architecture test rule.
-- **Acceptance criteria:** ошибки отображаются понятно; UI не «проглатывает» отказ проведения; post Spec при dirty заблокирован.
+- **Files allowed to change:** `tmp-ui-shell` (mapper + ViewModels/FXML ?????????); control docs; architecture test rule.
+- **Acceptance criteria:** ?????? ???????????? ???????; UI ?? �????????????� ????? ??????????; post Spec ??? dirty ????????????.
 - **Verification commands:** `mvn -q -pl tmp-ui-shell -am verify`; `mvn -q -pl tmp-order-management -am test`; `mvn -q -pl tmp-bootstrap-app -am test`; `mvn -q -pl tmp-architecture-tests -am test`
 - **Documentation updates:** WORK-QUEUE, STATUS, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** отказ проведения невозможно донести до пользователя.
+- **Stop conditions:** ????? ?????????? ?????????? ??????? ?? ????????????.
 - **Completed (2026-07-27):** OrderUiErrorMapper; dirty/post gate for Specification Editor; unified messages on Order List/Editor/Item List/Item Editor/Spec Editor. STAGE5-042 left PLANNED (not READY).
 
 ---
-## STAGE5-042 — Unit tests consolidation
+## STAGE5-042 ? Unit tests consolidation
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-041
 
-- **Goal:** Обеспечить покрытие домена/application unit-тестами (агрегаты, active/draft revision, immutability, payload optimistic lock, lifecycle policy, idempotency guard, `void onPost`).
-- **Scope:** только unit-тесты модуля.
-- **Out of scope:** integration/DB тесты.
-- **Required documents:** Manifest §15.
-- **Required code context:** собственный модуль.
+- **Goal:** ?????????? ???????? ??????/application unit-??????? (????????, active/draft revision, immutability, payload optimistic lock, lifecycle policy, idempotency guard, `void onPost`).
+- **Scope:** ?????? unit-????? ??????.
+- **Out of scope:** integration/DB ?????.
+- **Required documents:** Manifest �15.
+- **Required code context:** ??????????? ??????.
 - **Files allowed to change:** `tmp-order-management/src/test` (unit).
-- **Acceptance criteria:** unit-набор зелёный; ключевые инварианты покрыты.
+- **Acceptance criteria:** unit-????? ???????; ???????? ?????????? ???????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** инвариант невозможно протестировать без чужой реализации.
+- **Stop conditions:** ????????? ?????????? ?????????????? ??? ????? ??????????.
 
 ---
 
-## STAGE5-043 — Persistence integration tests (PostgreSQL Testcontainers)
+## STAGE5-043 ? Persistence integration tests (PostgreSQL Testcontainers)
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-042
 
-- **Goal:** Проверить схему/ограничения/optimistic lock/immutability revision/payload typed-таблицы/каскадное удаление Draft на реальном PostgreSQL.
-- **Scope:** IT persistence (агрегаты + payload typed tables + processing record).
-- **Out of scope:** document lifecycle/idempotency/rollback (отдельные задачи).
-- **Required documents:** Manifest §15; Spec §11.5; Database Spec.
-- **Required code context:** Testcontainers инфраструктура; собственные адаптеры.
+- **Goal:** ????????? ?????/???????????/optimistic lock/immutability revision/payload typed-???????/????????? ???????? Draft ?? ???????? PostgreSQL.
+- **Scope:** IT persistence (???????? + payload typed tables + processing record).
+- **Out of scope:** document lifecycle/idempotency/rollback (????????? ??????).
+- **Required documents:** Manifest �15; Spec �11.5; Database Spec.
+- **Required code context:** Testcontainers ??????????????; ??????????? ????????.
 - **Files allowed to change:** `tmp-order-management/src/test` (IT).
-- **Acceptance criteria:** IT зелёные на PostgreSQL; unique/lock/каскад проверены; нет JSON-колонок.
+- **Acceptance criteria:** IT ??????? ?? PostgreSQL; unique/lock/?????? ?????????; ??? JSON-???????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am verify`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** схема не соответствует модели.
+- **Stop conditions:** ????? ?? ????????????? ??????.
 
 ---
 
-## STAGE5-044 — Document lifecycle integration tests
+## STAGE5-044 ? Document lifecycle integration tests
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-043
 
-- **Goal:** Проверить полный документный поток (create → draft payload → post → aggregate change → event via public publisher) и политики `unpost` (rejected), `close` (no business change), `delete` (draft only, payload removed).
-- **Scope:** IT lifecycle через Document Engine + Order Management processors + публичный `TransactionalEventPublisher`.
-- **Out of scope:** idempotency/rollback (отдельно).
-- **Required documents:** Spec §14; Manifest §15; Document Engine Spec v1.1.
-- **Required code context:** `com.tmp.document.api` (публичный publisher); собственные processors.
+- **Goal:** ????????? ?????? ??????????? ????? (create ? draft payload ? post ? aggregate change ? event via public publisher) ? ???????? `unpost` (rejected), `close` (no business change), `delete` (draft only, payload removed).
+- **Scope:** IT lifecycle ????? Document Engine + Order Management processors + ????????? `TransactionalEventPublisher`.
+- **Out of scope:** idempotency/rollback (????????).
+- **Required documents:** Spec �14; Manifest �15; Document Engine Spec v1.1.
+- **Required code context:** `com.tmp.document.api` (????????? publisher); ??????????? processors.
 - **Files allowed to change:** `tmp-order-management/src/test` (IT).
-- **Acceptance criteria:** unpost проведённого отклонён; delete draft удаляет payload (все typed-таблицы); close не меняет бизнес-состояние; событие после commit.
+- **Acceptance criteria:** unpost ???????????? ????????; delete draft ??????? payload (??? typed-???????); close ?? ?????? ??????-?????????; ??????? ????? commit.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am verify`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** lifecycle расходится с политикой §14.
+- **Stop conditions:** lifecycle ?????????? ? ????????? �14.
 
 ---
 
-## STAGE5-045 — Idempotency tests
+## STAGE5-045 ? Idempotency tests
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-044
 
-- **Goal:** Проверить семантику idempotency: публичный повторный `DocumentEngine.postDocument(documentId)` для проведённого документа отклоняется lifecycle validation; idempotency guard внутри processor при существующей processing record завершается как already processed без повторного изменения агрегата, без повторного события, без новой processing record; `onPost` возвращает `void`.
-- **Scope:** IT идемпотентности (public reject + internal guard).
+- **Goal:** ????????? ????????? idempotency: ????????? ????????? `DocumentEngine.postDocument(documentId)` ??? ???????????? ????????? ??????????? lifecycle validation; idempotency guard ?????? processor ??? ???????????? processing record ??????????? ??? already processed ??? ?????????? ????????? ????????, ??? ?????????? ???????, ??? ????? processing record; `onPost` ?????????? `void`.
+- **Scope:** IT ??????????????? (public reject + internal guard).
 - **Out of scope:** rollback (STAGE5-046).
-- **Required documents:** Spec §14.1/§16; Manifest §15.
+- **Required documents:** Spec �14.1/�16; Manifest �15.
 - **Required code context:** processing record adapter; processors; `com.tmp.document.api`.
 - **Files allowed to change:** `tmp-order-management/src/test` (IT).
-- **Acceptance criteria:** повторный публичный post отклонён lifecycle validation; guard не дублирует изменение/событие/запись; результат наружу не возвращается.
+- **Acceptance criteria:** ????????? ????????? post ???????? lifecycle validation; guard ?? ????????? ?????????/???????/??????; ????????? ?????? ?? ????????????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am verify`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** повторная обработка дублирует бизнес-изменение.
+- **Stop conditions:** ????????? ????????? ????????? ??????-?????????.
 
 ---
 
-## STAGE5-046 — Transaction rollback tests
+## STAGE5-046 ? Transaction rollback tests
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-045
 
-- **Goal:** Проверить атомарность: сбой в `onPost` откатывает изменение агрегата, processing record, metadata документа и lifecycle journal; документ не переходит в `POSTED`; событие не публикуется (публичный `TransactionalEventPublisher` не доставляет при rollback).
-- **Scope:** IT rollback в транзакционной границе Document Engine.
-- **Out of scope:** прочее.
-- **Required documents:** Spec §12; Manifest §11/§15; Document Engine Spec v1.1.
-- **Required code context:** `com.tmp.document.api` (публичный publisher); processors.
+- **Goal:** ????????? ???????????: ???? ? `onPost` ?????????? ????????? ????????, processing record, metadata ????????? ? lifecycle journal; ???????? ?? ????????? ? `POSTED`; ??????? ?? ??????????? (????????? `TransactionalEventPublisher` ?? ?????????? ??? rollback).
+- **Scope:** IT rollback ? ?????????????? ??????? Document Engine.
+- **Out of scope:** ??????.
+- **Required documents:** Spec �12; Manifest �11/�15; Document Engine Spec v1.1.
+- **Required code context:** `com.tmp.document.api` (????????? publisher); processors.
 - **Files allowed to change:** `tmp-order-management/src/test` (IT).
-- **Acceptance criteria:** при откате нет частичных изменений и события.
+- **Acceptance criteria:** ??? ?????? ??? ????????? ????????? ? ???????.
 - **Verification commands:** `mvn -q -pl tmp-order-management -am verify`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** обнаружена неатомарность — открыть blocker Platform/Document Engine.
+- **Stop conditions:** ?????????? ????????????? ? ??????? blocker Platform/Document Engine.
 
 ---
 
-## STAGE5-047 — Architecture tests (boundaries and ownership)
+## STAGE5-047 ? Architecture tests (boundaries and ownership)
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-046
 
-- **Goal:** Финализировать architecture tests: границы пакетов; отсутствие production-owned данных; отсутствие внешнего mutating API; payload не в Platform Core (без JSON); зависимости только на разрешённые публичные API; запрет импорта внутренних классов Document Engine; использование публичного `TransactionalEventPublisher`.
-- **Scope:** правила ArchUnit для Order Management.
-- **Out of scope:** функциональные тесты.
-- **Required documents:** Manifest §16; ADR-003/004/019/028; Document Engine Spec v1.1.
+- **Goal:** ?????????????? architecture tests: ??????? ???????; ?????????? production-owned ??????; ?????????? ???????? mutating API; payload ?? ? Platform Core (??? JSON); ??????????? ?????? ?? ??????????? ????????? API; ?????? ??????? ?????????? ??????? Document Engine; ????????????? ?????????? `TransactionalEventPublisher`.
+- **Scope:** ??????? ArchUnit ??? Order Management.
+- **Out of scope:** ?????????????? ?????.
+- **Required documents:** Manifest �16; ADR-003/004/019/028; Document Engine Spec v1.1.
 - **Required code context:** `tmp-architecture-tests`; `com.tmp.*.api`.
 - **Files allowed to change:** `tmp-architecture-tests`.
-- **Acceptance criteria:** все архитектурные правила проходят; нарушение «no internal Document Engine imports» ловится.
+- **Acceptance criteria:** ??? ????????????? ??????? ????????; ????????? �no internal Document Engine imports� ???????.
 - **Verification commands:** `mvn -q -pl tmp-architecture-tests -am test`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** нарушена граница владения/зависимостей.
+- **Stop conditions:** ???????? ??????? ????????/????????????.
 
 ---
 
-## STAGE5-048 — Full reactor verification
+## STAGE5-048 ? Full reactor verification
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-047
 
-- **Goal:** Полная сборка и проверка реактора.
-- **Scope:** `mvn clean verify` по всему проекту.
+- **Goal:** ?????? ?????? ? ???????? ????????.
+- **Scope:** `mvn clean verify` ?? ????? ???????.
 - **Out of scope:** packaging (STAGE5-049).
-- **Required documents:** Manifest §19; RUN-DEVELOPMENT.
-- **Required code context:** весь реактор.
-- **Files allowed to change:** только исправления, выявленные сборкой (в рамках Stage 5).
-- **Acceptance criteria:** `mvn clean verify` зелёный.
+- **Required documents:** Manifest �19; RUN-DEVELOPMENT.
+- **Required code context:** ???? ???????.
+- **Files allowed to change:** ?????? ???????????, ?????????? ??????? (? ?????? Stage 5).
+- **Acceptance criteria:** `mvn clean verify` ???????.
 - **Verification commands:** `mvn -q clean verify`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** сборка падает по причинам вне Stage 5.
+- **Stop conditions:** ?????? ?????? ?? ???????? ??? Stage 5.
 
 ---
 
-## STAGE5-049 — Packaged application verification
+## STAGE5-049 ? Packaged application verification
 
 **Status:** DONE
 **Stage:** 5
 **Depends on:** STAGE5-048
 
-- **Goal:** Собрать упакованное приложение и проверить запуск.
-- **Scope:** package profile; проверка артефакта.
-- **Out of scope:** ручной GUI smoke (STAGE5-050).
-- **Required documents:** Manifest §19; RUN-DEVELOPMENT.
+- **Goal:** ??????? ??????????? ?????????? ? ????????? ??????.
+- **Scope:** package profile; ???????? ?????????.
+- **Out of scope:** ?????? GUI smoke (STAGE5-050).
+- **Required documents:** Manifest �19; RUN-DEVELOPMENT.
 - **Required code context:** `tmp-bootstrap-app`, packaging.
-- **Files allowed to change:** packaging-конфигурация при необходимости.
-- **Acceptance criteria:** `mvn -Ppackage` зелёный; артефакт создан.
+- **Files allowed to change:** packaging-???????????? ??? ?????????????.
+- **Acceptance criteria:** `mvn -Ppackage` ???????; ???????? ??????.
 - **Verification commands:** `mvn -q -Ppackage clean verify`
 - **Documentation updates:** WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Stop conditions:** упаковка не собирается.
+- **Stop conditions:** ???????? ?? ??????????.
 
 ---
 
-## STAGE5-050 — Manual Packaged GUI Smoke — Core Order Management
+## STAGE5-050 ? Manual Packaged GUI Smoke ? Core Order Management
 
-**Status:** DONE — PASS (user-confirmed 2026-07-30)
+**Status:** DONE ? PASS (user-confirmed 2026-07-30)
 **Stage:** 5
 **Depends on:** STAGE5-049
 
-- **Goal:** Пользовательский ручной GUI smoke ядра Order Management на packaged application (включая FIX 2).
-- **Scope:** запуск packaged app; вход; права; создание/изменение заказа; позиции; редакции; спецификации; утверждение; отмена; повторный запуск; сохранность данных; FIX 2 (выделение роли после checkbox; русские названия разрешений).
-- **Out of scope:** Order Intake / STXT import; закрытие Stage 5; старт Stage 6; Git (выполняет пользователь).
-- **Required documents:** Manifest §19/§20 (core smoke); RUN-DEVELOPMENT.
-- **Required code context:** упакованное приложение.
+- **Goal:** ???????????????? ?????? GUI smoke ???? Order Management ?? packaged application (??????? FIX 2).
+- **Scope:** ?????? packaged app; ????; ?????; ????????/????????? ??????; ???????; ????????; ????????????; ???????????; ??????; ????????? ??????; ??????????? ??????; FIX 2 (????????? ???? ????? checkbox; ??????? ???????? ??????????).
+- **Out of scope:** Order Intake / STXT import; ???????? Stage 5; ????? Stage 6; Git (????????? ????????????).
+- **Required documents:** Manifest �19/�20 (core smoke); RUN-DEVELOPMENT.
+- **Required code context:** ??????????? ??????????.
 - **Files allowed to change:** STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 - **Acceptance criteria:**
-  - [x] FIX 2 проверен пользователем;
-  - [x] роль остаётся выделенной после изменения checkbox;
-  - [x] русские названия разрешений отображаются корректно;
-  - [x] packaged application запускается;
-  - [x] данные сохраняются после перезапуска;
+  - [x] FIX 2 ???????? ?????????????;
+  - [x] ???? ???????? ?????????? ????? ????????? checkbox;
+  - [x] ??????? ???????? ?????????? ???????????? ?????????;
+  - [x] packaged application ???????????;
+  - [x] ?????? ??????????? ????? ???????????;
   - [x] core Order Management smoke completed;
   - [x] Stage 5 remains IN_PROGRESS;
   - [x] STAGE5-051 remains NOT STARTED until STAGE5-050 is DONE.
-- **Verification commands:** `Manual: packaged app (user-confirmed core checklist)` — **PASS**
-- **Manual verification notes:** PostgreSQL в Docker (`tmp-stage5-pg`, volume сохранён); порт **55432** (вместо 54325 — Windows reserved port range); БД `tmp_gui_stage5`; JDBC `jdbc:postgresql://localhost:55432/tmp_gui_stage5`; `TMP.exe` запущен; admin login OK; Roles — Security Administrator; русские display names + technical IDs в скобках; checkbox ON/OFF для `sample.technical.view` — выделение роли сохранено; Orders после перезапуска: TEST-ITEM-CANCEL (DRAFT), TEST-CANCEL-001 (CANCELLED), TEST-002 (APPROVED), TEST-001 (APPROVED); приложение закрыто штатно.
+- **Verification commands:** `Manual: packaged app (user-confirmed core checklist)` ? **PASS**
+- **Manual verification notes:** PostgreSQL ? Docker (`tmp-stage5-pg`, volume ????????); ???? **55432** (?????? 54325 ? Windows reserved port range); ?? `tmp_gui_stage5`; JDBC `jdbc:postgresql://localhost:55432/tmp_gui_stage5`; `TMP.exe` ???????; admin login OK; Roles ? Security Administrator; ??????? display names + technical IDs ? ???????; checkbox ON/OFF ??? `sample.technical.view` ? ????????? ???? ?????????; Orders ????? ???????????: TEST-ITEM-CANCEL (DRAFT), TEST-CANCEL-001 (CANCELLED), TEST-002 (APPROVED), TEST-001 (APPROVED); ?????????? ??????? ??????.
 - **Documentation updates:** STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
-- **Result:** `STAGE5-050 = DONE`; Stage 5 остаётся `IN_PROGRESS`; Stage 6 не стартует; `STAGE5-051` остаётся `NOT STARTED`.
+- **Result:** `STAGE5-050 = DONE`; Stage 5 ???????? `IN_PROGRESS`; Stage 6 ?? ????????; `STAGE5-051` ???????? `NOT STARTED`.
 
 ---
 
-# Stage 5 Extension — Order Intake MVP
+# Stage 5 Extension ? Order Intake MVP
 
 > `STAGE5-050..058 = DONE`. Stage 5 Final Closure 2026-08-06. Stage 6 remains NOT STARTED.
 
-## STAGE5-051 — Order Item and Specification Contracts
+## STAGE5-051 ? Order Item and Specification Contracts
 
 **Status:** DONE
 **Stage:** 5
@@ -8592,19 +8592,19 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ### Goal
 
-Привести контракты Order Item и Specification Line к Order Intake MVP: `externalPositionNumber`, `productQuantity`↔`OrderedQuantity`, `color`, `lengthMm`, `lineQuantity`; безопасно удалить/заменить `consumptionNorm`; разрешить неполный коммерческий DRAFT (ADR-030); обновить domain, DTO, payload, Query API, validation, Flyway.
+???????? ????????? Order Item ? Specification Line ? Order Intake MVP: `externalPositionNumber`, `productQuantity`?`OrderedQuantity`, `color`, `lengthMm`, `lineQuantity`; ????????? ???????/???????? `consumptionNorm`; ????????? ???????? ???????????? DRAFT (ADR-030); ???????? domain, DTO, payload, Query API, validation, Flyway.
 
 ### Result
 
-- Domain/API/payload/persistence/Query/UI contracts aligned with Spec §5.2–5.4 / §27 and ADR-030.
+- Domain/API/payload/persistence/Query/UI contracts aligned with Spec �5.2?5.4 / �27 and ADR-030.
 - Flyway `V9__order_intake_contracts.sql` applied; V8 upgrade preserves existing specification rows.
 - `ORDER_APPROVE` rejects incomplete commercial data and lists missing fields.
-- **Fix pass (2026-07-30):** Query API (`OrderDto`, `OrderSummaryDto`) allows nullable commercial fields for incomplete DRAFT per ADR-030; Flyway `V10__order_intake_constraints.sql` — whole-number `ordered_quantity` CHECK constraints, `NUMERIC(19,6)` payload alignment; tests for incomplete DRAFT read/search and V10 constraints.
-- Verification: `mvn -q -pl tmp-order-management test` — PASS (264 unit); `mvn -q -pl tmp-order-management verify` — PASS (264 unit + 57 IT); `Stage5OrderManagementArchitectureTest` — PASS (24 rules).
+- **Fix pass (2026-07-30):** Query API (`OrderDto`, `OrderSummaryDto`) allows nullable commercial fields for incomplete DRAFT per ADR-030; Flyway `V10__order_intake_constraints.sql` ? whole-number `ordered_quantity` CHECK constraints, `NUMERIC(19,6)` payload alignment; tests for incomplete DRAFT read/search and V10 constraints.
+- Verification: `mvn -q -pl tmp-order-management test` ? PASS (264 unit); `mvn -q -pl tmp-order-management verify` ? PASS (264 unit + 57 IT); `Stage5OrderManagementArchitectureTest` ? PASS (24 rules).
 
 ---
 
-## STAGE5-052 — Manual Entry UI
+## STAGE5-052 ? Manual Entry UI
 
 **Status:** DONE
 **Stage:** 5
@@ -8613,14 +8613,14 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ### Goal
 
-Ручной ввод MVP-полей позиции и спецификации в JavaFX UI с русскими подписями и валидацией.
+?????? ???? MVP-????? ??????? ? ???????????? ? JavaFX UI ? ???????? ????????? ? ??????????.
 
 ### Required Context
 
 - CONTEXT-MAP group `stage5-order-intake-manual-ui`;
-- Spec §27.8;
-- api.ui contracts после STAGE5-051;
-- Order Item / Specification editors в `tmp-ui-shell`.
+- Spec �27.8;
+- api.ui contracts ????? STAGE5-051;
+- Order Item / Specification editors ? `tmp-ui-shell`.
 
 ### Forbidden context
 
@@ -8633,18 +8633,18 @@ Correct pagination text encoding on Security Audit Screen; backlog item closable
 
 ### Implementation steps
 
-1. Поля: внешний номер позиции, количество изделий, цвет, длина мм (optional), количество строки.
-2. Отображение утверждённой спецификации read-only; редактирование только draft.
-3. UI validation (`lengthMm` empty→null; `<=0` error).
-4. Русские labels/messages.
+1. ????: ??????? ????? ???????, ?????????? ???????, ????, ????? ?? (optional), ?????????? ??????.
+2. ??????????? ???????????? ???????????? read-only; ?????????????? ?????? draft.
+3. UI validation (`lengthMm` empty?null; `<=0` error).
+4. ??????? labels/messages.
 5. JavaFX/controller tests.
 
 ### Acceptance criteria
 
-- [x] Ручной ввод создаёт ту же структуру, что импорт;
-- [x] `lengthMm` опционален;
-- [x] нет orientation UI;
-- [x] нет прямых repository вызовов из UI.
+- [x] ?????? ???? ??????? ?? ?? ?????????, ??? ??????;
+- [x] `lengthMm` ??????????;
+- [x] ??? orientation UI;
+- [x] ??? ?????? repository ??????? ?? UI.
 
 ### Required tests
 
@@ -8656,11 +8656,11 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 ### Stop conditions
 
-Контракты STAGE5-051 не готовы; UI invents fields not in API.
+????????? STAGE5-051 ?? ??????; UI invents fields not in API.
 
 ---
 
-## STAGE5-052A — Imported Draft Item Commercial Contract
+## STAGE5-052A ? Imported Draft Item Commercial Contract
 
 **Status:** DONE
 **Stage:** 5
@@ -8669,12 +8669,12 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 ### Goal
 
-Расширить incomplete DRAFT (ADR-030) на коммерческие поля позиции: `productCode` и `name` могут временно отсутствовать (`null`) у позиции в `DRAFT`; placeholders запрещены; перед `ORDER_ITEM_REVISION_APPROVE` поля обязательны; утвержденная позиция всегда полная. Правило доменное (не STXT-специфичное).
+????????? incomplete DRAFT (ADR-030) ?? ???????????? ???? ???????: `productCode` ? `name` ????? ???????? ????????????? (`null`) ? ??????? ? `DRAFT`; placeholders ?????????; ????? `ORDER_ITEM_REVISION_APPROVE` ???? ???????????; ???????????? ??????? ?????? ??????. ??????? ???????? (?? STXT-???????????).
 
 ### Required Context
 
 - CONTEXT-MAP group `stage5-order-intake-contracts`;
-- Spec §5.2, §6, §9, §15, §27.4–27.7; ADR-029, ADR-030;
+- Spec �5.2, �6, �9, �15, �27.4?27.7; ADR-029, ADR-030;
 - ItemCommercialData, OrderItem, drafts/payloads/DTO/Query/UI snapshot, revision approve, persistence, Flyway V11;
 - minimal UI null-safe display for item editor.
 
@@ -8687,13 +8687,13 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 - `tmp-order-management` domain/API/payload/query/UI contracts/persistence/Flyway V11/tests;
 - minimal `tmp-ui-shell` item editor null-safe mapping/tests;
-- control docs; ADR-030; OMS §5.2 / §27.7.
+- control docs; ADR-030; OMS �5.2 / �27.7.
 
 ### Acceptance criteria
 
 - [x] DRAFT item may have null `productCode` and/or null `name` (no placeholders);
-- [x] blank → null; placeholders rejected;
-- [x] revision approve lists missing «Код изделия» / «Наименование изделия»;
+- [x] blank ? null; placeholders rejected;
+- [x] revision approve lists missing �??? ???????� / �???????????? ???????�;
 - [x] APPROVED/ACTIVE item cannot remain incomplete;
 - [x] Query/UI snapshot/DTO tolerate null without NPE;
 - [x] `JdbcOrderQueryReadAdapter.findOrderItem` SELECT includes `external_position_number` (same mapping as `findOrderItems`);
@@ -8704,7 +8704,7 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 ### Required tests
 
-Domain incompleteness + approve gate; draft/payload/DTO/snapshot; persistence round-trip; Flyway clean + V10→V11; UI null display; regression STAGE5-051/052; JDBC Query API + aggregate/payload round-trip ITs.
+Domain incompleteness + approve gate; draft/payload/DTO/snapshot; persistence round-trip; Flyway clean + V10?V11; UI null display; regression STAGE5-051/052; JDBC Query API + aggregate/payload round-trip ITs.
 
 ### Required documentation updates
 
@@ -8716,15 +8716,15 @@ Conflict with Constitution/ADR; need for STXT/import implementation.
 
 ### Result
 
-- Item incomplete DRAFT (`productCode`/`name` nullable) aligned with ADR-030 / Spec §5.2 / §27.7.
-- `ORDER_ITEM_REVISION_APPROVE` rejects missing «Код изделия» / «Наименование изделия»; specification still required.
+- Item incomplete DRAFT (`productCode`/`name` nullable) aligned with ADR-030 / Spec �5.2 / �27.7.
+- `ORDER_ITEM_REVISION_APPROVE` rejects missing �??? ???????� / �???????????? ???????�; specification still required.
 - Flyway `V11__order_item_incomplete_draft_contract.sql`; Query/UI null-safe.
 - Fix pass: `findOrderItem` SELECT aligned with `findOrderItems` (`external_position_number`); real JDBC round-trip ITs.
 - Verification: `tmp-order-management` test+verify PASS; `tmp-ui-shell` test+verify PASS.
 
 ---
 
-## STAGE5-053 — Import Core
+## STAGE5-053 ? Import Core
 
 **Status:** DONE
 **Stage:** 5
@@ -8733,12 +8733,12 @@ Conflict with Constitution/ADR; need for STXT/import implementation.
 
 ### Goal
 
-Source-neutral import model, preview/validation, application service, атомарный confirmed import через штатные services, конфликт существующего заказа, метаданные защиты от повторного импорта; создание неполного коммерческого DRAFT без placeholders (ADR-030).
+Source-neutral import model, preview/validation, application service, ????????? confirmed import ????? ??????? services, ???????? ????????????? ??????, ?????????? ?????? ?? ?????????? ???????; ???????? ????????? ????????????? DRAFT ??? placeholders (ADR-030).
 
 ### Required Context
 
 - CONTEXT-MAP group `stage5-order-import-core`;
-- Spec §27.4–27.7; ADR-029, ADR-030;
+- Spec �27.4?27.7; ADR-029, ADR-030;
 - Order Management application/document services;
 - security public API for actor identity (audit metadata).
 
@@ -8755,19 +8755,19 @@ Source-neutral import model, preview/validation, application service, атома
 
 1. Source-neutral model + preview/error/warning types.
 2. Validation rules (one order, quantities, length, no double multiply).
-3. Preview path — zero persistence.
-4. Confirm path — single transaction via existing create/update document flows; incomplete DRAFT commercial data allowed.
-5. Existing orderNumber → controlled conflict.
+3. Preview path ? zero persistence.
+4. Confirm path ? single transaction via existing create/update document flows; incomplete DRAFT commercial data allowed.
+5. Existing orderNumber ? controlled conflict.
 6. Import metadata (`sourceType`, file name, checksum, importedAt/By, orderId).
 7. Integration tests (atomic success/rollback, duplicate, conflict, incomplete DRAFT).
 
 ### Acceptance criteria
 
-- [x] Preview не пишет в БД;
-- [x] Confirm атомарный;
-- [x] Существующий заказ не merge;
+- [x] Preview ?? ????? ? ??;
+- [x] Confirm ?????????;
+- [x] ???????????? ????? ?? merge;
 - [x] Incomplete DRAFT without placeholders;
-- [x] Нет SQL leakage в user messages.
+- [x] ??? SQL leakage ? user messages.
 
 ### Required tests
 
@@ -8779,15 +8779,15 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 ### Stop conditions
 
-Попытка прямой записи из адаптера; использование placeholder commercial values.
+??????? ?????? ?????? ?? ????????; ????????????? placeholder commercial values.
 
 ### Result
 
-`STAGE5-053 = DONE`. Source-neutral Import Core: preview без persistence, opaque `PreparedOrderImportPlan` (только после preview), атомарный confirm через `ORDER_CREATE` / `ORDER_ITEM_CREATE` / `ORDER_ITEM_REVISION_UPDATE`, incomplete DRAFT (ADR-030), conflict/duplicate protection + confirm-time races, Flyway `V12__order_import_metadata.sql`. FIX pass: opaque plan, confirm races, rollback payload/processing, metadata length/path validation. `STAGE5-054` остаётся NOT STARTED.
+`STAGE5-053 = DONE`. Source-neutral Import Core: preview ??? persistence, opaque `PreparedOrderImportPlan` (?????? ????? preview), ????????? confirm ????? `ORDER_CREATE` / `ORDER_ITEM_CREATE` / `ORDER_ITEM_REVISION_UPDATE`, incomplete DRAFT (ADR-030), conflict/duplicate protection + confirm-time races, Flyway `V12__order_import_metadata.sql`. FIX pass: opaque plan, confirm races, rollback payload/processing, metadata length/path validation. `STAGE5-054` ???????? NOT STARTED.
 
 ---
 
-## STAGE5-054 — STXT File Adapter
+## STAGE5-054 ? STXT File Adapter
 
 **Status:** DONE
 **Stage:** 5
@@ -8796,12 +8796,12 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 ### Goal
 
-Файловый адаптер: кодировки, разделитель `" / "`, заголовки, decimal comma, мм, nullable length, один заказ в файле → source-neutral model.
+???????? ???????: ?????????, ??????????? `" / "`, ?????????, decimal comma, ??, nullable length, ???? ????? ? ????? ? source-neutral model.
 
 ### Required Context
 
 - CONTEXT-MAP group `stage5-order-import-stxt`;
-- Spec §27.5; import model from STAGE5-053;
+- Spec �27.5; import model from STAGE5-053;
 - fixture based on confirmed format.
 
 ### Forbidden context
@@ -8824,9 +8824,9 @@ WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 ### Acceptance criteria
 
-- [x] Адаптер только строит model/errors;
-- [x] Пустые строки игнорируются;
-- [x] Неизвестный header → warning, не silent domain field.
+- [x] ??????? ?????? ?????? model/errors;
+- [x] ?????? ?????? ????????????;
+- [x] ??????????? header ? warning, ?? silent domain field.
 
 ### Required tests
 
@@ -8842,11 +8842,11 @@ Adapter writes DB or calls UI.
 
 ### Result
 
-`STAGE5-054 = DONE`. `StxtFileAdapter` → `OrderImportBatch` (SHA-256 checksum, file name as sourceReference). Encoding: Windows-1251 / UTF-8 / UTF-8 BOM. Delimiter `" / "`. Header aliases per Spec §27.5. Adapter validation without persistence. `STAGE5-055` remains NOT STARTED.
+`STAGE5-054 = DONE`. `StxtFileAdapter` ? `OrderImportBatch` (SHA-256 checksum, file name as sourceReference). Encoding: Windows-1251 / UTF-8 / UTF-8 BOM. Delimiter `" / "`. Header aliases per Spec �27.5. Adapter validation without persistence. `STAGE5-055` remains NOT STARTED.
 
 ---
 
-## STAGE5-055 — Import GUI
+## STAGE5-055 ? Import GUI
 
 **Status:** DONE
 **Stage:** 5
@@ -8855,12 +8855,12 @@ Adapter writes DB or calls UI.
 
 ### Goal
 
-UI выбора файла, preview, ошибки/предупреждения, confirm/cancel, результат, конфликт существующего заказа; без частичного сохранения.
+UI ?????? ?????, preview, ??????/??????????????, confirm/cancel, ?????????, ???????? ????????????? ??????; ??? ?????????? ??????????.
 
 ### Required Context
 
 - CONTEXT-MAP group `stage5-order-import-ui`;
-- Spec §27.6; public import application API;
+- Spec �27.6; public import application API;
 - `tmp-ui-shell`, bootstrap wiring.
 
 ### Forbidden context
@@ -8883,9 +8883,9 @@ UI выбора файла, preview, ошибки/предупреждения, 
 
 ### Acceptance criteria
 
-- [x] Confirm только после preview;
-- [x] Cancel без persistence;
-- [x] Нет stack trace пользователю.
+- [x] Confirm ?????? ????? preview;
+- [x] Cancel ??? persistence;
+- [x] ??? stack trace ????????????.
 
 ### Required tests
 
@@ -8901,7 +8901,7 @@ UI posts documents bypassing import service.
 
 ---
 
-## STAGE5-056 — Automated Verification
+## STAGE5-056 ? Automated Verification
 
 **Status:** DONE
 **Stage:** 5
@@ -8910,7 +8910,7 @@ UI posts documents bypassing import service.
 
 ### Goal
 
-Полный автоматический gate Order Intake + regression Stage 5: domain/document/persistence/parser/import/UI/architecture + package build + PackagingSmokeIT.
+?????? ?????????????? gate Order Intake + regression Stage 5: domain/document/persistence/parser/import/UI/architecture + package build + PackagingSmokeIT.
 
 ### Required Context
 
@@ -8939,11 +8939,11 @@ UI posts documents bypassing import service.
 - [x] Verification matrix documented;
 - [x] End-to-end Order Intake IT;
 - [x] Packaging smoke: TMP start / login window / admin login / Import GUI open (no import);
-- [x] Flyway V1→V12 clean + V11→V12 upgrade with application start.
+- [x] Flyway V1?V12 clean + V11?V12 upgrade with application start.
 
 ### Required tests
 
-As listed in Manifest §15 / Spec verification.
+As listed in Manifest �15 / Spec verification.
 
 ### Required documentation updates
 
@@ -8955,7 +8955,7 @@ Failure outside Stage 5 scope; packaging broken.
 
 ---
 
-## STAGE5-057 — Manual GUI Smoke (Order Intake)
+## STAGE5-057 ? Manual GUI Smoke (Order Intake)
 
 **Status:** DONE
 **Stage:** 5
@@ -8964,12 +8964,12 @@ Failure outside Stage 5 scope; packaging broken.
 
 ### Goal
 
-Пользовательский smoke Order Intake: ручной заказ/позиция/спецификация (linear + non-linear), импорт preview/cancel/confirm, existing order, повторная загрузка, persistence after restart, регрессия Stage 5, русские сообщения. После PASS — финальное закрытие Stage 5 (не раньше).
+???????????????? smoke Order Intake: ?????? ?????/???????/???????????? (linear + non-linear), ?????? preview/cancel/confirm, existing order, ????????? ????????, persistence after restart, ????????? Stage 5, ??????? ?????????. ????? PASS ? ????????? ???????? Stage 5 (?? ??????).
 
 ### Required Context
 
 - CONTEXT-MAP group `stage5-order-intake-manual-smoke`;
-- Packaged app; Spec §27 checklist; Manifest exit criteria.
+- Packaged app; Spec �27 checklist; Manifest exit criteria.
 - FIX REQUIRED (completed earlier): UI/application quantity validation path for commercial draft save.
 
 ### Forbidden context
@@ -8981,13 +8981,13 @@ Failure outside Stage 5 scope; packaging broken.
 ### Files allowed to change
 
 - STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG after user PASS/FAIL.
-- FIX REQUIRED (already done): `tmp-ui-shell` / application UI quantity path — **not** changed in documentary closure.
+- FIX REQUIRED (already done): `tmp-ui-shell` / application UI quantity path ? **not** changed in documentary closure.
 
 ### Implementation steps
 
 1. Prepare checklist for user.
 2. Wait for user confirmation.
-3. On PASS: close Stage 5 per Manifest §20; do not start Stage 6.
+3. On PASS: close Stage 5 per Manifest �20; do not start Stage 6.
 4. On SMOKE defect: fix UI/application validation; keep STAGE5-057 IN_PROGRESS until user reconfirm.
 
 ### Acceptance criteria
@@ -9001,11 +9001,11 @@ Failure outside Stage 5 scope; packaging broken.
 
 ### Required tests
 
-Manual GUI Smoke — PASS (2026-08-03). Automated SMOKE-001 regression retained from FIX REQUIRED.
+Manual GUI Smoke ? PASS (2026-08-03). Automated SMOKE-001 regression retained from FIX REQUIRED.
 
 ### Required documentation updates
 
-Control docs after user PASS — completed.
+Control docs after user PASS ? completed.
 
 ### Result
 
@@ -9013,11 +9013,11 @@ Manual GUI Smoke PASS (2026-08-03). Stage 5 core+intake closed pending post-clos
 
 ### Stop conditions
 
-User FAIL or incomplete smoke — N/A (PASS recorded).
+User FAIL or incomplete smoke ? N/A (PASS recorded).
 
 ---
 
-## STAGE5-058 — Imported Order Lifecycle + Final STXT Contract
+## STAGE5-058 ? Imported Order Lifecycle + Final STXT Contract
 
 **Status:** DONE
 **Stage:** 5 (post-closure improvement; Stage 5 Final Closure 2026-08-06)
@@ -9026,63 +9026,63 @@ User FAIL or incomplete smoke — N/A (PASS recorded).
 
 ### Goal
 
-Реализовать ADR-031 **final** (uniform ACTIVE) **и** финальный STXT Contract: block format `ORDER → ITEM → SPECIFICATION`; несколько заказов в одном файле; поля заказа/изделия/спецификации; нормализация имени; исключение `@`/`#`; обработка `кв.м.`; quantity = норма расхода на 1 изделие; дубли только по `orderNumber`; без OrderOrigin/ImportMetadata/checksum storage — без старта Stage 6.
+??????????? ADR-031 **final** (uniform ACTIVE) **?** ????????? STXT Contract: block format `ORDER ? ITEM ? SPECIFICATION`; ????????? ??????? ? ????? ?????; ???? ??????/???????/????????????; ???????????? ?????; ?????????? `@`/`#`; ????????? `??.?.`; quantity = ????? ??????? ?? 1 ???????; ????? ?????? ?? `orderNumber`; ??? OrderOrigin/ImportMetadata/checksum storage ? ??? ?????? Stage 6.
 
 ### Required documents
 
 - ADR-031 final (`TMP-Architecture-Decisions.md` v1.8);
-- Order Management Specification **v1.5** — §8, §9, §13, §27.6–27.10;
-- Stage 5 Manifest §4, §7, §21–22;
+- Order Management Specification **v1.5** ? �8, �9, �13, �27.6?27.10;
+- Stage 5 Manifest �4, �7, �21?22;
 - CONTEXT-MAP group `stage5-imported-order-lifecycle`;
-- ADR-029/030 (граница адаптера; commercial gates ручного пути).
+- ADR-029/030 (??????? ????????; commercial gates ??????? ????).
 
 ### Required code context
 
 - `OrderStatus`, `RevisionStatus`, CustomerOrder / OrderItem / OrderItemRevision;
-- `DefaultOrderImportService` (+ существующие import metadata — к удалению/отключению);
+- `DefaultOrderImportService` (+ ???????????? import metadata ? ? ????????/??????????);
 - Document processors order/item/revision;
-- UI editors (`tmp-ui-shell`) — direct-edit gating по статусу ACTIVE;
+- UI editors (`tmp-ui-shell`) ? direct-edit gating ?? ??????? ACTIVE;
 - Import IT / Query DTO contracts.
 
 ### Allowed code scope
 
 - `tmp-order-management/**` (domain, application import/document, persistence, api, capability if needed);
-- `tmp-ui-shell/**` — read-only direct-edit для любого ACTIVE; Revision flow сохраняется;
-- Flyway **V13+** (OrderStatus.ACTIVE, RevisionStatus APPROVED→ACTIVE, drop/stop import_metadata);
-- `tmp-architecture-tests/**` при необходимости;
+- `tmp-ui-shell/**` ? read-only direct-edit ??? ?????? ACTIVE; Revision flow ???????????;
+- Flyway **V13+** (OrderStatus.ACTIVE, RevisionStatus APPROVED?ACTIVE, drop/stop import_metadata);
+- `tmp-architecture-tests/**` ??? ?????????????;
 - control docs: STATUS, WORK-QUEUE, IMPLEMENTATION-LOG, VERIFICATION-LOG.
 
 ### Forbidden
 
 - Stage 6/7 implementation;
-- добавление OrderOrigin / creationSource / ImportMetadata / checksum registry / importedAt/By;
-- долгоживущий `OrderStatus.IMPORT`;
-- отдельные правила «только для импортированного ACTIVE»;
+- ?????????? OrderOrigin / creationSource / ImportMetadata / checksum registry / importedAt/By;
+- ???????????? `OrderStatus.IMPORT`;
+- ????????? ??????? �?????? ??? ???????????????? ACTIVE�;
 - Firebird / merge / re-import-as-update;
-- Git-операции (пользователь).
+- Git-???????? (????????????).
 
 ### Implementation requirements
 
-1. `OrderStatus.ACTIVE`; manual path `DRAFT → APPROVED → ACTIVE` (`ORDER_ACTIVATE` в Scope или follow-up при task-size).
-2. `RevisionStatus`: целевой `DRAFT | ACTIVE` (rename с `APPROVED`).
-3. IMPORT confirm: одна TX → Order/Item/Revision/Specification ACTIVE.
-4. Удалить/отключить checksum/`order_import_metadata` duplicate protection; оставить только `orderNumber` uniqueness.
-5. Uniform ACTIVE: запрет прямого edit; изменение только через Revision (для любого ACTIVE).
-6. UI: direct-edit read-only по статусу ACTIVE (не по каналу создания).
-7. Events/Query без origin fields; Warehouse/Production-ready ACTIVE без knowledge of import.
-8. ADR-030 gates на ручном approve без регрессии.
+1. `OrderStatus.ACTIVE`; manual path `DRAFT ? APPROVED ? ACTIVE` (`ORDER_ACTIVATE` ? Scope ??? follow-up ??? task-size).
+2. `RevisionStatus`: ??????? `DRAFT | ACTIVE` (rename ? `APPROVED`).
+3. IMPORT confirm: ???? TX ? Order/Item/Revision/Specification ACTIVE.
+4. ???????/????????? checksum/`order_import_metadata` duplicate protection; ???????? ?????? `orderNumber` uniqueness.
+5. Uniform ACTIVE: ?????? ??????? edit; ????????? ?????? ????? Revision (??? ?????? ACTIVE).
+6. UI: direct-edit read-only ?? ??????? ACTIVE (?? ?? ?????? ????????).
+7. Events/Query ??? origin fields; Warehouse/Production-ready ACTIVE ??? knowledge of import.
+8. ADR-030 gates ?? ?????? approve ??? ?????????.
 
 ### Acceptance criteria
 
-- [x] Import confirm → ACTIVE на Order/Item/Revision/Spec;
-- [x] Нет различий поведения ACTIVE (manual vs import) в domain/UI guards;
-- [x] Нет OrderOrigin / import-metadata business protection;
-- [x] Дубль только по существующему `orderNumber`;
-- [x] Новая Revision на ACTIVE разрешена единообразно;
-- [x] Manual ADR-030 path без регрессии;
-- [x] Final STXT Contract: multi-order; name normalize; `@`/`#` skip; `кв.м.`; quantity без умножения;
+- [x] Import confirm ? ACTIVE ?? Order/Item/Revision/Spec;
+- [x] ??? ???????? ????????? ACTIVE (manual vs import) ? domain/UI guards;
+- [x] ??? OrderOrigin / import-metadata business protection;
+- [x] ????? ?????? ?? ????????????? `orderNumber`;
+- [x] ????? Revision ?? ACTIVE ????????? ????????????;
+- [x] Manual ADR-030 path ??? ?????????;
+- [x] Final STXT Contract: multi-order; name normalize; `@`/`#` skip; `??.?.`; quantity ??? ?????????;
 - [x] ACTIVE import validation: order number/date/client; item productCode/name/quantity; spec code/name/unit/quantity;
-- [x] Verification commands PASS; Stage 6 NOT STARTED; Scope соблюдён.
+- [x] Verification commands PASS; Stage 6 NOT STARTED; Scope ????????.
 
 ### Result
 
@@ -9090,12 +9090,12 @@ ADR-031 final + Final STXT Contract + Document approve/activate + parser FIX (Su
 
 ### Required tests
 
-- Import IT: landing ACTIVE; rollback; orderNumber conflict; **нет** checksum-duplicate path как бизнес-правила;
-- Domain: ACTIVE direct-edit rejected; Revision create→approve works for ACTIVE from both paths;
+- Import IT: landing ACTIVE; rollback; orderNumber conflict; **???** checksum-duplicate path ??? ??????-???????;
+- Domain: ACTIVE direct-edit rejected; Revision create?approve works for ACTIVE from both paths;
 - Manual regression: incomplete DRAFT + approve gates;
 - Query: public ACTIVE revision; no origin field;
 - UI: ACTIVE direct-edit read-only;
-- Architecture: adapter не пишет агрегаты напрямую.
+- Architecture: adapter ?? ????? ???????? ????????.
 
 ### Verification commands
 
@@ -9107,7 +9107,7 @@ mvn -q verify
 
 ### Documentation updates
 
-- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG; точечная синхронизация Spec при уточнении event имён.
+- WORK-QUEUE; STATUS; IMPLEMENTATION-LOG; VERIFICATION-LOG; ???????? ????????????? Spec ??? ????????? event ????.
 
 ### Stop conditions
 
@@ -9115,7 +9115,7 @@ Conflict with ADR-031 final; verification failure outside Scope; start of Stage 
 
 ---
 
-## Stage 5 — FINAL CLOSURE
+## Stage 5 ? FINAL CLOSURE
 
 **Status:** DONE
 **Date:** 2026-08-06
@@ -9125,7 +9125,7 @@ Conflict with ADR-031 final; verification failure outside Scope; start of Stage 
 
 | Item | Status |
 |---|---|
-| Stage 5 — Order Management | DONE |
+| Stage 5 ? Order Management | DONE |
 | STAGE5-057 | DONE |
 | STAGE5-058 | DONE |
 | Stage 6 | NOT STARTED |
@@ -9133,9 +9133,9 @@ Conflict with ADR-031 final; verification failure outside Scope; start of Stage 
 ### Delivered (summary)
 
 Order Management: create order; create items; revisions; specifications; approve lifecycle.
-Import: trusted STXT → Import Core → Approve flow → uniform ACTIVE (Order/Item/Revision/Specification).
+Import: trusted STXT ? Import Core ? Approve flow ? uniform ACTIVE (Order/Item/Revision/Specification).
 No ImportMetadata / sourceType / creationSource / separate import lifecycle.
-STXT: multi-order file; Order→Item→Specification; qty = copies / norm per 1 copy (no multiply); `@`/`#` skip; `кв.м.` → `шт.` with size moved to name.
+STXT: multi-order file; Order?Item?Specification; qty = copies / norm per 1 copy (no multiply); `@`/`#` skip; `??.?.` ? `??.` with size moved to name.
 ACTIVE: read-only; changes only via Revision N+1.
 
 ### Out of scope (unchanged / not started)
@@ -9144,18 +9144,18 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Git
 
-Все Git-операции выполняет пользователь. Agent Git-команды не выполнял.
+??? Git-???????? ????????? ????????????. Agent Git-??????? ?? ????????.
 
 ---
 
-# Stage 6 — Warehouse
+# Stage 6 ? Warehouse
 
 **Status:** DONE
 **Stage goal:** Implement Warehouse v1.0 strictly by `Warehouse-Specification.md` v1.3.
 
 > Stage 6 implementation decomposition prepared. No Stage 6 production development started in this planning update.
 
-## STAGE6-001 — Warehouse module foundation
+## STAGE6-001 ? Warehouse module foundation
 
 **Status:** DONE
 **Stage:** 6
@@ -9164,7 +9164,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Создать каркас Warehouse capability и базовые module boundaries.
+??????? ?????? Warehouse capability ? ??????? module boundaries.
 
 ### Required Context
 
@@ -9176,7 +9176,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 ### Mutable files
 
 - `tmp-warehouse/**`
-- root build/module descriptor files (только подключение нового модуля)
+- root build/module descriptor files (?????? ??????????? ?????? ??????)
 - `docs/development-control/STATUS.md`
 - `docs/development-control/WORK-QUEUE.md`
 - `docs/development-control/IMPLEMENTATION-LOG.md`
@@ -9184,9 +9184,9 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Completion criteria
 
-- warehouse module подключен и компилируется;
-- выделены package boundaries: domain/application/infrastructure/api;
-- cross-module dependencies соответствуют Architecture rules.
+- warehouse module ????????? ? ?????????????;
+- ???????? package boundaries: domain/application/infrastructure/api;
+- cross-module dependencies ????????????? Architecture rules.
 
 ### Tests
 
@@ -9197,7 +9197,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 - Verification executed with local Maven at `C:\Program Files\JetBrains\IntelliJIdea2025.2\plugins\maven\lib\maven3\bin\mvn.cmd`.
 
-## STAGE6-002 — Warehouse domain model
+## STAGE6-002 ? Warehouse domain model
 
 **Status:** DONE
 **Stage:** 6
@@ -9206,7 +9206,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Реализовать доменную модель: `Warehouse`, `StorageCell`, `StockPosition`, `WarehouseOperation`, `WarehouseMovement`.
+??????????? ???????? ??????: `Warehouse`, `StorageCell`, `StockPosition`, `WarehouseOperation`, `WarehouseMovement`.
 
 ### Required Context
 
@@ -9222,15 +9222,15 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Completion criteria
 
-- инварианты спецификации зафиксированы в домене;
-- запрещены прямые мутации `StockPosition` вне `WarehouseOperation`;
+- ?????????? ???????????? ????????????? ? ??????;
+- ????????? ?????? ??????? `StockPosition` ??? `WarehouseOperation`;
 - `WarehouseMovement` immutable.
 
 ### Tests
 
 - domain unit tests for invariants and state transitions.
 
-## STAGE6-003 — Database schema
+## STAGE6-003 ? Database schema
 
 **Status:** DONE
 **Stage:** 6
@@ -9239,7 +9239,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Добавить persistence schema для Warehouse v1.0.
+???????? persistence schema ??? Warehouse v1.0.
 
 ### Required Context
 
@@ -9256,15 +9256,15 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Completion criteria
 
-- таблицы/связи для warehouse core model созданы;
-- ограничения на negative quantity и referential integrity реализованы;
-- migration проходит в test profile.
+- ???????/????? ??? warehouse core model ???????;
+- ??????????? ?? negative quantity ? referential integrity ???????????;
+- migration ???????? ? test profile.
 
 ### Tests
 
 - migration/integration persistence tests.
 
-## STAGE6-004 — Stock Position
+## STAGE6-004 ? Stock Position
 
 **Status:** DONE
 **Stage:** 6
@@ -9273,7 +9273,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Реализовать lifecycle и правила `StockPosition`.
+??????????? lifecycle ? ??????? `StockPosition`.
 
 ### Required Context
 
@@ -9289,15 +9289,15 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Completion criteria
 
-- `StockPosition` определяется комбинацией warehouse/cell/material/state/quantity;
-- отрицательное количество невозможно;
-- reservation link не изменяет stock.
+- `StockPosition` ???????????? ??????????? warehouse/cell/material/state/quantity;
+- ????????????? ?????????? ??????????;
+- reservation link ?? ???????? stock.
 
 ### Tests
 
 - unit + service tests for stock rules.
 
-## STAGE6-005 — Warehouse Movement
+## STAGE6-005 ? Warehouse Movement
 
 **Status:** DONE
 **Stage:** 6
@@ -9306,7 +9306,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Реализовать неизменяемый журнал `WarehouseMovement`.
+??????????? ???????????? ?????? `WarehouseMovement`.
 
 ### Required Context
 
@@ -9322,16 +9322,16 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Completion criteria
 
-- каждое изменение количества/состояния создаёт movement;
-- update/delete movement запрещены;
-- доступна последовательность для аудита.
+- ?????? ????????? ??????????/????????? ??????? movement;
+- update/delete movement ?????????;
+- ???????? ?????????????????? ??? ??????.
 
 ### Tests
 
 - persistence integration tests;
 - application tests for movement creation.
 
-## STAGE6-006 — Warehouse Operation
+## STAGE6-006 ? Warehouse Operation
 
 **Status:** DONE
 **Stage:** 6
@@ -9340,7 +9340,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Собрать orchestration `WarehouseOperation` как единственный write path.
+??????? orchestration `WarehouseOperation` ??? ???????????? write path.
 
 ### Required Context
 
@@ -9356,16 +9356,16 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Completion criteria
 
-- write-сценарии только через operation service;
-- validation + stock update + movement creation в одной операции;
-- прямой bypass stock mutation отсутствует.
+- write-???????? ?????? ????? operation service;
+- validation + stock update + movement creation ? ????? ????????;
+- ?????? bypass stock mutation ???????????.
 
 ### Tests
 
 - application service tests;
 - transaction boundary integration tests.
 
-## STAGE6-007 — Receipt
+## STAGE6-007 ? Receipt
 
 **Status:** DONE
 **Stage:** 6
@@ -9374,7 +9374,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Реализовать операцию поступления `Receipt`.
+??????????? ???????? ??????????? `Receipt`.
 
 ### Required Context
 
@@ -9390,15 +9390,15 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Completion criteria
 
-- поступление увеличивает остаток через `WarehouseOperation`;
-- фиксируется `WarehouseMovement`;
-- supplier/procurement data в scope не добавляются.
+- ??????????? ??????????? ??????? ????? `WarehouseOperation`;
+- ??????????? `WarehouseMovement`;
+- supplier/procurement data ? scope ?? ???????????.
 
 ### Tests
 
 - receipt unit and integration tests.
 
-## STAGE6-008 — Move
+## STAGE6-008 ? Move
 
 **Status:** DONE
 **Stage:** 6
@@ -9407,7 +9407,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Реализовать внутреннее перемещение `Move` между storage cells.
+??????????? ?????????? ??????????? `Move` ????? storage cells.
 
 ### Allowed context
 
@@ -9423,15 +9423,15 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Completion criteria
 
-- перенос между ячейками без изменения общего количества;
-- корректные движения для source/destination;
-- запрет move при недостатке остатка.
+- ??????? ????? ???????? ??? ????????? ?????? ??????????;
+- ?????????? ???????? ??? source/destination;
+- ?????? move ??? ?????????? ???????.
 
 ### Tests
 
 - move operation tests including insufficient stock.
 
-## STAGE6-009 — Transfer
+## STAGE6-009 ? Transfer
 
 **Status:** DONE
 **Stage:** 6
@@ -9440,7 +9440,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Реализовать межскладской transfer с состоянием `IN_TRANSIT`.
+??????????? ???????????? transfer ? ?????????? `IN_TRANSIT`.
 
 ### Allowed context
 
@@ -9456,15 +9456,15 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Completion criteria
 
-- двухэтапный flow: ship (`AVAILABLE -> IN_TRANSIT`) и receive (`IN_TRANSIT -> AVAILABLE`);
-- movement history фиксирует оба этапа;
-- инварианты количества сохранены.
+- ??????????? flow: ship (`AVAILABLE -> IN_TRANSIT`) ? receive (`IN_TRANSIT -> AVAILABLE`);
+- movement history ????????? ??? ?????;
+- ?????????? ?????????? ?????????.
 
 ### Tests
 
 - transfer workflow integration tests.
 
-## STAGE6-010 — Consumption
+## STAGE6-010 ? Consumption
 
 **Status:** DONE
 **Stage:** 6
@@ -9473,7 +9473,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Реализовать списание `Consumption` по входу от Production.
+??????????? ???????? `Consumption` ?? ????? ?? Production.
 
 ### Allowed context
 
@@ -9489,15 +9489,15 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Completion criteria
 
-- consumption уменьшает остаток только через operation flow;
-- source of truth по "what/how much" остаётся в Production;
-- movement создаётся обязательно.
+- consumption ????????? ??????? ?????? ????? operation flow;
+- source of truth ?? "what/how much" ???????? ? Production;
+- movement ????????? ???????????.
 
 ### Tests
 
 - consumption unit/integration tests with production-like requests.
 
-## STAGE6-011 — Inventory
+## STAGE6-011 ? Inventory
 
 **Status:** DONE
 **Stage:** 6
@@ -9506,7 +9506,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Реализовать inventory/adjustment операции v1.0.
+??????????? inventory/adjustment ???????? v1.0.
 
 ### Allowed context
 
@@ -9522,15 +9522,15 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Completion criteria
 
-- inventory reconciliation корректирует `StockPosition` через operation;
-- adjustment создаёт auditable movements;
-- negative stock rules не нарушаются.
+- inventory reconciliation ???????????? `StockPosition` ????? operation;
+- adjustment ??????? auditable movements;
+- negative stock rules ?? ??????????.
 
 ### Tests
 
 - inventory and adjustment integration tests.
 
-## STAGE6-012 — Public API
+## STAGE6-012 ? Public API
 
 **Status:** DONE
 **Stage:** 6
@@ -9539,7 +9539,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Реализовать минимальный публичный API Warehouse.
+??????????? ??????????? ????????? API Warehouse.
 
 ### Allowed context
 
@@ -9554,16 +9554,16 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Completion criteria
 
-- доступны контракты: stock query, availability check, reservation link, execute operation;
-- API не раскрывает внутренние persistence детали;
-- backward compatibility внутри Stage 6 preserved.
+- ???????? ?????????: stock query, availability check, reservation link, execute operation;
+- API ?? ?????????? ?????????? persistence ??????;
+- backward compatibility ?????? Stage 6 preserved.
 
 ### Tests
 
 - api contract tests;
 - integration tests for main endpoints/services.
 
-## STAGE6-013 — Security integration
+## STAGE6-013 ? Security integration
 
 **Status:** DONE
 **Stage:** 6
@@ -9572,7 +9572,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Интегрировать Warehouse с Security capability permissions.
+????????????? Warehouse ? Security capability permissions.
 
 ### Allowed context
 
@@ -9582,12 +9582,12 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 ### Mutable files
 
 - `tmp-warehouse/**/security/**`
-- `tmp-security/**` (только разрешённые extension points)
+- `tmp-security/**` (?????? ??????????? extension points)
 - security tests and control docs
 
 ### Completion criteria
 
-- permissions `WAREHOUSE_*` подключены к операциям и read access;
+- permissions `WAREHOUSE_*` ?????????? ? ????????? ? read access;
 - unauthorized access correctly denied;
 - audit/reasonable error responses preserved.
 
@@ -9596,7 +9596,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 - security integration tests;
 - authorization tests per operation type.
 
-## STAGE6-014 — UI
+## STAGE6-014 ? UI
 
 **Status:** DONE
 **Stage:** 6
@@ -9605,7 +9605,7 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Добавить базовый UI для Warehouse v1.0 операций и просмотра остатков.
+???????? ??????? UI ??? Warehouse v1.0 ???????? ? ????????? ????????.
 
 ### Allowed context
 
@@ -9616,14 +9616,14 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 ### Mutable files
 
 - `tmp-ui-shell/**/warehouse/**`
-- shared UI components (точечно)
+- shared UI components (???????)
 - ui tests and control docs
 
 ### Completion criteria
 
-- UI покрывает stock view + операции v1.0 по scope Stage 6;
-- UI не содержит business logic склада;
-- ошибки/permission states отображаются корректно.
+- UI ????????? stock view + ???????? v1.0 ?? scope Stage 6;
+- UI ?? ???????? business logic ??????;
+- ??????/permission states ???????????? ?????????.
 
 ### Tests
 
@@ -9632,84 +9632,84 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ---
 
-## Stage 6 — Detailed Implementation Queue (Normalized)
+## Stage 6 ? Detailed Implementation Queue (Normalized)
 
-> Этот блок заменяет предыдущую черновую декомпозицию Stage 6 и является рабочей очередью исполнения.
+> ???? ???? ???????? ?????????? ???????? ???????????? Stage 6 ? ???????? ??????? ???????? ??????????.
 
 ### STAGE6-001
 - **ID:** `STAGE6-001`
 - **Status:** DONE
-- **Название:** Warehouse Module Foundation
-- **Цель:** Создать базовый модуль Warehouse без бизнес-логики.
-- **Описание:** Подготовить модуль, структуру пакетов и подключение к сборке.
+- **????????:** Warehouse Module Foundation
+- **????:** ??????? ??????? ?????? Warehouse ??? ??????-??????.
+- **????????:** ??????????? ??????, ????????? ??????? ? ??????????? ? ??????.
 - **Required Context:** `STAGE-6-WAREHOUSE.md`, `STAGE-6-WAREHOUSE-CONTEXT-RULES.md`, `Warehouse-Specification.md`, `TMP-Architecture-Overview.md`
 - **Allowed Files:** `tmp-warehouse/**`, root module descriptors, `docs/development-control/*`
-- **Forbidden Scope:** полный проект; Production; Cutting Optimization; внутренние Order Management детали
-- **Implementation Steps:** создать модуль -> создать package boundaries -> подключить в сборку -> синхронизировать control docs
+- **Forbidden Scope:** ?????? ??????; Production; Cutting Optimization; ?????????? Order Management ??????
+- **Implementation Steps:** ??????? ?????? -> ??????? package boundaries -> ?????????? ? ?????? -> ???????????????? control docs
 - **Verification:** module compile PASS; architecture boundaries PASS
 - **Tests:** unit smoke; module integration smoke
 
 ### STAGE6-002
 - **ID:** `STAGE6-002`
 - **Status:** DONE
-- **Название:** Warehouse Domain Model
-- **Цель:** Создать `Warehouse`, `Storage Cell`, `Stock Position`, `Warehouse Operation`, `Warehouse Movement`.
-- **Описание:** Определить доменные сущности, value objects и инварианты.
-- **Required Context:** `Warehouse-Specification.md` (§1-10, §20-21), `TMP-Code-Quality-Standards.md`, `STAGE-6-WAREHOUSE-CONTEXT-RULES.md`
+- **????????:** Warehouse Domain Model
+- **????:** ??????? `Warehouse`, `Storage Cell`, `Stock Position`, `Warehouse Operation`, `Warehouse Movement`.
+- **????????:** ?????????? ???????? ????????, value objects ? ??????????.
+- **Required Context:** `Warehouse-Specification.md` (�1-10, �20-21), `TMP-Code-Quality-Standards.md`, `STAGE-6-WAREHOUSE-CONTEXT-RULES.md`
 - **Allowed Files:** `tmp-warehouse/src/main/**/domain/**`, `tmp-warehouse/src/test/**/domain/**`, `docs/development-control/*`
-- **Forbidden Scope:** внутренние модели Production/Cutting/Order Management
-- **Implementation Steps:** описать сущности -> зафиксировать инварианты -> определить доменные контракты
+- **Forbidden Scope:** ?????????? ?????? Production/Cutting/Order Management
+- **Implementation Steps:** ??????? ???????? -> ????????????? ?????????? -> ?????????? ???????? ?????????
 - **Verification:** invariants PASS; mutation rules PASS
 - **Tests:** unit domain tests; integration domain-service tests
 
 ### STAGE6-003
 - **ID:** `STAGE6-003`
 - **Status:** DONE
-- **Название:** Warehouse Database
-- **Цель:** Создать schema, migrations, tables.
-- **Описание:** Ввести persistence-слой для Warehouse core.
-- **Required Context:** `Warehouse-Specification.md` (§5-10, §19), `TMP-Database-Specification.md`, migration conventions
+- **????????:** Warehouse Database
+- **????:** ??????? schema, migrations, tables.
+- **????????:** ?????? persistence-???? ??? Warehouse core.
+- **Required Context:** `Warehouse-Specification.md` (�5-10, �19), `TMP-Database-Specification.md`, migration conventions
 - **Allowed Files:** `tmp-warehouse/src/main/resources/db/**`, `tmp-warehouse/**/persistence/**`, `tmp-warehouse/src/test/**/persistence/**`, `docs/development-control/*`
-- **Forbidden Scope:** массовые изменения БД за пределами Warehouse
-- **Implementation Steps:** проектирование таблиц -> constraints -> migrations -> wiring persistence
+- **Forbidden Scope:** ???????? ????????? ?? ?? ????????? Warehouse
+- **Implementation Steps:** ?????????????? ?????? -> constraints -> migrations -> wiring persistence
 - **Verification:** migration apply PASS; schema constraints PASS
 - **Tests:** migration tests; persistence integration tests
 
 ### STAGE6-004
 - **ID:** `STAGE6-004`
 - **Status:** DONE
-- **Название:** Stock Position
-- **Цель:** Реализовать хранение остатков и изменение через Operation.
-- **Описание:** Реализация модели остатков с запретом прямых мутаций.
-- **Required Context:** `Warehouse-Specification.md` (§6-8), outputs `STAGE6-002..003`, context rules
+- **????????:** Stock Position
+- **????:** ??????????? ???????? ???????? ? ????????? ????? Operation.
+- **????????:** ?????????? ?????? ???????? ? ???????? ?????? ???????.
+- **Required Context:** `Warehouse-Specification.md` (�6-8), outputs `STAGE6-002..003`, context rules
 - **Allowed Files:** `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/application/**`, `tmp-warehouse/**/persistence/**`, `docs/development-control/*`
 - **Forbidden Scope:** `RESERVED` stock state; direct stock mutation; complex reservation logic
-- **Implementation Steps:** реализовать stock model -> привязать к operation path -> закрыть direct writes
+- **Implementation Steps:** ??????????? stock model -> ????????? ? operation path -> ??????? direct writes
 - **Verification:** stock lifecycle PASS; operation-only mutation PASS
 - **Tests:** unit stock rules; integration stock operation tests
 
 ### STAGE6-005
 - **ID:** `STAGE6-005`
 - **Status:** DONE
-- **Название:** Warehouse Movement
-- **Цель:** Реализовать immutable history.
-- **Описание:** История изменений остатков и состояний через неизменяемые записи.
-- **Required Context:** `Warehouse-Specification.md` (§9), outputs `STAGE6-003..004`
+- **????????:** Warehouse Movement
+- **????:** ??????????? immutable history.
+- **????????:** ??????? ????????? ???????? ? ????????? ????? ???????????? ??????.
+- **Required Context:** `Warehouse-Specification.md` (�9), outputs `STAGE6-003..004`
 - **Allowed Files:** `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/application/**`, `tmp-warehouse/**/persistence/**`, `docs/development-control/*`
-- **Forbidden Scope:** update/delete для movement
-- **Implementation Steps:** определить movement model -> интегрировать генерацию в operation -> запретить изменение/удаление
+- **Forbidden Scope:** update/delete ??? movement
+- **Implementation Steps:** ?????????? movement model -> ????????????? ????????? ? operation -> ????????? ?????????/????????
 - **Verification:** immutability PASS; movement-on-change PASS
 - **Tests:** unit immutability tests; integration movement history tests
 
 ### STAGE6-006
 - **ID:** `STAGE6-006`
 - **Status:** DONE
-- **Название:** Warehouse Operation
-- **Цель:** Реализовать механизм операций и проверки.
-- **Описание:** Единый write path для складских изменений.
-- **Required Context:** `Warehouse-Specification.md` (§10), outputs `STAGE6-004..005`
+- **????????:** Warehouse Operation
+- **????:** ??????????? ???????? ???????? ? ????????.
+- **????????:** ?????? write path ??? ????????? ?????????.
+- **Required Context:** `Warehouse-Specification.md` (�10), outputs `STAGE6-004..005`
 - **Allowed Files:** `tmp-warehouse/**/application/**`, `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/api/**`, `docs/development-control/*`
-- **Forbidden Scope:** обход operation orchestration
+- **Forbidden Scope:** ????? operation orchestration
 - **Implementation Steps:** operation command model -> validations -> stock + movement execution
 - **Verification:** operation flow PASS; validation handling PASS
 - **Tests:** unit validation tests; integration transaction tests
@@ -9717,10 +9717,10 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 ### STAGE6-007
 - **ID:** `STAGE6-007`
 - **Status:** DONE
-- **Название:** Receipt
-- **Цель:** Реализовать операцию поступления.
-- **Описание:** Увеличение остатков через `WarehouseOperation`.
-- **Required Context:** `Warehouse-Specification.md` (§12), outputs `STAGE6-006`
+- **????????:** Receipt
+- **????:** ??????????? ???????? ???????????.
+- **????????:** ?????????? ???????? ????? `WarehouseOperation`.
+- **Required Context:** `Warehouse-Specification.md` (�12), outputs `STAGE6-006`
 - **Allowed Files:** `tmp-warehouse/**/application/**`, `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/api/**`, `docs/development-control/*`
 - **Forbidden Scope:** supplier/procurement/price logic
 - **Implementation Steps:** receipt request -> operation execution -> movement creation
@@ -9730,12 +9730,12 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 ### STAGE6-008
 - **ID:** `STAGE6-008`
 - **Status:** DONE
-- **Название:** Move
-- **Цель:** Реализовать внутреннее перемещение.
-- **Описание:** Перемещение между ячейками без изменения общего количества.
-- **Required Context:** `Warehouse-Specification.md` (§13.1), outputs `STAGE6-006`
+- **????????:** Move
+- **????:** ??????????? ?????????? ???????????.
+- **????????:** ??????????? ????? ???????? ??? ????????? ?????? ??????????.
+- **Required Context:** `Warehouse-Specification.md` (�13.1), outputs `STAGE6-006`
 - **Allowed Files:** `tmp-warehouse/**/application/**`, `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/api/**`, `docs/development-control/*`
-- **Forbidden Scope:** transfer/WMS логика
+- **Forbidden Scope:** transfer/WMS ??????
 - **Implementation Steps:** move command -> source validation -> source/destination updates + movement
 - **Verification:** quantity conservation PASS; insufficient stock rejection PASS
 - **Tests:** unit move tests; integration move workflow tests
@@ -9743,12 +9743,12 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 ### STAGE6-009
 - **ID:** `STAGE6-009`
 - **Status:** DONE
-- **Название:** Transfer
-- **Цель:** Реализовать межскладской transfer.
-- **Описание:** Два этапа: ship и receive через `IN_TRANSIT`.
-- **Required Context:** `Warehouse-Specification.md` (§13.2), outputs `STAGE6-006`
+- **????????:** Transfer
+- **????:** ??????????? ???????????? transfer.
+- **????????:** ??? ?????: ship ? receive ????? `IN_TRANSIT`.
+- **Required Context:** `Warehouse-Specification.md` (�13.2), outputs `STAGE6-006`
 - **Allowed Files:** `tmp-warehouse/**/application/**`, `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/api/**`, `docs/development-control/*`
-- **Forbidden Scope:** advanced logistics и маршрутизация
+- **Forbidden Scope:** advanced logistics ? ?????????????
 - **Implementation Steps:** ship stage -> receive stage -> audit movement for both stages
 - **Verification:** `AVAILABLE -> IN_TRANSIT -> AVAILABLE` PASS
 - **Tests:** unit transition tests; integration ship/receive tests
@@ -9756,12 +9756,12 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 ### STAGE6-010
 - **ID:** `STAGE6-010`
 - **Status:** DONE
-- **Название:** Consumption
-- **Цель:** Реализовать списание.
-- **Описание:** Warehouse исполняет списание по входным данным Production.
-- **Required Context:** `Warehouse-Specification.md` (§14-15), Production public API contracts (read-only), context rules
+- **????????:** Consumption
+- **????:** ??????????? ????????.
+- **????????:** Warehouse ????????? ???????? ?? ??????? ?????? Production.
+- **Required Context:** `Warehouse-Specification.md` (�14-15), Production public API contracts (read-only), context rules
 - **Allowed Files:** `tmp-warehouse/**`, production API contracts (read-only), `docs/development-control/*`
-- **Forbidden Scope:** расчёты Production; алгоритмы Cutting Optimization
+- **Forbidden Scope:** ??????? Production; ????????? Cutting Optimization
 - **Implementation Steps:** consumption command -> availability validation -> stock decrease + movement
 - **Verification:** consumption flow PASS; production ownership preserved PASS
 - **Tests:** unit consumption tests; integration production-like input tests
@@ -9769,25 +9769,25 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 ### STAGE6-011
 - **ID:** `STAGE6-011`
 - **Status:** DONE
-- **Название:** Inventory / Adjustment
-- **Цель:** Реализовать inventory и adjustment v1.0.
-- **Описание:** Операции сверки и корректировки остатков с аудитом.
-- **Required Context:** `Warehouse-Specification.md` (§11, §19), outputs `STAGE6-004..006`
+- **????????:** Inventory / Adjustment
+- **????:** ??????????? inventory ? adjustment v1.0.
+- **????????:** ???????? ?????? ? ????????????? ???????? ? ???????.
+- **Required Context:** `Warehouse-Specification.md` (�11, �19), outputs `STAGE6-004..006`
 - **Allowed Files:** `tmp-warehouse/**/application/**`, `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/api/**`, `docs/development-control/*`
-- **Forbidden Scope:** batch/fifo/fefo и сложные инвентаризационные стратегии
-- **Implementation Steps:** inventory command -> adjustment command -> movement фиксация
+- **Forbidden Scope:** batch/fifo/fefo ? ??????? ?????????????????? ?????????
+- **Implementation Steps:** inventory command -> adjustment command -> movement ????????
 - **Verification:** reconciliation PASS; audit traceability PASS
 - **Tests:** unit inventory/adjustment tests; integration inventory workflow tests
 
 ### STAGE6-012
 - **ID:** `STAGE6-012`
 - **Status:** DONE
-- **Название:** Reservation Information Link
-- **Цель:** Реализовать информационную reservation связь.
-- **Описание:** Reservation link без изменения `Stock Position`.
-- **Required Context:** `Warehouse-Specification.md` (§8, §17), outputs `STAGE6-004..006`
+- **????????:** Reservation Information Link
+- **????:** ??????????? ?????????????? reservation ?????.
+- **????????:** Reservation link ??? ????????? `Stock Position`.
+- **Required Context:** `Warehouse-Specification.md` (�8, �17), outputs `STAGE6-004..006`
 - **Allowed Files:** `tmp-warehouse/**/application/**`, `tmp-warehouse/**/domain/**`, `tmp-warehouse/**/api/**`, `tmp-warehouse/**/persistence/**`, `docs/development-control/*`
-- **Forbidden Scope:** создание `RESERVED` stock state; complex reservation engine
+- **Forbidden Scope:** ???????? `RESERVED` stock state; complex reservation engine
 - **Implementation Steps:** reservation link model -> create/query link use-cases -> guard against stock mutation
 - **Verification:** reservation link PASS; no stock or movement mutation PASS
 - **Tests:** unit reservation tests; integration reservation use-case tests
@@ -9795,12 +9795,12 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 ### STAGE6-013
 - **ID:** `STAGE6-013`
 - **Status:** DONE
-- **Название:** Public API
-- **Цель:** Реализовать минимальный Public API.
-- **Описание:** API для stock, availability, reservation link и execution операций.
-- **Required Context:** `Warehouse-Specification.md` (§17), `TMP-Architecture-Overview.md`, outputs `STAGE6-006..012`
+- **????????:** Public API
+- **????:** ??????????? ??????????? Public API.
+- **????????:** API ??? stock, availability, reservation link ? execution ????????.
+- **Required Context:** `Warehouse-Specification.md` (�17), `TMP-Architecture-Overview.md`, outputs `STAGE6-006..012`
 - **Allowed Files:** `tmp-warehouse-api/**`, `tmp-warehouse/**/api/**`, API tests, `docs/development-control/*`
-- **Forbidden Scope:** раскрытие internal persistence/domain деталей
+- **Forbidden Scope:** ????????? internal persistence/domain ???????
 - **Implementation Steps:** contracts -> adapters/controllers -> error mapping
 - **Verification:** API contracts PASS; integration behavior PASS
 - **Tests:** unit contract tests; integration API tests
@@ -9808,12 +9808,12 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 ### STAGE6-014
 - **ID:** `STAGE6-014`
 - **Status:** DONE
-- **Название:** Security Integration
-- **Цель:** Интегрировать Warehouse с Security capability.
-- **Описание:** Подключить `WAREHOUSE_*` permissions.
-- **Required Context:** `Warehouse-Specification.md` (§18), security public contracts, outputs `STAGE6-013`
+- **????????:** Security Integration
+- **????:** ????????????? Warehouse ? Security capability.
+- **????????:** ?????????? `WAREHOUSE_*` permissions.
+- **Required Context:** `Warehouse-Specification.md` (�18), security public contracts, outputs `STAGE6-013`
 - **Allowed Files:** `tmp-warehouse/**/security/**`, allowed `tmp-security/**` extension points, security tests, `docs/development-control/*`
-- **Forbidden Scope:** изменения security core вне extension points
+- **Forbidden Scope:** ????????? security core ??? extension points
 - **Implementation Steps:** permission mapping -> operation/api guards -> auth error alignment
 - **Verification:** authorized PASS; unauthorized denied PASS
 - **Tests:** unit permission tests; integration authorization tests
@@ -9821,17 +9821,17 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 ### STAGE6-015
 - **ID:** `STAGE6-015`
 - **Status:** DONE
-- **Название:** Warehouse UI
-- **Цель:** Реализовать базовый UI Warehouse.
-- **Описание:** UI для просмотра остатков и операций v1.0 через Public API.
-- **Required Context:** `Warehouse-Specification.md` (§11-18), UI architecture rules, outputs `STAGE6-013..014`
+- **????????:** Warehouse UI
+- **????:** ??????????? ??????? UI Warehouse.
+- **????????:** UI ??? ????????? ???????? ? ???????? v1.0 ????? Public API.
+- **Required Context:** `Warehouse-Specification.md` (�11-18), UI architecture rules, outputs `STAGE6-013..014`
 - **Allowed Files:** `tmp-ui-shell/**/warehouse/**`, limited shared UI components, UI tests, `docs/development-control/*`
-- **Forbidden Scope:** бизнес-логика склада в UI; прямой доступ к внутренним warehouse сервисам
+- **Forbidden Scope:** ??????-?????? ?????? ? UI; ?????? ?????? ? ?????????? warehouse ????????
 - **Implementation Steps:** screens/viewmodels -> API integration -> permission/error states
 - **Verification:** UI scenarios PASS; permission/error state PASS
 - **Tests:** unit/viewmodel tests; integration UI tests
 
-## STAGE6-016 — Warehouse UI + Security Roles UI final UX fix
+## STAGE6-016 ? Warehouse UI + Security Roles UI final UX fix
 
 **Status:** DONE
 **Stage:** 6
@@ -9840,11 +9840,11 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Goal
 
-Исправить UX Warehouse UI и Security Roles UI по результатам ручной проверки Stage 6: создание склада/ячеек, выпадающие списки вместо UUID, Transfer Receive, убрать дубли навигации, простой Inventory, layout Roles.
+????????? UX Warehouse UI ? Security Roles UI ?? ??????????? ?????? ???????? Stage 6: ???????? ??????/?????, ?????????? ?????? ?????? UUID, Transfer Receive, ?????? ????? ?????????, ??????? Inventory, layout Roles.
 
 ### Required documents
 
-- `Warehouse-Specification.md` (§5, §11–§18);
+- `Warehouse-Specification.md` (�5, �11?�18);
 - user Stage 6 final UX fix brief (this task);
 - Security Roles UI existing contracts (no Security model/PermissionId changes).
 
@@ -9872,12 +9872,12 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Forbidden
 
-- изменение доменной модели Warehouse / Security;
-- изменение PermissionId / Security модели;
-- изменение БД / Flyway;
-- обход через прямой JDBC из UI;
-- Git операции;
-- архитектурный рефакторинг вне UX fix.
+- ????????? ???????? ?????? Warehouse / Security;
+- ????????? PermissionId / Security ??????;
+- ????????? ?? / Flyway;
+- ????? ????? ?????? JDBC ?? UI;
+- Git ????????;
+- ????????????? ??????????? ??? UX fix.
 
 ### Implementation requirements
 
@@ -9886,12 +9886,12 @@ Code, schema, Import Core, STXT Adapter, UI not modified by this closure. Wareho
 
 ### Acceptance criteria
 
-- [x] Можно создать склад и ячейку через UI (Public API);
-- [x] UUID-поля заменены выпадающими списками на Receipt/Move/Transfer/Consumption/Adjustment/Stock;
-- [x] Transfer Receive доступен;
-- [x] Дублирующие кнопки навигации удалены (осталось левое меню);
-- [x] Roles: таблица ролей выбираема, permissions ниже;
-- [x] `mvn test` и `mvn package` PASS.
+- [x] ????? ??????? ????? ? ?????? ????? UI (Public API);
+- [x] UUID-???? ???????? ??????????? ???????? ?? Receipt/Move/Transfer/Consumption/Adjustment/Stock;
+- [x] Transfer Receive ????????;
+- [x] ??????????? ?????? ????????? ??????? (???????? ????? ????);
+- [x] Roles: ??????? ????? ?????????, permissions ????;
+- [x] `mvn test` ? `mvn package` PASS.
 
 ### Required tests
 
@@ -9915,7 +9915,7 @@ mvn package
 
 ---
 
-## STAGE6-017 — Warehouse structure permissions security fix
+## STAGE6-017 ? Warehouse structure permissions security fix
 
 **Status:** DONE
 **Stage:** 6
@@ -9924,12 +9924,12 @@ mvn package
 
 ### Goal
 
-Добавить Capability для управления складской структурой (склад / ячейка) и закрыть UI/API create отдельными правами, не меняя operation permissions.
+???????? Capability ??? ?????????? ????????? ?????????? (????? / ??????) ? ??????? UI/API create ?????????? ???????, ?? ????? operation permissions.
 
 ### Required documents
 
 - `Security-Specification.md` (PermissionId format);
-- `Warehouse-Specification.md` (§18);
+- `Warehouse-Specification.md` (�18);
 - user Stage 6 final security fix brief.
 
 ### Allowed code scope
@@ -9947,8 +9947,8 @@ mvn package
 ### Forbidden
 
 - Warehouse Domain / Operation Engine / Stock Position / Movement / Transfer / Consumption / Reservation;
-- изменение существующих operation permission codes;
-- Git операции.
+- ????????? ???????????? operation permission codes;
+- Git ????????.
 
 ### Implementation requirements
 
@@ -9981,11 +9981,11 @@ mvn -pl :tmp-warehouse,:tmp-ui-shell,:tmp-bootstrap-app -am test
 
 ---
 
-# Stage 7 — Production
+# Stage 7 ? Production
 
-> **Обязательно к прочтению перед любой задачей Stage 7:** `docs/development-control/stages/STAGE-7-PRODUCTION.md` и Production Specification **v2.4**. Правила контекста — `CONTEXT-MAP.md` → «Stage 7 — Production Context». Start Gate PASSED (`STAGE7-000`). Atomicity = ADR-036. Одновременно только одна задача `IN_PROGRESS`. Git-операции запрещены (выполняет пользователь).
+> **??????????? ? ????????? ????? ????? ??????? Stage 7:** `docs/development-control/stages/STAGE-7-PRODUCTION.md` ? Production Specification **v2.4**. ??????? ????????? ? `CONTEXT-MAP.md` ? �Stage 7 ? Production Context�. Start Gate PASSED (`STAGE7-000`). Atomicity = ADR-036. ???????????? ?????? ???? ?????? `IN_PROGRESS`. Git-???????? ????????? (????????? ????????????).
 
-## STAGE7-000 — Stage 7 Start Gate and Release/Consumption atomicity proof
+## STAGE7-000 ? Stage 7 Start Gate and Release/Consumption atomicity proof
 
 **Status:** DONE
 **Stage:** 7
@@ -9994,12 +9994,12 @@ mvn -pl :tmp-warehouse,:tmp-ui-shell,:tmp-bootstrap-app -am test
 
 ### Goal
 
-Доказать атомарность multi-document orchestration в одной локальной ACID-транзакции, принять ADR-036, закрыть `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` и пройти Stage 7 Start Gate без Production implementation.
+???????? ??????????? multi-document orchestration ? ????? ????????? ACID-??????????, ??????? ADR-036, ??????? `BLK-STAGE7-RELEASE-CONSUMPTION-ATOMICITY` ? ?????? Stage 7 Start Gate ??? Production implementation.
 
 ### Required documents
 
-- Constitution принципы 15, 18, 19, 21, 28;
-- ADR-035; Document Engine Specification; Production Spec §21; STAGE-7 Manifest; BLOCKERS.md.
+- Constitution ???????? 15, 18, 19, 21, 28;
+- ADR-035; Document Engine Specification; Production Spec �21; STAGE-7 Manifest; BLOCKERS.md.
 
 ### Allowed code scope
 
@@ -10018,7 +10018,7 @@ mvn -pl :tmp-warehouse,:tmp-ui-shell,:tmp-bootstrap-app -am test
 
 - [x] REQUIRED ambient TX confirmed in code and IT;
 - [x] success + rollback-on-second-document + after-commit cases PASS;
-- [x] ADR-036 Accepted; DE Spec v1.2; Production Spec v2.2 §21;
+- [x] ADR-036 Accepted; DE Spec v1.2; Production Spec v2.2 �21;
 - [x] blocker RESOLVED; Start Gate PASSED; Stage 7 implementation 0%.
 
 ### Verification commands
@@ -10031,7 +10031,7 @@ mvn -pl :tmp-architecture-tests -am test
 
 ---
 
-## STAGE7-000A — Restore Green Reactor Baseline
+## STAGE7-000A ? Restore Green Reactor Baseline
 
 **Status:** DONE
 **Stage:** 7
@@ -10040,7 +10040,7 @@ mvn -pl :tmp-architecture-tests -am test
 
 ### Goal
 
-Устранить известный pre-existing Stage 6 Warehouse test debt и восстановить green reactor baseline до первой Production implementation task.
+????????? ????????? pre-existing Stage 6 Warehouse test debt ? ???????????? green reactor baseline ?? ?????? Production implementation task.
 
 ### Required documents
 
@@ -10056,8 +10056,8 @@ mvn -pl :tmp-architecture-tests -am test
 ### Forbidden
 
 - Production implementation;
-- Warehouse product code changes (unless real defect → blocker);
-- ослабление assertions ради green;
+- Warehouse product code changes (unless real defect ? blocker);
+- ?????????? assertions ???? green;
 - Git.
 
 ### Scope (known debt only)
@@ -10084,7 +10084,7 @@ mvn verify
 
 ---
 
-## STAGE7-000B — Warehouse Production Integration Readiness
+## STAGE7-000B ? Warehouse Production Integration Readiness
 
 **Status:** DONE
 **Stage:** 7
@@ -10094,12 +10094,12 @@ mvn verify
 
 ### Goal
 
-Закрыть оставшиеся Warehouse readiness defects перед первой Production implementation task: green reactor `mvn verify`, фактические public Query/Command boundaries, exact MaterialReference availability, Transfer draft lifecycle, Consumption command boundary для ADR-036.
+??????? ?????????? Warehouse readiness defects ????? ?????? Production implementation task: green reactor `mvn verify`, ??????????? public Query/Command boundaries, exact MaterialReference availability, Transfer draft lifecycle, Consumption command boundary ??? ADR-036.
 
 ### Required documents
 
 - Warehouse Specification v1.6;
-- Production Specification v2.2 §11, §13–§15, §21;
+- Production Specification v2.2 �11, �13?�15, �21;
 - TMP Constitution (capability ownership; Public Query API; document-driven mutation; atomicity);
 - ADR-003, ADR-004, ADR-019, ADR-035, ADR-036.
 
@@ -10125,21 +10125,21 @@ mvn verify
 - `tmp-production` creation;
 - Production domain/documents/persistence/UI;
 - Stage 8;
-- изменение Production Specification;
-- изменение ADR-033…036;
+- ????????? Production Specification;
+- ????????? ADR-033?036;
 - Git.
 
 ### Acceptance criteria
 
-- [x] 4 SpotBugs NP в `WarehouseOperationEngine` устранены без suppressions;
+- [x] 4 SpotBugs NP ? `WarehouseOperationEngine` ????????? ??? suppressions;
 - [x] `mvn verify` PASS (full reactor);
-- [x] `WarehouseQueryApi` read-only; mutating operations в `WarehouseCommandApi`;
-- [x] Stage 6 UI работает через `WarehouseApi`;
-- [x] availability по `materialReferenceId` / `MaterialIdentityRequest`;
+- [x] `WarehouseQueryApi` read-only; mutating operations ? `WarehouseCommandApi`;
+- [x] Stage 6 UI ???????? ????? `WarehouseApi`;
+- [x] availability ?? `materialReferenceId` / `MaterialIdentityRequest`;
 - [x] variant isolation + legacy path separation;
-- [x] Transfer: create draft → send → receive; draft не меняет stock;
-- [x] Consumption через `WarehouseCommandApi.consume`; outer TX join проверен;
-- [x] ArchUnit запрещает cross-capability imports Warehouse internals;
+- [x] Transfer: create draft ? send ? receive; draft ?? ?????? stock;
+- [x] Consumption ????? `WarehouseCommandApi.consume`; outer TX join ????????;
+- [x] ArchUnit ????????? cross-capability imports Warehouse internals;
 - [x] `BLK-STAGE7-WAREHOUSE-INTEGRATION-READINESS` RESOLVED;
 - [x] STAGE7-001 = READY.
 
@@ -10155,7 +10155,7 @@ mvn verify
 
 ---
 
-## STAGE7-000C — Warehouse Transfer Integrity
+## STAGE7-000C ? Warehouse Transfer Integrity
 
 **Status:** DONE
 **Stage:** 7
@@ -10165,18 +10165,18 @@ mvn verify
 
 ### Goal
 
-Закрыть correctness defects Transfer lifecycle: exactly-once receive, positive Transfer quantity, logical transfer status, и зафиксировать 1 template → N Warehouse lines для STAGE7-010.
+??????? correctness defects Transfer lifecycle: exactly-once receive, positive Transfer quantity, logical transfer status, ? ????????????? 1 template ? N Warehouse lines ??? STAGE7-010.
 
 ### Required documents
 
 - Warehouse Specification v1.7;
-- Production Specification v2.2 §13 (grouping only; spec not changed);
+- Production Specification v2.2 �13 (grouping only; spec not changed);
 - ADR-036 (REQUIRED / no REQUIRES_NEW).
 
 ### Allowed code scope
 
 - `tmp-warehouse/**` (Transfer context, receive once, quantity, status, tests);
-- Warehouse Specification v1.6 → v1.7 (invariants only);
+- Warehouse Specification v1.6 ? v1.7 (invariants only);
 - control docs (`WORK-QUEUE`, `STATUS`, `IMPLEMENTATION-LOG`, `VERIFICATION-LOG`).
 
 ### Forbidden
@@ -10184,19 +10184,19 @@ mvn verify
 - `tmp-production`;
 - Query/Command boundary redesign;
 - MaterialReference availability redesign;
-- Production Specification / ADR-033…036;
+- Production Specification / ADR-033?036;
 - Git.
 
 ### Acceptance criteria
 
-- [x] один TRANSFER_SEND received максимум один раз;
-- [x] duplicate receive не меняет stock и не создаёт movement;
-- [x] два transfer одного material: receive A не потребляет IN_TRANSIT B;
-- [x] concurrency защищена transaction/database invariant;
-- [x] failure receive не оставляет received marker;
+- [x] ???? TRANSFER_SEND received ???????? ???? ???;
+- [x] duplicate receive ?? ?????? stock ? ?? ??????? movement;
+- [x] ??? transfer ?????? material: receive A ?? ?????????? IN_TRANSIT B;
+- [x] concurrency ???????? transaction/database invariant;
+- [x] failure receive ?? ????????? received marker;
 - [x] transfer quantity = 0 rejected before persistence;
 - [x] TransferStatus: DRAFT / SENT / RECEIVED;
-- [x] STAGE7-010 содержит logical grouping 1 template → N lines.
+- [x] STAGE7-010 ???????? logical grouping 1 template ? N lines.
 
 ### Verification commands
 
@@ -10210,7 +10210,7 @@ mvn verify
 
 ---
 
-## STAGE7-001 — Production module foundation
+## STAGE7-001 ? Production module foundation
 
 **Status:** DONE
 **Stage:** 7
@@ -10219,24 +10219,24 @@ mvn verify
 
 ### Goal
 
-Создать Maven-модуль Production capability с package boundaries и подключением в reactor без бизнес-логики выпуска.
+??????? Maven-?????? Production capability ? package boundaries ? ???????????? ? reactor ??? ??????-?????? ???????.
 
 ### Required documents
 
 - `STAGE-7-PRODUCTION.md` (planning domain 1);
-- Production Specification v2.2 §1–§2;
+- Production Specification v2.2 �1?�2;
 - Database Specification (Schema per Module);
 - root `pom.xml` conventions.
 
 ### Required code context
 
 - root `pom.xml`;
-- существующие capability modules только как образец структуры.
+- ???????????? capability modules ?????? ??? ??????? ?????????.
 
 ### Allowed code scope
 
 - `tmp-production/**` bootstrap only;
-- root reactor `pom.xml` (подключение модуля);
+- root reactor `pom.xml` (??????????? ??????);
 - control docs (`STATUS`, `WORK-QUEUE`, `IMPLEMENTATION-LOG`, `VERIFICATION-LOG`).
 
 ### Forbidden
@@ -10245,19 +10245,19 @@ mvn verify
 
 ### Implementation requirements
 
-- модуль компилируется; пакеты domain/application/infrastructure/api выделены;
-- зависимости только на публичные API.
+- ?????? ?????????????; ?????? domain/application/infrastructure/api ????????;
+- ??????????? ?????? ?? ????????? API.
 
 ### Acceptance criteria
 
-- [x] `tmp-production` подключён в reactor и компилируется;
-- [x] package boundaries соответствуют Architecture rules;
-- [x] Production business documents ещё не реализованы.
+- [x] `tmp-production` ????????? ? reactor ? ?????????????;
+- [x] package boundaries ????????????? Architecture rules;
+- [x] Production business documents ??? ?? ???????????.
 
 ### Required tests
 
 - module compile;
-- architecture test: Production не зависит от внутренних пакетов других Capability.
+- architecture test: Production ?? ??????? ?? ?????????? ??????? ?????? Capability.
 
 ### Verification commands
 
@@ -10270,7 +10270,7 @@ mvn verify
 
 ---
 
-## STAGE7-002 — Production identifiers and item-owned state model
+## STAGE7-002 ? Production identifiers and item-owned state model
 
 **Status:** DONE
 **Stage:** 7
@@ -10279,11 +10279,11 @@ mvn verify
 
 ### Goal
 
-Реализовать идентификаторы и item-owned production state domain без persistence и без документов.
+??????????? ?????????????? ? item-owned production state domain ??? persistence ? ??? ??????????.
 
 ### Required documents
 
-- Production Spec v2.2 §3–§8;
+- Production Spec v2.2 �3?�8;
 - ADR-033.
 
 ### Allowed code scope
@@ -10299,9 +10299,9 @@ mvn verify
 
 ### Acceptance criteria
 
-- [x] item-owned state model соответствует spec;
-- [x] order-level view не хранится как агрегат;
-- [x] нет Production Order entity.
+- [x] item-owned state model ????????????? spec;
+- [x] order-level view ?? ???????? ??? ???????;
+- [x] ??? Production Order entity.
 
 ### Verification commands
 
@@ -10314,7 +10314,7 @@ mvn verify
 
 ---
 
-## STAGE7-003 — Production persistence schema
+## STAGE7-003 ? Production persistence schema
 
 **Status:** DONE
 **Stage:** 7
@@ -10323,7 +10323,7 @@ mvn verify
 
 ### Goal
 
-Создать схему `production` и таблицы item-owned state / specification reference.
+??????? ????? `production` ? ??????? item-owned state / specification reference.
 
 ### Required documents
 
@@ -10342,8 +10342,8 @@ mvn verify
 
 ### Acceptance criteria
 
-- [ ] schema применяется Flyway;
-- [ ] Production не пишет в warehouse/order_management.
+- [ ] schema ??????????? Flyway;
+- [ ] Production ?? ????? ? warehouse/order_management.
 
 ### Verification commands
 
@@ -10353,7 +10353,7 @@ mvn -pl :tmp-production,:tmp-infra-db -am test
 
 ---
 
-## STAGE7-004 — Production Launch document
+## STAGE7-004 ? Production Launch document
 
 **Status:** DONE
 **Stage:** 7
@@ -10362,7 +10362,7 @@ mvn -pl :tmp-production,:tmp-infra-db -am test
 
 ### Goal
 
-Проведение whole-order Production Launch через Production-owned document и processor.
+?????????? whole-order Production Launch ????? Production-owned document ? processor.
 
 ### Required documents
 
@@ -10381,7 +10381,7 @@ mvn -pl :tmp-production,:tmp-infra-db -am test
 
 ### Acceptance criteria
 
-- [ ] Launch проводит item-owned state в производство.
+- [ ] Launch ???????? item-owned state ? ????????????.
 
 ### Verification commands
 
@@ -10391,7 +10391,7 @@ mvn -pl :tmp-production -am test
 
 ---
 
-## STAGE7-004A — Order Management stable SpecificationId public contract alignment
+## STAGE7-004A ? Order Management stable SpecificationId public contract alignment
 
 **Status:** DONE
 **Stage:** 7
@@ -10400,12 +10400,12 @@ mvn -pl :tmp-production -am test
 
 ### Goal
 
-Привести фактический Production-facing Order Management Public Query implementation к уже Accepted OM Specification v1.10: stable opaque `SpecificationId`, `getCurrentItemSpecification(orderItemId)` и `getSpecificationById(specificationId)` без обязательной RevisionNumber в Production contract.
+???????? ??????????? Production-facing Order Management Public Query implementation ? ??? Accepted OM Specification v1.10: stable opaque `SpecificationId`, `getCurrentItemSpecification(orderItemId)` ? `getSpecificationById(specificationId)` ??? ???????????? RevisionNumber ? Production contract.
 
 ### Required documents
 
 - Order Management Specification v1.10 (Production-facing read contract);
-- Production Spec v2.2 §5–§6 (Specification Reference);
+- Production Spec v2.2 �5?�6 (Specification Reference);
 - ADR-033.
 
 ### Allowed code scope
@@ -10450,7 +10450,7 @@ mvn -pl :tmp-architecture-tests -am test
 
 ---
 
-## STAGE7-004B — SpecificationId Stability Fix
+## STAGE7-004B ? SpecificationId Stability Fix
 
 **Status:** DONE
 **Stage:** 7
@@ -10464,7 +10464,7 @@ Fix critical defect: V24 migration used `md5()::uuid` (no version/variant bits) 
 ### Solution
 
 1. V25 corrective migration recalculates all `specification_id` values using UUID v3 bit manipulation matching Java.
-2. `SpecificationIdMigrationConsistencyIT` — integration tests proving SQL and Java produce identical UUIDs.
+2. `SpecificationIdMigrationConsistencyIT` ? integration tests proving SQL and Java produce identical UUIDs.
 3. Flyway version assertions updated in existing tests.
 
 ### Acceptance criteria
@@ -10482,7 +10482,7 @@ mvn verify
 
 ---
 
-## STAGE7-005 — Specification Reference freeze
+## STAGE7-005 ? Specification Reference freeze
 
 **Status:** DONE
 **Stage:** 7
@@ -10491,7 +10491,7 @@ mvn verify
 
 ### Goal
 
-Зафиксировать immutable Production Specification Reference (`SpecificationId`) на Launch через OM Public Query.
+????????????? immutable Production Specification Reference (`SpecificationId`) ?? Launch ????? OM Public Query.
 
 ### Required documents
 
@@ -10510,7 +10510,7 @@ mvn verify
 
 ### Acceptance criteria
 
-- [x] Launch читает Specification по Public Query и сохраняет `SpecificationId`.
+- [x] Launch ?????? Specification ?? Public Query ? ????????? `SpecificationId`.
 - [x] Production Foundation frozen at Launch; post-launch reads use `getSpecificationById` only.
 - [x] No specification content snapshot duplication (reference-only).
 - [x] Domain owns freeze rules; repository only persists/restores.
@@ -10526,7 +10526,7 @@ mvn verify
 
 ---
 
-## STAGE7-005A — Whole-Order Production Launch Correction & Reactor Recovery
+## STAGE7-005A ? Whole-Order Production Launch Correction & Reactor Recovery
 
 **Status:** DONE
 **Stage:** 7
@@ -10575,7 +10575,7 @@ mvn verify
 
 ---
 
-## STAGE7-006 — Computed Order Production View
+## STAGE7-006 ? Computed Order Production View
 
 **Status:** DONE
 **Stage:** 7
@@ -10584,7 +10584,7 @@ mvn verify
 
 ### Goal
 
-Вычисляемое order-level Production View из item-owned state.
+??????????? order-level Production View ?? item-owned state.
 
 ### Required documents
 
@@ -10598,14 +10598,14 @@ mvn verify
 
 ### Forbidden
 
-- хранение order-level production aggregate; UI; Warehouse; Material Check; Public API §18; STAGE7-007+.
+- ???????? order-level production aggregate; UI; Warehouse; Material Check; Public API �18; STAGE7-007+.
 
 ### Acceptance criteria
 
-- [x] view вычисляется; stored state остаётся item-owned;
-- [x] empty Production states → NOT_ACCEPTED (не MANUFACTURED / не AVAILABLE);
-- [x] IN_PRODUCTION / MANUFACTURED / CANCELLED matrix по Spec §5.3;
-- [x] Launch различает no ACTIVE items и missing Specification с корректным OrderItemId;
+- [x] view ???????????; stored state ???????? item-owned;
+- [x] empty Production states ? NOT_ACCEPTED (?? MANUFACTURED / ?? AVAILABLE);
+- [x] IN_PRODUCTION / MANUFACTURED / CANCELLED matrix ?? Spec �5.3;
+- [x] Launch ????????? no ACTIVE items ? missing Specification ? ?????????? OrderItemId;
 - [x] repository `findBySourceOrderId`; no order-level status table.
 
 ### Verification commands
@@ -10619,7 +10619,7 @@ mvn verify
 
 ---
 
-## STAGE7-007 — Material availability via Warehouse Query
+## STAGE7-007 ? Material availability via Warehouse Query
 
 **Status:** DONE
 **Stage:** 7
@@ -10628,7 +10628,7 @@ mvn verify
 
 ### Goal
 
-Команда проверки наличия материалов через Warehouse Public Query API.
+??????? ???????? ??????? ?????????? ????? Warehouse Public Query API.
 
 ### Required documents
 
@@ -10652,7 +10652,7 @@ mvn verify
 
 ### Acceptance criteria
 
-- [x] проверка читает Warehouse Query.
+- [x] ???????? ?????? Warehouse Query.
 
 ### Verification commands
 
@@ -10662,7 +10662,7 @@ mvn -pl :tmp-production -am test
 
 ---
 
-## STAGE7-008 — Cutting Plan references 0..N
+## STAGE7-008 ? Cutting Plan references 0..N
 
 **Status:** DONE
 **Stage:** 7
@@ -10671,7 +10671,7 @@ mvn -pl :tmp-production -am test
 
 ### Goal
 
-Хранение 0..N Cutting Plan references by MaterialReference без управления lifecycle Cutting Plan.
+???????? 0..N Cutting Plan references by MaterialReference ??? ?????????? lifecycle Cutting Plan.
 
 ### Required documents
 
@@ -10695,8 +10695,8 @@ mvn -pl :tmp-production -am test
 
 ### Acceptance criteria
 
-- [x] 0..N ссылок по материалу;
-- [x] Cutting Plan — рекомендация, не источник истины изделия.
+- [x] 0..N ?????? ?? ?????????;
+- [x] Cutting Plan ? ????????????, ?? ???????? ?????? ???????.
 
 ### Verification commands
 
@@ -10708,11 +10708,11 @@ mvn -pl :tmp-production -am test
 
 - Default links empty; Launch without Stage 8 works.
 - Material Check remains `planningSource = SPECIFICATION` even when a link id is present (no Cutting planning read yet).
-- Post-launch association of existing CuttingPlanId → see STAGE7-008A (PLANNED; not required for STAGE7-009).
+- Post-launch association of existing CuttingPlanId ? see STAGE7-008A (PLANNED; not required for STAGE7-009).
 
 ---
 
-## STAGE7-008A — Cutting Plan Link Association Contract
+## STAGE7-008A ? Cutting Plan Link Association Contract
 
 **Status:** PLANNED
 **Stage:** 7
@@ -10721,11 +10721,11 @@ mvn -pl :tmp-production -am test
 
 ### Goal
 
-Безопасная document-driven association существующего CuttingPlanId к Production Item + MaterialReference после Launch, без управления lifecycle Cutting Plan.
+?????????? document-driven association ????????????? CuttingPlanId ? Production Item + MaterialReference ????? Launch, ??? ?????????? lifecycle Cutting Plan.
 
 ### Required documents
 
-- Production Spec §5.2.1 / §17; ADR-034; Constitution document-driven mutations.
+- Production Spec �5.2.1 / �17; ADR-034; Constitution document-driven mutations.
 
 ### Allowed code scope
 
@@ -10758,7 +10758,7 @@ mvn -pl :tmp-production -am test
 
 ---
 
-## STAGE7-009 — Editable material transfer template
+## STAGE7-009 ? Editable material transfer template
 
 **Status:** DONE
 **Stage:** 7
@@ -10767,7 +10767,7 @@ mvn -pl :tmp-production -am test
 
 ### Goal
 
-Редактируемый шаблон перемещения материалов (Production-owned template, не складской документ).
+????????????? ?????? ??????????? ?????????? (Production-owned template, ?? ????????? ????????).
 
 ### Required documents
 
@@ -10780,13 +10780,13 @@ mvn -pl :tmp-production -am test
 
 ### Forbidden
 
-- создание Warehouse Transfer; stock mutation.
+- ???????? Warehouse Transfer; stock mutation.
 
 ### Acceptance criteria
 
-- [x] шаблон редактируемый;
-- [x] шаблон может использовать MaterialReference → CuttingPlanId для длинномерного материала;
-- [x] Warehouse document ещё не создаётся.
+- [x] ?????? ?????????????;
+- [x] ?????? ????? ???????????? MaterialReference ? CuttingPlanId ??? ????????????? ?????????;
+- [x] Warehouse document ??? ?? ?????????.
 
 ### Verification commands
 
@@ -10796,7 +10796,7 @@ mvn -pl :tmp-production -am test
 
 ---
 
-## STAGE7-010 — Warehouse Transfer command integration
+## STAGE7-010 ? Warehouse Transfer command integration
 
 **Status:** DONE
 **Stage:** 7
@@ -10805,7 +10805,7 @@ mvn -pl :tmp-production -am test
 
 ### Goal
 
-Инициировать Warehouse-owned Transfer через Warehouse Application/Document commands.
+???????????? Warehouse-owned Transfer ????? Warehouse Application/Document commands.
 
 ### Required documents
 
@@ -10822,7 +10822,7 @@ mvn -pl :tmp-production -am test
 ### Allowed code scope
 
 - Production orchestrator calling `WarehouseCommandApi` / `WarehouseQueryApi`;
-- Production-owned grouping/traceability for 1 template → N Warehouse operation references;
+- Production-owned grouping/traceability for 1 template ? N Warehouse operation references;
 - tests; control docs.
 
 ### Forbidden
@@ -10833,28 +10833,28 @@ mvn -pl :tmp-production -am test
 
 ### Implementation requirements
 
-Warehouse остаётся line-operation based:
+Warehouse ???????? line-operation based:
 
 ```text
 1 Production Material Transfer Template (Production-owned)
-  → 1 logical Production transfer reference (Production-owned grouping)
-  → 1..N Warehouse-owned transfer line/operation references
+  ? 1 logical Production transfer reference (Production-owned grouping)
+  ? 1..N Warehouse-owned transfer line/operation references
      (WarehouseCommandApi.createTransferDraft per included material line
       with requestedQuantity > 0)
 ```
 
-Пользователь в UI видит одно перемещение заказа. Production хранит grouping/traceability (Order ID / template ID / line → Warehouse operation id). Warehouse не владеет Order ID.
+???????????? ? UI ????? ???? ??????????? ??????. Production ?????? grouping/traceability (Order ID / template ID / line ? Warehouse operation id). Warehouse ?? ??????? Order ID.
 
 Confirmation loads the saved template by `MaterialTransferTemplateId` and uses each included line's persisted `requestedQuantity` (not a client-rebuilt list).
 
 ### Acceptance criteria
 
-- [x] Transfer остаётся Warehouse-owned;
-- [x] Production не пишет Stock Position;
-- [x] все строки одного подтверждённого Production template трассируются как одна пользовательская операция;
-- [x] для каждой included строки с `requestedQuantity > 0` сохраняется Warehouse transfer reference;
-- [x] Order ID / Production template ID восстанавливаются из Production-owned данных;
-- [x] Warehouse operations не становятся Production-owned;
+- [x] Transfer ???????? Warehouse-owned;
+- [x] Production ?? ????? Stock Position;
+- [x] ??? ?????? ?????? ??????????????? Production template ???????????? ??? ???? ???????????????? ????????;
+- [x] ??? ?????? included ?????? ? `requestedQuantity > 0` ??????????? Warehouse transfer reference;
+- [x] Order ID / Production template ID ????????????????? ?? Production-owned ??????;
+- [x] Warehouse operations ?? ?????????? Production-owned;
 - [x] excluded template lines do not create Warehouse operations.
 - [x] STAGE7-009 template save atomic (header+children) + real PostgreSQL rollback test;
 - [x] explicit Storage Cell allocations validated via WarehouseQueryApi; no hidden picking policy;
@@ -10869,7 +10869,7 @@ mvn -pl :tmp-production -am test
 
 ---
 
-## STAGE7-011 — Receipt confirmation initiation
+## STAGE7-011 ? Receipt confirmation initiation
 
 **Status:** DONE
 **Stage:** 7
@@ -10878,7 +10878,7 @@ mvn -pl :tmp-production -am test
 
 ### Goal
 
-Команда «Подтвердить получение» инициирует Warehouse receive, не выполняя складскую логику в Production.
+??????? �??????????? ?????????� ?????????? Warehouse receive, ?? ???????? ????????? ?????? ? Production.
 
 ### Required documents
 
@@ -10900,9 +10900,9 @@ mvn -pl :tmp-production -am test
 
 ### Acceptance criteria
 
-- [x] receive выполняет Warehouse-owned operation.
-- [x] command принимает только Production logical transfer identity.
-- [x] все Warehouse statuses проверяются ДО mutations; DRAFT блокирует; SENT→receive; RECEIVED idempotent/skip.
+- [x] receive ????????? Warehouse-owned operation.
+- [x] command ????????? ?????? Production logical transfer identity.
+- [x] ??? Warehouse statuses ??????????? ?? mutations; DRAFT ?????????; SENT?receive; RECEIVED idempotent/skip.
 - [x] multi-ref atomic REQUIRED TX; real PostgreSQL partial-failure rollback.
 - [x] stored ref consistency vs Warehouse; no Production receipt SoT / Document / history.
 
@@ -10918,7 +10918,7 @@ mvn verify
 
 ---
 
-## STAGE7-012 — Production Release document and plan/fact
+## STAGE7-012 ? Production Release document and plan/fact
 
 **Status:** DONE
 **Stage:** 7
@@ -10927,11 +10927,11 @@ mvn verify
 
 ### Goal
 
-Production-owned Release document с plan/fact расхода без Warehouse Consumption orchestration.
+Production-owned Release document ? plan/fact ??????? ??? Warehouse Consumption orchestration.
 
 ### Required documents
 
-- Production Spec §15;
+- Production Spec �15;
 - ADR-028; Document Engine public API.
 
 ### Allowed code scope
@@ -10945,8 +10945,8 @@ Production-owned Release document с plan/fact расхода без Warehouse C
 
 ### Acceptance criteria
 
-- [x] Release хранит plan/fact;
-- [x] Warehouse Consumption ещё не проводится в этой задаче.
+- [x] Release ?????? plan/fact;
+- [x] Warehouse Consumption ??? ?? ?????????? ? ???? ??????.
 - [x] Durable Production-owned persistence (V29); processor full pre-validation; no standalone user releaseProducts.
 - [x] `BLK-STAGE7-PARTIAL-RELEASE-PLAN` documented (partial-release plan formula absent from Accepted docs).
 
@@ -10958,7 +10958,7 @@ mvn -pl :tmp-production -am test
 
 ---
 
-## STAGE7-012A — Partial Release Material Planning Contract
+## STAGE7-012A ? Partial Release Material Planning Contract
 
 **Status:** DONE
 **Stage:** 7
@@ -10967,11 +10967,11 @@ mvn -pl :tmp-production -am test
 
 ### Goal
 
-Зафиксировать нормативное правило cumulative proportional allocation material plan для partial/repeated Production Release; закрыть `BLK-STAGE7-PARTIAL-RELEASE-PLAN`; разблокировать STAGE7-013.
+????????????? ??????????? ??????? cumulative proportional allocation material plan ??? partial/repeated Production Release; ??????? `BLK-STAGE7-PARTIAL-RELEASE-PLAN`; ?????????????? STAGE7-013.
 
 ### Required documents
 
-- Production Specification (update to v2.3 §15.1.1);
+- Production Specification (update to v2.3 �15.1.1);
 - Order Management `Specification.lineQuantity` semantics;
 - BLOCKERS.md; WORK-QUEUE.md; STATUS.md.
 
@@ -10989,7 +10989,7 @@ mvn -pl :tmp-production -am test
 
 ### Acceptance criteria
 
-- [x] Production Specification v2.3 Accepted with §15.1.1;
+- [x] Production Specification v2.3 Accepted with �15.1.1;
 - [x] cumulative formula, precision, final closure, examples documented;
 - [x] `BLK-STAGE7-PARTIAL-RELEASE-PLAN` RESOLVED;
 - [x] STAGE7-013 = READY;
@@ -11004,7 +11004,7 @@ mvn verify
 
 ---
 
-## STAGE7-013 — Atomic Release + Consumption orchestration
+## STAGE7-013 ? Atomic Release + Consumption orchestration
 
 **Status:** DONE
 **Stage:** 7
@@ -11013,11 +11013,11 @@ mvn verify
 
 ### Goal
 
-Application-level use case проводит Warehouse Consumption и Production Release в одной внешней ACID-транзакции (ADR-036).
+Application-level use case ???????? Warehouse Consumption ? Production Release ? ????? ??????? ACID-?????????? (ADR-036).
 
 ### Required documents
 
-- Production Spec v2.3 §15.1.1, §21;
+- Production Spec v2.3 �15.1.1, �21;
 - ADR-036; ADR-035;
 - Document Engine Spec v1.2;
 - Warehouse Application/Document Consumption command contract only.
@@ -11048,7 +11048,7 @@ Application-level use case проводит Warehouse Consumption и Production 
 - [x] failure of either rolls back both (PostgreSQL proof);
 - [x] ownership preserved (Warehouse public API only);
 - [x] `ReleaseProductsService` user-facing boundary; internal document gateway protected;
-- [x] partial plan calculator per Spec v2.3 §15.1.1;
+- [x] partial plan calculator per Spec v2.3 �15.1.1;
 - [x] `ProductionReleased` event deferred to STAGE7-015.
 
 ### Verification commands
@@ -11061,7 +11061,7 @@ mvn verify
 
 ---
 
-## STAGE7-013A — Release Preparation & Concurrency Correctness
+## STAGE7-013A ? Release Preparation & Concurrency Correctness
 
 **Status:** DONE
 **Stage:** 7
@@ -11074,7 +11074,7 @@ Corrective closure for STAGE7-013 post-review gaps: preview without actual/cells
 
 ### Required documents
 
-- Production Spec v2.3 §15, §15.1, §15.1.1, §15.2, §21, §24, §25;
+- Production Spec v2.3 �15, �15.1, �15.1.1, �15.2, �21, �24, �25;
 - ADR-036;
 - Document Engine Spec v1.2.
 
@@ -11102,10 +11102,10 @@ Corrective closure for STAGE7-013 post-review gaps: preview without actual/cells
 - [x] whole-order PostgreSQL row lock (`FOR UPDATE`, deterministic order);
 - [x] reusable locking boundary for future Cancellation;
 - [x] concurrent Release tests (serialization, cumulative plan, over-release);
-- [x] existing Consumption↔Release rollback tests PASS;
+- [x] existing Consumption?Release rollback tests PASS;
 - [x] ArchUnit blocks external dependency on `ProductionReleaseDocumentService`;
 - [x] foreign material-line item membership regression retained;
-- [x] STAGE7-014 unblocked → READY.
+- [x] STAGE7-014 unblocked ? READY.
 
 ### Verification commands
 
@@ -11120,7 +11120,7 @@ git diff --check
 
 ---
 
-## STAGE7-014 — Production Cancellation
+## STAGE7-014 ? Production Cancellation
 
 **Status:** DONE
 **Stage:** 7
@@ -11129,7 +11129,7 @@ git diff --check
 
 ### Goal
 
-Whole-order Production Cancellation через Production-owned document.
+Whole-order Production Cancellation ????? Production-owned document.
 
 ### Required documents
 
@@ -11146,8 +11146,8 @@ Whole-order Production Cancellation через Production-owned document.
 
 ### Acceptance criteria
 
-- [x] отмена заказа целиком;
-- [x] материалы автоматически не возвращаются.
+- [x] ?????? ?????? ???????;
+- [x] ????????? ????????????? ?? ????????????.
 
 ### Verification commands
 
@@ -11157,7 +11157,7 @@ mvn -pl :tmp-production -am test
 
 ---
 
-## STAGE7-015 — Production domain events
+## STAGE7-015 ? Production domain events
 
 **Status:** DONE
 **Stage:** 7
@@ -11166,11 +11166,11 @@ mvn -pl :tmp-production -am test
 
 ### Goal
 
-Публикация Production Domain Events только через публичный `TransactionalEventPublisher` after-commit для событий, соответствующих реализованным document/processors.
+?????????? Production Domain Events ?????? ????? ????????? `TransactionalEventPublisher` after-commit ??? ???????, ??????????????? ????????????? document/processors.
 
 ### Required documents
 
-- Production Spec §19;
+- Production Spec �19;
 - Document Engine Spec v1.2 after-commit;
 - ADR-021.
 
@@ -11181,14 +11181,14 @@ mvn -pl :tmp-production -am test
 
 ### Forbidden
 
-- import внутренних классов Document Engine;
+- import ?????????? ??????? Document Engine;
 - using events as commands.
 
 ### Acceptance criteria
 
-- [x] события после commit;
-- [x] rollback не публикует события;
-- [x] покрыты минимум: `OrderAcceptedIntoProduction`, `ProductionReleased`, `OrderProductionCancelled`.
+- [x] ??????? ????? commit;
+- [x] rollback ?? ????????? ???????;
+- [x] ??????? ???????: `OrderAcceptedIntoProduction`, `ProductionReleased`, `OrderProductionCancelled`.
 
 ### Verification commands
 
@@ -11198,7 +11198,7 @@ mvn -pl :tmp-production -am test
 
 ---
 
-## STAGE7-015A — Production Audit and History
+## STAGE7-015A ? Production Audit and History
 
 **Status:** DONE
 **Stage:** 7
@@ -11207,18 +11207,18 @@ mvn -pl :tmp-production -am test
 
 ### Goal
 
-Реализовать Production-owned immutable audit/history значимых бизнес-действий согласно Production Spec §22 и данные для истории заказа.
+??????????? Production-owned immutable audit/history ???????? ??????-???????? ???????? Production Spec �22 ? ?????? ??? ??????? ??????.
 
 ### Required documents
 
-- Production Spec §22;
+- Production Spec �22;
 - ADR-021 (immutable event history principle);
-- Security Specification — только граница: Security Audit ≠ Production business history owner.
+- Security Specification ? ?????? ???????: Security Audit ? Production business history owner.
 
 ### Allowed code scope
 
 - Production-owned append-only history store/adapter;
-- platform primitives при сохранении Production ownership;
+- platform primitives ??? ?????????? Production ownership;
 - tests; control docs.
 
 ### Forbidden
@@ -11230,25 +11230,25 @@ mvn -pl :tmp-production -am test
 
 ### Implementation requirements
 
-Обязательные события истории:
+???????????? ??????? ???????:
 
-- принятие заказа в производство;
-- проверка материалов;
-- создание перемещения из Production;
-- подтверждение получения;
-- выпуск;
+- ???????? ?????? ? ????????????;
+- ???????? ??????????;
+- ???????? ??????????? ?? Production;
+- ????????????? ?????????;
+- ??????;
 - plan/fact deviation;
-- отмена производства.
+- ?????? ????????????.
 
-History append-only / immutable. Фильтрация минимум по Order ID. Technical intermediate steps не засоряют историю.
+History append-only / immutable. ?????????? ??????? ?? Order ID. Technical intermediate steps ?? ???????? ???????.
 
 ### Acceptance criteria
 
-- [x] значимые действия фиксируются;
-- [x] rollback не оставляет ложной успешной записи;
-- [x] история фильтруется минимум по Order ID;
-- [x] пользовательские technical intermediate steps не засоряют историю;
-- [x] plan/fact deviation отражается в истории выпуска.
+- [x] ???????? ???????? ???????????;
+- [x] rollback ?? ????????? ?????? ???????? ??????;
+- [x] ??????? ??????????? ??????? ?? Order ID;
+- [x] ???????????????? technical intermediate steps ?? ???????? ???????;
+- [x] plan/fact deviation ?????????? ? ??????? ???????.
 
 ### Verification commands
 
@@ -11258,7 +11258,7 @@ mvn -pl :tmp-production -am test
 
 ---
 
-## STAGE7-016 — Production security permissions
+## STAGE7-016 ? Production security permissions
 
 **Status:** DONE
 **Stage:** 7
@@ -11267,11 +11267,11 @@ mvn -pl :tmp-production -am test
 
 ### Goal
 
-Зарегистрировать Production permissions и переиспользовать Warehouse permissions для складских шагов.
+???????????????? Production permissions ? ???????????????? Warehouse permissions ??? ????????? ?????.
 
 ### Required documents
 
-- Production Spec §20;
+- Production Spec �20;
 - Security public `PermissionId` contract.
 
 ### Allowed code scope
@@ -11285,7 +11285,7 @@ mvn -pl :tmp-production -am test
 
 ### Acceptance criteria
 
-- [x] permissions соответствуют spec.
+- [x] permissions ????????????? spec.
 
 ### Verification commands
 
@@ -11295,7 +11295,7 @@ mvn -pl :tmp-production -am test
 
 ---
 
-## STAGE7-016A — Production Public Query API
+## STAGE7-016A ? Production Public Query API
 
 **Status:** DONE
 **Stage:** 7
@@ -11304,11 +11304,11 @@ mvn -pl :tmp-production -am test
 
 ### Goal
 
-Реализовать read-only Production-facing Public Query contract (Production Spec §18.1).
+??????????? read-only Production-facing Public Query contract (Production Spec �18.1).
 
 ### Required documents
 
-- Production Spec §18;
+- Production Spec �18;
 - Security public authorization contract (`ProductionPermissions.PRODUCTION_VIEW` / `production.order.view`).
 
 ### Allowed code scope
@@ -11327,21 +11327,21 @@ mvn -pl :tmp-production -am test
 
 ### Implementation requirements
 
-Минимальные операции:
+??????????? ????????:
 
 - `getOrderProductionView(orderId)`;
 - `getItemProductionState(orderItemId)`;
 - `getMaterialAvailabilityResult(orderId)`;
 - `listProductionHistory(orderId)`.
 
-History читается из Production-owned history. Order-level status вычисляется.
+History ???????? ?? Production-owned history. Order-level status ???????????.
 
 ### Acceptance criteria
 
 - [x] API read-only;
-- [x] DTO не раскрывают persistence;
-- [x] history из Production-owned store;
-- [x] permission `production.order.view` через Security contract (`ProductionPermissions.PRODUCTION_VIEW`);
+- [x] DTO ?? ?????????? persistence;
+- [x] history ?? Production-owned store;
+- [x] permission `production.order.view` ????? Security contract (`ProductionPermissions.PRODUCTION_VIEW`);
 - [x] contract/unit/integration tests PASS.
 
 ### Verification commands
@@ -11352,7 +11352,7 @@ mvn -pl :tmp-production -am test
 
 ---
 
-## STAGE7-017 — Production workbench UI
+## STAGE7-017 ? Production workbench UI
 
 **Status:** DONE
 **Stage:** 7
@@ -11361,7 +11361,7 @@ mvn -pl :tmp-production -am test
 
 ### Goal
 
-Простой order-centric Production workbench без бизнес-логики в UI.
+??????? order-centric Production workbench ??? ??????-?????? ? UI.
 
 ### Required documents
 
@@ -11380,14 +11380,14 @@ mvn -pl :tmp-production -am test
 
 ### Acceptance criteria
 
-- [x] order-centric экран;
-- [x] все 6 основных команд присутствуют: Принять в производство; Проверить наличие материалов; Создать перемещение материалов; Подтвердить получение; Выпустить изделия; Отменить производство заказа;
-- [x] состояние кнопок определяется lifecycle + permissions;
-- [x] UI не содержит business logic;
-- [x] нет прямого доступа к repositories;
-- [x] история заказа отображается через Production read contract;
-- [x] Cutting Plan показывается как optional reference (Stage 8 не требуется);
-- [x] mutating actions идут через application/documents.
+- [x] order-centric ?????;
+- [x] ??? 6 ???????? ?????? ????????????: ??????? ? ????????????; ????????? ??????? ??????????; ??????? ??????????? ??????????; ??????????? ?????????; ????????? ???????; ???????? ???????????? ??????;
+- [x] ????????? ?????? ???????????? lifecycle + permissions;
+- [x] UI ?? ???????? business logic;
+- [x] ??? ??????? ??????? ? repositories;
+- [x] ??????? ?????? ???????????? ????? Production read contract;
+- [x] Cutting Plan ???????????? ??? optional reference (Stage 8 ?? ?????????);
+- [x] mutating actions ???? ????? application/documents.
 
 ### Post-review corrections closed with this task (STAGE7-016A)
 
@@ -11427,11 +11427,11 @@ Prior corrective commit documented verification without UI code changes. This pa
 implements real multi-cell Transfer (1..N) and Release (0..N) presentation models,
 FXML allocation editors, and named multi-cell ViewModel tests.
 
-Targeted verification PASS (24 tests). Full reactor NOT RUN → STAGE7-018.
+Targeted verification PASS (24 tests). Full reactor NOT RUN ? STAGE7-018.
 
 ---
 
-## STAGE7-018 — Production integration tests with OM and Warehouse
+## STAGE7-018 ? Production integration tests with OM and Warehouse
 
 **Status:** DONE
 **Stage:** 7
@@ -11440,7 +11440,7 @@ Targeted verification PASS (24 tests). Full reactor NOT RUN → STAGE7-018.
 
 ### Goal
 
-Integration tests Launch/Transfer/Receipt/Release+Consumption границ с публичными контрактами OM и Warehouse, плюс boundary test whole-order Production Cancellation.
+Integration tests Launch/Transfer/Receipt/Release+Consumption ?????? ? ?????????? ??????????? OM ? Warehouse, ???? boundary test whole-order Production Cancellation.
 
 ### Required documents
 
@@ -11485,13 +11485,13 @@ mvn -pl :tmp-production -am verify
 
 ### Completion notes (2026-08-25)
 
-Final public-boundary suite: `com.tmp.production.integration.publicboundary` — `ProductionPublicBoundaryPostgresIT` (9 scenarios) + `PublicBoundaryImportGuardTest` + support composition/fault-injection helpers. OM fixture via `OrderImportService.preview/confirm`; Warehouse via `WarehouseCommandApi`; reads via `OrderQueryService`, `WarehouseQueryApi`, `ProductionQueryApi`/`ProductionApplicationApi`. Real PostgreSQL/Testcontainers, Document Engine, Production JDBC. STAGE7-017 deferred full reactor regression PASS. Full verification PASS: `mvn -pl :tmp-production -am test/verify`, `mvn -pl :tmp-ui-shell -am test`, `mvn -pl :tmp-architecture-tests -am test`, `mvn test`, `mvn verify`, `git diff --check`.
+Final public-boundary suite: `com.tmp.production.integration.publicboundary` ? `ProductionPublicBoundaryPostgresIT` (9 scenarios) + `PublicBoundaryImportGuardTest` + support composition/fault-injection helpers. OM fixture via `OrderImportService.preview/confirm`; Warehouse via `WarehouseCommandApi`; reads via `OrderQueryService`, `WarehouseQueryApi`, `ProductionQueryApi`/`ProductionApplicationApi`. Real PostgreSQL/Testcontainers, Document Engine, Production JDBC. STAGE7-017 deferred full reactor regression PASS. Full verification PASS: `mvn -pl :tmp-production -am test/verify`, `mvn -pl :tmp-ui-shell -am test`, `mvn -pl :tmp-architecture-tests -am test`, `mvn test`, `mvn verify`, `git diff --check`.
 
-Test-support fixes during implementation: ProductionCapability stub for permission FK; OM UoM `"шт."`; shared `ProductionLaunchPayloadHolder`; `PublicBoundaryRepositoryPorts` static forwarding for fault injection; Launch rollback `failOnSaveCount(2)`.
+Test-support fixes during implementation: ProductionCapability stub for permission FK; OM UoM `"??."`; shared `ProductionLaunchPayloadHolder`; `PublicBoundaryRepositoryPorts` static forwarding for fault injection; Launch rollback `failOnSaveCount(2)`.
 
 ---
 
-## STAGE7-019 — Production architecture tests
+## STAGE7-019 ? Production architecture tests
 
 **Status:** DONE
 **Stage:** 7
@@ -11500,7 +11500,7 @@ Test-support fixes during implementation: ProductionCapability stub for permissi
 
 ### Goal
 
-ArchUnit правила границ Production.
+ArchUnit ??????? ?????? Production.
 
 ### Required documents
 
@@ -11518,8 +11518,8 @@ ArchUnit правила границ Production.
 
 ### Acceptance criteria
 
-- [x] Production не зависит от внутренних пакетов Warehouse/OM/Cutting;
-- [x] UI не содержит Production domain.
+- [x] Production ?? ??????? ?? ?????????? ??????? Warehouse/OM/Cutting;
+- [x] UI ?? ???????? Production domain.
 
 ### Verification commands
 
@@ -11533,7 +11533,7 @@ STAGE7-019 ArchUnit closure in `Stage7ProductionArchitectureTest` (6 authoritati
 
 ---
 
-## STAGE7-020 — Stage 7 final closure audit
+## STAGE7-020 ? Stage 7 final closure audit
 
 **Status:** DONE
 **Stage:** 7
@@ -11542,7 +11542,7 @@ STAGE7-019 ArchUnit closure in `Stage7ProductionArchitectureTest` (6 authoritati
 
 ### Goal
 
-Closure audit Stage 7 без отметки DONE при открытых дефектах.
+Closure audit Stage 7 ??? ??????? DONE ??? ???????? ????????.
 
 ### Required documents
 
@@ -11559,8 +11559,8 @@ Closure audit Stage 7 без отметки DONE при открытых деф�
 
 ### Acceptance criteria
 
-- [x] exit criteria выполнены;
-- [x] нет OPEN blockers Stage 7.
+- [x] exit criteria ?????????;
+- [x] ??? OPEN blockers Stage 7.
 
 ### Verification commands
 
@@ -11570,15 +11570,15 @@ mvn verify
 
 ### Completion notes (2026-08-25)
 
-Closure audit Stage 7 Production выполнен на HEAD `fac4e3d` + control-doc синхронизация. Проверено по коду и тестам: ownership (Production владеет только item state, документами, logical Material Transfer, Release, Cancellation, History, собственными permissions/API/UI metadata); нет `ProductionOrder` сущности/таблицы/агрегата; Order Item — главный объект, whole-order UX; order-level Production status вычисляется (`OrderProductionViewCalculator` + posted Cancellation evidence), нет persisted mutable order status; Specification freeze на Launch (`ProductionFoundation`, только `getSpecificationById` после Launch); Cutting Plan links — opaque 0..N, без lifecycle; material identity = article + normalized color + UoM, `lengthMm` не используется, UNRESOLVED ≠ AMBIGUOUS, first candidate не выбирается; availability = main + production, unresolved/ambiguous → 0/0/0/deficit=required; read-only availability не пишет `MATERIALS_CHECKED`; Transfer создаёт только Warehouse DRAFT через `WarehouseCommandApi`, 1 template line → 1..N allocations с SUM = requestedQuantity; Receipt через public Warehouse receive, идемпотентен; Release — внешняя shared TX, lock → validate → plan → allocations → draft → Consumption → POST; partial plan по §15.1.1 (scale 6, HALF_UP, per spec line до агрегации); multi-cell Release 0..N с SUM = actualQuantity; списание только со склада производства; атомарный rollback доказан; concurrency — общий `ProductionOrderStateLockService` (`FOR UPDATE`, детерминированный порядок) + реальные overlap-тесты PostgreSQL; Cancellation whole-order с сохранением releasedQuantity и без возврата материалов; события только `publishAfterCommit`; History append-only (DB-триггеры UPDATE/DELETE) в той же бизнес-транзакции; ровно 7 permissions `<area>.<resource>.<action>` без legacy alias; Warehouse permissions остаются Warehouse-owned; `ProductionQueryApi` read-only с `production.order.view` до любых downstream reads; DTO-only public boundary; Capability `production` регистрирует один PublicService; order-centric Workbench с шестью действиями и без бизнес-логики; final boundary suite без OM/Warehouse internals на реальном PostgreSQL/Document Engine/Production JDBC; 72 Stage 7 ArchUnit правила; Warehouse ids только из `tmp.production.warehouse.*`; нет MES и нет runtime-зависимости от Stage 8.
+Closure audit Stage 7 Production ???????? ?? HEAD `fac4e3d` + control-doc ?????????????. ????????? ?? ???? ? ??????: ownership (Production ??????? ?????? item state, ???????????, logical Material Transfer, Release, Cancellation, History, ???????????? permissions/API/UI metadata); ??? `ProductionOrder` ????????/???????/????????; Order Item ? ??????? ??????, whole-order UX; order-level Production status ??????????? (`OrderProductionViewCalculator` + posted Cancellation evidence), ??? persisted mutable order status; Specification freeze ?? Launch (`ProductionFoundation`, ?????? `getSpecificationById` ????? Launch); Cutting Plan links ? opaque 0..N, ??? lifecycle; material identity = article + normalized color + UoM, `lengthMm` ?? ????????????, UNRESOLVED ? AMBIGUOUS, first candidate ?? ??????????; availability = main + production, unresolved/ambiguous ? 0/0/0/deficit=required; read-only availability ?? ????? `MATERIALS_CHECKED`; Transfer ??????? ?????? Warehouse DRAFT ????? `WarehouseCommandApi`, 1 template line ? 1..N allocations ? SUM = requestedQuantity; Receipt ????? public Warehouse receive, ????????????; Release ? ??????? shared TX, lock ? validate ? plan ? allocations ? draft ? Consumption ? POST; partial plan ?? �15.1.1 (scale 6, HALF_UP, per spec line ?? ?????????); multi-cell Release 0..N ? SUM = actualQuantity; ???????? ?????? ?? ?????? ????????????; ????????? rollback ???????; concurrency ? ????? `ProductionOrderStateLockService` (`FOR UPDATE`, ????????????????? ???????) + ???????? overlap-????? PostgreSQL; Cancellation whole-order ? ??????????? releasedQuantity ? ??? ???????? ??????????; ??????? ?????? `publishAfterCommit`; History append-only (DB-???????? UPDATE/DELETE) ? ??? ?? ??????-??????????; ????? 7 permissions `<area>.<resource>.<action>` ??? legacy alias; Warehouse permissions ???????? Warehouse-owned; `ProductionQueryApi` read-only ? `production.order.view` ?? ????? downstream reads; DTO-only public boundary; Capability `production` ???????????? ???? PublicService; order-centric Workbench ? ?????? ?????????? ? ??? ??????-??????; final boundary suite ??? OM/Warehouse internals ?? ???????? PostgreSQL/Document Engine/Production JDBC; 72 Stage 7 ArchUnit ???????; Warehouse ids ?????? ?? `tmp.production.warehouse.*`; ??? MES ? ??? runtime-??????????? ?? Stage 8.
 
-Исправлены только рассинхронизации control docs: `CONTEXT-MAP.md` (Production Spec v2.2 → v2.4 в 3 местах, Stage 7 статус NOT STARTED/0% → DONE/100%, legacy `production.view` → `production.order.view`) и Stage 7 заголовок WORK-QUEUE (v2.3 → v2.4). Production code не изменялся.
+?????????? ?????? ???????????????? control docs: `CONTEXT-MAP.md` (Production Spec v2.2 ? v2.4 ? 3 ??????, Stage 7 ?????? NOT STARTED/0% ? DONE/100%, legacy `production.view` ? `production.order.view`) ? Stage 7 ????????? WORK-QUEUE (v2.3 ? v2.4). Production code ?? ?????????.
 
-Full verification на текущем HEAD: `mvn -pl :tmp-production -am test` PASS (tmp-production 334); `mvn -pl :tmp-ui-shell -am test` PASS (tmp-ui-shell 230); `mvn -pl :tmp-architecture-tests -am test` PASS (145; Stage7 72/72); `mvn test` PASS (1690); `mvn verify` PASS (1690 unit + 184 IT); `git diff --check` clean. Stage 7 = DONE / 100% (27/27). STAGE7-008A остаётся PLANNED post-launch и не блокирует closure. Stage 8 = NOT STARTED.
+Full verification ?? ??????? HEAD: `mvn -pl :tmp-production -am test` PASS (tmp-production 334); `mvn -pl :tmp-ui-shell -am test` PASS (tmp-ui-shell 230); `mvn -pl :tmp-architecture-tests -am test` PASS (145; Stage7 72/72); `mvn test` PASS (1690); `mvn verify` PASS (1690 unit + 184 IT); `git diff --check` clean. Stage 7 = DONE / 100% (27/27). STAGE7-008A ???????? PLANNED post-launch ? ?? ????????? closure. Stage 8 = NOT STARTED.
 
 ---
 
-## POST-CLOSURE PRODUCTION/Warehouse CORRECTION — 2026-08-31
+## POST-CLOSURE PRODUCTION/Warehouse CORRECTION ? 2026-08-31
 
 **Status:** DONE (corrective pass; not a new STAGE7 task)
 **Stage:** 7 post-closure
@@ -11607,9 +11607,9 @@ See `POST-CLOSURE-CORRECTION-2026-08-31.md` for full record.
 
 ---
 
-# Stage 3.5 � Warehouse Operational / UI
+# Stage 3.5 ? Warehouse Operational / UI
 
-## STAGE-3.5.1 � Warehouse Responsibility (User-Warehouse many-to-many)
+## STAGE-3.5.1 ? Warehouse Responsibility (User-Warehouse many-to-many)
 
 **Status:** DONE
 **Stage:** 3.5
@@ -11666,7 +11666,48 @@ Stage 3.5.4 ? Automatic Source Routing + Source Cell Suggestion = COMPLETE.
 Stage 3.5.5 ? Tasks / Operational Inbox = COMPLETE.
 Stage 3.5.6 ? Physical Multi-Line Send = COMPLETE.
 Stage 3.5.7 ? Shortfall / Continuation = COMPLETE (2026-09-08).
-Stage 3.5.8 ? Partial Receive + Reject + Return = NEXT / NOT STARTED.
+Stage 3.5.8 ? Partial Receive + Reject + Return = IN PROGRESS.
+Stage 3.5.8.1 ? Settlement + Full Document Receive = COMPLETE (2026-09-09).
+Stage 3.5.8.2 ? Partial Acceptance = NEXT / NOT STARTED.
+Stage 3.5.8.3 ? Reject + Return = NOT STARTED.
+
+---
+
+## STAGE-3.5.8.1 ? Settlement Foundation + Full Document Receive + Receiver Task
+
+**Status:** DONE
+**Stage:** 3.5
+**Depends on:** Stage 3.5.7
+**Module:** tmp-warehouse (primary); additive public API; no Production/UI feature work
+
+### Goal
+
+Enable full document-level receive of a POSTED Warehouse Transfer Document: settlement header, destination-cell allocations, TRANSFER_RECEIVE via Operation Engine, close on SETTLED, TRANSFER_RECEIPT inbox task for destination responsibility.
+
+### Locked later decision (3.5.8.3)
+
+Full reject MUST NOT auto-create continuation (RETURN_PENDING + return task only).
+
+### Acceptance criteria
+
+- [x] V41 settlement header + receipt settlement items + same-document FK
+- [x] V41 backfill existing POSTED only (not DRAFT)
+- [x] POST creates AWAITING_RECEIPT atomically
+- [x] Full receive API with line?destination-cell allocations (multi-cell OK)
+- [x] Exact line coverage required; partial/over rejected before mutation
+- [x] Destination responsibility + warehouse.transfer.create
+- [x] Deterministic sendAllocation?receive mapping; no TransferOperationContext claim
+- [x] Legacy receiveTransfer blocked for document-managed sends
+- [x] Document-managed getTransferStatus uses settlement (SETTLED?RECEIVED)
+- [x] onClose invariant guard (SETTLED + conservation)
+- [x] TRANSFER_RECEIPT task; take-in-work destination-scoped; clear on receive
+- [x] Concurrent exactly-once; rollback mid-receive; 3.5.6/3.5.7 regression
+- [x] No partial/reject/return/TRANSFER_RETURN/UI
+- [x] Targeted tests + quick build + package + runtime V41 smoke
+
+### Next on success
+
+Stage 3.5.8.2 ? Partial Acceptance = NEXT / NOT STARTED.
 
 ---
 
@@ -11699,4 +11740,5 @@ Allow physical SEND of less than DRAFT Transfer Document line quantities while p
 
 ### Next on success
 
-Stage 3.5.8 ? Partial Receive + Reject + Return = NEXT / NOT STARTED.
+Stage 3.5.8 ? Partial Receive + Reject + Return = IN PROGRESS.
+Stage 3.5.8.1 = COMPLETE; 3.5.8.2 = NEXT / NOT STARTED; 3.5.8.3 = NOT STARTED.

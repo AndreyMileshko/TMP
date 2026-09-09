@@ -19,4 +19,13 @@ public interface TransferDocumentSendAllocationRepository {
      * Sets {@code send_operation_id} once for the allocation. Fails if already linked or missing.
      */
     void attachSendOperation(UUID allocationId, WarehouseOperationId sendOperationId);
+
+    /**
+     * True when the send operation belongs to a Transfer Document send allocation (document-managed
+     * path; must not be received via legacy {@code receiveTransfer}).
+     */
+    boolean existsBySendOperationId(WarehouseOperationId sendOperationId);
+
+    /** Document id owning the send operation, if document-managed. */
+    java.util.Optional<UUID> findDocumentIdBySendOperationId(WarehouseOperationId sendOperationId);
 }

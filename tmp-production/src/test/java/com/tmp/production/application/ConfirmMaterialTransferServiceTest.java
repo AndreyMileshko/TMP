@@ -574,6 +574,13 @@ class ConfirmMaterialTransferServiceTest {
         }
 
         @Override
+        public com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult
+                receiveTransferDocument(
+                        com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand command) {
+            throw new UnsupportedOperationException("receiveTransferDocument must not be called");
+        }
+
+        @Override
         public com.tmp.warehouse.api.WarehouseApi.WarehouseView createWarehouse(
                 com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand command) {
             throw new UnsupportedOperationException();

@@ -10,8 +10,10 @@ import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
 import com.tmp.warehouse.api.WarehouseApi.ReceiptCommand;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
+import com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
@@ -83,7 +85,14 @@ public interface WarehouseCommandApi {
     TransferDocumentSendResult sendTransferDocument(SendTransferDocumentCommand command);
 
     /**
-     * Informational «Взять в работу» / takeover for a DRAFT Transfer preparation task. Current
+     * Full document-level receive of a POSTED Transfer Document (Stage 3.5.8.1). Destination
+     * allocation totals must equal posted line quantities exactly. Requires destination warehouse
+     * responsibility.
+     */
+    TransferDocumentReceiveResult receiveTransferDocument(ReceiveTransferDocumentCommand command);
+
+    /**
+     * Informational «Взять в работу» / takeover for a Transfer preparation or receipt task. Current
      * worker is resolved from the authenticated session (caller must not supply userId). Not an
      * exclusive lock — another responsible user may take over.
      */

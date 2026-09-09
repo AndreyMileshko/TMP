@@ -21,6 +21,7 @@ import com.tmp.warehouse.application.WarehouseResponsibilityGuard;
 import com.tmp.warehouse.application.MaterialSourceRoutingService;
 import com.tmp.warehouse.application.WarehouseOperationalInboxService;
 import com.tmp.warehouse.application.WarehouseTransferDocumentService;
+import com.tmp.warehouse.application.WarehouseTransferReceiveService;
 import com.tmp.warehouse.application.WarehouseTransferSendService;
 import com.tmp.warehouse.application.WarehouseTransferService;
 import com.tmp.warehouse.application.document.WarehouseTransferDocumentProcessor;
@@ -29,7 +30,9 @@ import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.MaterialReservationLinkRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
 import com.tmp.warehouse.domain.repository.TransferDocumentSendAllocationRepository;
+import com.tmp.warehouse.domain.repository.TransferDocumentSettlementRepository;
 import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
+import com.tmp.warehouse.domain.repository.TransferReceiptSettlementItemRepository;
 import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
@@ -41,7 +44,9 @@ import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
 import com.tmp.warehouse.persistence.JdbcAvailableStockAggregationQuery;
 import com.tmp.warehouse.persistence.JdbcStockPositionRepository;
 import com.tmp.warehouse.persistence.JdbcTransferDocumentSendAllocationRepository;
+import com.tmp.warehouse.persistence.JdbcTransferDocumentSettlementRepository;
 import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
+import com.tmp.warehouse.persistence.JdbcTransferReceiptSettlementItemRepository;
 import com.tmp.warehouse.persistence.JdbcTransferTaskStateRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
@@ -187,20 +192,38 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
+    TransferDocumentSettlementRepository transferDocumentSettlementRepository(
+            JdbcTemplate jdbcTemplate) {
+        return new JdbcTransferDocumentSettlementRepository(jdbcTemplate);
+    }
+
+    @Bean
+    TransferReceiptSettlementItemRepository transferReceiptSettlementItemRepository(
+            JdbcTemplate jdbcTemplate) {
+        return new JdbcTransferReceiptSettlementItemRepository(jdbcTemplate);
+    }
+
+    @Bean
     WarehouseTransferDocumentProcessor warehouseTransferDocumentProcessor(
             WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
             TransferDocumentSendAllocationRepository transferDocumentSendAllocationRepository,
             WarehouseOperationEngine warehouseOperationEngine,
             TransferOperationContextRepository transferOperationContextRepository,
             MaterialReferenceRepository materialReferenceRepository,
-            WarehouseCatalogRepository warehouseCatalogRepository) {
+            WarehouseCatalogRepository warehouseCatalogRepository,
+            TransferDocumentSettlementRepository transferDocumentSettlementRepository,
+            TransferReceiptSettlementItemRepository transferReceiptSettlementItemRepository,
+            Clock clock) {
         return new WarehouseTransferDocumentProcessor(
                 warehouseTransferDocumentRepository,
                 transferDocumentSendAllocationRepository,
                 warehouseOperationEngine,
                 transferOperationContextRepository,
                 materialReferenceRepository,
-                warehouseCatalogRepository);
+                warehouseCatalogRepository,
+                transferDocumentSettlementRepository,
+                transferReceiptSettlementItemRepository,
+                clock);
     }
 
     @Bean
@@ -246,9 +269,39 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
+    WarehouseTransferReceiveService warehouseTransferReceiveService(
+            DocumentEngine documentEngine,
+            WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
+            TransferDocumentSettlementRepository transferDocumentSettlementRepository,
+            TransferDocumentSendAllocationRepository transferDocumentSendAllocationRepository,
+            TransferReceiptSettlementItemRepository transferReceiptSettlementItemRepository,
+            TransferTaskStateRepository transferTaskStateRepository,
+            WarehouseOperationEngine warehouseOperationEngine,
+            MaterialReferenceRepository materialReferenceRepository,
+            WarehouseCatalogRepository warehouseCatalogRepository,
+            WarehouseResponsibilityGuard warehouseResponsibilityGuard,
+            PlatformTransactionManager platformTransactionManager,
+            Clock clock) {
+        return new WarehouseTransferReceiveService(
+                documentEngine,
+                warehouseTransferDocumentRepository,
+                transferDocumentSettlementRepository,
+                transferDocumentSendAllocationRepository,
+                transferReceiptSettlementItemRepository,
+                transferTaskStateRepository,
+                warehouseOperationEngine,
+                materialReferenceRepository,
+                warehouseCatalogRepository,
+                warehouseResponsibilityGuard,
+                new TransactionTemplate(platformTransactionManager),
+                clock);
+    }
+
+    @Bean
     WarehouseOperationalInboxService warehouseOperationalInboxService(
             DocumentEngine documentEngine,
             WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
+            TransferDocumentSettlementRepository transferDocumentSettlementRepository,
             TransferTaskStateRepository transferTaskStateRepository,
             WarehouseUserResponsibilityRepository warehouseUserResponsibilityRepository,
             WarehouseCatalogRepository warehouseCatalogRepository,
@@ -259,6 +312,7 @@ public class WarehouseAutoConfiguration {
         return new WarehouseOperationalInboxService(
                 documentEngine,
                 warehouseTransferDocumentRepository,
+                transferDocumentSettlementRepository,
                 transferTaskStateRepository,
                 warehouseUserResponsibilityRepository,
                 warehouseCatalogRepository,
@@ -368,7 +422,10 @@ public class WarehouseAutoConfiguration {
             TransferOperationContextRepository transferOperationContextRepository,
             MaterialSourceRoutingService materialSourceRoutingService,
             WarehouseOperationalInboxService warehouseOperationalInboxService,
-            WarehouseTransferSendService warehouseTransferSendService) {
+            WarehouseTransferSendService warehouseTransferSendService,
+            WarehouseTransferReceiveService warehouseTransferReceiveService,
+            TransferDocumentSendAllocationRepository transferDocumentSendAllocationRepository,
+            TransferDocumentSettlementRepository transferDocumentSettlementRepository) {
         return new DefaultWarehouseApi(
                 authorizationService,
                 authenticationService,
@@ -389,7 +446,10 @@ public class WarehouseAutoConfiguration {
                 transferOperationContextRepository,
                 materialSourceRoutingService,
                 warehouseOperationalInboxService,
-                warehouseTransferSendService);
+                warehouseTransferSendService,
+                warehouseTransferReceiveService,
+                transferDocumentSendAllocationRepository,
+                transferDocumentSettlementRepository);
     }
 
     @Bean

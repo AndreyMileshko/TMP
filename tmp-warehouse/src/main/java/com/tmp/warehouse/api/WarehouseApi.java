@@ -170,7 +170,9 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             long payloadRevision,
             List<TransferDocumentLineView> lines,
             UUID continuationOfDocumentId,
-            String continuationReason) {
+            String continuationReason,
+            String settlementState,
+            Long operationalRevision) {
 
         public TransferDocumentView {
             java.util.Objects.requireNonNull(documentId, "documentId");
@@ -180,6 +182,54 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             java.util.Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
             java.util.Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
             lines = lines == null ? List.of() : List.copyOf(lines);
+        }
+    }
+
+    /** One destination-cell allocation for Transfer Document physical RECEIVE (Stage 3.5.8.1). */
+    record TransferDocumentDestinationAllocationInput(
+            UUID lineId, UUID destinationStorageCellId, BigDecimal quantity) {
+
+        public TransferDocumentDestinationAllocationInput {
+            java.util.Objects.requireNonNull(lineId, "lineId");
+            java.util.Objects.requireNonNull(destinationStorageCellId, "destinationStorageCellId");
+            java.util.Objects.requireNonNull(quantity, "quantity");
+        }
+    }
+
+    /**
+     * Full document-level receive of a POSTED Transfer Document (Stage 3.5.8.1). Destination
+     * allocation totals must equal posted line quantities exactly.
+     */
+    record ReceiveTransferDocumentCommand(
+            UUID documentId,
+            long expectedOperationalRevision,
+            List<TransferDocumentDestinationAllocationInput> destinationAllocations) {
+
+        public ReceiveTransferDocumentCommand {
+            java.util.Objects.requireNonNull(documentId, "documentId");
+            destinationAllocations =
+                    destinationAllocations == null
+                            ? List.of()
+                            : List.copyOf(destinationAllocations);
+        }
+    }
+
+    /** Compact result of a successful Transfer Document full receive. */
+    record TransferDocumentReceiveResult(
+            UUID documentId,
+            String documentStatus,
+            long documentVersion,
+            String settlementState,
+            String decision,
+            long operationalRevision,
+            List<UUID> receiveOperationIds) {
+
+        public TransferDocumentReceiveResult {
+            java.util.Objects.requireNonNull(documentId, "documentId");
+            java.util.Objects.requireNonNull(documentStatus, "documentStatus");
+            java.util.Objects.requireNonNull(settlementState, "settlementState");
+            receiveOperationIds =
+                    receiveOperationIds == null ? List.of() : List.copyOf(receiveOperationIds);
         }
     }
 
@@ -228,9 +278,10 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
-    /** Stage 3.5.5 preparation task kind (extensible enum; only TRANSFER_PREPARATION is live). */
+    /** Stage 3.5 task kinds (TRANSFER_PREPARATION + TRANSFER_RECEIPT live; return later). */
     enum WarehouseTaskKind {
-        TRANSFER_PREPARATION
+        TRANSFER_PREPARATION,
+        TRANSFER_RECEIPT
     }
 
     /** Derived informational task state: no assignment row → NEW; assignment present → IN_WORK. */
@@ -240,7 +291,7 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     }
 
     /**
-     * Compact operational inbox projection over a DRAFT {@code warehouse.transfer} document.
+     * Compact operational inbox projection over a {@code warehouse.transfer} document.
      * Task identity is {@code documentId}. Worker fields are opaque Security UUIDs / timestamps.
      */
     record WarehouseTaskView(
@@ -259,7 +310,9 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             java.time.Instant workingSince,
             java.time.Instant createdAt,
             UUID continuationOfDocumentId,
-            String continuationReason) {
+            String continuationReason,
+            String settlementState,
+            Long operationalRevision) {
 
         public WarehouseTaskView {
             java.util.Objects.requireNonNull(documentId, "documentId");

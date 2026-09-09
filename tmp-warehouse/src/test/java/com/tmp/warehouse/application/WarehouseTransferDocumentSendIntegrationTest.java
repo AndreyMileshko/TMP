@@ -115,6 +115,8 @@ class WarehouseTransferDocumentSendIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM warehouse.transfer_receipt_settlement_item");
+        jdbc.update("DELETE FROM warehouse.transfer_document_settlement");
         jdbc.update("DELETE FROM warehouse.transfer_document_send_allocation");
         jdbc.update("DELETE FROM warehouse.transfer_task_state");
         jdbc.update("DELETE FROM warehouse.transfer_document_lines");

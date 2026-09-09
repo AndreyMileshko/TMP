@@ -22,6 +22,8 @@ import com.tmp.warehouse.api.WarehouseApi.MaterialDemand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
+import com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
@@ -426,6 +428,12 @@ class ConfirmMaterialReceiptServiceTest {
                     before.destinationWarehouseId(),
                     before.destinationStorageCellId(),
                     before.quantity());
+        }
+
+        @Override
+        public TransferDocumentReceiveResult receiveTransferDocument(
+                ReceiveTransferDocumentCommand command) {
+            throw new UnsupportedOperationException("not used");
         }
 
         @Override

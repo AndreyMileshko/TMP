@@ -11,7 +11,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /** JDBC adapter for {@code warehouse.transfer_document_send_allocation}. */
@@ -104,6 +106,40 @@ public final class JdbcTransferDocumentSendAllocationRepository
                             + allocationId
                             + ", sendOperationId="
                             + sendOperationId);
+        }
+    }
+
+    @Override
+    public boolean existsBySendOperationId(WarehouseOperationId sendOperationId) {
+        Objects.requireNonNull(sendOperationId, "sendOperationId");
+        Integer count =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*)
+                          FROM warehouse.transfer_document_send_allocation
+                         WHERE send_operation_id = ?
+                        """,
+                        Integer.class,
+                        sendOperationId.value());
+        return count != null && count > 0;
+    }
+
+    @Override
+    public Optional<UUID> findDocumentIdBySendOperationId(WarehouseOperationId sendOperationId) {
+        Objects.requireNonNull(sendOperationId, "sendOperationId");
+        try {
+            UUID documentId =
+                    jdbc.queryForObject(
+                            """
+                            SELECT document_id
+                              FROM warehouse.transfer_document_send_allocation
+                             WHERE send_operation_id = ?
+                            """,
+                            UUID.class,
+                            sendOperationId.value());
+            return Optional.ofNullable(documentId);
+        } catch (EmptyResultDataAccessException ex) {
+            return Optional.empty();
         }
     }
 }

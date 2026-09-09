@@ -4,6 +4,37 @@
 
 ---
 
+## Stage 3.5.8.1 — Settlement + Full Document Receive + Receiver Task — 2026-09-09
+
+**Date:** 2026-09-09
+**Stage:** UI Modernization Stage 3.5.8.1 (Warehouse Transfer Document full receive); outside Stages 0–9 numbered queue
+**Base checkpoint:** `282f0cf68ab0262161bb377b4b6737ac791a2c0a`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.8 IN PROGRESS; 3.5.8.2 NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (NOT `tmp-stage34-smoke-pg`)
+
+### Summary
+
+Introduced Warehouse-owned post-send settlement (`AWAITING_RECEIPT`→`SETTLED`) and document-level full receive. Receiver supplies line→destination-cell quantities; server maps deterministically onto send allocations (`created_at, id`) and executes `WarehouseOperationEngine.transferReceive` segments in one ACID TX, then closes the Document Engine document. Legacy `receiveTransfer(sendOpId)` is blocked for document-managed sends; `getTransferStatus` derives RECEIVED from settlement for those ops without claiming `TransferOperationContext`. Destination-scoped `TRANSFER_RECEIPT` inbox tasks reuse `transfer_task_state`.
+
+### Locked later decision (3.5.8.3)
+
+Full reject MUST NOT automatically create a continuation.
+
+### Key changes
+
+- Flyway `V41__transfer_document_settlement.sql` (header + receipt items + POSTED backfill)
+- `WarehouseTransferReceiveService` + public `receiveTransferDocument`
+- Processor: create settlement on POST; `onClose` conservation guard
+- Inbox `TRANSFER_RECEIPT`; take-in-work destination responsibility
+- Legacy receive bypass + document-managed status path
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-09 Stage 3.5.8.1.
+
+---
+
 ## Stage 3.5.7 — Shortfall / Automatic Continuation Transfer — 2026-09-08
 
 **Date:** 2026-09-08

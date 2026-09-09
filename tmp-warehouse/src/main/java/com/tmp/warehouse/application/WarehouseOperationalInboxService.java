@@ -10,10 +10,13 @@ import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskKind;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskState;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.application.document.WarehouseTransferDocumentProcessor;
+import com.tmp.warehouse.domain.TransferDocumentSettlement;
+import com.tmp.warehouse.domain.TransferSettlementState;
 import com.tmp.warehouse.domain.TransferTaskAssignment;
 import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseTransferDocument;
+import com.tmp.warehouse.domain.repository.TransferDocumentSettlementRepository;
 import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
@@ -34,11 +37,13 @@ import java.util.UUID;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Warehouse operational inbox projection over DRAFT {@code warehouse.transfer} documents (Stage
- * 3.5.5).
+ * Warehouse operational inbox projection (Stage 3.5.5 / 3.5.8.1).
  *
- * <p>Task existence is derived from Document Engine lifecycle + Warehouse payload. Worker
- * assignment is informational (not an exclusive lock).
+ * <p>TRANSFER_PREPARATION: DRAFT documents for source-responsible users.
+ *
+ * <p>TRANSFER_RECEIPT: POSTED + AWAITING_RECEIPT for destination-responsible users.
+ *
+ * <p>Worker assignment is informational (not an exclusive lock).
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -58,6 +63,7 @@ public final class WarehouseOperationalInboxService {
 
     private final DocumentEngine documentEngine;
     private final WarehouseTransferDocumentRepository transferDocuments;
+    private final TransferDocumentSettlementRepository settlements;
     private final TransferTaskStateRepository taskStates;
     private final WarehouseUserResponsibilityRepository responsibilities;
     private final WarehouseCatalogRepository warehouses;
@@ -76,8 +82,33 @@ public final class WarehouseOperationalInboxService {
             AuthenticationService authentication,
             TransactionTemplate transactionTemplate,
             Clock clock) {
+        this(
+                documentEngine,
+                transferDocuments,
+                null,
+                taskStates,
+                responsibilities,
+                warehouses,
+                responsibilityGuard,
+                authentication,
+                transactionTemplate,
+                clock);
+    }
+
+    public WarehouseOperationalInboxService(
+            DocumentEngine documentEngine,
+            WarehouseTransferDocumentRepository transferDocuments,
+            TransferDocumentSettlementRepository settlements,
+            TransferTaskStateRepository taskStates,
+            WarehouseUserResponsibilityRepository responsibilities,
+            WarehouseCatalogRepository warehouses,
+            WarehouseResponsibilityGuard responsibilityGuard,
+            AuthenticationService authentication,
+            TransactionTemplate transactionTemplate,
+            Clock clock) {
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
         this.transferDocuments = Objects.requireNonNull(transferDocuments, "transferDocuments");
+        this.settlements = settlements;
         this.taskStates = Objects.requireNonNull(taskStates, "taskStates");
         this.responsibilities = Objects.requireNonNull(responsibilities, "responsibilities");
         this.warehouses = Objects.requireNonNull(warehouses, "warehouses");
@@ -90,7 +121,7 @@ public final class WarehouseOperationalInboxService {
     }
 
     /**
-     * Lists TRANSFER_PREPARATION tasks for the current user's responsible source warehouses.
+     * Lists preparation and receipt tasks for the current user's responsible warehouses.
      *
      * @param warehouseIdFilter optional single warehouse filter (must be in responsibility scope)
      */
@@ -108,15 +139,22 @@ public final class WarehouseOperationalInboxService {
             return List.of();
         }
 
-        List<DocumentMetadata> drafts = scanDraftTransferDocuments();
-        if (drafts.isEmpty()) {
+        List<DocumentMetadata> drafts = scanTransferDocuments(DocumentStatus.DRAFT);
+        List<DocumentMetadata> posted = scanTransferDocuments(DocumentStatus.POSTED);
+        List<UUID> allIds = new ArrayList<>();
+        drafts.forEach(d -> allIds.add(d.id()));
+        posted.forEach(d -> allIds.add(d.id()));
+        if (allIds.isEmpty()) {
             return List.of();
         }
 
-        List<UUID> documentIds = drafts.stream().map(DocumentMetadata::id).toList();
-        Map<UUID, WarehouseTransferDocument> payloads =
-                transferDocuments.findByDocumentIds(documentIds);
-        Map<UUID, TransferTaskAssignment> assignments = taskStates.findByDocumentIds(documentIds);
+        Map<UUID, WarehouseTransferDocument> payloads = transferDocuments.findByDocumentIds(allIds);
+        Map<UUID, TransferTaskAssignment> assignments = taskStates.findByDocumentIds(allIds);
+        Map<UUID, TransferDocumentSettlement> settlementById =
+                settlements == null
+                        ? Map.of()
+                        : settlements.findByDocumentIds(
+                                posted.stream().map(DocumentMetadata::id).toList());
         Map<UUID, Warehouse> warehouseById = warehouseIndex();
 
         List<WarehouseTaskView> tasks = new ArrayList<>();
@@ -125,15 +163,38 @@ public final class WarehouseOperationalInboxService {
             if (payload == null) {
                 continue;
             }
-            UUID sourceId = payload.sourceWarehouseId().value();
-            if (!responsible.contains(sourceId)) {
+            if (!responsible.contains(payload.sourceWarehouseId().value())) {
                 continue;
             }
             tasks.add(
                     toTaskView(
                             metadata,
                             payload,
+                            WarehouseTaskKind.TRANSFER_PREPARATION,
                             assignments.get(metadata.id()),
+                            null,
+                            warehouseById));
+        }
+        for (DocumentMetadata metadata : posted) {
+            WarehouseTransferDocument payload = payloads.get(metadata.id());
+            if (payload == null) {
+                continue;
+            }
+            if (!responsible.contains(payload.destinationWarehouseId().value())) {
+                continue;
+            }
+            TransferDocumentSettlement settlement = settlementById.get(metadata.id());
+            if (settlement == null
+                    || settlement.settlementState() != TransferSettlementState.AWAITING_RECEIPT) {
+                continue;
+            }
+            tasks.add(
+                    toTaskView(
+                            metadata,
+                            payload,
+                            WarehouseTaskKind.TRANSFER_RECEIPT,
+                            assignments.get(metadata.id()),
+                            settlement,
                             warehouseById));
         }
         tasks.sort(TASK_ORDER);
@@ -141,9 +202,8 @@ public final class WarehouseOperationalInboxService {
     }
 
     /**
-     * Informational take-in-work / takeover. Caller must already have enforced RBAC transfer
-     * permission; this method enforces authentication, DRAFT transfer existence, and source
-     * responsibility.
+     * Informational take-in-work / takeover. Responsibility scope is derived from the current task
+     * phase (source for preparation, destination for receipt) — not from a caller-supplied kind.
      */
     public WarehouseTaskView takeTransferTaskInWork(UUID documentId) {
         Objects.requireNonNull(documentId, "documentId");
@@ -166,13 +226,6 @@ public final class WarehouseOperationalInboxService {
                                 throw new IllegalArgumentException(
                                         "Not a warehouse.transfer document: " + documentId);
                             }
-                            if (metadata.status() != DocumentStatus.DRAFT) {
-                                throw new IllegalStateException(
-                                        "Transfer preparation task exists only for DRAFT: documentId="
-                                                + documentId
-                                                + ", status="
-                                                + metadata.status());
-                            }
                             WarehouseTransferDocument payload =
                                     transferDocuments
                                             .findByDocumentId(documentId)
@@ -181,11 +234,52 @@ public final class WarehouseOperationalInboxService {
                                                             new IllegalArgumentException(
                                                                     "Transfer document payload not found: "
                                                                             + documentId));
-                            responsibilityGuard.requireResponsible(payload.sourceWarehouseId());
+                            WarehouseTaskKind kind;
+                            TransferDocumentSettlement settlement = null;
+                            if (metadata.status() == DocumentStatus.DRAFT) {
+                                kind = WarehouseTaskKind.TRANSFER_PREPARATION;
+                                responsibilityGuard.requireResponsible(
+                                        payload.sourceWarehouseId());
+                            } else if (metadata.status() == DocumentStatus.POSTED) {
+                                if (settlements == null) {
+                                    throw new IllegalStateException(
+                                            "Transfer settlement repository is not configured");
+                                }
+                                settlement =
+                                        settlements
+                                                .findByDocumentId(documentId)
+                                                .orElseThrow(
+                                                        () ->
+                                                                new IllegalStateException(
+                                                                        "Transfer settlement missing for receipt task: "
+                                                                                + documentId));
+                                if (settlement.settlementState()
+                                        != TransferSettlementState.AWAITING_RECEIPT) {
+                                    throw new IllegalStateException(
+                                            "Transfer receipt task exists only for AWAITING_RECEIPT: documentId="
+                                                    + documentId
+                                                    + ", state="
+                                                    + settlement.settlementState());
+                                }
+                                kind = WarehouseTaskKind.TRANSFER_RECEIPT;
+                                responsibilityGuard.requireResponsible(
+                                        payload.destinationWarehouseId());
+                            } else {
+                                throw new IllegalStateException(
+                                        "Transfer task take-in-work requires DRAFT or POSTED AWAITING_RECEIPT: documentId="
+                                                + documentId
+                                                + ", status="
+                                                + metadata.status());
+                            }
                             TransferTaskAssignment assignment =
                                     taskStates.takeInWork(documentId, userId, now);
                             return toTaskView(
-                                    metadata, payload, assignment, warehouseIndex());
+                                    metadata,
+                                    payload,
+                                    kind,
+                                    assignment,
+                                    settlement,
+                                    warehouseIndex());
                         });
         if (view == null) {
             throw new IllegalStateException("takeTransferTaskInWork returned null");
@@ -193,7 +287,7 @@ public final class WarehouseOperationalInboxService {
         return view;
     }
 
-    private List<DocumentMetadata> scanDraftTransferDocuments() {
+    private List<DocumentMetadata> scanTransferDocuments(DocumentStatus status) {
         List<DocumentMetadata> all = new ArrayList<>();
         int page = 0;
         while (true) {
@@ -203,7 +297,7 @@ public final class WarehouseOperationalInboxService {
                             new DocumentQuery(
                                     Optional.of(
                                             WarehouseTransferDocumentProcessor.DOCUMENT_TYPE_ID),
-                                    Optional.of(DocumentStatus.DRAFT),
+                                    Optional.of(status),
                                     Optional.empty(),
                                     DOCUMENT_SCAN_PAGE_SIZE,
                                     offset));
@@ -245,7 +339,9 @@ public final class WarehouseOperationalInboxService {
     private static WarehouseTaskView toTaskView(
             DocumentMetadata metadata,
             WarehouseTransferDocument payload,
+            WarehouseTaskKind kind,
             TransferTaskAssignment assignment,
+            TransferDocumentSettlement settlement,
             Map<UUID, Warehouse> warehouseById) {
         Warehouse source = warehouseById.get(payload.sourceWarehouseId().value());
         Warehouse destination = warehouseById.get(payload.destinationWarehouseId().value());
@@ -254,7 +350,7 @@ public final class WarehouseOperationalInboxService {
         return new WarehouseTaskView(
                 metadata.id(),
                 metadata.documentNumber(),
-                WarehouseTaskKind.TRANSFER_PREPARATION,
+                kind,
                 state,
                 payload.sourceWarehouseId().value(),
                 source == null ? null : source.code(),
@@ -267,7 +363,9 @@ public final class WarehouseOperationalInboxService {
                 assignment == null ? null : assignment.workingSince(),
                 metadata.createdAt(),
                 payload.continuationOfDocumentId().orElse(null),
-                payload.continuationReason().map(Enum::name).orElse(null));
+                payload.continuationReason().map(Enum::name).orElse(null),
+                settlement == null ? null : settlement.settlementState().name(),
+                settlement == null ? null : settlement.operationalRevision());
     }
 
     private static int taskStateRank(WarehouseTaskState state) {
