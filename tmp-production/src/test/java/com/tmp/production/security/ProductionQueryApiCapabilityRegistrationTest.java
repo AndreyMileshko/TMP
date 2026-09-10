@@ -83,7 +83,9 @@ class ProductionQueryApiCapabilityRegistrationTest {
             String name = method.getName().toLowerCase(Locale.ROOT);
             assertTrue(
                     name.equals("getorderproductionview")
+                            || name.equals("getorderproductionlistfacts")
                             || name.equals("getitemproductionstate")
+                            || name.equals("getitemproductionstatesbyorderid")
                             || name.equals("getmaterialavailabilityresult")
                             || name.equals("listproductionhistory"),
                     "Unexpected Public Query API method: " + method);
@@ -103,7 +105,7 @@ class ProductionQueryApiCapabilityRegistrationTest {
                         "Public Query API must not expose mutating method: " + method);
             }
         }
-        assertEquals(4, ProductionQueryApi.class.getDeclaredMethods().length);
+        assertEquals(6, ProductionQueryApi.class.getDeclaredMethods().length);
     }
 
     private static ProductionQueryApi productionQueryApiStub() {

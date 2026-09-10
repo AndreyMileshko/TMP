@@ -4,11 +4,11 @@
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
 **UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.7 COMPLETE; **3.5.8 COMPLETE**; **3.5.8.1 COMPLETE**; **3.5.8.2 COMPLETE**; **3.5.8.3 COMPLETE**; **3.5.9 Production Material Requirement Refactor COMPLETE** + **3.5.9 corrective COMPLETE**; **3.5.10 Requirement → Automatic Warehouse Tasks COMPLETE**; 3.5.11 NEXT / NOT STARTED)
-**Current Task:** none (Stage 3.5.10 complete; **full reactor regression after 3.5.10 = FAIL** — do not start 3.5.11 until corrective)
+**Current Task:** none (Stage 3.5.10 complete; ProductionQueryApi allowlist corrective applied; **full `mvn verify` still FAIL** — do not start 3.5.11)
 **Last completed task:** Stage 3.5.10 Requirement → Automatic Warehouse Tasks (2026-09-10); prior: Stage 3.5.9 Corrective
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
-**Active blockers:** Full reactor `mvn test` FAIL after Stage 3.5.10 (2026-09-10) — `ProductionQueryApiCapabilityRegistrationTest.productionQueryApiDeclaresOnlyReadOperations` (stale allowlist vs Stage 3.4 batch Query API methods). Stage 3.5.11 blocked until corrective. UI final manual acceptance still pending (not a code blocker).
+**Active blockers:** Full reactor `mvn verify` FAIL (2026-09-10) — Failsafe `SecuritySchemaPostgresIntegrationIT.requiredTablesAndNoPlaintextPasswordColumn` expects only `password_hash` but schema has `password_setup_required` (V32 / Users password flow). Prior `mvn test` allowlist debt corrected. Stage 3.5.11 blocked until verify GREEN. UI final manual acceptance still pending (not a code blocker).
 **Stage 6 Warehouse:** DONE
 **Stage 7 Production:** DONE / 100%
 **Stage 7 Start Gate:** PASSED
@@ -17,8 +17,8 @@
 **Completed Stage 7 tasks:** 27 / 27 mandatory
 **Production Specification:** v2.6 Accepted (Warehouse boundary aligned; Stage 3.5.9 Material Requirement DRAFT live; Stage 3.5.10 Submit → Warehouse demand routing COMPLETE)
 **Warehouse Specification:** v1.8 Accepted (ADR-037; §15A admin API note for 3.5.1)
-**Full verify baseline:** RED after Stage 3.5.10 full reactor audit (2026-09-10); prior GREEN was 2026-08-31 post-closure / STAGE7-018 — `f324b8e` is **not** a new GREEN full-reactor baseline
-**First READY implementation task:** corrective for `ProductionQueryApiCapabilityRegistrationTest` allowlist (before Stage 3.5.11); then Stage 3.5.11 Modern Остатки (NOT STARTED)
+**Full verify baseline:** RED — `mvn test` PASS after allowlist corrective; `mvn verify` FAIL on security Failsafe IT (2026-09-10). Full GREEN baseline not established
+**First READY implementation task:** corrective for `SecuritySchemaPostgresIntegrationIT` password-column expectation (before Stage 3.5.11); then Stage 3.5.11 Modern Остатки (NOT STARTED)
 
 
 ```text

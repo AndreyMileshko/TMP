@@ -3,6 +3,44 @@
 ## Latest result
 
 **Date:** 2026-09-10
+**Scope:** ProductionQueryApi allowlist corrective + resume full reactor after Stage 3.5.10
+**Overall:** FAIL — `mvn test` PASS; `mvn verify` FAIL at `tmp-security` Failsafe; package/runtime NOT RUN
+
+### Corrective + full reactor resume (2026-09-10)
+
+| Check | Result |
+|-------|--------|
+| Working baseline HEAD `15ce10fdc37b315675755a9028f4933784f76682` | PASS |
+| Contract check: `getOrderProductionListFacts` / `getItemProductionStatesByOrderId` | PASS — read-only (`PRODUCTION_VIEW` + repository/view queries; no command/warehouse mutation) |
+| `ProductionQueryApiCapabilityRegistrationTest` allowlist 4→6 | PASS (targeted 2/2) |
+| Production source code changed | NONE (test-only) |
+| DB baseline before run | Flyway V44; stock 31 / 1257.9; ops 61; mov 82; transfers 0; reqs 0 |
+| `mvn test` (full reactor) | PASS (exit 0, ~14:12 / 855 s) |
+| Module Surefire totals (Maven summaries) | core 37; infra 4; document 41; capability 209; security 152; OM 383; warehouse 352; production 361; ui-shell 430; bootstrap 19; architecture 160 = **2148** run, 0 fail, 0 err, 0 skip |
+| `Stage6WarehouseArchitectureTest` | PASS (7) |
+| `Stage7ProductionArchitectureTest` | PASS (83) |
+| `tmp-architecture-tests` | PASS (160) |
+| `mvn verify` (full reactor) | FAIL (exit 1, ~04:40) at `tmp-security` Failsafe verify |
+| VERIFY FAILURE | `SecuritySchemaPostgresIntegrationIT.requiredTablesAndNoPlaintextPasswordColumn` |
+| Expected | `[password_hash]` |
+| Actual | `[password_setup_required, password_hash]` |
+| Diagnostic retry | FAIL again — deterministic |
+| Classification | **TEST REGRESSION** (stale ILIKE `%password%` expectation vs V32 `password_setup_required`) |
+| Likely owner | Users password flow / V32 (`1c09dc4`) |
+| Modules after security on verify | SKIPPED |
+| Package / runtime / interactive smoke | NOT RUN |
+| Runtime DB after Maven | UNCHANGED — stock 31 / 1257.9; ops 61; mov 82 |
+| Stage 3.5.10 | remains COMPLETE |
+| Full GREEN baseline | NOT ESTABLISHED |
+| Stage 3.5.11 | DO NOT START |
+
+**Next corrective (one):** update `SecuritySchemaPostgresIntegrationIT` to allow `password_setup_required` alongside `password_hash` (still forbid plaintext `password`); do not change schema. Then re-run full `mvn verify`.
+
+---
+
+## Previous result
+
+**Date:** 2026-09-10
 **Scope:** Full reactor regression audit after Stage 3.5.10
 **Overall:** FAIL — `mvn test` (full reactor) stopped at `tmp-production`; `mvn verify` / package / runtime smoke NOT RUN
 
