@@ -4,6 +4,37 @@
 
 ---
 
+## Full regression closeout — PlatformCoreIntegrationIT Failsafe classpath — 2026-09-10
+
+**Date:** 2026-09-10
+**Stage:** outside numbered Stage queue (post-3.5.10 full regression audit)
+**Status:** COMPLETE (no commit); Stage 3.5.10 remains COMPLETE; Stage 3.5 IN PROGRESS; 3.5.11 NEXT / NOT STARTED
+**Commit:** none; baseline HEAD `35346aad1f9afbe011a5dba1ca053208419e235d`
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5` (unchanged)
+
+### Summary
+
+`PlatformCoreIntegrationIT` failed under Failsafe after `spring-boot:repackage` with registry size 5 instead of 7. Membership dump showed all four business capabilities + manual `cap.integration`; missing were the two diagnostic sample capabilities gated by `tmp.capability.sample.diagnostic=true`. Surefire (pre-repackage) still registered samples. Classification **C — TEST FIXTURE DEFECT** (fat-jar Failsafe classpath), not stale expected set and not production auto-registration defect.
+
+### Corrective
+
+- `tmp-bootstrap-app/pom.xml`: Failsafe `classesDirectory` + exclude project artifact (replace ineffective `additionalClasspathElements`-only approach)
+- `PlatformCoreIntegrationIT`: explicit expected capability id set; force `tmp.capability.sample.diagnostic=true`; keep event/component/service assertions
+- Production/bootstrap capability registration code: unchanged
+
+### Verification
+
+- Targeted Failsafe after package: PASS
+- Full root `mvn verify`: PASS
+- Package + runtime startup on stage5 DB: PASS (Flyway V44)
+- PartialReceive prior: NONDETERMINISTIC TEST EXPECTATION (equal created_at + UUID tie-break)
+
+### Next
+
+Stage 3.5.11 — Modern Остатки (NOT STARTED), after operator interactive smoke confirmation if required.
+
+---
+
 ## Stage 3.5.10 — Requirement → Automatic Warehouse Tasks — 2026-09-10
 
 **Date:** 2026-09-10

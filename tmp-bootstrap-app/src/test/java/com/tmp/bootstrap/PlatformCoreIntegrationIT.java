@@ -3,6 +3,8 @@ package com.tmp.bootstrap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.capability.sample.SampleDependentTechnicalCapability;
+import com.tmp.capability.sample.SampleTechnicalCapability;
 import com.tmp.core.api.CapabilityRegistry;
 import com.tmp.core.api.EventBus;
 import com.tmp.core.api.PlatformCore;
@@ -12,7 +14,14 @@ import com.tmp.core.api.component.ComponentType;
 import com.tmp.core.api.component.PlatformComponent;
 import com.tmp.core.api.component.PlatformComponentMetadata;
 import com.tmp.core.api.event.platform.PlatformStartedEvent;
+import com.tmp.order.capability.OrderManagementCapability;
+import com.tmp.production.security.ProductionCapability;
+import com.tmp.security.capability.SecurityAdministrationCapability;
+import com.tmp.warehouse.security.WarehouseCapability;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,10 +30,23 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
-@SpringBootTest(classes = TmpBootstrapApplication.class)
+@SpringBootTest(
+        classes = TmpBootstrapApplication.class,
+        properties = "tmp.capability.sample.diagnostic=true")
 @Import(PlatformCoreIntegrationIT.IntegrationTestPlatformConfiguration.class)
 @ActiveProfiles("test")
 class PlatformCoreIntegrationIT extends AbstractBootstrapPostgresSpringTest {
+
+    private static final String MANUAL_CAPABILITY_ID = "cap.integration";
+
+    private static final Set<String> EXPECTED_CAPABILITY_IDS = Set.of(
+            SampleTechnicalCapability.ID.value(),
+            SampleDependentTechnicalCapability.ID.value(),
+            SecurityAdministrationCapability.ID.value(),
+            OrderManagementCapability.ID.value(),
+            WarehouseCapability.ID.value(),
+            ProductionCapability.ID.value(),
+            MANUAL_CAPABILITY_ID);
 
     @Autowired
     private PlatformCore platformCore;
@@ -37,18 +59,23 @@ class PlatformCoreIntegrationIT extends AbstractBootstrapPostgresSpringTest {
 
     @Test
     void registersServicesCapabilitiesAndDeliversEvents() {
-        capabilityRegistry.register(new CapabilityDescriptor("cap.integration", "Integration", "0.1.0"));
+        capabilityRegistry.register(new CapabilityDescriptor(MANUAL_CAPABILITY_ID, "Integration", "0.1.0"));
 
         AtomicBoolean eventReceived = new AtomicBoolean(false);
         eventBus.subscribePlatform(PlatformStartedEvent.class, event -> eventReceived.set(true));
         eventBus.publish(new PlatformStartedEvent());
 
         assertTrue(eventReceived.get(), "EventBus must deliver platform events synchronously");
+
+        List<CapabilityDescriptor> actualCapabilities = capabilityRegistry.findAll();
+        Set<String> actualCapabilityIds =
+                actualCapabilities.stream().map(CapabilityDescriptor::id).collect(Collectors.toSet());
         assertEquals(
-                7,
-                capabilityRegistry.findAll().size(),
-                "two sample technical capabilities, security administration, order management, "
-                        + "warehouse, production, plus one manual registration");
+                EXPECTED_CAPABILITY_IDS,
+                actualCapabilityIds,
+                "expected auto-registered business + diagnostic sample capabilities plus manual fixture");
+        assertEquals(EXPECTED_CAPABILITY_IDS.size(), actualCapabilities.size());
+
         assertEquals(ComponentLifecycleState.STARTED, platformCore.status().lifecycleState());
         assertEquals(
                 4,

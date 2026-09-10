@@ -87,9 +87,12 @@
                     <includes>
                         <include>**/*IT.java</include>
                     </includes>
-                    <additionalClasspathElements>
-                        <additionalClasspathElement>${project.build.outputDirectory}</additionalClasspathElement>
-                    </additionalClasspathElements>
+                    <!--
+                      spring-boot:repackage replaces the main artifact with a fat jar.
+                      Failsafe must use target/classes (not BOOT-INF) so profile YAML and
+                      ConditionalOnProperty (tmp.capability.sample.diagnostic) resolve correctly.
+                    -->
+                    <classesDirectory>${project.build.outputDirectory}</classesDirectory>
                     <classpathDependencyExcludes>
                         <classpathDependencyExclude>${project.groupId}:${project.artifactId}</classpathDependencyExclude>
                     </classpathDependencyExcludes>

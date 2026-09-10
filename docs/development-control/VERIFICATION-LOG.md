@@ -3,6 +3,40 @@
 ## Latest result
 
 **Date:** 2026-09-10
+**Scope:** PlatformCoreIntegrationIT capability membership / Failsafe classpath corrective + full regression closeout
+**Overall:** PASS — `FULL REGRESSION AFTER STAGE 3.5.10 = PASS`
+
+### Capability registry Failsafe corrective (2026-09-10)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `35346aad1f9afbe011a5dba1ca053208419e235d` | PASS |
+| Failure | `PlatformCoreIntegrationIT.registersServicesCapabilitiesAndDeliversEvents` — expected 7, actual 5 |
+| Actual membership (Failsafe after `spring-boot:repackage`) | `cap.integration` (manual), `order-management`, `production`, `security-administration`, `warehouse` |
+| Missing | `sample.technical.capability`, `sample.dependent.technical.capability` |
+| Expected (architecture + `application-test.yml` diagnostic=true) | 6 auto (2 samples + security + order + warehouse + production) + 1 manual = 7 |
+| Surefire path (pre-repackage) | PASS with full membership |
+| Failsafe path (post-repackage) | samples skipped — `ConditionalOnProperty tmp.capability.sample.diagnostic` effectively false under fat-jar classpath |
+| Classification | **C — TEST FIXTURE DEFECT** (Failsafe classpath after repackage; not stale expected set; not production registration defect) |
+| Corrective | `maven-failsafe-plugin` `classesDirectory=${project.build.outputDirectory}` + exclude project artifact; IT explicit membership set + `@SpringBootTest(properties=tmp.capability.sample.diagnostic=true)` |
+| Production change | NONE |
+| Targeted Failsafe after package | PASS |
+| `mvn verify` (full reactor) | PASS (exit 0; bootstrap Failsafe `PlatformCoreIntegrationIT` failures=0; architecture tests completed) |
+| Package `pre-integration-test -Ppackage` | PASS → `dist/jpackage/TMP/TMP.exe` (2026-09-10 16:47:45) |
+| Runtime startup `jdbc:postgresql://localhost:55432/tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 44 / schema V44; `Started DesktopBootstrap`; JavaFX unnamed-module WARN only; exceptions NONE |
+| Runtime DB before/after | UNCHANGED — V44; stock 31 / 1257.9; ops 61; mov 82; transfers 0; reqs 0 |
+| Interactive GUI smoke (Requirement Submit → Warehouse) | PENDING operator (TMP left running; agent cannot drive JavaFX) |
+| PartialReceive prior corrective | **NONDETERMINISTIC TEST EXPECTATION: equal created_at + UUID tie-break** (not FLAKY) |
+| Stage 3.5.10 | COMPLETE |
+| Stage 3.5 | IN PROGRESS |
+| Stage 3.5.11 | NEXT / NOT STARTED (unblocked) |
+| Full GREEN baseline | ESTABLISHED |
+
+---
+
+## Previous result
+
+**Date:** 2026-09-10
 **Scope:** PartialReceive `partialMultiCellMapping` nondeterminism corrective + full `mvn verify`
 **Overall:** FAIL — PartialReceive stability PASS; `mvn verify` FAIL at bootstrap Failsafe PlatformCoreIntegrationIT; package/runtime NOT RUN
 
@@ -12,7 +46,7 @@
 |-------|--------|
 | Baseline HEAD `7d46697dad76d1d5eeda1eec878b59675e449f90` | PASS |
 | Root cause | Fixed Clock → identical `created_at` on both send allocations; production order `(created_at, id)` ties on UUID; test assumed first-by-order always qty 60 |
-| Classification | **A — NONDETERMINISTIC TEST EXPECTATION** (not production ordering defect; repository has `ORDER BY created_at, id`) |
+| Classification | **A — NONDETERMINISTIC TEST EXPECTATION: equal created_at + UUID tie-break** (not production ordering defect; repository has `ORDER BY created_at, id`) |
 | Conservation | PASS (accepted sum always 75; 0≤accepted≤sent) |
 | Corrective | Test-only: stagger `created_at` so cellA1(60) precedes cellA2(40); assert cells/qty + conservation |
 | Reproduction before | isolated method 5 PASS / 5 FAIL (10 runs) |
@@ -22,14 +56,14 @@
 | Failing gate | Failsafe @ `tmp-bootstrap-app` |
 | Failure | `PlatformCoreIntegrationIT.registersServicesCapabilitiesAndDeliversEvents` L47 — capabilities expected 7 actual 5 |
 | Diagnostic IT retry | FAIL again — deterministic |
-| Classification (new) | **TEST REGRESSION** — stale capability count vs registry contents |
+| Classification (new, superseded) | Was labeled TEST REGRESSION / stale count; **corrected** to Failsafe classpath fixture defect after membership dump |
 | Package / runtime / smoke | NOT RUN |
 | Runtime DB | UNCHANGED — V44; stock 31 / 1257.9; ops 61; mov 82; transfers 0; reqs 0 |
 | Stage 3.5.10 | remains COMPLETE |
 | Full GREEN baseline | NOT ESTABLISHED |
 | Stage 3.5.11 | DO NOT START |
 
-**Next corrective (one):** align `PlatformCoreIntegrationIT` expected capability count/membership with actual auto-registered capabilities (+ manual). No schema change. Then full `mvn verify`.
+**Next corrective (one):** diagnose PlatformCoreIntegrationIT membership (samples missing under Failsafe after repackage). Then full `mvn verify`.
 
 ---
 
