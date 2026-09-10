@@ -3,6 +3,39 @@
 ## Latest result
 
 **Date:** 2026-09-10
+**Scope:** PartialReceive `partialMultiCellMapping` nondeterminism corrective + full `mvn verify`
+**Overall:** FAIL — PartialReceive stability PASS; `mvn verify` FAIL at bootstrap Failsafe PlatformCoreIntegrationIT; package/runtime NOT RUN
+
+### PartialReceive stability corrective + verify resume (2026-09-10)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `7d46697dad76d1d5eeda1eec878b59675e449f90` | PASS |
+| Root cause | Fixed Clock → identical `created_at` on both send allocations; production order `(created_at, id)` ties on UUID; test assumed first-by-order always qty 60 |
+| Classification | **A — NONDETERMINISTIC TEST EXPECTATION** (not production ordering defect; repository has `ORDER BY created_at, id`) |
+| Conservation | PASS (accepted sum always 75; 0≤accepted≤sent) |
+| Corrective | Test-only: stagger `created_at` so cellA1(60) precedes cellA2(40); assert cells/qty + conservation |
+| Reproduction before | isolated method 5 PASS / 5 FAIL (10 runs) |
+| Reproduction after | method ×10 PASS; class ×5 PASS; `mvn -pl :tmp-warehouse test` 352 PASS |
+| `mvn verify` (full reactor) | FAIL (exit 1, ~24:37) |
+| Modules SUCCESS through | parent … ui-shell; warehouse PartialReceive green in suite |
+| Failing gate | Failsafe @ `tmp-bootstrap-app` |
+| Failure | `PlatformCoreIntegrationIT.registersServicesCapabilitiesAndDeliversEvents` L47 — capabilities expected 7 actual 5 |
+| Diagnostic IT retry | FAIL again — deterministic |
+| Classification (new) | **TEST REGRESSION** — stale capability count vs registry contents |
+| Package / runtime / smoke | NOT RUN |
+| Runtime DB | UNCHANGED — V44; stock 31 / 1257.9; ops 61; mov 82; transfers 0; reqs 0 |
+| Stage 3.5.10 | remains COMPLETE |
+| Full GREEN baseline | NOT ESTABLISHED |
+| Stage 3.5.11 | DO NOT START |
+
+**Next corrective (one):** align `PlatformCoreIntegrationIT` expected capability count/membership with actual auto-registered capabilities (+ manual). No schema change. Then full `mvn verify`.
+
+---
+
+## Previous result
+
+**Date:** 2026-09-10
 **Scope:** UI Shell SpotBugs corrective (Option B + EI/BX) + full `mvn verify`
 **Overall:** FAIL — UI Shell SpotBugs PASS (0); `mvn verify` FAIL at warehouse Surefire PartialReceive; package/runtime NOT RUN
 
@@ -21,16 +54,15 @@
 | Modules SUCCESS before failure | parent … order-management (+ SpotBugs 0 through OM) |
 | Failing gate | Surefire @ `tmp-warehouse` |
 | Failure | `WarehouseTransferDocumentPartialReceiveIntegrationTest.partialMultiCellMapping` L429 — `acceptedForSendAllocation(s1).compareTo(60)` expected 0 was -1 |
-| Diagnostic isolated retry | **PASS** (1/1) |
-| Classification | **FLAKY** (suite FAIL / isolated PASS; unrelated to UI Shell changes) |
-| Likely origin | Warehouse PartialReceive settlement/IT isolation under full Surefire suite |
+| Diagnostic isolated retry | **PASS** (1/1) — later matrix showed 5/10 FAIL isolated; prior single retry was lucky |
+| Classification (superseded) | Was labeled FLAKY; **corrected** to Classification A after root-cause pass |
 | Package / runtime / smoke | NOT RUN |
 | Runtime DB | UNCHANGED — V44; stock 31 / 1257.9; ops 61; mov 82; transfers 0; reqs 0 |
 | Stage 3.5.10 | remains COMPLETE |
 | Full GREEN baseline | NOT ESTABLISHED |
 | Stage 3.5.11 | DO NOT START |
 
-**Next corrective (one):** stabilize or re-run full verify around `partialMultiCellMapping` (test isolation / assertion). Do not mix with Stage 3.5.11.
+**Next corrective (one):** stabilize `partialMultiCellMapping` fixture ordering (stagger created_at). Then full `mvn verify`.
 
 ---
 

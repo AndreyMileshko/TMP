@@ -4,11 +4,11 @@
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
 **UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.7 COMPLETE; **3.5.8 COMPLETE**; **3.5.8.1 COMPLETE**; **3.5.8.2 COMPLETE**; **3.5.8.3 COMPLETE**; **3.5.9 Production Material Requirement Refactor COMPLETE** + **3.5.9 corrective COMPLETE**; **3.5.10 Requirement → Automatic Warehouse Tasks COMPLETE**; 3.5.11 NEXT / NOT STARTED)
-**Current Task:** none (Stage 3.5.10 complete; UI Shell SpotBugs corrective applied; **`mvn verify` FAIL** on flaky warehouse PartialReceive — do not start 3.5.11)
+**Current Task:** none (Stage 3.5.10 complete; PartialReceive nondeterminism fixed; **`mvn verify` FAIL** on bootstrap PlatformCoreIntegrationIT — do not start 3.5.11)
 **Last completed task:** Stage 3.5.10 Requirement → Automatic Warehouse Tasks (2026-09-10); prior: Stage 3.5.9 Corrective
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
-**Active blockers:** Full reactor `mvn verify` FAIL (2026-09-10) — `WarehouseTransferDocumentPartialReceiveIntegrationTest.partialMultiCellMapping` (expected compareTo 0, was -1); isolated diagnostic retry PASS → **FLAKY**. UI Shell SpotBugs ×8 corrected (PASS, Option B immutable message). Stage 3.5.11 blocked until verify GREEN. UI final manual acceptance still pending (not a code blocker).
+**Active blockers:** Full reactor `mvn verify` FAIL (2026-09-10) — `PlatformCoreIntegrationIT.registersServicesCapabilitiesAndDeliversEvents` expects 7 capabilities, actual 5 (deterministic). PartialReceive root cause corrected (Classification A — same created_at + UUID tie-break). Stage 3.5.11 blocked until verify GREEN. UI final manual acceptance still pending (not a code blocker).
 **Stage 6 Warehouse:** DONE
 **Stage 7 Production:** DONE / 100%
 **Stage 7 Start Gate:** PASSED
@@ -17,8 +17,8 @@
 **Completed Stage 7 tasks:** 27 / 27 mandatory
 **Production Specification:** v2.6 Accepted (Warehouse boundary aligned; Stage 3.5.9 Material Requirement DRAFT live; Stage 3.5.10 Submit → Warehouse demand routing COMPLETE)
 **Warehouse Specification:** v1.8 Accepted (ADR-037; §15A admin API note for 3.5.1)
-**Full verify baseline:** RED — UI Shell SpotBugs fixed; verify stops at warehouse PartialReceive flaky (2026-09-10). Full GREEN baseline not established
-**First READY implementation task:** Stabilize `partialMultiCellMapping` / re-run full verify before Stage 3.5.11; then Stage 3.5.11 Modern Остатки (NOT STARTED)
+**Full verify baseline:** RED — PartialReceive fixed; verify stops at bootstrap PlatformCoreIntegrationIT (2026-09-10). Full GREEN baseline not established
+**First READY implementation task:** Fix/update `PlatformCoreIntegrationIT` capability count expectation (stale vs registered capabilities) before Stage 3.5.11; then Stage 3.5.11 Modern Остатки (NOT STARTED)
 
 
 ```text

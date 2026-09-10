@@ -43,6 +43,7 @@ import com.tmp.warehouse.security.WarehousePermissions;
 import com.tmp.warehouse.testsupport.WarehouseIntegrationTestSupport;
 import com.tmp.warehouse.testsupport.WarehouseJdbcTestSupport;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -386,18 +387,51 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
                                         alloc(created, materialA, cellA2, "40"))));
         UUID line = lineId(created, materialA);
 
-        List<UUID> sendAllocIds =
-                jdbc.query(
+        // Fixed test Clock stamps both send allocations with the same created_at; production
+        // ordering is (created_at, id). Stagger timestamps so cellA1 (60) precedes cellA2 (40),
+        // matching WarehouseTransferReceiveMappingTest and the send command list order.
+        Instant base = CLOCK.instant();
+        jdbc.update(
+                """
+                UPDATE warehouse.transfer_document_send_allocation
+                   SET created_at = ?
+                 WHERE document_id = ?
+                   AND source_storage_cell_id = ?
+                """,
+                Timestamp.from(base),
+                sent.documentId(),
+                cellA1);
+        jdbc.update(
+                """
+                UPDATE warehouse.transfer_document_send_allocation
+                   SET created_at = ?
+                 WHERE document_id = ?
+                   AND source_storage_cell_id = ?
+                """,
+                Timestamp.from(base.plusMillis(1)),
+                sent.documentId(),
+                cellA2);
+
+        List<Map<String, Object>> sendAllocRows =
+                jdbc.queryForList(
                         """
-                        SELECT id FROM warehouse.transfer_document_send_allocation
+                        SELECT id, source_storage_cell_id, quantity, created_at
+                          FROM warehouse.transfer_document_send_allocation
                          WHERE document_id = ?
                          ORDER BY created_at, id
                         """,
-                        (rs, rowNum) -> (UUID) rs.getObject("id"),
                         sent.documentId());
-        assertEquals(2, sendAllocIds.size());
-        UUID s1 = sendAllocIds.get(0);
-        UUID s2 = sendAllocIds.get(1);
+        assertEquals(2, sendAllocRows.size());
+        UUID s1 = (UUID) sendAllocRows.get(0).get("id");
+        UUID s2 = (UUID) sendAllocRows.get(1).get("id");
+        assertEquals(cellA1, sendAllocRows.get(0).get("source_storage_cell_id"));
+        assertEquals(cellA2, sendAllocRows.get(1).get("source_storage_cell_id"));
+        assertEquals(
+                0,
+                ((BigDecimal) sendAllocRows.get(0).get("quantity")).compareTo(new BigDecimal("60")));
+        assertEquals(
+                0,
+                ((BigDecimal) sendAllocRows.get(1).get("quantity")).compareTo(new BigDecimal("40")));
 
         session.set(sessionFor(userDestination));
         TransferDocumentReceiveResult received =
@@ -426,8 +460,13 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
                                         sourceWarehouseId, cellA2, materialA, StockState.IN_TRANSIT))
                         .compareTo(new BigDecimal("25")));
 
-        assertEquals(0, acceptedForSendAllocation(s1).compareTo(new BigDecimal("60")));
-        assertEquals(0, acceptedForSendAllocation(s2).compareTo(new BigDecimal("15")));
+        BigDecimal acceptedS1 = acceptedForSendAllocation(s1);
+        BigDecimal acceptedS2 = acceptedForSendAllocation(s2);
+        assertEquals(0, acceptedS1.compareTo(new BigDecimal("60")));
+        assertEquals(0, acceptedS2.compareTo(new BigDecimal("15")));
+        assertEquals(0, acceptedS1.add(acceptedS2).compareTo(new BigDecimal("75")));
+        assertTrue(acceptedS1.compareTo(new BigDecimal("60")) <= 0);
+        assertTrue(acceptedS2.compareTo(new BigDecimal("40")) <= 0);
 
         TransferDocumentView continuation =
                 api.getTransferDocument(received.continuationDocumentId());
