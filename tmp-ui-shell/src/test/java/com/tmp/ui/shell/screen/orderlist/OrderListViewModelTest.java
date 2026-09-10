@@ -156,6 +156,34 @@ class OrderListViewModelTest {
     }
 
     @Test
+    void productionTechnicalFailureSurfacesMappedMessage() {
+        OrderListTestSupport.InMemoryWorklistQuery worklist = new OrderListTestSupport.InMemoryWorklistQuery();
+        worklist.rows.add(row("O-1"));
+        OrderListTestSupport.MapProductionQuery production =
+                new OrderListTestSupport.MapProductionQuery() {
+                    @Override
+                    public java.util.Map<
+                                    java.util.UUID,
+                                    com.tmp.production.api.ProductionQueryApi.OrderProductionListFacts>
+                            getOrderProductionListFacts(java.util.Collection<java.util.UUID> orderIds) {
+                        throw new IllegalStateException("production down");
+                    }
+                };
+        OrderListViewModel viewModel =
+                OrderListTestSupport.viewModel(
+                        worklist,
+                        production,
+                        new FakeAuthorization(),
+                        new OrderListTestSupport.SessionAuthn(OrderListTestSupport.userId()),
+                        new OrderListTestSupport.InMemoryPreferences());
+        viewModel.refresh();
+        assertEquals(OrderUiErrorMapper.TECHNICAL_FAILURE, viewModel.errorMessageProperty().get());
+        assertEquals(
+                "Статус производства недоступен для части заказов.",
+                viewModel.statusMessageProperty().get());
+    }
+
+    @Test
     void defaultStatusesExcludeCancelled() {
         OrderListViewModel viewModel = OrderListTestSupport.viewModel();
         Set<OrderOperationalStatus> statuses = viewModel.defaultStatusesForTest();

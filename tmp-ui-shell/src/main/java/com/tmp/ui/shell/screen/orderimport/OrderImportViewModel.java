@@ -602,12 +602,12 @@ public final class OrderImportViewModel {
                                 (OrderImportProblem p) ->
                                         p.severity() == OrderImportProblemSeverity.ERROR ? 0 : 1)
                         .thenComparing(p -> nullToEmpty(p.location()))
-                        .thenComparing(p -> p.positionIndex() == null ? -1 : p.positionIndex())
+                        .thenComparing(
+                                p -> Objects.requireNonNullElse(p.positionIndex(), Integer.valueOf(-1)))
                         .thenComparing(
                                 p ->
-                                        p.specificationLineIndex() == null
-                                                ? -1
-                                                : p.specificationLineIndex())
+                                        Objects.requireNonNullElse(
+                                                p.specificationLineIndex(), Integer.valueOf(-1)))
                         .thenComparing(OrderImportProblem::message));
         List<OrderImportProblemRow> rows = new ArrayList<>(sorted.size());
         for (OrderImportProblem problem : sorted) {

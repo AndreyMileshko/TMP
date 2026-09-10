@@ -176,5 +176,20 @@ public final class CustomerFilterKey {
         return value.trim();
     }
 
-    public record Parts(Set<String> refs, Set<String> names, boolean unassigned) {}
+    public record Parts(Set<String> refs, Set<String> names, boolean unassigned) {
+        public Parts {
+            refs = Set.copyOf(Objects.requireNonNull(refs, "refs"));
+            names = Set.copyOf(Objects.requireNonNull(names, "names"));
+        }
+
+        @Override
+        public Set<String> refs() {
+            return Set.copyOf(refs);
+        }
+
+        @Override
+        public Set<String> names() {
+            return Set.copyOf(names);
+        }
+    }
 }

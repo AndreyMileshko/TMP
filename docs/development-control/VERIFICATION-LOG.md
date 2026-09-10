@@ -3,6 +3,40 @@
 ## Latest result
 
 **Date:** 2026-09-10
+**Scope:** UI Shell SpotBugs corrective (Option B + EI/BX) + full `mvn verify`
+**Overall:** FAIL — UI Shell SpotBugs PASS (0); `mvn verify` FAIL at warehouse Surefire PartialReceive; package/runtime NOT RUN
+
+### UI Shell SpotBugs corrective + verify resume (2026-09-10)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `b05f20fa73bc80a354ae1eed7c0f91aeaecef45c` | PASS |
+| SpotBugs before | 8 Medium (EI_EXPOSE_REP×3, EI_EXPOSE_REP2×3, BX×2) |
+| Option B | `OrderOperationalListResult.technicalFailure` → immutable `technicalFailureMessage`; map via `OrderUiErrorMapper.text(..., LOAD)` in service |
+| Other fixes | `CustomerFilterKey.Parts` defensive Set.copyOf; `BatchLoad.states()` Map.copyOf; OrderImport unbox/rebox via `requireNonNullElse` |
+| Suppressions | NONE |
+| Targeted UI tests | PASS (45) |
+| `mvn -pl :tmp-ui-shell spotbugs:check` | PASS (BugInstance size 0) |
+| `mvn verify` (full reactor) | FAIL (exit 1, ~17:52) |
+| Modules SUCCESS before failure | parent … order-management (+ SpotBugs 0 through OM) |
+| Failing gate | Surefire @ `tmp-warehouse` |
+| Failure | `WarehouseTransferDocumentPartialReceiveIntegrationTest.partialMultiCellMapping` L429 — `acceptedForSendAllocation(s1).compareTo(60)` expected 0 was -1 |
+| Diagnostic isolated retry | **PASS** (1/1) |
+| Classification | **FLAKY** (suite FAIL / isolated PASS; unrelated to UI Shell changes) |
+| Likely origin | Warehouse PartialReceive settlement/IT isolation under full Surefire suite |
+| Package / runtime / smoke | NOT RUN |
+| Runtime DB | UNCHANGED — V44; stock 31 / 1257.9; ops 61; mov 82; transfers 0; reqs 0 |
+| Stage 3.5.10 | remains COMPLETE |
+| Full GREEN baseline | NOT ESTABLISHED |
+| Stage 3.5.11 | DO NOT START |
+
+**Next corrective (one):** stabilize or re-run full verify around `partialMultiCellMapping` (test isolation / assertion). Do not mix with Stage 3.5.11.
+
+---
+
+## Previous result
+
+**Date:** 2026-09-10
 **Scope:** Warehouse SpotBugs `VA_FORMAT_STRING_USES_NEWLINE` corrective + full `mvn verify`
 **Overall:** FAIL — Warehouse SpotBugs PASS (0); `mvn verify` FAIL at `tmp-ui-shell` SpotBugs (8); package/runtime NOT RUN
 

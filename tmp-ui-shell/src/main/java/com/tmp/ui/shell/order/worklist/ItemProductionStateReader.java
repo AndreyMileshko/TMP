@@ -101,7 +101,7 @@ public final class ItemProductionStateReader {
         }
 
         public Map<UUID, ItemProductionStateView> states() {
-            return states;
+            return Map.copyOf(states);
         }
     }
 }

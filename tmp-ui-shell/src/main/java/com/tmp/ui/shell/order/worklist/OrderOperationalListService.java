@@ -6,6 +6,8 @@ import com.tmp.order.api.OrderWorklistRowDto;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionListFacts;
 import com.tmp.security.api.AccessDeniedException;
+import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
+import com.tmp.ui.shell.order.error.OrderUiOperation;
 import com.tmp.ui.shell.order.worklist.OrderOperationalListResult.ProductionFactsState;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.lang.System.Logger;
@@ -87,7 +89,7 @@ public final class OrderOperationalListService {
                     request.pageSize(),
                     total,
                     load.state(),
-                    load.technicalFailure());
+                    load.technicalFailureMessage());
         }
         int to = Math.min(from + request.pageSize(), matched.size());
         return new OrderOperationalListResult(
@@ -96,7 +98,7 @@ public final class OrderOperationalListService {
                 request.pageSize(),
                 total,
                 load.state(),
-                load.technicalFailure());
+                load.technicalFailureMessage());
     }
 
     /**
@@ -140,7 +142,7 @@ public final class OrderOperationalListService {
     private record ProductionFactsLoad(
             Map<UUID, OrderProductionListFacts> facts,
             ProductionFactsState state,
-            RuntimeException technicalFailure) {
+            String technicalFailureMessage) {
 
         static ProductionFactsLoad available(Map<UUID, OrderProductionListFacts> facts) {
             return new ProductionFactsLoad(facts, ProductionFactsState.AVAILABLE, null);
@@ -151,7 +153,10 @@ public final class OrderOperationalListService {
         }
 
         static ProductionFactsLoad technicalFailure(RuntimeException ex) {
-            return new ProductionFactsLoad(Map.of(), ProductionFactsState.TECHNICAL_FAILURE, ex);
+            return new ProductionFactsLoad(
+                    Map.of(),
+                    ProductionFactsState.TECHNICAL_FAILURE,
+                    OrderUiErrorMapper.text(ex, OrderUiOperation.LOAD));
         }
     }
 }

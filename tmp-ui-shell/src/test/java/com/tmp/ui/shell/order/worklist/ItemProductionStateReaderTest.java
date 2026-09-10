@@ -2,6 +2,7 @@ package com.tmp.ui.shell.order.worklist;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.production.api.ProductionQueryApi;
@@ -69,6 +70,21 @@ class ItemProductionStateReaderTest {
         assertInstanceOf(
                 ItemProductionReadResult.Unavailable.class,
                 ItemProductionStateReader.fromBatch(batch, UUID.randomUUID()));
+    }
+
+    @Test
+    void batchStatesAccessorMutationDoesNotChangeInternalMapping() {
+        UUID presentId = UUID.randomUUID();
+        ItemProductionStateView state = state(presentId);
+        ItemProductionStateReader.BatchLoad batch =
+                ItemProductionStateReader.BatchLoad.ok(Map.of(presentId, state));
+
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> batch.states().put(UUID.randomUUID(), state(UUID.randomUUID())));
+
+        assertEquals(1, batch.states().size());
+        assertEquals(state, batch.states().get(presentId));
     }
 
     @Test

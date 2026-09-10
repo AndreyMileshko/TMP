@@ -651,10 +651,9 @@ public final class OrderListViewModel {
 
     private void applyProductionFactsState(OrderOperationalListResult page) {
         if (page.productionFactsState() == ProductionFactsState.TECHNICAL_FAILURE) {
-            RuntimeException failure =
-                    page.technicalFailure()
-                            .orElseGet(() -> new IllegalStateException("Production facts unavailable"));
-            errorMessage.set(OrderUiErrorMapper.text(failure, OrderUiOperation.LOAD));
+            errorMessage.set(
+                    page.technicalFailureMessage()
+                            .orElse(OrderUiErrorMapper.TECHNICAL_FAILURE));
             if (statusMessage.get() == null || statusMessage.get().isBlank()) {
                 statusMessage.set("Статус производства недоступен для части заказов.");
             }

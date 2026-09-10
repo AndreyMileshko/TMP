@@ -21,7 +21,7 @@ public final class OrderOperationalListResult {
     private final int pageSize;
     private final long totalElements;
     private final ProductionFactsState productionFactsState;
-    private final RuntimeException technicalFailure;
+    private final String technicalFailureMessage;
 
     public OrderOperationalListResult(
             List<OrderOperationalSummary> content,
@@ -38,17 +38,18 @@ public final class OrderOperationalListResult {
             int pageSize,
             long totalElements,
             ProductionFactsState productionFactsState,
-            RuntimeException technicalFailure) {
+            String technicalFailureMessage) {
         this.content = List.copyOf(Objects.requireNonNull(content, "content"));
         this.pageIndex = pageIndex;
         this.pageSize = pageSize;
         this.totalElements = totalElements;
         this.productionFactsState =
                 Objects.requireNonNull(productionFactsState, "productionFactsState");
-        this.technicalFailure = technicalFailure;
+        this.technicalFailureMessage = technicalFailureMessage;
         if (productionFactsState == ProductionFactsState.TECHNICAL_FAILURE
-                && technicalFailure == null) {
-            throw new IllegalArgumentException("technicalFailure required for TECHNICAL_FAILURE");
+                && (technicalFailureMessage == null || technicalFailureMessage.isBlank())) {
+            throw new IllegalArgumentException(
+                    "technicalFailureMessage required for TECHNICAL_FAILURE");
         }
     }
 
@@ -72,7 +73,7 @@ public final class OrderOperationalListResult {
         return productionFactsState;
     }
 
-    public Optional<RuntimeException> technicalFailure() {
-        return Optional.ofNullable(technicalFailure);
+    public Optional<String> technicalFailureMessage() {
+        return Optional.ofNullable(technicalFailureMessage);
     }
 }

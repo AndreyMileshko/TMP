@@ -9,6 +9,8 @@ import com.tmp.order.api.OrderWorklistRowDto;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionListFacts;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionViewStatus;
 import com.tmp.security.api.AccessDeniedException;
+import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
+import com.tmp.ui.shell.order.error.OrderUiOperation;
 import com.tmp.ui.shell.screen.orderlist.OrderListTestSupport.InMemoryWorklistQuery;
 import com.tmp.ui.shell.screen.orderlist.OrderListTestSupport.MapProductionQuery;
 import java.time.Instant;
@@ -194,7 +196,11 @@ class OrderOperationalListServiceTest {
         assertEquals(
                 OrderOperationalListResult.ProductionFactsState.TECHNICAL_FAILURE,
                 result.productionFactsState());
-        assertTrue(result.technicalFailure().isPresent());
+        IllegalStateException failure = new IllegalStateException("production down");
+        assertEquals(
+                OrderUiErrorMapper.text(failure, OrderUiOperation.LOAD),
+                result.technicalFailureMessage().orElseThrow());
+        assertEquals(OrderUiErrorMapper.TECHNICAL_FAILURE, result.technicalFailureMessage().orElseThrow());
     }
 
     @Test
@@ -213,6 +219,7 @@ class OrderOperationalListServiceTest {
         assertEquals(OrderOperationalStatus.AWAITING_PRODUCTION, result.content().getFirst().operationalStatus());
         assertEquals(
                 OrderOperationalListResult.ProductionFactsState.AVAILABLE, result.productionFactsState());
+        assertTrue(result.technicalFailureMessage().isEmpty());
     }
 
     @Test
