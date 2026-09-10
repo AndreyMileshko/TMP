@@ -3,6 +3,40 @@
 ## Latest result
 
 **Date:** 2026-09-10
+**Scope:** Full reactor regression audit after Stage 3.5.10
+**Overall:** FAIL — `mvn test` (full reactor) stopped at `tmp-production`; `mvn verify` / package / runtime smoke NOT RUN
+
+### Full reactor regression after Stage 3.5.10 (2026-09-10)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `f324b8e343de4e4a44dfe33d0df3c43328398a89` | PASS (exact match; working tree clean) |
+| Environment Java 21 / Maven 3.9.6 / Docker `tmp-stage5-pg:55432` | PASS |
+| DB baseline Flyway V44; stock 31 / sum 1257.9; ops 61; mov 82; transfers 0; material_requirements 0 | PASS |
+| Canonical commands | `mvn test` then `mvn verify` (same as STAGE7-018); no `-pl` / `-Dtest` / skip for full reactor |
+| `mvn test` (full reactor) | FAIL (exit 1, ~13:34 / 816 s) |
+| Modules SUCCESS before failure | platform-core 37; infra-db 4; document 41; capability 209; security 152; order-management 383; warehouse 352 |
+| Failing module | `tmp-production` — Tests run 361, Failures 1, Errors 0, Skipped 0 |
+| Failing test | `ProductionQueryApiCapabilityRegistrationTest.productionQueryApiDeclaresOnlyReadOperations` |
+| Assertion | Unexpected Public Query API method `getItemProductionStatesByOrderId` (allowlist expects exactly 4 read methods; interface has 6) |
+| Single diagnostic retry | FAIL again (same test; surfaced `getOrderProductionListFacts` — reflection order only; not flaky) |
+| Classification | **TEST REGRESSION** (stale allowlist) — legitimate Stage 3.4 read batch methods not added to guard; not Stage 3.5.10 production logic break |
+| Likely owner | Stage 3.4 order import UX (`31d7e79`) added API methods; test left at Stage 7 allowlist of 4 |
+| Modules SKIPPED (reactor stop) | tmp-ui-shell; tmp-bootstrap-app; tmp-architecture-tests |
+| `mvn verify` | NOT RUN |
+| Package / runtime / interactive smoke | NOT RUN |
+| Runtime DB after `mvn test` | UNCHANGED — stock 31 / 1257.9; ops 61; mov 82 (Testcontainers only) |
+| Stage 3.5.10 COMPLETE claim | NOT revoked — targeted pass stands; full reactor debt pre-dates 3.5.10 |
+| Stage 3.5.11 | NOT STARTED / blocked until corrective + green full reactor |
+| New GREEN baseline `f324b8e` | NO |
+
+**Corrective scope hint (small):** update `ProductionQueryApiCapabilityRegistrationTest` allowlist + expected method count to include `getOrderProductionListFacts` and `getItemProductionStatesByOrderId` (keep forbidden mutating-name checks); then re-run full `mvn test` + `mvn verify`.
+
+---
+
+## Previous result
+
+**Date:** 2026-09-10
 **Scope:** Stage 3.5.10 — Requirement → Automatic Warehouse Tasks
 **Overall:** PASS (targeted tests + architecture + UI + quick build + package + startup smoke on `tmp-stage5-pg`); Flyway V43→V44; stock preserved on Submit/launch; no commit
 
