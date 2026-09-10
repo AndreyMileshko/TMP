@@ -3,6 +3,42 @@
 ## Latest result
 
 **Date:** 2026-09-10
+**Scope:** OrderIntakeFlywayBootstrapIT classpath-head corrective + full `mvn verify`
+**Overall:** FAIL — OM bootstrap IT PASS; `mvn verify` FAIL at `tmp-warehouse` SpotBugs; package/runtime NOT RUN
+
+### OrderIntakeFlywayBootstrapIT corrective + verify resume (2026-09-10)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `0247246285aecdaef7bd7dd9db41ff27611768ec` | PASS |
+| OM Failsafe classpath head | **V34** (infra V1 + document V2–V3 + security V4–V5/V32–V34 + OM V6–V14/V24–V25; WH/Production absent) |
+| Flyway expectation | `25` → exact `34` |
+| `order_import_metadata` | ABSENCE kept — table created V12, dropped V13 (ADR-031); still correct at V34 |
+| Positive head markers | `users.password_setup_required` + `security.user_ui_preferences` |
+| Method renames | YES (version-neutral `ToCurrentHead`) |
+| Targeted Failsafe `OrderIntakeFlywayBootstrapIT` | PASS (2/2) |
+| Production code changed | NONE (test-only) |
+| DB baseline / after | Flyway V44; stock 31 / 1257.9; ops 61; mov 82; transfers 0; reqs 0 — UNCHANGED |
+| `mvn verify` (full reactor) | FAIL (exit 1, ~18:33) |
+| Modules SUCCESS before failure | parent … order-management (incl. SecuritySchema + OM bootstrap) |
+| Failing gate | `spotbugs-maven-plugin:check` @ `tmp-warehouse` |
+| SpotBugs | 6× `VA_FORMAT_STRING_USES_NEWLINE` (Medium) — SQL text blocks using `\\n` with `String.formatted` |
+| Classes | `JdbcAvailableStockAggregationQuery`, `JdbcTransferReceiptSettlementItemRepository`, `JdbcTransferReturnSettlementItemRepository`, `JdbcTransferTaskStateRepository`, `JdbcWarehouseTransferDocumentRepository` (×2) |
+| Diagnostic SpotBugs retry | FAIL again — deterministic |
+| Classification | **CODE / QUALITY GATE** — SpotBugs BAD_PRACTICE on intentional SQL newlines; latent until verify reached warehouse |
+| Likely owner | Stage 3.5.4–3.5.7 warehouse JDBC batch queries (`9b53761` / `282f0cf` / `48155a5`) |
+| Package / runtime / smoke | NOT RUN |
+| Stage 3.5.10 | remains COMPLETE |
+| Full GREEN baseline | NOT ESTABLISHED |
+| Stage 3.5.11 | DO NOT START |
+
+**Next corrective (one):** in the 6 warehouse JDBC sites, replace format-string `\\n` with spaces (or avoid `.formatted` for multiline SQL) so SpotBugs `VA_FORMAT_STRING_USES_NEWLINE` clears — keep SQL semantics; no schema change. Then re-run full `mvn verify`.
+
+---
+
+## Previous result
+
+**Date:** 2026-09-10
 **Scope:** SecuritySchema password-column IT corrective + resume full `mvn verify`
 **Overall:** FAIL — SecuritySchema IT PASS; `mvn verify` FAIL at `tmp-order-management` Failsafe; package/runtime NOT RUN
 

@@ -23,15 +23,25 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * STAGE5-058 — Flyway clean V1→V14 and upgrade V11→V14 with application start verification.
+ * STAGE5-058 — Flyway clean-head and V11→head upgrade with application start verification.
+ *
+ * <p>Expected head for this module IT is the highest migration on the Order Management test
+ * classpath (infra + document + security + order-management), currently {@code V34}. Warehouse /
+ * Production migrations are intentionally absent here.
+ *
+ * <p>{@code order_import_metadata} is created in V12 and dropped in V13 (ADR-031); post-head schema
+ * must not contain that table.
  */
 @Testcontainers
 class OrderIntakeFlywayBootstrapIT {
 
+    /** Highest Flyway version on tmp-order-management Failsafe classpath (OM + Security). */
+    private static final String CURRENT_CLASSPATH_HEAD = "34";
+
     private static final String ADMIN_PASSWORD = "bootstrap-secret-value";
 
     @Test
-    void cleanDatabaseMigratesV1ToV14AndApplicationStarts() {
+    void cleanDatabaseMigratesToCurrentHeadAndApplicationStarts() {
         try (PostgreSQLContainer<?> container = new PostgreSQLContainer<>("postgres:16-alpine")) {
             container.start();
             Flyway.configure()
@@ -41,20 +51,7 @@ class OrderIntakeFlywayBootstrapIT {
                     .migrate();
 
             JdbcTemplate jdbc = new JdbcTemplate(dataSource(container));
-            assertEquals(
-                    "25",
-                    jdbc.queryForObject(
-                            "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1",
-                            String.class));
-            assertEquals(
-                    0,
-                    jdbc.queryForObject(
-                            """
-                            SELECT COUNT(*) FROM information_schema.tables
-                            WHERE table_schema = 'order_management'
-                              AND table_name = 'order_import_metadata'
-                            """,
-                            Integer.class));
+            assertCurrentClasspathHeadSchema(jdbc);
 
             try (ConfigurableApplicationContext context = startApplication(container)) {
                 assertNotNull(context.getBean(AuthenticationService.class));
@@ -68,7 +65,7 @@ class OrderIntakeFlywayBootstrapIT {
     }
 
     @Test
-    void existingV11DatabaseUpgradesToV14PreservingDataAndApplicationStarts() {
+    void existingV11DatabaseUpgradesToCurrentHeadPreservingDataAndApplicationStarts() {
         try (PostgreSQLContainer<?> container = new PostgreSQLContainer<>("postgres:16-alpine")) {
             container.start();
             Flyway.configure()
@@ -93,26 +90,12 @@ class OrderIntakeFlywayBootstrapIT {
             try (ConfigurableApplicationContext context = startApplication(container)) {
                 assertNotNull(context.getBean(OrderQueryService.class));
                 JdbcTemplate after = new JdbcTemplate(dataSource(container));
-                assertEquals(
-                        "25",
-                        after.queryForObject(
-                                "SELECT version FROM flyway_schema_history"
-                                        + " ORDER BY installed_rank DESC LIMIT 1",
-                                String.class));
+                assertCurrentClasspathHeadSchema(after);
                 assertEquals(
                         1,
                         after.queryForObject(
                                 "SELECT COUNT(*) FROM order_management.orders"
                                         + " WHERE order_number = 'V11-KEEP-APP'",
-                                Integer.class));
-                assertEquals(
-                        0,
-                        after.queryForObject(
-                                """
-                                SELECT COUNT(*) FROM information_schema.tables
-                                WHERE table_schema = 'order_management'
-                                  AND table_name = 'order_import_metadata'
-                                """,
                                 Integer.class));
                 AuthenticationService auth = context.getBean(AuthenticationService.class);
                 auth.login(Login.of("admin"), ADMIN_PASSWORD.toCharArray());
@@ -120,6 +103,42 @@ class OrderIntakeFlywayBootstrapIT {
                 auth.logout();
             }
         }
+    }
+
+    private static void assertCurrentClasspathHeadSchema(JdbcTemplate jdbc) {
+        assertEquals(
+                CURRENT_CLASSPATH_HEAD,
+                jdbc.queryForObject(
+                        "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1",
+                        String.class));
+        assertEquals(
+                0,
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.tables
+                        WHERE table_schema = 'order_management'
+                          AND table_name = 'order_import_metadata'
+                        """,
+                        Integer.class));
+        assertEquals(
+                1,
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.columns
+                        WHERE table_schema = 'security'
+                          AND table_name = 'users'
+                          AND column_name = 'password_setup_required'
+                        """,
+                        Integer.class));
+        assertEquals(
+                1,
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.tables
+                        WHERE table_schema = 'security'
+                          AND table_name = 'user_ui_preferences'
+                        """,
+                        Integer.class));
     }
 
     private static ConfigurableApplicationContext startApplication(PostgreSQLContainer<?> container) {
