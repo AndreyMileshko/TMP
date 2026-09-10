@@ -3,6 +3,42 @@
 ## Latest result
 
 **Date:** 2026-09-10
+**Scope:** Warehouse SpotBugs `VA_FORMAT_STRING_USES_NEWLINE` corrective + full `mvn verify`
+**Overall:** FAIL — Warehouse SpotBugs PASS (0); `mvn verify` FAIL at `tmp-ui-shell` SpotBugs (8); package/runtime NOT RUN
+
+### Warehouse SpotBugs VA_FORMAT corrective + verify resume (2026-09-10)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `299d48cdc14f5654bb3be4fa276f5817e780ba99` | PASS |
+| SpotBugs before | 6× `VA_FORMAT_STRING_USES_NEWLINE` only |
+| Corrective | SQL `.formatted()` strings rebuilt without literal newlines (concat + spaces); no suppressions |
+| Files | 5 JDBC classes / 6 methods |
+| SQL semantic changes | NONE |
+| Targeted functional (routing/inbox/transfer/shortfall/reject/settlement/demand) | PASS (91) |
+| `mvn -pl :tmp-warehouse clean compile spotbugs:check` | PASS (BugInstance size 0) |
+| Note | Isolated `partialMultiCellMapping` also fails on HEAD JDBC — not caused by this fix |
+| `mvn verify` (full reactor) | FAIL (exit 1, ~24:01) |
+| Modules SUCCESS through | parent … production; **warehouse SpotBugs 0** |
+| Failing gate | `spotbugs-maven-plugin:check` @ `tmp-ui-shell` |
+| SpotBugs UI Shell | 8 Medium: EI_EXPOSE_REP×3, EI_EXPOSE_REP2×3, BX_UNBOXING_IMMEDIATELY_REBOXED×2 |
+| Classes | `CustomerFilterKey$Parts`, `ItemProductionStateReader$BatchLoad`, `OrderOperationalListResult`, `OrderImportViewModel` |
+| Diagnostic SpotBugs retry | FAIL again — deterministic |
+| Classification | **QUALITY GATE** (latent UI Shell SpotBugs; exposed after warehouse unblock) |
+| Likely owner | Stage 3.4 Orders UI / import UX / production list batch reads |
+| Package / runtime / smoke | NOT RUN |
+| Runtime DB | UNCHANGED — V44; stock 31 / 1257.9; ops 61; mov 82 |
+| Stage 3.5.10 | remains COMPLETE |
+| Full GREEN baseline | NOT ESTABLISHED |
+| Stage 3.5.11 | DO NOT START |
+
+**Next corrective (one):** clear `tmp-ui-shell` SpotBugs (defensive copies / unmodifiable for EI_EXPOSE_*; avoid immediate rebox in OrderImportViewModel). No schema change. Then full `mvn verify`.
+
+---
+
+## Previous result
+
+**Date:** 2026-09-10
 **Scope:** OrderIntakeFlywayBootstrapIT classpath-head corrective + full `mvn verify`
 **Overall:** FAIL — OM bootstrap IT PASS; `mvn verify` FAIL at `tmp-warehouse` SpotBugs; package/runtime NOT RUN
 

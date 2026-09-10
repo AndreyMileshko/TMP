@@ -108,13 +108,11 @@ public final class JdbcWarehouseTransferDocumentRepository
         String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
         List<HeaderRow> headers =
                 jdbc.query(
-                        """
-                        SELECT document_id, source_warehouse_id, destination_warehouse_id,
-                               payload_schema_version, payload_revision,
-                               continuation_of_document_id, continuation_reason
-                          FROM warehouse.transfer_document_payload
-                         WHERE document_id IN (%s)
-                        """
+                        ("SELECT document_id, source_warehouse_id, destination_warehouse_id, "
+                                        + "payload_schema_version, payload_revision, "
+                                        + "continuation_of_document_id, continuation_reason "
+                                        + "FROM warehouse.transfer_document_payload "
+                                        + "WHERE document_id IN (%s)")
                                 .formatted(placeholders),
                         (rs, rowNum) -> mapHeader(rs),
                         ids.toArray());
@@ -219,12 +217,10 @@ public final class JdbcWarehouseTransferDocumentRepository
         String placeholders = String.join(",", Collections.nCopies(documentIds.size(), "?"));
         List<LineRow> rows =
                 jdbc.query(
-                        """
-                        SELECT id, document_id, material_reference_id, quantity, line_order
-                          FROM warehouse.transfer_document_lines
-                         WHERE document_id IN (%s)
-                         ORDER BY document_id, line_order
-                        """
+                        ("SELECT id, document_id, material_reference_id, quantity, line_order "
+                                        + "FROM warehouse.transfer_document_lines "
+                                        + "WHERE document_id IN (%s) "
+                                        + "ORDER BY document_id, line_order")
                                 .formatted(placeholders),
                         (rs, rowNum) ->
                                 new LineRow(

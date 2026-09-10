@@ -95,13 +95,11 @@ public final class JdbcTransferReturnSettlementItemRepository
         String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
         return List.copyOf(
                 jdbc.query(
-                        """
-                        SELECT id, document_id, send_allocation_id, return_storage_cell_id,
-                               quantity, return_operation_id, created_at
-                          FROM warehouse.transfer_return_settlement_item
-                         WHERE send_allocation_id IN (%s)
-                         ORDER BY created_at, id
-                        """
+                        ("SELECT id, document_id, send_allocation_id, return_storage_cell_id, "
+                                        + "quantity, return_operation_id, created_at "
+                                        + "FROM warehouse.transfer_return_settlement_item "
+                                        + "WHERE send_allocation_id IN (%s) "
+                                        + "ORDER BY created_at, id")
                                 .formatted(placeholders),
                         (rs, rowNum) ->
                                 TransferReturnSettlementItem.of(

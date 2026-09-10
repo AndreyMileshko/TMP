@@ -52,30 +52,28 @@ public final class JdbcAvailableStockAggregationQuery implements AvailableStockA
 
         String placeholders = String.join(",", Collections.nCopies(distinct.size(), "?"));
         String sql =
-                """
-                SELECT sp.material_reference_id,
-                       sp.warehouse_id,
-                       w.code AS warehouse_code,
-                       sp.storage_cell_id,
-                       sc.code AS storage_cell_code,
-                       SUM(sp.quantity) AS available_quantity
-                FROM warehouse.stock_positions sp
-                INNER JOIN warehouse.warehouses w
-                        ON w.id = sp.warehouse_id AND w.active = TRUE
-                INNER JOIN warehouse.storage_cells sc
-                        ON sc.id = sp.storage_cell_id
-                       AND sc.warehouse_id = sp.warehouse_id
-                       AND sc.active = TRUE
-                WHERE sp.stock_state = ?
-                  AND sp.quantity > 0
-                  AND sp.material_reference_id IN (%s)
-                GROUP BY sp.material_reference_id,
-                         sp.warehouse_id,
-                         w.code,
-                         sp.storage_cell_id,
-                         sc.code
-                HAVING SUM(sp.quantity) > 0
-                """
+                ("SELECT sp.material_reference_id, "
+                                + "sp.warehouse_id, "
+                                + "w.code AS warehouse_code, "
+                                + "sp.storage_cell_id, "
+                                + "sc.code AS storage_cell_code, "
+                                + "SUM(sp.quantity) AS available_quantity "
+                                + "FROM warehouse.stock_positions sp "
+                                + "INNER JOIN warehouse.warehouses w "
+                                + "ON w.id = sp.warehouse_id AND w.active = TRUE "
+                                + "INNER JOIN warehouse.storage_cells sc "
+                                + "ON sc.id = sp.storage_cell_id "
+                                + "AND sc.warehouse_id = sp.warehouse_id "
+                                + "AND sc.active = TRUE "
+                                + "WHERE sp.stock_state = ? "
+                                + "AND sp.quantity > 0 "
+                                + "AND sp.material_reference_id IN (%s) "
+                                + "GROUP BY sp.material_reference_id, "
+                                + "sp.warehouse_id, "
+                                + "w.code, "
+                                + "sp.storage_cell_id, "
+                                + "sc.code "
+                                + "HAVING SUM(sp.quantity) > 0")
                         .formatted(placeholders);
 
         List<Object> args = new ArrayList<>(distinct.size() + 1);

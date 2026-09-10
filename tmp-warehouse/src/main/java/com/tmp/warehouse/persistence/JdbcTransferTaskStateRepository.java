@@ -64,11 +64,9 @@ public final class JdbcTransferTaskStateRepository implements TransferTaskStateR
         List<UUID> ids = List.copyOf(documentIds);
         String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
         String sql =
-                """
-                SELECT document_id, working_user_id, working_since, updated_at
-                  FROM warehouse.transfer_task_state
-                 WHERE document_id IN (%s)
-                """
+                ("SELECT document_id, working_user_id, working_since, updated_at "
+                                + "FROM warehouse.transfer_task_state "
+                                + "WHERE document_id IN (%s)")
                         .formatted(placeholders);
         Map<UUID, TransferTaskAssignment> result = new HashMap<>();
         jdbc.query(
