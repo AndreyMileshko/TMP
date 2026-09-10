@@ -100,9 +100,13 @@ class SecuritySchemaPostgresIntegrationIT {
                 """
                 SELECT column_name FROM information_schema.columns
                 WHERE table_schema = 'security' AND column_name ILIKE '%password%'
+                ORDER BY column_name
                 """,
                 String.class);
-        assertEquals(List.of("password_hash"), passwordLike);
+        assertEquals(List.of("password_hash", "password_setup_required"), passwordLike);
+        assertTrue(
+                !passwordLike.contains("password"),
+                "security schema must not store plaintext password");
 
         Boolean notNull = jdbcTemplate.queryForObject(
                 """

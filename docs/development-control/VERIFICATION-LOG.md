@@ -3,6 +3,40 @@
 ## Latest result
 
 **Date:** 2026-09-10
+**Scope:** SecuritySchema password-column IT corrective + resume full `mvn verify`
+**Overall:** FAIL — SecuritySchema IT PASS; `mvn verify` FAIL at `tmp-order-management` Failsafe; package/runtime NOT RUN
+
+### SecuritySchema IT corrective + verify resume (2026-09-10)
+
+| Check | Result |
+|-------|--------|
+| Working baseline HEAD `f2231e75b5301ccfe6a3e5c2c0b04ed3cda04318` | PASS (clean at start; ProductionQueryApi allowlist already on HEAD) |
+| `SecuritySchemaPostgresIntegrationIT` expect `password_hash` + `password_setup_required`; forbid plaintext `password` | PASS (targeted + full verify module) |
+| Production/security source code changed | NONE (test-only) |
+| DB baseline | Flyway V44; stock 31 / 1257.9; ops 61; mov 82 |
+| `mvn verify` (full reactor) | FAIL (exit 1, ~09:25) |
+| Modules SUCCESS before failure | parent, platform-core, infra-db, document, capability, **security** |
+| Failing module | `tmp-order-management` Failsafe |
+| VERIFY FAILURE | `OrderIntakeFlywayBootstrapIT` (both methods) |
+| Expected | Flyway version `25` |
+| Actual | Flyway version `34` |
+| Diagnostic retry | FAIL again — deterministic |
+| Classification | **TEST REGRESSION** — STAGE5-058 bootstrap IT stale head; OM+Security classpath now ends at V34 (`password_setup_required` / activation / ui prefs), not V25 |
+| Likely owner | Users security migrations V32–V34 after STAGE5-058 |
+| Note | After fixing version assert, re-check `order_import_metadata` absence assert (may also be stale post-V12) |
+| Package / runtime / smoke | NOT RUN |
+| Runtime DB | UNCHANGED |
+| Stage 3.5.10 | remains COMPLETE |
+| Full GREEN baseline | NOT ESTABLISHED |
+| Stage 3.5.11 | DO NOT START |
+
+**Next corrective (one):** update `OrderIntakeFlywayBootstrapIT` expected Flyway head `25` → current OM-classpath max (`34`); validate related table assertions; no schema change. Then re-run full `mvn verify`.
+
+---
+
+## Previous result
+
+**Date:** 2026-09-10
 **Scope:** ProductionQueryApi allowlist corrective + resume full reactor after Stage 3.5.10
 **Overall:** FAIL — `mvn test` PASS; `mvn verify` FAIL at `tmp-security` Failsafe; package/runtime NOT RUN
 
