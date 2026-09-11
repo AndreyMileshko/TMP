@@ -890,6 +890,18 @@ class WarehouseWorkbenchViewModelTest {
         }
 
         @Override
+        public java.util.List<com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine>
+                suggestTransferDocumentSourceAllocations(UUID documentId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public java.util.List<com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnPlanItem>
+                listTransferDocumentReturnPlan(UUID documentId) {
+            return java.util.List.of();
+        }
+
+        @Override
         public java.util.List<com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult>
                 routeMaterials(
                         UUID destinationWarehouseId,

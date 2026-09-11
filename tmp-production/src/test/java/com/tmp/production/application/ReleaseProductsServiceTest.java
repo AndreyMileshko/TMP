@@ -981,6 +981,18 @@ class ReleaseProductsServiceTest {
         }
 
         @Override
+        public java.util.List<com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine>
+                suggestTransferDocumentSourceAllocations(UUID documentId) {
+            throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
+        public java.util.List<com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnPlanItem>
+                listTransferDocumentReturnPlan(UUID documentId) {
+            return java.util.List.of();
+        }
+
+        @Override
         public java.util.List<MaterialSourceRoutingResult> routeMaterials(
                 UUID destinationWarehouseId, java.util.List<MaterialDemand> demands) {
             throw new UnsupportedOperationException("not used");

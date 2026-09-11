@@ -283,6 +283,55 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
                                                 && t.taskKind()
                                                         == WarehouseTaskKind.TRANSFER_PREPARATION
                                                 && t.taskState() == WarehouseTaskState.NEW));
+
+        List<com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnPlanItem> returnPlan =
+                api.listTransferDocumentReturnPlan(sent.documentId());
+        assertEquals(1, returnPlan.size());
+        assertEquals(line, returnPlan.get(0).lineId());
+        assertEquals(materialA, returnPlan.get(0).materialReferenceId());
+        assertEquals(0, returnPlan.get(0).outstandingQuantity().compareTo(new BigDecimal("2")));
+        assertEquals(cellA1, returnPlan.get(0).defaultReturnStorageCellId());
+        assertEquals("A1", returnPlan.get(0).defaultReturnStorageCellCode());
+    }
+
+    @Test
+    void suggestTransferDocumentSourceAllocationsScopedToSourceWarehouse() {
+        seedAvailable(materialA, cellA1, "40");
+        seedAvailable(materialA, cellA2, "30");
+        UUID destCell =
+                api.createStorageCell(
+                                new CreateStorageCellCommand(
+                                        destinationWarehouseId, "DST-STOCK", true))
+                        .storageCellId();
+        api.assignUserToWarehouse(destinationWarehouseId, userSource);
+        seedAvailableAt(destinationWarehouseId, destCell, materialA, "1000");
+
+        TransferDocumentView draft =
+                api.createTransferDocument(
+                        new CreateTransferDocumentCommand(
+                                sourceWarehouseId,
+                                destinationWarehouseId,
+                                List.of(
+                                        new TransferDocumentLineInput(
+                                                null, materialA, new BigDecimal("50"), 1))));
+
+        List<com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine> lines =
+                api.suggestTransferDocumentSourceAllocations(draft.documentId());
+        assertEquals(1, lines.size());
+        assertEquals(draft.lines().get(0).lineId(), lines.get(0).lineId());
+        assertEquals(materialA, lines.get(0).materialReferenceId());
+        assertEquals(0, lines.get(0).requiredQuantity().compareTo(new BigDecimal("50")));
+        assertEquals(2, lines.get(0).suggestions().size());
+        assertTrue(
+                lines.get(0).suggestions().stream()
+                        .allMatch(
+                                s ->
+                                        s.storageCellId().equals(cellA1)
+                                                || s.storageCellId().equals(cellA2)));
+        assertTrue(
+                lines.get(0).suggestions().stream()
+                        .noneMatch(s -> s.storageCellId().equals(destCell)));
+        assertEquals(cellA1, lines.get(0).suggestions().get(0).storageCellId());
     }
 
     @Test
@@ -1014,6 +1063,11 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
     }
 
     private void seedAvailable(UUID materialId, UUID cellId, String qty) {
+        seedAvailableAt(sourceWarehouseId, cellId, materialId, qty);
+    }
+
+    private void seedAvailableAt(
+            UUID warehouseId, UUID cellId, UUID materialId, String qty) {
         String article =
                 jdbc.queryForObject(
                         "SELECT article FROM warehouse.material_references WHERE id = ?",
@@ -1027,7 +1081,7 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
                         "",
                         "",
                         new BigDecimal(qty),
-                        sourceWarehouseId,
+                        warehouseId,
                         cellId));
     }
 

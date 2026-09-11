@@ -235,6 +235,18 @@ final class WarehouseWorkbenchUiTestSupport {
         }
 
         @Override
+        public java.util.List<com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine>
+                suggestTransferDocumentSourceAllocations(UUID documentId) {
+            return java.util.List.of();
+        }
+
+        @Override
+        public java.util.List<com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnPlanItem>
+                listTransferDocumentReturnPlan(UUID documentId) {
+            return java.util.List.of();
+        }
+
+        @Override
         public java.util.List<com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult>
                 routeMaterials(
                         UUID destinationWarehouseId,

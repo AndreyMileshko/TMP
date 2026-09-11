@@ -1,21 +1,29 @@
 package com.tmp.ui.shell.screen.warehouse;
 
 import com.tmp.ui.shell.navigation.ViewModelAware;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ActionEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.CellDetailRow;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReceiveAllocationEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.SummaryRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.TaskRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.WarehouseFilterOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.WorkspaceTab;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Optional;
+import java.util.UUID;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
@@ -94,10 +102,40 @@ public final class WarehouseWorkspaceController
     private Button takeTaskInWorkButton;
 
     @FXML
+    private Button sendTransferButton;
+
+    @FXML
+    private Button receiveTransferButton;
+
+    @FXML
+    private Button rejectTransferButton;
+
+    @FXML
+    private Button returnTransferButton;
+
+    @FXML
+    private Button addReceiveAllocationButton;
+
+    @FXML
     private Label transferActionsHintLabel;
 
     @FXML
     private Label taskDetailsLabel;
+
+    @FXML
+    private TableView<ActionEditRow> actionLinesTable;
+
+    @FXML
+    private TableColumn<ActionEditRow, String> actionMaterialColumn;
+
+    @FXML
+    private TableColumn<ActionEditRow, String> actionReferenceQtyColumn;
+
+    @FXML
+    private TableColumn<ActionEditRow, StorageCellChoice> actionCellColumn;
+
+    @FXML
+    private TableColumn<ActionEditRow, String> actionQuantityColumn;
 
     @FXML
     private TableView<WarehouseWorkspaceViewModel.StockTableRow> stockTable;
@@ -224,10 +262,23 @@ public final class WarehouseWorkspaceController
         searchButton.setOnAction(e -> viewModel.commitSearch());
 
         configureTasksTable();
+        configureActionLinesTable();
         configureStockTable();
 
         takeTaskInWorkButton.setOnAction(e -> viewModel.takeSelectedTaskInWork());
         takeTaskInWorkButton.disableProperty().bind(viewModel.canTakeSelectedTaskInWorkProperty().not());
+        sendTransferButton.setOnAction(e -> viewModel.sendSelectedTask());
+        sendTransferButton.disableProperty().bind(viewModel.canSendSelectedTaskProperty().not());
+        receiveTransferButton.setOnAction(e -> viewModel.receiveSelectedTask());
+        receiveTransferButton.disableProperty().bind(viewModel.canReceiveSelectedTaskProperty().not());
+        rejectTransferButton.setOnAction(e -> promptRejectReason());
+        rejectTransferButton.disableProperty().bind(viewModel.canRejectSelectedTaskProperty().not());
+        returnTransferButton.setOnAction(e -> viewModel.returnSelectedTask());
+        returnTransferButton.disableProperty().bind(viewModel.canReturnSelectedTaskProperty().not());
+        addReceiveAllocationButton.setOnAction(e -> addReceiveAllocationForSelectedLine());
+        addReceiveAllocationButton
+                .disableProperty()
+                .bind(viewModel.canRejectSelectedTaskProperty().not());
         transferActionsHintLabel.textProperty().bind(viewModel.transferActionsHintProperty());
         taskDetailsLabel.textProperty().bind(viewModel.taskDetailsTextProperty());
 
@@ -307,6 +358,61 @@ public final class WarehouseWorkspaceController
                                 binding = false;
                             }
                         });
+    }
+
+    private void configureActionLinesTable() {
+        actionMaterialColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().materialLabel()));
+        actionReferenceQtyColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().referenceQuantityText()));
+        actionCellColumn.setCellValueFactory(cell -> cell.getValue().storageCellProperty());
+        actionCellColumn.setCellFactory(column -> new ActionCellComboCell());
+        actionQuantityColumn.setCellValueFactory(cell -> cell.getValue().quantityTextProperty());
+        actionQuantityColumn.setCellFactory(column -> new ActionQuantityCell());
+
+        actionLinesTable.setItems(viewModel.actionLines());
+        actionLinesTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        actionLinesTable.setPlaceholder(new Label("Выберите задачу для редактирования строк"));
+    }
+
+    private void promptRejectReason() {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Отклонение перемещения");
+        dialog.setHeaderText("Укажите причину отклонения");
+        ButtonType rejectType = new ButtonType("Отклонить", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(rejectType, ButtonType.CANCEL);
+        TextArea reasonArea = new TextArea();
+        reasonArea.setPromptText("Причина");
+        reasonArea.setWrapText(true);
+        reasonArea.setPrefRowCount(4);
+        dialog.getDialogPane().setContent(reasonArea);
+        Button rejectButton = (Button) dialog.getDialogPane().lookupButton(rejectType);
+        rejectButton.disableProperty().bind(Bindings.createBooleanBinding(
+                () -> reasonArea.getText() == null || reasonArea.getText().isBlank(),
+                reasonArea.textProperty()));
+        dialog.setResultConverter(
+                button -> button == rejectType ? reasonArea.getText() : null);
+        Optional<String> result = dialog.showAndWait();
+        result.ifPresent(viewModel::rejectSelectedTask);
+    }
+
+    private void addReceiveAllocationForSelectedLine() {
+        ActionEditRow selected = actionLinesTable.getSelectionModel().getSelectedItem();
+        UUID lineId =
+                selected instanceof ReceiveAllocationEditRow receive
+                        ? receive.lineId()
+                        : viewModel.actionLines().stream()
+                                .filter(ReceiveAllocationEditRow.class::isInstance)
+                                .map(ActionEditRow::lineId)
+                                .findFirst()
+                                .orElse(null);
+        if (lineId != null) {
+            viewModel.addReceiveAllocationForLine(lineId);
+        }
     }
 
     private void configureStockTable() {
@@ -400,6 +506,69 @@ public final class WarehouseWorkspaceController
 
     private static String unitText(WarehouseWorkspaceViewModel.StockTableRow row) {
         return row instanceof SummaryRow summary ? summary.unitOfMeasure() : "";
+    }
+
+    private final class ActionCellComboCell extends TableCell<ActionEditRow, StorageCellChoice> {
+
+        private final ComboBox<StorageCellChoice> combo = new ComboBox<>();
+
+        ActionCellComboCell() {
+            combo.setItems(viewModel.actionCellChoices());
+            combo.valueProperty()
+                    .addListener(
+                            (obs, oldValue, newValue) -> {
+                                ActionEditRow row = getTableRow() == null ? null : getTableRow().getItem();
+                                if (row != null && !isEmpty()) {
+                                    row.storageCellProperty().set(newValue);
+                                }
+                            });
+        }
+
+        @Override
+        protected void updateItem(StorageCellChoice item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                setGraphic(null);
+                return;
+            }
+            combo.setValue(item);
+            setGraphic(combo);
+        }
+    }
+
+    private final class ActionQuantityCell extends TableCell<ActionEditRow, String> {
+
+        private final TextField field = new TextField();
+
+        ActionQuantityCell() {
+            field.textProperty()
+                    .addListener(
+                            (obs, oldValue, newValue) -> {
+                                ActionEditRow row = getTableRow() == null ? null : getTableRow().getItem();
+                                if (row != null && row.quantityEditable() && !isEmpty()) {
+                                    row.quantityTextProperty().set(newValue);
+                                }
+                            });
+        }
+
+        @Override
+        protected void updateItem(String item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                setGraphic(null);
+                setText(null);
+                return;
+            }
+            ActionEditRow row = getTableRow().getItem();
+            if (row.quantityEditable()) {
+                field.setText(item == null ? "" : item);
+                setGraphic(field);
+                setText(null);
+            } else {
+                setGraphic(null);
+                setText(item);
+            }
+        }
     }
 
     private final class ExpandCell extends TableCell<WarehouseWorkspaceViewModel.StockTableRow, String> {

@@ -3,6 +3,41 @@
 ## Latest result
 
 **Date:** 2026-09-11
+**Scope:** Stage 3.5.11A — Complete Warehouse Task Actions UI
+**Overall:** PASS
+
+### Stage 3.5.11A Operational Task Actions UI (2026-09-11)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `6b55cecdd932729891f8c4239417b942a7e27de3` | PASS |
+| Warehouse Operational Task Actions UI | **COMPLETE** |
+| Tasks actions | take/takeover; preparation send (full/partial); receive (full/partial); reject; return materials |
+| Business logic in UI | None — load → select → public command → reload |
+| History tab | Placeholder until 3.5.12 |
+| Stock query (3.5.11) | Unchanged |
+| Public API | `documentVersion` on `TransferDocumentView`; `suggestTransferDocumentSourceAllocations`; `listTransferDocumentReturnPlan` |
+| Migration | **NONE / V44** |
+| `WarehouseWorkspaceViewModelTest` | PASS (32) |
+| `WarehouseUiErrorMapperTest` | PASS (5) |
+| Backend regression (inbox/send/shortfall/receive/partial/reject-return/responsibility/routing) | PASS (117) |
+| `Stage6WarehouseArchitectureTest` | PASS (7) |
+| `mvn -pl :tmp-warehouse,:tmp-ui-shell -am test-compile` | PASS |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests` | PASS |
+| `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS |
+| Startup `tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 44 / V44 up-to-date; Started DesktopBootstrap; JavaFX unnamed-module WARN only; exceptions NONE |
+| Manual acceptance | NOT RUN — deferred to Stage 3.5.15 |
+| Full reactor | NOT RUN — last GREEN `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d` |
+| Stage 3.5.11 Modern Остатки | COMPLETE |
+| Operational Tasks UI corrective | COMPLETE |
+| Stage 3.5.12 История | NEXT / NOT STARTED |
+| Stage 3.5 | IN PROGRESS |
+
+---
+
+## Previous result
+
+**Date:** 2026-09-11
 **Scope:** Stage 3.5.11 corrective — Tasks inbox integration + permission/ALL audit
 **Overall:** PASS
 

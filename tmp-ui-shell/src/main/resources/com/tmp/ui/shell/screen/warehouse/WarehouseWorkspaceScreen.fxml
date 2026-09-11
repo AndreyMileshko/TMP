@@ -47,13 +47,23 @@
             </TableView>
             <HBox spacing="8" alignment="CENTER_LEFT">
                 <Button fx:id="takeTaskInWorkButton" text="Взять в работу" styleClass="tmp-button-primary"/>
-                <Button fx:id="sendTransferButton" text="Передать" styleClass="tmp-button-secondary" disable="true"/>
-                <Button fx:id="receiveTransferButton" text="Принять" styleClass="tmp-button-secondary" disable="true"/>
-                <Button fx:id="rejectTransferButton" text="Отклонить" styleClass="tmp-button-secondary" disable="true"/>
-                <Button fx:id="returnTransferButton" text="Вернуть" styleClass="tmp-button-secondary" disable="true"/>
+                <Button fx:id="sendTransferButton" text="Передать" styleClass="tmp-button-secondary"/>
+                <Button fx:id="receiveTransferButton" text="Принять" styleClass="tmp-button-secondary"/>
+                <Button fx:id="rejectTransferButton" text="Отклонить" styleClass="tmp-button-secondary"/>
+                <Button fx:id="returnTransferButton" text="Вернуть материалы" styleClass="tmp-button-secondary"/>
+                <Button fx:id="addReceiveAllocationButton" text="Добавить ячейку" styleClass="tmp-button-secondary"/>
             </HBox>
             <Label fx:id="transferActionsHintLabel" wrapText="true" styleClass="tmp-text-muted"/>
             <Label fx:id="taskDetailsLabel" wrapText="true" styleClass="tmp-empty-state-hint"/>
+            <TableView fx:id="actionLinesTable" prefHeight="180">
+                <columns>
+                    <TableColumn fx:id="actionMaterialColumn" text="Материал" prefWidth="220" minWidth="140"/>
+                    <TableColumn fx:id="actionReferenceQtyColumn" text="Требуется / Отправлено / К возврату"
+                                 prefWidth="160" minWidth="120"/>
+                    <TableColumn fx:id="actionCellColumn" text="Ячейка" prefWidth="140" minWidth="100"/>
+                    <TableColumn fx:id="actionQuantityColumn" text="Количество" prefWidth="110" minWidth="80"/>
+                </columns>
+            </TableView>
         </VBox>
 
         <Label fx:id="historyPlaceholderLabel" text="Раздел «История» будет доступен в следующих версиях."

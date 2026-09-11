@@ -4,6 +4,35 @@
 
 ---
 
+## Stage 3.5.11A — Complete Warehouse Task Actions UI — 2026-09-11
+
+**Date:** 2026-09-11
+**Stage:** Stage 3.5.11A corrective / completion (Warehouse Operational Task Actions UI)
+**Base checkpoint:** `6b55cecdd932729891f8c4239417b942a7e27de3`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; Operational Tasks UI COMPLETE; 3.5.12 NEXT / NOT STARTED
+**Commit:** none
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
+
+### Summary
+
+Warehouse Operational Task Actions UI = COMPLETE. Tasks tab now wires existing Stage 3.5.6–3.5.10 commands: take/takeover, transfer preparation (suggested source allocations + full/partial send), transfer receipt (destination cells + full/partial receive + reject), return materials (outstanding plan + optional cell override). UI performs no settlement/routing/stock calculations. History remains Stage 3.5.12 placeholder. Stock query (3.5.11) unchanged. Migration NONE / Flyway V44.
+
+### Key changes
+
+- Public read: `TransferDocumentView.documentVersion`; `suggestTransferDocumentSourceAllocations`; `listTransferDocumentReturnPlan`
+- `WarehouseWorkspaceViewModel` / Controller / FXML: action matrix + editable allocation table + async commands
+- `WarehouseUiErrorMapper`: stale/optimistic-lock → clear message + reload (no hidden retry)
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.11A entry (2026-09-11).
+
+### Next
+
+Stage 3.5.12 — История (NOT STARTED). Manual acceptance deferred to Stage 3.5.15.
+
+---
+
 ## Stage 3.5.11 corrective — Tasks inbox + permission/ALL audit — 2026-09-11
 
 **Date:** 2026-09-11

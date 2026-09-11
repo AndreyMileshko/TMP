@@ -9,6 +9,8 @@ import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnPlanItem;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
@@ -87,6 +89,21 @@ public interface WarehouseQueryApi {
      * payload). Does not mutate stock.
      */
     TransferDocumentView getTransferDocument(UUID documentId);
+
+    /**
+     * Suggests source-cell allocations for a Transfer Document whose source warehouse is already
+     * fixed. Uses the same cell FIFO selection as automatic routing, scoped to {@code
+     * document.sourceWarehouseId} only. Planning/query only — does not mutate stock.
+     */
+    List<TransferDocumentSourceSuggestionLine> suggestTransferDocumentSourceAllocations(
+            UUID documentId);
+
+    /**
+     * Read-only default return plan for a RETURN_PENDING Transfer Document: one item per
+     * outstanding send allocation (same {@code lineId} may appear more than once). Empty when
+     * nothing is outstanding. Does not mutate stock.
+     */
+    List<TransferDocumentReturnPlanItem> listTransferDocumentReturnPlan(UUID documentId);
 
     /**
      * Batch automatic source warehouse routing + source cell suggestions (ADR-037 / Stage 3.5.4).

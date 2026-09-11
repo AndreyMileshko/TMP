@@ -84,6 +84,22 @@ public final class MaterialSourceRoutingService {
                 .get(0);
     }
 
+    /**
+     * Suggests source cells within one fixed warehouse using the same greedy FIFO cell selection
+     * as {@link #routeMaterials}. Planning only — does not mutate stock.
+     */
+    List<SourceCellSuggestion> suggestCellsForWarehouse(
+            UUID warehouseId, UUID materialReferenceId, BigDecimal quantity) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+        requirePositiveQuantity(quantity);
+        List<AvailableCellStock> rows =
+                availableStock.findAvailableByMaterials(List.of(materialReferenceId)).stream()
+                        .filter(row -> row.warehouseId().equals(warehouseId))
+                        .toList();
+        return suggestCells(rows, quantity);
+    }
+
     private static MaterialSourceRoutingResult routeOne(
             MaterialDemand demand, List<AvailableCellStock> materialRows) {
         Map<UUID, WarehouseCandidate> candidates = aggregateByWarehouse(materialRows);

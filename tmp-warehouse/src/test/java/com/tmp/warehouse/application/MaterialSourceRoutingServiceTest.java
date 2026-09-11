@@ -167,6 +167,23 @@ class MaterialSourceRoutingServiceTest {
     }
 
     @Test
+    void suggestCellsForWarehouseUsesOnlyRequestedWarehouse() {
+        stock.add(cell(MAT, WH_A, "A", cellId("c1"), "1-01", "40"));
+        stock.add(cell(MAT, WH_A, "A", cellId("c2"), "1-02", "30"));
+        stock.add(cell(MAT, WH_B, "B", cellId("c3"), "9-01", "1000"));
+
+        List<SourceCellSuggestion> suggestions =
+                routing.suggestCellsForWarehouse(WH_A, MAT, bd("50"));
+
+        assertEquals(2, suggestions.size());
+        assertEquals(cellId("c1"), suggestions.get(0).storageCellId());
+        assertEquals(0, bd("40").compareTo(suggestions.get(0).suggestedQuantity()));
+        assertEquals(cellId("c2"), suggestions.get(1).storageCellId());
+        assertEquals(0, bd("10").compareTo(suggestions.get(1).suggestedQuantity()));
+        assertTrue(suggestions.stream().noneMatch(s -> s.storageCellId().equals(cellId("c3"))));
+    }
+
+    @Test
     void insufficientSourceProducesUncoveredAndAllCellSuggestions() {
         stock.add(cell(MAT, WH_A, "A", cellId("ca"), "A", "40"));
         stock.add(cell(MAT, WH_A, "A", cellId("cb"), "B", "20"));

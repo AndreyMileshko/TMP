@@ -166,6 +166,18 @@ class TransferReceiptEligibilityTest {
         }
 
         @Override
+        public List<com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine>
+                suggestTransferDocumentSourceAllocations(UUID documentId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnPlanItem>
+                listTransferDocumentReturnPlan(UUID documentId) {
+            return List.of();
+        }
+
+        @Override
         public List<com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult> routeMaterials(
                 UUID destinationWarehouseId,
                 List<com.tmp.warehouse.api.WarehouseApi.MaterialDemand> demands) {

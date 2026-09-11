@@ -11899,6 +11899,35 @@ See VERIFICATION-LOG Stage 3.5.11 entry (2026-09-11).
 Stage 3.5.12 — История = NEXT / NOT STARTED
 
 ---
+## STAGE-3.5.11A — Complete Warehouse Task Actions UI
+
+**Status:** DONE
+**Stage:** 3.5
+**Depends on:** Stage 3.5.11 (+ Tasks inbox corrective)
+**Module:** `tmp-warehouse` (minimal public read) + `tmp-ui-shell` (Tasks action wiring)
+
+### Goal
+
+Wire existing Warehouse operational commands into the modern Workspace Tasks tab: preparation send (incl. partial/SHORTFALL), receipt (full/partial + reject), return materials — without new business logic or History.
+
+### Acceptance criteria
+
+- [x] TRANSFER_PREPARATION: suggested source allocations, cell/qty override, full/partial send via `sendTransferDocument`
+- [x] TRANSFER_RECEIPT: destination cells, full/partial receive, reject with mandatory reason
+- [x] RETURN_MATERIALS: outstanding from return plan, default original cells, optional cell override, `returnTransferMaterials`
+- [x] take/takeover preserved; action matrix by task kind; async double-submit safe; stale revision → message + reload
+- [x] UI does not calculate shortfall/continuation/settlement/outstanding; stock query unchanged; History placeholder
+- [x] Migration NONE / Flyway V44; architecture + targeted tests + package + startup PASS; manual acceptance deferred to 3.5.15
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.11A entry (2026-09-11).
+
+### Next on success
+
+Stage 3.5.12 — История = NEXT / NOT STARTED
+
+---
 ## STAGE-3.5.7 ? Shortfall / Automatic Continuation Transfer
 
 **Status:** DONE

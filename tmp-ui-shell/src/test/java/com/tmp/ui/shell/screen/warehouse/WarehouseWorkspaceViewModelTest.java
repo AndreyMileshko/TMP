@@ -3,16 +3,39 @@ package com.tmp.ui.shell.screen.warehouse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReceiveAllocationEditRow;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReturnAllocationEditRow;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.SourceAllocationEditRow;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
+import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
+import com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.RejectTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.ReturnTransferMaterialsCommand;
+import com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.SourceCellSuggestion;
+import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentDestinationAllocationInput;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentLineView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentRejectResult;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnAllocationInput;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnPlanItem;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnResult;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceAllocationInput;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseMaterialStockDetailsView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockPage;
@@ -24,12 +47,16 @@ import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -80,7 +107,7 @@ class WarehouseWorkspaceViewModelTest {
                         UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
                         UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION));
         viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
-        api.tasks.add(task(docId, sourceId, destId, "TR-2", WarehouseTaskState.NEW));
+        api.tasks.add(task(docId, sourceId, destId, "TR-2", WarehouseTaskKind.TRANSFER_PREPARATION, WarehouseTaskState.NEW, null));
         viewModel.onScreenOpened();
         viewModel.selectTask(viewModel.taskRows().get(0));
 
@@ -345,6 +372,466 @@ class WarehouseWorkspaceViewModelTest {
         assertEquals(0, api.createWarehouseCalls);
     }
 
+    @Test
+    void preparationLoadsSuggestionsIntoEditRows() {
+        PreparationFixture fx = openPreparation();
+        assertEquals(1, viewModel.actionLines().size());
+        SourceAllocationEditRow row = (SourceAllocationEditRow) viewModel.actionLines().get(0);
+        assertEquals(fx.lineId, row.lineId());
+        assertEquals(fx.cellA, row.storageCellProperty().get().id());
+        assertEquals("10", row.quantityTextProperty().get());
+        assertTrue(viewModel.taskDetailsTextProperty().get().contains("TR-PREP"));
+        assertEquals(1, api.suggestCalls.size());
+        assertEquals(1, api.listStorageCellsCalls);
+    }
+
+    @Test
+    void preparationAllowsOverrideSourceCellAndQuantity() {
+        PreparationFixture fx = openPreparation();
+        SourceAllocationEditRow row = (SourceAllocationEditRow) viewModel.actionLines().get(0);
+        StorageCellChoice other =
+                viewModel.actionCellChoices().stream()
+                        .filter(c -> fx.cellB.equals(c.id()))
+                        .findFirst()
+                        .orElseThrow();
+        row.storageCellProperty().set(other);
+        row.quantityTextProperty().set("7");
+        assertEquals(fx.cellB, row.storageCellProperty().get().id());
+        assertEquals("7", row.quantityTextProperty().get());
+        assertTrue(viewModel.canSendSelectedTaskProperty().get());
+    }
+
+    @Test
+    void preparationFullSendMapsCommandAndReloadsInbox() {
+        PreparationFixture fx = openPreparation();
+        int tasksBefore = api.listMyWarehouseTasksCalls.size();
+        viewModel.sendSelectedTask();
+
+        assertEquals(1, api.sendCommands.size());
+        SendTransferDocumentCommand command = api.sendCommands.get(0);
+        assertEquals(fx.documentId, command.documentId());
+        assertEquals(3L, command.expectedDocumentVersion());
+        assertEquals(5L, command.expectedPayloadRevision());
+        assertEquals(1, command.sourceAllocations().size());
+        TransferDocumentSourceAllocationInput alloc = command.sourceAllocations().get(0);
+        assertEquals(fx.lineId, alloc.lineId());
+        assertEquals(fx.cellA, alloc.sourceStorageCellId());
+        assertEquals(0, new BigDecimal("10").compareTo(alloc.quantity()));
+        assertTrue(api.listMyWarehouseTasksCalls.size() > tasksBefore);
+        assertTrue(viewModel.statusMessageProperty().get().startsWith("Передано:"));
+    }
+
+    @Test
+    void preparationPartialSendMapsLowerQtyWithoutInventingContinuation() {
+        PreparationFixture fx = openPreparation();
+        SourceAllocationEditRow row = (SourceAllocationEditRow) viewModel.actionLines().get(0);
+        row.quantityTextProperty().set("4");
+        api.sendResultContinuationId = UUID.randomUUID();
+
+        viewModel.sendSelectedTask();
+
+        assertEquals(1, api.sendCommands.size());
+        assertEquals(0, new BigDecimal("4").compareTo(api.sendCommands.get(0).sourceAllocations().get(0).quantity()));
+        assertTrue(viewModel.statusMessageProperty().get().contains("Создано дополнительное перемещение."));
+        assertNull(api.sendCommands.get(0).sourceAllocations().stream()
+                .map(TransferDocumentSourceAllocationInput::quantity)
+                .filter(q -> q.compareTo(new BigDecimal("6")) == 0)
+                .findFirst()
+                .orElse(null));
+    }
+
+    @Test
+    void preparationStaleRevisionShowsStaleAndReloadsTasks() {
+        openPreparation();
+        int tasksBefore = api.listMyWarehouseTasksCalls.size();
+        api.sendThrows = new IllegalStateException("stale document version");
+
+        viewModel.sendSelectedTask();
+
+        assertEquals(1, api.sendCommands.size());
+        assertEquals(WarehouseUiErrorMapper.STALE_STATE, viewModel.errorMessageProperty().get());
+        assertTrue(api.listMyWarehouseTasksCalls.size() > tasksBefore);
+    }
+
+    @Test
+    void preparationDoubleSubmitIgnoresSecondWhileInFlight() throws Exception {
+        PreparationFixture fx = new PreparationFixture();
+        stubPreparation(fx);
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        api.sendBlock =
+                () -> {
+                    started.countDown();
+                    release.await(5, TimeUnit.SECONDS);
+                };
+        java.util.concurrent.ExecutorService background = Executors.newSingleThreadExecutor();
+        try {
+            auth = transferAuth();
+            viewModel = new WarehouseWorkspaceViewModel(api, auth, background, Runnable::run);
+            viewModel.onScreenOpened();
+            awaitCondition(() -> !viewModel.taskRows().isEmpty(), 5000);
+            viewModel.selectTask(viewModel.taskRows().get(0));
+            awaitCondition(
+                    () ->
+                            !viewModel.actionLines().isEmpty()
+                                    && viewModel.canSendSelectedTaskProperty().get(),
+                    5000);
+
+            viewModel.sendSelectedTask();
+            assertTrue(started.await(5, TimeUnit.SECONDS), "send API was not invoked");
+            assertTrue(viewModel.commandInFlightProperty().get());
+            viewModel.sendSelectedTask();
+            release.countDown();
+            awaitCondition(() -> !viewModel.commandInFlightProperty().get(), 5000);
+
+            assertEquals(1, api.sendCommands.size());
+        } finally {
+            release.countDown();
+            background.shutdownNow();
+        }
+    }
+
+    @Test
+    void receiptLoadsSentLinesAndAllowsDestinationCell() {
+        ReceiptFixture fx = openReceipt();
+        assertEquals(1, viewModel.actionLines().size());
+        ReceiveAllocationEditRow row = (ReceiveAllocationEditRow) viewModel.actionLines().get(0);
+        assertEquals("8", row.referenceQuantityText());
+        assertEquals("8", row.quantityTextProperty().get());
+        StorageCellChoice dest =
+                viewModel.actionCellChoices().stream()
+                        .filter(c -> fx.destCell.equals(c.id()))
+                        .findFirst()
+                        .orElseThrow();
+        row.storageCellProperty().set(dest);
+        assertTrue(viewModel.canReceiveSelectedTaskProperty().get());
+        assertTrue(viewModel.canRejectSelectedTaskProperty().get());
+    }
+
+    @Test
+    void receiptMultiCellReceiveMapsTwoRowsSameLine() {
+        ReceiptFixture fx = openReceipt();
+        ReceiveAllocationEditRow first = (ReceiveAllocationEditRow) viewModel.actionLines().get(0);
+        first.quantityTextProperty().set("3");
+        first.storageCellProperty()
+                .set(choice(viewModel.actionCellChoices(), fx.destCell));
+        viewModel.addReceiveAllocationForLine(fx.lineId);
+        assertEquals(2, viewModel.actionLines().size());
+        ReceiveAllocationEditRow second = (ReceiveAllocationEditRow) viewModel.actionLines().get(1);
+        second.quantityTextProperty().set("5");
+        second.storageCellProperty()
+                .set(choice(viewModel.actionCellChoices(), fx.destCellB));
+
+        viewModel.receiveSelectedTask();
+
+        assertEquals(1, api.receiveCommands.size());
+        List<TransferDocumentDestinationAllocationInput> allocs =
+                api.receiveCommands.get(0).destinationAllocations();
+        assertEquals(2, allocs.size());
+        assertEquals(fx.lineId, allocs.get(0).lineId());
+        assertEquals(fx.lineId, allocs.get(1).lineId());
+        assertEquals(fx.destCell, allocs.get(0).destinationStorageCellId());
+        assertEquals(fx.destCellB, allocs.get(1).destinationStorageCellId());
+    }
+
+    @Test
+    void receiptFullAndPartialReceive() {
+        ReceiptFixture fx = openReceipt();
+        ReceiveAllocationEditRow row = (ReceiveAllocationEditRow) viewModel.actionLines().get(0);
+        row.storageCellProperty().set(choice(viewModel.actionCellChoices(), fx.destCell));
+        viewModel.receiveSelectedTask();
+        assertEquals(1, api.receiveCommands.size());
+        assertEquals(0, new BigDecimal("8").compareTo(api.receiveCommands.get(0).destinationAllocations().get(0).quantity()));
+        assertTrue(viewModel.statusMessageProperty().get().startsWith("Принято:"));
+
+        openReceipt();
+        row = (ReceiveAllocationEditRow) viewModel.actionLines().get(0);
+        row.quantityTextProperty().set("2");
+        row.storageCellProperty().set(choice(viewModel.actionCellChoices(), fx.destCell));
+        viewModel.receiveSelectedTask();
+        assertEquals(2, api.receiveCommands.size());
+        assertEquals(0, new BigDecimal("2").compareTo(api.receiveCommands.get(1).destinationAllocations().get(0).quantity()));
+    }
+
+    @Test
+    void receiptBlocksAcceptGreaterThanSent() {
+        ReceiptFixture fx = openReceipt();
+        ReceiveAllocationEditRow row = (ReceiveAllocationEditRow) viewModel.actionLines().get(0);
+        row.quantityTextProperty().set("9");
+        row.storageCellProperty().set(choice(viewModel.actionCellChoices(), fx.destCell));
+        assertFalse(viewModel.canReceiveSelectedTaskProperty().get());
+    }
+
+    @Test
+    void rejectBlankReasonBlockedAndTrimmedReasonPassed() {
+        openReceipt();
+        int before = api.rejectCommands.size();
+        viewModel.rejectSelectedTask("   ");
+        assertEquals(before, api.rejectCommands.size());
+        assertEquals(WarehouseUiErrorMapper.VALIDATION, viewModel.errorMessageProperty().get());
+
+        viewModel.rejectSelectedTask("  брак  ");
+        assertEquals(1, api.rejectCommands.size());
+        assertEquals("брак", api.rejectCommands.get(0).rejectionReason());
+    }
+
+    @Test
+    void returnLoadsOutstandingDefaultsAndIgnoresQuantityEdit() {
+        ReturnFixture fx = openReturn();
+        assertEquals(1, viewModel.actionLines().size());
+        ReturnAllocationEditRow row = (ReturnAllocationEditRow) viewModel.actionLines().get(0);
+        assertEquals("6", row.referenceQuantityText());
+        assertEquals(fx.defaultCell, row.storageCellProperty().get().id());
+        assertFalse(row.quantityEditable());
+        row.quantityTextProperty().set("999");
+        assertEquals("6", row.quantityTextProperty().get());
+        StorageCellChoice alt = choice(viewModel.actionCellChoices(), fx.altCell);
+        row.storageCellProperty().set(alt);
+        assertEquals(fx.altCell, row.storageCellProperty().get().id());
+    }
+
+    @Test
+    void returnCommandUsesEmptyAllocationsForDefaultsAndFullListOnOverride() {
+        ReturnFixture fx = openReturn();
+        viewModel.returnSelectedTask();
+        assertEquals(1, api.returnCommands.size());
+        assertTrue(api.returnCommands.get(0).returnAllocations().isEmpty());
+
+        openReturn();
+        ReturnAllocationEditRow row = (ReturnAllocationEditRow) viewModel.actionLines().get(0);
+        row.storageCellProperty().set(choice(viewModel.actionCellChoices(), fx.altCell));
+        viewModel.returnSelectedTask();
+        assertEquals(2, api.returnCommands.size());
+        List<TransferDocumentReturnAllocationInput> allocs =
+                api.returnCommands.get(1).returnAllocations();
+        assertEquals(1, allocs.size());
+        assertEquals(fx.lineId, allocs.get(0).lineId());
+        assertEquals(fx.altCell, allocs.get(0).returnStorageCellId());
+        assertEquals(0, new BigDecimal("6").compareTo(allocs.get(0).quantity()));
+    }
+
+    @Test
+    void returnSuccessReloadsAndStaleHandled() {
+        openReturn();
+        api.tasks.clear();
+        int before = api.listMyWarehouseTasksCalls.size();
+        viewModel.returnSelectedTask();
+        assertTrue(api.listMyWarehouseTasksCalls.size() > before);
+        assertTrue(viewModel.taskRows().isEmpty());
+
+        ReturnFixture fx = openReturn();
+        api.returnThrows = new IllegalStateException("stale operational revision");
+        before = api.listMyWarehouseTasksCalls.size();
+        viewModel.returnSelectedTask();
+        assertEquals(WarehouseUiErrorMapper.STALE_STATE, viewModel.errorMessageProperty().get());
+        assertTrue(api.listMyWarehouseTasksCalls.size() > before);
+        assertNotNull(fx.documentId);
+    }
+
+    @Test
+    void inWorkWorkerDisplayUsesPrefix() {
+        UUID sourceId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        UUID worker = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(sourceId, "WH-1", "Main", true));
+        api.tasks.add(
+                task(
+                        UUID.randomUUID(),
+                        sourceId,
+                        destId,
+                        "TR-W",
+                        WarehouseTaskKind.TRANSFER_PREPARATION,
+                        WarehouseTaskState.IN_WORK,
+                        worker));
+        viewModel.onScreenOpened();
+        assertEquals("В работе · " + worker, viewModel.taskRows().get(0).workerDisplay());
+    }
+
+    private PreparationFixture openPreparation() {
+        auth = transferAuth();
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        PreparationFixture fx = new PreparationFixture();
+        stubPreparation(fx);
+        viewModel.onScreenOpened();
+        viewModel.selectTask(viewModel.taskRows().get(0));
+        return fx;
+    }
+
+    private void stubPreparation(PreparationFixture fx) {
+        api.warehouses.add(new WarehouseView(fx.sourceId, "SRC", "Source", true));
+        api.materials.add(
+                new MaterialReferenceView(fx.materialId, "ART-P", "Profile", "", "", "шт"));
+        api.cellsByWarehouse.put(
+                fx.sourceId,
+                List.of(
+                        new StorageCellView(fx.cellA, fx.sourceId, "A-01", true),
+                        new StorageCellView(fx.cellB, fx.sourceId, "A-02", true)));
+        api.documents.put(
+                fx.documentId,
+                document(
+                        fx.documentId,
+                        fx.sourceId,
+                        fx.destId,
+                        List.of(new TransferDocumentLineView(fx.lineId, fx.materialId, new BigDecimal("10"), 1)),
+                        3L,
+                        5L,
+                        null));
+        api.suggestions.put(
+                fx.documentId,
+                List.of(
+                        new TransferDocumentSourceSuggestionLine(
+                                fx.lineId,
+                                fx.materialId,
+                                new BigDecimal("10"),
+                                List.of(
+                                        new SourceCellSuggestion(
+                                                fx.cellA,
+                                                "A-01",
+                                                new BigDecimal("20"),
+                                                new BigDecimal("10"))))));
+        api.tasks.add(
+                task(
+                        fx.documentId,
+                        fx.sourceId,
+                        fx.destId,
+                        "TR-PREP",
+                        WarehouseTaskKind.TRANSFER_PREPARATION,
+                        WarehouseTaskState.IN_WORK,
+                        UUID.randomUUID()));
+    }
+
+    private static void awaitCondition(java.util.function.BooleanSupplier condition, long timeoutMs)
+            throws InterruptedException {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            if (condition.getAsBoolean()) {
+                return;
+            }
+            Thread.sleep(20);
+        }
+        assertTrue(condition.getAsBoolean(), "condition not met within " + timeoutMs + "ms");
+    }
+
+    private ReceiptFixture openReceipt() {
+        auth = transferAuth();
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        ReceiptFixture fx = new ReceiptFixture();
+        api.warehouses.add(new WarehouseView(fx.destId, "DST", "Dest", true));
+        api.materials.add(
+                new MaterialReferenceView(fx.materialId, "ART-R", "Panel", "", "", "шт"));
+        api.cellsByWarehouse.put(
+                fx.destId,
+                List.of(
+                        new StorageCellView(fx.destCell, fx.destId, "D-01", true),
+                        new StorageCellView(fx.destCellB, fx.destId, "D-02", true)));
+        api.documents.put(
+                fx.documentId,
+                document(
+                        fx.documentId,
+                        fx.sourceId,
+                        fx.destId,
+                        List.of(new TransferDocumentLineView(fx.lineId, fx.materialId, new BigDecimal("8"), 1)),
+                        2L,
+                        4L,
+                        11L));
+        api.tasks.add(
+                task(
+                        fx.documentId,
+                        fx.sourceId,
+                        fx.destId,
+                        "TR-RCV",
+                        WarehouseTaskKind.TRANSFER_RECEIPT,
+                        WarehouseTaskState.IN_WORK,
+                        UUID.randomUUID()));
+        viewModel.onScreenOpened();
+        viewModel.selectTask(viewModel.taskRows().get(0));
+        return fx;
+    }
+
+    private ReturnFixture openReturn() {
+        auth = transferAuth();
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        ReturnFixture fx = new ReturnFixture();
+        api.warehouses.add(new WarehouseView(fx.sourceId, "SRC", "Source", true));
+        api.materials.add(
+                new MaterialReferenceView(fx.materialId, "ART-T", "Tube", "", "", "шт"));
+        api.cellsByWarehouse.put(
+                fx.sourceId,
+                List.of(
+                        new StorageCellView(fx.defaultCell, fx.sourceId, "S-01", true),
+                        new StorageCellView(fx.altCell, fx.sourceId, "S-02", true)));
+        api.documents.put(
+                fx.documentId,
+                document(
+                        fx.documentId,
+                        fx.sourceId,
+                        fx.destId,
+                        List.of(new TransferDocumentLineView(fx.lineId, fx.materialId, new BigDecimal("6"), 1)),
+                        1L,
+                        2L,
+                        21L));
+        api.returnPlans.put(
+                fx.documentId,
+                List.of(
+                        new TransferDocumentReturnPlanItem(
+                                fx.lineId,
+                                fx.materialId,
+                                new BigDecimal("6"),
+                                fx.defaultCell,
+                                "S-01")));
+        api.tasks.add(
+                task(
+                        fx.documentId,
+                        fx.sourceId,
+                        fx.destId,
+                        "TR-RET",
+                        WarehouseTaskKind.RETURN_MATERIALS,
+                        WarehouseTaskState.IN_WORK,
+                        UUID.randomUUID()));
+        viewModel.onScreenOpened();
+        viewModel.selectTask(viewModel.taskRows().get(0));
+        return fx;
+    }
+
+    private FakeAuthorization transferAuth() {
+        return new FakeAuthorization(
+                Set.of(
+                        UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                        UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION));
+    }
+
+    private static StorageCellChoice choice(
+            java.util.Collection<StorageCellChoice> choices, UUID id) {
+        return choices.stream().filter(c -> id.equals(c.id())).findFirst().orElseThrow();
+    }
+
+    private static TransferDocumentView document(
+            UUID documentId,
+            UUID sourceId,
+            UUID destId,
+            List<TransferDocumentLineView> lines,
+            long documentVersion,
+            long payloadRevision,
+            Long operationalRevision) {
+        return new TransferDocumentView(
+                documentId,
+                "DOC",
+                "Transfer",
+                "DRAFT",
+                documentVersion,
+                sourceId,
+                destId,
+                1,
+                payloadRevision,
+                lines,
+                null,
+                null,
+                null,
+                operationalRevision,
+                null,
+                null);
+    }
+
     private static WarehouseStockPage emptyPage() {
         return page(List.of(), 0, 0);
     }
@@ -367,7 +854,14 @@ class WarehouseWorkspaceViewModelTest {
     }
 
     private static WarehouseTaskView task(UUID sourceId, UUID destId, String number) {
-        return task(UUID.randomUUID(), sourceId, destId, number, WarehouseTaskState.NEW);
+        return task(
+                UUID.randomUUID(),
+                sourceId,
+                destId,
+                number,
+                WarehouseTaskKind.TRANSFER_PREPARATION,
+                WarehouseTaskState.NEW,
+                null);
     }
 
     private static WarehouseTaskView task(
@@ -375,11 +869,13 @@ class WarehouseWorkspaceViewModelTest {
             UUID sourceId,
             UUID destId,
             String number,
-            WarehouseTaskState state) {
+            WarehouseTaskKind kind,
+            WarehouseTaskState state,
+            UUID workingUserId) {
         return new WarehouseTaskView(
                 documentId,
                 number,
-                WarehouseTaskKind.TRANSFER_PREPARATION,
+                kind,
                 state,
                 sourceId,
                 "SRC",
@@ -388,8 +884,8 @@ class WarehouseWorkspaceViewModelTest {
                 "DST",
                 "Dest",
                 2,
-                null,
-                null,
+                workingUserId,
+                workingUserId == null ? null : Instant.EPOCH,
                 Instant.EPOCH,
                 null,
                 null,
@@ -397,6 +893,36 @@ class WarehouseWorkspaceViewModelTest {
                 null,
                 null,
                 null);
+    }
+
+    private static final class PreparationFixture {
+        final UUID documentId = UUID.randomUUID();
+        final UUID sourceId = UUID.randomUUID();
+        final UUID destId = UUID.randomUUID();
+        final UUID lineId = UUID.randomUUID();
+        final UUID materialId = UUID.randomUUID();
+        final UUID cellA = UUID.randomUUID();
+        final UUID cellB = UUID.randomUUID();
+    }
+
+    private static final class ReceiptFixture {
+        final UUID documentId = UUID.randomUUID();
+        final UUID sourceId = UUID.randomUUID();
+        final UUID destId = UUID.randomUUID();
+        final UUID lineId = UUID.randomUUID();
+        final UUID materialId = UUID.randomUUID();
+        final UUID destCell = UUID.randomUUID();
+        final UUID destCellB = UUID.randomUUID();
+    }
+
+    private static final class ReturnFixture {
+        final UUID documentId = UUID.randomUUID();
+        final UUID sourceId = UUID.randomUUID();
+        final UUID destId = UUID.randomUUID();
+        final UUID lineId = UUID.randomUUID();
+        final UUID materialId = UUID.randomUUID();
+        final UUID defaultCell = UUID.randomUUID();
+        final UUID altCell = UUID.randomUUID();
     }
 
     private static final class FakeAuthorization implements AuthorizationService {
@@ -428,19 +954,33 @@ class WarehouseWorkspaceViewModelTest {
         private final List<WarehouseView> warehouses = new ArrayList<>();
         private final List<WarehouseStockPage> stockPages = new ArrayList<>();
         private final AtomicInteger stockPageCursor = new AtomicInteger();
-        private final java.util.Map<String, WarehouseMaterialStockDetailsView> breakdowns =
-                new java.util.HashMap<>();
+        private final Map<String, WarehouseMaterialStockDetailsView> breakdowns = new HashMap<>();
         private final List<StockSummaryCall> listStockSummariesCalls = new CopyOnWriteArrayList<>();
         private final List<BreakdownCall> getStockCellBreakdownCalls = new CopyOnWriteArrayList<>();
         private final List<WarehouseTaskView> tasks = new ArrayList<>();
         private final List<TaskListCall> listMyWarehouseTasksCalls = new CopyOnWriteArrayList<>();
         private final List<UUID> takeTransferTaskInWorkCalls = new CopyOnWriteArrayList<>();
+        private final Map<UUID, TransferDocumentView> documents = new HashMap<>();
+        private final Map<UUID, List<TransferDocumentSourceSuggestionLine>> suggestions = new HashMap<>();
+        private final Map<UUID, List<TransferDocumentReturnPlanItem>> returnPlans = new HashMap<>();
+        private final Map<UUID, List<StorageCellView>> cellsByWarehouse = new HashMap<>();
+        private final List<MaterialReferenceView> materials = new ArrayList<>();
+        private final List<SendTransferDocumentCommand> sendCommands = new CopyOnWriteArrayList<>();
+        private final List<ReceiveTransferDocumentCommand> receiveCommands = new CopyOnWriteArrayList<>();
+        private final List<RejectTransferDocumentCommand> rejectCommands = new CopyOnWriteArrayList<>();
+        private final List<ReturnTransferMaterialsCommand> returnCommands = new CopyOnWriteArrayList<>();
+        private final List<UUID> suggestCalls = new CopyOnWriteArrayList<>();
         int listMyWarehousesCalls;
+        int listStorageCellsCalls;
         int executeCalls;
         int createWarehouseCalls;
         boolean denyNextStock;
         long stockDelayMs;
         long taskDelayMs;
+        UUID sendResultContinuationId;
+        RuntimeException sendThrows;
+        RuntimeException returnThrows;
+        BlockingCallback sendBlock;
 
         @Override
         public List<WarehouseView> listWarehouses() {
@@ -462,11 +1002,7 @@ class WarehouseWorkspaceViewModelTest {
             }
             int index = stockPageCursor.getAndIncrement();
             if (index == 0 && stockDelayMs > 0) {
-                try {
-                    Thread.sleep(stockDelayMs);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                }
+                sleep(stockDelayMs);
             }
             listStockSummariesCalls.add(new StockSummaryCall(warehouseId, search, pageIndex, pageSize));
             index = Math.min(index, Math.max(stockPages.size() - 1, 0));
@@ -491,11 +1027,7 @@ class WarehouseWorkspaceViewModelTest {
         @Override
         public List<WarehouseTaskView> listMyWarehouseTasks(UUID warehouseId) {
             if (taskDelayMs > 0) {
-                try {
-                    Thread.sleep(taskDelayMs);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                }
+                sleep(taskDelayMs);
             }
             listMyWarehouseTasksCalls.add(new TaskListCall(warehouseId));
             if (warehouseId == null) {
@@ -519,6 +1051,105 @@ class WarehouseWorkspaceViewModelTest {
         }
 
         @Override
+        public TransferDocumentView getTransferDocument(UUID documentId) {
+            TransferDocumentView document = documents.get(documentId);
+            if (document == null) {
+                throw new IllegalStateException("document not stubbed");
+            }
+            return document;
+        }
+
+        @Override
+        public List<TransferDocumentSourceSuggestionLine> suggestTransferDocumentSourceAllocations(
+                UUID documentId) {
+            suggestCalls.add(documentId);
+            return suggestions.getOrDefault(documentId, List.of());
+        }
+
+        @Override
+        public List<TransferDocumentReturnPlanItem> listTransferDocumentReturnPlan(UUID documentId) {
+            return returnPlans.getOrDefault(documentId, List.of());
+        }
+
+        @Override
+        public List<StorageCellView> listStorageCells(UUID warehouseId) {
+            listStorageCellsCalls++;
+            return cellsByWarehouse.getOrDefault(warehouseId, List.of());
+        }
+
+        @Override
+        public List<MaterialReferenceView> listMaterialReferences() {
+            return List.copyOf(materials);
+        }
+
+        @Override
+        public TransferDocumentSendResult sendTransferDocument(SendTransferDocumentCommand command) {
+            if (sendBlock != null) {
+                try {
+                    sendBlock.run();
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(ex);
+                }
+            }
+            sendCommands.add(command);
+            if (sendThrows != null) {
+                throw sendThrows;
+            }
+            return new TransferDocumentSendResult(
+                    command.documentId(),
+                    "POSTED",
+                    command.expectedDocumentVersion() + 1,
+                    command.expectedPayloadRevision() + 1,
+                    List.of(UUID.randomUUID()),
+                    sendResultContinuationId);
+        }
+
+        @Override
+        public TransferDocumentReceiveResult receiveTransferDocument(
+                ReceiveTransferDocumentCommand command) {
+            receiveCommands.add(command);
+            return new TransferDocumentReceiveResult(
+                    command.documentId(),
+                    "COMPLETED",
+                    3L,
+                    "SETTLED",
+                    "ACCEPTED",
+                    command.expectedOperationalRevision() + 1,
+                    List.of(UUID.randomUUID()),
+                    null);
+        }
+
+        @Override
+        public TransferDocumentRejectResult rejectTransferDocument(
+                RejectTransferDocumentCommand command) {
+            rejectCommands.add(command);
+            return new TransferDocumentRejectResult(
+                    command.documentId(),
+                    "REJECTED",
+                    "RETURN_PENDING",
+                    "REJECTED",
+                    command.expectedOperationalRevision() + 1,
+                    command.rejectionReason());
+        }
+
+        @Override
+        public TransferDocumentReturnResult returnTransferMaterials(
+                ReturnTransferMaterialsCommand command) {
+            returnCommands.add(command);
+            if (returnThrows != null) {
+                throw returnThrows;
+            }
+            return new TransferDocumentReturnResult(
+                    command.documentId(),
+                    "COMPLETED",
+                    "SETTLED",
+                    "RETURNED",
+                    command.expectedOperationalRevision() + 1,
+                    List.of(UUID.randomUUID()));
+        }
+
+        @Override
         public OperationResult executeWarehouseOperation(ExecuteOperationCommand command) {
             executeCalls++;
             throw new UnsupportedOperationException();
@@ -528,6 +1159,19 @@ class WarehouseWorkspaceViewModelTest {
         public WarehouseView createWarehouse(CreateWarehouseCommand command) {
             createWarehouseCalls++;
             throw new UnsupportedOperationException();
+        }
+
+        private static void sleep(long ms) {
+            try {
+                Thread.sleep(ms);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        @FunctionalInterface
+        private interface BlockingCallback {
+            void run() throws InterruptedException;
         }
 
         private record StockSummaryCall(UUID warehouseId, String search, int pageIndex, int pageSize) {}

@@ -164,6 +164,7 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             String documentNumber,
             String title,
             String documentStatus,
+            long documentVersion,
             UUID sourceWarehouseId,
             UUID destinationWarehouseId,
             int payloadSchemaVersion,
@@ -184,6 +185,46 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             java.util.Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
             java.util.Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
             lines = lines == null ? List.of() : List.copyOf(lines);
+        }
+    }
+
+    /**
+     * Source-cell suggestions for one Transfer Document line (fixed source warehouse). Planning
+     * only — does not reserve or mutate stock.
+     */
+    record TransferDocumentSourceSuggestionLine(
+            UUID lineId,
+            UUID materialReferenceId,
+            BigDecimal requiredQuantity,
+            List<SourceCellSuggestion> suggestions) {
+
+        public TransferDocumentSourceSuggestionLine {
+            java.util.Objects.requireNonNull(lineId, "lineId");
+            java.util.Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            java.util.Objects.requireNonNull(requiredQuantity, "requiredQuantity");
+            suggestions = suggestions == null ? List.of() : List.copyOf(suggestions);
+        }
+    }
+
+    /**
+     * Outstanding return target for one send allocation of a RETURN_PENDING Transfer Document.
+     * Default cell is the original source cell from send allocation.
+     */
+    record TransferDocumentReturnPlanItem(
+            UUID lineId,
+            UUID materialReferenceId,
+            BigDecimal outstandingQuantity,
+            UUID defaultReturnStorageCellId,
+            String defaultReturnStorageCellCode) {
+
+        public TransferDocumentReturnPlanItem {
+            java.util.Objects.requireNonNull(lineId, "lineId");
+            java.util.Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            java.util.Objects.requireNonNull(outstandingQuantity, "outstandingQuantity");
+            java.util.Objects.requireNonNull(
+                    defaultReturnStorageCellId, "defaultReturnStorageCellId");
+            java.util.Objects.requireNonNull(
+                    defaultReturnStorageCellCode, "defaultReturnStorageCellCode");
         }
     }
 

@@ -19,6 +19,8 @@ public final class WarehouseUiErrorMapper {
     public static final String TECHNICAL_FAILURE =
             "Не удалось выполнить складскую операцию. Повторите попытку.";
     public static final String LOAD_FAILED = "Обновление складских данных не выполнено.";
+    public static final String STALE_STATE =
+            "Данные задачи устарели. Список обновлён — проверьте задачу и повторите действие.";
 
     private WarehouseUiErrorMapper() {}
 
@@ -32,6 +34,9 @@ public final class WarehouseUiErrorMapper {
             String message = current.getMessage() == null ? "" : current.getMessage();
             String lower = message.toLowerCase(Locale.ROOT);
             String simple = current.getClass().getSimpleName();
+            if (isStaleConflict(simple, lower)) {
+                return STALE_STATE;
+            }
             if (simple.contains("IllegalArgument") || lower.contains("must not") || lower.contains("required")) {
                 return VALIDATION;
             }
@@ -44,5 +49,26 @@ public final class WarehouseUiErrorMapper {
             current = current.getCause();
         }
         return TECHNICAL_FAILURE;
+    }
+
+    public static boolean isStaleConflict(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            String message = current.getMessage() == null ? "" : current.getMessage();
+            if (isStaleConflict(
+                    current.getClass().getSimpleName(), message.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static boolean isStaleConflict(String simpleName, String lowerMessage) {
+        return simpleName.contains("OptimisticLock")
+                || lowerMessage.contains("stale operational revision")
+                || lowerMessage.contains("stale document")
+                || lowerMessage.contains("optimistic lock")
+                || lowerMessage.contains("payload revision");
     }
 }

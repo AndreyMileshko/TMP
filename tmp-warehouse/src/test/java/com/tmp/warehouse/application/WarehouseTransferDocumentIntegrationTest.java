@@ -205,6 +205,10 @@ class WarehouseTransferDocumentIntegrationTest {
         TransferDocumentView read = api.getTransferDocument(created.documentId());
         assertEquals(created.documentId(), read.documentId());
         assertEquals(created.documentNumber(), read.documentNumber());
+        assertEquals(
+                bundle.documentEngine().findById(created.documentId()).orElseThrow().version(),
+                created.documentVersion());
+        assertEquals(created.documentVersion(), read.documentVersion());
 
         TransferDocumentView updated =
                 api.updateTransferDocument(

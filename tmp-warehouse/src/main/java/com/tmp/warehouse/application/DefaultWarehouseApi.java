@@ -18,8 +18,10 @@ import com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentRejectResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnAllocationInput;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnPlanItem;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.domain.InvalidWarehouseStateException;
 import com.tmp.warehouse.domain.MaterialReservationLink;
@@ -60,8 +62,11 @@ import com.tmp.warehouse.domain.repository.WarehouseStockReadQuery;
 import com.tmp.warehouse.security.WarehousePermissions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -1121,6 +1126,105 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     }
 
     @Override
+    public List<TransferDocumentSourceSuggestionLine> suggestTransferDocumentSourceAllocations(
+            UUID documentId) {
+        Objects.requireNonNull(documentId, "documentId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        WarehouseTransferDocumentService.LoadedTransferDocument loaded =
+                transferDocuments
+                        .findByDocumentId(documentId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Transfer document not found: " + documentId));
+        UUID sourceWarehouseId = loaded.payload().sourceWarehouseId().value();
+        List<TransferDocumentSourceSuggestionLine> lines = new ArrayList<>();
+        for (var line : loaded.payload().orderedLines()) {
+            lines.add(
+                    new TransferDocumentSourceSuggestionLine(
+                            line.id().value(),
+                            line.materialReferenceId().value(),
+                            line.quantity().value(),
+                            sourceRouting.suggestCellsForWarehouse(
+                                    sourceWarehouseId,
+                                    line.materialReferenceId().value(),
+                                    line.quantity().value())));
+        }
+        return List.copyOf(lines);
+    }
+
+    @Override
+    public List<TransferDocumentReturnPlanItem> listTransferDocumentReturnPlan(UUID documentId) {
+        Objects.requireNonNull(documentId, "documentId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        WarehouseTransferDocumentService.LoadedTransferDocument loaded =
+                transferDocuments
+                        .findByDocumentId(documentId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Transfer document not found: " + documentId));
+        if (sendAllocations == null || receiptItems == null || returnItems == null) {
+            return List.of();
+        }
+        TransferDocumentSettlement settlement =
+                settlements == null
+                        ? null
+                        : settlements.findByDocumentId(documentId).orElse(null);
+        if (settlement == null
+                || settlement.settlementState() != TransferSettlementState.RETURN_PENDING) {
+            return List.of();
+        }
+        List<TransferDocumentSendAllocation> allocations =
+                sendAllocations.findByDocumentId(documentId);
+        if (allocations.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, BigDecimal> outstandingByAllocation =
+                WarehouseTransferReturnService.outstandingBySendAllocation(
+                        allocations,
+                        receiptItems.findByDocumentId(documentId),
+                        returnItems.findByDocumentId(documentId));
+        if (outstandingByAllocation.isEmpty()) {
+            return List.of();
+        }
+        List<WarehouseTransferReturnService.ReturnTargetInput> plan =
+                WarehouseTransferReturnService.defaultReturnPlan(
+                        allocations, outstandingByAllocation);
+        Map<UUID, UUID> materialByLine = new HashMap<>();
+        for (var line : loaded.payload().orderedLines()) {
+            materialByLine.put(line.id().value(), line.materialReferenceId().value());
+        }
+        Map<UUID, String> cellCodeById = new HashMap<>();
+        for (StorageCell cell :
+                warehouses.findStorageCellsByWarehouse(loaded.payload().sourceWarehouseId())) {
+            cellCodeById.put(cell.id().value(), cell.code());
+        }
+        List<TransferDocumentReturnPlanItem> items = new ArrayList<>(plan.size());
+        for (WarehouseTransferReturnService.ReturnTargetInput target : plan) {
+            UUID materialReferenceId = materialByLine.get(target.lineId());
+            if (materialReferenceId == null) {
+                throw new InvalidWarehouseStateException(
+                        "Return plan references unknown line: lineId=" + target.lineId());
+            }
+            String cellCode = cellCodeById.get(target.returnStorageCellId());
+            if (cellCode == null) {
+                throw new InvalidWarehouseStateException(
+                        "Return cell not found in source warehouse: "
+                                + target.returnStorageCellId());
+            }
+            items.add(
+                    new TransferDocumentReturnPlanItem(
+                            target.lineId(),
+                            materialReferenceId,
+                            target.quantity(),
+                            target.returnStorageCellId(),
+                            cellCode));
+        }
+        return List.copyOf(items);
+    }
+
+    @Override
     public List<MaterialSourceRoutingResult> routeMaterials(
             UUID destinationWarehouseId, List<MaterialDemand> demands) {
         // Capability planning query: no RBAC / responsibility filter (ADR-037 / Stage 3.5.4).
@@ -1315,6 +1419,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 metadata.documentNumber(),
                 metadata.title(),
                 metadata.status().name(),
+                metadata.version(),
                 payload.sourceWarehouseId().value(),
                 payload.destinationWarehouseId().value(),
                 payload.payloadSchemaVersion(),
