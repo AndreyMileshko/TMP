@@ -140,6 +140,37 @@ class WarehouseSettingsViewModelTest {
         assertEquals(0, api.createWarehouseCalls.size());
     }
 
+    @Test
+    void emptyCellsMessageAndCancelRestoreEditFields() {
+        auth.allow(
+                UiShellScreens.WAREHOUSE_STRUCTURE_VIEW_PERMISSION,
+                UiShellScreens.WAREHOUSE_STRUCTURE_CREATE_PERMISSION,
+                UiShellScreens.WAREHOUSE_STRUCTURE_UPDATE_PERMISSION,
+                UiShellScreens.WAREHOUSE_STORAGE_CELL_VIEW_PERMISSION,
+                UiShellScreens.WAREHOUSE_STORAGE_CELL_UPDATE_PERMISSION);
+        WarehouseView wh =
+                api.createWarehouse(new CreateWarehouseCommand("WH1", "Main", true));
+        viewModel.onScreenOpened();
+        viewModel.selectSection(WarehouseSettingsViewModel.SettingsSection.CELLS);
+        viewModel.setCellsWarehouse(wh);
+        assertEquals("На складе ещё нет ячеек", viewModel.statusMessageProperty().get());
+
+        viewModel.selectedWarehouseProperty().set(wh);
+        viewModel.editWarehouseNameProperty().set("Changed");
+        viewModel.cancelWarehouseEdit();
+        assertEquals("Main", viewModel.editWarehouseNameProperty().get());
+    }
+
+    @Test
+    void navigateBackToWorkspaceInvokesCallback() {
+        boolean[] called = {false};
+        WarehouseSettingsViewModel navigable =
+                new WarehouseSettingsViewModel(
+                        api, auth, users, () -> called[0] = true, Runnable::run, Runnable::run);
+        navigable.navigateBackToWorkspace();
+        assertTrue(called[0]);
+    }
+
     private static final class FakeAuth implements AuthorizationService {
         private Set<String> allowed = Set.of();
 

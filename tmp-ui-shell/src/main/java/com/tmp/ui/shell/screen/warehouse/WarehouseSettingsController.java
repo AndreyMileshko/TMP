@@ -33,11 +33,13 @@ public final class WarehouseSettingsController
     @FXML private ToggleButton warehousesTabButton;
     @FXML private ToggleButton cellsTabButton;
     @FXML private ToggleButton responsibilitiesTabButton;
+    @FXML private Button backToWorkspaceButton;
     @FXML private VBox warehousesPane;
     @FXML private VBox cellsPane;
     @FXML private VBox responsibilitiesPane;
     @FXML private Label loadingLabel;
     @FXML private Label errorLabel;
+    @FXML private Label statusLabel;
 
     @FXML private TableView<WarehouseView> warehousesTable;
     @FXML private TableColumn<WarehouseView, String> warehouseCodeColumn;
@@ -50,6 +52,7 @@ public final class WarehouseSettingsController
     @FXML private TextField editWarehouseNameField;
     @FXML private CheckBox editWarehouseActiveCheck;
     @FXML private Button saveWarehouseButton;
+    @FXML private Button cancelWarehouseButton;
 
     @FXML private ComboBox<WarehouseView> cellsWarehouseCombo;
     @FXML private TableView<StorageCellView> cellsTable;
@@ -60,6 +63,7 @@ public final class WarehouseSettingsController
     @FXML private TextField editCellCodeField;
     @FXML private CheckBox editCellActiveCheck;
     @FXML private Button saveCellButton;
+    @FXML private Button cancelCellButton;
 
     @FXML private ComboBox<WarehouseView> responsibilityWarehouseCombo;
     @FXML private TableView<ResponsibilityRow> responsibilitiesTable;
@@ -80,8 +84,11 @@ public final class WarehouseSettingsController
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
         errorLabel.visibleProperty().bind(viewModel.errorMessageProperty().isNotEmpty());
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
+        statusLabel.textProperty().bind(viewModel.statusMessageProperty());
+        backToWorkspaceButton.setOnAction(e -> viewModel.navigateBackToWorkspace());
 
         warehousesTable.setItems(viewModel.warehouses());
+        warehousesTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         warehouseCodeColumn.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().code()));
         warehouseNameColumn.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().name()));
         warehouseActiveColumn.setCellValueFactory(
@@ -119,11 +126,21 @@ public final class WarehouseSettingsController
                                 .not()
                                 .or(viewModel.commandInFlightProperty()));
         saveWarehouseButton.setOnAction(e -> viewModel.saveSelectedWarehouse());
+        cancelWarehouseButton
+                .disableProperty()
+                .bind(viewModel.commandInFlightProperty());
+        cancelWarehouseButton.setOnAction(e -> viewModel.cancelWarehouseEdit());
 
         cellsWarehouseCombo.setItems(viewModel.warehouses());
         cellsWarehouseCombo.setConverter(warehouseConverter());
         cellsWarehouseCombo.valueProperty().bindBidirectional(viewModel.cellsWarehouseProperty());
         cellsTable.setItems(viewModel.cells());
+        cellsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        Label cellsPlaceholder = new Label();
+        cellsPlaceholder.textProperty().bind(viewModel.statusMessageProperty());
+        cellsPlaceholder.getStyleClass().add("tmp-empty-state-hint");
+        cellsPlaceholder.setWrapText(true);
+        cellsTable.setPlaceholder(cellsPlaceholder);
         cellCodeColumn.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().code()));
         cellActiveColumn.setCellValueFactory(
                 c -> new SimpleStringProperty(c.getValue().active() ? "Активна" : "Неактивна"));
@@ -142,6 +159,8 @@ public final class WarehouseSettingsController
                 .disableProperty()
                 .bind(viewModel.canUpdateCellProperty().not().or(viewModel.commandInFlightProperty()));
         saveCellButton.setOnAction(e -> viewModel.saveSelectedCell());
+        cancelCellButton.disableProperty().bind(viewModel.commandInFlightProperty());
+        cancelCellButton.setOnAction(e -> viewModel.cancelCellEdit());
 
         responsibilityWarehouseCombo.setItems(viewModel.warehouses());
         responsibilityWarehouseCombo.setConverter(warehouseConverter());
@@ -150,6 +169,8 @@ public final class WarehouseSettingsController
                 .bindBidirectional(viewModel.responsibilityWarehouseProperty());
         responsibilitiesTable.setItems(viewModel.responsibilities());
         responsibilitiesTable.setEditable(true);
+        responsibilitiesTable.setColumnResizePolicy(
+                TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         responsibilityLoginColumn.setCellValueFactory(
                 c -> new SimpleStringProperty(c.getValue().login()));
         responsibilityNameColumn.setCellValueFactory(

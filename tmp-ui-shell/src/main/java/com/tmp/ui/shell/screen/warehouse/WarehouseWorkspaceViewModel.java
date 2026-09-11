@@ -79,8 +79,8 @@ public final class WarehouseWorkspaceViewModel {
     static final int HISTORY_PAGE_SIZE = WarehouseApi.HISTORY_DEFAULT_PAGE_SIZE;
 
     private static final String EMPTY_STOCK_MESSAGE = "На выбранном складе нет доступных остатков";
-    private static final String EMPTY_SEARCH_MESSAGE = "По вашему запросу ничего не найдено";
-    private static final String EMPTY_TASKS_MESSAGE = "Нет задач по выбранным складам";
+    private static final String EMPTY_SEARCH_MESSAGE = "По выбранным условиям ничего не найдено";
+    private static final String EMPTY_TASKS_MESSAGE = "Нет задач, требующих вашего действия";
     private static final String EMPTY_HISTORY_PERIOD_MESSAGE = "За выбранный период операций нет";
     private static final String EMPTY_HISTORY_FILTER_MESSAGE =
             "По выбранным условиям ничего не найдено";
@@ -1743,27 +1743,40 @@ public final class WarehouseWorkspaceViewModel {
 
     private static String formatTaskHeader(TaskRow row, TransferDocumentView document) {
         StringBuilder builder = new StringBuilder();
-        builder.append(row.documentNumber())
+        builder.append("Документ: ")
+                .append(row.documentNumber())
                 .append(" · ")
                 .append(row.kindLabel())
                 .append(" · ")
                 .append(row.stateLabel())
-                .append("\n")
+                .append("\nОткуда → Куда: ")
                 .append(row.routeLabel())
                 .append("\nИсполнитель: ")
                 .append(row.workerDisplay());
         if (document != null) {
             builder.append("\nСтрок: ")
                     .append(document.lines().size())
-                    .append(" · статус: ")
-                    .append(document.documentStatus());
+                    .append(" · ")
+                    .append(documentStatusLabel(document.documentStatus()));
             if (document.title() != null && !document.title().isBlank()) {
-                builder.append("\n").append(document.title());
+                builder.append("\n").append(document.title().trim());
             }
         } else {
             builder.append("\nСтрок: ").append(row.lineCount());
         }
         return builder.toString();
+    }
+
+    static String documentStatusLabel(String documentStatus) {
+        if (documentStatus == null || documentStatus.isBlank()) {
+            return "";
+        }
+        return switch (documentStatus.trim()) {
+            case "DRAFT" -> "Черновик";
+            case "POSTED" -> "Проведён";
+            case "CLOSED" -> "Закрыт";
+            default -> documentStatus.trim();
+        };
     }
 
     private void clearActionEditingState() {

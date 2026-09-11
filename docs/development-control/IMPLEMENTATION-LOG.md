@@ -4,12 +4,41 @@
 
 ---
 
+## Stage 3.5.14 — Warehouse UI Polish — 2026-09-11
+
+**Date:** 2026-09-11
+**Stage:** Stage 3.5.14 (Warehouse Workspace / Settings UI polish)
+**Base checkpoint:** `671044ce5c1f1dd7074965a6aa8d42bebd985154`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.15 NEXT / NOT STARTED
+**Commit:** none
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
+
+### Summary
+
+Part A verified commit `671044ce` (History multi-cell + Settings). History transfer grouping remains document×material×type — distinct Transfer events cannot share that key under current send/receive/return contract (one physical command per document; shortfall/continuation uses a new document). Added Settings authorization + stock-safety tests. Stage 3.5.14 polished Workspace/Settings UX only: empty-state copy, button hierarchy, reject dialog, numeric alignment, Settings cancel/back, secondary «Операции склада» nav. No business-logic / migration changes.
+
+### Key changes
+
+- UI: empty messages; document status Russian labels; primary/danger action buttons; Settings cancel + «К складу»
+- Capability: secondary `warehouse.nav.operations` → `warehouse.view.workbench`
+- Tests: Settings update AccessDenied + structure update stock delta; Workspace/Settings polish regressions
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.14 entry (2026-09-11).
+
+### Next
+
+Stage 3.5.15 — Final Warehouse Acceptance (NOT STARTED). Manual acceptance deferred to 3.5.15.
+
+---
+
 ## Stage 3.5.13 — Warehouse Settings — 2026-09-11
 
 **Date:** 2026-09-11
 **Stage:** Stage 3.5.13 (Warehouse Settings admin UI)
 **Base checkpoint:** `e97fafebe75ac5d9e6232b7b340ee308919d2885` (+ 3.5.12 History corrective aggregation)
-**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.14 NEXT / NOT STARTED
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.14 COMPLETE (follow-on session)
 **Commit:** none
 **Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
 
@@ -34,7 +63,7 @@ See VERIFICATION-LOG Stage 3.5.13 entry (2026-09-11).
 
 ### Next
 
-Stage 3.5.14 — Warehouse UI Polish (NOT STARTED). Manual acceptance deferred to Stage 3.5.15.
+Stage 3.5.14 — Warehouse UI Polish = COMPLETE. Manual acceptance deferred to Stage 3.5.15.
 
 ---
 

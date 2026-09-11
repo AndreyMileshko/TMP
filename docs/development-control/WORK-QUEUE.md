@@ -11897,7 +11897,39 @@ See VERIFICATION-LOG Stage 3.5.12 entry (2026-09-11).
 ### Next on success
 
 Stage 3.5.13 — Warehouse Settings = COMPLETE
-Stage 3.5.14 — Warehouse UI Polish = NEXT / NOT STARTED
+Stage 3.5.14 — Warehouse UI Polish = COMPLETE
+Stage 3.5.15 — Final Warehouse Acceptance = NEXT / NOT STARTED
+
+---
+## STAGE-3.5.14 — Warehouse UI Polish
+
+**Status:** DONE
+**Stage:** 3.5
+**Depends on:** Stage 3.5.13
+**Module:** `tmp-ui-shell` (Workspace/Settings polish) + `tmp-warehouse` (Capability secondary nav; Settings auth/stock-safety tests)
+
+### Goal
+
+Unify Warehouse Workspace + Settings desktop UX before Final Acceptance — no new Warehouse business logic.
+
+### Acceptance criteria
+
+- [x] Empty states / terminology / task header document-status labels aligned to UI Standard wording
+- [x] Primary/destructive button hierarchy (Передать / Принять / Вернуть / Отклонить)
+- [x] Settings: cancel edit, empty cells message, «К складу» return navigation
+- [x] Secondary legacy nav «Операции склада» → workbench; primary remains «Склад» Workspace
+- [x] Stale-async / command-in-flight / existing Workspace regressions preserved
+- [x] Commit `671044ce` Part A verification PASS (+ Settings auth/stock-safety corrective tests)
+- [x] Migration NONE / Flyway V44; package + startup PASS; manual acceptance deferred to 3.5.15
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.14 entry (2026-09-11).
+
+### Next on success
+
+Stage 3.5.15 — Final Warehouse Acceptance = NEXT / NOT STARTED.
+Manual acceptance = DEFERRED TO Stage 3.5.15.
 
 ---
 ## STAGE-3.5.13 — Warehouse Settings
@@ -11928,7 +11960,7 @@ See VERIFICATION-LOG Stage 3.5.13 entry (2026-09-11).
 
 ### Next on success
 
-Stage 3.5.14 — Warehouse UI Polish = NEXT / NOT STARTED.
+Stage 3.5.14 — Warehouse UI Polish = COMPLETE.
 Manual acceptance = DEFERRED TO Stage 3.5.15.
 
 ---

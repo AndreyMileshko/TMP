@@ -3,12 +3,12 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.13 COMPLETE; **3.5.12 История COMPLETE** (+ multi-cell corrective); **3.5.13 Warehouse Settings COMPLETE**; 3.5.14 NEXT)
-**Current Task:** none (Stage 3.5.13 COMPLETE; manual Warehouse acceptance deferred to 3.5.15)
-**Last completed task:** Stage 3.5.13 — Warehouse Settings (2026-09-11); prior: Stage 3.5.12 История (+ audit corrective)
+**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.12 История COMPLETE**; **3.5.13 Warehouse Settings COMPLETE**; **3.5.14 UI Polish COMPLETE**; 3.5.15 NEXT)
+**Current Task:** none (Stage 3.5.14 COMPLETE; manual Warehouse acceptance deferred to 3.5.15)
+**Last completed task:** Stage 3.5.14 — Warehouse UI Polish (2026-09-11); prior: Stage 3.5.13 Warehouse Settings; Stage 3.5.12 История (+ audit corrective)
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
-**Active blockers:** none for Stage 3.5.14 start. Manual interactive Warehouse acceptance **DEFERRED TO Stage 3.5.15**.
+**Active blockers:** none for Stage 3.5.15 start. Manual interactive Warehouse acceptance **DEFERRED TO Stage 3.5.15**.
 **Stage 6 Warehouse:** DONE
 **Stage 7 Production:** DONE / 100%
 **Stage 7 Start Gate:** PASSED
@@ -17,11 +17,12 @@
 **Completed Stage 7 tasks:** 27 / 27 mandatory
 **Production Specification:** v2.6 Accepted (Warehouse boundary aligned; Stage 3.5.9 Material Requirement DRAFT live; Stage 3.5.10 Submit → Warehouse demand routing COMPLETE)
 **Warehouse Specification:** v1.8 Accepted (ADR-037; §15A admin API note for 3.5.1)
-**Full verify baseline:** GREEN — `FULL REGRESSION AFTER STAGE 3.5.10 = PASS` (2026-09-10) at `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d`; Stage 3.5.11–3.5.13 did **not** re-run full reactor
-**First READY implementation task:** Stage 3.5.14 Warehouse UI Polish (NOT STARTED)
+**Full verify baseline:** GREEN — `FULL REGRESSION AFTER STAGE 3.5.10 = PASS` (2026-09-10) at `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d`; Stage 3.5.11–3.5.14 did **not** re-run full reactor
+**First READY implementation task:** Stage 3.5.15 Final Warehouse Acceptance (NOT STARTED)
 **Warehouse Operational Task Actions UI:** COMPLETE (take/takeover, preparation send, receive, reject, return)
 **Warehouse History:** COMPLETE (read-only; physical movements; multi-cell aggregation corrective PASS)
 **Warehouse Settings:** COMPLETE (Склады / Ячейки / Ответственные; secondary admin entry)
+**Warehouse UI Polish:** COMPLETE (Workspace consistency; empty states; button hierarchy; Settings cancel/back; secondary legacy Operations nav)
 
 ```text
 STAGE5-050 = DONE
@@ -118,7 +119,8 @@ Stage 3.5.10 Requirement → Automatic Warehouse Tasks = COMPLETE
 Stage 3.5.11 Modern Остатки = COMPLETE (+ Tasks inbox corrective; + Operational Tasks Actions UI COMPLETE)
 Stage 3.5.12 История = COMPLETE (+ multi-cell History aggregation corrective)
 Stage 3.5.13 Warehouse Settings = COMPLETE
-First READY implementation task = Stage 3.5.14 (see WORK-QUEUE / Manifest)
+Stage 3.5.14 Warehouse UI Polish = COMPLETE
+First READY implementation task = Stage 3.5.15 (see WORK-QUEUE / Manifest)
 Manual Warehouse acceptance = DEFERRED TO Stage 3.5.15
 ```
 
@@ -136,7 +138,7 @@ Manual Warehouse acceptance = DEFERRED TO Stage 3.5.15
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
 | 7 | Production | DONE | 100% |
-| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0–3.5.13 COMPLETE; 3.5.14 NEXT |
+| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0–3.5.14 COMPLETE; 3.5.15 NEXT |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 

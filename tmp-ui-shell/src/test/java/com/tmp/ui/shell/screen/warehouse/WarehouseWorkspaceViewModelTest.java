@@ -81,6 +81,23 @@ class WarehouseWorkspaceViewModelTest {
     }
 
     @Test
+    void emptyTasksMessageIsActionOriented() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        viewModel.onScreenOpened();
+        assertEquals(
+                "Нет задач, требующих вашего действия",
+                viewModel.statusMessageProperty().get());
+    }
+
+    @Test
+    void documentStatusLabelsAreUserFacing() {
+        assertEquals("Черновик", WarehouseWorkspaceViewModel.documentStatusLabel("DRAFT"));
+        assertEquals("Проведён", WarehouseWorkspaceViewModel.documentStatusLabel("POSTED"));
+        assertEquals("Закрыт", WarehouseWorkspaceViewModel.documentStatusLabel("CLOSED"));
+    }
+
+    @Test
     void onScreenOpenedLoadsTasksThroughPublicApi() {
         UUID warehouseId = UUID.randomUUID();
         UUID destId = UUID.randomUUID();
@@ -551,7 +568,7 @@ class WarehouseWorkspaceViewModelTest {
         viewModel.commitSearch();
 
         assertEquals("profile", api.listStockSummariesCalls.getLast().search());
-        assertEquals("По вашему запросу ничего не найдено", viewModel.statusMessageProperty().get());
+        assertEquals("По выбранным условиям ничего не найдено", viewModel.statusMessageProperty().get());
     }
 
     @Test

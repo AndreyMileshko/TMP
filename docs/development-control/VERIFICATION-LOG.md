@@ -3,8 +3,43 @@
 ## Latest result
 
 **Date:** 2026-09-11
-**Scope:** Stage 3.5.13 — Warehouse Settings (+ Stage 3.5.12 History audit corrective)
+**Scope:** Stage 3.5.14 — Warehouse UI Polish (+ Part A verification of `671044ce`)
 **Overall:** PASS
+
+### COMMIT 671044ce VERIFICATION (Part A)
+
+| Check | Result |
+|-------|--------|
+| HEAD `671044ce5c1f1dd7074965a6aa8d42bebd985154` | PASS |
+| History physical-event identity | Transfer: `operationType:documentId:materialId`; non-transfer: `warehouse_operation.id` |
+| Multi-cell grouping | PASS — one send across cells → one History row (SUM qty); test `multiCellSameMaterialSendAggregatesToOnePrimaryHistoryEntry` |
+| Different-event separation | Contract-impossible for same document×material×type (one send/receive/return command per document; shortfall → new document; return covers outstanding exactly) — no new History merge regression required |
+| Settings update authorization | Backend `WAREHOUSE_STRUCTURE_UPDATE` / `STORAGE_CELL_UPDATE`; tests `unauthorizedWarehouseUpdateDenied` / `unauthorizedStorageCellUpdateDenied` |
+| Structure update stock delta | PASS — `warehouseStructureUpdateDoesNotMutateStock` / `storageCellStructureUpdateDoesNotCreateWarehouseMovements` |
+| Deactivate semantics | Flag-only catalogue update; no relocation / operations / movements |
+| Forbidden configuration | ABSENT (architecture guard) |
+| Part A RESULT | **PASS** (after Settings auth/stock-safety corrective tests) |
+
+### Stage 3.5.14 Warehouse UI Polish (2026-09-11)
+
+| Check | Result |
+|-------|--------|
+| Workspace polish | Empty states; task header Russian document status; button hierarchy; reject dialog focus/danger; qty column alignment |
+| Settings polish | Cancel edit; empty cells; «К складу» → Workspace nav; save primary |
+| Legacy navigation | Secondary «Операции склада» → workbench; primary «Склад» → Workspace |
+| Business logic | Unchanged (no send/receive/history/routing changes) |
+| Migration | **NONE / V44** |
+| Targeted UI | `WarehouseWorkspaceViewModelTest` + `WarehouseSettingsViewModelTest` + `WarehouseUiErrorMapperTest` PASS |
+| Backend regressions | History/Security/ApiIntegration/Stock/Inbox/Responsibility + Transfer Send/Shortfall/PartialReceive/RejectReturn/Receive PASS (77 transfer IT) |
+| `Stage6WarehouseArchitectureTest` | PASS (8) |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests` | PASS |
+| `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS |
+| Startup `tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 44 / V44; Started DesktopBootstrap; JavaFX unnamed-module WARN only; exceptions NONE |
+| DB safety (open only) | stock_positions 31 / sum 1257.9; warehouse_operations 61; warehouse_movements 82 — **delta 0** |
+| Manual acceptance | NOT RUN — deferred to Stage 3.5.15 |
+| Full reactor | NOT RUN — last GREEN `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d` |
+
+---
 
 ### Stage 3.5.12 History code audit + corrective (2026-09-11)
 

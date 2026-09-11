@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
@@ -535,18 +536,24 @@ public final class WarehouseWorkspaceController
         dialog.setTitle("Отклонение перемещения");
         dialog.setHeaderText("Укажите причину отклонения");
         ButtonType rejectType = new ButtonType("Отклонить", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(rejectType, ButtonType.CANCEL);
+        ButtonType cancelType = new ButtonType("Отмена", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().addAll(rejectType, cancelType);
+        dialog.getDialogPane().getStyleClass().add("tmp-dialog");
         TextArea reasonArea = new TextArea();
         reasonArea.setPromptText("Причина");
         reasonArea.setWrapText(true);
         reasonArea.setPrefRowCount(4);
         dialog.getDialogPane().setContent(reasonArea);
         Button rejectButton = (Button) dialog.getDialogPane().lookupButton(rejectType);
+        rejectButton.getStyleClass().add("tmp-button-danger");
+        Button cancelButton = (Button) dialog.getDialogPane().lookupButton(cancelType);
+        cancelButton.getStyleClass().add("tmp-button-secondary");
         rejectButton.disableProperty().bind(Bindings.createBooleanBinding(
                 () -> reasonArea.getText() == null || reasonArea.getText().isBlank(),
                 reasonArea.textProperty()));
         dialog.setResultConverter(
                 button -> button == rejectType ? reasonArea.getText() : null);
+        dialog.setOnShown(e -> reasonArea.requestFocus());
         Optional<String> result = dialog.showAndWait();
         result.ifPresent(viewModel::rejectSelectedTask);
     }
@@ -586,8 +593,10 @@ public final class WarehouseWorkspaceController
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
                                 quantityText(cell.getValue())));
+        quantityColumn.setCellFactory(column -> rightAlignedTextCell());
         unitColumn.setCellValueFactory(
                 cell -> new javafx.beans.property.SimpleStringProperty(unitText(cell.getValue())));
+        unitColumn.setCellFactory(column -> centerAlignedTextCell());
 
         stockTable.setItems(viewModel.tableRows());
         stockTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
@@ -630,6 +639,7 @@ public final class WarehouseWorkspaceController
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
                                 cell.getValue().quantityText()));
+        historyQuantityColumn.setCellFactory(column -> rightAlignedHistoryTextCell());
         historySourceColumn.setCellValueFactory(
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
@@ -700,6 +710,41 @@ public final class WarehouseWorkspaceController
 
     private static String unitText(WarehouseWorkspaceViewModel.StockTableRow row) {
         return row instanceof SummaryRow summary ? summary.unitOfMeasure() : "";
+    }
+
+    private static TableCell<WarehouseWorkspaceViewModel.StockTableRow, String> rightAlignedTextCell() {
+        return alignedTextCell(Pos.CENTER_RIGHT);
+    }
+
+    private static TableCell<WarehouseWorkspaceViewModel.StockTableRow, String> centerAlignedTextCell() {
+        return alignedTextCell(Pos.CENTER);
+    }
+
+    private static TableCell<WarehouseWorkspaceViewModel.StockTableRow, String> alignedTextCell(
+            Pos alignment) {
+        TableCell<WarehouseWorkspaceViewModel.StockTableRow, String> cell =
+                new TableCell<>() {
+                    @Override
+                    protected void updateItem(String item, boolean empty) {
+                        super.updateItem(item, empty);
+                        setText(empty || item == null ? null : item);
+                    }
+                };
+        cell.setAlignment(alignment);
+        return cell;
+    }
+
+    private static TableCell<HistoryRow, String> rightAlignedHistoryTextCell() {
+        TableCell<HistoryRow, String> cell =
+                new TableCell<>() {
+                    @Override
+                    protected void updateItem(String item, boolean empty) {
+                        super.updateItem(item, empty);
+                        setText(empty || item == null ? null : item);
+                    }
+                };
+        cell.setAlignment(Pos.CENTER_RIGHT);
+        return cell;
     }
 
     private final class ActionCellComboCell extends TableCell<ActionEditRow, StorageCellChoice> {

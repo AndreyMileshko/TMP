@@ -57,6 +57,7 @@ public final class WarehouseSettingsViewModel {
     private final ObjectProperty<SettingsSection> section =
             new SimpleObjectProperty<>(SettingsSection.WAREHOUSES);
     private final StringProperty errorMessage = new SimpleStringProperty("");
+    private final StringProperty statusMessage = new SimpleStringProperty("");
     private final BooleanProperty loading = new SimpleBooleanProperty(false);
     private final BooleanProperty commandInFlight = new SimpleBooleanProperty(false);
 
@@ -86,16 +87,26 @@ public final class WarehouseSettingsViewModel {
     private final BooleanProperty editCellActive = new SimpleBooleanProperty(true);
     private final ObjectProperty<StorageCellView> selectedCell = new SimpleObjectProperty<>();
 
+    private final Runnable navigateBackToWorkspace;
     private long loadGeneration;
 
     public WarehouseSettingsViewModel(
             WarehouseApi warehouseApi,
             AuthorizationService authorizationService,
             UserAdministrationService users) {
+        this(warehouseApi, authorizationService, users, () -> {});
+    }
+
+    public WarehouseSettingsViewModel(
+            WarehouseApi warehouseApi,
+            AuthorizationService authorizationService,
+            UserAdministrationService users,
+            Runnable navigateBackToWorkspace) {
         this(
                 warehouseApi,
                 authorizationService,
                 users,
+                navigateBackToWorkspace,
                 Executors.newCachedThreadPool(
                         runnable -> {
                             Thread thread = new Thread(runnable, "warehouse-settings");
@@ -111,10 +122,28 @@ public final class WarehouseSettingsViewModel {
             UserAdministrationService users,
             Executor backgroundExecutor,
             Consumer<Runnable> uiExecutor) {
+        this(
+                warehouseApi,
+                authorizationService,
+                users,
+                () -> {},
+                backgroundExecutor,
+                uiExecutor);
+    }
+
+    WarehouseSettingsViewModel(
+            WarehouseApi warehouseApi,
+            AuthorizationService authorizationService,
+            UserAdministrationService users,
+            Runnable navigateBackToWorkspace,
+            Executor backgroundExecutor,
+            Consumer<Runnable> uiExecutor) {
         this.warehouseApi = Objects.requireNonNull(warehouseApi, "warehouseApi");
         this.authorizationService =
                 Objects.requireNonNull(authorizationService, "authorizationService");
         this.users = Objects.requireNonNull(users, "users");
+        this.navigateBackToWorkspace =
+                Objects.requireNonNull(navigateBackToWorkspace, "navigateBackToWorkspace");
         this.backgroundExecutor = Objects.requireNonNull(backgroundExecutor, "backgroundExecutor");
         this.uiExecutor = Objects.requireNonNull(uiExecutor, "uiExecutor");
         selectedWarehouse.addListener((obs, o, n) -> applyWarehouseEditFields(n));
@@ -160,6 +189,7 @@ public final class WarehouseSettingsViewModel {
         Objects.requireNonNull(next, "next");
         section.set(next);
         errorMessage.set("");
+        statusMessage.set("");
         if (next == SettingsSection.CELLS) {
             if (cellsWarehouse.get() == null && !warehouses.isEmpty()) {
                 cellsWarehouse.set(warehouses.get(0));
@@ -171,6 +201,20 @@ public final class WarehouseSettingsViewModel {
             }
             reloadResponsibilities();
         }
+    }
+
+    public void navigateBackToWorkspace() {
+        navigateBackToWorkspace.run();
+    }
+
+    public void cancelWarehouseEdit() {
+        applyWarehouseEditFields(selectedWarehouse.get());
+        errorMessage.set("");
+    }
+
+    public void cancelCellEdit() {
+        applyCellEditFields(selectedCell.get());
+        errorMessage.set("");
     }
 
     public void reloadWarehouses() {
@@ -256,16 +300,19 @@ public final class WarehouseSettingsViewModel {
         WarehouseView warehouse = cellsWarehouse.get();
         if (warehouse == null || !canViewStructure.get() || commandInFlight.get()) {
             cells.clear();
+            statusMessage.set("");
             return;
         }
         if (!has(UiShellScreens.WAREHOUSE_STORAGE_CELL_VIEW_PERMISSION)
                 && !canViewStructure.get()) {
             cells.clear();
+            statusMessage.set("");
             return;
         }
         long requestId = ++loadGeneration;
         loading.set(true);
         errorMessage.set("");
+        statusMessage.set("");
         UUID warehouseId = warehouse.warehouseId();
         backgroundExecutor.execute(
                 () -> {
@@ -278,6 +325,11 @@ public final class WarehouseSettingsViewModel {
                                     }
                                     cells.setAll(listed);
                                     loading.set(false);
+                                    if (listed.isEmpty()) {
+                                        statusMessage.set("На складе ещё нет ячеек");
+                                    } else {
+                                        statusMessage.set("");
+                                    }
                                 });
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(
@@ -286,6 +338,7 @@ public final class WarehouseSettingsViewModel {
                                         return;
                                     }
                                     loading.set(false);
+                                    statusMessage.set("");
                                     errorMessage.set(WarehouseUiErrorMapper.text(ex));
                                 });
                     }
@@ -494,6 +547,10 @@ public final class WarehouseSettingsViewModel {
 
     public StringProperty errorMessageProperty() {
         return errorMessage;
+    }
+
+    public StringProperty statusMessageProperty() {
+        return statusMessage;
     }
 
     public BooleanProperty loadingProperty() {

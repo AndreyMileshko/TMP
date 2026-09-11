@@ -47,11 +47,11 @@
                 </columns>
             </TableView>
             <HBox spacing="8" alignment="CENTER_LEFT">
-                <Button fx:id="takeTaskInWorkButton" text="Взять в работу" styleClass="tmp-button-primary"/>
-                <Button fx:id="sendTransferButton" text="Передать" styleClass="tmp-button-secondary"/>
-                <Button fx:id="receiveTransferButton" text="Принять" styleClass="tmp-button-secondary"/>
-                <Button fx:id="rejectTransferButton" text="Отклонить" styleClass="tmp-button-secondary"/>
-                <Button fx:id="returnTransferButton" text="Вернуть материалы" styleClass="tmp-button-secondary"/>
+                <Button fx:id="takeTaskInWorkButton" text="Взять в работу" styleClass="tmp-button-secondary"/>
+                <Button fx:id="sendTransferButton" text="Передать" styleClass="tmp-button-primary"/>
+                <Button fx:id="receiveTransferButton" text="Принять" styleClass="tmp-button-primary"/>
+                <Button fx:id="rejectTransferButton" text="Отклонить" styleClass="tmp-button-danger"/>
+                <Button fx:id="returnTransferButton" text="Вернуть материалы" styleClass="tmp-button-primary"/>
                 <Button fx:id="addReceiveAllocationButton" text="Добавить ячейку" styleClass="tmp-button-secondary"/>
             </HBox>
             <Label fx:id="transferActionsHintLabel" wrapText="true" styleClass="tmp-text-muted"/>

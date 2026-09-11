@@ -247,4 +247,104 @@ class WarehouseApiIntegrationTest {
         List<WarehouseApi.WarehouseView> warehouses = api.listWarehouses();
         assertTrue(warehouses.stream().anyMatch(view -> view.code().equals("WH-API-3")));
     }
+
+    @Test
+    void warehouseStructureUpdateDoesNotMutateStock() {
+        WarehouseApi.WarehouseView warehouse =
+                api.createWarehouse(
+                        new WarehouseApi.CreateWarehouseCommand("WH-UPD", "Before", true));
+        WarehouseApi.StorageCellView cell =
+                api.createStorageCell(
+                        new WarehouseApi.CreateStorageCellCommand(
+                                warehouse.warehouseId(), "U-01", true));
+        api.executeWarehouseOperation(
+                ExecuteOperationCommand.receipt(
+                        "ALU-UPD",
+                        "ALU-UPD",
+                        "",
+                        "",
+                        "шт.",
+                        BigDecimal.valueOf(40),
+                        warehouse.warehouseId(),
+                        cell.storageCellId()));
+
+        long stockCountBefore = count("SELECT COUNT(*) FROM warehouse.stock_positions");
+        BigDecimal stockSumBefore =
+                jdbc.queryForObject(
+                        "SELECT COALESCE(SUM(quantity), 0) FROM warehouse.stock_positions",
+                        BigDecimal.class);
+        long opsBefore = count("SELECT COUNT(*) FROM warehouse.warehouse_operations");
+        long movesBefore = count("SELECT COUNT(*) FROM warehouse.warehouse_movements");
+
+        WarehouseApi.WarehouseView updated =
+                api.updateWarehouse(
+                        new WarehouseApi.UpdateWarehouseCommand(
+                                warehouse.warehouseId(), "WH-UPD", "After", false));
+        assertEquals("After", updated.name());
+        assertEquals(false, updated.active());
+
+        assertEquals(stockCountBefore, count("SELECT COUNT(*) FROM warehouse.stock_positions"));
+        assertEquals(
+                0,
+                stockSumBefore.compareTo(
+                        jdbc.queryForObject(
+                                "SELECT COALESCE(SUM(quantity), 0) FROM warehouse.stock_positions",
+                                BigDecimal.class)));
+        assertEquals(opsBefore, count("SELECT COUNT(*) FROM warehouse.warehouse_operations"));
+        assertEquals(movesBefore, count("SELECT COUNT(*) FROM warehouse.warehouse_movements"));
+        assertEquals(
+                0,
+                api.getStock("ALU-UPD").get(0).quantity().compareTo(BigDecimal.valueOf(40)));
+    }
+
+    @Test
+    void storageCellStructureUpdateDoesNotCreateWarehouseMovements() {
+        WarehouseApi.WarehouseView warehouse =
+                api.createWarehouse(
+                        new WarehouseApi.CreateWarehouseCommand("WH-CELL", "Cell WH", true));
+        WarehouseApi.StorageCellView cell =
+                api.createStorageCell(
+                        new WarehouseApi.CreateStorageCellCommand(
+                                warehouse.warehouseId(), "C-01", true));
+        api.executeWarehouseOperation(
+                ExecuteOperationCommand.receipt(
+                        "ALU-CELL",
+                        "ALU-CELL",
+                        "",
+                        "",
+                        "шт.",
+                        BigDecimal.valueOf(25),
+                        warehouse.warehouseId(),
+                        cell.storageCellId()));
+
+        long stockCountBefore = count("SELECT COUNT(*) FROM warehouse.stock_positions");
+        BigDecimal stockSumBefore =
+                jdbc.queryForObject(
+                        "SELECT COALESCE(SUM(quantity), 0) FROM warehouse.stock_positions",
+                        BigDecimal.class);
+        long opsBefore = count("SELECT COUNT(*) FROM warehouse.warehouse_operations");
+        long movesBefore = count("SELECT COUNT(*) FROM warehouse.warehouse_movements");
+
+        WarehouseApi.StorageCellView updated =
+                api.updateStorageCell(
+                        new WarehouseApi.UpdateStorageCellCommand(
+                                cell.storageCellId(), "C-REN", false));
+        assertEquals("C-REN", updated.code());
+        assertEquals(false, updated.active());
+
+        assertEquals(stockCountBefore, count("SELECT COUNT(*) FROM warehouse.stock_positions"));
+        assertEquals(
+                0,
+                stockSumBefore.compareTo(
+                        jdbc.queryForObject(
+                                "SELECT COALESCE(SUM(quantity), 0) FROM warehouse.stock_positions",
+                                BigDecimal.class)));
+        assertEquals(opsBefore, count("SELECT COUNT(*) FROM warehouse.warehouse_operations"));
+        assertEquals(movesBefore, count("SELECT COUNT(*) FROM warehouse.warehouse_movements"));
+    }
+
+    private long count(String sql) {
+        Long value = jdbc.queryForObject(sql, Long.class);
+        return value == null ? 0L : value;
+    }
 }

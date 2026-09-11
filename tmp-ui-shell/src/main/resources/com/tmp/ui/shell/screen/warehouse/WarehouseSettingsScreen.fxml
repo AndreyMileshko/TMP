@@ -22,6 +22,7 @@
                 <Label text="Настройки склада" styleClass="tmp-screen-title"/>
                 <Label text="Склады, ячейки и ответственные" styleClass="tmp-screen-subtitle"/>
             </VBox>
+            <Button fx:id="backToWorkspaceButton" text="К складу" styleClass="tmp-button-secondary"/>
         </HBox>
         <HBox spacing="8" styleClass="tmp-toolbar">
             <ToggleButton fx:id="warehousesTabButton" text="Склады" styleClass="tmp-button-secondary"/>
@@ -35,14 +36,15 @@
            visible="false" managed="false"/>
     <Label fx:id="errorLabel" styleClass="tmp-message-error" visible="false" managed="false"
            wrapText="true"/>
+    <Label fx:id="statusLabel" styleClass="tmp-empty-state-hint" wrapText="true"/>
 
     <StackPane VBox.vgrow="ALWAYS">
         <VBox fx:id="warehousesPane" spacing="8" styleClass="tmp-content" VBox.vgrow="ALWAYS">
             <TableView fx:id="warehousesTable" VBox.vgrow="ALWAYS">
                 <columns>
-                    <TableColumn fx:id="warehouseCodeColumn" text="Код" prefWidth="120"/>
-                    <TableColumn fx:id="warehouseNameColumn" text="Название" prefWidth="280"/>
-                    <TableColumn fx:id="warehouseActiveColumn" text="Статус" prefWidth="120"/>
+                    <TableColumn fx:id="warehouseCodeColumn" text="Код" prefWidth="120" minWidth="80"/>
+                    <TableColumn fx:id="warehouseNameColumn" text="Название" prefWidth="280" minWidth="140"/>
+                    <TableColumn fx:id="warehouseActiveColumn" text="Статус" prefWidth="120" minWidth="90"/>
                 </columns>
             </TableView>
             <FlowPane hgap="8" vgap="8" alignment="CENTER_LEFT">
@@ -54,7 +56,8 @@
                 <TextField fx:id="editWarehouseCodeField" promptText="Код" prefWidth="120"/>
                 <TextField fx:id="editWarehouseNameField" promptText="Название" prefWidth="220"/>
                 <CheckBox fx:id="editWarehouseActiveCheck" text="Активен"/>
-                <Button fx:id="saveWarehouseButton" text="Сохранить" styleClass="tmp-button-secondary"/>
+                <Button fx:id="saveWarehouseButton" text="Сохранить" styleClass="tmp-button-primary"/>
+                <Button fx:id="cancelWarehouseButton" text="Отмена" styleClass="tmp-button-secondary"/>
             </FlowPane>
         </VBox>
 
@@ -66,8 +69,8 @@
             </FlowPane>
             <TableView fx:id="cellsTable" VBox.vgrow="ALWAYS">
                 <columns>
-                    <TableColumn fx:id="cellCodeColumn" text="Код" prefWidth="160"/>
-                    <TableColumn fx:id="cellActiveColumn" text="Статус" prefWidth="120"/>
+                    <TableColumn fx:id="cellCodeColumn" text="Код" prefWidth="160" minWidth="100"/>
+                    <TableColumn fx:id="cellActiveColumn" text="Статус" prefWidth="120" minWidth="90"/>
                 </columns>
             </TableView>
             <FlowPane hgap="8" vgap="8" alignment="CENTER_LEFT">
@@ -77,7 +80,8 @@
             <FlowPane hgap="8" vgap="8" alignment="CENTER_LEFT">
                 <TextField fx:id="editCellCodeField" promptText="Код ячейки" prefWidth="160"/>
                 <CheckBox fx:id="editCellActiveCheck" text="Активна"/>
-                <Button fx:id="saveCellButton" text="Сохранить" styleClass="tmp-button-secondary"/>
+                <Button fx:id="saveCellButton" text="Сохранить" styleClass="tmp-button-primary"/>
+                <Button fx:id="cancelCellButton" text="Отмена" styleClass="tmp-button-secondary"/>
             </FlowPane>
         </VBox>
 
@@ -90,9 +94,11 @@
             <TableView fx:id="responsibilitiesTable" VBox.vgrow="ALWAYS" editable="true">
                 <columns>
                     <TableColumn fx:id="responsibilityAssignedColumn" text="Ответственный"
-                                 prefWidth="120"/>
-                    <TableColumn fx:id="responsibilityLoginColumn" text="Логин" prefWidth="160"/>
-                    <TableColumn fx:id="responsibilityNameColumn" text="Имя" prefWidth="280"/>
+                                 prefWidth="120" minWidth="100"/>
+                    <TableColumn fx:id="responsibilityLoginColumn" text="Логин" prefWidth="160"
+                                 minWidth="100"/>
+                    <TableColumn fx:id="responsibilityNameColumn" text="Имя" prefWidth="280"
+                                 minWidth="140"/>
                 </columns>
             </TableView>
         </VBox>

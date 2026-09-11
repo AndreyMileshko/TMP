@@ -28,6 +28,7 @@ import com.tmp.ui.shell.navigation.ScreenRegistration;
 import com.tmp.ui.shell.navigation.ShellHistoryEntry;
 import com.tmp.ui.shell.navigation.ShellNavigationCatalogue;
 import com.tmp.ui.shell.order.worklist.OrderListMemento;
+import org.springframework.beans.factory.ObjectProvider;
 import com.tmp.ui.shell.order.worklist.OrderOperationalListService;
 import com.tmp.ui.shell.screen.accessdenied.AccessDeniedViewModel;
 import com.tmp.ui.shell.screen.audit.SecurityAuditViewModel;
@@ -239,9 +240,18 @@ public class UiShellAutoConfiguration {
     WarehouseSettingsViewModel warehouseSettingsViewModel(
             WarehouseApi warehouseApi,
             AuthorizationService authorizationService,
-            UserAdministrationService userAdministrationService) {
+            UserAdministrationService userAdministrationService,
+            ObjectProvider<MainWindowViewModel> mainWindowViewModel) {
         return new WarehouseSettingsViewModel(
-                warehouseApi, authorizationService, userAdministrationService);
+                warehouseApi,
+                authorizationService,
+                userAdministrationService,
+                () -> {
+                    MainWindowViewModel main = mainWindowViewModel.getIfAvailable();
+                    if (main != null) {
+                        main.selectNavigation("warehouse.nav.workbench");
+                    }
+                });
     }
 
     @Bean

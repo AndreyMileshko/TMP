@@ -22,6 +22,8 @@ public final class WarehouseCapability implements Capability {
 
     public static final String NAV_WAREHOUSE = "warehouse.nav.workbench";
     public static final String VIEW_WAREHOUSE = "warehouse.view.workspace";
+    public static final String NAV_WAREHOUSE_OPERATIONS = "warehouse.nav.operations";
+    public static final String VIEW_WAREHOUSE_WORKBENCH = "warehouse.view.workbench";
     public static final String NAV_WAREHOUSE_SETTINGS = "warehouse.nav.settings";
     public static final String VIEW_WAREHOUSE_SETTINGS = "warehouse.view.settings";
 
@@ -46,6 +48,12 @@ public final class WarehouseCapability implements Capability {
                                                         WarehousePermissions.WAREHOUSE_VIEW
                                                                 .value())),
                                         CommandDescriptor.of(
+                                                NAV_WAREHOUSE_OPERATIONS,
+                                                "Warehouse Operations",
+                                                List.of(
+                                                        WarehousePermissions.WAREHOUSE_VIEW
+                                                                .value())),
+                                        CommandDescriptor.of(
                                                 NAV_WAREHOUSE_SETTINGS,
                                                 "Warehouse Settings",
                                                 List.of(
@@ -56,6 +64,10 @@ public final class WarehouseCapability implements Capability {
                                         ViewDescriptor.of(
                                                 VIEW_WAREHOUSE, "Warehouse", NAV_WAREHOUSE),
                                         ViewDescriptor.of(
+                                                VIEW_WAREHOUSE_WORKBENCH,
+                                                "Warehouse Operations",
+                                                NAV_WAREHOUSE_OPERATIONS),
+                                        ViewDescriptor.of(
                                                 VIEW_WAREHOUSE_SETTINGS,
                                                 "Warehouse Settings",
                                                 NAV_WAREHOUSE_SETTINGS)))
@@ -63,6 +75,11 @@ public final class WarehouseCapability implements Capability {
                                 List.of(
                                         NavigationContribution.of(
                                                 NAV_WAREHOUSE, "Склад", VIEW_WAREHOUSE, 50),
+                                        NavigationContribution.of(
+                                                NAV_WAREHOUSE_OPERATIONS,
+                                                "Операции склада",
+                                                VIEW_WAREHOUSE_WORKBENCH,
+                                                51),
                                         NavigationContribution.of(
                                                 NAV_WAREHOUSE_SETTINGS,
                                                 "Настройки склада",

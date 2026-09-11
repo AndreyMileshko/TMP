@@ -198,6 +198,28 @@ class WarehouseSecurityAuthorizationTest {
     }
 
     @Test
+    void unauthorizedWarehouseUpdateDenied() {
+        DefaultWarehouseApi stockOnly = api(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        stockOnly.updateWarehouse(
+                                new com.tmp.warehouse.api.WarehouseApi.UpdateWarehouseCommand(
+                                        UUID.randomUUID(), "WH-U", "Updated", false)));
+    }
+
+    @Test
+    void unauthorizedStorageCellUpdateDenied() {
+        DefaultWarehouseApi stockOnly = api(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        stockOnly.updateStorageCell(
+                                new com.tmp.warehouse.api.WarehouseApi.UpdateStorageCellCommand(
+                                        UUID.randomUUID(), "B-01", false)));
+    }
+
+    @Test
     void receiptIsDeniedWithoutReceiptPermission() {
         DefaultWarehouseApi api = api(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
         assertThrows(
