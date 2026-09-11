@@ -17,8 +17,12 @@ import com.tmp.warehouse.api.WarehouseApi.WarehouseMaterialStockDetailsView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockPage;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockSummaryView;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskKind;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskState;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -44,10 +48,99 @@ class WarehouseWorkspaceViewModelTest {
     }
 
     @Test
-    void firstLoadQueriesSummariesThroughPublicApi() {
+    void defaultTabIsTasks() {
+        assertEquals(WarehouseWorkspaceViewModel.WorkspaceTab.TASKS, viewModel.selectedTabProperty().get());
+    }
+
+    @Test
+    void onScreenOpenedLoadsTasksThroughPublicApi() {
+        UUID warehouseId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.tasks.add(task(warehouseId, destId, "TR-1"));
+
+        viewModel.onScreenOpened();
+
+        assertEquals(1, api.listMyWarehousesCalls);
+        assertEquals(1, api.listMyWarehouseTasksCalls.size());
+        assertEquals(0, api.listStockSummariesCalls.size());
+        assertEquals(1, viewModel.taskRows().size());
+        assertEquals("TR-1", viewModel.taskRows().get(0).documentNumber());
+        assertTrue(viewModel.errorMessageProperty().get().isBlank());
+    }
+
+    @Test
+    void takeInWorkCallsPublicApiAndRefreshesTasks() {
+        UUID sourceId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        UUID docId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(sourceId, "WH-1", "Main", true));
+        auth = new FakeAuthorization(
+                Set.of(
+                        UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                        UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION));
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        api.tasks.add(task(docId, sourceId, destId, "TR-2", WarehouseTaskState.NEW));
+        viewModel.onScreenOpened();
+        viewModel.selectTask(viewModel.taskRows().get(0));
+
+        viewModel.takeSelectedTaskInWork();
+
+        assertEquals(1, api.takeTransferTaskInWorkCalls.size());
+        assertEquals(docId, api.takeTransferTaskInWorkCalls.get(0));
+        assertEquals(2, api.listMyWarehouseTasksCalls.size());
+    }
+
+    @Test
+    void switchingTasksAndStockTabsLoadsBothLists() {
+        UUID warehouseId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.tasks.add(task(warehouseId, destId, "TR-3"));
+        api.stockPages.add(page(List.of(summary(warehouseId, "A-1", BigDecimal.TEN)), 0, 1));
+        viewModel.onScreenOpened();
+        assertEquals(1, api.listMyWarehouseTasksCalls.size());
+
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+
+        assertEquals(1, api.listStockSummariesCalls.size());
+        assertEquals(1, viewModel.tableRows().size());
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.TASKS);
+        assertEquals(2, api.listMyWarehouseTasksCalls.size());
+    }
+
+    @Test
+    void historyTabRemainsPlaceholderWithoutBackendCalls() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        viewModel.onScreenOpened();
+        int taskCalls = api.listMyWarehouseTasksCalls.size();
+
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+
+        assertEquals(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY, viewModel.selectedTabProperty().get());
+        assertEquals(taskCalls, api.listMyWarehouseTasksCalls.size());
+        assertEquals(0, api.listStockSummariesCalls.size());
+    }
+
+    @Test
+    void allWarehousesModeUsesSingleStockSummaryCall() {
+        api.warehouses.add(new WarehouseView(UUID.randomUUID(), "WH-1", "One", true));
+        api.warehouses.add(new WarehouseView(UUID.randomUUID(), "WH-2", "Two", true));
+        api.stockPages.add(emptyPage());
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+
+        assertEquals(1, api.listStockSummariesCalls.size());
+        assertEquals(null, api.listStockSummariesCalls.get(0).warehouseId());
+    }
+
+    @Test
+    void firstLoadQueriesSummariesThroughPublicApiWhenStockTabSelected() {
         UUID warehouseId = UUID.randomUUID();
         api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
         api.stockPages.add(page(List.of(summary(warehouseId, "A-1", BigDecimal.TEN)), 0, 1));
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
 
         viewModel.onScreenOpened();
 
@@ -65,6 +158,7 @@ class WarehouseWorkspaceViewModelTest {
         api.stockPages.add(emptyPage());
 
         viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
 
         assertEquals(1, viewModel.warehouseFilterOptions().size());
         assertFalse(viewModel.warehouseFilterOptions().stream().anyMatch(o -> o.isAll()));
@@ -79,6 +173,7 @@ class WarehouseWorkspaceViewModelTest {
         api.stockPages.add(emptyPage());
 
         viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
 
         assertEquals(3, viewModel.warehouseFilterOptions().size());
         assertTrue(viewModel.warehouseFilterOptions().stream().anyMatch(WarehouseWorkspaceViewModel.WarehouseFilterOption::isAll));
@@ -94,6 +189,7 @@ class WarehouseWorkspaceViewModelTest {
         api.warehouses.add(new WarehouseView(wh2, "WH-2", "Two", true));
         api.stockPages.add(emptyPage());
         viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
         int callsAfterOpen = api.listStockSummariesCalls.size();
 
         WarehouseWorkspaceViewModel.WarehouseFilterOption second =
@@ -113,6 +209,7 @@ class WarehouseWorkspaceViewModelTest {
         api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
         api.stockPages.add(emptyPage());
         viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
 
         viewModel.searchInputProperty().set("  profile  ");
         viewModel.commitSearch();
@@ -127,6 +224,7 @@ class WarehouseWorkspaceViewModelTest {
         api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
         api.stockPages.add(page(List.of(), 0, 120));
         viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
 
         viewModel.nextPage();
 
@@ -163,6 +261,7 @@ class WarehouseWorkspaceViewModelTest {
                         BigDecimal.TEN,
                         List.of(new WarehouseStockCellView(UUID.randomUUID(), "A-01", BigDecimal.TEN))));
         viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
 
         WarehouseWorkspaceViewModel.SummaryRow summary =
                 (WarehouseWorkspaceViewModel.SummaryRow) viewModel.tableRows().get(0);
@@ -182,6 +281,7 @@ class WarehouseWorkspaceViewModelTest {
         api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
         api.stockPages.add(emptyPage());
         viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
         assertEquals(
                 "На выбранном складе нет доступных остатков",
                 viewModel.statusMessageProperty().get());
@@ -204,6 +304,7 @@ class WarehouseWorkspaceViewModelTest {
         WarehouseWorkspaceViewModel asyncVm =
                 new WarehouseWorkspaceViewModel(api, auth, background, Runnable::run);
         asyncVm.onScreenOpened();
+        asyncVm.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
         Thread.sleep(20);
         asyncVm.commitSearch();
         Thread.sleep(400);
@@ -221,6 +322,7 @@ class WarehouseWorkspaceViewModelTest {
         api.warehouses.add(new WarehouseView(allowed, "WH-1", "Main", true));
         api.stockPages.add(emptyPage());
         viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
 
         WarehouseWorkspaceViewModel.WarehouseFilterOption foreignOption =
                 new WarehouseWorkspaceViewModel.WarehouseFilterOption(foreign, "Foreign");
@@ -235,6 +337,7 @@ class WarehouseWorkspaceViewModelTest {
         api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
         api.stockPages.add(emptyPage());
         viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
         viewModel.commitSearch();
         viewModel.nextPage();
 
@@ -261,6 +364,39 @@ class WarehouseWorkspaceViewModelTest {
                 "",
                 "шт",
                 qty);
+    }
+
+    private static WarehouseTaskView task(UUID sourceId, UUID destId, String number) {
+        return task(UUID.randomUUID(), sourceId, destId, number, WarehouseTaskState.NEW);
+    }
+
+    private static WarehouseTaskView task(
+            UUID documentId,
+            UUID sourceId,
+            UUID destId,
+            String number,
+            WarehouseTaskState state) {
+        return new WarehouseTaskView(
+                documentId,
+                number,
+                WarehouseTaskKind.TRANSFER_PREPARATION,
+                state,
+                sourceId,
+                "SRC",
+                "Source",
+                destId,
+                "DST",
+                "Dest",
+                2,
+                null,
+                null,
+                Instant.EPOCH,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     private static final class FakeAuthorization implements AuthorizationService {
@@ -296,11 +432,15 @@ class WarehouseWorkspaceViewModelTest {
                 new java.util.HashMap<>();
         private final List<StockSummaryCall> listStockSummariesCalls = new CopyOnWriteArrayList<>();
         private final List<BreakdownCall> getStockCellBreakdownCalls = new CopyOnWriteArrayList<>();
+        private final List<WarehouseTaskView> tasks = new ArrayList<>();
+        private final List<TaskListCall> listMyWarehouseTasksCalls = new CopyOnWriteArrayList<>();
+        private final List<UUID> takeTransferTaskInWorkCalls = new CopyOnWriteArrayList<>();
         int listMyWarehousesCalls;
         int executeCalls;
         int createWarehouseCalls;
         boolean denyNextStock;
         long stockDelayMs;
+        long taskDelayMs;
 
         @Override
         public List<WarehouseView> listWarehouses() {
@@ -349,6 +489,36 @@ class WarehouseWorkspaceViewModelTest {
         }
 
         @Override
+        public List<WarehouseTaskView> listMyWarehouseTasks(UUID warehouseId) {
+            if (taskDelayMs > 0) {
+                try {
+                    Thread.sleep(taskDelayMs);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            listMyWarehouseTasksCalls.add(new TaskListCall(warehouseId));
+            if (warehouseId == null) {
+                return List.copyOf(tasks);
+            }
+            return tasks.stream()
+                    .filter(
+                            t ->
+                                    warehouseId.equals(t.sourceWarehouseId())
+                                            || warehouseId.equals(t.destinationWarehouseId()))
+                    .toList();
+        }
+
+        @Override
+        public WarehouseTaskView takeTransferTaskInWork(UUID documentId) {
+            takeTransferTaskInWorkCalls.add(documentId);
+            return tasks.stream()
+                    .filter(t -> documentId.equals(t.documentId()))
+                    .findFirst()
+                    .orElseThrow();
+        }
+
+        @Override
         public OperationResult executeWarehouseOperation(ExecuteOperationCommand command) {
             executeCalls++;
             throw new UnsupportedOperationException();
@@ -363,5 +533,7 @@ class WarehouseWorkspaceViewModelTest {
         private record StockSummaryCall(UUID warehouseId, String search, int pageIndex, int pageSize) {}
 
         private record BreakdownCall(UUID warehouseId, UUID materialReferenceId) {}
+
+        private record TaskListCall(UUID warehouseId) {}
     }
 }

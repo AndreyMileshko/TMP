@@ -3,6 +3,39 @@
 ## Latest result
 
 **Date:** 2026-09-11
+**Scope:** Stage 3.5.11 corrective — Tasks inbox integration + permission/ALL audit
+**Overall:** PASS
+
+### Stage 3.5.11 corrective (2026-09-11)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `9a7553a0789e42a06eaf79e382929456ac648795` | PASS |
+| Tasks tab | Real Operational Inbox (`listMyWarehouseTasks` + `takeTransferTaskInWork`); not placeholder |
+| Default tab | **Задачи** (UI Standard 39B / Spec §15A) |
+| History tab | Placeholder until 3.5.12 |
+| Permission | **KEEP** `warehouse.stock.view` (= Stage-6 `WAREHOUSE_VIEW`); not introduced by 3.5.11; no separate `warehouse.view` for operational read |
+| ALL my warehouses | **KEEP** — single `listStockSummaries(null,…)` server-side; warehouse column on rows |
+| Physical Передать/Принять/Отклонить/Вернуть UI | Deferred (no prior Tasks UI; allocation UI not in this corrective); buttons disabled with hint |
+| `WarehouseWorkspaceViewModelTest` | PASS (17) |
+| `WarehouseOperationalInboxIntegrationTest` | PASS (16) |
+| `WarehouseStockSummaryIntegrationTest` | PASS (6) |
+| `WarehouseSecurityAuthorizationTest` | PASS (15) |
+| `WarehousePermissionCatalogTest` | PASS (6) |
+| `Stage6WarehouseArchitectureTest` | PASS (7) |
+| test-compile / install -DskipTests / package | PASS |
+| Startup `tmp_gui_stage5` | PASS — PostgreSQL; Flyway V44; Started DesktopBootstrap; JavaFX WARN only; exceptions NONE |
+| DB deltas | 0 (stock 31/1257.9; ops 61; mov 82) |
+| Manual acceptance | NOT RUN — deferred to 3.5.15 |
+| Full reactor | NOT RUN — last GREEN `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d` |
+| Stage 3.5.11 | COMPLETE |
+| Stage 3.5.12 | NEXT / NOT STARTED |
+
+---
+
+## Previous result
+
+**Date:** 2026-09-11
 **Scope:** Stage 3.5.11 Modern Остатки (targeted automated acceptance)
 **Overall:** PASS
 

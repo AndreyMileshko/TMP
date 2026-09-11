@@ -26,20 +26,45 @@
         </HBox>
     </VBox>
 
+    <FlowPane styleClass="tmp-toolbar" alignment="CENTER_LEFT" hgap="8" vgap="8">
+        <Label text="Склад:"/>
+        <ComboBox fx:id="warehouseCombo" prefWidth="280"/>
+    </FlowPane>
+
     <StackPane fx:id="tabContentStack" VBox.vgrow="ALWAYS">
-        <Label fx:id="tasksPlaceholderLabel" text="Раздел «Задачи» будет доступен в следующих версиях."
-               styleClass="tmp-empty-state-hint" wrapText="true" visible="false" managed="false"/>
+        <VBox fx:id="tasksPane" spacing="8" styleClass="tmp-content" visible="false" managed="false">
+            <Label fx:id="loadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
+                   visible="false" managed="false"/>
+            <TableView fx:id="tasksTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="taskDocumentColumn" text="Документ" prefWidth="120" minWidth="90"/>
+                    <TableColumn fx:id="taskKindColumn" text="Вид" prefWidth="110" minWidth="90"/>
+                    <TableColumn fx:id="taskStateColumn" text="Состояние" prefWidth="100" minWidth="80"/>
+                    <TableColumn fx:id="taskRouteColumn" text="Маршрут" prefWidth="280" minWidth="160"/>
+                    <TableColumn fx:id="taskLinesColumn" text="Строк" prefWidth="70" minWidth="56"/>
+                    <TableColumn fx:id="taskWorkerColumn" text="Исполнитель" prefWidth="160" minWidth="100"/>
+                </columns>
+            </TableView>
+            <HBox spacing="8" alignment="CENTER_LEFT">
+                <Button fx:id="takeTaskInWorkButton" text="Взять в работу" styleClass="tmp-button-primary"/>
+                <Button fx:id="sendTransferButton" text="Передать" styleClass="tmp-button-secondary" disable="true"/>
+                <Button fx:id="receiveTransferButton" text="Принять" styleClass="tmp-button-secondary" disable="true"/>
+                <Button fx:id="rejectTransferButton" text="Отклонить" styleClass="tmp-button-secondary" disable="true"/>
+                <Button fx:id="returnTransferButton" text="Вернуть" styleClass="tmp-button-secondary" disable="true"/>
+            </HBox>
+            <Label fx:id="transferActionsHintLabel" wrapText="true" styleClass="tmp-text-muted"/>
+            <Label fx:id="taskDetailsLabel" wrapText="true" styleClass="tmp-empty-state-hint"/>
+        </VBox>
+
         <Label fx:id="historyPlaceholderLabel" text="Раздел «История» будет доступен в следующих версиях."
                styleClass="tmp-empty-state-hint" wrapText="true" visible="false" managed="false"/>
 
-        <VBox fx:id="stockPane" spacing="8" styleClass="tmp-content">
+        <VBox fx:id="stockPane" spacing="8" styleClass="tmp-content" visible="false" managed="false">
             <FlowPane styleClass="tmp-toolbar" alignment="CENTER_LEFT" hgap="8" vgap="8">
-                <Label text="Склад:"/>
-                <ComboBox fx:id="warehouseCombo" prefWidth="280"/>
                 <TextField fx:id="searchField" promptText="Поиск по артикулу / названию..." prefWidth="320"/>
                 <Button fx:id="searchButton" text="Найти" styleClass="tmp-button-secondary"/>
             </FlowPane>
-            <Label fx:id="loadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
+            <Label fx:id="stockLoadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
                    visible="false" managed="false"/>
             <TableView fx:id="stockTable" VBox.vgrow="ALWAYS">
                 <columns>

@@ -5,10 +5,14 @@ import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.warehouse.api.WarehouseApi;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseMaterialStockDetailsView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockPage;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockSummaryView;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskKind;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskState;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
@@ -38,7 +42,8 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
 /**
- * Modern warehouse workspace (Остатки tab). Reads via {@link WarehouseApi} only; no stock mutations.
+ * Modern warehouse workspace (Задачи / Остатки). Reads via {@link WarehouseApi} only; stock is
+ * read-only; task take-in-work uses {@link WarehouseApi#takeTransferTaskInWork}.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
@@ -49,6 +54,11 @@ public final class WarehouseWorkspaceViewModel {
 
     private static final String EMPTY_STOCK_MESSAGE = "На выбранном складе нет доступных остатков";
     private static final String EMPTY_SEARCH_MESSAGE = "По вашему запросу ничего не найдено";
+    private static final String EMPTY_TASKS_MESSAGE = "Нет задач по выбранным складам";
+    private static final String TASK_DETAILS_PLACEHOLDER = "Выберите задачу в списке";
+    private static final String TRANSFER_ACTIONS_DISABLED_HINT =
+            "Передача, приёмка, отклонение и возврат материалов по строкам документа "
+                    + "будут доступны в следующих версиях рабочего места.";
 
     public enum WorkspaceTab {
         TASKS("Задачи"),
@@ -195,6 +205,95 @@ public final class WarehouseWorkspaceViewModel {
         }
     }
 
+    public static final class TaskRow {
+
+        private final UUID documentId;
+        private final String documentNumber;
+        private final String kindLabel;
+        private final String stateLabel;
+        private final String routeLabel;
+        private final int lineCount;
+        private final String workerDisplay;
+
+        TaskRow(WarehouseTaskView view) {
+            this.documentId = view.documentId();
+            this.documentNumber = view.documentNumber();
+            this.kindLabel = kindLabel(view.taskKind());
+            this.stateLabel = stateLabel(view.taskState());
+            this.routeLabel = warehouseRouteLabel(view);
+            this.lineCount = view.lineCount();
+            this.workerDisplay = formatWorkerDisplay(view.workingUserId());
+        }
+
+        public UUID documentId() {
+            return documentId;
+        }
+
+        public String documentNumber() {
+            return documentNumber;
+        }
+
+        public String kindLabel() {
+            return kindLabel;
+        }
+
+        public String stateLabel() {
+            return stateLabel;
+        }
+
+        public String routeLabel() {
+            return routeLabel;
+        }
+
+        public int lineCount() {
+            return lineCount;
+        }
+
+        public String lineCountText() {
+            return Integer.toString(lineCount);
+        }
+
+        public String workerDisplay() {
+            return workerDisplay;
+        }
+
+        static String kindLabel(WarehouseTaskKind kind) {
+            return switch (kind) {
+                case TRANSFER_PREPARATION -> "Подготовка";
+                case TRANSFER_RECEIPT -> "Приёмка";
+                case RETURN_MATERIALS -> "Возврат";
+            };
+        }
+
+        static String stateLabel(WarehouseTaskState state) {
+            return switch (state) {
+                case NEW -> "Новая";
+                case IN_WORK -> "В работе";
+            };
+        }
+
+        private static String warehouseRouteLabel(WarehouseTaskView view) {
+            String source = formatWarehouse(view.sourceWarehouseCode(), view.sourceWarehouseName());
+            String dest =
+                    formatWarehouse(view.destinationWarehouseCode(), view.destinationWarehouseName());
+            return source + " → " + dest;
+        }
+
+        private static String formatWarehouse(String code, String name) {
+            if (code == null || code.isBlank()) {
+                return name == null ? "" : name;
+            }
+            if (name == null || name.isBlank()) {
+                return code;
+            }
+            return code + " — " + name;
+        }
+
+        private static String formatWorkerDisplay(UUID workingUserId) {
+            return workingUserId == null ? "—" : workingUserId.toString();
+        }
+    }
+
     public static final class CellDetailRow extends StockTableRow {
 
         private final String cellCode;
@@ -224,12 +323,18 @@ public final class WarehouseWorkspaceViewModel {
     private final Consumer<Runnable> uiExecutor;
 
     private final ObjectProperty<WorkspaceTab> selectedTab =
-            new SimpleObjectProperty<>(WorkspaceTab.STOCK);
+            new SimpleObjectProperty<>(WorkspaceTab.TASKS);
     private final StringProperty title = new SimpleStringProperty("Склад");
     private final StringProperty statusMessage = new SimpleStringProperty("");
     private final StringProperty errorMessage = new SimpleStringProperty("");
+    private final StringProperty taskDetailsText =
+            new SimpleStringProperty(TASK_DETAILS_PLACEHOLDER);
+    private final StringProperty transferActionsHint =
+            new SimpleStringProperty(TRANSFER_ACTIONS_DISABLED_HINT);
     private final BooleanProperty loading = new SimpleBooleanProperty(false);
     private final BooleanProperty canView = new SimpleBooleanProperty(false);
+    private final BooleanProperty canTransfer = new SimpleBooleanProperty(false);
+    private final BooleanProperty canTakeSelectedTaskInWork = new SimpleBooleanProperty(false);
     private final BooleanProperty showWarehouseColumn = new SimpleBooleanProperty(false);
 
     private final ObservableList<WarehouseFilterOption> warehouseFilterOptions =
@@ -238,6 +343,8 @@ public final class WarehouseWorkspaceViewModel {
             new SimpleObjectProperty<>();
     private final StringProperty searchInput = new SimpleStringProperty("");
     private final ObservableList<StockTableRow> tableRows = FXCollections.observableArrayList();
+    private final ObservableList<TaskRow> taskRows = FXCollections.observableArrayList();
+    private final ObjectProperty<TaskRow> selectedTask = new SimpleObjectProperty<>();
 
     private final IntegerProperty pageIndex = new SimpleIntegerProperty(0);
     private final LongProperty totalElements = new SimpleLongProperty(0);
@@ -248,6 +355,9 @@ public final class WarehouseWorkspaceViewModel {
     private final Map<UUID, String> warehouseLabels = new HashMap<>();
     private String committedSearch = "";
     private long stockLoadGeneration;
+    private long taskLoadGeneration;
+    private long taskDetailLoadGeneration;
+    private boolean stockLoadedForCurrentFilter;
     private long expandRequestCounter;
     private final Map<String, Long> expandRequestIds = new HashMap<>();
 
@@ -281,6 +391,8 @@ public final class WarehouseWorkspaceViewModel {
 
     public void refreshPermissions() {
         canView.set(has(UiShellScreens.WAREHOUSE_VIEW_PERMISSION));
+        canTransfer.set(has(UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION));
+        updateTakeInWorkAvailability();
     }
 
     public void onScreenOpened() {
@@ -289,12 +401,24 @@ public final class WarehouseWorkspaceViewModel {
             deny();
             return;
         }
-        loadWarehouseFiltersAndStock();
+        loadWarehouseFiltersAndInitialContent();
     }
 
     public void selectTab(WorkspaceTab tab) {
         Objects.requireNonNull(tab, "tab");
+        WorkspaceTab previous = selectedTab.get();
+        if (previous == tab) {
+            return;
+        }
         selectedTab.set(tab);
+        errorMessage.set("");
+        if (tab == WorkspaceTab.TASKS) {
+            reloadTasks();
+        } else if (tab == WorkspaceTab.STOCK) {
+            ensureStockLoaded();
+        } else {
+            statusMessage.set("");
+        }
     }
 
     public void selectWarehouseFilter(WarehouseFilterOption option) {
@@ -309,10 +433,52 @@ public final class WarehouseWorkspaceViewModel {
         pageIndex.set(0);
         selectedWarehouseFilter.set(option);
         showWarehouseColumn.set(option != null && option.isAll());
-        reloadStockSummaries();
+        stockLoadedForCurrentFilter = false;
+        WorkspaceTab tab = selectedTab.get();
+        if (tab == WorkspaceTab.TASKS) {
+            reloadTasks();
+        } else if (tab == WorkspaceTab.STOCK) {
+            reloadStockSummaries();
+        }
+    }
+
+    public void selectTask(TaskRow row) {
+        selectedTask.set(row);
+        updateTakeInWorkAvailability();
+        loadSelectedTaskDetails(row);
+    }
+
+    public void takeSelectedTaskInWork() {
+        TaskRow row = selectedTask.get();
+        if (row == null || !canTakeSelectedTaskInWork.get()) {
+            return;
+        }
+        UUID documentId = row.documentId();
+        loading.set(true);
+        errorMessage.set("");
+        backgroundExecutor.execute(
+                () -> {
+                    try {
+                        warehouseApi.takeTransferTaskInWork(documentId);
+                        uiExecutor.accept(
+                                () -> {
+                                    loading.set(false);
+                                    reloadTasks();
+                                });
+                    } catch (RuntimeException ex) {
+                        uiExecutor.accept(
+                                () -> {
+                                    loading.set(false);
+                                    errorMessage.set(WarehouseUiErrorMapper.text(ex));
+                                });
+                    }
+                });
     }
 
     public void commitSearch() {
+        if (selectedTab.get() != WorkspaceTab.STOCK) {
+            return;
+        }
         committedSearch = blankToNull(searchInput.get()) == null ? "" : searchInput.get().trim();
         clearExpandedRows();
         pageIndex.set(0);
@@ -320,6 +486,9 @@ public final class WarehouseWorkspaceViewModel {
     }
 
     public void nextPage() {
+        if (selectedTab.get() != WorkspaceTab.STOCK) {
+            return;
+        }
         long total = totalElements.get();
         int maxPage = total <= 0 ? 0 : (int) ((total - 1) / PAGE_SIZE);
         if (pageIndex.get() < maxPage) {
@@ -330,6 +499,9 @@ public final class WarehouseWorkspaceViewModel {
     }
 
     public void previousPage() {
+        if (selectedTab.get() != WorkspaceTab.STOCK) {
+            return;
+        }
         if (pageIndex.get() > 0) {
             clearExpandedRows();
             pageIndex.set(pageIndex.get() - 1);
@@ -406,7 +578,27 @@ public final class WarehouseWorkspaceViewModel {
         return canGoNext;
     }
 
-    private void loadWarehouseFiltersAndStock() {
+    public ObservableList<TaskRow> taskRows() {
+        return taskRows;
+    }
+
+    public ObjectProperty<TaskRow> selectedTaskProperty() {
+        return selectedTask;
+    }
+
+    public StringProperty taskDetailsTextProperty() {
+        return taskDetailsText;
+    }
+
+    public StringProperty transferActionsHintProperty() {
+        return transferActionsHint;
+    }
+
+    public BooleanProperty canTakeSelectedTaskInWorkProperty() {
+        return canTakeSelectedTaskInWork;
+    }
+
+    private void loadWarehouseFiltersAndInitialContent() {
         errorMessage.set("");
         statusMessage.set("");
         try {
@@ -438,11 +630,161 @@ public final class WarehouseWorkspaceViewModel {
             }
             showWarehouseColumn.set(
                     selectedWarehouseFilter.get() != null && selectedWarehouseFilter.get().isAll());
-            reloadStockSummaries();
+            stockLoadedForCurrentFilter = false;
+            if (selectedTab.get() == WorkspaceTab.STOCK) {
+                reloadStockSummaries();
+            } else {
+                reloadTasks();
+            }
         } catch (RuntimeException ex) {
             errorMessage.set(WarehouseUiErrorMapper.text(ex));
             statusMessage.set(WarehouseUiErrorMapper.LOAD_FAILED);
         }
+    }
+
+    private void ensureStockLoaded() {
+        if (!stockLoadedForCurrentFilter) {
+            reloadStockSummaries();
+        }
+    }
+
+    private void reloadTasks() {
+        if (!canView.get()) {
+            deny();
+            return;
+        }
+        WarehouseFilterOption filter = selectedWarehouseFilter.get();
+        UUID warehouseId = filter == null ? null : filter.warehouseId();
+        long requestId = ++taskLoadGeneration;
+        loading.set(true);
+        errorMessage.set("");
+        if (selectedTab.get() == WorkspaceTab.TASKS) {
+            statusMessage.set("");
+        }
+        backgroundExecutor.execute(
+                () -> {
+                    try {
+                        List<WarehouseTaskView> tasks =
+                                warehouseApi.listMyWarehouseTasks(warehouseId);
+                        uiExecutor.accept(() -> applyTaskList(tasks, requestId));
+                    } catch (RuntimeException ex) {
+                        uiExecutor.accept(() -> applyTaskLoadError(ex, requestId));
+                    }
+                });
+    }
+
+    private void applyTaskList(List<WarehouseTaskView> tasks, long requestId) {
+        if (requestId != taskLoadGeneration) {
+            return;
+        }
+        loading.set(false);
+        UUID previousSelection = selectedTask.get() == null ? null : selectedTask.get().documentId();
+        List<TaskRow> rows = new ArrayList<>();
+        for (WarehouseTaskView task : tasks) {
+            rows.add(new TaskRow(task));
+        }
+        taskRows.setAll(rows);
+        TaskRow restored =
+                previousSelection == null
+                        ? null
+                        : rows.stream()
+                                .filter(r -> previousSelection.equals(r.documentId()))
+                                .findFirst()
+                                .orElse(null);
+        selectedTask.set(restored);
+        updateTakeInWorkAvailability();
+        if (restored != null) {
+            loadSelectedTaskDetails(restored);
+        } else {
+            taskDetailsText.set(TASK_DETAILS_PLACEHOLDER);
+        }
+        if (selectedTab.get() == WorkspaceTab.TASKS) {
+            statusMessage.set(rows.isEmpty() ? EMPTY_TASKS_MESSAGE : "");
+        }
+    }
+
+    private void applyTaskLoadError(RuntimeException ex, long requestId) {
+        if (requestId != taskLoadGeneration) {
+            return;
+        }
+        loading.set(false);
+        errorMessage.set(WarehouseUiErrorMapper.text(ex));
+        if (selectedTab.get() == WorkspaceTab.TASKS) {
+            statusMessage.set(WarehouseUiErrorMapper.LOAD_FAILED);
+        }
+        taskRows.clear();
+        selectedTask.set(null);
+        taskDetailsText.set(TASK_DETAILS_PLACEHOLDER);
+        updateTakeInWorkAvailability();
+    }
+
+    private void loadSelectedTaskDetails(TaskRow row) {
+        if (row == null) {
+            taskDetailsText.set(TASK_DETAILS_PLACEHOLDER);
+            return;
+        }
+        UUID documentId = row.documentId();
+        long requestId = ++taskDetailLoadGeneration;
+        taskDetailsText.set(
+                row.documentNumber()
+                        + " · "
+                        + row.kindLabel()
+                        + " · "
+                        + row.stateLabel()
+                        + " · "
+                        + row.routeLabel()
+                        + " · строк: "
+                        + row.lineCount());
+        backgroundExecutor.execute(
+                () -> {
+                    try {
+                        TransferDocumentView document = warehouseApi.getTransferDocument(documentId);
+                        uiExecutor.accept(() -> applyTaskDetailDocument(document, row, requestId));
+                    } catch (RuntimeException ex) {
+                        uiExecutor.accept(() -> applyTaskDetailError(row, ex, requestId));
+                    }
+                });
+    }
+
+    private void applyTaskDetailDocument(
+            TransferDocumentView document, TaskRow row, long requestId) {
+        if (requestId != taskDetailLoadGeneration || !Objects.equals(selectedTask.get(), row)) {
+            return;
+        }
+        taskDetailsText.set(
+                row.documentNumber()
+                        + " · "
+                        + row.kindLabel()
+                        + " · "
+                        + row.stateLabel()
+                        + "\n"
+                        + row.routeLabel()
+                        + "\nСтрок в документе: "
+                        + document.lines().size()
+                        + " · статус: "
+                        + document.documentStatus()
+                        + (document.title().isBlank() ? "" : "\n" + document.title()));
+    }
+
+    private void applyTaskDetailError(TaskRow row, RuntimeException ex, long requestId) {
+        if (requestId != taskDetailLoadGeneration || !Objects.equals(selectedTask.get(), row)) {
+            return;
+        }
+        taskDetailsText.set(
+                row.documentNumber()
+                        + " · "
+                        + row.kindLabel()
+                        + " · "
+                        + row.stateLabel()
+                        + "\n"
+                        + row.routeLabel()
+                        + "\n(Не удалось загрузить документ: "
+                        + WarehouseUiErrorMapper.text(ex)
+                        + ")");
+    }
+
+    private void updateTakeInWorkAvailability() {
+        canTakeSelectedTaskInWork.set(canTransfer.get() && selectedTask.get() != null);
     }
 
     private boolean isAccessibleFilter(WarehouseFilterOption option) {
@@ -462,7 +804,10 @@ public final class WarehouseWorkspaceViewModel {
             tableRows.clear();
             totalElements.set(0);
             updatePaginationFlags();
-            statusMessage.set(EMPTY_STOCK_MESSAGE);
+            stockLoadedForCurrentFilter = true;
+            if (selectedTab.get() == WorkspaceTab.STOCK) {
+                statusMessage.set(EMPTY_STOCK_MESSAGE);
+            }
             return;
         }
         UUID warehouseId = filter == null ? null : filter.warehouseId();
@@ -491,6 +836,7 @@ public final class WarehouseWorkspaceViewModel {
             return;
         }
         loading.set(false);
+        stockLoadedForCurrentFilter = true;
         totalElements.set(pageResult.totalElements());
         updatePaginationFlags();
         List<StockTableRow> rows = new ArrayList<>();
@@ -500,8 +846,10 @@ public final class WarehouseWorkspaceViewModel {
                             summary, warehouseLabels.getOrDefault(summary.warehouseId(), "")));
         }
         tableRows.setAll(rows);
-        if (pageResult.totalElements() == 0) {
+        if (selectedTab.get() == WorkspaceTab.STOCK && pageResult.totalElements() == 0) {
             statusMessage.set(searchActive ? EMPTY_SEARCH_MESSAGE : EMPTY_STOCK_MESSAGE);
+        } else if (selectedTab.get() == WorkspaceTab.STOCK) {
+            statusMessage.set("");
         }
     }
 
@@ -510,8 +858,11 @@ public final class WarehouseWorkspaceViewModel {
             return;
         }
         loading.set(false);
+        stockLoadedForCurrentFilter = false;
         errorMessage.set(WarehouseUiErrorMapper.text(ex));
-        statusMessage.set(WarehouseUiErrorMapper.LOAD_FAILED);
+        if (selectedTab.get() == WorkspaceTab.STOCK) {
+            statusMessage.set(WarehouseUiErrorMapper.LOAD_FAILED);
+        }
         tableRows.clear();
         totalElements.set(0);
         updatePaginationFlags();

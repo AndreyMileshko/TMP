@@ -3,6 +3,7 @@ package com.tmp.ui.shell.screen.warehouse;
 import com.tmp.ui.shell.navigation.ViewModelAware;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.CellDetailRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.SummaryRow;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.TaskRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.WarehouseFilterOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.WorkspaceTab;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -22,9 +23,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
-/**
- * Modern warehouse workspace controller (Остатки tab and placeholders).
- */
+/** Modern warehouse workspace controller (Задачи / Остатки / History placeholder). */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
         justification = "JavaFX Controller retains ViewModel for FXML wiring")
@@ -47,10 +46,10 @@ public final class WarehouseWorkspaceController
     private StackPane tabContentStack;
 
     @FXML
-    private VBox stockPane;
+    private VBox tasksPane;
 
     @FXML
-    private Label tasksPlaceholderLabel;
+    private VBox stockPane;
 
     @FXML
     private Label historyPlaceholderLabel;
@@ -66,6 +65,39 @@ public final class WarehouseWorkspaceController
 
     @FXML
     private Label loadingLabel;
+
+    @FXML
+    private Label stockLoadingLabel;
+
+    @FXML
+    private TableView<TaskRow> tasksTable;
+
+    @FXML
+    private TableColumn<TaskRow, String> taskDocumentColumn;
+
+    @FXML
+    private TableColumn<TaskRow, String> taskKindColumn;
+
+    @FXML
+    private TableColumn<TaskRow, String> taskStateColumn;
+
+    @FXML
+    private TableColumn<TaskRow, String> taskRouteColumn;
+
+    @FXML
+    private TableColumn<TaskRow, String> taskLinesColumn;
+
+    @FXML
+    private TableColumn<TaskRow, String> taskWorkerColumn;
+
+    @FXML
+    private Button takeTaskInWorkButton;
+
+    @FXML
+    private Label transferActionsHintLabel;
+
+    @FXML
+    private Label taskDetailsLabel;
 
     @FXML
     private TableView<WarehouseWorkspaceViewModel.StockTableRow> stockTable;
@@ -122,34 +154,44 @@ public final class WarehouseWorkspaceController
         errorLabel.visibleProperty().bind(viewModel.errorMessageProperty().isNotEmpty());
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
 
-        loadingLabel.visibleProperty().bind(viewModel.loadingProperty());
+        loadingLabel.visibleProperty().bind(
+                Bindings.and(
+                        viewModel.loadingProperty(),
+                        Bindings.equal(viewModel.selectedTabProperty(), WorkspaceTab.TASKS)));
         loadingLabel.managedProperty().bind(loadingLabel.visibleProperty());
+        stockLoadingLabel.visibleProperty().bind(
+                Bindings.and(
+                        viewModel.loadingProperty(),
+                        Bindings.equal(viewModel.selectedTabProperty(), WorkspaceTab.STOCK)));
+        stockLoadingLabel.managedProperty().bind(stockLoadingLabel.visibleProperty());
 
         ToggleGroup tabGroup = new ToggleGroup();
         tasksTabButton.setToggleGroup(tabGroup);
         stockTabButton.setToggleGroup(tabGroup);
         historyTabButton.setToggleGroup(tabGroup);
-        stockTabButton.setSelected(true);
+        tasksTabButton.setSelected(true);
 
         tasksTabButton.setOnAction(e -> selectTab(WorkspaceTab.TASKS));
         stockTabButton.setOnAction(e -> selectTab(WorkspaceTab.STOCK));
         historyTabButton.setOnAction(e -> selectTab(WorkspaceTab.HISTORY));
 
         viewModel.selectedTabProperty().addListener((obs, oldValue, newValue) -> {
-            if (newValue == null || binding) {
+            if (newValue == null) {
                 return;
             }
-            binding = true;
-            try {
-                switch (newValue) {
-                    case TASKS -> tasksTabButton.setSelected(true);
-                    case STOCK -> stockTabButton.setSelected(true);
-                    case HISTORY -> historyTabButton.setSelected(true);
+            if (!binding) {
+                binding = true;
+                try {
+                    switch (newValue) {
+                        case TASKS -> tasksTabButton.setSelected(true);
+                        case STOCK -> stockTabButton.setSelected(true);
+                        case HISTORY -> historyTabButton.setSelected(true);
+                    }
+                } finally {
+                    binding = false;
                 }
-                updateTabVisibility(newValue);
-            } finally {
-                binding = false;
             }
+            updateTabVisibility(newValue);
         });
         updateTabVisibility(viewModel.selectedTabProperty().get());
 
@@ -181,7 +223,13 @@ public final class WarehouseWorkspaceController
         searchField.setOnAction(e -> viewModel.commitSearch());
         searchButton.setOnAction(e -> viewModel.commitSearch());
 
+        configureTasksTable();
         configureStockTable();
+
+        takeTaskInWorkButton.setOnAction(e -> viewModel.takeSelectedTaskInWork());
+        takeTaskInWorkButton.disableProperty().bind(viewModel.canTakeSelectedTaskInWorkProperty().not());
+        transferActionsHintLabel.textProperty().bind(viewModel.transferActionsHintProperty());
+        taskDetailsLabel.textProperty().bind(viewModel.taskDetailsTextProperty());
 
         previousPageButton.setOnAction(e -> viewModel.previousPage());
         nextPageButton.setOnAction(e -> viewModel.nextPage());
@@ -204,16 +252,61 @@ public final class WarehouseWorkspaceController
             return;
         }
         viewModel.selectTab(tab);
-        updateTabVisibility(tab);
     }
 
     private void updateTabVisibility(WorkspaceTab tab) {
+        tasksPane.setVisible(tab == WorkspaceTab.TASKS);
+        tasksPane.setManaged(tab == WorkspaceTab.TASKS);
         stockPane.setVisible(tab == WorkspaceTab.STOCK);
         stockPane.setManaged(tab == WorkspaceTab.STOCK);
-        tasksPlaceholderLabel.setVisible(tab == WorkspaceTab.TASKS);
-        tasksPlaceholderLabel.setManaged(tab == WorkspaceTab.TASKS);
         historyPlaceholderLabel.setVisible(tab == WorkspaceTab.HISTORY);
         historyPlaceholderLabel.setManaged(tab == WorkspaceTab.HISTORY);
+    }
+
+    private void configureTasksTable() {
+        taskDocumentColumn.setCellValueFactory(
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().documentNumber()));
+        taskKindColumn.setCellValueFactory(
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().kindLabel()));
+        taskStateColumn.setCellValueFactory(
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().stateLabel()));
+        taskRouteColumn.setCellValueFactory(
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().routeLabel()));
+        taskLinesColumn.setCellValueFactory(
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().lineCountText()));
+        taskWorkerColumn.setCellValueFactory(
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().workerDisplay()));
+
+        tasksTable.setItems(viewModel.taskRows());
+        tasksTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        Label placeholder = new Label();
+        placeholder.textProperty().bind(viewModel.statusMessageProperty());
+        placeholder.getStyleClass().add("tmp-empty-state-hint");
+        placeholder.setWrapText(true);
+        tasksTable.setPlaceholder(placeholder);
+
+        tasksTable.getSelectionModel()
+                .selectedItemProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> {
+                            if (binding) {
+                                return;
+                            }
+                            viewModel.selectTask(newValue);
+                        });
+        viewModel.selectedTaskProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> {
+                            if (binding || java.util.Objects.equals(tasksTable.getSelectionModel().getSelectedItem(), newValue)) {
+                                return;
+                            }
+                            binding = true;
+                            try {
+                                tasksTable.getSelectionModel().select(newValue);
+                            } finally {
+                                binding = false;
+                            }
+                        });
     }
 
     private void configureStockTable() {

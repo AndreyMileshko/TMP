@@ -4,6 +4,35 @@
 
 ---
 
+## Stage 3.5.11 corrective — Tasks inbox + permission/ALL audit — 2026-09-11
+
+**Date:** 2026-09-11
+**Stage:** Stage 3.5.11 corrective (Warehouse Workspace Tasks integration)
+**Base checkpoint:** `9a7553a0789e42a06eaf79e382929456ac648795`
+**Status:** COMPLETE (no auto-commit); Stage 3.5.11 COMPLETE; 3.5.12 NEXT / NOT STARTED
+**Commit:** none
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
+
+### Summary
+
+Corrective after Modern Остатки: (1) replace Tasks placeholder with real Operational Inbox UI reusing Stage 3.5.5 public API (`listMyWarehouseTasks`, `takeTransferTaskInWork`); (2) confirm `warehouse.stock.view` is pre-existing Stage-6 WAREHOUSE_VIEW — keep; (3) confirm «Все мои склады» is a single server-side `listStockSummaries(null,…)` with warehouse column — keep. Default tab = Задачи. History remains placeholder. Physical transfer action buttons deferred (no prior Tasks UI; multi-line allocation out of corrective scope).
+
+### Key changes
+
+- `WarehouseWorkspaceViewModel` / Controller / FXML: Tasks pane, shared warehouse filter, default TASKS
+- Tests extended (17 ViewModel cases)
+- Stock query/aggregation/AVAILABLE semantics unchanged
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.11 corrective entry (2026-09-11).
+
+### Next
+
+Stage 3.5.12 — История (NOT STARTED).
+
+---
+
 ## Stage 3.5.11 — Modern Остатки — 2026-09-11
 
 **Date:** 2026-09-11

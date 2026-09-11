@@ -11884,6 +11884,8 @@ Replace legacy technical Warehouse Workbench as the primary stock viewing screen
 - [x] Warehouse Query API `listStockSummaries` / `getStockCellBreakdown` (AVAILABLE only; responsibility-scoped)
 - [x] Server-side GROUP BY aggregation + search + pagination; no N+1 material/cell eager load
 - [x] Modern workspace UI: warehouse filter, search, expand/collapse, loading/empty/error, async stale-safe
+- [x] Tasks tab = Stage 3.5.5 Operational Inbox (`listMyWarehouseTasks` + take-in-work); default tab = Задачи
+- [x] History tab placeholder until 3.5.12; permission = existing `warehouse.stock.view`; ALL = single server query
 - [x] Primary nav → `warehouse.view.workspace`; legacy workbench remains registered
 - [x] Migration NONE / Flyway V44; no stock mutations from view
 - [x] Targeted tests + architecture + package + startup PASS; manual acceptance deferred to 3.5.15
