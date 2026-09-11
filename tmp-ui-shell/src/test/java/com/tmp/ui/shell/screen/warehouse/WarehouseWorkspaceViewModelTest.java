@@ -562,6 +562,74 @@ class WarehouseWorkspaceViewModelTest {
         assertFalse(viewModel.canReceiveSelectedTaskProperty().get());
     }
 
+    /**
+     * After Stage 3.5.7 shortfall send (requested 100, sent 98), Warehouse shrinks the POSTED
+     * document line to actual sent. Receipt UI must use that persisted line quantity — not
+     * reconstruct {@code requested - continuation}.
+     */
+    @Test
+    void receiptAfterShortfallUsesPersistedSentQuantityNotOriginalRequest() {
+        auth = transferAuth();
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        UUID documentId = UUID.randomUUID();
+        UUID sourceId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        UUID materialId = UUID.randomUUID();
+        UUID lineId = UUID.randomUUID();
+        UUID destCell = UUID.randomUUID();
+        // Post-shortfall Warehouse read state only (actual sent = 98). Original request 100 is
+        // intentionally absent — UI must not need it or continuation qty.
+        api.warehouses.add(new WarehouseView(destId, "DST", "Dest", true));
+        api.materials.add(new MaterialReferenceView(materialId, "ART-SF", "Profile", "", "", "м"));
+        api.cellsByWarehouse.put(
+                destId, List.of(new StorageCellView(destCell, destId, "D-01", true)));
+        api.documents.put(
+                documentId,
+                document(
+                        documentId,
+                        sourceId,
+                        destId,
+                        List.of(
+                                new TransferDocumentLineView(
+                                        lineId, materialId, new BigDecimal("98"), 1)),
+                        3L,
+                        6L,
+                        20L));
+        api.tasks.add(
+                task(
+                        documentId,
+                        sourceId,
+                        destId,
+                        "TR-SF-RCV",
+                        WarehouseTaskKind.TRANSFER_RECEIPT,
+                        WarehouseTaskState.IN_WORK,
+                        UUID.randomUUID()));
+
+        viewModel.onScreenOpened();
+        viewModel.selectTask(viewModel.taskRows().get(0));
+
+        assertEquals(1, viewModel.actionLines().size());
+        ReceiveAllocationEditRow row = (ReceiveAllocationEditRow) viewModel.actionLines().get(0);
+        assertEquals(0, new BigDecimal("98").compareTo(row.sentQuantity()));
+        assertEquals("98", row.referenceQuantityText());
+        assertEquals("98", row.quantityTextProperty().get());
+
+        StorageCellChoice cell = choice(viewModel.actionCellChoices(), destCell);
+        row.storageCellProperty().set(cell);
+
+        row.quantityTextProperty().set("98");
+        assertTrue(viewModel.canReceiveSelectedTaskProperty().get(), "receive 98 must be valid");
+
+        row.quantityTextProperty().set("97");
+        assertTrue(viewModel.canReceiveSelectedTaskProperty().get(), "receive 97 must be valid");
+
+        row.quantityTextProperty().set("99");
+        assertFalse(viewModel.canReceiveSelectedTaskProperty().get(), "receive 99 must be invalid");
+
+        row.quantityTextProperty().set("100");
+        assertFalse(viewModel.canReceiveSelectedTaskProperty().get(), "receive 100 must be invalid");
+    }
+
     @Test
     void rejectBlankReasonBlockedAndTrimmedReasonPassed() {
         openReceipt();
