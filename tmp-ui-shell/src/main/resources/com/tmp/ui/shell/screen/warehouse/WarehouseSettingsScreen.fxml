@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ToggleButton?>
+<?import javafx.scene.layout.FlowPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.tmp.ui.shell.screen.warehouse.WarehouseSettingsController"
+      styleClass="tmp-screen">
+    <VBox styleClass="tmp-screen-header">
+        <HBox alignment="CENTER_LEFT" spacing="16">
+            <VBox HBox.hgrow="ALWAYS" spacing="4">
+                <Label text="Настройки склада" styleClass="tmp-screen-title"/>
+                <Label text="Склады, ячейки и ответственные" styleClass="tmp-screen-subtitle"/>
+            </VBox>
+        </HBox>
+        <HBox spacing="8" styleClass="tmp-toolbar">
+            <ToggleButton fx:id="warehousesTabButton" text="Склады" styleClass="tmp-button-secondary"/>
+            <ToggleButton fx:id="cellsTabButton" text="Ячейки" styleClass="tmp-button-secondary"/>
+            <ToggleButton fx:id="responsibilitiesTabButton" text="Ответственные"
+                          styleClass="tmp-button-secondary"/>
+        </HBox>
+    </VBox>
+
+    <Label fx:id="loadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
+           visible="false" managed="false"/>
+    <Label fx:id="errorLabel" styleClass="tmp-message-error" visible="false" managed="false"
+           wrapText="true"/>
+
+    <StackPane VBox.vgrow="ALWAYS">
+        <VBox fx:id="warehousesPane" spacing="8" styleClass="tmp-content" VBox.vgrow="ALWAYS">
+            <TableView fx:id="warehousesTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="warehouseCodeColumn" text="Код" prefWidth="120"/>
+                    <TableColumn fx:id="warehouseNameColumn" text="Название" prefWidth="280"/>
+                    <TableColumn fx:id="warehouseActiveColumn" text="Статус" prefWidth="120"/>
+                </columns>
+            </TableView>
+            <FlowPane hgap="8" vgap="8" alignment="CENTER_LEFT">
+                <TextField fx:id="newWarehouseCodeField" promptText="Код" prefWidth="120"/>
+                <TextField fx:id="newWarehouseNameField" promptText="Название" prefWidth="220"/>
+                <Button fx:id="createWarehouseButton" text="Создать" styleClass="tmp-button-primary"/>
+            </FlowPane>
+            <FlowPane hgap="8" vgap="8" alignment="CENTER_LEFT">
+                <TextField fx:id="editWarehouseCodeField" promptText="Код" prefWidth="120"/>
+                <TextField fx:id="editWarehouseNameField" promptText="Название" prefWidth="220"/>
+                <CheckBox fx:id="editWarehouseActiveCheck" text="Активен"/>
+                <Button fx:id="saveWarehouseButton" text="Сохранить" styleClass="tmp-button-secondary"/>
+            </FlowPane>
+        </VBox>
+
+        <VBox fx:id="cellsPane" spacing="8" styleClass="tmp-content" visible="false" managed="false"
+              VBox.vgrow="ALWAYS">
+            <FlowPane hgap="8" vgap="8" alignment="CENTER_LEFT">
+                <Label text="Склад:"/>
+                <ComboBox fx:id="cellsWarehouseCombo" prefWidth="320"/>
+            </FlowPane>
+            <TableView fx:id="cellsTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="cellCodeColumn" text="Код" prefWidth="160"/>
+                    <TableColumn fx:id="cellActiveColumn" text="Статус" prefWidth="120"/>
+                </columns>
+            </TableView>
+            <FlowPane hgap="8" vgap="8" alignment="CENTER_LEFT">
+                <TextField fx:id="newCellCodeField" promptText="Код ячейки" prefWidth="160"/>
+                <Button fx:id="createCellButton" text="Создать" styleClass="tmp-button-primary"/>
+            </FlowPane>
+            <FlowPane hgap="8" vgap="8" alignment="CENTER_LEFT">
+                <TextField fx:id="editCellCodeField" promptText="Код ячейки" prefWidth="160"/>
+                <CheckBox fx:id="editCellActiveCheck" text="Активна"/>
+                <Button fx:id="saveCellButton" text="Сохранить" styleClass="tmp-button-secondary"/>
+            </FlowPane>
+        </VBox>
+
+        <VBox fx:id="responsibilitiesPane" spacing="8" styleClass="tmp-content" visible="false"
+              managed="false" VBox.vgrow="ALWAYS">
+            <FlowPane hgap="8" vgap="8" alignment="CENTER_LEFT">
+                <Label text="Склад:"/>
+                <ComboBox fx:id="responsibilityWarehouseCombo" prefWidth="320"/>
+            </FlowPane>
+            <TableView fx:id="responsibilitiesTable" VBox.vgrow="ALWAYS" editable="true">
+                <columns>
+                    <TableColumn fx:id="responsibilityAssignedColumn" text="Ответственный"
+                                 prefWidth="120"/>
+                    <TableColumn fx:id="responsibilityLoginColumn" text="Логин" prefWidth="160"/>
+                    <TableColumn fx:id="responsibilityNameColumn" text="Имя" prefWidth="280"/>
+                </columns>
+            </TableView>
+        </VBox>
+    </StackPane>
+</VBox>

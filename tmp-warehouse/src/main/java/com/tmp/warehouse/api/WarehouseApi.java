@@ -526,6 +526,25 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
+    /** Update warehouse catalogue command (id immutable). */
+    record UpdateWarehouseCommand(UUID warehouseId, String code, String name, boolean active) {
+
+        public UpdateWarehouseCommand {
+            Objects.requireNonNull(warehouseId, "warehouseId");
+            Objects.requireNonNull(code, "code");
+            Objects.requireNonNull(name, "name");
+        }
+    }
+
+    /** Update storage cell catalogue command (id and warehouse immutable). */
+    record UpdateStorageCellCommand(UUID storageCellId, String code, boolean active) {
+
+        public UpdateStorageCellCommand {
+            Objects.requireNonNull(storageCellId, "storageCellId");
+            Objects.requireNonNull(code, "code");
+        }
+    }
+
     /** Warehouse-owned material reference snapshot. */
     record MaterialReferenceView(
             UUID materialReferenceId,

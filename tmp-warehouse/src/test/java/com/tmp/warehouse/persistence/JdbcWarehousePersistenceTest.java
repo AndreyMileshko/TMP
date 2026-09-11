@@ -104,7 +104,7 @@ class JdbcWarehousePersistenceTest {
 
         assertEquals("WH-1", catalog.findWarehouseByCode("WH-1").orElseThrow().code());
         assertEquals(1, catalog.findStorageCellsByWarehouse(warehouseId).size());
-        assertTrue(catalog.findStorageCellById(cellId).orElseThrow().toDomain().belongsTo(warehouseId));
+        assertTrue(catalog.findStorageCellById(cellId).orElseThrow().belongsTo(warehouseId));
     }
 
     @Test

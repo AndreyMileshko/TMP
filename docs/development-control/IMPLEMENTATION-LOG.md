@@ -4,12 +4,46 @@
 
 ---
 
+## Stage 3.5.13 — Warehouse Settings — 2026-09-11
+
+**Date:** 2026-09-11
+**Stage:** Stage 3.5.13 (Warehouse Settings admin UI)
+**Base checkpoint:** `e97fafebe75ac5d9e6232b7b340ee308919d2885` (+ 3.5.12 History corrective aggregation)
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.14 NEXT / NOT STARTED
+**Commit:** none
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
+
+### Summary
+
+Warehouse Settings = COMPLETE as secondary admin entry («Настройки склада»). Reuses existing Warehouse / StorageCell / WarehouseResponsibility catalogue — no new settings aggregate, no material→warehouse mapping, no stock editing. Minimal public update commands for activate/deactivate + rename. Operational Workspace remains Задачи / Остатки / История.
+
+### Prior corrective (same session)
+
+Stage 3.5.12 History audit: multi-cell same-material Transfer Send aggregated to one primary History row (SUM qty); regression tests A/B + end-of-day date boundary.
+
+### Key changes
+
+- API: `UpdateWarehouseCommand` / `UpdateStorageCellCommand` (+ catalogue `findById` / `update`)
+- Capability nav: `warehouse.nav.settings` → `warehouse.view.settings` (permission `warehouse.warehouse.view`)
+- UI: `WarehouseSettingsViewModel` / Controller / FXML — Склады / Ячейки / Ответственные
+- Architecture: forbidden-config name guard in `Stage6WarehouseArchitectureTest`
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.13 entry (2026-09-11).
+
+### Next
+
+Stage 3.5.14 — Warehouse UI Polish (NOT STARTED). Manual acceptance deferred to Stage 3.5.15.
+
+---
+
 ## Stage 3.5.12 — История (Warehouse History) — 2026-09-11
 
 **Date:** 2026-09-11
 **Stage:** Stage 3.5.12 (Warehouse Workspace History)
 **Base checkpoint:** `01f323a34cd0ada630e44a4e769919d209c424ea`
-**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; Задачи+Остатки+История COMPLETE; 3.5.13 NEXT / NOT STARTED
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; Задачи+Остатки+История COMPLETE; 3.5.13 Settings COMPLETE (same session corrective + Settings)
 **Commit:** none
 **Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
 
@@ -17,21 +51,25 @@
 
 Warehouse History = COMPLETE end-to-end. Read-only server-side history over completed `WarehouseOperation` + physical `WarehouseMovement` deltas (no new persisted history store). Public Query API `listHistory`; UI History tab with period (default last 30 days), material search, operation type, pagination 50, async stale-safe. Permission = existing `warehouse.stock.view`. Migration NONE / Flyway V44.
 
+### Post-commit audit corrective (same session as 3.5.13)
+
+Multi-cell same-material Transfer Send aggregated to one primary History row (document×material×type SUM); tests A/B + end-of-day boundary.
+
 ### Key changes
 
 - API: `WarehouseHistoryFilter` / `WarehouseHistoryEntryView` / `WarehouseHistoryPage` + `listHistory`
 - JDBC: `WarehouseHistoryReadQuery` / `JdbcWarehouseHistoryReadQuery`
 - `DefaultWarehouseApi` + `WarehouseAutoConfiguration` + test support
 - UI: History pane in Workspace (FXML / ViewModel / Controller) + ViewModel tests
-- Integration: `WarehouseHistoryIntegrationTest` (receipt/move/consume/adjust, transfer physical qty, reject no movement, filters/security/conservation)
+- Integration: `WarehouseHistoryIntegrationTest` (receipt/move/consume/adjust, transfer physical qty, reject no movement, filters/security/conservation, multi-material, multi-cell)
 
 ### Verification
 
-See VERIFICATION-LOG Stage 3.5.12 entry (2026-09-11).
+See VERIFICATION-LOG Stage 3.5.12 / 3.5.13 entries (2026-09-11).
 
 ### Next
 
-Stage 3.5.13 — Warehouse Settings (NOT STARTED). Manual acceptance deferred to Stage 3.5.15.
+Stage 3.5.14 — Warehouse UI Polish (NOT STARTED). Manual acceptance deferred to Stage 3.5.15.
 
 ---
 

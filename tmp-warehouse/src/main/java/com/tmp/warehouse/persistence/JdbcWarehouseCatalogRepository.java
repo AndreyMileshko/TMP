@@ -58,13 +58,47 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
     }
 
     @Override
+    public Optional<Warehouse> findById(WarehouseId warehouseId) {
+        return findWarehouseById(warehouseId).map(WarehouseRow::toDomain);
+    }
+
+    @Override
     public Warehouse save(Warehouse warehouse) {
         return insert(warehouse).toDomain();
     }
 
     @Override
+    public Warehouse update(Warehouse warehouse) {
+        Objects.requireNonNull(warehouse, "warehouse");
+        WarehouseRow existing =
+                findWarehouseById(warehouse.id())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Warehouse not found: " + warehouse.id().value()));
+        return update(warehouse, existing.version()).toDomain();
+    }
+
+    @Override
     public StorageCell save(StorageCell cell) {
         return insert(cell).toDomain();
+    }
+
+    @Override
+    public Optional<StorageCell> findStorageCellById(StorageCellId storageCellId) {
+        return findStorageCellByIdRow(storageCellId).map(StorageCellRow::toDomain);
+    }
+
+    @Override
+    public StorageCell update(StorageCell cell) {
+        Objects.requireNonNull(cell, "cell");
+        StorageCellRow existing =
+                findStorageCellByIdRow(cell.id())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Storage cell not found: " + cell.id().value()));
+        return update(cell, existing.version()).toDomain();
     }
 
     @Override
@@ -196,7 +230,7 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
         if (updated == 0) {
             throw new OptimisticLockException("Storage cell version conflict: " + cell.id());
         }
-        StorageCellRow existing = findStorageCellById(cell.id()).orElseThrow();
+        StorageCellRow existing = findStorageCellByIdRow(cell.id()).orElseThrow();
         return new StorageCellRow(
                 cell.id(),
                 cell.warehouseId(),
@@ -207,7 +241,7 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
                 now);
     }
 
-    public Optional<StorageCellRow> findStorageCellById(StorageCellId id) {
+    public Optional<StorageCellRow> findStorageCellByIdRow(StorageCellId id) {
         Objects.requireNonNull(id, "id");
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(

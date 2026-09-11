@@ -101,4 +101,23 @@ class Stage6WarehouseArchitectureTest {
                     .dependOnClassesThat()
                     .haveSimpleName("WarehouseReferenceQueryApi")
                     .because("UI must not call the no-RBAC WarehouseReferenceQueryApi");
+
+    @ArchTest
+    static final ArchRule noForbiddenWarehouseSettingsConfigurationTypes =
+            noClasses()
+                    .that()
+                    .resideInAnyPackage("com.tmp.warehouse..", "com.tmp.ui.shell.screen.warehouse..")
+                    .should()
+                    .haveSimpleNameContaining("MaterialWarehouseMapping")
+                    .orShould()
+                    .haveSimpleNameContaining("PreferredSourceWarehouse")
+                    .orShould()
+                    .haveSimpleNameContaining("DefaultDestinationCell")
+                    .orShould()
+                    .haveSimpleNameContaining("RoutingPriority")
+                    .orShould()
+                    .haveSimpleNameContaining("WarehouseConfiguration")
+                    .because(
+                            "Stage 3.5.13 Settings must not introduce material→warehouse mapping, "
+                                    + "preferred source, default destination cell, or routing priority");
 }

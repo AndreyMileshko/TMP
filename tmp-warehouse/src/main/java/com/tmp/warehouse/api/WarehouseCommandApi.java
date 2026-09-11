@@ -21,7 +21,9 @@ import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
+import com.tmp.warehouse.api.WarehouseApi.UpdateStorageCellCommand;
 import com.tmp.warehouse.api.WarehouseApi.UpdateTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.UpdateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.util.UUID;
@@ -34,7 +36,15 @@ public interface WarehouseCommandApi {
 
     WarehouseView createWarehouse(CreateWarehouseCommand command);
 
+    default WarehouseView updateWarehouse(UpdateWarehouseCommand command) {
+        throw new UnsupportedOperationException("updateWarehouse is not available");
+    }
+
     StorageCellView createStorageCell(CreateStorageCellCommand command);
+
+    default StorageCellView updateStorageCell(UpdateStorageCellCommand command) {
+        throw new UnsupportedOperationException("updateStorageCell is not available");
+    }
 
     /**
      * Assigns opaque Security user id as responsible for the warehouse (idempotent). Structure

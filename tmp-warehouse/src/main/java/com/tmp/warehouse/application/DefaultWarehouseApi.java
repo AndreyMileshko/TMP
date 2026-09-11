@@ -7,6 +7,12 @@ import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.warehouse.api.WarehouseApi;
+import com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand;
+import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
+import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.UpdateStorageCellCommand;
+import com.tmp.warehouse.api.WarehouseApi.UpdateWarehouseCommand;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tmp.warehouse.api.MaterialReferenceDisplay;
@@ -637,6 +643,57 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                         command.active());
         try {
             return toStorageCellView(warehouses.save(cell));
+        } catch (DataIntegrityViolationException ex) {
+            throw new IllegalArgumentException(
+                    "Storage cell code already exists in warehouse: " + command.code().trim(),
+                    ex);
+        }
+    }
+
+    @Override
+    public WarehouseView updateWarehouse(UpdateWarehouseCommand command) {
+        Objects.requireNonNull(command, "command");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_STRUCTURE_UPDATE);
+        WarehouseId warehouseId = WarehouseId.of(command.warehouseId());
+        Warehouse existing =
+                warehouses
+                        .findById(warehouseId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Warehouse not found: " + command.warehouseId()));
+        Warehouse updated =
+                Warehouse.of(
+                        existing.id(), command.code(), command.name(), command.active());
+        try {
+            return toWarehouseView(warehouses.update(updated));
+        } catch (DataIntegrityViolationException ex) {
+            throw new IllegalArgumentException(
+                    "Warehouse code already exists: " + command.code().trim(), ex);
+        }
+    }
+
+    @Override
+    public StorageCellView updateStorageCell(UpdateStorageCellCommand command) {
+        Objects.requireNonNull(command, "command");
+        authorization.requirePermission(WarehousePermissions.STORAGE_CELL_UPDATE);
+        StorageCellId cellId = StorageCellId.of(command.storageCellId());
+        StorageCell existing =
+                warehouses
+                        .findStorageCellById(cellId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Storage cell not found: "
+                                                        + command.storageCellId()));
+        StorageCell updated =
+                StorageCell.of(
+                        existing.id(),
+                        existing.warehouseId(),
+                        command.code(),
+                        command.active());
+        try {
+            return toStorageCellView(warehouses.update(updated));
         } catch (DataIntegrityViolationException ex) {
             throw new IllegalArgumentException(
                     "Storage cell code already exists in warehouse: " + command.code().trim(),

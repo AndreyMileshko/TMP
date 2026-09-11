@@ -24,9 +24,11 @@ import org.springframework.jdbc.core.RowMapper;
 /**
  * PostgreSQL history projection over completed Warehouse operations + physical movement deltas.
  *
- * <p>One user-facing row per completed operation (not per raw movement leg). MOVE destination and
- * RECEIPT/CONSUMPTION/ADJUSTMENT signed quantities are resolved via correlated movement lookups in
- * the same SQL statement (no N+1).
+ * <p>One user-facing row = one logical physical result per material. Non-transfer operations map
+ * 1:1 to {@code WarehouseOperation}. Transfer send/receive/return allocations for the same document
+ * and material are aggregated (multi-cell same material → one primary History row with summed
+ * quantity). MOVE destination and RECEIPT/CONSUMPTION/ADJUSTMENT signed quantities use correlated
+ * movement lookups in the same SQL statement (no per-row material/warehouse queries).
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -70,23 +72,11 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
         String placeholders = String.join(",", Collections.nCopies(warehouses.size(), "?"));
 
         StringBuilder sql = new StringBuilder();
-        sql.append(selectProjection())
+        sql.append(aggregatedSelect())
                 .append(fromJoins())
-                .append("WHERE wo.status = ? ")
-                .append("AND wo.operation_type <> ? ")
-                .append("AND wo.warehouse_id IN (")
-                .append(placeholders)
-                .append(") ")
-                .append("AND wo.updated_at >= ? ")
-                .append("AND wo.updated_at < ? ");
-        if (searchPattern != null) {
-            sql.append("AND (LOWER(mr.article) LIKE ? ESCAPE '\\' ")
-                    .append("OR LOWER(mr.name) LIKE ? ESCAPE '\\') ");
-        }
-        if (type != null) {
-            sql.append("AND wo.operation_type = ? ");
-        }
-        sql.append("ORDER BY wo.updated_at DESC, wo.id DESC ")
+                .append(whereClause(placeholders, searchPattern, type))
+                .append(groupByClause())
+                .append("ORDER BY occurred_at DESC, entry_id DESC ")
                 .append("LIMIT ? OFFSET ?");
 
         List<Object> args = baseArgs(warehouses, fromInclusive, toExclusive, searchPattern, type);
@@ -121,104 +111,169 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
         String placeholders = String.join(",", Collections.nCopies(warehouses.size(), "?"));
 
         StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COUNT(*) ")
-                .append("FROM warehouse.warehouse_operations wo ")
-                .append("INNER JOIN warehouse.material_references mr ")
-                .append("ON mr.id = wo.material_reference_id ")
-                .append("WHERE wo.status = ? ")
-                .append("AND wo.operation_type <> ? ")
-                .append("AND wo.warehouse_id IN (")
-                .append(placeholders)
-                .append(") ")
-                .append("AND wo.updated_at >= ? ")
-                .append("AND wo.updated_at < ? ");
-        if (searchPattern != null) {
-            sql.append("AND (LOWER(mr.article) LIKE ? ESCAPE '\\' ")
-                    .append("OR LOWER(mr.name) LIKE ? ESCAPE '\\') ");
-        }
-        if (type != null) {
-            sql.append("AND wo.operation_type = ? ");
-        }
+        sql.append("SELECT COUNT(*) FROM (")
+                .append("SELECT ")
+                .append(logicalGroupKey())
+                .append(" AS logical_key ")
+                .append(fromJoins())
+                .append(whereClause(placeholders, searchPattern, type))
+                .append("GROUP BY ")
+                .append(logicalGroupKey())
+                .append(") history_groups");
 
         List<Object> args = baseArgs(warehouses, fromInclusive, toExclusive, searchPattern, type);
         Long count = jdbcTemplate.queryForObject(sql.toString(), Long.class, args.toArray());
         return count == null ? 0L : count;
     }
 
-    private static String selectProjection() {
+    private static String aggregatedSelect() {
+        // PostgreSQL has no min(uuid); aggregate via text then cast back.
         return """
-                SELECT wo.id AS entry_id,
-                       wo.updated_at AS occurred_at,
+                SELECT (MIN(wo.id::text))::uuid AS entry_id,
+                       MAX(wo.updated_at) AS occurred_at,
                        wo.operation_type,
                        wo.material_reference_id,
-                       mr.article,
-                       mr.name,
-                       mr.unit_of_measure,
-                       CASE wo.operation_type
-                         WHEN 'TRANSFER_SEND' THEN -wo.quantity
-                         WHEN 'TRANSFER_RECEIVE' THEN wo.quantity
-                         WHEN 'TRANSFER_RETURN' THEN wo.quantity
-                         WHEN 'MOVE' THEN wo.quantity
-                         ELSE COALESCE(phys.quantity_delta, wo.quantity)
-                       END AS quantity,
-                       CASE wo.operation_type
-                         WHEN 'RECEIPT' THEN NULL
-                         WHEN 'TRANSFER_RECEIVE' THEN payload.source_warehouse_id
-                         ELSE wo.warehouse_id
-                       END AS source_warehouse_id,
-                       CASE wo.operation_type
-                         WHEN 'RECEIPT' THEN NULL
-                         WHEN 'TRANSFER_RECEIVE' THEN src_wh.name
-                         ELSE op_wh.name
-                       END AS source_warehouse_name,
-                       CASE wo.operation_type
-                         WHEN 'RECEIPT' THEN NULL
-                         WHEN 'TRANSFER_RECEIVE' THEN NULL
-                         WHEN 'TRANSFER_RETURN' THEN ret_send.source_storage_cell_id
-                         ELSE wo.storage_cell_id
+                       MIN(mr.article) AS article,
+                       MIN(mr.name) AS name,
+                       MIN(mr.unit_of_measure) AS unit_of_measure,
+                       SUM(
+                         CASE wo.operation_type
+                           WHEN 'TRANSFER_SEND' THEN -wo.quantity
+                           WHEN 'TRANSFER_RECEIVE' THEN wo.quantity
+                           WHEN 'TRANSFER_RETURN' THEN wo.quantity
+                           WHEN 'MOVE' THEN wo.quantity
+                           ELSE COALESCE(phys.quantity_delta, wo.quantity)
+                         END
+                       ) AS quantity,
+                       (MIN(
+                         CASE wo.operation_type
+                           WHEN 'RECEIPT' THEN NULL
+                           WHEN 'TRANSFER_RECEIVE' THEN payload.source_warehouse_id::text
+                           ELSE wo.warehouse_id::text
+                         END
+                       ))::uuid AS source_warehouse_id,
+                       MIN(
+                         CASE wo.operation_type
+                           WHEN 'RECEIPT' THEN NULL
+                           WHEN 'TRANSFER_RECEIVE' THEN src_wh.name
+                           ELSE op_wh.name
+                         END
+                       ) AS source_warehouse_name,
+                       CASE
+                         WHEN COUNT(
+                           DISTINCT CASE wo.operation_type
+                             WHEN 'RECEIPT' THEN NULL
+                             WHEN 'TRANSFER_RECEIVE' THEN NULL
+                             WHEN 'TRANSFER_RETURN' THEN ret_send.source_storage_cell_id
+                             ELSE wo.storage_cell_id
+                           END
+                         ) = 1
+                         THEN (MIN(
+                           CASE wo.operation_type
+                             WHEN 'RECEIPT' THEN NULL
+                             WHEN 'TRANSFER_RECEIVE' THEN NULL
+                             WHEN 'TRANSFER_RETURN' THEN ret_send.source_storage_cell_id::text
+                             ELSE wo.storage_cell_id::text
+                           END
+                         ))::uuid
+                         ELSE NULL
                        END AS source_cell_id,
-                       CASE wo.operation_type
-                         WHEN 'RECEIPT' THEN NULL
-                         WHEN 'TRANSFER_RECEIVE' THEN NULL
-                         WHEN 'TRANSFER_RETURN' THEN ret_src_cell.code
-                         ELSE op_cell.code
+                       CASE
+                         WHEN COUNT(
+                           DISTINCT CASE wo.operation_type
+                             WHEN 'RECEIPT' THEN NULL
+                             WHEN 'TRANSFER_RECEIVE' THEN NULL
+                             WHEN 'TRANSFER_RETURN' THEN ret_src_cell.code
+                             ELSE op_cell.code
+                           END
+                         ) = 1
+                         THEN MIN(
+                           CASE wo.operation_type
+                             WHEN 'RECEIPT' THEN NULL
+                             WHEN 'TRANSFER_RECEIVE' THEN NULL
+                             WHEN 'TRANSFER_RETURN' THEN ret_src_cell.code
+                             ELSE op_cell.code
+                           END
+                         )
+                         ELSE NULL
                        END AS source_cell_code,
-                       CASE wo.operation_type
-                         WHEN 'CONSUMPTION' THEN NULL
-                         WHEN 'ADJUSTMENT' THEN NULL
-                         WHEN 'TRANSFER_SEND' THEN payload.destination_warehouse_id
-                         WHEN 'MOVE' THEN wo.warehouse_id
-                         ELSE wo.warehouse_id
-                       END AS destination_warehouse_id,
-                       CASE wo.operation_type
-                         WHEN 'CONSUMPTION' THEN NULL
-                         WHEN 'ADJUSTMENT' THEN NULL
-                         WHEN 'TRANSFER_SEND' THEN dst_wh.name
-                         WHEN 'MOVE' THEN op_wh.name
-                         ELSE op_wh.name
-                       END AS destination_warehouse_name,
-                       CASE wo.operation_type
-                         WHEN 'CONSUMPTION' THEN NULL
-                         WHEN 'ADJUSTMENT' THEN NULL
-                         WHEN 'TRANSFER_SEND' THEN NULL
-                         WHEN 'MOVE' THEN move_dest.storage_cell_id
-                         WHEN 'RECEIPT' THEN wo.storage_cell_id
-                         WHEN 'TRANSFER_RECEIVE' THEN wo.storage_cell_id
-                         WHEN 'TRANSFER_RETURN' THEN wo.storage_cell_id
-                         ELSE wo.storage_cell_id
+                       (MIN(
+                         CASE wo.operation_type
+                           WHEN 'CONSUMPTION' THEN NULL
+                           WHEN 'ADJUSTMENT' THEN NULL
+                           WHEN 'TRANSFER_SEND' THEN payload.destination_warehouse_id::text
+                           WHEN 'MOVE' THEN wo.warehouse_id::text
+                           ELSE wo.warehouse_id::text
+                         END
+                       ))::uuid AS destination_warehouse_id,
+                       MIN(
+                         CASE wo.operation_type
+                           WHEN 'CONSUMPTION' THEN NULL
+                           WHEN 'ADJUSTMENT' THEN NULL
+                           WHEN 'TRANSFER_SEND' THEN dst_wh.name
+                           WHEN 'MOVE' THEN op_wh.name
+                           ELSE op_wh.name
+                         END
+                       ) AS destination_warehouse_name,
+                       CASE
+                         WHEN COUNT(
+                           DISTINCT CASE wo.operation_type
+                             WHEN 'CONSUMPTION' THEN NULL
+                             WHEN 'ADJUSTMENT' THEN NULL
+                             WHEN 'TRANSFER_SEND' THEN NULL
+                             WHEN 'MOVE' THEN move_dest.storage_cell_id
+                             WHEN 'RECEIPT' THEN wo.storage_cell_id
+                             WHEN 'TRANSFER_RECEIVE' THEN wo.storage_cell_id
+                             WHEN 'TRANSFER_RETURN' THEN wo.storage_cell_id
+                             ELSE wo.storage_cell_id
+                           END
+                         ) = 1
+                         THEN (MIN(
+                           CASE wo.operation_type
+                             WHEN 'CONSUMPTION' THEN NULL
+                             WHEN 'ADJUSTMENT' THEN NULL
+                             WHEN 'TRANSFER_SEND' THEN NULL
+                             WHEN 'MOVE' THEN move_dest.storage_cell_id::text
+                             WHEN 'RECEIPT' THEN wo.storage_cell_id::text
+                             WHEN 'TRANSFER_RECEIVE' THEN wo.storage_cell_id::text
+                             WHEN 'TRANSFER_RETURN' THEN wo.storage_cell_id::text
+                             ELSE wo.storage_cell_id::text
+                           END
+                         ))::uuid
+                         ELSE NULL
                        END AS destination_cell_id,
-                       CASE wo.operation_type
-                         WHEN 'CONSUMPTION' THEN NULL
-                         WHEN 'ADJUSTMENT' THEN NULL
-                         WHEN 'TRANSFER_SEND' THEN NULL
-                         WHEN 'MOVE' THEN move_dest.cell_code
-                         WHEN 'RECEIPT' THEN op_cell.code
-                         WHEN 'TRANSFER_RECEIVE' THEN op_cell.code
-                         WHEN 'TRANSFER_RETURN' THEN op_cell.code
-                         ELSE op_cell.code
+                       CASE
+                         WHEN COUNT(
+                           DISTINCT CASE wo.operation_type
+                             WHEN 'CONSUMPTION' THEN NULL
+                             WHEN 'ADJUSTMENT' THEN NULL
+                             WHEN 'TRANSFER_SEND' THEN NULL
+                             WHEN 'MOVE' THEN move_dest.cell_code
+                             WHEN 'RECEIPT' THEN op_cell.code
+                             WHEN 'TRANSFER_RECEIVE' THEN op_cell.code
+                             WHEN 'TRANSFER_RETURN' THEN op_cell.code
+                             ELSE op_cell.code
+                           END
+                         ) = 1
+                         THEN MIN(
+                           CASE wo.operation_type
+                             WHEN 'CONSUMPTION' THEN NULL
+                             WHEN 'ADJUSTMENT' THEN NULL
+                             WHEN 'TRANSFER_SEND' THEN NULL
+                             WHEN 'MOVE' THEN move_dest.cell_code
+                             WHEN 'RECEIPT' THEN op_cell.code
+                             WHEN 'TRANSFER_RECEIVE' THEN op_cell.code
+                             WHEN 'TRANSFER_RETURN' THEN op_cell.code
+                             ELSE op_cell.code
+                           END
+                         )
+                         ELSE NULL
                        END AS destination_cell_code,
-                       COALESCE(send_alloc.document_id, recv_item.document_id, ret_item.document_id)
-                         AS document_id
+                       (MIN(
+                         COALESCE(
+                           send_alloc.document_id, recv_item.document_id, ret_item.document_id
+                         )::text
+                       ))::uuid AS document_id
                 """;
     }
 
@@ -280,6 +335,52 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                   ORDER BY wm.id
                   LIMIT 1
                 ) move_dest ON TRUE
+                """;
+    }
+
+    private static String whereClause(String placeholders, String searchPattern, String type) {
+        StringBuilder sql = new StringBuilder();
+        sql.append("WHERE wo.status = ? ")
+                .append("AND wo.operation_type <> ? ")
+                .append("AND wo.warehouse_id IN (")
+                .append(placeholders)
+                .append(") ")
+                .append("AND wo.updated_at >= ? ")
+                .append("AND wo.updated_at < ? ");
+        if (searchPattern != null) {
+            sql.append("AND (LOWER(mr.article) LIKE ? ESCAPE '\\' ")
+                    .append("OR LOWER(mr.name) LIKE ? ESCAPE '\\') ");
+        }
+        if (type != null) {
+            sql.append("AND wo.operation_type = ? ");
+        }
+        return sql.toString();
+    }
+
+    private static String groupByClause() {
+        return "GROUP BY " + logicalGroupKey() + ", wo.operation_type, wo.material_reference_id ";
+    }
+
+    /**
+     * Transfer document × material × type collapses multi-cell allocations; otherwise one op = one
+     * History row.
+     */
+    private static String logicalGroupKey() {
+        return """
+                CASE
+                  WHEN wo.operation_type IN ('TRANSFER_SEND', 'TRANSFER_RECEIVE', 'TRANSFER_RETURN')
+                       AND COALESCE(
+                             send_alloc.document_id, recv_item.document_id, ret_item.document_id)
+                         IS NOT NULL
+                  THEN wo.operation_type
+                       || ':'
+                       || COALESCE(
+                            send_alloc.document_id, recv_item.document_id, ret_item.document_id)
+                            ::text
+                       || ':'
+                       || wo.material_reference_id::text
+                  ELSE wo.id::text
+                END
                 """;
     }
 

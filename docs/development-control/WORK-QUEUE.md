@@ -11896,7 +11896,40 @@ See VERIFICATION-LOG Stage 3.5.12 entry (2026-09-11).
 
 ### Next on success
 
-Stage 3.5.13 — Warehouse Settings = NEXT / NOT STARTED.
+Stage 3.5.13 — Warehouse Settings = COMPLETE
+Stage 3.5.14 — Warehouse UI Polish = NEXT / NOT STARTED
+
+---
+## STAGE-3.5.13 — Warehouse Settings
+
+**Status:** DONE
+**Stage:** 3.5
+**Depends on:** Stage 3.5.12 (+ History audit corrective)
+**Module:** `tmp-warehouse` (catalogue update API) + `tmp-ui-shell` (Warehouse Settings admin screen)
+
+### Goal
+
+Secondary admin entry «Настройки склада»: Склады / Ячейки / Ответственные over existing Warehouse / StorageCell / WarehouseResponsibility — no material→warehouse mapping, no stock editing, no new settings aggregate.
+
+### Acceptance criteria
+
+- [x] Capability nav `warehouse.nav.settings` → `warehouse.view.settings` (permission `warehouse.warehouse.view`); not a fourth Workspace tab
+- [x] Warehouses: list / create / update (activate-deactivate + rename) via existing + minimal update commands
+- [x] Cells: list by warehouse / create / update; no capacity/zone/coordinates; deactivate uses backend rules
+- [x] Responsibilities: view / add / remove via Stage 3.5.1 API; no priority/chief concepts
+- [x] Operational `warehouse.stock.view` alone cannot mutate structure; backend permission guards
+- [x] Async UX + double-submit guard; errors via `WarehouseUiErrorMapper`; authoritative reload after mutation
+- [x] Forbidden-config architecture guard; History/Tasks/Stocks regression unchanged
+- [x] Migration NONE / Flyway V44; package + startup PASS; manual acceptance deferred to 3.5.15
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.13 entry (2026-09-11).
+
+### Next on success
+
+Stage 3.5.14 — Warehouse UI Polish = NEXT / NOT STARTED.
+Manual acceptance = DEFERRED TO Stage 3.5.15.
 
 ---
 ## STAGE-3.5.11 — Modern Остатки

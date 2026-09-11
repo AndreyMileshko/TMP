@@ -454,12 +454,24 @@ final class ProductionWorkbenchUiTestSupport {
         }
 
         @Override
+        public WarehouseView updateWarehouse(
+                com.tmp.warehouse.api.WarehouseApi.UpdateWarehouseCommand command) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public List<StorageCellView> listStorageCells(UUID warehouseId) {
             return cellsByWarehouse.getOrDefault(warehouseId, List.of());
         }
 
         @Override
         public StorageCellView createStorageCell(CreateStorageCellCommand command) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public StorageCellView updateStorageCell(
+                com.tmp.warehouse.api.WarehouseApi.UpdateStorageCellCommand command) {
             throw new UnsupportedOperationException();
         }
 

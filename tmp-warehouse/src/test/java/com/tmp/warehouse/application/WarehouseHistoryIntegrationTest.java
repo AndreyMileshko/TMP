@@ -411,6 +411,178 @@ class WarehouseHistoryIntegrationTest {
     }
 
     @Test
+    void multiMaterialTransferDocumentProducesOneHistoryRowPerMaterial() {
+        UUID sourceId = createWarehouse("WH-MM", "MultiMat");
+        UUID destId = createWarehouse("WH-MM-D", "MultiMat Dest");
+        assign(sourceId);
+        assign(destId);
+        UUID cell = createCell(sourceId, "MM-1");
+        createCell(destId, "MM-D1");
+
+        bundle.api()
+                .receive(
+                        new ReceiptCommand(
+                                "A100", "Alpha", "", "", "м", new BigDecimal("20"), sourceId, cell));
+        bundle.api()
+                .receive(
+                        new ReceiptCommand(
+                                "B200", "Beta", "", "", "шт", new BigDecimal("10"), sourceId, cell));
+        UUID aId = materialId("A100");
+        UUID bId = materialId("B200");
+
+        TransferDocumentView draft =
+                bundle.api()
+                        .createTransferDocument(
+                                new CreateTransferDocumentCommand(
+                                        sourceId,
+                                        destId,
+                                        List.of(
+                                                new TransferDocumentLineInput(
+                                                        null, aId, new BigDecimal("20"), 1),
+                                                new TransferDocumentLineInput(
+                                                        null, bId, new BigDecimal("10"), 2))));
+        UUID lineA = draft.lines().get(0).lineId();
+        UUID lineB = draft.lines().get(1).lineId();
+        bundle.api()
+                .sendTransferDocument(
+                        new SendTransferDocumentCommand(
+                                draft.documentId(),
+                                documentVersion(draft.documentId()),
+                                draft.payloadRevision(),
+                                List.of(
+                                        new TransferDocumentSourceAllocationInput(
+                                                lineA, cell, new BigDecimal("20")),
+                                        new TransferDocumentSourceAllocationInput(
+                                                lineB, cell, new BigDecimal("10")))));
+
+        List<WarehouseHistoryEntryView> sends =
+                listAll(sourceId).content().stream()
+                        .filter(e -> "TRANSFER_SEND".equals(e.operationType()))
+                        .filter(e -> draft.documentId().equals(e.documentId()))
+                        .toList();
+        assertEquals(2, sends.size());
+        assertEquals(
+                1, sends.stream().filter(e -> aId.equals(e.materialReferenceId())).count());
+        assertEquals(
+                1, sends.stream().filter(e -> bId.equals(e.materialReferenceId())).count());
+        assertEquals(
+                0,
+                sends.stream()
+                        .filter(e -> aId.equals(e.materialReferenceId()))
+                        .findFirst()
+                        .orElseThrow()
+                        .quantity()
+                        .compareTo(new BigDecimal("-20")));
+        assertEquals(
+                0,
+                sends.stream()
+                        .filter(e -> bId.equals(e.materialReferenceId()))
+                        .findFirst()
+                        .orElseThrow()
+                        .quantity()
+                        .compareTo(new BigDecimal("-10")));
+    }
+
+    @Test
+    void multiCellSameMaterialSendAggregatesToOnePrimaryHistoryEntry() {
+        UUID sourceId = createWarehouse("WH-MC", "MultiCell");
+        UUID destId = createWarehouse("WH-MC-D", "MultiCell Dest");
+        assign(sourceId);
+        assign(destId);
+        UUID cell1 = createCell(sourceId, "1-01");
+        UUID cell2 = createCell(sourceId, "1-02");
+        UUID cell3 = createCell(sourceId, "1-03");
+        createCell(destId, "D-1");
+
+        bundle.api()
+                .receive(
+                        new ReceiptCommand(
+                                "A100",
+                                "Profile",
+                                "",
+                                "",
+                                "м",
+                                new BigDecimal("40"),
+                                sourceId,
+                                cell1));
+        bundle.api()
+                .receive(
+                        new ReceiptCommand(
+                                "A100",
+                                "Profile",
+                                "",
+                                "",
+                                "м",
+                                new BigDecimal("30"),
+                                sourceId,
+                                cell2));
+        bundle.api()
+                .receive(
+                        new ReceiptCommand(
+                                "A100",
+                                "Profile",
+                                "",
+                                "",
+                                "м",
+                                new BigDecimal("28"),
+                                sourceId,
+                                cell3));
+        UUID materialId = materialId("A100");
+
+        TransferDocumentView draft =
+                bundle.api()
+                        .createTransferDocument(
+                                new CreateTransferDocumentCommand(
+                                        sourceId,
+                                        destId,
+                                        List.of(
+                                                new TransferDocumentLineInput(
+                                                        null,
+                                                        materialId,
+                                                        new BigDecimal("98"),
+                                                        1))));
+        UUID lineId = draft.lines().get(0).lineId();
+        bundle.api()
+                .sendTransferDocument(
+                        new SendTransferDocumentCommand(
+                                draft.documentId(),
+                                documentVersion(draft.documentId()),
+                                draft.payloadRevision(),
+                                List.of(
+                                        new TransferDocumentSourceAllocationInput(
+                                                lineId, cell1, new BigDecimal("40")),
+                                        new TransferDocumentSourceAllocationInput(
+                                                lineId, cell2, new BigDecimal("30")),
+                                        new TransferDocumentSourceAllocationInput(
+                                                lineId, cell3, new BigDecimal("28")))));
+
+        assertEquals(
+                3L,
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM warehouse.warehouse_operations
+                         WHERE operation_type = 'TRANSFER_SEND' AND status = 'COMPLETED'
+                           AND material_reference_id = ?
+                        """,
+                        Long.class,
+                        materialId));
+
+        List<WarehouseHistoryEntryView> sends =
+                listAll(sourceId).content().stream()
+                        .filter(e -> "TRANSFER_SEND".equals(e.operationType()))
+                        .filter(e -> materialId.equals(e.materialReferenceId()))
+                        .filter(e -> draft.documentId().equals(e.documentId()))
+                        .toList();
+        assertEquals(1, sends.size());
+        WarehouseHistoryEntryView send = sends.get(0);
+        assertEquals(0, new BigDecimal("-98").compareTo(send.quantity()));
+        assertEquals(sourceId, send.sourceWarehouseId());
+        assertEquals(destId, send.destinationWarehouseId());
+        assertEquals(null, send.sourceCellCode());
+        assertEquals(null, send.destinationCellCode());
+    }
+
+    @Test
     void filtersPaginationSortingSecurityAndEmpty() {
         UUID mine = createWarehouse("WH-M", "Mine");
         UUID foreign = createWarehouse("WH-F", "Foreign");
@@ -471,6 +643,34 @@ class WarehouseHistoryIntegrationTest {
                         0,
                         50);
         assertTrue(inclusive.content().stream().anyMatch(e -> oldestId.equals(e.entryId())));
+
+        UUID endOfDayId = listAll(mine).content().get(0).entryId();
+        jdbc.update(
+                "UPDATE warehouse.warehouse_operations SET updated_at = ? WHERE id = ?",
+                Timestamp.from(Instant.parse("2026-09-11T23:59:59Z")),
+                endOfDayId);
+        WarehouseHistoryPage endOfDayInclusive =
+                list(
+                        mine,
+                        Instant.parse("2026-09-11T00:00:00Z"),
+                        Instant.parse("2026-09-12T00:00:00Z"),
+                        null,
+                        null,
+                        0,
+                        50);
+        assertTrue(
+                endOfDayInclusive.content().stream().anyMatch(e -> endOfDayId.equals(e.entryId())));
+        WarehouseHistoryPage afterEndOfDay =
+                list(
+                        mine,
+                        Instant.parse("2026-09-12T00:00:00Z"),
+                        Instant.parse("2026-09-13T00:00:00Z"),
+                        null,
+                        null,
+                        0,
+                        50);
+        assertTrue(
+                afterEndOfDay.content().stream().noneMatch(e -> endOfDayId.equals(e.entryId())));
 
         WarehouseHistoryPage page0 = list(mine, FROM, TO_EXCLUSIVE, null, null, 0, 2);
         assertEquals(2, page0.content().size());

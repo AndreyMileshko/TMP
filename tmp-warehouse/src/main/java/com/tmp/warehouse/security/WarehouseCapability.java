@@ -22,6 +22,8 @@ public final class WarehouseCapability implements Capability {
 
     public static final String NAV_WAREHOUSE = "warehouse.nav.workbench";
     public static final String VIEW_WAREHOUSE = "warehouse.view.workspace";
+    public static final String NAV_WAREHOUSE_SETTINGS = "warehouse.nav.settings";
+    public static final String VIEW_WAREHOUSE_SETTINGS = "warehouse.view.settings";
 
     private final CapabilityDescriptor descriptor;
 
@@ -42,15 +44,30 @@ public final class WarehouseCapability implements Capability {
                                                 "Warehouse",
                                                 List.of(
                                                         WarehousePermissions.WAREHOUSE_VIEW
+                                                                .value())),
+                                        CommandDescriptor.of(
+                                                NAV_WAREHOUSE_SETTINGS,
+                                                "Warehouse Settings",
+                                                List.of(
+                                                        WarehousePermissions.WAREHOUSE_STRUCTURE_VIEW
                                                                 .value()))))
                         .views(
                                 List.of(
                                         ViewDescriptor.of(
-                                                VIEW_WAREHOUSE, "Warehouse", NAV_WAREHOUSE)))
+                                                VIEW_WAREHOUSE, "Warehouse", NAV_WAREHOUSE),
+                                        ViewDescriptor.of(
+                                                VIEW_WAREHOUSE_SETTINGS,
+                                                "Warehouse Settings",
+                                                NAV_WAREHOUSE_SETTINGS)))
                         .navigationContributions(
                                 List.of(
                                         NavigationContribution.of(
-                                                NAV_WAREHOUSE, "Склад", VIEW_WAREHOUSE, 50)))
+                                                NAV_WAREHOUSE, "Склад", VIEW_WAREHOUSE, 50),
+                                        NavigationContribution.of(
+                                                NAV_WAREHOUSE_SETTINGS,
+                                                "Настройки склада",
+                                                VIEW_WAREHOUSE_SETTINGS,
+                                                55)))
                         .build();
     }
 

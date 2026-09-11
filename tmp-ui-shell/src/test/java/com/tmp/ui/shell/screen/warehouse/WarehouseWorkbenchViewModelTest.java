@@ -630,6 +630,12 @@ class WarehouseWorkbenchViewModelTest {
         }
 
         @Override
+        public WarehouseView updateWarehouse(
+                com.tmp.warehouse.api.WarehouseApi.UpdateWarehouseCommand command) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public List<StorageCellView> listStorageCells(UUID warehouseId) {
             listStorageCellsCalls++;
             return List.copyOf(cellsByWarehouse.getOrDefault(warehouseId, List.of()));
@@ -648,6 +654,12 @@ class WarehouseWorkbenchViewModelTest {
                     .computeIfAbsent(command.warehouseId(), key -> new ArrayList<>())
                     .add(view);
             return view;
+        }
+
+        @Override
+        public StorageCellView updateStorageCell(
+                com.tmp.warehouse.api.WarehouseApi.UpdateStorageCellCommand command) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

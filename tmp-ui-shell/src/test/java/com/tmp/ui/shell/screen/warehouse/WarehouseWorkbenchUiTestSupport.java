@@ -9,6 +9,8 @@ import com.tmp.warehouse.api.WarehouseApi.CreateReservationLinkCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
+import com.tmp.warehouse.api.WarehouseApi.UpdateStorageCellCommand;
+import com.tmp.warehouse.api.WarehouseApi.UpdateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceDisplayView;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
@@ -66,12 +68,22 @@ final class WarehouseWorkbenchUiTestSupport {
         }
 
         @Override
+        public WarehouseView updateWarehouse(UpdateWarehouseCommand command) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public List<StorageCellView> listStorageCells(UUID warehouseId) {
             return List.of();
         }
 
         @Override
         public StorageCellView createStorageCell(CreateStorageCellCommand command) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public StorageCellView updateStorageCell(UpdateStorageCellCommand command) {
             throw new UnsupportedOperationException();
         }
 

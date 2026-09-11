@@ -3,6 +3,51 @@
 ## Latest result
 
 **Date:** 2026-09-11
+**Scope:** Stage 3.5.13 — Warehouse Settings (+ Stage 3.5.12 History audit corrective)
+**Overall:** PASS
+
+### Stage 3.5.12 History code audit + corrective (2026-09-11)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `e97fafebe75ac5d9e6232b7b340ee308919d2885` | PASS |
+| Audit finding | Multi-cell same-material Transfer Send produced N History rows (1 per cell op) — CORRECTIVE REQUIRED |
+| Corrective | `JdbcWarehouseHistoryReadQuery` groups Transfer send/receive/return by document×material×type (SUM qty) |
+| Tests A/B | multi-material → 2 rows; multi-cell → 1 primary row qty −98 |
+| Date end-of-day boundary | PASS |
+| Audit RESULT after corrective | **PASS** |
+
+### Stage 3.5.13 Warehouse Settings (2026-09-11)
+
+| Check | Result |
+|-------|--------|
+| Settings entry | Secondary admin «Настройки склада»; Workspace remains Задачи/Остатки/История |
+| Domain reuse | Warehouse / StorageCell / WarehouseResponsibility only |
+| Forbidden config | Material→Warehouse / preferred source / default dest cell / routing priority / stock edit — ABSENT |
+| Public API | `UpdateWarehouseCommand` / `UpdateStorageCellCommand` (+ catalogue find/update) |
+| Permissions | view `warehouse.warehouse.view`; mutations structure create/update + cell create/update; responsibility manage = structure update |
+| Migration | **NONE / V44** |
+| `WarehouseHistoryIntegrationTest` | PASS (6) |
+| `WarehouseSettingsViewModelTest` | PASS (4) |
+| `WarehouseWorkspaceViewModelTest` | PASS |
+| `WarehouseUiErrorMapperTest` | PASS |
+| `Stage6WarehouseArchitectureTest` | PASS |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests` | PASS |
+| `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS |
+| Startup `tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 44 / V44 up-to-date; Started DesktopBootstrap; JavaFX unnamed-module WARN only; exceptions NONE |
+| DB safety (open only) | stock_positions 31 / sum 1257.9; warehouse_operations 61; warehouse_movements 82 — **delta 0** |
+| Manual acceptance | NOT RUN — deferred to Stage 3.5.15 |
+| Full reactor | NOT RUN — last GREEN `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d` |
+| Stage 3.5.12 History | COMPLETE |
+| Stage 3.5.13 Warehouse Settings | COMPLETE |
+| Stage 3.5.14 Warehouse UI Polish | NEXT / NOT STARTED |
+| Stage 3.5 | IN PROGRESS |
+
+---
+
+## Previous result
+
+**Date:** 2026-09-11
 **Scope:** Stage 3.5.12 — История (History tab UI)
 **Overall:** PASS
 

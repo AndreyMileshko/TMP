@@ -25,6 +25,8 @@ public final class UiShellScreens {
             "com/tmp/ui/shell/screen/warehouse/WarehouseWorkbenchScreen.fxml";
     public static final String WAREHOUSE_WORKSPACE_FXML =
             "com/tmp/ui/shell/screen/warehouse/WarehouseWorkspaceScreen.fxml";
+    public static final String WAREHOUSE_SETTINGS_FXML =
+            "com/tmp/ui/shell/screen/warehouse/WarehouseSettingsScreen.fxml";
     public static final String PRODUCTION_WORKBENCH_FXML =
             "com/tmp/ui/shell/screen/production/ProductionWorkbenchScreen.fxml";
 
@@ -47,6 +49,8 @@ public final class UiShellScreens {
     public static final String WAREHOUSE_WORKBENCH_SCREEN_ID = "warehouse.view.workbench";
     /** Must match Warehouse Capability {@code viewId} ({@code warehouse.view.workspace}). */
     public static final String WAREHOUSE_WORKSPACE_SCREEN_ID = "warehouse.view.workspace";
+    /** Must match Warehouse Capability settings view ({@code warehouse.view.settings}). */
+    public static final String WAREHOUSE_SETTINGS_SCREEN_ID = "warehouse.view.settings";
     /** Must match Production Capability {@code viewId} ({@code production.view.workbench}). */
     public static final String PRODUCTION_WORKBENCH_SCREEN_ID = "production.view.workbench";
     public static final String PRODUCTION_VIEW_PERMISSION = "production.order.view";

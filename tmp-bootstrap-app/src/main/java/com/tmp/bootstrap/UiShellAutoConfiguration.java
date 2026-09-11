@@ -43,6 +43,7 @@ import com.tmp.ui.shell.screen.orderspecificationeditor.OrderItemSpecificationEd
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchViewModel;
 import com.tmp.ui.shell.screen.roleadmin.RoleAdministrationViewModel;
 import com.tmp.ui.shell.screen.useradmin.UserAdministrationViewModel;
+import com.tmp.ui.shell.screen.warehouse.WarehouseSettingsViewModel;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkbenchViewModel;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel;
 import com.tmp.production.api.ProductionApplicationApi;
@@ -235,6 +236,15 @@ public class UiShellAutoConfiguration {
     }
 
     @Bean
+    WarehouseSettingsViewModel warehouseSettingsViewModel(
+            WarehouseApi warehouseApi,
+            AuthorizationService authorizationService,
+            UserAdministrationService userAdministrationService) {
+        return new WarehouseSettingsViewModel(
+                warehouseApi, authorizationService, userAdministrationService);
+    }
+
+    @Bean
     ProductionWorkbenchViewModel productionWorkbenchViewModel(
             ProductionQueryApi productionQueryApi,
             ProductionApplicationApi productionApplicationApi,
@@ -287,6 +297,7 @@ public class UiShellAutoConfiguration {
             OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel,
             WarehouseWorkbenchViewModel warehouseWorkbenchViewModel,
             WarehouseWorkspaceViewModel warehouseWorkspaceViewModel,
+            WarehouseSettingsViewModel warehouseSettingsViewModel,
             ProductionWorkbenchViewModel productionWorkbenchViewModel) {
         return new UiShellScreenRegistrar(
                 navigationService,
@@ -304,6 +315,7 @@ public class UiShellAutoConfiguration {
                 orderItemSpecificationEditorViewModel,
                 warehouseWorkbenchViewModel,
                 warehouseWorkspaceViewModel,
+                warehouseSettingsViewModel,
                 productionWorkbenchViewModel);
     }
 
@@ -528,6 +540,7 @@ public class UiShellAutoConfiguration {
         private final OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel;
         private final WarehouseWorkbenchViewModel warehouseWorkbenchViewModel;
         private final WarehouseWorkspaceViewModel warehouseWorkspaceViewModel;
+        private final WarehouseSettingsViewModel warehouseSettingsViewModel;
         private final ProductionWorkbenchViewModel productionWorkbenchViewModel;
 
         UiShellScreenRegistrar(
@@ -546,6 +559,7 @@ public class UiShellAutoConfiguration {
                 OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel,
                 WarehouseWorkbenchViewModel warehouseWorkbenchViewModel,
                 WarehouseWorkspaceViewModel warehouseWorkspaceViewModel,
+                WarehouseSettingsViewModel warehouseSettingsViewModel,
                 ProductionWorkbenchViewModel productionWorkbenchViewModel) {
             this.navigationService = navigationService;
             this.loginViewModel = loginViewModel;
@@ -562,6 +576,7 @@ public class UiShellAutoConfiguration {
             this.orderItemSpecificationEditorViewModel = orderItemSpecificationEditorViewModel;
             this.warehouseWorkbenchViewModel = warehouseWorkbenchViewModel;
             this.warehouseWorkspaceViewModel = warehouseWorkspaceViewModel;
+            this.warehouseSettingsViewModel = warehouseSettingsViewModel;
             this.productionWorkbenchViewModel = productionWorkbenchViewModel;
         }
 
@@ -613,6 +628,10 @@ public class UiShellAutoConfiguration {
                     UiShellScreens.WAREHOUSE_WORKSPACE_SCREEN_ID,
                     UiShellScreens.WAREHOUSE_WORKSPACE_FXML,
                     () -> warehouseWorkspaceViewModel));
+            navigationService.register(new ScreenRegistration(
+                    UiShellScreens.WAREHOUSE_SETTINGS_SCREEN_ID,
+                    UiShellScreens.WAREHOUSE_SETTINGS_FXML,
+                    () -> warehouseSettingsViewModel));
             navigationService.register(new ScreenRegistration(
                     UiShellScreens.WAREHOUSE_WORKBENCH_SCREEN_ID,
                     UiShellScreens.WAREHOUSE_WORKBENCH_FXML,
