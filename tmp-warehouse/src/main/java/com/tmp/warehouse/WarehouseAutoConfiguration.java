@@ -45,6 +45,7 @@ import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
+import com.tmp.warehouse.domain.repository.WarehouseStockReadQuery;
 import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
@@ -59,6 +60,7 @@ import com.tmp.warehouse.persistence.JdbcTransferTaskStateRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseOperationRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseStockReadQuery;
 import com.tmp.warehouse.persistence.JdbcWarehouseStockRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseTransferDocumentRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseUserResponsibilityRepository;
@@ -470,6 +472,11 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
+    WarehouseStockReadQuery warehouseStockReadQuery(JdbcTemplate jdbcTemplate) {
+        return new JdbcWarehouseStockReadQuery(jdbcTemplate);
+    }
+
+    @Bean
     MaterialSourceRoutingService materialSourceRoutingService(
             AvailableStockAggregationQuery availableStockAggregationQuery) {
         return new MaterialSourceRoutingService(availableStockAggregationQuery);
@@ -503,7 +510,8 @@ public class WarehouseAutoConfiguration {
             TransferDocumentSendAllocationRepository transferDocumentSendAllocationRepository,
             TransferDocumentSettlementRepository transferDocumentSettlementRepository,
             TransferReceiptSettlementItemRepository transferReceiptSettlementItemRepository,
-            TransferReturnSettlementItemRepository transferReturnSettlementItemRepository) {
+            TransferReturnSettlementItemRepository transferReturnSettlementItemRepository,
+            WarehouseStockReadQuery warehouseStockReadQuery) {
         return new DefaultWarehouseApi(
                 authorizationService,
                 authenticationService,
@@ -531,7 +539,8 @@ public class WarehouseAutoConfiguration {
                 transferDocumentSendAllocationRepository,
                 transferDocumentSettlementRepository,
                 transferReceiptSettlementItemRepository,
-                transferReturnSettlementItemRepository);
+                transferReturnSettlementItemRepository,
+                warehouseStockReadQuery);
     }
 
     @Bean

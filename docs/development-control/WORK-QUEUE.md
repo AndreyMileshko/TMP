@@ -11864,7 +11864,37 @@ See VERIFICATION-LOG Stage 3.5.10 entry (2026-09-10).
 
 ### Next on success
 
-Stage 3.5.11 — Modern Остатки = NEXT / NOT STARTED
+Stage 3.5.11 — Modern Остатки = COMPLETE
+Stage 3.5.12 — История = NEXT / NOT STARTED
+
+---
+## STAGE-3.5.11 — Modern Остатки
+
+**Status:** DONE
+**Stage:** 3.5
+**Depends on:** Stage 3.5.10
+**Module:** `tmp-warehouse` (stock read query) + `tmp-ui-shell` (Warehouse Workspace)
+
+### Goal
+
+Replace legacy technical Warehouse Workbench as the primary stock viewing screen with a modern read-oriented «Остатки» workspace (AVAILABLE summaries + on-expand cell breakdown).
+
+### Acceptance criteria
+
+- [x] Warehouse Query API `listStockSummaries` / `getStockCellBreakdown` (AVAILABLE only; responsibility-scoped)
+- [x] Server-side GROUP BY aggregation + search + pagination; no N+1 material/cell eager load
+- [x] Modern workspace UI: warehouse filter, search, expand/collapse, loading/empty/error, async stale-safe
+- [x] Primary nav → `warehouse.view.workspace`; legacy workbench remains registered
+- [x] Migration NONE / Flyway V44; no stock mutations from view
+- [x] Targeted tests + architecture + package + startup PASS; manual acceptance deferred to 3.5.15
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.11 entry (2026-09-11).
+
+### Next on success
+
+Stage 3.5.12 — История = NEXT / NOT STARTED
 
 ---
 ## STAGE-3.5.7 ? Shortfall / Automatic Continuation Transfer
@@ -11900,4 +11930,5 @@ Stage 3.5.8 ? Partial Receive + Reject + Return = IN PROGRESS.
 Stage 3.5.8.1 = COMPLETE; 3.5.8.2 = COMPLETE; 3.5.8.3 = COMPLETE.
 Stage 3.5.9 = COMPLETE.
 Stage 3.5.10 = COMPLETE.
-Stage 3.5.11 = NEXT / NOT STARTED.
+Stage 3.5.11 = COMPLETE.
+Stage 3.5.12 = NEXT / NOT STARTED.

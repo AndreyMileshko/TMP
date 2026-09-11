@@ -3,12 +3,12 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.7 COMPLETE; **3.5.8 COMPLETE**; **3.5.8.1 COMPLETE**; **3.5.8.2 COMPLETE**; **3.5.8.3 COMPLETE**; **3.5.9 Production Material Requirement Refactor COMPLETE** + **3.5.9 corrective COMPLETE**; **3.5.10 Requirement → Automatic Warehouse Tasks COMPLETE**; 3.5.11 NEXT / NOT STARTED)
-**Current Task:** none (Stage 3.5.10 COMPLETE; full regression GREEN after capability Failsafe classpath corrective)
-**Last completed task:** Stage 3.5.10 Requirement → Automatic Warehouse Tasks (2026-09-10); prior: Stage 3.5.9 Corrective
+**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.10 COMPLETE; **3.5.11 Modern Остатки COMPLETE**; 3.5.12 NEXT / NOT STARTED)
+**Current Task:** none (Stage 3.5.11 COMPLETE; targeted automated acceptance GREEN; manual Warehouse acceptance deferred to 3.5.15)
+**Last completed task:** Stage 3.5.11 Modern Остатки (2026-09-11); prior: Stage 3.5.10 Requirement → Automatic Warehouse Tasks (2026-09-10)
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
-**Active blockers:** none for Stage 3.5.11 start (UI final manual acceptance still pending — not a code blocker). Interactive GUI smoke (Requirement Submit → Warehouse task) left for operator confirmation while packaged TMP is running.
+**Active blockers:** none for Stage 3.5.12 start. Manual interactive Warehouse acceptance (incl. Остатки walkthrough) **DEFERRED TO Stage 3.5.15** by explicit project decision — not a code blocker.
 **Stage 6 Warehouse:** DONE
 **Stage 7 Production:** DONE / 100%
 **Stage 7 Start Gate:** PASSED
@@ -17,8 +17,8 @@
 **Completed Stage 7 tasks:** 27 / 27 mandatory
 **Production Specification:** v2.6 Accepted (Warehouse boundary aligned; Stage 3.5.9 Material Requirement DRAFT live; Stage 3.5.10 Submit → Warehouse demand routing COMPLETE)
 **Warehouse Specification:** v1.8 Accepted (ADR-037; §15A admin API note for 3.5.1)
-**Full verify baseline:** GREEN — `FULL REGRESSION AFTER STAGE 3.5.10 = PASS` (2026-09-10); PartialReceive = NONDETERMINISTIC TEST EXPECTATION (equal created_at + UUID tie-break); PlatformCoreIntegrationIT = TEST FIXTURE DEFECT (Failsafe fat-jar classpath / sample diagnostic)
-**First READY implementation task:** Stage 3.5.11 Modern Остатки (NOT STARTED)
+**Full verify baseline:** GREEN — `FULL REGRESSION AFTER STAGE 3.5.10 = PASS` (2026-09-10) at `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d`; Stage 3.5.11 did **not** re-run full reactor
+**First READY implementation task:** Stage 3.5.12 История (NOT STARTED)
 
 
 ```text
@@ -113,7 +113,8 @@ Stage 3.5.8.3 Reject + Return = COMPLETE
 Stage 3.5.9 Production Material Requirement Refactor = COMPLETE
 Stage 3.5.9 Corrective (optimistic lock + Warehouse reference boundary) = COMPLETE
 Stage 3.5.10 Requirement → Automatic Warehouse Tasks = COMPLETE
-First READY implementation task = Stage 3.5.11 (NOT STARTED)
+Stage 3.5.11 Modern Остатки = COMPLETE
+First READY implementation task = Stage 3.5.12 (NOT STARTED)
 ```
 
 ---
@@ -130,7 +131,7 @@ First READY implementation task = Stage 3.5.11 (NOT STARTED)
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
 | 7 | Production | DONE | 100% |
-| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0–3.5.10 COMPLETE; 3.5.11 NOT STARTED |
+| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0–3.5.11 COMPLETE; 3.5.12 NOT STARTED |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 

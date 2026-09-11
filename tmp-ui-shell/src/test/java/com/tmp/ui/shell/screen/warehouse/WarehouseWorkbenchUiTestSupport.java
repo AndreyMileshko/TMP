@@ -34,7 +34,7 @@ final class WarehouseWorkbenchUiTestSupport {
 
     private WarehouseWorkbenchUiTestSupport() {}
 
-    static final class NoOpWarehouseApi implements WarehouseApi {
+    static class NoOpWarehouseApi implements WarehouseApi {
         @Override
         public List<WarehouseView> listWarehouses() {
             return List.of();

@@ -223,7 +223,8 @@ public final class MainWindowViewModel {
             case UiShellScreens.ORDER_ITEM_SPECIFICATION_EDITOR_SCREEN_ID ->
                     UiShellScreens.ORDER_SPECIFICATION_VIEW_PERMISSION;
             case UiShellScreens.ORDER_IMPORT_SCREEN_ID -> UiShellScreens.ORDER_CREATE_PERMISSION;
-            case UiShellScreens.WAREHOUSE_WORKBENCH_SCREEN_ID ->
+            case UiShellScreens.WAREHOUSE_WORKBENCH_SCREEN_ID,
+                    UiShellScreens.WAREHOUSE_WORKSPACE_SCREEN_ID ->
                     UiShellScreens.WAREHOUSE_VIEW_PERMISSION;
             case UiShellScreens.PRODUCTION_WORKBENCH_SCREEN_ID ->
                     UiShellScreens.PRODUCTION_VIEW_PERMISSION;

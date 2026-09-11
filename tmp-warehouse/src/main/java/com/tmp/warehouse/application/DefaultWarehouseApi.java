@@ -56,6 +56,7 @@ import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository
 import com.tmp.warehouse.domain.WarehouseOperationStatus;
 import com.tmp.warehouse.domain.WarehouseOperationType;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
+import com.tmp.warehouse.domain.repository.WarehouseStockReadQuery;
 import com.tmp.warehouse.security.WarehousePermissions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
@@ -110,6 +111,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     private final TransferDocumentSettlementRepository settlements;
     private final TransferReceiptSettlementItemRepository receiptItems;
     private final TransferReturnSettlementItemRepository returnItems;
+    private final WarehouseStockReadQuery stockRead;
 
     public DefaultWarehouseApi(
             AuthorizationService authorization,
@@ -385,6 +387,66 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             TransferDocumentSettlementRepository settlements,
             TransferReceiptSettlementItemRepository receiptItems,
             TransferReturnSettlementItemRepository returnItems) {
+        this(
+                authorization,
+                authentication,
+                responsibilityGuard,
+                responsibilities,
+                warehouses,
+                stockPositions,
+                materials,
+                materialDisplay,
+                reservationLinks,
+                receipts,
+                moves,
+                transfers,
+                transferDocuments,
+                consumptions,
+                adjustments,
+                operations,
+                transferContexts,
+                sourceRouting,
+                operationalInbox,
+                transferSend,
+                transferReceive,
+                transferReject,
+                transferReturn,
+                sendAllocations,
+                settlements,
+                receiptItems,
+                returnItems,
+                null);
+    }
+
+    public DefaultWarehouseApi(
+            AuthorizationService authorization,
+            AuthenticationService authentication,
+            WarehouseResponsibilityGuard responsibilityGuard,
+            WarehouseUserResponsibilityRepository responsibilities,
+            WarehouseCatalogRepository warehouses,
+            StockPositionRepository stockPositions,
+            MaterialReferenceRepository materials,
+            MaterialReferenceDisplayPort materialDisplay,
+            WarehouseReservationLinkService reservationLinks,
+            WarehouseReceiptService receipts,
+            WarehouseMoveService moves,
+            WarehouseTransferService transfers,
+            WarehouseTransferDocumentService transferDocuments,
+            WarehouseConsumptionService consumptions,
+            WarehouseAdjustmentService adjustments,
+            WarehouseOperationRepository operations,
+            TransferOperationContextRepository transferContexts,
+            MaterialSourceRoutingService sourceRouting,
+            WarehouseOperationalInboxService operationalInbox,
+            WarehouseTransferSendService transferSend,
+            WarehouseTransferReceiveService transferReceive,
+            WarehouseTransferRejectService transferReject,
+            WarehouseTransferReturnService transferReturn,
+            TransferDocumentSendAllocationRepository sendAllocations,
+            TransferDocumentSettlementRepository settlements,
+            TransferReceiptSettlementItemRepository receiptItems,
+            TransferReturnSettlementItemRepository returnItems,
+            WarehouseStockReadQuery stockRead) {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.authentication = Objects.requireNonNull(authentication, "authentication");
         this.responsibilityGuard =
@@ -413,6 +475,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         this.settlements = settlements;
         this.receiptItems = receiptItems;
         this.returnItems = returnItems;
+        this.stockRead = stockRead;
     }
 
     @Override
@@ -1072,6 +1135,55 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     }
 
     @Override
+    public WarehouseStockPage listStockSummaries(
+            UUID warehouseId, String search, int pageIndex, int pageSize) {
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        WarehouseStockReadQuery query = requireStockRead();
+        int safePageSize = clampStockPageSize(pageSize);
+        if (pageIndex < 0) {
+            throw new IllegalArgumentException("pageIndex must be >= 0: " + pageIndex);
+        }
+        Set<UUID> scope = resolveResponsibleWarehouseScope(warehouseId);
+        if (scope.isEmpty()) {
+            return WarehouseStockPage.of(List.of(), pageIndex, safePageSize, 0L);
+        }
+        long total = query.countSummaries(scope, search);
+        if (total == 0L) {
+            return WarehouseStockPage.of(List.of(), pageIndex, safePageSize, 0L);
+        }
+        List<WarehouseStockSummaryView> content =
+                query.findSummaries(scope, search, pageIndex, safePageSize).stream()
+                        .map(this::toStockSummaryView)
+                        .toList();
+        return WarehouseStockPage.of(content, pageIndex, safePageSize, total);
+    }
+
+    @Override
+    public WarehouseMaterialStockDetailsView getStockCellBreakdown(
+            UUID warehouseId, UUID materialReferenceId) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        WarehouseStockReadQuery query = requireStockRead();
+        resolveResponsibleWarehouseScope(warehouseId);
+        List<WarehouseStockCellView> cells =
+                query.findCellBreakdown(warehouseId, materialReferenceId).stream()
+                        .map(
+                                row ->
+                                        new WarehouseStockCellView(
+                                                row.storageCellId(),
+                                                row.storageCellCode(),
+                                                row.availableQuantity()))
+                        .toList();
+        BigDecimal total =
+                cells.stream()
+                        .map(WarehouseStockCellView::availableQuantity)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new WarehouseMaterialStockDetailsView(
+                warehouseId, materialReferenceId, total, cells);
+    }
+
+    @Override
     public WarehouseTaskView takeTransferTaskInWork(UUID documentId) {
         Objects.requireNonNull(documentId, "documentId");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
@@ -1083,6 +1195,58 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             throw new IllegalStateException("Warehouse operational inbox is not configured");
         }
         return operationalInbox;
+    }
+
+    private WarehouseStockReadQuery requireStockRead() {
+        if (stockRead == null) {
+            throw new IllegalStateException("Warehouse stock read query is not configured");
+        }
+        return stockRead;
+    }
+
+    private WarehouseStockSummaryView toStockSummaryView(
+            WarehouseStockReadQuery.StockSummaryRow row) {
+        return new WarehouseStockSummaryView(
+                row.warehouseId(),
+                row.materialReferenceId(),
+                row.article(),
+                row.name(),
+                row.color(),
+                row.size(),
+                row.unitOfMeasure(),
+                row.availableQuantity());
+    }
+
+    private Set<UUID> resolveResponsibleWarehouseScope(UUID warehouseIdFilter) {
+        UUID userId =
+                authentication
+                        .currentSession()
+                        .orElseThrow(
+                                () ->
+                                        new AccessDeniedException(
+                                                "Access denied: authentication required"))
+                        .userId()
+                        .value();
+        Set<UUID> responsible =
+                new HashSet<>(
+                        responsibilities.listWarehouseIdsForUser(userId).stream()
+                                .map(WarehouseId::value)
+                                .toList());
+        if (warehouseIdFilter != null) {
+            if (!responsible.contains(warehouseIdFilter)) {
+                throw new AccessDeniedException(
+                        "Access denied: not responsible for warehouse " + warehouseIdFilter);
+            }
+            return Set.of(warehouseIdFilter);
+        }
+        return responsible;
+    }
+
+    private static int clampStockPageSize(int pageSize) {
+        if (pageSize < 1) {
+            return STOCK_SUMMARY_DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(pageSize, STOCK_SUMMARY_MAX_PAGE_SIZE);
     }
 
     private WarehouseTransferSendService requireTransferSend() {

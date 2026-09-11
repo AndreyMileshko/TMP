@@ -599,6 +599,94 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         BLOCKED
     }
 
+    /** Default page size for modern Остатки summaries (aligned with Order list). */
+    int STOCK_SUMMARY_DEFAULT_PAGE_SIZE = 50;
+
+    /** Max page size for modern Остатки summaries. */
+    int STOCK_SUMMARY_MAX_PAGE_SIZE = 100;
+
+    /**
+     * Material-level AVAILABLE stock summary for modern Остатки (not a persisted inventory entity).
+     */
+    record WarehouseStockSummaryView(
+            UUID warehouseId,
+            UUID materialReferenceId,
+            String article,
+            String name,
+            String color,
+            String size,
+            String unitOfMeasure,
+            BigDecimal availableQuantity) {
+
+        public WarehouseStockSummaryView {
+            Objects.requireNonNull(warehouseId, "warehouseId");
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            Objects.requireNonNull(article, "article");
+            Objects.requireNonNull(name, "name");
+            Objects.requireNonNull(color, "color");
+            Objects.requireNonNull(size, "size");
+            Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
+            Objects.requireNonNull(availableQuantity, "availableQuantity");
+        }
+    }
+
+    /** One active storage cell with positive AVAILABLE quantity. */
+    record WarehouseStockCellView(
+            UUID storageCellId, String storageCellCode, BigDecimal availableQuantity) {
+
+        public WarehouseStockCellView {
+            Objects.requireNonNull(storageCellId, "storageCellId");
+            Objects.requireNonNull(storageCellCode, "storageCellCode");
+            Objects.requireNonNull(availableQuantity, "availableQuantity");
+        }
+    }
+
+    /** Expand details for one material on one warehouse. */
+    record WarehouseMaterialStockDetailsView(
+            UUID warehouseId,
+            UUID materialReferenceId,
+            BigDecimal totalAvailable,
+            List<WarehouseStockCellView> cells) {
+
+        public WarehouseMaterialStockDetailsView {
+            Objects.requireNonNull(warehouseId, "warehouseId");
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            Objects.requireNonNull(totalAvailable, "totalAvailable");
+            Objects.requireNonNull(cells, "cells");
+            cells = List.copyOf(cells);
+        }
+    }
+
+    /** Paginated AVAILABLE stock summaries. */
+    record WarehouseStockPage(
+            List<WarehouseStockSummaryView> content,
+            int pageIndex,
+            int pageSize,
+            long totalElements) {
+
+        public WarehouseStockPage {
+            Objects.requireNonNull(content, "content");
+            content = List.copyOf(content);
+            if (pageIndex < 0) {
+                throw new IllegalArgumentException("pageIndex must be >= 0: " + pageIndex);
+            }
+            if (pageSize < 1) {
+                throw new IllegalArgumentException("pageSize must be >= 1: " + pageSize);
+            }
+            if (totalElements < 0) {
+                throw new IllegalArgumentException("totalElements must be >= 0: " + totalElements);
+            }
+        }
+
+        public static WarehouseStockPage of(
+                List<WarehouseStockSummaryView> content,
+                int pageIndex,
+                int pageSize,
+                long totalElements) {
+            return new WarehouseStockPage(content, pageIndex, pageSize, totalElements);
+        }
+    }
+
     enum AvailabilityStatus {
         AVAILABLE,
         INSUFFICIENT

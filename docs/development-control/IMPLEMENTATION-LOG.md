@@ -4,6 +4,45 @@
 
 ---
 
+## Stage 3.5.11 — Modern Остатки — 2026-09-11
+
+**Date:** 2026-09-11
+**Stage:** UI Modernization Stage 3.5.11 (Modern Warehouse Stock View); outside Stages 0–9 numbered queue
+**Base checkpoint:** `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.11 COMPLETE; 3.5.12 NEXT / NOT STARTED
+**Commit:** none (per task)
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
+
+### Summary
+
+Replaced the legacy technical workbench as the primary «Остатки» entry with a modern Warehouse Workspace read screen. Stock summaries aggregate AVAILABLE `StockPosition` per material (server-side), with on-expand cell breakdown. No second inventory model, no Flyway migration, no stock mutations from view/search/expand/paginate.
+
+### Key changes
+
+- `WarehouseStockReadQuery` / `JdbcWarehouseStockReadQuery` (GROUP BY + search + pagination)
+- Public DTOs + `WarehouseQueryApi.listStockSummaries` / `getStockCellBreakdown` (responsibility-scoped)
+- `WarehouseWorkspaceViewModel` / Controller / FXML — tabs Задачи/Остатки/История (Остатки only)
+- Capability nav `warehouse.view.workspace`; legacy `warehouse.view.workbench` remains registered
+- IT + ViewModel + architecture coverage; package + V44 startup smoke
+
+### Stock semantics
+
+**Остаток = AVAILABLE** — matches Spec routing/availability and existing query contracts; IN_TRANSIT/BLOCKED excluded from summary quantity.
+
+### Manual acceptance
+
+Deferred to Stage 3.5.15 (explicit project decision for intermediate 3.5.11–3.5.14 stages).
+
+### Verification
+
+See VERIFICATION-LOG entry 2026-09-11 Stage 3.5.11.
+
+### Next
+
+Stage 3.5.12 — История (NOT STARTED).
+
+---
+
 ## Full regression closeout — PlatformCoreIntegrationIT Failsafe classpath — 2026-09-10
 
 **Date:** 2026-09-10

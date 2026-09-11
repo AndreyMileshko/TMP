@@ -21,7 +21,7 @@ public final class WarehouseCapability implements Capability {
     public static final CapabilityVersion VERSION = CapabilityVersion.of("1.0.0");
 
     public static final String NAV_WAREHOUSE = "warehouse.nav.workbench";
-    public static final String VIEW_WAREHOUSE = "warehouse.view.workbench";
+    public static final String VIEW_WAREHOUSE = "warehouse.view.workspace";
 
     private final CapabilityDescriptor descriptor;
 

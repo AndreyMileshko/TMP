@@ -2,6 +2,41 @@
 
 ## Latest result
 
+**Date:** 2026-09-11
+**Scope:** Stage 3.5.11 Modern Остатки (targeted automated acceptance)
+**Overall:** PASS
+
+### Stage 3.5.11 Modern Остатки (2026-09-11)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d` | PASS (clean tree at start) |
+| Stock semantics | **Остаток = AVAILABLE only** (IN_TRANSIT/BLOCKED excluded; matches Spec routing/availability) |
+| Query API | `listStockSummaries` / `getStockCellBreakdown` on `WarehouseQueryApi` |
+| Aggregation | PostgreSQL GROUP BY warehouse+material; cell breakdown on expand |
+| Search / pagination | Backend ILIKE article/name; pageSize 50; deterministic article order |
+| Security | `warehouse.stock.view` + responsibility scope; foreign warehouse AccessDenied |
+| UI | Modern workspace primary nav; tabs Задачи/Остатки/История (Остатки implemented) |
+| Stock mutation deltas | 0 / 0 / 0 (stock 31 / 1257.9; ops 61; mov 82) |
+| Migration | NONE — Flyway remains V44 |
+| `WarehouseStockSummaryIntegrationTest` | PASS (6) |
+| `WarehousePermissionCatalogTest` | PASS (6) |
+| `WarehouseWorkspaceViewModelTest` | PASS (11) |
+| `WarehouseWorkbenchViewModelTest` + `WarehouseUiErrorMapperTest` | PASS (23+2) |
+| `Stage6WarehouseArchitectureTest` | PASS (7) |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests` | PASS |
+| `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS |
+| Packaged TMP.exe startup on `localhost:55432/tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 44 / V44 up-to-date; `Started DesktopBootstrap`; JavaFX unnamed-module WARN only; exceptions NONE |
+| Manual Warehouse acceptance | **NOT RUN — deferred to Stage 3.5.15** (explicit project decision; not a failure) |
+| Full reactor `mvn verify` | **NOT RUN** — last full GREEN baseline `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d` |
+| Stage 3.5.11 | COMPLETE |
+| Stage 3.5.12 | NEXT / NOT STARTED |
+| Stage 3.5 | IN PROGRESS |
+
+---
+
+## Previous result
+
 **Date:** 2026-09-10
 **Scope:** PlatformCoreIntegrationIT capability membership / Failsafe classpath corrective + full regression closeout
 **Overall:** PASS — `FULL REGRESSION AFTER STAGE 3.5.10 = PASS`

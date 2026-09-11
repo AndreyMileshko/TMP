@@ -23,6 +23,8 @@ public final class UiShellScreens {
             "com/tmp/ui/shell/screen/orderimport/OrderImportScreen.fxml";
     public static final String WAREHOUSE_WORKBENCH_FXML =
             "com/tmp/ui/shell/screen/warehouse/WarehouseWorkbenchScreen.fxml";
+    public static final String WAREHOUSE_WORKSPACE_FXML =
+            "com/tmp/ui/shell/screen/warehouse/WarehouseWorkspaceScreen.fxml";
     public static final String PRODUCTION_WORKBENCH_FXML =
             "com/tmp/ui/shell/screen/production/ProductionWorkbenchScreen.fxml";
 
@@ -41,8 +43,10 @@ public final class UiShellScreens {
     public static final String ORDER_ITEM_SPECIFICATION_EDITOR_SCREEN_ID =
             "order.view.order-item-specification-editor";
     public static final String ORDER_IMPORT_SCREEN_ID = "order.view.order-import";
-    /** Must match Warehouse Capability {@code viewId} ({@code warehouse.view.workbench}). */
+    /** Legacy warehouse workbench screen (operations UI). */
     public static final String WAREHOUSE_WORKBENCH_SCREEN_ID = "warehouse.view.workbench";
+    /** Must match Warehouse Capability {@code viewId} ({@code warehouse.view.workspace}). */
+    public static final String WAREHOUSE_WORKSPACE_SCREEN_ID = "warehouse.view.workspace";
     /** Must match Production Capability {@code viewId} ({@code production.view.workbench}). */
     public static final String PRODUCTION_WORKBENCH_SCREEN_ID = "production.view.workbench";
     public static final String PRODUCTION_VIEW_PERMISSION = "production.order.view";

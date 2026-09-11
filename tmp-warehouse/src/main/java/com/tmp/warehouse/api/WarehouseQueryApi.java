@@ -121,4 +121,26 @@ public interface WarehouseQueryApi {
      * createdAt}, then {@code documentId}.
      */
     List<WarehouseTaskView> listMyWarehouseTasks(UUID warehouseId);
+
+    /**
+     * Modern Остатки summary page: one row per material (per warehouse when filter is a single
+     * warehouse or «Все мои склады»). Quantity is AVAILABLE only. Server-side search and
+     * pagination. Does not mutate stock.
+     *
+     * <p>{@code warehouseId} null = all responsible warehouses; non-null must be in responsibility
+     * scope (otherwise access denied).
+     */
+    default WarehouseApi.WarehouseStockPage listStockSummaries(
+            UUID warehouseId, String search, int pageIndex, int pageSize) {
+        throw new UnsupportedOperationException("listStockSummaries is not available");
+    }
+
+    /**
+     * Cell-level AVAILABLE breakdown for one material on one warehouse. Loaded on expand. Does not
+     * mutate stock. Foreign/non-responsible warehouse is access denied.
+     */
+    default WarehouseApi.WarehouseMaterialStockDetailsView getStockCellBreakdown(
+            UUID warehouseId, UUID materialReferenceId) {
+        throw new UnsupportedOperationException("getStockCellBreakdown is not available");
+    }
 }

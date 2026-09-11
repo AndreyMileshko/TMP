@@ -44,6 +44,7 @@ import com.tmp.ui.shell.screen.production.ProductionWorkbenchViewModel;
 import com.tmp.ui.shell.screen.roleadmin.RoleAdministrationViewModel;
 import com.tmp.ui.shell.screen.useradmin.UserAdministrationViewModel;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkbenchViewModel;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel;
 import com.tmp.production.api.ProductionApplicationApi;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.warehouse.api.WarehouseApi;
@@ -228,6 +229,12 @@ public class UiShellAutoConfiguration {
     }
 
     @Bean
+    WarehouseWorkspaceViewModel warehouseWorkspaceViewModel(
+            WarehouseApi warehouseApi, AuthorizationService authorizationService) {
+        return new WarehouseWorkspaceViewModel(warehouseApi, authorizationService);
+    }
+
+    @Bean
     ProductionWorkbenchViewModel productionWorkbenchViewModel(
             ProductionQueryApi productionQueryApi,
             ProductionApplicationApi productionApplicationApi,
@@ -279,6 +286,7 @@ public class UiShellAutoConfiguration {
             OrderItemEditorViewModel orderItemEditorViewModel,
             OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel,
             WarehouseWorkbenchViewModel warehouseWorkbenchViewModel,
+            WarehouseWorkspaceViewModel warehouseWorkspaceViewModel,
             ProductionWorkbenchViewModel productionWorkbenchViewModel) {
         return new UiShellScreenRegistrar(
                 navigationService,
@@ -295,6 +303,7 @@ public class UiShellAutoConfiguration {
                 orderItemEditorViewModel,
                 orderItemSpecificationEditorViewModel,
                 warehouseWorkbenchViewModel,
+                warehouseWorkspaceViewModel,
                 productionWorkbenchViewModel);
     }
 
@@ -518,6 +527,7 @@ public class UiShellAutoConfiguration {
         private final OrderItemEditorViewModel orderItemEditorViewModel;
         private final OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel;
         private final WarehouseWorkbenchViewModel warehouseWorkbenchViewModel;
+        private final WarehouseWorkspaceViewModel warehouseWorkspaceViewModel;
         private final ProductionWorkbenchViewModel productionWorkbenchViewModel;
 
         UiShellScreenRegistrar(
@@ -535,6 +545,7 @@ public class UiShellAutoConfiguration {
                 OrderItemEditorViewModel orderItemEditorViewModel,
                 OrderItemSpecificationEditorViewModel orderItemSpecificationEditorViewModel,
                 WarehouseWorkbenchViewModel warehouseWorkbenchViewModel,
+                WarehouseWorkspaceViewModel warehouseWorkspaceViewModel,
                 ProductionWorkbenchViewModel productionWorkbenchViewModel) {
             this.navigationService = navigationService;
             this.loginViewModel = loginViewModel;
@@ -550,6 +561,7 @@ public class UiShellAutoConfiguration {
             this.orderItemEditorViewModel = orderItemEditorViewModel;
             this.orderItemSpecificationEditorViewModel = orderItemSpecificationEditorViewModel;
             this.warehouseWorkbenchViewModel = warehouseWorkbenchViewModel;
+            this.warehouseWorkspaceViewModel = warehouseWorkspaceViewModel;
             this.productionWorkbenchViewModel = productionWorkbenchViewModel;
         }
 
@@ -597,6 +609,10 @@ public class UiShellAutoConfiguration {
                     UiShellScreens.ORDER_ITEM_SPECIFICATION_EDITOR_SCREEN_ID,
                     UiShellScreens.ORDER_ITEM_SPECIFICATION_EDITOR_FXML,
                     () -> orderItemSpecificationEditorViewModel));
+            navigationService.register(new ScreenRegistration(
+                    UiShellScreens.WAREHOUSE_WORKSPACE_SCREEN_ID,
+                    UiShellScreens.WAREHOUSE_WORKSPACE_FXML,
+                    () -> warehouseWorkspaceViewModel));
             navigationService.register(new ScreenRegistration(
                     UiShellScreens.WAREHOUSE_WORKBENCH_SCREEN_ID,
                     UiShellScreens.WAREHOUSE_WORKBENCH_FXML,
