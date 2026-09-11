@@ -728,6 +728,103 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
+    /** Default page size for Warehouse History. */
+    int HISTORY_DEFAULT_PAGE_SIZE = STOCK_SUMMARY_DEFAULT_PAGE_SIZE;
+
+    /** Max page size for Warehouse History. */
+    int HISTORY_MAX_PAGE_SIZE = STOCK_SUMMARY_MAX_PAGE_SIZE;
+
+    /**
+     * Server-side history filter. {@code fromInclusive} / {@code toExclusive} use Instant half-open
+     * range ({@code occurredAt >= from && occurredAt < to}). {@code operationType} null = all
+     * physical types. {@code materialSearch} matches article or name (trim, case-insensitive).
+     */
+    record WarehouseHistoryFilter(
+            Instant fromInclusive,
+            Instant toExclusive,
+            String materialSearch,
+            String operationType) {
+
+        public WarehouseHistoryFilter {
+            Objects.requireNonNull(fromInclusive, "fromInclusive");
+            Objects.requireNonNull(toExclusive, "toExclusive");
+            if (!fromInclusive.isBefore(toExclusive)) {
+                throw new IllegalArgumentException(
+                        "fromInclusive must be before toExclusive: "
+                                + fromInclusive
+                                + " / "
+                                + toExclusive);
+            }
+        }
+    }
+
+    /** One logical Warehouse History row (completed physical operation). */
+    record WarehouseHistoryEntryView(
+            UUID entryId,
+            Instant occurredAt,
+            String operationType,
+            String operationDisplayName,
+            UUID materialReferenceId,
+            String materialArticle,
+            String materialName,
+            String unitOfMeasure,
+            BigDecimal quantity,
+            UUID sourceWarehouseId,
+            String sourceWarehouseName,
+            UUID sourceCellId,
+            String sourceCellCode,
+            UUID destinationWarehouseId,
+            String destinationWarehouseName,
+            UUID destinationCellId,
+            String destinationCellCode,
+            UUID documentId,
+            String documentNumber,
+            UUID actorUserId,
+            String actorDisplayName) {
+
+        public WarehouseHistoryEntryView {
+            Objects.requireNonNull(entryId, "entryId");
+            Objects.requireNonNull(occurredAt, "occurredAt");
+            Objects.requireNonNull(operationType, "operationType");
+            Objects.requireNonNull(operationDisplayName, "operationDisplayName");
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            Objects.requireNonNull(materialArticle, "materialArticle");
+            Objects.requireNonNull(materialName, "materialName");
+            Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
+            Objects.requireNonNull(quantity, "quantity");
+        }
+    }
+
+    /** Paginated Warehouse History. */
+    record WarehouseHistoryPage(
+            List<WarehouseHistoryEntryView> content,
+            int pageIndex,
+            int pageSize,
+            long totalElements) {
+
+        public WarehouseHistoryPage {
+            Objects.requireNonNull(content, "content");
+            content = List.copyOf(content);
+            if (pageIndex < 0) {
+                throw new IllegalArgumentException("pageIndex must be >= 0: " + pageIndex);
+            }
+            if (pageSize < 1) {
+                throw new IllegalArgumentException("pageSize must be >= 1: " + pageSize);
+            }
+            if (totalElements < 0) {
+                throw new IllegalArgumentException("totalElements must be >= 0: " + totalElements);
+            }
+        }
+
+        public static WarehouseHistoryPage of(
+                List<WarehouseHistoryEntryView> content,
+                int pageIndex,
+                int pageSize,
+                long totalElements) {
+            return new WarehouseHistoryPage(content, pageIndex, pageSize, totalElements);
+        }
+    }
+
     enum AvailabilityStatus {
         AVAILABLE,
         INSUFFICIENT

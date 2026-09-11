@@ -33,7 +33,8 @@
 | 3.5.10 | Requirement → Automatic Warehouse Tasks | **COMPLETE** |
 | 3.5.11 | Modern Остатки | **COMPLETE** |
 | 3.5.11A | Operational Task Actions UI (corrective) | **COMPLETE** |
-| 3.5.12 | История | **NEXT / NOT STARTED** |
+| 3.5.12 | История | **COMPLETE** |
+| 3.5.13 | Warehouse Settings | **NEXT / NOT STARTED** |
 
 **Locked business decision (3.5.8.3 DONE):** Full reject MUST NOT automatically create a continuation. Full reject → accepted=0, rejection reason required, RETURN_PENDING, sender return task only.
 

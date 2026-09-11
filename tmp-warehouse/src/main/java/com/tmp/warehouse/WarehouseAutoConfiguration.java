@@ -46,6 +46,7 @@ import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
 import com.tmp.warehouse.domain.repository.WarehouseStockReadQuery;
+import com.tmp.warehouse.domain.repository.WarehouseHistoryReadQuery;
 import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
@@ -58,6 +59,7 @@ import com.tmp.warehouse.persistence.JdbcTransferReceiptSettlementItemRepository
 import com.tmp.warehouse.persistence.JdbcTransferReturnSettlementItemRepository;
 import com.tmp.warehouse.persistence.JdbcTransferTaskStateRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseHistoryReadQuery;
 import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseOperationRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseStockReadQuery;
@@ -477,6 +479,11 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
+    WarehouseHistoryReadQuery warehouseHistoryReadQuery(JdbcTemplate jdbcTemplate) {
+        return new JdbcWarehouseHistoryReadQuery(jdbcTemplate);
+    }
+
+    @Bean
     MaterialSourceRoutingService materialSourceRoutingService(
             AvailableStockAggregationQuery availableStockAggregationQuery) {
         return new MaterialSourceRoutingService(availableStockAggregationQuery);
@@ -511,7 +518,9 @@ public class WarehouseAutoConfiguration {
             TransferDocumentSettlementRepository transferDocumentSettlementRepository,
             TransferReceiptSettlementItemRepository transferReceiptSettlementItemRepository,
             TransferReturnSettlementItemRepository transferReturnSettlementItemRepository,
-            WarehouseStockReadQuery warehouseStockReadQuery) {
+            WarehouseStockReadQuery warehouseStockReadQuery,
+            WarehouseHistoryReadQuery warehouseHistoryReadQuery,
+            DocumentEngine documentEngine) {
         return new DefaultWarehouseApi(
                 authorizationService,
                 authenticationService,
@@ -540,7 +549,9 @@ public class WarehouseAutoConfiguration {
                 transferDocumentSettlementRepository,
                 transferReceiptSettlementItemRepository,
                 transferReturnSettlementItemRepository,
-                warehouseStockReadQuery);
+                warehouseStockReadQuery,
+                warehouseHistoryReadQuery,
+                documentEngine);
     }
 
     @Bean

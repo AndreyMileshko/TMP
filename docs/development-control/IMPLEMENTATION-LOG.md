@@ -4,6 +4,37 @@
 
 ---
 
+## Stage 3.5.12 — История (Warehouse History) — 2026-09-11
+
+**Date:** 2026-09-11
+**Stage:** Stage 3.5.12 (Warehouse Workspace History)
+**Base checkpoint:** `01f323a34cd0ada630e44a4e769919d209c424ea`
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; Задачи+Остатки+История COMPLETE; 3.5.13 NEXT / NOT STARTED
+**Commit:** none
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
+
+### Summary
+
+Warehouse History = COMPLETE end-to-end. Read-only server-side history over completed `WarehouseOperation` + physical `WarehouseMovement` deltas (no new persisted history store). Public Query API `listHistory`; UI History tab with period (default last 30 days), material search, operation type, pagination 50, async stale-safe. Permission = existing `warehouse.stock.view`. Migration NONE / Flyway V44.
+
+### Key changes
+
+- API: `WarehouseHistoryFilter` / `WarehouseHistoryEntryView` / `WarehouseHistoryPage` + `listHistory`
+- JDBC: `WarehouseHistoryReadQuery` / `JdbcWarehouseHistoryReadQuery`
+- `DefaultWarehouseApi` + `WarehouseAutoConfiguration` + test support
+- UI: History pane in Workspace (FXML / ViewModel / Controller) + ViewModel tests
+- Integration: `WarehouseHistoryIntegrationTest` (receipt/move/consume/adjust, transfer physical qty, reject no movement, filters/security/conservation)
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.12 entry (2026-09-11).
+
+### Next
+
+Stage 3.5.13 — Warehouse Settings (NOT STARTED). Manual acceptance deferred to Stage 3.5.15.
+
+---
+
 ## Stage 3.5.11A — Complete Warehouse Task Actions UI — 2026-09-11
 
 **Date:** 2026-09-11

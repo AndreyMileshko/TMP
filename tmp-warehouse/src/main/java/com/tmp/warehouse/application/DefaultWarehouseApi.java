@@ -1,5 +1,7 @@
 package com.tmp.warehouse.application;
 
+import com.tmp.document.api.DocumentEngine;
+import com.tmp.document.api.DocumentMetadata;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
@@ -57,14 +59,17 @@ import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.domain.WarehouseOperationStatus;
 import com.tmp.warehouse.domain.WarehouseOperationType;
+import com.tmp.warehouse.domain.repository.WarehouseHistoryReadQuery;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import com.tmp.warehouse.domain.repository.WarehouseStockReadQuery;
 import com.tmp.warehouse.security.WarehousePermissions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -117,6 +122,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     private final TransferReceiptSettlementItemRepository receiptItems;
     private final TransferReturnSettlementItemRepository returnItems;
     private final WarehouseStockReadQuery stockRead;
+    private final WarehouseHistoryReadQuery historyRead;
+    private final DocumentEngine documentEngine;
 
     public DefaultWarehouseApi(
             AuthorizationService authorization,
@@ -420,6 +427,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 settlements,
                 receiptItems,
                 returnItems,
+                null,
+                null,
                 null);
     }
 
@@ -452,6 +461,70 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             TransferReceiptSettlementItemRepository receiptItems,
             TransferReturnSettlementItemRepository returnItems,
             WarehouseStockReadQuery stockRead) {
+        this(
+                authorization,
+                authentication,
+                responsibilityGuard,
+                responsibilities,
+                warehouses,
+                stockPositions,
+                materials,
+                materialDisplay,
+                reservationLinks,
+                receipts,
+                moves,
+                transfers,
+                transferDocuments,
+                consumptions,
+                adjustments,
+                operations,
+                transferContexts,
+                sourceRouting,
+                operationalInbox,
+                transferSend,
+                transferReceive,
+                transferReject,
+                transferReturn,
+                sendAllocations,
+                settlements,
+                receiptItems,
+                returnItems,
+                stockRead,
+                null,
+                null);
+    }
+
+    public DefaultWarehouseApi(
+            AuthorizationService authorization,
+            AuthenticationService authentication,
+            WarehouseResponsibilityGuard responsibilityGuard,
+            WarehouseUserResponsibilityRepository responsibilities,
+            WarehouseCatalogRepository warehouses,
+            StockPositionRepository stockPositions,
+            MaterialReferenceRepository materials,
+            MaterialReferenceDisplayPort materialDisplay,
+            WarehouseReservationLinkService reservationLinks,
+            WarehouseReceiptService receipts,
+            WarehouseMoveService moves,
+            WarehouseTransferService transfers,
+            WarehouseTransferDocumentService transferDocuments,
+            WarehouseConsumptionService consumptions,
+            WarehouseAdjustmentService adjustments,
+            WarehouseOperationRepository operations,
+            TransferOperationContextRepository transferContexts,
+            MaterialSourceRoutingService sourceRouting,
+            WarehouseOperationalInboxService operationalInbox,
+            WarehouseTransferSendService transferSend,
+            WarehouseTransferReceiveService transferReceive,
+            WarehouseTransferRejectService transferReject,
+            WarehouseTransferReturnService transferReturn,
+            TransferDocumentSendAllocationRepository sendAllocations,
+            TransferDocumentSettlementRepository settlements,
+            TransferReceiptSettlementItemRepository receiptItems,
+            TransferReturnSettlementItemRepository returnItems,
+            WarehouseStockReadQuery stockRead,
+            WarehouseHistoryReadQuery historyRead,
+            DocumentEngine documentEngine) {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.authentication = Objects.requireNonNull(authentication, "authentication");
         this.responsibilityGuard =
@@ -481,6 +554,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         this.receiptItems = receiptItems;
         this.returnItems = returnItems;
         this.stockRead = stockRead;
+        this.historyRead = historyRead;
+        this.documentEngine = documentEngine;
     }
 
     @Override
@@ -1288,10 +1363,105 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     }
 
     @Override
-    public WarehouseTaskView takeTransferTaskInWork(UUID documentId) {
-        Objects.requireNonNull(documentId, "documentId");
-        authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
-        return requireOperationalInbox().takeTransferTaskInWork(documentId);
+    public WarehouseHistoryPage listHistory(
+            UUID warehouseId, WarehouseHistoryFilter filter, int pageIndex, int pageSize) {
+        Objects.requireNonNull(filter, "filter");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        WarehouseHistoryReadQuery query = requireHistoryRead();
+        int safePageSize = clampHistoryPageSize(pageSize);
+        if (pageIndex < 0) {
+            throw new IllegalArgumentException("pageIndex must be >= 0: " + pageIndex);
+        }
+        Set<UUID> scope = resolveResponsibleWarehouseScope(warehouseId);
+        if (scope.isEmpty()) {
+            return WarehouseHistoryPage.of(List.of(), pageIndex, safePageSize, 0L);
+        }
+        long total =
+                query.countHistory(
+                        scope,
+                        filter.fromInclusive(),
+                        filter.toExclusive(),
+                        filter.materialSearch(),
+                        filter.operationType());
+        if (total == 0L) {
+            return WarehouseHistoryPage.of(List.of(), pageIndex, safePageSize, 0L);
+        }
+        List<WarehouseHistoryReadQuery.HistoryRow> rows =
+                query.findHistory(
+                        scope,
+                        filter.fromInclusive(),
+                        filter.toExclusive(),
+                        filter.materialSearch(),
+                        filter.operationType(),
+                        pageIndex,
+                        safePageSize);
+        Map<UUID, String> documentNumbers = resolveDocumentNumbers(rows);
+        List<WarehouseHistoryEntryView> content =
+                rows.stream().map(row -> toHistoryEntryView(row, documentNumbers)).toList();
+        return WarehouseHistoryPage.of(content, pageIndex, safePageSize, total);
+    }
+
+    private Map<UUID, String> resolveDocumentNumbers(
+            List<WarehouseHistoryReadQuery.HistoryRow> rows) {
+        if (documentEngine == null || rows.isEmpty()) {
+            return Map.of();
+        }
+        LinkedHashSet<UUID> documentIds = new LinkedHashSet<>();
+        for (WarehouseHistoryReadQuery.HistoryRow row : rows) {
+            if (row.documentId() != null) {
+                documentIds.add(row.documentId());
+            }
+        }
+        Map<UUID, String> numbers = new HashMap<>();
+        for (UUID documentId : documentIds) {
+            documentEngine
+                    .findById(documentId)
+                    .map(DocumentMetadata::documentNumber)
+                    .ifPresent(number -> numbers.put(documentId, number));
+        }
+        return numbers;
+    }
+
+    private WarehouseHistoryEntryView toHistoryEntryView(
+            WarehouseHistoryReadQuery.HistoryRow row, Map<UUID, String> documentNumbers) {
+        String documentNumber =
+                row.documentId() == null ? null : documentNumbers.get(row.documentId());
+        return new WarehouseHistoryEntryView(
+                row.entryId(),
+                row.occurredAt(),
+                row.operationType(),
+                historyOperationDisplayName(row.operationType()),
+                row.materialReferenceId(),
+                row.materialArticle(),
+                row.materialName(),
+                row.unitOfMeasure(),
+                row.quantity(),
+                row.sourceWarehouseId(),
+                row.sourceWarehouseName(),
+                row.sourceCellId(),
+                row.sourceCellCode(),
+                row.destinationWarehouseId(),
+                row.destinationWarehouseName(),
+                row.destinationCellId(),
+                row.destinationCellCode(),
+                row.documentId(),
+                documentNumber,
+                null,
+                null);
+    }
+
+    private static String historyOperationDisplayName(String operationType) {
+        return switch (operationType) {
+            case "RECEIPT" -> "Приход";
+            case "MOVE" -> "Перемещение";
+            case "TRANSFER_SEND" -> "Передача";
+            case "TRANSFER_RECEIVE" -> "Приёмка";
+            case "TRANSFER_RETURN" -> "Возврат";
+            case "CONSUMPTION" -> "Списание";
+            case "ADJUSTMENT" -> "Корректировка";
+            case "INVENTORY" -> "Инвентаризация";
+            default -> operationType;
+        };
     }
 
     private WarehouseOperationalInboxService requireOperationalInbox() {
@@ -1301,11 +1471,25 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         return operationalInbox;
     }
 
+    @Override
+    public WarehouseTaskView takeTransferTaskInWork(UUID documentId) {
+        Objects.requireNonNull(documentId, "documentId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
+        return requireOperationalInbox().takeTransferTaskInWork(documentId);
+    }
+
     private WarehouseStockReadQuery requireStockRead() {
         if (stockRead == null) {
             throw new IllegalStateException("Warehouse stock read query is not configured");
         }
         return stockRead;
+    }
+
+    private WarehouseHistoryReadQuery requireHistoryRead() {
+        if (historyRead == null) {
+            throw new IllegalStateException("Warehouse history read query is not configured");
+        }
+        return historyRead;
     }
 
     private WarehouseStockSummaryView toStockSummaryView(
@@ -1351,6 +1535,13 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             return STOCK_SUMMARY_DEFAULT_PAGE_SIZE;
         }
         return Math.min(pageSize, STOCK_SUMMARY_MAX_PAGE_SIZE);
+    }
+
+    private static int clampHistoryPageSize(int pageSize) {
+        if (pageSize < 1) {
+            return HISTORY_DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(pageSize, HISTORY_MAX_PAGE_SIZE);
     }
 
     private WarehouseTransferSendService requireTransferSend() {

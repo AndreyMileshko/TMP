@@ -160,4 +160,19 @@ public interface WarehouseQueryApi {
             UUID warehouseId, UUID materialReferenceId) {
         throw new UnsupportedOperationException("getStockCellBreakdown is not available");
     }
+
+    /**
+     * Modern Warehouse History page: completed physical operations for responsible warehouse(s).
+     * Server-side filters and pagination. Does not mutate stock.
+     *
+     * <p>{@code warehouseId} null = all responsible warehouses; non-null must be in responsibility
+     * scope (otherwise access denied).
+     */
+    default WarehouseApi.WarehouseHistoryPage listHistory(
+            UUID warehouseId,
+            WarehouseApi.WarehouseHistoryFilter filter,
+            int pageIndex,
+            int pageSize) {
+        throw new UnsupportedOperationException("listHistory is not available");
+    }
 }

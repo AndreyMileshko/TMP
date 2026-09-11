@@ -3,6 +3,41 @@
 ## Latest result
 
 **Date:** 2026-09-11
+**Scope:** Stage 3.5.12 — История (History tab UI)
+**Overall:** PASS
+
+### Stage 3.5.12 Warehouse History (2026-09-11)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `01f323a34cd0ada630e44a4e769919d209c424ea` | PASS |
+| History source | COMPLETED `WarehouseOperation` + `WarehouseMovement` deltas; Transfer docs via settlement + DocumentEngine |
+| New persisted history model | **NONE** |
+| Physical quantities (send/receive/return; reject no movement) | PASS |
+| Conservation (receipt+consume) | PASS |
+| Filters / pagination / security / ALL | PASS |
+| Permission | existing `warehouse.stock.view` |
+| History tab UI | Period / material / operation filters + table + pagination + refresh; async stale-safe |
+| Migration | **NONE / V44** |
+| `WarehouseHistoryIntegrationTest` | PASS (4) |
+| `WarehouseWorkspaceViewModelTest` | PASS (48) |
+| `WarehouseUiErrorMapperTest` | PASS (5) |
+| `Stage6WarehouseArchitectureTest` | PASS (7) |
+| `mvn -pl tmp-warehouse,tmp-ui-shell -am test-compile` | PASS |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests` | PASS |
+| `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS |
+| Startup `tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 44 / V44 up-to-date; Started DesktopBootstrap; JavaFX unnamed-module WARN only; exceptions NONE |
+| Manual acceptance | NOT RUN — deferred to Stage 3.5.15 |
+| Full reactor | NOT RUN — last GREEN `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d` |
+| Warehouse Workspace | Задачи COMPLETE; Остатки COMPLETE; История COMPLETE |
+| Stage 3.5.13 Warehouse Settings | NEXT / NOT STARTED |
+| Stage 3.5 | IN PROGRESS |
+
+---
+
+## Previous result
+
+**Date:** 2026-09-11
 **Scope:** Stage 3.5.11A — Complete Warehouse Task Actions UI
 **Overall:** PASS
 

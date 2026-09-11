@@ -3,6 +3,7 @@ package com.tmp.ui.shell.screen.warehouse;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
+import com.tmp.ui.shell.order.worklist.DateTimePresentation;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
 import com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand;
@@ -21,6 +22,9 @@ import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceAllocationInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseHistoryEntryView;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseHistoryFilter;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseHistoryPage;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseMaterialStockDetailsView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockPage;
@@ -31,6 +35,9 @@ import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -59,8 +66,9 @@ import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 
 /**
- * Modern warehouse workspace (Задачи / Остатки). Reads and commands via {@link WarehouseApi} only;
- * UI collects selections and reloads — no business calculation of shortfall/continuation/settlement.
+ * Modern warehouse workspace (Задачи / Остатки / История). Reads and commands via {@link
+ * WarehouseApi} only; UI collects selections and reloads — no business calculation of
+ * shortfall/continuation/settlement. History is read-only.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
@@ -68,10 +76,14 @@ import javafx.collections.ObservableList;
 public final class WarehouseWorkspaceViewModel {
 
     static final int PAGE_SIZE = WarehouseApi.STOCK_SUMMARY_DEFAULT_PAGE_SIZE;
+    static final int HISTORY_PAGE_SIZE = WarehouseApi.HISTORY_DEFAULT_PAGE_SIZE;
 
     private static final String EMPTY_STOCK_MESSAGE = "На выбранном складе нет доступных остатков";
     private static final String EMPTY_SEARCH_MESSAGE = "По вашему запросу ничего не найдено";
     private static final String EMPTY_TASKS_MESSAGE = "Нет задач по выбранным складам";
+    private static final String EMPTY_HISTORY_PERIOD_MESSAGE = "За выбранный период операций нет";
+    private static final String EMPTY_HISTORY_FILTER_MESSAGE =
+            "По выбранным условиям ничего не найдено";
     private static final String TASK_DETAILS_PLACEHOLDER = "Выберите задачу в списке";
     private static final String HINT_PREPARATION =
             "Укажите ячейки и количества, затем нажмите Передать.";
@@ -120,6 +132,121 @@ public final class WarehouseWorkspaceViewModel {
         @Override
         public String toString() {
             return label;
+        }
+    }
+
+    /** Combo item: {@code operationType} null = all physical operation types. */
+    public record HistoryOperationOption(String operationType, String label) {
+
+        public HistoryOperationOption {
+            Objects.requireNonNull(label, "label");
+        }
+
+        public static HistoryOperationOption all() {
+            return new HistoryOperationOption(null, "Все операции");
+        }
+
+        public static HistoryOperationOption of(String operationType, String label) {
+            return new HistoryOperationOption(operationType, label);
+        }
+
+        public boolean isAll() {
+            return operationType == null;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
+
+    /** Read-only History table row. */
+    public static final class HistoryRow {
+
+        private final UUID entryId;
+        private final String occurredAtText;
+        private final String operationLabel;
+        private final String materialText;
+        private final String quantityText;
+        private final String sourceText;
+        private final String destinationText;
+        private final String documentText;
+        private final String actorText;
+
+        HistoryRow(
+                UUID entryId,
+                String occurredAtText,
+                String operationLabel,
+                String materialText,
+                String quantityText,
+                String sourceText,
+                String destinationText,
+                String documentText,
+                String actorText) {
+            this.entryId = Objects.requireNonNull(entryId, "entryId");
+            this.occurredAtText = occurredAtText;
+            this.operationLabel = operationLabel;
+            this.materialText = materialText;
+            this.quantityText = quantityText;
+            this.sourceText = sourceText;
+            this.destinationText = destinationText;
+            this.documentText = documentText;
+            this.actorText = actorText;
+        }
+
+        static HistoryRow from(WarehouseHistoryEntryView view, boolean allWarehousesMode) {
+            return new HistoryRow(
+                    view.entryId(),
+                    DateTimePresentation.format(view.occurredAt()),
+                    view.operationDisplayName(),
+                    formatHistoryMaterial(view),
+                    formatHistoryQuantity(view.operationType(), view.quantity()),
+                    formatHistoryLocation(
+                            view.sourceWarehouseName(),
+                            view.sourceCellCode(),
+                            allWarehousesMode),
+                    formatHistoryLocation(
+                            view.destinationWarehouseName(),
+                            view.destinationCellCode(),
+                            allWarehousesMode),
+                    blankDash(view.documentNumber()),
+                    blankDash(view.actorDisplayName()));
+        }
+
+        public UUID entryId() {
+            return entryId;
+        }
+
+        public String occurredAtText() {
+            return occurredAtText;
+        }
+
+        public String operationLabel() {
+            return operationLabel;
+        }
+
+        public String materialText() {
+            return materialText;
+        }
+
+        public String quantityText() {
+            return quantityText;
+        }
+
+        public String sourceText() {
+            return sourceText;
+        }
+
+        public String destinationText() {
+            return destinationText;
+        }
+
+        public String documentText() {
+            return documentText;
+        }
+
+        public String actorText() {
+            return actorText;
         }
     }
 
@@ -570,12 +697,27 @@ public final class WarehouseWorkspaceViewModel {
     private final BooleanProperty canGoPrevious = new SimpleBooleanProperty(false);
     private final BooleanProperty canGoNext = new SimpleBooleanProperty(false);
 
+    private final ObservableList<HistoryRow> historyRows = FXCollections.observableArrayList();
+    private final ObjectProperty<LocalDate> historyFromDate = new SimpleObjectProperty<>();
+    private final ObjectProperty<LocalDate> historyToDate = new SimpleObjectProperty<>();
+    private final StringProperty historySearchInput = new SimpleStringProperty("");
+    private final ObservableList<HistoryOperationOption> historyOperationOptions =
+            FXCollections.observableArrayList();
+    private final ObjectProperty<HistoryOperationOption> selectedHistoryOperation =
+            new SimpleObjectProperty<>();
+    private final IntegerProperty historyPageIndex = new SimpleIntegerProperty(0);
+    private final LongProperty historyTotalElements = new SimpleLongProperty(0);
+    private final BooleanProperty historyCanGoPrevious = new SimpleBooleanProperty(false);
+    private final BooleanProperty historyCanGoNext = new SimpleBooleanProperty(false);
+
     private final Set<UUID> accessibleWarehouseIds = new HashSet<>();
     private final Map<UUID, String> warehouseLabels = new HashMap<>();
     private final Map<UUID, MaterialReferenceView> materialById = new HashMap<>();
     private String committedSearch = "";
+    private String committedHistorySearch = "";
     private long stockLoadGeneration;
     private long taskLoadGeneration;
+    private long historyLoadGeneration;
     private long taskDetailLoadGeneration;
     private boolean stockLoadedForCurrentFilter;
     private long expandRequestCounter;
@@ -625,8 +767,26 @@ public final class WarehouseWorkspaceViewModel {
         commandInFlight.addListener((obs, o, n) -> updateActionAvailability());
         loading.addListener((obs, o, n) -> updateActionAvailability());
         canTransfer.addListener((obs, o, n) -> updateActionAvailability());
+        initializeHistoryFilters();
         refreshPermissions();
         updatePaginationFlags();
+        updateHistoryPaginationFlags();
+    }
+
+    private void initializeHistoryFilters() {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        historyFromDate.set(today.minusDays(29));
+        historyToDate.set(today);
+        historyOperationOptions.setAll(
+                HistoryOperationOption.all(),
+                HistoryOperationOption.of("RECEIPT", "Приход"),
+                HistoryOperationOption.of("MOVE", "Перемещение"),
+                HistoryOperationOption.of("TRANSFER_SEND", "Передача"),
+                HistoryOperationOption.of("TRANSFER_RECEIVE", "Приёмка"),
+                HistoryOperationOption.of("TRANSFER_RETURN", "Возврат"),
+                HistoryOperationOption.of("CONSUMPTION", "Списание"),
+                HistoryOperationOption.of("ADJUSTMENT", "Корректировка"));
+        selectedHistoryOperation.set(HistoryOperationOption.all());
     }
 
     public void refreshPermissions() {
@@ -656,6 +816,8 @@ public final class WarehouseWorkspaceViewModel {
             reloadTasks();
         } else if (tab == WorkspaceTab.STOCK) {
             ensureStockLoaded();
+        } else if (tab == WorkspaceTab.HISTORY) {
+            reloadHistory();
         } else {
             statusMessage.set("");
         }
@@ -671,6 +833,7 @@ public final class WarehouseWorkspaceViewModel {
         }
         clearExpandedRows();
         pageIndex.set(0);
+        historyPageIndex.set(0);
         selectedWarehouseFilter.set(option);
         showWarehouseColumn.set(option != null && option.isAll());
         stockLoadedForCurrentFilter = false;
@@ -679,6 +842,8 @@ public final class WarehouseWorkspaceViewModel {
             reloadTasks();
         } else if (tab == WorkspaceTab.STOCK) {
             reloadStockSummaries();
+        } else if (tab == WorkspaceTab.HISTORY) {
+            reloadHistory();
         }
     }
 
@@ -968,6 +1133,60 @@ public final class WarehouseWorkspaceViewModel {
         reloadStockSummaries();
     }
 
+    public void commitHistorySearch() {
+        if (selectedTab.get() != WorkspaceTab.HISTORY) {
+            return;
+        }
+        committedHistorySearch =
+                blankToNull(historySearchInput.get()) == null
+                        ? ""
+                        : historySearchInput.get().trim();
+        historyPageIndex.set(0);
+        reloadHistory();
+    }
+
+    public void setHistoryFromDate(LocalDate date) {
+        if (Objects.equals(historyFromDate.get(), date)) {
+            return;
+        }
+        historyFromDate.set(date);
+        historyPageIndex.set(0);
+        if (selectedTab.get() == WorkspaceTab.HISTORY) {
+            reloadHistory();
+        }
+    }
+
+    public void setHistoryToDate(LocalDate date) {
+        if (Objects.equals(historyToDate.get(), date)) {
+            return;
+        }
+        historyToDate.set(date);
+        historyPageIndex.set(0);
+        if (selectedTab.get() == WorkspaceTab.HISTORY) {
+            reloadHistory();
+        }
+    }
+
+    public void selectHistoryOperation(HistoryOperationOption option) {
+        Objects.requireNonNull(option, "option");
+        HistoryOperationOption current = selectedHistoryOperation.get();
+        if (Objects.equals(current, option)) {
+            return;
+        }
+        selectedHistoryOperation.set(option);
+        historyPageIndex.set(0);
+        if (selectedTab.get() == WorkspaceTab.HISTORY) {
+            reloadHistory();
+        }
+    }
+
+    public void refreshHistory() {
+        if (selectedTab.get() != WorkspaceTab.HISTORY) {
+            return;
+        }
+        reloadHistory();
+    }
+
     public void nextPage() {
         if (selectedTab.get() != WorkspaceTab.STOCK) {
             return;
@@ -989,6 +1208,28 @@ public final class WarehouseWorkspaceViewModel {
             clearExpandedRows();
             pageIndex.set(pageIndex.get() - 1);
             reloadStockSummaries();
+        }
+    }
+
+    public void nextHistoryPage() {
+        if (selectedTab.get() != WorkspaceTab.HISTORY) {
+            return;
+        }
+        long total = historyTotalElements.get();
+        int maxPage = total <= 0 ? 0 : (int) ((total - 1) / HISTORY_PAGE_SIZE);
+        if (historyPageIndex.get() < maxPage) {
+            historyPageIndex.set(historyPageIndex.get() + 1);
+            reloadHistory();
+        }
+    }
+
+    public void previousHistoryPage() {
+        if (selectedTab.get() != WorkspaceTab.HISTORY) {
+            return;
+        }
+        if (historyPageIndex.get() > 0) {
+            historyPageIndex.set(historyPageIndex.get() - 1);
+            reloadHistory();
         }
     }
 
@@ -1109,6 +1350,46 @@ public final class WarehouseWorkspaceViewModel {
         return canReturnSelectedTask;
     }
 
+    public ObservableList<HistoryRow> historyRows() {
+        return historyRows;
+    }
+
+    public ObjectProperty<LocalDate> historyFromDateProperty() {
+        return historyFromDate;
+    }
+
+    public ObjectProperty<LocalDate> historyToDateProperty() {
+        return historyToDate;
+    }
+
+    public StringProperty historySearchInputProperty() {
+        return historySearchInput;
+    }
+
+    public ObservableList<HistoryOperationOption> historyOperationOptions() {
+        return historyOperationOptions;
+    }
+
+    public ObjectProperty<HistoryOperationOption> selectedHistoryOperationProperty() {
+        return selectedHistoryOperation;
+    }
+
+    public IntegerProperty historyPageIndexProperty() {
+        return historyPageIndex;
+    }
+
+    public LongProperty historyTotalElementsProperty() {
+        return historyTotalElements;
+    }
+
+    public BooleanProperty historyCanGoPreviousProperty() {
+        return historyCanGoPrevious;
+    }
+
+    public BooleanProperty historyCanGoNextProperty() {
+        return historyCanGoNext;
+    }
+
     private void loadWarehouseFiltersAndInitialContent() {
         errorMessage.set("");
         statusMessage.set("");
@@ -1144,6 +1425,8 @@ public final class WarehouseWorkspaceViewModel {
             stockLoadedForCurrentFilter = false;
             if (selectedTab.get() == WorkspaceTab.STOCK) {
                 reloadStockSummaries();
+            } else if (selectedTab.get() == WorkspaceTab.HISTORY) {
+                reloadHistory();
             } else {
                 reloadTasks();
             }
@@ -1188,7 +1471,9 @@ public final class WarehouseWorkspaceViewModel {
         if (requestId != taskLoadGeneration) {
             return;
         }
-        loading.set(false);
+        if (selectedTab.get() == WorkspaceTab.TASKS) {
+            loading.set(false);
+        }
         UUID previousSelection = selectedTask.get() == null ? null : selectedTask.get().documentId();
         List<TaskRow> rows = new ArrayList<>();
         for (WarehouseTaskView task : tasks) {
@@ -1231,7 +1516,9 @@ public final class WarehouseWorkspaceViewModel {
         if (requestId != taskLoadGeneration) {
             return;
         }
-        loading.set(false);
+        if (selectedTab.get() == WorkspaceTab.TASKS) {
+            loading.set(false);
+        }
         errorMessage.set(WarehouseUiErrorMapper.text(ex));
         if (selectedTab.get() == WorkspaceTab.TASKS) {
             statusMessage.set(WarehouseUiErrorMapper.LOAD_FAILED);
@@ -1778,7 +2065,9 @@ public final class WarehouseWorkspaceViewModel {
         if (requestId != stockLoadGeneration) {
             return;
         }
-        loading.set(false);
+        if (selectedTab.get() == WorkspaceTab.STOCK) {
+            loading.set(false);
+        }
         stockLoadedForCurrentFilter = true;
         totalElements.set(pageResult.totalElements());
         updatePaginationFlags();
@@ -1800,7 +2089,9 @@ public final class WarehouseWorkspaceViewModel {
         if (requestId != stockLoadGeneration) {
             return;
         }
-        loading.set(false);
+        if (selectedTab.get() == WorkspaceTab.STOCK) {
+            loading.set(false);
+        }
         stockLoadedForCurrentFilter = false;
         errorMessage.set(WarehouseUiErrorMapper.text(ex));
         if (selectedTab.get() == WorkspaceTab.STOCK) {
@@ -1894,6 +2185,175 @@ public final class WarehouseWorkspaceViewModel {
         long total = totalElements.get();
         int maxPage = total <= 0 ? 0 : (int) ((total - 1) / PAGE_SIZE);
         canGoNext.set(pageIndex.get() < maxPage);
+    }
+
+    private void updateHistoryPaginationFlags() {
+        historyCanGoPrevious.set(historyPageIndex.get() > 0);
+        long total = historyTotalElements.get();
+        int maxPage = total <= 0 ? 0 : (int) ((total - 1) / HISTORY_PAGE_SIZE);
+        historyCanGoNext.set(historyPageIndex.get() < maxPage);
+    }
+
+    private void reloadHistory() {
+        if (!canView.get()) {
+            deny();
+            return;
+        }
+        LocalDate from = historyFromDate.get();
+        LocalDate to = historyToDate.get();
+        if (from == null || to == null) {
+            errorMessage.set(WarehouseUiErrorMapper.VALIDATION);
+            statusMessage.set("");
+            historyRows.clear();
+            historyTotalElements.set(0);
+            updateHistoryPaginationFlags();
+            return;
+        }
+        if (from.isAfter(to)) {
+            errorMessage.set(WarehouseUiErrorMapper.VALIDATION);
+            statusMessage.set("");
+            historyRows.clear();
+            historyTotalElements.set(0);
+            updateHistoryPaginationFlags();
+            return;
+        }
+        WarehouseFilterOption filter = selectedWarehouseFilter.get();
+        UUID warehouseId = filter == null ? null : filter.warehouseId();
+        boolean allMode = filter != null && filter.isAll();
+        ZoneId zone = ZoneId.systemDefault();
+        Instant fromInclusive = from.atStartOfDay(zone).toInstant();
+        Instant toExclusive = to.plusDays(1).atStartOfDay(zone).toInstant();
+        String materialSearch = blankToNull(committedHistorySearch);
+        HistoryOperationOption operation = selectedHistoryOperation.get();
+        String operationType = operation == null ? null : operation.operationType();
+        WarehouseHistoryFilter historyFilter =
+                new WarehouseHistoryFilter(fromInclusive, toExclusive, materialSearch, operationType);
+        long requestId = ++historyLoadGeneration;
+        loading.set(true);
+        errorMessage.set("");
+        statusMessage.set("");
+        int page = historyPageIndex.get();
+        boolean filtersActive = materialSearch != null || operationType != null;
+        backgroundExecutor.execute(
+                () -> {
+                    try {
+                        WarehouseHistoryPage pageResult =
+                                warehouseApi.listHistory(
+                                        warehouseId, historyFilter, page, HISTORY_PAGE_SIZE);
+                        uiExecutor.accept(
+                                () -> applyHistoryPage(pageResult, requestId, allMode, filtersActive));
+                    } catch (RuntimeException ex) {
+                        uiExecutor.accept(() -> applyHistoryLoadError(ex, requestId));
+                    }
+                });
+    }
+
+    private void applyHistoryPage(
+            WarehouseHistoryPage pageResult,
+            long requestId,
+            boolean allMode,
+            boolean filtersActive) {
+        if (requestId != historyLoadGeneration) {
+            return;
+        }
+        if (selectedTab.get() == WorkspaceTab.HISTORY) {
+            loading.set(false);
+        }
+        historyTotalElements.set(pageResult.totalElements());
+        updateHistoryPaginationFlags();
+        List<HistoryRow> rows = new ArrayList<>();
+        for (WarehouseHistoryEntryView entry : pageResult.content()) {
+            rows.add(HistoryRow.from(entry, allMode));
+        }
+        historyRows.setAll(rows);
+        if (selectedTab.get() == WorkspaceTab.HISTORY && pageResult.totalElements() == 0) {
+            statusMessage.set(
+                    filtersActive ? EMPTY_HISTORY_FILTER_MESSAGE : EMPTY_HISTORY_PERIOD_MESSAGE);
+        } else if (selectedTab.get() == WorkspaceTab.HISTORY) {
+            statusMessage.set("");
+        }
+    }
+
+    private void applyHistoryLoadError(RuntimeException ex, long requestId) {
+        if (requestId != historyLoadGeneration) {
+            return;
+        }
+        if (selectedTab.get() == WorkspaceTab.HISTORY) {
+            loading.set(false);
+        }
+        errorMessage.set(WarehouseUiErrorMapper.text(ex));
+        if (selectedTab.get() == WorkspaceTab.HISTORY) {
+            statusMessage.set(WarehouseUiErrorMapper.LOAD_FAILED);
+        }
+        historyRows.clear();
+        historyTotalElements.set(0);
+        updateHistoryPaginationFlags();
+    }
+
+    static String formatHistoryMaterial(WarehouseHistoryEntryView view) {
+        String article = view.materialArticle() == null ? "" : view.materialArticle().trim();
+        String name = view.materialName() == null ? "" : view.materialName().trim();
+        String unit = view.unitOfMeasure() == null ? "" : view.unitOfMeasure().trim();
+        StringBuilder builder = new StringBuilder();
+        if (!article.isEmpty()) {
+            builder.append(article);
+        }
+        if (!name.isEmpty()) {
+            if (!builder.isEmpty()) {
+                builder.append(" — ");
+            }
+            builder.append(name);
+        }
+        if (!unit.isEmpty()) {
+            if (!builder.isEmpty()) {
+                builder.append(" (");
+                builder.append(unit);
+                builder.append(')');
+            } else {
+                builder.append(unit);
+            }
+        }
+        return builder.toString();
+    }
+
+    static String formatHistoryQuantity(String operationType, BigDecimal quantity) {
+        Objects.requireNonNull(quantity, "quantity");
+        if ("MOVE".equals(operationType)) {
+            return quantity.abs().toPlainString();
+        }
+        int sign = quantity.signum();
+        if (sign > 0) {
+            return "+" + quantity.toPlainString();
+        }
+        if (sign < 0) {
+            return quantity.toPlainString();
+        }
+        return "0";
+    }
+
+    static String formatHistoryLocation(
+            String warehouseName, String cellCode, boolean allWarehousesMode) {
+        boolean hasWarehouse = warehouseName != null && !warehouseName.isBlank();
+        boolean hasCell = cellCode != null && !cellCode.isBlank();
+        if (!hasWarehouse && !hasCell) {
+            return "—";
+        }
+        if (allWarehousesMode) {
+            String warehouse = hasWarehouse ? warehouseName.trim() : "—";
+            String cell = hasCell ? cellCode.trim() : "—";
+            return warehouse + " / " + cell;
+        }
+        if (hasWarehouse && hasCell) {
+            return warehouseName.trim() + " / " + cellCode.trim();
+        }
+        if (hasCell) {
+            return cellCode.trim();
+        }
+        return warehouseName.trim();
+    }
+
+    private static String blankDash(String value) {
+        return value == null || value.isBlank() ? "—" : value.trim();
     }
 
     private void deny() {

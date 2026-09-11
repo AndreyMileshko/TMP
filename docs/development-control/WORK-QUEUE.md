@@ -11865,7 +11865,38 @@ See VERIFICATION-LOG Stage 3.5.10 entry (2026-09-10).
 ### Next on success
 
 Stage 3.5.11 — Modern Остатки = COMPLETE
-Stage 3.5.12 — История = NEXT / NOT STARTED
+Stage 3.5.12 — История = COMPLETE
+
+---
+## STAGE-3.5.12 — История
+
+**Status:** DONE
+**Stage:** 3.5
+**Depends on:** Stage 3.5.11 (+ 3.5.11A)
+**Module:** `tmp-warehouse` (History Query API + JDBC read) + `tmp-ui-shell` (Warehouse Workspace History tab)
+
+### Goal
+
+Replace History tab placeholder with real read-only Warehouse History: completed physical operations/movements, filters, pagination, security — no new persisted history store.
+
+### Acceptance criteria
+
+- [x] Query API `listHistory` / `WarehouseHistoryFilter` / `WarehouseHistoryEntryView` / `WarehouseHistoryPage`
+- [x] Server-side SQL over COMPLETED operations + movement deltas; Transfer docs via settlement + DocumentEngine numbers
+- [x] Physical quantities only (send/receive/return); Reject creates no stock movement row
+- [x] Filters: warehouse (+ ALL), period (default last 30 days), material search, operation type; pagination 50; newest first
+- [x] Permission = existing `warehouse.stock.view`; responsibility-scoped; foreign warehouse denied
+- [x] UI History pane: loading/empty/error, async stale-safe, refresh; no mutations
+- [x] Migration NONE / Flyway V44; architecture + targeted tests + package + startup PASS
+- [x] Manual acceptance deferred to Stage 3.5.15
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.12 entry (2026-09-11).
+
+### Next on success
+
+Stage 3.5.13 — Warehouse Settings = NEXT / NOT STARTED.
 
 ---
 ## STAGE-3.5.11 — Modern Остатки
@@ -11885,7 +11916,7 @@ Replace legacy technical Warehouse Workbench as the primary stock viewing screen
 - [x] Server-side GROUP BY aggregation + search + pagination; no N+1 material/cell eager load
 - [x] Modern workspace UI: warehouse filter, search, expand/collapse, loading/empty/error, async stale-safe
 - [x] Tasks tab = Stage 3.5.5 Operational Inbox (`listMyWarehouseTasks` + take-in-work); default tab = Задачи
-- [x] History tab placeholder until 3.5.12; permission = existing `warehouse.stock.view`; ALL = single server query
+- [x] History tab = Stage 3.5.12 (COMPLETE); permission = existing `warehouse.stock.view`; ALL = single server query
 - [x] Primary nav → `warehouse.view.workspace`; legacy workbench remains registered
 - [x] Migration NONE / Flyway V44; no stock mutations from view
 - [x] Targeted tests + architecture + package + startup PASS; manual acceptance deferred to 3.5.15
@@ -11896,7 +11927,8 @@ See VERIFICATION-LOG Stage 3.5.11 entry (2026-09-11).
 
 ### Next on success
 
-Stage 3.5.12 — История = NEXT / NOT STARTED
+Stage 3.5.12 — История = COMPLETE
+Stage 3.5.13 = NEXT (see Manifest / WORK-QUEUE)
 
 ---
 ## STAGE-3.5.11A — Complete Warehouse Task Actions UI
@@ -11916,7 +11948,7 @@ Wire existing Warehouse operational commands into the modern Workspace Tasks tab
 - [x] TRANSFER_RECEIPT: destination cells, full/partial receive, reject with mandatory reason
 - [x] RETURN_MATERIALS: outstanding from return plan, default original cells, optional cell override, `returnTransferMaterials`
 - [x] take/takeover preserved; action matrix by task kind; async double-submit safe; stale revision → message + reload
-- [x] UI does not calculate shortfall/continuation/settlement/outstanding; stock query unchanged; History placeholder
+- [x] UI does not calculate shortfall/continuation/settlement/outstanding; stock query unchanged; History = Stage 3.5.12
 - [x] Migration NONE / Flyway V44; architecture + targeted tests + package + startup PASS; manual acceptance deferred to 3.5.15
 
 ### Verification
@@ -11925,7 +11957,8 @@ See VERIFICATION-LOG Stage 3.5.11A entry (2026-09-11).
 
 ### Next on success
 
-Stage 3.5.12 — История = NEXT / NOT STARTED
+Stage 3.5.12 — История = COMPLETE
+Stage 3.5.13 = NEXT (see Manifest / WORK-QUEUE)
 
 ---
 ## STAGE-3.5.7 ? Shortfall / Automatic Continuation Transfer
@@ -11962,4 +11995,4 @@ Stage 3.5.8.1 = COMPLETE; 3.5.8.2 = COMPLETE; 3.5.8.3 = COMPLETE.
 Stage 3.5.9 = COMPLETE.
 Stage 3.5.10 = COMPLETE.
 Stage 3.5.11 = COMPLETE.
-Stage 3.5.12 = NEXT / NOT STARTED.
+Stage 3.5.12 = COMPLETE.

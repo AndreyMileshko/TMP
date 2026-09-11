@@ -3,12 +3,15 @@ package com.tmp.ui.shell.screen.warehouse;
 import com.tmp.ui.shell.navigation.ViewModelAware;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ActionEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.CellDetailRow;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.HistoryOperationOption;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.HistoryRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReceiveAllocationEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.SummaryRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.TaskRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.WarehouseFilterOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.WorkspaceTab;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 import javafx.beans.binding.Bindings;
@@ -17,6 +20,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
@@ -31,7 +35,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
-/** Modern warehouse workspace controller (Задачи / Остатки / History placeholder). */
+/** Modern warehouse workspace controller (Задачи / Остатки / История). */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
         justification = "JavaFX Controller retains ViewModel for FXML wiring")
@@ -60,7 +64,7 @@ public final class WarehouseWorkspaceController
     private VBox stockPane;
 
     @FXML
-    private Label historyPlaceholderLabel;
+    private VBox historyPane;
 
     @FXML
     private ComboBox<WarehouseFilterOption> warehouseCombo;
@@ -72,10 +76,31 @@ public final class WarehouseWorkspaceController
     private Button searchButton;
 
     @FXML
+    private DatePicker historyFromDatePicker;
+
+    @FXML
+    private DatePicker historyToDatePicker;
+
+    @FXML
+    private TextField historySearchField;
+
+    @FXML
+    private Button historySearchButton;
+
+    @FXML
+    private ComboBox<HistoryOperationOption> historyOperationCombo;
+
+    @FXML
+    private Button historyRefreshButton;
+
+    @FXML
     private Label loadingLabel;
 
     @FXML
     private Label stockLoadingLabel;
+
+    @FXML
+    private Label historyLoadingLabel;
 
     @FXML
     private TableView<TaskRow> tasksTable;
@@ -174,6 +199,42 @@ public final class WarehouseWorkspaceController
     private Label pageLabel;
 
     @FXML
+    private TableView<HistoryRow> historyTable;
+
+    @FXML
+    private TableColumn<HistoryRow, String> historyOccurredAtColumn;
+
+    @FXML
+    private TableColumn<HistoryRow, String> historyOperationColumn;
+
+    @FXML
+    private TableColumn<HistoryRow, String> historyMaterialColumn;
+
+    @FXML
+    private TableColumn<HistoryRow, String> historyQuantityColumn;
+
+    @FXML
+    private TableColumn<HistoryRow, String> historySourceColumn;
+
+    @FXML
+    private TableColumn<HistoryRow, String> historyDestinationColumn;
+
+    @FXML
+    private TableColumn<HistoryRow, String> historyDocumentColumn;
+
+    @FXML
+    private TableColumn<HistoryRow, String> historyActorColumn;
+
+    @FXML
+    private Button historyPreviousPageButton;
+
+    @FXML
+    private Button historyNextPageButton;
+
+    @FXML
+    private Label historyPageLabel;
+
+    @FXML
     private Label statusLabel;
 
     @FXML
@@ -202,6 +263,11 @@ public final class WarehouseWorkspaceController
                         viewModel.loadingProperty(),
                         Bindings.equal(viewModel.selectedTabProperty(), WorkspaceTab.STOCK)));
         stockLoadingLabel.managedProperty().bind(stockLoadingLabel.visibleProperty());
+        historyLoadingLabel.visibleProperty().bind(
+                Bindings.and(
+                        viewModel.loadingProperty(),
+                        Bindings.equal(viewModel.selectedTabProperty(), WorkspaceTab.HISTORY)));
+        historyLoadingLabel.managedProperty().bind(historyLoadingLabel.visibleProperty());
 
         ToggleGroup tabGroup = new ToggleGroup();
         tasksTabButton.setToggleGroup(tabGroup);
@@ -261,9 +327,11 @@ public final class WarehouseWorkspaceController
         searchField.setOnAction(e -> viewModel.commitSearch());
         searchButton.setOnAction(e -> viewModel.commitSearch());
 
+        configureHistoryFilters();
         configureTasksTable();
         configureActionLinesTable();
         configureStockTable();
+        configureHistoryTable();
 
         takeTaskInWorkButton.setOnAction(e -> viewModel.takeSelectedTaskInWork());
         takeTaskInWorkButton.disableProperty().bind(viewModel.canTakeSelectedTaskInWorkProperty().not());
@@ -294,8 +362,91 @@ public final class WarehouseWorkspaceController
                                                 + (viewModel.pageIndexProperty().get() + 1),
                                 viewModel.pageIndexProperty()));
 
+        historyPreviousPageButton.setOnAction(e -> viewModel.previousHistoryPage());
+        historyNextPageButton.setOnAction(e -> viewModel.nextHistoryPage());
+        historyPreviousPageButton.disableProperty().bind(viewModel.historyCanGoPreviousProperty().not());
+        historyNextPageButton.disableProperty().bind(viewModel.historyCanGoNextProperty().not());
+        historyPageLabel.textProperty()
+                .bind(
+                        Bindings.createStringBinding(
+                                () ->
+                                        "Страница "
+                                                + (viewModel.historyPageIndexProperty().get() + 1),
+                                viewModel.historyPageIndexProperty()));
+
         binding = false;
         viewModel.onScreenOpened();
+    }
+
+    private void configureHistoryFilters() {
+        historyFromDatePicker.setValue(viewModel.historyFromDateProperty().get());
+        historyToDatePicker.setValue(viewModel.historyToDateProperty().get());
+        historyFromDatePicker
+                .valueProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> {
+                            if (binding) {
+                                return;
+                            }
+                            viewModel.setHistoryFromDate(newValue);
+                        });
+        historyToDatePicker
+                .valueProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> {
+                            if (binding) {
+                                return;
+                            }
+                            viewModel.setHistoryToDate(newValue);
+                        });
+        viewModel.historyFromDateProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> syncHistoryDatePicker(historyFromDatePicker, newValue));
+        viewModel.historyToDateProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> syncHistoryDatePicker(historyToDatePicker, newValue));
+
+        historySearchField.textProperty().bindBidirectional(viewModel.historySearchInputProperty());
+        historySearchField.setOnAction(e -> viewModel.commitHistorySearch());
+        historySearchButton.setOnAction(e -> viewModel.commitHistorySearch());
+        historyRefreshButton.setOnAction(e -> viewModel.refreshHistory());
+
+        historyOperationCombo.setItems(viewModel.historyOperationOptions());
+        historyOperationCombo.setValue(viewModel.selectedHistoryOperationProperty().get());
+        historyOperationCombo
+                .valueProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> {
+                            if (binding || newValue == null || java.util.Objects.equals(oldValue, newValue)) {
+                                return;
+                            }
+                            viewModel.selectHistoryOperation(newValue);
+                        });
+        viewModel.selectedHistoryOperationProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> {
+                            if (binding) {
+                                return;
+                            }
+                            binding = true;
+                            try {
+                                historyOperationCombo.setValue(newValue);
+                            } finally {
+                                binding = false;
+                            }
+                        });
+    }
+
+    private void syncHistoryDatePicker(DatePicker picker, LocalDate value) {
+        if (binding || java.util.Objects.equals(picker.getValue(), value)) {
+            return;
+        }
+        binding = true;
+        try {
+            picker.setValue(value);
+        } finally {
+            binding = false;
+        }
     }
 
     private void selectTab(WorkspaceTab tab) {
@@ -310,8 +461,8 @@ public final class WarehouseWorkspaceController
         tasksPane.setManaged(tab == WorkspaceTab.TASKS);
         stockPane.setVisible(tab == WorkspaceTab.STOCK);
         stockPane.setManaged(tab == WorkspaceTab.STOCK);
-        historyPlaceholderLabel.setVisible(tab == WorkspaceTab.HISTORY);
-        historyPlaceholderLabel.setManaged(tab == WorkspaceTab.HISTORY);
+        historyPane.setVisible(tab == WorkspaceTab.HISTORY);
+        historyPane.setManaged(tab == WorkspaceTab.HISTORY);
     }
 
     private void configureTasksTable() {
@@ -460,6 +611,49 @@ public final class WarehouseWorkspaceController
                             });
                     return row;
                 });
+    }
+
+    private void configureHistoryTable() {
+        historyOccurredAtColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().occurredAtText()));
+        historyOperationColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().operationLabel()));
+        historyMaterialColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().materialText()));
+        historyQuantityColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().quantityText()));
+        historySourceColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().sourceText()));
+        historyDestinationColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().destinationText()));
+        historyDocumentColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().documentText()));
+        historyActorColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().actorText()));
+
+        historyTable.setItems(viewModel.historyRows());
+        historyTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        Label placeholder = new Label();
+        placeholder.textProperty().bind(viewModel.statusMessageProperty());
+        placeholder.getStyleClass().add("tmp-empty-state-hint");
+        placeholder.setWrapText(true);
+        historyTable.setPlaceholder(placeholder);
     }
 
     private static String warehouseText(WarehouseWorkspaceViewModel.StockTableRow row) {

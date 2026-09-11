@@ -11,6 +11,7 @@ import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
+import com.tmp.ui.shell.screen.warehouse.WarehouseUiErrorMapper;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReceiveAllocationEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReturnAllocationEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.SourceAllocationEditRow;
@@ -137,9 +138,10 @@ class WarehouseWorkspaceViewModelTest {
     }
 
     @Test
-    void historyTabRemainsPlaceholderWithoutBackendCalls() {
+    void historyTabLoadsThroughPublicApi() {
         UUID warehouseId = UUID.randomUUID();
         api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.historyPages.add(historyPage(List.of(historyEntry(warehouseId, "RECEIPT", BigDecimal.TEN)), 0, 1));
         viewModel.onScreenOpened();
         int taskCalls = api.listMyWarehouseTasksCalls.size();
 
@@ -148,6 +150,313 @@ class WarehouseWorkspaceViewModelTest {
         assertEquals(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY, viewModel.selectedTabProperty().get());
         assertEquals(taskCalls, api.listMyWarehouseTasksCalls.size());
         assertEquals(0, api.listStockSummariesCalls.size());
+        assertEquals(1, api.listHistoryCalls.size());
+        assertEquals(warehouseId, api.listHistoryCalls.get(0).warehouseId());
+        assertEquals(WarehouseWorkspaceViewModel.HISTORY_PAGE_SIZE, api.listHistoryCalls.get(0).pageSize());
+        assertEquals(1, viewModel.historyRows().size());
+        assertTrue(viewModel.loadingProperty().get() == false);
+    }
+
+    @Test
+    void historyLoadingShowsWhileAsyncRequestRuns() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.historyPages.add(emptyHistoryPage());
+        java.util.concurrent.atomic.AtomicReference<WarehouseWorkspaceViewModel> ref =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicBoolean sawLoading = new java.util.concurrent.atomic.AtomicBoolean();
+        Executor background =
+                command -> {
+                    sawLoading.set(ref.get().loadingProperty().get());
+                    command.run();
+                };
+        WarehouseWorkspaceViewModel asyncVm =
+                new WarehouseWorkspaceViewModel(api, auth, background, Runnable::run);
+        ref.set(asyncVm);
+        asyncVm.onScreenOpened();
+        asyncVm.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+
+        assertTrue(sawLoading.get());
+        assertFalse(asyncVm.loadingProperty().get());
+        assertEquals(1, api.listHistoryCalls.size());
+    }
+
+    @Test
+    void historyRowsMapEntryFields() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        WarehouseApi.WarehouseHistoryEntryView entry =
+                new WarehouseApi.WarehouseHistoryEntryView(
+                        UUID.randomUUID(),
+                        Instant.parse("2026-09-01T10:15:00Z"),
+                        "TRANSFER_SEND",
+                        "Передача",
+                        UUID.randomUUID(),
+                        "ART-9",
+                        "Profile",
+                        "шт",
+                        new BigDecimal("-3"),
+                        warehouseId,
+                        "Main",
+                        UUID.randomUUID(),
+                        "A-01",
+                        UUID.randomUUID(),
+                        "Prod",
+                        UUID.randomUUID(),
+                        "B-02",
+                        UUID.randomUUID(),
+                        "TR-77",
+                        UUID.randomUUID(),
+                        "Иванов");
+        api.historyPages.add(historyPage(List.of(entry), 0, 1));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+
+        WarehouseWorkspaceViewModel.HistoryRow row = viewModel.historyRows().get(0);
+        assertEquals("Передача", row.operationLabel());
+        assertTrue(row.materialText().contains("ART-9"));
+        assertEquals("-3", row.quantityText());
+        assertEquals("Main / A-01", row.sourceText());
+        assertEquals("Prod / B-02", row.destinationText());
+        assertEquals("TR-77", row.documentText());
+        assertEquals("Иванов", row.actorText());
+    }
+
+    @Test
+    void historyEmptyPeriodMessageWithoutExtraFilters() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.historyPages.add(emptyHistoryPage());
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+
+        assertEquals("За выбранный период операций нет", viewModel.statusMessageProperty().get());
+    }
+
+    @Test
+    void historyEmptyFilterMessageWithMaterialSearch() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.historyPages.add(emptyHistoryPage());
+        api.historyPages.add(emptyHistoryPage());
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+        viewModel.historySearchInputProperty().set("  aluminum  ");
+        viewModel.commitHistorySearch();
+
+        assertEquals("aluminum", api.listHistoryCalls.getLast().filter().materialSearch());
+        assertEquals(
+                "По выбранным условиям ничего не найдено",
+                viewModel.statusMessageProperty().get());
+    }
+
+    @Test
+    void historyErrorUsesUiErrorMapper() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.historyPages.add(emptyHistoryPage());
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+        api.denyNextHistory = true;
+        viewModel.refreshHistory();
+
+        assertEquals(WarehouseUiErrorMapper.ACCESS_DENIED, viewModel.errorMessageProperty().get());
+        assertEquals(WarehouseUiErrorMapper.LOAD_FAILED, viewModel.statusMessageProperty().get());
+    }
+
+    @Test
+    void historyWarehouseChangeReloadsAndResetsPage() {
+        UUID wh1 = UUID.randomUUID();
+        UUID wh2 = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(wh1, "WH-1", "One", true));
+        api.warehouses.add(new WarehouseView(wh2, "WH-2", "Two", true));
+        api.historyPages.add(historyPage(List.of(), 0, 80));
+        api.historyPages.add(historyPage(List.of(), 0, 80));
+        api.historyPages.add(emptyHistoryPage());
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+        viewModel.nextHistoryPage();
+        assertEquals(1, viewModel.historyPageIndexProperty().get());
+        int calls = api.listHistoryCalls.size();
+
+        WarehouseWorkspaceViewModel.WarehouseFilterOption second =
+                viewModel.warehouseFilterOptions().stream()
+                        .filter(o -> wh2.equals(o.warehouseId()))
+                        .findFirst()
+                        .orElseThrow();
+        viewModel.selectWarehouseFilter(second);
+
+        assertEquals(calls + 1, api.listHistoryCalls.size());
+        assertEquals(0, viewModel.historyPageIndexProperty().get());
+        assertEquals(wh2, api.listHistoryCalls.getLast().warehouseId());
+    }
+
+    @Test
+    void historyAllModeUsesNullWarehouseId() {
+        api.warehouses.add(new WarehouseView(UUID.randomUUID(), "WH-1", "One", true));
+        api.warehouses.add(new WarehouseView(UUID.randomUUID(), "WH-2", "Two", true));
+        api.historyPages.add(emptyHistoryPage());
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+
+        assertEquals(1, api.listHistoryCalls.size());
+        assertNull(api.listHistoryCalls.get(0).warehouseId());
+    }
+
+    @Test
+    void historyPeriodChangeReloads() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.historyPages.add(emptyHistoryPage());
+        api.historyPages.add(emptyHistoryPage());
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+        int calls = api.listHistoryCalls.size();
+        java.time.LocalDate from = viewModel.historyFromDateProperty().get().minusDays(5);
+
+        viewModel.setHistoryFromDate(from);
+
+        assertEquals(calls + 1, api.listHistoryCalls.size());
+        assertEquals(
+                from.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant(),
+                api.listHistoryCalls.getLast().filter().fromInclusive());
+    }
+
+    @Test
+    void historyOperationFilterReloads() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.historyPages.add(emptyHistoryPage());
+        api.historyPages.add(emptyHistoryPage());
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+
+        WarehouseWorkspaceViewModel.HistoryOperationOption receipt =
+                viewModel.historyOperationOptions().stream()
+                        .filter(o -> "RECEIPT".equals(o.operationType()))
+                        .findFirst()
+                        .orElseThrow();
+        viewModel.selectHistoryOperation(receipt);
+
+        assertEquals("RECEIPT", api.listHistoryCalls.getLast().filter().operationType());
+        assertEquals(
+                "По выбранным условиям ничего не найдено",
+                viewModel.statusMessageProperty().get());
+    }
+
+    @Test
+    void historyPaginationUsesDefaultPageSize() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.historyPages.add(historyPage(List.of(), 0, 120));
+        api.historyPages.add(historyPage(List.of(), 1, 120));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+
+        viewModel.nextHistoryPage();
+
+        assertEquals(1, viewModel.historyPageIndexProperty().get());
+        assertEquals(50, api.listHistoryCalls.getLast().pageSize());
+        assertTrue(viewModel.historyCanGoPreviousProperty().get());
+        assertTrue(viewModel.historyCanGoNextProperty().get());
+    }
+
+    @Test
+    void historyRefreshReloadsSameFilters() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.historyPages.add(emptyHistoryPage());
+        api.historyPages.add(emptyHistoryPage());
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+        viewModel.historySearchInputProperty().set("pipe");
+        viewModel.commitHistorySearch();
+        int calls = api.listHistoryCalls.size();
+
+        viewModel.refreshHistory();
+
+        assertEquals(calls + 1, api.listHistoryCalls.size());
+        assertEquals("pipe", api.listHistoryCalls.getLast().filter().materialSearch());
+    }
+
+    @Test
+    void staleAsyncHistoryResponseIsIgnored() throws InterruptedException {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.historyDelayMs = 150;
+        api.historyPages.add(
+                historyPage(List.of(historyEntry(warehouseId, "RECEIPT", BigDecimal.ONE)), 0, 1));
+        api.historyPages.add(
+                historyPage(List.of(historyEntry(warehouseId, "MOVE", BigDecimal.TEN)), 0, 1));
+
+        Executor background = Executors.newCachedThreadPool();
+        WarehouseWorkspaceViewModel asyncVm =
+                new WarehouseWorkspaceViewModel(api, auth, background, Runnable::run);
+        asyncVm.onScreenOpened();
+        asyncVm.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+        Thread.sleep(20);
+        asyncVm.refreshHistory();
+        Thread.sleep(400);
+
+        assertEquals(1, asyncVm.historyRows().size());
+        assertEquals("Перемещение", asyncVm.historyRows().get(0).operationLabel());
+    }
+
+    @Test
+    void switchingTabsPreservesHistoryAndStockState() {
+        UUID warehouseId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.tasks.add(task(warehouseId, destId, "TR-H"));
+        api.stockPages.add(page(List.of(summary(warehouseId, "A-1", BigDecimal.TEN)), 0, 1));
+        api.historyPages.add(
+                historyPage(List.of(historyEntry(warehouseId, "RECEIPT", BigDecimal.ONE)), 0, 1));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        assertEquals(1, viewModel.tableRows().size());
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+        assertEquals(1, viewModel.historyRows().size());
+
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        assertEquals(1, viewModel.tableRows().size());
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.TASKS);
+        assertFalse(viewModel.taskRows().isEmpty());
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+        assertEquals(1, viewModel.historyRows().size());
+    }
+
+    @Test
+    void historyTabDoesNotInvokeMutationCommands() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.historyPages.add(emptyHistoryPage());
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+        viewModel.refreshHistory();
+
+        assertEquals(0, api.executeCalls);
+        assertEquals(0, api.createWarehouseCalls);
+        assertEquals(0, api.sendCommands.size());
+        assertEquals(0, api.receiveCommands.size());
+        assertEquals(0, api.rejectCommands.size());
+        assertEquals(0, api.returnCommands.size());
+        assertEquals(0, api.takeTransferTaskInWorkCalls.size());
+    }
+
+    @Test
+    void historyQuantityFormattingUsesSignExceptMove() {
+        assertEquals(
+                "+5",
+                WarehouseWorkspaceViewModel.formatHistoryQuantity("RECEIPT", new BigDecimal("5")));
+        assertEquals(
+                "-2",
+                WarehouseWorkspaceViewModel.formatHistoryQuantity(
+                        "TRANSFER_SEND", new BigDecimal("-2")));
+        assertEquals(
+                "4", WarehouseWorkspaceViewModel.formatHistoryQuantity("MOVE", new BigDecimal("4")));
+        assertEquals(
+                "4",
+                WarehouseWorkspaceViewModel.formatHistoryQuantity("MOVE", new BigDecimal("-4")));
     }
 
     @Test
@@ -909,6 +1218,53 @@ class WarehouseWorkspaceViewModelTest {
         return WarehouseStockPage.of(content, pageIndex, WarehouseWorkspaceViewModel.PAGE_SIZE, total);
     }
 
+    private static WarehouseApi.WarehouseHistoryPage emptyHistoryPage() {
+        return historyPage(List.of(), 0, 0);
+    }
+
+    private static WarehouseApi.WarehouseHistoryPage historyPage(
+            List<WarehouseApi.WarehouseHistoryEntryView> content, int pageIndex, long total) {
+        return WarehouseApi.WarehouseHistoryPage.of(
+                content, pageIndex, WarehouseWorkspaceViewModel.HISTORY_PAGE_SIZE, total);
+    }
+
+    private static WarehouseApi.WarehouseHistoryEntryView historyEntry(
+            UUID warehouseId, String operationType, BigDecimal quantity) {
+        String display =
+                switch (operationType) {
+                    case "RECEIPT" -> "Приход";
+                    case "MOVE" -> "Перемещение";
+                    case "TRANSFER_SEND" -> "Передача";
+                    case "TRANSFER_RECEIVE" -> "Приёмка";
+                    case "TRANSFER_RETURN" -> "Возврат";
+                    case "CONSUMPTION" -> "Списание";
+                    case "ADJUSTMENT" -> "Корректировка";
+                    default -> operationType;
+                };
+        return new WarehouseApi.WarehouseHistoryEntryView(
+                UUID.randomUUID(),
+                Instant.parse("2026-09-10T08:00:00Z"),
+                operationType,
+                display,
+                UUID.randomUUID(),
+                "ART",
+                "Material",
+                "шт",
+                quantity,
+                warehouseId,
+                "Main",
+                UUID.randomUUID(),
+                "A-01",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
+    }
+
     private static WarehouseStockSummaryView summary(UUID warehouseId, String article, BigDecimal qty) {
         return new WarehouseStockSummaryView(
                 warehouseId,
@@ -1022,8 +1378,11 @@ class WarehouseWorkspaceViewModelTest {
         private final List<WarehouseView> warehouses = new ArrayList<>();
         private final List<WarehouseStockPage> stockPages = new ArrayList<>();
         private final AtomicInteger stockPageCursor = new AtomicInteger();
+        private final List<WarehouseApi.WarehouseHistoryPage> historyPages = new ArrayList<>();
+        private final AtomicInteger historyPageCursor = new AtomicInteger();
         private final Map<String, WarehouseMaterialStockDetailsView> breakdowns = new HashMap<>();
         private final List<StockSummaryCall> listStockSummariesCalls = new CopyOnWriteArrayList<>();
+        private final List<HistoryCall> listHistoryCalls = new CopyOnWriteArrayList<>();
         private final List<BreakdownCall> getStockCellBreakdownCalls = new CopyOnWriteArrayList<>();
         private final List<WarehouseTaskView> tasks = new ArrayList<>();
         private final List<TaskListCall> listMyWarehouseTasksCalls = new CopyOnWriteArrayList<>();
@@ -1043,8 +1402,10 @@ class WarehouseWorkspaceViewModelTest {
         int executeCalls;
         int createWarehouseCalls;
         boolean denyNextStock;
+        boolean denyNextHistory;
         long stockDelayMs;
         long taskDelayMs;
+        long historyDelayMs;
         UUID sendResultContinuationId;
         RuntimeException sendThrows;
         RuntimeException returnThrows;
@@ -1078,6 +1439,28 @@ class WarehouseWorkspaceViewModelTest {
                 return WarehouseStockPage.of(List.of(), pageIndex, pageSize, 0);
             }
             return stockPages.get(index);
+        }
+
+        @Override
+        public WarehouseApi.WarehouseHistoryPage listHistory(
+                UUID warehouseId,
+                WarehouseApi.WarehouseHistoryFilter filter,
+                int pageIndex,
+                int pageSize) {
+            if (denyNextHistory) {
+                denyNextHistory = false;
+                throw new AccessDeniedException("denied");
+            }
+            int index = historyPageCursor.getAndIncrement();
+            if (index == 0 && historyDelayMs > 0) {
+                sleep(historyDelayMs);
+            }
+            listHistoryCalls.add(new HistoryCall(warehouseId, filter, pageIndex, pageSize));
+            index = Math.min(index, Math.max(historyPages.size() - 1, 0));
+            if (historyPages.isEmpty()) {
+                return WarehouseApi.WarehouseHistoryPage.of(List.of(), pageIndex, pageSize, 0);
+            }
+            return historyPages.get(index);
         }
 
         @Override
@@ -1243,6 +1626,12 @@ class WarehouseWorkspaceViewModelTest {
         }
 
         private record StockSummaryCall(UUID warehouseId, String search, int pageIndex, int pageSize) {}
+
+        private record HistoryCall(
+                UUID warehouseId,
+                WarehouseApi.WarehouseHistoryFilter filter,
+                int pageIndex,
+                int pageSize) {}
 
         private record BreakdownCall(UUID warehouseId, UUID materialReferenceId) {}
 

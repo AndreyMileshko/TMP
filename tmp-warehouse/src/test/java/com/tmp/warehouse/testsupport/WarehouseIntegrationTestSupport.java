@@ -296,7 +296,9 @@ public final class WarehouseIntegrationTestSupport {
                         settlements,
                         receiptItems,
                         returnItems,
-                        new com.tmp.warehouse.persistence.JdbcWarehouseStockReadQuery(jdbc));
+                        new com.tmp.warehouse.persistence.JdbcWarehouseStockReadQuery(jdbc),
+                        new com.tmp.warehouse.persistence.JdbcWarehouseHistoryReadQuery(jdbc),
+                        documentEngine);
         return new ApiBundle(
                 api,
                 jdbc,
