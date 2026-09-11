@@ -36,7 +36,7 @@
 | 3.5.12 | История | **COMPLETE** (+ multi-cell aggregation corrective) |
 | 3.5.13 | Warehouse Settings | **COMPLETE** |
 | 3.5.14 | Warehouse UI Polish | **COMPLETE** |
-| 3.5.15 | Manual Warehouse acceptance | **NEXT / NOT STARTED** |
+| 3.5.15 | Manual Warehouse acceptance | **IN PROGRESS** (Stocks UX corrective COMPLETE; Manual acceptance READY TO RESUME; Full reactor NOT YET RUN) |
 
 **Locked business decision (3.5.8.3 DONE):** Full reject MUST NOT automatically create a continuation. Full reject → accepted=0, rejection reason required, RETURN_PENDING, sender return task only.
 

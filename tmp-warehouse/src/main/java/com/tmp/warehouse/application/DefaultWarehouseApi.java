@@ -1420,6 +1420,55 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     }
 
     @Override
+    public WarehouseStockCellPage listStockByCells(
+            UUID warehouseId,
+            UUID storageCellId,
+            String search,
+            int pageIndex,
+            int pageSize) {
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        WarehouseStockReadQuery query = requireStockRead();
+        int safePageSize = clampStockPageSize(pageSize);
+        if (pageIndex < 0) {
+            throw new IllegalArgumentException("pageIndex must be >= 0: " + pageIndex);
+        }
+        Set<UUID> scope = resolveResponsibleWarehouseScope(warehouseId);
+        if (scope.isEmpty()) {
+            return WarehouseStockCellPage.of(List.of(), pageIndex, safePageSize, 0L);
+        }
+        requireCellInScope(storageCellId, scope);
+        long total = query.countCellLines(scope, storageCellId, search);
+        if (total == 0L) {
+            return WarehouseStockCellPage.of(List.of(), pageIndex, safePageSize, 0L);
+        }
+        List<WarehouseStockCellLineView> content =
+                query.findCellLines(scope, storageCellId, search, pageIndex, safePageSize).stream()
+                        .map(this::toStockCellLineView)
+                        .toList();
+        return WarehouseStockCellPage.of(content, pageIndex, safePageSize, total);
+    }
+
+    @Override
+    public List<WarehouseStockCellFilterOptionView> listStockCellFilterOptions(UUID warehouseId) {
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        WarehouseStockReadQuery query = requireStockRead();
+        Set<UUID> scope = resolveResponsibleWarehouseScope(warehouseId);
+        if (scope.isEmpty()) {
+            return List.of();
+        }
+        return query.findCellFilterOptions(scope).stream()
+                .map(
+                        row ->
+                                new WarehouseStockCellFilterOptionView(
+                                        row.warehouseId(),
+                                        row.warehouseCode(),
+                                        row.warehouseName(),
+                                        row.storageCellId(),
+                                        row.storageCellCode()))
+                .toList();
+    }
+
+    @Override
     public WarehouseHistoryPage listHistory(
             UUID warehouseId, WarehouseHistoryFilter filter, int pageIndex, int pageSize) {
         Objects.requireNonNull(filter, "filter");
@@ -1560,6 +1609,41 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 row.size(),
                 row.unitOfMeasure(),
                 row.availableQuantity());
+    }
+
+    private WarehouseStockCellLineView toStockCellLineView(
+            WarehouseStockReadQuery.StockCellLineRow row) {
+        return new WarehouseStockCellLineView(
+                row.warehouseId(),
+                row.warehouseCode(),
+                row.warehouseName(),
+                row.storageCellId(),
+                row.storageCellCode(),
+                row.materialReferenceId(),
+                row.article(),
+                row.name(),
+                row.color(),
+                row.size(),
+                row.unitOfMeasure(),
+                row.availableQuantity());
+    }
+
+    private void requireCellInScope(UUID storageCellId, Set<UUID> scope) {
+        if (storageCellId == null) {
+            return;
+        }
+        StorageCell cell =
+                warehouses
+                        .findStorageCellById(StorageCellId.of(storageCellId))
+                        .orElseThrow(
+                                () ->
+                                        new AccessDeniedException(
+                                                "Access denied: storage cell not found "
+                                                        + storageCellId));
+        if (!scope.contains(cell.warehouseId().value())) {
+            throw new AccessDeniedException(
+                    "Access denied: not responsible for storage cell " + storageCellId);
+        }
     }
 
     private Set<UUID> resolveResponsibleWarehouseScope(UUID warehouseIdFilter) {

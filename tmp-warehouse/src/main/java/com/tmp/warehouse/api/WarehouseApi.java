@@ -747,6 +747,87 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
+    /**
+     * Cell-centric AVAILABLE stock line for modern Остатки (one material in one cell on one
+     * warehouse). Not a persisted inventory entity.
+     */
+    record WarehouseStockCellLineView(
+            UUID warehouseId,
+            String warehouseCode,
+            String warehouseName,
+            UUID storageCellId,
+            String storageCellCode,
+            UUID materialReferenceId,
+            String article,
+            String name,
+            String color,
+            String size,
+            String unitOfMeasure,
+            BigDecimal availableQuantity) {
+
+        public WarehouseStockCellLineView {
+            Objects.requireNonNull(warehouseId, "warehouseId");
+            Objects.requireNonNull(warehouseCode, "warehouseCode");
+            Objects.requireNonNull(warehouseName, "warehouseName");
+            Objects.requireNonNull(storageCellId, "storageCellId");
+            Objects.requireNonNull(storageCellCode, "storageCellCode");
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            Objects.requireNonNull(article, "article");
+            Objects.requireNonNull(name, "name");
+            Objects.requireNonNull(color, "color");
+            Objects.requireNonNull(size, "size");
+            Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
+            Objects.requireNonNull(availableQuantity, "availableQuantity");
+        }
+    }
+
+    /** Paginated cell-centric AVAILABLE stock lines. */
+    record WarehouseStockCellPage(
+            List<WarehouseStockCellLineView> content,
+            int pageIndex,
+            int pageSize,
+            long totalElements) {
+
+        public WarehouseStockCellPage {
+            Objects.requireNonNull(content, "content");
+            content = List.copyOf(content);
+            if (pageIndex < 0) {
+                throw new IllegalArgumentException("pageIndex must be >= 0: " + pageIndex);
+            }
+            if (pageSize < 1) {
+                throw new IllegalArgumentException("pageSize must be >= 1: " + pageSize);
+            }
+            if (totalElements < 0) {
+                throw new IllegalArgumentException("totalElements must be >= 0: " + totalElements);
+            }
+        }
+
+        public static WarehouseStockCellPage of(
+                List<WarehouseStockCellLineView> content,
+                int pageIndex,
+                int pageSize,
+                long totalElements) {
+            return new WarehouseStockCellPage(content, pageIndex, pageSize, totalElements);
+        }
+    }
+
+    /** Active storage cell option for Stocks cell filter (identity by storageCellId). */
+    record WarehouseStockCellFilterOptionView(
+            UUID warehouseId,
+            String warehouseCode,
+            String warehouseName,
+            UUID storageCellId,
+            String storageCellCode) {
+
+        public WarehouseStockCellFilterOptionView {
+            Objects.requireNonNull(warehouseId, "warehouseId");
+            Objects.requireNonNull(warehouseCode, "warehouseCode");
+            Objects.requireNonNull(warehouseName, "warehouseName");
+            Objects.requireNonNull(storageCellId, "storageCellId");
+            Objects.requireNonNull(storageCellCode, "storageCellCode");
+        }
+    }
+
     /** Default page size for Warehouse History. */
     int HISTORY_DEFAULT_PAGE_SIZE = STOCK_SUMMARY_DEFAULT_PAGE_SIZE;
 

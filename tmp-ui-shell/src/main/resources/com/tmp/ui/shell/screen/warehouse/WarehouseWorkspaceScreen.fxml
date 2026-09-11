@@ -101,21 +101,24 @@
 
         <VBox fx:id="stockPane" spacing="8" styleClass="tmp-content" visible="false" managed="false">
             <FlowPane styleClass="tmp-toolbar" alignment="CENTER_LEFT" hgap="8" vgap="8">
-                <TextField fx:id="searchField" promptText="Поиск по артикулу / названию..." prefWidth="320"/>
+                <Label text="Ячейка:"/>
+                <ComboBox fx:id="cellCombo" prefWidth="220"/>
+                <Label text="Поиск:"/>
+                <TextField fx:id="searchField" promptText="Артикул или название..." prefWidth="280"/>
                 <Button fx:id="searchButton" text="Найти" styleClass="tmp-button-secondary"/>
             </FlowPane>
             <Label fx:id="stockLoadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
                    visible="false" managed="false"/>
             <TableView fx:id="stockTable" VBox.vgrow="ALWAYS">
                 <columns>
-                    <TableColumn fx:id="expandColumn" text="" prefWidth="44" minWidth="44" maxWidth="56"/>
                     <TableColumn fx:id="warehouseColumn" text="Склад" prefWidth="160" minWidth="120"/>
+                    <TableColumn fx:id="cellColumn" text="Ячейка" prefWidth="100" minWidth="80"/>
                     <TableColumn fx:id="articleColumn" text="Артикул" prefWidth="140" minWidth="100"/>
-                    <TableColumn fx:id="nameColumn" text="Наименование" prefWidth="220" minWidth="140"/>
+                    <TableColumn fx:id="nameColumn" text="Наименование" prefWidth="260" minWidth="160"/>
                     <TableColumn fx:id="colorColumn" text="Цвет" prefWidth="100" minWidth="80"/>
                     <TableColumn fx:id="sizeColumn" text="Размер" prefWidth="100" minWidth="80"/>
                     <TableColumn fx:id="quantityColumn" text="Остаток" prefWidth="90" minWidth="70"/>
-                    <TableColumn fx:id="unitColumn" text="Ед." prefWidth="70" minWidth="60"/>
+                    <TableColumn fx:id="unitColumn" text="Ед." prefWidth="60" minWidth="50"/>
                 </columns>
             </TableView>
             <HBox spacing="16" alignment="CENTER">

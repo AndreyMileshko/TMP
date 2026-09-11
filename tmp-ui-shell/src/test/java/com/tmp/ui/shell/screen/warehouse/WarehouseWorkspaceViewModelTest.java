@@ -37,10 +37,9 @@ import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceAllocationInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
-import com.tmp.warehouse.api.WarehouseApi.WarehouseMaterialStockDetailsView;
-import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellView;
-import com.tmp.warehouse.api.WarehouseApi.WarehouseStockPage;
-import com.tmp.warehouse.api.WarehouseApi.WarehouseStockSummaryView;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellFilterOptionView;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellLineView;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellPage;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskKind;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskState;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
@@ -108,7 +107,7 @@ class WarehouseWorkspaceViewModelTest {
 
         assertEquals(1, api.listMyWarehousesCalls);
         assertEquals(1, api.listMyWarehouseTasksCalls.size());
-        assertEquals(0, api.listStockSummariesCalls.size());
+        assertEquals(0, api.listStockByCellsCalls.size());
         assertEquals(1, viewModel.taskRows().size());
         assertEquals("TR-1", viewModel.taskRows().get(0).documentNumber());
         assertTrue(viewModel.errorMessageProperty().get().isBlank());
@@ -142,13 +141,13 @@ class WarehouseWorkspaceViewModelTest {
         UUID destId = UUID.randomUUID();
         api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
         api.tasks.add(task(warehouseId, destId, "TR-3"));
-        api.stockPages.add(page(List.of(summary(warehouseId, "A-1", BigDecimal.TEN)), 0, 1));
+        api.stockPages.add(page(List.of(cellLine(warehouseId, "A-1", "1-01", BigDecimal.TEN)), 0, 1));
         viewModel.onScreenOpened();
         assertEquals(1, api.listMyWarehouseTasksCalls.size());
 
         viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
 
-        assertEquals(1, api.listStockSummariesCalls.size());
+        assertEquals(1, api.listStockByCellsCalls.size());
         assertEquals(1, viewModel.tableRows().size());
         viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.TASKS);
         assertEquals(2, api.listMyWarehouseTasksCalls.size());
@@ -166,7 +165,7 @@ class WarehouseWorkspaceViewModelTest {
 
         assertEquals(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY, viewModel.selectedTabProperty().get());
         assertEquals(taskCalls, api.listMyWarehouseTasksCalls.size());
-        assertEquals(0, api.listStockSummariesCalls.size());
+        assertEquals(0, api.listStockByCellsCalls.size());
         assertEquals(1, api.listHistoryCalls.size());
         assertEquals(warehouseId, api.listHistoryCalls.get(0).warehouseId());
         assertEquals(WarehouseWorkspaceViewModel.HISTORY_PAGE_SIZE, api.listHistoryCalls.get(0).pageSize());
@@ -425,7 +424,7 @@ class WarehouseWorkspaceViewModelTest {
         UUID destId = UUID.randomUUID();
         api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
         api.tasks.add(task(warehouseId, destId, "TR-H"));
-        api.stockPages.add(page(List.of(summary(warehouseId, "A-1", BigDecimal.TEN)), 0, 1));
+        api.stockPages.add(page(List.of(cellLine(warehouseId, "A-1", "1-01", BigDecimal.TEN)), 0, 1));
         api.historyPages.add(
                 historyPage(List.of(historyEntry(warehouseId, "RECEIPT", BigDecimal.ONE)), 0, 1));
         viewModel.onScreenOpened();
@@ -477,30 +476,30 @@ class WarehouseWorkspaceViewModelTest {
     }
 
     @Test
-    void allWarehousesModeUsesSingleStockSummaryCall() {
+    void allWarehousesModeUsesSingleStockByCellsCall() {
         api.warehouses.add(new WarehouseView(UUID.randomUUID(), "WH-1", "One", true));
         api.warehouses.add(new WarehouseView(UUID.randomUUID(), "WH-2", "Two", true));
         api.stockPages.add(emptyPage());
         viewModel.onScreenOpened();
         viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
 
-        assertEquals(1, api.listStockSummariesCalls.size());
-        assertEquals(null, api.listStockSummariesCalls.get(0).warehouseId());
+        assertEquals(1, api.listStockByCellsCalls.size());
+        assertEquals(null, api.listStockByCellsCalls.get(0).warehouseId());
     }
 
     @Test
-    void firstLoadQueriesSummariesThroughPublicApiWhenStockTabSelected() {
+    void firstLoadQueriesCellLinesThroughPublicApiWhenStockTabSelected() {
         UUID warehouseId = UUID.randomUUID();
         api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
-        api.stockPages.add(page(List.of(summary(warehouseId, "A-1", BigDecimal.TEN)), 0, 1));
+        api.stockPages.add(page(List.of(cellLine(warehouseId, "A-1", "1-01", BigDecimal.TEN)), 0, 1));
         viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
 
         viewModel.onScreenOpened();
 
         assertEquals(1, api.listMyWarehousesCalls);
-        assertEquals(1, api.listStockSummariesCalls.size());
+        assertEquals(1, api.listStockByCellsCalls.size());
         assertEquals(1, viewModel.tableRows().size());
-        assertInstanceOf(WarehouseWorkspaceViewModel.SummaryRow.class, viewModel.tableRows().get(0));
+        assertInstanceOf(WarehouseWorkspaceViewModel.StockRow.class, viewModel.tableRows().get(0));
         assertTrue(viewModel.errorMessageProperty().get().isBlank());
     }
 
@@ -535,15 +534,22 @@ class WarehouseWorkspaceViewModelTest {
     }
 
     @Test
-    void switchingWarehouseReloadsSummaries() {
+    void switchingWarehouseReloadsStocksAndResetsCellFilter() {
         UUID wh1 = UUID.randomUUID();
         UUID wh2 = UUID.randomUUID();
+        UUID cell1 = UUID.randomUUID();
         api.warehouses.add(new WarehouseView(wh1, "WH-1", "One", true));
         api.warehouses.add(new WarehouseView(wh2, "WH-2", "Two", true));
+        api.cellFilterOptionsByWarehouse.put(
+                wh1,
+                List.of(new WarehouseStockCellFilterOptionView(wh1, "WH-1", "One", cell1, "1-01")));
+        api.cellFilterOptionsByWarehouse.put(wh2, List.of());
         api.stockPages.add(emptyPage());
         viewModel.onScreenOpened();
         viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
-        int callsAfterOpen = api.listStockSummariesCalls.size();
+        viewModel.selectCellFilter(viewModel.cellFilterOptions().get(1));
+        assertEquals(cell1, viewModel.selectedCellFilterProperty().get().storageCellId());
+        int callsAfterOpen = api.listStockByCellsCalls.size();
 
         WarehouseWorkspaceViewModel.WarehouseFilterOption second =
                 viewModel.warehouseFilterOptions().stream()
@@ -552,8 +558,10 @@ class WarehouseWorkspaceViewModelTest {
                         .orElseThrow();
         viewModel.selectWarehouseFilter(second);
 
-        assertEquals(callsAfterOpen + 1, api.listStockSummariesCalls.size());
-        assertEquals(wh2, api.listStockSummariesCalls.getLast().warehouseId());
+        assertTrue(api.listStockByCellsCalls.size() > callsAfterOpen);
+        assertEquals(wh2, api.listStockByCellsCalls.getLast().warehouseId());
+        assertTrue(viewModel.selectedCellFilterProperty().get().isAll());
+        assertNull(api.listStockByCellsCalls.getLast().storageCellId());
     }
 
     @Test
@@ -567,7 +575,7 @@ class WarehouseWorkspaceViewModelTest {
         viewModel.searchInputProperty().set("  profile  ");
         viewModel.commitSearch();
 
-        assertEquals("profile", api.listStockSummariesCalls.getLast().search());
+        assertEquals("profile", api.listStockByCellsCalls.getLast().search());
         assertEquals("По выбранным условиям ничего не найдено", viewModel.statusMessageProperty().get());
     }
 
@@ -582,50 +590,79 @@ class WarehouseWorkspaceViewModelTest {
         viewModel.nextPage();
 
         assertEquals(1, viewModel.pageIndexProperty().get());
-        assertEquals(50, api.listStockSummariesCalls.getLast().pageSize());
+        assertEquals(50, api.listStockByCellsCalls.getLast().pageSize());
         assertTrue(viewModel.canGoPreviousProperty().get());
         assertTrue(viewModel.canGoNextProperty().get());
     }
 
     @Test
-    void expandAndCollapseInsertsAndRemovesCellRows() {
+    void stocksExposeFlatCellRowsWithoutExpansion() {
         UUID warehouseId = UUID.randomUUID();
-        UUID materialId = UUID.fromString("00000000-0000-0000-0000-000000000101");
+        UUID cellA = UUID.randomUUID();
+        UUID cellB = UUID.randomUUID();
         api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
         api.stockPages.add(
                 page(
                         List.of(
-                                new WarehouseStockSummaryView(
-                                        warehouseId,
-                                        materialId,
-                                        "ART-1",
-                                        "Name",
-                                        "",
-                                        "",
-                                        "шт",
-                                        BigDecimal.TEN)),
+                                cellLine(warehouseId, cellA, "1-01", "A100", "Профиль", "12"),
+                                cellLine(warehouseId, cellB, "1-04", "A100", "Профиль", "28")),
                         0,
-                        1));
-        api.breakdowns.put(
-                warehouseId + ":" + materialId,
-                new WarehouseMaterialStockDetailsView(
-                        warehouseId,
-                        materialId,
-                        BigDecimal.TEN,
-                        List.of(new WarehouseStockCellView(UUID.randomUUID(), "A-01", BigDecimal.TEN))));
+                        2));
         viewModel.onScreenOpened();
         viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
 
-        WarehouseWorkspaceViewModel.SummaryRow summary =
-                (WarehouseWorkspaceViewModel.SummaryRow) viewModel.tableRows().get(0);
-        viewModel.toggleExpand(summary);
-
-        assertEquals(1, api.getStockCellBreakdownCalls.size());
         assertEquals(2, viewModel.tableRows().size());
-        assertInstanceOf(WarehouseWorkspaceViewModel.CellDetailRow.class, viewModel.tableRows().get(1));
+        WarehouseWorkspaceViewModel.StockRow first = viewModel.tableRows().get(0);
+        assertEquals("1-01", first.cellCode());
+        assertEquals("A100", first.article());
+        assertEquals("12", first.quantityText());
+        assertEquals("1-04", viewModel.tableRows().get(1).cellCode());
+        assertEquals("28", viewModel.tableRows().get(1).quantityText());
+    }
 
-        viewModel.toggleExpand(summary);
-        assertEquals(1, viewModel.tableRows().size());
+    @Test
+    void quantityFormattingUsesRussianDecimalSeparator() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.stockPages.add(
+                page(
+                        List.of(
+                                cellLine(
+                                        warehouseId,
+                                        UUID.randomUUID(),
+                                        "1-01",
+                                        "A1",
+                                        "Name",
+                                        "0.750000")),
+                        0,
+                        1));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        assertEquals("0,75", viewModel.tableRows().get(0).quantityText());
+    }
+
+    @Test
+    void selectingCellReloadsStocks() {
+        UUID warehouseId = UUID.randomUUID();
+        UUID cellId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.cellFilterOptionsByWarehouse.put(
+                warehouseId,
+                List.of(
+                        new WarehouseStockCellFilterOptionView(
+                                warehouseId, "WH-1", "Main", cellId, "1-01")));
+        api.stockPages.add(emptyPage());
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        int before = api.listStockByCellsCalls.size();
+
+        viewModel.selectCellFilter(viewModel.cellFilterOptions().get(1));
+
+        assertEquals(before + 1, api.listStockByCellsCalls.size());
+        assertEquals(cellId, api.listStockByCellsCalls.getLast().storageCellId());
+        assertEquals(
+                "В выбранной ячейке нет доступных остатков",
+                viewModel.statusMessageProperty().get());
     }
 
     @Test
@@ -649,9 +686,9 @@ class WarehouseWorkspaceViewModelTest {
         UUID warehouseId = UUID.randomUUID();
         api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
         api.stockDelayMs = 150;
-        api.stockPages.add(page(List.of(summary(warehouseId, "OLD", BigDecimal.ONE)), 0, 1));
+        api.stockPages.add(page(List.of(cellLine(warehouseId, "OLD", "1-01", BigDecimal.ONE)), 0, 1));
         api.stockPages.add(
-                page(List.of(summary(warehouseId, "NEW", BigDecimal.TEN)), 0, 1));
+                page(List.of(cellLine(warehouseId, "NEW", "1-02", BigDecimal.TEN)), 0, 1));
 
         Executor background = Executors.newCachedThreadPool();
         WarehouseWorkspaceViewModel asyncVm =
@@ -663,9 +700,41 @@ class WarehouseWorkspaceViewModelTest {
         Thread.sleep(400);
 
         assertEquals(1, asyncVm.tableRows().size());
-        WarehouseWorkspaceViewModel.SummaryRow row =
-                (WarehouseWorkspaceViewModel.SummaryRow) asyncVm.tableRows().get(0);
+        WarehouseWorkspaceViewModel.StockRow row = asyncVm.tableRows().get(0);
         assertEquals("NEW", row.article());
+    }
+
+    @Test
+    void staleAsyncCellFilterChangeIsIgnored() throws InterruptedException {
+        UUID warehouseId = UUID.randomUUID();
+        UUID cellA = UUID.randomUUID();
+        UUID cellB = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.cellFilterOptionsByWarehouse.put(
+                warehouseId,
+                List.of(
+                        new WarehouseStockCellFilterOptionView(
+                                warehouseId, "WH-1", "Main", cellA, "1-01"),
+                        new WarehouseStockCellFilterOptionView(
+                                warehouseId, "WH-1", "Main", cellB, "1-02")));
+        api.stockDelayMs = 150;
+        api.stockPages.add(
+                page(List.of(cellLine(warehouseId, cellA, "1-01", "A", "A", "1")), 0, 1));
+        api.stockPages.add(
+                page(List.of(cellLine(warehouseId, cellB, "1-02", "B", "B", "2")), 0, 1));
+
+        Executor background = Executors.newCachedThreadPool();
+        WarehouseWorkspaceViewModel asyncVm =
+                new WarehouseWorkspaceViewModel(api, auth, background, Runnable::run);
+        asyncVm.onScreenOpened();
+        asyncVm.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        Thread.sleep(20);
+        asyncVm.selectCellFilter(asyncVm.cellFilterOptions().get(2));
+        Thread.sleep(400);
+
+        assertEquals(1, asyncVm.tableRows().size());
+        assertEquals("B", asyncVm.tableRows().get(0).article());
+        assertEquals(cellB, asyncVm.selectedCellFilterProperty().get().storageCellId());
     }
 
     @Test
@@ -1226,13 +1295,14 @@ class WarehouseWorkspaceViewModelTest {
                 null);
     }
 
-    private static WarehouseStockPage emptyPage() {
+    private static WarehouseStockCellPage emptyPage() {
         return page(List.of(), 0, 0);
     }
 
-    private static WarehouseStockPage page(
-            List<WarehouseStockSummaryView> content, int pageIndex, long total) {
-        return WarehouseStockPage.of(content, pageIndex, WarehouseWorkspaceViewModel.PAGE_SIZE, total);
+    private static WarehouseStockCellPage page(
+            List<WarehouseStockCellLineView> content, int pageIndex, long total) {
+        return WarehouseStockCellPage.of(
+                content, pageIndex, WarehouseWorkspaceViewModel.PAGE_SIZE, total);
     }
 
     private static WarehouseApi.WarehouseHistoryPage emptyHistoryPage() {
@@ -1282,16 +1352,31 @@ class WarehouseWorkspaceViewModelTest {
                 null);
     }
 
-    private static WarehouseStockSummaryView summary(UUID warehouseId, String article, BigDecimal qty) {
-        return new WarehouseStockSummaryView(
+    private static WarehouseStockCellLineView cellLine(
+            UUID warehouseId, String article, String cellCode, BigDecimal qty) {
+        return cellLine(warehouseId, UUID.randomUUID(), cellCode, article, article, qty.toPlainString());
+    }
+
+    private static WarehouseStockCellLineView cellLine(
+            UUID warehouseId,
+            UUID storageCellId,
+            String cellCode,
+            String article,
+            String name,
+            String qty) {
+        return new WarehouseStockCellLineView(
                 warehouseId,
+                "WH-1",
+                "Main",
+                storageCellId,
+                cellCode,
                 UUID.randomUUID(),
                 article,
-                article,
+                name,
                 "",
                 "",
                 "шт",
-                qty);
+                new BigDecimal(qty));
     }
 
     private static WarehouseTaskView task(UUID sourceId, UUID destId, String number) {
@@ -1393,14 +1478,15 @@ class WarehouseWorkspaceViewModelTest {
 
     private static final class FakeWarehouseApi extends WarehouseWorkbenchUiTestSupport.NoOpWarehouseApi {
         private final List<WarehouseView> warehouses = new ArrayList<>();
-        private final List<WarehouseStockPage> stockPages = new ArrayList<>();
+        private final List<WarehouseStockCellPage> stockPages = new ArrayList<>();
         private final AtomicInteger stockPageCursor = new AtomicInteger();
         private final List<WarehouseApi.WarehouseHistoryPage> historyPages = new ArrayList<>();
         private final AtomicInteger historyPageCursor = new AtomicInteger();
-        private final Map<String, WarehouseMaterialStockDetailsView> breakdowns = new HashMap<>();
-        private final List<StockSummaryCall> listStockSummariesCalls = new CopyOnWriteArrayList<>();
+        private final Map<UUID, List<WarehouseStockCellFilterOptionView>> cellFilterOptionsByWarehouse =
+                new HashMap<>();
+        private final List<StockByCellsCall> listStockByCellsCalls = new CopyOnWriteArrayList<>();
         private final List<HistoryCall> listHistoryCalls = new CopyOnWriteArrayList<>();
-        private final List<BreakdownCall> getStockCellBreakdownCalls = new CopyOnWriteArrayList<>();
+        private final List<UUID> listStockCellFilterOptionsCalls = new CopyOnWriteArrayList<>();
         private final List<WarehouseTaskView> tasks = new ArrayList<>();
         private final List<TaskListCall> listMyWarehouseTasksCalls = new CopyOnWriteArrayList<>();
         private final List<UUID> takeTransferTaskInWorkCalls = new CopyOnWriteArrayList<>();
@@ -1440,8 +1526,12 @@ class WarehouseWorkspaceViewModelTest {
         }
 
         @Override
-        public WarehouseStockPage listStockSummaries(
-                UUID warehouseId, String search, int pageIndex, int pageSize) {
+        public WarehouseStockCellPage listStockByCells(
+                UUID warehouseId,
+                UUID storageCellId,
+                String search,
+                int pageIndex,
+                int pageSize) {
             if (denyNextStock) {
                 denyNextStock = false;
                 throw new AccessDeniedException("denied");
@@ -1450,12 +1540,27 @@ class WarehouseWorkspaceViewModelTest {
             if (index == 0 && stockDelayMs > 0) {
                 sleep(stockDelayMs);
             }
-            listStockSummariesCalls.add(new StockSummaryCall(warehouseId, search, pageIndex, pageSize));
+            listStockByCellsCalls.add(
+                    new StockByCellsCall(warehouseId, storageCellId, search, pageIndex, pageSize));
             index = Math.min(index, Math.max(stockPages.size() - 1, 0));
             if (stockPages.isEmpty()) {
-                return WarehouseStockPage.of(List.of(), pageIndex, pageSize, 0);
+                return WarehouseStockCellPage.of(List.of(), pageIndex, pageSize, 0);
             }
             return stockPages.get(index);
+        }
+
+        @Override
+        public List<WarehouseStockCellFilterOptionView> listStockCellFilterOptions(UUID warehouseId) {
+            listStockCellFilterOptionsCalls.add(warehouseId);
+            if (warehouseId == null) {
+                List<WarehouseStockCellFilterOptionView> all = new ArrayList<>();
+                for (List<WarehouseStockCellFilterOptionView> options :
+                        cellFilterOptionsByWarehouse.values()) {
+                    all.addAll(options);
+                }
+                return all;
+            }
+            return cellFilterOptionsByWarehouse.getOrDefault(warehouseId, List.of());
         }
 
         @Override
@@ -1478,18 +1583,6 @@ class WarehouseWorkspaceViewModelTest {
                 return WarehouseApi.WarehouseHistoryPage.of(List.of(), pageIndex, pageSize, 0);
             }
             return historyPages.get(index);
-        }
-
-        @Override
-        public WarehouseMaterialStockDetailsView getStockCellBreakdown(
-                UUID warehouseId, UUID materialReferenceId) {
-            getStockCellBreakdownCalls.add(new BreakdownCall(warehouseId, materialReferenceId));
-            WarehouseMaterialStockDetailsView details =
-                    breakdowns.get(warehouseId + ":" + materialReferenceId);
-            if (details == null) {
-                throw new IllegalStateException("breakdown not stubbed");
-            }
-            return details;
         }
 
         @Override
@@ -1642,15 +1735,18 @@ class WarehouseWorkspaceViewModelTest {
             void run() throws InterruptedException;
         }
 
-        private record StockSummaryCall(UUID warehouseId, String search, int pageIndex, int pageSize) {}
+        private record StockByCellsCall(
+                UUID warehouseId,
+                UUID storageCellId,
+                String search,
+                int pageIndex,
+                int pageSize) {}
 
         private record HistoryCall(
                 UUID warehouseId,
                 WarehouseApi.WarehouseHistoryFilter filter,
                 int pageIndex,
                 int pageSize) {}
-
-        private record BreakdownCall(UUID warehouseId, UUID materialReferenceId) {}
 
         private record TaskListCall(UUID warehouseId) {}
     }

@@ -11928,8 +11928,39 @@ See VERIFICATION-LOG Stage 3.5.14 entry (2026-09-11).
 
 ### Next on success
 
-Stage 3.5.15 — Final Warehouse Acceptance = NEXT / NOT STARTED.
-Manual acceptance = DEFERRED TO Stage 3.5.15.
+Stage 3.5.15 — Final Warehouse Acceptance = IN PROGRESS
+Stocks UX corrective = COMPLETE
+Manual acceptance = READY TO RESUME FROM Склад → Остатки
+
+---
+## STAGE-3.5.15 — Final Warehouse Acceptance (Stocks UX corrective)
+
+**Status:** IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.14
+**Module:** `tmp-warehouse` (cell-centric stock read) + `tmp-ui-shell` (flat Stocks UI)
+
+### Goal
+
+Final Warehouse Acceptance with corrective: replace material-centric expandable Остатки with cell-centric flat table (one row = warehouse + cell + material + AVAILABLE).
+
+### Acceptance criteria (Stocks corrective)
+
+- [x] Server-side `listStockByCells` / cell filter options; no N+1 flatten in ViewModel
+- [x] Flat table; expand/collapse REMOVED; statistics ABSENT; read-only
+- [x] AVAILABLE only; quantity `DecimalUiFormat.formatRu`
+- [x] Cell filter by storageCellId; foreign warehouse/cell denied
+- [x] Targeted tests + architecture + package + startup PASS
+- [ ] Manual acceptance resume from Склад → Остатки
+- [ ] Final `mvn clean verify` after manual PASS
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Stocks corrective entry (2026-09-11).
+
+### Next on success
+
+Manual acceptance → MANUAL PASS → final full reactor.
 
 ---
 ## STAGE-3.5.13 — Warehouse Settings

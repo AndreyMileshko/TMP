@@ -2,11 +2,11 @@ package com.tmp.ui.shell.screen.warehouse;
 
 import com.tmp.ui.shell.navigation.ViewModelAware;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ActionEditRow;
-import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.CellDetailRow;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.CellFilterOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.HistoryOperationOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.HistoryRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReceiveAllocationEditRow;
-import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.SummaryRow;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.StockRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.TaskRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.WarehouseFilterOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.WorkspaceTab;
@@ -26,13 +26,11 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
-import javafx.scene.input.MouseButton;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
@@ -75,6 +73,9 @@ public final class WarehouseWorkspaceController
 
     @FXML
     private Button searchButton;
+
+    @FXML
+    private ComboBox<CellFilterOption> cellCombo;
 
     @FXML
     private DatePicker historyFromDatePicker;
@@ -164,31 +165,31 @@ public final class WarehouseWorkspaceController
     private TableColumn<ActionEditRow, String> actionQuantityColumn;
 
     @FXML
-    private TableView<WarehouseWorkspaceViewModel.StockTableRow> stockTable;
+    private TableView<StockRow> stockTable;
 
     @FXML
-    private TableColumn<WarehouseWorkspaceViewModel.StockTableRow, String> expandColumn;
+    private TableColumn<StockRow, String> warehouseColumn;
 
     @FXML
-    private TableColumn<WarehouseWorkspaceViewModel.StockTableRow, String> warehouseColumn;
+    private TableColumn<StockRow, String> cellColumn;
 
     @FXML
-    private TableColumn<WarehouseWorkspaceViewModel.StockTableRow, String> articleColumn;
+    private TableColumn<StockRow, String> articleColumn;
 
     @FXML
-    private TableColumn<WarehouseWorkspaceViewModel.StockTableRow, String> nameColumn;
+    private TableColumn<StockRow, String> nameColumn;
 
     @FXML
-    private TableColumn<WarehouseWorkspaceViewModel.StockTableRow, String> colorColumn;
+    private TableColumn<StockRow, String> colorColumn;
 
     @FXML
-    private TableColumn<WarehouseWorkspaceViewModel.StockTableRow, String> sizeColumn;
+    private TableColumn<StockRow, String> sizeColumn;
 
     @FXML
-    private TableColumn<WarehouseWorkspaceViewModel.StockTableRow, String> quantityColumn;
+    private TableColumn<StockRow, String> quantityColumn;
 
     @FXML
-    private TableColumn<WarehouseWorkspaceViewModel.StockTableRow, String> unitColumn;
+    private TableColumn<StockRow, String> unitColumn;
 
     @FXML
     private Button previousPageButton;
@@ -323,6 +324,30 @@ public final class WarehouseWorkspaceController
                             }
                         });
         warehouseCombo.setValue(viewModel.selectedWarehouseFilterProperty().get());
+
+        cellCombo.setItems(viewModel.cellFilterOptions());
+        cellCombo.valueProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> {
+                            if (binding || newValue == null || java.util.Objects.equals(oldValue, newValue)) {
+                                return;
+                            }
+                            viewModel.selectCellFilter(newValue);
+                        });
+        viewModel.selectedCellFilterProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> {
+                            if (binding) {
+                                return;
+                            }
+                            binding = true;
+                            try {
+                                cellCombo.setValue(newValue);
+                            } finally {
+                                binding = false;
+                            }
+                        });
+        cellCombo.setValue(viewModel.selectedCellFilterProperty().get());
 
         searchField.textProperty().bindBidirectional(viewModel.searchInputProperty());
         searchField.setOnAction(e -> viewModel.commitSearch());
@@ -574,28 +599,33 @@ public final class WarehouseWorkspaceController
     }
 
     private void configureStockTable() {
-        expandColumn.setCellValueFactory(cell -> new javafx.beans.property.SimpleStringProperty(""));
-        expandColumn.setCellFactory(column -> new ExpandCell());
-
         warehouseColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(warehouseText(cell.getValue())));
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().warehouseLabel()));
         warehouseColumn.visibleProperty().bind(viewModel.showWarehouseColumnProperty());
 
+        cellColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(cell.getValue().cellCode()));
         articleColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(articleText(cell.getValue())));
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(cell.getValue().article()));
         nameColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(nameText(cell.getValue())));
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().name()));
         colorColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(colorText(cell.getValue())));
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().color()));
         sizeColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(sizeText(cell.getValue())));
+                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().size()));
         quantityColumn.setCellValueFactory(
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
-                                quantityText(cell.getValue())));
+                                cell.getValue().quantityText()));
         quantityColumn.setCellFactory(column -> rightAlignedTextCell());
         unitColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(unitText(cell.getValue())));
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().unitOfMeasure()));
         unitColumn.setCellFactory(column -> centerAlignedTextCell());
 
         stockTable.setItems(viewModel.tableRows());
@@ -605,21 +635,6 @@ public final class WarehouseWorkspaceController
         placeholder.getStyleClass().add("tmp-empty-state-hint");
         placeholder.setWrapText(true);
         stockTable.setPlaceholder(placeholder);
-
-        stockTable.setRowFactory(
-                table -> {
-                    TableRow<WarehouseWorkspaceViewModel.StockTableRow> row = new TableRow<>();
-                    row.setOnMouseClicked(
-                            event -> {
-                                if (event.getButton() == MouseButton.PRIMARY
-                                        && event.getClickCount() == 2
-                                        && !row.isEmpty()
-                                        && row.getItem() instanceof SummaryRow summary) {
-                                    viewModel.toggleExpand(summary);
-                                }
-                            });
-                    return row;
-                });
     }
 
     private void configureHistoryTable() {
@@ -666,63 +681,16 @@ public final class WarehouseWorkspaceController
         historyTable.setPlaceholder(placeholder);
     }
 
-    private static String warehouseText(WarehouseWorkspaceViewModel.StockTableRow row) {
-        if (row instanceof SummaryRow summary) {
-            return summary.warehouseLabel();
-        }
-        return "";
-    }
-
-    private static String articleText(WarehouseWorkspaceViewModel.StockTableRow row) {
-        if (row instanceof SummaryRow summary) {
-            return summary.article();
-        }
-        if (row instanceof CellDetailRow detail) {
-            return detail.indentedArticle();
-        }
-        return "";
-    }
-
-    private static String nameText(WarehouseWorkspaceViewModel.StockTableRow row) {
-        if (row instanceof SummaryRow summary) {
-            return summary.name();
-        }
-        return "";
-    }
-
-    private static String colorText(WarehouseWorkspaceViewModel.StockTableRow row) {
-        return row instanceof SummaryRow summary ? summary.color() : "";
-    }
-
-    private static String sizeText(WarehouseWorkspaceViewModel.StockTableRow row) {
-        return row instanceof SummaryRow summary ? summary.size() : "";
-    }
-
-    private static String quantityText(WarehouseWorkspaceViewModel.StockTableRow row) {
-        if (row instanceof SummaryRow summary) {
-            return summary.quantityText();
-        }
-        if (row instanceof CellDetailRow detail) {
-            return detail.quantityText();
-        }
-        return "";
-    }
-
-    private static String unitText(WarehouseWorkspaceViewModel.StockTableRow row) {
-        return row instanceof SummaryRow summary ? summary.unitOfMeasure() : "";
-    }
-
-    private static TableCell<WarehouseWorkspaceViewModel.StockTableRow, String> rightAlignedTextCell() {
+    private static TableCell<StockRow, String> rightAlignedTextCell() {
         return alignedTextCell(Pos.CENTER_RIGHT);
     }
 
-    private static TableCell<WarehouseWorkspaceViewModel.StockTableRow, String> centerAlignedTextCell() {
+    private static TableCell<StockRow, String> centerAlignedTextCell() {
         return alignedTextCell(Pos.CENTER);
     }
 
-    private static TableCell<WarehouseWorkspaceViewModel.StockTableRow, String> alignedTextCell(
-            Pos alignment) {
-        TableCell<WarehouseWorkspaceViewModel.StockTableRow, String> cell =
+    private static TableCell<StockRow, String> alignedTextCell(Pos alignment) {
+        TableCell<StockRow, String> cell =
                 new TableCell<>() {
                     @Override
                     protected void updateItem(String item, boolean empty) {
@@ -807,61 +775,6 @@ public final class WarehouseWorkspaceController
                 setGraphic(null);
                 setText(item);
             }
-        }
-    }
-
-    private final class ExpandCell extends TableCell<WarehouseWorkspaceViewModel.StockTableRow, String> {
-
-        private final Button button = new Button("▶");
-
-        ExpandCell() {
-            button.getStyleClass().add("tmp-button-secondary");
-            button.setOnAction(
-                    e -> {
-                        WarehouseWorkspaceViewModel.StockTableRow row = getTableRow().getItem();
-                        if (row instanceof SummaryRow summary) {
-                            viewModel.toggleExpand(summary);
-                            refreshButton(summary);
-                        }
-                    });
-        }
-
-        @Override
-        protected void updateItem(String item, boolean empty) {
-            super.updateItem(item, empty);
-            if (empty || !(getTableRow().getItem() instanceof SummaryRow summary)) {
-                setGraphic(null);
-                return;
-            }
-            refreshButton(summary);
-            setGraphic(button);
-        }
-
-        private void refreshButton(SummaryRow summary) {
-            if (summary.expandingProperty().get()) {
-                button.setText("…");
-                button.setDisable(true);
-            } else if (summary.expandedProperty().get()) {
-                button.setText("▼");
-                button.setDisable(false);
-            } else {
-                button.setText("▶");
-                button.setDisable(false);
-            }
-            summary.expandedProperty()
-                    .addListener(
-                            (obs, oldValue, newValue) -> {
-                                if (getTableRow() != null && getTableRow().getItem() == summary) {
-                                    refreshButton(summary);
-                                }
-                            });
-            summary.expandingProperty()
-                    .addListener(
-                            (obs, oldValue, newValue) -> {
-                                if (getTableRow() != null && getTableRow().getItem() == summary) {
-                                    refreshButton(summary);
-                                }
-                            });
         }
     }
 }

@@ -24,6 +24,16 @@ class DecimalUiFormatTest {
     }
 
     @Test
+    void formatRuUsesCommaAndStripsTrailingZeros() {
+        assertEquals("4", DecimalUiFormat.formatRu(new BigDecimal("4.000000")));
+        assertEquals("40", DecimalUiFormat.formatRu(new BigDecimal("40.000000")));
+        assertEquals("0,75", DecimalUiFormat.formatRu(new BigDecimal("0.750000")));
+        assertEquals("0,05", DecimalUiFormat.formatRu(new BigDecimal("0.050000")));
+        assertEquals("1,23", DecimalUiFormat.formatRu(new BigDecimal("1.230000")));
+        assertEquals("0,000001", DecimalUiFormat.formatRu(new BigDecimal("0.000001")));
+    }
+
+    @Test
     void noScientificNotationForLargeWhole() {
         assertEquals("1000", DecimalUiFormat.format(new BigDecimal("1E+3")));
     }

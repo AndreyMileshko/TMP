@@ -3,22 +3,36 @@
 ## Latest result
 
 **Date:** 2026-09-11
-**Scope:** Stage 3.5.14 — Warehouse UI Polish (+ Part A verification of `671044ce`)
-**Overall:** PASS
+**Scope:** Stage 3.5.15 — Stocks UX corrective (cell-centric flat Остатки)
+**Overall:** PASS (corrective automated + package/startup); Stage 3.5.15 remains IN PROGRESS pending manual acceptance
 
-### COMMIT 671044ce VERIFICATION (Part A)
+### Stage 3.5.15 Stocks UX corrective (2026-09-11)
 
 | Check | Result |
 |-------|--------|
-| HEAD `671044ce5c1f1dd7074965a6aa8d42bebd985154` | PASS |
-| History physical-event identity | Transfer: `operationType:documentId:materialId`; non-transfer: `warehouse_operation.id` |
-| Multi-cell grouping | PASS — one send across cells → one History row (SUM qty); test `multiCellSameMaterialSendAggregatesToOnePrimaryHistoryEntry` |
-| Different-event separation | Contract-impossible for same document×material×type (one send/receive/return command per document; shortfall → new document; return covers outstanding exactly) — no new History merge regression required |
-| Settings update authorization | Backend `WAREHOUSE_STRUCTURE_UPDATE` / `STORAGE_CELL_UPDATE`; tests `unauthorizedWarehouseUpdateDenied` / `unauthorizedStorageCellUpdateDenied` |
-| Structure update stock delta | PASS — `warehouseStructureUpdateDoesNotMutateStock` / `storageCellStructureUpdateDoesNotCreateWarehouseMovements` |
-| Deactivate semantics | Flag-only catalogue update; no relocation / operations / movements |
-| Forbidden configuration | ABSENT (architecture guard) |
-| Part A RESULT | **PASS** (after Settings auth/stock-safety corrective tests) |
+| Baseline HEAD `488a2e5111677053d55bcffd436fb11ffa2e2391` | PASS |
+| UX | Material→expand→cells REMOVED; flat cell-centric rows; statistics ABSENT |
+| API | `listStockByCells` / `listStockCellFilterOptions`; AVAILABLE only; server-side page/search/cell |
+| Grouping | warehouseId + storageCellId + materialReferenceId (SUM AVAILABLE) |
+| Quantity format | `DecimalUiFormat.formatRu` — `4` / `0,75` / `0,000001` |
+| Migration | **NONE / Flyway V44** |
+| `WarehouseStockByCellsIntegrationTest` | PASS (11) |
+| `WarehouseStockSummaryIntegrationTest` | PASS (6) legacy API retained |
+| `WarehouseSecurityAuthorizationTest` | PASS (17) |
+| `WarehouseWorkspaceViewModelTest` | PASS (53) |
+| `DecimalUiFormatTest` | PASS (5) |
+| `WarehouseHistoryIntegrationTest` | PASS (6) |
+| `WarehouseOperationalInboxIntegrationTest` | PASS (16) |
+| `Stage6WarehouseArchitectureTest` | PASS (8) |
+| `mvn -pl tmp-warehouse,tmp-ui-shell -am test-compile` | PASS |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests` | PASS |
+| `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS → `dist/jpackage/TMP/TMP.exe` |
+| Startup `tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 44 / V44 up-to-date; `Started DesktopBootstrap`; exceptions NONE |
+| DB safety (startup open only) | stock_positions 31 / sum 1257.9; warehouse_operations 61; warehouse_movements 82 — **delta 0** |
+| Manual acceptance | READY TO RESUME from Склад → Остатки |
+| Full reactor | NOT RUN — last GREEN `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d` |
+
+---
 
 ### Stage 3.5.14 Warehouse UI Polish (2026-09-11)
 
@@ -38,6 +52,22 @@
 | DB safety (open only) | stock_positions 31 / sum 1257.9; warehouse_operations 61; warehouse_movements 82 — **delta 0** |
 | Manual acceptance | NOT RUN — deferred to Stage 3.5.15 |
 | Full reactor | NOT RUN — last GREEN `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d` |
+
+---
+
+### COMMIT 671044ce VERIFICATION (Part A)
+
+| Check | Result |
+|-------|--------|
+| HEAD `671044ce5c1f1dd7074965a6aa8d42bebd985154` | PASS |
+| History physical-event identity | Transfer: `operationType:documentId:materialId`; non-transfer: `warehouse_operation.id` |
+| Multi-cell grouping | PASS — one send across cells → one History row (SUM qty); test `multiCellSameMaterialSendAggregatesToOnePrimaryHistoryEntry` |
+| Different-event separation | Contract-impossible for same document×material×type (one send/receive/return command per document; shortfall → new document; return covers outstanding exactly) — no new History merge regression required |
+| Settings update authorization | Backend `WAREHOUSE_STRUCTURE_UPDATE` / `STORAGE_CELL_UPDATE`; tests `unauthorizedWarehouseUpdateDenied` / `unauthorizedStorageCellUpdateDenied` |
+| Structure update stock delta | PASS — `warehouseStructureUpdateDoesNotMutateStock` / `storageCellStructureUpdateDoesNotCreateWarehouseMovements` |
+| Deactivate semantics | Flag-only catalogue update; no relocation / operations / movements |
+| Forbidden configuration | ABSENT (architecture guard) |
+| Part A RESULT | **PASS** (after Settings auth/stock-safety corrective tests) |
 
 ---
 

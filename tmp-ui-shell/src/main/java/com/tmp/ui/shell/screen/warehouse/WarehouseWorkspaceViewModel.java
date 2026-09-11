@@ -3,6 +3,7 @@ package com.tmp.ui.shell.screen.warehouse;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
+import com.tmp.ui.shell.order.DecimalUiFormat;
 import com.tmp.ui.shell.order.worklist.DateTimePresentation;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
@@ -25,10 +26,9 @@ import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseHistoryEntryView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseHistoryFilter;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseHistoryPage;
-import com.tmp.warehouse.api.WarehouseApi.WarehouseMaterialStockDetailsView;
-import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellView;
-import com.tmp.warehouse.api.WarehouseApi.WarehouseStockPage;
-import com.tmp.warehouse.api.WarehouseApi.WarehouseStockSummaryView;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellFilterOptionView;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellLineView;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellPage;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskKind;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskState;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
@@ -79,6 +79,8 @@ public final class WarehouseWorkspaceViewModel {
     static final int HISTORY_PAGE_SIZE = WarehouseApi.HISTORY_DEFAULT_PAGE_SIZE;
 
     private static final String EMPTY_STOCK_MESSAGE = "На выбранном складе нет доступных остатков";
+    private static final String EMPTY_CELL_STOCK_MESSAGE =
+            "В выбранной ячейке нет доступных остатков";
     private static final String EMPTY_SEARCH_MESSAGE = "По выбранным условиям ничего не найдено";
     private static final String EMPTY_TASKS_MESSAGE = "Нет задач, требующих вашего действия";
     private static final String EMPTY_HISTORY_PERIOD_MESSAGE = "За выбранный период операций нет";
@@ -250,29 +252,62 @@ public final class WarehouseWorkspaceViewModel {
         }
     }
 
-    public abstract static class StockTableRow {
+    /** Combo item: {@code storageCellId} null = all cells in current warehouse scope. */
+    public record CellFilterOption(
+            UUID storageCellId, UUID warehouseId, String label, boolean allModeLabel) {
 
-        private StockTableRow() {}
+        public static final String ALL_LABEL = "Все ячейки";
+
+        public CellFilterOption {
+            Objects.requireNonNull(label, "label");
+        }
+
+        public static CellFilterOption all() {
+            return new CellFilterOption(null, null, ALL_LABEL, false);
+        }
+
+        public static CellFilterOption from(
+                WarehouseStockCellFilterOptionView view, boolean includeWarehousePrefix) {
+            Objects.requireNonNull(view, "view");
+            String label =
+                    includeWarehousePrefix
+                            ? view.warehouseCode() + " — " + view.storageCellCode()
+                            : view.storageCellCode();
+            return new CellFilterOption(
+                    view.storageCellId(), view.warehouseId(), label, includeWarehousePrefix);
+        }
+
+        public boolean isAll() {
+            return storageCellId == null;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
     }
 
-    public static final class SummaryRow extends StockTableRow {
+    /** Flat cell-centric Stocks table row (one material in one cell). */
+    public static final class StockRow {
 
         private final UUID warehouseId;
+        private final UUID storageCellId;
         private final UUID materialReferenceId;
         private final String warehouseLabel;
+        private final String cellCode;
         private final String article;
         private final String name;
         private final String color;
         private final String size;
         private final String unitOfMeasure;
         private final String quantityText;
-        private final BooleanProperty expanded = new SimpleBooleanProperty(false);
-        private final BooleanProperty expanding = new SimpleBooleanProperty(false);
 
-        private SummaryRow(
+        private StockRow(
                 UUID warehouseId,
+                UUID storageCellId,
                 UUID materialReferenceId,
                 String warehouseLabel,
+                String cellCode,
                 String article,
                 String name,
                 String color,
@@ -280,21 +315,27 @@ public final class WarehouseWorkspaceViewModel {
                 String unitOfMeasure,
                 BigDecimal quantity) {
             this.warehouseId = Objects.requireNonNull(warehouseId, "warehouseId");
-            this.materialReferenceId = Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            this.storageCellId = Objects.requireNonNull(storageCellId, "storageCellId");
+            this.materialReferenceId =
+                    Objects.requireNonNull(materialReferenceId, "materialReferenceId");
             this.warehouseLabel = warehouseLabel == null ? "" : warehouseLabel;
+            this.cellCode = cellCode == null ? "" : cellCode;
             this.article = article;
             this.name = name;
             this.color = color;
             this.size = size;
             this.unitOfMeasure = unitOfMeasure;
-            this.quantityText = quantity.toPlainString();
+            this.quantityText = DecimalUiFormat.formatRu(quantity);
         }
 
-        static SummaryRow from(WarehouseStockSummaryView view, String warehouseLabel) {
-            return new SummaryRow(
+        static StockRow from(WarehouseStockCellLineView view) {
+            String warehouseLabel = view.warehouseCode() + " — " + view.warehouseName();
+            return new StockRow(
                     view.warehouseId(),
+                    view.storageCellId(),
                     view.materialReferenceId(),
                     warehouseLabel,
+                    view.storageCellCode(),
                     view.article(),
                     view.name(),
                     view.color(),
@@ -307,12 +348,20 @@ public final class WarehouseWorkspaceViewModel {
             return warehouseId;
         }
 
+        public UUID storageCellId() {
+            return storageCellId;
+        }
+
         public UUID materialReferenceId() {
             return materialReferenceId;
         }
 
         public String warehouseLabel() {
             return warehouseLabel;
+        }
+
+        public String cellCode() {
+            return cellCode;
         }
 
         public String article() {
@@ -337,18 +386,6 @@ public final class WarehouseWorkspaceViewModel {
 
         public String quantityText() {
             return quantityText;
-        }
-
-        public BooleanProperty expandedProperty() {
-            return expanded;
-        }
-
-        public BooleanProperty expandingProperty() {
-            return expanding;
-        }
-
-        String expandKey() {
-            return warehouseId + ":" + materialReferenceId;
         }
     }
 
@@ -462,30 +499,6 @@ public final class WarehouseWorkspaceViewModel {
         }
     }
 
-    public static final class CellDetailRow extends StockTableRow {
-
-        private final String cellCode;
-        private final String quantityText;
-
-        CellDetailRow(String cellCode, BigDecimal quantity) {
-            this.cellCode = Objects.requireNonNull(cellCode, "cellCode");
-            this.quantityText = quantity.toPlainString();
-        }
-
-        public String cellCode() {
-            return cellCode;
-        }
-
-        public String quantityText() {
-            return quantityText;
-        }
-
-        public String indentedArticle() {
-            return "    Ячейка: " + cellCode;
-        }
-    }
-
-    /** Editable action line shown under task details. */
     public abstract static class ActionEditRow {
 
         private final UUID lineId;
@@ -684,8 +697,12 @@ public final class WarehouseWorkspaceViewModel {
             FXCollections.observableArrayList();
     private final ObjectProperty<WarehouseFilterOption> selectedWarehouseFilter =
             new SimpleObjectProperty<>();
+    private final ObservableList<CellFilterOption> cellFilterOptions =
+            FXCollections.observableArrayList();
+    private final ObjectProperty<CellFilterOption> selectedCellFilter =
+            new SimpleObjectProperty<>();
     private final StringProperty searchInput = new SimpleStringProperty("");
-    private final ObservableList<StockTableRow> tableRows = FXCollections.observableArrayList();
+    private final ObservableList<StockRow> tableRows = FXCollections.observableArrayList();
     private final ObservableList<TaskRow> taskRows = FXCollections.observableArrayList();
     private final ObjectProperty<TaskRow> selectedTask = new SimpleObjectProperty<>();
     private final ObservableList<ActionEditRow> actionLines = FXCollections.observableArrayList();
@@ -716,12 +733,11 @@ public final class WarehouseWorkspaceViewModel {
     private String committedSearch = "";
     private String committedHistorySearch = "";
     private long stockLoadGeneration;
+    private long cellFilterLoadGeneration;
     private long taskLoadGeneration;
     private long historyLoadGeneration;
     private long taskDetailLoadGeneration;
     private boolean stockLoadedForCurrentFilter;
-    private long expandRequestCounter;
-    private final Map<String, Long> expandRequestIds = new HashMap<>();
 
     private TransferDocumentView loadedDocument;
     private List<TransferDocumentReturnPlanItem> loadedReturnPlan = List.of();
@@ -767,6 +783,8 @@ public final class WarehouseWorkspaceViewModel {
         commandInFlight.addListener((obs, o, n) -> updateActionAvailability());
         loading.addListener((obs, o, n) -> updateActionAvailability());
         canTransfer.addListener((obs, o, n) -> updateActionAvailability());
+        selectedCellFilter.set(CellFilterOption.all());
+        cellFilterOptions.setAll(CellFilterOption.all());
         initializeHistoryFilters();
         refreshPermissions();
         updatePaginationFlags();
@@ -831,19 +849,45 @@ public final class WarehouseWorkspaceViewModel {
         if (Objects.equals(current, option)) {
             return;
         }
-        clearExpandedRows();
         pageIndex.set(0);
         historyPageIndex.set(0);
         selectedWarehouseFilter.set(option);
         showWarehouseColumn.set(option != null && option.isAll());
+        selectedCellFilter.set(CellFilterOption.all());
         stockLoadedForCurrentFilter = false;
         WorkspaceTab tab = selectedTab.get();
         if (tab == WorkspaceTab.TASKS) {
             reloadTasks();
         } else if (tab == WorkspaceTab.STOCK) {
-            reloadStockSummaries();
+            reloadCellFilterOptionsThenStock();
         } else if (tab == WorkspaceTab.HISTORY) {
             reloadHistory();
+        }
+    }
+
+    public void selectCellFilter(CellFilterOption option) {
+        Objects.requireNonNull(option, "option");
+        CellFilterOption current = selectedCellFilter.get();
+        if (Objects.equals(current, option)
+                || (current != null
+                        && option.isAll()
+                        && current.isAll()
+                        && Objects.equals(current.label(), option.label()))) {
+            return;
+        }
+        if (!option.isAll()) {
+            boolean known =
+                    cellFilterOptions.stream()
+                            .anyMatch(o -> Objects.equals(o.storageCellId(), option.storageCellId()));
+            if (!known) {
+                return;
+            }
+        }
+        selectedCellFilter.set(option);
+        pageIndex.set(0);
+        stockLoadedForCurrentFilter = false;
+        if (selectedTab.get() == WorkspaceTab.STOCK) {
+            reloadStockByCells();
         }
     }
 
@@ -1128,9 +1172,8 @@ public final class WarehouseWorkspaceViewModel {
             return;
         }
         committedSearch = blankToNull(searchInput.get()) == null ? "" : searchInput.get().trim();
-        clearExpandedRows();
         pageIndex.set(0);
-        reloadStockSummaries();
+        reloadStockByCells();
     }
 
     public void commitHistorySearch() {
@@ -1194,9 +1237,8 @@ public final class WarehouseWorkspaceViewModel {
         long total = totalElements.get();
         int maxPage = total <= 0 ? 0 : (int) ((total - 1) / PAGE_SIZE);
         if (pageIndex.get() < maxPage) {
-            clearExpandedRows();
             pageIndex.set(pageIndex.get() + 1);
-            reloadStockSummaries();
+            reloadStockByCells();
         }
     }
 
@@ -1205,9 +1247,8 @@ public final class WarehouseWorkspaceViewModel {
             return;
         }
         if (pageIndex.get() > 0) {
-            clearExpandedRows();
             pageIndex.set(pageIndex.get() - 1);
-            reloadStockSummaries();
+            reloadStockByCells();
         }
     }
 
@@ -1230,15 +1271,6 @@ public final class WarehouseWorkspaceViewModel {
         if (historyPageIndex.get() > 0) {
             historyPageIndex.set(historyPageIndex.get() - 1);
             reloadHistory();
-        }
-    }
-
-    public void toggleExpand(SummaryRow row) {
-        Objects.requireNonNull(row, "row");
-        if (row.expandedProperty().get()) {
-            collapseSummary(row);
-        } else {
-            expandSummary(row);
         }
     }
 
@@ -1282,11 +1314,19 @@ public final class WarehouseWorkspaceViewModel {
         return selectedWarehouseFilter;
     }
 
+    public ObservableList<CellFilterOption> cellFilterOptions() {
+        return cellFilterOptions;
+    }
+
+    public ObjectProperty<CellFilterOption> selectedCellFilterProperty() {
+        return selectedCellFilter;
+    }
+
     public StringProperty searchInputProperty() {
         return searchInput;
     }
 
-    public ObservableList<StockTableRow> tableRows() {
+    public ObservableList<StockRow> tableRows() {
         return tableRows;
     }
 
@@ -1422,9 +1462,12 @@ public final class WarehouseWorkspaceViewModel {
             }
             showWarehouseColumn.set(
                     selectedWarehouseFilter.get() != null && selectedWarehouseFilter.get().isAll());
+            if (selectedCellFilter.get() == null) {
+                selectedCellFilter.set(CellFilterOption.all());
+            }
             stockLoadedForCurrentFilter = false;
             if (selectedTab.get() == WorkspaceTab.STOCK) {
-                reloadStockSummaries();
+                reloadCellFilterOptionsThenStock();
             } else if (selectedTab.get() == WorkspaceTab.HISTORY) {
                 reloadHistory();
             } else {
@@ -1438,7 +1481,7 @@ public final class WarehouseWorkspaceViewModel {
 
     private void ensureStockLoaded() {
         if (!stockLoadedForCurrentFilter) {
-            reloadStockSummaries();
+            reloadCellFilterOptionsThenStock();
         }
     }
 
@@ -2037,7 +2080,74 @@ public final class WarehouseWorkspaceViewModel {
         return accessibleWarehouseIds.contains(option.warehouseId());
     }
 
-    private void reloadStockSummaries() {
+    private void reloadCellFilterOptionsThenStock() {
+        if (!canView.get()) {
+            deny();
+            return;
+        }
+        WarehouseFilterOption filter = selectedWarehouseFilter.get();
+        UUID warehouseId = filter == null ? null : filter.warehouseId();
+        boolean allMode = filter != null && filter.isAll();
+        long requestId = ++cellFilterLoadGeneration;
+        backgroundExecutor.execute(
+                () -> {
+                    try {
+                        List<WarehouseStockCellFilterOptionView> options =
+                                warehouseApi.listStockCellFilterOptions(warehouseId);
+                        uiExecutor.accept(
+                                () -> applyCellFilterOptions(options, allMode, requestId));
+                    } catch (RuntimeException ex) {
+                        uiExecutor.accept(() -> applyCellFilterLoadError(ex, requestId));
+                    }
+                });
+    }
+
+    private void applyCellFilterOptions(
+            List<WarehouseStockCellFilterOptionView> options, boolean allMode, long requestId) {
+        if (requestId != cellFilterLoadGeneration) {
+            return;
+        }
+        List<CellFilterOption> mapped = new ArrayList<>();
+        mapped.add(CellFilterOption.all());
+        for (WarehouseStockCellFilterOptionView option : options) {
+            mapped.add(CellFilterOption.from(option, allMode));
+        }
+        cellFilterOptions.setAll(mapped);
+        CellFilterOption current = selectedCellFilter.get();
+        boolean keep =
+                current != null
+                        && (current.isAll()
+                                || mapped.stream()
+                                        .anyMatch(
+                                                o ->
+                                                        Objects.equals(
+                                                                o.storageCellId(),
+                                                                current.storageCellId())));
+        if (!keep) {
+            selectedCellFilter.set(CellFilterOption.all());
+        } else if (current != null && current.isAll()) {
+            selectedCellFilter.set(CellFilterOption.all());
+        } else if (current != null) {
+            selectedCellFilter.set(
+                    mapped.stream()
+                            .filter(o -> Objects.equals(o.storageCellId(), current.storageCellId()))
+                            .findFirst()
+                            .orElse(CellFilterOption.all()));
+        }
+        reloadStockByCells();
+    }
+
+    private void applyCellFilterLoadError(RuntimeException ex, long requestId) {
+        if (requestId != cellFilterLoadGeneration) {
+            return;
+        }
+        cellFilterOptions.setAll(CellFilterOption.all());
+        selectedCellFilter.set(CellFilterOption.all());
+        errorMessage.set(WarehouseUiErrorMapper.text(ex));
+        reloadStockByCells();
+    }
+
+    private void reloadStockByCells() {
         if (!canView.get()) {
             deny();
             return;
@@ -2054,27 +2164,36 @@ public final class WarehouseWorkspaceViewModel {
             return;
         }
         UUID warehouseId = filter == null ? null : filter.warehouseId();
+        CellFilterOption cellFilter = selectedCellFilter.get();
+        UUID storageCellId = cellFilter == null || cellFilter.isAll() ? null : cellFilter.storageCellId();
         long requestId = ++stockLoadGeneration;
         loading.set(true);
         errorMessage.set("");
         statusMessage.set("");
         int page = pageIndex.get();
         String search = blankToNull(committedSearch);
+        boolean cellSelected = storageCellId != null;
         backgroundExecutor.execute(
                 () -> {
                     try {
-                        WarehouseStockPage pageResult =
-                                warehouseApi.listStockSummaries(
-                                        warehouseId, search, page, PAGE_SIZE);
+                        WarehouseStockCellPage pageResult =
+                                warehouseApi.listStockByCells(
+                                        warehouseId, storageCellId, search, page, PAGE_SIZE);
                         uiExecutor.accept(
-                                () -> applyStockPage(pageResult, requestId, search != null));
+                                () ->
+                                        applyStockPage(
+                                                pageResult, requestId, search != null, cellSelected));
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(() -> applyStockLoadError(ex, requestId));
                     }
                 });
     }
 
-    private void applyStockPage(WarehouseStockPage pageResult, long requestId, boolean searchActive) {
+    private void applyStockPage(
+            WarehouseStockCellPage pageResult,
+            long requestId,
+            boolean searchActive,
+            boolean cellSelected) {
         if (requestId != stockLoadGeneration) {
             return;
         }
@@ -2084,15 +2203,19 @@ public final class WarehouseWorkspaceViewModel {
         stockLoadedForCurrentFilter = true;
         totalElements.set(pageResult.totalElements());
         updatePaginationFlags();
-        List<StockTableRow> rows = new ArrayList<>();
-        for (WarehouseStockSummaryView summary : pageResult.content()) {
-            rows.add(
-                    SummaryRow.from(
-                            summary, warehouseLabels.getOrDefault(summary.warehouseId(), "")));
+        List<StockRow> rows = new ArrayList<>();
+        for (WarehouseStockCellLineView line : pageResult.content()) {
+            rows.add(StockRow.from(line));
         }
         tableRows.setAll(rows);
         if (selectedTab.get() == WorkspaceTab.STOCK && pageResult.totalElements() == 0) {
-            statusMessage.set(searchActive ? EMPTY_SEARCH_MESSAGE : EMPTY_STOCK_MESSAGE);
+            if (searchActive) {
+                statusMessage.set(EMPTY_SEARCH_MESSAGE);
+            } else if (cellSelected) {
+                statusMessage.set(EMPTY_CELL_STOCK_MESSAGE);
+            } else {
+                statusMessage.set(EMPTY_STOCK_MESSAGE);
+            }
         } else if (selectedTab.get() == WorkspaceTab.STOCK) {
             statusMessage.set("");
         }
@@ -2113,84 +2236,6 @@ public final class WarehouseWorkspaceViewModel {
         tableRows.clear();
         totalElements.set(0);
         updatePaginationFlags();
-    }
-
-    private void expandSummary(SummaryRow row) {
-        String key = row.expandKey();
-        long requestId = ++expandRequestCounter;
-        expandRequestIds.put(key, requestId);
-        row.expandingProperty().set(true);
-        backgroundExecutor.execute(
-                () -> {
-                    try {
-                        WarehouseMaterialStockDetailsView details =
-                                warehouseApi.getStockCellBreakdown(
-                                        row.warehouseId(), row.materialReferenceId());
-                        uiExecutor.accept(() -> applyExpandSuccess(row, details, requestId, key));
-                    } catch (RuntimeException ex) {
-                        uiExecutor.accept(() -> applyExpandError(row, ex, requestId, key));
-                    }
-                });
-    }
-
-    private void applyExpandSuccess(
-            SummaryRow row,
-            WarehouseMaterialStockDetailsView details,
-            long requestId,
-            String key) {
-        if (!Objects.equals(expandRequestIds.get(key), requestId)) {
-            return;
-        }
-        row.expandingProperty().set(false);
-        int index = tableRows.indexOf(row);
-        if (index < 0) {
-            return;
-        }
-        List<StockTableRow> updated = new ArrayList<>(tableRows);
-        int insertAt = index + 1;
-        for (WarehouseStockCellView cell : details.cells()) {
-            updated.add(insertAt++, new CellDetailRow(cell.storageCellCode(), cell.availableQuantity()));
-        }
-        tableRows.setAll(updated);
-        row.expandedProperty().set(true);
-    }
-
-    private void applyExpandError(SummaryRow row, RuntimeException ex, long requestId, String key) {
-        if (!Objects.equals(expandRequestIds.get(key), requestId)) {
-            return;
-        }
-        row.expandingProperty().set(false);
-        errorMessage.set(WarehouseUiErrorMapper.text(ex));
-    }
-
-    private void collapseSummary(SummaryRow row) {
-        expandRequestIds.remove(row.expandKey());
-        row.expandedProperty().set(false);
-        int index = tableRows.indexOf(row);
-        if (index < 0) {
-            return;
-        }
-        List<StockTableRow> updated = new ArrayList<>(tableRows);
-        int removeAt = index + 1;
-        while (removeAt < updated.size() && updated.get(removeAt) instanceof CellDetailRow) {
-            updated.remove(removeAt);
-        }
-        tableRows.setAll(updated);
-    }
-
-    private void clearExpandedRows() {
-        expandRequestIds.clear();
-        List<StockTableRow> summariesOnly = new ArrayList<>();
-        for (StockTableRow row : tableRows) {
-            if (row instanceof SummaryRow summary) {
-                summary.expandedProperty().set(false);
-                summary.expandingProperty().set(false);
-                summariesOnly.add(summary);
-            }
-        }
-        if (summariesOnly.size() != tableRows.size()) {
-            tableRows.setAll(summariesOnly);
-        }
     }
 
     private void updatePaginationFlags() {

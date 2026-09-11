@@ -162,6 +162,31 @@ public interface WarehouseQueryApi {
     }
 
     /**
+     * Modern Остатки cell-centric page: one row per warehouse + storage cell + material with
+     * positive AVAILABLE. Server-side search, cell filter, and pagination. Does not mutate stock.
+     *
+     * <p>{@code warehouseId} null = all responsible warehouses. {@code storageCellId} null = all
+     * cells in scope. Foreign warehouse or foreign cell is access denied.
+     */
+    default WarehouseApi.WarehouseStockCellPage listStockByCells(
+            UUID warehouseId,
+            UUID storageCellId,
+            String search,
+            int pageIndex,
+            int pageSize) {
+        throw new UnsupportedOperationException("listStockByCells is not available");
+    }
+
+    /**
+     * Active storage cells for Stocks cell filter within responsibility scope. {@code warehouseId}
+     * null = all responsible warehouses. Does not mutate stock.
+     */
+    default List<WarehouseApi.WarehouseStockCellFilterOptionView> listStockCellFilterOptions(
+            UUID warehouseId) {
+        throw new UnsupportedOperationException("listStockCellFilterOptions is not available");
+    }
+
+    /**
      * Modern Warehouse History page: completed physical operations for responsible warehouse(s).
      * Server-side filters and pagination. Does not mutate stock.
      *

@@ -26,6 +26,15 @@ public final class DecimalUiFormat {
         return normalized.toPlainString();
     }
 
+    /**
+     * Same as {@link #format(BigDecimal)} with Russian decimal separator {@code ,}.
+     *
+     * <p>Examples: {@code 4.000000 → "4"}, {@code 0.750000 → "0,75"}, {@code 0.000001 → "0,000001"}.
+     */
+    public static String formatRu(BigDecimal value) {
+        return format(value).replace('.', ',');
+    }
+
     /** Formats nullable length: empty string when absent. */
     public static String formatOptional(BigDecimal value) {
         return value == null ? "" : format(value);

@@ -4,12 +4,41 @@
 
 ---
 
+## Stage 3.5.15 — Stocks UX corrective (cell-centric flat view) — 2026-09-11
+
+**Date:** 2026-09-11
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — Stocks corrective)
+**Base checkpoint:** `488a2e5111677053d55bcffd436fb11ffa2e2391`
+**Status:** Stocks UX corrective COMPLETE; Stage 3.5.15 = IN PROGRESS; Manual acceptance READY TO RESUME; Full reactor NOT YET RUN
+**Commit:** none
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
+
+### Summary
+
+Manual acceptance finding: material-centric expandable Остатки (Material → expand → cells) was awkward for warehouse work. Replaced with cell-centric flat table: one row = Warehouse + StorageCell + Material + AVAILABLE. Expandable rows removed. Statistics block intentionally absent. No migration (Flyway V44).
+
+### Key changes
+
+- API: `listStockByCells` / `listStockCellFilterOptions` (+ JDBC cell-line projection, GROUP BY warehouse+cell+material)
+- UI: flat Stocks table; cell filter; Russian quantity format via `DecimalUiFormat.formatRu`
+- Legacy `listStockSummaries` / `getStockCellBreakdown` retained (unused by new Stocks screen)
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Stocks corrective entry (2026-09-11).
+
+### Next
+
+Resume manual acceptance from Склад → Остатки. Do not mark Stage 3.5.15 COMPLETE until manual PASS + final `mvn clean verify`.
+
+---
+
 ## Stage 3.5.14 — Warehouse UI Polish — 2026-09-11
 
 **Date:** 2026-09-11
 **Stage:** Stage 3.5.14 (Warehouse Workspace / Settings UI polish)
 **Base checkpoint:** `671044ce5c1f1dd7074965a6aa8d42bebd985154`
-**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.15 NEXT / NOT STARTED
+**Status:** COMPLETE (no auto-commit); Stage 3.5 IN PROGRESS; 3.5.15 IN PROGRESS (Stocks corrective done; manual acceptance resume)
 **Commit:** none
 **Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
 
@@ -29,7 +58,7 @@ See VERIFICATION-LOG Stage 3.5.14 entry (2026-09-11).
 
 ### Next
 
-Stage 3.5.15 — Final Warehouse Acceptance (NOT STARTED). Manual acceptance deferred to 3.5.15.
+Stage 3.5.15 — Final Warehouse Acceptance (IN PROGRESS; Stocks UX corrective COMPLETE; manual acceptance READY TO RESUME).
 
 ---
 
