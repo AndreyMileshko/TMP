@@ -4,6 +4,43 @@
 
 ---
 
+## Stage 3.5.15 — Warehouse-managed production destination — 2026-09-14
+
+**Date:** 2026-09-14
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — production destination ownership)
+**Base checkpoint:** `3f824fc920cb7bc2bb4d3d3ae99c0d3f341a500a`
+**Status:** Automated PASS; Stage 3.5.15 = IN PROGRESS; Manual acceptance READY TO RESUME AFTER USER ASSIGNS PRODUCTION WAREHOUSE; Full reactor NOT YET RUN
+**Commit:** none
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
+
+### Architectural decision
+
+Production destination warehouse is Warehouse-managed persisted configuration (`warehouses.is_production` / UI «Склад производства»).
+
+- Source routing remains dynamic by AVAILABLE (Stage 3.5 accepted).
+- No material→warehouse mapping / preferred source / MAIN supplier flag.
+- No runtime UUID / env / package default as source of truth for destination.
+
+### Implementation
+
+- Flyway **V45**: `is_production BOOLEAN NOT NULL DEFAULT FALSE` + partial unique index (at most one `TRUE`); does **not** auto-assign SECOND/MAIN/UUID.
+- Domain `Warehouse.productionWarehouse`; Rules A–E (active-only, atomic switch, clear→NONE, cannot deactivate production warehouse, no hidden fallback).
+- Public API: `WarehouseReferenceQueryApi.findProductionWarehouse()`, `WarehouseCommandApi.setProductionWarehouse` / `clearProductionWarehouse`; `WarehouseView.productionWarehouse`.
+- Settings UI checkbox «Склад производства».
+- Production resolves destination via Warehouse Public API (`ProductionDestinationWarehouse.fromWarehouseReferences`); removed `ProductionWarehouseProperties` / package SECOND hardcode.
+- Open/Accept remain usable when production warehouse = NONE; Check/Request materials show friendly configuration error.
+- Material Requirement destination bound at create time (immutable thereafter).
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Warehouse-managed production destination entry (2026-09-14).
+
+### Next
+
+User assigns production warehouse in Settings → resume Production → Material Requirement → Warehouse Task. Do not close Stage 3.5.15 until manual PASS + final `mvn clean verify`.
+
+---
+
 ## Stage 3.5.15 — Production acceptance-state corrective — 2026-09-14
 
 **Date:** 2026-09-14

@@ -36,10 +36,12 @@ public final class DefaultWarehouseReferenceQueryApi implements WarehouseReferen
     public Optional<WarehouseReferenceView> getWarehouseReference(UUID warehouseId) {
         Objects.requireNonNull(warehouseId, "warehouseId");
         WarehouseId id = WarehouseId.of(warehouseId);
-        return warehouses.findAll().stream()
-                .filter(warehouse -> warehouse.id().equals(id))
-                .findFirst()
-                .map(this::toView);
+        return warehouses.findById(id).map(this::toView);
+    }
+
+    @Override
+    public Optional<WarehouseReferenceView> findProductionWarehouse() {
+        return warehouses.findProductionWarehouse().map(this::toView);
     }
 
     @Override

@@ -50,6 +50,18 @@ class DefaultWarehouseReferenceQueryApiTest {
     }
 
     @Test
+    void findProductionWarehouseReturnsNoneThenAssigned() {
+        Warehouse warehouse = Warehouse.of(WarehouseId.generate(), "MAIN", "Main", true);
+        warehouses.save(warehouse);
+        assertTrue(api.findProductionWarehouse().isEmpty());
+
+        warehouses.assignProductionWarehouse(warehouse.id());
+        Optional<WarehouseReferenceView> found = api.findProductionWarehouse();
+        assertTrue(found.isPresent());
+        assertEquals(warehouse.id().value(), found.orElseThrow().warehouseId());
+    }
+
+    @Test
     void findMaterialReferencesByIdentityMatchesArticleColorUnitIgnoringSize() {
         MaterialReference matchA =
                 MaterialReference.create("MAT-1", "Name A", "WHITE", "1000", "шт.");

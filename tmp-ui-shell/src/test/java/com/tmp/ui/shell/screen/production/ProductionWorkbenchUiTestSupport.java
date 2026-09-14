@@ -218,7 +218,7 @@ final class ProductionWorkbenchUiTestSupport {
 
         @Override
         public DestinationWarehouseView destinationWarehouse() {
-            return new DestinationWarehouseView(productionWarehouseId);
+            return new DestinationWarehouseView(Optional.ofNullable(productionWarehouseId));
         }
 
         @Override

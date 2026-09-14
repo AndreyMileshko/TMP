@@ -33,4 +33,16 @@ class WarehouseTest {
         assertTrue(active.active());
         assertFalse(active.deactivate().active());
     }
+
+    @Test
+    void productionWarehouseDefaultsFalseAndCannotBeInactive() {
+        Warehouse warehouse = Warehouse.create(WarehouseId.generate(), "WH-P", "Prod");
+        assertFalse(warehouse.productionWarehouse());
+        Warehouse marked = warehouse.withProductionWarehouse(true);
+        assertTrue(marked.productionWarehouse());
+        assertThrows(
+                InvalidWarehouseStateException.class,
+                () -> Warehouse.of(WarehouseId.generate(), "X", "Y", false, true));
+        assertThrows(InvalidWarehouseStateException.class, marked::deactivate);
+    }
 }

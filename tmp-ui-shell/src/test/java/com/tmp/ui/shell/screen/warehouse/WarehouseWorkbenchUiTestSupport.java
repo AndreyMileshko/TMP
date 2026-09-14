@@ -73,6 +73,16 @@ final class WarehouseWorkbenchUiTestSupport {
         }
 
         @Override
+        public WarehouseView setProductionWarehouse(UUID warehouseId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public WarehouseView clearProductionWarehouse(UUID warehouseId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public List<StorageCellView> listStorageCells(UUID warehouseId) {
             return List.of();
         }

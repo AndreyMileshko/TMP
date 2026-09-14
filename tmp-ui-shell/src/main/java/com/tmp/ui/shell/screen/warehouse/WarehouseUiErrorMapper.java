@@ -37,7 +37,16 @@ public final class WarehouseUiErrorMapper {
             if (isStaleConflict(simple, lower)) {
                 return STALE_STATE;
             }
+            if (simple.contains("InvalidWarehouseState")
+                    || (containsCyrillic(message)
+                            && (message.contains("склад производства")
+                                    || message.contains("Склад производства")))) {
+                return message;
+            }
             if (simple.contains("IllegalArgument") || lower.contains("must not") || lower.contains("required")) {
+                if (containsCyrillic(message) && !message.isBlank()) {
+                    return message;
+                }
                 return VALIDATION;
             }
             if (simple.contains("NoSuchElement") || lower.contains("not found")) {
@@ -70,5 +79,15 @@ public final class WarehouseUiErrorMapper {
                 || lowerMessage.contains("stale document")
                 || lowerMessage.contains("optimistic lock")
                 || lowerMessage.contains("payload revision");
+    }
+
+    private static boolean containsCyrillic(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c >= '\u0400' && c <= '\u04FF') {
+                return true;
+            }
+        }
+        return false;
     }
 }

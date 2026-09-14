@@ -489,12 +489,18 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     }
 
     /** Public warehouse catalogue snapshot. */
-    record WarehouseView(UUID warehouseId, String code, String name, boolean active) {
+    record WarehouseView(
+            UUID warehouseId, String code, String name, boolean active, boolean productionWarehouse) {
 
         public WarehouseView {
             Objects.requireNonNull(warehouseId, "warehouseId");
             Objects.requireNonNull(code, "code");
             Objects.requireNonNull(name, "name");
+        }
+
+        /** Compatibility constructor — production flag defaults to false. */
+        public WarehouseView(UUID warehouseId, String code, String name, boolean active) {
+            this(warehouseId, code, name, active, false);
         }
     }
 

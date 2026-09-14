@@ -79,6 +79,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -571,6 +572,12 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     }
 
     @Override
+    public Optional<WarehouseView> findProductionWarehouse() {
+        requireCatalogueListAccess(WarehousePermissions.WAREHOUSE_STRUCTURE_VIEW);
+        return warehouses.findProductionWarehouse().map(this::toWarehouseView);
+    }
+
+    @Override
     public List<WarehouseView> listMyWarehouses() {
         requireCatalogueListAccess(WarehousePermissions.WAREHOUSE_STRUCTURE_VIEW);
         UUID userId =
@@ -662,15 +669,72 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                                 () ->
                                         new IllegalArgumentException(
                                                 "Warehouse not found: " + command.warehouseId()));
+        if (existing.productionWarehouse() && !command.active()) {
+            throw new InvalidWarehouseStateException(
+                    "Нельзя деактивировать склад производства. Сначала назначьте другой склад"
+                            + " производства или снимите признак.");
+        }
         Warehouse updated =
                 Warehouse.of(
-                        existing.id(), command.code(), command.name(), command.active());
+                        existing.id(),
+                        command.code(),
+                        command.name(),
+                        command.active(),
+                        existing.productionWarehouse());
         try {
             return toWarehouseView(warehouses.update(updated));
         } catch (DataIntegrityViolationException ex) {
             throw new IllegalArgumentException(
                     "Warehouse code already exists: " + command.code().trim(), ex);
         }
+    }
+
+    @Override
+    public WarehouseView setProductionWarehouse(UUID warehouseId) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_STRUCTURE_UPDATE);
+        WarehouseId id = WarehouseId.of(warehouseId);
+        Warehouse existing =
+                warehouses
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Warehouse not found: " + warehouseId));
+        if (!existing.active()) {
+            throw new InvalidWarehouseStateException(
+                    "Склад производства может быть только активным складом.");
+        }
+        try {
+            return toWarehouseView(warehouses.assignProductionWarehouse(id));
+        } catch (DataIntegrityViolationException ex) {
+            throw new InvalidWarehouseStateException(
+                    "Не удалось назначить склад производства. Повторите попытку.", ex);
+        }
+    }
+
+    @Override
+    public WarehouseView clearProductionWarehouse(UUID warehouseId) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_STRUCTURE_UPDATE);
+        WarehouseId id = WarehouseId.of(warehouseId);
+        Warehouse existing =
+                warehouses
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Warehouse not found: " + warehouseId));
+        if (existing.productionWarehouse()) {
+            warehouses.clearProductionWarehouse();
+        }
+        return toWarehouseView(
+                warehouses
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Warehouse not found: " + warehouseId)));
     }
 
     @Override
@@ -1998,7 +2062,11 @@ public final class DefaultWarehouseApi implements WarehouseApi {
 
     private WarehouseView toWarehouseView(Warehouse warehouse) {
         return new WarehouseView(
-                warehouse.id().value(), warehouse.code(), warehouse.name(), warehouse.active());
+                warehouse.id().value(),
+                warehouse.code(),
+                warehouse.name(),
+                warehouse.active(),
+                warehouse.productionWarehouse());
     }
 
     private StorageCellView toStorageCellView(StorageCell cell) {

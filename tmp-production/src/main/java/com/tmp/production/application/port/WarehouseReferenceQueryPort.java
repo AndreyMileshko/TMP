@@ -16,6 +16,12 @@ public interface WarehouseReferenceQueryPort {
     Optional<WarehouseReferenceEntry> getWarehouse(UUID warehouseId);
 
     /**
+     * Warehouse marked as Production destination, if any. Empty means none assigned (no hidden
+     * fallback).
+     */
+    Optional<WarehouseReferenceEntry> findProductionWarehouse();
+
+    /**
      * Candidates for Spec→Warehouse material identity resolution ({@code article + color +
      * unitOfMeasure}).
      */

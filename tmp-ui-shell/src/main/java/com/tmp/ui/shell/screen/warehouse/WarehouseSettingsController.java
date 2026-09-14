@@ -51,6 +51,7 @@ public final class WarehouseSettingsController
     @FXML private TextField editWarehouseCodeField;
     @FXML private TextField editWarehouseNameField;
     @FXML private CheckBox editWarehouseActiveCheck;
+    @FXML private CheckBox editWarehouseProductionCheck;
     @FXML private Button saveWarehouseButton;
     @FXML private Button cancelWarehouseButton;
 
@@ -118,6 +119,20 @@ public final class WarehouseSettingsController
         editWarehouseActiveCheck
                 .selectedProperty()
                 .bindBidirectional(viewModel.editWarehouseActiveProperty());
+        editWarehouseProductionCheck
+                .selectedProperty()
+                .bindBidirectional(viewModel.editWarehouseProductionProperty());
+        editWarehouseProductionCheck
+                .disableProperty()
+                .bind(
+                        viewModel
+                                .canUpdateWarehouseProperty()
+                                .not()
+                                .or(viewModel.commandInFlightProperty()));
+        editWarehouseProductionCheck.setOnAction(
+                e ->
+                        viewModel.applyProductionWarehouseSelection(
+                                editWarehouseProductionCheck.isSelected()));
         saveWarehouseButton
                 .disableProperty()
                 .bind(

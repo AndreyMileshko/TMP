@@ -415,6 +415,11 @@ class WarehouseSecurityAuthorizationTest {
         }
 
         @Override
+        public java.util.Optional<com.tmp.warehouse.domain.Warehouse> findProductionWarehouse() {
+            return java.util.Optional.empty();
+        }
+
+        @Override
         public com.tmp.warehouse.domain.Warehouse save(com.tmp.warehouse.domain.Warehouse warehouse) {
             throw new UnsupportedOperationException("not used in authorization test");
         }
@@ -423,6 +428,14 @@ class WarehouseSecurityAuthorizationTest {
         public com.tmp.warehouse.domain.Warehouse update(com.tmp.warehouse.domain.Warehouse warehouse) {
             throw new UnsupportedOperationException("not used in authorization test");
         }
+
+        @Override
+        public com.tmp.warehouse.domain.Warehouse assignProductionWarehouse(WarehouseId warehouseId) {
+            throw new UnsupportedOperationException("not used in authorization test");
+        }
+
+        @Override
+        public void clearProductionWarehouse() {}
 
         @Override
         public com.tmp.warehouse.domain.StorageCell save(com.tmp.warehouse.domain.StorageCell cell) {

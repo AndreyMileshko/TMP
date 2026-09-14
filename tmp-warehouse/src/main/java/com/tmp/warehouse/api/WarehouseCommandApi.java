@@ -40,6 +40,23 @@ public interface WarehouseCommandApi {
         throw new UnsupportedOperationException("updateWarehouse is not available");
     }
 
+    /**
+     * Assigns the given active warehouse as the sole Production destination warehouse. Any prior
+     * assignment is cleared atomically. Concurrent conflicting assignments are rejected by the DB
+     * uniqueness invariant.
+     */
+    default WarehouseView setProductionWarehouse(UUID warehouseId) {
+        throw new UnsupportedOperationException("setProductionWarehouse is not available");
+    }
+
+    /**
+     * Clears the Production destination marker from {@code warehouseId} when it is currently
+     * assigned. Idempotent when that warehouse is not the production warehouse.
+     */
+    default WarehouseView clearProductionWarehouse(UUID warehouseId) {
+        throw new UnsupportedOperationException("clearProductionWarehouse is not available");
+    }
+
     StorageCellView createStorageCell(CreateStorageCellCommand command);
 
     default StorageCellView updateStorageCell(UpdateStorageCellCommand command) {

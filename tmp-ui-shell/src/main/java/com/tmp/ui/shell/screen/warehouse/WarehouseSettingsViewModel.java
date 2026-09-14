@@ -82,6 +82,7 @@ public final class WarehouseSettingsViewModel {
     private final StringProperty editWarehouseCode = new SimpleStringProperty("");
     private final StringProperty editWarehouseName = new SimpleStringProperty("");
     private final BooleanProperty editWarehouseActive = new SimpleBooleanProperty(true);
+    private final BooleanProperty editWarehouseProduction = new SimpleBooleanProperty(false);
     private final StringProperty newCellCode = new SimpleStringProperty("");
     private final StringProperty editCellCode = new SimpleStringProperty("");
     private final BooleanProperty editCellActive = new SimpleBooleanProperty(true);
@@ -234,6 +235,21 @@ public final class WarehouseSettingsViewModel {
                                         return;
                                     }
                                     warehouses.setAll(listed);
+                                    UUID selectedId =
+                                            selectedWarehouse.get() == null
+                                                    ? null
+                                                    : selectedWarehouse.get().warehouseId();
+                                    if (selectedId != null) {
+                                        WarehouseView refreshed =
+                                                listed.stream()
+                                                        .filter(
+                                                                w ->
+                                                                        w.warehouseId()
+                                                                                .equals(selectedId))
+                                                        .findFirst()
+                                                        .orElse(null);
+                                        selectedWarehouse.set(refreshed);
+                                    }
                                     loading.set(false);
                                 });
                     } catch (RuntimeException ex) {
@@ -289,6 +305,27 @@ public final class WarehouseSettingsViewModel {
                                         code,
                                         name,
                                         editWarehouseActive.get())),
+                this::reloadWarehouses);
+    }
+
+    public void applyProductionWarehouseSelection(boolean production) {
+        WarehouseView selected = selectedWarehouse.get();
+        if (selected == null || !canUpdateWarehouse.get() || commandInFlight.get()) {
+            editWarehouseProduction.set(selected != null && selected.productionWarehouse());
+            return;
+        }
+        if (production == selected.productionWarehouse()) {
+            editWarehouseProduction.set(production);
+            return;
+        }
+        UUID warehouseId = selected.warehouseId();
+        runMutation(
+                () -> {
+                    if (production) {
+                        return warehouseApi.setProductionWarehouse(warehouseId);
+                    }
+                    return warehouseApi.clearProductionWarehouse(warehouseId);
+                },
                 this::reloadWarehouses);
     }
 
@@ -498,11 +535,13 @@ public final class WarehouseSettingsViewModel {
             editWarehouseCode.set("");
             editWarehouseName.set("");
             editWarehouseActive.set(true);
+            editWarehouseProduction.set(false);
             return;
         }
         editWarehouseCode.set(view.code());
         editWarehouseName.set(view.name());
         editWarehouseActive.set(view.active());
+        editWarehouseProduction.set(view.productionWarehouse());
     }
 
     private void applyCellEditFields(StorageCellView view) {
@@ -631,6 +670,10 @@ public final class WarehouseSettingsViewModel {
 
     public BooleanProperty editWarehouseActiveProperty() {
         return editWarehouseActive;
+    }
+
+    public BooleanProperty editWarehouseProductionProperty() {
+        return editWarehouseProduction;
     }
 
     public StringProperty newCellCodeProperty() {

@@ -20,6 +20,7 @@ import com.tmp.production.domain.MaterialRequirementNotAllowedException;
 import com.tmp.production.domain.MaterialRequirementNotReadyException;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSelectionException;
+import com.tmp.production.domain.InvalidProductionDestinationWarehouseException;
 import com.tmp.production.domain.OrderProductionViewStatus;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
@@ -110,6 +111,29 @@ class MaterialRequirementServiceTest {
         assertEquals("Catalog A", line.materialName());
         assertTrue(line.sourceOrderItemIds().contains(itemId));
         assertEquals(0, warehouseQuery.availableQuantityCalls.get());
+    }
+
+    @Test
+    void prepareRejectsWhenProductionWarehouseNotAssigned() {
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        launchItem(orderId, itemId, specId);
+        specificationQuery.byIdSpec =
+                Optional.of(spec(specId, itemId, List.of(materialLine("MAT-A", "WHITE", "PCS", 10))));
+        MaterialRequirementService noneAssigned =
+                new MaterialRequirementService(
+                        new ProductionOrderViewService(itemRepository),
+                        new ProductionFoundationQueryService(specificationQuery),
+                        new ProductionDestinationWarehouse(Optional::empty),
+                        warehouseQuery,
+                        requirementRepository,
+                        Clock.fixed(T0, ZoneOffset.UTC));
+        InvalidProductionDestinationWarehouseException ex =
+                assertThrows(
+                        InvalidProductionDestinationWarehouseException.class,
+                        () -> noneAssigned.prepareMaterialRequirement(orderId, List.of(itemId)));
+        assertEquals(
+                InvalidProductionDestinationWarehouseException.NOT_ASSIGNED_MESSAGE, ex.getMessage());
     }
 
     @Test
@@ -721,6 +745,11 @@ class MaterialRequirementServiceTest {
             return warehouses.stream()
                     .filter(entry -> entry.warehouseId().equals(warehouseId))
                     .findFirst();
+        }
+
+        @Override
+        public Optional<WarehouseReferenceEntry> findProductionWarehouse() {
+            return Optional.empty();
         }
 
         @Override

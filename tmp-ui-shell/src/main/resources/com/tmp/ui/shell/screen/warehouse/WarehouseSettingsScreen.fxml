@@ -56,6 +56,7 @@
                 <TextField fx:id="editWarehouseCodeField" promptText="Код" prefWidth="120"/>
                 <TextField fx:id="editWarehouseNameField" promptText="Название" prefWidth="220"/>
                 <CheckBox fx:id="editWarehouseActiveCheck" text="Активен"/>
+                <CheckBox fx:id="editWarehouseProductionCheck" text="Склад производства"/>
                 <Button fx:id="saveWarehouseButton" text="Сохранить" styleClass="tmp-button-primary"/>
                 <Button fx:id="cancelWarehouseButton" text="Отмена" styleClass="tmp-button-secondary"/>
             </FlowPane>

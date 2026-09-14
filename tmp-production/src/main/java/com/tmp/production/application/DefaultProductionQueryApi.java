@@ -4,6 +4,7 @@ import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.domain.MaterialAvailabilityCheckResult;
 import com.tmp.production.domain.MaterialAvailabilityLine;
 import com.tmp.production.domain.MaterialCheckNotAllowedException;
+import com.tmp.production.domain.InvalidProductionDestinationWarehouseException;
 import com.tmp.production.domain.MaterialPlanningSource;
 import com.tmp.production.domain.ProductionHistoryEntry;
 import com.tmp.production.domain.ProductionItemState;
@@ -114,6 +115,9 @@ public final class DefaultProductionQueryApi implements ProductionQueryApi {
                     materialAvailabilityQueryService.evaluate(sourceOrderId);
             return Optional.of(map(result));
         } catch (MaterialCheckNotAllowedException ex) {
+            return Optional.empty();
+        } catch (InvalidProductionDestinationWarehouseException ex) {
+            // Destination assignment is Settings-owned; open/refresh must not fail hard.
             return Optional.empty();
         }
     }

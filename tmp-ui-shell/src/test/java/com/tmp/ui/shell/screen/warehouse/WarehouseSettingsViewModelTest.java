@@ -162,6 +162,63 @@ class WarehouseSettingsViewModelTest {
     }
 
     @Test
+    void productionCheckboxAssignsAndSwitchesWarehouses() {
+        auth.allow(
+                UiShellScreens.WAREHOUSE_STRUCTURE_VIEW_PERMISSION,
+                UiShellScreens.WAREHOUSE_STRUCTURE_CREATE_PERMISSION,
+                UiShellScreens.WAREHOUSE_STRUCTURE_UPDATE_PERMISSION);
+        WarehouseView a = api.createWarehouse(new CreateWarehouseCommand("A", "Alpha", true));
+        WarehouseView b = api.createWarehouse(new CreateWarehouseCommand("B", "Beta", true));
+        viewModel.onScreenOpened();
+
+        viewModel.selectedWarehouseProperty().set(a);
+        assertFalse(viewModel.editWarehouseProductionProperty().get());
+        viewModel.applyProductionWarehouseSelection(true);
+        assertTrue(
+                viewModel.warehouses().stream()
+                        .filter(w -> w.warehouseId().equals(a.warehouseId()))
+                        .findFirst()
+                        .orElseThrow()
+                        .productionWarehouse());
+
+        viewModel.selectedWarehouseProperty().set(b);
+        viewModel.applyProductionWarehouseSelection(true);
+        assertTrue(
+                viewModel.warehouses().stream()
+                        .filter(w -> w.warehouseId().equals(b.warehouseId()))
+                        .findFirst()
+                        .orElseThrow()
+                        .productionWarehouse());
+        assertFalse(
+                viewModel.warehouses().stream()
+                        .filter(w -> w.warehouseId().equals(a.warehouseId()))
+                        .findFirst()
+                        .orElseThrow()
+                        .productionWarehouse());
+
+        viewModel.applyProductionWarehouseSelection(false);
+        assertTrue(viewModel.warehouses().stream().noneMatch(WarehouseView::productionWarehouse));
+        assertEquals(0, api.stockMutationCalls);
+        assertFalse(viewModel.errorMessageProperty().get().contains("UUID"));
+    }
+
+    @Test
+    void inactiveProductionAssignmentShowsValidationMessage() {
+        auth.allow(
+                UiShellScreens.WAREHOUSE_STRUCTURE_VIEW_PERMISSION,
+                UiShellScreens.WAREHOUSE_STRUCTURE_CREATE_PERMISSION,
+                UiShellScreens.WAREHOUSE_STRUCTURE_UPDATE_PERMISSION);
+        WarehouseView inactive =
+                api.createWarehouse(new CreateWarehouseCommand("INACT", "Inactive", false));
+        viewModel.onScreenOpened();
+        viewModel.selectedWarehouseProperty().set(inactive);
+        viewModel.applyProductionWarehouseSelection(true);
+        assertTrue(viewModel.errorMessageProperty().get().contains("активн"));
+        assertFalse(
+                viewModel.errorMessageProperty().get().contains(inactive.warehouseId().toString()));
+    }
+
+    @Test
     void navigateBackToWorkspaceInvokesCallback() {
         boolean[] called = {false};
         WarehouseSettingsViewModel navigable =
@@ -277,15 +334,78 @@ class WarehouseSettingsViewModelTest {
         @Override
         public WarehouseView updateWarehouse(UpdateWarehouseCommand command) {
             updateWarehouseCalls.add(command);
+            WarehouseView previous =
+                    warehouses.stream()
+                            .filter(w -> w.warehouseId().equals(command.warehouseId()))
+                            .findFirst()
+                            .orElseThrow();
             warehouses.removeIf(w -> w.warehouseId().equals(command.warehouseId()));
             WarehouseView view =
                     new WarehouseView(
                             command.warehouseId(),
                             command.code(),
                             command.name(),
-                            command.active());
+                            command.active(),
+                            previous.productionWarehouse());
             warehouses.add(view);
             return view;
+        }
+
+        @Override
+        public WarehouseView setProductionWarehouse(UUID warehouseId) {
+            WarehouseView target =
+                    warehouses.stream()
+                            .filter(w -> w.warehouseId().equals(warehouseId))
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalArgumentException("Warehouse not found"));
+            if (!target.active()) {
+                throw new RuntimeException(
+                        "Склад производства может быть только активным складом.");
+            }
+            List<WarehouseView> next = new ArrayList<>();
+            WarehouseView assigned = null;
+            for (WarehouseView warehouse : warehouses) {
+                boolean production = warehouse.warehouseId().equals(warehouseId);
+                WarehouseView updated =
+                        new WarehouseView(
+                                warehouse.warehouseId(),
+                                warehouse.code(),
+                                warehouse.name(),
+                                warehouse.active(),
+                                production);
+                next.add(updated);
+                if (production) {
+                    assigned = updated;
+                }
+            }
+            warehouses.clear();
+            warehouses.addAll(next);
+            return assigned;
+        }
+
+        @Override
+        public WarehouseView clearProductionWarehouse(UUID warehouseId) {
+            List<WarehouseView> next = new ArrayList<>();
+            WarehouseView cleared = null;
+            for (WarehouseView warehouse : warehouses) {
+                boolean keepProduction =
+                        warehouse.productionWarehouse()
+                                && !warehouse.warehouseId().equals(warehouseId);
+                WarehouseView updated =
+                        new WarehouseView(
+                                warehouse.warehouseId(),
+                                warehouse.code(),
+                                warehouse.name(),
+                                warehouse.active(),
+                                keepProduction);
+                next.add(updated);
+                if (warehouse.warehouseId().equals(warehouseId)) {
+                    cleared = updated;
+                }
+            }
+            warehouses.clear();
+            warehouses.addAll(next);
+            return cleared;
         }
 
         @Override

@@ -31,7 +31,7 @@ public final class ProductionUiErrorMapper {
     public static final String LOAD_FAILED = "Обновление производственных данных не выполнено.";
     public static final String ORDER_NOT_FOUND = "Заказ не найден.";
     public static final String DESTINATION_WAREHOUSE_INVALID =
-            "Склад производства не настроен или недоступен. Проверьте конфигурацию назначения.";
+            "Не назначен склад производства. Укажите его в Настройки склада → Склады.";
     public static final String MATERIALS_LOAD_FAILED =
             "Проверка наличия материалов не выполнена.";
 
@@ -58,9 +58,13 @@ public final class ProductionUiErrorMapper {
                 return CONCURRENT_STALE;
             }
             if (simple.contains("InvalidProductionDestinationWarehouse")
+                    || lower.contains("не назначен склад производства")
                     || lower.contains("configured destination warehouse")
                     || (lower.contains("destination warehouse")
                             && (lower.contains("not found") || lower.contains("not active")))) {
+                if (containsCyrillic(message) && !message.isBlank()) {
+                    return message;
+                }
                 return DESTINATION_WAREHOUSE_INVALID;
             }
             if (simple.contains("NotEditable")

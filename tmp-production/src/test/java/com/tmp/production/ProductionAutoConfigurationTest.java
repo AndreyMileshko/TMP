@@ -2,7 +2,6 @@ package com.tmp.production;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.document.api.DocumentEngine;
@@ -12,12 +11,13 @@ import com.tmp.production.api.ProductionApplicationApi;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.application.ProductionDestinationWarehouse;
 import com.tmp.production.security.ProductionCapability;
-import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.AuthenticationService;
+import com.tmp.security.api.AuthorizationService;
 import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tmp.warehouse.api.WarehouseReferenceQueryApi;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -28,10 +28,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 class ProductionAutoConfigurationTest {
 
-    private static final UUID MAIN = UUID.fromString("11111111-1111-4111-8111-111111111111");
     private static final UUID PROD = UUID.fromString("22222222-2222-4222-8222-222222222222");
-    private static final UUID MAGIC_PROD =
-            UUID.fromString("00000000-0000-0000-0000-000000000002");
 
     private final ApplicationContextRunner baseRunner =
             new ApplicationContextRunner()
@@ -45,8 +42,15 @@ class ProductionAutoConfigurationTest {
                             WarehouseDemandCommandApi.class,
                             () -> Mockito.mock(WarehouseDemandCommandApi.class))
                     .withBean(
+                            "warehouseReferenceQueryApi",
                             WarehouseReferenceQueryApi.class,
-                            () -> Mockito.mock(WarehouseReferenceQueryApi.class))
+                            () -> {
+                                WarehouseReferenceQueryApi api =
+                                        Mockito.mock(WarehouseReferenceQueryApi.class);
+                                Mockito.when(api.findProductionWarehouse())
+                                        .thenReturn(Optional.empty());
+                                return api;
+                            })
                     .withBean(
                             AuthenticationService.class,
                             () -> Mockito.mock(AuthenticationService.class))
@@ -59,23 +63,21 @@ class ProductionAutoConfigurationTest {
                             () -> Mockito.mock(PlatformTransactionManager.class));
 
     @Test
-    void registersProductionBeansWhenDestinationWarehouseConfiguredViaProperties() {
-        baseRunner
-                .withPropertyValues("tmp.production.warehouse.production-warehouse-id=" + PROD)
-                .run(
-                        context -> {
-                            assertNotNull(context.getBean(ProductionQueryApi.class));
-                            assertNotNull(context.getBean(ProductionApplicationApi.class));
-                            assertNotNull(context.getBean(ProductionCapability.class));
-                            assertEquals(1, context.getBeansOfType(ProductionCapability.class).size());
-                            ProductionDestinationWarehouse destination =
-                                    context.getBean(ProductionDestinationWarehouse.class);
-                            assertEquals(PROD, destination.productionWarehouseId());
-                        });
+    void registersProductionBeansWithoutConfiguredWarehouseUuid() {
+        baseRunner.run(
+                context -> {
+                    assertNotNull(context.getBean(ProductionQueryApi.class));
+                    assertNotNull(context.getBean(ProductionApplicationApi.class));
+                    assertNotNull(context.getBean(ProductionCapability.class));
+                    assertEquals(1, context.getBeansOfType(ProductionCapability.class).size());
+                    ProductionDestinationWarehouse destination =
+                            context.getBean(ProductionDestinationWarehouse.class);
+                    assertTrue(destination.findProductionWarehouseId().isEmpty());
+                });
     }
 
     @Test
-    void acceptsExplicitProductionDestinationWarehouseBeanWithoutProperties() {
+    void acceptsExplicitProductionDestinationWarehouseBean() {
         baseRunner
                 .withBean(
                         ProductionDestinationWarehouse.class,
@@ -91,72 +93,39 @@ class ProductionAutoConfigurationTest {
     }
 
     @Test
-    void failsFastWithoutDestinationWarehouseConfiguration() {
-        baseRunner.run(
-                context -> {
-                    assertTrue(context.getStartupFailure() != null);
-                    Throwable root = rootCause(context.getStartupFailure());
-                    assertTrue(
-                            root.getMessage().contains("production warehouse ID")
-                                    || root.getMessage().contains("production-warehouse-id"));
-                });
-    }
-
-    @Test
-    void doesNotInventMagicWarehouseIds() {
-        baseRunner
-                .withPropertyValues("tmp.production.warehouse.production-warehouse-id=" + PROD)
+    void resolvesDestinationFromWarehouseReferenceApi() {
+        WarehouseReferenceQueryApi api = Mockito.mock(WarehouseReferenceQueryApi.class);
+        Mockito.when(api.findProductionWarehouse())
+                .thenReturn(
+                        Optional.of(
+                                new WarehouseReferenceQueryApi.WarehouseReferenceView(
+                                        PROD, "SECOND", "Второй склад", true)));
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(ProductionAutoConfiguration.class))
+                .withBean(AuthorizationService.class, () -> Mockito.mock(AuthorizationService.class))
+                .withBean(JdbcTemplate.class, () -> Mockito.mock(JdbcTemplate.class))
+                .withBean(OrderQueryService.class, () -> Mockito.mock(OrderQueryService.class))
+                .withBean(WarehouseQueryApi.class, () -> Mockito.mock(WarehouseQueryApi.class))
+                .withBean(WarehouseCommandApi.class, () -> Mockito.mock(WarehouseCommandApi.class))
+                .withBean(
+                        WarehouseDemandCommandApi.class,
+                        () -> Mockito.mock(WarehouseDemandCommandApi.class))
+                .withBean("warehouseReferenceQueryApi", WarehouseReferenceQueryApi.class, () -> api)
+                .withBean(
+                        AuthenticationService.class,
+                        () -> Mockito.mock(AuthenticationService.class))
+                .withBean(DocumentEngine.class, () -> Mockito.mock(DocumentEngine.class))
+                .withBean(
+                        TransactionalEventPublisher.class,
+                        () -> Mockito.mock(TransactionalEventPublisher.class))
+                .withBean(
+                        PlatformTransactionManager.class,
+                        () -> Mockito.mock(PlatformTransactionManager.class))
                 .run(
                         context -> {
                             ProductionDestinationWarehouse destination =
                                     context.getBean(ProductionDestinationWarehouse.class);
-                            assertTrue(!MAGIC_PROD.equals(destination.productionWarehouseId()));
+                            assertEquals(PROD, destination.productionWarehouseId());
                         });
-    }
-
-    @Test
-    void mainWarehouseIdAloneIsNotSufficient() {
-        assertThrows(
-                IllegalStateException.class,
-                () ->
-                        baseRunner
-                                .withPropertyValues(
-                                        "tmp.production.warehouse.main-warehouse-id=" + MAIN)
-                                .run(
-                                        context -> {
-                                            if (context.getStartupFailure() != null) {
-                                                throw asIllegalState(context.getStartupFailure());
-                                            }
-                                        }));
-    }
-
-    @Test
-    void productionWarehouseIdAloneIsSufficientEvenWithoutMain() {
-        baseRunner
-                .withPropertyValues("tmp.production.warehouse.production-warehouse-id=" + PROD)
-                .run(
-                        context -> {
-                            assertNotNull(context.getBean(ProductionApplicationApi.class));
-                            assertEquals(
-                                    PROD,
-                                    context.getBean(ProductionDestinationWarehouse.class)
-                                            .productionWarehouseId());
-                        });
-    }
-
-    private static Throwable rootCause(Throwable throwable) {
-        Throwable current = throwable;
-        while (current.getCause() != null && current.getCause() != current) {
-            current = current.getCause();
-        }
-        return current;
-    }
-
-    private static IllegalStateException asIllegalState(Throwable failure) {
-        Throwable root = rootCause(failure);
-        if (root instanceof IllegalStateException illegalState) {
-            return illegalState;
-        }
-        return new IllegalStateException(root.getMessage(), root);
     }
 }

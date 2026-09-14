@@ -28,11 +28,12 @@ class ProductionUiErrorMapperTest {
     }
 
     @Test
-    void doesNotMapUnrelatedNotFoundAsOrderNotFound() {
+    void mapsProductionWarehouseNotAssignedMessage() {
         String mapped =
                 ProductionUiErrorMapper.text(
-                        new NoSuchElementException("Warehouse operation not found: " + UUID.randomUUID()));
-        assertEquals(ProductionUiErrorMapper.TECHNICAL_FAILURE, mapped);
+                        new IllegalStateException(
+                                "Не назначен склад производства. Укажите его в Настройки склада → Склады."));
+        assertEquals(ProductionUiErrorMapper.DESTINATION_WAREHOUSE_INVALID, mapped);
         assertNotEquals(ProductionUiErrorMapper.ORDER_NOT_FOUND, mapped);
     }
 }

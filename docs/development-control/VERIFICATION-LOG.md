@@ -3,8 +3,38 @@
 ## Latest result
 
 **Date:** 2026-09-14
-**Scope:** Stage 3.5.15 — Production acceptance-state corrective (false «Заказ не найден» / stalled Accept / Material Requirement)
-**Overall:** PASS (corrective automated + package/startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO RESUME; Full reactor NOT RUN
+**Scope:** Stage 3.5.15 — Warehouse-managed production destination (remove config UUID SoT; Flyway V45)
+**Overall:** PASS (automated + package/startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO RESUME AFTER USER ASSIGNS PRODUCTION WAREHOUSE; Full reactor NOT RUN
+
+### Stage 3.5.15 Warehouse-managed production destination (2026-09-14)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `3f824fc920cb7bc2bb4d3d3ae99c0d3f341a500a` | PASS |
+| Architectural SoT | Old: env/package `tmp.production.warehouse.production-warehouse-id` / SECOND UUID. New: Warehouse `is_production` via Public API |
+| Flyway V45 | PASS — column + partial unique; existing rows `is_production=false`; no auto-assign |
+| `WarehouseProductionAssignmentIntegrationTest` | PASS (8) |
+| `WarehouseSchemaFlywayTest` | PASS (11; includes V45 uniqueness) |
+| `WarehouseTest` | PASS (4) |
+| `DefaultWarehouseReferenceQueryApiTest` | PASS (5) |
+| `ProductionDestinationWarehouseTest` | PASS (3) |
+| `ProductionAutoConfigurationTest` | PASS (3) |
+| `MaterialRequirementServiceTest` | PASS (21; includes not-assigned) |
+| `WarehouseSettingsViewModelTest` | PASS (8) |
+| `ProductionUiErrorMapperTest` | PASS (3) |
+| `ProductionWorkbenchViewModelTest` | PASS (26; prior corrective regressions) |
+| `Stage7ProductionArchitectureTest` | PASS (83) |
+| `Stage6WarehouseArchitectureTest` | PASS (8) |
+| Migration safety (runtime) | warehouses 3→3; stock_positions 31→31; stock_qty 1257.900000; ops 61; movements 82; production_true=0 |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests` | PASS |
+| `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS → `dist/jpackage/TMP/TMP.exe` |
+| Startup `tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 45 / applied V45; `Started DesktopBootstrap`; JavaFX; exceptions NONE |
+| Production warehouse after startup | **NONE** (expected) |
+| Deferred UX | Untouched (Stocks code / «Все ячейки» / History formatting / nav / empty-table English) |
+| Manual acceptance | READY TO RESUME FROM Настройки склада → Склады → assign production warehouse → Production → Material Requirement |
+| Full reactor | NOT RUN — last GREEN `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d` |
+
+---
 
 ### Stage 3.5.15 Production acceptance-state corrective (2026-09-14)
 

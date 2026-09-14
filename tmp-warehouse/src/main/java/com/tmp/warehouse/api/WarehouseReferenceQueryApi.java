@@ -25,6 +25,14 @@ public interface WarehouseReferenceQueryApi {
     Optional<WarehouseReferenceView> getWarehouseReference(UUID warehouseId);
 
     /**
+     * Returns the warehouse marked as Production destination, if any. Empty means none assigned
+     * (valid system state — no hidden MAIN/SECOND fallback).
+     *
+     * <p>No RBAC check. Caller capability owns authorization.
+     */
+    Optional<WarehouseReferenceView> findProductionWarehouse();
+
+    /**
      * Material references matching Spec→Warehouse identity ({@code article + color +
      * unitOfMeasure}). Size is not part of Spec matching. Returns 0..N candidates for caller
      * fail-closed resolution (exact / unresolved / ambiguous). Does not create Material→Warehouse

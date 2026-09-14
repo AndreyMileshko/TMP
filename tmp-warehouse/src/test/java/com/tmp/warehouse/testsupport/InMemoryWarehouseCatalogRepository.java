@@ -29,8 +29,16 @@ public final class InMemoryWarehouseCatalogRepository implements WarehouseCatalo
     }
 
     @Override
+    public Optional<Warehouse> findProductionWarehouse() {
+        return warehouses.stream().filter(Warehouse::productionWarehouse).findFirst();
+    }
+
+    @Override
     public Warehouse save(Warehouse warehouse) {
         Objects.requireNonNull(warehouse, "warehouse");
+        if (warehouse.productionWarehouse()) {
+            clearProductionFlagExcept(warehouse.id());
+        }
         warehouses.removeIf(existing -> existing.id().equals(warehouse.id()));
         warehouses.add(warehouse);
         return warehouse;
@@ -43,6 +51,47 @@ public final class InMemoryWarehouseCatalogRepository implements WarehouseCatalo
             throw new IllegalArgumentException("Warehouse not found: " + warehouse.id().value());
         }
         return save(warehouse);
+    }
+
+    @Override
+    public Warehouse assignProductionWarehouse(WarehouseId warehouseId) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        if (findById(warehouseId).isEmpty()) {
+            throw new IllegalArgumentException("Warehouse not found: " + warehouseId.value());
+        }
+        List<Warehouse> snapshot = List.copyOf(warehouses);
+        warehouses.clear();
+        Warehouse assigned = null;
+        for (Warehouse warehouse : snapshot) {
+            if (warehouse.id().equals(warehouseId)) {
+                assigned = warehouse.withProductionWarehouse(true);
+                warehouses.add(assigned);
+            } else {
+                warehouses.add(warehouse.withProductionWarehouse(false));
+            }
+        }
+        return Objects.requireNonNull(assigned, "assigned");
+    }
+
+    @Override
+    public void clearProductionWarehouse() {
+        List<Warehouse> snapshot = List.copyOf(warehouses);
+        warehouses.clear();
+        for (Warehouse warehouse : snapshot) {
+            warehouses.add(warehouse.withProductionWarehouse(false));
+        }
+    }
+
+    private void clearProductionFlagExcept(WarehouseId keepId) {
+        List<Warehouse> snapshot = List.copyOf(warehouses);
+        warehouses.clear();
+        for (Warehouse warehouse : snapshot) {
+            if (warehouse.id().equals(keepId)) {
+                warehouses.add(warehouse);
+            } else {
+                warehouses.add(warehouse.withProductionWarehouse(false));
+            }
+        }
     }
 
     @Override

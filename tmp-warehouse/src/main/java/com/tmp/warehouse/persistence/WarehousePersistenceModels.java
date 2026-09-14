@@ -43,6 +43,7 @@ public final class WarehousePersistenceModels {
             String code,
             String name,
             boolean active,
+            boolean productionWarehouse,
             long version,
             Instant createdAt,
             Instant updatedAt) {
@@ -62,13 +63,14 @@ public final class WarehousePersistenceModels {
                     warehouse.code(),
                     warehouse.name(),
                     warehouse.active(),
+                    warehouse.productionWarehouse(),
                     version,
                     createdAt,
                     updatedAt);
         }
 
         public Warehouse toDomain() {
-            return Warehouse.of(id, code, name, active);
+            return Warehouse.of(id, code, name, active, productionWarehouse);
         }
     }
 

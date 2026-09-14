@@ -5,7 +5,8 @@ import java.util.Objects;
 /**
  * Physical warehouse (Warehouse Specification §1 / §5).
  *
- * <p>May be inactive. Code is mandatory.
+ * <p>May be inactive. Code is mandatory. At most one warehouse may be marked as the production
+ * destination warehouse ({@code productionWarehouse}).
  */
 public final class Warehouse {
 
@@ -13,23 +14,39 @@ public final class Warehouse {
     private final String code;
     private final String name;
     private final boolean active;
+    private final boolean productionWarehouse;
 
-    private Warehouse(WarehouseId id, String code, String name, boolean active) {
+    private Warehouse(
+            WarehouseId id, String code, String name, boolean active, boolean productionWarehouse) {
         this.id = id;
         this.code = code;
         this.name = name;
         this.active = active;
+        this.productionWarehouse = productionWarehouse;
     }
 
     public static Warehouse create(WarehouseId id, String code, String name) {
-        return of(id, code, name, true);
+        return of(id, code, name, true, false);
     }
 
     public static Warehouse of(WarehouseId id, String code, String name, boolean active) {
+        return of(id, code, name, active, false);
+    }
+
+    public static Warehouse of(
+            WarehouseId id,
+            String code,
+            String name,
+            boolean active,
+            boolean productionWarehouse) {
         Objects.requireNonNull(id, "id");
         String normalizedCode = requireNonBlank(code, "code");
         String normalizedName = requireNonBlank(name, "name");
-        return new Warehouse(id, normalizedCode, normalizedName, active);
+        if (productionWarehouse && !active) {
+            throw new InvalidWarehouseStateException(
+                    "Production warehouse must be an active warehouse");
+        }
+        return new Warehouse(id, normalizedCode, normalizedName, active, productionWarehouse);
     }
 
     private static String requireNonBlank(String value, String field) {
@@ -45,14 +62,34 @@ public final class Warehouse {
         if (!active) {
             return this;
         }
-        return new Warehouse(id, code, name, false);
+        if (productionWarehouse) {
+            throw new InvalidWarehouseStateException(
+                    "Нельзя деактивировать склад производства. Сначала назначьте другой склад"
+                            + " производства или снимите признак.");
+        }
+        return new Warehouse(id, code, name, false, false);
     }
 
     public Warehouse activate() {
         if (active) {
             return this;
         }
-        return new Warehouse(id, code, name, true);
+        return new Warehouse(id, code, name, true, productionWarehouse);
+    }
+
+    public Warehouse withProductionWarehouse(boolean production) {
+        if (production && !active) {
+            throw new InvalidWarehouseStateException(
+                    "Production warehouse must be an active warehouse");
+        }
+        if (production == productionWarehouse) {
+            return this;
+        }
+        return new Warehouse(id, code, name, active, production);
+    }
+
+    public Warehouse withCodeAndName(String newCode, String newName) {
+        return of(id, newCode, newName, active, productionWarehouse);
     }
 
     public WarehouseId id() {
@@ -69,6 +106,10 @@ public final class Warehouse {
 
     public boolean active() {
         return active;
+    }
+
+    public boolean productionWarehouse() {
+        return productionWarehouse;
     }
 
     @Override
@@ -89,6 +130,14 @@ public final class Warehouse {
 
     @Override
     public String toString() {
-        return "Warehouse{id=" + id + ", code=" + code + ", active=" + active + '}';
+        return "Warehouse{id="
+                + id
+                + ", code="
+                + code
+                + ", active="
+                + active
+                + ", productionWarehouse="
+                + productionWarehouse
+                + '}';
     }
 }

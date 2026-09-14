@@ -36,6 +36,19 @@ public final class DefaultWarehouseReferenceQueryAdapter implements WarehouseRef
     }
 
     @Override
+    public Optional<WarehouseReferenceEntry> findProductionWarehouse() {
+        return warehouseReferences
+                .findProductionWarehouse()
+                .map(
+                        view ->
+                                new WarehouseReferenceEntry(
+                                        view.warehouseId(),
+                                        view.code(),
+                                        view.name(),
+                                        view.active()));
+    }
+
+    @Override
     public List<MaterialReferenceEntry> findMaterialReferencesByIdentity(
             String article, String color, String unitOfMeasure) {
         return warehouseReferences

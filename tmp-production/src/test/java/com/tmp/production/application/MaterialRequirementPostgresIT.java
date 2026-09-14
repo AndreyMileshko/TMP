@@ -498,6 +498,11 @@ class MaterialRequirementPostgresIT {
         }
 
         @Override
+        public Optional<WarehouseReferenceEntry> findProductionWarehouse() {
+            return Optional.empty();
+        }
+
+        @Override
         public List<MaterialReferenceEntry> findMaterialReferencesByIdentity(
                 String article, String color, String unitOfMeasure) {
             findMaterialReferencesCalls++;

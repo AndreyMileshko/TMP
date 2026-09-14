@@ -16,8 +16,8 @@ import java.util.UUID;
 public interface ProductionApplicationApi {
 
     /**
-     * Returns the configured Production destination warehouse id. Does not invent or select
-     * warehouses; value comes from explicit runtime configuration.
+     * Returns the Warehouse-managed Production destination warehouse id when assigned. Empty means
+     * none assigned (valid configuration state — no hidden MAIN/SECOND fallback).
      */
     DestinationWarehouseView destinationWarehouse();
 
@@ -63,9 +63,10 @@ public interface ProductionApplicationApi {
 
     void cancelOrderProduction(UUID orderId, Optional<String> reason);
 
-    record DestinationWarehouseView(UUID productionWarehouseId) {
+    record DestinationWarehouseView(Optional<UUID> productionWarehouseId) {
         public DestinationWarehouseView {
-            Objects.requireNonNull(productionWarehouseId, "productionWarehouseId");
+            productionWarehouseId =
+                    productionWarehouseId == null ? Optional.empty() : productionWarehouseId;
         }
     }
 

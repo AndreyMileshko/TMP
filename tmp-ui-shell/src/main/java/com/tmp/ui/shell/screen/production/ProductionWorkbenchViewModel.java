@@ -329,7 +329,10 @@ public final class ProductionWorkbenchViewModel {
                     ReleasePreviewView preview =
                             applicationApi.prepareRelease(currentOrderId, releases);
                     UUID productionWarehouseId =
-                            applicationApi.destinationWarehouse().productionWarehouseId();
+                            applicationApi
+                                    .destinationWarehouse()
+                                    .productionWarehouseId()
+                                    .orElse(null);
                     applyReleasePreview(preview, productionWarehouseId);
                     releasePanelVisible.set(true);
                     materialRequirementPanelVisible.set(false);

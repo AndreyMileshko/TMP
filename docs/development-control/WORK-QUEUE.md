@@ -11931,7 +11931,43 @@ See VERIFICATION-LOG Stage 3.5.14 entry (2026-09-11).
 Stage 3.5.15 — Final Warehouse Acceptance = IN PROGRESS
 Stocks UX corrective = COMPLETE
 Production acceptance-state corrective = COMPLETE
-Manual acceptance = READY TO RESUME FROM Production → TEST-001 / fresh order → Material Requirement → Warehouse Task
+Warehouse-managed production destination = COMPLETE (Flyway V45)
+Manual acceptance = READY TO RESUME AFTER USER ASSIGNS PRODUCTION WAREHOUSE
+  (Настройки склада → Склады → «Склад производства» → Production → Material Requirement → Warehouse Task)
+
+---
+## STAGE-3.5.15 — Warehouse-managed production destination
+
+**Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.15 Production acceptance-state corrective
+**Module:** `tmp-warehouse` (domain/persistence/API/V45) + `tmp-production` (destination resolution) + `tmp-ui-shell` (Settings checkbox) + package scripts/yml
+
+### Goal
+
+Remove production warehouse UUID from environment/package configuration as source of truth. Persist «Склад производства» in Warehouse; Production resolves destination via Warehouse Public API.
+
+### Acceptance criteria
+
+- [x] Flyway V45 `is_production` + DB uniqueness; no auto-assign
+- [x] Domain/application rules A–E
+- [x] Settings UI checkbox «Склад производства»
+- [x] Public query `findProductionWarehouse` + commands set/clear
+- [x] Remove config/SECOND hardcode SoT; Production → Warehouse Public API
+- [x] Open/Accept without assignment PASS; Check/Request friendly error
+- [x] Requirement destination immutable after create
+- [x] Source routing unchanged
+- [x] Targeted tests + architecture + package + startup PASS
+- [ ] Manual: user assigns production warehouse then Material Requirement flow
+- [ ] Final `mvn clean verify`
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Warehouse-managed production destination entry (2026-09-14).
+
+### Next on success
+
+Manual assignment → Production Requirement flow → MANUAL PASS → final full reactor.
 
 ---
 ## STAGE-3.5.15 — Production acceptance-state corrective (manual defect)

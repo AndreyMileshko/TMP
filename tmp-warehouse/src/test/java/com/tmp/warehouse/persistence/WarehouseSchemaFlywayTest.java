@@ -607,6 +607,63 @@ class WarehouseSchemaFlywayTest {
         assertEquals(stockBefore, stockAfter);
     }
 
+    @Test
+    void v45AddsProductionAssignmentColumnWithDefaultFalseAndUniqueness() {
+        Integer applied =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '45' AND success = TRUE
+                        """,
+                        Integer.class);
+        assertEquals(1, applied);
+
+        Integer columnPresent =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.columns
+                        WHERE table_schema = 'warehouse'
+                          AND table_name = 'warehouses'
+                          AND column_name = 'is_production'
+                        """,
+                        Integer.class);
+        assertEquals(1, columnPresent);
+
+        UUID a = UUID.randomUUID();
+        UUID b = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO warehouse.warehouses (
+                    id, code, name, active, is_production, version, created_at, updated_at)
+                VALUES (?, 'V45-A', 'A', TRUE, FALSE, 0, NOW(), NOW()),
+                       (?, 'V45-B', 'B', TRUE, FALSE, 0, NOW(), NOW())
+                """,
+                a,
+                b);
+
+        Boolean defaultA =
+                jdbc.queryForObject(
+                        "SELECT is_production FROM warehouse.warehouses WHERE id = ?",
+                        Boolean.class,
+                        a);
+        assertEquals(Boolean.FALSE, defaultA);
+
+        jdbc.update("UPDATE warehouse.warehouses SET is_production = TRUE WHERE id = ?", a);
+
+        assertThrows(
+                DataIntegrityViolationException.class,
+                () ->
+                        jdbc.update(
+                                "UPDATE warehouse.warehouses SET is_production = TRUE WHERE id = ?",
+                                b));
+
+        Integer productionCount =
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM warehouse.warehouses WHERE is_production = TRUE",
+                        Integer.class);
+        assertEquals(1, productionCount);
+    }
+
     private UUID insertMaterialReference(String article) {
         UUID materialId = UUID.randomUUID();
         jdbc.update(

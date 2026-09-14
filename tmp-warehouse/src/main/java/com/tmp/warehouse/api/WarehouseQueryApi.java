@@ -18,6 +18,7 @@ import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -28,6 +29,14 @@ import java.util.UUID;
 public interface WarehouseQueryApi {
 
     List<WarehouseView> listWarehouses();
+
+    /**
+     * Returns the warehouse marked as Production destination, if any. Empty means none assigned
+     * (valid system state).
+     */
+    default Optional<WarehouseView> findProductionWarehouse() {
+        return listWarehouses().stream().filter(WarehouseView::productionWarehouse).findFirst();
+    }
 
     /**
      * Active warehouses for which the current authenticated user is responsible (ADR-037).

@@ -18,14 +18,26 @@ public interface WarehouseCatalogRepository {
     /** Returns a warehouse by id when present. */
     Optional<Warehouse> findById(WarehouseId warehouseId);
 
+    /** Returns the warehouse marked as production destination, if any. */
+    Optional<Warehouse> findProductionWarehouse();
+
     /** Persists a new warehouse. */
     Warehouse save(Warehouse warehouse);
 
     /**
-     * Updates an existing warehouse (code/name/active). Does not change id. Optimistic lock is
-     * handled internally.
+     * Updates an existing warehouse (code/name/active/production flag). Does not change id.
+     * Optimistic lock is handled internally.
      */
     Warehouse update(Warehouse warehouse);
+
+    /**
+     * Atomically assigns {@code warehouseId} as the sole production warehouse and clears any prior
+     * assignment. Caller must have validated that the target is active.
+     */
+    Warehouse assignProductionWarehouse(WarehouseId warehouseId);
+
+    /** Clears the production warehouse marker when present (system may have none). */
+    void clearProductionWarehouse();
 
     /** Persists a new storage cell. */
     StorageCell save(StorageCell cell);

@@ -33,7 +33,7 @@ import com.tmp.production.application.port.OrderForProductionQueryPort;
 import com.tmp.production.application.port.OrderSpecificationQueryPort;
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
 import com.tmp.production.application.port.WarehouseReferenceQueryPort;
-import com.tmp.production.config.ProductionWarehouseProperties;
+import com.tmp.production.application.port.WarehouseReferenceQueryPort;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository;
 import com.tmp.production.domain.repository.MaterialTransferTemplateRepository;
@@ -65,7 +65,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -74,9 +73,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 /**
  * Registers Production Capability contributions and read/write runtime beans.
  *
- * <p>Does not create users, roles, or Production-owned authorization tables. Does not invent fake
- * Warehouse ids — {@link ProductionDestinationWarehouse} must be provided explicitly or configured
- * via {@code tmp.production.warehouse.production-warehouse-id}.
+ * <p>Does not create users, roles, or Production-owned authorization tables. Production destination
+ * warehouse is resolved from Warehouse Public API ({@link WarehouseReferenceQueryApi}), not from
+ * environment/package UUID configuration.
  */
 @AutoConfiguration
 @AutoConfigureAfter(
@@ -88,7 +87,6 @@ import org.springframework.transaction.PlatformTransactionManager;
             "com.tmp.order.OrderManagementAutoConfiguration",
             "com.tmp.warehouse.WarehouseAutoConfiguration"
         })
-@EnableConfigurationProperties(ProductionWarehouseProperties.class)
 public class ProductionAutoConfiguration {
 
     @Bean
@@ -100,15 +98,9 @@ public class ProductionAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     ProductionDestinationWarehouse productionDestinationWarehouse(
-            ProductionWarehouseProperties properties) {
-        if (properties.getProductionWarehouseId() == null) {
-            throw new IllegalStateException(
-                    "Production destination warehouse is not configured. Required:"
-                            + " tmp.production.warehouse.production-warehouse-id (production"
-                            + " warehouse ID). Provide it explicitly or register a"
-                            + " ProductionDestinationWarehouse bean.");
-        }
-        return new ProductionDestinationWarehouse(properties.getProductionWarehouseId());
+            @Qualifier("warehouseReferenceQueryApi")
+                    WarehouseReferenceQueryApi warehouseReferenceQueryApi) {
+        return ProductionDestinationWarehouse.fromWarehouseReferences(warehouseReferenceQueryApi);
     }
 
     @Bean

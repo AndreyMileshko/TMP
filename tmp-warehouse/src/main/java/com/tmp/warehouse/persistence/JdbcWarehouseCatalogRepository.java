@@ -47,7 +47,7 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
         return jdbcTemplate
                 .query(
                         """
-                        SELECT id, code, name, active, version, created_at, updated_at
+                        SELECT id, code, name, active, is_production, version, created_at, updated_at
                         FROM warehouse.warehouses
                         ORDER BY code
                         """,
@@ -60,6 +60,23 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
     @Override
     public Optional<Warehouse> findById(WarehouseId warehouseId) {
         return findWarehouseById(warehouseId).map(WarehouseRow::toDomain);
+    }
+
+    @Override
+    public Optional<Warehouse> findProductionWarehouse() {
+        try {
+            WarehouseRow row =
+                    jdbcTemplate.queryForObject(
+                            """
+                            SELECT id, code, name, active, is_production, version, created_at, updated_at
+                            FROM warehouse.warehouses
+                            WHERE is_production = TRUE
+                            """,
+                            WAREHOUSE_MAPPER);
+            return Optional.ofNullable(row).map(WarehouseRow::toDomain);
+        } catch (EmptyResultDataAccessException ex) {
+            return Optional.empty();
+        }
     }
 
     @Override
@@ -77,6 +94,46 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
                                         new IllegalArgumentException(
                                                 "Warehouse not found: " + warehouse.id().value()));
         return update(warehouse, existing.version()).toDomain();
+    }
+
+    @Override
+    public Warehouse assignProductionWarehouse(WarehouseId warehouseId) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        Instant now = clock.instant();
+        clearProductionWarehouse();
+        int updated =
+                jdbcTemplate.update(
+                        """
+                        UPDATE warehouse.warehouses
+                        SET is_production = TRUE,
+                            version = version + 1,
+                            updated_at = ?
+                        WHERE id = ? AND active = TRUE
+                        """,
+                        Timestamp.from(now),
+                        warehouseId.value());
+        if (updated == 0) {
+            throw new IllegalArgumentException("Warehouse not found or inactive: " + warehouseId.value());
+        }
+        return findById(warehouseId)
+                .orElseThrow(
+                        () ->
+                                new IllegalArgumentException(
+                                        "Warehouse not found: " + warehouseId.value()));
+    }
+
+    @Override
+    public void clearProductionWarehouse() {
+        Instant now = clock.instant();
+        jdbcTemplate.update(
+                """
+                UPDATE warehouse.warehouses
+                SET is_production = FALSE,
+                    version = version + 1,
+                    updated_at = ?
+                WHERE is_production = TRUE
+                """,
+                Timestamp.from(now));
     }
 
     @Override
@@ -115,13 +172,14 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
         jdbcTemplate.update(
                 """
                 INSERT INTO warehouse.warehouses (
-                    id, code, name, active, version, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    id, code, name, active, is_production, version, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 row.id().value(),
                 row.code(),
                 row.name(),
                 row.active(),
+                row.productionWarehouse(),
                 row.version(),
                 Timestamp.from(row.createdAt()),
                 Timestamp.from(row.updatedAt()));
@@ -135,12 +193,13 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
         int updated = jdbcTemplate.update(
                 """
                 UPDATE warehouse.warehouses
-                SET code = ?, name = ?, active = ?, version = ?, updated_at = ?
+                SET code = ?, name = ?, active = ?, is_production = ?, version = ?, updated_at = ?
                 WHERE id = ? AND version = ?
                 """,
                 warehouse.code(),
                 warehouse.name(),
                 warehouse.active(),
+                warehouse.productionWarehouse(),
                 nextVersion,
                 Timestamp.from(now),
                 warehouse.id().value(),
@@ -154,6 +213,7 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
                 warehouse.code(),
                 warehouse.name(),
                 warehouse.active(),
+                warehouse.productionWarehouse(),
                 nextVersion,
                 existing.createdAt(),
                 now);
@@ -164,7 +224,7 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(
                     """
-                    SELECT id, code, name, active, version, created_at, updated_at
+                    SELECT id, code, name, active, is_production, version, created_at, updated_at
                     FROM warehouse.warehouses
                     WHERE id = ?
                     """,
@@ -180,7 +240,7 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(
                     """
-                    SELECT id, code, name, active, version, created_at, updated_at
+                    SELECT id, code, name, active, is_production, version, created_at, updated_at
                     FROM warehouse.warehouses
                     WHERE code = ?
                     """,
@@ -276,6 +336,7 @@ public final class JdbcWarehouseCatalogRepository implements WarehouseCatalogRep
                 rs.getString("code"),
                 rs.getString("name"),
                 rs.getBoolean("active"),
+                rs.getBoolean("is_production"),
                 rs.getLong("version"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant());

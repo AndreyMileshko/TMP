@@ -92,7 +92,7 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     @Override
     public DestinationWarehouseView destinationWarehouse() {
         authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
-        return new DestinationWarehouseView(destinationWarehouse.productionWarehouseId());
+        return new DestinationWarehouseView(destinationWarehouse.findProductionWarehouseId());
     }
 
     @Override

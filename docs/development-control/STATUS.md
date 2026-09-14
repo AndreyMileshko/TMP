@@ -3,12 +3,12 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Production acceptance-state corrective COMPLETE; Manual acceptance READY TO RESUME)
-**Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS; Production state/UI corrective COMPLETE)
-**Last completed task:** Stage 3.5.15 Production acceptance-state corrective (false «Заказ не найден» after Accept / IN_PRODUCTION open, 2026-09-14); prior: Stage 3.5.15 Stocks UX corrective
+**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Warehouse-managed production destination COMPLETE; Manual acceptance READY TO RESUME AFTER USER ASSIGNS PRODUCTION WAREHOUSE)
+**Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS; production destination assignment COMPLETE)
+**Last completed task:** Stage 3.5.15 Warehouse-managed production destination (Flyway V45 / Settings checkbox / Warehouse Public API; 2026-09-14); prior: Production acceptance-state corrective
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
-**Active blockers:** none. Production blocker = **CORRECTED**. Manual interactive Warehouse acceptance **READY TO RESUME** from Production → TEST-001 (or fresh order) → Material Requirement → Warehouse Task.
+**Active blockers:** none. Production destination is Warehouse-managed (`is_production`); after startup production warehouse = **NONE** (expected). Manual interactive Warehouse acceptance **READY TO RESUME** from Настройки склада → Склады → assign production warehouse → Production → Material Requirement.
 **Stage 6 Warehouse:** DONE
 **Stage 7 Production:** DONE / 100%
 **Stage 7 Start Gate:** PASSED
@@ -21,10 +21,11 @@
 **First READY implementation task:** none (3.5.15 acceptance in progress)
 **Warehouse Operational Task Actions UI:** COMPLETE (take/takeover, preparation send, receive, reject, return)
 **Warehouse History:** COMPLETE (read-only; physical movements; multi-cell aggregation corrective PASS)
-**Warehouse Settings:** COMPLETE (Склады / Ячейки / Ответственные; secondary admin entry)
+**Warehouse Settings:** COMPLETE (Склады / Ячейки / Ответственные; secondary admin entry; **«Склад производства»** checkbox)
 **Warehouse UI Polish:** COMPLETE (Workspace consistency; empty states; button hierarchy; Settings cancel/back; secondary legacy Operations nav)
 **Warehouse Stocks UX corrective:** COMPLETE (cell-centric flat table; expandable rows removed; statistics absent)
-**Production acceptance-state corrective:** COMPLETE (false «Заказ не найден» after Accept / IN_PRODUCTION open; action matrix + package production-warehouse default)
+**Production acceptance-state corrective:** COMPLETE (false «Заказ не найден» after Accept / IN_PRODUCTION open)
+**Production destination assignment:** COMPLETE (Warehouse `is_production` / Flyway V45; config UUID removed as source of truth)
 ```text
 STAGE5-050 = DONE
 STAGE5-051 = DONE
@@ -121,9 +122,9 @@ Stage 3.5.11 Modern Остатки = COMPLETE (+ Tasks inbox corrective; + Opera
 Stage 3.5.12 История = COMPLETE (+ multi-cell History aggregation corrective)
 Stage 3.5.13 Warehouse Settings = COMPLETE
 Stage 3.5.14 Warehouse UI Polish = COMPLETE
-Stage 3.5.15 = IN PROGRESS (Production acceptance-state corrective COMPLETE; Manual acceptance READY TO RESUME)
+Stage 3.5.15 = IN PROGRESS (Production acceptance-state corrective COMPLETE; Warehouse-managed production destination COMPLETE; Manual acceptance READY TO RESUME AFTER USER ASSIGNS PRODUCTION WAREHOUSE)
 First READY implementation task = none (acceptance in progress)
-Manual Warehouse acceptance = READY TO RESUME (Production → TEST-001 / fresh order → Material Requirement)
+Manual Warehouse acceptance = READY TO RESUME (Настройки склада → Склады → «Склад производства» → Production → Material Requirement)
 ```
 
 ---
@@ -140,7 +141,7 @@ Manual Warehouse acceptance = READY TO RESUME (Production → TEST-001 / fresh o
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
 | 7 | Production | DONE | 100% |
-| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0–3.5.14 COMPLETE; 3.5.15 IN PROGRESS (Production acceptance-state corrective COMPLETE; manual acceptance resume from Production → Material Requirement) |
+| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0–3.5.14 COMPLETE; 3.5.15 IN PROGRESS (Warehouse-managed production destination COMPLETE; manual acceptance resume after user assigns production warehouse) |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 

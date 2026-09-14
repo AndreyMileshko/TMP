@@ -133,6 +133,11 @@ class DefaultWarehouseApiTest {
         }
 
         @Override
+        public java.util.Optional<com.tmp.warehouse.domain.Warehouse> findProductionWarehouse() {
+            return java.util.Optional.empty();
+        }
+
+        @Override
         public com.tmp.warehouse.domain.Warehouse save(com.tmp.warehouse.domain.Warehouse warehouse) {
             throw new UnsupportedOperationException("not used in unit test");
         }
@@ -141,6 +146,14 @@ class DefaultWarehouseApiTest {
         public com.tmp.warehouse.domain.Warehouse update(com.tmp.warehouse.domain.Warehouse warehouse) {
             throw new UnsupportedOperationException("not used in unit test");
         }
+
+        @Override
+        public com.tmp.warehouse.domain.Warehouse assignProductionWarehouse(WarehouseId warehouseId) {
+            throw new UnsupportedOperationException("not used in unit test");
+        }
+
+        @Override
+        public void clearProductionWarehouse() {}
 
         @Override
         public com.tmp.warehouse.domain.StorageCell save(com.tmp.warehouse.domain.StorageCell cell) {
