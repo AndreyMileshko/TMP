@@ -11930,7 +11930,39 @@ See VERIFICATION-LOG Stage 3.5.14 entry (2026-09-11).
 
 Stage 3.5.15 — Final Warehouse Acceptance = IN PROGRESS
 Stocks UX corrective = COMPLETE
-Manual acceptance = READY TO RESUME FROM Склад → Остатки
+Production acceptance-state corrective = COMPLETE
+Manual acceptance = READY TO RESUME FROM Production → TEST-001 / fresh order → Material Requirement → Warehouse Task
+
+---
+## STAGE-3.5.15 — Production acceptance-state corrective (manual defect)
+
+**Status:** DONE (corrective); Stage 3.5.15 overall remains IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.15 Stocks UX corrective
+**Module:** `tmp-ui-shell` (Production workbench) + `scripts/run-tmp-package.ps1` / `application-package.yml` (production warehouse destination)
+
+### Goal
+
+Correct false «Заказ не найден» / stalled Accept / disabled Material Requirement actions after successful Production Accept or open of existing IN_PRODUCTION orders — unblock Warehouse Requirement flow.
+
+### Acceptance criteria (Production corrective)
+
+- [x] Root cause: IN_PRODUCTION reload called `getMaterialAvailabilityResult`; misconfigured destination warehouse (`22222222-…`) threw «not found»; UI mapper mapped it to «Заказ не найден»; reload aborted before `refreshActionPolicy`
+- [x] Isolate material-availability secondary load from core open/reload; always recompute action policy from authoritative Production status
+- [x] Narrow `ProductionUiErrorMapper` — warehouse destination ≠ order not found
+- [x] Package default production warehouse → active `tmp_gui_stage5` SECOND (`0d49d50b-…`)
+- [x] Regression tests: clean open / accept / reopen / IN_PRODUCTION + secondary fail / material request / stale error / double-submit
+- [x] Targeted tests + Stage7Architecture + package + startup PASS; Migration NONE / Flyway V44
+- [ ] Manual acceptance resume from Production → Material Requirement
+- [ ] Final `mvn clean verify` after manual PASS
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Production acceptance-state corrective entry (2026-09-14).
+
+### Next on success
+
+Manual acceptance → MANUAL PASS → final full reactor.
 
 ---
 ## STAGE-3.5.15 — Final Warehouse Acceptance (Stocks UX corrective)
@@ -11951,7 +11983,7 @@ Final Warehouse Acceptance with corrective: replace material-centric expandable 
 - [x] AVAILABLE only; quantity `DecimalUiFormat.formatRu`
 - [x] Cell filter by storageCellId; foreign warehouse/cell denied
 - [x] Targeted tests + architecture + package + startup PASS
-- [ ] Manual acceptance resume from Склад → Остатки
+- [ ] Manual acceptance resume (after Production corrective: from Production → Material Requirement)
 - [ ] Final `mvn clean verify` after manual PASS
 
 ### Verification

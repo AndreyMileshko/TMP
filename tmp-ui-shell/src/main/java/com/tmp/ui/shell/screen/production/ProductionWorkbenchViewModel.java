@@ -140,6 +140,9 @@ public final class ProductionWorkbenchViewModel {
     }
 
     public void openSelectedOrder() {
+        if (loading.get()) {
+            return;
+        }
         String raw = blankToEmpty(orderSelectorInput.get()).trim();
         if (raw.isEmpty()) {
             errorMessage.set("Укажите UUID заказа или номер заказа.");
@@ -154,12 +157,18 @@ public final class ProductionWorkbenchViewModel {
     }
 
     public void openForOrder(OrderId orderId) {
+        if (loading.get()) {
+            return;
+        }
         Objects.requireNonNull(orderId, "orderId");
         orderSelectorInput.set(orderId.value().toString());
         run("Заказ открыт", () -> loadOrder(orderId));
     }
 
     public void acceptOrder() {
+        if (loading.get()) {
+            return;
+        }
         if (!canAccept.get() || currentOrderId == null) {
             deny();
             return;
@@ -173,6 +182,9 @@ public final class ProductionWorkbenchViewModel {
     }
 
     public void checkMaterials() {
+        if (loading.get()) {
+            return;
+        }
         if (!canCheck.get() || currentOrderId == null) {
             deny();
             return;
@@ -186,6 +198,9 @@ public final class ProductionWorkbenchViewModel {
     }
 
     public void prepareMaterialRequirement() {
+        if (loading.get()) {
+            return;
+        }
         if (!canTransfer.get() || currentOrderId == null) {
             deny();
             return;
@@ -355,6 +370,9 @@ public final class ProductionWorkbenchViewModel {
     }
 
     public void refresh() {
+        if (loading.get()) {
+            return;
+        }
         if (currentOrderId == null) {
             clearOrderState();
             return;
@@ -541,13 +559,6 @@ public final class ProductionWorkbenchViewModel {
         }
         itemRows.setAll(mappedItems);
 
-        materialRows.clear();
-        if (view.status() == OrderProductionViewStatus.IN_PRODUCTION) {
-            queryApi.getMaterialAvailabilityResult(currentOrderId)
-                    .ifPresent(
-                            result -> materialRows.setAll(mapMaterialRows(result)));
-        }
-
         List<ProductionHistoryEntryView> history = queryApi.listProductionHistory(currentOrderId);
         historyRows.setAll(mapHistoryRows(history));
 
@@ -570,7 +581,30 @@ public final class ProductionWorkbenchViewModel {
             selectedLogicalTransfer.set(null);
         }
 
+        // Authoritative Production state is loaded — recompute actions before optional panels.
         refreshActionPolicy();
+
+        // Material availability is informational and must not abort a successful open/reload
+        // into a false "order not found" / stale button matrix.
+        materialRows.clear();
+        if (view.status() == OrderProductionViewStatus.IN_PRODUCTION) {
+            loadMaterialAvailabilityRows();
+        }
+    }
+
+    private void loadMaterialAvailabilityRows() {
+        try {
+            queryApi.getMaterialAvailabilityResult(currentOrderId)
+                    .ifPresent(result -> materialRows.setAll(mapMaterialRows(result)));
+        } catch (RuntimeException ex) {
+            materialRows.clear();
+            String mapped = ProductionUiErrorMapper.text(ex);
+            if (ProductionUiErrorMapper.ORDER_NOT_FOUND.equals(mapped)) {
+                errorMessage.set(ProductionUiErrorMapper.MATERIALS_LOAD_FAILED);
+            } else {
+                errorMessage.set(mapped);
+            }
+        }
     }
 
     private void applyRequirement(MaterialRequirementView requirement) {

@@ -2,9 +2,36 @@
 
 ## Latest result
 
-**Date:** 2026-09-11
-**Scope:** Stage 3.5.15 — Stocks UX corrective (cell-centric flat Остатки)
-**Overall:** PASS (corrective automated + package/startup); Stage 3.5.15 remains IN PROGRESS pending manual acceptance
+**Date:** 2026-09-14
+**Scope:** Stage 3.5.15 — Production acceptance-state corrective (false «Заказ не найден» / stalled Accept / Material Requirement)
+**Overall:** PASS (corrective automated + package/startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO RESUME; Full reactor NOT RUN
+
+### Stage 3.5.15 Production acceptance-state corrective (2026-09-14)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `a68f4de098d19c5188dbe17b1303077936d4f52b` | PASS (clean) |
+| Root cause | IN_PRODUCTION secondary `getMaterialAvailabilityResult` + fake warehouse UUID `22222222-…` → «not found» mapped to «Заказ не найден»; `refreshActionPolicy` skipped |
+| State ownership | OM lifecycle independent of Production (Spec §24 / §12); OM ACTIVE + Production IN_PRODUCTION allowed; no OM mutation |
+| UI isolation | Core reload + action policy before optional materials; secondary failure does not claim order missing |
+| Error mapper | Destination warehouse ≠ ORDER_NOT_FOUND |
+| Package warehouse default | SECOND `0d49d50b-7ae4-4a44-a015-431ff21380b6` (tmp_gui_stage5) |
+| Migration | **NONE / Flyway V44** |
+| `ProductionWorkbenchViewModelTest` | PASS (26) |
+| `ProductionUiErrorMapperTest` | PASS (3) |
+| `ProductionActionPolicyTest` | PASS (8) |
+| `TransferReceiptEligibilityTest` | PASS (1) |
+| Production Material Requirement / Submit / Launch / OrderView suites | PASS (58) |
+| `Stage7ProductionArchitectureTest` | PASS (83) |
+| `Stage6WarehouseArchitectureTest` | NOT RUN (Warehouse contracts untouched) |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests` | PASS |
+| `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS → `dist/jpackage/TMP/TMP.exe` |
+| Startup `tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 44 / V44; `Started DesktopBootstrap`; exceptions NONE |
+| DB safety (startup only) | stock_positions 31; warehouse_operations 61; warehouse_movements 82 — **delta 0** |
+| Manual acceptance | READY TO RESUME from Production → TEST-001 / fresh order → Material Requirement |
+| Full reactor | NOT RUN — last GREEN `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d` |
+
+---
 
 ### Stage 3.5.15 Stocks UX corrective (2026-09-11)
 

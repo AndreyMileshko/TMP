@@ -252,12 +252,24 @@ public final class ProductionWorkbenchController
         openOrderButton.setOnAction(e -> viewModel.openSelectedOrder());
         refreshButton.setOnAction(e -> viewModel.refresh());
 
-        acceptButton.disableProperty().bind(viewModel.canAcceptProperty().not());
-        checkMaterialsButton.disableProperty().bind(viewModel.canCheckProperty().not());
-        prepareTransferButton.disableProperty().bind(viewModel.canTransferProperty().not());
-        confirmReceiptButton.disableProperty().bind(viewModel.canReceiptProperty().not());
-        prepareReleaseButton.disableProperty().bind(viewModel.canReleaseProperty().not());
-        cancelProductionButton.disableProperty().bind(viewModel.canCancelProperty().not());
+        acceptButton
+                .disableProperty()
+                .bind(viewModel.canAcceptProperty().not().or(viewModel.loadingProperty()));
+        checkMaterialsButton
+                .disableProperty()
+                .bind(viewModel.canCheckProperty().not().or(viewModel.loadingProperty()));
+        prepareTransferButton
+                .disableProperty()
+                .bind(viewModel.canTransferProperty().not().or(viewModel.loadingProperty()));
+        confirmReceiptButton
+                .disableProperty()
+                .bind(viewModel.canReceiptProperty().not().or(viewModel.loadingProperty()));
+        prepareReleaseButton
+                .disableProperty()
+                .bind(viewModel.canReleaseProperty().not().or(viewModel.loadingProperty()));
+        cancelProductionButton
+                .disableProperty()
+                .bind(viewModel.canCancelProperty().not().or(viewModel.loadingProperty()));
 
         acceptButton.setOnAction(e -> viewModel.acceptOrder());
         checkMaterialsButton.setOnAction(e -> viewModel.checkMaterials());

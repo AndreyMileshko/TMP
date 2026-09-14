@@ -160,6 +160,7 @@ final class ProductionWorkbenchUiTestSupport {
         OrderProductionView view;
         final Map<UUID, ItemProductionStateView> itemStates = new HashMap<>();
         Optional<MaterialAvailabilityResultView> availability = Optional.empty();
+        RuntimeException availabilityFailure;
         final List<ProductionHistoryEntryView> history = new ArrayList<>();
         int getOrderProductionViewCalls;
         int getMaterialAvailabilityCalls;
@@ -179,6 +180,9 @@ final class ProductionWorkbenchUiTestSupport {
         public Optional<MaterialAvailabilityResultView> getMaterialAvailabilityResult(
                 UUID orderId) {
             getMaterialAvailabilityCalls++;
+            if (availabilityFailure != null) {
+                throw availabilityFailure;
+            }
             return availability;
         }
 

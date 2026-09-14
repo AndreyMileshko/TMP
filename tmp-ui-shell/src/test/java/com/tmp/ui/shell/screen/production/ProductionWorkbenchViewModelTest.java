@@ -602,6 +602,162 @@ class ProductionWorkbenchViewModelTest {
         assertTrue(viewModel.emptyStateMessageProperty().get().contains("Выберите заказ"));
     }
 
+    @Test
+    void cleanOpenOfNotAcceptedOrderDoesNotShowOrderNotFound() {
+        queryApi.view =
+                new OrderProductionView(
+                        orderId, OrderProductionViewStatus.NOT_ACCEPTED, 0, 0, 0, 0, 0);
+
+        viewModel.openForOrder(OrderId.of(orderId));
+
+        assertEquals("ORD-1", viewModel.orderNumberProperty().get());
+        assertEquals("Не принят", viewModel.statusLabelProperty().get());
+        assertEquals("Заказ открыт", viewModel.statusMessageProperty().get());
+        assertEquals("", viewModel.errorMessageProperty().get());
+        assertFalse(
+                viewModel.errorMessageProperty().get().contains(ProductionUiErrorMapper.ORDER_NOT_FOUND));
+        assertTrue(viewModel.canAcceptProperty().get());
+        assertFalse(viewModel.canCheckProperty().get());
+        assertFalse(viewModel.canTransferProperty().get());
+        assertEquals(0, queryApi.getMaterialAvailabilityCalls);
+    }
+
+    @Test
+    void acceptReloadsAuthoritativeStateAndDisablesAccept() {
+        queryApi.view =
+                new OrderProductionView(
+                        orderId, OrderProductionViewStatus.NOT_ACCEPTED, 0, 0, 0, 0, 0);
+        viewModel.openForOrder(OrderId.of(orderId));
+        assertTrue(viewModel.canAcceptProperty().get());
+
+        seedInProduction();
+        queryApi.availability =
+                Optional.of(
+                        new MaterialAvailabilityResultView(
+                                orderId,
+                                Instant.parse("2026-01-01T11:00:00Z"),
+                                MaterialAvailabilityOverallStatus.ALL_AVAILABLE,
+                                List.of(resolvedLine())));
+        viewModel.acceptOrder();
+
+        assertEquals(List.of(orderId), applicationApi.acceptCalls);
+        assertEquals("В производстве", viewModel.statusLabelProperty().get());
+        assertEquals("Заказ принят в производство", viewModel.statusMessageProperty().get());
+        assertEquals("", viewModel.errorMessageProperty().get());
+        assertFalse(viewModel.canAcceptProperty().get());
+        assertTrue(viewModel.canCheckProperty().get());
+        assertTrue(viewModel.canTransferProperty().get());
+        assertEquals(1, viewModel.materialRows().size());
+    }
+
+    @Test
+    void reopenAcceptedOrderDoesNotShowFalseOrderNotFound() {
+        seedInProduction();
+        queryApi.availability =
+                Optional.of(
+                        new MaterialAvailabilityResultView(
+                                orderId,
+                                Instant.parse("2026-01-01T11:00:00Z"),
+                                MaterialAvailabilityOverallStatus.ALL_AVAILABLE,
+                                List.of(resolvedLine())));
+
+        viewModel.openForOrder(OrderId.of(orderId));
+
+        assertEquals("В производстве", viewModel.statusLabelProperty().get());
+        assertEquals("", viewModel.errorMessageProperty().get());
+        assertFalse(viewModel.canAcceptProperty().get());
+        assertTrue(viewModel.canCheckProperty().get());
+        assertTrue(viewModel.canTransferProperty().get());
+        assertEquals(1, viewModel.itemRows().size());
+        assertEquals("В производстве", viewModel.itemRows().get(0).statusLabel());
+    }
+
+    @Test
+    void existingInProductionOpenKeepsActionMatrixWhenMaterialsSecondaryFails() {
+        seedInProduction();
+        queryApi.availabilityFailure =
+                new IllegalStateException("Configured destination warehouse not found: " + destWh);
+
+        viewModel.openForOrder(OrderId.of(orderId));
+
+        assertEquals("ORD-1", viewModel.orderNumberProperty().get());
+        assertEquals("В производстве", viewModel.statusLabelProperty().get());
+        assertEquals("Заказ открыт", viewModel.statusMessageProperty().get());
+        assertEquals(
+                ProductionUiErrorMapper.DESTINATION_WAREHOUSE_INVALID,
+                viewModel.errorMessageProperty().get());
+        assertFalse(
+                viewModel
+                        .errorMessageProperty()
+                        .get()
+                        .contains(ProductionUiErrorMapper.ORDER_NOT_FOUND));
+        assertFalse(viewModel.canAcceptProperty().get());
+        assertTrue(viewModel.canCheckProperty().get());
+        assertTrue(viewModel.canTransferProperty().get());
+        assertTrue(viewModel.itemRows().get(0).isSelectable());
+        assertTrue(viewModel.materialRows().isEmpty());
+    }
+
+    @Test
+    void materialRequestEnabledForSelectedInProductionItem() {
+        seedInProduction();
+        viewModel.openForOrder(OrderId.of(orderId));
+        assertTrue(viewModel.canTransferProperty().get());
+
+        viewModel.itemRows().get(0).setSelected(true);
+        applicationApi.requirement = sampleTemplate(new BigDecimal("5"));
+        viewModel.prepareMaterialRequirement();
+
+        assertEquals(1, applicationApi.prepareMaterialRequirementCalls.size());
+        assertEquals(List.of(itemId), applicationApi.prepareMaterialRequirementItemIds.get(0));
+        assertTrue(viewModel.materialRequirementPanelVisibleProperty().get());
+    }
+
+    @Test
+    void successfulOpenClearsStaleErrorFromPriorSecondaryFailure() {
+        seedInProduction();
+        queryApi.availabilityFailure =
+                new IllegalStateException("Configured destination warehouse not found: " + destWh);
+        viewModel.openForOrder(OrderId.of(orderId));
+        assertEquals(
+                ProductionUiErrorMapper.DESTINATION_WAREHOUSE_INVALID,
+                viewModel.errorMessageProperty().get());
+
+        queryApi.availabilityFailure = null;
+        queryApi.availability =
+                Optional.of(
+                        new MaterialAvailabilityResultView(
+                                orderId,
+                                Instant.parse("2026-01-01T11:00:00Z"),
+                                MaterialAvailabilityOverallStatus.ALL_AVAILABLE,
+                                List.of(resolvedLine())));
+        viewModel.refresh();
+
+        assertEquals("Данные обновлены", viewModel.statusMessageProperty().get());
+        assertEquals("", viewModel.errorMessageProperty().get());
+        assertEquals(1, viewModel.materialRows().size());
+        assertFalse(viewModel.canAcceptProperty().get());
+    }
+
+    @Test
+    void acceptIgnoresDoubleSubmitWhileLoading() {
+        queryApi.view =
+                new OrderProductionView(
+                        orderId, OrderProductionViewStatus.NOT_ACCEPTED, 0, 0, 0, 0, 0);
+        viewModel.openForOrder(OrderId.of(orderId));
+
+        viewModel.loadingProperty().set(true);
+        viewModel.acceptOrder();
+        viewModel.acceptOrder();
+        assertTrue(applicationApi.acceptCalls.isEmpty());
+
+        viewModel.loadingProperty().set(false);
+        seedInProduction();
+        viewModel.acceptOrder();
+        assertEquals(List.of(orderId), applicationApi.acceptCalls);
+        assertFalse(viewModel.canAcceptProperty().get());
+    }
+
     private void seedInProduction() {
         queryApi.view =
                 new OrderProductionView(

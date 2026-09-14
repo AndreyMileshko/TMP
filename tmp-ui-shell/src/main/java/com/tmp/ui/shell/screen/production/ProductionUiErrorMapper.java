@@ -30,6 +30,10 @@ public final class ProductionUiErrorMapper {
             "Не удалось выполнить производственную операцию. Повторите попытку.";
     public static final String LOAD_FAILED = "Обновление производственных данных не выполнено.";
     public static final String ORDER_NOT_FOUND = "Заказ не найден.";
+    public static final String DESTINATION_WAREHOUSE_INVALID =
+            "Склад производства не настроен или недоступен. Проверьте конфигурацию назначения.";
+    public static final String MATERIALS_LOAD_FAILED =
+            "Проверка наличия материалов не выполнена.";
 
     private ProductionUiErrorMapper() {}
 
@@ -52,6 +56,12 @@ public final class ProductionUiErrorMapper {
                     || lower.contains("version mismatch")
                     || lower.contains("expected version")) {
                 return CONCURRENT_STALE;
+            }
+            if (simple.contains("InvalidProductionDestinationWarehouse")
+                    || lower.contains("configured destination warehouse")
+                    || (lower.contains("destination warehouse")
+                            && (lower.contains("not found") || lower.contains("not active")))) {
+                return DESTINATION_WAREHOUSE_INVALID;
             }
             if (simple.contains("NotEditable")
                     || (lower.contains("template") && lower.contains("stale"))
@@ -105,19 +115,33 @@ public final class ProductionUiErrorMapper {
                     || lower.contains("must not")
                     || lower.contains("required")
                     || lower.contains("must be")) {
+                if ("order not found".equals(lower)) {
+                    return ORDER_NOT_FOUND;
+                }
                 if (containsCyrillic(message)) {
                     return message;
                 }
                 return VALIDATION;
             }
-            if (simple.contains("NoSuchElement")
-                    || lower.contains("not found")
-                    || lower.contains("не найден")) {
+            if (isOrderNotFoundMessage(simple, lower)) {
                 return ORDER_NOT_FOUND;
             }
             current = current.getCause();
         }
         return TECHNICAL_FAILURE;
+    }
+
+    private static boolean isOrderNotFoundMessage(String simpleName, String lowerMessage) {
+        if ("order not found".equals(lowerMessage)
+                || lowerMessage.contains("заказ не найден")) {
+            return true;
+        }
+        if (!(simpleName.contains("NoSuchElement")
+                || lowerMessage.contains("not found")
+                || lowerMessage.contains("не найден"))) {
+            return false;
+        }
+        return lowerMessage.contains("order") || lowerMessage.contains("заказ");
     }
 
     public static boolean isConcurrentOrStale(Throwable error) {

@@ -26,7 +26,8 @@ tmp:
   production:
     warehouse:
       # Required when Production is on the classpath. Destination (production) warehouse only.
-      # production-warehouse-id: ${TMP_PRODUCTION_WAREHOUSE_PRODUCTION_ID}
+      # Prefer TMP_PRODUCTION_WAREHOUSE_PRODUCTION_WAREHOUSE_ID (see scripts/run-tmp-package.ps1).
+      production-warehouse-id: ${TMP_PRODUCTION_WAREHOUSE_PRODUCTION_WAREHOUSE_ID:}
       # Optional legacy main-warehouse-id is unused by Stage 3.5.9 Material Requirement runtime.
 
 logging:

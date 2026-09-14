@@ -4,6 +4,43 @@
 
 ---
 
+## Stage 3.5.15 — Production acceptance-state corrective — 2026-09-14
+
+**Date:** 2026-09-14
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — Production state / Requirement flow blocker)
+**Base checkpoint:** `a68f4de098d19c5188dbe17b1303077936d4f52b`
+**Status:** Production blocker CORRECTED; Stage 3.5.15 = IN PROGRESS; Manual acceptance READY TO RESUME; Full reactor NOT YET RUN
+**Commit:** none
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
+
+### Manual acceptance blocker
+
+After «Принять в производство» (and on open of already IN_PRODUCTION orders) UI showed «Обновление производственных данных не выполнено.» + false «Заказ не найден.» while order/Production state remained loaded; Accept stayed ACTIVE; material actions stayed disabled — Warehouse Requirement flow blocked.
+
+### Root cause
+
+1. `ProductionWorkbenchViewModel.reloadCurrentOrder` called `getMaterialAvailabilityResult` for IN_PRODUCTION **before** finishing action-policy refresh; failure aborted reload after status/items were applied.
+2. Package default `TMP_PRODUCTION_WAREHOUSE_PRODUCTION_WAREHOUSE_ID=22222222-…` did not exist in runtime warehouses → `InvalidProductionDestinationWarehouseException` («…warehouse not found…»).
+3. `ProductionUiErrorMapper` mapped any «not found» to «Заказ не найден.»
+
+OM vs Production lifecycle difference is **accepted** (Production Spec: Production does not change OM lifecycle). No OM writes.
+
+### Corrective
+
+- Isolate material-availability load as secondary; always `refreshActionPolicy` from authoritative Production status after core reload.
+- Narrow error mapping (`DESTINATION_WAREHOUSE_INVALID`); command-in-flight guards; buttons disabled while loading.
+- Package default production warehouse → active SECOND `0d49d50b-7ae4-4a44-a015-431ff21380b6`; bind `application-package.yml`.
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Production acceptance-state corrective entry (2026-09-14).
+
+### Next
+
+Resume manual acceptance: Production → TEST-001 / fresh order → Material Requirement → Warehouse Task. Do not close Stage 3.5.15 until manual PASS + final `mvn clean verify`.
+
+---
+
 ## Stage 3.5.15 — Stocks UX corrective (cell-centric flat view) — 2026-09-11
 
 **Date:** 2026-09-11

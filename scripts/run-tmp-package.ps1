@@ -19,8 +19,10 @@ $adminLogin = if ($env:TMP_SECURITY_BOOTSTRAP_ADMIN_LOGIN) { $env:TMP_SECURITY_B
 $adminDisplayName = if ($env:TMP_SECURITY_BOOTSTRAP_ADMIN_DISPLAY_NAME) { $env:TMP_SECURITY_BOOTSTRAP_ADMIN_DISPLAY_NAME } else { "Administrator" }
 $adminPassword = if ($env:TMP_SECURITY_BOOTSTRAP_ADMIN_PASSWORD) { $env:TMP_SECURITY_BOOTSTRAP_ADMIN_PASSWORD } else { "admin" }
 # Production destination warehouse is required when Production is on the classpath (no magic defaults).
+# Must be an active warehouse.id from the target DB. Default below matches tmp_gui_stage5 SECOND
+# (Второй склад) — override via TMP_PRODUCTION_WAREHOUSE_PRODUCTION_WAREHOUSE_ID when needed.
 # Optional legacy main-warehouse env is ignored by Stage 3.5.9 Material Requirement runtime.
-$prodWh = if ($env:TMP_PRODUCTION_WAREHOUSE_PRODUCTION_WAREHOUSE_ID) { $env:TMP_PRODUCTION_WAREHOUSE_PRODUCTION_WAREHOUSE_ID } else { "22222222-2222-4222-8222-222222222222" }
+$prodWh = if ($env:TMP_PRODUCTION_WAREHOUSE_PRODUCTION_WAREHOUSE_ID) { $env:TMP_PRODUCTION_WAREHOUSE_PRODUCTION_WAREHOUSE_ID } else { "0d49d50b-7ae4-4a44-a015-431ff21380b6" }
 
 Write-Host "Starting TMP with package profile against $dbUrl"
 
