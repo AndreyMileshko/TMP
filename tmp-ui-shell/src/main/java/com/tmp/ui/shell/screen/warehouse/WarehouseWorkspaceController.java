@@ -332,6 +332,18 @@ public final class WarehouseWorkspaceController
         updateTabVisibility(viewModel.selectedTabProperty().get());
 
         warehouseCombo.setItems(viewModel.warehouseFilterOptions());
+        warehouseCombo.setConverter(
+                new javafx.util.StringConverter<>() {
+                    @Override
+                    public String toString(WarehouseFilterOption option) {
+                        return option == null ? "" : option.toString();
+                    }
+
+                    @Override
+                    public WarehouseFilterOption fromString(String string) {
+                        return null;
+                    }
+                });
         warehouseCombo.valueProperty()
                 .addListener(
                         (obs, oldValue, newValue) -> {
@@ -356,6 +368,18 @@ public final class WarehouseWorkspaceController
         warehouseCombo.setValue(viewModel.selectedWarehouseFilterProperty().get());
 
         cellCombo.setItems(viewModel.cellFilterOptions());
+        cellCombo.setConverter(
+                new javafx.util.StringConverter<>() {
+                    @Override
+                    public String toString(CellFilterOption option) {
+                        return option == null ? "" : option.toString();
+                    }
+
+                    @Override
+                    public CellFilterOption fromString(String string) {
+                        return null;
+                    }
+                });
         cellCombo.valueProperty()
                 .addListener(
                         (obs, oldValue, newValue) -> {
@@ -749,75 +773,208 @@ public final class WarehouseWorkspaceController
             viewModel.errorMessageProperty().set(ex.getMessage());
             return;
         }
+        UUID sourceWarehouseId = selected.get(0).warehouseId();
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle("Перемещение материалов");
-        dialog.setHeaderText("Перемещение материалов");
-        ButtonType sendType = new ButtonType("Отправить", ButtonBar.ButtonData.OK_DONE);
+        dialog.setHeaderText("Выбрано позиций: " + selected.size());
+        dialog.setResizable(true);
+        ButtonType submitType = new ButtonType("Переместить", ButtonBar.ButtonData.OK_DONE);
+        ButtonType fillAvailableType =
+                new ButtonType("Всё доступное", ButtonBar.ButtonData.LEFT);
         ButtonType cancelType = new ButtonType("Отмена", ButtonBar.ButtonData.CANCEL_CLOSE);
-        dialog.getDialogPane().getButtonTypes().addAll(sendType, cancelType);
+        dialog.getDialogPane().getButtonTypes().addAll(cancelType, fillAvailableType, submitType);
         dialog.getDialogPane().getStyleClass().add("tmp-dialog");
+        dialog.getDialogPane().setPrefWidth(920);
 
         Label sourceLabel =
+                new Label("Откуда: " + warehouseLabel(sourceWarehouseId));
+        Label totalsLabel =
                 new Label(
-                        "Откуда: "
-                                + warehouseLabel(selected.get(0).warehouseId()));
+                        "Итого: "
+                                + WarehouseMoveDialogSupport.formatQuantityTotalsByUnit(selected));
         ComboBox<WarehouseChoice> destinationWarehouse = new ComboBox<>();
         destinationWarehouse.getItems().setAll(viewModel.listAccessibleWarehouseChoices());
         destinationWarehouse.setMaxWidth(Double.MAX_VALUE);
         ComboBox<StorageCellChoice> destinationCell = new ComboBox<>();
         destinationCell.setMaxWidth(Double.MAX_VALUE);
-        destinationCell.setDisable(true);
+        Label destWarehouseCaption = new Label("Склад назначения:");
         Label destCellCaption = new Label("Ячейка назначения:");
-        destCellCaption.setDisable(true);
 
-        VBox linesBox = new VBox(6);
-        List<TextField> quantityFields = new ArrayList<>();
+        TableView<MoveDialogRow> table = new TableView<>();
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        table.setPrefHeight(280);
+        List<MoveDialogRow> moveRows = new ArrayList<>();
         for (StockRow row : selected) {
-            HBox line = new HBox(8);
-            line.setAlignment(Pos.CENTER_LEFT);
-            Label material = new Label(row.materialLabel() + " / " + row.cellCode());
-            material.setPrefWidth(280);
-            Label available =
-                    new Label("Доступно: " + DecimalUiFormat.formatRu(row.availableQuantity()));
-            available.setPrefWidth(140);
-            TextField qty = new TextField(DecimalUiFormat.formatRu(row.availableQuantity()));
-            qty.setPrefWidth(100);
-            quantityFields.add(qty);
-            line.getChildren().addAll(material, available, new Label("Кол-во:"), qty);
-            linesBox.getChildren().add(line);
+            moveRows.add(new MoveDialogRow(row));
         }
+        table.getItems().setAll(moveRows);
 
-        destinationWarehouse
-                .valueProperty()
-                .addListener(
-                        (obs, oldValue, newValue) -> {
-                            boolean same =
-                                    newValue != null
-                                            && selected.get(0).warehouseId().equals(newValue.id());
-                            destinationCell.setDisable(!same);
-                            destCellCaption.setDisable(!same);
-                            destinationCell.getItems().clear();
-                            if (same) {
-                                destinationCell
-                                        .getItems()
-                                        .setAll(viewModel.listDestinationCells(newValue.id()));
+        TableColumn<MoveDialogRow, String> articleCol = new TableColumn<>("Артикул");
+        articleCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                WarehouseMoveDialogSupport.displayOrDash(
+                                        cell.getValue().stockRow().article())));
+        TableColumn<MoveDialogRow, String> nameCol = new TableColumn<>("Наименование");
+        nameCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                WarehouseMoveDialogSupport.displayOrDash(
+                                        cell.getValue().stockRow().name())));
+        TableColumn<MoveDialogRow, String> colorCol = new TableColumn<>("Цвет");
+        colorCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                WarehouseMoveDialogSupport.displayOrDash(
+                                        cell.getValue().stockRow().color())));
+        TableColumn<MoveDialogRow, String> sizeCol = new TableColumn<>("Размер");
+        sizeCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                WarehouseMoveDialogSupport.displayOrDash(
+                                        cell.getValue().stockRow().size())));
+        TableColumn<MoveDialogRow, String> fromCol = new TableColumn<>("Откуда");
+        fromCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                WarehouseMoveDialogSupport.displayOrDash(
+                                        cell.getValue().stockRow().cellCode())));
+        TableColumn<MoveDialogRow, String> availableCol = new TableColumn<>("Доступно");
+        availableCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                DecimalUiFormat.formatRu(
+                                        cell.getValue().stockRow().availableQuantity())));
+        TableColumn<MoveDialogRow, String> qtyCol = new TableColumn<>("Переместить");
+        qtyCol.setCellValueFactory(cell -> cell.getValue().quantityTextProperty());
+        qtyCol.setCellFactory(
+                column ->
+                        new TableCell<>() {
+                            private final TextField field = new TextField();
+
+                            {
+                                field.textProperty()
+                                        .addListener(
+                                                (obs, o, n) -> {
+                                                    MoveDialogRow row =
+                                                            getTableRow() == null
+                                                                    ? null
+                                                                    : getTableRow().getItem();
+                                                    if (row != null
+                                                            && !java.util.Objects.equals(
+                                                                    row.quantityTextProperty()
+                                                                            .get(),
+                                                                    n)) {
+                                                        row.quantityTextProperty().set(n);
+                                                    }
+                                                });
+                            }
+
+                            @Override
+                            protected void updateItem(String item, boolean empty) {
+                                super.updateItem(item, empty);
+                                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                                    setGraphic(null);
+                                    return;
+                                }
+                                MoveDialogRow row = getTableRow().getItem();
+                                if (!java.util.Objects.equals(field.getText(), row.quantityTextProperty().get())) {
+                                    field.setText(row.quantityTextProperty().get());
+                                }
+                                setGraphic(field);
                             }
                         });
+        TableColumn<MoveDialogRow, String> unitCol = new TableColumn<>("Ед.");
+        unitCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                WarehouseMoveDialogSupport.displayOrDash(
+                                        cell.getValue().stockRow().unitOfMeasure())));
+        table.getColumns()
+                .setAll(
+                        articleCol,
+                        nameCol,
+                        colorCol,
+                        sizeCol,
+                        fromCol,
+                        availableCol,
+                        qtyCol,
+                        unitCol);
+
+        Runnable updateDestinationCellVisibility =
+                () -> {
+                    WarehouseChoice dest = destinationWarehouse.getValue();
+                    boolean same =
+                            dest != null && sourceWarehouseId.equals(dest.id());
+                    destCellCaption.setVisible(same);
+                    destCellCaption.setManaged(same);
+                    destinationCell.setVisible(same);
+                    destinationCell.setManaged(same);
+                    destinationCell.setDisable(!same);
+                    destinationCell.getItems().clear();
+                    if (same) {
+                        destinationCell
+                                .getItems()
+                                .setAll(viewModel.listDestinationCells(dest.id()));
+                    }
+                    Button submitButton =
+                            (Button) dialog.getDialogPane().lookupButton(submitType);
+                    if (submitButton != null) {
+                        submitButton.setText(same ? "Переместить" : "Отправить");
+                    }
+                };
+        destinationWarehouse
+                .valueProperty()
+                .addListener((obs, oldValue, newValue) -> updateDestinationCellVisibility.run());
 
         GridPane form = new GridPane();
         form.setHgap(8);
         form.setVgap(8);
         form.setPadding(new Insets(8));
         form.add(sourceLabel, 0, 0, 2, 1);
-        form.add(new Label("Склад назначения:"), 0, 1);
-        form.add(destinationWarehouse, 1, 1);
-        form.add(destCellCaption, 0, 2);
-        form.add(destinationCell, 1, 2);
-        form.add(linesBox, 0, 3, 2, 1);
+        form.add(totalsLabel, 0, 1, 2, 1);
+        form.add(destWarehouseCaption, 0, 2);
+        form.add(destinationWarehouse, 1, 2);
+        form.add(destCellCaption, 0, 3);
+        form.add(destinationCell, 1, 3);
+        form.add(table, 0, 4, 2, 1);
         dialog.getDialogPane().setContent(form);
 
+        dialog.setOnShown(
+                e -> {
+                    Button submitButton =
+                            (Button) dialog.getDialogPane().lookupButton(submitType);
+                    Button cancelButton =
+                            (Button) dialog.getDialogPane().lookupButton(cancelType);
+                    Button fillButton =
+                            (Button) dialog.getDialogPane().lookupButton(fillAvailableType);
+                    if (submitButton != null) {
+                        submitButton.getStyleClass().add("tmp-button-primary");
+                    }
+                    if (cancelButton != null) {
+                        cancelButton.getStyleClass().add("tmp-button-secondary");
+                    }
+                    if (fillButton != null) {
+                        fillButton.getStyleClass().add("tmp-button-secondary");
+                        fillButton.addEventFilter(
+                                javafx.event.ActionEvent.ACTION,
+                                event -> {
+                                    event.consume();
+                                    for (MoveDialogRow row : moveRows) {
+                                        row.quantityTextProperty()
+                                                .set(
+                                                        DecimalUiFormat.formatRu(
+                                                                row.stockRow()
+                                                                        .availableQuantity()));
+                                    }
+                                    table.refresh();
+                                });
+                    }
+                    updateDestinationCellVisibility.run();
+                });
+
         Optional<ButtonType> result = dialog.showAndWait();
-        if (result.isEmpty() || result.get() != sendType) {
+        if (result.isEmpty() || result.get() != submitType) {
             return;
         }
         WarehouseChoice destWh = destinationWarehouse.getValue();
@@ -827,21 +984,22 @@ public final class WarehouseWorkspaceController
         }
         List<StockMoveLine> lines = new ArrayList<>();
         try {
-            for (int i = 0; i < selected.size(); i++) {
+            for (MoveDialogRow moveRow : moveRows) {
                 BigDecimal qty =
-                        DecimalQuantityParser.parsePositive(
-                                quantityFields.get(i).getText(), "количество");
-                if (qty.compareTo(selected.get(i).availableQuantity()) > 0) {
-                    throw new IllegalArgumentException(
-                            "количество не может превышать доступный остаток");
-                }
-                lines.add(StockMoveLine.from(selected.get(i), qty));
+                        WarehouseMoveDialogSupport.parseMoveQuantity(
+                                moveRow.quantityTextProperty().get(),
+                                moveRow.stockRow().availableQuantity());
+                lines.add(StockMoveLine.from(moveRow.stockRow(), qty));
             }
-            if (destWh.id().equals(selected.get(0).warehouseId())) {
+            if (destWh.id().equals(sourceWarehouseId)) {
                 StorageCellChoice cell = destinationCell.getValue();
                 if (cell == null) {
                     viewModel.errorMessageProperty().set("Выберите ячейку назначения.");
                     return;
+                }
+                for (StockMoveLine line : lines) {
+                    WarehouseMoveDialogSupport.validateNotSelfMove(
+                            line.sourceStorageCellId(), cell.id());
                 }
                 viewModel.executeSameWarehouseMove(lines, cell.id());
             } else {
@@ -911,24 +1069,122 @@ public final class WarehouseWorkspaceController
         StockRow row = selected.get(0);
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle("Корректировка");
-        dialog.setHeaderText(row.materialLabel() + " / " + row.cellCode());
+        dialog.setHeaderText("Корректировка остатка");
+        dialog.setResizable(true);
         ButtonType okType = new ButtonType("Сохранить", ButtonBar.ButtonData.OK_DONE);
         ButtonType cancelType = new ButtonType("Отмена", ButtonBar.ButtonData.CANCEL_CLOSE);
         dialog.getDialogPane().getButtonTypes().addAll(okType, cancelType);
         dialog.getDialogPane().getStyleClass().add("tmp-dialog");
-        Label current =
-                new Label("Текущий остаток: " + DecimalUiFormat.formatRu(row.availableQuantity()));
-        TextField deltaField = new TextField();
-        deltaField.setPromptText("Изменение (+/−)");
-        VBox content = new VBox(8, current, new Label("Количество изменения:"), deltaField);
+        dialog.getDialogPane().setPrefWidth(900);
+
+        javafx.beans.property.StringProperty deltaText =
+                new javafx.beans.property.SimpleStringProperty("");
+        TableView<StockRow> table = new TableView<>();
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        table.setPrefHeight(90);
+        table.getItems().setAll(row);
+
+        TableColumn<StockRow, String> articleCol = new TableColumn<>("Артикул");
+        articleCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                WarehouseMoveDialogSupport.displayOrDash(cell.getValue().article())));
+        TableColumn<StockRow, String> nameCol = new TableColumn<>("Наименование");
+        nameCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                WarehouseMoveDialogSupport.displayOrDash(cell.getValue().name())));
+        TableColumn<StockRow, String> colorCol = new TableColumn<>("Цвет");
+        colorCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                WarehouseMoveDialogSupport.displayOrDash(cell.getValue().color())));
+        TableColumn<StockRow, String> sizeCol = new TableColumn<>("Размер");
+        sizeCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                WarehouseMoveDialogSupport.displayOrDash(cell.getValue().size())));
+        TableColumn<StockRow, String> cellCol = new TableColumn<>("Ячейка");
+        cellCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                WarehouseMoveDialogSupport.displayOrDash(
+                                        cell.getValue().cellCode())));
+        TableColumn<StockRow, String> currentCol = new TableColumn<>("Текущий остаток");
+        currentCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                DecimalUiFormat.formatRu(cell.getValue().availableQuantity())));
+        TableColumn<StockRow, String> deltaCol = new TableColumn<>("Корректировка");
+        deltaCol.setCellValueFactory(cell -> deltaText);
+        deltaCol.setCellFactory(
+                column ->
+                        new TableCell<>() {
+                            private final TextField field = new TextField();
+
+                            {
+                                field.setPromptText("+/−");
+                                field.textProperty()
+                                        .addListener(
+                                                (obs, o, n) -> {
+                                                    if (!java.util.Objects.equals(
+                                                            deltaText.get(), n)) {
+                                                        deltaText.set(n);
+                                                    }
+                                                });
+                            }
+
+                            @Override
+                            protected void updateItem(String item, boolean empty) {
+                                super.updateItem(item, empty);
+                                if (empty) {
+                                    setGraphic(null);
+                                    return;
+                                }
+                                if (!java.util.Objects.equals(field.getText(), deltaText.get())) {
+                                    field.setText(deltaText.get());
+                                }
+                                setGraphic(field);
+                            }
+                        });
+        TableColumn<StockRow, String> unitCol = new TableColumn<>("Ед.");
+        unitCol.setCellValueFactory(
+                cell ->
+                        new SimpleStringProperty(
+                                WarehouseMoveDialogSupport.displayOrDash(
+                                        cell.getValue().unitOfMeasure())));
+        table.getColumns()
+                .setAll(
+                        articleCol,
+                        nameCol,
+                        colorCol,
+                        sizeCol,
+                        cellCol,
+                        currentCol,
+                        deltaCol,
+                        unitCol);
+
+        VBox content = new VBox(8, table);
         content.setPadding(new Insets(8));
         dialog.getDialogPane().setContent(content);
+        dialog.setOnShown(
+                e -> {
+                    Button okButton = (Button) dialog.getDialogPane().lookupButton(okType);
+                    Button cancelButton = (Button) dialog.getDialogPane().lookupButton(cancelType);
+                    if (okButton != null) {
+                        okButton.getStyleClass().add("tmp-button-primary");
+                    }
+                    if (cancelButton != null) {
+                        cancelButton.getStyleClass().add("tmp-button-secondary");
+                    }
+                });
         Optional<ButtonType> result = dialog.showAndWait();
         if (result.isEmpty() || result.get() != okType) {
             return;
         }
         try {
-            BigDecimal delta = DecimalQuantityParser.parseNonZero(deltaField.getText(), "количество изменения");
+            BigDecimal delta =
+                    DecimalQuantityParser.parseNonZero(deltaText.get(), "количество изменения");
             viewModel.executeStockAdjustment(StockMoveLine.from(row, row.availableQuantity()), delta);
         } catch (IllegalArgumentException ex) {
             viewModel.errorMessageProperty().set(ex.getMessage());
@@ -1081,6 +1337,26 @@ public final class WarehouseWorkspaceController
                 setGraphic(null);
                 setText(item);
             }
+        }
+    }
+
+    private static final class MoveDialogRow {
+        private final StockRow stockRow;
+        private final javafx.beans.property.StringProperty quantityText;
+
+        MoveDialogRow(StockRow stockRow) {
+            this.stockRow = stockRow;
+            this.quantityText =
+                    new javafx.beans.property.SimpleStringProperty(
+                            DecimalUiFormat.formatRu(stockRow.availableQuantity()));
+        }
+
+        StockRow stockRow() {
+            return stockRow;
+        }
+
+        javafx.beans.property.StringProperty quantityTextProperty() {
+            return quantityText;
         }
     }
 }

@@ -163,7 +163,12 @@ public final class WarehouseIntegrationTestSupport {
         TransactionTemplate tx = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         WarehouseOperationEngine engine =
                 new WarehouseOperationEngine(
-                        operations, stockPositions, movements, tx, clock);
+                        operations,
+                        stockPositions,
+                        movements,
+                        tx,
+                        clock,
+                        UnauthenticatedAuthenticationService.INSTANCE);
 
         WarehouseTransferDocumentRepository transferDocumentRepository =
                 new JdbcWarehouseTransferDocumentRepository(jdbc, clock);

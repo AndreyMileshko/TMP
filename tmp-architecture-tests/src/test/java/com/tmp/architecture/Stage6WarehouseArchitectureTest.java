@@ -1,11 +1,18 @@
 package com.tmp.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 
 /**
  * Stage 6 Warehouse architecture boundaries for UI and Public API usage.
@@ -74,6 +81,18 @@ class Stage6WarehouseArchitectureTest {
                                     + " user ids and must not query Security persistence");
 
     @ArchTest
+    static final ArchRule warehouseDoesNotDependOnOrderPackages =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.warehouse..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("com.tmp.order..")
+                    .because(
+                            "Warehouse must not depend on Order Management packages; "
+                                    + "cross-capability reads belong at the composition boundary");
+
+    @ArchTest
     static final ArchRule warehouseDomainHasNoJavaFx =
             noClasses()
                     .that()
@@ -120,4 +139,55 @@ class Stage6WarehouseArchitectureTest {
                     .because(
                             "Stage 3.5.13 Settings must not introduce material→warehouse mapping, "
                                     + "preferred source, default destination cell, or routing priority");
+
+    @Test
+    void warehouseMainSourcesMustNotReferenceOrderManagementOrdersTable() throws IOException {
+        Path warehouseMain = locateReactorRoot().resolve("tmp-warehouse/src/main");
+        if (!Files.isDirectory(warehouseMain)) {
+            fail("Warehouse main sources not found at " + warehouseMain);
+        }
+        try (Stream<Path> sources = Files.walk(warehouseMain)) {
+            sources.filter(path -> path.toString().endsWith(".java"))
+                    .forEach(Stage6WarehouseArchitectureTest::assertNoOrderManagementOrdersTable);
+        }
+    }
+
+    private static void assertNoOrderManagementOrdersTable(Path javaFile) {
+        String text;
+        try {
+            text = Files.readString(javaFile);
+        } catch (IOException ex) {
+            fail("Unable to read " + javaFile + ": " + ex.getMessage());
+            return;
+        }
+        assertFalse(
+                text.contains("order_management.orders"),
+                () ->
+                        "Warehouse production sources must not join order_management.orders"
+                                + " (composition boundary owns that SQL): "
+                                + javaFile);
+    }
+
+    private static Path locateReactorRoot() {
+        Path cwd = Path.of("").toAbsolutePath();
+        Path candidate = cwd;
+        for (int i = 0; i < 6; i++) {
+            if (Files.isRegularFile(candidate.resolve("pom.xml"))
+                    && Files.isDirectory(candidate.resolve("tmp-warehouse"))) {
+                return candidate;
+            }
+            candidate = candidate.getParent();
+            if (candidate == null) {
+                break;
+            }
+        }
+        Path fromModule = cwd.getParent();
+        if (fromModule != null
+                && Files.isRegularFile(fromModule.resolve("pom.xml"))
+                && Files.isDirectory(fromModule.resolve("tmp-warehouse"))) {
+            return fromModule;
+        }
+        fail("Could not locate reactor root from " + cwd);
+        return cwd;
+    }
 }

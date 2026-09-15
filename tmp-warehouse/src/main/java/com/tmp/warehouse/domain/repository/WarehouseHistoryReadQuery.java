@@ -48,7 +48,9 @@ public interface WarehouseHistoryReadQuery {
             String destinationWarehouseName,
             UUID destinationCellId,
             String destinationCellCode,
-            UUID documentId) {
+            UUID documentId,
+            UUID actorUserId,
+            String actorLogin) {
 
         public HistoryRow {
             Objects.requireNonNull(entryId, "entryId");

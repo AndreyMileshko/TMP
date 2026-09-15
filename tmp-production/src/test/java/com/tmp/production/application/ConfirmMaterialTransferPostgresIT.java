@@ -151,8 +151,7 @@ class ConfirmMaterialTransferPostgresIT {
         var movements = new JdbcWarehouseMovementRepository(jdbc);
         TransactionTemplate warehouseTx = new TransactionTemplate(txManager);
         WarehouseOperationEngine engine =
-                new WarehouseOperationEngine(
-                        operations, stockPositions, movements, warehouseTx, CLOCK);
+                new WarehouseOperationEngine(operations, stockPositions, movements, warehouseTx, CLOCK, WarehouseTestDoubles.unauthenticated());
         warehouseApi =
                 new DefaultWarehouseApi(
                         authorizationAllowAll(),

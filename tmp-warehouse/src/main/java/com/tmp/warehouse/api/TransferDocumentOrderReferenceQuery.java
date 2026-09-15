@@ -1,4 +1,4 @@
-package com.tmp.warehouse.domain.repository;
+package com.tmp.warehouse.api;
 
 import java.util.Collection;
 import java.util.Map;
@@ -7,8 +7,8 @@ import java.util.UUID;
 /**
  * Read-only projection: Warehouse Transfer Document → Material Requirement → Order number.
  *
- * <p>UUIDs are external references only (no FK). Implementations may join Production / Order
- * Management schemas for display. Missing links return no entry (UI shows "—").
+ * <p>UUIDs are external references only (no FK). Cross-schema joins for display belong at the
+ * composition/bootstrap boundary. Missing links return no entry (UI shows "—").
  */
 public interface TransferDocumentOrderReferenceQuery {
 

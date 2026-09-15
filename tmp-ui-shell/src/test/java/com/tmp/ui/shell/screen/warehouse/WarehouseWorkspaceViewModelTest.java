@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.security.api.AccessDeniedException;
@@ -540,6 +542,12 @@ class WarehouseWorkspaceViewModelTest {
         assertTrue(viewModel.warehouseFilterOptions().stream().anyMatch(WarehouseWorkspaceViewModel.WarehouseFilterOption::isAll));
         assertTrue(viewModel.selectedWarehouseFilterProperty().get().isAll());
         assertTrue(viewModel.showWarehouseColumnProperty().get());
+        assertSame(
+                viewModel.warehouseFilterOptions().stream()
+                        .filter(WarehouseWorkspaceViewModel.WarehouseFilterOption::isAll)
+                        .findFirst()
+                        .orElseThrow(),
+                viewModel.selectedWarehouseFilterProperty().get());
     }
 
     @Test
@@ -1068,7 +1076,7 @@ class WarehouseWorkspaceViewModelTest {
         viewModel.receiveSelectedTask();
         assertEquals(1, api.receiveCommands.size());
         assertEquals(0, new BigDecimal("8").compareTo(api.receiveCommands.get(0).destinationAllocations().get(0).quantity()));
-        assertTrue(viewModel.statusMessageProperty().get().startsWith("Принято:"));
+        assertEquals("Принято: 8", viewModel.statusMessageProperty().get());
 
         openReceipt();
         row = (ReceiveAllocationEditRow) viewModel.actionLines().get(0);
@@ -1077,6 +1085,7 @@ class WarehouseWorkspaceViewModelTest {
         viewModel.receiveSelectedTask();
         assertEquals(2, api.receiveCommands.size());
         assertEquals(0, new BigDecimal("2").compareTo(api.receiveCommands.get(1).destinationAllocations().get(0).quantity()));
+        assertEquals("Принято: 2", viewModel.statusMessageProperty().get());
     }
 
     @Test
@@ -1270,6 +1279,319 @@ class WarehouseWorkspaceViewModelTest {
         viewModel.onScreenOpened();
         assertEquals("25117297", viewModel.taskRows().get(0).orderNumberText());
         assertEquals("—", viewModel.taskRows().get(1).orderNumberText());
+    }
+
+    @Test
+    void moveDialogSupportFormatsTotalsByUnitSameAndMixed() {
+        UUID warehouseId = UUID.randomUUID();
+        WarehouseWorkspaceViewModel.StockRow meters =
+                WarehouseWorkspaceViewModel.StockRow.from(
+                        new WarehouseStockCellLineView(
+                                warehouseId,
+                                "WH",
+                                "Main",
+                                UUID.randomUUID(),
+                                "A-01",
+                                UUID.randomUUID(),
+                                "A1",
+                                "Pipe",
+                                "",
+                                "",
+                                "м",
+                                new BigDecimal("12")));
+        WarehouseWorkspaceViewModel.StockRow metersMore =
+                WarehouseWorkspaceViewModel.StockRow.from(
+                        new WarehouseStockCellLineView(
+                                warehouseId,
+                                "WH",
+                                "Main",
+                                UUID.randomUUID(),
+                                "A-02",
+                                UUID.randomUUID(),
+                                "A2",
+                                "Pipe2",
+                                "",
+                                "",
+                                "м",
+                                new BigDecimal("3")));
+        WarehouseWorkspaceViewModel.StockRow pieces =
+                WarehouseWorkspaceViewModel.StockRow.from(
+                        new WarehouseStockCellLineView(
+                                warehouseId,
+                                "WH",
+                                "Main",
+                                UUID.randomUUID(),
+                                "B-01",
+                                UUID.randomUUID(),
+                                "B1",
+                                "Bolt",
+                                "",
+                                "",
+                                "шт",
+                                new BigDecimal("3")));
+        assertEquals(
+                "15 м.",
+                WarehouseMoveDialogSupport.formatQuantityTotalsByUnit(List.of(meters, metersMore)));
+        assertEquals(
+                "12 м.; 3 шт.",
+                WarehouseMoveDialogSupport.formatQuantityTotalsByUnit(List.of(meters, pieces)));
+        assertEquals("—", WarehouseMoveDialogSupport.displayOrDash(""));
+        assertEquals("red", WarehouseMoveDialogSupport.displayOrDash("red"));
+    }
+
+    @Test
+    void moveDialogSupportValidatesQuantityAndSelfMove() {
+        BigDecimal available = new BigDecimal("10");
+        assertEquals(
+                0,
+                new BigDecimal("0.5")
+                        .compareTo(WarehouseMoveDialogSupport.parseMoveQuantity("0,5", available)));
+        assertEquals(
+                0,
+                new BigDecimal("0.5")
+                        .compareTo(WarehouseMoveDialogSupport.parseMoveQuantity("0.5", available)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> WarehouseMoveDialogSupport.parseMoveQuantity("0", available));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> WarehouseMoveDialogSupport.parseMoveQuantity("11", available));
+        UUID cell = UUID.randomUUID();
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> WarehouseMoveDialogSupport.validateNotSelfMove(cell, cell));
+        WarehouseMoveDialogSupport.validateNotSelfMove(cell, UUID.randomUUID());
+    }
+
+    @Test
+    void warehouseAndCellAllSelectorsKeepListIdentityAfterReload() {
+        api.warehouses.add(new WarehouseView(UUID.randomUUID(), "WH-1", "One", true));
+        api.warehouses.add(new WarehouseView(UUID.randomUUID(), "WH-2", "Two", true));
+        api.stockPages.add(emptyPage());
+        viewModel.onScreenOpened();
+        assertEquals(
+                WarehouseWorkspaceViewModel.WarehouseFilterOption.ALL_LABEL,
+                viewModel.selectedWarehouseFilterProperty().get().label());
+        assertSame(
+                viewModel.warehouseFilterOptions().stream()
+                        .filter(WarehouseWorkspaceViewModel.WarehouseFilterOption::isAll)
+                        .findFirst()
+                        .orElseThrow(),
+                viewModel.selectedWarehouseFilterProperty().get());
+
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        assertEquals(
+                WarehouseWorkspaceViewModel.CellFilterOption.ALL_LABEL,
+                viewModel.selectedCellFilterProperty().get().label());
+        assertSame(
+                viewModel.cellFilterOptions().get(0),
+                viewModel.selectedCellFilterProperty().get());
+        assertTrue(viewModel.cellFilterOptions().get(0).isAll());
+
+        viewModel.onScreenOpened();
+        assertSame(
+                viewModel.warehouseFilterOptions().stream()
+                        .filter(WarehouseWorkspaceViewModel.WarehouseFilterOption::isAll)
+                        .findFirst()
+                        .orElseThrow(),
+                viewModel.selectedWarehouseFilterProperty().get());
+    }
+
+    @Test
+    void receiveInvalidatesStockWithoutReloadUntilStockTabSelected() {
+        auth = transferAuth();
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        ReceiptFixture fx = new ReceiptFixture();
+        api.warehouses.add(new WarehouseView(fx.destId, "DST", "Dest", true));
+        api.materials.add(
+                new MaterialReferenceView(fx.materialId, "ART-R", "Panel", "", "", "шт"));
+        api.cellsByWarehouse.put(
+                fx.destId,
+                List.of(
+                        new StorageCellView(fx.destCell, fx.destId, "D-01", true),
+                        new StorageCellView(fx.destCellB, fx.destId, "D-02", true)));
+        api.documents.put(
+                fx.documentId,
+                document(
+                        fx.documentId,
+                        fx.sourceId,
+                        fx.destId,
+                        List.of(
+                                new TransferDocumentLineView(
+                                        fx.lineId, fx.materialId, new BigDecimal("8"), 1)),
+                        2L,
+                        4L,
+                        11L));
+        api.tasks.add(
+                task(
+                        fx.documentId,
+                        fx.sourceId,
+                        fx.destId,
+                        "TR-RCV",
+                        WarehouseTaskKind.TRANSFER_RECEIPT,
+                        WarehouseTaskState.IN_WORK,
+                        UUID.randomUUID()));
+        api.stockPages.add(emptyPage());
+        api.stockPages.add(emptyPage());
+
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        assertTrue(viewModel.isStockLoadedForCurrentFilter());
+        int stockCallsAfterLoad = api.listStockByCellsCalls.size();
+
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.TASKS);
+        viewModel.selectTask(viewModel.taskRows().get(0));
+        ReceiveAllocationEditRow row = (ReceiveAllocationEditRow) viewModel.actionLines().get(0);
+        row.storageCellProperty().set(choice(viewModel.actionCellChoices(), fx.destCell));
+        viewModel.receiveSelectedTask();
+
+        assertFalse(viewModel.isStockLoadedForCurrentFilter());
+        assertEquals(stockCallsAfterLoad, api.listStockByCellsCalls.size());
+
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        assertTrue(viewModel.isStockLoadedForCurrentFilter());
+        assertEquals(stockCallsAfterLoad + 1, api.listStockByCellsCalls.size());
+    }
+
+    @Test
+    void sendInvalidatesStockLoadedFlag() {
+        PreparationFixture fx = openPreparation();
+        SourceAllocationEditRow row = (SourceAllocationEditRow) viewModel.actionLines().get(0);
+        row.storageCellProperty().set(choice(viewModel.actionCellChoices(), fx.cellA));
+        row.quantityTextProperty().set("10");
+        api.stockPages.add(emptyPage());
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        assertTrue(viewModel.isStockLoadedForCurrentFilter());
+        int calls = api.listStockByCellsCalls.size();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.TASKS);
+        viewModel.sendSelectedTask();
+        assertFalse(viewModel.isStockLoadedForCurrentFilter());
+        assertEquals(calls, api.listStockByCellsCalls.size());
+    }
+
+    @Test
+    void taskQuantityUsesDecimalUiFormatAndStatusFormatting() {
+        assertEquals(
+                "Принято: 1",
+                WarehouseWorkspaceViewModel.formatReceiveSuccess(
+                        new TransferDocumentReceiveResult(
+                                UUID.randomUUID(),
+                                "COMPLETED",
+                                1L,
+                                "SETTLED",
+                                "ACCEPTED",
+                                1L,
+                                List.of(),
+                                null),
+                        List.of(
+                                new TransferDocumentDestinationAllocationInput(
+                                        UUID.randomUUID(),
+                                        UUID.randomUUID(),
+                                        new BigDecimal("1.000000")))));
+        assertEquals(
+                "Принято: 0,5",
+                WarehouseWorkspaceViewModel.formatReceiveSuccess(
+                        new TransferDocumentReceiveResult(
+                                UUID.randomUUID(),
+                                "COMPLETED",
+                                1L,
+                                "SETTLED",
+                                "ACCEPTED",
+                                1L,
+                                List.of(),
+                                null),
+                        List.of(
+                                new TransferDocumentDestinationAllocationInput(
+                                        UUID.randomUUID(),
+                                        UUID.randomUUID(),
+                                        new BigDecimal("0.500000")))));
+        assertEquals(
+                "Передано: 2",
+                WarehouseWorkspaceViewModel.formatSendSuccess(
+                        new TransferDocumentSendResult(
+                                UUID.randomUUID(), "POSTED", 1L, 1L, List.of(), null),
+                        List.of(
+                                new TransferDocumentSourceAllocationInput(
+                                        UUID.randomUUID(),
+                                        UUID.randomUUID(),
+                                        new BigDecimal("2.000000")))));
+
+        SourceAllocationEditRow source =
+                new SourceAllocationEditRow(
+                        UUID.randomUUID(),
+                        "Mat",
+                        new BigDecimal("1.000000"),
+                        null,
+                        new BigDecimal("0.500000"));
+        assertEquals("1", source.referenceQuantityText());
+        assertEquals("0,5", source.quantityTextProperty().get());
+    }
+
+    @Test
+    void stockReloadPreservesSelectionForExistingRows() {
+        auth =
+                new FakeAuthorization(
+                        Set.of(
+                                UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                                UiShellScreens.WAREHOUSE_MOVE_PERMISSION));
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        UUID warehouseId = UUID.randomUUID();
+        UUID cellId = UUID.randomUUID();
+        UUID materialId = UUID.randomUUID();
+        WarehouseStockCellLineView line =
+                new WarehouseStockCellLineView(
+                        warehouseId,
+                        "WH-1",
+                        "Main",
+                        cellId,
+                        "A-01",
+                        materialId,
+                        "A1",
+                        "Mat",
+                        "",
+                        "",
+                        "шт",
+                        new BigDecimal("5"));
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.stockPages.add(page(List.of(line), 0, 1));
+        api.stockPages.add(page(List.of(line), 0, 1));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        viewModel.tableRows().get(0).setSelected(true);
+        viewModel.onStockSelectionChanged();
+        viewModel.commitSearch();
+        assertEquals(1, viewModel.tableRows().size());
+        assertTrue(viewModel.tableRows().get(0).isSelected());
+    }
+
+    @Test
+    void differentSourceCellsSameWarehouseAcceptedForMove() {
+        auth =
+                new FakeAuthorization(
+                        Set.of(
+                                UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                                UiShellScreens.WAREHOUSE_MOVE_PERMISSION));
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        UUID wh = UUID.randomUUID();
+        UUID cell1 = UUID.randomUUID();
+        UUID cell2 = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(wh, "MAIN", "Main", true));
+        api.stockPages.add(
+                page(
+                        List.of(
+                                cellLine(wh, cell1, "A-01", "A1", "Mat A", "10"),
+                                cellLine(wh, cell2, "B-01", "B1", "Mat B", "5")),
+                        0,
+                        2));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        viewModel.tableRows().get(0).setSelected(true);
+        viewModel.tableRows().get(1).setSelected(true);
+        viewModel.onStockSelectionChanged();
+        List<WarehouseWorkspaceViewModel.StockRow> selected =
+                viewModel.requireSameWarehouseSelectionForMove();
+        assertEquals(2, selected.size());
+        assertTrue(viewModel.canMoveSelectedStockProperty().get());
     }
 
     private PreparationFixture openPreparation() {

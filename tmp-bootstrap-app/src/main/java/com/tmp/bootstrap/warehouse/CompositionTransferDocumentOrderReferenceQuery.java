@@ -1,7 +1,6 @@
-package com.tmp.warehouse.persistence;
+package com.tmp.bootstrap.warehouse;
 
-import com.tmp.warehouse.domain.repository.TransferDocumentOrderReferenceQuery;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import com.tmp.warehouse.api.TransferDocumentOrderReferenceQuery;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -10,18 +9,17 @@ import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * Cross-schema read of Material Requirement generated-document links → Order number.
- * No schema migration; Production / Order Management own their tables.
+ * Composition-boundary read: Warehouse Transfer Document → Material Requirement → Order number.
+ *
+ * <p>Cross-schema joins are allowed here; Warehouse persistence must not query Order Management
+ * tables directly.
  */
-@SuppressFBWarnings(
-        value = "EI_EXPOSE_REP2",
-        justification = "Stores Spring JdbcTemplate collaborator")
-public final class JdbcTransferDocumentOrderReferenceQuery
+public final class CompositionTransferDocumentOrderReferenceQuery
         implements TransferDocumentOrderReferenceQuery {
 
     private final JdbcTemplate jdbcTemplate;
 
-    public JdbcTransferDocumentOrderReferenceQuery(JdbcTemplate jdbcTemplate) {
+    public CompositionTransferDocumentOrderReferenceQuery(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = Objects.requireNonNull(jdbcTemplate, "jdbcTemplate");
     }
 

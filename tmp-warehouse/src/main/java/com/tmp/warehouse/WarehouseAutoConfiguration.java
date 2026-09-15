@@ -4,6 +4,7 @@ import com.tmp.document.api.DocumentEngine;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
+import com.tmp.warehouse.api.TransferDocumentOrderReferenceQuery;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi;
@@ -35,7 +36,6 @@ import com.tmp.warehouse.domain.repository.AvailableStockAggregationQuery;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.MaterialReservationLinkRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
-import com.tmp.warehouse.domain.repository.TransferDocumentOrderReferenceQuery;
 import com.tmp.warehouse.domain.repository.TransferDocumentSendAllocationRepository;
 import com.tmp.warehouse.domain.repository.TransferDocumentSettlementRepository;
 import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
@@ -53,7 +53,6 @@ import com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
 import com.tmp.warehouse.persistence.JdbcAvailableStockAggregationQuery;
 import com.tmp.warehouse.persistence.JdbcStockPositionRepository;
-import com.tmp.warehouse.persistence.JdbcTransferDocumentOrderReferenceQuery;
 import com.tmp.warehouse.persistence.JdbcTransferDocumentSendAllocationRepository;
 import com.tmp.warehouse.persistence.JdbcTransferDocumentSettlementRepository;
 import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
@@ -72,6 +71,7 @@ import com.tmp.warehouse.security.WarehouseCapability;
 import jakarta.annotation.PostConstruct;
 import java.time.Clock;
 import java.util.Objects;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -159,13 +159,15 @@ public class WarehouseAutoConfiguration {
             StockPositionRepository stockPositionRepository,
             WarehouseMovementRepository warehouseMovementRepository,
             PlatformTransactionManager platformTransactionManager,
-            Clock clock) {
+            Clock clock,
+            AuthenticationService authenticationService) {
         return new WarehouseOperationEngine(
                 warehouseOperationRepository,
                 stockPositionRepository,
                 warehouseMovementRepository,
                 new TransactionTemplate(platformTransactionManager),
-                clock);
+                clock,
+                authenticationService);
     }
 
     @Bean
@@ -378,12 +380,6 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
-    TransferDocumentOrderReferenceQuery transferDocumentOrderReferenceQuery(
-            JdbcTemplate jdbcTemplate) {
-        return new JdbcTransferDocumentOrderReferenceQuery(jdbcTemplate);
-    }
-
-    @Bean
     WarehouseOperationalInboxService warehouseOperationalInboxService(
             DocumentEngine documentEngine,
             WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
@@ -395,7 +391,7 @@ public class WarehouseAutoConfiguration {
             AuthenticationService authenticationService,
             PlatformTransactionManager platformTransactionManager,
             Clock clock,
-            TransferDocumentOrderReferenceQuery transferDocumentOrderReferenceQuery) {
+            ObjectProvider<TransferDocumentOrderReferenceQuery> transferDocumentOrderReferenceQuery) {
         return new WarehouseOperationalInboxService(
                 documentEngine,
                 warehouseTransferDocumentRepository,
@@ -407,7 +403,7 @@ public class WarehouseAutoConfiguration {
                 authenticationService,
                 new TransactionTemplate(platformTransactionManager),
                 clock,
-                transferDocumentOrderReferenceQuery);
+                transferDocumentOrderReferenceQuery.getIfAvailable());
     }
 
     @Bean

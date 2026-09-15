@@ -86,7 +86,8 @@ class DefaultWarehouseApiTest {
                         stockPositions,
                         movements,
                         new TransactionTemplate(new PassthroughTransactionManager()),
-                        CLOCK);
+                        CLOCK,
+                        UnauthenticatedAuthenticationService.INSTANCE);
         api =
                 new DefaultWarehouseApi(
                         AllowingAuthorization.INSTANCE,
@@ -567,7 +568,9 @@ class DefaultWarehouseApiTest {
                             operation.storageCellId(),
                             operation.stockState(),
                             operation.quantity(),
-                            current.version() + 1);
+                            current.version() + 1,
+                            operation.actorUserId().orElse(null),
+                            operation.actorLogin().orElse(null));
             store.put(operation.id(), persisted);
             return persisted;
         }

@@ -598,7 +598,7 @@ public final class WarehouseWorkspaceViewModel {
             super(lineId, materialLabel, cell);
             this.requiredQuantity = Objects.requireNonNull(requiredQuantity, "requiredQuantity");
             if (quantity != null) {
-                this.quantityText.set(quantity.toPlainString());
+                this.quantityText.set(DecimalUiFormat.formatRu(quantity));
             }
         }
 
@@ -608,7 +608,7 @@ public final class WarehouseWorkspaceViewModel {
 
         @Override
         public String referenceQuantityText() {
-            return requiredQuantity.toPlainString();
+            return DecimalUiFormat.formatRu(requiredQuantity);
         }
 
         @Override
@@ -636,7 +636,7 @@ public final class WarehouseWorkspaceViewModel {
             super(lineId, materialLabel, cell);
             this.sentQuantity = Objects.requireNonNull(sentQuantity, "sentQuantity");
             if (acceptQuantity != null) {
-                this.quantityText.set(acceptQuantity.toPlainString());
+                this.quantityText.set(DecimalUiFormat.formatRu(acceptQuantity));
             }
         }
 
@@ -646,7 +646,7 @@ public final class WarehouseWorkspaceViewModel {
 
         @Override
         public String referenceQuantityText() {
-            return sentQuantity.toPlainString();
+            return DecimalUiFormat.formatRu(sentQuantity);
         }
 
         @Override
@@ -677,7 +677,8 @@ public final class WarehouseWorkspaceViewModel {
                     Objects.requireNonNull(outstandingQuantity, "outstandingQuantity");
             this.defaultReturnStorageCellId =
                     Objects.requireNonNull(defaultReturnStorageCellId, "defaultReturnStorageCellId");
-            this.quantityText = new FixedQuantityProperty(outstandingQuantity.toPlainString());
+            this.quantityText =
+                    new FixedQuantityProperty(DecimalUiFormat.formatRu(outstandingQuantity));
         }
 
         public BigDecimal outstandingQuantity() {
@@ -690,7 +691,7 @@ public final class WarehouseWorkspaceViewModel {
 
         @Override
         public String referenceQuantityText() {
-            return outstandingQuantity.toPlainString();
+            return DecimalUiFormat.formatRu(outstandingQuantity);
         }
 
         @Override
@@ -873,8 +874,9 @@ public final class WarehouseWorkspaceViewModel {
         canMove.addListener((obs, o, n) -> updateStockActionAvailability());
         canConsumption.addListener((obs, o, n) -> updateStockActionAvailability());
         canAdjustment.addListener((obs, o, n) -> updateStockActionAvailability());
-        selectedCellFilter.set(CellFilterOption.all());
-        cellFilterOptions.setAll(CellFilterOption.all());
+        CellFilterOption initialAllCells = CellFilterOption.all();
+        cellFilterOptions.setAll(initialAllCells);
+        selectedCellFilter.set(initialAllCells);
         initializeHistoryFilters();
         refreshPermissions();
         updatePaginationFlags();
@@ -945,9 +947,9 @@ public final class WarehouseWorkspaceViewModel {
         }
         pageIndex.set(0);
         historyPageIndex.set(0);
-        selectedWarehouseFilter.set(option);
+        setSelectedWarehouseFilterIdentity(option);
         showWarehouseColumn.set(option != null && option.isAll());
-        selectedCellFilter.set(CellFilterOption.all());
+        setSelectedCellFilterToAllInListOrFresh();
         stockLoadedForCurrentFilter = false;
         WorkspaceTab tab = selectedTab.get();
         if (tab == WorkspaceTab.TASKS) {
@@ -1056,6 +1058,7 @@ public final class WarehouseWorkspaceViewModel {
                                     commandInFlight.set(false);
                                     pendingTaskStatusMessage =
                                             formatSendSuccess(result, allocations);
+                                    invalidateStockAfterTaskMutation();
                                     reloadTasks();
                                 });
                     } catch (RuntimeException ex) {
@@ -1094,6 +1097,7 @@ public final class WarehouseWorkspaceViewModel {
                                     commandInFlight.set(false);
                                     pendingTaskStatusMessage =
                                             formatReceiveSuccess(result, allocations);
+                                    invalidateStockAfterTaskMutation();
                                     reloadTasks();
                                 });
                     } catch (RuntimeException ex) {
@@ -1138,6 +1142,7 @@ public final class WarehouseWorkspaceViewModel {
                                                                             .isBlank()
                                                             ? ""
                                                             : ": " + result.rejectionReason());
+                                    invalidateStockAfterTaskMutation();
                                     reloadTasks();
                                 });
                     } catch (RuntimeException ex) {
@@ -1178,6 +1183,7 @@ public final class WarehouseWorkspaceViewModel {
                                                                             .isBlank()
                                                             ? ""
                                                             : ": " + result.documentStatus());
+                                    invalidateStockAfterTaskMutation();
                                     reloadTasks();
                                 });
                     } catch (RuntimeException ex) {
@@ -1558,10 +1564,10 @@ public final class WarehouseWorkspaceViewModel {
 
             WarehouseFilterOption current = selectedWarehouseFilter.get();
             WarehouseFilterOption resolved = resolveWarehouseFilter(options, current, mine);
-            selectedWarehouseFilter.set(resolved);
+            setSelectedWarehouseFilterIdentity(resolved);
             showWarehouseColumn.set(resolved != null && resolved.isAll());
             if (selectedCellFilter.get() == null || selectedCellFilter.get().isAll()) {
-                selectedCellFilter.set(CellFilterOption.all());
+                setSelectedCellFilterToAllInListOrFresh();
             }
             stockLoadedForCurrentFilter = false;
             if (selectedTab.get() == WorkspaceTab.STOCK) {
@@ -2128,28 +2134,28 @@ public final class WarehouseWorkspaceViewModel {
         errorMessage.set(WarehouseUiErrorMapper.text(ex));
     }
 
-    private static String formatSendSuccess(
+    static String formatSendSuccess(
             TransferDocumentSendResult result,
             List<TransferDocumentSourceAllocationInput> allocations) {
         BigDecimal sum =
                 allocations.stream()
                         .map(TransferDocumentSourceAllocationInput::quantity)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
-        String message = "Передано: " + sum.toPlainString();
+        String message = "Передано: " + DecimalUiFormat.formatRu(sum);
         if (result.continuationDocumentId() != null) {
             message += " Создано дополнительное перемещение.";
         }
         return message;
     }
 
-    private static String formatReceiveSuccess(
+    static String formatReceiveSuccess(
             TransferDocumentReceiveResult result,
             List<TransferDocumentDestinationAllocationInput> allocations) {
         BigDecimal sum =
                 allocations.stream()
                         .map(TransferDocumentDestinationAllocationInput::quantity)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
-        String message = "Принято: " + sum.toPlainString();
+        String message = "Принято: " + DecimalUiFormat.formatRu(sum);
         String settlement = result.settlementState() == null ? "" : result.settlementState();
         if (settlement.contains("RETURN") || result.continuationDocumentId() != null) {
             message += " Остаток ожидает возврата.";
@@ -2528,6 +2534,96 @@ public final class WarehouseWorkspaceViewModel {
                 .orElse(options.get(0));
     }
 
+    /**
+     * Marks stock cache dirty. Reloads immediately only when the Stocks tab is already active so
+     * task mutations do not double-load while the user stays on Tasks.
+     */
+    private void invalidateStockAfterTaskMutation() {
+        invalidateStockLoaded();
+        if (selectedTab.get() == WorkspaceTab.STOCK) {
+            reloadStockByCells();
+        }
+    }
+
+    void invalidateStockLoaded() {
+        stockLoadedForCurrentFilter = false;
+    }
+
+    boolean isStockLoadedForCurrentFilter() {
+        return stockLoadedForCurrentFilter;
+    }
+
+    private void setSelectedWarehouseFilterIdentity(WarehouseFilterOption option) {
+        WarehouseFilterOption current = selectedWarehouseFilter.get();
+        if (current == option) {
+            return;
+        }
+        if (Objects.equals(current, option)) {
+            selectedWarehouseFilter.set(null);
+        }
+        selectedWarehouseFilter.set(option);
+    }
+
+    private void setSelectedCellFilterIdentity(CellFilterOption option) {
+        CellFilterOption current = selectedCellFilter.get();
+        if (current == option) {
+            return;
+        }
+        if (Objects.equals(current, option)) {
+            selectedCellFilter.set(null);
+        }
+        selectedCellFilter.set(option);
+    }
+
+    private void setSelectedCellFilterToAllInListOrFresh() {
+        CellFilterOption allInList =
+                cellFilterOptions.stream()
+                        .filter(CellFilterOption::isAll)
+                        .findFirst()
+                        .orElse(null);
+        if (allInList != null) {
+            setSelectedCellFilterIdentity(allInList);
+            return;
+        }
+        CellFilterOption all = CellFilterOption.all();
+        cellFilterOptions.setAll(all);
+        setSelectedCellFilterIdentity(all);
+    }
+
+    private List<StockSelectionKey> captureSelectedStockKeys() {
+        List<StockSelectionKey> keys = new ArrayList<>();
+        for (StockRow row : tableRows) {
+            if (row.isSelected()) {
+                keys.add(
+                        new StockSelectionKey(
+                                row.warehouseId(), row.storageCellId(), row.materialReferenceId()));
+            }
+        }
+        return keys;
+    }
+
+    private void restoreStockSelection(List<StockSelectionKey> previouslySelected) {
+        for (StockRow row : tableRows) {
+            row.setSelected(false);
+        }
+        if (previouslySelected.isEmpty()) {
+            updateStockActionAvailability();
+            return;
+        }
+        for (StockRow row : tableRows) {
+            StockSelectionKey key =
+                    new StockSelectionKey(
+                            row.warehouseId(), row.storageCellId(), row.materialReferenceId());
+            if (previouslySelected.contains(key)) {
+                row.setSelected(true);
+            }
+        }
+        updateStockActionAvailability();
+    }
+
+    private record StockSelectionKey(
+            UUID warehouseId, UUID storageCellId, UUID materialReferenceId) {}
+
     private void reloadCellFilterOptionsThenStock() {
         if (!canView.get()) {
             deny();
@@ -2571,16 +2667,15 @@ public final class WarehouseWorkspaceViewModel {
                                                         Objects.equals(
                                                                 o.storageCellId(),
                                                                 current.storageCellId())));
-        if (!keep) {
-            selectedCellFilter.set(CellFilterOption.all());
-        } else if (current != null && current.isAll()) {
-            selectedCellFilter.set(CellFilterOption.all());
+        if (!keep || (current != null && current.isAll())) {
+            setSelectedCellFilterIdentity(mapped.get(0));
         } else if (current != null) {
-            selectedCellFilter.set(
+            CellFilterOption resolved =
                     mapped.stream()
                             .filter(o -> Objects.equals(o.storageCellId(), current.storageCellId()))
                             .findFirst()
-                            .orElse(CellFilterOption.all()));
+                            .orElse(mapped.get(0));
+            setSelectedCellFilterIdentity(resolved);
         }
         reloadStockByCells();
     }
@@ -2589,8 +2684,9 @@ public final class WarehouseWorkspaceViewModel {
         if (requestId != cellFilterLoadGeneration) {
             return;
         }
-        cellFilterOptions.setAll(CellFilterOption.all());
-        selectedCellFilter.set(CellFilterOption.all());
+        CellFilterOption all = CellFilterOption.all();
+        cellFilterOptions.setAll(all);
+        setSelectedCellFilterIdentity(all);
         errorMessage.set(WarehouseUiErrorMapper.text(ex));
         reloadStockByCells();
     }
@@ -2645,18 +2741,28 @@ public final class WarehouseWorkspaceViewModel {
         if (requestId != stockLoadGeneration) {
             return;
         }
+        if (pageResult.content().isEmpty() && pageIndex.get() > 0) {
+            long total = pageResult.totalElements();
+            int maxPage = total <= 0 ? 0 : (int) ((total - 1) / PAGE_SIZE);
+            if (pageIndex.get() > maxPage) {
+                pageIndex.set(maxPage);
+                reloadStockByCells();
+                return;
+            }
+        }
         if (selectedTab.get() == WorkspaceTab.STOCK) {
             loading.set(false);
         }
         stockLoadedForCurrentFilter = true;
         totalElements.set(pageResult.totalElements());
         updatePaginationFlags();
+        List<StockSelectionKey> previouslySelected = captureSelectedStockKeys();
         List<StockRow> rows = new ArrayList<>();
         for (WarehouseStockCellLineView line : pageResult.content()) {
             rows.add(StockRow.from(line));
         }
         tableRows.setAll(rows);
-        clearStockSelection();
+        restoreStockSelection(previouslySelected);
         if (selectedTab.get() == WorkspaceTab.STOCK && pageResult.totalElements() == 0) {
             if (searchActive) {
                 statusMessage.set(EMPTY_SEARCH_MESSAGE);

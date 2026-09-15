@@ -2,6 +2,37 @@
 
 ## Latest result
 
+**Date:** 2026-09-15
+**Scope:** Stage 3.5.15 — Warehouse Final UX Corrective (after manual acceptance)
+**Overall:** PASS (targeted automated + quick build + package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO RESUME FROM Склад → Остатки; Full reactor NOT RUN; Flyway **V46**
+**Write-off changed:** NO
+
+### Stage 3.5.15 Final UX Corrective (2026-09-15)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `10e963be498e18939489ee0b558cdc72551651fb` | PASS |
+| `WarehouseOperationEngineTest` (+ actor attach) | PASS (5) |
+| `WarehouseMoveServiceTest` / `WarehouseAdjustmentServiceTest` | PASS (5 / 4) |
+| Warehouse move/transfer/history/inbox IT suite | PASS (141) |
+| `WarehouseWorkspaceViewModelTest` | PASS (64) |
+| `WarehouseSettingsViewModelTest` | PASS (8) |
+| `WarehouseWorkbenchViewModelTest` | PASS (24) |
+| `WarehouseWorkbenchControllerFxTest` | PASS (1) |
+| `DecimalQuantityParserTest` / `DecimalUiFormatTest` | PASS (3 / 5) |
+| `CompositionTransferDocumentOrderReferenceQueryTest` | PASS (1) |
+| `Stage6WarehouseArchitectureTest` | PASS (10 incl. order_management source guard) |
+| `Stage7ProductionArchitectureTest` | PASS (83) |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests` | PASS |
+| `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS → `dist/jpackage/TMP/TMP.exe` |
+| Packaged startup `localhost:55432/tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 46 / applied V46; `Started DesktopBootstrap`; JavaFX unnamed-module WARN only; exceptions NONE |
+| Fresh baseline → after startup deltas | WH/SP/qty/ops/movs/MR = 0; production = SECOND; Flyway 45→46 (schema only) |
+| Migration | V46 warehouse operation actor (`actor_user_id`, `actor_login` nullable) |
+| Full reactor | NOT RUN — last GREEN `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d` |
+| Manual acceptance | READY TO RESUME FROM Склад → Остатки (write-off OUT OF SCOPE this cycle) |
+
+### Prior — Stage 3.5.15 Stocks-centric UX (2026-09-14)
+
 **Date:** 2026-09-14
 **Scope:** Stage 3.5.15 — Stocks-centric UX corrective
 **Overall:** PASS (targeted automated + quick build + package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO RESUME FROM Склад → Остатки; Full reactor NOT RUN; Migration NONE / V45
@@ -37,7 +68,7 @@
 
 ### Deferred
 
-- History actor population for NEW operations (requires actor column / V46 — STOP per no-migration rule; display remains —)
+- Write-off dialog unification / reason catalog / production-only rules (explicitly out of Stage 3.5.15 corrective scope)
 - Broad Production English summary localization (not required for Stocks path)
 - Full root `mvn clean verify`
 

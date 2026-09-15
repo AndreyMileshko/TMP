@@ -1,5 +1,7 @@
 package com.tmp.warehouse.application;
 
+import com.tmp.warehouse.testsupport.UnauthenticatedAuthenticationService;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -102,7 +104,8 @@ class WarehouseConsumptionServiceIntegrationTest {
                         stockPositions,
                         movements,
                         new TransactionTemplate(new DataSourceTransactionManager(dataSource)),
-                        CLOCK);
+                        CLOCK,
+                        UnauthenticatedAuthenticationService.INSTANCE);
         consumption = new WarehouseConsumptionService(engine, stockPositions);
     }
 

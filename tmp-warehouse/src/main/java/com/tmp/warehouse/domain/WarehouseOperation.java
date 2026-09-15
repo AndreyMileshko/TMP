@@ -1,6 +1,8 @@
 package com.tmp.warehouse.domain;
 
 import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Warehouse operation — sole write path for stock changes (Specification §10).
@@ -20,6 +22,8 @@ public final class WarehouseOperation {
     private final StockState stockState;
     private final StockQuantity quantity;
     private final long version;
+    private final UUID actorUserId;
+    private final String actorLogin;
 
     private WarehouseOperation(
             WarehouseOperationId id,
@@ -30,7 +34,9 @@ public final class WarehouseOperation {
             StorageCellId storageCellId,
             StockState stockState,
             StockQuantity quantity,
-            long version) {
+            long version,
+            UUID actorUserId,
+            String actorLogin) {
         this.id = id;
         this.type = type;
         this.status = status;
@@ -40,6 +46,8 @@ public final class WarehouseOperation {
         this.stockState = stockState;
         this.quantity = quantity;
         this.version = version;
+        this.actorUserId = actorUserId;
+        this.actorLogin = actorLogin;
     }
 
     /**
@@ -94,6 +102,35 @@ public final class WarehouseOperation {
             StockState stockState,
             StockQuantity quantity,
             long version) {
+        return rehydrate(
+                id,
+                type,
+                status,
+                material,
+                warehouseId,
+                storageCellId,
+                stockState,
+                quantity,
+                version,
+                null,
+                null);
+    }
+
+    /**
+     * Rehydrates a persisted operation including optional actor audit fields.
+     */
+    public static WarehouseOperation rehydrate(
+            WarehouseOperationId id,
+            WarehouseOperationType type,
+            WarehouseOperationStatus status,
+            MaterialReference material,
+            WarehouseId warehouseId,
+            StorageCellId storageCellId,
+            StockState stockState,
+            StockQuantity quantity,
+            long version,
+            UUID actorUserId,
+            String actorLogin) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(status, "status");
@@ -114,7 +151,27 @@ public final class WarehouseOperation {
                 storageCellId,
                 stockState,
                 quantity,
-                version);
+                version,
+                actorUserId,
+                actorLogin);
+    }
+
+    /**
+     * Returns a copy with persisted actor identity for History audit.
+     */
+    public WarehouseOperation withActor(UUID actorUserId, String actorLogin) {
+        return new WarehouseOperation(
+                id,
+                type,
+                status,
+                material,
+                warehouseId,
+                storageCellId,
+                stockState,
+                quantity,
+                version,
+                actorUserId,
+                actorLogin);
     }
 
     /**
@@ -172,7 +229,9 @@ public final class WarehouseOperation {
                 storageCellId,
                 stockState,
                 quantity,
-                version);
+                version,
+                actorUserId,
+                actorLogin);
     }
 
     /**
@@ -189,7 +248,9 @@ public final class WarehouseOperation {
                 storageCellId,
                 stockState,
                 quantity,
-                version);
+                version,
+                actorUserId,
+                actorLogin);
     }
 
     private void requireMatchingPosition(StockPosition position) {
@@ -235,6 +296,14 @@ public final class WarehouseOperation {
 
     public long version() {
         return version;
+    }
+
+    public Optional<UUID> actorUserId() {
+        return Optional.ofNullable(actorUserId);
+    }
+
+    public Optional<String> actorLogin() {
+        return Optional.ofNullable(actorLogin);
     }
 
     @Override

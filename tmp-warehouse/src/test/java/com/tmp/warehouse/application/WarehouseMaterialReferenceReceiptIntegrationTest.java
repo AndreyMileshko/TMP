@@ -1,5 +1,7 @@
 package com.tmp.warehouse.application;
 
+import com.tmp.warehouse.testsupport.UnauthenticatedAuthenticationService;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -106,7 +108,8 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
                         stockPositions,
                         movements,
                         new TransactionTemplate(new DataSourceTransactionManager(dataSource)),
-                        CLOCK);
+                        CLOCK,
+                        UnauthenticatedAuthenticationService.INSTANCE);
         receipts = new WarehouseReceiptService(engine, stockPositions, materials);
         moves = new WarehouseMoveService(engine);
         JdbcWarehouseCatalogRepository catalog = new JdbcWarehouseCatalogRepository(jdbc, CLOCK);

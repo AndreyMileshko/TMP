@@ -204,7 +204,9 @@ public final class WarehousePersistenceModels {
             StockState stockState,
             long version,
             Instant createdAt,
-            Instant updatedAt) {
+            Instant updatedAt,
+            UUID actorUserId,
+            String actorLogin) {
 
         public WarehouseOperationRow {
             Objects.requireNonNull(id, "id");
@@ -233,7 +235,9 @@ public final class WarehousePersistenceModels {
                     operation.stockState(),
                     operation.version(),
                     createdAt,
-                    updatedAt);
+                    updatedAt,
+                    operation.actorUserId().orElse(null),
+                    operation.actorLogin().orElse(null));
         }
 
         public WarehouseOperation toDomain() {
@@ -246,7 +250,9 @@ public final class WarehousePersistenceModels {
                     storageCellId,
                     stockState,
                     quantity,
-                    version);
+                    version,
+                    actorUserId,
+                    actorLogin);
         }
     }
 }

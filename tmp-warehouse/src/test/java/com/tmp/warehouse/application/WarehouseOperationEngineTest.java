@@ -1,5 +1,7 @@
 package com.tmp.warehouse.application;
 
+import com.tmp.warehouse.testsupport.UnauthenticatedAuthenticationService;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -58,7 +60,8 @@ class WarehouseOperationEngineTest {
                         stockPositions,
                         movements,
                         new TransactionTemplate(new PassthroughTransactionManager()),
-                        CLOCK);
+                        CLOCK,
+                        UnauthenticatedAuthenticationService.INSTANCE);
     }
 
     @Test
@@ -67,6 +70,24 @@ class WarehouseOperationEngineTest {
         assertEquals(WarehouseOperationStatus.DRAFT, created.status());
         assertTrue(engine.canExecute(created.id()));
         assertEquals(created.id(), engine.findById(created.id()).orElseThrow().id());
+        assertTrue(created.actorUserId().isEmpty());
+        assertTrue(created.actorLogin().isEmpty());
+    }
+
+    @Test
+    void createAttachesActorFromCurrentSession() {
+        java.util.UUID userId = java.util.UUID.randomUUID();
+        engine =
+                new WarehouseOperationEngine(
+                        operations,
+                        stockPositions,
+                        movements,
+                        new TransactionTemplate(new PassthroughTransactionManager()),
+                        CLOCK,
+                        new FixedSessionAuthenticationService(userId, "admin"));
+        WarehouseOperation created = createSampleDraft();
+        assertEquals(Optional.of(userId), created.actorUserId());
+        assertEquals(Optional.of("admin"), created.actorLogin());
     }
 
     @Test
@@ -190,7 +211,9 @@ class WarehouseOperationEngineTest {
                             operation.storageCellId(),
                             operation.stockState(),
                             operation.quantity(),
-                            current.version() + 1);
+                            current.version() + 1,
+                            operation.actorUserId().orElse(null),
+                            operation.actorLogin().orElse(null));
             store.put(operation.id(), persisted);
             return persisted;
         }
@@ -303,6 +326,50 @@ class WarehouseOperationEngineTest {
             return all.stream()
                     .filter(m -> m.stockPositionId().equals(stockPositionId))
                     .toList();
+        }
+    }
+
+    private static final class FixedSessionAuthenticationService
+            implements com.tmp.security.api.AuthenticationService {
+        private final java.util.UUID userId;
+        private final String login;
+
+        FixedSessionAuthenticationService(java.util.UUID userId, String login) {
+            this.userId = userId;
+            this.login = login;
+        }
+
+        @Override
+        public com.tmp.security.api.SessionSummary login(
+                com.tmp.security.api.Login login, char[] password) {
+            throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
+        public com.tmp.security.api.SessionSummary completePasswordSetup(
+                com.tmp.security.api.Login login,
+                String activationCode,
+                char[] newPassword,
+                char[] confirmPassword) {
+            throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
+        public void logout() {}
+
+        @Override
+        public Optional<com.tmp.security.api.SessionSummary> currentSession() {
+            return Optional.of(
+                    new com.tmp.security.api.SessionSummary(
+                            com.tmp.security.api.SessionId.generate(),
+                            com.tmp.security.api.UserId.of(userId),
+                            com.tmp.security.api.Login.of(login),
+                            CLOCK.instant()));
+        }
+
+        @Override
+        public boolean isAuthenticated() {
+            return true;
         }
     }
 }

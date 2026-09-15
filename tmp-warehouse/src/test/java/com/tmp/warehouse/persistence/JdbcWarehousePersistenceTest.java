@@ -160,7 +160,9 @@ class JdbcWarehousePersistenceTest {
                                 StockState.AVAILABLE,
                                 0L,
                                 now,
-                                now));
+                                now,
+                                null,
+                                null));
         assertEquals(WarehouseOperationStatus.DRAFT, operation.status());
         assertEquals(
                 operationId,

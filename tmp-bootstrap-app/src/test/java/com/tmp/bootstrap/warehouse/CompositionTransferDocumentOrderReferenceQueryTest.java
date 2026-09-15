@@ -1,4 +1,4 @@
-package com.tmp.warehouse.persistence;
+package com.tmp.bootstrap.warehouse;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -9,15 +9,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
-class JdbcTransferDocumentOrderReferenceQueryTest {
+class CompositionTransferDocumentOrderReferenceQueryTest {
 
     @Test
     void emptyInputReturnsEmptyMapWithoutQuerying() {
-        // DataSource is never used for empty input.
         DriverManagerDataSource unused = new DriverManagerDataSource();
         unused.setUrl("jdbc:postgresql://localhost:1/unused");
-        JdbcTransferDocumentOrderReferenceQuery query =
-                new JdbcTransferDocumentOrderReferenceQuery(new JdbcTemplate(unused));
+        CompositionTransferDocumentOrderReferenceQuery query =
+                new CompositionTransferDocumentOrderReferenceQuery(new JdbcTemplate(unused));
         Map<UUID, String> result = query.findOrderNumbersByDocumentIds(List.of());
         assertTrue(result.isEmpty());
     }

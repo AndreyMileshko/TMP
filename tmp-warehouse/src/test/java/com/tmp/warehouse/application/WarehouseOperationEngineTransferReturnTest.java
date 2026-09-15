@@ -1,5 +1,7 @@
 package com.tmp.warehouse.application;
 
+import com.tmp.warehouse.testsupport.UnauthenticatedAuthenticationService;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -64,7 +66,8 @@ class WarehouseOperationEngineTransferReturnTest {
                         stockPositions,
                         movements,
                         new TransactionTemplate(new PassthroughTransactionManager()),
-                        CLOCK);
+                        CLOCK,
+                        UnauthenticatedAuthenticationService.INSTANCE);
         material = MaterialReference.legacyArticle("RET-MAT");
         warehouseId = WarehouseId.generate();
         cellA1 = StorageCellId.generate();
@@ -191,7 +194,9 @@ class WarehouseOperationEngineTransferReturnTest {
                             operation.storageCellId(),
                             operation.stockState(),
                             operation.quantity(),
-                            current.version() + 1);
+                            current.version() + 1,
+                            operation.actorUserId().orElse(null),
+                            operation.actorLogin().orElse(null));
             store.put(operation.id(), persisted);
             return persisted;
         }

@@ -3,12 +3,12 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Stocks-centric UX COMPLETE; Warehouse-managed production destination COMPLETE; Manual acceptance READY TO RESUME FROM Склад → Остатки)
-**Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS; Stocks-centric UX COMPLETE)
-**Last completed task:** Stage 3.5.15 Stocks-centric UX (tmp-ui-shell operational Stocks workspace; 2026-09-14); prior: Warehouse-managed production destination
+**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Final UX Corrective COMPLETE (table Move dialog, Stocks refresh/selectors, History actor V46, order-boundary composition); Manual acceptance READY TO RESUME FROM Склад → Остатки; Write-off deferred)
+**Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS; Final UX Corrective COMPLETE)
+**Last completed task:** Stage 3.5.15 Final UX Corrective after manual acceptance (2026-09-15); prior: Stocks-centric UX
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
-**Active blockers:** none. Stocks are the operational workspace (Move/Write-off/Adjustment from selected rows). Manual interactive Warehouse acceptance **READY TO RESUME** from Склад → Остатки (also Settings production assignment if still unset).
+**Active blockers:** none. Stocks are the operational workspace (Move/Write-off/Adjustment from selected rows). Manual interactive Warehouse acceptance **READY TO RESUME** from Склад → Остатки (write-off out of this cycle; Settings production assignment if still unset).
 **Stage 6 Warehouse:** DONE
 **Stage 7 Production:** DONE / 100%
 **Stage 7 Start Gate:** PASSED
@@ -20,11 +20,12 @@
 **Full verify baseline:** GREEN — `FULL REGRESSION AFTER STAGE 3.5.10 = PASS` (2026-09-10) at `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d`; Stage 3.5.11–3.5.15 corrective did **not** re-run full reactor
 **First READY implementation task:** none (3.5.15 acceptance in progress)
 **Warehouse Operational Task Actions UI:** COMPLETE (take/takeover, preparation send, receive, reject, return)
-**Warehouse History:** COMPLETE (read-only; physical movements; multi-cell aggregation corrective PASS)
+**Warehouse History:** COMPLETE (read-only; physical movements; multi-cell aggregation corrective PASS; **actor audit V46**)
 **Warehouse Settings:** COMPLETE (Склады / Ячейки / Ответственные; secondary admin entry; **«Склад производства»** checkbox — form-only until Сохранить)
 **Warehouse UI Polish:** COMPLETE (Workspace consistency; empty states; button hierarchy; Settings cancel/back; secondary legacy Operations nav)
 **Warehouse Stocks UX corrective:** COMPLETE (cell-centric flat table; expandable rows removed; statistics absent)
 **Warehouse Stocks-centric UX:** COMPLETE (operations from Остатки; legacy Move/Transfer/Consumption/Adjustment screens removed)
+**Warehouse Final UX Corrective:** COMPLETE (mass Move table dialog; Adjustment table visual; Stocks ALL selectors + auto-refresh; task qty format; History actor; order-number composition boundary; Flyway V46)
 **Production acceptance-state corrective:** COMPLETE (false «Заказ не найден» after Accept / IN_PRODUCTION open)
 **Production destination assignment:** COMPLETE (Warehouse `is_production` / Flyway V45; config UUID removed as source of truth)
 ```text
@@ -123,9 +124,9 @@ Stage 3.5.11 Modern Остатки = COMPLETE (+ Tasks inbox corrective; + Opera
 Stage 3.5.12 История = COMPLETE (+ multi-cell History aggregation corrective)
 Stage 3.5.13 Warehouse Settings = COMPLETE
 Stage 3.5.14 Warehouse UI Polish = COMPLETE
-Stage 3.5.15 = IN PROGRESS (Stocks-centric UX COMPLETE; Production acceptance-state corrective COMPLETE; Warehouse-managed production destination COMPLETE; Manual acceptance READY TO RESUME FROM Склад → Остатки)
+Stage 3.5.15 = IN PROGRESS (Final UX Corrective COMPLETE incl. V46 actor + order composition boundary; Write-off deferred; Manual acceptance READY TO RESUME FROM Склад → Остатки)
 First READY implementation task = none (acceptance in progress)
-Manual Warehouse acceptance = READY TO RESUME (Склад → Остатки; Settings production assignment if still unset)
+Manual Warehouse acceptance = READY TO RESUME (Склад → Остатки; write-off OUT OF SCOPE this cycle)
 ```
 
 ---
@@ -142,7 +143,7 @@ Manual Warehouse acceptance = READY TO RESUME (Склад → Остатки; Se
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
 | 7 | Production | DONE | 100% |
-| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0–3.5.14 COMPLETE; 3.5.15 IN PROGRESS (Stocks-centric UX COMPLETE; Warehouse-managed production destination COMPLETE; manual acceptance resume from Склад → Остатки) |
+| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0–3.5.14 COMPLETE; 3.5.15 IN PROGRESS (Final UX Corrective COMPLETE / V46; write-off deferred; manual acceptance resume from Склад → Остатки) |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 

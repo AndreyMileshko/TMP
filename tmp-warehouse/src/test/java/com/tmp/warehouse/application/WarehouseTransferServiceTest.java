@@ -1,5 +1,7 @@
 package com.tmp.warehouse.application;
 
+import com.tmp.warehouse.testsupport.UnauthenticatedAuthenticationService;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -68,7 +70,8 @@ class WarehouseTransferServiceTest {
                         stockPositions,
                         movements,
                         new TransactionTemplate(new PassthroughTransactionManager()),
-                        CLOCK);
+                        CLOCK,
+                        UnauthenticatedAuthenticationService.INSTANCE);
         transfers =
                 new WarehouseTransferService(
                         engine,
@@ -626,7 +629,9 @@ class WarehouseTransferServiceTest {
                             operation.storageCellId(),
                             operation.stockState(),
                             operation.quantity(),
-                            current.version() + 1);
+                            current.version() + 1,
+                            operation.actorUserId().orElse(null),
+                            operation.actorLogin().orElse(null));
             store.put(operation.id(), persisted);
             return persisted;
         }

@@ -4,6 +4,44 @@
 
 ---
 
+## Stage 3.5.15 — Warehouse Final UX Corrective (after manual acceptance) — 2026-09-15
+
+**Date:** 2026-09-15
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — UX + audit corrective)
+**Base checkpoint:** `10e963be498e18939489ee0b558cdc72551651fb`
+**Status:** Automated targeted PASS + package/startup PASS; Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO RESUME FROM Склад → Остатки; Full reactor NOT YET RUN
+**Commit:** none
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
+**Write-off changed:** NO (explicitly deferred)
+
+### Operation dialog table UX
+
+- Move: mass-operation `TableView` dialog (`WarehouseMoveDialogSupport`) — same dialog for 1/N; Color/Size/Unit/source cell columns; totals by unit (never cross-UoM); quantity editors; Отмена | Всё доступное | Переместить/Отправить; destination cell only for same-warehouse.
+- Adjustment: single-row table visual aligned to operation style; domain delta contract unchanged.
+- Write-off: left as previous small dialog (out of scope).
+
+### Stocks refresh / selectors
+
+- «Все мои склады» / «Все ячейки» rebound to exact ComboBox list instances + converters (never blank for ALL).
+- Stable TableView/columns; invalidate stock after Send/Receive/Reject/Return; reload when returning to Остатки; preserve filters/selection; clamp invalid page.
+
+### History actor / audit
+
+- Flyway **V46** `actor_user_id` + `actor_login` nullable on `warehouse_operations`.
+- `WarehouseOperationEngine` snapshots current session login/id at create; History maps login as display name; historical NULL → «—».
+
+### Order number architecture
+
+- Removed Warehouse JDBC join to `order_management.orders`.
+- Port moved to `com.tmp.warehouse.api.TransferDocumentOrderReferenceQuery`; composition JDBC in `tmp-bootstrap-app` (`CompositionTransferDocumentOrderReferenceQuery`).
+- Stage6 architecture source guard forbids `order_management.orders` in Warehouse main sources.
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Final UX Corrective entry (2026-09-15).
+
+---
+
 ## Stage 3.5.15 — Stocks-centric UX corrective — 2026-09-14
 
 **Date:** 2026-09-14

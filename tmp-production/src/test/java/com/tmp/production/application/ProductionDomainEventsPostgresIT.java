@@ -208,8 +208,7 @@ class ProductionDomainEventsPostgresIT {
         var movements = new JdbcWarehouseMovementRepository(jdbc);
         var warehouseTx = new TransactionTemplate(txManager);
         WarehouseOperationEngine engine =
-                new WarehouseOperationEngine(
-                        operations, stockPositions, movements, warehouseTx, CLOCK);
+                new WarehouseOperationEngine(operations, stockPositions, movements, warehouseTx, CLOCK, WarehouseTestDoubles.unauthenticated());
         warehouseApi =
                 new DefaultWarehouseApi(
                         authorizationAllowAll(),

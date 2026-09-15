@@ -85,7 +85,8 @@ class WarehouseSecurityAuthorizationTest {
                         stockPositions,
                         movements,
                         new TransactionTemplate(new PassthroughTransactionManager()),
-                        CLOCK);
+                        CLOCK,
+                        UnauthenticatedAuthenticationService.INSTANCE);
         reservationLinks =
                 new WarehouseReservationLinkService(new InMemoryReservationLinkRepository(), CLOCK);
         receipts = new WarehouseReceiptService(engine, stockPositions, materials);
@@ -646,7 +647,9 @@ class WarehouseSecurityAuthorizationTest {
                             operation.storageCellId(),
                             operation.stockState(),
                             operation.quantity(),
-                            current.version() + 1);
+                            current.version() + 1,
+                            operation.actorUserId().orElse(null),
+                            operation.actorLogin().orElse(null));
             store.put(operation.id(), persisted);
             return persisted;
         }

@@ -213,8 +213,9 @@ public final class JdbcWarehouseStockRepository {
                 """
                 INSERT INTO warehouse.warehouse_operations (
                     id, operation_type, status, warehouse_id, storage_cell_id, material_reference_id,
-                    quantity, stock_state, version, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    quantity, stock_state, version, created_at, updated_at,
+                    actor_user_id, actor_login)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 row.id().value(),
                 row.operationType().name(),
@@ -226,7 +227,9 @@ public final class JdbcWarehouseStockRepository {
                 row.stockState().name(),
                 row.version(),
                 Timestamp.from(row.createdAt()),
-                Timestamp.from(row.updatedAt()));
+                Timestamp.from(row.updatedAt()),
+                row.actorUserId(),
+                row.actorLogin());
         return row;
     }
 
@@ -280,6 +283,7 @@ public final class JdbcWarehouseStockRepository {
         return """
                 SELECT wo.id, wo.operation_type, wo.status, wo.warehouse_id, wo.storage_cell_id,
                        wo.quantity, wo.stock_state, wo.version, wo.created_at, wo.updated_at,
+                       wo.actor_user_id, wo.actor_login,
                        mr.id AS material_id, mr.article, mr.name, mr.color, mr.size,
                        mr.unit_of_measure
                 FROM warehouse.warehouse_operations wo
@@ -326,6 +330,8 @@ public final class JdbcWarehouseStockRepository {
                 StockState.valueOf(rs.getString("stock_state")),
                 rs.getLong("version"),
                 rs.getTimestamp("created_at").toInstant(),
-                rs.getTimestamp("updated_at").toInstant());
+                rs.getTimestamp("updated_at").toInstant(),
+                rs.getObject("actor_user_id", UUID.class),
+                rs.getString("actor_login"));
     }
 }

@@ -11929,12 +11929,41 @@ See VERIFICATION-LOG Stage 3.5.14 entry (2026-09-11).
 ### Next on success
 
 Stage 3.5.15 — Final Warehouse Acceptance = IN PROGRESS
+Final UX Corrective = COMPLETE (table Move dialog; Adjustment visual; Stocks ALL + auto-refresh; task qty formatRu; History actor V46; order-number composition; Write-off deferred)
 Stocks UX corrective = COMPLETE
 Stocks-centric UX = COMPLETE (operations from Остатки; legacy 4 screens removed)
 Production acceptance-state corrective = COMPLETE
 Warehouse-managed production destination = COMPLETE (Flyway V45)
 Manual acceptance = READY TO RESUME FROM Склад → Остатки
-  (also Настройки склада → «Склад производства» if still unset)
+  (write-off OUT OF SCOPE this acceptance cycle)
+
+---
+## STAGE-3.5.15 — Final UX Corrective after manual acceptance
+
+**Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.15 Stocks-centric UX
+**Module:** `tmp-ui-shell` + `tmp-warehouse` (V46 actor) + `tmp-bootstrap-app` (order composition) + architecture tests
+**Migration:** Flyway V46 (`actor_user_id`, `actor_login` nullable)
+
+**Goal:** Corrective after manual acceptance — mass Move table dialog, Stocks selector/refresh defects, History actor audit, order-number module boundary; write-off explicitly deferred.
+
+**Acceptance criteria:**
+- [x] Move mass-operation TableView dialog (1/N same); Color/Size/Unit; totals by unit; 0,5/0.5 qty; Всё доступное
+- [x] Adjustment dialog visual table style; delta semantics unchanged
+- [x] Write-off NOT reworked
+- [x] Stocks «Все мои склады» / «Все ячейки» never blank for ALL
+- [x] Stable Stocks refresh; auto-refresh after Receive/ops; filters preserved
+- [x] Task quantity display/editor via DecimalUiFormat.formatRu
+- [x] History actor for new ops = session login; historical NULL → —
+- [x] Order number via composition (no Warehouse → order_management.orders)
+- [x] Targeted tests + architecture + package + startup PASS; no full reactor; no commit
+
+See VERIFICATION-LOG Stage 3.5.15 Final UX Corrective entry (2026-09-15).
+
+### Next on success
+
+Manual acceptance from Склад → Остатки (write-off out of scope).
 
 ---
 ## STAGE-3.5.15 — Stocks-centric UX corrective

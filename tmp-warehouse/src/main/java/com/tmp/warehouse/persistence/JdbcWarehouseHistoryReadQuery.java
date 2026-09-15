@@ -273,7 +273,9 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                          COALESCE(
                            send_alloc.document_id, recv_item.document_id, ret_item.document_id
                          )::text
-                       ))::uuid AS document_id
+                       ))::uuid AS document_id,
+                       (MIN(wo.actor_user_id::text))::uuid AS actor_user_id,
+                       MIN(wo.actor_login) AS actor_login
                 """;
     }
 
@@ -478,6 +480,8 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                 rs.getString("destination_warehouse_name"),
                 (UUID) rs.getObject("destination_cell_id"),
                 rs.getString("destination_cell_code"),
-                (UUID) rs.getObject("document_id"));
+                (UUID) rs.getObject("document_id"),
+                (UUID) rs.getObject("actor_user_id"),
+                rs.getString("actor_login"));
     }
 }

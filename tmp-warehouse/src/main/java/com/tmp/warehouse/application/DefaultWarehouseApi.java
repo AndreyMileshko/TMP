@@ -1616,8 +1616,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 row.destinationCellCode(),
                 row.documentId(),
                 documentNumber,
-                null,
-                null);
+                row.actorUserId(),
+                row.actorLogin());
     }
 
     private static String historyOperationDisplayName(String operationType) {

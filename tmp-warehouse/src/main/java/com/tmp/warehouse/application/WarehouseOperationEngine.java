@@ -1,5 +1,6 @@
 package com.tmp.warehouse.application;
 
+import com.tmp.security.api.AuthenticationService;
 import com.tmp.warehouse.domain.InvalidWarehouseStateException;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.StockPosition;
@@ -42,19 +43,23 @@ public final class WarehouseOperationEngine {
     private final WarehouseMovementRepository movements;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
+    private final AuthenticationService authenticationService;
 
     public WarehouseOperationEngine(
             WarehouseOperationRepository operations,
             StockPositionRepository stockPositions,
             WarehouseMovementRepository movements,
             TransactionTemplate transactionTemplate,
-            Clock clock) {
+            Clock clock,
+            AuthenticationService authenticationService) {
         this.operations = Objects.requireNonNull(operations, "operations");
         this.stockPositions = Objects.requireNonNull(stockPositions, "stockPositions");
         this.movements = Objects.requireNonNull(movements, "movements");
         this.transactionTemplate =
                 Objects.requireNonNull(transactionTemplate, "transactionTemplate");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.authenticationService =
+                Objects.requireNonNull(authenticationService, "authenticationService");
     }
 
     /**
@@ -74,14 +79,15 @@ public final class WarehouseOperationEngine {
         Objects.requireNonNull(stockState, "stockState");
         Objects.requireNonNull(quantity, "quantity");
         WarehouseOperation draft =
-                WarehouseOperation.draft(
-                        WarehouseOperationId.generate(),
-                        type,
-                        material,
-                        warehouseId,
-                        storageCellId,
-                        stockState,
-                        quantity);
+                attachActor(
+                        WarehouseOperation.draft(
+                                WarehouseOperationId.generate(),
+                                type,
+                                material,
+                                warehouseId,
+                                storageCellId,
+                                stockState,
+                                quantity));
         return operations.create(draft);
     }
 
@@ -177,14 +183,15 @@ public final class WarehouseOperationEngine {
 
                                 WarehouseOperation draft =
                                         operations.create(
-                                                WarehouseOperation.draft(
-                                                        operationId,
-                                                        WarehouseOperationType.TRANSFER_SEND,
-                                                        material,
-                                                        sourceWarehouseId,
-                                                        sourceCellId,
-                                                        StockState.IN_TRANSIT,
-                                                        quantity));
+                                                attachActor(
+                                                        WarehouseOperation.draft(
+                                                                operationId,
+                                                                WarehouseOperationType.TRANSFER_SEND,
+                                                                material,
+                                                                sourceWarehouseId,
+                                                                sourceCellId,
+                                                                StockState.IN_TRANSIT,
+                                                                quantity)));
 
                                 applyQuantityDelta(
                                         available,
@@ -258,14 +265,15 @@ public final class WarehouseOperationEngine {
 
                                 WarehouseOperation draft =
                                         operations.create(
-                                                WarehouseOperation.draft(
-                                                        operationId,
-                                                        WarehouseOperationType.TRANSFER_RECEIVE,
-                                                        material,
-                                                        destinationWarehouseId,
-                                                        destinationCellId,
-                                                        StockState.AVAILABLE,
-                                                        quantity));
+                                                attachActor(
+                                                        WarehouseOperation.draft(
+                                                                operationId,
+                                                                WarehouseOperationType.TRANSFER_RECEIVE,
+                                                                material,
+                                                                destinationWarehouseId,
+                                                                destinationCellId,
+                                                                StockState.AVAILABLE,
+                                                                quantity)));
 
                                 applyQuantityDelta(
                                         inTransit,
@@ -334,14 +342,15 @@ public final class WarehouseOperationEngine {
 
                                 WarehouseOperation draft =
                                         operations.create(
-                                                WarehouseOperation.draft(
-                                                        operationId,
-                                                        WarehouseOperationType.TRANSFER_RETURN,
-                                                        material,
-                                                        warehouseId,
-                                                        returnStorageCellId,
-                                                        StockState.AVAILABLE,
-                                                        quantity));
+                                                attachActor(
+                                                        WarehouseOperation.draft(
+                                                                operationId,
+                                                                WarehouseOperationType.TRANSFER_RETURN,
+                                                                material,
+                                                                warehouseId,
+                                                                returnStorageCellId,
+                                                                StockState.AVAILABLE,
+                                                                quantity)));
 
                                 applyQuantityDelta(
                                         inTransit,
@@ -403,14 +412,15 @@ public final class WarehouseOperationEngine {
 
                                 WarehouseOperation draft =
                                         operations.create(
-                                                WarehouseOperation.draft(
-                                                        operationId,
-                                                        WarehouseOperationType.MOVE,
-                                                        material,
-                                                        warehouseId,
-                                                        sourceCellId,
-                                                        StockState.AVAILABLE,
-                                                        quantity));
+                                                attachActor(
+                                                        WarehouseOperation.draft(
+                                                                operationId,
+                                                                WarehouseOperationType.MOVE,
+                                                                material,
+                                                                warehouseId,
+                                                                sourceCellId,
+                                                                StockState.AVAILABLE,
+                                                                quantity)));
 
                                 applyMoveLegs(draft, source, destinationCellId, quantity);
                                 return operations.update(draft.complete());
@@ -595,6 +605,16 @@ public final class WarehouseOperationEngine {
                         operationType,
                         delta,
                         clock.instant()));
+    }
+
+    private WarehouseOperation attachActor(WarehouseOperation operation) {
+        return authenticationService
+                .currentSession()
+                .map(
+                        session ->
+                                operation.withActor(
+                                        session.userId().value(), session.login().value()))
+                .orElse(operation);
     }
 
     private StockPosition requireAvailableStock(
