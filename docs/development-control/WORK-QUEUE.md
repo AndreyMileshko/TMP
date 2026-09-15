@@ -11930,6 +11930,7 @@ See VERIFICATION-LOG Stage 3.5.14 entry (2026-09-11).
 
 Stage 3.5.15 — Final Warehouse Acceptance = IN PROGRESS
 Final UX Corrective = COMPLETE (table Move dialog; Adjustment visual; Stocks ALL + auto-refresh; task qty formatRu; History actor V46; order-number composition; Write-off deferred)
+Move dialog runtime wiring = COMPLETE (`WarehouseMoveDialogSupport.createMoveDialog`; toolbar+context → openMoveDialog; packaging stale-jar root cause)
 Stocks UX corrective = COMPLETE
 Stocks-centric UX = COMPLETE (operations from Остатки; legacy 4 screens removed)
 Production acceptance-state corrective = COMPLETE

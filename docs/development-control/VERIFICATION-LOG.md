@@ -3,6 +3,38 @@
 ## Latest result
 
 **Date:** 2026-09-15
+**Scope:** Stage 3.5.15 — Move dialog runtime wiring (stale package corrective)
+**Overall:** PASS (targeted + clean install + fresh package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO VERIFY new TableView Move dialog; Full reactor NOT RUN
+**Write-off changed:** NO
+
+### Manual FAIL root cause
+
+Packaged `BOOT-INF/lib/tmp-ui-shell-0.1.0-SNAPSHOT.jar` inside previous `dist` was **stale (11:11)** while source/local classes had the new dialog (11:25). `WarehouseMoveDialogSupport.class` was **absent** from that jar — runtime kept opening the legacy HBox Move dialog. Source wiring was already correct (toolbar/context → `openMoveDialog`).
+
+### Stage 3.5.15 Move dialog runtime wiring (2026-09-15)
+
+| Check | Result |
+|-------|--------|
+| Root cause | Stale packaged ui-shell jar (not dual wiring) |
+| `WarehouseMoveDialogSupport.createMoveDialog` production API | PASS — controller delegates |
+| Toolbar + context menu → same `openMoveDialog()` | PASS (wiring test) |
+| `WarehouseMoveDialogSupportTest` | PASS (3) |
+| `WarehouseWorkspaceMoveDialogWiringTest` | PASS (3) |
+| `WarehouseWorkspaceViewModelTest` | PASS (64) |
+| `WarehouseWorkbenchControllerFxTest` | PASS (1) |
+| `DecimalQuantityParserTest` / `DecimalUiFormatTest` | PASS (3 / 5) |
+| `Stage6WarehouseArchitectureTest` | PASS (10) |
+| Targeted ui-shell suite | PASS — **79** |
+| `mvn -pl :tmp-ui-shell,:tmp-bootstrap-app -am clean install -DskipTests` | PASS |
+| Fresh package `pre-integration-test -Ppackage` | PASS → `dist/jpackage/TMP/TMP.exe` **12:45:13** |
+| Packaged ui-shell jar proof | contains `WarehouseMoveDialogSupport-table-v1` + `createMoveDialog`; single `BOOT-INF/lib/tmp-ui-shell-*.jar` |
+| Startup | PASS — PostgreSQL; Flyway V46; Spring; JavaFX WARN only; exceptions NONE; business deltas 0; production SECOND |
+| Full reactor | NOT RUN |
+| Manual acceptance | READY TO VERIFY: Склад → Остатки → Переместить → NEW TABLEVIEW DIALOG |
+
+### Prior — Stage 3.5.15 Final UX Corrective (2026-09-15)
+
+**Date:** 2026-09-15
 **Scope:** Stage 3.5.15 — Warehouse Final UX Corrective (after manual acceptance)
 **Overall:** PASS (targeted automated + quick build + package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO RESUME FROM Склад → Остатки; Full reactor NOT RUN; Flyway **V46**
 **Write-off changed:** NO

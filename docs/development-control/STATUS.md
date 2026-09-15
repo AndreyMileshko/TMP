@@ -3,9 +3,9 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Final UX Corrective COMPLETE (table Move dialog, Stocks refresh/selectors, History actor V46, order-boundary composition); Manual acceptance READY TO RESUME FROM Склад → Остатки; Write-off deferred)
-**Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS; Final UX Corrective COMPLETE)
-**Last completed task:** Stage 3.5.15 Final UX Corrective after manual acceptance (2026-09-15); prior: Stocks-centric UX
+**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Final UX Corrective COMPLETE; Move dialog runtime wiring COMPLETE (`WarehouseMoveDialogSupport.createMoveDialog`); Manual acceptance READY TO RESUME FROM Склад → Остатки; Write-off deferred)
+**Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS; Move dialog runtime wiring COMPLETE)
+**Last completed task:** Stage 3.5.15 Move dialog runtime wiring (2026-09-15); prior: Final UX Corrective after manual acceptance
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
 **Active blockers:** none. Stocks are the operational workspace (Move/Write-off/Adjustment from selected rows). Manual interactive Warehouse acceptance **READY TO RESUME** from Склад → Остатки (write-off out of this cycle; Settings production assignment if still unset).

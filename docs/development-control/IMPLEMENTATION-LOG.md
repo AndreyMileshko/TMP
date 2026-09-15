@@ -4,6 +4,27 @@
 
 ---
 
+## Stage 3.5.15 — Move dialog runtime wiring (WarehouseMoveDialogSupport) — 2026-09-15
+
+**Date:** 2026-09-15
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — Move dialog packaging/runtime corrective)
+**Status:** Targeted ui-shell tests PASS; Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO RESUME FROM Склад → Остатки; no commit
+**Root cause:** packaged `tmp-ui-shell` jar was stale — `WarehouseMoveDialogSupport` absent from dist while local classes had TableView Move dialog.
+**Write-off / domain / actor / order boundary:** unchanged
+
+### Implementation
+
+- Production Move UI construction moved into `WarehouseMoveDialogSupport.createMoveDialog(...)` (`MoveDialogSession` + `MoveSubmission`); DEBUG log `Opening WarehouseMoveDialogSupport` + `IMPLEMENTATION_ID`.
+- `WarehouseWorkspaceController.openMoveDialog()` thin: selection → Support → `showAndWait` → `executeSameWarehouseMove` / `executeInterWarehouseMove`.
+- Toolbar + context menu both still call the same `openMoveDialog()`; consume write-off keeps `Кол-во:` HBox path.
+- Tests: `WarehouseMoveDialogSupportTest` (FX columns/header/buttons), `WarehouseWorkspaceMoveDialogWiringTest` (source/wiring + Кол-во regression).
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Move dialog runtime wiring entry (2026-09-15).
+
+---
+
 ## Stage 3.5.15 — Warehouse Final UX Corrective (after manual acceptance) — 2026-09-15
 
 **Date:** 2026-09-15

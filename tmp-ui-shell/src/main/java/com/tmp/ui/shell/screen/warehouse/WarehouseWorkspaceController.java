@@ -44,7 +44,6 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.MouseButton;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -774,236 +773,25 @@ public final class WarehouseWorkspaceController
             return;
         }
         UUID sourceWarehouseId = selected.get(0).warehouseId();
-        Dialog<ButtonType> dialog = new Dialog<>();
-        dialog.setTitle("Перемещение материалов");
-        dialog.setHeaderText("Выбрано позиций: " + selected.size());
-        dialog.setResizable(true);
-        ButtonType submitType = new ButtonType("Переместить", ButtonBar.ButtonData.OK_DONE);
-        ButtonType fillAvailableType =
-                new ButtonType("Всё доступное", ButtonBar.ButtonData.LEFT);
-        ButtonType cancelType = new ButtonType("Отмена", ButtonBar.ButtonData.CANCEL_CLOSE);
-        dialog.getDialogPane().getButtonTypes().addAll(cancelType, fillAvailableType, submitType);
-        dialog.getDialogPane().getStyleClass().add("tmp-dialog");
-        dialog.getDialogPane().setPrefWidth(920);
-
-        Label sourceLabel =
-                new Label("Откуда: " + warehouseLabel(sourceWarehouseId));
-        Label totalsLabel =
-                new Label(
-                        "Итого: "
-                                + WarehouseMoveDialogSupport.formatQuantityTotalsByUnit(selected));
-        ComboBox<WarehouseChoice> destinationWarehouse = new ComboBox<>();
-        destinationWarehouse.getItems().setAll(viewModel.listAccessibleWarehouseChoices());
-        destinationWarehouse.setMaxWidth(Double.MAX_VALUE);
-        ComboBox<StorageCellChoice> destinationCell = new ComboBox<>();
-        destinationCell.setMaxWidth(Double.MAX_VALUE);
-        Label destWarehouseCaption = new Label("Склад назначения:");
-        Label destCellCaption = new Label("Ячейка назначения:");
-
-        TableView<MoveDialogRow> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        table.setPrefHeight(280);
-        List<MoveDialogRow> moveRows = new ArrayList<>();
-        for (StockRow row : selected) {
-            moveRows.add(new MoveDialogRow(row));
-        }
-        table.getItems().setAll(moveRows);
-
-        TableColumn<MoveDialogRow, String> articleCol = new TableColumn<>("Артикул");
-        articleCol.setCellValueFactory(
-                cell ->
-                        new SimpleStringProperty(
-                                WarehouseMoveDialogSupport.displayOrDash(
-                                        cell.getValue().stockRow().article())));
-        TableColumn<MoveDialogRow, String> nameCol = new TableColumn<>("Наименование");
-        nameCol.setCellValueFactory(
-                cell ->
-                        new SimpleStringProperty(
-                                WarehouseMoveDialogSupport.displayOrDash(
-                                        cell.getValue().stockRow().name())));
-        TableColumn<MoveDialogRow, String> colorCol = new TableColumn<>("Цвет");
-        colorCol.setCellValueFactory(
-                cell ->
-                        new SimpleStringProperty(
-                                WarehouseMoveDialogSupport.displayOrDash(
-                                        cell.getValue().stockRow().color())));
-        TableColumn<MoveDialogRow, String> sizeCol = new TableColumn<>("Размер");
-        sizeCol.setCellValueFactory(
-                cell ->
-                        new SimpleStringProperty(
-                                WarehouseMoveDialogSupport.displayOrDash(
-                                        cell.getValue().stockRow().size())));
-        TableColumn<MoveDialogRow, String> fromCol = new TableColumn<>("Откуда");
-        fromCol.setCellValueFactory(
-                cell ->
-                        new SimpleStringProperty(
-                                WarehouseMoveDialogSupport.displayOrDash(
-                                        cell.getValue().stockRow().cellCode())));
-        TableColumn<MoveDialogRow, String> availableCol = new TableColumn<>("Доступно");
-        availableCol.setCellValueFactory(
-                cell ->
-                        new SimpleStringProperty(
-                                DecimalUiFormat.formatRu(
-                                        cell.getValue().stockRow().availableQuantity())));
-        TableColumn<MoveDialogRow, String> qtyCol = new TableColumn<>("Переместить");
-        qtyCol.setCellValueFactory(cell -> cell.getValue().quantityTextProperty());
-        qtyCol.setCellFactory(
-                column ->
-                        new TableCell<>() {
-                            private final TextField field = new TextField();
-
-                            {
-                                field.textProperty()
-                                        .addListener(
-                                                (obs, o, n) -> {
-                                                    MoveDialogRow row =
-                                                            getTableRow() == null
-                                                                    ? null
-                                                                    : getTableRow().getItem();
-                                                    if (row != null
-                                                            && !java.util.Objects.equals(
-                                                                    row.quantityTextProperty()
-                                                                            .get(),
-                                                                    n)) {
-                                                        row.quantityTextProperty().set(n);
-                                                    }
-                                                });
-                            }
-
-                            @Override
-                            protected void updateItem(String item, boolean empty) {
-                                super.updateItem(item, empty);
-                                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
-                                    setGraphic(null);
-                                    return;
-                                }
-                                MoveDialogRow row = getTableRow().getItem();
-                                if (!java.util.Objects.equals(field.getText(), row.quantityTextProperty().get())) {
-                                    field.setText(row.quantityTextProperty().get());
-                                }
-                                setGraphic(field);
-                            }
-                        });
-        TableColumn<MoveDialogRow, String> unitCol = new TableColumn<>("Ед.");
-        unitCol.setCellValueFactory(
-                cell ->
-                        new SimpleStringProperty(
-                                WarehouseMoveDialogSupport.displayOrDash(
-                                        cell.getValue().stockRow().unitOfMeasure())));
-        table.getColumns()
-                .setAll(
-                        articleCol,
-                        nameCol,
-                        colorCol,
-                        sizeCol,
-                        fromCol,
-                        availableCol,
-                        qtyCol,
-                        unitCol);
-
-        Runnable updateDestinationCellVisibility =
-                () -> {
-                    WarehouseChoice dest = destinationWarehouse.getValue();
-                    boolean same =
-                            dest != null && sourceWarehouseId.equals(dest.id());
-                    destCellCaption.setVisible(same);
-                    destCellCaption.setManaged(same);
-                    destinationCell.setVisible(same);
-                    destinationCell.setManaged(same);
-                    destinationCell.setDisable(!same);
-                    destinationCell.getItems().clear();
-                    if (same) {
-                        destinationCell
-                                .getItems()
-                                .setAll(viewModel.listDestinationCells(dest.id()));
-                    }
-                    Button submitButton =
-                            (Button) dialog.getDialogPane().lookupButton(submitType);
-                    if (submitButton != null) {
-                        submitButton.setText(same ? "Переместить" : "Отправить");
-                    }
-                };
-        destinationWarehouse
-                .valueProperty()
-                .addListener((obs, oldValue, newValue) -> updateDestinationCellVisibility.run());
-
-        GridPane form = new GridPane();
-        form.setHgap(8);
-        form.setVgap(8);
-        form.setPadding(new Insets(8));
-        form.add(sourceLabel, 0, 0, 2, 1);
-        form.add(totalsLabel, 0, 1, 2, 1);
-        form.add(destWarehouseCaption, 0, 2);
-        form.add(destinationWarehouse, 1, 2);
-        form.add(destCellCaption, 0, 3);
-        form.add(destinationCell, 1, 3);
-        form.add(table, 0, 4, 2, 1);
-        dialog.getDialogPane().setContent(form);
-
-        dialog.setOnShown(
-                e -> {
-                    Button submitButton =
-                            (Button) dialog.getDialogPane().lookupButton(submitType);
-                    Button cancelButton =
-                            (Button) dialog.getDialogPane().lookupButton(cancelType);
-                    Button fillButton =
-                            (Button) dialog.getDialogPane().lookupButton(fillAvailableType);
-                    if (submitButton != null) {
-                        submitButton.getStyleClass().add("tmp-button-primary");
-                    }
-                    if (cancelButton != null) {
-                        cancelButton.getStyleClass().add("tmp-button-secondary");
-                    }
-                    if (fillButton != null) {
-                        fillButton.getStyleClass().add("tmp-button-secondary");
-                        fillButton.addEventFilter(
-                                javafx.event.ActionEvent.ACTION,
-                                event -> {
-                                    event.consume();
-                                    for (MoveDialogRow row : moveRows) {
-                                        row.quantityTextProperty()
-                                                .set(
-                                                        DecimalUiFormat.formatRu(
-                                                                row.stockRow()
-                                                                        .availableQuantity()));
-                                    }
-                                    table.refresh();
-                                });
-                    }
-                    updateDestinationCellVisibility.run();
-                });
-
-        Optional<ButtonType> result = dialog.showAndWait();
-        if (result.isEmpty() || result.get() != submitType) {
+        WarehouseMoveDialogSupport.MoveDialogSession session =
+                WarehouseMoveDialogSupport.createMoveDialog(
+                        selected,
+                        sourceWarehouseId,
+                        warehouseLabel(sourceWarehouseId),
+                        viewModel.listAccessibleWarehouseChoices(),
+                        viewModel::listDestinationCells);
+        Optional<ButtonType> result = session.dialog().showAndWait();
+        if (result.isEmpty() || result.get() != session.submitType()) {
             return;
         }
-        WarehouseChoice destWh = destinationWarehouse.getValue();
-        if (destWh == null) {
-            viewModel.errorMessageProperty().set("Выберите склад назначения.");
-            return;
-        }
-        List<StockMoveLine> lines = new ArrayList<>();
         try {
-            for (MoveDialogRow moveRow : moveRows) {
-                BigDecimal qty =
-                        WarehouseMoveDialogSupport.parseMoveQuantity(
-                                moveRow.quantityTextProperty().get(),
-                                moveRow.stockRow().availableQuantity());
-                lines.add(StockMoveLine.from(moveRow.stockRow(), qty));
-            }
-            if (destWh.id().equals(sourceWarehouseId)) {
-                StorageCellChoice cell = destinationCell.getValue();
-                if (cell == null) {
-                    viewModel.errorMessageProperty().set("Выберите ячейку назначения.");
-                    return;
-                }
-                for (StockMoveLine line : lines) {
-                    WarehouseMoveDialogSupport.validateNotSelfMove(
-                            line.sourceStorageCellId(), cell.id());
-                }
-                viewModel.executeSameWarehouseMove(lines, cell.id());
+            WarehouseMoveDialogSupport.MoveSubmission submission = session.requireSubmission();
+            if (submission.sameWarehouse()) {
+                viewModel.executeSameWarehouseMove(
+                        submission.lines(), submission.destinationStorageCellId());
             } else {
-                viewModel.executeInterWarehouseMove(lines, destWh.id());
+                viewModel.executeInterWarehouseMove(
+                        submission.lines(), submission.destinationWarehouseId());
             }
         } catch (IllegalArgumentException ex) {
             viewModel.errorMessageProperty().set(ex.getMessage());
@@ -1340,23 +1128,4 @@ public final class WarehouseWorkspaceController
         }
     }
 
-    private static final class MoveDialogRow {
-        private final StockRow stockRow;
-        private final javafx.beans.property.StringProperty quantityText;
-
-        MoveDialogRow(StockRow stockRow) {
-            this.stockRow = stockRow;
-            this.quantityText =
-                    new javafx.beans.property.SimpleStringProperty(
-                            DecimalUiFormat.formatRu(stockRow.availableQuantity()));
-        }
-
-        StockRow stockRow() {
-            return stockRow;
-        }
-
-        javafx.beans.property.StringProperty quantityTextProperty() {
-            return quantityText;
-        }
-    }
 }
