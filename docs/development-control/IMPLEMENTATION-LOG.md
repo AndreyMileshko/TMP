@@ -4,6 +4,40 @@
 
 ---
 
+## Stage 3.5.15 — Stocks-centric UX corrective — 2026-09-14
+
+**Date:** 2026-09-14
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — Stocks operational workspace)
+**Base checkpoint:** `6a251b53ec381f7c5103847ad27830cc25da5adc`
+**Status:** Automated targeted PASS + package/startup PASS; Stage 3.5.15 = IN PROGRESS; Manual acceptance READY TO RESUME FROM Склад → Остатки; Full reactor NOT YET RUN; Flyway remains V45
+**Commit:** none
+**Working DB:** `tmp-stage5-pg` → `localhost:55432/tmp_gui_stage5`
+
+### UX principle
+
+«Остатки» — operational workspace. User starts Move / Write-off / Adjustment from selected stock rows. Technical operation screens removed after migration. One best user path per warehouse operation. Sender chooses destination warehouse only; receiver chooses destination cell.
+
+### Implementation
+
+- `DecimalQuantityParser` (0,5 / 0.5) wired into Production Workbench + Workspace quantity soft-parse; History quantities via `DecimalUiFormat.formatRu`.
+- Stocks: checkbox multi-select; toolbar/context Переместить / Списать / Корректировать; same-wh `ExecuteOperationCommand.move`; inter-wh `createTransferDocument` + `sendTransferDocument` multi-line; mixed source warehouse rejected in Russian.
+- Stock warehouse column code-only; filters resolve «Все мои склады» / «Все ячейки».
+- Removed WarehouseSection MOVE/TRANSFER/CONSUMPTION/ADJUSTMENT nav + FXML panes (Receipt / Inventory / Reservations remain).
+- Settings production checkbox edits form only; persists on Сохранить; selection retained.
+- Tasks: «Заказ» from `TransferDocumentOrderReferenceQuery` (MR generated docs → order_number); executor login when session matches (no UUID).
+- Settings → К складу syncs left nav highlight to `warehouse.nav.workbench`.
+- History actor left as — (no actor column / no V46). Russian empty-table placeholders.
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Stocks-centric UX entry (2026-09-14).
+
+### Next
+
+Manual acceptance from Склад → Остатки. Do not close Stage 3.5.15 until manual PASS + final `mvn clean verify`.
+
+---
+
 ## Stage 3.5.15 — Warehouse-managed production destination — 2026-09-14
 
 **Date:** 2026-09-14

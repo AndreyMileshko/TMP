@@ -16,6 +16,7 @@ import com.tmp.warehouse.domain.TransferTaskAssignment;
 import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseTransferDocument;
+import com.tmp.warehouse.domain.repository.TransferDocumentOrderReferenceQuery;
 import com.tmp.warehouse.domain.repository.TransferDocumentSettlementRepository;
 import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
@@ -74,6 +75,7 @@ public final class WarehouseOperationalInboxService {
     private final AuthenticationService authentication;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
+    private final TransferDocumentOrderReferenceQuery orderReferences;
 
     public WarehouseOperationalInboxService(
             DocumentEngine documentEngine,
@@ -95,7 +97,8 @@ public final class WarehouseOperationalInboxService {
                 responsibilityGuard,
                 authentication,
                 transactionTemplate,
-                clock);
+                clock,
+                null);
     }
 
     public WarehouseOperationalInboxService(
@@ -109,6 +112,32 @@ public final class WarehouseOperationalInboxService {
             AuthenticationService authentication,
             TransactionTemplate transactionTemplate,
             Clock clock) {
+        this(
+                documentEngine,
+                transferDocuments,
+                settlements,
+                taskStates,
+                responsibilities,
+                warehouses,
+                responsibilityGuard,
+                authentication,
+                transactionTemplate,
+                clock,
+                null);
+    }
+
+    public WarehouseOperationalInboxService(
+            DocumentEngine documentEngine,
+            WarehouseTransferDocumentRepository transferDocuments,
+            TransferDocumentSettlementRepository settlements,
+            TransferTaskStateRepository taskStates,
+            WarehouseUserResponsibilityRepository responsibilities,
+            WarehouseCatalogRepository warehouses,
+            WarehouseResponsibilityGuard responsibilityGuard,
+            AuthenticationService authentication,
+            TransactionTemplate transactionTemplate,
+            Clock clock,
+            TransferDocumentOrderReferenceQuery orderReferences) {
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
         this.transferDocuments = Objects.requireNonNull(transferDocuments, "transferDocuments");
         this.settlements = settlements;
@@ -121,6 +150,7 @@ public final class WarehouseOperationalInboxService {
         this.transactionTemplate =
                 Objects.requireNonNull(transactionTemplate, "transactionTemplate");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.orderReferences = orderReferences;
     }
 
     /**
@@ -214,7 +244,51 @@ public final class WarehouseOperationalInboxService {
             }
         }
         tasks.sort(TASK_ORDER);
-        return List.copyOf(tasks);
+        return List.copyOf(enrichOrderNumbers(tasks));
+    }
+
+    private List<WarehouseTaskView> enrichOrderNumbers(List<WarehouseTaskView> tasks) {
+        if (orderReferences == null || tasks.isEmpty()) {
+            return tasks;
+        }
+        List<UUID> documentIds = tasks.stream().map(WarehouseTaskView::documentId).toList();
+        Map<UUID, String> orderNumbers =
+                orderReferences.findOrderNumbersByDocumentIds(documentIds);
+        if (orderNumbers.isEmpty()) {
+            return tasks;
+        }
+        List<WarehouseTaskView> enriched = new ArrayList<>(tasks.size());
+        for (WarehouseTaskView task : tasks) {
+            String orderNumber = orderNumbers.get(task.documentId());
+            if (orderNumber == null || orderNumber.isBlank()) {
+                enriched.add(task);
+            } else {
+                enriched.add(
+                        new WarehouseTaskView(
+                                task.documentId(),
+                                task.documentNumber(),
+                                orderNumber,
+                                task.taskKind(),
+                                task.taskState(),
+                                task.sourceWarehouseId(),
+                                task.sourceWarehouseCode(),
+                                task.sourceWarehouseName(),
+                                task.destinationWarehouseId(),
+                                task.destinationWarehouseCode(),
+                                task.destinationWarehouseName(),
+                                task.lineCount(),
+                                task.workingUserId(),
+                                task.workingSince(),
+                                task.createdAt(),
+                                task.continuationOfDocumentId(),
+                                task.continuationReason(),
+                                task.settlementState(),
+                                task.operationalRevision(),
+                                task.settlementDecision(),
+                                task.rejectionReason()));
+            }
+        }
+        return enriched;
     }
 
     /**
@@ -307,7 +381,7 @@ public final class WarehouseOperationalInboxService {
         if (view == null) {
             throw new IllegalStateException("takeTransferTaskInWork returned null");
         }
-        return view;
+        return enrichOrderNumbers(List.of(view)).get(0);
     }
 
     private List<DocumentMetadata> scanTransferDocuments(DocumentStatus status) {
@@ -373,6 +447,7 @@ public final class WarehouseOperationalInboxService {
         return new WarehouseTaskView(
                 metadata.id(),
                 metadata.documentNumber(),
+                null,
                 kind,
                 state,
                 payload.sourceWarehouseId().value(),

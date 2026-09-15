@@ -162,7 +162,7 @@ class WarehouseSettingsViewModelTest {
     }
 
     @Test
-    void productionCheckboxAssignsAndSwitchesWarehouses() {
+    void productionCheckboxEditsFormOnlyUntilSave() {
         auth.allow(
                 UiShellScreens.WAREHOUSE_STRUCTURE_VIEW_PERMISSION,
                 UiShellScreens.WAREHOUSE_STRUCTURE_CREATE_PERMISSION,
@@ -174,15 +174,24 @@ class WarehouseSettingsViewModelTest {
         viewModel.selectedWarehouseProperty().set(a);
         assertFalse(viewModel.editWarehouseProductionProperty().get());
         viewModel.applyProductionWarehouseSelection(true);
+        assertFalse(
+                viewModel.warehouses().stream()
+                        .filter(w -> w.warehouseId().equals(a.warehouseId()))
+                        .findFirst()
+                        .orElseThrow()
+                        .productionWarehouse());
+        viewModel.saveSelectedWarehouse();
         assertTrue(
                 viewModel.warehouses().stream()
                         .filter(w -> w.warehouseId().equals(a.warehouseId()))
                         .findFirst()
                         .orElseThrow()
                         .productionWarehouse());
+        assertEquals(a.warehouseId(), viewModel.selectedWarehouseProperty().get().warehouseId());
 
         viewModel.selectedWarehouseProperty().set(b);
         viewModel.applyProductionWarehouseSelection(true);
+        viewModel.saveSelectedWarehouse();
         assertTrue(
                 viewModel.warehouses().stream()
                         .filter(w -> w.warehouseId().equals(b.warehouseId()))
@@ -197,6 +206,7 @@ class WarehouseSettingsViewModelTest {
                         .productionWarehouse());
 
         viewModel.applyProductionWarehouseSelection(false);
+        viewModel.saveSelectedWarehouse();
         assertTrue(viewModel.warehouses().stream().noneMatch(WarehouseView::productionWarehouse));
         assertEquals(0, api.stockMutationCalls);
         assertFalse(viewModel.errorMessageProperty().get().contains("UUID"));
@@ -213,6 +223,7 @@ class WarehouseSettingsViewModelTest {
         viewModel.onScreenOpened();
         viewModel.selectedWarehouseProperty().set(inactive);
         viewModel.applyProductionWarehouseSelection(true);
+        viewModel.saveSelectedWarehouse();
         assertTrue(viewModel.errorMessageProperty().get().contains("активн"));
         assertFalse(
                 viewModel.errorMessageProperty().get().contains(inactive.warehouseId().toString()));

@@ -49,8 +49,20 @@ public final class MainWindowController implements ViewModelAware<MainWindowView
         navigationList.setFixedCellSize(42);
         navigationList.setCellFactory(list -> new NavigationListCell());
         navigationList.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) -> {
-            if (selected != null) {
+            if (selected != null
+                    && (viewModel.selectedNavigationProperty().get() == null
+                            || !selected.navigationId()
+                                    .equals(viewModel.selectedNavigationProperty().get().navigationId()))) {
                 viewModel.selectNavigation(selected.navigationId());
+            }
+        });
+        viewModel.selectedNavigationProperty().addListener((obs, old, selected) -> {
+            if (selected == null) {
+                return;
+            }
+            NavigationItem current = navigationList.getSelectionModel().getSelectedItem();
+            if (current == null || !selected.navigationId().equals(current.navigationId())) {
+                navigationList.getSelectionModel().select(selected);
             }
         });
         viewModel.contentProperty().addListener((obs, old, root) -> {

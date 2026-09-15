@@ -3,8 +3,45 @@
 ## Latest result
 
 **Date:** 2026-09-14
-**Scope:** Stage 3.5.15 — Warehouse-managed production destination (remove config UUID SoT; Flyway V45)
-**Overall:** PASS (automated + package/startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO RESUME AFTER USER ASSIGNS PRODUCTION WAREHOUSE; Full reactor NOT RUN
+**Scope:** Stage 3.5.15 — Stocks-centric UX corrective
+**Overall:** PASS (targeted automated + quick build + package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO RESUME FROM Склад → Остатки; Full reactor NOT RUN; Migration NONE / V45
+
+### Stage 3.5.15 Stocks-centric UX (2026-09-14)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD `6a251b53ec381f7c5103847ad27830cc25da5adc` | PASS |
+| `DecimalQuantityParserTest` | PASS (3) |
+| `DecimalUiFormatTest` | PASS (5) |
+| `WarehouseWorkspaceViewModelTest` | PASS (56) |
+| `WarehouseWorkbenchViewModelTest` | PASS (23+) |
+| `WarehouseSettingsViewModelTest` | PASS (8) |
+| `WarehouseWorkbenchControllerFxTest` | PASS (1) |
+| `JdbcTransferDocumentOrderReferenceQueryTest` | PASS (1) |
+| `WarehouseHistoryIntegrationTest` | PASS (6) |
+| `WarehouseTransferDocumentSendIntegrationTest` | PASS (9) |
+| `WarehouseTransferDocumentReceiveIntegrationTest` | PASS (21) |
+| `WarehouseTransferDocumentPartialReceiveIntegrationTest` | PASS (13) |
+| `WarehouseTransferDocumentRejectReturnIntegrationTest` | PASS (22) |
+| `MaterialRequirementServiceTest` | PASS (21) |
+| `ProductionWorkbenchViewModelTest` | PASS (26) |
+| `Stage6WarehouseArchitectureTest` | PASS (8) |
+| `Stage7ProductionArchitectureTest` | PASS (83) |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests` | PASS |
+| `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS → `dist/jpackage/TMP/TMP.exe` |
+| Packaged startup `localhost:55432/tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 45 / V45; `Started DesktopBootstrap`; JavaFX unnamed-module WARN only; exceptions NONE |
+| DB safety deltas on startup | Warehouse/Stock/ops/movs/MR = 0; production = SECOND unchanged |
+| Migration | NONE — Flyway remains V45 |
+| Full reactor | NOT RUN — last GREEN `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d` |
+| Manual acceptance | READY TO RESUME FROM Склад → Остатки |
+
+### Deferred
+
+- History actor population for NEW operations (requires actor column / V46 — STOP per no-migration rule; display remains —)
+- Broad Production English summary localization (not required for Stocks path)
+- Full root `mvn clean verify`
+
+---
 
 ### Stage 3.5.15 Warehouse-managed production destination (2026-09-14)
 

@@ -39,6 +39,7 @@
             <TableView fx:id="tasksTable" VBox.vgrow="ALWAYS">
                 <columns>
                     <TableColumn fx:id="taskDocumentColumn" text="Документ" prefWidth="120" minWidth="90"/>
+                    <TableColumn fx:id="taskOrderColumn" text="Заказ" prefWidth="100" minWidth="80"/>
                     <TableColumn fx:id="taskKindColumn" text="Вид" prefWidth="110" minWidth="90"/>
                     <TableColumn fx:id="taskStateColumn" text="Состояние" prefWidth="100" minWidth="80"/>
                     <TableColumn fx:id="taskRouteColumn" text="Маршрут" prefWidth="280" minWidth="160"/>
@@ -106,12 +107,16 @@
                 <Label text="Поиск:"/>
                 <TextField fx:id="searchField" promptText="Артикул или название..." prefWidth="280"/>
                 <Button fx:id="searchButton" text="Найти" styleClass="tmp-button-secondary"/>
+                <Button fx:id="moveStockButton" text="Переместить" styleClass="tmp-button-primary"/>
+                <Button fx:id="consumeStockButton" text="Списать" styleClass="tmp-button-secondary"/>
+                <Button fx:id="adjustStockButton" text="Корректировать" styleClass="tmp-button-secondary"/>
             </FlowPane>
             <Label fx:id="stockLoadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
                    visible="false" managed="false"/>
             <TableView fx:id="stockTable" VBox.vgrow="ALWAYS">
                 <columns>
-                    <TableColumn fx:id="warehouseColumn" text="Склад" prefWidth="160" minWidth="120"/>
+                    <TableColumn fx:id="stockSelectColumn" text="" prefWidth="40" minWidth="36" maxWidth="48"/>
+                    <TableColumn fx:id="warehouseColumn" text="Склад" prefWidth="100" minWidth="70"/>
                     <TableColumn fx:id="cellColumn" text="Ячейка" prefWidth="100" minWidth="80"/>
                     <TableColumn fx:id="articleColumn" text="Артикул" prefWidth="140" minWidth="100"/>
                     <TableColumn fx:id="nameColumn" text="Наименование" prefWidth="260" minWidth="160"/>

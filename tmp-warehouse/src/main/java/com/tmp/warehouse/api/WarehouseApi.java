@@ -423,6 +423,7 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     record WarehouseTaskView(
             UUID documentId,
             String documentNumber,
+            String sourceOrderNumber,
             WarehouseTaskKind taskKind,
             WarehouseTaskState taskState,
             UUID sourceWarehouseId,

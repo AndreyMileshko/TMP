@@ -246,7 +246,7 @@ class WarehouseWorkbenchViewModelTest {
                         destWh,
                         destCell));
         viewModel.loadWarehouses();
-        viewModel.selectSection(WarehouseSection.TRANSFER);
+        viewModel.loadTransferDrafts();
 
         assertEquals(1, viewModel.transferDraftRows().size());
         viewModel.selectedTransferDraftProperty().set(viewModel.transferDraftRows().get(0));
@@ -311,8 +311,7 @@ class WarehouseWorkbenchViewModelTest {
         assertTrue(viewModel.canViewProperty().get());
         assertFalse(viewModel.canTransferProperty().get());
 
-        viewModel.selectSection(WarehouseSection.TRANSFER);
-        assertEquals(WarehouseSection.TRANSFER, viewModel.sectionProperty().get());
+        viewModel.loadTransferDrafts();
         assertEquals(1, viewModel.transferDraftRows().size());
         assertEquals(1, api.listTransferDraftsCalls);
 
@@ -346,7 +345,7 @@ class WarehouseWorkbenchViewModelTest {
                         destCell));
 
         viewModel.loadWarehouses();
-        viewModel.selectSection(WarehouseSection.TRANSFER);
+        viewModel.loadTransferDrafts();
         viewModel.selectedTransferDraftProperty().set(viewModel.transferDraftRows().get(0));
         viewModel.submitTransferSend();
 
@@ -383,7 +382,7 @@ class WarehouseWorkbenchViewModelTest {
     void transferSectionDeniedWithoutViewOrTransfer() {
         auth.allowed = Set.of(UiShellScreens.WAREHOUSE_RECEIPT_PERMISSION);
         viewModel.refreshPermissions();
-        viewModel.selectSection(WarehouseSection.TRANSFER);
+        viewModel.loadTransferDrafts();
         assertEquals(WarehouseUiErrorMapper.ACCESS_DENIED, viewModel.errorMessageProperty().get());
         assertEquals(WarehouseSection.WAREHOUSES, viewModel.sectionProperty().get());
     }
@@ -446,11 +445,27 @@ class WarehouseWorkbenchViewModelTest {
     }
 
     @Test
-    void inventorySectionNavigatesToAdjustment() {
+    void operationsSectionsDoNotIncludeMigratedStockFlows() {
+        Set<String> titles =
+                java.util.Arrays.stream(WarehouseSection.values())
+                        .map(WarehouseSection::title)
+                        .collect(java.util.stream.Collectors.toSet());
+        assertFalse(titles.contains("Перемещение"));
+        assertFalse(titles.contains("Межскладское перемещение"));
+        assertFalse(titles.contains("Списание"));
+        assertFalse(titles.contains("Корректировка"));
+        assertTrue(titles.contains("Поступление"));
+        assertTrue(titles.contains("Инвентаризация"));
+        assertTrue(titles.contains("Информационные связи"));
+    }
+
+    @Test
+    void inventorySectionPointsToStocksAdjustment() {
         viewModel.selectSection(WarehouseSection.INVENTORY);
         assertEquals(WarehouseSection.INVENTORY, viewModel.sectionProperty().get());
         viewModel.openAdjustmentFromInventory();
-        assertEquals(WarehouseSection.ADJUSTMENT, viewModel.sectionProperty().get());
+        assertEquals(WarehouseSection.INVENTORY, viewModel.sectionProperty().get());
+        assertTrue(viewModel.statusMessageProperty().get().contains("Остатки"));
     }
 
     @Test

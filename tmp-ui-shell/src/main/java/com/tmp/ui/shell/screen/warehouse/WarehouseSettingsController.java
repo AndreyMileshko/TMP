@@ -129,10 +129,6 @@ public final class WarehouseSettingsController
                                 .canUpdateWarehouseProperty()
                                 .not()
                                 .or(viewModel.commandInFlightProperty()));
-        editWarehouseProductionCheck.setOnAction(
-                e ->
-                        viewModel.applyProductionWarehouseSelection(
-                                editWarehouseProductionCheck.isSelected()));
         saveWarehouseButton
                 .disableProperty()
                 .bind(

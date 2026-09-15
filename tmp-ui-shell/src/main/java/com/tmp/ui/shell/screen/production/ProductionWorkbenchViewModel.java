@@ -33,6 +33,7 @@ import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
+import com.tmp.ui.shell.order.DecimalQuantityParser;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -1022,27 +1023,11 @@ public final class ProductionWorkbenchViewModel {
     }
 
     private static BigDecimal parsePositiveDecimal(String raw, String field) {
-        BigDecimal value = parseNonNegativeDecimal(raw, field);
-        if (value.signum() <= 0) {
-            throw new IllegalArgumentException(field + " must be positive");
-        }
-        return value;
+        return DecimalQuantityParser.parsePositive(raw, field);
     }
 
     private static BigDecimal parseNonNegativeDecimal(String raw, String field) {
-        String value = blankToEmpty(raw).trim();
-        if (value.isEmpty()) {
-            throw new IllegalArgumentException(field + " must not be blank");
-        }
-        try {
-            BigDecimal parsed = new BigDecimal(value);
-            if (parsed.signum() < 0) {
-                throw new IllegalArgumentException(field + " must be >= 0");
-            }
-            return parsed;
-        } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException(field + " must be a number");
-        }
+        return DecimalQuantityParser.parseNonNegative(raw, field);
     }
 
     private static String blankToEmpty(String value) {

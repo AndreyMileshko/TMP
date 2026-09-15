@@ -11930,10 +11930,38 @@ See VERIFICATION-LOG Stage 3.5.14 entry (2026-09-11).
 
 Stage 3.5.15 — Final Warehouse Acceptance = IN PROGRESS
 Stocks UX corrective = COMPLETE
+Stocks-centric UX = COMPLETE (operations from Остатки; legacy 4 screens removed)
 Production acceptance-state corrective = COMPLETE
 Warehouse-managed production destination = COMPLETE (Flyway V45)
-Manual acceptance = READY TO RESUME AFTER USER ASSIGNS PRODUCTION WAREHOUSE
-  (Настройки склада → Склады → «Склад производства» → Production → Material Requirement → Warehouse Task)
+Manual acceptance = READY TO RESUME FROM Склад → Остатки
+  (also Настройки склада → «Склад производства» if still unset)
+
+---
+## STAGE-3.5.15 — Stocks-centric UX corrective
+
+**Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.15 Warehouse-managed production destination
+**Module:** `tmp-ui-shell` (+ bootstrap AuthenticationService wiring)
+**Migration:** NONE / Flyway remains V45
+
+**Goal:** Make «Остатки» the operational warehouse workspace; launch Move/Write-off/Adjustment from selected stock rows; remove duplicated Operations screens.
+
+**Acceptance criteria:**
+- [x] DecimalQuantityParser accepts 0,5 and 0.5; wired into Production + Workspace
+- [x] Stocks multi-select + toolbar/context actions; mixed warehouse Move rejected
+- [x] Same-wh move / inter-wh multi-line transfer document send
+- [x] Legacy MOVE/TRANSFER/CONSUMPTION/ADJUSTMENT nav+FXML removed
+- [x] Settings production checkbox form-only until Сохранить
+- [x] Tasks Заказ column from MR→Order projection; executor without UUID
+- [x] Settings→Workspace left-nav highlight sync
+- [x] Targeted tests + architecture + package + startup PASS; no full reactor; no commit
+
+See VERIFICATION-LOG Stage 3.5.15 Stocks-centric UX entry (2026-09-14).
+
+### Next on success
+
+Manual acceptance from Склад → Остатки.
 
 ---
 ## STAGE-3.5.15 — Warehouse-managed production destination

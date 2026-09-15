@@ -35,6 +35,7 @@ import com.tmp.warehouse.domain.repository.AvailableStockAggregationQuery;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.MaterialReservationLinkRepository;
 import com.tmp.warehouse.domain.repository.StockPositionRepository;
+import com.tmp.warehouse.domain.repository.TransferDocumentOrderReferenceQuery;
 import com.tmp.warehouse.domain.repository.TransferDocumentSendAllocationRepository;
 import com.tmp.warehouse.domain.repository.TransferDocumentSettlementRepository;
 import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
@@ -52,6 +53,7 @@ import com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
 import com.tmp.warehouse.persistence.JdbcAvailableStockAggregationQuery;
 import com.tmp.warehouse.persistence.JdbcStockPositionRepository;
+import com.tmp.warehouse.persistence.JdbcTransferDocumentOrderReferenceQuery;
 import com.tmp.warehouse.persistence.JdbcTransferDocumentSendAllocationRepository;
 import com.tmp.warehouse.persistence.JdbcTransferDocumentSettlementRepository;
 import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
@@ -376,6 +378,12 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
+    TransferDocumentOrderReferenceQuery transferDocumentOrderReferenceQuery(
+            JdbcTemplate jdbcTemplate) {
+        return new JdbcTransferDocumentOrderReferenceQuery(jdbcTemplate);
+    }
+
+    @Bean
     WarehouseOperationalInboxService warehouseOperationalInboxService(
             DocumentEngine documentEngine,
             WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
@@ -386,7 +394,8 @@ public class WarehouseAutoConfiguration {
             WarehouseResponsibilityGuard warehouseResponsibilityGuard,
             AuthenticationService authenticationService,
             PlatformTransactionManager platformTransactionManager,
-            Clock clock) {
+            Clock clock,
+            TransferDocumentOrderReferenceQuery transferDocumentOrderReferenceQuery) {
         return new WarehouseOperationalInboxService(
                 documentEngine,
                 warehouseTransferDocumentRepository,
@@ -397,7 +406,8 @@ public class WarehouseAutoConfiguration {
                 warehouseResponsibilityGuard,
                 authenticationService,
                 new TransactionTemplate(platformTransactionManager),
-                clock);
+                clock,
+                transferDocumentOrderReferenceQuery);
     }
 
     @Bean

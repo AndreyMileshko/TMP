@@ -40,6 +40,7 @@ public final class MainWindowViewModel {
     private final ShellNavigationHistory history = new ShellNavigationHistory();
     private final ObservableList<NavigationItem> navigationItems = FXCollections.observableArrayList();
     private final ObjectProperty<Parent> content = new SimpleObjectProperty<>();
+    private final ObjectProperty<NavigationItem> selectedNavigation = new SimpleObjectProperty<>();
     private final StringProperty currentUserLogin = new SimpleStringProperty("—");
     private final StringProperty currentUserInitial = new SimpleStringProperty("—");
     private final BooleanProperty canGoBack = new SimpleBooleanProperty(false);
@@ -133,7 +134,9 @@ public final class MainWindowViewModel {
         if (selected.isEmpty()) {
             return;
         }
-        String viewId = selected.get().viewId();
+        NavigationItem item = selected.get();
+        selectedNavigation.set(item);
+        String viewId = item.viewId();
         onSidebarScreen.accept(viewId);
         Optional<ShellHistoryEntry> current = history.current();
         if (current.isPresent() && viewId.equals(current.get().screenId())) {
@@ -141,6 +144,10 @@ public final class MainWindowViewModel {
             return;
         }
         navigate(ShellHistoryEntry.of(viewId, requiredPermission(viewId), () -> {}));
+    }
+
+    public ObjectProperty<NavigationItem> selectedNavigationProperty() {
+        return selectedNavigation;
     }
 
     /**

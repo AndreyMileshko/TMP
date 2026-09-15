@@ -297,36 +297,27 @@ public final class WarehouseSettingsViewModel {
             errorMessage.set("Укажите код и название склада.");
             return;
         }
+        boolean productionDesired = editWarehouseProduction.get();
+        UUID warehouseId = selected.warehouseId();
         runMutation(
-                () ->
-                        warehouseApi.updateWarehouse(
-                                new UpdateWarehouseCommand(
-                                        selected.warehouseId(),
-                                        code,
-                                        name,
-                                        editWarehouseActive.get())),
+                () -> {
+                    warehouseApi.updateWarehouse(
+                            new UpdateWarehouseCommand(
+                                    warehouseId, code, name, editWarehouseActive.get()));
+                    if (productionDesired != selected.productionWarehouse()) {
+                        if (productionDesired) {
+                            warehouseApi.setProductionWarehouse(warehouseId);
+                        } else {
+                            warehouseApi.clearProductionWarehouse(warehouseId);
+                        }
+                    }
+                    return warehouseId;
+                },
                 this::reloadWarehouses);
     }
 
     public void applyProductionWarehouseSelection(boolean production) {
-        WarehouseView selected = selectedWarehouse.get();
-        if (selected == null || !canUpdateWarehouse.get() || commandInFlight.get()) {
-            editWarehouseProduction.set(selected != null && selected.productionWarehouse());
-            return;
-        }
-        if (production == selected.productionWarehouse()) {
-            editWarehouseProduction.set(production);
-            return;
-        }
-        UUID warehouseId = selected.warehouseId();
-        runMutation(
-                () -> {
-                    if (production) {
-                        return warehouseApi.setProductionWarehouse(warehouseId);
-                    }
-                    return warehouseApi.clearProductionWarehouse(warehouseId);
-                },
-                this::reloadWarehouses);
+        editWarehouseProduction.set(production);
     }
 
     public void setCellsWarehouse(WarehouseView warehouse) {

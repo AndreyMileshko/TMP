@@ -232,8 +232,11 @@ public class UiShellAutoConfiguration {
 
     @Bean
     WarehouseWorkspaceViewModel warehouseWorkspaceViewModel(
-            WarehouseApi warehouseApi, AuthorizationService authorizationService) {
-        return new WarehouseWorkspaceViewModel(warehouseApi, authorizationService);
+            WarehouseApi warehouseApi,
+            AuthorizationService authorizationService,
+            AuthenticationService authenticationService) {
+        return new WarehouseWorkspaceViewModel(
+                warehouseApi, authorizationService, authenticationService);
     }
 
     @Bean

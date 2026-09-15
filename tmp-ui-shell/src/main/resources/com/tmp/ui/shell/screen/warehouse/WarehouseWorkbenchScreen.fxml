@@ -93,75 +93,12 @@
             <Button fx:id="submitReceiptButton" text="Создать поступление"/>
         </VBox>
 
-        <VBox fx:id="movePane" spacing="8" visible="false" managed="false">
-            <ComboBox fx:id="moveMaterialCombo" promptText="Материал" maxWidth="Infinity"/>
-            <TextField fx:id="moveQuantityField" promptText="Количество"/>
-            <ComboBox fx:id="moveSourceWarehouseCombo" promptText="Источник: склад" maxWidth="Infinity"/>
-            <ComboBox fx:id="moveSourceCellCombo" promptText="Источник: ячейка" maxWidth="Infinity"/>
-            <ComboBox fx:id="moveDestCellCombo" promptText="Назначение: ячейка" maxWidth="Infinity"/>
-            <Button fx:id="submitMoveButton" text="Выполнить перемещение"/>
-        </VBox>
-
-        <VBox fx:id="transferPane" spacing="10" visible="false" managed="false">
-            <Label text="Существующие черновики перемещений (DRAFT)"/>
-            <HBox spacing="8">
-                <Button fx:id="loadTransferDraftsButton" text="Обновить список"/>
-            </HBox>
-            <TableView fx:id="transferDraftsTable" prefHeight="200">
-                <columns>
-                    <TableColumn fx:id="transferDraftIdColumn" text="ID операции" prefWidth="280"/>
-                    <TableColumn fx:id="transferDraftStatusColumn" text="Статус" prefWidth="80"/>
-                    <TableColumn fx:id="transferDraftMaterialColumn" text="Материал" prefWidth="180"/>
-                    <TableColumn fx:id="transferDraftQuantityColumn" text="Кол-во" prefWidth="80"/>
-                    <TableColumn fx:id="transferDraftSourceWhColumn" text="Откуда: склад" prefWidth="140"/>
-                    <TableColumn fx:id="transferDraftSourceCellColumn" text="Откуда: ячейка" prefWidth="100"/>
-                    <TableColumn fx:id="transferDraftDestWhColumn" text="Куда: склад" prefWidth="140"/>
-                    <TableColumn fx:id="transferDraftDestCellColumn" text="Куда: ячейка" prefWidth="100"/>
-                </columns>
-            </TableView>
-            <Button fx:id="submitTransferSendButton" text="Отправить выбранный черновик"/>
-            <Separator/>
-            <Label text="Ручное межскладское перемещение (Transfer Send)"/>
-            <ComboBox fx:id="transferSourceWarehouseCombo" promptText="Откуда: склад" maxWidth="Infinity"/>
-            <ComboBox fx:id="transferSourceCellCombo" promptText="Откуда: ячейка" maxWidth="Infinity"/>
-            <ComboBox fx:id="transferDestWarehouseCombo" promptText="Куда: склад" maxWidth="Infinity"/>
-            <ComboBox fx:id="transferMaterialCombo" promptText="Материал" maxWidth="Infinity"/>
-            <TextField fx:id="transferQuantityField" promptText="Количество"/>
-            <Button fx:id="submitManualTransferSendButton" text="Отправить (Transfer Send)"/>
-            <Separator/>
-            <Label text="Transfer Receive — получение (ручная операция)"/>
-            <ComboBox fx:id="transferReceiveMaterialCombo" promptText="Материал" maxWidth="Infinity"/>
-            <TextField fx:id="transferReceiveQuantityField" promptText="Количество"/>
-            <ComboBox fx:id="transferReceiveSourceWarehouseCombo" promptText="Источник: склад (IN_TRANSIT)" maxWidth="Infinity"/>
-            <ComboBox fx:id="transferReceiveSourceCellCombo" promptText="Источник: ячейка" maxWidth="Infinity"/>
-            <ComboBox fx:id="transferReceiveDestWarehouseCombo" promptText="Назначение: склад" maxWidth="Infinity"/>
-            <ComboBox fx:id="transferReceiveDestCellCombo" promptText="Назначение: ячейка" maxWidth="Infinity"/>
-            <Button fx:id="submitTransferReceiveButton" text="Получить (Transfer Receive)"/>
-        </VBox>
-
-        <VBox fx:id="consumptionPane" spacing="8" visible="false" managed="false">
-            <ComboBox fx:id="consumptionMaterialCombo" promptText="Материал" maxWidth="Infinity"/>
-            <TextField fx:id="consumptionQuantityField" promptText="Количество"/>
-            <TextField fx:id="consumptionBasisField" promptText="Основание"/>
-            <ComboBox fx:id="consumptionWarehouseCombo" promptText="Склад" maxWidth="Infinity"/>
-            <ComboBox fx:id="consumptionCellCombo" promptText="Ячейка" maxWidth="Infinity"/>
-            <Button fx:id="submitConsumptionButton" text="Списать"/>
-        </VBox>
-
-        <VBox fx:id="adjustmentPane" spacing="8" visible="false" managed="false">
-            <ComboBox fx:id="adjustmentMaterialCombo" promptText="Материал" maxWidth="Infinity"/>
-            <TextField fx:id="adjustmentQuantityDeltaField" promptText="Количество изменения (+/-)"/>
-            <TextField fx:id="adjustmentReasonField" promptText="Причина"/>
-            <ComboBox fx:id="adjustmentWarehouseCombo" promptText="Склад" maxWidth="Infinity"/>
-            <ComboBox fx:id="adjustmentCellCombo" promptText="Ячейка" maxWidth="Infinity"/>
-            <Button fx:id="submitAdjustmentButton" text="Выполнить корректировку"/>
-        </VBox>
-
         <VBox fx:id="inventoryPane" spacing="8" visible="false" managed="false">
             <Label text="Инвентаризация" styleClass="warehouse-title"/>
             <Label wrapText="true"
-                   text="Отдельный Inventory UI не расширяет модель. Расхождения остатков оформляются через Корректировку (Adjustment)."/>
-            <Button fx:id="openAdjustmentFromInventoryButton" text="Перейти к корректировке"/>
+                   text="Отдельный Inventory UI не расширяет модель. Расхождения остатков оформляются через корректировку на экране «Остатки»."/>
+            <Label wrapText="true"
+                   text="Откройте Склад → Остатки, выберите строку и нажмите «Корректировать»."/>
         </VBox>
 
         <VBox fx:id="reservationsPane" spacing="8" visible="false" managed="false">

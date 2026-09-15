@@ -16,6 +16,7 @@ import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReceiveAllo
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReturnAllocationEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.SourceAllocationEditRow;
 import com.tmp.warehouse.api.WarehouseApi;
+import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
@@ -473,6 +474,14 @@ class WarehouseWorkspaceViewModelTest {
         assertEquals(
                 "4",
                 WarehouseWorkspaceViewModel.formatHistoryQuantity("MOVE", new BigDecimal("-4")));
+        assertEquals(
+                "+0,5",
+                WarehouseWorkspaceViewModel.formatHistoryQuantity(
+                        "RECEIPT", new BigDecimal("0.500000")));
+        assertEquals(
+                "-0,5",
+                WarehouseWorkspaceViewModel.formatHistoryQuantity(
+                        "TRANSFER_SEND", new BigDecimal("-0.500000")));
     }
 
     @Test
@@ -751,6 +760,128 @@ class WarehouseWorkspaceViewModelTest {
         viewModel.selectWarehouseFilter(foreignOption);
 
         assertEquals(allowed, viewModel.selectedWarehouseFilterProperty().get().warehouseId());
+    }
+
+    @Test
+    void stockSelectionEnablesActionsAndRejectsMixedWarehouses() {
+        auth =
+                new FakeAuthorization(
+                        Set.of(
+                                UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                                UiShellScreens.WAREHOUSE_MOVE_PERMISSION,
+                                UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION,
+                                UiShellScreens.WAREHOUSE_CONSUMPTION_PERMISSION,
+                                UiShellScreens.WAREHOUSE_ADJUSTMENT_PERMISSION));
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        UUID wh1 = UUID.randomUUID();
+        UUID wh2 = UUID.randomUUID();
+        UUID cell1 = UUID.randomUUID();
+        UUID cell2 = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(wh1, "MAIN", "Main", true));
+        api.warehouses.add(new WarehouseView(wh2, "SECOND", "Second", true));
+        api.stockPages.add(
+                page(
+                        List.of(
+                                cellLine(wh1, cell1, "A-01", "A1", "Mat A", "10"),
+                                cellLine(wh1, cell2, "B-01", "B1", "Mat B", "5"),
+                                cellLine(wh2, cell1, "C-01", "C1", "Mat C", "3")),
+                        0,
+                        3));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+
+        assertFalse(viewModel.canMoveSelectedStockProperty().get());
+        WarehouseWorkspaceViewModel.StockRow first = viewModel.tableRows().get(0);
+        assertEquals("WH-1", first.warehouseLabel());
+        first.setSelected(true);
+        viewModel.onStockSelectionChanged();
+        assertTrue(viewModel.canMoveSelectedStockProperty().get());
+        assertTrue(viewModel.canConsumeSelectedStockProperty().get());
+        assertTrue(viewModel.canAdjustSelectedStockProperty().get());
+
+        viewModel.tableRows().get(1).setSelected(true);
+        viewModel.onStockSelectionChanged();
+        assertTrue(viewModel.canMoveSelectedStockProperty().get());
+        assertFalse(viewModel.canAdjustSelectedStockProperty().get());
+
+        viewModel.tableRows().get(2).setSelected(true);
+        viewModel.onStockSelectionChanged();
+        try {
+            viewModel.requireSameWarehouseSelectionForMove();
+            throw new AssertionError("expected mixed warehouse rejection");
+        } catch (IllegalArgumentException ex) {
+            assertTrue(ex.getMessage().contains("одного склада"));
+        }
+
+        viewModel.clearStockSelection();
+        assertFalse(viewModel.canMoveSelectedStockProperty().get());
+    }
+
+    @Test
+    void interWarehouseMultiLineMoveCreatesOneDocument() {
+        auth =
+                new FakeAuthorization(
+                        Set.of(
+                                UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                                UiShellScreens.WAREHOUSE_MOVE_PERMISSION,
+                                UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION));
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        UUID source = UUID.randomUUID();
+        UUID dest = UUID.randomUUID();
+        UUID cellA = UUID.randomUUID();
+        UUID cellB = UUID.randomUUID();
+        UUID materialA = UUID.randomUUID();
+        UUID materialB = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(source, "MAIN", "Main", true));
+        api.warehouses.add(new WarehouseView(dest, "SECOND", "Second", true));
+        api.stockPages.add(
+                page(
+                        List.of(
+                                new WarehouseStockCellLineView(
+                                        source,
+                                        "MAIN",
+                                        "Main",
+                                        cellA,
+                                        "A-01",
+                                        materialA,
+                                        "A1",
+                                        "Mat A",
+                                        "",
+                                        "",
+                                        "шт",
+                                        new BigDecimal("10")),
+                                new WarehouseStockCellLineView(
+                                        source,
+                                        "MAIN",
+                                        "Main",
+                                        cellB,
+                                        "D-01",
+                                        materialB,
+                                        "B1",
+                                        "Mat B",
+                                        "",
+                                        "",
+                                        "шт",
+                                        new BigDecimal("5"))),
+                        0,
+                        2));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        viewModel.tableRows().get(0).setSelected(true);
+        viewModel.tableRows().get(1).setSelected(true);
+        viewModel.onStockSelectionChanged();
+
+        List<WarehouseWorkspaceViewModel.StockMoveLine> lines =
+                List.of(
+                        WarehouseWorkspaceViewModel.StockMoveLine.from(
+                                viewModel.tableRows().get(0), new BigDecimal("4")),
+                        WarehouseWorkspaceViewModel.StockMoveLine.from(
+                                viewModel.tableRows().get(1), new BigDecimal("2.5")));
+        viewModel.executeInterWarehouseMove(lines, dest);
+
+        assertEquals(1, api.sendCommands.size());
+        assertEquals(2, api.sendCommands.get(0).sourceAllocations().size());
+        assertEquals(1, api.documents.size());
     }
 
     @Test
@@ -1092,7 +1223,7 @@ class WarehouseWorkspaceViewModelTest {
     }
 
     @Test
-    void inWorkWorkerDisplayUsesPrefix() {
+    void inWorkWorkerDisplayDoesNotShowUuid() {
         UUID sourceId = UUID.randomUUID();
         UUID destId = UUID.randomUUID();
         UUID worker = UUID.randomUUID();
@@ -1107,7 +1238,38 @@ class WarehouseWorkspaceViewModelTest {
                         WarehouseTaskState.IN_WORK,
                         worker));
         viewModel.onScreenOpened();
-        assertEquals("В работе · " + worker, viewModel.taskRows().get(0).workerDisplay());
+        assertEquals("В работе", viewModel.taskRows().get(0).workerDisplay());
+        assertFalse(viewModel.taskRows().get(0).workerDisplay().contains(worker.toString()));
+    }
+
+    @Test
+    void taskOrderColumnShowsAuthoritativeOrderNumberOrDash() {
+        UUID sourceId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(sourceId, "WH-1", "Main", true));
+        api.tasks.add(
+                task(
+                        UUID.randomUUID(),
+                        sourceId,
+                        destId,
+                        "TR-MR",
+                        "25117297",
+                        WarehouseTaskKind.TRANSFER_PREPARATION,
+                        WarehouseTaskState.NEW,
+                        null));
+        api.tasks.add(
+                task(
+                        UUID.randomUUID(),
+                        sourceId,
+                        destId,
+                        "TR-MANUAL",
+                        null,
+                        WarehouseTaskKind.TRANSFER_PREPARATION,
+                        WarehouseTaskState.NEW,
+                        null));
+        viewModel.onScreenOpened();
+        assertEquals("25117297", viewModel.taskRows().get(0).orderNumberText());
+        assertEquals("—", viewModel.taskRows().get(1).orderNumberText());
     }
 
     private PreparationFixture openPreparation() {
@@ -1398,9 +1560,22 @@ class WarehouseWorkspaceViewModelTest {
             WarehouseTaskKind kind,
             WarehouseTaskState state,
             UUID workingUserId) {
+        return task(documentId, sourceId, destId, number, null, kind, state, workingUserId);
+    }
+
+    private static WarehouseTaskView task(
+            UUID documentId,
+            UUID sourceId,
+            UUID destId,
+            String number,
+            String sourceOrderNumber,
+            WarehouseTaskKind kind,
+            WarehouseTaskState state,
+            UUID workingUserId) {
         return new WarehouseTaskView(
                 documentId,
                 number,
+                sourceOrderNumber,
                 kind,
                 state,
                 sourceId,
@@ -1713,7 +1888,52 @@ class WarehouseWorkspaceViewModelTest {
         @Override
         public OperationResult executeWarehouseOperation(ExecuteOperationCommand command) {
             executeCalls++;
-            throw new UnsupportedOperationException();
+            return new OperationResult(
+                    UUID.randomUUID(),
+                    command.kind(),
+                    "POSTED",
+                    command.materialReferenceId() == null
+                            ? UUID.randomUUID()
+                            : command.materialReferenceId(),
+                    "M",
+                    command.warehouseId(),
+                    command.storageCellId(),
+                    command.quantity());
+        }
+
+        @Override
+        public TransferDocumentView createTransferDocument(CreateTransferDocumentCommand command) {
+            List<TransferDocumentLineView> lines = new ArrayList<>();
+            int order = 1;
+            for (var line : command.lines()) {
+                lines.add(
+                        new TransferDocumentLineView(
+                                line.lineId() == null ? UUID.randomUUID() : line.lineId(),
+                                line.materialReferenceId(),
+                                line.quantity(),
+                                line.lineOrder() == null ? order : line.lineOrder()));
+                order++;
+            }
+            TransferDocumentView document =
+                    new TransferDocumentView(
+                            UUID.randomUUID(),
+                            "TD-1",
+                            "Transfer",
+                            "DRAFT",
+                            1L,
+                            command.sourceWarehouseId(),
+                            command.destinationWarehouseId(),
+                            1,
+                            1L,
+                            lines,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null);
+            documents.put(document.documentId(), document);
+            return document;
         }
 
         @Override

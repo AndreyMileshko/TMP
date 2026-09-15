@@ -561,7 +561,8 @@ public final class WarehouseWorkbenchViewModel {
     }
 
     public void openAdjustmentFromInventory() {
-        selectSection(WarehouseSection.ADJUSTMENT);
+        statusMessage.set(
+                "Корректировка выполняется на экране «Склад → Остатки».");
     }
 
     public void loadReservationLinks() {
@@ -987,12 +988,7 @@ public final class WarehouseWorkbenchViewModel {
         statusMessage.set("");
         switch (value) {
             case WAREHOUSES -> loadWarehouses();
-            case TRANSFER -> {
-                ensureWarehouseChoicesLoaded();
-                loadMaterialChoices();
-                loadTransferDrafts();
-            }
-            case STOCK, RECEIPT, MOVE, CONSUMPTION, ADJUSTMENT, INVENTORY -> {
+            case STOCK, RECEIPT, INVENTORY -> {
                 ensureWarehouseChoicesLoaded();
                 loadMaterialChoices();
                 if (value == WarehouseSection.RECEIPT) {
@@ -1009,10 +1005,6 @@ public final class WarehouseWorkbenchViewModel {
         return switch (value) {
             case WAREHOUSES, STOCK, INVENTORY -> canView.get();
             case RECEIPT -> canReceipt.get();
-            case MOVE -> canMove.get();
-            case TRANSFER -> canView.get() || canTransfer.get();
-            case CONSUMPTION -> canConsumption.get();
-            case ADJUSTMENT -> canAdjustment.get();
             case RESERVATIONS -> canReservation.get();
         };
     }

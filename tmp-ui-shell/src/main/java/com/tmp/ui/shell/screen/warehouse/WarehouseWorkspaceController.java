@@ -1,36 +1,51 @@
 package com.tmp.ui.shell.screen.warehouse;
 
 import com.tmp.ui.shell.navigation.ViewModelAware;
+import com.tmp.ui.shell.order.DecimalQuantityParser;
+import com.tmp.ui.shell.order.DecimalUiFormat;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ActionEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.CellFilterOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.HistoryOperationOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.HistoryRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReceiveAllocationEditRow;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.StockMoveLine;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.StockRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.TaskRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.WarehouseFilterOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.WorkspaceTab;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import javafx.beans.binding.Bindings;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.input.MouseButton;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
@@ -111,6 +126,9 @@ public final class WarehouseWorkspaceController
     private TableColumn<TaskRow, String> taskDocumentColumn;
 
     @FXML
+    private TableColumn<TaskRow, String> taskOrderColumn;
+
+    @FXML
     private TableColumn<TaskRow, String> taskKindColumn;
 
     @FXML
@@ -168,7 +186,19 @@ public final class WarehouseWorkspaceController
     private TableView<StockRow> stockTable;
 
     @FXML
+    private TableColumn<StockRow, Boolean> stockSelectColumn;
+
+    @FXML
     private TableColumn<StockRow, String> warehouseColumn;
+
+    @FXML
+    private Button moveStockButton;
+
+    @FXML
+    private Button consumeStockButton;
+
+    @FXML
+    private Button adjustStockButton;
 
     @FXML
     private TableColumn<StockRow, String> cellColumn;
@@ -359,6 +389,13 @@ public final class WarehouseWorkspaceController
         configureStockTable();
         configureHistoryTable();
 
+        moveStockButton.setOnAction(e -> openMoveDialog());
+        moveStockButton.disableProperty().bind(viewModel.canMoveSelectedStockProperty().not());
+        consumeStockButton.setOnAction(e -> openConsumeDialog());
+        consumeStockButton.disableProperty().bind(viewModel.canConsumeSelectedStockProperty().not());
+        adjustStockButton.setOnAction(e -> openAdjustDialog());
+        adjustStockButton.disableProperty().bind(viewModel.canAdjustSelectedStockProperty().not());
+
         takeTaskInWorkButton.setOnAction(e -> viewModel.takeSelectedTaskInWork());
         takeTaskInWorkButton.disableProperty().bind(viewModel.canTakeSelectedTaskInWorkProperty().not());
         sendTransferButton.setOnAction(e -> viewModel.sendSelectedTask());
@@ -493,21 +530,23 @@ public final class WarehouseWorkspaceController
 
     private void configureTasksTable() {
         taskDocumentColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().documentNumber()));
+                cell -> new SimpleStringProperty(cell.getValue().documentNumber()));
+        taskOrderColumn.setCellValueFactory(
+                cell -> new SimpleStringProperty(cell.getValue().orderNumberText()));
         taskKindColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().kindLabel()));
+                cell -> new SimpleStringProperty(cell.getValue().kindLabel()));
         taskStateColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().stateLabel()));
+                cell -> new SimpleStringProperty(cell.getValue().stateLabel()));
         taskRouteColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().routeLabel()));
+                cell -> new SimpleStringProperty(cell.getValue().routeLabel()));
         taskLinesColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().lineCountText()));
+                cell -> new SimpleStringProperty(cell.getValue().lineCountText()));
         taskWorkerColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().workerDisplay()));
+                cell -> new SimpleStringProperty(cell.getValue().workerDisplay()));
 
         tasksTable.setItems(viewModel.taskRows());
         tasksTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        Label placeholder = new Label();
+        Label placeholder = new Label("Нет задач");
         placeholder.textProperty().bind(viewModel.statusMessageProperty());
         placeholder.getStyleClass().add("tmp-empty-state-hint");
         placeholder.setWrapText(true);
@@ -599,42 +638,309 @@ public final class WarehouseWorkspaceController
     }
 
     private void configureStockTable() {
+        stockSelectColumn.setCellValueFactory(cell -> cell.getValue().selectedProperty());
+        stockSelectColumn.setCellFactory(
+                column ->
+                        new TableCell<>() {
+                            private final CheckBox checkBox = new CheckBox();
+
+                            {
+                                checkBox.setOnAction(
+                                        e -> {
+                                            StockRow row = getTableRow() == null ? null : getTableRow().getItem();
+                                            if (row != null) {
+                                                viewModel.toggleStockRowSelection(
+                                                        row, checkBox.isSelected());
+                                            }
+                                        });
+                                setAlignment(Pos.CENTER);
+                            }
+
+                            @Override
+                            protected void updateItem(Boolean item, boolean empty) {
+                                super.updateItem(item, empty);
+                                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                                    setGraphic(null);
+                                    return;
+                                }
+                                checkBox.setSelected(Boolean.TRUE.equals(item));
+                                setGraphic(checkBox);
+                            }
+                        });
+        stockSelectColumn.setSortable(false);
+        stockSelectColumn.setReorderable(false);
+
         warehouseColumn.setCellValueFactory(
-                cell ->
-                        new javafx.beans.property.SimpleStringProperty(
-                                cell.getValue().warehouseLabel()));
+                cell -> new SimpleStringProperty(cell.getValue().warehouseLabel()));
         warehouseColumn.visibleProperty().bind(viewModel.showWarehouseColumnProperty());
 
         cellColumn.setCellValueFactory(
-                cell ->
-                        new javafx.beans.property.SimpleStringProperty(cell.getValue().cellCode()));
+                cell -> new SimpleStringProperty(cell.getValue().cellCode()));
         articleColumn.setCellValueFactory(
-                cell ->
-                        new javafx.beans.property.SimpleStringProperty(cell.getValue().article()));
+                cell -> new SimpleStringProperty(cell.getValue().article()));
         nameColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().name()));
+                cell -> new SimpleStringProperty(cell.getValue().name()));
         colorColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().color()));
+                cell -> new SimpleStringProperty(cell.getValue().color()));
         sizeColumn.setCellValueFactory(
-                cell -> new javafx.beans.property.SimpleStringProperty(cell.getValue().size()));
+                cell -> new SimpleStringProperty(cell.getValue().size()));
         quantityColumn.setCellValueFactory(
-                cell ->
-                        new javafx.beans.property.SimpleStringProperty(
-                                cell.getValue().quantityText()));
+                cell -> new SimpleStringProperty(cell.getValue().quantityText()));
         quantityColumn.setCellFactory(column -> rightAlignedTextCell());
         unitColumn.setCellValueFactory(
-                cell ->
-                        new javafx.beans.property.SimpleStringProperty(
-                                cell.getValue().unitOfMeasure()));
+                cell -> new SimpleStringProperty(cell.getValue().unitOfMeasure()));
         unitColumn.setCellFactory(column -> centerAlignedTextCell());
 
         stockTable.setItems(viewModel.tableRows());
         stockTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        Label placeholder = new Label();
+        Label placeholder = new Label("Нет остатков");
         placeholder.textProperty().bind(viewModel.statusMessageProperty());
         placeholder.getStyleClass().add("tmp-empty-state-hint");
         placeholder.setWrapText(true);
         stockTable.setPlaceholder(placeholder);
+
+        MenuItem moveItem = new MenuItem("Переместить");
+        moveItem.setOnAction(e -> openMoveDialog());
+        MenuItem consumeItem = new MenuItem("Списать");
+        consumeItem.setOnAction(e -> openConsumeDialog());
+        MenuItem adjustItem = new MenuItem("Корректировать");
+        adjustItem.setOnAction(e -> openAdjustDialog());
+        ContextMenu menu = new ContextMenu(moveItem, consumeItem, adjustItem);
+        stockTable.setRowFactory(
+                table -> {
+                    TableRow<StockRow> row = new TableRow<>();
+                    row.setOnContextMenuRequested(
+                            event -> {
+                                if (row.isEmpty() || row.getItem() == null) {
+                                    return;
+                                }
+                                StockRow item = row.getItem();
+                                if (!item.isSelected()) {
+                                    viewModel.selectSingleStockRow(item);
+                                }
+                                moveItem.setDisable(!viewModel.canMoveSelectedStockProperty().get());
+                                consumeItem.setDisable(
+                                        !viewModel.canConsumeSelectedStockProperty().get());
+                                adjustItem.setDisable(
+                                        !viewModel.canAdjustSelectedStockProperty().get());
+                                menu.show(row, event.getScreenX(), event.getScreenY());
+                                event.consume();
+                            });
+                    row.setOnMouseClicked(
+                            event -> {
+                                if (event.getButton() == MouseButton.PRIMARY
+                                        && event.getClickCount() == 1
+                                        && !row.isEmpty()
+                                        && row.getItem() != null
+                                        && event.isControlDown()) {
+                                    viewModel.toggleStockRowSelection(
+                                            row.getItem(), !row.getItem().isSelected());
+                                }
+                            });
+                    return row;
+                });
+    }
+
+    private void openMoveDialog() {
+        List<StockRow> selected;
+        try {
+            selected = viewModel.requireSameWarehouseSelectionForMove();
+        } catch (IllegalArgumentException ex) {
+            viewModel.errorMessageProperty().set(ex.getMessage());
+            return;
+        }
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Перемещение материалов");
+        dialog.setHeaderText("Перемещение материалов");
+        ButtonType sendType = new ButtonType("Отправить", ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelType = new ButtonType("Отмена", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().addAll(sendType, cancelType);
+        dialog.getDialogPane().getStyleClass().add("tmp-dialog");
+
+        Label sourceLabel =
+                new Label(
+                        "Откуда: "
+                                + warehouseLabel(selected.get(0).warehouseId()));
+        ComboBox<WarehouseChoice> destinationWarehouse = new ComboBox<>();
+        destinationWarehouse.getItems().setAll(viewModel.listAccessibleWarehouseChoices());
+        destinationWarehouse.setMaxWidth(Double.MAX_VALUE);
+        ComboBox<StorageCellChoice> destinationCell = new ComboBox<>();
+        destinationCell.setMaxWidth(Double.MAX_VALUE);
+        destinationCell.setDisable(true);
+        Label destCellCaption = new Label("Ячейка назначения:");
+        destCellCaption.setDisable(true);
+
+        VBox linesBox = new VBox(6);
+        List<TextField> quantityFields = new ArrayList<>();
+        for (StockRow row : selected) {
+            HBox line = new HBox(8);
+            line.setAlignment(Pos.CENTER_LEFT);
+            Label material = new Label(row.materialLabel() + " / " + row.cellCode());
+            material.setPrefWidth(280);
+            Label available =
+                    new Label("Доступно: " + DecimalUiFormat.formatRu(row.availableQuantity()));
+            available.setPrefWidth(140);
+            TextField qty = new TextField(DecimalUiFormat.formatRu(row.availableQuantity()));
+            qty.setPrefWidth(100);
+            quantityFields.add(qty);
+            line.getChildren().addAll(material, available, new Label("Кол-во:"), qty);
+            linesBox.getChildren().add(line);
+        }
+
+        destinationWarehouse
+                .valueProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> {
+                            boolean same =
+                                    newValue != null
+                                            && selected.get(0).warehouseId().equals(newValue.id());
+                            destinationCell.setDisable(!same);
+                            destCellCaption.setDisable(!same);
+                            destinationCell.getItems().clear();
+                            if (same) {
+                                destinationCell
+                                        .getItems()
+                                        .setAll(viewModel.listDestinationCells(newValue.id()));
+                            }
+                        });
+
+        GridPane form = new GridPane();
+        form.setHgap(8);
+        form.setVgap(8);
+        form.setPadding(new Insets(8));
+        form.add(sourceLabel, 0, 0, 2, 1);
+        form.add(new Label("Склад назначения:"), 0, 1);
+        form.add(destinationWarehouse, 1, 1);
+        form.add(destCellCaption, 0, 2);
+        form.add(destinationCell, 1, 2);
+        form.add(linesBox, 0, 3, 2, 1);
+        dialog.getDialogPane().setContent(form);
+
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (result.isEmpty() || result.get() != sendType) {
+            return;
+        }
+        WarehouseChoice destWh = destinationWarehouse.getValue();
+        if (destWh == null) {
+            viewModel.errorMessageProperty().set("Выберите склад назначения.");
+            return;
+        }
+        List<StockMoveLine> lines = new ArrayList<>();
+        try {
+            for (int i = 0; i < selected.size(); i++) {
+                BigDecimal qty =
+                        DecimalQuantityParser.parsePositive(
+                                quantityFields.get(i).getText(), "количество");
+                if (qty.compareTo(selected.get(i).availableQuantity()) > 0) {
+                    throw new IllegalArgumentException(
+                            "количество не может превышать доступный остаток");
+                }
+                lines.add(StockMoveLine.from(selected.get(i), qty));
+            }
+            if (destWh.id().equals(selected.get(0).warehouseId())) {
+                StorageCellChoice cell = destinationCell.getValue();
+                if (cell == null) {
+                    viewModel.errorMessageProperty().set("Выберите ячейку назначения.");
+                    return;
+                }
+                viewModel.executeSameWarehouseMove(lines, cell.id());
+            } else {
+                viewModel.executeInterWarehouseMove(lines, destWh.id());
+            }
+        } catch (IllegalArgumentException ex) {
+            viewModel.errorMessageProperty().set(ex.getMessage());
+        }
+    }
+
+    private void openConsumeDialog() {
+        List<StockRow> selected = viewModel.selectedStockRows();
+        if (selected.isEmpty()) {
+            return;
+        }
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Списание");
+        dialog.setHeaderText("Списание материалов");
+        ButtonType okType = new ButtonType("Списать", ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelType = new ButtonType("Отмена", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().addAll(okType, cancelType);
+        dialog.getDialogPane().getStyleClass().add("tmp-dialog");
+        VBox linesBox = new VBox(6);
+        List<TextField> quantityFields = new ArrayList<>();
+        for (StockRow row : selected) {
+            HBox line = new HBox(8);
+            line.setAlignment(Pos.CENTER_LEFT);
+            Label material = new Label(row.materialLabel() + " / " + row.cellCode());
+            material.setPrefWidth(280);
+            Label available =
+                    new Label("Доступно: " + DecimalUiFormat.formatRu(row.availableQuantity()));
+            TextField qty = new TextField(DecimalUiFormat.formatRu(row.availableQuantity()));
+            qty.setPrefWidth(100);
+            quantityFields.add(qty);
+            line.getChildren().addAll(material, available, new Label("Кол-во:"), qty);
+            linesBox.getChildren().add(line);
+        }
+        dialog.getDialogPane().setContent(linesBox);
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (result.isEmpty() || result.get() != okType) {
+            return;
+        }
+        try {
+            List<StockMoveLine> lines = new ArrayList<>();
+            for (int i = 0; i < selected.size(); i++) {
+                BigDecimal qty =
+                        DecimalQuantityParser.parsePositive(
+                                quantityFields.get(i).getText(), "количество");
+                if (qty.compareTo(selected.get(i).availableQuantity()) > 0) {
+                    throw new IllegalArgumentException(
+                            "количество не может превышать доступный остаток");
+                }
+                lines.add(StockMoveLine.from(selected.get(i), qty));
+            }
+            viewModel.executeStockConsumption(lines);
+        } catch (IllegalArgumentException ex) {
+            viewModel.errorMessageProperty().set(ex.getMessage());
+        }
+    }
+
+    private void openAdjustDialog() {
+        List<StockRow> selected = viewModel.selectedStockRows();
+        if (selected.size() != 1) {
+            viewModel.errorMessageProperty().set("Для корректировки выберите одну строку.");
+            return;
+        }
+        StockRow row = selected.get(0);
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Корректировка");
+        dialog.setHeaderText(row.materialLabel() + " / " + row.cellCode());
+        ButtonType okType = new ButtonType("Сохранить", ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelType = new ButtonType("Отмена", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().addAll(okType, cancelType);
+        dialog.getDialogPane().getStyleClass().add("tmp-dialog");
+        Label current =
+                new Label("Текущий остаток: " + DecimalUiFormat.formatRu(row.availableQuantity()));
+        TextField deltaField = new TextField();
+        deltaField.setPromptText("Изменение (+/−)");
+        VBox content = new VBox(8, current, new Label("Количество изменения:"), deltaField);
+        content.setPadding(new Insets(8));
+        dialog.getDialogPane().setContent(content);
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (result.isEmpty() || result.get() != okType) {
+            return;
+        }
+        try {
+            BigDecimal delta = DecimalQuantityParser.parseNonZero(deltaField.getText(), "количество изменения");
+            viewModel.executeStockAdjustment(StockMoveLine.from(row, row.availableQuantity()), delta);
+        } catch (IllegalArgumentException ex) {
+            viewModel.errorMessageProperty().set(ex.getMessage());
+        }
+    }
+
+    private String warehouseLabel(UUID warehouseId) {
+        return viewModel.warehouseFilterOptions().stream()
+                .filter(option -> warehouseId.equals(option.warehouseId()))
+                .map(WarehouseFilterOption::label)
+                .findFirst()
+                .orElse(warehouseId.toString());
     }
 
     private void configureHistoryTable() {
@@ -674,7 +980,7 @@ public final class WarehouseWorkspaceController
 
         historyTable.setItems(viewModel.historyRows());
         historyTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        Label placeholder = new Label();
+        Label placeholder = new Label("Нет операций");
         placeholder.textProperty().bind(viewModel.statusMessageProperty());
         placeholder.getStyleClass().add("tmp-empty-state-hint");
         placeholder.setWrapText(true);
