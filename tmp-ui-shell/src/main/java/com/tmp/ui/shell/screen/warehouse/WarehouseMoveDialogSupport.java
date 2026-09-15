@@ -17,6 +17,7 @@ import java.util.function.Function;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
@@ -27,7 +28,10 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
 
 /**
  * Production TableView move dialog for Stocks (1 and N rows) plus pure helpers for totals, display
@@ -54,6 +58,31 @@ public final class WarehouseMoveDialogSupport {
                     "Доступно",
                     "Переместить",
                     "Ед.");
+
+    /** Initial / minimum dialog geometry (usable desktop sizes). */
+    public static final double DIALOG_PREF_WIDTH = 1100;
+
+    public static final double DIALOG_MIN_WIDTH = 880;
+    public static final double DIALOG_PREF_HEIGHT = 600;
+    public static final double DIALOG_MIN_HEIGHT = 450;
+
+    private static final double COL_ARTICLE_MIN = 110;
+    private static final double COL_ARTICLE_PREF = 140;
+    private static final double COL_NAME_MIN = 180;
+    private static final double COL_NAME_PREF = 280;
+    private static final double COL_COLOR_MIN = 110;
+    private static final double COL_COLOR_PREF = 150;
+    private static final double COL_SIZE_MIN = 75;
+    private static final double COL_SIZE_PREF = 90;
+    private static final double COL_FROM_MIN = 90;
+    private static final double COL_FROM_PREF = 110;
+    private static final double COL_AVAILABLE_MIN = 90;
+    private static final double COL_AVAILABLE_PREF = 105;
+    private static final double COL_QTY_MIN = 120;
+    private static final double COL_QTY_PREF = 140;
+    private static final double COL_UNIT_MIN = 55;
+    private static final double COL_UNIT_PREF = 65;
+    private static final double TABLE_SIDE_INSETS = 28;
 
     private static final Logger LOGGER =
             System.getLogger(WarehouseMoveDialogSupport.class.getName());
@@ -100,11 +129,14 @@ public final class WarehouseMoveDialogSupport {
         ButtonType cancelType = new ButtonType(CANCEL_BUTTON, ButtonBar.ButtonData.CANCEL_CLOSE);
         dialog.getDialogPane().getButtonTypes().addAll(cancelType, fillAvailableType, submitType);
         dialog.getDialogPane().getStyleClass().add("tmp-dialog");
-        dialog.getDialogPane().setPrefWidth(920);
+        dialog.getDialogPane().setPrefSize(DIALOG_PREF_WIDTH, DIALOG_PREF_HEIGHT);
+        dialog.getDialogPane().setMinSize(DIALOG_MIN_WIDTH, DIALOG_MIN_HEIGHT);
+        dialog.getDialogPane().setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
         Label sourceLabel = new Label("Откуда: " + sourceWarehouseLabel);
-        Label totalsLabel =
-                new Label("Итого: " + formatQuantityTotalsByUnit(selected));
+        sourceLabel.setMaxWidth(Double.MAX_VALUE);
+        Label totalsLabel = new Label("Итого: " + formatQuantityTotalsByUnit(selected));
+        totalsLabel.setMaxWidth(Double.MAX_VALUE);
         ComboBox<WarehouseChoice> destinationWarehouse = new ComboBox<>();
         destinationWarehouse.getItems().setAll(accessibleWarehouses);
         destinationWarehouse.setMaxWidth(Double.MAX_VALUE);
@@ -114,8 +146,11 @@ public final class WarehouseMoveDialogSupport {
         Label destCellCaption = new Label("Ячейка назначения:");
 
         TableView<MoveDialogRow> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        table.setPrefHeight(280);
+        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        table.setPrefHeight(320);
+        table.setMinHeight(180);
+        table.setMaxWidth(Double.MAX_VALUE);
+        table.setMaxHeight(Double.MAX_VALUE);
         List<MoveDialogRow> moveRows = new ArrayList<>();
         for (StockRow row : selected) {
             moveRows.add(new MoveDialogRow(row));
@@ -123,37 +158,44 @@ public final class WarehouseMoveDialogSupport {
         table.getItems().setAll(moveRows);
 
         TableColumn<MoveDialogRow, String> articleCol = new TableColumn<>(COLUMN_HEADERS.get(0));
+        configureColumn(articleCol, COL_ARTICLE_MIN, COL_ARTICLE_PREF, false);
         articleCol.setCellValueFactory(
                 cell ->
                         new SimpleStringProperty(
                                 displayOrDash(cell.getValue().stockRow().article())));
         TableColumn<MoveDialogRow, String> nameCol = new TableColumn<>(COLUMN_HEADERS.get(1));
+        configureColumn(nameCol, COL_NAME_MIN, COL_NAME_PREF, true);
         nameCol.setCellValueFactory(
                 cell ->
                         new SimpleStringProperty(
                                 displayOrDash(cell.getValue().stockRow().name())));
         TableColumn<MoveDialogRow, String> colorCol = new TableColumn<>(COLUMN_HEADERS.get(2));
+        configureColumn(colorCol, COL_COLOR_MIN, COL_COLOR_PREF, false);
         colorCol.setCellValueFactory(
                 cell ->
                         new SimpleStringProperty(
                                 displayOrDash(cell.getValue().stockRow().color())));
         TableColumn<MoveDialogRow, String> sizeCol = new TableColumn<>(COLUMN_HEADERS.get(3));
+        configureColumn(sizeCol, COL_SIZE_MIN, COL_SIZE_PREF, false);
         sizeCol.setCellValueFactory(
                 cell ->
                         new SimpleStringProperty(
                                 displayOrDash(cell.getValue().stockRow().size())));
         TableColumn<MoveDialogRow, String> fromCol = new TableColumn<>(COLUMN_HEADERS.get(4));
+        configureColumn(fromCol, COL_FROM_MIN, COL_FROM_PREF, false);
         fromCol.setCellValueFactory(
                 cell ->
                         new SimpleStringProperty(
                                 displayOrDash(cell.getValue().stockRow().cellCode())));
         TableColumn<MoveDialogRow, String> availableCol = new TableColumn<>(COLUMN_HEADERS.get(5));
+        configureColumn(availableCol, COL_AVAILABLE_MIN, COL_AVAILABLE_PREF, false);
         availableCol.setCellValueFactory(
                 cell ->
                         new SimpleStringProperty(
                                 DecimalUiFormat.formatRu(
                                         cell.getValue().stockRow().availableQuantity())));
         TableColumn<MoveDialogRow, String> qtyCol = new TableColumn<>(COLUMN_HEADERS.get(6));
+        configureColumn(qtyCol, COL_QTY_MIN, COL_QTY_PREF, false);
         qtyCol.setCellValueFactory(cell -> cell.getValue().quantityTextProperty());
         qtyCol.setCellFactory(
                 column ->
@@ -161,6 +203,7 @@ public final class WarehouseMoveDialogSupport {
                             private final TextField field = new TextField();
 
                             {
+                                field.setMaxWidth(Double.MAX_VALUE);
                                 field.textProperty()
                                         .addListener(
                                                 (obs, o, n) -> {
@@ -196,6 +239,7 @@ public final class WarehouseMoveDialogSupport {
                             }
                         });
         TableColumn<MoveDialogRow, String> unitCol = new TableColumn<>(COLUMN_HEADERS.get(7));
+        configureColumn(unitCol, COL_UNIT_MIN, COL_UNIT_PREF, false);
         unitCol.setCellValueFactory(
                 cell ->
                         new SimpleStringProperty(
@@ -210,6 +254,17 @@ public final class WarehouseMoveDialogSupport {
                         availableCol,
                         qtyCol,
                         unitCol);
+        bindNameColumnToFreeWidth(
+                table,
+                nameCol,
+                List.of(
+                        articleCol,
+                        colorCol,
+                        sizeCol,
+                        fromCol,
+                        availableCol,
+                        qtyCol,
+                        unitCol));
 
         Runnable updateDestinationCellVisibility =
                 () -> {
@@ -239,18 +294,35 @@ public final class WarehouseMoveDialogSupport {
                 .valueProperty()
                 .addListener((obs, oldValue, newValue) -> updateDestinationCellVisibility.run());
 
-        GridPane form = new GridPane();
-        form.setHgap(8);
-        form.setVgap(8);
-        form.setPadding(new Insets(8));
-        form.add(sourceLabel, 0, 0, 2, 1);
-        form.add(totalsLabel, 0, 1, 2, 1);
-        form.add(destWarehouseCaption, 0, 2);
-        form.add(destinationWarehouse, 1, 2);
-        form.add(destCellCaption, 0, 3);
-        form.add(destinationCell, 1, 3);
-        form.add(table, 0, 4, 2, 1);
-        dialog.getDialogPane().setContent(form);
+        GridPane destinationForm = new GridPane();
+        destinationForm.setHgap(8);
+        destinationForm.setVgap(8);
+        destinationForm.setMaxWidth(Double.MAX_VALUE);
+        ColumnConstraints labelCol = new ColumnConstraints();
+        labelCol.setMinWidth(140);
+        labelCol.setPrefWidth(160);
+        ColumnConstraints fieldCol = new ColumnConstraints();
+        fieldCol.setHgrow(Priority.ALWAYS);
+        fieldCol.setFillWidth(true);
+        fieldCol.setMinWidth(220);
+        destinationForm.getColumnConstraints().addAll(labelCol, fieldCol);
+        destinationForm.add(destWarehouseCaption, 0, 0);
+        destinationForm.add(destinationWarehouse, 1, 0);
+        destinationForm.add(destCellCaption, 0, 1);
+        destinationForm.add(destinationCell, 1, 1);
+        GridPane.setHgrow(destinationWarehouse, Priority.ALWAYS);
+        GridPane.setHgrow(destinationCell, Priority.ALWAYS);
+
+        VBox root = new VBox(10);
+        root.setPadding(new Insets(12));
+        root.setFillWidth(true);
+        root.setMaxWidth(Double.MAX_VALUE);
+        root.setMaxHeight(Double.MAX_VALUE);
+        root.setAlignment(Pos.TOP_LEFT);
+        VBox.setVgrow(table, Priority.ALWAYS);
+        root.getChildren().addAll(sourceLabel, totalsLabel, destinationForm, table);
+        dialog.getDialogPane().setContent(root);
+        dialog.getDialogPane().setExpandableContent(null);
 
         dialog.setOnShown(
                 e -> {
@@ -283,10 +355,61 @@ public final class WarehouseMoveDialogSupport {
                                 });
                     }
                     updateDestinationCellVisibility.run();
+                    redistributeNameColumnWidth(
+                            table,
+                            nameCol,
+                            List.of(
+                                    articleCol,
+                                    colorCol,
+                                    sizeCol,
+                                    fromCol,
+                                    availableCol,
+                                    qtyCol,
+                                    unitCol));
                 });
 
         return new MoveDialogSession(
                 dialog, submitType, sourceWarehouseId, destinationWarehouse, destinationCell, moveRows);
+    }
+
+    private static void configureColumn(
+            TableColumn<?, ?> column, double minWidth, double prefWidth, boolean growable) {
+        column.setMinWidth(minWidth);
+        column.setPrefWidth(prefWidth);
+        column.setResizable(true);
+        if (growable) {
+            column.setMaxWidth(Double.MAX_VALUE);
+        } else {
+            column.setMaxWidth(Math.max(prefWidth * 1.6, minWidth + 40));
+        }
+    }
+
+    private static void bindNameColumnToFreeWidth(
+            TableView<?> table,
+            TableColumn<?, ?> nameCol,
+            List<? extends TableColumn<?, ?>> otherColumns) {
+        table.widthProperty()
+                .addListener(
+                        (obs, oldWidth, newWidth) ->
+                                redistributeNameColumnWidth(table, nameCol, otherColumns));
+        table.layoutBoundsProperty()
+                .addListener(
+                        (obs, o, n) -> redistributeNameColumnWidth(table, nameCol, otherColumns));
+    }
+
+    private static void redistributeNameColumnWidth(
+            TableView<?> table,
+            TableColumn<?, ?> nameCol,
+            List<? extends TableColumn<?, ?>> otherColumns) {
+        double reserved = TABLE_SIDE_INSETS;
+        for (TableColumn<?, ?> column : otherColumns) {
+            reserved += Math.max(column.getWidth(), column.getPrefWidth());
+        }
+        double available = table.getWidth() - reserved;
+        double next = Math.max(nameCol.getMinWidth(), available);
+        if (Math.abs(nameCol.getPrefWidth() - next) > 0.5) {
+            nameCol.setPrefWidth(next);
+        }
     }
 
     /**
@@ -408,6 +531,33 @@ public final class WarehouseMoveDialogSupport {
             return labels;
         }
 
+        /** Production TableView used by this dialog (for layout regression tests). */
+        public TableView<?> tableView() {
+            TableView<?> table = findTable();
+            if (table == null) {
+                throw new IllegalStateException("Move dialog TableView not found");
+            }
+            return table;
+        }
+
+        public double columnMinWidth(String header) {
+            for (TableColumn<?, ?> column : tableView().getColumns()) {
+                if (header.equals(column.getText())) {
+                    return column.getMinWidth();
+                }
+            }
+            throw new IllegalArgumentException("Unknown column: " + header);
+        }
+
+        public double columnPrefWidth(String header) {
+            for (TableColumn<?, ?> column : tableView().getColumns()) {
+                if (header.equals(column.getText())) {
+                    return column.getPrefWidth();
+                }
+            }
+            throw new IllegalArgumentException("Unknown column: " + header);
+        }
+
         /**
          * Validates destination and quantities after the user confirms OK. Throws {@link
          * IllegalArgumentException} for missing destination or invalid quantities.
@@ -440,7 +590,18 @@ public final class WarehouseMoveDialogSupport {
 
         @SuppressWarnings("unchecked")
         private TableView<?> findTable() {
-            if (dialog.getDialogPane().getContent() instanceof GridPane form) {
+            javafx.scene.Node content = dialog.getDialogPane().getContent();
+            if (content instanceof TableView<?> tableView) {
+                return tableView;
+            }
+            if (content instanceof VBox root) {
+                for (javafx.scene.Node node : root.getChildren()) {
+                    if (node instanceof TableView<?> tableView) {
+                        return tableView;
+                    }
+                }
+            }
+            if (content instanceof GridPane form) {
                 for (javafx.scene.Node node : form.getChildren()) {
                     if (node instanceof TableView<?> tableView) {
                         return tableView;

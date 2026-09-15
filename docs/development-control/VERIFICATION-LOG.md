@@ -3,15 +3,41 @@
 ## Latest result
 
 **Date:** 2026-09-15
-**Scope:** Stage 3.5.15 — Move dialog runtime wiring (stale package corrective)
-**Overall:** PASS (targeted + clean install + fresh package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO VERIFY new TableView Move dialog; Full reactor NOT RUN
+**Scope:** Stage 3.5.15 — Move dialog responsive layout / column sizing
+**Overall:** PASS (targeted + clean install + fresh package); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO VERIFY wide TableView; Full reactor NOT RUN
 **Write-off changed:** NO
+**Adjustment changed:** NO
 
-### Manual FAIL root cause
+### Manual UX FAIL root cause
 
-Packaged `BOOT-INF/lib/tmp-ui-shell-0.1.0-SNAPSHOT.jar` inside previous `dist` was **stale (11:11)** while source/local classes had the new dialog (11:25). `WarehouseMoveDialogSupport.class` was **absent** from that jar — runtime kept opening the legacy HBox Move dialog. Source wiring was already correct (toolbar/context → `openMoveDialog`).
+`WarehouseMoveDialogSupport` used `GridPane` without H/V grow + `CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN`, so TableView stayed ~content-width on the left while dialog was wide; headers (`Размер`/`Откуда`/`Доступно`) clipped.
 
-### Stage 3.5.15 Move dialog runtime wiring (2026-09-15)
+### Fix
+
+- Root `VBox` with `fillWidth` + `VBox.setVgrow(table, ALWAYS)`
+- Dialog pref 1100×600 / min 880×450 / resizable
+- Table `maxWidth/maxHeight = MAX`; `UNCONSTRAINED_RESIZE_POLICY`
+- Sane column min/pref; **Наименование** receives free width on resize
+- Destination combos grow with dialog width
+
+### Stage 3.5.15 Move dialog responsive layout (2026-09-15)
+
+| Check | Result |
+|-------|--------|
+| `WarehouseMoveDialogSupportTest` | PASS (4; includes geometry/resize) |
+| `WarehouseWorkspaceMoveDialogWiringTest` | PASS (3) |
+| `WarehouseWorkspaceViewModelTest` | PASS (64) |
+| `WarehouseWorkbenchControllerFxTest` | PASS (1) |
+| Decimal parser/format | PASS (3 / 5) |
+| `Stage6WarehouseArchitectureTest` | PASS (10) |
+| ui-shell targeted total | PASS — **80** |
+| clean install + fresh package | PASS → `dist/jpackage/TMP/TMP.exe` **13:16:34**; ui-shell jar **13:16:10** contains `WarehouseMoveDialogSupport` + `DIALOG_PREF_*` |
+| Startup | PASS — PostgreSQL; Flyway V46 (46 migrations validated, up to date); Spring Started; JavaFX WARN only (unnamed module); exceptions NONE |
+| DB safety | Baseline = After `3\|39\|1347.900000\|77\|110\|1`; deltas 0; production **SECOND** |
+| Full reactor | NOT RUN |
+| Manual acceptance | READY TO VERIFY: Склад → Остатки → 2 rows → Переместить (wide TableView / readable headers) |
+
+### Prior — Stage 3.5.15 Move dialog runtime wiring (2026-09-15)
 
 | Check | Result |
 |-------|--------|

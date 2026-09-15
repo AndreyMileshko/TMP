@@ -36,7 +36,7 @@
 | 3.5.12 | История | **COMPLETE** (+ multi-cell aggregation corrective) |
 | 3.5.13 | Warehouse Settings | **COMPLETE** |
 | 3.5.14 | Warehouse UI Polish | **COMPLETE** |
-| 3.5.15 | Manual Warehouse acceptance | **IN PROGRESS** (Final UX Corrective COMPLETE: table Move dialog, Stocks refresh/selectors, History actor V46, order-boundary composition; Write-off deferred; Manual acceptance READY TO RESUME FROM Склад → Остатки; Full reactor NOT YET RUN) |
+| 3.5.15 | Manual Warehouse acceptance | **IN PROGRESS** (Final UX Corrective COMPLETE; Move dialog runtime wiring + responsive layout COMPLETE — TableView fills dialog width / sane column mins; Write-off deferred; Manual acceptance READY TO VERIFY wide TableView from Склад → Остатки; Full reactor NOT YET RUN) |
 
 **Locked business decision (3.5.8.3 DONE):** Full reject MUST NOT automatically create a continuation. Full reject → accepted=0, rejection reason required, RETURN_PENDING, sender return task only.
 

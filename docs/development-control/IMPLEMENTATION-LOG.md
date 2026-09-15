@@ -4,6 +4,29 @@
 
 ---
 
+## Stage 3.5.15 — Move dialog responsive layout — 2026-09-15
+
+**Date:** 2026-09-15
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — Move dialog layout corrective)
+**Base checkpoint:** `568bcb5295f128a9c02496ae7ffabf3b869b1bad`
+**Status:** Targeted ui-shell + architecture PASS; clean install + fresh package PASS; Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO VERIFY wide TableView; no commit
+**Root cause:** Move content used `GridPane` without H/V grow + `CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN` without column mins → TableView stayed content-width left; headers clipped.
+**Write-off / Adjustment / domain / actor / order boundary:** unchanged
+
+### Implementation (`tmp-ui-shell`)
+
+- Root `VBox` `fillWidth` + `VBox.setVgrow(table, ALWAYS)`; table `maxWidth/maxHeight = MAX`.
+- Dialog geometry: pref 1100×600, min 880×450, resizable, unbounded max.
+- Column min/pref strategy; `UNCONSTRAINED_RESIZE_POLICY` + Name column free-width binding.
+- Destination combos grow with dialog; buttons left/right via ButtonBar.
+- FX test: `createMoveDialogUsesResponsiveGeometryAndSaneColumnMins`.
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Move dialog responsive layout entry (2026-09-15).
+
+---
+
 ## Stage 3.5.15 — Move dialog runtime wiring (WarehouseMoveDialogSupport) — 2026-09-15
 
 **Date:** 2026-09-15

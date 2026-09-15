@@ -11931,12 +11931,37 @@ See VERIFICATION-LOG Stage 3.5.14 entry (2026-09-11).
 Stage 3.5.15 — Final Warehouse Acceptance = IN PROGRESS
 Final UX Corrective = COMPLETE (table Move dialog; Adjustment visual; Stocks ALL + auto-refresh; task qty formatRu; History actor V46; order-number composition; Write-off deferred)
 Move dialog runtime wiring = COMPLETE (`WarehouseMoveDialogSupport.createMoveDialog`; toolbar+context → openMoveDialog; packaging stale-jar root cause)
+Move dialog responsive layout = COMPLETE (VBox grow; dialog 1100×600 / min 880×450; sane column mins; Name takes free width; Write-off/Adjustment untouched)
 Stocks UX corrective = COMPLETE
 Stocks-centric UX = COMPLETE (operations from Остатки; legacy 4 screens removed)
 Production acceptance-state corrective = COMPLETE
 Warehouse-managed production destination = COMPLETE (Flyway V45)
-Manual acceptance = READY TO RESUME FROM Склад → Остатки
+Manual acceptance = READY TO VERIFY wide TableView Move dialog from Склад → Остатки
   (write-off OUT OF SCOPE this acceptance cycle)
+
+---
+## STAGE-3.5.15 — Move dialog responsive layout corrective
+
+**Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.15 Move dialog runtime wiring
+**Module:** `tmp-ui-shell` (`WarehouseMoveDialogSupport` only)
+**Migration:** NONE
+
+**Goal:** Fix Manual UX FAIL — TableView left-aligned with empty right space / crushed columns / clipped headers.
+
+**Acceptance criteria:**
+- [x] Dialog resizable; pref ~1100×600; min ~880×450
+- [x] TableView H/V grow with parent; no fixed legacy small width
+- [x] Sane column min/pref; Наименование receives free width
+- [x] Headers readable at normal width; Write-off/Adjustment unchanged
+- [x] FX geometry test + targeted suites + clean package PASS; no full reactor; no commit
+
+See VERIFICATION-LOG Stage 3.5.15 Move dialog responsive layout entry (2026-09-15).
+
+### Next on success
+
+Manual acceptance: Склад → Остатки → 2 rows → Переместить (wide responsive TableView).
 
 ---
 ## STAGE-3.5.15 — Final UX Corrective after manual acceptance
