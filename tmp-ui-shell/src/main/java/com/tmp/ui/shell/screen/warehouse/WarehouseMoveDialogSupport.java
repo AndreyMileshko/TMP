@@ -4,6 +4,7 @@ import com.tmp.ui.shell.order.DecimalQuantityParser;
 import com.tmp.ui.shell.order.DecimalUiFormat;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.StockMoveLine;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.StockRow;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
 import java.math.BigDecimal;
@@ -476,6 +477,9 @@ public final class WarehouseMoveDialogSupport {
     /**
      * Built move dialog: UI session plus helpers to collect a validated submission after OK.
      */
+    @SuppressFBWarnings(
+            value = "EI_EXPOSE_REP",
+            justification = "JavaFX Dialog must be returned for showAndWait by the caller")
     public static final class MoveDialogSession {
         private final Dialog<ButtonType> dialog;
         private final ButtonType submitType;

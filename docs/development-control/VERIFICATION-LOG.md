@@ -2,6 +2,45 @@
 
 ## Latest result
 
+**Date:** 2026-09-17
+**Scope:** Stage 3.5.15 — Stocks Table UI jitter corrective (Склад → Остатки)
+**Overall:** PASS (diagnosis + fix + targeted tests + architecture + clean install + fresh package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO VERIFY Stocks jitter; Full reactor NOT RUN
+**Domain / StockPosition / routing / Production warehouse / migration:** unchanged
+
+### Manual jitter root cause
+
+1. **Primary:** `stockLoadingLabel.managedProperty()` bound to `visible` → every Stocks reload set `loading=true`, inserted a managed label above the TableView in the VBox, shrank table height, then restored it → whole-table vertical jerk.
+2. **Secondary:** `CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN` redistributed all column widths when the vertical scrollbar appeared/disappeared (viewport width change).
+
+### Fix
+
+- Loading label overlay in `StackPane`; `managed=false` always; soft refresh skips loading chrome when rows already present.
+- Stocks table `UNCONSTRAINED_RESIZE_POLICY` + name-column flex with permanent vertical scrollbar gutter (18px).
+- Scroll anchor capture/restore around `tableRows.setAll`.
+- Temporary `-Dtmp.warehouse.stocks.refresh.trace=true` instrumentation + packaged marker `STOCKS_TABLE_JITTER_FIX_2026_09_17`.
+
+### Stage 3.5.15 Stocks Table jitter (2026-09-17)
+
+| Check | Result |
+|-------|--------|
+| `WarehouseWorkspaceStocksJitterFxTest` | PASS (1) — loading overlay does not shrink table |
+| `WarehouseWorkspaceViewModelTest` | PASS (65; soft search identity / no empty intermediate) |
+| `WarehouseMoveDialogSupportTest` | PASS (4) |
+| `WarehouseWorkspaceMoveDialogWiringTest` | PASS (3) |
+| Targeted ui-shell suite | PASS — **73** |
+| `Stage6WarehouseArchitectureTest` | PASS (10) |
+| `mvn -pl :tmp-ui-shell,:tmp-bootstrap-app -am clean install -DskipTests` | PASS |
+| Fresh package `pre-integration-test -Ppackage` | PASS → `dist/jpackage/TMP/TMP.exe` **22:43:13** |
+| Packaged ui-shell proof | single `BOOT-INF/lib/tmp-ui-shell-0.1.0-SNAPSHOT.jar` (**22:39:20**); class marker `STOCKS_TABLE_JITTER_FIX_2026_09_17` |
+| Startup | PASS — `Started DesktopBootstrap` (~4.7s); Flyway V46; JavaFX unnamed-module WARN only; exceptions NONE |
+| DB safety | Before=After `4\|39\|1347.900000\|85\|126\|1` production **2000**; deltas 0 |
+| Full reactor | NOT RUN |
+| Manual acceptance | READY TO VERIFY: Склад → Остатки (filter/search/checkbox/move/scroll; no table jerk) |
+
+---
+
+## Prior — Stage 3.5.15 Move dialog responsive layout (2026-09-15)
+
 **Date:** 2026-09-15
 **Scope:** Stage 3.5.15 — Move dialog responsive layout / column sizing
 **Overall:** PASS (targeted + clean install + fresh package); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO VERIFY wide TableView; Full reactor NOT RUN

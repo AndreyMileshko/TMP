@@ -111,21 +111,24 @@
                 <Button fx:id="consumeStockButton" text="Списать" styleClass="tmp-button-secondary"/>
                 <Button fx:id="adjustStockButton" text="Корректировать" styleClass="tmp-button-secondary"/>
             </FlowPane>
-            <Label fx:id="stockLoadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
-                   visible="false" managed="false"/>
-            <TableView fx:id="stockTable" VBox.vgrow="ALWAYS">
-                <columns>
-                    <TableColumn fx:id="stockSelectColumn" text="" prefWidth="40" minWidth="36" maxWidth="48"/>
-                    <TableColumn fx:id="warehouseColumn" text="Склад" prefWidth="100" minWidth="70"/>
-                    <TableColumn fx:id="cellColumn" text="Ячейка" prefWidth="100" minWidth="80"/>
-                    <TableColumn fx:id="articleColumn" text="Артикул" prefWidth="140" minWidth="100"/>
-                    <TableColumn fx:id="nameColumn" text="Наименование" prefWidth="260" minWidth="160"/>
-                    <TableColumn fx:id="colorColumn" text="Цвет" prefWidth="100" minWidth="80"/>
-                    <TableColumn fx:id="sizeColumn" text="Размер" prefWidth="100" minWidth="80"/>
-                    <TableColumn fx:id="quantityColumn" text="Остаток" prefWidth="90" minWidth="70"/>
-                    <TableColumn fx:id="unitColumn" text="Ед." prefWidth="60" minWidth="50"/>
-                </columns>
-            </TableView>
+            <!-- StackPane: loading overlay must not change TableView geometry (jitter root cause). -->
+            <StackPane VBox.vgrow="ALWAYS">
+                <TableView fx:id="stockTable" styleClass="warehouse-stocks-table">
+                    <columns>
+                        <TableColumn fx:id="stockSelectColumn" text="" prefWidth="40" minWidth="36" maxWidth="48"/>
+                        <TableColumn fx:id="warehouseColumn" text="Склад" prefWidth="100" minWidth="70"/>
+                        <TableColumn fx:id="cellColumn" text="Ячейка" prefWidth="100" minWidth="80"/>
+                        <TableColumn fx:id="articleColumn" text="Артикул" prefWidth="140" minWidth="100"/>
+                        <TableColumn fx:id="nameColumn" text="Наименование" prefWidth="260" minWidth="160"/>
+                        <TableColumn fx:id="colorColumn" text="Цвет" prefWidth="100" minWidth="80"/>
+                        <TableColumn fx:id="sizeColumn" text="Размер" prefWidth="100" minWidth="80"/>
+                        <TableColumn fx:id="quantityColumn" text="Остаток" prefWidth="90" minWidth="70"/>
+                        <TableColumn fx:id="unitColumn" text="Ед." prefWidth="60" minWidth="50"/>
+                    </columns>
+                </TableView>
+                <Label fx:id="stockLoadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
+                       mouseTransparent="true" visible="false" managed="false"/>
+            </StackPane>
             <HBox spacing="16" alignment="CENTER">
                 <Button fx:id="previousPageButton" text="Назад" styleClass="tmp-button-secondary"/>
                 <Label fx:id="pageLabel"/>

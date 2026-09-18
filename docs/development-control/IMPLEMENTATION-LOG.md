@@ -4,6 +4,29 @@
 
 ---
 
+## Stage 3.5.15 — Stocks Table UI jitter corrective — 2026-09-17
+
+**Date:** 2026-09-17
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — Stocks refresh jitter)
+**Base checkpoint:** `34c10a83b90d00f8e09a35639fce18b633101666`
+**Status:** Diagnosis + fix PASS; targeted + architecture + clean package + startup PASS; Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO VERIFY Stocks jitter; no commit
+**Root cause (proven):** (1) managed `stockLoadingLabel` resized TableView on every reload; (2) CONSTRAINED resize redistributed columns when vertical scrollbar toggled.
+**Domain / StockPosition / routing / Production / DB:** unchanged
+
+### Implementation (`tmp-ui-shell`)
+
+- Stocks table wrapped in `StackPane`; loading label overlay `managed=false`.
+- Soft refresh: no loading chrome when rows already present; same `ObservableList` + atomic `setAll`.
+- `UNCONSTRAINED_RESIZE_POLICY` + name flex with 18px vertical scrollbar gutter.
+- Scroll anchor hooks around apply; optional `-Dtmp.warehouse.stocks.refresh.trace=true`.
+- Packaged marker `StocksTableStabilityMarker.MARKER=STOCKS_TABLE_JITTER_FIX_2026_09_17`.
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Stocks Table jitter entry (2026-09-17).
+
+---
+
 ## Stage 3.5.15 — Move dialog responsive layout — 2026-09-15
 
 **Date:** 2026-09-15

@@ -20,11 +20,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
+import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
@@ -35,6 +40,7 @@ import javafx.scene.control.DatePicker;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.ScrollBar;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
@@ -289,16 +295,36 @@ public final class WarehouseWorkspaceController
                         viewModel.loadingProperty(),
                         Bindings.equal(viewModel.selectedTabProperty(), WorkspaceTab.TASKS)));
         loadingLabel.managedProperty().bind(loadingLabel.visibleProperty());
+        // Stocks loading is an overlay: never managed=true (that resized the table and caused jitter).
+        stockLoadingLabel.setManaged(false);
         stockLoadingLabel.visibleProperty().bind(
                 Bindings.and(
                         viewModel.loadingProperty(),
                         Bindings.equal(viewModel.selectedTabProperty(), WorkspaceTab.STOCK)));
-        stockLoadingLabel.managedProperty().bind(stockLoadingLabel.visibleProperty());
         historyLoadingLabel.visibleProperty().bind(
                 Bindings.and(
                         viewModel.loadingProperty(),
                         Bindings.equal(viewModel.selectedTabProperty(), WorkspaceTab.HISTORY)));
         historyLoadingLabel.managedProperty().bind(historyLoadingLabel.visibleProperty());
+
+        IntSupplier scrollAnchor =
+                () -> {
+                    int top = estimateTopVisibleStockIndex();
+                    traceStockLayout("pre-reload");
+                    return top;
+                };
+        IntConsumer scrollRestorer =
+                index ->
+                        Platform.runLater(
+                                () -> {
+                                    if (index >= 0 && !stockTable.getItems().isEmpty()) {
+                                        int restore =
+                                                Math.min(index, stockTable.getItems().size() - 1);
+                                        stockTable.scrollTo(restore);
+                                    }
+                                    traceStockLayout("post-reload");
+                                });
+        viewModel.setStockScrollHooks(scrollAnchor, scrollRestorer);
 
         ToggleGroup tabGroup = new ToggleGroup();
         tasksTabButton.setToggleGroup(tabGroup);
@@ -715,7 +741,11 @@ public final class WarehouseWorkspaceController
         unitColumn.setCellFactory(column -> centerAlignedTextCell());
 
         stockTable.setItems(viewModel.tableRows());
-        stockTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        // UNCONSTRAINED + reserved vertical gutter: CONSTRAINED redistributed every column when the
+        // vertical scrollbar appeared/disappeared (viewport width change → visible table jerk).
+        stockTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        configureStockColumnWidths();
+        installStockRefreshLayoutTrace();
         Label placeholder = new Label("Нет остатков");
         placeholder.textProperty().bind(viewModel.statusMessageProperty());
         placeholder.getStyleClass().add("tmp-empty-state-hint");
@@ -762,6 +792,100 @@ public final class WarehouseWorkspaceController
                             });
                     return row;
                 });
+    }
+
+    /**
+     * Flex only the name column; always subtract a vertical-scrollbar gutter so show/hide of the
+     * bar does not change column geometry under adaptive window sizes.
+     */
+    private void configureStockColumnWidths() {
+        final double verticalScrollGutter = 18.0;
+        stockSelectColumn.setResizable(false);
+        Runnable redistribute =
+                () -> {
+                    double tableWidth = stockTable.getWidth();
+                    if (tableWidth <= 0) {
+                        return;
+                    }
+                    double fixed =
+                            stockSelectColumn.getPrefWidth()
+                                    + (warehouseColumn.isVisible()
+                                            ? warehouseColumn.getPrefWidth()
+                                            : 0)
+                                    + cellColumn.getPrefWidth()
+                                    + articleColumn.getPrefWidth()
+                                    + colorColumn.getPrefWidth()
+                                    + sizeColumn.getPrefWidth()
+                                    + quantityColumn.getPrefWidth()
+                                    + unitColumn.getPrefWidth();
+                    if (fixed <= 0) {
+                        fixed = 40 + 100 + 140 + 100 + 100 + 90 + 60;
+                        if (warehouseColumn.isVisible()) {
+                            fixed += 100;
+                        }
+                    }
+                    double nameWidth = Math.max(160, tableWidth - fixed - verticalScrollGutter);
+                    nameColumn.setPrefWidth(nameWidth);
+                };
+        stockTable.widthProperty().addListener((obs, o, n) -> redistribute.run());
+        warehouseColumn.visibleProperty().addListener((obs, o, n) -> redistribute.run());
+        Platform.runLater(redistribute);
+    }
+
+    private void installStockRefreshLayoutTrace() {
+        viewModel
+                .loadingProperty()
+                .addListener(
+                        (obs, wasLoading, isLoading) -> {
+                            if (viewModel.selectedTabProperty().get() != WorkspaceTab.STOCK) {
+                                return;
+                            }
+                            Platform.runLater(
+                                    () ->
+                                            traceStockLayout(
+                                                    Boolean.TRUE.equals(isLoading)
+                                                            ? "loading-on"
+                                                            : "loading-off"));
+                        });
+    }
+
+    private void traceStockLayout(String phase) {
+        if (!StocksRefreshTrace.enabled()) {
+            return;
+        }
+        ScrollBar vBar = findScrollBar(Orientation.VERTICAL);
+        ScrollBar hBar = findScrollBar(Orientation.HORIZONTAL);
+        StocksRefreshTrace.layoutSnapshot(
+                phase,
+                stockTable.getWidth(),
+                stockTable.getHeight(),
+                vBar != null && vBar.isVisible(),
+                hBar != null && hBar.isVisible(),
+                stockLoadingLabel.isVisible(),
+                stockLoadingLabel.isManaged(),
+                stockLoadingLabel.getHeight(),
+                estimateTopVisibleStockIndex());
+    }
+
+    private ScrollBar findScrollBar(Orientation orientation) {
+        for (Node node : stockTable.lookupAll(".scroll-bar")) {
+            if (node instanceof ScrollBar bar && bar.getOrientation() == orientation) {
+                return bar;
+            }
+        }
+        return null;
+    }
+
+    private int estimateTopVisibleStockIndex() {
+        ScrollBar vBar = findScrollBar(Orientation.VERTICAL);
+        if (vBar == null || stockTable.getItems().isEmpty()) {
+            return stockTable.getItems().isEmpty() ? -1 : 0;
+        }
+        double max = vBar.getMax();
+        if (max <= 0) {
+            return 0;
+        }
+        return (int) Math.round((vBar.getValue() / max) * (stockTable.getItems().size() - 1));
     }
 
     private void openMoveDialog() {

@@ -55,6 +55,8 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
@@ -800,6 +802,9 @@ public final class WarehouseWorkspaceViewModel {
     private long historyLoadGeneration;
     private long taskDetailLoadGeneration;
     private boolean stockLoadedForCurrentFilter;
+    private String pendingStockReloadReason = "UNSPECIFIED";
+    private IntSupplier stockScrollAnchor;
+    private IntConsumer stockScrollRestorer;
 
     private TransferDocumentView loadedDocument;
     private List<TransferDocumentReturnPlanItem> loadedReturnPlan = List.of();
@@ -955,6 +960,7 @@ public final class WarehouseWorkspaceViewModel {
         if (tab == WorkspaceTab.TASKS) {
             reloadTasks();
         } else if (tab == WorkspaceTab.STOCK) {
+            pendingStockReloadReason = "WAREHOUSE_FILTER";
             reloadCellFilterOptionsThenStock();
         } else if (tab == WorkspaceTab.HISTORY) {
             reloadHistory();
@@ -983,7 +989,7 @@ public final class WarehouseWorkspaceViewModel {
         pageIndex.set(0);
         stockLoadedForCurrentFilter = false;
         if (selectedTab.get() == WorkspaceTab.STOCK) {
-            reloadStockByCells();
+            reloadStockByCells("CELL_FILTER");
         }
     }
 
@@ -1273,7 +1279,7 @@ public final class WarehouseWorkspaceViewModel {
         }
         committedSearch = blankToNull(searchInput.get()) == null ? "" : searchInput.get().trim();
         pageIndex.set(0);
-        reloadStockByCells();
+        reloadStockByCells("SEARCH");
     }
 
     public void commitHistorySearch() {
@@ -1338,7 +1344,7 @@ public final class WarehouseWorkspaceViewModel {
         int maxPage = total <= 0 ? 0 : (int) ((total - 1) / PAGE_SIZE);
         if (pageIndex.get() < maxPage) {
             pageIndex.set(pageIndex.get() + 1);
-            reloadStockByCells();
+            reloadStockByCells("PAGE_NEXT");
         }
     }
 
@@ -1348,7 +1354,7 @@ public final class WarehouseWorkspaceViewModel {
         }
         if (pageIndex.get() > 0) {
             pageIndex.set(pageIndex.get() - 1);
-            reloadStockByCells();
+            reloadStockByCells("PAGE_PREV");
         }
     }
 
@@ -1571,6 +1577,7 @@ public final class WarehouseWorkspaceViewModel {
             }
             stockLoadedForCurrentFilter = false;
             if (selectedTab.get() == WorkspaceTab.STOCK) {
+                pendingStockReloadReason = "INITIAL";
                 reloadCellFilterOptionsThenStock();
             } else if (selectedTab.get() == WorkspaceTab.HISTORY) {
                 reloadHistory();
@@ -1585,6 +1592,7 @@ public final class WarehouseWorkspaceViewModel {
 
     private void ensureStockLoaded() {
         if (!stockLoadedForCurrentFilter) {
+            pendingStockReloadReason = "TAB_ENSURE";
             reloadCellFilterOptionsThenStock();
         }
     }
@@ -2271,7 +2279,7 @@ public final class WarehouseWorkspaceViewModel {
                                 () -> {
                                     commandInFlight.set(false);
                                     statusMessage.set("Перемещение выполнено");
-                                    reloadStockByCells();
+                                    reloadStockByCells("OP_MOVE");
                                 });
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(
@@ -2348,7 +2356,7 @@ public final class WarehouseWorkspaceViewModel {
                                 () -> {
                                     commandInFlight.set(false);
                                     statusMessage.set("Перемещение отправлено");
-                                    reloadStockByCells();
+                                    reloadStockByCells("OP_TRANSFER_SEND");
                                 });
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(
@@ -2383,7 +2391,7 @@ public final class WarehouseWorkspaceViewModel {
                                 () -> {
                                     commandInFlight.set(false);
                                     statusMessage.set("Списание выполнено");
-                                    reloadStockByCells();
+                                    reloadStockByCells("OP_CONSUMPTION");
                                 });
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(
@@ -2419,7 +2427,7 @@ public final class WarehouseWorkspaceViewModel {
                                 () -> {
                                     commandInFlight.set(false);
                                     statusMessage.set("Корректировка выполнена");
-                                    reloadStockByCells();
+                                    reloadStockByCells("OP_ADJUSTMENT");
                                 });
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(
@@ -2541,7 +2549,7 @@ public final class WarehouseWorkspaceViewModel {
     private void invalidateStockAfterTaskMutation() {
         invalidateStockLoaded();
         if (selectedTab.get() == WorkspaceTab.STOCK) {
-            reloadStockByCells();
+            reloadStockByCells("TASK_MUTATION");
         }
     }
 
@@ -2551,6 +2559,15 @@ public final class WarehouseWorkspaceViewModel {
 
     boolean isStockLoadedForCurrentFilter() {
         return stockLoadedForCurrentFilter;
+    }
+
+    /**
+     * Optional UI hooks so TableView scroll can be captured before {@code setAll} and restored
+     * after — without the ViewModel depending on JavaFX TableView types.
+     */
+    public void setStockScrollHooks(IntSupplier anchorSupplier, IntConsumer restoreConsumer) {
+        this.stockScrollAnchor = anchorSupplier;
+        this.stockScrollRestorer = restoreConsumer;
     }
 
     private void setSelectedWarehouseFilterIdentity(WarehouseFilterOption option) {
@@ -2677,7 +2694,7 @@ public final class WarehouseWorkspaceViewModel {
                             .orElse(mapped.get(0));
             setSelectedCellFilterIdentity(resolved);
         }
-        reloadStockByCells();
+        reloadStockByCells(resolveCellOptionsReloadReason());
     }
 
     private void applyCellFilterLoadError(RuntimeException ex, long requestId) {
@@ -2688,10 +2705,18 @@ public final class WarehouseWorkspaceViewModel {
         cellFilterOptions.setAll(all);
         setSelectedCellFilterIdentity(all);
         errorMessage.set(WarehouseUiErrorMapper.text(ex));
-        reloadStockByCells();
+        reloadStockByCells(resolveCellOptionsReloadReason());
     }
 
-    private void reloadStockByCells() {
+    private String resolveCellOptionsReloadReason() {
+        if ("UNSPECIFIED".equals(pendingStockReloadReason)) {
+            return "CELL_OPTIONS";
+        }
+        return pendingStockReloadReason;
+    }
+
+    private void reloadStockByCells(String reason) {
+        pendingStockReloadReason = reason == null ? "UNSPECIFIED" : reason;
         if (!canView.get()) {
             deny();
             return;
@@ -2711,9 +2736,23 @@ public final class WarehouseWorkspaceViewModel {
         CellFilterOption cellFilter = selectedCellFilter.get();
         UUID storageCellId = cellFilter == null || cellFilter.isAll() ? null : cellFilter.storageCellId();
         long requestId = ++stockLoadGeneration;
-        loading.set(true);
+        // Soft refresh: keep existing rows visible without a layout-shifting loading chrome.
+        // Hard loading indicator only when the table is empty (initial / cleared).
+        boolean showLoadingChrome = tableRows.isEmpty();
+        if (showLoadingChrome) {
+            loading.set(true);
+        }
         errorMessage.set("");
-        statusMessage.set("");
+        if (showLoadingChrome) {
+            statusMessage.set("");
+        }
+        int rowsBefore = tableRows.size();
+        StocksRefreshTrace.reloadRequested(
+                pendingStockReloadReason,
+                rowsBefore,
+                tableRows,
+                filterLabel(filter),
+                cellFilterLabel(cellFilter));
         int page = pageIndex.get();
         String search = blankToNull(committedSearch);
         boolean cellSelected = storageCellId != null;
@@ -2746,7 +2785,7 @@ public final class WarehouseWorkspaceViewModel {
             int maxPage = total <= 0 ? 0 : (int) ((total - 1) / PAGE_SIZE);
             if (pageIndex.get() > maxPage) {
                 pageIndex.set(maxPage);
-                reloadStockByCells();
+                reloadStockByCells("PAGE_CLAMP");
                 return;
             }
         }
@@ -2756,13 +2795,30 @@ public final class WarehouseWorkspaceViewModel {
         stockLoadedForCurrentFilter = true;
         totalElements.set(pageResult.totalElements());
         updatePaginationFlags();
+        int rowsBefore = tableRows.size();
+        Object itemsBefore = tableRows;
         List<StockSelectionKey> previouslySelected = captureSelectedStockKeys();
+        int scrollAnchor =
+                stockScrollAnchor == null ? -1 : stockScrollAnchor.getAsInt();
         List<StockRow> rows = new ArrayList<>();
         for (WarehouseStockCellLineView line : pageResult.content()) {
             rows.add(StockRow.from(line));
         }
         tableRows.setAll(rows);
         restoreStockSelection(previouslySelected);
+        if (stockScrollRestorer != null && scrollAnchor >= 0) {
+            stockScrollRestorer.accept(scrollAnchor);
+        }
+        StocksRefreshTrace.applyPage(
+                pendingStockReloadReason,
+                rowsBefore,
+                tableRows.size(),
+                itemsBefore,
+                tableRows,
+                previouslySelected.toString(),
+                filterLabel(selectedWarehouseFilter.get()),
+                cellFilterLabel(selectedCellFilter.get()),
+                true);
         if (selectedTab.get() == WorkspaceTab.STOCK && pageResult.totalElements() == 0) {
             if (searchActive) {
                 statusMessage.set(EMPTY_SEARCH_MESSAGE);
@@ -2774,6 +2830,20 @@ public final class WarehouseWorkspaceViewModel {
         } else if (selectedTab.get() == WorkspaceTab.STOCK) {
             statusMessage.set("");
         }
+    }
+
+    private static String filterLabel(WarehouseFilterOption filter) {
+        if (filter == null) {
+            return "null";
+        }
+        return filter.isAll() ? "ALL" : String.valueOf(filter.warehouseId());
+    }
+
+    private static String cellFilterLabel(CellFilterOption filter) {
+        if (filter == null) {
+            return "null";
+        }
+        return filter.isAll() ? "ALL" : String.valueOf(filter.storageCellId());
     }
 
     private void applyStockLoadError(RuntimeException ex, long requestId) {

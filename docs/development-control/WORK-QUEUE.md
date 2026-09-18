@@ -11936,8 +11936,32 @@ Stocks UX corrective = COMPLETE
 Stocks-centric UX = COMPLETE (operations from Остатки; legacy 4 screens removed)
 Production acceptance-state corrective = COMPLETE
 Warehouse-managed production destination = COMPLETE (Flyway V45)
-Manual acceptance = READY TO VERIFY wide TableView Move dialog from Склад → Остатки
+Manual acceptance = READY TO VERIFY Stocks table jitter from Склад → Остатки
   (write-off OUT OF SCOPE this acceptance cycle)
+
+---
+## STAGE-3.5.15 — Stocks Table UI jitter corrective
+
+**Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.15 Move dialog responsive layout
+**Module:** `tmp-ui-shell` (Warehouse workspace Stocks table only)
+**Migration:** NONE
+
+**Goal:** Diagnose and eliminate visual table jerk on Склад → Остатки refresh/filter/search/ops without changing Warehouse business rules.
+
+**Acceptance criteria:**
+- [x] Root cause proven (loading-label layout + CONSTRAINED scrollbar width)
+- [x] Fix without debounce/sleep/fade masking; domain untouched
+- [x] Soft refresh keeps ObservableList identity; no intermediate empty rows
+- [x] FX geometry + ViewModel soft-refresh tests; architecture PASS
+- [x] Clean install + fresh package + marker proof + startup PASS; no full reactor; no commit
+
+See VERIFICATION-LOG Stage 3.5.15 Stocks Table jitter entry (2026-09-17).
+
+### Next on success
+
+Manual acceptance: Склад → Остатки — filter/search/checkbox/move/scroll without table jerk.
 
 ---
 ## STAGE-3.5.15 — Move dialog responsive layout corrective

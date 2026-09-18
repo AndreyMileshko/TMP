@@ -1565,6 +1565,81 @@ class WarehouseWorkspaceViewModelTest {
     }
 
     @Test
+    void softSearchRefreshKeepsListIdentityAndNeverShowsIntermediateEmpty() {
+        UUID warehouseId = UUID.randomUUID();
+        UUID cellId = UUID.randomUUID();
+        UUID materialId = UUID.randomUUID();
+        WarehouseStockCellLineView lineA =
+                new WarehouseStockCellLineView(
+                        warehouseId,
+                        "WH-1",
+                        "Main",
+                        cellId,
+                        "A-01",
+                        materialId,
+                        "101.208",
+                        "Mat A",
+                        "",
+                        "",
+                        "шт",
+                        new BigDecimal("5"));
+        WarehouseStockCellLineView lineB =
+                new WarehouseStockCellLineView(
+                        warehouseId,
+                        "WH-1",
+                        "Main",
+                        cellId,
+                        "A-02",
+                        UUID.randomUUID(),
+                        "OTHER",
+                        "Mat B",
+                        "",
+                        "",
+                        "шт",
+                        new BigDecimal("3"));
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.stockPages.add(page(List.of(lineA, lineB), 0, 2));
+        api.stockPages.add(page(List.of(lineA), 0, 1));
+
+        java.util.concurrent.atomic.AtomicReference<WarehouseWorkspaceViewModel> ref =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicInteger minRowsDuringReload =
+                new java.util.concurrent.atomic.AtomicInteger(Integer.MAX_VALUE);
+        java.util.concurrent.atomic.AtomicBoolean sawLoadingOnSoftRefresh =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        Executor background =
+                command -> {
+                    WarehouseWorkspaceViewModel vm = ref.get();
+                    if (vm != null) {
+                        minRowsDuringReload.accumulateAndGet(vm.tableRows().size(), Math::min);
+                        if (!vm.tableRows().isEmpty()) {
+                            sawLoadingOnSoftRefresh.set(vm.loadingProperty().get());
+                        }
+                    }
+                    command.run();
+                };
+        WarehouseWorkspaceViewModel asyncVm =
+                new WarehouseWorkspaceViewModel(api, auth, background, Runnable::run);
+        ref.set(asyncVm);
+        asyncVm.onScreenOpened();
+        asyncVm.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        Object listIdentity = asyncVm.tableRows();
+        assertEquals(2, asyncVm.tableRows().size());
+
+        minRowsDuringReload.set(Integer.MAX_VALUE);
+        sawLoadingOnSoftRefresh.set(false);
+        asyncVm.searchInputProperty().set("101.208");
+        asyncVm.commitSearch();
+
+        assertSame(listIdentity, asyncVm.tableRows());
+        assertEquals(1, asyncVm.tableRows().size());
+        assertEquals("101.208", asyncVm.tableRows().get(0).article());
+        assertTrue(minRowsDuringReload.get() > 0, "no intermediate empty state");
+        assertFalse(sawLoadingOnSoftRefresh.get(), "soft refresh must not enable loading chrome");
+        assertFalse(asyncVm.loadingProperty().get());
+    }
+
+    @Test
     void differentSourceCellsSameWarehouseAcceptedForMove() {
         auth =
                 new FakeAuthorization(
