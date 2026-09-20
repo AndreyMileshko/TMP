@@ -136,7 +136,11 @@ public final class WarehouseMoveDialogSupport {
 
         Label sourceLabel = new Label("Откуда: " + sourceWarehouseLabel);
         sourceLabel.setMaxWidth(Double.MAX_VALUE);
-        Label totalsLabel = new Label("Итого: " + formatQuantityTotalsByUnit(selected));
+        List<MoveDialogRow> moveRows = new ArrayList<>();
+        for (StockRow row : selected) {
+            moveRows.add(new MoveDialogRow(row));
+        }
+        Label totalsLabel = new Label("Итого: " + formatMoveQuantityTotalsByUnit(moveRows));
         totalsLabel.setMaxWidth(Double.MAX_VALUE);
         ComboBox<WarehouseChoice> destinationWarehouse = new ComboBox<>();
         destinationWarehouse.getItems().setAll(accessibleWarehouses);
@@ -152,10 +156,6 @@ public final class WarehouseMoveDialogSupport {
         table.setMinHeight(180);
         table.setMaxWidth(Double.MAX_VALUE);
         table.setMaxHeight(Double.MAX_VALUE);
-        List<MoveDialogRow> moveRows = new ArrayList<>();
-        for (StockRow row : selected) {
-            moveRows.add(new MoveDialogRow(row));
-        }
         table.getItems().setAll(moveRows);
 
         TableColumn<MoveDialogRow, String> articleCol = new TableColumn<>(COLUMN_HEADERS.get(0));
@@ -219,6 +219,10 @@ public final class WarehouseMoveDialogSupport {
                                                                     n)) {
                                                         row.quantityTextProperty().set(n);
                                                     }
+                                                    totalsLabel.setText(
+                                                            "Итого: "
+                                                                    + formatMoveQuantityTotalsByUnit(
+                                                                            moveRows));
                                                 });
                             }
 
@@ -352,6 +356,9 @@ public final class WarehouseMoveDialogSupport {
                                                                 row.stockRow()
                                                                         .availableQuantity()));
                                     }
+                                    totalsLabel.setText(
+                                            "Итого: "
+                                                    + formatMoveQuantityTotalsByUnit(moveRows));
                                     table.refresh();
                                 });
                     }
@@ -427,6 +434,45 @@ public final class WarehouseMoveDialogSupport {
             String unit = displayOrDash(row.unitOfMeasure());
             BigDecimal qty = row.availableQuantity();
             totals.merge(unit, qty, BigDecimal::add);
+        }
+        return formatTotalsMap(totals);
+    }
+
+    /**
+     * Totals from current editable move quantities. Invalid/blank quantities are skipped so the
+     * header can update while the user types.
+     */
+    static String formatMoveQuantityTotalsByUnit(List<MoveDialogRow> rows) {
+        Objects.requireNonNull(rows, "rows");
+        if (rows.isEmpty()) {
+            return "";
+        }
+        Map<String, BigDecimal> totals = new LinkedHashMap<>();
+        for (MoveDialogRow row : rows) {
+            String unit = displayOrDash(row.stockRow().unitOfMeasure());
+            BigDecimal qty = tryParseMoveQuantity(row.quantityTextProperty().get());
+            if (qty == null) {
+                continue;
+            }
+            totals.merge(unit, qty, BigDecimal::add);
+        }
+        return formatTotalsMap(totals);
+    }
+
+    private static BigDecimal tryParseMoveQuantity(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return DecimalQuantityParser.parsePositive(raw, "количество");
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
+    private static String formatTotalsMap(Map<String, BigDecimal> totals) {
+        if (totals.isEmpty()) {
+            return "";
         }
         StringBuilder builder = new StringBuilder();
         for (Map.Entry<String, BigDecimal> entry : totals.entrySet()) {

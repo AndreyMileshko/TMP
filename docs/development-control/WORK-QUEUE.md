@@ -11936,8 +11936,58 @@ Stocks UX corrective = COMPLETE
 Stocks-centric UX = COMPLETE (operations from Остатки; legacy 4 screens removed)
 Production acceptance-state corrective = COMPLETE
 Warehouse-managed production destination = COMPLETE (Flyway V45)
-Manual acceptance = READY TO VERIFY Stocks table jitter from Склад → Остатки
+Manual acceptance = READY FROM Склад (Остатки / Поступление / Задачи / История)
   (write-off OUT OF SCOPE this acceptance cycle)
+
+---
+## STAGE-3.5.15 — Fix Warehouse Receipt Dialog UX
+
+**Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.15 Warehouse Final UX Cleanup
+**Module:** `tmp-ui-shell` (`WarehouseReceiptDialogSupport` + test only)
+**Migration:** NONE
+
+**Goal:** After warehouse selection in Поступление table dialog, keep the receipt row fully editable and enable Ячейка without locking Material/Color/Size/Qty/Unit/Warehouse.
+
+**Acceptance criteria:**
+- [x] Root cause: `table.refresh()` inside warehouse ComboBox listener tore down TextField/ComboBox graphics
+- [x] Row remains editable after warehouse; cell list loads via warehouse property listener (no refresh)
+- [x] Warehouse change resets invalid cell; multiple rows independent; validation blocks empty cell
+- [x] Manual Material/Color/Size/Qty fields unchanged (no catalog optimization)
+- [x] `WarehouseReceiptDialogSupportTest` (5) + Warehouse targeted UI (88) + `Stage6WarehouseArchitectureTest` (10) PASS
+- [x] Fresh TMP.exe package + startup PASS; no commit
+
+See VERIFICATION-LOG Stage 3.5.15 Receipt Dialog UX entry (2026-09-18).
+
+### Next on success
+
+Manual acceptance: Склад → + Поступление.
+
+---
+## STAGE-3.5.15 — Warehouse Final UX Cleanup
+
+**Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.15 Stocks Table UI jitter corrective
+**Modules:** `tmp-ui-shell`, `tmp-warehouse`
+**Migration:** NONE
+
+**Goal:** Close remaining Warehouse UX/workflow defects after Stocks/Move/transfer/receive/history acceptance.
+
+**Acceptance criteria:**
+- [x] «Операции склада» removed from navigation
+- [x] Поступление on Склад (+ table dialog); Receipt domain unchanged
+- [x] Destination warehouse list = all active (not responsibility)
+- [x] Manual partial receive + return → CLOSED, no continuation; demand shortfall unchanged
+- [x] Return message localized; Move totals dynamic; Settings production Save path
+- [x] Targeted tests + Stage6 architecture + package + startup PASS; no full reactor; no commit
+
+See VERIFICATION-LOG Stage 3.5.15 Final UX Cleanup entry (2026-09-18).
+
+### Next on success
+
+Manual acceptance FROM: Склад.
 
 ---
 ## STAGE-3.5.15 — Stocks Table UI jitter corrective

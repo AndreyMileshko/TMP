@@ -24,6 +24,7 @@
             <ToggleButton fx:id="tasksTabButton" text="Задачи" styleClass="tmp-button-secondary"/>
             <ToggleButton fx:id="stockTabButton" text="Остатки" styleClass="tmp-button-secondary"/>
             <ToggleButton fx:id="historyTabButton" text="История" styleClass="tmp-button-secondary"/>
+            <Button fx:id="receiptButton" text="+ Поступление" styleClass="tmp-button-primary"/>
         </HBox>
     </VBox>
 

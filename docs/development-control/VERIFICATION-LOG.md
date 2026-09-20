@@ -2,6 +2,69 @@
 
 ## Latest result
 
+**Date:** 2026-09-18
+**Scope:** Stage 3.5.15 — Fix Warehouse Receipt Dialog UX (Склад → + Поступление)
+**Overall:** PASS (targeted tests + architecture + clean install + fresh package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → + Поступление; Full reactor NOT RUN
+**Migration:** NONE (Flyway remains V46)
+**Domain / StockPosition / WarehouseMovement / WarehouseOperation / routing / Production warehouse / actor V46:** unchanged
+
+### Stage 3.5.15 Receipt Dialog UX (2026-09-18)
+
+| Check | Result |
+|-------|--------|
+| Root cause | PASS — `table.refresh()` in warehouse ComboBox listener |
+| Row editable after warehouse | PASS (`WarehouseReceiptDialogSupportTest`) |
+| Cell list loads / warehouse change resets cell | PASS |
+| Multiple rows independent | PASS |
+| Validation empty cell → «Укажите ячейку.» | PASS |
+| Manual fields (no catalog optimization) | PASS (unchanged) |
+| UI targeted (`WarehouseReceiptDialogSupportTest` + workspace/move/settings/nav) | PASS (88) |
+| `Stage6WarehouseArchitectureTest` | PASS (10) |
+| `mvn -pl :tmp-ui-shell,:tmp-bootstrap-app -am clean install -DskipTests` | PASS |
+| Package `pre-integration-test -Ppackage` | PASS → `dist/jpackage/TMP/TMP.exe` **10:38:36** |
+| Startup `localhost:55432/tmp_gui_stage5` | PASS — Flyway validated 46 / current 46; `Started DesktopBootstrap` ~5.0s; exceptions NONE |
+| Full reactor | NOT RUN |
+| Manual acceptance | READY FROM: Склад → + Поступление |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-09-18
+**Scope:** Stage 3.5.15 — Warehouse Final UX Cleanup (nav, receipt, destination list, manual shortfall, totals, localization)
+**Overall:** PASS (targeted tests + architecture + install + package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад; Full reactor NOT RUN
+**Migration:** NONE (Flyway remains V46)
+**Domain / StockPosition / routing / Production warehouse / actor V46:** unchanged
+
+### Stage 3.5.15 Final UX Cleanup (2026-09-18)
+
+| Check | Result |
+|-------|--------|
+| Navigation — «Операции склада» removed | PASS (`WarehousePermissionCatalogTest`, `WarehouseNavigationCapabilityTest`) |
+| Destination warehouses = all active | PASS (UI `listActiveWarehouseChoices`; create still source-responsibility only) |
+| Manual partial receive + return → CLOSED, no RECEIVE_SHORTFALL | PASS (`WarehouseTransferDocumentPartialReceiveIntegrationTest`, RejectReturn manual test) |
+| Demand RECEIVE_SHORTFALL unchanged | PASS (demand-titled documents keep continuation) |
+| Move dialog dynamic totals | PASS (`WarehouseMoveDialogSupport`) |
+| Return message localization | PASS («Материалы возвращены»; no CLOSED) |
+| Settings production checkbox form→Save | PASS (existing `WarehouseSettingsViewModelTest`) |
+| `WarehouseWorkspaceViewModelTest` | PASS (66) |
+| Warehouse Partial/Receive/Permission suites | PASS (41 warehouse targeted in last green run) |
+| `Stage6WarehouseArchitectureTest` | PASS (10) |
+| `mvn -pl :tmp-bootstrap-app -am install -DskipTests` | PASS |
+| Package `pre-integration-test -Ppackage` | PASS → `dist/jpackage/TMP/TMP.exe` |
+| Startup `localhost:55432/tmp_gui_stage5` | PASS — Flyway validated 46 / current 46; `Started DesktopBootstrap` ~4.7s; JavaFX unnamed-module WARN only; exceptions NONE |
+| DB safety | stock 39 / ops 85 / movs 126 — delta 0 |
+| Full reactor | NOT RUN |
+| Manual acceptance | READY FROM: Склад |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
 **Date:** 2026-09-17
 **Scope:** Stage 3.5.15 — Stocks Table UI jitter corrective (Склад → Остатки)
 **Overall:** PASS (diagnosis + fix + targeted tests + architecture + clean install + fresh package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY TO VERIFY Stocks jitter; Full reactor NOT RUN

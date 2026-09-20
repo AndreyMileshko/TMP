@@ -23,7 +23,6 @@ import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentRejectResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnAllocationInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnPlanItem;
-import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceAllocationInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine;
@@ -745,6 +744,7 @@ public final class WarehouseWorkspaceViewModel {
     private final BooleanProperty canView = new SimpleBooleanProperty(false);
     private final BooleanProperty canTransfer = new SimpleBooleanProperty(false);
     private final BooleanProperty canMove = new SimpleBooleanProperty(false);
+    private final BooleanProperty canReceipt = new SimpleBooleanProperty(false);
     private final BooleanProperty canConsumption = new SimpleBooleanProperty(false);
     private final BooleanProperty canAdjustment = new SimpleBooleanProperty(false);
     private final BooleanProperty canTakeSelectedTaskInWork = new SimpleBooleanProperty(false);
@@ -908,6 +908,7 @@ public final class WarehouseWorkspaceViewModel {
         canView.set(has(UiShellScreens.WAREHOUSE_VIEW_PERMISSION));
         canTransfer.set(has(UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION));
         canMove.set(has(UiShellScreens.WAREHOUSE_MOVE_PERMISSION));
+        canReceipt.set(has(UiShellScreens.WAREHOUSE_RECEIPT_PERMISSION));
         canConsumption.set(has(UiShellScreens.WAREHOUSE_CONSUMPTION_PERMISSION));
         canAdjustment.set(has(UiShellScreens.WAREHOUSE_ADJUSTMENT_PERMISSION));
         updateActionAvailability();
@@ -1175,20 +1176,13 @@ public final class WarehouseWorkspaceViewModel {
         backgroundExecutor.execute(
                 () -> {
                     try {
-                        TransferDocumentReturnResult result =
-                                warehouseApi.returnTransferMaterials(
+                        warehouseApi.returnTransferMaterials(
                                         new ReturnTransferMaterialsCommand(
                                                 documentId, operationalRevision, allocations));
                         uiExecutor.accept(
                                 () -> {
                                     commandInFlight.set(false);
-                                    pendingTaskStatusMessage =
-                                            "Возврат выполнен"
-                                                    + (result.documentStatus() == null
-                                                                    || result.documentStatus()
-                                                                            .isBlank()
-                                                            ? ""
-                                                            : ": " + result.documentStatus());
+                                    pendingTaskStatusMessage = "Материалы возвращены";
                                     invalidateStockAfterTaskMutation();
                                     reloadTasks();
                                 });
@@ -1410,6 +1404,10 @@ public final class WarehouseWorkspaceViewModel {
 
     public BooleanProperty canMoveSelectedStockProperty() {
         return canMoveSelectedStock;
+    }
+
+    public BooleanProperty canCreateReceiptProperty() {
+        return canReceipt;
     }
 
     public BooleanProperty canConsumeSelectedStockProperty() {
@@ -2233,12 +2231,71 @@ public final class WarehouseWorkspaceViewModel {
                 .toList();
     }
 
-    public List<WarehouseChoice> listAccessibleWarehouseChoices() {
+    public List<WarehouseChoice> listActiveWarehouseChoices() {
+        List<WarehouseChoice> choices = new ArrayList<>();
+        for (WarehouseView view : warehouseApi.listWarehouses()) {
+            if (view.active()) {
+                choices.add(WarehouseChoice.from(view));
+            }
+        }
+        return choices;
+    }
+
+    /** Active warehouses where the current user is responsible — for receipt destination. */
+    public List<WarehouseChoice> listResponsibleWarehouseChoices() {
         List<WarehouseChoice> choices = new ArrayList<>();
         for (WarehouseView view : warehouseApi.listMyWarehouses()) {
             choices.add(WarehouseChoice.from(view));
         }
         return choices;
+    }
+
+    /** @deprecated use {@link #listActiveWarehouseChoices()} — destination is not responsibility-filtered. */
+    @Deprecated
+    public List<WarehouseChoice> listAccessibleWarehouseChoices() {
+        return listActiveWarehouseChoices();
+    }
+
+    public List<String> listUnitOfMeasures() {
+        return warehouseApi.listUnitOfMeasures();
+    }
+
+    public void executeReceipt(List<WarehouseReceiptDialogSupport.ReceiptLineSubmission> lines) {
+        Objects.requireNonNull(lines, "lines");
+        if (!canReceipt.get() || commandInFlight.get() || lines.isEmpty()) {
+            return;
+        }
+        commandInFlight.set(true);
+        errorMessage.set("");
+        backgroundExecutor.execute(
+                () -> {
+                    try {
+                        for (WarehouseReceiptDialogSupport.ReceiptLineSubmission line : lines) {
+                            warehouseApi.executeWarehouseOperation(
+                                    ExecuteOperationCommand.receipt(
+                                            line.article(),
+                                            line.name(),
+                                            line.color(),
+                                            line.size(),
+                                            line.unitOfMeasure(),
+                                            line.quantity(),
+                                            line.warehouseId(),
+                                            line.storageCellId()));
+                        }
+                        uiExecutor.accept(
+                                () -> {
+                                    commandInFlight.set(false);
+                                    statusMessage.set("Поступление выполнено");
+                                    reloadStockByCells("OP_RECEIPT");
+                                });
+                    } catch (RuntimeException ex) {
+                        uiExecutor.accept(
+                                () -> {
+                                    commandInFlight.set(false);
+                                    errorMessage.set(WarehouseUiErrorMapper.text(ex));
+                                });
+                    }
+                });
     }
 
     public void executeSameWarehouseMove(

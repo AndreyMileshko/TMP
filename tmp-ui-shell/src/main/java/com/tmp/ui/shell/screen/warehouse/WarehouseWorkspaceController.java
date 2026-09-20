@@ -74,6 +74,9 @@ public final class WarehouseWorkspaceController
     private ToggleButton historyTabButton;
 
     @FXML
+    private Button receiptButton;
+
+    @FXML
     private StackPane tabContentStack;
 
     @FXML
@@ -440,6 +443,8 @@ public final class WarehouseWorkspaceController
 
         moveStockButton.setOnAction(e -> openMoveDialog());
         moveStockButton.disableProperty().bind(viewModel.canMoveSelectedStockProperty().not());
+        receiptButton.setOnAction(e -> openReceiptDialog());
+        receiptButton.disableProperty().bind(viewModel.canCreateReceiptProperty().not());
         consumeStockButton.setOnAction(e -> openConsumeDialog());
         consumeStockButton.disableProperty().bind(viewModel.canConsumeSelectedStockProperty().not());
         adjustStockButton.setOnAction(e -> openAdjustDialog());
@@ -888,6 +893,23 @@ public final class WarehouseWorkspaceController
         return (int) Math.round((vBar.getValue() / max) * (stockTable.getItems().size() - 1));
     }
 
+    private void openReceiptDialog() {
+        WarehouseReceiptDialogSupport.ReceiptDialogSession session =
+                WarehouseReceiptDialogSupport.createReceiptDialog(
+                        viewModel.listResponsibleWarehouseChoices(),
+                        viewModel.listUnitOfMeasures(),
+                        viewModel::listDestinationCells);
+        Optional<ButtonType> result = session.dialog().showAndWait();
+        if (result.isEmpty() || result.get() != session.submitType()) {
+            return;
+        }
+        try {
+            viewModel.executeReceipt(session.requireSubmission());
+        } catch (IllegalArgumentException ex) {
+            viewModel.errorMessageProperty().set(ex.getMessage());
+        }
+    }
+
     private void openMoveDialog() {
         List<StockRow> selected;
         try {
@@ -902,7 +924,7 @@ public final class WarehouseWorkspaceController
                         selected,
                         sourceWarehouseId,
                         warehouseLabel(sourceWarehouseId),
-                        viewModel.listAccessibleWarehouseChoices(),
+                        viewModel.listActiveWarehouseChoices(),
                         viewModel::listDestinationCells);
         Optional<ButtonType> result = session.dialog().showAndWait();
         if (result.isEmpty() || result.get() != session.submitType()) {

@@ -89,12 +89,23 @@ class WarehousePermissionCatalogTest {
         WarehouseCapability capability = new WarehouseCapability();
         assertEquals(WarehouseCapability.ID, capability.descriptor().id());
         assertEquals(16, capability.descriptor().permissions().size());
-        assertEquals(1, capability.descriptor().navigationContributions().size());
-        assertEquals(1, capability.descriptor().views().size());
-        assertEquals(1, capability.descriptor().commands().size());
+        assertEquals(2, capability.descriptor().navigationContributions().size());
+        assertEquals(2, capability.descriptor().views().size());
+        assertEquals(2, capability.descriptor().commands().size());
         assertEquals(
                 WarehouseCapability.VIEW_WAREHOUSE,
                 capability.descriptor().navigationContributions().get(0).viewId());
+        assertEquals(
+                "Склад", capability.descriptor().navigationContributions().get(0).displayName());
+        assertEquals(
+                WarehouseCapability.VIEW_WAREHOUSE_SETTINGS,
+                capability.descriptor().navigationContributions().get(1).viewId());
+        assertTrue(
+                capability.descriptor().navigationContributions().stream()
+                        .noneMatch(nav -> "Операции склада".equals(nav.displayName())));
+        assertTrue(
+                capability.descriptor().navigationContributions().stream()
+                        .noneMatch(nav -> "warehouse.nav.operations".equals(nav.navigationId())));
         assertEquals(
                 WarehousePermissions.all().stream().map(PermissionId::value).collect(Collectors.toSet()),
                 capability.descriptor().permissions().stream()

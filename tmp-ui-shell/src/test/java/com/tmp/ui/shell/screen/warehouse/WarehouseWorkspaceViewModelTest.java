@@ -1221,6 +1221,8 @@ class WarehouseWorkspaceViewModelTest {
         viewModel.returnSelectedTask();
         assertTrue(api.listMyWarehouseTasksCalls.size() > before);
         assertTrue(viewModel.taskRows().isEmpty());
+        assertEquals("Материалы возвращены", viewModel.statusMessageProperty().get());
+        assertFalse(viewModel.statusMessageProperty().get().contains("CLOSED"));
 
         ReturnFixture fx = openReturn();
         api.returnThrows = new IllegalStateException("stale operational revision");
@@ -1337,6 +1339,28 @@ class WarehouseWorkspaceViewModelTest {
                 WarehouseMoveDialogSupport.formatQuantityTotalsByUnit(List.of(meters, pieces)));
         assertEquals("—", WarehouseMoveDialogSupport.displayOrDash(""));
         assertEquals("red", WarehouseMoveDialogSupport.displayOrDash("red"));
+    }
+
+    @Test
+    void destinationWarehouseChoicesAreAllActiveNotOnlyResponsible() {
+        UUID mainId = UUID.randomUUID();
+        UUID secondId = UUID.randomUUID();
+        UUID inactiveId = UUID.randomUUID();
+        api.warehouses.clear();
+        api.warehouses.add(new WarehouseView(mainId, "MAIN", "Main", true, false));
+        api.warehouses.add(new WarehouseView(secondId, "SECOND", "Second", true, false));
+        api.warehouses.add(new WarehouseView(inactiveId, "OLD", "Old", false, false));
+        api.myWarehouseIds = Set.of(mainId);
+
+        List<WarehouseChoice> destinations = viewModel.listActiveWarehouseChoices();
+        assertEquals(2, destinations.size());
+        assertTrue(destinations.stream().anyMatch(c -> secondId.equals(c.id())));
+        assertTrue(destinations.stream().anyMatch(c -> mainId.equals(c.id())));
+        assertFalse(destinations.stream().anyMatch(c -> inactiveId.equals(c.id())));
+
+        List<WarehouseChoice> responsible = viewModel.listResponsibleWarehouseChoices();
+        assertEquals(1, responsible.size());
+        assertEquals(mainId, responsible.get(0).id());
     }
 
     @Test
@@ -2085,6 +2109,7 @@ class WarehouseWorkspaceViewModelTest {
         RuntimeException sendThrows;
         RuntimeException returnThrows;
         BlockingCallback sendBlock;
+        Set<UUID> myWarehouseIds;
 
         @Override
         public List<WarehouseView> listWarehouses() {
@@ -2094,7 +2119,12 @@ class WarehouseWorkspaceViewModelTest {
         @Override
         public List<WarehouseView> listMyWarehouses() {
             listMyWarehousesCalls++;
-            return List.copyOf(warehouses);
+            if (myWarehouseIds == null) {
+                return List.copyOf(warehouses);
+            }
+            return warehouses.stream()
+                    .filter(view -> myWarehouseIds.contains(view.warehouseId()))
+                    .toList();
         }
 
         @Override

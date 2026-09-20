@@ -1057,6 +1057,10 @@ class WarehouseTransferDocumentReceiveIntegrationTest {
                                 List.of(
                                         new TransferDocumentLineInput(
                                                 null, materialId, new BigDecimal(qty), 1))));
+        jdbc.update(
+                "UPDATE documents.documents SET title = ? WHERE id = ?",
+                WarehouseTransferDocumentService.DEMAND_TRANSFER_DOCUMENT_TITLE,
+                created.documentId());
         return api.sendTransferDocument(
                 new SendTransferDocumentCommand(
                         created.documentId(),

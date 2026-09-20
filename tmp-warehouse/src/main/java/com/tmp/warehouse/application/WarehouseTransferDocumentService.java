@@ -37,6 +37,16 @@ import org.springframework.transaction.support.TransactionTemplate;
         justification = "Stores Spring-managed collaborators.")
 public final class WarehouseTransferDocumentService {
 
+    /** Document Engine title for user/manual Transfer Documents (Остатки → Переместить). */
+    public static final String MANUAL_TRANSFER_DOCUMENT_TITLE = "Перемещение материалов";
+
+    /**
+     * Document Engine title for demand-driven Transfer Documents (Material Requirement → Warehouse
+     * task). Used to distinguish RECEIVE_SHORTFALL continuation policy without a schema change.
+     */
+    public static final String DEMAND_TRANSFER_DOCUMENT_TITLE =
+            "Перемещение материалов (потребность)";
+
     private final DocumentEngine documentEngine;
     private final WarehouseTransferDocumentRepository repository;
     private final TransferTaskStateRepository taskStates;
@@ -153,10 +163,19 @@ public final class WarehouseTransferDocumentService {
             throw new IllegalArgumentException(
                     "Continuation parent transfer payload not found: " + parentDocumentId);
         }
+        DocumentMetadata parent =
+                documentEngine
+                        .findById(parentDocumentId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Continuation parent document not found: "
+                                                        + parentDocumentId));
         DocumentMetadata draft =
                 documentEngine.createDocument(
                         new CreateDocumentCommand(
-                                WarehouseTransferDocumentProcessor.DOCUMENT_TYPE_ID, titleFor()));
+                                WarehouseTransferDocumentProcessor.DOCUMENT_TYPE_ID,
+                                titleFor(isDemandDrivenTitle(parent.title()))));
         WarehouseTransferDocument payload =
                 WarehouseTransferDocument.createContinuation(
                         draft.id(),
@@ -196,15 +215,25 @@ public final class WarehouseTransferDocumentService {
                             + sourceWarehouseId);
         }
         List<WarehouseTransferLine> lines = mapLines(lineInputs);
-        return insertOrdinaryDraft(sourceWarehouseId, destinationWarehouseId, lines);
+        return insertOrdinaryDraft(
+                sourceWarehouseId, destinationWarehouseId, lines, true);
     }
 
     private CreatedTransferDocument insertOrdinaryDraft(
             WarehouseId source, WarehouseId destination, List<WarehouseTransferLine> lines) {
+        return insertOrdinaryDraft(source, destination, lines, false);
+    }
+
+    private CreatedTransferDocument insertOrdinaryDraft(
+            WarehouseId source,
+            WarehouseId destination,
+            List<WarehouseTransferLine> lines,
+            boolean demandDriven) {
         DocumentMetadata draft =
                 documentEngine.createDocument(
                         new CreateDocumentCommand(
-                                WarehouseTransferDocumentProcessor.DOCUMENT_TYPE_ID, titleFor()));
+                                WarehouseTransferDocumentProcessor.DOCUMENT_TYPE_ID,
+                                titleFor(demandDriven)));
         WarehouseTransferDocument payload =
                 WarehouseTransferDocument.create(draft.id(), source, destination, lines);
         repository.insert(payload);
@@ -374,10 +403,15 @@ public final class WarehouseTransferDocumentService {
 
     /**
      * Stable Document Engine title — must not embed mutable DRAFT source/destination route
-     * (Stage 3.5.2 corrective / 3.5.3).
+     * (Stage 3.5.2 corrective / 3.5.3). Demand title marks Material Requirement origin for
+     * RECEIVE_SHORTFALL continuation policy.
      */
-    private static String titleFor() {
-        return "Перемещение материалов";
+    static String titleFor(boolean demandDriven) {
+        return demandDriven ? DEMAND_TRANSFER_DOCUMENT_TITLE : MANUAL_TRANSFER_DOCUMENT_TITLE;
+    }
+
+    static boolean isDemandDrivenTitle(String title) {
+        return DEMAND_TRANSFER_DOCUMENT_TITLE.equals(title);
     }
 
     public record LineInput(

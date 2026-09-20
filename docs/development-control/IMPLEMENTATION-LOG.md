@@ -4,6 +4,55 @@
 
 ---
 
+## Stage 3.5.15 — Fix Warehouse Receipt Dialog UX — 2026-09-18
+
+**Date:** 2026-09-18
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — Receipt dialog UX)
+**Status:** Implementation PASS; targeted + architecture + package + startup PASS; Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → + Поступление; no commit
+**Migration:** NONE (V46)
+
+### Root cause
+
+`WarehouseReceiptDialogSupport` called `table.refresh()` inside the warehouse ComboBox `valueProperty` listener. Refresh recreated/detached custom cell graphics (TextField / ComboBox), leaving the row non-editable and blocking Ячейка.
+
+### Fix (`tmp-ui-shell`)
+
+- Removed `table.refresh()` after warehouse selection.
+- Warehouse/cell as `ObjectProperty`; cell column listens to warehouse and reloads active cells.
+- Cell ComboBox enabled only when warehouse selected; invalid cell cleared on warehouse change.
+- Sync guards on ComboBox listeners; ObservableList rows (add line without `setAll` rebuild).
+- Manual Material/Color/Size/Qty fields unchanged (no MaterialReference / autocomplete).
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Receipt Dialog UX entry (2026-09-18).
+
+---
+
+## Stage 3.5.15 — Warehouse Final UX Cleanup — 2026-09-18
+
+**Date:** 2026-09-18
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — UX cleanup)
+**Base checkpoint:** `02dc3eb21d9cc6d2ca32386b27267f6846b70bda`
+**Status:** Implementation PASS; targeted + architecture + package + startup PASS; Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад; no commit
+**Migration:** NONE (V46)
+
+### Changes
+
+- Removed Capability navigation «Операции склада» (workbench FXML retained for tests; no nav entry).
+- Receipt UX moved to Склад workspace (`+ Поступление` → `WarehouseReceiptDialogSupport` table dialog).
+- Move destination warehouses = all active (`listWarehouses`), not responsibility-filtered; receipt still uses responsible warehouses.
+- Manual transfer partial receive: no `RECEIVE_SHORTFALL` continuation (Document Engine title distinguishes demand vs manual); demand/production shortfall unchanged.
+- Return status: «Материалы возвращены» (no CLOSED/enum).
+- Move dialog totals follow editable quantities (UoM-separated).
+- Settings production checkbox already form→Save (regression kept).
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Final UX Cleanup entry (2026-09-18).
+
+---
+
 ## Stage 3.5.15 — Stocks Table UI jitter corrective — 2026-09-17
 
 **Date:** 2026-09-17

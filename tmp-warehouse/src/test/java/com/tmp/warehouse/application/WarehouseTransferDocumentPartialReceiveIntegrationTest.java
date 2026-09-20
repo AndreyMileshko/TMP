@@ -21,11 +21,13 @@ import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.ReceiptCommand;
 import com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand;
+import com.tmp.warehouse.api.WarehouseApi.ReturnTransferMaterialsCommand;
 import com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentDestinationAllocationInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentLineInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentLineView;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceAllocationInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
@@ -351,6 +353,7 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
                                                 null, materialB, new BigDecimal("20"), 2),
                                         new TransferDocumentLineInput(
                                                 null, materialC, new BigDecimal("5"), 3))));
+        markAsDemandDriven(created.documentId());
         TransferDocumentSendResult sent =
                 api.sendTransferDocument(
                         new SendTransferDocumentCommand(
@@ -425,6 +428,7 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
                                 List.of(
                                         new TransferDocumentLineInput(
                                                 null, materialA, new BigDecimal("100"), 1))));
+        markAsDemandDriven(created.documentId());
         TransferDocumentSendResult sent =
                 api.sendTransferDocument(
                         new SendTransferDocumentCommand(
@@ -537,6 +541,7 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
                                                 null, materialA, new BigDecimal("100"), 1),
                                         new TransferDocumentLineInput(
                                                 null, materialB, new BigDecimal("20"), 2))));
+        markAsDemandDriven(created.documentId());
         TransferDocumentSendResult sent =
                 api.sendTransferDocument(
                         new SendTransferDocumentCommand(
@@ -699,6 +704,8 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
                                 List.of(
                                         new TransferDocumentLineInput(
                                                 null, materialA, new BigDecimal("100"), 1))));
+
+        markAsDemandDriven(created.documentId());
 
         TransferDocumentSendResult sent =
                 api.sendTransferDocument(
@@ -999,8 +1006,55 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
                         .intValue());
     }
 
+
+    @Test
+    void manualPartialReceiveReturnClosesWithoutContinuationPreparation() {
+        TransferDocumentSendResult sent = sendPostedManualDocument(materialA, cellA1, "10");
+        UUID line = singleLineId(sent.documentId());
+
+        session.set(sessionFor(userDestination));
+        TransferDocumentReceiveResult received =
+                receiveDoc(sent.documentId(), 0L, List.of(destAlloc(line, cellB1, "6")));
+        assertEquals(TransferSettlementState.RETURN_PENDING.name(), received.settlementState());
+        assertNull(received.continuationDocumentId());
+        assertEquals(
+                0,
+                jdbc.queryForObject(
+                                """
+                                SELECT COUNT(*) FROM warehouse.transfer_document_payload
+                                 WHERE continuation_of_document_id = ?
+                                   AND continuation_reason = 'RECEIVE_SHORTFALL'
+                                """,
+                                Integer.class,
+                                sent.documentId())
+                        .intValue());
+
+        session.set(sessionFor(userSource));
+        TransferDocumentReturnResult returned =
+                api.returnTransferMaterials(
+                        new ReturnTransferMaterialsCommand(sent.documentId(), 1L, List.of()));
+        assertEquals(DocumentStatus.CLOSED.name(), returned.documentStatus());
+        assertEquals(TransferSettlementState.SETTLED.name(), returned.settlementState());
+        assertTrue(
+                api.listMyWarehouseTasks(null).stream()
+                        .noneMatch(
+                                t ->
+                                        t.taskKind() == WarehouseTaskKind.TRANSFER_PREPARATION
+                                                && t.documentId().equals(sent.documentId())));
+    }
+
     private TransferDocumentSendResult sendPostedDocument(
             UUID materialId, UUID sourceCellId, String qty) {
+        return sendPostedDocument(materialId, sourceCellId, qty, true);
+    }
+
+    private TransferDocumentSendResult sendPostedManualDocument(
+            UUID materialId, UUID sourceCellId, String qty) {
+        return sendPostedDocument(materialId, sourceCellId, qty, false);
+    }
+
+    private TransferDocumentSendResult sendPostedDocument(
+            UUID materialId, UUID sourceCellId, String qty, boolean demandDriven) {
         seedAvailable(materialId, sourceCellId, qty);
         TransferDocumentView created =
                 api.createTransferDocument(
@@ -1010,6 +1064,9 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
                                 List.of(
                                         new TransferDocumentLineInput(
                                                 null, materialId, new BigDecimal(qty), 1))));
+        if (demandDriven) {
+            markAsDemandDriven(created.documentId());
+        }
         return api.sendTransferDocument(
                 new SendTransferDocumentCommand(
                         created.documentId(),
@@ -1020,6 +1077,15 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
                                         lineId(created, materialId),
                                         sourceCellId,
                                         new BigDecimal(qty)))));
+    }
+
+    private void markAsDemandDriven(UUID documentId) {
+        int updated =
+                jdbc.update(
+                        "UPDATE documents.documents SET title = ? WHERE id = ?",
+                        WarehouseTransferDocumentService.DEMAND_TRANSFER_DOCUMENT_TITLE,
+                        documentId);
+        assertEquals(1, updated);
     }
 
     private TransferDocumentReceiveResult receiveDoc(

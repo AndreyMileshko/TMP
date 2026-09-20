@@ -45,8 +45,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Document-level receive for POSTED Warehouse Transfer Documents (Stage 3.5.8.1 / 3.5.8.2).
  *
- * <p>Full accept → SETTLED + Document CLOSED. Partial accept → RETURN_PENDING + RECEIVE_SHORTFALL
- * continuation; original POSTED payload remains immutable. Full reject is Stage 3.5.8.3.
+ * <p>Full accept → SETTLED + Document CLOSED. Partial accept → RETURN_PENDING; demand-driven
+ * documents also get a RECEIVE_SHORTFALL continuation DRAFT, while manual stock transfers do not.
+ * Original POSTED payload remains immutable. Full reject is Stage 3.5.8.3.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -222,17 +223,23 @@ public final class WarehouseTransferReceiveService {
                             receiptItems.insertAll(command.documentId(), items);
 
                             if (coverage.partial()) {
-                                List<WarehouseTransferLine> remainderLines =
-                                        buildRemainderLines(payload, coverage.acceptedByLine());
-                                WarehouseTransferDocumentService.CreatedTransferDocument
-                                        continuation =
-                                                transferDocumentService.createContinuation(
-                                                        payload.documentId(),
-                                                        TransferContinuationReason
-                                                                .RECEIVE_SHORTFALL,
-                                                        payload.sourceWarehouseId(),
-                                                        payload.destinationWarehouseId(),
-                                                        remainderLines);
+                                UUID continuationDocumentId = null;
+                                if (WarehouseTransferDocumentService.isDemandDrivenTitle(
+                                        metadata.title())) {
+                                    List<WarehouseTransferLine> remainderLines =
+                                            buildRemainderLines(
+                                                    payload, coverage.acceptedByLine());
+                                    WarehouseTransferDocumentService.CreatedTransferDocument
+                                            continuation =
+                                                    transferDocumentService.createContinuation(
+                                                            payload.documentId(),
+                                                            TransferContinuationReason
+                                                                    .RECEIVE_SHORTFALL,
+                                                            payload.sourceWarehouseId(),
+                                                            payload.destinationWarehouseId(),
+                                                            remainderLines);
+                                    continuationDocumentId = continuation.metadata().id();
+                                }
                                 TransferDocumentSettlement returnPending =
                                         locked.markAcceptedAndReturnPending(
                                                 command.expectedOperationalRevision(), now);
@@ -253,7 +260,7 @@ public final class WarehouseTransferReceiveService {
                                         returnPending.decision().map(Enum::name).orElse(null),
                                         returnPending.operationalRevision(),
                                         receiveOperationIds,
-                                        continuation.metadata().id());
+                                        continuationDocumentId);
                             }
 
                             TransferDocumentSettlement settled =
