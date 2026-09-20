@@ -903,11 +903,8 @@ public final class WarehouseWorkspaceController
         if (result.isEmpty() || result.get() != session.submitType()) {
             return;
         }
-        try {
-            viewModel.executeReceipt(session.requireSubmission());
-        } catch (IllegalArgumentException ex) {
-            viewModel.errorMessageProperty().set(ex.getMessage());
-        }
+        // Validation already ran inside the dialog (submit filter keeps it open on error).
+        viewModel.executeReceipt(session.requireSubmission());
     }
 
     private void openMoveDialog() {

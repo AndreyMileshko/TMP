@@ -11940,6 +11940,31 @@ Manual acceptance = READY FROM Склад (Остатки / Поступлени
   (write-off OUT OF SCOPE this acceptance cycle)
 
 ---
+## STAGE-3.5.15 — Receipt validation / Name / button palette corrective
+
+**Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.15 Fix Warehouse Receipt Dialog UX
+**Module:** `tmp-ui-shell` (receipt dialog + theme CSS + controller; tests)
+**Migration:** NONE
+
+**Goal:** Keep Поступление dialog open on validation errors; add manual Наименование; align `+ Поступление` form with tab buttons; brighten action/danger palette centrally.
+
+**Acceptance criteria:**
+- [x] Empty cell → dialog stays open; in-dialog error «Укажите ячейку.»; row data preserved
+- [x] Columns: Материал / Наименование / Цвет / Размер / Количество / Ед. / Склад / Ячейка (manual; no catalog)
+- [x] article and name stored separately on submit (no slash-parse / material=name duplication)
+- [x] ToggleButton + Button share height/padding/radius; secondary selected state; action/danger tokens refreshed
+- [x] `WarehouseReceiptDialogSupportTest` (8) + theme tests + Warehouse UI targeted + `Stage6WarehouseArchitectureTest` (10) PASS
+- [x] No Production / routing / shortfall / V46 / migration; no commit; full reactor NOT RUN
+
+See VERIFICATION-LOG Stage 3.5.15 Receipt validation / Name / button palette entry (2026-09-20).
+
+### Next on success
+
+Manual acceptance: Склад → + Поступление (scenarios 1–4).
+
+---
 ## STAGE-3.5.15 — Fix Warehouse Receipt Dialog UX
 
 **Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS

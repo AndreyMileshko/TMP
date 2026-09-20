@@ -2,6 +2,33 @@
 
 ## Latest result
 
+**Date:** 2026-09-20
+**Scope:** Stage 3.5.15 — Receipt validation / Name / button palette corrective (Склад → + Поступление)
+**Overall:** PASS (targeted tests + architecture); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → + Поступление; Package/startup NOT RUN; Full reactor NOT RUN
+**Migration:** NONE (Flyway remains V46)
+**Domain / StockPosition / WarehouseMovement / WarehouseOperation / routing / Production warehouse / actor V46:** unchanged
+
+### Stage 3.5.15 Receipt validation / Name / button palette (2026-09-20)
+
+| Check | Result |
+|-------|--------|
+| Root cause | PASS — validation after dialog close in `openReceiptDialog` |
+| In-dialog empty cell → «Укажите ячейку.»; dialog stays open; data preserved | PASS (`submitWithoutCellKeepsDialogOpenAndPreservesRowData`) |
+| Separate Наименование; article/name independent | PASS (`requireSubmissionKeepsArticleAndNameSeparate`) |
+| Columns Material…Cell | PASS (`columnsIncludeSeparateNameField`) |
+| Action/danger palette + toggle-button geometry | PASS (`TmpUiStandardFxTest` theme token asserts) |
+| UI targeted (receipt 8 + move 4 + nav 1 + VM 66 + theme 9+9) | PASS |
+| `Stage6WarehouseArchitectureTest` | PASS (10) |
+| Package / startup | NOT RUN (targeted verification only per task) |
+| Full reactor | NOT RUN |
+| Manual acceptance | READY FROM: Склад → + Поступление (scenarios 1–4) |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
 **Date:** 2026-09-18
 **Scope:** Stage 3.5.15 — Fix Warehouse Receipt Dialog UX (Склад → + Поступление)
 **Overall:** PASS (targeted tests + architecture + clean install + fresh package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → + Поступление; Full reactor NOT RUN

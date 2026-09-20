@@ -10,11 +10,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tmp.ui.shell.JavaFxTestSupport;
 import com.tmp.ui.shell.screen.warehouse.WarehouseReceiptDialogSupport.ReceiptDialogRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseReceiptDialogSupport.ReceiptDialogSession;
+import com.tmp.ui.shell.screen.warehouse.WarehouseReceiptDialogSupport.ReceiptLineSubmission;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import javafx.event.ActionEvent;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
@@ -39,6 +43,19 @@ class WarehouseReceiptDialogSupportTest {
     }
 
     @Test
+    void columnsIncludeSeparateNameField() throws Exception {
+        JavaFxTestSupport.runOnFxThread(
+                () -> {
+                    ReceiptDialogSession session = createSession();
+                    assertEquals(
+                            WarehouseReceiptDialogSupport.COLUMN_HEADERS,
+                            session.table().getColumns().stream()
+                                    .map(TableColumn::getText)
+                                    .toList());
+                });
+    }
+
+    @Test
     void rowRemainsEditableAfterWarehouseSelection() throws Exception {
         AtomicReference<ReceiptDialogSession> sessionRef = new AtomicReference<>();
         JavaFxTestSupport.runOnFxThread(
@@ -47,6 +64,7 @@ class WarehouseReceiptDialogSupportTest {
                     forceLayout(session);
                     ReceiptDialogRow row = session.rows().get(0);
                     row.materialTextProperty().set("101.208");
+                    row.nameTextProperty().set("Плёнка ПВХ");
                     row.colorTextProperty().set("Белый");
                     row.sizeTextProperty().set("6500");
                     row.quantityTextProperty().set("10");
@@ -59,29 +77,49 @@ class WarehouseReceiptDialogSupportTest {
                     assertEquals(main, row.warehouse());
                     assertNull(row.cell());
 
-                    TextField material = requireTextField(session.table(), 0, 0);
-                    TextField color = requireTextField(session.table(), 0, 1);
-                    TextField size = requireTextField(session.table(), 0, 2);
-                    TextField qty = requireTextField(session.table(), 0, 3);
+                    TextField material =
+                            requireTextField(
+                                    session.table(),
+                                    0,
+                                    WarehouseReceiptDialogSupport.MATERIAL_COLUMN);
+                    TextField name =
+                            requireTextField(
+                                    session.table(), 0, WarehouseReceiptDialogSupport.NAME_COLUMN);
+                    TextField color =
+                            requireTextField(
+                                    session.table(), 0, WarehouseReceiptDialogSupport.COLOR_COLUMN);
+                    TextField size =
+                            requireTextField(
+                                    session.table(), 0, WarehouseReceiptDialogSupport.SIZE_COLUMN);
+                    TextField qty =
+                            requireTextField(
+                                    session.table(),
+                                    0,
+                                    WarehouseReceiptDialogSupport.QUANTITY_COLUMN);
                     assertFalse(material.isDisabled());
+                    assertFalse(name.isDisabled());
                     assertFalse(color.isDisabled());
                     assertFalse(size.isDisabled());
                     assertFalse(qty.isDisabled());
                     assertTrue(material.isEditable());
+                    assertTrue(name.isEditable());
                     assertTrue(color.isEditable());
                     assertTrue(size.isEditable());
                     assertTrue(qty.isEditable());
 
                     material.setText("101.209");
+                    name.setText("Плёнка матовая");
                     color.setText("Чёрный");
                     size.setText("3000");
                     qty.setText("5");
                     assertEquals("101.209", row.materialTextProperty().get());
+                    assertEquals("Плёнка матовая", row.nameTextProperty().get());
                     assertEquals("Чёрный", row.colorTextProperty().get());
                     assertEquals("3000", row.sizeTextProperty().get());
                     assertEquals("5", row.quantityTextProperty().get());
 
-                    ComboBox<WarehouseChoice> warehouseCombo = requireWarehouseCombo(session.table(), 0);
+                    ComboBox<WarehouseChoice> warehouseCombo =
+                            requireWarehouseCombo(session.table(), 0);
                     assertFalse(warehouseCombo.isDisabled());
                     ComboBox<StorageCellChoice> cellCombo = requireCellCombo(session.table(), 0);
                     assertFalse(cellCombo.isDisabled());
@@ -197,6 +235,7 @@ class WarehouseReceiptDialogSupportTest {
                     ReceiptDialogSession session = createSession();
                     ReceiptDialogRow row = session.rows().get(0);
                     row.materialTextProperty().set("101.208");
+                    row.nameTextProperty().set("Плёнка ПВХ");
                     row.quantityTextProperty().set("10");
                     row.setUnitOfMeasure("шт.");
                     row.applyWarehouseSelection(mainWarehouse());
@@ -210,11 +249,91 @@ class WarehouseReceiptDialogSupportTest {
         assertEquals("Укажите ячейку.", ex.getMessage());
     }
 
+    @Test
+    void submitWithoutCellKeepsDialogOpenAndPreservesRowData() throws Exception {
+        JavaFxTestSupport.runOnFxThread(
+                () -> {
+                    ReceiptDialogSession session = createSession();
+                    forceLayout(session);
+                    showDialogForSubmitFilter(session);
+
+                    ReceiptDialogRow row = session.rows().get(0);
+                    row.materialTextProperty().set("101.208");
+                    row.nameTextProperty().set("Плёнка ПВХ");
+                    row.colorTextProperty().set("Белый");
+                    row.sizeTextProperty().set("6500");
+                    row.quantityTextProperty().set("10");
+                    row.setUnitOfMeasure("шт.");
+                    row.applyWarehouseSelection(mainWarehouse());
+                    forceLayout(session);
+
+                    Button submit =
+                            (Button) session.dialog().getDialogPane().lookupButton(session.submitType());
+                    assertNotNull(submit);
+                    submit.fireEvent(new ActionEvent());
+
+                    assertTrue(session.dialog().isShowing());
+                    assertTrue(session.isErrorVisible());
+                    assertEquals("Укажите ячейку.", session.errorText());
+                    assertEquals("101.208", row.materialTextProperty().get());
+                    assertEquals("Плёнка ПВХ", row.nameTextProperty().get());
+                    assertEquals("Белый", row.colorTextProperty().get());
+                    assertEquals("6500", row.sizeTextProperty().get());
+                    assertEquals("10", row.quantityTextProperty().get());
+                    assertEquals("шт.", row.unitOfMeasure());
+                    assertEquals(mainWarehouse(), row.warehouse());
+                    assertNull(row.cell());
+
+                    session.dialog().close();
+                });
+    }
+
+    @Test
+    void requireSubmissionKeepsArticleAndNameSeparate() throws Exception {
+        AtomicReference<ReceiptDialogSession> sessionRef = new AtomicReference<>();
+        JavaFxTestSupport.runOnFxThread(
+                () -> {
+                    ReceiptDialogSession session = createSession();
+                    ReceiptDialogRow row = session.rows().get(0);
+                    row.materialTextProperty().set("101.208");
+                    row.nameTextProperty().set("Плёнка ПВХ");
+                    row.colorTextProperty().set("Белый");
+                    row.sizeTextProperty().set("6500");
+                    row.quantityTextProperty().set("10");
+                    row.setUnitOfMeasure("шт.");
+                    row.applyWarehouseSelection(mainWarehouse());
+                    row.setCell(cellsFor(MAIN_ID).get(0));
+                    sessionRef.set(session);
+                });
+
+        List<ReceiptLineSubmission> lines = sessionRef.get().requireSubmission();
+        assertEquals(1, lines.size());
+        ReceiptLineSubmission line = lines.get(0);
+        assertEquals("101.208", line.article());
+        assertEquals("Плёнка ПВХ", line.name());
+        assertEquals("Белый", line.color());
+        assertEquals("6500", line.size());
+        assertEquals(0, new BigDecimal("10").compareTo(line.quantity()));
+        assertEquals("шт.", line.unitOfMeasure());
+        assertEquals(MAIN_ID, line.warehouseId());
+        assertEquals(CELL_A01, line.storageCellId());
+    }
+
     private static ReceiptDialogSession createSession() {
         return WarehouseReceiptDialogSupport.createReceiptDialog(
                 List.of(mainWarehouse(), secondWarehouse()),
                 List.of("шт.", "м"),
                 WarehouseReceiptDialogSupportTest::cellsFor);
+    }
+
+    private static void showDialogForSubmitFilter(ReceiptDialogSession session) {
+        // setOnShown installs the submit validation filter; show without blocking.
+        javafx.stage.Stage owner = new javafx.stage.Stage();
+        owner.setScene(new javafx.scene.Scene(new Region(), 40, 40));
+        owner.show();
+        session.dialog().initOwner(owner);
+        session.dialog().show();
+        forceLayout(session);
     }
 
     private static WarehouseChoice mainWarehouse() {
@@ -244,9 +363,9 @@ class WarehouseReceiptDialogSupportTest {
         TableView<ReceiptDialogRow> table = session.table();
         table.applyCss();
         table.layout();
-        table.setPrefWidth(980);
+        table.setPrefWidth(1080);
         table.setPrefHeight(260);
-        table.resize(980, 260);
+        table.resize(1080, 260);
         table.layout();
         for (Node node : table.lookupAll(".table-row-cell")) {
             node.applyCss();
@@ -275,7 +394,8 @@ class WarehouseReceiptDialogSupportTest {
     @SuppressWarnings("unchecked")
     private static ComboBox<WarehouseChoice> requireWarehouseCombo(
             TableView<ReceiptDialogRow> table, int rowIndex) {
-        TableCell<?, ?> cell = requireCell(table, rowIndex, 5);
+        TableCell<?, ?> cell =
+                requireCell(table, rowIndex, WarehouseReceiptDialogSupport.WAREHOUSE_COLUMN);
         Node graphic = cell.getGraphic();
         assertNotNull(graphic, "warehouse ComboBox graphic missing");
         assertTrue(graphic instanceof ComboBox<?>);
@@ -285,7 +405,8 @@ class WarehouseReceiptDialogSupportTest {
     @SuppressWarnings("unchecked")
     private static ComboBox<StorageCellChoice> requireCellCombo(
             TableView<ReceiptDialogRow> table, int rowIndex) {
-        TableCell<?, ?> cell = requireCell(table, rowIndex, 6);
+        TableCell<?, ?> cell =
+                requireCell(table, rowIndex, WarehouseReceiptDialogSupport.CELL_COLUMN);
         Node graphic = cell.getGraphic();
         assertNotNull(graphic, "cell ComboBox graphic missing");
         assertTrue(graphic instanceof ComboBox<?>);

@@ -252,8 +252,13 @@ class TmpUiStandardFxTest {
         assertTrue(themeCss.contains("-tmp-status-indicator-waiting:"));
         assertTrue(themeCss.contains("-tmp-status-indicator-ready:"));
         assertTrue(themeCss.contains("-tmp-status-indicator-success:"));
-        assertTrue(themeCss.contains("-tmp-success: #2E7D32"));
-        assertTrue(themeCss.contains("-tmp-danger: #C62828"));
+        assertTrue(themeCss.contains("-tmp-success: #2F9E55"));
+        assertTrue(themeCss.contains("-tmp-danger: #E44545"));
+        assertTrue(themeCss.contains("-tmp-action: #2F9E55"));
+        assertTrue(themeCss.contains("-tmp-danger-pressed:"));
+        assertTrue(themeCss.contains(".button,\n.toggle-button")
+                || themeCss.contains(".button,\r\n.toggle-button"));
+        assertTrue(themeCss.contains(".tmp-button-secondary:selected"));
         assertTrue(themeCss.contains("-tmp-warning: #A86700"));
     }
 

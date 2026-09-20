@@ -15,6 +15,7 @@ import javafx.beans.property.StringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
@@ -42,7 +43,24 @@ public final class WarehouseReceiptDialogSupport {
     public static final String ADD_LINE_BUTTON = "Добавить строку";
 
     public static final List<String> COLUMN_HEADERS =
-            List.of("Материал", "Цвет", "Размер", "Количество", "Ед.", "Склад", "Ячейка");
+            List.of(
+                    "Материал",
+                    "Наименование",
+                    "Цвет",
+                    "Размер",
+                    "Количество",
+                    "Ед.",
+                    "Склад",
+                    "Ячейка");
+
+    public static final int MATERIAL_COLUMN = 0;
+    public static final int NAME_COLUMN = 1;
+    public static final int COLOR_COLUMN = 2;
+    public static final int SIZE_COLUMN = 3;
+    public static final int QUANTITY_COLUMN = 4;
+    public static final int UNIT_COLUMN = 5;
+    public static final int WAREHOUSE_COLUMN = 6;
+    public static final int CELL_COLUMN = 7;
 
     private WarehouseReceiptDialogSupport() {}
 
@@ -62,8 +80,8 @@ public final class WarehouseReceiptDialogSupport {
         ButtonType cancelType = new ButtonType(CANCEL_BUTTON, ButtonBar.ButtonData.CANCEL_CLOSE);
         dialog.getDialogPane().getButtonTypes().addAll(cancelType, submitType);
         dialog.getDialogPane().getStyleClass().add("tmp-dialog");
-        dialog.getDialogPane().setPrefSize(980, 420);
-        dialog.getDialogPane().setMinSize(820, 320);
+        dialog.getDialogPane().setPrefSize(1080, 440);
+        dialog.getDialogPane().setMinSize(900, 340);
 
         ObservableList<ReceiptDialogRow> rows = FXCollections.observableArrayList();
         rows.add(new ReceiptDialogRow());
@@ -73,19 +91,28 @@ public final class WarehouseReceiptDialogSupport {
         table.setPlaceholder(new Label("Нет строк поступления"));
         table.setEditable(false);
 
-        TableColumn<ReceiptDialogRow, String> materialCol = new TableColumn<>(COLUMN_HEADERS.get(0));
+        TableColumn<ReceiptDialogRow, String> materialCol =
+                new TableColumn<>(COLUMN_HEADERS.get(MATERIAL_COLUMN));
         materialCol.setCellValueFactory(c -> c.getValue().materialTextProperty());
         materialCol.setCellFactory(col -> textFieldCell(row -> row.materialTextProperty()));
-        TableColumn<ReceiptDialogRow, String> colorCol = new TableColumn<>(COLUMN_HEADERS.get(1));
+        TableColumn<ReceiptDialogRow, String> nameCol =
+                new TableColumn<>(COLUMN_HEADERS.get(NAME_COLUMN));
+        nameCol.setCellValueFactory(c -> c.getValue().nameTextProperty());
+        nameCol.setCellFactory(col -> textFieldCell(row -> row.nameTextProperty()));
+        TableColumn<ReceiptDialogRow, String> colorCol =
+                new TableColumn<>(COLUMN_HEADERS.get(COLOR_COLUMN));
         colorCol.setCellValueFactory(c -> c.getValue().colorTextProperty());
         colorCol.setCellFactory(col -> textFieldCell(row -> row.colorTextProperty()));
-        TableColumn<ReceiptDialogRow, String> sizeCol = new TableColumn<>(COLUMN_HEADERS.get(2));
+        TableColumn<ReceiptDialogRow, String> sizeCol =
+                new TableColumn<>(COLUMN_HEADERS.get(SIZE_COLUMN));
         sizeCol.setCellValueFactory(c -> c.getValue().sizeTextProperty());
         sizeCol.setCellFactory(col -> textFieldCell(row -> row.sizeTextProperty()));
-        TableColumn<ReceiptDialogRow, String> qtyCol = new TableColumn<>(COLUMN_HEADERS.get(3));
+        TableColumn<ReceiptDialogRow, String> qtyCol =
+                new TableColumn<>(COLUMN_HEADERS.get(QUANTITY_COLUMN));
         qtyCol.setCellValueFactory(c -> c.getValue().quantityTextProperty());
         qtyCol.setCellFactory(col -> textFieldCell(row -> row.quantityTextProperty()));
-        TableColumn<ReceiptDialogRow, String> unitCol = new TableColumn<>(COLUMN_HEADERS.get(4));
+        TableColumn<ReceiptDialogRow, String> unitCol =
+                new TableColumn<>(COLUMN_HEADERS.get(UNIT_COLUMN));
         unitCol.setCellValueFactory(
                 c ->
                         new SimpleStringProperty(
@@ -94,7 +121,7 @@ public final class WarehouseReceiptDialogSupport {
                                         : c.getValue().unitOfMeasure()));
         unitCol.setCellFactory(col -> unitComboCell(unitsOfMeasure));
         TableColumn<ReceiptDialogRow, String> warehouseCol =
-                new TableColumn<>(COLUMN_HEADERS.get(5));
+                new TableColumn<>(COLUMN_HEADERS.get(WAREHOUSE_COLUMN));
         warehouseCol.setCellValueFactory(
                 c ->
                         new SimpleStringProperty(
@@ -102,7 +129,8 @@ public final class WarehouseReceiptDialogSupport {
                                         ? ""
                                         : c.getValue().warehouse().label()));
         warehouseCol.setCellFactory(col -> warehouseComboCell(warehouses));
-        TableColumn<ReceiptDialogRow, String> cellCol = new TableColumn<>(COLUMN_HEADERS.get(6));
+        TableColumn<ReceiptDialogRow, String> cellCol =
+                new TableColumn<>(COLUMN_HEADERS.get(CELL_COLUMN));
         cellCol.setCellValueFactory(
                 c ->
                         new SimpleStringProperty(
@@ -110,29 +138,58 @@ public final class WarehouseReceiptDialogSupport {
         cellCol.setCellFactory(col -> storageCellComboCell(cellsLoader));
 
         table.getColumns()
-                .setAll(materialCol, colorCol, sizeCol, qtyCol, unitCol, warehouseCol, cellCol);
+                .setAll(
+                        materialCol,
+                        nameCol,
+                        colorCol,
+                        sizeCol,
+                        qtyCol,
+                        unitCol,
+                        warehouseCol,
+                        cellCol);
 
         Button addLine = new Button(ADD_LINE_BUTTON);
         addLine.getStyleClass().add("tmp-button-secondary");
         addLine.setOnAction(e -> rows.add(new ReceiptDialogRow()));
 
-        VBox root = new VBox(10, table, new HBox(addLine));
+        Label errorLabel = new Label();
+        errorLabel.getStyleClass().add("tmp-message-error");
+        errorLabel.setWrapText(true);
+        errorLabel.setMaxWidth(Double.MAX_VALUE);
+        errorLabel.setVisible(false);
+        errorLabel.setManaged(false);
+
+        VBox root = new VBox(10, table, new HBox(addLine), errorLabel);
         root.setPadding(new Insets(12));
         VBox.setVgrow(table, Priority.ALWAYS);
         dialog.getDialogPane().setContent(root);
+
+        ReceiptDialogSession session =
+                new ReceiptDialogSession(dialog, submitType, rows, table, errorLabel);
         dialog.setOnShown(
                 e -> {
                     Button submit = (Button) dialog.getDialogPane().lookupButton(submitType);
                     Button cancel = (Button) dialog.getDialogPane().lookupButton(cancelType);
                     if (submit != null) {
                         submit.getStyleClass().add("tmp-button-primary");
+                        submit.addEventFilter(
+                                ActionEvent.ACTION,
+                                event -> {
+                                    try {
+                                        session.requireSubmission();
+                                        session.clearError();
+                                    } catch (IllegalArgumentException ex) {
+                                        event.consume();
+                                        session.showError(ex.getMessage());
+                                    }
+                                });
                     }
                     if (cancel != null) {
                         cancel.getStyleClass().add("tmp-button-secondary");
                     }
                 });
 
-        return new ReceiptDialogSession(dialog, submitType, rows, table);
+        return session;
     }
 
     private static TableCell<ReceiptDialogRow, String> textFieldCell(
@@ -146,7 +203,8 @@ public final class WarehouseReceiptDialogSupport {
                         .addListener(
                                 (obs, o, n) -> {
                                     ReceiptDialogRow row = boundRow();
-                                    if (row != null && !Objects.equals(property.apply(row).get(), n)) {
+                                    if (row != null
+                                            && !Objects.equals(property.apply(row).get(), n)) {
                                         property.apply(row).set(n);
                                     }
                                 });
@@ -371,16 +429,19 @@ public final class WarehouseReceiptDialogSupport {
         private final ButtonType submitType;
         private final ObservableList<ReceiptDialogRow> rows;
         private final TableView<ReceiptDialogRow> table;
+        private final Label errorLabel;
 
         ReceiptDialogSession(
                 Dialog<ButtonType> dialog,
                 ButtonType submitType,
                 ObservableList<ReceiptDialogRow> rows,
-                TableView<ReceiptDialogRow> table) {
+                TableView<ReceiptDialogRow> table,
+                Label errorLabel) {
             this.dialog = dialog;
             this.submitType = submitType;
             this.rows = rows;
             this.table = table;
+            this.errorLabel = errorLabel;
         }
 
         public Dialog<ButtonType> dialog() {
@@ -399,25 +460,39 @@ public final class WarehouseReceiptDialogSupport {
             return rows;
         }
 
+        Label errorLabel() {
+            return errorLabel;
+        }
+
+        void showError(String message) {
+            errorLabel.setText(message == null ? "" : message);
+            boolean visible = message != null && !message.isBlank();
+            errorLabel.setVisible(visible);
+            errorLabel.setManaged(visible);
+        }
+
+        void clearError() {
+            showError("");
+        }
+
+        public boolean isErrorVisible() {
+            return errorLabel.isVisible();
+        }
+
+        public String errorText() {
+            return errorLabel.getText() == null ? "" : errorLabel.getText();
+        }
+
         public List<ReceiptLineSubmission> requireSubmission() {
             List<ReceiptLineSubmission> lines = new java.util.ArrayList<>();
             for (ReceiptDialogRow row : rows) {
-                String material = blankToNull(row.materialTextProperty().get());
-                if (material == null) {
-                    throw new IllegalArgumentException("Укажите материал (артикул или наименование).");
+                String article = blankToNull(row.materialTextProperty().get());
+                if (article == null) {
+                    throw new IllegalArgumentException("Укажите материал.");
                 }
-                String article;
-                String name;
-                int slash = material.indexOf('/');
-                if (slash >= 0) {
-                    article = material.substring(0, slash).trim();
-                    name = material.substring(slash + 1).trim();
-                } else {
-                    article = material.trim();
-                    name = material.trim();
-                }
-                if (article.isEmpty() || name.isEmpty()) {
-                    throw new IllegalArgumentException("Укажите материал (артикул или наименование).");
+                String name = blankToNull(row.nameTextProperty().get());
+                if (name == null) {
+                    throw new IllegalArgumentException("Укажите наименование.");
                 }
                 BigDecimal qty =
                         DecimalQuantityParser.parsePositive(
@@ -473,6 +548,7 @@ public final class WarehouseReceiptDialogSupport {
 
     static final class ReceiptDialogRow {
         private final StringProperty materialText = new SimpleStringProperty("");
+        private final StringProperty nameText = new SimpleStringProperty("");
         private final StringProperty colorText = new SimpleStringProperty("");
         private final StringProperty sizeText = new SimpleStringProperty("");
         private final StringProperty quantityText =
@@ -483,6 +559,10 @@ public final class WarehouseReceiptDialogSupport {
 
         StringProperty materialTextProperty() {
             return materialText;
+        }
+
+        StringProperty nameTextProperty() {
+            return nameText;
         }
 
         StringProperty colorTextProperty() {

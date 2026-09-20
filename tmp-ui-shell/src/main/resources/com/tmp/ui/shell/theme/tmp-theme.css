@@ -29,20 +29,21 @@
     -tmp-dark: #1D2A39;
     -tmp-dark-hover: #27384A;
 
-    -tmp-success: #2E7D32;
-    -tmp-success-soft: #EAF5EC;
+    -tmp-success: #2F9E55;
+    -tmp-success-soft: #E8F7EE;
 
-    -tmp-action: #3F7F5F;
-    -tmp-action-hover: #356D51;
-    -tmp-action-pressed: #2D5C45;
-    -tmp-action-soft: #EAF3ED;
+    -tmp-action: #2F9E55;
+    -tmp-action-hover: #278A49;
+    -tmp-action-pressed: #20753D;
+    -tmp-action-soft: #E8F7EE;
 
     -tmp-warning: #A86700;
     -tmp-warning-soft: #FFF4DF;
     -tmp-warning-strong: #C05621;
 
-    -tmp-danger: #C62828;
-    -tmp-danger-hover: #A92020;
+    -tmp-danger: #E44545;
+    -tmp-danger-hover: #D13636;
+    -tmp-danger-pressed: #B92B2B;
     -tmp-danger-soft: #FDECEC;
 
     -tmp-focus: #2D8FE3;
@@ -140,7 +141,8 @@
    BUTTONS
    ========================================================================== */
 
-.button {
+.button,
+.toggle-button {
     -fx-background-color: -tmp-action;
     -fx-text-fill: white;
     -fx-border-color: derive(-tmp-action, -15%);
@@ -153,22 +155,26 @@
     -fx-cursor: hand;
 }
 
-.button:hover {
+.button:hover,
+.toggle-button:hover {
     -fx-background-color: -tmp-action-hover;
     -fx-border-color: derive(-tmp-action-hover, -10%);
 }
 
-.button:pressed {
+.button:pressed,
+.toggle-button:pressed {
     -fx-background-color: -tmp-action-pressed;
     -fx-border-color: derive(-tmp-action-pressed, -10%);
 }
 
-.button:focused {
+.button:focused,
+.toggle-button:focused {
     -fx-border-color: -tmp-focus;
     -fx-border-width: 2;
 }
 
-.button:disabled {
+.button:disabled,
+.toggle-button:disabled {
     -fx-background-color: -tmp-surface-alt;
     -fx-text-fill: -tmp-text-disabled;
     -fx-border-color: -tmp-border;
@@ -212,6 +218,12 @@
     -fx-border-color: -tmp-border-strong;
 }
 
+.tmp-button-secondary:selected {
+    -fx-background-color: -tmp-primary-soft;
+    -fx-text-fill: -tmp-primary;
+    -fx-border-color: -tmp-primary;
+}
+
 .tmp-button-secondary:disabled {
     -fx-background-color: -tmp-surface-alt;
     -fx-text-fill: -tmp-text-disabled;
@@ -222,12 +234,17 @@
 .tmp-button-danger {
     -fx-background-color: -tmp-danger;
     -fx-text-fill: white;
-    -fx-border-color: transparent;
+    -fx-border-color: derive(-tmp-danger, -12%);
 }
 
 .tmp-button-danger:hover {
     -fx-background-color: -tmp-danger-hover;
-    -fx-border-color: transparent;
+    -fx-border-color: derive(-tmp-danger-hover, -10%);
+}
+
+.tmp-button-danger:pressed {
+    -fx-background-color: -tmp-danger-pressed;
+    -fx-border-color: derive(-tmp-danger-pressed, -8%);
 }
 
 .tmp-button-danger:focused {

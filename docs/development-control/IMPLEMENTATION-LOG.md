@@ -4,6 +4,30 @@
 
 ---
 
+## Stage 3.5.15 — Receipt validation / Name / button palette corrective — 2026-09-20
+
+**Date:** 2026-09-20
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — receipt UX + action palette)
+**Status:** Implementation PASS; targeted UI + architecture PASS; Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → + Поступление; package/startup NOT RUN (targeted only); no commit
+**Migration:** NONE (V46)
+
+### Root cause (validation)
+
+`openReceiptDialog()` called `requireSubmission()` only **after** `showAndWait()` returned. Missing cell closed the dialog and surfaced «Укажите ячейку.» on the main workspace error label, discarding the user’s edit context.
+
+### Fix (`tmp-ui-shell`)
+
+- Submit `ActionEvent` filter inside `WarehouseReceiptDialogSupport`: validate before close; consume on error; in-dialog `tmp-message-error` banner; row values preserved.
+- Separate manual **Наименование** column; article/name no longer slash-parsed or duplicated from material.
+- Theme: brighter `-tmp-action` / `-tmp-danger` (+ pressed); `.toggle-button` shares button geometry with `.button`; secondary `:selected` for tabs so `+ Поступление` matches toolbar form.
+- Controller no longer remaps validation errors to the main screen.
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Receipt validation / Name / button palette entry (2026-09-20).
+
+---
+
 ## Stage 3.5.15 — Fix Warehouse Receipt Dialog UX — 2026-09-18
 
 **Date:** 2026-09-18
