@@ -35,38 +35,23 @@
 
     <StackPane fx:id="tabContentStack" VBox.vgrow="ALWAYS">
         <VBox fx:id="tasksPane" spacing="8" styleClass="tmp-content" visible="false" managed="false">
-            <Label fx:id="loadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
-                   visible="false" managed="false"/>
-            <TableView fx:id="tasksTable" VBox.vgrow="ALWAYS">
-                <columns>
-                    <TableColumn fx:id="taskDocumentColumn" text="Документ" prefWidth="120" minWidth="90"/>
-                    <TableColumn fx:id="taskOrderColumn" text="Заказ" prefWidth="100" minWidth="80"/>
-                    <TableColumn fx:id="taskKindColumn" text="Вид" prefWidth="110" minWidth="90"/>
-                    <TableColumn fx:id="taskStateColumn" text="Состояние" prefWidth="100" minWidth="80"/>
-                    <TableColumn fx:id="taskRouteColumn" text="Маршрут" prefWidth="280" minWidth="160"/>
-                    <TableColumn fx:id="taskLinesColumn" text="Строк" prefWidth="70" minWidth="56"/>
-                    <TableColumn fx:id="taskWorkerColumn" text="Исполнитель" prefWidth="160" minWidth="100"/>
-                </columns>
-            </TableView>
-            <HBox spacing="8" alignment="CENTER_LEFT">
-                <Button fx:id="takeTaskInWorkButton" text="Взять в работу" styleClass="tmp-button-secondary"/>
-                <Button fx:id="sendTransferButton" text="Передать" styleClass="tmp-button-primary"/>
-                <Button fx:id="receiveTransferButton" text="Принять" styleClass="tmp-button-primary"/>
-                <Button fx:id="rejectTransferButton" text="Отклонить" styleClass="tmp-button-danger"/>
-                <Button fx:id="returnTransferButton" text="Вернуть материалы" styleClass="tmp-button-primary"/>
-                <Button fx:id="addReceiveAllocationButton" text="Добавить ячейку" styleClass="tmp-button-secondary"/>
-            </HBox>
-            <Label fx:id="transferActionsHintLabel" wrapText="true" styleClass="tmp-text-muted"/>
-            <Label fx:id="taskDetailsLabel" wrapText="true" styleClass="tmp-empty-state-hint"/>
-            <TableView fx:id="actionLinesTable" prefHeight="180">
-                <columns>
-                    <TableColumn fx:id="actionMaterialColumn" text="Материал" prefWidth="220" minWidth="140"/>
-                    <TableColumn fx:id="actionReferenceQtyColumn" text="Требуется / Отправлено / К возврату"
-                                 prefWidth="160" minWidth="120"/>
-                    <TableColumn fx:id="actionCellColumn" text="Ячейка" prefWidth="140" minWidth="100"/>
-                    <TableColumn fx:id="actionQuantityColumn" text="Количество" prefWidth="110" minWidth="80"/>
-                </columns>
-            </TableView>
+            <!-- StackPane: loading overlay must not change TableView geometry (Tasks jitter). -->
+            <StackPane VBox.vgrow="ALWAYS">
+                <TableView fx:id="tasksTable" styleClass="warehouse-tasks-table">
+                    <columns>
+                        <TableColumn fx:id="taskDocumentColumn" text="Документ" prefWidth="120" minWidth="90"/>
+                        <TableColumn fx:id="taskOrderColumn" text="Заказ" prefWidth="100" minWidth="80"/>
+                        <TableColumn fx:id="taskKindColumn" text="Вид" prefWidth="120" minWidth="90"/>
+                        <TableColumn fx:id="taskStateColumn" text="Состояние" prefWidth="100" minWidth="80"/>
+                        <TableColumn fx:id="taskSourceColumn" text="Откуда" prefWidth="180" minWidth="140"/>
+                        <TableColumn fx:id="taskDestinationColumn" text="Куда" prefWidth="180" minWidth="140"/>
+                        <TableColumn fx:id="taskLinesColumn" text="Строк" prefWidth="70" minWidth="56"/>
+                        <TableColumn fx:id="taskWorkerColumn" text="Исполнитель" prefWidth="140" minWidth="100"/>
+                    </columns>
+                </TableView>
+                <Label fx:id="loadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
+                       mouseTransparent="true" visible="false" managed="false"/>
+            </StackPane>
         </VBox>
 
         <VBox fx:id="historyPane" spacing="8" styleClass="tmp-content" visible="false" managed="false">
@@ -80,20 +65,26 @@
                 <ComboBox fx:id="historyOperationCombo" prefWidth="180"/>
                 <Button fx:id="historyRefreshButton" text="Обновить" styleClass="tmp-button-secondary"/>
             </FlowPane>
-            <Label fx:id="historyLoadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
-                   visible="false" managed="false"/>
-            <TableView fx:id="historyTable" VBox.vgrow="ALWAYS">
-                <columns>
-                    <TableColumn fx:id="historyOccurredAtColumn" text="Дата/время" prefWidth="130" minWidth="110"/>
-                    <TableColumn fx:id="historyOperationColumn" text="Операция" prefWidth="120" minWidth="90"/>
-                    <TableColumn fx:id="historyMaterialColumn" text="Материал" prefWidth="220" minWidth="140"/>
-                    <TableColumn fx:id="historyQuantityColumn" text="Кол-во" prefWidth="90" minWidth="70"/>
-                    <TableColumn fx:id="historySourceColumn" text="Откуда" prefWidth="180" minWidth="120"/>
-                    <TableColumn fx:id="historyDestinationColumn" text="Куда" prefWidth="180" minWidth="120"/>
-                    <TableColumn fx:id="historyDocumentColumn" text="Документ" prefWidth="110" minWidth="80"/>
-                    <TableColumn fx:id="historyActorColumn" text="Пользователь" prefWidth="140" minWidth="100"/>
-                </columns>
-            </TableView>
+            <!-- StackPane: loading overlay must not change TableView geometry (History jitter). -->
+            <StackPane VBox.vgrow="ALWAYS">
+                <TableView fx:id="historyTable" styleClass="warehouse-history-table">
+                    <columns>
+                        <TableColumn fx:id="historyOccurredAtColumn" text="Дата/время" prefWidth="135" minWidth="125"/>
+                        <TableColumn fx:id="historyOperationColumn" text="Операция" prefWidth="110" minWidth="100"/>
+                        <TableColumn fx:id="historyArticleColumn" text="Артикул" prefWidth="135" minWidth="120"/>
+                        <TableColumn fx:id="historyNameColumn" text="Наименование" prefWidth="240" minWidth="180"/>
+                        <TableColumn fx:id="historyColorColumn" text="Цвет" prefWidth="130" minWidth="110"/>
+                        <TableColumn fx:id="historySizeColumn" text="Размер" prefWidth="90" minWidth="80"/>
+                        <TableColumn fx:id="historyQuantityColumn" text="Кол-во" prefWidth="90" minWidth="85"/>
+                        <TableColumn fx:id="historyUnitColumn" text="Ед." prefWidth="60" minWidth="55"/>
+                        <TableColumn fx:id="historySourceColumn" text="Откуда" prefWidth="180" minWidth="160"/>
+                        <TableColumn fx:id="historyDestinationColumn" text="Куда" prefWidth="180" minWidth="160"/>
+                        <TableColumn fx:id="historyActorColumn" text="Пользователь" prefWidth="120" minWidth="100"/>
+                    </columns>
+                </TableView>
+                <Label fx:id="historyLoadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
+                       mouseTransparent="true" visible="false" managed="false"/>
+            </StackPane>
             <HBox spacing="16" alignment="CENTER">
                 <Button fx:id="historyPreviousPageButton" text="Назад" styleClass="tmp-button-secondary"/>
                 <Label fx:id="historyPageLabel"/>

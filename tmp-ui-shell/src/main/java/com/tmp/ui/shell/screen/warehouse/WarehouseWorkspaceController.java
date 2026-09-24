@@ -3,11 +3,9 @@ package com.tmp.ui.shell.screen.warehouse;
 import com.tmp.ui.shell.navigation.ViewModelAware;
 import com.tmp.ui.shell.order.DecimalQuantityParser;
 import com.tmp.ui.shell.order.DecimalUiFormat;
-import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ActionEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.CellFilterOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.HistoryOperationOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.HistoryRow;
-import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReceiveAllocationEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.StockMoveLine;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.StockRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.TaskRow;
@@ -45,7 +43,6 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
@@ -143,52 +140,16 @@ public final class WarehouseWorkspaceController
     private TableColumn<TaskRow, String> taskStateColumn;
 
     @FXML
-    private TableColumn<TaskRow, String> taskRouteColumn;
+    private TableColumn<TaskRow, String> taskSourceColumn;
+
+    @FXML
+    private TableColumn<TaskRow, String> taskDestinationColumn;
 
     @FXML
     private TableColumn<TaskRow, String> taskLinesColumn;
 
     @FXML
     private TableColumn<TaskRow, String> taskWorkerColumn;
-
-    @FXML
-    private Button takeTaskInWorkButton;
-
-    @FXML
-    private Button sendTransferButton;
-
-    @FXML
-    private Button receiveTransferButton;
-
-    @FXML
-    private Button rejectTransferButton;
-
-    @FXML
-    private Button returnTransferButton;
-
-    @FXML
-    private Button addReceiveAllocationButton;
-
-    @FXML
-    private Label transferActionsHintLabel;
-
-    @FXML
-    private Label taskDetailsLabel;
-
-    @FXML
-    private TableView<ActionEditRow> actionLinesTable;
-
-    @FXML
-    private TableColumn<ActionEditRow, String> actionMaterialColumn;
-
-    @FXML
-    private TableColumn<ActionEditRow, String> actionReferenceQtyColumn;
-
-    @FXML
-    private TableColumn<ActionEditRow, StorageCellChoice> actionCellColumn;
-
-    @FXML
-    private TableColumn<ActionEditRow, String> actionQuantityColumn;
 
     @FXML
     private TableView<StockRow> stockTable;
@@ -248,19 +209,28 @@ public final class WarehouseWorkspaceController
     private TableColumn<HistoryRow, String> historyOperationColumn;
 
     @FXML
-    private TableColumn<HistoryRow, String> historyMaterialColumn;
+    private TableColumn<HistoryRow, String> historyArticleColumn;
+
+    @FXML
+    private TableColumn<HistoryRow, String> historyNameColumn;
+
+    @FXML
+    private TableColumn<HistoryRow, String> historyColorColumn;
+
+    @FXML
+    private TableColumn<HistoryRow, String> historySizeColumn;
 
     @FXML
     private TableColumn<HistoryRow, String> historyQuantityColumn;
+
+    @FXML
+    private TableColumn<HistoryRow, String> historyUnitColumn;
 
     @FXML
     private TableColumn<HistoryRow, String> historySourceColumn;
 
     @FXML
     private TableColumn<HistoryRow, String> historyDestinationColumn;
-
-    @FXML
-    private TableColumn<HistoryRow, String> historyDocumentColumn;
 
     @FXML
     private TableColumn<HistoryRow, String> historyActorColumn;
@@ -282,6 +252,7 @@ public final class WarehouseWorkspaceController
 
     private WarehouseWorkspaceViewModel viewModel;
     private boolean binding;
+    private WarehouseTaskDialogSupport.TaskDialogSession openTaskDialogSession;
 
     @Override
     public void setViewModel(WarehouseWorkspaceViewModel viewModel) {
@@ -293,22 +264,22 @@ public final class WarehouseWorkspaceController
         errorLabel.visibleProperty().bind(viewModel.errorMessageProperty().isNotEmpty());
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
 
+        loadingLabel.setManaged(false);
         loadingLabel.visibleProperty().bind(
                 Bindings.and(
                         viewModel.loadingProperty(),
                         Bindings.equal(viewModel.selectedTabProperty(), WorkspaceTab.TASKS)));
-        loadingLabel.managedProperty().bind(loadingLabel.visibleProperty());
         // Stocks loading is an overlay: never managed=true (that resized the table and caused jitter).
         stockLoadingLabel.setManaged(false);
         stockLoadingLabel.visibleProperty().bind(
                 Bindings.and(
                         viewModel.loadingProperty(),
                         Bindings.equal(viewModel.selectedTabProperty(), WorkspaceTab.STOCK)));
+        historyLoadingLabel.setManaged(false);
         historyLoadingLabel.visibleProperty().bind(
                 Bindings.and(
                         viewModel.loadingProperty(),
                         Bindings.equal(viewModel.selectedTabProperty(), WorkspaceTab.HISTORY)));
-        historyLoadingLabel.managedProperty().bind(historyLoadingLabel.visibleProperty());
 
         IntSupplier scrollAnchor =
                 () -> {
@@ -437,7 +408,6 @@ public final class WarehouseWorkspaceController
 
         configureHistoryFilters();
         configureTasksTable();
-        configureActionLinesTable();
         configureStockTable();
         configureHistoryTable();
 
@@ -450,22 +420,8 @@ public final class WarehouseWorkspaceController
         adjustStockButton.setOnAction(e -> openAdjustDialog());
         adjustStockButton.disableProperty().bind(viewModel.canAdjustSelectedStockProperty().not());
 
-        takeTaskInWorkButton.setOnAction(e -> viewModel.takeSelectedTaskInWork());
-        takeTaskInWorkButton.disableProperty().bind(viewModel.canTakeSelectedTaskInWorkProperty().not());
-        sendTransferButton.setOnAction(e -> viewModel.sendSelectedTask());
-        sendTransferButton.disableProperty().bind(viewModel.canSendSelectedTaskProperty().not());
-        receiveTransferButton.setOnAction(e -> viewModel.receiveSelectedTask());
-        receiveTransferButton.disableProperty().bind(viewModel.canReceiveSelectedTaskProperty().not());
-        rejectTransferButton.setOnAction(e -> promptRejectReason());
-        rejectTransferButton.disableProperty().bind(viewModel.canRejectSelectedTaskProperty().not());
-        returnTransferButton.setOnAction(e -> viewModel.returnSelectedTask());
-        returnTransferButton.disableProperty().bind(viewModel.canReturnSelectedTaskProperty().not());
-        addReceiveAllocationButton.setOnAction(e -> addReceiveAllocationForSelectedLine());
-        addReceiveAllocationButton
-                .disableProperty()
-                .bind(viewModel.canRejectSelectedTaskProperty().not());
-        transferActionsHintLabel.textProperty().bind(viewModel.transferActionsHintProperty());
-        taskDetailsLabel.textProperty().bind(viewModel.taskDetailsTextProperty());
+        viewModel.setAfterTerminalTaskAction(this::closeOpenTaskDialog);
+        viewModel.setAfterTaskDetailsLoaded(this::refreshOpenTaskDialogHeader);
 
         previousPageButton.setOnAction(e -> viewModel.previousPage());
         nextPageButton.setOnAction(e -> viewModel.nextPage());
@@ -591,20 +547,39 @@ public final class WarehouseWorkspaceController
                 cell -> new SimpleStringProperty(cell.getValue().kindLabel()));
         taskStateColumn.setCellValueFactory(
                 cell -> new SimpleStringProperty(cell.getValue().stateLabel()));
-        taskRouteColumn.setCellValueFactory(
-                cell -> new SimpleStringProperty(cell.getValue().routeLabel()));
+        taskSourceColumn.setCellValueFactory(
+                cell -> new SimpleStringProperty(cell.getValue().sourceWarehouseLabel()));
+        taskDestinationColumn.setCellValueFactory(
+                cell -> new SimpleStringProperty(cell.getValue().destinationWarehouseLabel()));
         taskLinesColumn.setCellValueFactory(
                 cell -> new SimpleStringProperty(cell.getValue().lineCountText()));
         taskWorkerColumn.setCellValueFactory(
                 cell -> new SimpleStringProperty(cell.getValue().workerDisplay()));
 
         tasksTable.setItems(viewModel.taskRows());
-        tasksTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        Label placeholder = new Label("Нет задач");
+        // UNCONSTRAINED: CONSTRAINED redistributes columns when the vertical scrollbar toggles.
+        tasksTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        Label placeholder = new Label("Нет задач, требующих вашего действия");
         placeholder.textProperty().bind(viewModel.statusMessageProperty());
         placeholder.getStyleClass().add("tmp-empty-state-hint");
         placeholder.setWrapText(true);
         tasksTable.setPlaceholder(placeholder);
+
+        tasksTable.setRowFactory(
+                table -> {
+                    TableRow<TaskRow> row = new TableRow<>();
+                    row.setOnMouseClicked(
+                            event -> {
+                                if (event.getButton() != MouseButton.PRIMARY
+                                        || event.getClickCount() != 2
+                                        || row.isEmpty()
+                                        || row.getItem() == null) {
+                                    return;
+                                }
+                                openTaskDialog(row.getItem());
+                            });
+                    return row;
+                });
 
         tasksTable.getSelectionModel()
                 .selectedItemProperty()
@@ -618,7 +593,10 @@ public final class WarehouseWorkspaceController
         viewModel.selectedTaskProperty()
                 .addListener(
                         (obs, oldValue, newValue) -> {
-                            if (binding || java.util.Objects.equals(tasksTable.getSelectionModel().getSelectedItem(), newValue)) {
+                            if (binding
+                                    || java.util.Objects.equals(
+                                            tasksTable.getSelectionModel().getSelectedItem(),
+                                            newValue)) {
                                 return;
                             }
                             binding = true;
@@ -630,64 +608,62 @@ public final class WarehouseWorkspaceController
                         });
     }
 
-    private void configureActionLinesTable() {
-        actionMaterialColumn.setCellValueFactory(
-                cell ->
-                        new javafx.beans.property.SimpleStringProperty(
-                                cell.getValue().materialLabel()));
-        actionReferenceQtyColumn.setCellValueFactory(
-                cell ->
-                        new javafx.beans.property.SimpleStringProperty(
-                                cell.getValue().referenceQuantityText()));
-        actionCellColumn.setCellValueFactory(cell -> cell.getValue().storageCellProperty());
-        actionCellColumn.setCellFactory(column -> new ActionCellComboCell());
-        actionQuantityColumn.setCellValueFactory(cell -> cell.getValue().quantityTextProperty());
-        actionQuantityColumn.setCellFactory(column -> new ActionQuantityCell());
-
-        actionLinesTable.setItems(viewModel.actionLines());
-        actionLinesTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        actionLinesTable.setPlaceholder(new Label("Выберите задачу для редактирования строк"));
+    private void openTaskDialog(TaskRow task) {
+        if (task == null || openTaskDialogSession != null) {
+            return;
+        }
+        viewModel.selectTask(task);
+        viewModel.openTaskDialogDetails(task);
+        WarehouseTaskDialogSupport.TaskDialogSession session =
+                WarehouseTaskDialogSupport.createTaskDialog(
+                        task,
+                        viewModel.actionLines(),
+                        viewModel.actionCellChoices(),
+                        viewModel.canTakeSelectedTaskInWorkProperty(),
+                        viewModel.canSendSelectedTaskProperty(),
+                        viewModel.canReceiveSelectedTaskProperty(),
+                        viewModel.canRejectSelectedTaskProperty(),
+                        viewModel.canReturnSelectedTaskProperty(),
+                        viewModel.taskDetailLoadingProperty(),
+                        viewModel::takeSelectedTaskInWork,
+                        viewModel::sendSelectedTask,
+                        viewModel::receiveSelectedTask,
+                        viewModel::rejectSelectedTask,
+                        viewModel::returnSelectedTask);
+        openTaskDialogSession = session;
+        viewModel.errorMessageProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> {
+                            if (openTaskDialogSession == session && newValue != null && !newValue.isBlank()) {
+                                session.showError(newValue);
+                            }
+                        });
+        session.dialog()
+                .setOnHidden(
+                        e -> {
+                            if (openTaskDialogSession == session) {
+                                openTaskDialogSession = null;
+                                viewModel.setTaskDialogOpen(false);
+                            }
+                        });
+        session.dialog().showAndWait();
     }
 
-    private void promptRejectReason() {
-        Dialog<String> dialog = new Dialog<>();
-        dialog.setTitle("Отклонение перемещения");
-        dialog.setHeaderText("Укажите причину отклонения");
-        ButtonType rejectType = new ButtonType("Отклонить", ButtonBar.ButtonData.OK_DONE);
-        ButtonType cancelType = new ButtonType("Отмена", ButtonBar.ButtonData.CANCEL_CLOSE);
-        dialog.getDialogPane().getButtonTypes().addAll(rejectType, cancelType);
-        dialog.getDialogPane().getStyleClass().add("tmp-dialog");
-        TextArea reasonArea = new TextArea();
-        reasonArea.setPromptText("Причина");
-        reasonArea.setWrapText(true);
-        reasonArea.setPrefRowCount(4);
-        dialog.getDialogPane().setContent(reasonArea);
-        Button rejectButton = (Button) dialog.getDialogPane().lookupButton(rejectType);
-        rejectButton.getStyleClass().add("tmp-button-danger");
-        Button cancelButton = (Button) dialog.getDialogPane().lookupButton(cancelType);
-        cancelButton.getStyleClass().add("tmp-button-secondary");
-        rejectButton.disableProperty().bind(Bindings.createBooleanBinding(
-                () -> reasonArea.getText() == null || reasonArea.getText().isBlank(),
-                reasonArea.textProperty()));
-        dialog.setResultConverter(
-                button -> button == rejectType ? reasonArea.getText() : null);
-        dialog.setOnShown(e -> reasonArea.requestFocus());
-        Optional<String> result = dialog.showAndWait();
-        result.ifPresent(viewModel::rejectSelectedTask);
+    private void closeOpenTaskDialog() {
+        WarehouseTaskDialogSupport.TaskDialogSession session = openTaskDialogSession;
+        if (session != null) {
+            openTaskDialogSession = null;
+            viewModel.setTaskDialogOpen(false);
+            session.close();
+        }
     }
 
-    private void addReceiveAllocationForSelectedLine() {
-        ActionEditRow selected = actionLinesTable.getSelectionModel().getSelectedItem();
-        UUID lineId =
-                selected instanceof ReceiveAllocationEditRow receive
-                        ? receive.lineId()
-                        : viewModel.actionLines().stream()
-                                .filter(ReceiveAllocationEditRow.class::isInstance)
-                                .map(ActionEditRow::lineId)
-                                .findFirst()
-                                .orElse(null);
-        if (lineId != null) {
-            viewModel.addReceiveAllocationForLine(lineId);
+    private void refreshOpenTaskDialogHeader() {
+        WarehouseTaskDialogSupport.TaskDialogSession session = openTaskDialogSession;
+        TaskRow task = viewModel.selectedTaskProperty().get();
+        if (session != null && task != null) {
+            WarehouseTaskDialogSupport.refreshHeader(session, task);
+            session.clearError();
         }
     }
 
@@ -1139,15 +1115,32 @@ public final class WarehouseWorkspaceController
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
                                 cell.getValue().operationLabel()));
-        historyMaterialColumn.setCellValueFactory(
+        historyArticleColumn.setCellValueFactory(
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
-                                cell.getValue().materialText()));
+                                cell.getValue().articleText()));
+        historyNameColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().nameText()));
+        historyColorColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().colorText()));
+        historySizeColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().sizeText()));
         historyQuantityColumn.setCellValueFactory(
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
                                 cell.getValue().quantityText()));
         historyQuantityColumn.setCellFactory(column -> rightAlignedHistoryTextCell());
+        historyUnitColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().unitText()));
+        historyUnitColumn.setCellFactory(column -> centerAlignedHistoryTextCell());
         historySourceColumn.setCellValueFactory(
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
@@ -1156,22 +1149,110 @@ public final class WarehouseWorkspaceController
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
                                 cell.getValue().destinationText()));
-        historyDocumentColumn.setCellValueFactory(
-                cell ->
-                        new javafx.beans.property.SimpleStringProperty(
-                                cell.getValue().documentText()));
         historyActorColumn.setCellValueFactory(
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
                                 cell.getValue().actorText()));
 
         historyTable.setItems(viewModel.historyRows());
-        historyTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        // Same Stocks stability pattern: UNCONSTRAINED + reserved vertical gutter.
+        historyTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        configureHistoryColumnWidths();
+        installHistoryRefreshLayoutTrace();
         Label placeholder = new Label("Нет операций");
         placeholder.textProperty().bind(viewModel.statusMessageProperty());
         placeholder.getStyleClass().add("tmp-empty-state-hint");
         placeholder.setWrapText(true);
         historyTable.setPlaceholder(placeholder);
+    }
+
+    /**
+     * Flex only the name column; always subtract a vertical-scrollbar gutter so show/hide of the
+     * bar does not change History column geometry.
+     */
+    private void configureHistoryColumnWidths() {
+        final double verticalScrollGutter = 18.0;
+        Runnable redistribute =
+                () -> {
+                    double tableWidth = historyTable.getWidth();
+                    if (tableWidth <= 0) {
+                        return;
+                    }
+                    double fixed =
+                            historyOccurredAtColumn.getPrefWidth()
+                                    + historyOperationColumn.getPrefWidth()
+                                    + historyArticleColumn.getPrefWidth()
+                                    + historyColorColumn.getPrefWidth()
+                                    + historySizeColumn.getPrefWidth()
+                                    + historyQuantityColumn.getPrefWidth()
+                                    + historyUnitColumn.getPrefWidth()
+                                    + historySourceColumn.getPrefWidth()
+                                    + historyDestinationColumn.getPrefWidth()
+                                    + historyActorColumn.getPrefWidth();
+                    if (fixed <= 0) {
+                        fixed = 135 + 110 + 135 + 130 + 90 + 90 + 60 + 180 + 180 + 120;
+                    }
+                    double nameWidth = Math.max(180, tableWidth - fixed - verticalScrollGutter);
+                    historyNameColumn.setPrefWidth(nameWidth);
+                };
+        historyTable.widthProperty().addListener((obs, o, n) -> redistribute.run());
+        Platform.runLater(redistribute);
+    }
+
+    private void installHistoryRefreshLayoutTrace() {
+        viewModel
+                .loadingProperty()
+                .addListener(
+                        (obs, wasLoading, isLoading) -> {
+                            if (viewModel.selectedTabProperty().get() != WorkspaceTab.HISTORY) {
+                                return;
+                            }
+                            Platform.runLater(
+                                    () ->
+                                            traceHistoryLayout(
+                                                    Boolean.TRUE.equals(isLoading)
+                                                            ? "loading-on"
+                                                            : "loading-off"));
+                        });
+    }
+
+    private void traceHistoryLayout(String phase) {
+        if (!HistoryRefreshTrace.enabled()) {
+            return;
+        }
+        ScrollBar vBar = findHistoryScrollBar(Orientation.VERTICAL);
+        ScrollBar hBar = findHistoryScrollBar(Orientation.HORIZONTAL);
+        HistoryRefreshTrace.layoutSnapshot(
+                phase,
+                historyTable.getWidth(),
+                historyTable.getHeight(),
+                vBar != null && vBar.isVisible(),
+                hBar != null && hBar.isVisible(),
+                historyLoadingLabel.isVisible(),
+                historyLoadingLabel.isManaged(),
+                historyLoadingLabel.getHeight(),
+                estimateTopVisibleHistoryIndex());
+    }
+
+    private ScrollBar findHistoryScrollBar(Orientation orientation) {
+        for (Node node : historyTable.lookupAll(".scroll-bar")) {
+            if (node instanceof ScrollBar bar && bar.getOrientation() == orientation) {
+                return bar;
+            }
+        }
+        return null;
+    }
+
+    private int estimateTopVisibleHistoryIndex() {
+        ScrollBar vBar = findHistoryScrollBar(Orientation.VERTICAL);
+        if (vBar == null || historyTable.getItems().isEmpty()) {
+            return historyTable.getItems().isEmpty() ? -1 : 0;
+        }
+        double max = vBar.getMax();
+        if (max <= 0) {
+            return 0;
+        }
+        return (int) Math.round((vBar.getValue() / max) * (historyTable.getItems().size() - 1));
     }
 
     private static TableCell<StockRow, String> rightAlignedTextCell() {
@@ -1196,6 +1277,14 @@ public final class WarehouseWorkspaceController
     }
 
     private static TableCell<HistoryRow, String> rightAlignedHistoryTextCell() {
+        return alignedHistoryTextCell(Pos.CENTER_RIGHT);
+    }
+
+    private static TableCell<HistoryRow, String> centerAlignedHistoryTextCell() {
+        return alignedHistoryTextCell(Pos.CENTER);
+    }
+
+    private static TableCell<HistoryRow, String> alignedHistoryTextCell(Pos alignment) {
         TableCell<HistoryRow, String> cell =
                 new TableCell<>() {
                     @Override
@@ -1204,71 +1293,8 @@ public final class WarehouseWorkspaceController
                         setText(empty || item == null ? null : item);
                     }
                 };
-        cell.setAlignment(Pos.CENTER_RIGHT);
+        cell.setAlignment(alignment);
         return cell;
-    }
-
-    private final class ActionCellComboCell extends TableCell<ActionEditRow, StorageCellChoice> {
-
-        private final ComboBox<StorageCellChoice> combo = new ComboBox<>();
-
-        ActionCellComboCell() {
-            combo.setItems(viewModel.actionCellChoices());
-            combo.valueProperty()
-                    .addListener(
-                            (obs, oldValue, newValue) -> {
-                                ActionEditRow row = getTableRow() == null ? null : getTableRow().getItem();
-                                if (row != null && !isEmpty()) {
-                                    row.storageCellProperty().set(newValue);
-                                }
-                            });
-        }
-
-        @Override
-        protected void updateItem(StorageCellChoice item, boolean empty) {
-            super.updateItem(item, empty);
-            if (empty || getTableRow() == null || getTableRow().getItem() == null) {
-                setGraphic(null);
-                return;
-            }
-            combo.setValue(item);
-            setGraphic(combo);
-        }
-    }
-
-    private final class ActionQuantityCell extends TableCell<ActionEditRow, String> {
-
-        private final TextField field = new TextField();
-
-        ActionQuantityCell() {
-            field.textProperty()
-                    .addListener(
-                            (obs, oldValue, newValue) -> {
-                                ActionEditRow row = getTableRow() == null ? null : getTableRow().getItem();
-                                if (row != null && row.quantityEditable() && !isEmpty()) {
-                                    row.quantityTextProperty().set(newValue);
-                                }
-                            });
-        }
-
-        @Override
-        protected void updateItem(String item, boolean empty) {
-            super.updateItem(item, empty);
-            if (empty || getTableRow() == null || getTableRow().getItem() == null) {
-                setGraphic(null);
-                setText(null);
-                return;
-            }
-            ActionEditRow row = getTableRow().getItem();
-            if (row.quantityEditable()) {
-                field.setText(item == null ? "" : item);
-                setGraphic(field);
-                setText(null);
-            } else {
-                setGraphic(null);
-                setText(item);
-            }
-        }
     }
 
 }

@@ -3,12 +3,12 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Receipt validation/Name/button palette COMPLETE 2026-09-20; prior Receipt Dialog UX + Final UX Cleanup COMPLETE; Write-off deferred)
-**Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS; receipt validation/Name/palette DONE — awaiting manual UX from Склад → + Поступление)
-**Last completed task:** Stage 3.5.15 Receipt validation / Name / button palette corrective (2026-09-20); prior: Fix Warehouse Receipt Dialog UX
+**UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Tasks UX redesign + task dialog + Tasks jitter COMPLETE 2026-09-24; History redesign prior COMPLETE; Write-off deferred)
+**Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS; Tasks redesign DONE — awaiting manual UX from Склад → Задачи)
+**Last completed task:** Stage 3.5.15 Tasks UX redesign + task dialog + Tasks jitter fix (2026-09-24); prior: History table redesign + refresh jitter fix
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
-**Active blockers:** none. Primary path Склад → Задачи / Остатки / История (+ Поступление). Manual interactive Warehouse acceptance **READY FROM Склад → + Поступление** (write-off out of this cycle).
+**Active blockers:** none. Primary path Склад → Задачи / Остатки / История (+ Поступление). Manual interactive Warehouse acceptance **READY FROM Склад → Задачи** (write-off out of this cycle).
 **Stage 6 Warehouse:** DONE
 **Stage 7 Production:** DONE / 100%
 **Stage 7 Start Gate:** PASSED
@@ -18,9 +18,9 @@
 **Production Specification:** v2.6 Accepted (Warehouse boundary aligned; Stage 3.5.9 Material Requirement DRAFT live; Stage 3.5.10 Submit → Warehouse demand routing COMPLETE)
 **Warehouse Specification:** v1.8 Accepted (ADR-037; §15A admin API note for 3.5.1)
 **Full verify baseline:** GREEN — `FULL REGRESSION AFTER STAGE 3.5.10 = PASS` (2026-09-10) at `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d`; Stage 3.5.11–3.5.15 corrective did **not** re-run full reactor
-**First READY implementation task:** none (3.5.15 acceptance in progress; receipt validation/Name/palette fixed 2026-09-20)
-**Warehouse Operational Task Actions UI:** COMPLETE (take/takeover, preparation send, receive, reject, return)
-**Warehouse History:** COMPLETE (read-only; physical movements; multi-cell aggregation corrective PASS; **actor audit V46**)
+**First READY implementation task:** none (3.5.15 acceptance in progress; Tasks redesign fixed 2026-09-24)
+**Warehouse Operational Task Actions UI:** COMPLETE (take/takeover, preparation send, receive, reject, return; **Tasks list-only + «Задача склада» dialog**)
+**Warehouse History:** COMPLETE (read-only; physical movements; multi-cell aggregation corrective PASS; **actor audit V46**; History redesign + jitter PASS)
 **Warehouse Settings:** COMPLETE (Склады / Ячейки / Ответственные; secondary admin entry; **«Склад производства»** checkbox — form-only until Сохранить)
 **Warehouse UI Polish:** COMPLETE (Workspace consistency; empty states; button hierarchy; Settings cancel/back; secondary legacy Operations nav)
 **Warehouse Stocks UX corrective:** COMPLETE (cell-centric flat table; expandable rows removed; statistics absent)
@@ -124,9 +124,9 @@ Stage 3.5.11 Modern Остатки = COMPLETE (+ Tasks inbox corrective; + Opera
 Stage 3.5.12 История = COMPLETE (+ multi-cell History aggregation corrective)
 Stage 3.5.13 Warehouse Settings = COMPLETE
 Stage 3.5.14 Warehouse UI Polish = COMPLETE
-Stage 3.5.15 = IN PROGRESS (Receipt validation/Name/button palette COMPLETE 2026-09-20; Receipt Dialog UX prior COMPLETE; Final UX Cleanup prior COMPLETE; Write-off deferred; Manual acceptance READY FROM Склад → + Поступление)
+Stage 3.5.15 = IN PROGRESS (History table redesign + jitter COMPLETE 2026-09-24; Receipt validation/Name/palette prior COMPLETE; Write-off deferred; Manual acceptance READY FROM Склад → История)
 First READY implementation task = none (acceptance in progress)
-Manual Warehouse acceptance = READY FROM Склад → + Поступление (write-off OUT OF SCOPE this cycle)
+Manual Warehouse acceptance = READY FROM Склад → История (then Остатки regression; write-off OUT OF SCOPE this cycle)
 ```
 
 ---
@@ -143,7 +143,7 @@ Manual Warehouse acceptance = READY FROM Склад → + Поступление
 | 5 | Order Management | DONE | 100% |
 | 6 | Warehouse | DONE | 100% |
 | 7 | Production | DONE | 100% |
-| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0–3.5.14 COMPLETE; 3.5.15 IN PROGRESS (receipt validation/Name/palette COMPLETE 2026-09-20; write-off deferred; manual UX from Склад → + Поступление) |
+| 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0–3.5.14 COMPLETE; 3.5.15 IN PROGRESS (History redesign + jitter COMPLETE 2026-09-24; write-off deferred; manual UX from Склад → История) |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
 

@@ -38,6 +38,8 @@ public interface WarehouseHistoryReadQuery {
             UUID materialReferenceId,
             String materialArticle,
             String materialName,
+            String materialColor,
+            String materialSize,
             String unitOfMeasure,
             BigDecimal quantity,
             UUID sourceWarehouseId,
@@ -61,6 +63,8 @@ public interface WarehouseHistoryReadQuery {
             Objects.requireNonNull(materialName, "materialName");
             Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
             Objects.requireNonNull(quantity, "quantity");
+            materialColor = materialColor == null ? "" : materialColor;
+            materialSize = materialSize == null ? "" : materialSize;
         }
     }
 }

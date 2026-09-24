@@ -135,6 +135,8 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                        wo.material_reference_id,
                        MIN(mr.article) AS article,
                        MIN(mr.name) AS name,
+                       MIN(mr.color) AS color,
+                       MIN(mr.size) AS size,
                        MIN(mr.unit_of_measure) AS unit_of_measure,
                        SUM(
                          CASE wo.operation_type
@@ -470,6 +472,8 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                 (UUID) rs.getObject("material_reference_id"),
                 rs.getString("article"),
                 rs.getString("name"),
+                rs.getString("color"),
+                rs.getString("size"),
                 rs.getString("unit_of_measure"),
                 rs.getBigDecimal("quantity"),
                 (UUID) rs.getObject("source_warehouse_id"),

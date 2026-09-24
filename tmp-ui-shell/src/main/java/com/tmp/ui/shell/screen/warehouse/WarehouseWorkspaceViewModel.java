@@ -174,7 +174,11 @@ public final class WarehouseWorkspaceViewModel {
         private final UUID entryId;
         private final String occurredAtText;
         private final String operationLabel;
-        private final String materialText;
+        private final String articleText;
+        private final String nameText;
+        private final String colorText;
+        private final String sizeText;
+        private final String unitText;
         private final String quantityText;
         private final String sourceText;
         private final String destinationText;
@@ -185,7 +189,11 @@ public final class WarehouseWorkspaceViewModel {
                 UUID entryId,
                 String occurredAtText,
                 String operationLabel,
-                String materialText,
+                String articleText,
+                String nameText,
+                String colorText,
+                String sizeText,
+                String unitText,
                 String quantityText,
                 String sourceText,
                 String destinationText,
@@ -194,7 +202,11 @@ public final class WarehouseWorkspaceViewModel {
             this.entryId = Objects.requireNonNull(entryId, "entryId");
             this.occurredAtText = occurredAtText;
             this.operationLabel = operationLabel;
-            this.materialText = materialText;
+            this.articleText = articleText;
+            this.nameText = nameText;
+            this.colorText = colorText;
+            this.sizeText = sizeText;
+            this.unitText = unitText;
             this.quantityText = quantityText;
             this.sourceText = sourceText;
             this.destinationText = destinationText;
@@ -207,7 +219,11 @@ public final class WarehouseWorkspaceViewModel {
                     view.entryId(),
                     DateTimePresentation.format(view.occurredAt()),
                     view.operationDisplayName(),
-                    formatHistoryMaterial(view),
+                    blankDash(view.materialArticle()),
+                    blankDash(view.materialName()),
+                    blankDash(view.materialColor()),
+                    blankDash(view.materialSize()),
+                    blankDash(view.unitOfMeasure()),
                     formatHistoryQuantity(view.operationType(), view.quantity()),
                     formatHistoryLocation(
                             view.sourceWarehouseName(),
@@ -233,8 +249,24 @@ public final class WarehouseWorkspaceViewModel {
             return operationLabel;
         }
 
-        public String materialText() {
-            return materialText;
+        public String articleText() {
+            return articleText;
+        }
+
+        public String nameText() {
+            return nameText;
+        }
+
+        public String colorText() {
+            return colorText;
+        }
+
+        public String sizeText() {
+            return sizeText;
+        }
+
+        public String unitText() {
+            return unitText;
         }
 
         public String quantityText() {
@@ -437,6 +469,8 @@ public final class WarehouseWorkspaceViewModel {
         private final String orderNumberText;
         private final String kindLabel;
         private final String stateLabel;
+        private final String sourceWarehouseLabel;
+        private final String destinationWarehouseLabel;
         private final String routeLabel;
         private final int lineCount;
         private final String workerDisplay;
@@ -453,7 +487,12 @@ public final class WarehouseWorkspaceViewModel {
                             : view.sourceOrderNumber().trim();
             this.kindLabel = kindLabel(view.taskKind());
             this.stateLabel = stateLabel(view.taskState());
-            this.routeLabel = warehouseRouteLabel(view);
+            this.sourceWarehouseLabel =
+                    formatWarehouse(view.sourceWarehouseCode(), view.sourceWarehouseName());
+            this.destinationWarehouseLabel =
+                    formatWarehouse(
+                            view.destinationWarehouseCode(), view.destinationWarehouseName());
+            this.routeLabel = sourceWarehouseLabel + " → " + destinationWarehouseLabel;
             this.lineCount = view.lineCount();
             this.workerDisplay =
                     formatWorkerDisplay(view.taskState(), view.workingUserId(), workerLogin);
@@ -491,6 +530,14 @@ public final class WarehouseWorkspaceViewModel {
             return stateLabel;
         }
 
+        public String sourceWarehouseLabel() {
+            return sourceWarehouseLabel;
+        }
+
+        public String destinationWarehouseLabel() {
+            return destinationWarehouseLabel;
+        }
+
         public String routeLabel() {
             return routeLabel;
         }
@@ -522,13 +569,6 @@ public final class WarehouseWorkspaceViewModel {
             };
         }
 
-        private static String warehouseRouteLabel(WarehouseTaskView view) {
-            String source = formatWarehouse(view.sourceWarehouseCode(), view.sourceWarehouseName());
-            String dest =
-                    formatWarehouse(view.destinationWarehouseCode(), view.destinationWarehouseName());
-            return source + " → " + dest;
-        }
-
         private static String formatWarehouse(String code, String name) {
             if (code == null || code.isBlank()) {
                 return name == null ? "" : name;
@@ -557,17 +597,51 @@ public final class WarehouseWorkspaceViewModel {
     public abstract static class ActionEditRow {
 
         private final UUID lineId;
+        private final String article;
+        private final String name;
+        private final String color;
+        private final String size;
+        private final String unitOfMeasure;
         private final String materialLabel;
         private final ObjectProperty<StorageCellChoice> storageCell = new SimpleObjectProperty<>();
 
-        ActionEditRow(UUID lineId, String materialLabel, StorageCellChoice initialCell) {
+        ActionEditRow(
+                UUID lineId,
+                MaterialParts material,
+                StorageCellChoice initialCell) {
             this.lineId = Objects.requireNonNull(lineId, "lineId");
-            this.materialLabel = Objects.requireNonNull(materialLabel, "materialLabel");
+            Objects.requireNonNull(material, "material");
+            this.article = material.article();
+            this.name = material.name();
+            this.color = material.color();
+            this.size = material.size();
+            this.unitOfMeasure = material.unitOfMeasure();
+            this.materialLabel = material.combinedLabel();
             this.storageCell.set(initialCell);
         }
 
         public UUID lineId() {
             return lineId;
+        }
+
+        public String article() {
+            return article;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public String color() {
+            return color;
+        }
+
+        public String size() {
+            return size;
+        }
+
+        public String unitOfMeasure() {
+            return unitOfMeasure;
         }
 
         public String materialLabel() {
@@ -585,6 +659,37 @@ public final class WarehouseWorkspaceViewModel {
         public abstract boolean quantityEditable();
     }
 
+    /** Split material fields for Tasks dialog columns. */
+    public record MaterialParts(
+            String article, String name, String color, String size, String unitOfMeasure) {
+
+        public MaterialParts {
+            article = article == null ? "" : article;
+            name = name == null ? "" : name;
+            color = color == null ? "" : color;
+            size = size == null ? "" : size;
+            unitOfMeasure = unitOfMeasure == null ? "" : unitOfMeasure;
+        }
+
+        static MaterialParts from(MaterialReferenceView view) {
+            if (view == null) {
+                return new MaterialParts("", "", "", "", "");
+            }
+            return new MaterialParts(
+                    view.article(), view.name(), view.color(), view.size(), view.unitOfMeasure());
+        }
+
+        static MaterialParts unknown(UUID materialReferenceId) {
+            String id = materialReferenceId == null ? "" : materialReferenceId.toString();
+            return new MaterialParts(id, "", "", "", "");
+        }
+
+        String combinedLabel() {
+            return formatMaterialDisplay(
+                    article, name, color, size, unitOfMeasure);
+        }
+    }
+
     public static final class SourceAllocationEditRow extends ActionEditRow {
 
         private final BigDecimal requiredQuantity;
@@ -592,11 +697,11 @@ public final class WarehouseWorkspaceViewModel {
 
         SourceAllocationEditRow(
                 UUID lineId,
-                String materialLabel,
+                MaterialParts material,
                 BigDecimal requiredQuantity,
                 StorageCellChoice cell,
                 BigDecimal quantity) {
-            super(lineId, materialLabel, cell);
+            super(lineId, material, cell);
             this.requiredQuantity = Objects.requireNonNull(requiredQuantity, "requiredQuantity");
             if (quantity != null) {
                 this.quantityText.set(DecimalUiFormat.formatRu(quantity));
@@ -630,11 +735,11 @@ public final class WarehouseWorkspaceViewModel {
 
         ReceiveAllocationEditRow(
                 UUID lineId,
-                String materialLabel,
+                MaterialParts material,
                 BigDecimal sentQuantity,
                 StorageCellChoice cell,
                 BigDecimal acceptQuantity) {
-            super(lineId, materialLabel, cell);
+            super(lineId, material, cell);
             this.sentQuantity = Objects.requireNonNull(sentQuantity, "sentQuantity");
             if (acceptQuantity != null) {
                 this.quantityText.set(DecimalUiFormat.formatRu(acceptQuantity));
@@ -669,11 +774,11 @@ public final class WarehouseWorkspaceViewModel {
 
         ReturnAllocationEditRow(
                 UUID lineId,
-                String materialLabel,
+                MaterialParts material,
                 BigDecimal outstandingQuantity,
                 UUID defaultReturnStorageCellId,
                 StorageCellChoice cell) {
-            super(lineId, materialLabel, cell);
+            super(lineId, material, cell);
             this.outstandingQuantity =
                     Objects.requireNonNull(outstandingQuantity, "outstandingQuantity");
             this.defaultReturnStorageCellId =
@@ -740,6 +845,7 @@ public final class WarehouseWorkspaceViewModel {
             new SimpleStringProperty(TASK_DETAILS_PLACEHOLDER);
     private final StringProperty transferActionsHint = new SimpleStringProperty("");
     private final BooleanProperty loading = new SimpleBooleanProperty(false);
+    private final BooleanProperty taskDetailLoading = new SimpleBooleanProperty(false);
     private final BooleanProperty commandInFlight = new SimpleBooleanProperty(false);
     private final BooleanProperty canView = new SimpleBooleanProperty(false);
     private final BooleanProperty canTransfer = new SimpleBooleanProperty(false);
@@ -810,6 +916,10 @@ public final class WarehouseWorkspaceViewModel {
     private List<TransferDocumentReturnPlanItem> loadedReturnPlan = List.of();
     private String pendingTaskStatusMessage;
     private String pendingTaskErrorMessage;
+    private boolean taskDialogOpen;
+    private boolean closeTaskDialogAfterReload;
+    private Runnable afterTerminalTaskAction;
+    private Runnable afterTaskDetailsLoaded;
     private final ListChangeListener<ActionEditRow> actionLinesListener =
             change -> {
                 while (change.next()) {
@@ -875,6 +985,7 @@ public final class WarehouseWorkspaceViewModel {
                     updateActionAvailability();
                     updateStockActionAvailability();
                 });
+        taskDetailLoading.addListener((obs, o, n) -> updateActionAvailability());
         canTransfer.addListener((obs, o, n) -> updateActionAvailability());
         canMove.addListener((obs, o, n) -> updateStockActionAvailability());
         canConsumption.addListener((obs, o, n) -> updateStockActionAvailability());
@@ -937,7 +1048,12 @@ public final class WarehouseWorkspaceViewModel {
         } else if (tab == WorkspaceTab.STOCK) {
             ensureStockLoaded();
         } else if (tab == WorkspaceTab.HISTORY) {
-            reloadHistory();
+            long actionId = HistoryRefreshTrace.beginAction("TAB_HISTORY");
+            try {
+                reloadHistory("TAB_HISTORY");
+            } finally {
+                HistoryRefreshTrace.endAction(actionId);
+            }
         } else {
             statusMessage.set("");
         }
@@ -959,12 +1075,22 @@ public final class WarehouseWorkspaceViewModel {
         stockLoadedForCurrentFilter = false;
         WorkspaceTab tab = selectedTab.get();
         if (tab == WorkspaceTab.TASKS) {
-            reloadTasks();
+            long actionId = TasksRefreshTrace.beginAction("WAREHOUSE_FILTER");
+            try {
+                reloadTasks("WAREHOUSE_FILTER");
+            } finally {
+                TasksRefreshTrace.endAction(actionId);
+            }
         } else if (tab == WorkspaceTab.STOCK) {
             pendingStockReloadReason = "WAREHOUSE_FILTER";
             reloadCellFilterOptionsThenStock();
         } else if (tab == WorkspaceTab.HISTORY) {
-            reloadHistory();
+            long actionId = HistoryRefreshTrace.beginAction("WAREHOUSE_FILTER");
+            try {
+                reloadHistory("WAREHOUSE_FILTER");
+            } finally {
+                HistoryRefreshTrace.endAction(actionId);
+            }
         }
     }
 
@@ -996,10 +1122,44 @@ public final class WarehouseWorkspaceViewModel {
 
     public void selectTask(TaskRow row) {
         selectedTask.set(row);
+        if (!taskDialogOpen) {
+            clearActionEditingState();
+            updateActionAvailability();
+            updateTransferActionsHint();
+        }
+    }
+
+    /** Load task details into the dialog surface (double-click). Does not run on single select. */
+    public void openTaskDialogDetails(TaskRow row) {
+        Objects.requireNonNull(row, "row");
+        selectedTask.set(row);
+        taskDialogOpen = true;
+        closeTaskDialogAfterReload = false;
         clearActionEditingState();
-        updateActionAvailability();
         updateTransferActionsHint();
         loadSelectedTaskDetails(row);
+    }
+
+    public void setTaskDialogOpen(boolean open) {
+        this.taskDialogOpen = open;
+        if (!open) {
+            closeTaskDialogAfterReload = false;
+            clearActionEditingState();
+            updateActionAvailability();
+            updateTransferActionsHint();
+        }
+    }
+
+    public boolean isTaskDialogOpen() {
+        return taskDialogOpen;
+    }
+
+    public void setAfterTerminalTaskAction(Runnable handler) {
+        this.afterTerminalTaskAction = handler;
+    }
+
+    public void setAfterTaskDetailsLoaded(Runnable handler) {
+        this.afterTaskDetailsLoaded = handler;
     }
 
     public void takeSelectedTaskInWork() {
@@ -1017,7 +1177,7 @@ public final class WarehouseWorkspaceViewModel {
                         uiExecutor.accept(
                                 () -> {
                                     commandInFlight.set(false);
-                                    reloadTasks();
+                                    reloadTasks("TAKE");
                                 });
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(
@@ -1025,7 +1185,7 @@ public final class WarehouseWorkspaceViewModel {
                                     commandInFlight.set(false);
                                     errorMessage.set(WarehouseUiErrorMapper.text(ex));
                                     if (WarehouseUiErrorMapper.isStaleConflict(ex)) {
-                                        reloadTasks();
+                                        reloadTasks("TAKE_STALE");
                                     }
                                 });
                     }
@@ -1066,7 +1226,8 @@ public final class WarehouseWorkspaceViewModel {
                                     pendingTaskStatusMessage =
                                             formatSendSuccess(result, allocations);
                                     invalidateStockAfterTaskMutation();
-                                    reloadTasks();
+                                    closeTaskDialogAfterReload = true;
+                                    reloadTasks("SEND");
                                 });
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(() -> handleCommandFailure(ex));
@@ -1105,7 +1266,8 @@ public final class WarehouseWorkspaceViewModel {
                                     pendingTaskStatusMessage =
                                             formatReceiveSuccess(result, allocations);
                                     invalidateStockAfterTaskMutation();
-                                    reloadTasks();
+                                    closeTaskDialogAfterReload = true;
+                                    reloadTasks("RECEIVE");
                                 });
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(() -> handleCommandFailure(ex));
@@ -1150,7 +1312,8 @@ public final class WarehouseWorkspaceViewModel {
                                                             ? ""
                                                             : ": " + result.rejectionReason());
                                     invalidateStockAfterTaskMutation();
-                                    reloadTasks();
+                                    closeTaskDialogAfterReload = true;
+                                    reloadTasks("REJECT");
                                 });
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(() -> handleCommandFailure(ex));
@@ -1184,7 +1347,8 @@ public final class WarehouseWorkspaceViewModel {
                                     commandInFlight.set(false);
                                     pendingTaskStatusMessage = "Материалы возвращены";
                                     invalidateStockAfterTaskMutation();
-                                    reloadTasks();
+                                    closeTaskDialogAfterReload = true;
+                                    reloadTasks("RETURN");
                                 });
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(() -> handleCommandFailure(ex));
@@ -1207,7 +1371,12 @@ public final class WarehouseWorkspaceViewModel {
         ReceiveAllocationEditRow added =
                 new ReceiveAllocationEditRow(
                         template.lineId(),
-                        template.materialLabel(),
+                        new MaterialParts(
+                                template.article(),
+                                template.name(),
+                                template.color(),
+                                template.size(),
+                                template.unitOfMeasure()),
                         template.sentQuantity(),
                         null,
                         null);
@@ -1245,7 +1414,12 @@ public final class WarehouseWorkspaceViewModel {
         actionLines.add(
                 new SourceAllocationEditRow(
                         template.lineId(),
-                        template.materialLabel(),
+                        new MaterialParts(
+                                template.article(),
+                                template.name(),
+                                template.color(),
+                                template.size(),
+                                template.unitOfMeasure()),
                         template.requiredQuantity(),
                         null,
                         null));
@@ -1285,7 +1459,12 @@ public final class WarehouseWorkspaceViewModel {
                         ? ""
                         : historySearchInput.get().trim();
         historyPageIndex.set(0);
-        reloadHistory();
+        long actionId = HistoryRefreshTrace.beginAction("SEARCH");
+        try {
+            reloadHistory("SEARCH");
+        } finally {
+            HistoryRefreshTrace.endAction(actionId);
+        }
     }
 
     public void setHistoryFromDate(LocalDate date) {
@@ -1295,7 +1474,12 @@ public final class WarehouseWorkspaceViewModel {
         historyFromDate.set(date);
         historyPageIndex.set(0);
         if (selectedTab.get() == WorkspaceTab.HISTORY) {
-            reloadHistory();
+            long actionId = HistoryRefreshTrace.beginAction("PERIOD_FROM");
+            try {
+                reloadHistory("PERIOD_FROM");
+            } finally {
+                HistoryRefreshTrace.endAction(actionId);
+            }
         }
     }
 
@@ -1306,7 +1490,12 @@ public final class WarehouseWorkspaceViewModel {
         historyToDate.set(date);
         historyPageIndex.set(0);
         if (selectedTab.get() == WorkspaceTab.HISTORY) {
-            reloadHistory();
+            long actionId = HistoryRefreshTrace.beginAction("PERIOD_TO");
+            try {
+                reloadHistory("PERIOD_TO");
+            } finally {
+                HistoryRefreshTrace.endAction(actionId);
+            }
         }
     }
 
@@ -1319,7 +1508,12 @@ public final class WarehouseWorkspaceViewModel {
         selectedHistoryOperation.set(option);
         historyPageIndex.set(0);
         if (selectedTab.get() == WorkspaceTab.HISTORY) {
-            reloadHistory();
+            long actionId = HistoryRefreshTrace.beginAction("OPERATION_FILTER");
+            try {
+                reloadHistory("OPERATION_FILTER");
+            } finally {
+                HistoryRefreshTrace.endAction(actionId);
+            }
         }
     }
 
@@ -1327,7 +1521,12 @@ public final class WarehouseWorkspaceViewModel {
         if (selectedTab.get() != WorkspaceTab.HISTORY) {
             return;
         }
-        reloadHistory();
+        long actionId = HistoryRefreshTrace.beginAction("REFRESH");
+        try {
+            reloadHistory("REFRESH");
+        } finally {
+            HistoryRefreshTrace.endAction(actionId);
+        }
     }
 
     public void nextPage() {
@@ -1360,7 +1559,12 @@ public final class WarehouseWorkspaceViewModel {
         int maxPage = total <= 0 ? 0 : (int) ((total - 1) / HISTORY_PAGE_SIZE);
         if (historyPageIndex.get() < maxPage) {
             historyPageIndex.set(historyPageIndex.get() + 1);
-            reloadHistory();
+            long actionId = HistoryRefreshTrace.beginAction("PAGE_NEXT");
+            try {
+                reloadHistory("PAGE_NEXT");
+            } finally {
+                HistoryRefreshTrace.endAction(actionId);
+            }
         }
     }
 
@@ -1370,7 +1574,12 @@ public final class WarehouseWorkspaceViewModel {
         }
         if (historyPageIndex.get() > 0) {
             historyPageIndex.set(historyPageIndex.get() - 1);
-            reloadHistory();
+            long actionId = HistoryRefreshTrace.beginAction("PAGE_PREV");
+            try {
+                reloadHistory("PAGE_PREV");
+            } finally {
+                HistoryRefreshTrace.endAction(actionId);
+            }
         }
     }
 
@@ -1392,6 +1601,10 @@ public final class WarehouseWorkspaceViewModel {
 
     public BooleanProperty loadingProperty() {
         return loading;
+    }
+
+    public BooleanProperty taskDetailLoadingProperty() {
+        return taskDetailLoading;
     }
 
     public BooleanProperty commandInFlightProperty() {
@@ -1596,13 +1809,21 @@ public final class WarehouseWorkspaceViewModel {
     }
 
     private void reloadTasks() {
+        reloadTasks("UNSPECIFIED");
+    }
+
+    private void reloadTasks(String reason) {
         if (!canView.get()) {
             deny();
             return;
         }
         WarehouseFilterOption filter = selectedWarehouseFilter.get();
         UUID warehouseId = filter == null ? null : filter.warehouseId();
+        String filterLabel = filter == null ? "null" : filter.label();
         long requestId = ++taskLoadGeneration;
+        Object itemsBefore = taskRows;
+        int rowsBefore = taskRows.size();
+        TasksRefreshTrace.reloadRequested(reason, rowsBefore, itemsBefore, filterLabel);
         loading.set(true);
         errorMessage.set("");
         if (selectedTab.get() == WorkspaceTab.TASKS) {
@@ -1613,17 +1834,19 @@ public final class WarehouseWorkspaceViewModel {
                     try {
                         List<WarehouseTaskView> tasks =
                                 warehouseApi.listMyWarehouseTasks(warehouseId);
-                        uiExecutor.accept(() -> applyTaskList(tasks, requestId));
+                        uiExecutor.accept(() -> applyTaskList(tasks, requestId, reason));
                     } catch (RuntimeException ex) {
-                        uiExecutor.accept(() -> applyTaskLoadError(ex, requestId));
+                        uiExecutor.accept(() -> applyTaskLoadError(ex, requestId, reason));
                     }
                 });
     }
 
-    private void applyTaskList(List<WarehouseTaskView> tasks, long requestId) {
+    private void applyTaskList(List<WarehouseTaskView> tasks, long requestId, String reason) {
         if (requestId != taskLoadGeneration) {
             return;
         }
+        int rowsBefore = taskRows.size();
+        Object itemsBefore = taskRows;
         if (selectedTab.get() == WorkspaceTab.TASKS) {
             loading.set(false);
         }
@@ -1634,6 +1857,8 @@ public final class WarehouseWorkspaceViewModel {
             rows.add(new TaskRow(task, workerLogin));
         }
         taskRows.setAll(rows);
+        TasksRefreshTrace.applyPage(
+                reason, rowsBefore, rows.size(), itemsBefore, taskRows, true);
         TaskRow restored =
                 previousSelection == null
                         ? null
@@ -1642,7 +1867,7 @@ public final class WarehouseWorkspaceViewModel {
                                 .findFirst()
                                 .orElse(null);
         selectedTask.set(restored);
-        if (restored != null) {
+        if (restored != null && taskDialogOpen && !closeTaskDialogAfterReload) {
             clearActionEditingState();
             updateTransferActionsHint();
             loadSelectedTaskDetails(restored);
@@ -1664,12 +1889,22 @@ public final class WarehouseWorkspaceViewModel {
                 pendingTaskErrorMessage = null;
             }
         }
+        if (closeTaskDialogAfterReload) {
+            closeTaskDialogAfterReload = false;
+            taskDialogOpen = false;
+            Runnable closeHandler = afterTerminalTaskAction;
+            if (closeHandler != null) {
+                closeHandler.run();
+            }
+        }
     }
 
-    private void applyTaskLoadError(RuntimeException ex, long requestId) {
+    private void applyTaskLoadError(RuntimeException ex, long requestId, String reason) {
         if (requestId != taskLoadGeneration) {
             return;
         }
+        int rowsBefore = taskRows.size();
+        Object itemsBefore = taskRows;
         if (selectedTab.get() == WorkspaceTab.TASKS) {
             loading.set(false);
         }
@@ -1678,11 +1913,13 @@ public final class WarehouseWorkspaceViewModel {
             statusMessage.set(WarehouseUiErrorMapper.LOAD_FAILED);
         }
         taskRows.clear();
+        TasksRefreshTrace.applyPage(reason, rowsBefore, 0, itemsBefore, taskRows, true);
         selectedTask.set(null);
         clearActionEditingState();
         taskDetailsText.set(TASK_DETAILS_PLACEHOLDER);
         updateTransferActionsHint();
         updateActionAvailability();
+        closeTaskDialogAfterReload = false;
     }
 
     private void loadSelectedTaskDetails(TaskRow row) {
@@ -1694,7 +1931,7 @@ public final class WarehouseWorkspaceViewModel {
         WarehouseTaskKind kind = row.taskKind();
         long requestId = ++taskDetailLoadGeneration;
         taskDetailsText.set(formatTaskHeader(row, null));
-        loading.set(true);
+        taskDetailLoading.set(true);
         backgroundExecutor.execute(
                 () -> {
                     try {
@@ -1757,7 +1994,7 @@ public final class WarehouseWorkspaceViewModel {
         if (requestId != taskDetailLoadGeneration || !Objects.equals(selectedTask.get(), row)) {
             return;
         }
-        loading.set(false);
+        taskDetailLoading.set(false);
         loadedDocument = document;
         loadedReturnPlan = List.copyOf(detail.returnPlan());
         actionCellChoices.setAll(detail.cells());
@@ -1771,6 +2008,10 @@ public final class WarehouseWorkspaceViewModel {
         actionLines.setAll(rows);
         updateTransferActionsHint();
         updateActionAvailability();
+        Runnable detailsLoaded = afterTaskDetailsLoaded;
+        if (detailsLoaded != null) {
+            detailsLoaded.run();
+        }
     }
 
     private List<ActionEditRow> buildSourceRows(
@@ -1778,18 +2019,18 @@ public final class WarehouseWorkspaceViewModel {
         Map<UUID, StorageCellChoice> byId = indexCells(cells);
         List<ActionEditRow> rows = new ArrayList<>();
         for (TransferDocumentSourceSuggestionLine line : suggestions) {
-            String label = materialLabel(line.materialReferenceId());
+            MaterialParts material = materialParts(line.materialReferenceId());
             if (line.suggestions().isEmpty()) {
                 rows.add(
                         new SourceAllocationEditRow(
-                                line.lineId(), label, line.requiredQuantity(), null, null));
+                                line.lineId(), material, line.requiredQuantity(), null, null));
                 continue;
             }
             for (SourceCellSuggestion suggestion : line.suggestions()) {
                 rows.add(
                         new SourceAllocationEditRow(
                                 line.lineId(),
-                                label,
+                                material,
                                 line.requiredQuantity(),
                                 byId.get(suggestion.storageCellId()),
                                 suggestion.suggestedQuantity()));
@@ -1804,7 +2045,7 @@ public final class WarehouseWorkspaceViewModel {
             rows.add(
                     new ReceiveAllocationEditRow(
                             line.lineId(),
-                            materialLabel(line.materialReferenceId()),
+                            materialParts(line.materialReferenceId()),
                             line.quantity(),
                             null,
                             line.quantity()));
@@ -1831,7 +2072,7 @@ public final class WarehouseWorkspaceViewModel {
             rows.add(
                     new ReturnAllocationEditRow(
                             item.lineId(),
-                            materialLabel(item.materialReferenceId()),
+                            materialParts(item.materialReferenceId()),
                             item.outstandingQuantity(),
                             item.defaultReturnStorageCellId(),
                             cell));
@@ -1847,21 +2088,27 @@ public final class WarehouseWorkspaceViewModel {
         return byId;
     }
 
-    private String materialLabel(UUID materialReferenceId) {
+    private MaterialParts materialParts(UUID materialReferenceId) {
         MaterialReferenceView view = materialById.get(materialReferenceId);
         if (view == null) {
-            return materialReferenceId.toString();
+            return MaterialParts.unknown(materialReferenceId);
         }
-        return formatMaterialDisplay(view);
+        return MaterialParts.from(view);
     }
 
     static String formatMaterialDisplay(MaterialReferenceView view) {
-        String description =
-                joinParts(view.name(), view.color(), view.size(), view.unitOfMeasure());
+        return formatMaterialDisplay(
+                view.article(), view.name(), view.color(), view.size(), view.unitOfMeasure());
+    }
+
+    static String formatMaterialDisplay(
+            String article, String name, String color, String size, String unitOfMeasure) {
+        String description = joinParts(name, color, size, unitOfMeasure);
+        String articleText = article == null ? "" : article;
         if (description.isBlank()) {
-            return view.article();
+            return articleText;
         }
-        return view.article() + " — " + description;
+        return articleText + " — " + description;
     }
 
     private static String joinParts(String... parts) {
@@ -1882,7 +2129,7 @@ public final class WarehouseWorkspaceViewModel {
         if (requestId != taskDetailLoadGeneration || !Objects.equals(selectedTask.get(), row)) {
             return;
         }
-        loading.set(false);
+        taskDetailLoading.set(false);
         loadedDocument = null;
         loadedReturnPlan = List.of();
         actionLines.clear();
@@ -1961,14 +2208,17 @@ public final class WarehouseWorkspaceViewModel {
 
     private void updateActionAvailability() {
         TaskRow row = selectedTask.get();
+        boolean busy = commandInFlight.get() || loading.get() || taskDetailLoading.get();
+        boolean inWork = row != null && row.taskState() == WarehouseTaskState.IN_WORK;
+        boolean isNew = row != null && row.taskState() == WarehouseTaskState.NEW;
         boolean base =
                 canTransfer.get()
                         && row != null
-                        && !commandInFlight.get()
-                        && !loading.get()
+                        && inWork
+                        && !busy
                         && loadedDocument != null;
         canTakeSelectedTaskInWork.set(
-                canTransfer.get() && row != null && !commandInFlight.get() && !loading.get());
+                canTransfer.get() && row != null && isNew && !busy);
         canSendSelectedTask.set(
                 base
                         && row.taskKind() == WarehouseTaskKind.TRANSFER_PREPARATION
@@ -2935,6 +3185,10 @@ public final class WarehouseWorkspaceViewModel {
     }
 
     private void reloadHistory() {
+        reloadHistory("HISTORY_RELOAD");
+    }
+
+    private void reloadHistory(String reason) {
         if (!canView.get()) {
             deny();
             return;
@@ -2969,6 +3223,10 @@ public final class WarehouseWorkspaceViewModel {
         WarehouseHistoryFilter historyFilter =
                 new WarehouseHistoryFilter(fromInclusive, toExclusive, materialSearch, operationType);
         long requestId = ++historyLoadGeneration;
+        int rowsBefore = historyRows.size();
+        Object itemsIdentity = historyRows;
+        HistoryRefreshTrace.reloadRequested(
+                reason, rowsBefore, itemsIdentity, String.valueOf(warehouseId), operationType);
         loading.set(true);
         errorMessage.set("");
         statusMessage.set("");
@@ -2981,7 +3239,13 @@ public final class WarehouseWorkspaceViewModel {
                                 warehouseApi.listHistory(
                                         warehouseId, historyFilter, page, HISTORY_PAGE_SIZE);
                         uiExecutor.accept(
-                                () -> applyHistoryPage(pageResult, requestId, allMode, filtersActive));
+                                () ->
+                                        applyHistoryPage(
+                                                pageResult,
+                                                requestId,
+                                                allMode,
+                                                filtersActive,
+                                                reason));
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(() -> applyHistoryLoadError(ex, requestId));
                     }
@@ -2992,7 +3256,8 @@ public final class WarehouseWorkspaceViewModel {
             WarehouseHistoryPage pageResult,
             long requestId,
             boolean allMode,
-            boolean filtersActive) {
+            boolean filtersActive,
+            String reason) {
         if (requestId != historyLoadGeneration) {
             return;
         }
@@ -3001,11 +3266,20 @@ public final class WarehouseWorkspaceViewModel {
         }
         historyTotalElements.set(pageResult.totalElements());
         updateHistoryPaginationFlags();
+        int rowsBefore = historyRows.size();
+        Object itemsBefore = historyRows;
         List<HistoryRow> rows = new ArrayList<>();
         for (WarehouseHistoryEntryView entry : pageResult.content()) {
             rows.add(HistoryRow.from(entry, allMode));
         }
         historyRows.setAll(rows);
+        HistoryRefreshTrace.applyPage(
+                reason,
+                rowsBefore,
+                historyRows.size(),
+                itemsBefore,
+                historyRows,
+                selectedTab.get() == WorkspaceTab.HISTORY);
         if (selectedTab.get() == WorkspaceTab.HISTORY && pageResult.totalElements() == 0) {
             statusMessage.set(
                     filtersActive ? EMPTY_HISTORY_FILTER_MESSAGE : EMPTY_HISTORY_PERIOD_MESSAGE);
@@ -3028,32 +3302,6 @@ public final class WarehouseWorkspaceViewModel {
         historyRows.clear();
         historyTotalElements.set(0);
         updateHistoryPaginationFlags();
-    }
-
-    static String formatHistoryMaterial(WarehouseHistoryEntryView view) {
-        String article = view.materialArticle() == null ? "" : view.materialArticle().trim();
-        String name = view.materialName() == null ? "" : view.materialName().trim();
-        String unit = view.unitOfMeasure() == null ? "" : view.unitOfMeasure().trim();
-        StringBuilder builder = new StringBuilder();
-        if (!article.isEmpty()) {
-            builder.append(article);
-        }
-        if (!name.isEmpty()) {
-            if (!builder.isEmpty()) {
-                builder.append(" — ");
-            }
-            builder.append(name);
-        }
-        if (!unit.isEmpty()) {
-            if (!builder.isEmpty()) {
-                builder.append(" (");
-                builder.append(unit);
-                builder.append(')');
-            } else {
-                builder.append(unit);
-            }
-        }
-        return builder.toString();
     }
 
     static String formatHistoryQuantity(String operationType, BigDecimal quantity) {

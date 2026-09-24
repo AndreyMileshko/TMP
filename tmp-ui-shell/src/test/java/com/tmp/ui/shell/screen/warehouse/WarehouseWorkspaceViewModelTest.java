@@ -139,6 +139,72 @@ class WarehouseWorkspaceViewModelTest {
     }
 
     @Test
+    void selectTaskDoesNotLoadDocumentDetails() {
+        UUID sourceId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        UUID docId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(sourceId, "WH-1", "Main", true));
+        auth = transferAuth();
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        api.tasks.add(
+                task(
+                        docId,
+                        sourceId,
+                        destId,
+                        "TR-SEL",
+                        WarehouseTaskKind.TRANSFER_PREPARATION,
+                        WarehouseTaskState.NEW,
+                        null));
+        viewModel.onScreenOpened();
+        int getDocBefore = api.getTransferDocumentCalls.size();
+
+        viewModel.selectTask(viewModel.taskRows().get(0));
+
+        assertEquals(getDocBefore, api.getTransferDocumentCalls.size());
+        assertTrue(viewModel.actionLines().isEmpty());
+        assertTrue(viewModel.canTakeSelectedTaskInWorkProperty().get());
+        assertFalse(viewModel.canSendSelectedTaskProperty().get());
+    }
+
+    @Test
+    void openTaskDialogDetailsLoadsLinesAndSplitsMaterialFields() {
+        PreparationFixture fx = openPreparation();
+        SourceAllocationEditRow row = (SourceAllocationEditRow) viewModel.actionLines().get(0);
+        assertEquals("ART-P", row.article());
+        assertEquals("Profile", row.name());
+        assertEquals("шт", row.unitOfMeasure());
+        assertEquals("SRC — Source", viewModel.selectedTaskProperty().get().sourceWarehouseLabel());
+        assertEquals(
+                "DST — Dest", viewModel.selectedTaskProperty().get().destinationWarehouseLabel());
+        assertFalse(viewModel.canTakeSelectedTaskInWorkProperty().get());
+        assertTrue(viewModel.canSendSelectedTaskProperty().get());
+        assertEquals(fx.documentId, viewModel.selectedTaskProperty().get().documentId());
+    }
+
+    @Test
+    void warehouseFilterReloadsTasksOnceKeepingSameItemsInstance() {
+        UUID warehouseId = UUID.randomUUID();
+        UUID secondId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.warehouses.add(new WarehouseView(secondId, "WH-2", "Second", true));
+        api.tasks.add(task(warehouseId, destId, "TR-F"));
+        viewModel.onScreenOpened();
+        Object items = viewModel.taskRows();
+        int callsBefore = api.listMyWarehouseTasksCalls.size();
+
+        WarehouseWorkspaceViewModel.WarehouseFilterOption option =
+                viewModel.warehouseFilterOptions().stream()
+                        .filter(o -> warehouseId.equals(o.warehouseId()))
+                        .findFirst()
+                        .orElseThrow();
+        viewModel.selectWarehouseFilter(option);
+
+        assertEquals(callsBefore + 1, api.listMyWarehouseTasksCalls.size());
+        assertSame(items, viewModel.taskRows());
+    }
+
+    @Test
     void switchingTasksAndStockTabsLoadsBothLists() {
         UUID warehouseId = UUID.randomUUID();
         UUID destId = UUID.randomUUID();
@@ -213,6 +279,8 @@ class WarehouseWorkspaceViewModelTest {
                         UUID.randomUUID(),
                         "ART-9",
                         "Profile",
+                        "RAL9003",
+                        "6500",
                         "шт",
                         new BigDecimal("-3"),
                         warehouseId,
@@ -233,12 +301,77 @@ class WarehouseWorkspaceViewModelTest {
 
         WarehouseWorkspaceViewModel.HistoryRow row = viewModel.historyRows().get(0);
         assertEquals("Передача", row.operationLabel());
-        assertTrue(row.materialText().contains("ART-9"));
+        assertEquals("ART-9", row.articleText());
+        assertEquals("Profile", row.nameText());
+        assertEquals("RAL9003", row.colorText());
+        assertEquals("6500", row.sizeText());
+        assertEquals("шт", row.unitText());
         assertEquals("-3", row.quantityText());
         assertEquals("Main / A-01", row.sourceText());
         assertEquals("Prod / B-02", row.destinationText());
         assertEquals("TR-77", row.documentText());
         assertEquals("Иванов", row.actorText());
+    }
+
+    @Test
+    void historyMissingMaterialMetadataShowsDash() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        WarehouseApi.WarehouseHistoryEntryView entry =
+                new WarehouseApi.WarehouseHistoryEntryView(
+                        UUID.randomUUID(),
+                        Instant.parse("2026-09-01T10:15:00Z"),
+                        "RECEIPT",
+                        "Приход",
+                        UUID.randomUUID(),
+                        "ART-1",
+                        "Name",
+                        "",
+                        "  ",
+                        "м.",
+                        BigDecimal.TEN,
+                        warehouseId,
+                        "Main",
+                        UUID.randomUUID(),
+                        "A-01",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null);
+        api.historyPages.add(historyPage(List.of(entry), 0, 1));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+
+        WarehouseWorkspaceViewModel.HistoryRow row = viewModel.historyRows().get(0);
+        assertEquals("—", row.colorText());
+        assertEquals("—", row.sizeText());
+        assertEquals("м.", row.unitText());
+    }
+
+    @Test
+    void historyFilterActionTriggersSingleReload() {
+        UUID warehouseId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(warehouseId, "WH-1", "Main", true));
+        api.historyPages.add(emptyHistoryPage());
+        api.historyPages.add(emptyHistoryPage());
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
+        Object itemsBefore = viewModel.historyRows();
+        int calls = api.listHistoryCalls.size();
+
+        WarehouseWorkspaceViewModel.HistoryOperationOption receipt =
+                viewModel.historyOperationOptions().stream()
+                        .filter(o -> "RECEIPT".equals(o.operationType()))
+                        .findFirst()
+                        .orElseThrow();
+        viewModel.selectHistoryOperation(receipt);
+
+        assertEquals(calls + 1, api.listHistoryCalls.size());
+        assertSame(itemsBefore, viewModel.historyRows());
     }
 
     @Test
@@ -1004,7 +1137,7 @@ class WarehouseWorkspaceViewModelTest {
             viewModel = new WarehouseWorkspaceViewModel(api, auth, background, Runnable::run);
             viewModel.onScreenOpened();
             awaitCondition(() -> !viewModel.taskRows().isEmpty(), 5000);
-            viewModel.selectTask(viewModel.taskRows().get(0));
+            viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
             awaitCondition(
                     () ->
                             !viewModel.actionLines().isEmpty()
@@ -1141,7 +1274,7 @@ class WarehouseWorkspaceViewModelTest {
                         UUID.randomUUID()));
 
         viewModel.onScreenOpened();
-        viewModel.selectTask(viewModel.taskRows().get(0));
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
 
         assertEquals(1, viewModel.actionLines().size());
         ReceiveAllocationEditRow row = (ReceiveAllocationEditRow) viewModel.actionLines().get(0);
@@ -1464,7 +1597,7 @@ class WarehouseWorkspaceViewModelTest {
         int stockCallsAfterLoad = api.listStockByCellsCalls.size();
 
         viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.TASKS);
-        viewModel.selectTask(viewModel.taskRows().get(0));
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
         ReceiveAllocationEditRow row = (ReceiveAllocationEditRow) viewModel.actionLines().get(0);
         row.storageCellProperty().set(choice(viewModel.actionCellChoices(), fx.destCell));
         viewModel.receiveSelectedTask();
@@ -1543,7 +1676,7 @@ class WarehouseWorkspaceViewModelTest {
         SourceAllocationEditRow source =
                 new SourceAllocationEditRow(
                         UUID.randomUUID(),
-                        "Mat",
+                        new WarehouseWorkspaceViewModel.MaterialParts("Mat", "", "", "", ""),
                         new BigDecimal("1.000000"),
                         null,
                         new BigDecimal("0.500000"));
@@ -1699,7 +1832,7 @@ class WarehouseWorkspaceViewModelTest {
         PreparationFixture fx = new PreparationFixture();
         stubPreparation(fx);
         viewModel.onScreenOpened();
-        viewModel.selectTask(viewModel.taskRows().get(0));
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
         return fx;
     }
 
@@ -1790,7 +1923,7 @@ class WarehouseWorkspaceViewModelTest {
                         WarehouseTaskState.IN_WORK,
                         UUID.randomUUID()));
         viewModel.onScreenOpened();
-        viewModel.selectTask(viewModel.taskRows().get(0));
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
         return fx;
     }
 
@@ -1835,7 +1968,7 @@ class WarehouseWorkspaceViewModelTest {
                         WarehouseTaskState.IN_WORK,
                         UUID.randomUUID()));
         viewModel.onScreenOpened();
-        viewModel.selectTask(viewModel.taskRows().get(0));
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
         return fx;
     }
 
@@ -1919,6 +2052,8 @@ class WarehouseWorkspaceViewModelTest {
                 UUID.randomUUID(),
                 "ART",
                 "Material",
+                "White",
+                "1000",
                 "шт",
                 quantity,
                 warehouseId,
@@ -2096,6 +2231,7 @@ class WarehouseWorkspaceViewModelTest {
         private final List<RejectTransferDocumentCommand> rejectCommands = new CopyOnWriteArrayList<>();
         private final List<ReturnTransferMaterialsCommand> returnCommands = new CopyOnWriteArrayList<>();
         private final List<UUID> suggestCalls = new CopyOnWriteArrayList<>();
+        private final List<UUID> getTransferDocumentCalls = new CopyOnWriteArrayList<>();
         int listMyWarehousesCalls;
         int listStorageCellsCalls;
         int executeCalls;
@@ -2215,6 +2351,7 @@ class WarehouseWorkspaceViewModelTest {
 
         @Override
         public TransferDocumentView getTransferDocument(UUID documentId) {
+            getTransferDocumentCalls.add(documentId);
             TransferDocumentView document = documents.get(documentId);
             if (document == null) {
                 throw new IllegalStateException("document not stubbed");

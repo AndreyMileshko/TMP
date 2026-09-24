@@ -1604,6 +1604,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 row.materialReferenceId(),
                 row.materialArticle(),
                 row.materialName(),
+                row.materialColor(),
+                row.materialSize(),
                 row.unitOfMeasure(),
                 row.quantity(),
                 row.sourceWarehouseId(),

@@ -2,6 +2,40 @@
 
 ## Latest result
 
+**Date:** 2026-09-24
+**Scope:** Stage 3.5.15 — Tasks UX redesign + task dialog + Tasks jitter fix
+**Overall:** PASS (targeted UI + transfer IT + architecture + clean install + fresh package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → Задачи; Full reactor NOT RUN
+**Migration:** NONE (Flyway remains V46)
+**Business delta:** 0 (warehouses=4, stock=43, qty=1372.9, ops=92, mov=137, MR=1 before=after)
+**Base HEAD:** `c43883ad69df4e42719f692284d1498bbc226d7e`
+**Pre-existing unrelated:** History redesign working tree (docs + History API/UI) left intact; not reverted
+
+### Stage 3.5.15 Tasks UX redesign + jitter (2026-09-24)
+
+| Check | Result |
+|-------|--------|
+| Tasks list-only (no lower materials / action strip) | PASS (`WarehouseWorkspaceTasksJitterFxTest`) |
+| Columns Откуда/Куда; no Маршрут | PASS |
+| Double-click dialog / single select no execute | PASS (FX + ViewModel `selectTask` vs `openTaskDialogDetails`) |
+| Dialog titles / material columns / no Добавить ячейку | PASS (`WarehouseTaskDialogSupportTest`) |
+| Take/Send/Receive/Reject/Return semantics | PASS (existing VM tests + transfer ITs) |
+| Jitter: unmanaged loading / same items / one filter reload | PASS |
+| `WarehouseWorkspaceViewModelTest` | PASS (71) |
+| `WarehouseWorkspaceTasksJitterFxTest` | PASS (3) |
+| `WarehouseTaskDialogSupportTest` | PASS (4) |
+| Transfer send/receive/reject/return/partial ITs | PASS (67) |
+| `Stage6WarehouseArchitectureTest` | PASS (10) |
+| Package | PASS → `dist/jpackage/TMP/TMP.exe` **11:56:15**; single nested `tmp-ui-shell` with `TasksTableStabilityMarker` + `WarehouseTaskDialogSupport` |
+| Startup `localhost:55432/tmp_gui_stage5` | PASS — Flyway validated 46 / current 46; `Started DesktopBootstrap` ~4.9s; TMP running |
+| Full reactor | NOT RUN |
+| Manual acceptance | READY FROM: Склад → Задачи |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
 **Date:** 2026-09-23
 **Scope:** Stage 3.5.15 — fresh package + startup after Receipt validation / Name / button palette
 **Overall:** PASS (clean install + jpackage + packaged startup); app left running for manual acceptance

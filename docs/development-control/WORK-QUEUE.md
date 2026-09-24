@@ -11936,8 +11936,58 @@ Stocks UX corrective = COMPLETE
 Stocks-centric UX = COMPLETE (operations from Остатки; legacy 4 screens removed)
 Production acceptance-state corrective = COMPLETE
 Warehouse-managed production destination = COMPLETE (Flyway V45)
-Manual acceptance = READY FROM Склад (Остатки / Поступление / Задачи / История)
+Manual acceptance = READY FROM Склад → Задачи (list-only + dialog); then История / Остатки / Поступление
   (write-off OUT OF SCOPE this acceptance cycle)
+
+---
+## STAGE-3.5.15 — Tasks UX redesign + task dialog + Tasks jitter fix
+
+**Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.15 History table redesign + refresh jitter fix
+**Modules:** `tmp-ui-shell`
+**Migration:** NONE
+
+**Goal:** Simplify Склад → Задачи to list-only; open compact «Задача склада» on double-click; remove inline material table / action strip / «Добавить ячейку»; fix Tasks refresh jitter.
+
+**Acceptance criteria:**
+- [x] Main screen: warehouse filter + tasks table only (Откуда/Куда; no Маршрут; no lower materials; no action strip)
+- [x] Double-click opens task dialog; single click selects only
+- [x] Dialog: kind header, route line, optional order, split material columns, contextual actions by type/state
+- [x] Take stays open and refreshes; terminal send/receive/reject/return closes dialog + reloads list
+- [x] Tasks loading overlay unmanaged (StackPane); UNCONSTRAINED; same ObservableList; one reload per warehouse filter
+- [x] Targeted UI + transfer IT + Stage6 architecture + fresh package + startup PASS
+
+See VERIFICATION-LOG Stage 3.5.15 Tasks UX redesign entry.
+
+### Next on success
+
+Manual acceptance: Склад → Задачи (A–I checklist).
+
+---
+## STAGE-3.5.15 — History table redesign + refresh jitter fix
+
+**Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.15 Receipt validation / Name / button palette corrective
+**Modules:** `tmp-ui-shell`, `tmp-warehouse` (History read-model color/size only)
+**Migration:** NONE
+
+**Goal:** Align History columns with Stocks material split; remove Document from main table; eliminate History filter refresh jitter (loading managed + CONSTRAINED).
+
+**Acceptance criteria:**
+- [x] Columns: Дата/время, Операция, Артикул, Наименование, Цвет, Размер, Кол-во, Ед., Откуда, Куда, Пользователь
+- [x] Document column removed from UI table; documentId/number retained in API
+- [x] color/size from existing material_references join (no migration / no live rewrite of ops)
+- [x] History loading overlay unmanaged; UNCONSTRAINED + gutter; same ObservableList; one reload per filter action
+- [x] Stocks jitter regression test PASS; History FX + VM tests PASS; Stage6 architecture PASS
+- [x] Fresh package + startup (required this cycle)
+
+See VERIFICATION-LOG Stage 3.5.15 History table redesign entry.
+
+### Next on success
+
+Manual acceptance: Склад → История; then Склад → Остатки (no Stocks jitter regression).
 
 ---
 ## STAGE-3.5.15 — Receipt validation / Name / button palette corrective

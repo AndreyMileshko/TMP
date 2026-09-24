@@ -4,6 +4,65 @@
 
 ---
 
+## Stage 3.5.15 — Tasks UX redesign + task dialog + Tasks jitter fix — 2026-09-24
+
+**Date:** 2026-09-24
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — Tasks UX)
+**Base HEAD:** `c43883ad69df4e42719f692284d1498bbc226d7e`
+**Status:** Implementation PASS; targeted UI + transfer IT + architecture + package + startup PASS; Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → Задачи; no commit
+**Migration:** NONE (V46)
+
+### Tasks main screen
+
+- List-only: warehouse filter + tasks table (Документ, Заказ, Вид, Состояние, Откуда, Куда, Строк, Исполнитель).
+- Removed inline material table, details block, action strip, «Добавить ячейку».
+- Double-click opens `WarehouseTaskDialogSupport` («Задача склада»); single click selects only.
+
+### Task dialog
+
+- Compact header (kind title + route + optional order); split material columns; contextual Take/Send/Receive/Reject/Return by type/state.
+- Take keeps dialog open and reloads details; terminal actions close dialog and refresh list.
+- Domain send/receive/reject/return semantics unchanged.
+
+### Jitter root cause + fix
+
+- **A:** Lower detail block removed (layout jump on selection/reload).
+- **B:** `loadingLabel.managed` bound to visible in Tasks VBox (same as prior Stocks/History).
+- **C:** CONSTRAINED resize on tasks table.
+- Fix: StackPane overlay + `managed=false`; UNCONSTRAINED; stable `taskRows` + `setAll`; detail load uses `taskDetailLoading` (does not resize list); `TasksRefreshTrace` (`-Dtmp.warehouse.tasks.refresh.trace=true`); marker `TASKS_LIST_DIALOG_JITTER_FIX_2026_09_24`.
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Tasks UX redesign entry (2026-09-24).
+
+---
+
+## Stage 3.5.15 — History table redesign + refresh jitter fix — 2026-09-24
+
+**Date:** 2026-09-24
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — History UX)
+**Base HEAD:** `c43883ad69df4e42719f692284d1498bbc226d7e`
+**Status:** Implementation PASS; targeted + architecture + History IT + package + startup PASS; Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → История; no commit
+**Migration:** NONE (V46)
+
+### History table
+
+- Columns aligned with Остатки material split: Дата/время, Операция, Артикул, Наименование, Цвет, Размер, Кол-во, Ед., Откуда, Куда, Пользователь.
+- Document column removed from main table; `documentId` / `documentNumber` retained on `WarehouseHistoryEntryView`.
+- color/size projected from existing `material_references` join (`MIN(mr.color/size)`); no op snapshot rewrite; no migration.
+
+### Jitter root cause + fix
+
+- **A:** `historyLoadingLabel.managed` bound to visible → VBox resized TableView on every reload.
+- **B:** `CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN` redistributed columns when vertical scrollbar toggled.
+- Fix: StackPane overlay + `managed=false` (same as Stocks); UNCONSTRAINED + name flex + 18px gutter; stable `historyRows` ObservableList + `setAll`; one reload per filter action; `HistoryRefreshTrace` (`-Dtmp.warehouse.history.refresh.trace=true`).
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 History table redesign entry (2026-09-24).
+
+---
+
 ## Stage 3.5.15 — Receipt validation / Name / button palette corrective — 2026-09-20
 
 **Date:** 2026-09-20
