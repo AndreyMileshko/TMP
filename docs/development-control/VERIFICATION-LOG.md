@@ -2,6 +2,25 @@
 
 ## Latest result
 
+**Date:** 2026-09-23
+**Scope:** Stage 3.5.15 — fresh package + startup after Receipt validation / Name / button palette
+**Overall:** PASS (clean install + jpackage + packaged startup); app left running for manual acceptance
+**Migration:** NONE (Flyway remains V46)
+
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-ui-shell,:tmp-bootstrap-app -am clean install -DskipTests` | PASS |
+| `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS → `dist/jpackage/TMP/TMP.exe` **16:23:36** |
+| Startup `localhost:55432/tmp_gui_stage5` | PASS — `Started DesktopBootstrap`; TMP process running (PID 28736) |
+| Full reactor | NOT RUN |
+| Manual acceptance | READY FROM: Склад → + Поступление |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
 **Date:** 2026-09-20
 **Scope:** Stage 3.5.15 — Receipt validation / Name / button palette corrective (Склад → + Поступление)
 **Overall:** PASS (targeted tests + architecture); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → + Поступление; Package/startup NOT RUN; Full reactor NOT RUN
