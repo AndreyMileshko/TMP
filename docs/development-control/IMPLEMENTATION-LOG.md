@@ -4,6 +4,35 @@
 
 ---
 
+## Stage 3.5.15 — Tasks creation timestamp + final column order — 2026-09-24
+
+**Date:** 2026-09-24
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — Tasks table)
+**Base HEAD:** `453495757fe24526f9c6e7302f2ba4c1852edc93`
+**Status:** Implementation PASS; targeted UI + inbox/transfer IT + architecture + package + startup PASS; Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → Задачи; no commit
+**Migration:** NONE (V46)
+
+### Task createdAt (read model)
+
+- `WarehouseTaskView.createdAt` already existed; projection corrected per task kind:
+  - PREPARATION → Document Engine `metadata.createdAt`
+  - RECEIPT → `transfer_document_settlement.created_at` (Send / AWAITING_RECEIPT insert)
+  - RETURN → `transfer_document_settlement.updated_at` (Reject / Partial → RETURN_PENDING)
+- Document `created_at` is **not** reused across Preparation → Receive → Return phases.
+- Inbox default order: `createdAt` DESC, then `documentId` (newest first; deterministic).
+
+### UI table
+
+- Columns: Дата/время, Заказ, Вид, Состояние, Откуда, Куда, Строк, Исполнитель, Документ (last).
+- Format `dd.MM.yyyy HH:mm` via existing `DateTimePresentation`.
+- Document column tooltip; UNCONSTRAINED resize preserved (no CONSTRAINED jitter regression).
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Tasks creation timestamp entry (2026-09-24).
+
+---
+
 ## Stage 3.5.15 — Tasks UX redesign + task dialog + Tasks jitter fix — 2026-09-24
 
 **Date:** 2026-09-24

@@ -417,6 +417,9 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     /**
      * Compact operational inbox projection over a {@code warehouse.transfer} document.
      * Task identity is {@code documentId}. Worker fields are opaque Security UUIDs / timestamps.
+     * {@code createdAt} is the authoritative moment this projected task became actionable
+     * (preparation = document create; receipt = settlement create at Send; return = settlement
+     * update into RETURN_PENDING) — not reused document createdAt across phases.
      * For {@code RETURN_MATERIALS}, {@code settlementDecision}/{@code rejectionReason} expose
      * reject metadata when decision is {@code REJECTED}.
      */

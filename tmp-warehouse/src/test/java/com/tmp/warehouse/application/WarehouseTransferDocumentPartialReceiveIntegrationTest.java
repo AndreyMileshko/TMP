@@ -2,6 +2,7 @@ package com.tmp.warehouse.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -267,15 +268,45 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
                         .noneMatch(t -> t.documentId().equals(sent.documentId())));
 
         session.set(sessionFor(userSource));
+        Instant documentCreated = Instant.parse("2026-09-01T10:00:00Z");
+        Instant settlementCreated = Instant.parse("2026-09-08T12:00:00Z");
+        Timestamp returnCreatedTs =
+                jdbc.queryForObject(
+                        """
+                        SELECT updated_at FROM warehouse.transfer_document_settlement
+                         WHERE document_id = ?
+                        """,
+                        Timestamp.class,
+                        sent.documentId());
+        assertNotNull(returnCreatedTs);
+        Instant returnCreated = returnCreatedTs.toInstant();
+        jdbc.update(
+                "UPDATE documents.documents SET created_at = ? WHERE id = ?",
+                Timestamp.from(documentCreated),
+                sent.documentId());
+        jdbc.update(
+                """
+                UPDATE warehouse.transfer_document_settlement
+                   SET created_at = ?
+                 WHERE document_id = ?
+                """,
+                Timestamp.from(settlementCreated),
+                sent.documentId());
+
         List<WarehouseTaskView> sourceTasks = api.listMyWarehouseTasks(null);
-        assertTrue(
+        WarehouseTaskView returnTask =
                 sourceTasks.stream()
-                        .anyMatch(
+                        .filter(
                                 t ->
                                         t.documentId().equals(sent.documentId())
                                                 && t.taskKind()
-                                                        == WarehouseTaskKind.RETURN_MATERIALS
-                                                && t.taskState() == WarehouseTaskState.NEW));
+                                                        == WarehouseTaskKind.RETURN_MATERIALS)
+                        .findFirst()
+                        .orElseThrow();
+        assertEquals(WarehouseTaskState.NEW, returnTask.taskState());
+        assertEquals(returnCreated, returnTask.createdAt());
+        assertNotEquals(documentCreated, returnTask.createdAt());
+        assertNotEquals(settlementCreated, returnTask.createdAt());
         assertTrue(
                 sourceTasks.stream()
                         .anyMatch(

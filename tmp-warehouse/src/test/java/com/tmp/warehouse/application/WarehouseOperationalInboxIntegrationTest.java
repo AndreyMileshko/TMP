@@ -379,34 +379,52 @@ class WarehouseOperationalInboxIntegrationTest {
     }
 
     @Test
-    void deterministicOrderingNewThenInWorkOldestFirst() {
-        TransferDocumentView oldNew = createDraft(warehouseA, warehouseB);
-        TransferDocumentView newerNew = createDraft(warehouseA, warehouseB);
-        TransferDocumentView oldInWork = createDraft(warehouseA, warehouseB);
-        TransferDocumentView newerInWork = createDraft(warehouseA, warehouseB);
+    void deterministicOrderingNewestFirstByCreatedAt() {
+        TransferDocumentView older = createDraft(warehouseA, warehouseB);
+        TransferDocumentView mid = createDraft(warehouseA, warehouseB);
+        TransferDocumentView newest = createDraft(warehouseA, warehouseB);
 
-        setDocumentCreatedAt(oldNew.documentId(), Instant.parse("2026-09-01T10:00:00Z"));
-        setDocumentCreatedAt(newerNew.documentId(), Instant.parse("2026-09-02T10:00:00Z"));
-        setDocumentCreatedAt(oldInWork.documentId(), Instant.parse("2026-09-01T11:00:00Z"));
-        setDocumentCreatedAt(newerInWork.documentId(), Instant.parse("2026-09-02T11:00:00Z"));
+        Instant tOlder = Instant.parse("2026-09-01T09:30:00Z");
+        Instant tMid = Instant.parse("2026-09-01T10:00:00Z");
+        Instant tNewest = Instant.parse("2026-09-01T10:05:00Z");
+        setDocumentCreatedAt(older.documentId(), tOlder);
+        setDocumentCreatedAt(mid.documentId(), tMid);
+        setDocumentCreatedAt(newest.documentId(), tNewest);
 
-        api.takeTransferTaskInWork(oldInWork.documentId());
-        api.takeTransferTaskInWork(newerInWork.documentId());
+        api.takeTransferTaskInWork(older.documentId());
 
-        List<UUID> first = api.listMyWarehouseTasks(null).stream()
-                .map(WarehouseTaskView::documentId)
-                .toList();
-        List<UUID> second = api.listMyWarehouseTasks(null).stream()
-                .map(WarehouseTaskView::documentId)
-                .toList();
+        List<UUID> first =
+                api.listMyWarehouseTasks(null).stream()
+                        .map(WarehouseTaskView::documentId)
+                        .toList();
+        List<UUID> second =
+                api.listMyWarehouseTasks(null).stream()
+                        .map(WarehouseTaskView::documentId)
+                        .toList();
         assertEquals(first, second);
         assertEquals(
-                List.of(
-                        oldNew.documentId(),
-                        newerNew.documentId(),
-                        oldInWork.documentId(),
-                        newerInWork.documentId()),
-                first);
+                List.of(newest.documentId(), mid.documentId(), older.documentId()), first);
+        assertEquals(
+                List.of(tNewest, tMid, tOlder),
+                api.listMyWarehouseTasks(null).stream()
+                        .map(WarehouseTaskView::createdAt)
+                        .toList());
+    }
+
+    @Test
+    void preparationTaskCreatedAtUsesDocumentCreatedAtAndIsStableOnReload() {
+        TransferDocumentView draft = createDraft(warehouseA, warehouseB);
+        Instant created = Instant.parse("2026-09-01T10:00:00Z");
+        setDocumentCreatedAt(draft.documentId(), created);
+
+        WarehouseTaskView first = api.listMyWarehouseTasks(null).get(0);
+        assertEquals(draft.documentId(), first.documentId());
+        assertEquals(WarehouseTaskKind.TRANSFER_PREPARATION, first.taskKind());
+        assertEquals(created, first.createdAt());
+
+        WarehouseTaskView second = api.listMyWarehouseTasks(null).get(0);
+        assertEquals(created, second.createdAt());
+        assertEquals(first.createdAt(), second.createdAt());
     }
 
     @Test

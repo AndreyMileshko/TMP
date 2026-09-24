@@ -46,6 +46,7 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
@@ -126,6 +127,9 @@ public final class WarehouseWorkspaceController
 
     @FXML
     private TableView<TaskRow> tasksTable;
+
+    @FXML
+    private TableColumn<TaskRow, String> taskCreatedAtColumn;
 
     @FXML
     private TableColumn<TaskRow, String> taskDocumentColumn;
@@ -539,8 +543,8 @@ public final class WarehouseWorkspaceController
     }
 
     private void configureTasksTable() {
-        taskDocumentColumn.setCellValueFactory(
-                cell -> new SimpleStringProperty(cell.getValue().documentNumber()));
+        taskCreatedAtColumn.setCellValueFactory(
+                cell -> new SimpleStringProperty(cell.getValue().createdAtText()));
         taskOrderColumn.setCellValueFactory(
                 cell -> new SimpleStringProperty(cell.getValue().orderNumberText()));
         taskKindColumn.setCellValueFactory(
@@ -555,6 +559,23 @@ public final class WarehouseWorkspaceController
                 cell -> new SimpleStringProperty(cell.getValue().lineCountText()));
         taskWorkerColumn.setCellValueFactory(
                 cell -> new SimpleStringProperty(cell.getValue().workerDisplay()));
+        taskDocumentColumn.setCellValueFactory(
+                cell -> new SimpleStringProperty(cell.getValue().documentNumber()));
+        taskDocumentColumn.setCellFactory(
+                column ->
+                        new TableCell<>() {
+                            @Override
+                            protected void updateItem(String item, boolean empty) {
+                                super.updateItem(item, empty);
+                                if (empty || item == null) {
+                                    setText(null);
+                                    setTooltip(null);
+                                } else {
+                                    setText(item);
+                                    setTooltip(new Tooltip(item));
+                                }
+                            }
+                        });
 
         tasksTable.setItems(viewModel.taskRows());
         // UNCONSTRAINED: CONSTRAINED redistributes columns when the vertical scrollbar toggles.

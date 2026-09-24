@@ -13,10 +13,12 @@ import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
+import com.tmp.ui.shell.order.worklist.DateTimePresentation;
 import com.tmp.ui.shell.screen.warehouse.WarehouseUiErrorMapper;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReceiveAllocationEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReturnAllocationEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.SourceAllocationEditRow;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.TaskRow;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
@@ -202,6 +204,83 @@ class WarehouseWorkspaceViewModelTest {
 
         assertEquals(callsBefore + 1, api.listMyWarehouseTasksCalls.size());
         assertSame(items, viewModel.taskRows());
+    }
+
+    @Test
+    void taskRowsPreserveApiNewestFirstOrderAndCreatedAtTextFormat() {
+        UUID sourceId = UUID.randomUUID();
+        UUID secondId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        UUID idB = UUID.randomUUID();
+        UUID idA = UUID.randomUUID();
+        UUID idC = UUID.randomUUID();
+        Instant tB = Instant.parse("2026-09-24T10:05:00Z");
+        Instant tA = Instant.parse("2026-09-24T10:00:00Z");
+        Instant tC = Instant.parse("2026-09-24T09:30:00Z");
+        api.warehouses.add(new WarehouseView(sourceId, "MAIN", "Main", true));
+        api.warehouses.add(new WarehouseView(secondId, "SECOND", "Second", true));
+        // API already returns newest-first (createdAt DESC).
+        api.tasks.add(
+                task(
+                        idB,
+                        sourceId,
+                        destId,
+                        "TR-B",
+                        null,
+                        WarehouseTaskKind.TRANSFER_PREPARATION,
+                        WarehouseTaskState.NEW,
+                        null,
+                        tB));
+        api.tasks.add(
+                task(
+                        idA,
+                        sourceId,
+                        destId,
+                        "TR-A",
+                        null,
+                        WarehouseTaskKind.TRANSFER_PREPARATION,
+                        WarehouseTaskState.NEW,
+                        null,
+                        tA));
+        api.tasks.add(
+                task(
+                        idC,
+                        sourceId,
+                        destId,
+                        "TR-C",
+                        null,
+                        WarehouseTaskKind.TRANSFER_PREPARATION,
+                        WarehouseTaskState.NEW,
+                        null,
+                        tC));
+        viewModel.onScreenOpened();
+
+        assertEquals(
+                List.of(idB, idA, idC),
+                viewModel.taskRows().stream().map(TaskRow::documentId).toList());
+        assertEquals(tB, viewModel.taskRows().get(0).createdAt());
+        assertEquals(
+                DateTimePresentation.format(tB), viewModel.taskRows().get(0).createdAtText());
+        assertEquals(tA, viewModel.taskRows().get(1).createdAt());
+        assertEquals(tC, viewModel.taskRows().get(2).createdAt());
+
+        Instant firstCreated = viewModel.taskRows().get(0).createdAt();
+        WarehouseWorkspaceViewModel.WarehouseFilterOption main =
+                viewModel.warehouseFilterOptions().stream()
+                        .filter(o -> sourceId.equals(o.warehouseId()))
+                        .findFirst()
+                        .orElseThrow();
+        viewModel.selectWarehouseFilter(main);
+        WarehouseWorkspaceViewModel.WarehouseFilterOption all =
+                viewModel.warehouseFilterOptions().stream()
+                        .filter(WarehouseWorkspaceViewModel.WarehouseFilterOption::isAll)
+                        .findFirst()
+                        .orElseThrow();
+        viewModel.selectWarehouseFilter(all);
+        assertEquals(
+                List.of(idB, idA, idC),
+                viewModel.taskRows().stream().map(TaskRow::documentId).toList());
+        assertEquals(firstCreated, viewModel.taskRows().get(0).createdAt());
     }
 
     @Test
@@ -2128,6 +2207,28 @@ class WarehouseWorkspaceViewModelTest {
             WarehouseTaskKind kind,
             WarehouseTaskState state,
             UUID workingUserId) {
+        return task(
+                documentId,
+                sourceId,
+                destId,
+                number,
+                sourceOrderNumber,
+                kind,
+                state,
+                workingUserId,
+                Instant.EPOCH);
+    }
+
+    private static WarehouseTaskView task(
+            UUID documentId,
+            UUID sourceId,
+            UUID destId,
+            String number,
+            String sourceOrderNumber,
+            WarehouseTaskKind kind,
+            WarehouseTaskState state,
+            UUID workingUserId,
+            Instant createdAt) {
         return new WarehouseTaskView(
                 documentId,
                 number,
@@ -2143,7 +2244,7 @@ class WarehouseWorkspaceViewModelTest {
                 2,
                 workingUserId,
                 workingUserId == null ? null : Instant.EPOCH,
-                Instant.EPOCH,
+                createdAt,
                 null,
                 null,
                 null,

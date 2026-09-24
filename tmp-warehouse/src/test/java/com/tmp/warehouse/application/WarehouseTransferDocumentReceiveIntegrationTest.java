@@ -2,6 +2,7 @@ package com.tmp.warehouse.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -41,6 +42,7 @@ import com.tmp.warehouse.security.WarehousePermissions;
 import com.tmp.warehouse.testsupport.WarehouseIntegrationTestSupport;
 import com.tmp.warehouse.testsupport.WarehouseJdbcTestSupport;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -704,6 +706,23 @@ class WarehouseTransferDocumentReceiveIntegrationTest {
         TransferDocumentSendResult sent = sendPostedDocument(materialA, cellA1, "100");
         UUID line = singleLineId(sent.documentId());
 
+        Instant documentCreated = Instant.parse("2026-09-01T10:00:00Z");
+        Timestamp settlementTs =
+                jdbc.queryForObject(
+                        """
+                        SELECT created_at FROM warehouse.transfer_document_settlement
+                         WHERE document_id = ?
+                        """,
+                        Timestamp.class,
+                        sent.documentId());
+        assertNotNull(settlementTs);
+        Instant settlementCreated = settlementTs.toInstant();
+        jdbc.update(
+                "UPDATE documents.documents SET created_at = ? WHERE id = ?",
+                Timestamp.from(documentCreated),
+                sent.documentId());
+        assertNotEquals(documentCreated, settlementCreated);
+
         session.set(sessionFor(userDestination));
         List<WarehouseTaskView> destTasks = api.listMyWarehouseTasks(null);
         assertEquals(1, destTasks.size());
@@ -711,6 +730,9 @@ class WarehouseTransferDocumentReceiveIntegrationTest {
         assertEquals(WarehouseTaskKind.TRANSFER_RECEIPT, destTasks.get(0).taskKind());
         assertEquals(WarehouseTaskState.NEW, destTasks.get(0).taskState());
         assertEquals(TransferSettlementState.AWAITING_RECEIPT.name(), destTasks.get(0).settlementState());
+        assertEquals(settlementCreated, destTasks.get(0).createdAt());
+        assertNotEquals(documentCreated, destTasks.get(0).createdAt());
+        assertEquals(settlementCreated, api.listMyWarehouseTasks(null).get(0).createdAt());
 
         session.set(sessionFor(userSourceOnly));
         assertTrue(
@@ -725,6 +747,7 @@ class WarehouseTransferDocumentReceiveIntegrationTest {
         WarehouseTaskView taken = api.takeTransferTaskInWork(sent.documentId());
         assertEquals(WarehouseTaskState.IN_WORK, taken.taskState());
         assertEquals(userDestination, taken.workingUserId());
+        assertEquals(settlementCreated, taken.createdAt());
 
         session.set(sessionFor(userDest2));
         WarehouseTaskView takeover = api.takeTransferTaskInWork(sent.documentId());

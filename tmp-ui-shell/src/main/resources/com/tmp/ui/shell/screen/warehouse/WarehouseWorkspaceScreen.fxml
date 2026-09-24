@@ -39,14 +39,15 @@
             <StackPane VBox.vgrow="ALWAYS">
                 <TableView fx:id="tasksTable" styleClass="warehouse-tasks-table">
                     <columns>
-                        <TableColumn fx:id="taskDocumentColumn" text="Документ" prefWidth="120" minWidth="90"/>
-                        <TableColumn fx:id="taskOrderColumn" text="Заказ" prefWidth="100" minWidth="80"/>
-                        <TableColumn fx:id="taskKindColumn" text="Вид" prefWidth="120" minWidth="90"/>
-                        <TableColumn fx:id="taskStateColumn" text="Состояние" prefWidth="100" minWidth="80"/>
-                        <TableColumn fx:id="taskSourceColumn" text="Откуда" prefWidth="180" minWidth="140"/>
-                        <TableColumn fx:id="taskDestinationColumn" text="Куда" prefWidth="180" minWidth="140"/>
-                        <TableColumn fx:id="taskLinesColumn" text="Строк" prefWidth="70" minWidth="56"/>
-                        <TableColumn fx:id="taskWorkerColumn" text="Исполнитель" prefWidth="140" minWidth="100"/>
+                        <TableColumn fx:id="taskCreatedAtColumn" text="Дата/время" prefWidth="140" minWidth="130"/>
+                        <TableColumn fx:id="taskOrderColumn" text="Заказ" prefWidth="110" minWidth="100"/>
+                        <TableColumn fx:id="taskKindColumn" text="Вид" prefWidth="110" minWidth="100"/>
+                        <TableColumn fx:id="taskStateColumn" text="Состояние" prefWidth="120" minWidth="110"/>
+                        <TableColumn fx:id="taskSourceColumn" text="Откуда" prefWidth="150" minWidth="120"/>
+                        <TableColumn fx:id="taskDestinationColumn" text="Куда" prefWidth="150" minWidth="120"/>
+                        <TableColumn fx:id="taskLinesColumn" text="Строк" prefWidth="70" minWidth="60"/>
+                        <TableColumn fx:id="taskWorkerColumn" text="Исполнитель" prefWidth="120" minWidth="100"/>
+                        <TableColumn fx:id="taskDocumentColumn" text="Документ" prefWidth="200" minWidth="180"/>
                     </columns>
                 </TableView>
                 <Label fx:id="loadingLabel" text="Загрузка..." styleClass="tmp-text-muted"

@@ -465,6 +465,8 @@ public final class WarehouseWorkspaceViewModel {
         private final WarehouseTaskKind taskKind;
         private final WarehouseTaskState taskState;
         private final UUID workingUserId;
+        private final Instant createdAt;
+        private final String createdAtText;
         private final String documentNumber;
         private final String orderNumberText;
         private final String kindLabel;
@@ -480,6 +482,8 @@ public final class WarehouseWorkspaceViewModel {
             this.taskKind = view.taskKind();
             this.taskState = view.taskState();
             this.workingUserId = view.workingUserId();
+            this.createdAt = view.createdAt();
+            this.createdAtText = DateTimePresentation.format(view.createdAt());
             this.documentNumber = view.documentNumber();
             this.orderNumberText =
                     view.sourceOrderNumber() == null || view.sourceOrderNumber().isBlank()
@@ -512,6 +516,14 @@ public final class WarehouseWorkspaceViewModel {
 
         public UUID workingUserId() {
             return workingUserId;
+        }
+
+        public Instant createdAt() {
+            return createdAt;
+        }
+
+        public String createdAtText() {
+            return createdAtText;
         }
 
         public String documentNumber() {

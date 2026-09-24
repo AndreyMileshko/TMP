@@ -48,6 +48,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 3.5.8.3).
  *
  * <p>Worker assignment is informational (not an exclusive lock).
+ *
+ * <p>Inbox order: {@code createdAt} descending (newest first), then {@code documentId}.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -60,9 +62,9 @@ public final class WarehouseOperationalInboxService {
      */
     static final int DOCUMENT_SCAN_PAGE_SIZE = 100;
 
+    /** Newest task first; stable secondary key by document id. */
     private static final Comparator<WarehouseTaskView> TASK_ORDER =
-            Comparator.comparingInt((WarehouseTaskView t) -> taskStateRank(t.taskState()))
-                    .thenComparing(WarehouseTaskView::createdAt)
+            Comparator.comparing(WarehouseTaskView::createdAt, Comparator.reverseOrder())
                     .thenComparing(WarehouseTaskView::documentId);
 
     private final DocumentEngine documentEngine;
@@ -459,7 +461,7 @@ public final class WarehouseOperationalInboxService {
                 payload.orderedLines().size(),
                 assignment == null ? null : assignment.workingUserId(),
                 assignment == null ? null : assignment.workingSince(),
-                metadata.createdAt(),
+                taskCreatedAt(metadata, kind, settlement),
                 payload.continuationOfDocumentId().orElse(null),
                 payload.continuationReason().map(Enum::name).orElse(null),
                 settlement == null ? null : settlement.settlementState().name(),
@@ -470,10 +472,25 @@ public final class WarehouseOperationalInboxService {
                 settlement == null ? null : settlement.rejectionReason().orElse(null));
     }
 
-    private static int taskStateRank(WarehouseTaskState state) {
-        return switch (state) {
-            case NEW -> 0;
-            case IN_WORK -> 1;
+    /**
+     * Authoritative moment when this projected task became actionable — not document createdAt for
+     * every phase. Preparation uses DE document creation; Receive uses settlement insert (Send);
+     * Return uses settlement update into RETURN_PENDING (Reject / Partial Receive).
+     */
+    private static Instant taskCreatedAt(
+            DocumentMetadata metadata,
+            WarehouseTaskKind kind,
+            TransferDocumentSettlement settlement) {
+        return switch (kind) {
+            case TRANSFER_PREPARATION -> metadata.createdAt();
+            case TRANSFER_RECEIPT -> {
+                Objects.requireNonNull(settlement, "settlement");
+                yield settlement.createdAt();
+            }
+            case RETURN_MATERIALS -> {
+                Objects.requireNonNull(settlement, "settlement");
+                yield settlement.updatedAt();
+            }
         };
     }
 }

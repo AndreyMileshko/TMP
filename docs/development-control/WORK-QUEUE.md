@@ -11936,8 +11936,32 @@ Stocks UX corrective = COMPLETE
 Stocks-centric UX = COMPLETE (operations from Остатки; legacy 4 screens removed)
 Production acceptance-state corrective = COMPLETE
 Warehouse-managed production destination = COMPLETE (Flyway V45)
-Manual acceptance = READY FROM Склад → Задачи (list-only + dialog); then История / Остатки / Поступление
+Manual acceptance = READY FROM Склад → Задачи (createdAt + final columns + list-only dialog); then История / Остатки / Поступление
   (write-off OUT OF SCOPE this acceptance cycle)
+
+---
+## STAGE-3.5.15 — Tasks creation timestamp + final column order
+
+**Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.15 Tasks UX redesign + task dialog + Tasks jitter fix
+**Modules:** `tmp-warehouse` (inbox projection), `tmp-ui-shell`
+**Migration:** NONE
+
+**Goal:** Show authoritative task creation timestamp on Склад → Задачи; move Документ to last column; keep newest-first sort and Tasks jitter fix.
+
+**Acceptance criteria:**
+- [x] Column order: Дата/время, Заказ, Вид, Состояние, Откуда, Куда, Строк, Исполнитель, Документ
+- [x] createdAt = Preparation document create / Receive settlement create (Send) / Return settlement update (Reject|Partial) — not reused document createdAt across phases
+- [x] Format `dd.MM.yyyy HH:mm` via `DateTimePresentation`; default sort createdAt DESC + documentId
+- [x] Jitter invariants preserved (UNCONSTRAINED, stable ObservableList, unmanaged loading)
+- [x] Targeted UI + inbox/transfer IT + Stage6 architecture + fresh package + startup PASS
+
+See VERIFICATION-LOG Stage 3.5.15 Tasks creation timestamp entry.
+
+### Next on success
+
+Manual acceptance: Склад → Задачи (timestamp + column order + newest first + no jitter + double-click dialog).
 
 ---
 ## STAGE-3.5.15 — Tasks UX redesign + task dialog + Tasks jitter fix

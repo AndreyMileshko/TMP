@@ -3,6 +3,41 @@
 ## Latest result
 
 **Date:** 2026-09-24
+**Scope:** Stage 3.5.15 — Tasks creation timestamp + final column order
+**Overall:** PASS (targeted UI + inbox/transfer IT + architecture + clean install + fresh package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → Задачи; Full reactor NOT RUN
+**Migration:** NONE (Flyway remains V46)
+**Business delta:** 0 (warehouses=4, stock=44, qty=1372.9, ops=94, mov=141, MR=1 before=after)
+**Base HEAD:** `453495757fe24526f9c6e7302f2ba4c1852edc93`
+**Pre-existing unrelated:** none (clean working tree at baseline)
+
+### Stage 3.5.15 Tasks creation timestamp + column order (2026-09-24)
+
+| Check | Result |
+|-------|--------|
+| Preparation createdAt = document createdAt | PASS (`WarehouseOperationalInboxIntegrationTest`) |
+| Receive createdAt = settlement.created_at ≠ document createdAt | PASS (`WarehouseTransferDocumentReceiveIntegrationTest.receiverTaskProjection`) |
+| Return createdAt = settlement.updated_at ≠ document/settlement createdAt | PASS (Reject + Partial Receive ITs) |
+| Stable reload createdAt | PASS (inbox + receive + reject) |
+| Sort newest-first (B,A,C) + filter preserve | PASS (inbox IT + ViewModel) |
+| Final headers; Документ last; no Маршрут | PASS (`WarehouseWorkspaceTasksJitterFxTest`) |
+| `WarehouseWorkspaceViewModelTest` | PASS (72) |
+| `WarehouseWorkspaceTasksJitterFxTest` | PASS (3) |
+| `WarehouseTaskDialogSupportTest` | PASS (4) |
+| Inbox IT | PASS (17) |
+| Transfer send/receive/reject/return/partial ITs | PASS (9+21+23+14=67) |
+| `Stage6WarehouseArchitectureTest` | PASS (10) |
+| Package | PASS → `dist/jpackage/TMP/TMP.exe` **15:02:10**; single `tmp-ui-shell` **15:01:10** with `TasksTableStabilityMarker` + `taskCreatedAtColumn` |
+| Startup `localhost:55432/tmp_gui_stage5` | PASS — Flyway validated 46 / current 46; `Started DesktopBootstrap` ~4.9s; JavaFX unnamed-module WARN only; exceptions NONE; TMP running |
+| Full reactor | NOT RUN |
+| Manual acceptance | READY FROM: Склад → Задачи |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-09-24
 **Scope:** Stage 3.5.15 — Tasks UX redesign + task dialog + Tasks jitter fix
 **Overall:** PASS (targeted UI + transfer IT + architecture + clean install + fresh package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → Задачи; Full reactor NOT RUN
 **Migration:** NONE (Flyway remains V46)

@@ -44,16 +44,18 @@ class WarehouseWorkspaceTasksJitterFxTest {
                             tasksTable.getColumns().stream().map(TableColumn::getText).toList();
                     assertEquals(
                             List.of(
-                                    "Документ",
+                                    "Дата/время",
                                     "Заказ",
                                     "Вид",
                                     "Состояние",
                                     "Откуда",
                                     "Куда",
                                     "Строк",
-                                    "Исполнитель"),
+                                    "Исполнитель",
+                                    "Документ"),
                             headers);
                     assertFalse(headers.contains("Маршрут"));
+                    assertEquals("Документ", headers.get(headers.size() - 1));
                     assertNull(root.lookup("#actionLinesTable"));
                     assertNull(root.lookup("#takeTaskInWorkButton"));
                     assertNull(root.lookup("#sendTransferButton"));
