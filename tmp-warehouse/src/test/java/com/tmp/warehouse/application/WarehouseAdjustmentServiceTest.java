@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -80,7 +81,11 @@ class WarehouseAdjustmentServiceTest {
         WarehouseOperation completed =
                 adjustments.adjust(
                         new AdjustmentRequest(
-                                material, BigDecimal.valueOf(20L), warehouseId, cellId));
+                                material,
+                                BigDecimal.valueOf(20L),
+                                warehouseId,
+                                cellId,
+                                "Инвентаризация"));
 
         assertEquals(WarehouseOperationType.ADJUSTMENT, completed.type());
         assertEquals(WarehouseOperationStatus.COMPLETED, completed.status());
@@ -114,7 +119,11 @@ class WarehouseAdjustmentServiceTest {
         WarehouseOperation completed =
                 adjustments.adjust(
                         new AdjustmentRequest(
-                                material, BigDecimal.valueOf(-20L), warehouseId, cellId));
+                                material,
+                                BigDecimal.valueOf(-20L),
+                                warehouseId,
+                                cellId,
+                                "Исправление фактического остатка"));
 
         assertEquals(WarehouseOperationType.ADJUSTMENT, completed.type());
         assertEquals(WarehouseOperationStatus.COMPLETED, completed.status());
@@ -149,7 +158,11 @@ class WarehouseAdjustmentServiceTest {
                 () ->
                         adjustments.adjust(
                                 new AdjustmentRequest(
-                                        material, BigDecimal.valueOf(-11L), warehouseId, cellId)));
+                                        material,
+                                        BigDecimal.valueOf(-11L),
+                                        warehouseId,
+                                        cellId,
+                                        "Ошибка предыдущего прихода")));
 
         assertEquals(
                 StockQuantity.of(10L),
@@ -169,7 +182,56 @@ class WarehouseAdjustmentServiceTest {
                                 MaterialReference.legacyArticle("MAT-1"),
                                 BigDecimal.ZERO,
                                 WarehouseId.generate(),
-                                StorageCellId.generate()));
+                                StorageCellId.generate(),
+                                "Пересчёт материала"));
+    }
+
+    @Test
+    void adjustmentRejectsBlankComment() {
+        MaterialReference material = MaterialReference.legacyArticle("MAT-BLANK");
+        WarehouseId warehouseId = WarehouseId.generate();
+        StorageCellId cellId = StorageCellId.generate();
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new AdjustmentRequest(
+                                material, BigDecimal.ONE, warehouseId, cellId, ""));
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new AdjustmentRequest(
+                                material, BigDecimal.ONE, warehouseId, cellId, "   "));
+        assertThrows(
+                NullPointerException.class,
+                () ->
+                        new AdjustmentRequest(
+                                material, BigDecimal.ONE, warehouseId, cellId, null));
+    }
+
+    @Test
+    void adjustmentTrimsAndPersistsComment() {
+        WarehouseId warehouseId = WarehouseId.generate();
+        StorageCellId cellId = StorageCellId.generate();
+        MaterialReference material = MaterialReference.legacyArticle("MAT-COMMENT");
+        stockPositions.create(
+                StockPosition.of(
+                        warehouseId,
+                        cellId,
+                        material,
+                        StockState.AVAILABLE,
+                        StockQuantity.of(10L)));
+
+        WarehouseOperation completed =
+                adjustments.adjust(
+                        new AdjustmentRequest(
+                                material,
+                                BigDecimal.valueOf(5L),
+                                warehouseId,
+                                cellId,
+                                "  Пересчёт материала  "));
+
+        assertEquals(Optional.of("Пересчёт материала"), completed.commentText());
+        assertEquals(StockQuantity.of(15L), completed.quantity());
     }
 
     private static final class PassthroughTransactionManager
@@ -225,7 +287,8 @@ class WarehouseAdjustmentServiceTest {
                             operation.quantity(),
                             current.version() + 1,
                             operation.actorUserId().orElse(null),
-                            operation.actorLogin().orElse(null));
+                            operation.actorLogin().orElse(null),
+                            operation.commentText().orElse(null));
             store.put(operation.id(), persisted);
             return persisted;
         }

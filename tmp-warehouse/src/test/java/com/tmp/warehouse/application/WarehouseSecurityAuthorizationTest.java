@@ -295,8 +295,8 @@ class WarehouseSecurityAuthorizationTest {
                 AccessDeniedException.class,
                 () ->
                         api.executeWarehouseOperation(
-                                ExecuteOperationCommand.adjustment(
-                                        materialId, BigDecimal.ONE, warehouseId, cellId)));
+                        ExecuteOperationCommand.adjustment(
+                                materialId, BigDecimal.ONE, warehouseId, cellId, "Инвентаризация")));
         assertThrows(
                 AccessDeniedException.class,
                 () ->

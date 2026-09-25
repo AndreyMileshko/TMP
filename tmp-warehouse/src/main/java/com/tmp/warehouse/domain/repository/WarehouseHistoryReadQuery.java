@@ -52,7 +52,8 @@ public interface WarehouseHistoryReadQuery {
             String destinationCellCode,
             UUID documentId,
             UUID actorUserId,
-            String actorLogin) {
+            String actorLogin,
+            String commentText) {
 
         public HistoryRow {
             Objects.requireNonNull(entryId, "entryId");
@@ -65,6 +66,8 @@ public interface WarehouseHistoryReadQuery {
             Objects.requireNonNull(quantity, "quantity");
             materialColor = materialColor == null ? "" : materialColor;
             materialSize = materialSize == null ? "" : materialSize;
+            commentText =
+                    commentText == null || commentText.isBlank() ? null : commentText.trim();
         }
     }
 }

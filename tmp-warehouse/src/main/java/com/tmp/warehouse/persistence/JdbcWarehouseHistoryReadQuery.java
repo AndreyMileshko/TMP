@@ -28,7 +28,9 @@ import org.springframework.jdbc.core.RowMapper;
  * 1:1 to {@code WarehouseOperation}. Transfer send/receive/return allocations for the same document
  * and material are aggregated (multi-cell same material → one primary History row with summed
  * quantity). MOVE destination and RECEIPT/CONSUMPTION/ADJUSTMENT signed quantities use correlated
- * movement lookups in the same SQL statement (no per-row material/warehouse queries).
+ * movement lookups in the same SQL statement (no per-row material/warehouse queries). Warehouse
+ * Откуда/Куда project {@code warehouses.code} (not display name). ADJUSTMENT uses the same stock
+ * location for source and destination.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -157,8 +159,8 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                        MIN(
                          CASE wo.operation_type
                            WHEN 'RECEIPT' THEN NULL
-                           WHEN 'TRANSFER_RECEIVE' THEN src_wh.name
-                           ELSE op_wh.name
+                           WHEN 'TRANSFER_RECEIVE' THEN src_wh.code
+                           ELSE op_wh.code
                          END
                        ) AS source_warehouse_name,
                        CASE
@@ -202,7 +204,6 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                        (MIN(
                          CASE wo.operation_type
                            WHEN 'CONSUMPTION' THEN NULL
-                           WHEN 'ADJUSTMENT' THEN NULL
                            WHEN 'TRANSFER_SEND' THEN payload.destination_warehouse_id::text
                            WHEN 'MOVE' THEN wo.warehouse_id::text
                            ELSE wo.warehouse_id::text
@@ -211,34 +212,33 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                        MIN(
                          CASE wo.operation_type
                            WHEN 'CONSUMPTION' THEN NULL
-                           WHEN 'ADJUSTMENT' THEN NULL
-                           WHEN 'TRANSFER_SEND' THEN dst_wh.name
-                           WHEN 'MOVE' THEN op_wh.name
-                           ELSE op_wh.name
+                           WHEN 'TRANSFER_SEND' THEN dst_wh.code
+                           WHEN 'MOVE' THEN op_wh.code
+                           ELSE op_wh.code
                          END
                        ) AS destination_warehouse_name,
                        CASE
                          WHEN COUNT(
                            DISTINCT CASE wo.operation_type
                              WHEN 'CONSUMPTION' THEN NULL
-                             WHEN 'ADJUSTMENT' THEN NULL
                              WHEN 'TRANSFER_SEND' THEN NULL
                              WHEN 'MOVE' THEN move_dest.storage_cell_id
                              WHEN 'RECEIPT' THEN wo.storage_cell_id
                              WHEN 'TRANSFER_RECEIVE' THEN wo.storage_cell_id
                              WHEN 'TRANSFER_RETURN' THEN wo.storage_cell_id
+                             WHEN 'ADJUSTMENT' THEN wo.storage_cell_id
                              ELSE wo.storage_cell_id
                            END
                          ) = 1
                          THEN (MIN(
                            CASE wo.operation_type
                              WHEN 'CONSUMPTION' THEN NULL
-                             WHEN 'ADJUSTMENT' THEN NULL
                              WHEN 'TRANSFER_SEND' THEN NULL
                              WHEN 'MOVE' THEN move_dest.storage_cell_id::text
                              WHEN 'RECEIPT' THEN wo.storage_cell_id::text
                              WHEN 'TRANSFER_RECEIVE' THEN wo.storage_cell_id::text
                              WHEN 'TRANSFER_RETURN' THEN wo.storage_cell_id::text
+                             WHEN 'ADJUSTMENT' THEN wo.storage_cell_id::text
                              ELSE wo.storage_cell_id::text
                            END
                          ))::uuid
@@ -248,24 +248,24 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                          WHEN COUNT(
                            DISTINCT CASE wo.operation_type
                              WHEN 'CONSUMPTION' THEN NULL
-                             WHEN 'ADJUSTMENT' THEN NULL
                              WHEN 'TRANSFER_SEND' THEN NULL
                              WHEN 'MOVE' THEN move_dest.cell_code
                              WHEN 'RECEIPT' THEN op_cell.code
                              WHEN 'TRANSFER_RECEIVE' THEN op_cell.code
                              WHEN 'TRANSFER_RETURN' THEN op_cell.code
+                             WHEN 'ADJUSTMENT' THEN op_cell.code
                              ELSE op_cell.code
                            END
                          ) = 1
                          THEN MIN(
                            CASE wo.operation_type
                              WHEN 'CONSUMPTION' THEN NULL
-                             WHEN 'ADJUSTMENT' THEN NULL
                              WHEN 'TRANSFER_SEND' THEN NULL
                              WHEN 'MOVE' THEN move_dest.cell_code
                              WHEN 'RECEIPT' THEN op_cell.code
                              WHEN 'TRANSFER_RECEIVE' THEN op_cell.code
                              WHEN 'TRANSFER_RETURN' THEN op_cell.code
+                             WHEN 'ADJUSTMENT' THEN op_cell.code
                              ELSE op_cell.code
                            END
                          )
@@ -277,7 +277,8 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                          )::text
                        ))::uuid AS document_id,
                        (MIN(wo.actor_user_id::text))::uuid AS actor_user_id,
-                       MIN(wo.actor_login) AS actor_login
+                       MIN(wo.actor_login) AS actor_login,
+                       MIN(wo.comment_text) AS comment_text
                 """;
     }
 
@@ -486,6 +487,7 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                 rs.getString("destination_cell_code"),
                 (UUID) rs.getObject("document_id"),
                 (UUID) rs.getObject("actor_user_id"),
-                rs.getString("actor_login"));
+                rs.getString("actor_login"),
+                rs.getString("comment_text"));
     }
 }

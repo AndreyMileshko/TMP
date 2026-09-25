@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.BooleanProperty;
 import javafx.collections.ObservableList;
@@ -25,6 +26,7 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextFormatter;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -73,11 +75,47 @@ public final class WarehouseTaskDialogSupport {
         };
     }
 
+    /**
+     * Allows empty, digits, and at most one decimal separator ({@code .} or {@code ,}). Rejects
+     * letters, signs, and multiple separators so TextField caret is not reset by invalid rewrites.
+     */
+    public static boolean isAllowedQuantityInput(String text) {
+        if (text == null || text.isEmpty()) {
+            return true;
+        }
+        int separators = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch >= '0' && ch <= '9') {
+                continue;
+            }
+            if (ch == '.' || ch == ',') {
+                separators++;
+                if (separators > 1) {
+                    return false;
+                }
+                continue;
+            }
+            return false;
+        }
+        return true;
+    }
+
+    public static TextFormatter<String> quantityTextFormatter() {
+        UnaryOperator<TextFormatter.Change> filter =
+                change -> {
+                    String newText = change.getControlNewText();
+                    return isAllowedQuantityInput(newText) ? change : null;
+                };
+        return new TextFormatter<>(filter);
+    }
+
     public static TaskDialogSession createTaskDialog(
             TaskRow task,
             ObservableList<ActionEditRow> actionLines,
             ObservableList<StorageCellChoice> cellChoices,
             BooleanProperty canTake,
+            BooleanProperty editorsEnabled,
             BooleanProperty canSend,
             BooleanProperty canReceive,
             BooleanProperty canReject,
@@ -91,6 +129,7 @@ public final class WarehouseTaskDialogSupport {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(actionLines, "actionLines");
         Objects.requireNonNull(cellChoices, "cellChoices");
+        Objects.requireNonNull(editorsEnabled, "editorsEnabled");
 
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle(TITLE);
@@ -150,10 +189,10 @@ public final class WarehouseTaskDialogSupport {
         TableColumn<ActionEditRow, StorageCellChoice> cellCol =
                 new TableColumn<>(COLUMN_HEADERS.get(6));
         cellCol.setCellValueFactory(c -> c.getValue().storageCellProperty());
-        cellCol.setCellFactory(col -> cellComboCell(cellChoices));
+        cellCol.setCellFactory(col -> cellComboCell(cellChoices, editorsEnabled));
         TableColumn<ActionEditRow, String> qtyCol = new TableColumn<>(COLUMN_HEADERS.get(7));
         qtyCol.setCellValueFactory(c -> c.getValue().quantityTextProperty());
-        qtyCol.setCellFactory(col -> quantityCell());
+        qtyCol.setCellFactory(col -> quantityCell(editorsEnabled));
 
         table.getColumns()
                 .setAll(
@@ -231,7 +270,7 @@ public final class WarehouseTaskDialogSupport {
                 });
 
         return new TaskDialogSession(
-                dialog, closeType, titleLabel, routeLabel, orderLabel, refQtyCol, errorLabel);
+                dialog, closeType, titleLabel, routeLabel, orderLabel, refQtyCol, errorLabel, table);
     }
 
     public static void refreshHeader(TaskDialogSession session, TaskRow task) {
@@ -289,15 +328,19 @@ public final class WarehouseTaskDialogSupport {
     }
 
     private static TableCell<ActionEditRow, StorageCellChoice> cellComboCell(
-            ObservableList<StorageCellChoice> choices) {
+            ObservableList<StorageCellChoice> choices, BooleanProperty editorsEnabled) {
         return new TableCell<>() {
             private final ComboBox<StorageCellChoice> combo = new ComboBox<>();
 
             {
                 combo.setItems(choices);
+                combo.disableProperty().bind(editorsEnabled.not());
                 combo.valueProperty()
                         .addListener(
                                 (obs, oldValue, newValue) -> {
+                                    if (!editorsEnabled.get()) {
+                                        return;
+                                    }
                                     ActionEditRow row =
                                             getTableRow() == null ? null : getTableRow().getItem();
                                     if (row != null && !isEmpty()) {
@@ -313,26 +356,37 @@ public final class WarehouseTaskDialogSupport {
                     setGraphic(null);
                     return;
                 }
-                combo.setValue(item);
+                if (!Objects.equals(combo.getValue(), item)) {
+                    combo.setValue(item);
+                }
                 setGraphic(combo);
             }
         };
     }
 
-    private static TableCell<ActionEditRow, String> quantityCell() {
+    private static TableCell<ActionEditRow, String> quantityCell(BooleanProperty editorsEnabled) {
         return new TableCell<>() {
             private final TextField field = new TextField();
+            private boolean syncingFromModel;
 
             {
+                field.setTextFormatter(quantityTextFormatter());
                 field.textProperty()
                         .addListener(
                                 (obs, oldValue, newValue) -> {
+                                    if (syncingFromModel || !editorsEnabled.get()) {
+                                        return;
+                                    }
                                     ActionEditRow row =
                                             getTableRow() == null ? null : getTableRow().getItem();
                                     if (row != null && row.quantityEditable() && !isEmpty()) {
-                                        row.quantityTextProperty().set(newValue);
+                                        if (!Objects.equals(
+                                                row.quantityTextProperty().get(), newValue)) {
+                                            row.quantityTextProperty().set(newValue);
+                                        }
                                     }
                                 });
+                editorsEnabled.addListener((obs, o, n) -> updateItem(getItem(), isEmpty()));
             }
 
             @Override
@@ -344,13 +398,22 @@ public final class WarehouseTaskDialogSupport {
                     return;
                 }
                 ActionEditRow row = getTableRow().getItem();
-                if (row.quantityEditable()) {
-                    field.setText(item == null ? "" : item);
+                boolean editable = editorsEnabled.get() && row.quantityEditable();
+                String display = item == null ? "" : item;
+                if (editable) {
+                    if (!field.isFocused() && !Objects.equals(field.getText(), display)) {
+                        syncingFromModel = true;
+                        try {
+                            field.setText(display);
+                        } finally {
+                            syncingFromModel = false;
+                        }
+                    }
                     setGraphic(field);
                     setText(null);
                 } else {
                     setGraphic(null);
-                    setText(item);
+                    setText(display);
                 }
             }
         };
@@ -378,6 +441,7 @@ public final class WarehouseTaskDialogSupport {
         private final Label orderLabel;
         private final TableColumn<ActionEditRow, String> referenceQuantityColumn;
         private final Label errorLabel;
+        private final TableView<ActionEditRow> table;
 
         TaskDialogSession(
                 Dialog<ButtonType> dialog,
@@ -386,7 +450,8 @@ public final class WarehouseTaskDialogSupport {
                 Label routeLabel,
                 Label orderLabel,
                 TableColumn<ActionEditRow, String> referenceQuantityColumn,
-                Label errorLabel) {
+                Label errorLabel,
+                TableView<ActionEditRow> table) {
             this.dialog = dialog;
             this.closeType = closeType;
             this.titleLabel = titleLabel;
@@ -394,6 +459,7 @@ public final class WarehouseTaskDialogSupport {
             this.orderLabel = orderLabel;
             this.referenceQuantityColumn = referenceQuantityColumn;
             this.errorLabel = errorLabel;
+            this.table = table;
         }
 
         public Dialog<ButtonType> dialog() {
@@ -418,6 +484,10 @@ public final class WarehouseTaskDialogSupport {
 
         public TableColumn<ActionEditRow, String> referenceQuantityColumn() {
             return referenceQuantityColumn;
+        }
+
+        public TableView<ActionEditRow> table() {
+            return table;
         }
 
         public void showError(String message) {

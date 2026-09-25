@@ -225,9 +225,14 @@ class WarehouseApiContractTest {
 
         ExecuteOperationCommand adjustment =
                 ExecuteOperationCommand.adjustment(
-                        materialReferenceId, BigDecimal.valueOf(-2), warehouseId, cellId);
+                        materialReferenceId,
+                        BigDecimal.valueOf(-2),
+                        warehouseId,
+                        cellId,
+                        "Инвентаризация");
         assertEquals(OperationKind.ADJUSTMENT, adjustment.kind());
         assertEquals(0, adjustment.quantity().compareTo(BigDecimal.valueOf(-2)));
+        assertEquals("Инвентаризация", adjustment.comment());
     }
 
     @Test

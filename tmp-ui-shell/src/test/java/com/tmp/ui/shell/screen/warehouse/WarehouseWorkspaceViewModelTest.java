@@ -363,17 +363,18 @@ class WarehouseWorkspaceViewModelTest {
                         "шт",
                         new BigDecimal("-3"),
                         warehouseId,
-                        "Main",
+                        "MAIN",
                         UUID.randomUUID(),
                         "A-01",
                         UUID.randomUUID(),
-                        "Prod",
+                        "PROD",
                         UUID.randomUUID(),
                         "B-02",
                         UUID.randomUUID(),
                         "TR-77",
                         UUID.randomUUID(),
-                        "Иванов");
+                        "Иванов",
+                        null);
         api.historyPages.add(historyPage(List.of(entry), 0, 1));
         viewModel.onScreenOpened();
         viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
@@ -386,10 +387,11 @@ class WarehouseWorkspaceViewModelTest {
         assertEquals("6500", row.sizeText());
         assertEquals("шт", row.unitText());
         assertEquals("-3", row.quantityText());
-        assertEquals("Main / A-01", row.sourceText());
-        assertEquals("Prod / B-02", row.destinationText());
+        assertEquals("MAIN / A-01", row.sourceText());
+        assertEquals("PROD / B-02", row.destinationText());
         assertEquals("TR-77", row.documentText());
         assertEquals("Иванов", row.actorText());
+        assertFalse(row.hasComment());
     }
 
     @Test
@@ -410,7 +412,7 @@ class WarehouseWorkspaceViewModelTest {
                         "м.",
                         BigDecimal.TEN,
                         warehouseId,
-                        "Main",
+                        "MAIN",
                         UUID.randomUUID(),
                         "A-01",
                         null,
@@ -420,7 +422,8 @@ class WarehouseWorkspaceViewModelTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        "Исправление остатка после пересчёта");
         api.historyPages.add(historyPage(List.of(entry), 0, 1));
         viewModel.onScreenOpened();
         viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.HISTORY);
@@ -429,6 +432,24 @@ class WarehouseWorkspaceViewModelTest {
         assertEquals("—", row.colorText());
         assertEquals("—", row.sizeText());
         assertEquals("м.", row.unitText());
+        assertEquals("MAIN / A-01", row.sourceText());
+        assertTrue(row.hasComment());
+        assertEquals("Исправление остатка после пересчёта", row.commentText());
+    }
+
+    @Test
+    void historyLocationPrefersWarehouseCodeNotDisplayName() {
+        assertEquals(
+                "MAIN / A-01",
+                WarehouseWorkspaceViewModel.formatHistoryLocation("MAIN", "A-01", true));
+        assertEquals(
+                "SECOND / B-01",
+                WarehouseWorkspaceViewModel.formatHistoryLocation("SECOND", "B-01", true));
+        assertEquals("MAIN / —", WarehouseWorkspaceViewModel.formatHistoryLocation("MAIN", null, true));
+        assertEquals("—", WarehouseWorkspaceViewModel.formatHistoryLocation(null, null, true));
+        assertFalse(
+                WarehouseWorkspaceViewModel.formatHistoryLocation("MAIN", "A-01", true)
+                        .contains("Основной"));
     }
 
     @Test
@@ -2139,6 +2160,7 @@ class WarehouseWorkspaceViewModelTest {
                 "Main",
                 UUID.randomUUID(),
                 "A-01",
+                null,
                 null,
                 null,
                 null,

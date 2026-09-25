@@ -4,6 +4,70 @@
 
 ---
 
+## Stage 3.5.15 — Task Dialog controls + Adjustment reason/history + History codes/comments — 2026-09-25
+
+**Date:** 2026-09-25
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance)
+**Base HEAD:** `38d21a1fa770990a24991f815820b664dae5b460`
+**Status:** Implementation PASS; targeted + architecture + clean install + fresh package + startup PASS; Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → Задачи; no commit
+**Migration:** V47 (`comment_text`); historical rows remain NULL
+
+### Task Dialog
+
+- NEW: Ячейка + Количество disabled until Take.
+- After Take (IN_WORK): editors enabled; dialog stays open; Receive default quantity preserved.
+- Quantity column title remains «Количество».
+- Caret/reversed-digit defect fixed (`TextFormatter` + no focused `setText` rewrite).
+
+### History
+
+- Откуда/Куда use warehouse CODE.
+- ADJUSTMENT same-location Откуда/Куда; signed delta quantity.
+- Generic `comment` on History read model; double-click opens «Комментарий» popup (text only) when present.
+
+### Adjustment reason
+
+- Required free-text reason; trim; blank/spaces rejected.
+- Persisted as immutable `WarehouseOperation.commentText` / `comment_text`.
+- Inventory reconcile uses comment «Инвентаризация».
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Task Dialog + Adjustment reason entry (2026-09-25).
+
+---
+
+## Stage 3.5.15 — Task Dialog controls + History warehouse CODE (partial) — 2026-09-25
+
+**Date:** 2026-09-25
+**Stage:** Stage 3.5.15 (Final Warehouse Acceptance — Task Dialog / History / Adjustment)
+**Base HEAD:** `38d21a1fa770990a24991f815820b664dae5b460`
+**Status:** SUPERSEDED by full completion same day after V47 approval
+**Migration:** NONE at partial stop; V47 later approved and applied
+
+### Task Dialog
+
+- NEW: Ячейка + Количество disabled (`taskActionEditorsEnabled=false`).
+- After Take (IN_WORK): editors enabled; dialog stays open; Receive default quantity preserved.
+- Quantity column title remains «Количество».
+- Caret defect fixed via `TextFormatter` + no `setText` while focused.
+
+### History
+
+- Откуда/Куда project `warehouses.code` (not display name).
+- ADJUSTMENT destination = same stock location as source (not artificial transfer).
+- Signed delta History quantity already via movement `quantity_delta` (IT asserts + Корректировка).
+
+### Deferred (blocker)
+
+- Completed after V47 approval (same day).
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5.15 Task Dialog / History CODE partial entry (2026-09-25).
+
+---
+
 ## Stage 3.5.15 — Tasks creation timestamp + final column order — 2026-09-24
 
 **Date:** 2026-09-24

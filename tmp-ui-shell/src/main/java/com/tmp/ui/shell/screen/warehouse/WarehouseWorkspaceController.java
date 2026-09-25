@@ -43,6 +43,7 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
@@ -641,6 +642,7 @@ public final class WarehouseWorkspaceController
                         viewModel.actionLines(),
                         viewModel.actionCellChoices(),
                         viewModel.canTakeSelectedTaskInWorkProperty(),
+                        viewModel.taskActionEditorsEnabledProperty(),
                         viewModel.canSendSelectedTaskProperty(),
                         viewModel.canReceiveSelectedTaskProperty(),
                         viewModel.canRejectSelectedTaskProperty(),
@@ -1092,7 +1094,10 @@ public final class WarehouseWorkspaceController
                         deltaCol,
                         unitCol);
 
-        VBox content = new VBox(8, table);
+        Label reasonLabel = new Label("Причина корректировки:");
+        TextField reasonField = new TextField();
+        reasonField.setPromptText("Инвентаризация, пересчёт, исправление остатка…");
+        VBox content = new VBox(8, table, reasonLabel, reasonField);
         content.setPadding(new Insets(8));
         dialog.getDialogPane().setContent(content);
         dialog.setOnShown(
@@ -1101,10 +1106,19 @@ public final class WarehouseWorkspaceController
                     Button cancelButton = (Button) dialog.getDialogPane().lookupButton(cancelType);
                     if (okButton != null) {
                         okButton.getStyleClass().add("tmp-button-primary");
+                        okButton
+                                .disableProperty()
+                                .bind(
+                                        javafx.beans.binding.Bindings.createBooleanBinding(
+                                                () ->
+                                                        reasonField.getText() == null
+                                                                || reasonField.getText().isBlank(),
+                                                reasonField.textProperty()));
                     }
                     if (cancelButton != null) {
                         cancelButton.getStyleClass().add("tmp-button-secondary");
                     }
+                    reasonField.requestFocus();
                 });
         Optional<ButtonType> result = dialog.showAndWait();
         if (result.isEmpty() || result.get() != okType) {
@@ -1113,7 +1127,10 @@ public final class WarehouseWorkspaceController
         try {
             BigDecimal delta =
                     DecimalQuantityParser.parseNonZero(deltaText.get(), "количество изменения");
-            viewModel.executeStockAdjustment(StockMoveLine.from(row, row.availableQuantity()), delta);
+            viewModel.executeStockAdjustment(
+                    StockMoveLine.from(row, row.availableQuantity()),
+                    delta,
+                    reasonField.getText());
         } catch (IllegalArgumentException ex) {
             viewModel.errorMessageProperty().set(ex.getMessage());
         }
@@ -1176,6 +1193,16 @@ public final class WarehouseWorkspaceController
                                 cell.getValue().actorText()));
 
         historyTable.setItems(viewModel.historyRows());
+        historyTable.setOnMouseClicked(
+                event -> {
+                    if (event.getClickCount() != 2 || event.getButton() != MouseButton.PRIMARY) {
+                        return;
+                    }
+                    HistoryRow selected = historyTable.getSelectionModel().getSelectedItem();
+                    if (selected != null && selected.hasComment()) {
+                        openHistoryCommentDialog(selected.commentText());
+                    }
+                });
         // Same Stocks stability pattern: UNCONSTRAINED + reserved vertical gutter.
         historyTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         configureHistoryColumnWidths();
@@ -1185,6 +1212,34 @@ public final class WarehouseWorkspaceController
         placeholder.getStyleClass().add("tmp-empty-state-hint");
         placeholder.setWrapText(true);
         historyTable.setPlaceholder(placeholder);
+    }
+
+    private void openHistoryCommentDialog(String comment) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Комментарий");
+        dialog.setResizable(true);
+        ButtonType closeType = new ButtonType("Закрыть", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().add(closeType);
+        dialog.getDialogPane().getStyleClass().add("tmp-dialog");
+        dialog.getDialogPane().setMinWidth(350);
+        dialog.getDialogPane().setPrefWidth(420);
+
+        TextArea textArea = new TextArea(comment);
+        textArea.setEditable(false);
+        textArea.setWrapText(true);
+        textArea.setPrefRowCount(Math.min(12, Math.max(3, comment.length() / 40 + 1)));
+        textArea.setFocusTraversable(false);
+        VBox content = new VBox(textArea);
+        content.setPadding(new Insets(8));
+        dialog.getDialogPane().setContent(content);
+        dialog.setOnShown(
+                e -> {
+                    Button close = (Button) dialog.getDialogPane().lookupButton(closeType);
+                    if (close != null) {
+                        close.getStyleClass().add("tmp-button-secondary");
+                    }
+                });
+        dialog.showAndWait();
     }
 
     /**

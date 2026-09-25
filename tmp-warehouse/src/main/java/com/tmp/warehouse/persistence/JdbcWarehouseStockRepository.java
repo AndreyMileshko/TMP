@@ -214,8 +214,8 @@ public final class JdbcWarehouseStockRepository {
                 INSERT INTO warehouse.warehouse_operations (
                     id, operation_type, status, warehouse_id, storage_cell_id, material_reference_id,
                     quantity, stock_state, version, created_at, updated_at,
-                    actor_user_id, actor_login)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    actor_user_id, actor_login, comment_text)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 row.id().value(),
                 row.operationType().name(),
@@ -229,7 +229,8 @@ public final class JdbcWarehouseStockRepository {
                 Timestamp.from(row.createdAt()),
                 Timestamp.from(row.updatedAt()),
                 row.actorUserId(),
-                row.actorLogin());
+                row.actorLogin(),
+                row.commentText());
         return row;
     }
 
@@ -283,7 +284,7 @@ public final class JdbcWarehouseStockRepository {
         return """
                 SELECT wo.id, wo.operation_type, wo.status, wo.warehouse_id, wo.storage_cell_id,
                        wo.quantity, wo.stock_state, wo.version, wo.created_at, wo.updated_at,
-                       wo.actor_user_id, wo.actor_login,
+                       wo.actor_user_id, wo.actor_login, wo.comment_text,
                        mr.id AS material_id, mr.article, mr.name, mr.color, mr.size,
                        mr.unit_of_measure
                 FROM warehouse.warehouse_operations wo
@@ -332,6 +333,7 @@ public final class JdbcWarehouseStockRepository {
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant(),
                 rs.getObject("actor_user_id", UUID.class),
-                rs.getString("actor_login"));
+                rs.getString("actor_login"),
+                rs.getString("comment_text"));
     }
 }

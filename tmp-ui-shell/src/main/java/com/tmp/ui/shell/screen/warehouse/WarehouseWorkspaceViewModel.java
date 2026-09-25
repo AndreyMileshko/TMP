@@ -184,6 +184,7 @@ public final class WarehouseWorkspaceViewModel {
         private final String destinationText;
         private final String documentText;
         private final String actorText;
+        private final String commentText;
 
         HistoryRow(
                 UUID entryId,
@@ -198,7 +199,8 @@ public final class WarehouseWorkspaceViewModel {
                 String sourceText,
                 String destinationText,
                 String documentText,
-                String actorText) {
+                String actorText,
+                String commentText) {
             this.entryId = Objects.requireNonNull(entryId, "entryId");
             this.occurredAtText = occurredAtText;
             this.operationLabel = operationLabel;
@@ -212,6 +214,7 @@ public final class WarehouseWorkspaceViewModel {
             this.destinationText = destinationText;
             this.documentText = documentText;
             this.actorText = actorText;
+            this.commentText = commentText == null || commentText.isBlank() ? null : commentText.trim();
         }
 
         static HistoryRow from(WarehouseHistoryEntryView view, boolean allWarehousesMode) {
@@ -234,7 +237,8 @@ public final class WarehouseWorkspaceViewModel {
                             view.destinationCellCode(),
                             allWarehousesMode),
                     blankDash(view.documentNumber()),
-                    blankDash(view.actorDisplayName()));
+                    blankDash(view.actorDisplayName()),
+                    view.comment());
         }
 
         public UUID entryId() {
@@ -287,6 +291,14 @@ public final class WarehouseWorkspaceViewModel {
 
         public String actorText() {
             return actorText;
+        }
+
+        public String commentText() {
+            return commentText;
+        }
+
+        public boolean hasComment() {
+            return commentText != null && !commentText.isBlank();
         }
     }
 
@@ -866,6 +878,7 @@ public final class WarehouseWorkspaceViewModel {
     private final BooleanProperty canConsumption = new SimpleBooleanProperty(false);
     private final BooleanProperty canAdjustment = new SimpleBooleanProperty(false);
     private final BooleanProperty canTakeSelectedTaskInWork = new SimpleBooleanProperty(false);
+    private final BooleanProperty taskActionEditorsEnabled = new SimpleBooleanProperty(false);
     private final BooleanProperty canSendSelectedTask = new SimpleBooleanProperty(false);
     private final BooleanProperty canReceiveSelectedTask = new SimpleBooleanProperty(false);
     private final BooleanProperty canRejectSelectedTask = new SimpleBooleanProperty(false);
@@ -1715,6 +1728,14 @@ public final class WarehouseWorkspaceViewModel {
         return canTakeSelectedTaskInWork;
     }
 
+    /**
+     * Cell / quantity editors in the task dialog are enabled only after Take (IN_WORK). NEW remains
+     * read-only.
+     */
+    public BooleanProperty taskActionEditorsEnabledProperty() {
+        return taskActionEditorsEnabled;
+    }
+
     public BooleanProperty canSendSelectedTaskProperty() {
         return canSendSelectedTask;
     }
@@ -2231,6 +2252,7 @@ public final class WarehouseWorkspaceViewModel {
                         && loadedDocument != null;
         canTakeSelectedTaskInWork.set(
                 canTransfer.get() && row != null && isNew && !busy);
+        taskActionEditorsEnabled.set(canTransfer.get() && row != null && inWork && !busy);
         canSendSelectedTask.set(
                 base
                         && row.taskKind() == WarehouseTaskKind.TRANSFER_PREPARATION
@@ -2722,14 +2744,19 @@ public final class WarehouseWorkspaceViewModel {
                 });
     }
 
-    public void executeStockAdjustment(StockMoveLine line, BigDecimal quantityDelta) {
+    public void executeStockAdjustment(StockMoveLine line, BigDecimal quantityDelta, String reason) {
         Objects.requireNonNull(line, "line");
         Objects.requireNonNull(quantityDelta, "quantityDelta");
+        Objects.requireNonNull(reason, "reason");
         if (!canAdjustment.get() || commandInFlight.get()) {
             return;
         }
         if (quantityDelta.signum() == 0) {
             throw new IllegalArgumentException("количество изменения не может быть равным 0");
+        }
+        String trimmedReason = reason.trim();
+        if (trimmedReason.isEmpty()) {
+            throw new IllegalArgumentException("Укажите причину корректировки");
         }
         commandInFlight.set(true);
         errorMessage.set("");
@@ -2741,7 +2768,8 @@ public final class WarehouseWorkspaceViewModel {
                                         line.materialReferenceId(),
                                         quantityDelta,
                                         line.warehouseId(),
-                                        line.sourceStorageCellId()));
+                                        line.sourceStorageCellId(),
+                                        trimmedReason));
                         uiExecutor.accept(
                                 () -> {
                                     commandInFlight.set(false);

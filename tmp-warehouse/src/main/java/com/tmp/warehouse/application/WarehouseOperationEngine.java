@@ -72,6 +72,20 @@ public final class WarehouseOperationEngine {
             StorageCellId storageCellId,
             StockState stockState,
             StockQuantity quantity) {
+        return create(type, material, warehouseId, storageCellId, stockState, quantity, null);
+    }
+
+    /**
+     * Creates a DRAFT warehouse operation with optional immutable comment.
+     */
+    public WarehouseOperation create(
+            WarehouseOperationType type,
+            MaterialReference material,
+            WarehouseId warehouseId,
+            StorageCellId storageCellId,
+            StockState stockState,
+            StockQuantity quantity,
+            String commentText) {
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(material, "material");
         Objects.requireNonNull(warehouseId, "warehouseId");
@@ -81,13 +95,14 @@ public final class WarehouseOperationEngine {
         WarehouseOperation draft =
                 attachActor(
                         WarehouseOperation.draft(
-                                WarehouseOperationId.generate(),
-                                type,
-                                material,
-                                warehouseId,
-                                storageCellId,
-                                stockState,
-                                quantity));
+                                        WarehouseOperationId.generate(),
+                                        type,
+                                        material,
+                                        warehouseId,
+                                        storageCellId,
+                                        stockState,
+                                        quantity)
+                                .withComment(commentText));
         return operations.create(draft);
     }
 

@@ -33,6 +33,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
@@ -157,7 +158,12 @@ class WarehouseAdjustmentServiceIntegrationTest {
         WarehouseOperation completed =
                 adjustments.adjust(
                         new AdjustmentRequest(
-                                material, BigDecimal.valueOf(-20L), warehouseId, cellId));
+                                material,
+                                BigDecimal.valueOf(-20L),
+                                warehouseId,
+                                cellId,
+                                "Исправление фактического остатка"));
+        assertEquals(Optional.of("Исправление фактического остатка"), completed.commentText());
 
         assertEquals(WarehouseOperationType.ADJUSTMENT, completed.type());
         assertEquals(WarehouseOperationStatus.COMPLETED, completed.status());

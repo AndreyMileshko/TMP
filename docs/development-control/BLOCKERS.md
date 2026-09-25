@@ -39,6 +39,27 @@ None — resolved.
 
 ---
 
+## `BLK-3.5.15-ADJUSTMENT-COMMENT-PERSISTENCE` — Adjustment comment persistence decision needed
+
+**Status:** RESOLVED — V47 approved and applied 2026-09-25 (`warehouse.warehouse_operations.comment_text VARCHAR(1000) NULL`)
+**Task:** Stage 3.5.15 — Task Dialog controls + Adjustment reason/history + History warehouse codes/comments
+**Detected:** 2026-09-25
+**Resolved:** 2026-09-25
+
+### Accepted decision
+
+1. Add nullable `comment_text VARCHAR(1000)` on `warehouse.warehouse_operations` (V47).
+2. Field is generic immutable operation comment (not Adjustment-only).
+3. ADJUSTMENT requires non-blank trimmed comment at application/service level.
+4. Existing rows remain `NULL` (no backfill).
+5. History read model projects comment; UI double-click shows comment-only dialog when present.
+
+### Required user decision
+
+None — resolved.
+
+---
+
 ### `BLK-STAGE7-PARTIAL-RELEASE-PLAN` — Normative material plan for partial Release
 
 **Status:** RESOLVED

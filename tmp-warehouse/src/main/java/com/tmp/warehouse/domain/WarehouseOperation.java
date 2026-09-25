@@ -13,6 +13,8 @@ import java.util.UUID;
  */
 public final class WarehouseOperation {
 
+    public static final int COMMENT_MAX_LENGTH = 1000;
+
     private final WarehouseOperationId id;
     private final WarehouseOperationType type;
     private final WarehouseOperationStatus status;
@@ -24,6 +26,7 @@ public final class WarehouseOperation {
     private final long version;
     private final UUID actorUserId;
     private final String actorLogin;
+    private final String commentText;
 
     private WarehouseOperation(
             WarehouseOperationId id,
@@ -36,7 +39,8 @@ public final class WarehouseOperation {
             StockQuantity quantity,
             long version,
             UUID actorUserId,
-            String actorLogin) {
+            String actorLogin,
+            String commentText) {
         this.id = id;
         this.type = type;
         this.status = status;
@@ -48,6 +52,7 @@ public final class WarehouseOperation {
         this.version = version;
         this.actorUserId = actorUserId;
         this.actorLogin = actorLogin;
+        this.commentText = commentText;
     }
 
     /**
@@ -113,6 +118,7 @@ public final class WarehouseOperation {
                 quantity,
                 version,
                 null,
+                null,
                 null);
     }
 
@@ -131,6 +137,37 @@ public final class WarehouseOperation {
             long version,
             UUID actorUserId,
             String actorLogin) {
+        return rehydrate(
+                id,
+                type,
+                status,
+                material,
+                warehouseId,
+                storageCellId,
+                stockState,
+                quantity,
+                version,
+                actorUserId,
+                actorLogin,
+                null);
+    }
+
+    /**
+     * Rehydrates a persisted operation including optional actor and comment audit fields.
+     */
+    public static WarehouseOperation rehydrate(
+            WarehouseOperationId id,
+            WarehouseOperationType type,
+            WarehouseOperationStatus status,
+            MaterialReference material,
+            WarehouseId warehouseId,
+            StorageCellId storageCellId,
+            StockState stockState,
+            StockQuantity quantity,
+            long version,
+            UUID actorUserId,
+            String actorLogin,
+            String commentText) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(status, "status");
@@ -153,7 +190,8 @@ public final class WarehouseOperation {
                 quantity,
                 version,
                 actorUserId,
-                actorLogin);
+                actorLogin,
+                normalizeOptionalComment(commentText));
     }
 
     /**
@@ -171,7 +209,27 @@ public final class WarehouseOperation {
                 quantity,
                 version,
                 actorUserId,
-                actorLogin);
+                actorLogin,
+                commentText);
+    }
+
+    /**
+     * Returns a copy with optional immutable operation comment (blank → absent).
+     */
+    public WarehouseOperation withComment(String commentText) {
+        return new WarehouseOperation(
+                id,
+                type,
+                status,
+                material,
+                warehouseId,
+                storageCellId,
+                stockState,
+                quantity,
+                version,
+                actorUserId,
+                actorLogin,
+                normalizeOptionalComment(commentText));
     }
 
     /**
@@ -231,7 +289,8 @@ public final class WarehouseOperation {
                 quantity,
                 version,
                 actorUserId,
-                actorLogin);
+                actorLogin,
+                commentText);
     }
 
     /**
@@ -250,7 +309,8 @@ public final class WarehouseOperation {
                 quantity,
                 version,
                 actorUserId,
-                actorLogin);
+                actorLogin,
+                commentText);
     }
 
     private void requireMatchingPosition(StockPosition position) {
@@ -260,6 +320,23 @@ public final class WarehouseOperation {
             throw new InvalidWarehouseStateException(
                     "Warehouse operation target does not match stock position: operationId=" + id);
         }
+    }
+
+    static String normalizeOptionalComment(String commentText) {
+        if (commentText == null) {
+            return null;
+        }
+        String trimmed = commentText.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.length() > COMMENT_MAX_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Operation comment must be at most "
+                            + COMMENT_MAX_LENGTH
+                            + " characters");
+        }
+        return trimmed;
     }
 
     public WarehouseOperationId id() {
@@ -304,6 +381,10 @@ public final class WarehouseOperation {
 
     public Optional<String> actorLogin() {
         return Optional.ofNullable(actorLogin);
+    }
+
+    public Optional<String> commentText() {
+        return Optional.ofNullable(commentText);
     }
 
     @Override

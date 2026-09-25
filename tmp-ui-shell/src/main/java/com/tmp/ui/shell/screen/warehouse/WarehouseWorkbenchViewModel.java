@@ -551,7 +551,8 @@ public final class WarehouseWorkbenchViewModel {
                                     parseNonZeroDecimal(
                                             adjustmentQuantityDelta.get(), "количество изменения"),
                                     warehouse.id(),
-                                    cell.id()));
+                                    cell.id(),
+                                    reason));
             statusMessage.set(
                     "Корректировка выполнена: operationId="
                             + result.operationId()

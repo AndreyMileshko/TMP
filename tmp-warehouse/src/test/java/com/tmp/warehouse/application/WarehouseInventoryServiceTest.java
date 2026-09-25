@@ -212,7 +212,8 @@ class WarehouseInventoryServiceTest {
                             operation.quantity(),
                             current.version() + 1,
                             operation.actorUserId().orElse(null),
-                            operation.actorLogin().orElse(null));
+                            operation.actorLogin().orElse(null),
+                            operation.commentText().orElse(null));
             store.put(operation.id(), persisted);
             return persisted;
         }

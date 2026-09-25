@@ -11940,6 +11940,32 @@ Manual acceptance = READY FROM Склад → Задачи (createdAt + final co
   (write-off OUT OF SCOPE this acceptance cycle)
 
 ---
+## STAGE-3.5.15 — Task Dialog controls + Adjustment reason/history + History warehouse codes/comments
+
+**Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS
+**Stage:** 3.5
+**Depends on:** Stage 3.5.15 Tasks creation timestamp + final column order
+**Modules:** `tmp-ui-shell`, `tmp-warehouse`
+**Migration:** V47 `warehouse.warehouse_operations.comment_text VARCHAR(1000) NULL`
+
+**Goal:** Lock NEW task Cell/Quantity until Take; fix quantity caret/reversed digit input; History Откуда/Куда show warehouse CODE; Adjustment creates visible History delta; Adjustment reason required + generic History comment popup.
+
+**Acceptance criteria:**
+- [x] NEW Receive: Cell + Quantity disabled; Take enabled
+- [x] After Take: Cell + Quantity enabled; default quantity preserved; dialog stays open
+- [x] Typing 1 then 0 → 10 (TextFormatter; caret not reset via setText-on-every-key)
+- [x] History Откуда/Куда use warehouse CODE not display name
+- [x] Adjustment History: Корректировка + signed delta; same-location Откуда/Куда
+- [x] Adjustment reason required + persisted as `comment_text` (trim; blank/spaces reject)
+- [x] History double-click comment dialog when comment present; content = comment text only
+- [x] Tasks/History jitter invariants preserved; Stage6WarehouseArchitectureTest GREEN
+- [x] Targeted tests + clean install + fresh package + startup; Full reactor NOT RUN; Stage 3.5.15 remains IN_PROGRESS
+
+### Next on success
+
+Manual acceptance: Склад → Задачи → Остатки → Корректировать → История.
+
+---
 ## STAGE-3.5.15 — Tasks creation timestamp + final column order
 
 **Status:** DONE (implementation); Stage 3.5.15 overall remains IN_PROGRESS

@@ -51,7 +51,8 @@ public final class WarehouseAdjustmentService {
                         request.warehouseId(),
                         request.storageCellId(),
                         StockState.AVAILABLE,
-                        targetQuantity);
+                        targetQuantity,
+                        request.comment());
         return operationEngine.execute(draft.id());
     }
 

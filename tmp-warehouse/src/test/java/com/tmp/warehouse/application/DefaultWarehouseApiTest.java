@@ -401,7 +401,8 @@ class DefaultWarehouseApiTest {
                                         null,
                                         null,
                                         null,
-                                        materialReferenceId)));
+                                        materialReferenceId,
+                                        null)));
     }
 
     private static final class PassthroughTransactionManager

@@ -1619,7 +1619,15 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 row.documentId(),
                 documentNumber,
                 row.actorUserId(),
-                row.actorLogin());
+                row.actorLogin(),
+                row.commentText());
+    }
+
+    private static String requireAdjustmentComment(ExecuteOperationCommand command) {
+        if (command.comment() == null || command.comment().isBlank()) {
+            throw new IllegalArgumentException("Adjustment comment must not be blank");
+        }
+        return command.comment().trim();
     }
 
     private static String historyOperationDisplayName(String operationType) {
@@ -1958,7 +1966,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                                             requireMaterial(command.materialReferenceId()),
                                             command.quantity(),
                                             WarehouseId.of(command.warehouseId()),
-                                            StorageCellId.of(command.storageCellId())));
+                                            StorageCellId.of(command.storageCellId()),
+                                            requireAdjustmentComment(command)));
                     case TRANSFER_RETURN ->
                             throw new InvalidWarehouseStateException(
                                     "TRANSFER_RETURN must be executed via Transfer Document settlement return command");

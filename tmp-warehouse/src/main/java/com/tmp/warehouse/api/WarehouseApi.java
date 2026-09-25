@@ -892,7 +892,8 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             UUID documentId,
             String documentNumber,
             UUID actorUserId,
-            String actorDisplayName) {
+            String actorDisplayName,
+            String comment) {
 
         public WarehouseHistoryEntryView {
             Objects.requireNonNull(entryId, "entryId");
@@ -906,6 +907,7 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             Objects.requireNonNull(quantity, "quantity");
             materialColor = materialColor == null ? "" : materialColor;
             materialSize = materialSize == null ? "" : materialSize;
+            comment = comment == null || comment.isBlank() ? null : comment.trim();
         }
     }
 
@@ -1043,13 +1045,15 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             String color,
             String size,
             String unitOfMeasure,
-            UUID materialReferenceId) {
+            UUID materialReferenceId,
+            String comment) {
 
         public ExecuteOperationCommand {
             Objects.requireNonNull(kind, "kind");
             Objects.requireNonNull(quantity, "quantity");
             Objects.requireNonNull(warehouseId, "warehouseId");
             Objects.requireNonNull(storageCellId, "storageCellId");
+            comment = comment == null || comment.isBlank() ? null : comment.trim();
         }
 
         public static ExecuteOperationCommand receipt(
@@ -1073,6 +1077,7 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
                     color,
                     size,
                     unitOfMeasure,
+                    null,
                     null);
         }
 
@@ -1095,7 +1100,8 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
                     null,
                     null,
                     null,
-                    materialReferenceId);
+                    materialReferenceId,
+                    null);
         }
 
         public static ExecuteOperationCommand transferSend(
@@ -1116,7 +1122,8 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
                     null,
                     null,
                     null,
-                    materialReferenceId);
+                    materialReferenceId,
+                    null);
         }
 
         public static ExecuteOperationCommand transferReceive(
@@ -1138,7 +1145,8 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
                     null,
                     null,
                     null,
-                    materialReferenceId);
+                    materialReferenceId,
+                    null);
         }
 
         public static ExecuteOperationCommand consumption(
@@ -1158,14 +1166,16 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
                     null,
                     null,
                     null,
-                    materialReferenceId);
+                    materialReferenceId,
+                    null);
         }
 
         public static ExecuteOperationCommand adjustment(
                 UUID materialReferenceId,
                 BigDecimal quantityDelta,
                 UUID warehouseId,
-                UUID storageCellId) {
+                UUID storageCellId,
+                String comment) {
             return new ExecuteOperationCommand(
                     OperationKind.ADJUSTMENT,
                     null,
@@ -1178,7 +1188,8 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
                     null,
                     null,
                     null,
-                    materialReferenceId);
+                    materialReferenceId,
+                    comment);
         }
     }
 

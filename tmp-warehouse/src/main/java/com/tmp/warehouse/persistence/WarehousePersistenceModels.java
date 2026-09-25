@@ -206,7 +206,8 @@ public final class WarehousePersistenceModels {
             Instant createdAt,
             Instant updatedAt,
             UUID actorUserId,
-            String actorLogin) {
+            String actorLogin,
+            String commentText) {
 
         public WarehouseOperationRow {
             Objects.requireNonNull(id, "id");
@@ -237,7 +238,8 @@ public final class WarehousePersistenceModels {
                     createdAt,
                     updatedAt,
                     operation.actorUserId().orElse(null),
-                    operation.actorLogin().orElse(null));
+                    operation.actorLogin().orElse(null),
+                    operation.commentText().orElse(null));
         }
 
         public WarehouseOperation toDomain() {
@@ -252,7 +254,8 @@ public final class WarehousePersistenceModels {
                     quantity,
                     version,
                     actorUserId,
-                    actorLogin);
+                    actorLogin,
+                    commentText);
         }
     }
 }

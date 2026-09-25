@@ -1,6 +1,7 @@
 package com.tmp.warehouse.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -155,7 +156,11 @@ class WarehouseHistoryIntegrationTest {
         bundle.api()
                 .executeWarehouseOperation(
                         ExecuteOperationCommand.adjustment(
-                                materialId, new BigDecimal("-2"), warehouseId, cell2));
+                                materialId,
+                                new BigDecimal("-2"),
+                                warehouseId,
+                                cell2,
+                                "Исправление фактического остатка"));
 
         Map<String, Object> before = snapshotFacts();
         WarehouseHistoryPage page = listAll(warehouseId);
@@ -176,6 +181,14 @@ class WarehouseHistoryIntegrationTest {
         assertEquals(0, new BigDecimal("-10").compareTo(consumption.quantity()));
         assertEquals("Корректировка", adjustment.operationDisplayName());
         assertEquals(0, new BigDecimal("-2").compareTo(adjustment.quantity()));
+        assertEquals("Исправление фактического остатка", adjustment.comment());
+        assertNull(receipt.comment());
+        assertEquals("WH-H1", adjustment.sourceWarehouseName());
+        assertEquals("WH-H1", adjustment.destinationWarehouseName());
+        assertEquals("1-05", adjustment.sourceCellCode());
+        assertEquals("1-05", adjustment.destinationCellCode());
+        assertEquals(adjustment.sourceWarehouseId(), adjustment.destinationWarehouseId());
+        assertEquals(adjustment.sourceCellId(), adjustment.destinationCellId());
 
         // Deterministic newest-first when timestamps differ
         jdbc.update(

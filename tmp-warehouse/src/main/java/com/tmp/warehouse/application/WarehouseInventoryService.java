@@ -64,7 +64,8 @@ public final class WarehouseInventoryService {
                                 request.material(),
                                 difference,
                                 request.warehouseId(),
-                                request.storageCellId()));
+                                request.storageCellId(),
+                                "Инвентаризация"));
         return Optional.of(completed);
     }
 

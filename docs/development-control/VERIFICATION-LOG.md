@@ -2,6 +2,76 @@
 
 ## Latest result
 
+**Date:** 2026-09-25
+**Scope:** Stage 3.5.15 — Task Dialog controls + Adjustment reason/history + History warehouse codes/comments
+**Overall:** PASS (targeted + architecture + clean install + fresh package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → Задачи; Full reactor NOT RUN
+**Migration:** V47 applied on startup (`comment_text`); historical comments remain NULL
+**Business delta:** 0 (warehouses=4, stock=52, qty=1391.9, ops=118, mov=186, MR=1 before=after; ops_with_comment=0)
+**Base HEAD:** `38d21a1fa770990a24991f815820b664dae5b460`
+**Pre-existing unrelated:** none at baseline; prior partial Task Dialog / History CODE work included in this completion
+
+### Stage 3.5.15 Task Dialog + Adjustment reason + History comment (2026-09-25)
+
+| Check | Result |
+|-------|--------|
+| NEW editors locked; After Take unlocked; qty 1→0 = 10 | PASS (`WarehouseTaskDialogSupportTest` 6) |
+| History location uses warehouse CODE | PASS |
+| Adjustment reason required + trimmed persist | PASS (`WarehouseAdjustmentServiceTest` 6) |
+| Adjustment History delta + comment + same-location | PASS (`WarehouseHistoryIntegrationTest` 6) |
+| `WarehouseWorkspaceViewModelTest` | PASS (73) |
+| `WarehouseWorkspaceTasksJitterFxTest` | PASS (3) |
+| `WarehouseWorkspaceHistoryJitterFxTest` | PASS (2) |
+| `WarehouseAdjustmentServiceIntegrationTest` | PASS (2) |
+| `WarehouseApiContractTest` | PASS (8) |
+| `Stage6WarehouseArchitectureTest` | PASS (10) |
+| `mvn -pl :tmp-bootstrap-app -am clean install -DskipTests` | PASS |
+| Package `pre-integration-test -Ppackage` | PASS → `dist/jpackage/TMP/TMP.exe` **14:23:16**; nested ui-shell **14:22:10** with marker `TASK_DIALOG_ADJ_REASON_HISTORY_COMMENT_V47_2026_09_25` |
+| Startup `localhost:55432/tmp_gui_stage5` | PASS — Flyway validated 47 / applied V47; `Started DesktopBootstrap` ~4.9s; JavaFX unnamed-module WARN only; exceptions NONE; TMP running |
+| Full reactor | NOT RUN |
+| Manual acceptance | READY FROM: Склад → Задачи |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-09-25
+**Scope:** Stage 3.5.15 — Task Dialog controls + History warehouse CODE (partial); Adjustment reason/comment BLOCKED
+**Overall:** PARTIAL — targeted UI + History/Adjustment IT GREEN for implemented scope; Stage 3.5.15 remains IN PROGRESS; blocked on V47 comment persistence decision; Package/startup NOT RUN (blocker stop); Full reactor NOT RUN
+**Migration:** NONE applied (Flyway remains V46); V47 proposed
+**Base HEAD:** `38d21a1fa770990a24991f815820b664dae5b460`
+**Pre-existing unrelated:** none (clean working tree at baseline)
+
+### ADJUSTMENT COMMENT PERSISTENCE DECISION NEEDED
+
+See `docs/development-control/BLOCKERS.md` → `BLK-3.5.15-ADJUSTMENT-COMMENT-PERSISTENCE` (RESOLVED).
+
+### Stage 3.5.15 Task Dialog + History CODE (2026-09-25)
+
+| Check | Result |
+|-------|--------|
+| NEW editors locked; After Take unlocked; qty 1→0 = 10 | PASS (`WarehouseTaskDialogSupportTest` 6) |
+| History location uses warehouse CODE | PASS (ViewModel + History IT) |
+| Adjustment History delta + same-location Откуда/Куда | PASS (`WarehouseHistoryIntegrationTest`) |
+| `WarehouseWorkspaceViewModelTest` | PASS (73) |
+| `WarehouseWorkspaceTasksJitterFxTest` | PASS (3) |
+| `WarehouseWorkspaceHistoryJitterFxTest` | PASS (2) |
+| `WarehouseAdjustmentServiceTest` | PASS (4) |
+| `WarehouseAdjustmentServiceIntegrationTest` | PASS (2) |
+| `WarehouseHistoryIntegrationTest` | PASS (6) |
+| `Stage6WarehouseArchitectureTest` | PASS (10) |
+| Adjustment reason required + persist | BLOCKED |
+| History comment double-click popup | BLOCKED |
+| Package / startup | NOT RUN |
+| Full reactor | NOT RUN |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
 **Date:** 2026-09-24
 **Scope:** Stage 3.5.15 — Tasks creation timestamp + final column order
 **Overall:** PASS (targeted UI + inbox/transfer IT + architecture + clean install + fresh package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → Задачи; Full reactor NOT RUN
