@@ -36,6 +36,13 @@ public interface RoleAdministrationService {
      */
     Set<RoleId> listRolesForUser(UserId userId);
 
+    /**
+     * Effective permissions for a user: union of assigned roles with individual GRANT/REVOKE
+     * overrides, calculated via {@code EffectivePermissionCalculator}. Requires
+     * {@link SecurityPermissions#ROLES_ASSIGN}. UI must display this result without recomputing.
+     */
+    Set<PermissionId> listEffectivePermissionsForUser(UserId userId);
+
     void grantIndividualPermission(UserId userId, PermissionId permissionId);
 
     void revokeIndividualPermission(UserId userId, PermissionId permissionId);

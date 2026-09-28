@@ -96,6 +96,31 @@ class UserAdministrationViewModelTest {
     }
 
     @Test
+    void openUserDetailsHidesRevokedPermission() {
+        FakeUsers users = new FakeUsers();
+        UserSummary user = summary("eugene", "Skorik");
+        users.users.add(user);
+        FakeRoles roles = new FakeRoles();
+        roles.roleCatalogue.add(role("Role A", ROLE_A, Set.of(PERM_1, PERM_2)));
+        roles.assignments.put(user.id(), Set.of(ROLE_A));
+        roles.revokedOverrides.put(user.id(), new HashSet<>(Set.of(PERM_2)));
+        roles.permissionCatalogue.add(new PermissionSummary(PERM_1, "Просмотр склада", "", true));
+        roles.permissionCatalogue.add(new PermissionSummary(PERM_2, "Перемещение", "", true));
+
+        UserAdministrationViewModel viewModel =
+                new UserAdministrationViewModel(users, roles, new FakeAuthz(allAdminPermissions()));
+        viewModel.refresh();
+
+        Optional<UserDetailsSnapshot> details = viewModel.openUserDetails(user);
+        assertTrue(details.isPresent());
+        Map<PermissionId, Boolean> byId = new HashMap<>();
+        details.get().permissionGroups().forEach(group -> group.permissions().forEach(item ->
+                byId.put(item.permissionId(), item.granted())));
+        assertEquals(Boolean.TRUE, byId.get(PERM_1));
+        assertEquals(Boolean.FALSE, byId.get(PERM_2));
+    }
+
+    @Test
     void applyRoleAssignmentsUsesExistingAssignRevoke() {
         FakeUsers users = new FakeUsers();
         UserSummary user = summary("eugene", "Skorik");
@@ -302,6 +327,8 @@ class UserAdministrationViewModelTest {
         private final List<RoleSummary> roleCatalogue = new ArrayList<>();
         private final List<PermissionSummary> permissionCatalogue = new ArrayList<>();
         private final Map<UserId, Set<RoleId>> assignments = new HashMap<>();
+        private final Map<UserId, Set<PermissionId>> grantedOverrides = new HashMap<>();
+        private final Map<UserId, Set<PermissionId>> revokedOverrides = new HashMap<>();
         private int assignCalls;
         private int revokeCalls;
 
@@ -361,18 +388,49 @@ class UserAdministrationViewModelTest {
         }
 
         @Override
+        public Set<PermissionId> listEffectivePermissionsForUser(UserId userId) {
+            Set<PermissionId> effective = new HashSet<>();
+            for (RoleId roleId : listRolesForUser(userId)) {
+                roleCatalogue.stream()
+                        .filter(role -> role.id().equals(roleId))
+                        .findFirst()
+                        .ifPresent(role -> effective.addAll(role.permissionIds()));
+            }
+            Set<PermissionId> revoked = revokedOverrides.getOrDefault(userId, Set.of());
+            effective.removeAll(revoked);
+            Set<PermissionId> granted = grantedOverrides.getOrDefault(userId, Set.of());
+            effective.addAll(granted);
+            return Set.copyOf(effective);
+        }
+
+        @Override
         public void grantIndividualPermission(UserId userId, PermissionId permissionId) {
-            throw new UnsupportedOperationException();
+            grantedOverrides.computeIfAbsent(userId, id -> new HashSet<>()).add(permissionId);
+            Set<PermissionId> revoked = revokedOverrides.get(userId);
+            if (revoked != null) {
+                revoked.remove(permissionId);
+            }
         }
 
         @Override
         public void revokeIndividualPermission(UserId userId, PermissionId permissionId) {
-            throw new UnsupportedOperationException();
+            revokedOverrides.computeIfAbsent(userId, id -> new HashSet<>()).add(permissionId);
+            Set<PermissionId> granted = grantedOverrides.get(userId);
+            if (granted != null) {
+                granted.remove(permissionId);
+            }
         }
 
         @Override
         public void removeOverride(UserId userId, PermissionId permissionId) {
-            throw new UnsupportedOperationException();
+            Set<PermissionId> granted = grantedOverrides.get(userId);
+            if (granted != null) {
+                granted.remove(permissionId);
+            }
+            Set<PermissionId> revoked = revokedOverrides.get(userId);
+            if (revoked != null) {
+                revoked.remove(permissionId);
+            }
         }
 
         @Override

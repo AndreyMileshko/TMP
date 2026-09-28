@@ -272,6 +272,11 @@ class RoleAdministrationControllerFxTest {
         }
 
         @Override
+        public Set<PermissionId> listEffectivePermissionsForUser(UserId userId) {
+            return Set.of();
+        }
+
+        @Override
         public void grantIndividualPermission(UserId userId, PermissionId permissionId) {
         }
 
@@ -334,6 +339,11 @@ class RoleAdministrationControllerFxTest {
 
         @Override
         public Set<RoleId> listRolesForUser(UserId userId) {
+            return Set.of();
+        }
+
+        @Override
+        public Set<PermissionId> listEffectivePermissionsForUser(UserId userId) {
             return Set.of();
         }
 

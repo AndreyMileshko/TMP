@@ -162,11 +162,18 @@ public final class RoleAdministrationController implements ViewModelAware<RoleAd
             userSearchDebounce.playFromStart();
         });
         userSearchResults.setItems(viewModel.userSearchResults());
+        userSearchResults.setFocusTraversable(true);
         userSearchResults.setCellFactory(list -> new ListCell<>() {
             @Override
             protected void updateItem(UserSummary item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? null : RoleAdministrationViewModel.formatUserLabel(item));
+                setDisable(false);
+                setOpacity(1.0);
+                if (empty || item == null) {
+                    setText(null);
+                    return;
+                }
+                setText(RoleAdministrationViewModel.formatUserLabel(item));
             }
         });
         userSearchResults.getSelectionModel().selectedItemProperty().addListener((obs, old, user) -> {

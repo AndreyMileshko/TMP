@@ -482,6 +482,11 @@ class RoleAdministrationSelectionFxTest {
         }
 
         @Override
+        public Set<PermissionId> listEffectivePermissionsForUser(UserId userId) {
+            return Set.of();
+        }
+
+        @Override
         public void grantIndividualPermission(UserId userId, PermissionId permissionId) {}
 
         @Override

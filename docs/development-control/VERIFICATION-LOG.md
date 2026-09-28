@@ -3,6 +3,36 @@
 ## Latest result
 
 **Date:** 2026-09-28
+**Scope:** RBAC UX completion — User card / roles / effective permissions; Roles assignment search fix
+**Overall:** PASS (targeted security/UI + clean install + fresh package + startup); Full reactor NOT RUN
+**Migration:** NONE
+**Base HEAD:** `d3fdb9ca337b6d3a3af7c562922d47c63c6ffa88`
+**Working tree:** dirty (RBAC UX completion uncommitted); no commit / no push
+
+### RBAC UX completion (2026-09-28)
+
+| Check | Result |
+|-------|--------|
+| User card double-click | PASS (`UserAdministrationControllerFxTest`) |
+| Multi-role display + effective union | PASS (`UserAdministrationViewModelTest`) |
+| REVOKE override hides permission | PASS (`UserAdministrationViewModelTest`, `RoleAssignmentApplicationServiceTest`) |
+| Effective permissions via calculator API | PASS (`listEffectivePermissionsForUser`) |
+| Roles search results active (no fade overlay) | PASS (FXML VBox + CSS opacity; ViewModel search test) |
+| Apply assignment dirty gating | PASS (`RoleAdministrationViewModelTest`) |
+| Role screen Role→permissions unchanged | PASS (`RoleAdministration*Test`) |
+| `mvn -pl :tmp-bootstrap-app -am clean install -DskipTests` | PASS |
+| Package `pre-integration-test -Ppackage` | PASS → `dist/jpackage/TMP/TMP.exe` **16:39:21**; jar **16:39:11** |
+| Startup `localhost:55432/tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 47 / current 47; `Started DesktopBootstrap` ~5.1s; exceptions NONE; TMP running |
+| Full reactor | NOT RUN |
+| Manual acceptance | READY FROM: Безопасность → Пользователи / Роли |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-09-28
 **Scope:** RBAC audit immediate corrections — Security Administrator Order+Production parity; Order Save/Import UI gates
 **Overall:** PASS (targeted security/order/UI/bootstrap + clean install + fresh package + startup); Full reactor NOT RUN
 **Migration:** NONE

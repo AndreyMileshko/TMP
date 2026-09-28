@@ -109,8 +109,8 @@ final class UserAdministrationDialogs {
         Label loginLabel = formLabel("Логин");
         Label nameLabel = formLabel("Имя");
         Label statusLabel = formLabel("Статус");
-        Label rolesTitle = formLabel("Роли пользователя");
-        Label permissionsTitle = formLabel("Фактические права пользователя");
+        Label rolesTitle = formLabel("Роли");
+        Label permissionsTitle = formLabel("Фактические права");
 
         GridPane header = new GridPane();
         header.getStyleClass().add("tmp-form");

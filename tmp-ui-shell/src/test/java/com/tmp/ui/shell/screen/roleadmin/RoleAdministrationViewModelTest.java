@@ -21,6 +21,7 @@ import com.tmp.security.api.SecurityPermissions;
 import com.tmp.security.api.RoleInUseException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -177,16 +178,35 @@ class RoleAdministrationViewModelTest {
         RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
                 roles, users, new AllowAll());
         viewModel.select(existing);
+        assertFalse(viewModel.assignmentDirtyProperty().get());
         viewModel.selectUser(user);
-        assertFalse(viewModel.desiredRoleAssignedProperty().get());
+        assertFalse(viewModel.assignmentDirtyProperty().get());
         viewModel.desiredRoleAssignedProperty().set(true);
+        assertTrue(viewModel.assignmentDirtyProperty().get());
         viewModel.applyRoleAssignment();
         assertEquals(1, roles.assignCalls);
         assertTrue(viewModel.actualRoleAssignedProperty().get());
+        assertFalse(viewModel.assignmentDirtyProperty().get());
         viewModel.desiredRoleAssignedProperty().set(false);
+        assertTrue(viewModel.assignmentDirtyProperty().get());
         viewModel.applyRoleAssignment();
         assertEquals(1, roles.revokeCalls);
         assertFalse(viewModel.actualRoleAssignedProperty().get());
+    }
+
+    @Test
+    void searchUsersReturnsActiveMatches() {
+        FakeRoles roles = new FakeRoles();
+        roles.roles.add(new RoleSummary(
+                RoleId.generate(), "Ops", "", Set.of(), 0L,
+                Instant.parse("2026-07-23T04:00:00Z"), Instant.parse("2026-07-23T04:00:00Z")));
+        RecordingUsers users = new RecordingUsers();
+        RoleAdministrationViewModel viewModel = new RoleAdministrationViewModel(
+                roles, users, new AllowAll());
+        viewModel.select(roles.roles.getFirst());
+        viewModel.searchUsers("oper");
+        assertEquals(1, viewModel.userSearchResults().size());
+        assertEquals("operator", viewModel.userSearchResults().getFirst().login().value());
     }
 
     private static class FakeRoles implements RoleAdministrationService {
@@ -285,6 +305,18 @@ class RoleAdministrationViewModelTest {
                 return Set.of(roles.getFirst().id());
             }
             return Set.of();
+        }
+
+        @Override
+        public Set<PermissionId> listEffectivePermissionsForUser(UserId userId) {
+            Set<PermissionId> effective = new HashSet<>();
+            for (RoleId roleId : listRolesForUser(userId)) {
+                roles.stream()
+                        .filter(role -> role.id().equals(roleId))
+                        .findFirst()
+                        .ifPresent(role -> effective.addAll(role.permissionIds()));
+            }
+            return Set.copyOf(effective);
         }
 
         private final java.util.HashSet<UserId> assignedUsers = new java.util.HashSet<>();

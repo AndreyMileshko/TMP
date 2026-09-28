@@ -75,14 +75,20 @@ class RoleAssignmentApplicationServiceTest {
         actor = UserId.generate();
         sessions.open(Session.of(SessionId.generate(), actor, Login.of("admin"), CLOCK.instant()));
         Set<PermissionId> perms = Set.of(SecurityPermissions.ROLES_ASSIGN);
+        PermissionOverrideRepository overrides = grant(actor, perms);
         service = new RoleAssignmentApplicationService(
                 users,
                 roles,
                 assignments,
+                overrides,
+                engine(perms),
                 new AuthorizationApplicationService(
-                sessions,
-                alwaysActiveUsers(),
-                engine(perms), emptyAssignments(), emptyRoles(), grant(actor, perms)),
+                        sessions,
+                        alwaysActiveUsers(),
+                        engine(perms),
+                        emptyAssignments(),
+                        emptyRoles(),
+                        overrides),
                 audit,
                 sessions,
                 CLOCK);
@@ -99,6 +105,43 @@ class RoleAssignmentApplicationServiceTest {
         assertEquals(AuditOperation.ROLE_ASSIGNED, audit.events.getFirst().operation());
         service.revokeRole(target, roleId);
         assertEquals(0, assignments.countUsersForRole(roleId));
+    }
+
+    @Test
+    void listEffectivePermissionsIncludesRoleUnionAndHonorsRevokeOverride() {
+        UserId target = users.save(User.createActive(
+                        UserId.generate(), Login.of("eff"), DisplayName.of("Eff"), PasswordHash.of("h"), CLOCK))
+                .id();
+        PermissionId view = PermissionId.of("warehouse.stock.view");
+        PermissionId move = PermissionId.of("warehouse.move.create");
+        Role role = Role.create(RoleId.generate(), "Store", "", CLOCK)
+                .grantPermission(view, CLOCK)
+                .grantPermission(move, CLOCK);
+        roles.save(role);
+        service.assignRole(target, role.id());
+
+        Set<PermissionId> active = Set.of(SecurityPermissions.ROLES_ASSIGN, view, move);
+        InMemoryOverrides overrideStore = new InMemoryOverrides();
+        overrideStore.save(IndividualPermissionOverride.of(
+                target, move, PermissionOverrideDecision.REVOKE, CLOCK));
+        RoleAssignmentApplicationService queryService = new RoleAssignmentApplicationService(
+                users,
+                roles,
+                assignments,
+                overrideStore,
+                engine(active),
+                new AuthorizationApplicationService(
+                        sessions,
+                        alwaysActiveUsers(),
+                        engine(active),
+                        emptyAssignments(),
+                        emptyRoles(),
+                        grant(actor, Set.of(SecurityPermissions.ROLES_ASSIGN))),
+                audit,
+                sessions,
+                CLOCK);
+
+        assertEquals(Set.of(view), queryService.listEffectivePermissionsForUser(target));
     }
 
     @Test
@@ -275,6 +318,37 @@ class RoleAssignmentApplicationServiceTest {
             public void deleteById(RoleId id) {
             }
         };
+    }
+
+    private static final class InMemoryOverrides implements PermissionOverrideRepository {
+        private final List<IndividualPermissionOverride> store = new ArrayList<>();
+
+        @Override
+        public IndividualPermissionOverride save(IndividualPermissionOverride override) {
+            store.removeIf(existing -> existing.userId().equals(override.userId())
+                    && existing.permissionId().equals(override.permissionId()));
+            store.add(override);
+            return override;
+        }
+
+        @Override
+        public void remove(UserId userId, PermissionId permissionId) {
+            store.removeIf(existing -> existing.userId().equals(userId)
+                    && existing.permissionId().equals(permissionId));
+        }
+
+        @Override
+        public List<IndividualPermissionOverride> findByUser(UserId userId) {
+            return store.stream().filter(o -> o.userId().equals(userId)).toList();
+        }
+
+        @Override
+        public Optional<IndividualPermissionOverride> findByUserAndPermission(
+                UserId userId, PermissionId permissionId) {
+            return store.stream()
+                    .filter(o -> o.userId().equals(userId) && o.permissionId().equals(permissionId))
+                    .findFirst();
+        }
     }
 
     private static final class InMemoryUsers implements UserRepository {

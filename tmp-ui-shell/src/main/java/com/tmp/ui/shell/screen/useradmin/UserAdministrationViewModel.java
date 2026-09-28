@@ -158,8 +158,10 @@ public final class UserAdministrationViewModel {
             }
             List<RoleAssignmentItem> roleItems =
                     UserSecurityPresentation.roleAssignmentItems(roleCatalogue, assigned);
-            Set<PermissionId> effective =
-                    UserSecurityPresentation.effectivePermissionsFromRoles(assigned, roleCatalogue);
+            Set<PermissionId> effective = Set.of();
+            if (canInspectUserRoles.get()) {
+                effective = roles.listEffectivePermissionsForUser(selected.id());
+            }
             List<EffectivePermissionGroup> permissionGroups =
                     UserSecurityPresentation.effectivePermissionGroups(permissionCatalogue, effective);
             return Optional.of(new UserDetailsSnapshot(

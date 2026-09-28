@@ -4,6 +4,35 @@
 
 ---
 
+## Security / RBAC UX — Completion after audit — 2026-09-28
+
+**Date:** 2026-09-28
+**Stage:** Security / RBAC UX completion (outside Stage 3.5.15)
+**Base HEAD:** `d3fdb9ca337b6d3a3af7c562922d47c63c6ffa88`
+**Status:** Implementation PASS; targeted security/UI tests + clean install + fresh package + startup PASS; no commit; Full reactor NOT RUN
+
+### Users
+
+- Double-click opens card «Пользователь» (login / name / status).
+- Roles block with existing assign/revoke API («Применить роли»).
+- «Фактические права» from `RoleAdministrationService.listEffectivePermissionsForUser` → `EffectivePermissionCalculator` (roles + GRANT/REVOKE). UI only renders.
+
+### Roles
+
+- Role → permissions model unchanged.
+- Assignment search: StackPane overlay + translate removed (faded/disabled look); VBox + opacity CSS; cells forced active.
+- «Применить» disabled until user selected and assignment dirty; clears after apply.
+
+### Not changed
+
+- AuthorizationApplicationService, EffectivePermissionCalculator internals, Role/Permission entities, Capability catalogue, Flyway.
+
+### Verification
+
+See VERIFICATION-LOG RBAC UX completion entry (2026-09-28).
+
+---
+
 ## Security / RBAC — Immediate corrections after audit — 2026-09-28
 
 **Date:** 2026-09-28

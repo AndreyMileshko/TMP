@@ -1,34 +1,45 @@
 package com.tmp.security.application;
 
+import com.tmp.capability.api.CapabilityEngine;
+import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.security.api.AuditEventId;
+import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.RoleAlreadyAssignedException;
 import com.tmp.security.api.RoleId;
 import com.tmp.security.api.UserId;
 import com.tmp.security.api.SecurityPermissions;
 import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.AuditResult;
+import com.tmp.security.domain.EffectivePermissionCalculator;
+import com.tmp.security.domain.IndividualPermissionOverride;
+import com.tmp.security.domain.Role;
 import com.tmp.security.domain.RoleAssignment;
 import com.tmp.security.domain.SecurityAuditEvent;
 import com.tmp.security.domain.Session;
 import com.tmp.security.domain.User;
 import com.tmp.security.domain.UserNotActiveException;
+import com.tmp.security.domain.repository.PermissionOverrideRepository;
 import com.tmp.security.domain.repository.RoleAssignmentRepository;
 import com.tmp.security.domain.repository.RoleRepository;
 import com.tmp.security.domain.repository.SecurityAuditRepository;
 import com.tmp.security.domain.repository.UserRepository;
 import java.time.Clock;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Assign / revoke roles for users.
+ * Assign / revoke roles for users; read effective permissions for administration UX.
  */
 public class RoleAssignmentApplicationService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final RoleAssignmentRepository roleAssignmentRepository;
+    private final PermissionOverrideRepository permissionOverrideRepository;
+    private final CapabilityEngine capabilityEngine;
     private final AuthorizationApplicationService authorization;
     private final SecurityAuditRepository auditRepository;
     private final SessionContext sessionContext;
@@ -38,6 +49,8 @@ public class RoleAssignmentApplicationService {
             UserRepository userRepository,
             RoleRepository roleRepository,
             RoleAssignmentRepository roleAssignmentRepository,
+            PermissionOverrideRepository permissionOverrideRepository,
+            CapabilityEngine capabilityEngine,
             AuthorizationApplicationService authorization,
             SecurityAuditRepository auditRepository,
             SessionContext sessionContext,
@@ -46,6 +59,9 @@ public class RoleAssignmentApplicationService {
         this.roleRepository = Objects.requireNonNull(roleRepository, "roleRepository");
         this.roleAssignmentRepository =
                 Objects.requireNonNull(roleAssignmentRepository, "roleAssignmentRepository");
+        this.permissionOverrideRepository =
+                Objects.requireNonNull(permissionOverrideRepository, "permissionOverrideRepository");
+        this.capabilityEngine = Objects.requireNonNull(capabilityEngine, "capabilityEngine");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.auditRepository = Objects.requireNonNull(auditRepository, "auditRepository");
         this.sessionContext = Objects.requireNonNull(sessionContext, "sessionContext");
@@ -77,6 +93,31 @@ public class RoleAssignmentApplicationService {
         authorization.requirePermission(SecurityPermissions.ROLES_ASSIGN);
         Objects.requireNonNull(userId, "userId");
         return Set.copyOf(roleAssignmentRepository.findRoleIdsForUser(userId));
+    }
+
+    /**
+     * Live effective permissions for administration display (roles ∪ GRANT − REVOKE).
+     * Does not change {@link AuthorizationApplicationService} or the calculator.
+     */
+    public Set<PermissionId> listEffectivePermissionsForUser(UserId userId) {
+        authorization.requirePermission(SecurityPermissions.ROLES_ASSIGN);
+        Objects.requireNonNull(userId, "userId");
+        Set<PermissionId> active =
+                capabilityEngine.activePermissions().stream()
+                        .map(PermissionDescriptor::permissionId)
+                        .map(PermissionId::of)
+                        .collect(Collectors.toUnmodifiableSet());
+        Set<IndividualPermissionOverride> overrides =
+                new HashSet<>(permissionOverrideRepository.findByUser(userId));
+        return EffectivePermissionCalculator.effectivePermissions(active, overrides, loadRoles(userId));
+    }
+
+    private Set<Role> loadRoles(UserId userId) {
+        Set<Role> result = new HashSet<>();
+        for (RoleId roleId : roleAssignmentRepository.findRoleIdsForUser(userId)) {
+            roleRepository.findById(roleId).ifPresent(result::add);
+        }
+        return result;
     }
 
     private User requireActiveUser(UserId userId) {

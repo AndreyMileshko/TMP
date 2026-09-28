@@ -31,5 +31,19 @@
 }
 
 .role-admin-user-results {
-    -fx-translate-y: 34;
+    -fx-opacity: 1.0;
+}
+
+.role-admin-user-results .list-cell {
+    -fx-opacity: 1.0;
+    -fx-text-fill: -tmp-text;
+}
+
+.role-admin-user-results .list-cell:filled {
+    -fx-opacity: 1.0;
+}
+
+.role-admin-user-results:disabled,
+.role-admin-user-results .list-cell:disabled {
+    -fx-opacity: 1.0;
 }

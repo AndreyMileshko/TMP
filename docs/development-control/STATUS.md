@@ -5,7 +5,8 @@
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
 **UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Task Dialog editors/caret + History CODE + Adjustment reason V47 + History comment popup COMPLETE 2026-09-25; Write-off deferred)
 **Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS; Task Dialog + Adjustment reason/history + History codes/comments DONE — awaiting manual UX)
-**Last completed task:** RBAC audit immediate corrections (2026-09-28) — Security Administrator Order+Production parity; Order Save/Import UI gates; prior: Security/RBAC UX User roles visibility; Stage 3.5.15 Task Dialog controls
+**Last completed task:** RBAC UX completion (2026-09-28) — User card + roles + effective permissions via calculator; Roles search opacity fix; prior: RBAC audit immediate corrections; Stage 3.5.15 Task Dialog
+**RBAC UX completion (2026-09-28):** PASS — User double-click card; roles + effective permissions (roles ∪ GRANT/REVOKE via `listEffectivePermissionsForUser` / EffectivePermissionCalculator); Roles assignment search no longer faded; Apply button dirty gating; no migration / no RBAC model change
 **RBAC audit immediate corrections (2026-09-28):** PASS — Security Administrator ensure Order (13) + Production (7); Order item Save UI requires `order.item.approve` on approve-path; Order Import UI requires full backend permission set; deferred: delete permissions, inventory, reservation, revision.create, role templates, analytics
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 

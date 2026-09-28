@@ -57,11 +57,11 @@
                     <VBox fx:id="assignmentSection" spacing="8" styleClass="role-admin-assignment">
                         <Label text="Назначение пользователю" styleClass="tmp-form-label"/>
                         <Label text="Пользователь" styleClass="tmp-text-muted"/>
-                        <StackPane>
+                        <VBox spacing="4">
                             <TextField fx:id="userSearchField" promptText="Поиск пользователя..."/>
                             <ListView fx:id="userSearchResults" styleClass="role-admin-user-results"
                                       visible="false" managed="false" prefHeight="140" maxHeight="180"/>
-                        </StackPane>
+                        </VBox>
                         <CheckBox fx:id="roleAssignedCheck" text="Роль назначена пользователю"/>
                         <HBox spacing="8" alignment="CENTER_LEFT">
                             <Button fx:id="applyAssignmentButton" text="Применить" styleClass="tmp-button-action"/>

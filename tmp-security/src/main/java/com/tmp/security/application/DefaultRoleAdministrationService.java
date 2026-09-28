@@ -79,6 +79,11 @@ public final class DefaultRoleAdministrationService implements RoleAdministratio
     }
 
     @Override
+    public java.util.Set<PermissionId> listEffectivePermissionsForUser(UserId userId) {
+        return assignments.listEffectivePermissionsForUser(userId);
+    }
+
+    @Override
     public void grantIndividualPermission(UserId userId, PermissionId permissionId) {
         overrides.grantIndividualPermission(userId, permissionId);
     }

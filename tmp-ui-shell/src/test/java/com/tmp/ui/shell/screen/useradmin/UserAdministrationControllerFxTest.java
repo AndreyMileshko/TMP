@@ -776,6 +776,18 @@ class UserAdministrationControllerFxTest {
         }
 
         @Override
+        public Set<PermissionId> listEffectivePermissionsForUser(UserId userId) {
+            Set<PermissionId> effective = new HashSet<>();
+            for (RoleId roleId : listRolesForUser(userId)) {
+                roleCatalogue.stream()
+                        .filter(role -> role.id().equals(roleId))
+                        .findFirst()
+                        .ifPresent(role -> effective.addAll(role.permissionIds()));
+            }
+            return Set.copyOf(effective);
+        }
+
+        @Override
         public void grantIndividualPermission(UserId userId, PermissionId permissionId) {
             throw new UnsupportedOperationException();
         }
@@ -842,6 +854,11 @@ class UserAdministrationControllerFxTest {
 
         @Override
         public Set<RoleId> listRolesForUser(UserId userId) {
+            return Set.of();
+        }
+
+        @Override
+        public Set<PermissionId> listEffectivePermissionsForUser(UserId userId) {
             return Set.of();
         }
 
