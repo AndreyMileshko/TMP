@@ -79,6 +79,7 @@ public final class UiShellScreens {
     public static final String WAREHOUSE_STORAGE_CELL_DELETE_PERMISSION =
             "warehouse.storage-cell.delete";
     public static final String ORDER_CREATE_PERMISSION = "order.order.create";
+    public static final String ORDER_APPROVE_PERMISSION = "order.order.approve";
     public static final String ORDER_ITEM_VIEW_PERMISSION = "order.item.view";
     public static final String ORDER_ITEM_CREATE_PERMISSION = "order.item.create";
     public static final String ORDER_ITEM_EDIT_PERMISSION = "order.item.edit";
@@ -87,6 +88,17 @@ public final class UiShellScreens {
     public static final String ORDER_REVISION_CREATE_PERMISSION = "order.revision.create";
     public static final String ORDER_REVISION_EDIT_PERMISSION = "order.revision.edit";
     public static final String ORDER_SPECIFICATION_VIEW_PERMISSION = "order.specification.view";
+
+    /**
+     * Permissions required by Order Import confirm (must match backend {@code DefaultOrderImportService}).
+     */
+    public static final java.util.List<String> ORDER_IMPORT_REQUIRED_PERMISSIONS =
+            java.util.List.of(
+                    ORDER_CREATE_PERMISSION,
+                    ORDER_ITEM_CREATE_PERMISSION,
+                    ORDER_REVISION_EDIT_PERMISSION,
+                    ORDER_ITEM_APPROVE_PERMISSION,
+                    ORDER_APPROVE_PERMISSION);
 
     private UiShellScreens() {
     }

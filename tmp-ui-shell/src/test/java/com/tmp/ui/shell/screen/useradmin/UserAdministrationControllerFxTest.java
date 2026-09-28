@@ -11,6 +11,10 @@ import com.tmp.security.api.DisplayName;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.PasswordResetResult;
 import com.tmp.security.api.PermissionId;
+import com.tmp.security.api.PermissionSummary;
+import com.tmp.security.api.RoleAdministrationService;
+import com.tmp.security.api.RoleId;
+import com.tmp.security.api.RoleSummary;
 import com.tmp.security.api.UserAdministrationService;
 import com.tmp.security.api.UserCreationResult;
 import com.tmp.security.api.UserId;
@@ -22,10 +26,15 @@ import com.tmp.ui.shell.navigation.ScreenRegistration;
 import com.tmp.ui.shell.theme.TmpTheme;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
 import javafx.scene.Node;
@@ -38,6 +47,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.layout.VBox;
@@ -53,8 +63,7 @@ class UserAdministrationControllerFxTest {
 
     @Test
     void loadsStandardUsersScreenStructure() throws Exception {
-        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(
-                new EmptyUsers(), new AllowAll());
+        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(new EmptyUsers(), new EmptyRoles(), new AllowAll());
         Parent root = loadScreen(viewModel, 960, 640);
 
         assertTrue(root.getStyleClass().contains("tmp-screen"));
@@ -73,12 +82,95 @@ class UserAdministrationControllerFxTest {
         assertTrue(createButton.getStyleClass().contains("tmp-button-action"));
         assertNull(root.lookup("#loginField"));
         assertNull(root.lookup("#passwordField"));
+        TableView<?> table = (TableView<?>) root.lookup("#userTable");
+        assertEquals(4, table.getColumns().size());
+        assertEquals("Роли", ((TableColumn<?, ?>) table.getColumns().get(2)).getText());
+    }
+
+    @Test
+    void rolesColumnShowsAssignedRoleNames() throws Exception {
+        UsersWithRoles users = new UsersWithRoles();
+        RolesWithAssignments roles = new RolesWithAssignments(users.activeUser());
+        UserAdministrationViewModel viewModel =
+                new UserAdministrationViewModel(users, roles, new AllowAll());
+        AtomicReference<TableView<UserSummary>> table = new AtomicReference<>();
+        AtomicReference<Throwable> error = new AtomicReference<>();
+
+        CountDownLatch latch = new CountDownLatch(1);
+        Platform.runLater(() -> {
+            try {
+                Parent root = loadScreen(viewModel, 960, 640);
+                table.set((TableView<UserSummary>) root.lookup("#userTable"));
+                table.get().layout();
+            } catch (Throwable throwable) {
+                error.set(throwable);
+            } finally {
+                latch.countDown();
+            }
+        });
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
+        if (error.get() != null) {
+            throw new AssertionError(error.get());
+        }
+
+        assertEquals("Кладовщик", viewModel.rolesLabelFor(users.activeUser()));
+        CountDownLatch cellLatch = new CountDownLatch(1);
+        Platform.runLater(() -> {
+            try {
+                String rolesText = rolesCellText(table.get(), 0);
+                assertEquals("Кладовщик", rolesText);
+            } catch (Throwable throwable) {
+                error.set(throwable);
+            } finally {
+                cellLatch.countDown();
+            }
+        });
+        assertTrue(cellLatch.await(10, TimeUnit.SECONDS));
+        if (error.get() != null) {
+            throw new AssertionError(error.get());
+        }
+    }
+
+    @Test
+    void doubleClickHandlerOpensUserDetails() throws Exception {
+        UsersWithRoles users = new UsersWithRoles();
+        RolesWithAssignments roles = new RolesWithAssignments(users.activeUser());
+        UserAdministrationViewModel viewModel =
+                new UserAdministrationViewModel(users, roles, new AllowAll());
+        AtomicReference<TableView<UserSummary>> table = new AtomicReference<>();
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        AtomicBoolean detailsOpened = new AtomicBoolean(false);
+
+        CountDownLatch latch = new CountDownLatch(1);
+        Platform.runLater(() -> {
+            try {
+                Parent root = loadScreen(viewModel, 960, 640);
+                table.set((TableView<UserSummary>) root.lookup("#userTable"));
+                assertNotNull(table.get().getOnMouseClicked());
+                var details = viewModel.openUserDetails(users.activeUser());
+                detailsOpened.set(details.isPresent());
+                assertTrue(details.isPresent());
+                assertEquals("eugene", details.get().user().login().value());
+                assertTrue(details.get().roles().stream().anyMatch(r -> r.assigned()));
+                assertTrue(details.get().permissionGroups().stream()
+                        .flatMap(g -> g.permissions().stream())
+                        .anyMatch(p -> p.granted()));
+            } catch (Throwable throwable) {
+                error.set(throwable);
+            } finally {
+                latch.countDown();
+            }
+        });
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
+        if (error.get() != null) {
+            throw new AssertionError(error.get());
+        }
+        assertTrue(detailsOpened.get());
     }
 
     @Test
     void createButtonHiddenWithoutPermission() throws Exception {
-        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(
-                new EmptyUsers(), new DenyAll());
+        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(new EmptyUsers(), new EmptyRoles(), new DenyAll());
         Parent root = loadScreen(viewModel, 960, 640);
         Button createButton = (Button) root.lookup("#createUserButton");
         assertFalse(createButton.isVisible());
@@ -88,7 +180,7 @@ class UserAdministrationControllerFxTest {
     @Test
     void showDeletedToggleFiltersTableItems() throws Exception {
         UsersWithActiveAndDeleted service = new UsersWithActiveAndDeleted();
-        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(service, new AllowAll());
+        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(service, new EmptyRoles(), new AllowAll());
         AtomicReference<TableView<UserSummary>> table = new AtomicReference<>();
         AtomicReference<CheckBox> showDeleted = new AtomicReference<>();
         AtomicReference<Throwable> error = new AtomicReference<>();
@@ -157,7 +249,7 @@ class UserAdministrationControllerFxTest {
     @Test
     void statusBadgesRenderRussianLabelsAndSemanticClasses() throws Exception {
         UsersWithActiveAndDeleted service = new UsersWithActiveAndDeleted();
-        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(service, new AllowAll());
+        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(service, new EmptyRoles(), new AllowAll());
         AtomicReference<TableView<UserSummary>> table = new AtomicReference<>();
         AtomicReference<Throwable> error = new AtomicReference<>();
 
@@ -212,8 +304,7 @@ class UserAdministrationControllerFxTest {
 
     @Test
     void emptyStateIsHumanReadable() throws Exception {
-        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(
-                new EmptyUsers(), new AllowAll());
+        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(new EmptyUsers(), new EmptyRoles(), new AllowAll());
         AtomicReference<TableView<UserSummary>> table = new AtomicReference<>();
         AtomicReference<Throwable> error = new AtomicReference<>();
 
@@ -246,7 +337,7 @@ class UserAdministrationControllerFxTest {
     @Test
     void contextMenuHasSeparatorAndDangerDeleteWithPermissions() throws Exception {
         UsersWithActiveAndDeleted service = new UsersWithActiveAndDeleted();
-        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(service, new AllowPermissions(
+        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(service, new EmptyRoles(), new AllowPermissions(
                 SecurityPermissions.USERS_UPDATE,
                 SecurityPermissions.USERS_RESET_PASSWORD,
                 SecurityPermissions.USERS_DELETE));
@@ -299,8 +390,7 @@ class UserAdministrationControllerFxTest {
 
     @Test
     void contextMenuItemsHiddenWithoutPermissions() throws Exception {
-        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(
-                new UsersWithActiveAndDeleted(), new DenyAll());
+        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(new UsersWithActiveAndDeleted(), new EmptyRoles(), new DenyAll());
         AtomicReference<TableView<UserSummary>> table = new AtomicReference<>();
         AtomicReference<Throwable> error = new AtomicReference<>();
 
@@ -340,7 +430,7 @@ class UserAdministrationControllerFxTest {
     @Test
     void deletedUserActionsDisabledWhenVisible() throws Exception {
         UsersWithActiveAndDeleted service = new UsersWithActiveAndDeleted();
-        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(service, new AllowAll());
+        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(service, new EmptyRoles(), new AllowAll());
         AtomicReference<TableView<UserSummary>> table = new AtomicReference<>();
         AtomicReference<Throwable> error = new AtomicReference<>();
 
@@ -389,8 +479,7 @@ class UserAdministrationControllerFxTest {
 
     @Test
     void tableUsesBoundedCompactWidthOnWideScene() throws Exception {
-        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(
-                new UsersWithActiveAndDeleted(), new AllowAll());
+        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(new UsersWithActiveAndDeleted(), new EmptyRoles(), new AllowAll());
         AtomicReference<Parent> rootRef = new AtomicReference<>();
         AtomicReference<Double> tableWidth = new AtomicReference<>();
         AtomicReference<Double> sceneWidth = new AtomicReference<>();
@@ -421,8 +510,7 @@ class UserAdministrationControllerFxTest {
 
     @Test
     void layoutRemainsUsableAtCommonResolutions() throws Exception {
-        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(
-                new UsersWithActiveAndDeleted(), new AllowAll());
+        UserAdministrationViewModel viewModel = new UserAdministrationViewModel(new UsersWithActiveAndDeleted(), new EmptyRoles(), new AllowAll());
         int[][] sizes = {{1024, 700}, {1366, 768}, {1600, 900}};
         for (int[] size : sizes) {
             AtomicReference<Parent> rootRef = new AtomicReference<>();
@@ -540,6 +628,239 @@ class UserAdministrationControllerFxTest {
             }
         }
         throw new IllegalStateException("Row not found for login " + login);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String rolesCellText(TableView<UserSummary> table, int rowIndex) {
+        table.layout();
+        TableColumn<UserSummary, ?> rolesColumn = table.getColumns().get(2);
+        for (Node node : table.lookupAll(".table-row-cell")) {
+            if (node instanceof TableRow<?> row && row.getIndex() == rowIndex && !row.isEmpty()) {
+                for (Node cellNode : row.lookupAll(".table-cell")) {
+                    if (cellNode instanceof TableCell<?, ?> cell
+                            && cell.getTableColumn() == rolesColumn) {
+                        return cell.getText() != null ? cell.getText() : "";
+                    }
+                }
+            }
+        }
+        throw new IllegalStateException("Roles cell not found for row " + rowIndex);
+    }
+
+    private static final class UsersWithRoles implements UserAdministrationService {
+        private final UserSummary active;
+        private final List<UserSummary> users = new ArrayList<>();
+
+        private UsersWithRoles() {
+            active = summary("eugene", "Skorik", "ACTIVE");
+            users.add(active);
+        }
+
+        UserSummary activeUser() {
+            return active;
+        }
+
+        @Override
+        public UserCreationResult createUser(Login login, DisplayName displayName) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public UserSummary updateUser(UserId userId, Login login, DisplayName newDisplayName) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public UserSummary deleteUser(UserId userId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<UserSummary> listUsers(int pageIndex, int pageSize, String statusFilter) {
+            return List.copyOf(users);
+        }
+
+        @Override
+        public List<UserSummary> searchUsers(String query, int limit) {
+            return List.of();
+        }
+
+        @Override
+        public void changeOwnPassword(char[] currentPassword, char[] newPassword) {
+        }
+
+        @Override
+        public PasswordResetResult requestPasswordReset(UserId targetUserId) {
+            throw new UnsupportedOperationException();
+        }
+
+        private static UserSummary summary(String login, String name, String status) {
+            return new UserSummary(
+                    UserId.generate(),
+                    Login.of(login),
+                    DisplayName.of(name),
+                    status,
+                    0L,
+                    Instant.parse("2026-07-23T04:00:00Z"),
+                    Instant.parse("2026-07-23T04:00:00Z"));
+        }
+    }
+
+    private static final class RolesWithAssignments implements RoleAdministrationService {
+        private static final RoleId ROLE_A =
+                RoleId.of(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
+        private static final PermissionId PERM =
+                PermissionId.of("warehouse.stock.view");
+        private final Map<UserId, Set<RoleId>> assignments = new HashMap<>();
+        private final List<RoleSummary> roleCatalogue = new ArrayList<>();
+        private final List<PermissionSummary> permissionCatalogue = new ArrayList<>();
+
+        private RolesWithAssignments(UserSummary assignedUser) {
+            Instant ts = Instant.parse("2026-07-23T04:00:00Z");
+            roleCatalogue.add(new RoleSummary(ROLE_A, "Кладовщик", "", Set.of(PERM), 0L, ts, ts));
+            permissionCatalogue.add(new PermissionSummary(PERM, "Просмотр склада", "", true));
+            assignments.put(assignedUser.id(), new HashSet<>(Set.of(ROLE_A)));
+        }
+
+        @Override
+        public RoleSummary createRole(String name, String description) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RoleSummary updateRole(RoleId roleId, String name, String description) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RoleSummary grantPermissionToRole(RoleId roleId, PermissionId permissionId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RoleSummary revokePermissionFromRole(RoleId roleId, PermissionId permissionId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RoleSummary setRolePermissions(RoleId roleId, Set<PermissionId> targetPermissions) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void deleteRole(RoleId roleId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<RoleSummary> listRoles() {
+            return List.copyOf(roleCatalogue);
+        }
+
+        @Override
+        public void assignRole(UserId userId, RoleId roleId) {
+            assignments.computeIfAbsent(userId, id -> new HashSet<>()).add(roleId);
+        }
+
+        @Override
+        public void revokeRole(UserId userId, RoleId roleId) {
+            Set<RoleId> assigned = assignments.get(userId);
+            if (assigned != null) {
+                assigned.remove(roleId);
+            }
+        }
+
+        @Override
+        public Set<RoleId> listRolesForUser(UserId userId) {
+            return Set.copyOf(assignments.getOrDefault(userId, Set.of()));
+        }
+
+        @Override
+        public void grantIndividualPermission(UserId userId, PermissionId permissionId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void revokeIndividualPermission(UserId userId, PermissionId permissionId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void removeOverride(UserId userId, PermissionId permissionId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<PermissionSummary> listAllPermissionDefinitions() {
+            return List.copyOf(permissionCatalogue);
+        }
+    }
+
+    private static final class EmptyRoles implements RoleAdministrationService {
+        @Override
+        public RoleSummary createRole(String name, String description) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RoleSummary updateRole(RoleId roleId, String name, String description) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RoleSummary grantPermissionToRole(RoleId roleId, PermissionId permissionId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RoleSummary revokePermissionFromRole(RoleId roleId, PermissionId permissionId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RoleSummary setRolePermissions(RoleId roleId, Set<PermissionId> targetPermissions) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void deleteRole(RoleId roleId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<RoleSummary> listRoles() {
+            return List.of();
+        }
+
+        @Override
+        public void assignRole(UserId userId, RoleId roleId) {
+        }
+
+        @Override
+        public void revokeRole(UserId userId, RoleId roleId) {
+        }
+
+        @Override
+        public Set<RoleId> listRolesForUser(UserId userId) {
+            return Set.of();
+        }
+
+        @Override
+        public void grantIndividualPermission(UserId userId, PermissionId permissionId) {
+        }
+
+        @Override
+        public void revokeIndividualPermission(UserId userId, PermissionId permissionId) {
+        }
+
+        @Override
+        public void removeOverride(UserId userId, PermissionId permissionId) {
+        }
+
+        @Override
+        public List<PermissionSummary> listAllPermissionDefinitions() {
+            return List.of();
+        }
     }
 
     private static final class UsersWithActiveAndDeleted implements UserAdministrationService {

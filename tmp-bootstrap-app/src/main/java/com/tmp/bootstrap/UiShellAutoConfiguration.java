@@ -114,8 +114,11 @@ public class UiShellAutoConfiguration {
 
     @Bean
     UserAdministrationViewModel userAdministrationViewModel(
-            UserAdministrationService userAdministrationService, AuthorizationService authorizationService) {
-        return new UserAdministrationViewModel(userAdministrationService, authorizationService);
+            UserAdministrationService userAdministrationService,
+            RoleAdministrationService roleAdministrationService,
+            AuthorizationService authorizationService) {
+        return new UserAdministrationViewModel(
+                userAdministrationService, roleAdministrationService, authorizationService);
     }
 
     @Bean

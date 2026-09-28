@@ -453,7 +453,14 @@ class OrderImportControllerFxTest {
     private static OrderImportViewModel newFakeViewModel(
             OrderImportService imports, StxtOrderFileParser stxt) {
         return new OrderImportViewModel(
-                imports, stxt, new FakeAuthorization(PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION)));
+                imports,
+                stxt,
+                new FakeAuthorization(
+                        PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION),
+                        PermissionId.of(UiShellScreens.ORDER_ITEM_CREATE_PERMISSION),
+                        PermissionId.of(UiShellScreens.ORDER_REVISION_EDIT_PERMISSION),
+                        PermissionId.of(UiShellScreens.ORDER_ITEM_APPROVE_PERMISSION),
+                        PermissionId.of(UiShellScreens.ORDER_APPROVE_PERMISSION)));
     }
 
     private static FakeImportService successService() {

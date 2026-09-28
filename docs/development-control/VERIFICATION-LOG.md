@@ -2,6 +2,68 @@
 
 ## Latest result
 
+**Date:** 2026-09-28
+**Scope:** RBAC audit immediate corrections — Security Administrator Order+Production parity; Order Save/Import UI gates
+**Overall:** PASS (targeted security/order/UI/bootstrap + clean install + fresh package + startup); Full reactor NOT RUN
+**Migration:** NONE
+**Base HEAD:** `d4ff07728bbfead4e88da517ff4d0d54c50a27d8`
+**Working tree:** dirty (prior User Administration UX + this RBAC corrective; uncommitted); no commit / no push
+
+### RBAC audit immediate corrections (2026-09-28)
+
+| Check | Result |
+|-------|--------|
+| Security Administrator Order ensure (13) | PASS (`OrderAdminNavigationAccessEnsureTest`, `SecurityAdminCapabilityParityIT`) |
+| Security Administrator Production ensure (7) | PASS (`ProductionAdminNavigationAccessEnsureTest`, `SecurityAdminCapabilityParityIT`) |
+| Security / Warehouse ensure regression | PASS (`SecurityAdminNavigationAccessEnsureTest`, `WarehouseAdminNavigationAccessEnsureTest`) |
+| Authorization model unchanged | PASS (`AuthorizationApplicationServiceTest`, `EffectivePermissionCalculatorTest`, `SecurityAdministrationCapabilityTest`) |
+| Order Save approve-path UI gate | PASS (`OrderItemEditorViewModelTest`) |
+| Order Save backend deny without approve | PASS (`DefaultOrderItemDocumentUiServiceTest`) |
+| Order Import UI full permission set | PASS (`OrderImportViewModelTest`, `OrderListCreatePermissionTest`, `OrderImportControllerFxTest`) |
+| Order Import backend deny missing permission | PASS (`DefaultOrderImportServiceTest`) |
+| Order query / list bootstrap | PASS (`DefaultOrderQueryServiceSecurityTest`, `OrderListPermissionBootstrapIT`) |
+| `Stage4SecurityArchitectureTest` | PASS |
+| `mvn -pl :tmp-bootstrap-app -am clean install -DskipTests` | PASS |
+| Package `pre-integration-test -Ppackage` | PASS → `dist/jpackage/TMP/TMP.exe` **16:22:55**; jar **16:22:45** |
+| Startup `localhost:55432/tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 47 / current 47 / no migration; `Started DesktopBootstrap` ~4.9s; exceptions NONE; TMP running |
+| Full reactor | NOT RUN |
+| Deferred RBAC findings | delete permissions; inventory; reservation; revision.create; role templates; analytics |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-09-28
+**Scope:** Security / RBAC UX — User ↔ Roles ↔ Effective Permissions visibility
+**Overall:** PASS (targeted UI + security module + clean install + fresh package + startup); Full reactor NOT RUN
+**Migration:** NONE
+**Base HEAD:** `d4ff07728bbfead4e88da517ff4d0d54c50a27d8`
+**Working tree:** dirty (RBAC UX changes uncommitted); no commit / no push
+
+### Security / RBAC UX (2026-09-28)
+
+| Check | Result |
+|-------|--------|
+| User list roles column + labels | PASS (`UserAdministrationViewModelTest`, `UserAdministrationControllerFxTest`) |
+| User details / effective permissions union Role A+B | PASS (`UserSecurityPresentationTest`, ViewModel) |
+| Double-click handler + details snapshot | PASS (FX) |
+| Role screen regression | PASS (`RoleAdministrationViewModelTest` 10, `RoleAdministrationControllerFxTest` 5, `PermissionNamespaceGroupTest` 1) |
+| Authorization / security module | PASS (`tmp-security` 152 tests) |
+| Targeted UI suite | PASS 42 tests |
+| `mvn -pl :tmp-bootstrap-app -am clean install -DskipTests` | PASS |
+| Package `pre-integration-test -Ppackage` | PASS → `dist/jpackage/TMP/TMP.exe` **15:54:04**; jar **15:53:26** |
+| Startup `localhost:55432/tmp_gui_stage5` | PASS — TMP process alive (PIDs running) |
+| Full reactor | NOT RUN |
+| Manual acceptance | READY FROM: Безопасность → Пользователи |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
 **Date:** 2026-09-25
 **Scope:** Stage 3.5.15 — Task Dialog controls + Adjustment reason/history + History warehouse codes/comments
 **Overall:** PASS (targeted + architecture + clean install + fresh package + startup); Stage 3.5.15 remains IN PROGRESS; Manual acceptance READY FROM Склад → Задачи; Full reactor NOT RUN

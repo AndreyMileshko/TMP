@@ -147,7 +147,16 @@ public final class OrderListViewModel {
         boolean createAllowed =
                 authorizationService.hasPermission(PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION));
         canCreate.set(createAllowed);
-        canImport.set(createAllowed);
+        canImport.set(hasFullImportPermission());
+    }
+
+    private boolean hasFullImportPermission() {
+        for (String code : UiShellScreens.ORDER_IMPORT_REQUIRED_PERMISSIONS) {
+            if (!authorizationService.hasPermission(PermissionId.of(code))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public ObservableList<OrderOperationalSummary> orders() {

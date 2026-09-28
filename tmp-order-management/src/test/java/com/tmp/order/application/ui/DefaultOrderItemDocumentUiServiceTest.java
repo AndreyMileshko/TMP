@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -52,6 +53,7 @@ import com.tmp.order.domain.PayloadRevision;
 import com.tmp.order.domain.ProductCode;
 import com.tmp.order.domain.SpecificationLine;
 import com.tmp.order.domain.repository.OrderItemRepository;
+import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
@@ -653,6 +655,56 @@ class DefaultOrderItemDocumentUiServiceTest {
                 "ORDER_ITEM_REVISION_UPDATE", captor.getAllValues().get(0).documentTypeId());
         assertEquals(
                 "ORDER_ITEM_REVISION_APPROVE", captor.getAllValues().get(1).documentTypeId());
+    }
+
+    @Test
+    void saveExistingItemDeniesApprovePathWithoutItemApprovePermission() {
+        OrderId orderId = OrderId.generate();
+        OrderItemId itemId = OrderItemId.generate();
+        OrderItem activeDraft = activeWithDraft(orderId, itemId);
+        RevisionNumber draftNumber = activeDraft.draftRevisionNumber().orElseThrow();
+        when(orderItemRepository.findById(itemId)).thenReturn(Optional.of(activeDraft));
+        when(orderQueryService.getOrder(orderId))
+                .thenReturn(Optional.of(orderDto(orderId, OrderStatus.DRAFT)));
+
+        UUID revisionDoc = UUID.randomUUID();
+        when(documentEngine.createDocument(any(CreateDocumentCommand.class)))
+                .thenReturn(
+                        metadata(revisionDoc, DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE.name()));
+        when(draftPayloads.load(any(DocumentId.class))).thenReturn(Optional.empty());
+        when(draftPayloads.createDraft(any(OrderDocumentPayload.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(documentEngine.findById(revisionDoc))
+                .thenReturn(
+                        Optional.of(
+                                metadata(
+                                        revisionDoc,
+                                        DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE.name())));
+        when(draftPayloads.load(DocumentId.of(revisionDoc)))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty())
+                .thenReturn(
+                        Optional.of(
+                                OrderItemRevisionUpdatePayload.create(
+                                        DocumentId.of(revisionDoc),
+                                        itemId,
+                                        draftNumber,
+                                        OrderedQuantity.of(8),
+                                        List.of(),
+                                        NOW)));
+        when(documentEngine.postDocument(revisionDoc))
+                .thenReturn(
+                        metadata(revisionDoc, DocumentTypeCode.ORDER_ITEM_REVISION_UPDATE.name()));
+        doThrow(new AccessDeniedException("missing order.item.approve"))
+                .when(authorization)
+                .requirePermission(OrderManagementPermissions.ITEM_APPROVE);
+
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        service.saveExistingItem(
+                                itemId, OrderItemCommercialDraft.of("P-2", "Door", null), "8"));
+        verify(authorization).requirePermission(OrderManagementPermissions.ITEM_APPROVE);
     }
 
     @Test

@@ -80,6 +80,7 @@ public final class OrderItemEditorViewModel {
     private OrderStatus parentOrderStatus = OrderStatus.DRAFT;
     private RevisionNumber draftRevisionNumber;
     private RevisionNumber activeRevisionNumber;
+    private int draftSpecificationLineCount;
     private Runnable onBackToItemList = () -> {
     };
     private Consumer<OrderItemId> onItemOpened = id -> {
@@ -141,6 +142,7 @@ public final class OrderItemEditorViewModel {
         itemStatus = null;
         draftRevisionNumber = null;
         activeRevisionNumber = null;
+        draftSpecificationLineCount = 0;
         productCode.set("");
         name.set("");
         comments.set("");
@@ -350,6 +352,7 @@ public final class OrderItemEditorViewModel {
         itemStatus = snapshot.status();
         activeRevisionNumber = snapshot.activeRevisionNumber().orElse(null);
         draftRevisionNumber = snapshot.draftRevisionNumber().orElse(null);
+        draftSpecificationLineCount = snapshot.draftSpecificationLineCount();
         productCode.set(nullToEmpty(snapshot.productCode()));
         name.set(nullToEmpty(snapshot.name()));
         comments.set(nullToEmpty(snapshot.comments()));
@@ -377,6 +380,9 @@ public final class OrderItemEditorViewModel {
         boolean hasEdit =
                 authorization.hasPermission(
                         PermissionId.of(UiShellScreens.ORDER_ITEM_EDIT_PERMISSION));
+        boolean hasApprove =
+                authorization.hasPermission(
+                        PermissionId.of(UiShellScreens.ORDER_ITEM_APPROVE_PERMISSION));
         boolean hasCancel =
                 authorization.hasPermission(
                         PermissionId.of(UiShellScreens.ORDER_ITEM_CANCEL_PERMISSION));
@@ -395,13 +401,23 @@ public final class OrderItemEditorViewModel {
 
         boolean cancelled = itemStatus == OrderItemStatus.CANCELLED;
         boolean hasRevision = draftRevisionNumber != null || activeRevisionNumber != null;
-        boolean actuallyEditable =
-                hasEdit
-                        && OrderItemOperationalStatusDeriver.isItemDataEditable(
-                                parentOrderStatus, itemStatus);
+        boolean baseEditable =
+                OrderItemOperationalStatusDeriver.isItemDataEditable(
+                        parentOrderStatus, itemStatus);
+        // ACTIVE item with open draft under DRAFT parent can be saved; backend may auto-approve.
+        boolean activeDraftEditable =
+                parentDraft
+                        && itemStatus == OrderItemStatus.ACTIVE
+                        && draftRevisionNumber != null;
+        boolean actuallyEditable = hasEdit && (baseEditable || activeDraftEditable);
+        boolean approvePath =
+                itemStatus == OrderItemStatus.ACTIVE
+                        && draftRevisionNumber != null
+                        && draftSpecificationLineCount > 0;
+        boolean saveAllowed = actuallyEditable && (!approvePath || hasApprove);
 
         fieldsEditable.set(actuallyEditable);
-        canSave.set(actuallyEditable);
+        canSave.set(saveAllowed);
         canCancelItem.set(
                 hasCancel
                         && OrderItemOperationalStatusDeriver.isItemCancellable(

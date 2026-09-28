@@ -4,6 +4,68 @@
 
 ---
 
+## Security / RBAC — Immediate corrections after audit — 2026-09-28
+
+**Date:** 2026-09-28
+**Stage:** Security corrective (outside Stage 3.5.15)
+**Base HEAD:** `d4ff07728bbfead4e88da517ff4d0d54c50a27d8`
+**Status:** Implementation PASS; targeted security/order/UI/bootstrap tests + clean install + fresh package + startup PASS; no commit; Full reactor NOT RUN
+**Source:** `docs/security/RBAC_AUDIT_MATRIX.md`
+
+### Completed
+
+- Security Administrator receives Order + Production capabilities via ensure services (mirrors Warehouse ensure).
+- Order item Save UI gates aligned with backend approve-path (`order.item.edit` + `order.item.approve` when ACTIVE draft has specification lines).
+- Order Import UI gates aligned with backend (create + item.create + revision.edit + item.approve + order.approve).
+
+### Deferred (unchanged)
+
+- delete permissions; inventory; reservation; revision.create; role templates; analytics.
+
+### RBAC model
+
+- Not changed: AuthorizationApplicationService, EffectivePermissionCalculator, overrides, role inheritance (none), Warehouse/Production/Orders domain logic, Flyway.
+
+### Key files
+
+- `OrderAdminNavigationAccessEnsure`, `ProductionAdminNavigationAccessEnsure` (+ tests, `SecurityAdminCapabilityParityIT`)
+- `OrderItemEditorViewModel`, `OrderImportViewModel`, `OrderListViewModel`, `UiShellScreens`
+
+### Verification
+
+See VERIFICATION-LOG RBAC audit immediate corrections entry (2026-09-28).
+
+---
+
+## Security / RBAC UX — User roles + effective permissions visibility — 2026-09-28
+
+**Date:** 2026-09-28
+**Stage:** Security / RBAC UX corrective (outside Stage 3.5.15)
+**Base HEAD:** `d4ff07728bbfead4e88da517ff4d0d54c50a27d8`
+**Status:** Implementation PASS; targeted UI + security tests + clean install + fresh package + startup PASS; no commit; Full reactor NOT RUN
+
+### Users screen
+
+- Table columns: Логин / Имя / Роли / Статус.
+- Roles column: comma-separated role names; empty → «Роли не назначены».
+- Double-click opens user details card «Пользователь».
+
+### User details
+
+- Header: login, name, status badge.
+- Roles checkboxes + «Применить роли» via existing `assignRole` / `revokeRole` / `listRolesForUser`.
+- «Фактические права пользователя»: union of permissions from all assigned roles, grouped via existing `PermissionNamespaceGroup` (✓ / ✕).
+
+### Roles screen
+
+- Unchanged (role → permissions catalogue remains primary for role rights).
+
+### RBAC model
+
+- No domain / authorization / migration changes. UI + existing RoleAdministrationService only.
+
+---
+
 ## Stage 3.5.15 — Task Dialog controls + Adjustment reason/history + History codes/comments — 2026-09-25
 
 **Date:** 2026-09-25

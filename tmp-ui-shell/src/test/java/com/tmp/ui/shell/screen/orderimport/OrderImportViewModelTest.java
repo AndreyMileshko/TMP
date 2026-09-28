@@ -411,7 +411,37 @@ class OrderImportViewModelTest {
     }
 
     private static FakeAuthorization createAuth() {
-        return new FakeAuthorization(PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION));
+        return new FakeAuthorization(
+                PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION),
+                PermissionId.of(UiShellScreens.ORDER_ITEM_CREATE_PERMISSION),
+                PermissionId.of(UiShellScreens.ORDER_REVISION_EDIT_PERMISSION),
+                PermissionId.of(UiShellScreens.ORDER_ITEM_APPROVE_PERMISSION),
+                PermissionId.of(UiShellScreens.ORDER_APPROVE_PERMISSION));
+    }
+
+    @Test
+    void importDisabledWhenOnlyOrderCreatePermissionGranted() {
+        FakeImportService imports = new FakeImportService();
+        imports.preview = successPreview("ORD-1", 2, "3", 4);
+        OrderImportViewModel viewModel =
+                new OrderImportViewModel(
+                        imports,
+                        new FakeStxtParser(),
+                        new FakeAuthorization(PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION)));
+        viewModel.selectFile(Path.of("sample.stxt"));
+        assertFalse(viewModel.canSelectFileProperty().get());
+        assertFalse(viewModel.canImportProperty().get());
+        assertEquals(OrderUiErrorMapper.ACCESS_DENIED, viewModel.errorMessageProperty().get());
+    }
+
+    @Test
+    void importEnabledWithFullImportPermissionSet() {
+        FakeImportService imports = new FakeImportService();
+        imports.preview = successPreview("ORD-FULL", 1, "1", 1);
+        OrderImportViewModel viewModel =
+                new OrderImportViewModel(imports, new FakeStxtParser(), createAuth());
+        viewModel.selectFile(Path.of("full.stxt"));
+        assertTrue(viewModel.canImportProperty().get());
     }
 
     private static final class FakeStxtParser implements StxtOrderFileParser {

@@ -5,7 +5,8 @@
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
 **UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Task Dialog editors/caret + History CODE + Adjustment reason V47 + History comment popup COMPLETE 2026-09-25; Write-off deferred)
 **Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS; Task Dialog + Adjustment reason/history + History codes/comments DONE — awaiting manual UX)
-**Last completed task:** Stage 3.5.15 Task Dialog controls + Adjustment reason/history + History warehouse codes/comments (2026-09-25); prior: Tasks creation timestamp
+**Last completed task:** RBAC audit immediate corrections (2026-09-28) — Security Administrator Order+Production parity; Order Save/Import UI gates; prior: Security/RBAC UX User roles visibility; Stage 3.5.15 Task Dialog controls
+**RBAC audit immediate corrections (2026-09-28):** PASS — Security Administrator ensure Order (13) + Production (7); Order item Save UI requires `order.item.approve` on approve-path; Order Import UI requires full backend permission set; deferred: delete permissions, inventory, reservation, revision.create, role templates, analytics
 **STAGE7-017 actual multi-cell correction:** DONE (Java/FXML/tests). Full reactor regression PASS in STAGE7-018.
 
 **Active blockers:** none. Primary path Склад → Задачи / Остатки → Корректировать / История. Manual interactive Warehouse acceptance **READY FROM Склад → Задачи**.

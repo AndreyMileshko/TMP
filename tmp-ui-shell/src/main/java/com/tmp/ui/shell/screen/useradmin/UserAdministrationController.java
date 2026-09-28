@@ -34,6 +34,9 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
     private TableColumn<UserSummary, String> displayNameColumn;
 
     @FXML
+    private TableColumn<UserSummary, String> rolesColumn;
+
+    @FXML
     private TableColumn<UserSummary, String> statusColumn;
 
     @FXML
@@ -54,6 +57,8 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
                 new javafx.beans.property.SimpleStringProperty(cell.getValue().login().value()));
         displayNameColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(cell.getValue().displayName().value()));
+        rolesColumn.setCellValueFactory(cell ->
+                new javafx.beans.property.SimpleStringProperty(viewModel.rolesLabelFor(cell.getValue())));
         statusColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(cell.getValue().status()));
         statusColumn.setCellFactory(column -> new StatusBadgeTableCell());
@@ -63,6 +68,11 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
         userTable.setItems(viewModel.filteredUserList());
         userTable.setPlaceholder(createEmptyState());
         userTable.setRowFactory(table -> createContextMenuRow());
+        userTable.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2 && !userTable.getSelectionModel().isEmpty()) {
+                onOpenUserDetails(userTable.getSelectionModel().getSelectedItem());
+            }
+        });
 
         createUserButton.visibleProperty().bind(viewModel.canCreateProperty());
         createUserButton.managedProperty().bind(viewModel.canCreateProperty());
@@ -159,6 +169,30 @@ public final class UserAdministrationController implements ViewModelAware<UserAd
                 () -> !viewModel.canDeleteUser(row.getItem()), row.itemProperty()));
 
         return row;
+    }
+
+    private void onOpenUserDetails(UserSummary user) {
+        if (user == null) {
+            return;
+        }
+        viewModel.openUserDetails(user).ifPresent(snapshot ->
+                UserAdministrationDialogs.showUserDetailsDialog(
+                        userTable.getScene().getWindow(),
+                        snapshot,
+                        desired -> {
+                            boolean applied = viewModel.applyRoleAssignments(user, desired);
+                            if (applied) {
+                                return viewModel.openUserDetails(findUpdatedUser(user.id())).orElse(snapshot);
+                            }
+                            return snapshot;
+                        }));
+    }
+
+    private UserSummary findUpdatedUser(com.tmp.security.api.UserId userId) {
+        return viewModel.userList().stream()
+                .filter(u -> u.id().equals(userId))
+                .findFirst()
+                .orElse(null);
     }
 
     private void onCreateUser() {

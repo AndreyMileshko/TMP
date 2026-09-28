@@ -144,8 +144,7 @@ public final class OrderImportViewModel {
     }
 
     public void refreshPermissions() {
-        boolean allowed = authorizationService.hasPermission(
-                PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION));
+        boolean allowed = hasFullImportPermission();
         canSelectFile.set(allowed && !successVisible.get());
         if (!allowed) {
             canImport.set(false);
@@ -224,8 +223,7 @@ public final class OrderImportViewModel {
         if (successVisible.get()) {
             return;
         }
-        if (!authorizationService.hasPermission(
-                PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION))) {
+        if (!hasFullImportPermission()) {
             errorMessage.set(OrderUiErrorMapper.ACCESS_DENIED);
             canImport.set(false);
             return;
@@ -632,9 +630,7 @@ public final class OrderImportViewModel {
     }
 
     private void updateImportAvailability() {
-        boolean allowed =
-                authorizationService.hasPermission(
-                        PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION));
+        boolean allowed = hasFullImportPermission();
         boolean ready =
                 allowed
                         && !successVisible.get()
@@ -647,6 +643,15 @@ public final class OrderImportViewModel {
                                                         == OrderImportProblemSeverity.ERROR);
         canImport.set(ready && !loading.get());
         canSelectFile.set(allowed && !successVisible.get() && !loading.get());
+    }
+
+    private boolean hasFullImportPermission() {
+        for (String code : UiShellScreens.ORDER_IMPORT_REQUIRED_PERMISSIONS) {
+            if (!authorizationService.hasPermission(PermissionId.of(code))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void updateVisibility() {

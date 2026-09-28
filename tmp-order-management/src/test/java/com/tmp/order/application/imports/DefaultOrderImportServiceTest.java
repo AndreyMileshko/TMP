@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -34,9 +35,11 @@ import com.tmp.order.application.processing.ProcessingOperation;
 import com.tmp.order.application.processing.ProcessingRecord;
 import com.tmp.order.application.processing.ProcessingRecordPort;
 import com.tmp.order.application.processing.ResultReference;
+import com.tmp.order.capability.OrderManagementPermissions;
 import com.tmp.order.domain.OrderNumber;
 import com.tmp.order.domain.repository.CustomerOrderRepository;
 import com.tmp.order.domain.repository.OrderItemRepository;
+import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -435,6 +438,27 @@ class DefaultOrderImportServiceTest {
         assertTrue(preview.canConfirm());
         assertTrue(preview.preparedPlan().isPresent());
         assertInstanceOf(DefaultPreparedOrderImportPlan.class, preview.preparedPlan().orElseThrow());
+    }
+
+    @Test
+    void confirmDeniesWhenItemApprovePermissionMissing() {
+        stubPreviewReadOnlyOk();
+        PreparedOrderImportPlan plan = service.preview(validBatch()).preparedPlan().orElseThrow();
+        org.mockito.Mockito.clearInvocations(authorizationService, documentEngine);
+        org.mockito.Mockito.doAnswer(
+                        invocation -> {
+                            if (OrderManagementPermissions.ITEM_APPROVE.equals(
+                                    invocation.getArgument(0))) {
+                                throw new AccessDeniedException("missing order.item.approve");
+                            }
+                            return null;
+                        })
+                .when(authorizationService)
+                .requirePermission(org.mockito.ArgumentMatchers.any());
+
+        assertThrows(AccessDeniedException.class, () -> service.confirm(plan));
+        verify(authorizationService).requirePermission(OrderManagementPermissions.ITEM_APPROVE);
+        verify(documentEngine, never()).createDocument(any());
     }
 
     @Test

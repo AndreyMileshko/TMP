@@ -26,6 +26,22 @@ class OrderListCreatePermissionTest {
                         PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION)));
         viewModel.refresh();
         assertTrue(viewModel.canCreateProperty().get());
+        assertFalse(viewModel.canImportProperty().get());
+    }
+
+    @Test
+    void fullImportPermissionsEnableImportOrder() {
+        OrderListViewModel viewModel = OrderListTestSupport.viewModel(
+                new FakeAuthorization(
+                        PermissionId.of(UiShellScreens.ORDER_LIST_REQUIRED_PERMISSION),
+                        PermissionId.of(UiShellScreens.ORDER_CREATE_PERMISSION),
+                        PermissionId.of(UiShellScreens.ORDER_ITEM_CREATE_PERMISSION),
+                        PermissionId.of(UiShellScreens.ORDER_REVISION_EDIT_PERMISSION),
+                        PermissionId.of(UiShellScreens.ORDER_ITEM_APPROVE_PERMISSION),
+                        PermissionId.of(UiShellScreens.ORDER_APPROVE_PERMISSION)));
+        viewModel.refresh();
+        assertTrue(viewModel.canCreateProperty().get());
+        assertTrue(viewModel.canImportProperty().get());
     }
 
     @Test

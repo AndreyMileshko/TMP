@@ -1,19 +1,35 @@
 package com.tmp.ui.shell.screen.useradmin;
 
+import com.tmp.security.api.RoleId;
 import com.tmp.security.api.UserSummary;
+import com.tmp.ui.shell.screen.useradmin.UserAdministrationViewModel.UserDetailsSnapshot;
+import com.tmp.ui.shell.screen.useradmin.UserSecurityPresentation.EffectivePermissionGroup;
+import com.tmp.ui.shell.screen.useradmin.UserSecurityPresentation.EffectivePermissionItem;
+import com.tmp.ui.shell.screen.useradmin.UserSecurityPresentation.RoleAssignmentItem;
 import com.tmp.ui.shell.theme.TmpTheme;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TreeItem;
+import javafx.scene.control.TreeView;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
@@ -52,6 +68,161 @@ final class UserAdministrationDialogs {
                 enabled,
                 user.login().value(),
                 user.displayName().value());
+    }
+
+    static void showUserDetailsDialog(
+            Window owner,
+            UserDetailsSnapshot initial,
+            Function<Set<RoleId>, UserDetailsSnapshot> applyRoles) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.initOwner(owner);
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.setTitle("Пользователь");
+        dialog.setHeaderText(null);
+
+        DialogPane dialogPane = dialog.getDialogPane();
+        TmpTheme.apply(dialogPane);
+        dialogPane.setMinWidth(520);
+        dialogPane.setPrefWidth(560);
+        dialogPane.setPrefHeight(640);
+
+        ButtonType closeType = new ButtonType("Закрыть", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialogPane.getButtonTypes().add(closeType);
+        Button closeButton = (Button) dialogPane.lookupButton(closeType);
+        closeButton.getStyleClass().add("tmp-button-secondary");
+
+        Label loginValue = new Label();
+        Label nameValue = new Label();
+        HBox statusBox = new HBox();
+        VBox rolesBox = new VBox(6);
+        TreeView<String> permissionsTree = new TreeView<>();
+        permissionsTree.setShowRoot(false);
+        permissionsTree.setFocusTraversable(false);
+        Label rolesEmptyLabel = new Label(UserSecurityPresentation.NO_ROLES);
+        rolesEmptyLabel.getStyleClass().add("tmp-text-muted");
+        Label permissionsEmptyLabel = new Label(UserSecurityPresentation.NO_PERMISSIONS);
+        permissionsEmptyLabel.getStyleClass().add("tmp-text-muted");
+        Button applyRolesButton = new Button("Применить роли");
+        applyRolesButton.getStyleClass().add("tmp-button-action");
+        Map<RoleId, CheckBox> roleChecks = new HashMap<>();
+
+        Label loginLabel = formLabel("Логин");
+        Label nameLabel = formLabel("Имя");
+        Label statusLabel = formLabel("Статус");
+        Label rolesTitle = formLabel("Роли пользователя");
+        Label permissionsTitle = formLabel("Фактические права пользователя");
+
+        GridPane header = new GridPane();
+        header.getStyleClass().add("tmp-form");
+        header.add(loginLabel, 0, 0);
+        header.add(loginValue, 1, 0);
+        header.add(nameLabel, 0, 1);
+        header.add(nameValue, 1, 1);
+        header.add(statusLabel, 0, 2);
+        header.add(statusBox, 1, 2);
+        GridPane.setHgrow(loginValue, Priority.ALWAYS);
+        GridPane.setHgrow(nameValue, Priority.ALWAYS);
+
+        VBox rolesSection = new VBox(8, rolesTitle, rolesBox, rolesEmptyLabel, applyRolesButton);
+        VBox permissionsSection = new VBox(8, permissionsTitle, permissionsTree, permissionsEmptyLabel);
+        VBox.setVgrow(permissionsTree, Priority.ALWAYS);
+
+        VBox content = new VBox(16, header, rolesSection, permissionsSection);
+        content.setPadding(new Insets(8, 8, 0, 8));
+        ScrollPane scroll = new ScrollPane(content);
+        scroll.setFitToWidth(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        dialogPane.setContent(scroll);
+
+        final UserDetailsSnapshot[] current = {initial};
+        Runnable refreshUi = () -> bindUserDetails(
+                current[0],
+                loginValue,
+                nameValue,
+                statusBox,
+                rolesBox,
+                rolesEmptyLabel,
+                permissionsTree,
+                permissionsEmptyLabel,
+                roleChecks,
+                applyRolesButton);
+        applyRolesButton.setOnAction(e -> {
+            Set<RoleId> desired = new HashSet<>();
+            for (Map.Entry<RoleId, CheckBox> entry : roleChecks.entrySet()) {
+                if (entry.getValue().isSelected()) {
+                    desired.add(entry.getKey());
+                }
+            }
+            UserDetailsSnapshot updated = applyRoles.apply(desired);
+            if (updated != null) {
+                current[0] = updated;
+                refreshUi.run();
+            }
+        });
+        refreshUi.run();
+
+        dialog.showAndWait();
+    }
+
+    private static void bindUserDetails(
+            UserDetailsSnapshot snapshot,
+            Label loginValue,
+            Label nameValue,
+            HBox statusBox,
+            VBox rolesBox,
+            Label rolesEmptyLabel,
+            TreeView<String> permissionsTree,
+            Label permissionsEmptyLabel,
+            Map<RoleId, CheckBox> roleChecks,
+            Button applyRolesButton) {
+        UserSummary user = snapshot.user();
+        loginValue.setText(user.login().value());
+        nameValue.setText(user.displayName().value());
+        statusBox.getChildren().setAll(UserStatusPresentation.createStatusBadge(user.status()));
+
+        roleChecks.clear();
+        rolesBox.getChildren().clear();
+        boolean hasRolesCatalogue = !snapshot.roles().isEmpty();
+        rolesEmptyLabel.setVisible(!hasRolesCatalogue);
+        rolesEmptyLabel.setManaged(!hasRolesCatalogue);
+        rolesBox.setVisible(hasRolesCatalogue);
+        rolesBox.setManaged(hasRolesCatalogue);
+        for (RoleAssignmentItem item : snapshot.roles()) {
+            CheckBox check = new CheckBox(item.name());
+            check.setSelected(item.assigned());
+            check.setDisable(!snapshot.roleAssignmentEditable());
+            roleChecks.put(item.roleId(), check);
+            rolesBox.getChildren().add(check);
+        }
+        if (!hasRolesCatalogue) {
+            rolesEmptyLabel.setText(UserSecurityPresentation.NO_ROLES);
+        }
+        applyRolesButton.setVisible(snapshot.roleAssignmentEditable() && hasRolesCatalogue);
+        applyRolesButton.setManaged(snapshot.roleAssignmentEditable() && hasRolesCatalogue);
+
+        List<EffectivePermissionGroup> groups = snapshot.permissionGroups();
+        boolean hasPermissions = !groups.isEmpty();
+        permissionsEmptyLabel.setVisible(!hasPermissions);
+        permissionsEmptyLabel.setManaged(!hasPermissions);
+        permissionsTree.setVisible(hasPermissions);
+        permissionsTree.setManaged(hasPermissions);
+        if (!hasPermissions) {
+            permissionsTree.setRoot(null);
+            permissionsEmptyLabel.setText(UserSecurityPresentation.NO_PERMISSIONS);
+            return;
+        }
+        TreeItem<String> root = new TreeItem<>("root");
+        root.setExpanded(true);
+        for (EffectivePermissionGroup group : groups) {
+            TreeItem<String> groupItem = new TreeItem<>(group.displayName());
+            groupItem.setExpanded(true);
+            for (EffectivePermissionItem permission : group.permissions()) {
+                String mark = permission.granted() ? "✓ " : "✕ ";
+                groupItem.getChildren().add(new TreeItem<>(mark + permission.displayName()));
+            }
+            root.getChildren().add(groupItem);
+        }
+        permissionsTree.setRoot(root);
     }
 
     private static Dialog<UserFormResult> buildUserFormDialog(

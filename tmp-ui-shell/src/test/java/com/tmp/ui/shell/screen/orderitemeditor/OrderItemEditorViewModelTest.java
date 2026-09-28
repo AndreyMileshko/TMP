@@ -120,6 +120,59 @@ class OrderItemEditorViewModelTest {
     }
 
     @Test
+    void approvePathSaveRequiresEditAndApprovePermissions() {
+        FakeDocs docs = new FakeDocs();
+        FakeEditorQuery query = new FakeEditorQuery();
+        FakeOrderQuery orders = new FakeOrderQuery();
+        OrderItemId id = OrderItemId.generate();
+        OrderId orderId = OrderId.generate();
+        query.snapshot = activeWithDraftSpec(id, orderId);
+        orders.status = OrderStatus.DRAFT;
+
+        OrderItemEditorViewModel withoutApprove =
+                new OrderItemEditorViewModel(
+                        docs,
+                        query,
+                        auth(Set.of(
+                                PermissionId.of("order.item.view"),
+                                PermissionId.of("order.item.edit"),
+                                PermissionId.of("order.specification.view"))),
+                        orders,
+                        new FakeCurrentSpec(),
+                        null);
+        withoutApprove.openExisting(id);
+        assertTrue(withoutApprove.fieldsEditableProperty().get());
+        assertFalse(withoutApprove.canSaveProperty().get());
+
+        OrderItemEditorViewModel withApprove =
+                new OrderItemEditorViewModel(
+                        docs, query, auth(allItemPerms()), orders, new FakeCurrentSpec(), null);
+        withApprove.openExisting(id);
+        assertTrue(withApprove.fieldsEditableProperty().get());
+        assertTrue(withApprove.canSaveProperty().get());
+    }
+
+    @Test
+    void ordinaryDraftEditDoesNotRequireApprovePermission() {
+        FakeDocs docs = new FakeDocs();
+        FakeEditorQuery query = new FakeEditorQuery();
+        OrderItemId id = OrderItemId.generate();
+        query.snapshot = snapshot(id, OrderItemStatus.DRAFT, true, false);
+        OrderItemEditorViewModel viewModel =
+                new OrderItemEditorViewModel(
+                        docs,
+                        query,
+                        auth(Set.of(
+                                PermissionId.of("order.item.view"),
+                                PermissionId.of("order.item.edit"),
+                                PermissionId.of("order.item.cancel"),
+                                PermissionId.of("order.specification.view"))));
+        viewModel.openExisting(id);
+        assertTrue(viewModel.fieldsEditableProperty().get());
+        assertTrue(viewModel.canSaveProperty().get());
+    }
+
+    @Test
     void openSpecificationUsesCurrentFacade() {
         FakeDocs docs = new FakeDocs();
         FakeEditorQuery query = new FakeEditorQuery();
@@ -180,6 +233,22 @@ class OrderItemEditorViewModelTest {
 
     private static FakeAuthorization auth(Set<PermissionId> granted) {
         return new FakeAuthorization(granted);
+    }
+
+    private static OrderItemEditorSnapshot activeWithDraftSpec(OrderItemId id, OrderId orderId) {
+        return OrderItemEditorSnapshot.of(
+                id,
+                orderId,
+                "P-1",
+                "Panel",
+                null,
+                "EXT-1",
+                OrderItemStatus.ACTIVE,
+                OrderItemEditorSnapshot.RevisionView.of(
+                        RevisionNumber.first(), RevisionStatus.ACTIVE, BigDecimal.TEN, 1),
+                OrderItemEditorSnapshot.RevisionView.of(
+                        RevisionNumber.of(2), RevisionStatus.DRAFT, BigDecimal.ONE, 2),
+                BigDecimal.ONE);
     }
 
     private static OrderItemEditorSnapshot snapshot(
