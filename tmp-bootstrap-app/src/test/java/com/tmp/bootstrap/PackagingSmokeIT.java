@@ -16,6 +16,8 @@ import com.tmp.ui.shell.screen.login.LoginViewModel;
 import com.tmp.ui.shell.screen.orderimport.OrderImportController;
 import com.tmp.ui.shell.screen.orderimport.OrderImportViewModel;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -30,7 +32,7 @@ import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
-import javafx.scene.control.TextField;
+import javafx.scene.control.Label;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.boot.WebApplicationType;
@@ -48,6 +50,8 @@ class PackagingSmokeIT {
     private static final Path APP_IMAGE = Path.of("..", "dist", "jpackage", "TMP");
     private static final String ADMIN_PASSWORD = "package-smoke-admin-password";
     private static final Duration WINDOW_WAIT = Duration.ofSeconds(90);
+    /** PE Optional Header Subsystem: IMAGE_SUBSYSTEM_WINDOWS_GUI */
+    private static final int IMAGE_SUBSYSTEM_WINDOWS_GUI = 2;
 
     @Test
     @EnabledIfSystemProperty(named = "tmp.package.verify", matches = "true")
@@ -59,6 +63,10 @@ class PackagingSmokeIT {
 
         assertTrue(Files.isDirectory(APP_IMAGE), "jpackage app-image root must exist");
         assertTrue(Files.isRegularFile(executable), "jpackage must produce TMP.exe");
+        assertEquals(
+                IMAGE_SUBSYSTEM_WINDOWS_GUI,
+                readPeSubsystem(executable),
+                "TMP.exe must be a Windows GUI launcher (no --win-console)");
         assertTrue(Files.isDirectory(runtime), "jpackage must include bundled runtime");
         assertTrue(Files.isDirectory(appDirectory), "jpackage must include app directory");
 
@@ -129,13 +137,22 @@ class PackagingSmokeIT {
                 assertTrue(authenticationService.isAuthenticated());
 
                 LoadedImportScreen importScreen = loadImportScreen(orderImportViewModel);
-                assertNotNull(importScreen.root.lookup("#selectFileButton"));
-                assertNotNull(importScreen.root.lookup("#fileNameField"));
-                assertNotNull(importScreen.root.lookup("#importButton"));
+                assertNotNull(
+                        importScreen.root.lookup("#selectFileButton"),
+                        "Import FXML must expose selectFileButton");
+                assertNotNull(
+                        importScreen.root.lookup("#selectedFileNameLabel"),
+                        "Import FXML must expose selectedFileNameLabel");
+                assertNotNull(
+                        importScreen.root.lookup("#importButton"),
+                        "Import FXML must expose importButton");
                 assertEquals(
                         "Выбрать файл",
                         ((Button) importScreen.root.lookup("#selectFileButton")).getText());
-                assertTrue(((TextField) importScreen.root.lookup("#fileNameField")).getText().isBlank());
+                assertTrue(
+                        ((Label) importScreen.root.lookup("#selectedFileNameLabel"))
+                                .getText()
+                                .isBlank());
                 assertFalse(
                         orderImportViewModel.canImportProperty().get(),
                         "Import must stay disabled without file/preview");
@@ -160,7 +177,9 @@ class PackagingSmokeIT {
         env.put("TMP_SECURITY_BOOTSTRAP_ADMIN_LOGIN", "admin");
         env.put("TMP_SECURITY_BOOTSTRAP_ADMIN_DISPLAY_NAME", "Administrator");
         env.put("TMP_SECURITY_BOOTSTRAP_ADMIN_PASSWORD", ADMIN_PASSWORD);
-        builder.redirectErrorStream(true);
+        // GUI launcher has no console; unread redirected pipes fill and stall Spring startup.
+        builder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+        builder.redirectError(ProcessBuilder.Redirect.DISCARD);
         return builder.start();
     }
 
@@ -187,12 +206,16 @@ class PackagingSmokeIT {
         Platform.runLater(
                 () -> {
                     try {
-                        FXMLLoader loader =
-                                new FXMLLoader(
-                                        PackagingSmokeIT.class
-                                                .getClassLoader()
-                                                .getResource(UiShellScreens.ORDER_IMPORT_FXML));
+                        var resource =
+                                PackagingSmokeIT.class
+                                        .getClassLoader()
+                                        .getResource(UiShellScreens.ORDER_IMPORT_FXML);
+                        assertNotNull(resource, "Order Import FXML must be on classpath");
+                        FXMLLoader loader = new FXMLLoader(resource);
                         Parent loaded = loader.load();
+                        assertNotNull(
+                                loaded.lookup("#selectFileButton"),
+                                "selectFileButton must exist after FXML load");
                         OrderImportController controller = loader.getController();
                         controller.setViewModel(viewModel);
                         root.set(loaded);
@@ -256,6 +279,21 @@ class PackagingSmokeIT {
                 },
                 Pointer.NULL);
         return found.get();
+    }
+
+    /**
+     * Reads the Windows PE Optional Header Subsystem field from an executable.
+     * GUI launchers use {@value #IMAGE_SUBSYSTEM_WINDOWS_GUI}; console launchers use 3.
+     */
+    private static int readPeSubsystem(Path executable) throws IOException {
+        byte[] bytes = Files.readAllBytes(executable);
+        ByteBuffer buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+        int peOffset = buffer.getInt(0x3C);
+        assertEquals(0x00004550, buffer.getInt(peOffset), "PE signature");
+        short magic = buffer.getShort(peOffset + 24);
+        assertTrue(magic == 0x10B || magic == 0x20B, "PE optional header magic");
+        int subsystemOffset = peOffset + 24 + 68;
+        return Short.toUnsignedInt(buffer.getShort(subsystemOffset));
     }
 
     private static Path findApplicationJar(Path appDirectory) throws IOException {

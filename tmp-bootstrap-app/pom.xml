@@ -176,7 +176,6 @@
                                         <argument>org.springframework.boot.loader.launch.JarLauncher</argument>
                                         <argument>--dest</argument>
                                         <argument>${project.basedir}/../dist/jpackage</argument>
-                                        <argument>--win-console</argument>
                                         <argument>--java-options</argument>
                                         <argument>-Dspring.profiles.active=package</argument>
                                         <argument>--java-options</argument>
