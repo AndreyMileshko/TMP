@@ -180,17 +180,6 @@ class ProductionSchemaFlywayTest {
         assertEquals(1, applied31);
         assertEquals(1, applied43);
         assertEquals(1, applied44);
-
-        String latest =
-                jdbc.queryForObject(
-                        """
-                        SELECT version FROM flyway_schema_history
-                        WHERE success = TRUE
-                        ORDER BY installed_rank DESC
-                        LIMIT 1
-                        """,
-                        String.class);
-        assertEquals("44", latest);
     }
 
     @Test

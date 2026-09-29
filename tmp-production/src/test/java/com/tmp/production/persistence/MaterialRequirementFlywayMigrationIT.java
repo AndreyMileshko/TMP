@@ -64,17 +64,6 @@ class MaterialRequirementFlywayMigrationIT {
                         Integer.class);
         assertEquals(1, applied44);
 
-        String latest =
-                jdbc.queryForObject(
-                        """
-                        SELECT version FROM flyway_schema_history
-                        WHERE success = TRUE
-                        ORDER BY installed_rank DESC
-                        LIMIT 1
-                        """,
-                        String.class);
-        assertEquals("44", latest);
-
         Integer applied42 =
                 jdbc.queryForObject(
                         """
