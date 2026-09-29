@@ -92,6 +92,9 @@ class WarehouseWorkspaceViewModelTest {
         assertEquals(
                 "Нет задач, требующих вашего действия",
                 viewModel.statusMessageProperty().get());
+        assertEquals(
+                "Нет задач, требующих вашего действия",
+                viewModel.tableEmptyMessageProperty().get());
     }
 
     @Test
@@ -1319,6 +1322,23 @@ class WarehouseWorkspaceViewModelTest {
         assertEquals(2, api.receiveCommands.size());
         assertEquals(0, new BigDecimal("2").compareTo(api.receiveCommands.get(1).destinationAllocations().get(0).quantity()));
         assertEquals("Принято: 2", viewModel.statusMessageProperty().get());
+    }
+
+    @Test
+    void receiveSuccessDoesNotReplaceEmptyTasksTableHint() {
+        ReceiptFixture fx = openReceipt();
+        ReceiveAllocationEditRow row = (ReceiveAllocationEditRow) viewModel.actionLines().get(0);
+        row.storageCellProperty().set(choice(viewModel.actionCellChoices(), fx.destCell));
+        api.tasks.clear();
+
+        viewModel.receiveSelectedTask();
+
+        assertEquals("Принято: 8", viewModel.statusMessageProperty().get());
+        assertEquals(
+                "Нет задач, требующих вашего действия",
+                viewModel.tableEmptyMessageProperty().get());
+        assertFalse(viewModel.tableEmptyMessageProperty().get().startsWith("Принято:"));
+        assertTrue(viewModel.taskRows().isEmpty());
     }
 
     @Test

@@ -4,6 +4,33 @@
 
 ---
 
+## Stage 3.5 Final Regression & Checkpoint — Warehouse + Security Stabilization — 2026-09-28
+
+**Date:** 2026-09-28
+**Stage:** 3.5.15 acceptance / stabilization (no new feature scope)
+**Base HEAD:** `703e3721800f32d0a7949163413a0e036c6cc381`
+**Status:** Stabilization PASS; Stage 3.5 remains IN PROGRESS until manual confirmation; no commit; Full reactor NOT RUN
+
+### Scope
+
+- Regression only: Warehouse Stocks / Move / Transfer / Partial Receive / Receipt / Tasks / History / Adjustment + Security RBAC UX / gates.
+- No Inventory, Reservation, Write-off redesign, Information Links, Analytics, Role templates.
+
+### Fix
+
+- Warehouse table placeholders were bound to `statusMessage`, so success feedback (`Принято: N`) could appear as the empty-table hint after Receive cleared the task list.
+- Introduced `tableEmptyMessage` for Tasks / Stocks / History placeholders; status bar keeps operation feedback.
+
+### Checkpoint
+
+- `docs/development-control/STAGE-3.5-CHECKPOINT.md` prepared — READY FOR NEXT MODULE (Stage 3.5 formally still IN PROGRESS).
+
+### Verification
+
+See VERIFICATION-LOG Stage 3.5 Final Regression & Checkpoint entry (2026-09-28).
+
+---
+
 ## Security / RBAC UX — Completion after audit — 2026-09-28
 
 **Date:** 2026-09-28

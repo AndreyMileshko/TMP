@@ -864,6 +864,9 @@ public final class WarehouseWorkspaceViewModel {
             new SimpleObjectProperty<>(WorkspaceTab.TASKS);
     private final StringProperty title = new SimpleStringProperty("Склад");
     private final StringProperty statusMessage = new SimpleStringProperty("");
+    /** Empty-table hint only — never success/status feedback (e.g. «Принято: 10»). */
+    private final StringProperty tableEmptyMessage =
+            new SimpleStringProperty(EMPTY_TASKS_MESSAGE);
     private final StringProperty errorMessage = new SimpleStringProperty("");
     private final StringProperty taskDetailsText =
             new SimpleStringProperty(TASK_DETAILS_PLACEHOLDER);
@@ -1069,10 +1072,13 @@ public final class WarehouseWorkspaceViewModel {
         selectedTab.set(tab);
         errorMessage.set("");
         if (tab == WorkspaceTab.TASKS) {
+            tableEmptyMessage.set(EMPTY_TASKS_MESSAGE);
             reloadTasks();
         } else if (tab == WorkspaceTab.STOCK) {
+            tableEmptyMessage.set(EMPTY_STOCK_MESSAGE);
             ensureStockLoaded();
         } else if (tab == WorkspaceTab.HISTORY) {
+            tableEmptyMessage.set(EMPTY_HISTORY_PERIOD_MESSAGE);
             long actionId = HistoryRefreshTrace.beginAction("TAB_HISTORY");
             try {
                 reloadHistory("TAB_HISTORY");
@@ -1620,6 +1626,10 @@ public final class WarehouseWorkspaceViewModel {
         return statusMessage;
     }
 
+    public StringProperty tableEmptyMessageProperty() {
+        return tableEmptyMessage;
+    }
+
     public StringProperty errorMessageProperty() {
         return errorMessage;
     }
@@ -1911,6 +1921,7 @@ public final class WarehouseWorkspaceViewModel {
         }
         updateActionAvailability();
         if (selectedTab.get() == WorkspaceTab.TASKS) {
+            tableEmptyMessage.set(EMPTY_TASKS_MESSAGE);
             if (pendingTaskStatusMessage != null) {
                 statusMessage.set(pendingTaskStatusMessage);
                 pendingTaskStatusMessage = null;
@@ -3075,6 +3086,7 @@ public final class WarehouseWorkspaceViewModel {
             updatePaginationFlags();
             stockLoadedForCurrentFilter = true;
             if (selectedTab.get() == WorkspaceTab.STOCK) {
+                tableEmptyMessage.set(EMPTY_STOCK_MESSAGE);
                 statusMessage.set(EMPTY_STOCK_MESSAGE);
             }
             return;
@@ -3167,14 +3179,14 @@ public final class WarehouseWorkspaceViewModel {
                 cellFilterLabel(selectedCellFilter.get()),
                 true);
         if (selectedTab.get() == WorkspaceTab.STOCK && pageResult.totalElements() == 0) {
-            if (searchActive) {
-                statusMessage.set(EMPTY_SEARCH_MESSAGE);
-            } else if (cellSelected) {
-                statusMessage.set(EMPTY_CELL_STOCK_MESSAGE);
-            } else {
-                statusMessage.set(EMPTY_STOCK_MESSAGE);
-            }
+            String empty =
+                    searchActive
+                            ? EMPTY_SEARCH_MESSAGE
+                            : cellSelected ? EMPTY_CELL_STOCK_MESSAGE : EMPTY_STOCK_MESSAGE;
+            tableEmptyMessage.set(empty);
+            statusMessage.set(empty);
         } else if (selectedTab.get() == WorkspaceTab.STOCK) {
+            tableEmptyMessage.set(EMPTY_STOCK_MESSAGE);
             statusMessage.set("");
         }
     }
@@ -3321,9 +3333,12 @@ public final class WarehouseWorkspaceViewModel {
                 historyRows,
                 selectedTab.get() == WorkspaceTab.HISTORY);
         if (selectedTab.get() == WorkspaceTab.HISTORY && pageResult.totalElements() == 0) {
-            statusMessage.set(
-                    filtersActive ? EMPTY_HISTORY_FILTER_MESSAGE : EMPTY_HISTORY_PERIOD_MESSAGE);
+            String empty =
+                    filtersActive ? EMPTY_HISTORY_FILTER_MESSAGE : EMPTY_HISTORY_PERIOD_MESSAGE;
+            tableEmptyMessage.set(empty);
+            statusMessage.set(empty);
         } else if (selectedTab.get() == WorkspaceTab.HISTORY) {
+            tableEmptyMessage.set(EMPTY_HISTORY_PERIOD_MESSAGE);
             statusMessage.set("");
         }
     }

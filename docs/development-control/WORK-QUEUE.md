@@ -11929,6 +11929,7 @@ See VERIFICATION-LOG Stage 3.5.14 entry (2026-09-11).
 ### Next on success
 
 Stage 3.5.15 — Final Warehouse Acceptance = IN PROGRESS
+Final Regression & Checkpoint (2026-09-28) = COMPLETE (targeted GREEN; empty-state fix; package+startup; STAGE-3.5-CHECKPOINT.md; awaiting manual confirmation)
 Final UX Corrective = COMPLETE (table Move dialog; Adjustment visual; Stocks ALL + auto-refresh; task qty formatRu; History actor V46; order-number composition; Write-off deferred)
 Move dialog runtime wiring = COMPLETE (`WarehouseMoveDialogSupport.createMoveDialog`; toolbar+context → openMoveDialog; packaging stale-jar root cause)
 Move dialog responsive layout = COMPLETE (VBox grow; dialog 1100×600 / min 880×450; sane column mins; Name takes free width; Write-off/Adjustment untouched)
@@ -11938,6 +11939,28 @@ Production acceptance-state corrective = COMPLETE
 Warehouse-managed production destination = COMPLETE (Flyway V45)
 Manual acceptance = READY FROM Склад → Задачи (createdAt + final columns + list-only dialog); then История / Остатки / Поступление
   (write-off OUT OF SCOPE this acceptance cycle)
+
+---
+## STAGE-3.5.15 — Final Regression & Checkpoint (Warehouse + Security Stabilization)
+
+**Status:** DONE (stabilization); Stage 3.5.15 overall remains IN_PROGRESS until manual confirmation
+**Stage:** 3.5
+**Depends on:** RBAC UX completion + Stage 3.5.15 Task Dialog / Adjustment / History
+**Modules:** `tmp-ui-shell` (empty-state only); verification across warehouse/security/architecture
+**Migration:** NONE
+
+**Goal:** Find regressions, fix critical defects, confirm stability, prepare checkpoint — no new features.
+
+**Acceptance criteria:**
+- [x] Targeted Warehouse + Security + Architecture suites GREEN
+- [x] Critical empty-state defect fixed (`tableEmptyMessage` vs status feedback)
+- [x] Clean install + fresh package + startup PASS; DB business delta 0; Flyway V47
+- [x] `docs/development-control/STAGE-3.5-CHECKPOINT.md` prepared
+- [x] No commit / no push; Full reactor NOT RUN; Stage 3.5 remains IN PROGRESS
+
+### Next on success
+
+Manual confirmation of Stage 3.5 closure; then next module.
 
 ---
 ## STAGE-3.5.15 — Task Dialog controls + Adjustment reason/history + History warehouse codes/comments

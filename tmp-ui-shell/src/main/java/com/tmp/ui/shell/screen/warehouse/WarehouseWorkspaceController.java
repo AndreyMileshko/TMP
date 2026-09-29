@@ -582,7 +582,7 @@ public final class WarehouseWorkspaceController
         // UNCONSTRAINED: CONSTRAINED redistributes columns when the vertical scrollbar toggles.
         tasksTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         Label placeholder = new Label("Нет задач, требующих вашего действия");
-        placeholder.textProperty().bind(viewModel.statusMessageProperty());
+        placeholder.textProperty().bind(viewModel.tableEmptyMessageProperty());
         placeholder.getStyleClass().add("tmp-empty-state-hint");
         placeholder.setWrapText(true);
         tasksTable.setPlaceholder(placeholder);
@@ -751,7 +751,7 @@ public final class WarehouseWorkspaceController
         configureStockColumnWidths();
         installStockRefreshLayoutTrace();
         Label placeholder = new Label("Нет остатков");
-        placeholder.textProperty().bind(viewModel.statusMessageProperty());
+        placeholder.textProperty().bind(viewModel.tableEmptyMessageProperty());
         placeholder.getStyleClass().add("tmp-empty-state-hint");
         placeholder.setWrapText(true);
         stockTable.setPlaceholder(placeholder);
@@ -1208,7 +1208,7 @@ public final class WarehouseWorkspaceController
         configureHistoryColumnWidths();
         installHistoryRefreshLayoutTrace();
         Label placeholder = new Label("Нет операций");
-        placeholder.textProperty().bind(viewModel.statusMessageProperty());
+        placeholder.textProperty().bind(viewModel.tableEmptyMessageProperty());
         placeholder.getStyleClass().add("tmp-empty-state-hint");
         placeholder.setWrapText(true);
         historyTable.setPlaceholder(placeholder);

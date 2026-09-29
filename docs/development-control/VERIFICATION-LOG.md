@@ -3,6 +3,38 @@
 ## Latest result
 
 **Date:** 2026-09-28
+**Scope:** Stage 3.5 Final Regression & Checkpoint — Warehouse + Security Stabilization
+**Overall:** PASS (targeted Warehouse/Security/Architecture + empty-state fix + clean install + fresh package + startup); Stage 3.5 remains IN PROGRESS; Full reactor NOT RUN
+**Migration:** NONE (Flyway remains V47)
+**Base HEAD:** `703e3721800f32d0a7949163413a0e036c6cc381`
+**Working tree:** dirty (empty-state placeholder fix); no commit / no push
+
+### Stage 3.5 Final Regression & Checkpoint (2026-09-28)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD | `703e372` (RBAC UX completion); prior `d3fdb9c` RBAC corrections |
+| Empty-state fix | PASS — `tableEmptyMessage` separate from status («Принято: N» no longer replaces empty hint) |
+| Warehouse UI (`WarehouseWorkspace*` / Move / Task / Receipt) | PASS (UI shell targeted 206 incl. ViewModel 74) |
+| Warehouse domain (Move / Transfer / Receive / Partial / RejectReturn / Receipt / Adjustment / History / Security) | PASS (186) |
+| Security / RBAC / Order gates / bootstrap ensure | PASS (security 43 + order 59 + bootstrap 6 + UI admin suites) |
+| `Stage6WarehouseArchitectureTest` | PASS (9 + nested 1) |
+| `Stage4SecurityArchitectureTest` | PASS (10 + nested 1) |
+| DB before/after startup | warehouses=4; stock_positions=70; qty_sum=866.900000; ops=175; movements=290; material_requirements=1; **delta 0**; Flyway 47 |
+| `mvn -pl :tmp-bootstrap-app -am clean install -DskipTests` | PASS |
+| Package `pre-integration-test -Ppackage` | PASS → `dist/jpackage/TMP/TMP.exe` **17:07:37**; jar **17:07:28** |
+| Startup `localhost:55432/tmp_gui_stage5` | PASS — PostgreSQL; Flyway validated 47 / current 47 / no migration; `Started DesktopBootstrap` ~4.7s; JavaFX unnamed-module WARN only; exceptions NONE; TMP running |
+| Checkpoint doc | `docs/development-control/STAGE-3.5-CHECKPOINT.md` |
+| Full reactor | NOT RUN |
+| Manual acceptance | READY FROM: Склад → Задачи; Безопасность → Пользователи / Роли |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-09-28
 **Scope:** RBAC UX completion — User card / roles / effective permissions; Roles assignment search fix
 **Overall:** PASS (targeted security/UI + clean install + fresh package + startup); Full reactor NOT RUN
 **Migration:** NONE
