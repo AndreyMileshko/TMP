@@ -41,6 +41,7 @@ import com.tmp.production.domain.repository.ProductionMaterialTransferRepository
 import com.tmp.production.domain.repository.ProductionReleaseRepository;
 import com.tmp.production.persistence.JdbcMaterialRequirementRepository;
 import com.tmp.production.persistence.JdbcMaterialRequirementSubmissionRepository;
+import com.tmp.production.persistence.JdbcOrderQuantityModeRepository;
 import com.tmp.production.persistence.JdbcProductionCancellationRepository;
 import com.tmp.production.persistence.JdbcProductionHistoryRepository;
 import com.tmp.production.persistence.JdbcProductionItemStateRepository;
@@ -254,7 +255,8 @@ final class ProductionPublicBoundaryComposition {
                         confirmReceiptService,
                         releaseProductsService,
                         cancelService,
-                        materialTransfers);
+                        materialTransfers,
+                        new JdbcOrderQuantityModeRepository(jdbc, clock));
         ProductionQueryApi queryApi =
                 new DefaultProductionQueryApi(
                         authorizationService, orderViewService, currentAvailability, historyService);

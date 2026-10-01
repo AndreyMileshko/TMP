@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +18,8 @@ import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
+import com.tmp.production.api.ProductionApplicationApi.OrderQuantityModeView;
+import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
@@ -30,14 +34,19 @@ import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialTransferTemplateId;
 import com.tmp.production.domain.MaterialTransferTemplateLineId;
+import com.tmp.production.domain.OrderQuantityModeOptimisticLockException;
+import com.tmp.production.domain.OrderQuantityModeSetting;
 import com.tmp.production.domain.ProductionMaterialTransfer;
 import com.tmp.production.domain.ProductionMaterialTransferId;
+import com.tmp.production.domain.ProductionQuantityMode;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.WarehouseTransferOperationRef;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.GeneratedDocumentLink;
+import com.tmp.production.domain.repository.OrderQuantityModeRepository;
 import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.security.ProductionPermissions;
+import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.Login;
@@ -72,6 +81,7 @@ class DefaultProductionApplicationApiTest {
     private ReleaseProductsService releaseProductsService;
     private CancelOrderProductionService cancelOrderProductionService;
     private ProductionMaterialTransferRepository materialTransferRepository;
+    private OrderQuantityModeRepository quantityModeRepository;
     private DefaultProductionApplicationApi api;
 
     @BeforeEach
@@ -94,6 +104,7 @@ class DefaultProductionApplicationApiTest {
         releaseProductsService = mock(ReleaseProductsService.class);
         cancelOrderProductionService = mock(CancelOrderProductionService.class);
         materialTransferRepository = mock(ProductionMaterialTransferRepository.class);
+        quantityModeRepository = mock(OrderQuantityModeRepository.class);
         api =
                 new DefaultProductionApplicationApi(
                         authorizationService,
@@ -106,7 +117,114 @@ class DefaultProductionApplicationApiTest {
                         confirmMaterialReceiptService,
                         releaseProductsService,
                         cancelOrderProductionService,
-                        materialTransferRepository);
+                        materialTransferRepository,
+                        quantityModeRepository);
+    }
+
+    @Test
+    void getOrderQuantityModeDefaultsToStandardWhenNothingStored() {
+        UUID orderId = UUID.randomUUID();
+        when(quantityModeRepository.findBySourceOrderId(SourceOrderId.of(orderId)))
+                .thenReturn(Optional.empty());
+
+        OrderQuantityModeView view = api.getOrderQuantityMode(orderId);
+
+        verify(authorizationService).requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+        assertEquals(orderId, view.orderId());
+        assertEquals(QuantityModeView.STANDARD, view.quantityMode());
+        assertEquals(0L, view.version());
+    }
+
+    @Test
+    void getOrderQuantityModeReturnsStoredSetting() {
+        UUID orderId = UUID.randomUUID();
+        when(quantityModeRepository.findBySourceOrderId(SourceOrderId.of(orderId)))
+                .thenReturn(
+                        Optional.of(
+                                new OrderQuantityModeSetting(
+                                        SourceOrderId.of(orderId),
+                                        ProductionQuantityMode.FLEXIBLE,
+                                        3L)));
+
+        OrderQuantityModeView view = api.getOrderQuantityMode(orderId);
+
+        assertEquals(QuantityModeView.FLEXIBLE, view.quantityMode());
+        assertEquals(3L, view.version());
+    }
+
+    @Test
+    void changeOrderQuantityModeRequiresAcceptPermissionAndReturnsSavedState() {
+        UUID orderId = UUID.randomUUID();
+        when(quantityModeRepository.save(
+                        SourceOrderId.of(orderId), ProductionQuantityMode.FLEXIBLE, 0L))
+                .thenReturn(
+                        new OrderQuantityModeSetting(
+                                SourceOrderId.of(orderId), ProductionQuantityMode.FLEXIBLE, 1L));
+
+        OrderQuantityModeView view =
+                api.changeOrderQuantityMode(orderId, QuantityModeView.FLEXIBLE, 0L);
+
+        verify(authorizationService).requirePermission(ProductionPermissions.PRODUCTION_ACCEPT);
+        assertEquals(QuantityModeView.FLEXIBLE, view.quantityMode());
+        assertEquals(1L, view.version());
+    }
+
+    @Test
+    void changeOrderQuantityModeWithoutAcceptPermissionIsDeniedBeforePersistence() {
+        doThrow(new AccessDeniedException("Access denied: production.order.accept"))
+                .when(authorizationService)
+                .requirePermission(ProductionPermissions.PRODUCTION_ACCEPT);
+
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        api.changeOrderQuantityMode(
+                                UUID.randomUUID(), QuantityModeView.FLEXIBLE, 0L));
+
+        verify(quantityModeRepository, never()).save(any(), any(), anyLong());
+    }
+
+    @Test
+    void releaseOrTransferPermissionDoesNotGrantQuantityModeChange() {
+        doThrow(new AccessDeniedException("Access denied: production.order.accept"))
+                .when(authorizationService)
+                .requirePermission(ProductionPermissions.PRODUCTION_ACCEPT);
+
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        api.changeOrderQuantityMode(
+                                UUID.randomUUID(), QuantityModeView.STANDARD, 1L));
+
+        verify(authorizationService, never())
+                .requirePermission(ProductionPermissions.PRODUCTION_RELEASE);
+        verify(authorizationService, never())
+                .requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
+        verify(quantityModeRepository, never()).save(any(), any(), anyLong());
+    }
+
+    @Test
+    void changeOrderQuantityModePropagatesOptimisticLock() {
+        UUID orderId = UUID.randomUUID();
+        when(quantityModeRepository.save(any(), any(), anyLong()))
+                .thenThrow(
+                        new OrderQuantityModeOptimisticLockException(
+                                SourceOrderId.of(orderId), 1L));
+
+        OrderQuantityModeOptimisticLockException ex =
+                assertThrows(
+                        OrderQuantityModeOptimisticLockException.class,
+                        () -> api.changeOrderQuantityMode(orderId, QuantityModeView.STANDARD, 1L));
+        assertTrue(ex.getMessage().contains("another user"));
+    }
+
+    @Test
+    void orderQuantityModeViewExposesOnlyOrderIdModeAndVersion() {
+        Set<String> names =
+                Arrays.stream(OrderQuantityModeView.class.getRecordComponents())
+                        .map(RecordComponent::getName)
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+        assertEquals(Set.of("orderId", "quantityMode", "version"), names);
     }
 
     @Test

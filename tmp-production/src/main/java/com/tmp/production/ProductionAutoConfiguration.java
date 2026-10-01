@@ -37,6 +37,7 @@ import com.tmp.production.application.port.WarehouseReferenceQueryPort;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository;
 import com.tmp.production.domain.repository.MaterialTransferTemplateRepository;
+import com.tmp.production.domain.repository.OrderQuantityModeRepository;
 import com.tmp.production.domain.repository.ProductionCancellationQuery;
 import com.tmp.production.domain.repository.ProductionCancellationRepository;
 import com.tmp.production.domain.repository.ProductionHistoryRepository;
@@ -46,6 +47,7 @@ import com.tmp.production.domain.repository.ProductionReleaseRepository;
 import com.tmp.production.persistence.JdbcMaterialRequirementRepository;
 import com.tmp.production.persistence.JdbcMaterialRequirementSubmissionRepository;
 import com.tmp.production.persistence.JdbcMaterialTransferTemplateRepository;
+import com.tmp.production.persistence.JdbcOrderQuantityModeRepository;
 import com.tmp.production.persistence.JdbcProductionCancellationRepository;
 import com.tmp.production.persistence.JdbcProductionHistoryRepository;
 import com.tmp.production.persistence.JdbcProductionItemStateRepository;
@@ -146,6 +148,11 @@ public class ProductionAutoConfiguration {
     @Bean
     ProductionReleaseRepository productionReleaseRepository(JdbcTemplate jdbcTemplate, Clock clock) {
         return new JdbcProductionReleaseRepository(jdbcTemplate, clock);
+    }
+
+    @Bean
+    OrderQuantityModeRepository orderQuantityModeRepository(JdbcTemplate jdbcTemplate, Clock clock) {
+        return new JdbcOrderQuantityModeRepository(jdbcTemplate, clock);
     }
 
     @Bean
@@ -384,7 +391,8 @@ public class ProductionAutoConfiguration {
             ConfirmMaterialReceiptService confirmMaterialReceiptService,
             ReleaseProductsService releaseProductsService,
             CancelOrderProductionService cancelOrderProductionService,
-            ProductionMaterialTransferRepository materialTransferRepository) {
+            ProductionMaterialTransferRepository materialTransferRepository,
+            OrderQuantityModeRepository orderQuantityModeRepository) {
         return new DefaultProductionApplicationApi(
                 authorizationService,
                 authenticationService,
@@ -396,7 +404,8 @@ public class ProductionAutoConfiguration {
                 confirmMaterialReceiptService,
                 releaseProductsService,
                 cancelOrderProductionService,
-                materialTransferRepository);
+                materialTransferRepository,
+                orderQuantityModeRepository);
     }
 
     @Bean

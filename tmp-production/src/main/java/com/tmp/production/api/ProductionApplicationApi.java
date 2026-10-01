@@ -63,6 +63,32 @@ public interface ProductionApplicationApi {
 
     void cancelOrderProduction(UUID orderId, Optional<String> reason);
 
+    /**
+     * Returns the order's Production quantity mode; {@code STANDARD} with {@code version 0} when
+     * the mode was never changed. Requires {@code production.order.view}.
+     */
+    OrderQuantityModeView getOrderQuantityMode(UUID orderId);
+
+    /**
+     * Changes the order's Production quantity mode with optimistic concurrency and returns the
+     * persisted state. Allowed in every Production state; never alters past releases or material
+     * requirements. Requires {@code production.order.accept}.
+     */
+    OrderQuantityModeView changeOrderQuantityMode(
+            UUID orderId, QuantityModeView quantityMode, long expectedVersion);
+
+    enum QuantityModeView {
+        STANDARD,
+        FLEXIBLE
+    }
+
+    record OrderQuantityModeView(UUID orderId, QuantityModeView quantityMode, long version) {
+        public OrderQuantityModeView {
+            Objects.requireNonNull(orderId, "orderId");
+            Objects.requireNonNull(quantityMode, "quantityMode");
+        }
+    }
+
     record DestinationWarehouseView(Optional<UUID> productionWarehouseId) {
         public DestinationWarehouseView {
             productionWarehouseId =

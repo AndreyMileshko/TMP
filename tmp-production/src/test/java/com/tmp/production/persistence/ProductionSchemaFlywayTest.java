@@ -63,6 +63,7 @@ class ProductionSchemaFlywayTest {
                         "material_transfer_template_lines",
                         "material_transfer_templates",
                         "material_transfers",
+                        "order_quantity_modes",
                         "production_cancellation_item_lines",
                         "production_cancellations",
                         "production_history",

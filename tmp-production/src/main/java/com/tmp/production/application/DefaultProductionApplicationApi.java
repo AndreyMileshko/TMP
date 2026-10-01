@@ -11,10 +11,13 @@ import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineId;
 import com.tmp.production.domain.MaterialRequirementStatus;
+import com.tmp.production.domain.OrderQuantityModeSetting;
 import com.tmp.production.domain.ProductionMaterialTransfer;
 import com.tmp.production.domain.ProductionMaterialTransferId;
+import com.tmp.production.domain.ProductionQuantityMode;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
+import com.tmp.production.domain.repository.OrderQuantityModeRepository;
 import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.GeneratedDocumentLink;
 import com.tmp.production.security.ProductionPermissions;
@@ -49,6 +52,7 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     private final ReleaseProductsService releaseProductsService;
     private final CancelOrderProductionService cancelOrderProductionService;
     private final ProductionMaterialTransferRepository materialTransferRepository;
+    private final OrderQuantityModeRepository quantityModeRepository;
 
     public DefaultProductionApplicationApi(
             AuthorizationService authorizationService,
@@ -61,7 +65,8 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
             ConfirmMaterialReceiptService confirmMaterialReceiptService,
             ReleaseProductsService releaseProductsService,
             CancelOrderProductionService cancelOrderProductionService,
-            ProductionMaterialTransferRepository materialTransferRepository) {
+            ProductionMaterialTransferRepository materialTransferRepository,
+            OrderQuantityModeRepository quantityModeRepository) {
         this.authorizationService =
                 Objects.requireNonNull(authorizationService, "authorizationService");
         this.authenticationService =
@@ -87,6 +92,8 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                         cancelOrderProductionService, "cancelOrderProductionService");
         this.materialTransferRepository =
                 Objects.requireNonNull(materialTransferRepository, "materialTransferRepository");
+        this.quantityModeRepository =
+                Objects.requireNonNull(quantityModeRepository, "quantityModeRepository");
     }
 
     @Override
@@ -244,6 +251,45 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         Objects.requireNonNull(reason, "reason");
         cancelOrderProductionService.cancelOrderProduction(
                 new CancelOrderProductionCommand(orderId, reason));
+    }
+
+    @Override
+    public OrderQuantityModeView getOrderQuantityMode(UUID orderId) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+        Objects.requireNonNull(orderId, "orderId");
+        SourceOrderId sourceOrderId = SourceOrderId.of(orderId);
+        return map(
+                quantityModeRepository
+                        .findBySourceOrderId(sourceOrderId)
+                        .orElseGet(() -> OrderQuantityModeSetting.defaultFor(sourceOrderId)));
+    }
+
+    @Override
+    public OrderQuantityModeView changeOrderQuantityMode(
+            UUID orderId, QuantityModeView quantityMode, long expectedVersion) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_ACCEPT);
+        Objects.requireNonNull(orderId, "orderId");
+        Objects.requireNonNull(quantityMode, "quantityMode");
+        return map(
+                quantityModeRepository.save(
+                        SourceOrderId.of(orderId), map(quantityMode), expectedVersion));
+    }
+
+    private OrderQuantityModeView map(OrderQuantityModeSetting setting) {
+        QuantityModeView mode =
+                switch (setting.quantityMode()) {
+                    case STANDARD -> QuantityModeView.STANDARD;
+                    case FLEXIBLE -> QuantityModeView.FLEXIBLE;
+                };
+        return new OrderQuantityModeView(
+                setting.sourceOrderId().value(), mode, setting.version());
+    }
+
+    private ProductionQuantityMode map(QuantityModeView mode) {
+        return switch (mode) {
+            case STANDARD -> ProductionQuantityMode.STANDARD;
+            case FLEXIBLE -> ProductionQuantityMode.FLEXIBLE;
+        };
     }
 
     private List<ItemRelease> mapItemReleases(List<ItemReleaseView> itemReleases) {

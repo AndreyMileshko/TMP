@@ -26,6 +26,8 @@ import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
+import com.tmp.production.api.ProductionApplicationApi.OrderQuantityModeView;
+import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
 import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
 import com.tmp.production.api.ProductionApplicationApi.GeneratedTransferDocumentView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
@@ -346,6 +348,17 @@ final class ProductionWorkbenchUiTestSupport {
         public void cancelOrderProduction(UUID orderId, Optional<String> reason) {
             cancelCalls.add(orderId);
             cancelReasons.add(reason);
+        }
+
+        @Override
+        public OrderQuantityModeView getOrderQuantityMode(UUID orderId) {
+            return new OrderQuantityModeView(orderId, QuantityModeView.STANDARD, 0L);
+        }
+
+        @Override
+        public OrderQuantityModeView changeOrderQuantityMode(
+                UUID orderId, QuantityModeView quantityMode, long expectedVersion) {
+            return new OrderQuantityModeView(orderId, quantityMode, expectedVersion + 1);
         }
     }
 
