@@ -15,7 +15,6 @@ import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubA
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubAuthentication;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubOrderQuery;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubQueryApi;
-import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubWarehouseApi;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubWorklistQuery;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchViewModel.TreeOrderModel;
 import com.tmp.ui.shell.screen.production.ProductionTreeSelectionModel.OrderCheckState;
@@ -42,7 +41,6 @@ class ProductionWorkbenchTreeViewModelTest {
     private StubApplicationApi applicationApi;
     private StubOrderQuery orderQuery;
     private StubWorklistQuery worklistQuery;
-    private StubWarehouseApi warehouseApi;
     private AllowAllAuthorization auth;
     private StubAuthentication authentication;
     private ProductionWorkbenchViewModel viewModel;
@@ -58,7 +56,6 @@ class ProductionWorkbenchTreeViewModelTest {
         applicationApi = new StubApplicationApi();
         orderQuery = new StubOrderQuery();
         worklistQuery = new StubWorklistQuery();
-        warehouseApi = new StubWarehouseApi();
         auth = new AllowAllAuthorization();
         authentication = new StubAuthentication();
         viewModel =
@@ -67,7 +64,6 @@ class ProductionWorkbenchTreeViewModelTest {
                         applicationApi,
                         orderQuery,
                         worklistQuery,
-                        warehouseApi,
                         auth,
                         authentication);
     }
@@ -97,6 +93,34 @@ class ProductionWorkbenchTreeViewModelTest {
         assertEquals(3, tree.get(1).items().size());
         assertTrue(tree.get(0).orderNode().identityLabel().contains("ORD-1"));
         assertTrue(tree.get(1).orderNode().identityLabel().contains("ORD-2"));
+    }
+
+    @Test
+    void treeLabelsNeverExposeQuantityModeTokens() {
+        seedSingleOrderThreeItems();
+        applicationApi.putOrderQuantityMode(ORDER_1, com.tmp.production.api.ProductionApplicationApi.QuantityModeView.FLEXIBLE, 1L);
+
+        viewModel.loadTree();
+
+        for (TreeOrderModel model : viewModel.visibleTreeProperty().get()) {
+            assertTreeTextFreeOfModeTokens(model.orderNode().identityLabel());
+            assertTreeTextFreeOfModeTokens(model.orderNode().secondaryLabel());
+            assertTreeTextFreeOfModeTokens(model.orderNode().quantityLabel());
+            assertTreeTextFreeOfModeTokens(model.orderNode().statusLabel());
+            for (ProductionTreeNode item : model.items()) {
+                assertTreeTextFreeOfModeTokens(item.identityLabel());
+                assertTreeTextFreeOfModeTokens(item.secondaryLabel());
+                assertTreeTextFreeOfModeTokens(item.quantityLabel());
+                assertTreeTextFreeOfModeTokens(item.statusLabel());
+            }
+        }
+    }
+
+    private static void assertTreeTextFreeOfModeTokens(String value) {
+        String text = value == null ? "" : value;
+        assertFalse(text.contains("STANDARD"));
+        assertFalse(text.contains("FLEXIBLE"));
+        assertFalse(text.contains("Режим"));
     }
 
     @Test
@@ -329,7 +353,6 @@ class ProductionWorkbenchTreeViewModelTest {
                         applicationApi,
                         orderQuery,
                         worklistQuery,
-                        warehouseApi,
                         auth,
                         authentication);
         seedSingleOrderThreeItems();

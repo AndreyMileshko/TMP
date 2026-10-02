@@ -31,7 +31,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -107,29 +106,6 @@ public final class MaterialRequirementService {
         this.materialReferenceResolver =
                 Objects.requireNonNull(materialReferenceResolver, "materialReferenceResolver");
         this.clock = Objects.requireNonNull(clock, "clock");
-    }
-
-    /**
-     * TEMPORARY COMPATIBILITY — single-order prepare shim for the current Workbench UI.
-     *
-     * <p>Maps selected items to selections without explicit product quantities (STANDARD resolves
-     * full requestable; FLEXIBLE rejects without quantity). Remove after Phase 3 Workbench migrates
-     * to {@link #prepareMaterialRequirement(List)}.
-     */
-    public MaterialRequirement prepareMaterialRequirement(
-            SourceOrderId orderId, List<SourceOrderItemId> selectedOrderItemIds) {
-        Objects.requireNonNull(orderId, "orderId");
-        Objects.requireNonNull(selectedOrderItemIds, "selectedOrderItemIds");
-        List<MaterialRequirementProductSelection> selections = new ArrayList<>();
-        Set<SourceOrderItemId> seen = new LinkedHashSet<>();
-        for (SourceOrderItemId itemId : selectedOrderItemIds) {
-            Objects.requireNonNull(itemId, "selectedOrderItemId");
-            if (!seen.add(itemId)) {
-                continue;
-            }
-            selections.add(MaterialRequirementProductSelection.of(orderId, itemId));
-        }
-        return prepareMaterialRequirement(selections);
     }
 
     /**

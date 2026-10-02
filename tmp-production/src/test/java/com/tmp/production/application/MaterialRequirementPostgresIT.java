@@ -158,7 +158,7 @@ class MaterialRequirementPostgresIT {
         WarehouseSnapshot before = snapshotWarehouse();
 
         MaterialRequirement prepared =
-                service.prepareMaterialRequirement(orderId, List.of(itemId));
+                service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
         assertEquals(PROD_WAREHOUSE, prepared.destinationWarehouseId());
         assertEquals(1, prepared.lines().size());
         assertEquals(0, prepared.lines().getFirst().quantity().compareTo(BigDecimal.TEN));
@@ -209,7 +209,7 @@ class MaterialRequirementPostgresIT {
                                 UUID.randomUUID(), "MAT-REOPEN", "Reopen", "WHITE", "", "M"));
 
         MaterialRequirement prepared =
-                service.prepareMaterialRequirement(orderId, List.of(itemId));
+                service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
         assertEquals(10L, prepared.sourceItems().getFirst().requestedProductQuantity());
         assertEquals(0, prepared.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(40)));
 
@@ -249,7 +249,7 @@ class MaterialRequirementPostgresIT {
                                 UUID.randomUUID(), "MAT-STALE", "S", "WHITE", "", "PCS"));
 
         MaterialRequirement prepared =
-                service.prepareMaterialRequirement(orderId, List.of(itemId));
+                service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
         MaterialRequirementLine line = prepared.lines().getFirst();
         service.changeQuantity(
                 prepared.requirementId(), line.lineId(), BigDecimal.valueOf(11), prepared.version());
@@ -290,7 +290,7 @@ class MaterialRequirementPostgresIT {
                                 UUID.randomUUID(), "MAT-CONC", "C", "WHITE", "", "PCS"));
 
         MaterialRequirement prepared =
-                service.prepareMaterialRequirement(orderId, List.of(itemId));
+                service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
         MaterialRequirementLineId lineId = prepared.lines().getFirst().lineId();
         long versionN = prepared.version();
         BigDecimal qtyA = BigDecimal.valueOf(21);
@@ -403,7 +403,7 @@ class MaterialRequirementPostgresIT {
 
         WarehouseSnapshot before = snapshotWarehouse();
         MaterialRequirement prepared =
-                service.prepareMaterialRequirement(orderId, List.of(itemId));
+                service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
         service.changeQuantity(
                 prepared.requirementId(),
                 prepared.lines().getFirst().lineId(),

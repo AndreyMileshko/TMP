@@ -30,14 +30,6 @@ public interface ProductionApplicationApi {
     void checkMaterialAvailability(UUID orderId);
 
     /**
-     * TEMPORARY COMPATIBILITY — single-order prepare for the current Workbench UI until Phase 3
-     * migrates to {@link #prepareMaterialRequirement(List)}. Quantity Mode STANDARD resolves full
-     * requestable product quantity; FLEXIBLE requires the list-based prepare.
-     */
-    MaterialRequirementView prepareMaterialRequirement(
-            UUID orderId, List<UUID> selectedOrderItemIds);
-
-    /**
      * Creates a DRAFT Material Requirement from cross-order product selections (Stage 7 Phase 2).
      * Does not create Warehouse transfers or mutate stock.
      */

@@ -118,7 +118,7 @@ class MaterialRequirementServiceTest {
                 List.of(reference(materialId, "MAT-A", "Catalog A", "WHITE", "PCS"));
 
         MaterialRequirement requirement =
-                service.prepareMaterialRequirement(orderId, List.of(itemId));
+                service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
 
         assertEquals(PROD_WAREHOUSE, requirement.destinationWarehouseId());
         assertEquals(1, requirement.lines().size());
@@ -150,7 +150,7 @@ class MaterialRequirementServiceTest {
         InvalidProductionDestinationWarehouseException ex =
                 assertThrows(
                         InvalidProductionDestinationWarehouseException.class,
-                        () -> noneAssigned.prepareMaterialRequirement(orderId, List.of(itemId)));
+                        () -> noneAssigned.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId))));
         assertEquals(
                 InvalidProductionDestinationWarehouseException.NOT_ASSIGNED_MESSAGE, ex.getMessage());
     }
@@ -181,7 +181,7 @@ class MaterialRequirementServiceTest {
                         reference(UUID.randomUUID(), "MAT-B", "B", "BLACK", "PCS"));
 
         MaterialRequirement requirement =
-                service.prepareMaterialRequirement(orderId, List.of(itemA, itemB));
+                service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemA), MaterialRequirementProductSelection.of(orderId, itemB)));
 
         assertEquals(2, requirement.lines().size());
         assertEquals(0, warehouseQuery.availableQuantityCalls.get());
@@ -211,7 +211,7 @@ class MaterialRequirementServiceTest {
                 List.of(reference(UUID.randomUUID(), "MAT-X", "X", "WHITE", "PCS"));
 
         MaterialRequirementLine line =
-                service.prepareMaterialRequirement(orderId, List.of(itemA, itemB)).lines().getFirst();
+                service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemA), MaterialRequirementProductSelection.of(orderId, itemB))).lines().getFirst();
 
         assertEquals(0, line.quantity().compareTo(BigDecimal.valueOf(12)));
         assertEquals(2, line.sourceOrderItemIds().size());
@@ -251,7 +251,7 @@ class MaterialRequirementServiceTest {
                         reference(UUID.randomUUID(), "MAT-U", "U", "BLACK", "PCS"));
 
         MaterialRequirement requirement =
-                service.prepareMaterialRequirement(orderId, List.of(selected));
+                service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, selected)));
 
         assertEquals(1, requirement.lines().size());
         assertEquals("MAT-S", requirement.lines().getFirst().materialCode());
@@ -265,7 +265,7 @@ class MaterialRequirementServiceTest {
 
         assertThrows(
                 MaterialRequirementSelectionException.class,
-                () -> service.prepareMaterialRequirement(orderId, List.of()));
+                () -> service.prepareMaterialRequirement(List.of()));
         assertEquals(0, warehouseQuery.availableQuantityCalls.get());
     }
 
@@ -334,7 +334,7 @@ class MaterialRequirementServiceTest {
 
         assertThrows(
                 MaterialRequirementSelectionException.class,
-                () -> service.prepareMaterialRequirement(orderId, List.of(foreignItem)));
+                () -> service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, foreignItem))));
     }
 
     @Test
@@ -361,7 +361,7 @@ class MaterialRequirementServiceTest {
 
         assertThrows(
                 MaterialRequirementSelectionException.class,
-                () -> service.prepareMaterialRequirement(orderId, List.of(releasedItem)));
+                () -> service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, releasedItem))));
 
         SourceOrderId mixedOrder = SourceOrderId.generate();
         SourceOrderItemId stillActive = SourceOrderItemId.generate();
@@ -377,7 +377,11 @@ class MaterialRequirementServiceTest {
 
         assertThrows(
                 MaterialRequirementSelectionException.class,
-                () -> service.prepareMaterialRequirement(mixedOrder, List.of(cancelled)));
+                () ->
+                        service.prepareMaterialRequirement(
+                                List.of(
+                                        MaterialRequirementProductSelection.of(
+                                                mixedOrder, cancelled))));
     }
 
     @Test
@@ -473,7 +477,7 @@ class MaterialRequirementServiceTest {
         MaterialRequirementNotReadyException ex =
                 assertThrows(
                         MaterialRequirementNotReadyException.class,
-                        () -> service.prepareMaterialRequirement(orderId, List.of(itemId)));
+                        () -> service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId))));
         assertEquals(MaterialRequirementNotReadyException.Problem.UNRESOLVED, ex.problem());
         assertEquals(0, warehouseQuery.availableQuantityCalls.get());
     }
@@ -493,7 +497,7 @@ class MaterialRequirementServiceTest {
         MaterialRequirementNotReadyException ex =
                 assertThrows(
                         MaterialRequirementNotReadyException.class,
-                        () -> service.prepareMaterialRequirement(orderId, List.of(itemId)));
+                        () -> service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId))));
         assertEquals(MaterialRequirementNotReadyException.Problem.AMBIGUOUS, ex.problem());
         assertEquals(0, warehouseQuery.availableQuantityCalls.get());
     }
@@ -539,7 +543,7 @@ class MaterialRequirementServiceTest {
                         reference(UUID.randomUUID(), "MAT-CURRENT", "C", "BLACK", "PCS"));
 
         MaterialRequirement requirement =
-                service.prepareMaterialRequirement(orderId, List.of(itemId));
+                service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
 
         assertEquals(0, specificationQuery.resolveCurrentCalls.get());
         assertTrue(specificationQuery.resolveByIdCalls.get() >= 1);
@@ -566,7 +570,7 @@ class MaterialRequirementServiceTest {
                 List.of(reference(UUID.randomUUID(), "MAT-Q", "Q", "WHITE", "PCS"));
 
         MaterialRequirement requirement =
-                service.prepareMaterialRequirement(orderId, List.of(itemId));
+                service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
         MaterialRequirementLine line = requirement.lines().getFirst();
 
         assertEquals(0, line.quantity().compareTo(BigDecimal.valueOf(50)));
@@ -620,8 +624,7 @@ class MaterialRequirementServiceTest {
                 assertThrows(
                         MaterialRequirementNotAllowedException.class,
                         () ->
-                                service.prepareMaterialRequirement(
-                                        orderId, List.of(SourceOrderItemId.generate())));
+                                service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, SourceOrderItemId.generate()))));
         assertEquals(OrderProductionViewStatus.NOT_ACCEPTED, ex.viewStatus());
     }
 
@@ -803,7 +806,7 @@ class MaterialRequirementServiceTest {
                 List.of(reference(UUID.randomUUID(), "MAT-E", "E", "WHITE", "M"));
 
         MaterialRequirement prepared =
-                service.prepareMaterialRequirement(orderId, List.of(itemId));
+                service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
         assertEquals(10L, prepared.sourceItems().getFirst().requestedProductQuantity());
         assertEquals(0, prepared.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(40)));
 
@@ -837,7 +840,7 @@ class MaterialRequirementServiceTest {
                                                 quantity.longValue()))));
         warehouseQuery.materialReferences =
                 List.of(reference(UUID.randomUUID(), "MAT-Z", "Z", "WHITE", "PCS"));
-        return service.prepareMaterialRequirement(orderId, List.of(itemId));
+        return service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
     }
 
     private ProductionItemState launchItem(

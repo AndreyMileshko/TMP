@@ -15,25 +15,23 @@ public final class ProductionUiErrorMapper {
     public static final String ACCESS_DENIED = "Недостаточно прав для производственной операции.";
     public static final String NOT_APPLICABLE =
             "Операция недоступна для текущего состояния производства.";
-    public static final String MATERIAL_UNRESOLVED = "Материал не сопоставлен.";
-    public static final String MATERIAL_AMBIGUOUS = "Неоднозначное сопоставление материала.";
-    public static final String INSUFFICIENT_STOCK = "Недостаточно остатка материалов.";
-    public static final String TRANSFER_NOT_SENT =
-            "Материалы ещё не отправлены складом. Получение недоступно.";
-    public static final String STALE_TEMPLATE =
-            "Шаблон перемещения устарел. Обновите данные и повторите.";
-    public static final String INVALID_RELEASE_QTY = "Некорректное количество выпуска.";
     public static final String CONCURRENT_STALE =
             "Данные изменились другим пользователем. Экран обновлён.";
+    public static final String QUANTITY_MODE_CONFLICT =
+            "Режим работы заказа изменён другим пользователем. Данные обновлены.";
+    public static final String QUANTITY_MODE_SAVE_FAILED =
+            "Не удалось изменить режим работы заказа.";
+    public static final String ACCEPT_CONFLICT =
+            "Заказ уже принят в производство. Данные обновлены.";
+    public static final String ACCEPT_FAILED = "Не удалось принять заказ в производство.";
     public static final String VALIDATION = "Проверьте заполненные данные.";
     public static final String TECHNICAL_FAILURE =
             "Не удалось выполнить производственную операцию. Повторите попытку.";
     public static final String LOAD_FAILED = "Обновление производственных данных не выполнено.";
+    public static final String CARD_LOAD_FAILED =
+            "Не удалось загрузить данные заказа. Повторите попытку.";
     public static final String ORDER_NOT_FOUND = "Заказ не найден.";
-    public static final String DESTINATION_WAREHOUSE_INVALID =
-            "Не назначен склад производства. Укажите его в Настройки склада → Склады.";
-    public static final String MATERIALS_LOAD_FAILED =
-            "Проверка наличия материалов не выполнена.";
+    public static final String TREE_LOAD_FAILED = "Не удалось загрузить производство";
 
     private ProductionUiErrorMapper() {}
 
@@ -48,6 +46,15 @@ public final class ProductionUiErrorMapper {
             String lower = message.toLowerCase(Locale.ROOT);
             String simple = current.getClass().getSimpleName();
 
+            if (simple.contains("OrderQuantityModeOptimisticLock")
+                    || (simple.contains("OptimisticLock")
+                            && lower.contains("quantity mode"))) {
+                return QUANTITY_MODE_CONFLICT;
+            }
+            if (simple.contains("ProductionLaunchConflict")
+                    || simple.contains("AlreadyLaunched")) {
+                return ACCEPT_CONFLICT;
+            }
             if (simple.contains("OptimisticLock")
                     || simple.contains("Concurrent")
                     || lower.contains("optimistic")
@@ -57,58 +64,8 @@ public final class ProductionUiErrorMapper {
                     || lower.contains("expected version")) {
                 return CONCURRENT_STALE;
             }
-            if (simple.contains("InvalidProductionDestinationWarehouse")
-                    || lower.contains("не назначен склад производства")
-                    || lower.contains("configured destination warehouse")
-                    || (lower.contains("destination warehouse")
-                            && (lower.contains("not found") || lower.contains("not active")))) {
-                if (containsCyrillic(message) && !message.isBlank()) {
-                    return message;
-                }
-                return DESTINATION_WAREHOUSE_INVALID;
-            }
-            if (simple.contains("NotEditable")
-                    || (lower.contains("template") && lower.contains("stale"))
-                    || (lower.contains("template") && lower.contains("confirmed"))) {
-                return STALE_TEMPLATE;
-            }
-            if (lower.contains("draft")
-                    && (lower.contains("receipt")
-                            || lower.contains("not ready")
-                            || lower.contains("not physically")
-                            || lower.contains("не отправл"))) {
-                return TRANSFER_NOT_SENT;
-            }
-            if (simple.contains("MaterialRequirementNotReady")
-                    || simple.contains("MaterialTransferTemplateNotReady")
-                    || lower.contains("unresolved")
-                    || lower.contains("material_unresolved")
-                    || lower.contains("не сопоставл")) {
-                return MATERIAL_UNRESOLVED;
-            }
-            if (lower.contains("ambiguous") || lower.contains("неоднознач")) {
-                return MATERIAL_AMBIGUOUS;
-            }
-            if (simple.contains("MaterialRequirementShortage")
-                    || simple.contains("DemandSourceUnavailable")) {
-                if (containsCyrillic(message) && !message.isBlank()) {
-                    return message;
-                }
-                return "Сейчас нет ни одного склада-источника с доступным остатком.";
-            }
-            if (lower.contains("insufficient") || lower.contains("недостат")) {
-                return INSUFFICIENT_STOCK;
-            }
-            if (simple.contains("Release")
-                    && (lower.contains("quantity")
-                            || lower.contains("release amount")
-                            || lower.contains("exceeds")
-                            || lower.contains("invalid release"))) {
-                return INVALID_RELEASE_QTY;
-            }
             if (simple.contains("NotAllowed")
                     || simple.contains("NotEligible")
-                    || simple.contains("AlreadyLaunched")
                     || simple.contains("AlreadyExists")
                     || lower.contains("not allowed")
                     || lower.contains("not eligible")
@@ -135,6 +92,21 @@ public final class ProductionUiErrorMapper {
         return TECHNICAL_FAILURE;
     }
 
+    public static boolean isQuantityModeConflict(Throwable error) {
+        return QUANTITY_MODE_CONFLICT.equals(text(error));
+    }
+
+    public static boolean isAcceptConflict(Throwable error) {
+        return ACCEPT_CONFLICT.equals(text(error));
+    }
+
+    public static boolean isConcurrentOrStale(Throwable error) {
+        String mapped = text(error);
+        return CONCURRENT_STALE.equals(mapped)
+                || QUANTITY_MODE_CONFLICT.equals(mapped)
+                || ACCEPT_CONFLICT.equals(mapped);
+    }
+
     private static boolean isOrderNotFoundMessage(String simpleName, String lowerMessage) {
         if ("order not found".equals(lowerMessage)
                 || lowerMessage.contains("заказ не найден")) {
@@ -146,10 +118,6 @@ public final class ProductionUiErrorMapper {
             return false;
         }
         return lowerMessage.contains("order") || lowerMessage.contains("заказ");
-    }
-
-    public static boolean isConcurrentOrStale(Throwable error) {
-        return CONCURRENT_STALE.equals(text(error)) || STALE_TEMPLATE.equals(text(error));
     }
 
     private static boolean containsCyrillic(String value) {

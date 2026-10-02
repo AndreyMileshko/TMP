@@ -3,48 +3,32 @@ package com.tmp.ui.shell.screen.production;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Presentation row for a production order item, including Material Requirement selection. */
+/** Read-only presentation row for an order position on the Production Order Card. */
 public final class ProductionItemRow {
 
     private final UUID orderItemId;
     private final String positionLabel;
+    private final String productLabel;
+    private final String quantityLabel;
     private final String statusLabel;
-    private final String orderedQuantity;
-    private final String activeQuantity;
-    private final String releasedQuantity;
-    private final String specificationId;
-    private final String cuttingPlanRefs;
-    private final long activeQuantityValue;
-    private final boolean selectable;
-    private boolean selected;
-    private String releaseQuantityInput;
+    private final String releasedLabel;
+    private final String remainingLabel;
 
     public ProductionItemRow(
             UUID orderItemId,
             String positionLabel,
+            String productLabel,
+            String quantityLabel,
             String statusLabel,
-            String orderedQuantity,
-            String activeQuantity,
-            String releasedQuantity,
-            String specificationId,
-            String cuttingPlanRefs,
-            long activeQuantityValue,
-            String releaseQuantityInput,
-            boolean selectable,
-            boolean selected) {
+            String releasedLabel,
+            String remainingLabel) {
         this.orderItemId = Objects.requireNonNull(orderItemId, "orderItemId");
         this.positionLabel = Objects.requireNonNull(positionLabel, "positionLabel");
+        this.productLabel = Objects.requireNonNull(productLabel, "productLabel");
+        this.quantityLabel = Objects.requireNonNull(quantityLabel, "quantityLabel");
         this.statusLabel = Objects.requireNonNull(statusLabel, "statusLabel");
-        this.orderedQuantity = Objects.requireNonNull(orderedQuantity, "orderedQuantity");
-        this.activeQuantity = Objects.requireNonNull(activeQuantity, "activeQuantity");
-        this.releasedQuantity = Objects.requireNonNull(releasedQuantity, "releasedQuantity");
-        this.specificationId = Objects.requireNonNull(specificationId, "specificationId");
-        this.cuttingPlanRefs = Objects.requireNonNull(cuttingPlanRefs, "cuttingPlanRefs");
-        this.activeQuantityValue = activeQuantityValue;
-        this.selectable = selectable;
-        this.selected = selectable && selected;
-        this.releaseQuantityInput =
-                releaseQuantityInput == null ? "" : releaseQuantityInput.trim();
+        this.releasedLabel = Objects.requireNonNull(releasedLabel, "releasedLabel");
+        this.remainingLabel = Objects.requireNonNull(remainingLabel, "remainingLabel");
     }
 
     public UUID orderItemId() {
@@ -55,55 +39,23 @@ public final class ProductionItemRow {
         return positionLabel;
     }
 
+    public String productLabel() {
+        return productLabel;
+    }
+
+    public String quantityLabel() {
+        return quantityLabel;
+    }
+
     public String statusLabel() {
         return statusLabel;
     }
 
-    public String orderedQuantity() {
-        return orderedQuantity;
+    public String releasedLabel() {
+        return releasedLabel;
     }
 
-    public String activeQuantity() {
-        return activeQuantity;
-    }
-
-    public String releasedQuantity() {
-        return releasedQuantity;
-    }
-
-    public String specificationId() {
-        return specificationId;
-    }
-
-    public String cuttingPlanRefs() {
-        return cuttingPlanRefs;
-    }
-
-    public long activeQuantityValue() {
-        return activeQuantityValue;
-    }
-
-    public boolean isSelectable() {
-        return selectable;
-    }
-
-    public boolean isSelected() {
-        return selected;
-    }
-
-    public void setSelected(boolean selected) {
-        if (!selectable) {
-            this.selected = false;
-            return;
-        }
-        this.selected = selected;
-    }
-
-    public String releaseQuantityInput() {
-        return releaseQuantityInput;
-    }
-
-    public void setReleaseQuantityInput(String releaseQuantityInput) {
-        this.releaseQuantityInput = releaseQuantityInput == null ? "" : releaseQuantityInput.trim();
+    public String remainingLabel() {
+        return remainingLabel;
     }
 }

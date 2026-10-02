@@ -5,75 +5,51 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.api.OrderId;
-import com.tmp.production.api.ProductionApplicationApi.CellAllocationView;
-import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
-import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
-import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
-import com.tmp.production.api.ProductionApplicationApi.MaterialActualDefaultView;
-import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
-import com.tmp.production.api.ProductionApplicationApi.MaterialPlanningSourceView;
-import com.tmp.production.api.ProductionApplicationApi.PlannedMaterialLineView;
-import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
-import com.tmp.production.api.ProductionApplicationApi.ReleaseResultView;
-import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
-import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSourceItemView;
-import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
-import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
-import com.tmp.production.api.ProductionQueryApi.CuttingPlanLinkView;
+import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateStatus;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
-import com.tmp.production.api.ProductionQueryApi.MaterialAvailabilityLineStatus;
-import com.tmp.production.api.ProductionQueryApi.MaterialAvailabilityLineView;
-import com.tmp.production.api.ProductionQueryApi.MaterialAvailabilityOverallStatus;
-import com.tmp.production.api.ProductionQueryApi.MaterialAvailabilityResultView;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionView;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionViewStatus;
-import com.tmp.production.api.ProductionQueryApi.ProductionHistoryEntryView;
-import com.tmp.production.api.ProductionQueryApi.ProductionHistoryType;
+import com.tmp.ui.shell.JavaFxTestSupport;
+import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.AllowAllAuthorization;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubApplicationApi;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubAuthentication;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubOrderQuery;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubQueryApi;
-import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubWarehouseApi;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubWorklistQuery;
-import com.tmp.warehouse.api.WarehouseApi.OperationKind;
-import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
-import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class ProductionWorkbenchViewModelTest {
 
+    private static final UUID ORDER_ID =
+            UUID.fromString("11111111-1111-4111-8111-111111111111");
+    private static final UUID ITEM_A =
+            UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1");
+    private static final UUID ITEM_B =
+            UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2");
+    private static final UUID SPEC_ID =
+            UUID.fromString("33333333-3333-4333-8333-333333333333");
+
     private StubQueryApi queryApi;
     private StubApplicationApi applicationApi;
     private StubOrderQuery orderQuery;
     private StubWorklistQuery worklistQuery;
-    private StubWarehouseApi warehouseApi;
     private AllowAllAuthorization auth;
     private StubAuthentication authentication;
     private ProductionWorkbenchViewModel viewModel;
 
-    private UUID orderId;
-    private UUID itemId;
-    private UUID specId;
-    private UUID sourceWh;
-    private UUID destWh;
-    private UUID sourceCell;
-    private UUID sourceCellB;
-    private UUID destCell;
-    private UUID destCellB;
-    private UUID materialRef;
-    private UUID templateId;
-    private UUID lineId;
-    private UUID logicalTransferId;
-
-    private UUID warehouseDraftId;
+    @BeforeAll
+    static void initJavaFx() {
+        JavaFxTestSupport.ensureToolkit();
+    }
 
     @BeforeEach
     void setUp() {
@@ -81,698 +57,319 @@ class ProductionWorkbenchViewModelTest {
         applicationApi = new StubApplicationApi();
         orderQuery = new StubOrderQuery();
         worklistQuery = new StubWorklistQuery();
-        warehouseApi = new StubWarehouseApi();
         auth = new AllowAllAuthorization();
         authentication = new StubAuthentication();
-        viewModel =
-                new ProductionWorkbenchViewModel(
-                        queryApi,
-                        applicationApi,
-                        orderQuery,
-                        worklistQuery,
-                        warehouseApi,
-                        auth,
-                        authentication);
-
-        orderId = UUID.fromString("11111111-1111-1111-1111-111111111111");
-        itemId = UUID.fromString("22222222-2222-2222-2222-222222222222");
-        specId = UUID.fromString("33333333-3333-3333-3333-333333333333");
-        sourceWh = UUID.fromString("44444444-4444-4444-4444-444444444444");
-        destWh = UUID.fromString("55555555-5555-5555-5555-555555555555");
-        sourceCell = UUID.fromString("66666666-6666-6666-6666-666666666666");
-        sourceCellB = UUID.fromString("66666666-6666-6666-6666-666666666667");
-        destCell = UUID.fromString("77777777-7777-7777-7777-777777777777");
-        destCellB = UUID.fromString("77777777-7777-7777-7777-777777777778");
-        materialRef = UUID.fromString("88888888-8888-8888-8888-888888888888");
-        templateId = UUID.fromString("99999999-9999-9999-9999-999999999999");
-        lineId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        logicalTransferId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-        warehouseDraftId = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccd");
-
-        orderQuery.order = ProductionWorkbenchUiTestSupport.order(orderId, "ORD-1");
-        orderQuery.items.add(ProductionWorkbenchUiTestSupport.item(orderId, itemId, "1"));
-        warehouseApi.cellsByWarehouse.put(
-                sourceWh,
-                List.of(
-                        new StorageCellView(sourceCell, sourceWh, "S-A", true),
-                        new StorageCellView(sourceCellB, sourceWh, "S-B", true)));
-        warehouseApi.cellsByWarehouse.put(
-                destWh,
-                List.of(
-                        new StorageCellView(destCell, destWh, "P-X", true),
-                        new StorageCellView(destCellB, destWh, "P-Y", true)));
-        applicationApi.productionWarehouseId = destWh;
+        viewModel = newViewModel(auth);
     }
 
     @Test
-    void loadsOrderStatusItemsHistoryAndMaterials() {
-        queryApi.view =
-                new OrderProductionView(
-                        orderId, OrderProductionViewStatus.IN_PRODUCTION, 1, 1, 0, 0, 0);
-        UUID cuttingId = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
-        queryApi.itemStates.put(
-                itemId,
-                new ItemProductionStateView(
-                        orderId,
-                        itemId,
-                        specId,
-                        ItemProductionStateStatus.IN_PRODUCTION,
-                        10,
-                        10,
-                        10,
-                        0,
-                        Optional.empty(),
-                        Instant.parse("2026-01-01T10:00:00Z"),
-                        List.of(new CuttingPlanLinkView(materialRef, cuttingId))));
-        queryApi.availability =
-                Optional.of(
-                        new MaterialAvailabilityResultView(
-                                orderId,
-                                Instant.parse("2026-01-01T11:00:00Z"),
-                                MaterialAvailabilityOverallStatus.HAS_UNRESOLVED_MATERIALS,
-                                List.of(
-                                        resolvedLine(),
-                                        unresolvedLine(),
-                                        ambiguousLine())));
-        queryApi.history.add(
-                new ProductionHistoryEntryView(
-                        UUID.randomUUID(),
-                        orderId,
-                        ProductionHistoryType.ORDER_ACCEPTED,
-                        Instant.parse("2026-01-01T09:00:00Z"),
-                        Instant.parse("2026-01-01T09:00:01Z"),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.of("tester"),
-                        Optional.of("ok")));
+    void openOrderCardShowsHeaderFieldsAndPositions() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
 
-        viewModel.openForOrder(OrderId.of(orderId));
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
 
-        assertEquals("В производстве", viewModel.statusLabelProperty().get());
+        assertTrue(viewModel.detailVisibleProperty().get());
+        assertFalse(viewModel.treeVisibleProperty().get());
         assertEquals("ORD-1", viewModel.orderNumberProperty().get());
-        assertEquals(1, viewModel.itemRows().size());
-        assertTrue(viewModel.itemRows().get(0).cuttingPlanRefs().contains("Карта раскроя"));
-        assertEquals(3, viewModel.materialRows().size());
-        MaterialAvailabilityRow unresolved =
-                viewModel.materialRows().stream()
-                        .filter(MaterialAvailabilityRow::unresolvedOrAmbiguous)
-                        .findFirst()
-                        .orElseThrow();
-        assertEquals("Материал не сопоставлен", unresolved.deficit());
-        assertEquals("—", unresolved.totalAvailable());
-        assertEquals(1, viewModel.historyRows().size());
-        assertEquals("Заказ принят в производство", viewModel.historyRows().get(0).typeLabel());
-        assertTrue(viewModel.canCheckProperty().get());
-        assertFalse(viewModel.canAcceptProperty().get());
+        assertEquals("ЗАКАЗ №ORD-1", viewModel.orderTitleProperty().get());
+        assertEquals("Клиент", viewModel.customerLabelProperty().get());
+        assertEquals("В производстве", viewModel.statusLabelProperty().get());
+        assertEquals("0 из 20", viewModel.progressLabelProperty().get());
+        assertEquals(2, viewModel.itemRows().size());
+        assertEquals("Поз. 1", viewModel.itemRows().get(0).positionLabel());
+        assertEquals("P-1 — Изделие", viewModel.itemRows().get(0).productLabel());
     }
 
     @Test
-    void sixCommandsDelegateToApplicationApi() {
-        seedInProduction();
-        viewModel.openForOrder(OrderId.of(orderId));
+    void quantityModeDefaultsToStandard() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
 
-        queryApi.view =
-                new OrderProductionView(
-                        orderId, OrderProductionViewStatus.NOT_ACCEPTED, 0, 0, 0, 0, 0);
-        viewModel.refresh();
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+
+        assertEquals(QuantityModeView.STANDARD, viewModel.selectedQuantityModeProperty().get());
+        assertEquals(QuantityModeView.STANDARD, viewModel.savedQuantityMode());
+        assertFalse(viewModel.quantityModeDirtyProperty().get());
+    }
+
+    @Test
+    void changingModeMarksDirtyAndSaveCallsApi() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+
+        viewModel.selectQuantityMode(QuantityModeView.FLEXIBLE);
+        assertTrue(viewModel.quantityModeDirtyProperty().get());
+
+        viewModel.saveQuantityMode();
+
+        assertEquals(QuantityModeView.FLEXIBLE, viewModel.savedQuantityMode());
+        assertFalse(viewModel.quantityModeDirtyProperty().get());
+        assertEquals(1L, viewModel.quantityModeVersion());
+        assertEquals(
+                QuantityModeView.FLEXIBLE,
+                applicationApi.getOrderQuantityMode(ORDER_ID).quantityMode());
+    }
+
+    @Test
+    void saveQuantityModeNoOpWhenUnchanged() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+
+        viewModel.saveQuantityMode();
+
+        assertEquals(QuantityModeView.STANDARD, viewModel.savedQuantityMode());
+        assertFalse(viewModel.quantityModeDirtyProperty().get());
+    }
+
+    @Test
+    void quantityModeOptimisticConflictShowsMessageAndReloads() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+        viewModel.selectQuantityMode(QuantityModeView.FLEXIBLE);
+        applicationApi.changeOrderQuantityModeFailure =
+                new ProductionWorkbenchUiTestSupport.OrderQuantityModeOptimisticLockStubException(
+                        ORDER_ID, 0L);
+        applicationApi.putOrderQuantityMode(ORDER_ID, QuantityModeView.FLEXIBLE, 3L);
+
+        viewModel.saveQuantityMode();
+
+        assertEquals(
+                ProductionUiErrorMapper.QUANTITY_MODE_CONFLICT,
+                viewModel.errorMessageProperty().get());
+        assertEquals(QuantityModeView.FLEXIBLE, viewModel.savedQuantityMode());
+        assertEquals(3L, viewModel.quantityModeVersion());
+    }
+
+    @Test
+    void acceptWholeOrderDelegatesToApplicationApi() {
+        seedDetailOrder(OrderProductionViewStatus.NOT_ACCEPTED);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+        assertTrue(viewModel.canAcceptProperty().get());
+
         viewModel.acceptOrder();
-        assertEquals(List.of(orderId), applicationApi.acceptCalls);
+
+        assertEquals(List.of(ORDER_ID), applicationApi.acceptCalls);
         assertEquals(List.of("tester"), applicationApi.acceptActors);
+    }
 
-        seedInProduction();
-        viewModel.refresh();
-        viewModel.checkMaterials();
-        assertEquals(List.of(orderId), applicationApi.checkCalls);
+    @Test
+    void viewOnlyPermissionSeesQuantityModeReadonly() {
+        auth = new AllowAllAuthorization(Set.of(UiShellScreens.PRODUCTION_VIEW_PERMISSION));
+        viewModel = newViewModel(auth);
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
 
-        applicationApi.requirement = sampleTemplate(new BigDecimal("5"));
-        viewModel.prepareMaterialRequirement();
-        assertEquals(1, applicationApi.prepareMaterialRequirementCalls.size());
-        assertEquals(List.of(itemId), applicationApi.prepareMaterialRequirementItemIds.get(0));
-        assertEquals(1, viewModel.requirementLines().size());
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
 
-        applicationApi.logicalTransfers =
+        assertFalse(viewModel.canEditQuantityModeProperty().get());
+        viewModel.selectQuantityMode(QuantityModeView.FLEXIBLE);
+        assertEquals(QuantityModeView.STANDARD, viewModel.selectedQuantityModeProperty().get());
+    }
+
+    @Test
+    void acceptPermissionCanEditQuantityMode() {
+        auth =
+                new AllowAllAuthorization(
+                        Set.of(
+                                UiShellScreens.PRODUCTION_VIEW_PERMISSION,
+                                UiShellScreens.PRODUCTION_ACCEPT_PERMISSION));
+        viewModel = newViewModel(auth);
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+
+        assertTrue(viewModel.canEditQuantityModeProperty().get());
+        viewModel.selectQuantityMode(QuantityModeView.FLEXIBLE);
+        assertEquals(QuantityModeView.FLEXIBLE, viewModel.selectedQuantityModeProperty().get());
+    }
+
+    @Test
+    void transferPermissionAloneCannotEditQuantityMode() {
+        auth =
+                new AllowAllAuthorization(
+                        Set.of(
+                                UiShellScreens.PRODUCTION_VIEW_PERMISSION,
+                                UiShellScreens.PRODUCTION_TRANSFER_PERMISSION));
+        viewModel = newViewModel(auth);
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+
+        assertFalse(viewModel.canEditQuantityModeProperty().get());
+    }
+
+    @Test
+    void releasePermissionAloneCannotEditQuantityMode() {
+        auth =
+                new AllowAllAuthorization(
+                        Set.of(
+                                UiShellScreens.PRODUCTION_VIEW_PERMISSION,
+                                UiShellScreens.PRODUCTION_RELEASE_PERMISSION));
+        viewModel = newViewModel(auth);
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+
+        assertFalse(viewModel.canEditQuantityModeProperty().get());
+    }
+
+    @Test
+    void quantityModeEditableIndependentOfProductionState() {
+        for (OrderProductionViewStatus status :
                 List.of(
-                        new LogicalTransferView(
-                                logicalTransferId,
-                                templateId,
-                                Instant.parse("2026-01-01T12:00:00Z"),
-                                List.of(
-                                        new WarehouseTransferRefView(
-                                                warehouseDraftId, materialRef, new BigDecimal("5")))));
-        warehouseApi.transferStatuses.put(warehouseDraftId, "SENT");
-        viewModel.refresh();
-        viewModel.selectedLogicalTransferProperty().set(viewModel.logicalTransfers().get(0));
-        viewModel.confirmReceipt();
-        assertEquals(List.of(logicalTransferId), applicationApi.receiptCalls);
-
-        viewModel.itemRows().get(0).setReleaseQuantityInput("2");
-        applicationApi.releasePreview = sampleReleasePreview();
-        applicationApi.releaseResult =
-                new ReleaseResultView(UUID.randomUUID(), orderId, Instant.now());
-        applicationApi.requirement = sampleTemplate(new BigDecimal("5"));
-        viewModel.prepareRelease();
-        assertEquals(1, applicationApi.prepareReleaseCalls.size());
-        ReleaseMaterialRow materialRow = viewModel.releaseMaterialRows().get(0);
-        ReleaseCellAllocationRow releaseAlloc = materialRow.addAllocation();
-        releaseAlloc.setProductionCell(materialRow.cellChoices().get(0));
-        releaseAlloc.setQuantity(materialRow.actualQuantity());
-        viewModel.confirmRelease();
-        assertEquals(1, applicationApi.releaseProductCalls.size());
-        assertEquals(
-                applicationApi.prepareReleaseCalls.get(0),
-                applicationApi.releaseProductCalls.get(0));
-
-        viewModel.cancelProduction();
-        assertEquals(List.of(orderId), applicationApi.cancelCalls);
-        assertEquals(Optional.empty(), applicationApi.cancelReasons.get(0));
+                        OrderProductionViewStatus.NOT_ACCEPTED,
+                        OrderProductionViewStatus.IN_PRODUCTION,
+                        OrderProductionViewStatus.MANUFACTURED,
+                        OrderProductionViewStatus.CANCELLED)) {
+            seedDetailOrder(status);
+            viewModel.openForOrder(OrderId.of(ORDER_ID));
+            assertTrue(
+                    viewModel.canEditQuantityModeProperty().get(),
+                    "mode should be editable for " + status);
+            viewModel.selectQuantityMode(QuantityModeView.FLEXIBLE);
+            assertTrue(viewModel.quantityModeDirtyProperty().get());
+            viewModel.backToTree();
+            applicationApi.putOrderQuantityMode(ORDER_ID, QuantityModeView.STANDARD, 0L);
+        }
     }
 
     @Test
-    void requirementEditChangesQuantity() {
-        seedInProduction();
-        applicationApi.requirement = sampleTemplate(new BigDecimal("5"));
-        viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.prepareMaterialRequirement();
+    void persistedFlexibleModeIsShown() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        applicationApi.putOrderQuantityMode(ORDER_ID, QuantityModeView.FLEXIBLE, 2L);
 
-        MaterialRequirementLineRow row = viewModel.requirementLines().get(0);
-        assertEquals("5", row.quantity());
-        assertEquals("ART-1", row.materialCode());
-        assertEquals("Материал", row.materialName());
-        assertEquals("белый", row.color());
-        assertEquals("шт", row.unitOfMeasure());
-        row.setQuantity("3");
-        viewModel.applyRequirementQuantity(row);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
 
-        assertEquals(1, applicationApi.changeQtyCalls.size());
-        assertEquals(new BigDecimal("3"), applicationApi.changeQtyCalls.get(0)[2]);
-        assertEquals("3", viewModel.requirementLines().get(0).quantity());
+        assertEquals(QuantityModeView.FLEXIBLE, viewModel.selectedQuantityModeProperty().get());
+        assertEquals(2L, viewModel.quantityModeVersion());
+        assertTrue(viewModel.quantityModeHintProperty().get().contains("вручную"));
     }
 
     @Test
-    void cancelSendsOnlyOrderId() {
-        seedInProduction();
-        viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.cancelProduction();
-        assertEquals(1, applicationApi.cancelCalls.size());
-        assertEquals(orderId, applicationApi.cancelCalls.get(0));
-        assertEquals(Optional.empty(), applicationApi.cancelReasons.get(0));
+    void flexibleToStandardSaveSucceeds() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        applicationApi.putOrderQuantityMode(ORDER_ID, QuantityModeView.FLEXIBLE, 1L);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+
+        viewModel.selectQuantityMode(QuantityModeView.STANDARD);
+        viewModel.saveQuantityMode();
+
+        assertEquals(QuantityModeView.STANDARD, viewModel.savedQuantityMode());
+        assertEquals(2L, viewModel.quantityModeVersion());
+        assertFalse(viewModel.quantityModeDirtyProperty().get());
     }
 
     @Test
-    void releasePrepareThenReleaseProductsWithoutRecomputingPlan() {
-        seedInProduction();
-        viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.itemRows().get(0).setReleaseQuantityInput("2");
-        applicationApi.releasePreview = sampleReleasePreview();
-        applicationApi.releaseResult =
-                new ReleaseResultView(UUID.randomUUID(), orderId, Instant.now());
-        applicationApi.requirement = sampleTemplate(new BigDecimal("1"));
-
-        viewModel.prepareRelease();
-        List<ItemReleaseView> prepared = applicationApi.prepareReleaseCalls.get(0);
-        ReleaseMaterialRow row = viewModel.releaseMaterialRows().get(0);
-        assertEquals("4.000000", row.plannedQuantity());
-        assertEquals("4.000000", row.actualQuantity());
-        row.setActualQuantity("3.5");
-        ReleaseCellAllocationRow allocation = row.addAllocation();
-        allocation.setProductionCell(row.cellChoices().get(0));
-        allocation.setQuantity("3.5");
-
-        viewModel.confirmRelease();
-        assertEquals(prepared, applicationApi.releaseProductCalls.get(0));
-        assertEquals(
-                new BigDecimal("3.5"),
-                applicationApi.releaseUsageCalls.get(0).get(0).actualQuantity());
+    void siteMissingShowsDash() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+        assertEquals("—", viewModel.siteLabelProperty().get());
     }
 
     @Test
-    void prepareMaterialRequirementShowsEditableQuantity() {
-        seedInProduction();
-        applicationApi.requirement = sampleTemplate(new BigDecimal("10"));
-        viewModel.openForOrder(OrderId.of(orderId));
-        assertTrue(viewModel.itemRows().get(0).isSelected());
-        assertTrue(viewModel.itemRows().get(0).isSelectable());
-        viewModel.prepareMaterialRequirement();
+    void backToTreeRetainsSelectionFilterAndExpanded() {
+        seedTreeOrder();
+        viewModel.loadTree();
+        viewModel.selectOrder(ORDER_ID);
+        viewModel.setOrderExpanded(ORDER_ID, true);
+        viewModel.searchTextProperty().set("ORD");
+        viewModel.statusFilterProperty().set(ProductionTreeStatusFilter.IN_PROGRESS);
 
-        MaterialRequirementLineRow row = viewModel.requirementLines().get(0);
-        assertEquals("10", row.quantity());
-        assertEquals("ART-1", row.materialCode());
-        assertTrue(viewModel.materialRequirementPanelVisibleProperty().get());
+        viewModel.openOrderDetail(OrderId.of(ORDER_ID));
+        viewModel.backToTree();
+
+        assertTrue(viewModel.treeVisibleProperty().get());
+        assertFalse(viewModel.detailVisibleProperty().get());
+        assertEquals(2, viewModel.selectedOrderItemRefs().size());
+        assertTrue(viewModel.expandedOrderIds().contains(ORDER_ID));
+        assertEquals("ORD", viewModel.searchTextProperty().get());
+        assertEquals(ProductionTreeStatusFilter.IN_PROGRESS, viewModel.statusFilterProperty().get());
     }
 
     @Test
-    void submitMaterialRequirementShowsCreatedTransfersAndLocksQuantity() {
-        seedInProduction();
-        applicationApi.requirement = sampleTemplate(new BigDecimal("10"));
-        viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.prepareMaterialRequirement();
+    void itemRowsDoNotExposeUuidInPresentationLabels() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
 
-        viewModel.submitMaterialRequirement();
-
-        assertEquals(1, applicationApi.submitCalls.size());
-        assertEquals(templateId, applicationApi.submitCalls.get(0)[0]);
-        assertEquals(1L, applicationApi.submitCalls.get(0)[1]);
-        assertTrue(viewModel.requirementSubmittedProperty().get());
-        assertTrue(
-                viewModel.statusMessageProperty()
-                        .get()
-                        .contains("Требование отправлено на склад"));
-        assertTrue(viewModel.statusMessageProperty().get().contains("Создано перемещений: 1"));
-
-        viewModel.applyRequirementQuantity(viewModel.requirementLines().get(0));
-        assertTrue(
-                viewModel.errorMessageProperty()
-                        .get()
-                        .contains("количество изменить нельзя"));
+        for (ProductionItemRow row : viewModel.itemRows()) {
+            assertFalse(row.positionLabel().contains(ITEM_A.toString()));
+            assertFalse(row.positionLabel().contains(ITEM_B.toString()));
+            assertFalse(row.productLabel().contains(ITEM_A.toString()));
+            assertFalse(row.productLabel().contains(ITEM_B.toString()));
+        }
     }
 
     @Test
-    void submitMaterialRequirementShortageShowsSourceUnavailableMessage() {
-        seedInProduction();
-        applicationApi.requirement = sampleTemplate(new BigDecimal("10"));
-        viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.prepareMaterialRequirement();
-        applicationApi.submitFailure =
-                new MaterialRequirementShortageException(
-                        "Сейчас нет ни одного склада-источника с доступным остатком для: ART-1");
+    void loadsAllItemPagesIntoOrderCard() {
+        worklistQuery.rows.add(
+                ProductionWorkbenchUiTestSupport.worklistRow(ORDER_ID, "ORD-BIG", "Клиент"));
+        orderQuery.orders.put(
+                OrderId.of(ORDER_ID), ProductionWorkbenchUiTestSupport.order(ORDER_ID, "ORD-BIG"));
+        queryApi.listFacts.put(
+                ORDER_ID,
+                ProductionWorkbenchUiTestSupport.productionListFacts(
+                        ORDER_ID, OrderProductionViewStatus.IN_PRODUCTION, 101, 0, 101));
+        for (int i = 0; i < 101; i++) {
+            UUID itemId = UUID.nameUUIDFromBytes(("card-item-" + i).getBytes());
+            orderQuery.items.add(
+                    ProductionWorkbenchUiTestSupport.item(ORDER_ID, itemId, String.valueOf(i + 1)));
+        }
+        queryApi.view =
+                new OrderProductionView(
+                        ORDER_ID, OrderProductionViewStatus.IN_PRODUCTION, 101, 101, 0, 0, 0);
 
-        viewModel.submitMaterialRequirement();
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
 
-        assertTrue(viewModel.errorMessageProperty().get().contains("ART-1"));
-        assertTrue(viewModel.errorMessageProperty().get().contains("склада-источника"));
-        assertFalse(viewModel.requirementSubmittedProperty().get());
+        assertEquals(101, viewModel.itemRows().size());
     }
 
-    @Test
-    void prepareMaterialRequirementRequiresSelectedItems() {
-        seedInProduction();
-        applicationApi.requirement = sampleTemplate(new BigDecimal("10"));
-        viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.itemRows().get(0).setSelected(false);
-        viewModel.prepareMaterialRequirement();
-
-        assertEquals(0, applicationApi.prepareMaterialRequirementCalls.size());
-        assertTrue(viewModel.errorMessageProperty().get().contains("позицию"));
-        assertFalse(viewModel.materialRequirementPanelVisibleProperty().get());
+    private ProductionWorkbenchViewModel newViewModel(AllowAllAuthorization authorization) {
+        return new ProductionWorkbenchViewModel(
+                queryApi,
+                applicationApi,
+                orderQuery,
+                worklistQuery,
+                authorization,
+                authentication);
     }
 
-    @Test
-    void releasedItemsAreNotSelectedByDefault() {
-        seedInProduction();
-        queryApi.itemStates.put(
-                itemId,
+    private void seedTreeOrder() {
+        worklistQuery.rows.add(
+                ProductionWorkbenchUiTestSupport.worklistRow(ORDER_ID, "ORD-1", "Клиент"));
+        orderQuery.orders.put(
+                OrderId.of(ORDER_ID), ProductionWorkbenchUiTestSupport.order(ORDER_ID, "ORD-1"));
+        orderQuery.items.add(ProductionWorkbenchUiTestSupport.item(ORDER_ID, ITEM_A, "1"));
+        orderQuery.items.add(ProductionWorkbenchUiTestSupport.item(ORDER_ID, ITEM_B, "2"));
+        queryApi.listFacts.put(
+                ORDER_ID,
+                ProductionWorkbenchUiTestSupport.productionListFacts(
+                        ORDER_ID, OrderProductionViewStatus.IN_PRODUCTION, 20, 0, 20));
+    }
+
+    private void seedDetailOrder(OrderProductionViewStatus status) {
+        seedTreeOrder();
+        queryApi.view = new OrderProductionView(ORDER_ID, status, 2, 20, 0, 0, 0);
+        queryApi.statesByOrder.put(ORDER_ID, itemStates());
+    }
+
+    private java.util.Map<UUID, ItemProductionStateView> itemStates() {
+        return java.util.Map.of(
+                ITEM_A,
                 new ItemProductionStateView(
-                        orderId,
-                        itemId,
-                        specId,
-                        ItemProductionStateStatus.RELEASED,
+                        ORDER_ID,
+                        ITEM_A,
+                        SPEC_ID,
+                        ItemProductionStateStatus.IN_PRODUCTION,
+                        10,
+                        10,
                         10,
                         0,
-                        0,
-                        10,
                         Optional.empty(),
                         Instant.parse("2026-01-01T10:00:00Z"),
-                        List.of()));
-        viewModel.openForOrder(OrderId.of(orderId));
-        assertFalse(viewModel.itemRows().get(0).isSelected());
-        assertFalse(viewModel.itemRows().get(0).isSelectable());
-    }
-
-    @Test
-    void releaseSupportsMultipleProductionCellAllocations() {
-        seedInProduction();
-        viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.itemRows().get(0).setReleaseQuantityInput("2");
-        applicationApi.releasePreview =
-                sampleReleasePreview(new BigDecimal("10.000000"), new BigDecimal("10.000000"));
-        applicationApi.releaseResult =
-                new ReleaseResultView(UUID.randomUUID(), orderId, Instant.now());
-
-        viewModel.prepareRelease();
-        ReleaseMaterialRow row = viewModel.releaseMaterialRows().get(0);
-        row.setActualQuantity("10");
-        ReleaseCellAllocationRow first = row.addAllocation();
-        first.setProductionCell(choiceById(row.cellChoices(), destCell));
-        first.setQuantity("6");
-        ReleaseCellAllocationRow second = row.addAllocation();
-        second.setProductionCell(choiceById(row.cellChoices(), destCellB));
-        second.setQuantity("4");
-
-        viewModel.confirmRelease();
-
-        MaterialActualUsageView usage = applicationApi.releaseUsageCalls.get(0).get(0);
-        assertEquals(new BigDecimal("10"), usage.actualQuantity());
-        assertEquals(2, usage.allocations().size());
-        assertEquals(destCell, usage.allocations().get(0).storageCellId());
-        assertEquals(new BigDecimal("6"), usage.allocations().get(0).quantity());
-        assertEquals(destCellB, usage.allocations().get(1).storageCellId());
-        assertEquals(new BigDecimal("4"), usage.allocations().get(1).quantity());
-    }
-
-    @Test
-    void releaseAllocationsValidateAgainstActualNotPlan() {
-        seedInProduction();
-        viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.itemRows().get(0).setReleaseQuantityInput("2");
-        applicationApi.releasePreview =
-                sampleReleasePreview(new BigDecimal("10.000000"), new BigDecimal("10.000000"));
-        applicationApi.releaseResult =
-                new ReleaseResultView(UUID.randomUUID(), orderId, Instant.now());
-
-        viewModel.prepareRelease();
-        ReleaseMaterialRow row = viewModel.releaseMaterialRows().get(0);
-        assertEquals("10.000000", row.plannedQuantity());
-        row.setActualQuantity("12");
-        ReleaseCellAllocationRow first = row.addAllocation();
-        first.setProductionCell(choiceById(row.cellChoices(), destCell));
-        first.setQuantity("7");
-        ReleaseCellAllocationRow second = row.addAllocation();
-        second.setProductionCell(choiceById(row.cellChoices(), destCellB));
-        second.setQuantity("5");
-
-        viewModel.confirmRelease();
-
-        MaterialActualUsageView usage = applicationApi.releaseUsageCalls.get(0).get(0);
-        assertEquals(new BigDecimal("12"), usage.actualQuantity());
-        BigDecimal sum =
-                usage.allocations().stream()
-                        .map(CellAllocationView::quantity)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-        assertEquals(new BigDecimal("12"), sum);
-    }
-
-    @Test
-    void releaseZeroActualRequiresEmptyAllocations() {
-        seedInProduction();
-        viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.itemRows().get(0).setReleaseQuantityInput("2");
-        applicationApi.releasePreview =
-                sampleReleasePreview(new BigDecimal("4.000000"), new BigDecimal("4.000000"));
-        applicationApi.releaseResult =
-                new ReleaseResultView(UUID.randomUUID(), orderId, Instant.now());
-
-        viewModel.prepareRelease();
-        ReleaseMaterialRow row = viewModel.releaseMaterialRows().get(0);
-        row.setActualQuantity("0");
-        assertTrue(row.allocations().isEmpty());
-
-        viewModel.confirmRelease();
-
-        MaterialActualUsageView usage = applicationApi.releaseUsageCalls.get(0).get(0);
-        assertEquals(0, usage.actualQuantity().signum());
-        assertTrue(usage.allocations().isEmpty());
-    }
-
-    @Test
-    void releaseAllocationMismatchBlocksConfirm() {
-        seedInProduction();
-        viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.itemRows().get(0).setReleaseQuantityInput("2");
-        applicationApi.releasePreview =
-                sampleReleasePreview(new BigDecimal("10.000000"), new BigDecimal("10.000000"));
-        applicationApi.releaseResult =
-                new ReleaseResultView(UUID.randomUUID(), orderId, Instant.now());
-
-        viewModel.prepareRelease();
-        ReleaseMaterialRow row = viewModel.releaseMaterialRows().get(0);
-        row.setActualQuantity("10");
-        ReleaseCellAllocationRow first = row.addAllocation();
-        first.setProductionCell(choiceById(row.cellChoices(), destCell));
-        first.setQuantity("6");
-        ReleaseCellAllocationRow second = row.addAllocation();
-        second.setProductionCell(choiceById(row.cellChoices(), destCellB));
-        second.setQuantity("3");
-
-        viewModel.confirmRelease();
-
-        assertEquals(0, applicationApi.releaseProductCalls.size());
-        assertTrue(viewModel.errorMessageProperty().get().contains("Сумма распределений"));
-    }
-
-    @Test
-    void requirementLineSelectionIsRetainedAcrossQuantityEdit() {
-        seedInProduction();
-        applicationApi.requirement = sampleTemplate(new BigDecimal("1.000000"));
-        viewModel.openForOrder(OrderId.of(orderId));
-        viewModel.prepareMaterialRequirement();
-
-        MaterialRequirementLineRow line = viewModel.requirementLines().get(0);
-        viewModel.selectRequirementLine(line.lineId());
-        line.setQuantity("0.600000");
-        viewModel.applyRequirementQuantity(line);
-
-        assertEquals(line.lineId(), viewModel.selectedRequirementLineIdProperty().get());
-        assertEquals("0.600000", viewModel.requirementLines().get(0).quantity());
-    }
-
-    @Test
-    void receiptDisabledForDraftEnabledForSentDisabledAfterReceived() {
-        seedInProduction();
-        viewModel.openForOrder(OrderId.of(orderId));
-
-        WarehouseTransferRefView ref =
-                new WarehouseTransferRefView(warehouseDraftId, materialRef, new BigDecimal("1"));
-        LogicalTransferView transfer =
-                new LogicalTransferView(
-                        logicalTransferId,
-                        templateId,
-                        Instant.parse("2026-01-01T12:00:00Z"),
-                        List.of(ref));
-        applicationApi.logicalTransfers = List.of(transfer);
-
-        warehouseApi.transferStatuses.put(warehouseDraftId, "DRAFT");
-        viewModel.refresh();
-        viewModel.selectedLogicalTransferProperty().set(viewModel.logicalTransfers().get(0));
-        assertFalse(viewModel.canReceiptProperty().get());
-
-        warehouseApi.transferStatuses.put(warehouseDraftId, "SENT");
-        viewModel.refresh();
-        viewModel.selectedLogicalTransferProperty().set(viewModel.logicalTransfers().get(0));
-        assertTrue(viewModel.canReceiptProperty().get());
-
-        warehouseApi.transferStatuses.put(warehouseDraftId, "RECEIVED");
-        viewModel.refresh();
-        viewModel.selectedLogicalTransferProperty().set(viewModel.logicalTransfers().get(0));
-        assertFalse(viewModel.canReceiptProperty().get());
-    }
-
-    private static StorageCellChoice choiceById(
-            java.util.Collection<StorageCellChoice> choices, UUID id) {
-        return choices.stream().filter(c -> c.id().equals(id)).findFirst().orElseThrow();
-    }
-
-    @Test
-    void terminalStatesDisableButtons() {
-        seedInProduction();
-        viewModel.openForOrder(OrderId.of(orderId));
-        assertTrue(viewModel.canCheckProperty().get());
-
-        queryApi.view =
-                new OrderProductionView(
-                        orderId, OrderProductionViewStatus.MANUFACTURED, 1, 0, 0, 1, 0);
-        viewModel.refresh();
-        assertFalse(viewModel.canAcceptProperty().get());
-        assertFalse(viewModel.canCheckProperty().get());
-        assertFalse(viewModel.canTransferProperty().get());
-        assertFalse(viewModel.canReceiptProperty().get());
-        assertFalse(viewModel.canReleaseProperty().get());
-        assertFalse(viewModel.canCancelProperty().get());
-
-        queryApi.view =
-                new OrderProductionView(
-                        orderId, OrderProductionViewStatus.CANCELLED, 1, 0, 0, 0, 1);
-        viewModel.refresh();
-        assertFalse(viewModel.canAcceptProperty().get());
-        assertFalse(viewModel.canCancelProperty().get());
-    }
-
-    @Test
-    void notAcceptedEnablesOnlyAccept() {
-        queryApi.view =
-                new OrderProductionView(
-                        orderId, OrderProductionViewStatus.NOT_ACCEPTED, 0, 0, 0, 0, 0);
-        viewModel.openForOrder(OrderId.of(orderId));
-        assertTrue(viewModel.canAcceptProperty().get());
-        assertFalse(viewModel.canCheckProperty().get());
-        assertFalse(viewModel.canTransferProperty().get());
-        assertFalse(viewModel.canReleaseProperty().get());
-        assertFalse(viewModel.canCancelProperty().get());
-    }
-
-    @Test
-    void emptyStateDisablesMutations() {
-        assertFalse(viewModel.orderSelectedProperty().get());
-        assertFalse(viewModel.canAcceptProperty().get());
-        assertTrue(viewModel.emptyStateMessageProperty().get().contains("Нет заказов"));
-    }
-
-    @Test
-    void cleanOpenOfNotAcceptedOrderDoesNotShowOrderNotFound() {
-        queryApi.view =
-                new OrderProductionView(
-                        orderId, OrderProductionViewStatus.NOT_ACCEPTED, 0, 0, 0, 0, 0);
-
-        viewModel.openForOrder(OrderId.of(orderId));
-
-        assertEquals("ORD-1", viewModel.orderNumberProperty().get());
-        assertEquals("Не принят", viewModel.statusLabelProperty().get());
-        assertEquals("Заказ открыт", viewModel.statusMessageProperty().get());
-        assertEquals("", viewModel.errorMessageProperty().get());
-        assertFalse(
-                viewModel.errorMessageProperty().get().contains(ProductionUiErrorMapper.ORDER_NOT_FOUND));
-        assertTrue(viewModel.canAcceptProperty().get());
-        assertFalse(viewModel.canCheckProperty().get());
-        assertFalse(viewModel.canTransferProperty().get());
-        assertEquals(0, queryApi.getMaterialAvailabilityCalls);
-    }
-
-    @Test
-    void acceptReloadsAuthoritativeStateAndDisablesAccept() {
-        queryApi.view =
-                new OrderProductionView(
-                        orderId, OrderProductionViewStatus.NOT_ACCEPTED, 0, 0, 0, 0, 0);
-        viewModel.openForOrder(OrderId.of(orderId));
-        assertTrue(viewModel.canAcceptProperty().get());
-
-        seedInProduction();
-        queryApi.availability =
-                Optional.of(
-                        new MaterialAvailabilityResultView(
-                                orderId,
-                                Instant.parse("2026-01-01T11:00:00Z"),
-                                MaterialAvailabilityOverallStatus.ALL_AVAILABLE,
-                                List.of(resolvedLine())));
-        viewModel.acceptOrder();
-
-        assertEquals(List.of(orderId), applicationApi.acceptCalls);
-        assertEquals("В производстве", viewModel.statusLabelProperty().get());
-        assertEquals("Заказ принят в производство", viewModel.statusMessageProperty().get());
-        assertEquals("", viewModel.errorMessageProperty().get());
-        assertFalse(viewModel.canAcceptProperty().get());
-        assertTrue(viewModel.canCheckProperty().get());
-        assertTrue(viewModel.canTransferProperty().get());
-        assertEquals(1, viewModel.materialRows().size());
-    }
-
-    @Test
-    void reopenAcceptedOrderDoesNotShowFalseOrderNotFound() {
-        seedInProduction();
-        queryApi.availability =
-                Optional.of(
-                        new MaterialAvailabilityResultView(
-                                orderId,
-                                Instant.parse("2026-01-01T11:00:00Z"),
-                                MaterialAvailabilityOverallStatus.ALL_AVAILABLE,
-                                List.of(resolvedLine())));
-
-        viewModel.openForOrder(OrderId.of(orderId));
-
-        assertEquals("В производстве", viewModel.statusLabelProperty().get());
-        assertEquals("", viewModel.errorMessageProperty().get());
-        assertFalse(viewModel.canAcceptProperty().get());
-        assertTrue(viewModel.canCheckProperty().get());
-        assertTrue(viewModel.canTransferProperty().get());
-        assertEquals(1, viewModel.itemRows().size());
-        assertEquals("В производстве", viewModel.itemRows().get(0).statusLabel());
-    }
-
-    @Test
-    void existingInProductionOpenKeepsActionMatrixWhenMaterialsSecondaryFails() {
-        seedInProduction();
-        queryApi.availabilityFailure =
-                new IllegalStateException("Configured destination warehouse not found: " + destWh);
-
-        viewModel.openForOrder(OrderId.of(orderId));
-
-        assertEquals("ORD-1", viewModel.orderNumberProperty().get());
-        assertEquals("В производстве", viewModel.statusLabelProperty().get());
-        assertEquals("Заказ открыт", viewModel.statusMessageProperty().get());
-        assertEquals(
-                ProductionUiErrorMapper.DESTINATION_WAREHOUSE_INVALID,
-                viewModel.errorMessageProperty().get());
-        assertFalse(
-                viewModel
-                        .errorMessageProperty()
-                        .get()
-                        .contains(ProductionUiErrorMapper.ORDER_NOT_FOUND));
-        assertFalse(viewModel.canAcceptProperty().get());
-        assertTrue(viewModel.canCheckProperty().get());
-        assertTrue(viewModel.canTransferProperty().get());
-        assertTrue(viewModel.itemRows().get(0).isSelectable());
-        assertTrue(viewModel.materialRows().isEmpty());
-    }
-
-    @Test
-    void materialRequestEnabledForSelectedInProductionItem() {
-        seedInProduction();
-        viewModel.openForOrder(OrderId.of(orderId));
-        assertTrue(viewModel.canTransferProperty().get());
-
-        viewModel.itemRows().get(0).setSelected(true);
-        applicationApi.requirement = sampleTemplate(new BigDecimal("5"));
-        viewModel.prepareMaterialRequirement();
-
-        assertEquals(1, applicationApi.prepareMaterialRequirementCalls.size());
-        assertEquals(List.of(itemId), applicationApi.prepareMaterialRequirementItemIds.get(0));
-        assertTrue(viewModel.materialRequirementPanelVisibleProperty().get());
-    }
-
-    @Test
-    void successfulOpenClearsStaleErrorFromPriorSecondaryFailure() {
-        seedInProduction();
-        queryApi.availabilityFailure =
-                new IllegalStateException("Configured destination warehouse not found: " + destWh);
-        viewModel.openForOrder(OrderId.of(orderId));
-        assertEquals(
-                ProductionUiErrorMapper.DESTINATION_WAREHOUSE_INVALID,
-                viewModel.errorMessageProperty().get());
-
-        queryApi.availabilityFailure = null;
-        queryApi.availability =
-                Optional.of(
-                        new MaterialAvailabilityResultView(
-                                orderId,
-                                Instant.parse("2026-01-01T11:00:00Z"),
-                                MaterialAvailabilityOverallStatus.ALL_AVAILABLE,
-                                List.of(resolvedLine())));
-        viewModel.refresh();
-
-        assertEquals("Данные обновлены", viewModel.statusMessageProperty().get());
-        assertEquals("", viewModel.errorMessageProperty().get());
-        assertEquals(1, viewModel.materialRows().size());
-        assertFalse(viewModel.canAcceptProperty().get());
-    }
-
-    @Test
-    void acceptIgnoresDoubleSubmitWhileLoading() {
-        queryApi.view =
-                new OrderProductionView(
-                        orderId, OrderProductionViewStatus.NOT_ACCEPTED, 0, 0, 0, 0, 0);
-        viewModel.openForOrder(OrderId.of(orderId));
-
-        viewModel.loadingProperty().set(true);
-        viewModel.acceptOrder();
-        viewModel.acceptOrder();
-        assertTrue(applicationApi.acceptCalls.isEmpty());
-
-        viewModel.loadingProperty().set(false);
-        seedInProduction();
-        viewModel.acceptOrder();
-        assertEquals(List.of(orderId), applicationApi.acceptCalls);
-        assertFalse(viewModel.canAcceptProperty().get());
-    }
-
-    private void seedInProduction() {
-        queryApi.view =
-                new OrderProductionView(
-                        orderId, OrderProductionViewStatus.IN_PRODUCTION, 1, 1, 0, 0, 0);
-        queryApi.itemStates.put(
-                itemId,
+                        List.of()),
+                ITEM_B,
                 new ItemProductionStateView(
-                        orderId,
-                        itemId,
-                        specId,
+                        ORDER_ID,
+                        ITEM_B,
+                        SPEC_ID,
                         ItemProductionStateStatus.IN_PRODUCTION,
                         10,
                         10,
@@ -781,106 +378,5 @@ class ProductionWorkbenchViewModelTest {
                         Optional.empty(),
                         Instant.parse("2026-01-01T10:00:00Z"),
                         List.of()));
-        applicationApi.logicalTransfers = List.of();
-    }
-
-    private MaterialRequirementView sampleTemplate(BigDecimal quantity) {
-        return new MaterialRequirementView(
-                templateId,
-                List.of(new MaterialRequirementSourceItemView(orderId, itemId, 1L)),
-                destWh,
-                Instant.parse("2026-01-01T12:00:00Z"),
-                Instant.parse("2026-01-01T12:00:00Z"),
-                1L,
-                MaterialRequirementStatusView.DRAFT,
-                Optional.empty(),
-                Optional.empty(),
-                List.of(
-                        new MaterialRequirementLineView(
-                                lineId,
-                                materialRef,
-                                "ART-1",
-                                "Материал",
-                                "белый",
-                                "шт",
-                                quantity,
-                                List.of(itemId))));
-    }
-
-    private ReleasePreviewView sampleReleasePreview() {
-        return sampleReleasePreview(new BigDecimal("4.000000"), new BigDecimal("4.000000"));
-    }
-
-    private ReleasePreviewView sampleReleasePreview(BigDecimal planned, BigDecimal actual) {
-        return new ReleasePreviewView(
-                orderId,
-                List.of(new ItemReleaseView(itemId, 2)),
-                List.of(
-                        new PlannedMaterialLineView(
-                                itemId,
-                                materialRef,
-                                specId,
-                                planned,
-                                MaterialPlanningSourceView.SPECIFICATION,
-                                Optional.empty(),
-                                Optional.of("Материал"))),
-                List.of(
-                        new MaterialActualDefaultView(
-                                itemId, materialRef, planned, actual)));
-    }
-
-    private MaterialAvailabilityLineView resolvedLine() {
-        return new MaterialAvailabilityLineView(
-                "ART-OK",
-                "OK",
-                "белый",
-                "шт",
-                Optional.of(materialRef),
-                new BigDecimal("10"),
-                new BigDecimal("7"),
-                new BigDecimal("1"),
-                new BigDecimal("8"),
-                new BigDecimal("2"),
-                MaterialAvailabilityLineStatus.INSUFFICIENT,
-                com.tmp.production.api.ProductionQueryApi.MaterialPlanningSourceView.SPECIFICATION);
-    }
-
-    private MaterialAvailabilityLineView unresolvedLine() {
-        return new MaterialAvailabilityLineView(
-                "ART-U",
-                "U",
-                "",
-                "шт",
-                Optional.empty(),
-                new BigDecimal("1"),
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                MaterialAvailabilityLineStatus.MATERIAL_UNRESOLVED,
-                com.tmp.production.api.ProductionQueryApi.MaterialPlanningSourceView.SPECIFICATION);
-    }
-
-    private MaterialAvailabilityLineView ambiguousLine() {
-        return new MaterialAvailabilityLineView(
-                "ART-A",
-                "A",
-                "",
-                "шт",
-                Optional.empty(),
-                new BigDecimal("1"),
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                MaterialAvailabilityLineStatus.MATERIAL_AMBIGUOUS,
-                com.tmp.production.api.ProductionQueryApi.MaterialPlanningSourceView.SPECIFICATION);
-    }
-
-    /** Test-local stand-in: mapper keys off simple class name, not the Production domain type. */
-    private static final class MaterialRequirementShortageException extends RuntimeException {
-        private MaterialRequirementShortageException(String message) {
-            super(message);
-        }
     }
 }

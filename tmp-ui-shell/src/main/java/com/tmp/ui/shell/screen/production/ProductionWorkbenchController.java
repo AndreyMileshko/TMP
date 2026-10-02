@@ -1,6 +1,7 @@
 package com.tmp.ui.shell.screen.production;
 
 import com.tmp.order.api.OrderId;
+import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
 import com.tmp.ui.shell.navigation.ViewModelAware;
 import com.tmp.ui.shell.order.worklist.OrderListPeriod;
 import com.tmp.ui.shell.theme.TmpTheme;
@@ -11,8 +12,6 @@ import java.util.Map;
 import java.util.UUID;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
-import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -20,26 +19,24 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TableCell;
+import javafx.scene.control.RadioButton;
 import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeTableCell;
 import javafx.scene.control.TreeTableColumn;
 import javafx.scene.control.TreeTableRow;
 import javafx.scene.control.TreeTableView;
-import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.VBox;
 import javafx.util.StringConverter;
 
 /**
- * Production workbench FXML controller. LEVEL 1 is the Order→Item tree; detail panels are
- * transitional until the Order Card phase. Confirmation dialogs live here; no business logic.
+ * Production workbench FXML controller. LEVEL 1 Order→Item tree; LEVEL 2 Order Card. Confirmation
+ * dialogs live here; no business logic.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
@@ -114,168 +111,65 @@ public final class ProductionWorkbenchController
     private Button detailRefreshButton;
 
     @FXML
-    private Label orderNumberLabel;
+    private Label orderTitleLabel;
 
     @FXML
     private Label customerLabel;
 
     @FXML
+    private Label siteLabel;
+
+    @FXML
     private Label statusLabel;
 
     @FXML
-    private Label statusDetailLabel;
+    private Label progressLabel;
 
     @FXML
     private Button acceptButton;
 
     @FXML
-    private Button checkMaterialsButton;
+    private ToggleGroup quantityModeGroup;
 
     @FXML
-    private Button prepareTransferButton;
+    private RadioButton standardModeRadio;
 
     @FXML
-    private Button prepareReleaseButton;
+    private RadioButton flexibleModeRadio;
 
     @FXML
-    private Button cancelProductionButton;
+    private Label quantityModeHintLabel;
 
     @FXML
-    private ScrollPane rootScroll;
+    private Button saveQuantityModeButton;
 
     @FXML
     private TableView<ProductionItemRow> itemsTable;
 
     @FXML
-    private TableColumn<ProductionItemRow, Boolean> itemSelectedColumn;
+    private TableColumn<ProductionItemRow, String> itemPositionColumn;
 
     @FXML
-    private TableColumn<ProductionItemRow, String> itemPositionColumn;
+    private TableColumn<ProductionItemRow, String> itemProductColumn;
+
+    @FXML
+    private TableColumn<ProductionItemRow, String> itemQuantityColumn;
 
     @FXML
     private TableColumn<ProductionItemRow, String> itemStatusColumn;
 
     @FXML
-    private TableColumn<ProductionItemRow, String> itemOrderedColumn;
-
-    @FXML
-    private TableColumn<ProductionItemRow, String> itemActiveColumn;
-
-    @FXML
     private TableColumn<ProductionItemRow, String> itemReleasedColumn;
 
     @FXML
-    private TableColumn<ProductionItemRow, String> itemReleaseQtyColumn;
-
-    @FXML
-    private TableView<MaterialAvailabilityRow> materialsTable;
-
-    @FXML
-    private TableColumn<MaterialAvailabilityRow, String> materialNameColumn;
-
-    @FXML
-    private TableColumn<MaterialAvailabilityRow, String> materialRequiredColumn;
-
-    @FXML
-    private TableColumn<MaterialAvailabilityRow, String> materialMainColumn;
-
-    @FXML
-    private TableColumn<MaterialAvailabilityRow, String> materialProductionColumn;
-
-    @FXML
-    private TableColumn<MaterialAvailabilityRow, String> materialTotalColumn;
-
-    @FXML
-    private TableColumn<MaterialAvailabilityRow, String> materialDeficitColumn;
-
-    @FXML
-    private TableColumn<MaterialAvailabilityRow, String> materialSourceColumn;
-
-    @FXML
-    private TableView<ProductionHistoryRow> historyTable;
-
-    @FXML
-    private TableColumn<ProductionHistoryRow, String> historyTimeColumn;
-
-    @FXML
-    private TableColumn<ProductionHistoryRow, String> historyTypeColumn;
-
-    @FXML
-    private TableColumn<ProductionHistoryRow, String> historyActorColumn;
-
-    @FXML
-    private TableColumn<ProductionHistoryRow, String> historySummaryColumn;
-
-    @FXML
-    private VBox materialRequirementPanel;
-
-    @FXML
-    private TableView<MaterialRequirementLineRow> requirementLinesTable;
-
-    @FXML
-    private TableColumn<MaterialRequirementLineRow, String> requirementCodeColumn;
-
-    @FXML
-    private TableColumn<MaterialRequirementLineRow, String> requirementNameColumn;
-
-    @FXML
-    private TableColumn<MaterialRequirementLineRow, String> requirementColorColumn;
-
-    @FXML
-    private TableColumn<MaterialRequirementLineRow, String> requirementQtyColumn;
-
-    @FXML
-    private TableColumn<MaterialRequirementLineRow, String> requirementUomColumn;
-
-    @FXML
-    private Button applyRequirementQtyButton;
-
-    @FXML
-    private Button submitRequirementButton;
-
-    @FXML
-    private VBox releasePanel;
-
-    @FXML
-    private TableView<ReleaseMaterialRow> releaseMaterialsTable;
-
-    @FXML
-    private TableColumn<ReleaseMaterialRow, String> releaseMaterialColumn;
-
-    @FXML
-    private TableColumn<ReleaseMaterialRow, String> releasePlannedColumn;
-
-    @FXML
-    private TableColumn<ReleaseMaterialRow, String> releaseActualColumn;
-
-    @FXML
-    private TableColumn<ReleaseMaterialRow, String> releaseAllocationSummaryColumn;
-
-    @FXML
-    private TableView<ReleaseCellAllocationRow> releaseAllocationsTable;
-
-    @FXML
-    private TableColumn<ReleaseCellAllocationRow, StorageCellChoice> releaseAllocCellColumn;
-
-    @FXML
-    private TableColumn<ReleaseCellAllocationRow, String> releaseAllocQtyColumn;
-
-    @FXML
-    private Button addReleaseAllocationButton;
-
-    @FXML
-    private Button removeReleaseAllocationButton;
-
-    @FXML
-    private Button confirmReleaseButton;
+    private TableColumn<ProductionItemRow, String> itemRemainingColumn;
 
     private ProductionWorkbenchViewModel viewModel;
 
     private final TreeItem<ProductionTreeNode> treeRoot = new TreeItem<>();
     private final Map<UUID, TreeItem<ProductionTreeNode>> orderTreeItems = new HashMap<>();
-    private final ObservableList<ReleaseCellAllocationRow> emptyReleaseAllocations =
-            FXCollections.observableArrayList();
     private boolean rebuildingTree;
+    private boolean suppressingModeUi;
 
     @Override
     public void setViewModel(ProductionWorkbenchViewModel viewModel) {
@@ -297,14 +191,17 @@ public final class ProductionWorkbenchController
         detailPane.visibleProperty().bind(viewModel.detailVisibleProperty());
         detailPane.managedProperty().bind(viewModel.detailVisibleProperty());
 
-        orderNumberLabel.textProperty().bind(viewModel.orderNumberProperty());
+        orderTitleLabel.textProperty().bind(viewModel.orderTitleProperty());
         customerLabel.textProperty().bind(viewModel.customerLabelProperty());
+        siteLabel.textProperty().bind(viewModel.siteLabelProperty());
         statusLabel.textProperty().bind(viewModel.statusLabelProperty());
-        statusDetailLabel.textProperty().bind(viewModel.statusDetailLabelProperty());
+        progressLabel.textProperty().bind(viewModel.progressLabelProperty());
+        quantityModeHintLabel.textProperty().bind(viewModel.quantityModeHintProperty());
 
         searchField.textProperty().bindBidirectional(viewModel.searchTextProperty());
 
-        statusFilterCombo.setItems(FXCollections.observableArrayList(ProductionTreeStatusFilter.values()));
+        statusFilterCombo.setItems(
+                FXCollections.observableArrayList(ProductionTreeStatusFilter.values()));
         statusFilterCombo.setConverter(
                 new StringConverter<>() {
                     @Override
@@ -355,68 +252,116 @@ public final class ProductionWorkbenchController
         acceptButton
                 .disableProperty()
                 .bind(viewModel.canAcceptProperty().not().or(viewModel.loadingProperty()));
-        checkMaterialsButton
-                .disableProperty()
-                .bind(viewModel.canCheckProperty().not().or(viewModel.loadingProperty()));
-        prepareTransferButton
-                .disableProperty()
-                .bind(viewModel.canTransferProperty().not().or(viewModel.loadingProperty()));
-        prepareReleaseButton
-                .disableProperty()
-                .bind(viewModel.canReleaseProperty().not().or(viewModel.loadingProperty()));
-        cancelProductionButton
-                .disableProperty()
-                .bind(viewModel.canCancelProperty().not().or(viewModel.loadingProperty()));
+        acceptButton.visibleProperty().bind(viewModel.canAcceptProperty());
+        acceptButton.managedProperty().bind(viewModel.canAcceptProperty());
+        acceptButton.setOnAction(e -> confirmAccept());
 
-        acceptButton.setOnAction(e -> viewModel.acceptOrder());
-        checkMaterialsButton.setOnAction(e -> viewModel.checkMaterials());
-        prepareTransferButton.setOnAction(e -> viewModel.prepareMaterialRequirement());
-        prepareReleaseButton.setOnAction(e -> viewModel.prepareRelease());
-        cancelProductionButton.setOnAction(e -> confirmCancel());
-
+        bindQuantityModeControls();
         bindProductionTree();
         bindItemsTable();
-        bindMaterialsTable();
-        bindHistoryTable();
-        bindMaterialRequirementPanel();
-        bindReleasePanel();
+    }
+
+    private void bindQuantityModeControls() {
+        standardModeRadio
+                .disableProperty()
+                .bind(
+                        viewModel
+                                .canEditQuantityModeProperty()
+                                .not()
+                                .or(viewModel.loadingProperty()));
+        flexibleModeRadio
+                .disableProperty()
+                .bind(
+                        viewModel
+                                .canEditQuantityModeProperty()
+                                .not()
+                                .or(viewModel.loadingProperty()));
+        saveQuantityModeButton
+                .disableProperty()
+                .bind(
+                        viewModel
+                                .quantityModeDirtyProperty()
+                                .not()
+                                .or(viewModel.canEditQuantityModeProperty().not())
+                                .or(viewModel.loadingProperty()));
+        saveQuantityModeButton.visibleProperty().bind(viewModel.canEditQuantityModeProperty());
+        saveQuantityModeButton.managedProperty().bind(viewModel.canEditQuantityModeProperty());
+        saveQuantityModeButton.setOnAction(e -> viewModel.saveQuantityMode());
+
+        standardModeRadio.setOnAction(
+                e -> {
+                    if (!suppressingModeUi) {
+                        viewModel.selectQuantityMode(QuantityModeView.STANDARD);
+                    }
+                });
+        flexibleModeRadio.setOnAction(
+                e -> {
+                    if (!suppressingModeUi) {
+                        viewModel.selectQuantityMode(QuantityModeView.FLEXIBLE);
+                    }
+                });
+
+        viewModel
+                .selectedQuantityModeProperty()
+                .addListener((obs, oldValue, newValue) -> syncModeRadios(newValue));
+        syncModeRadios(viewModel.selectedQuantityModeProperty().get());
+    }
+
+    private void syncModeRadios(QuantityModeView mode) {
+        suppressingModeUi = true;
+        try {
+            if (mode == QuantityModeView.FLEXIBLE) {
+                flexibleModeRadio.setSelected(true);
+            } else {
+                standardModeRadio.setSelected(true);
+            }
+        } finally {
+            suppressingModeUi = false;
+        }
     }
 
     private void bindProductionTree() {
         productionTree.setRoot(treeRoot);
         productionTree.setShowRoot(false);
-        productionTree.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        productionTree.setColumnResizePolicy(
+                TreeTableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
         treeIdentityColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(
-                        c.getValue() == null || c.getValue().getValue() == null
-                                ? ""
-                                : c.getValue().getValue().identityLabel()));
+                c ->
+                        new SimpleStringProperty(
+                                c.getValue() == null || c.getValue().getValue() == null
+                                        ? ""
+                                        : c.getValue().getValue().identityLabel()));
         treeSecondaryColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(
-                        c.getValue() == null || c.getValue().getValue() == null
-                                ? ""
-                                : c.getValue().getValue().secondaryLabel()));
+                c ->
+                        new SimpleStringProperty(
+                                c.getValue() == null || c.getValue().getValue() == null
+                                        ? ""
+                                        : c.getValue().getValue().secondaryLabel()));
         treeQuantityColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(
-                        c.getValue() == null || c.getValue().getValue() == null
-                                ? ""
-                                : c.getValue().getValue().quantityLabel()));
+                c ->
+                        new SimpleStringProperty(
+                                c.getValue() == null || c.getValue().getValue() == null
+                                        ? ""
+                                        : c.getValue().getValue().quantityLabel()));
         treeStatusColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(
-                        c.getValue() == null || c.getValue().getValue() == null
-                                ? ""
-                                : c.getValue().getValue().statusLabel()));
+                c ->
+                        new SimpleStringProperty(
+                                c.getValue() == null || c.getValue().getValue() == null
+                                        ? ""
+                                        : c.getValue().getValue().statusLabel()));
         treeReleasedColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(
-                        c.getValue() == null || c.getValue().getValue() == null
-                                ? ""
-                                : c.getValue().getValue().releasedLabel()));
+                c ->
+                        new SimpleStringProperty(
+                                c.getValue() == null || c.getValue().getValue() == null
+                                        ? ""
+                                        : c.getValue().getValue().releasedLabel()));
         treeRemainingColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(
-                        c.getValue() == null || c.getValue().getValue() == null
-                                ? ""
-                                : c.getValue().getValue().remainingLabel()));
+                c ->
+                        new SimpleStringProperty(
+                                c.getValue() == null || c.getValue().getValue() == null
+                                        ? ""
+                                        : c.getValue().getValue().remainingLabel()));
 
         treeSelectedColumn.setSortable(false);
         treeSelectedColumn.setCellFactory(col -> new SelectionCheckCell());
@@ -438,7 +383,6 @@ public final class ProductionWorkbenchController
                                     viewModel.openOrderDetail(OrderId.of(node.sourceOrderId()));
                                     event.consume();
                                 }
-                                // Item double-click must not toggle checkbox.
                             });
                     return row;
                 });
@@ -486,18 +430,12 @@ public final class ProductionWorkbenchController
         }
     }
 
-    private final class SelectionCheckCell
-            extends TreeTableCell<ProductionTreeNode, Boolean> {
+    private final class SelectionCheckCell extends TreeTableCell<ProductionTreeNode, Boolean> {
         private final CheckBox checkBox = new CheckBox();
 
         private SelectionCheckCell() {
             checkBox.setAllowIndeterminate(true);
-            checkBox.addEventFilter(
-                    MouseEvent.MOUSE_CLICKED,
-                    event -> {
-                        // Keep row focus independent of business selection.
-                        event.consume();
-                    });
+            checkBox.addEventFilter(MouseEvent.MOUSE_CLICKED, MouseEvent::consume);
             checkBox.setOnAction(
                     e -> {
                         ProductionTreeNode node =
@@ -506,7 +444,6 @@ public final class ProductionWorkbenchController
                             return;
                         }
                         if (node.isOrder()) {
-                            // After a click, indeterminate is cleared; selected means select-all.
                             if (checkBox.isSelected() && !checkBox.isIndeterminate()) {
                                 viewModel.selectOrder(node.sourceOrderId());
                             } else {
@@ -551,329 +488,40 @@ public final class ProductionWorkbenchController
     }
 
     private void bindItemsTable() {
-        itemsTable.setEditable(true);
-        itemSelectedColumn.setCellValueFactory(
-                c ->
-                        new javafx.beans.property.SimpleBooleanProperty(
-                                c.getValue().isSelected()));
-        itemSelectedColumn.setCellFactory(
-                col ->
-                        new TableCell<>() {
-                            private final CheckBox checkBox = new CheckBox();
-
-                            {
-                                checkBox.setOnAction(
-                                        e -> {
-                                            ProductionItemRow row =
-                                                    getTableRow() == null
-                                                            ? null
-                                                            : getTableRow().getItem();
-                                            if (row != null && row.isSelectable()) {
-                                                row.setSelected(checkBox.isSelected());
-                                            } else if (row != null) {
-                                                checkBox.setSelected(false);
-                                            }
-                                        });
-                            }
-
-                            @Override
-                            protected void updateItem(Boolean item, boolean empty) {
-                                super.updateItem(item, empty);
-                                if (empty
-                                        || getTableRow() == null
-                                        || getTableRow().getItem() == null) {
-                                    setGraphic(null);
-                                    return;
-                                }
-                                ProductionItemRow row = getTableRow().getItem();
-                                checkBox.setDisable(!row.isSelectable());
-                                checkBox.setSelected(row.isSelected());
-                                setGraphic(checkBox);
-                            }
-                        });
+        itemsTable.setEditable(false);
         itemPositionColumn.setCellValueFactory(
                 c -> new SimpleStringProperty(c.getValue().positionLabel()));
+        itemProductColumn.setCellValueFactory(
+                c -> new SimpleStringProperty(c.getValue().productLabel()));
+        itemQuantityColumn.setCellValueFactory(
+                c -> new SimpleStringProperty(c.getValue().quantityLabel()));
         itemStatusColumn.setCellValueFactory(
                 c -> new SimpleStringProperty(c.getValue().statusLabel()));
-        itemOrderedColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().orderedQuantity()));
-        itemActiveColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().activeQuantity()));
         itemReleasedColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().releasedQuantity()));
-        itemReleaseQtyColumn.setCellFactory(TextFieldTableCell.forTableColumn());
-        itemReleaseQtyColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().releaseQuantityInput()));
-        itemReleaseQtyColumn.setOnEditCommit(
-                event -> event.getRowValue().setReleaseQuantityInput(event.getNewValue()));
+                c -> new SimpleStringProperty(c.getValue().releasedLabel()));
+        itemRemainingColumn.setCellValueFactory(
+                c -> new SimpleStringProperty(c.getValue().remainingLabel()));
         itemsTable.setItems(viewModel.itemRows());
     }
 
-    private void bindMaterialsTable() {
-        materialNameColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().material()));
-        materialRequiredColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().required()));
-        materialMainColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().mainWarehouse()));
-        materialProductionColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().productionWarehouse()));
-        materialTotalColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().totalAvailable()));
-        materialDeficitColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().deficit()));
-        materialSourceColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().planningSource()));
-        materialsTable.setItems(viewModel.materialRows());
-    }
-
-    private void bindHistoryTable() {
-        historyTimeColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().occurredAt()));
-        historyTypeColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().typeLabel()));
-        historyActorColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().actor()));
-        historySummaryColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().summary()));
-        historyTable.setItems(viewModel.historyRows());
-    }
-
-    private void bindMaterialRequirementPanel() {
-        materialRequirementPanel
-                .visibleProperty()
-                .bind(viewModel.materialRequirementPanelVisibleProperty());
-        materialRequirementPanel
-                .managedProperty()
-                .bind(viewModel.materialRequirementPanelVisibleProperty());
-        requirementLinesTable.setEditable(true);
-        requirementCodeColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().materialCode()));
-        requirementNameColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().materialName()));
-        requirementColorColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().color()));
-        requirementQtyColumn.setCellFactory(TextFieldTableCell.forTableColumn());
-        requirementQtyColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().quantity()));
-        requirementQtyColumn.setOnEditCommit(
-                event -> event.getRowValue().setQuantity(event.getNewValue()));
-        requirementUomColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().unitOfMeasure()));
-        requirementLinesTable.setItems(viewModel.requirementLines());
-
-        requirementLinesTable.setRowFactory(
-                table -> {
-                    TableRow<MaterialRequirementLineRow> row = new TableRow<>();
-                    row.addEventHandler(
-                            MouseEvent.MOUSE_PRESSED,
-                            event -> {
-                                if (!row.isEmpty()) {
-                                    MaterialRequirementLineRow item = row.getItem();
-                                    table.getSelectionModel().select(item);
-                                    viewModel.selectRequirementLine(item.lineId());
-                                }
-                            });
-                    return row;
-                });
-
-        requirementLinesTable
-                .getSelectionModel()
-                .selectedItemProperty()
-                .addListener(
-                        (obs, oldValue, selected) -> {
-                            if (selected != null) {
-                                viewModel.selectRequirementLine(selected.lineId());
-                            }
-                            requirementLinesTable.refresh();
-                        });
-
-        viewModel
-                .selectedRequirementLineIdProperty()
-                .addListener(
-                        (obs, oldValue, lineId) -> {
-                            if (lineId != null) {
-                                MaterialRequirementLineRow row =
-                                        viewModel.findRequirementLine(lineId);
-                                if (row != null) {
-                                    requirementLinesTable.getSelectionModel().select(row);
-                                }
-                            }
-                        });
-
-        viewModel
-                .requirementLines()
-                .addListener(
-                        (ListChangeListener<MaterialRequirementLineRow>)
-                                change -> {
-                                    UUID lineId =
-                                            viewModel.selectedRequirementLineIdProperty().get();
-                                    if (lineId != null) {
-                                        MaterialRequirementLineRow row =
-                                                viewModel.findRequirementLine(lineId);
-                                        if (row != null) {
-                                            requirementLinesTable.getSelectionModel().select(row);
-                                        }
-                                    }
-                                });
-
-        applyRequirementQtyButton
-                .disableProperty()
-                .bind(viewModel.requirementSubmittedProperty());
-        applyRequirementQtyButton.setOnAction(
-                e -> {
-                    MaterialRequirementLineRow selected =
-                            requirementLinesTable.getSelectionModel().getSelectedItem();
-                    if (selected != null) {
-                        viewModel.applyRequirementQuantity(selected);
-                    }
-                });
-
-        submitRequirementButton
-                .disableProperty()
-                .bind(
-                        viewModel
-                                .canTransferProperty()
-                                .not()
-                                .or(viewModel.requirementSubmittedProperty()));
-        submitRequirementButton.setOnAction(e -> viewModel.submitMaterialRequirement());
-    }
-
-    private void bindReleasePanel() {
-        releasePanel.visibleProperty().bind(viewModel.releasePanelVisibleProperty());
-        releasePanel.managedProperty().bind(viewModel.releasePanelVisibleProperty());
-        releaseMaterialsTable.setEditable(true);
-        releaseMaterialColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().materialLabel()));
-        releasePlannedColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().plannedQuantity()));
-        releaseActualColumn.setCellFactory(TextFieldTableCell.forTableColumn());
-        releaseActualColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().actualQuantity()));
-        releaseActualColumn.setOnEditCommit(
-                event -> {
-                    event.getRowValue().setActualQuantity(event.getNewValue());
-                    releaseMaterialsTable.refresh();
-                });
-        releaseAllocationSummaryColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().allocationSummary()));
-        releaseMaterialsTable.setItems(viewModel.releaseMaterialRows());
-
-        releaseAllocationsTable.setItems(emptyReleaseAllocations);
-        releaseAllocationsTable.setEditable(true);
-        releaseAllocQtyColumn.setCellFactory(TextFieldTableCell.forTableColumn());
-        releaseAllocQtyColumn.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().quantity()));
-        releaseAllocQtyColumn.setOnEditCommit(
-                event -> event.getRowValue().setQuantity(event.getNewValue()));
-        releaseAllocCellColumn.setCellValueFactory(
-                c ->
-                        new javafx.beans.property.SimpleObjectProperty<>(
-                                c.getValue().productionCell()));
-        releaseAllocCellColumn.setCellFactory(
-                col ->
-                        new TableCell<>() {
-                            private final ComboBox<StorageCellChoice> combo = new ComboBox<>();
-
-                            {
-                                combo.setMaxWidth(Double.MAX_VALUE);
-                                combo.valueProperty()
-                                        .addListener(
-                                                (obs, oldValue, newValue) -> {
-                                                    ReleaseCellAllocationRow row =
-                                                            getTableRow() == null
-                                                                    ? null
-                                                                    : getTableRow().getItem();
-                                                    if (row != null) {
-                                                        row.setProductionCell(newValue);
-                                                    }
-                                                });
-                            }
-
-                            @Override
-                            protected void updateItem(StorageCellChoice item, boolean empty) {
-                                super.updateItem(item, empty);
-                                if (empty
-                                        || getTableRow() == null
-                                        || getTableRow().getItem() == null) {
-                                    setGraphic(null);
-                                    return;
-                                }
-                                ReleaseCellAllocationRow row = getTableRow().getItem();
-                                combo.setItems(row.cellChoices());
-                                combo.setValue(row.productionCell());
-                                setGraphic(combo);
-                            }
-                        });
-
-        releaseMaterialsTable.setRowFactory(
-                table -> {
-                    TableRow<ReleaseMaterialRow> row = new TableRow<>();
-                    row.addEventHandler(
-                            MouseEvent.MOUSE_PRESSED,
-                            event -> {
-                                if (!row.isEmpty()) {
-                                    ReleaseMaterialRow item = row.getItem();
-                                    table.getSelectionModel().select(item);
-                                    syncReleaseAllocationsTable();
-                                }
-                            });
-                    return row;
-                });
-
-        releaseMaterialsTable
-                .getSelectionModel()
-                .selectedItemProperty()
-                .addListener(
-                        (obs, oldValue, selected) -> {
-                            syncReleaseAllocationsTable();
-                            releaseMaterialsTable.refresh();
-                        });
-
-        addReleaseAllocationButton.setOnAction(
-                e -> {
-                    ReleaseMaterialRow selected =
-                            releaseMaterialsTable.getSelectionModel().getSelectedItem();
-                    if (selected != null) {
-                        viewModel.addReleaseAllocation(selected);
-                        syncReleaseAllocationsTable();
-                        releaseMaterialsTable.refresh();
-                    }
-                });
-        removeReleaseAllocationButton.setOnAction(
-                e -> {
-                    ReleaseMaterialRow material =
-                            releaseMaterialsTable.getSelectionModel().getSelectedItem();
-                    ReleaseCellAllocationRow allocation =
-                            releaseAllocationsTable.getSelectionModel().getSelectedItem();
-                    if (material != null && allocation != null) {
-                        viewModel.removeReleaseAllocation(material, allocation);
-                        syncReleaseAllocationsTable();
-                        releaseMaterialsTable.refresh();
-                    }
-                });
-        confirmReleaseButton.disableProperty().bind(viewModel.canReleaseProperty().not());
-        confirmReleaseButton.setOnAction(e -> viewModel.confirmRelease());
-    }
-
-    private void syncReleaseAllocationsTable() {
-        ReleaseMaterialRow selected = releaseMaterialsTable.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            releaseAllocationsTable.setItems(emptyReleaseAllocations);
-            return;
-        }
-        releaseAllocationsTable.setItems(selected.allocations());
-    }
-
-    private void confirmCancel() {
+    private void confirmAccept() {
+        String number = viewModel.currentOrderNumber();
+        String orderCaption = number == null || number.isBlank() ? "заказ" : "заказ №" + number;
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         TmpTheme.apply(alert.getDialogPane());
-        alert.setTitle("Отмена производства");
-        alert.setHeaderText("Отменить производство заказа целиком?");
-        alert.setContentText(
-                "Будет отменено производство всего заказа. Отдельные позиции выбрать нельзя.");
+        alert.setTitle("Принять в производство");
+        alert.setHeaderText("Принять " + orderCaption + " в производство?");
+        alert.setContentText("Будут приняты все активные позиции заказа.");
+        Button accept = (Button) alert.getDialogPane().lookupButton(ButtonType.OK);
+        if (accept != null) {
+            accept.setText("Принять");
+        }
+        Button cancel = (Button) alert.getDialogPane().lookupButton(ButtonType.CANCEL);
+        if (cancel != null) {
+            cancel.setText("Отмена");
+        }
         alert.showAndWait()
                 .filter(response -> response == ButtonType.OK)
-                .ifPresent(response -> viewModel.cancelProduction());
+                .ifPresent(response -> viewModel.acceptOrder());
     }
 }

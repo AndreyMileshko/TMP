@@ -15,7 +15,7 @@
 
 ## 0.1 IMPLEMENTATION PHASE 3 — Production Workbench Tree (2026-10-02)
 
-**Статус:** IMPLEMENTED (LEVEL 1 tree + selection model). Phase 4+ не начаты.
+**Статус:** IMPLEMENTED (LEVEL 1 tree + selection model). Phase 4 Order Card implemented (§0.2).
 
 | Элемент | Реализация |
 |---|---|
@@ -31,12 +31,37 @@
 | Pagination | `ProductionOrderItemsLoader` loads all pages (`MAX_PAGE_SIZE`); no first-page truncation |
 | Future actions on LEVEL 1 | Not shown (no fake Material Requirement / Release dialogs) |
 | Permissions | Open: `production.order.view`; selection needs no mutation rights |
-| Transitional DETAIL | Double-click Order → existing detail panels (Accept / MR / Release); back «← К списку» |
+| Transitional DETAIL | Replaced in Phase 4 by Order Card (§0.2) |
 | Removed from LEVEL 1 | UUID input, Spec/Cutting columns, logical transfer, «Подтвердить получение» |
-| Phase 2 shim | **KEPT** — transitional detail still calls `prepareMaterialRequirement(orderId, itemIds)` |
-| Adapter | `selectedItemsForMaterialRequirement()` → `MaterialRequirementSourceItemRefView` list (no Submit) |
+| Phase 2 shim | **DELETED in Phase 4** — no remaining `src/main` callers of single-order prepare |
+| Adapter | `selectedItemsForMaterialRequirement()` → `MaterialRequirementSourceItemRefView` list (no Submit; Phase 5) |
 
-**Следующая фаза:** Phase 4 — Order Production Card + Quantity Mode editor.
+**Следующая фаза:** Phase 5 — LEVEL 1 tree selection → cross-order Material Requirement UX.
+
+---
+
+## 0.2 IMPLEMENTATION PHASE 4 — Order Production Card + Quantity Mode UX (2026-10-02)
+
+**Статус:** IMPLEMENTED (LEVEL 2 Order Card). Phase 5+ не начаты.
+
+| Элемент | Реализация |
+|---|---|
+| Navigation | Double-click Order in LEVEL 1 tree → LEVEL 2 Order Card; back «← К производству» |
+| Header | Заказ №…, заказчик, объект (`siteRef` или «—»), состояние, прогресс «N из M» |
+| Positions | Read-only table: Позиция / Изделие / Кол-во / Состояние / Изготовлено / Осталось; all pages via `ProductionOrderItemsLoader` |
+| Quantity Mode location | **Only on Order Card** (radio Стандартный / Гибкий + hint). LEVEL 1 tree never shows mode |
+| Permission | View mode: `production.order.view`; change mode: `production.order.accept` only (`release.create` / `transfer.create` do not grant edit) |
+| Default | STANDARD (version 0) when no DB row |
+| State-independent | Mode editor available in every production state when accept permission present |
+| Save | Explicit [Сохранить] when dirty; no-op when unchanged (no backend call) |
+| Optimistic locking | `changeOrderQuantityMode(orderId, mode, expectedVersion)`; conflict → human message + authoritative reload |
+| Accept | Whole-order «Принять в производство» + confirmation; success refreshes card; concurrent launch → human message |
+| Navigation state | Back retains search, status filter, selected items, expanded orders |
+| Cleanup | Removed transitional MR / Release / materials / receipt / history panels and dead UI helpers |
+| Legacy MR shim | **DELETED** — `prepareMaterialRequirement(orderId, itemIds)` API/service overload removed (no `src/main` callers) |
+| Backend preserved | Quantity Mode, cross-order MR list prepare, Release / Partial Release unchanged |
+
+**Следующая фаза:** Phase 5 — LEVEL 1 tree selection → real cross-order Material Requirement UX (STANDARD/FLEXIBLE quantities, DRAFT edit, Submit).
 
 ---
 

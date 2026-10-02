@@ -259,6 +259,8 @@ final class ProductionWorkbenchUiTestSupport {
                 new ReceiptResultView(ReceiptStatusView.RECEIVED, "ok");
         ReleaseResultView releaseResult;
         UUID productionWarehouseId = UUID.fromString("22222222-2222-4222-8222-222222222222");
+        final Map<UUID, OrderQuantityModeView> quantityModes = new HashMap<>();
+        RuntimeException changeOrderQuantityModeFailure;
 
         @Override
         public DestinationWarehouseView destinationWarehouse() {
@@ -276,12 +278,8 @@ final class ProductionWorkbenchUiTestSupport {
             checkCalls.add(orderId);
         }
 
-        @Override
-        public MaterialRequirementView prepareMaterialRequirement(
-                UUID orderId, List<UUID> selectedOrderItemIds) {
-            prepareMaterialRequirementCalls.add(orderId);
-            prepareMaterialRequirementItemIds.add(List.copyOf(selectedOrderItemIds));
-            return requirement;
+        void putOrderQuantityMode(UUID orderId, QuantityModeView mode, long version) {
+            quantityModes.put(orderId, new OrderQuantityModeView(orderId, mode, version));
         }
 
         @Override
@@ -421,13 +419,34 @@ final class ProductionWorkbenchUiTestSupport {
 
         @Override
         public OrderQuantityModeView getOrderQuantityMode(UUID orderId) {
-            return new OrderQuantityModeView(orderId, QuantityModeView.STANDARD, 0L);
+            return quantityModes.getOrDefault(
+                    orderId, new OrderQuantityModeView(orderId, QuantityModeView.STANDARD, 0L));
         }
 
         @Override
         public OrderQuantityModeView changeOrderQuantityMode(
                 UUID orderId, QuantityModeView quantityMode, long expectedVersion) {
-            return new OrderQuantityModeView(orderId, quantityMode, expectedVersion + 1);
+            if (changeOrderQuantityModeFailure != null) {
+                throw changeOrderQuantityModeFailure;
+            }
+            OrderQuantityModeView current = getOrderQuantityMode(orderId);
+            if (current.version() != expectedVersion) {
+                throw new OrderQuantityModeOptimisticLockStubException(orderId, expectedVersion);
+            }
+            OrderQuantityModeView saved =
+                    new OrderQuantityModeView(orderId, quantityMode, expectedVersion + 1);
+            quantityModes.put(orderId, saved);
+            return saved;
+        }
+    }
+
+    static final class OrderQuantityModeOptimisticLockStubException extends RuntimeException {
+        OrderQuantityModeOptimisticLockStubException(UUID orderId, long expectedVersion) {
+            super(
+                    "OrderQuantityModeOptimisticLock: quantity mode version mismatch for order "
+                            + orderId
+                            + ", expected "
+                            + expectedVersion);
         }
     }
 

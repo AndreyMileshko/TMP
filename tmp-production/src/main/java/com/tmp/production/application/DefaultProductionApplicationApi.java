@@ -125,23 +125,6 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         checkMaterialAvailabilityService.check(SourceOrderId.of(orderId));
     }
 
-    /**
-     * TEMPORARY COMPATIBILITY — single-order prepare for the current Workbench UI until Phase 3
-     * migrates to list-based prepare.
-     */
-    @Override
-    public MaterialRequirementView prepareMaterialRequirement(
-            UUID orderId, List<UUID> selectedOrderItemIds) {
-        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
-        Objects.requireNonNull(orderId, "orderId");
-        Objects.requireNonNull(selectedOrderItemIds, "selectedOrderItemIds");
-        List<SourceOrderItemId> itemIds =
-                selectedOrderItemIds.stream().map(SourceOrderItemId::of).toList();
-        return map(
-                materialRequirementService.prepareMaterialRequirement(
-                        SourceOrderId.of(orderId), itemIds));
-    }
-
     @Override
     public MaterialRequirementView prepareMaterialRequirement(
             List<MaterialRequirementProductSelectionView> selections) {

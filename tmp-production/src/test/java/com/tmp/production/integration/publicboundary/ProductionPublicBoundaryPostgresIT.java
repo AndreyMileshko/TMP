@@ -28,6 +28,7 @@ import com.tmp.production.api.ProductionApplicationApi.CellAllocationView;
 import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductSelectionView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
@@ -400,8 +401,7 @@ class ProductionPublicBoundaryPostgresIT {
         MaterialRequirementView requirement =
                 production
                         .applicationApi()
-                        .prepareMaterialRequirement(
-                                order.orderId(), List.of(order.itemAId(), order.itemBId()));
+                        .prepareMaterialRequirement(standardItemSelections(order));
         assertEquals(MaterialRequirementStatusView.DRAFT, requirement.status());
         assertEquals(productionWarehouseId, requirement.destinationWarehouseId());
         assertTrue(!requirement.lines().isEmpty());
@@ -445,8 +445,7 @@ class ProductionPublicBoundaryPostgresIT {
         MaterialRequirementView requirement =
                 production
                         .applicationApi()
-                        .prepareMaterialRequirement(
-                                order.orderId(), List.of(order.itemAId(), order.itemBId()));
+                        .prepareMaterialRequirement(standardItemSelections(order));
         assertEquals(MaterialRequirementStatusView.DRAFT, requirement.status());
         assertTrue(!requirement.lines().isEmpty());
 
@@ -472,8 +471,7 @@ class ProductionPublicBoundaryPostgresIT {
         MaterialRequirementView prepared =
                 production
                         .applicationApi()
-                        .prepareMaterialRequirement(
-                                order.orderId(), List.of(order.itemAId(), order.itemBId()));
+                        .prepareMaterialRequirement(standardItemSelections(order));
         seedOtherMaterialOnMain(bd(10));
         int opsBefore = countRows("warehouse.warehouse_operations");
         int movesBefore = countRows("warehouse.warehouse_movements");
@@ -510,8 +508,7 @@ class ProductionPublicBoundaryPostgresIT {
         MaterialRequirementView prepared =
                 production
                         .applicationApi()
-                        .prepareMaterialRequirement(
-                                order.orderId(), List.of(order.itemAId(), order.itemBId()));
+                        .prepareMaterialRequirement(standardItemSelections(order));
 
         seedOtherMaterialOnMain(bd(10));
 
@@ -1546,6 +1543,15 @@ class ProductionPublicBoundaryPostgresIT {
 
     private static BigDecimal bd(String value) {
         return new BigDecimal(value);
+    }
+
+    private static List<MaterialRequirementProductSelectionView> standardItemSelections(
+            ImportedOrder order) {
+        return List.of(
+                new MaterialRequirementProductSelectionView(
+                        order.orderId(), order.itemAId(), Optional.empty()),
+                new MaterialRequirementProductSelectionView(
+                        order.orderId(), order.itemBId(), Optional.empty()));
     }
 
     private record ImportedOrder(UUID orderId, UUID itemAId, UUID itemBId) {}
