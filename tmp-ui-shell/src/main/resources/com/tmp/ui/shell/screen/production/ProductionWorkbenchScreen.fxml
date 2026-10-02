@@ -9,7 +9,11 @@
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.TreeTableColumn?>
+<?import javafx.scene.control.TreeTableView?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
 <VBox xmlns:fx="http://javafx.com/fxml"
@@ -20,128 +24,150 @@
     </padding>
 
     <Label fx:id="titleLabel" text="Производство" style="-fx-font-size: 18px;"/>
-    <Label fx:id="loadingLabel" text="Загрузка..." visible="false" managed="false"/>
+    <Label fx:id="loadingLabel" text="Загрузка..." visible="false" managed="true"
+           style="-fx-opacity: 0.85;"/>
     <Label fx:id="emptyStateLabel"/>
     <Label fx:id="statusMessageLabel"/>
     <Label fx:id="errorMessageLabel" style="-fx-text-fill: #b00020;"/>
 
-    <HBox spacing="8">
-        <TextField fx:id="orderSelectorField"
-                   promptText="UUID или номер заказа"
-                   prefWidth="320"/>
-        <Button fx:id="openOrderButton" text="Открыть"/>
-        <Button fx:id="refreshButton" text="Обновить"/>
-    </HBox>
+    <VBox fx:id="treePane" spacing="8" VBox.vgrow="ALWAYS">
+        <HBox spacing="8">
+            <TextField fx:id="searchField" promptText="Поиск: заказ, заказчик, позиция, изделие"
+                       prefWidth="360" HBox.hgrow="ALWAYS"/>
+            <ComboBox fx:id="statusFilterCombo" prefWidth="160"/>
+            <ComboBox fx:id="periodPresetCombo" prefWidth="160"/>
+            <Button fx:id="refreshButton" text="Обновить"/>
+        </HBox>
 
-    <HBox spacing="16">
-        <Label text="Заказ:"/>
-        <Label fx:id="orderNumberLabel"/>
-        <Label text="Клиент:"/>
-        <Label fx:id="customerLabel"/>
-        <Label text="Статус:"/>
-        <Label fx:id="statusLabel"/>
-        <Label fx:id="statusDetailLabel"/>
-    </HBox>
+        <StackPane VBox.vgrow="ALWAYS">
+            <TreeTableView fx:id="productionTree" showRoot="false" VBox.vgrow="ALWAYS"
+                           prefHeight="420">
+                <columns>
+                    <TreeTableColumn fx:id="treeSelectedColumn" text="" prefWidth="48" minWidth="48"
+                                     maxWidth="56"/>
+                    <TreeTableColumn fx:id="treeIdentityColumn" text="Заказ / Позиция" prefWidth="220"/>
+                    <TreeTableColumn fx:id="treeSecondaryColumn" text="Изделие / Заказчик" prefWidth="240"/>
+                    <TreeTableColumn fx:id="treeQuantityColumn" text="Количество" prefWidth="100"/>
+                    <TreeTableColumn fx:id="treeStatusColumn" text="Состояние" prefWidth="140"/>
+                    <TreeTableColumn fx:id="treeReleasedColumn" text="Изготовлено" prefWidth="100"/>
+                    <TreeTableColumn fx:id="treeRemainingColumn" text="Осталось" prefWidth="100"/>
+                </columns>
+            </TreeTableView>
+        </StackPane>
 
-    <HBox spacing="8">
-        <Button fx:id="acceptButton" text="Принять в производство"/>
-        <Button fx:id="checkMaterialsButton" text="Проверить наличие материалов"/>
-        <Button fx:id="prepareTransferButton" text="Запросить материалы"/>
-        <Button fx:id="confirmReceiptButton" text="Подтвердить получение"/>
-        <Button fx:id="prepareReleaseButton" text="Выпустить изделия"/>
-        <Button fx:id="cancelProductionButton" text="Отменить производство заказа"/>
-    </HBox>
+        <HBox spacing="12" alignment="CENTER_LEFT">
+            <Label fx:id="selectionCountLabel" text="Выбрано: 0 позиций"/>
+        </HBox>
+    </VBox>
 
-    <ScrollPane fx:id="rootScroll" fitToWidth="true" VBox.vgrow="ALWAYS" prefHeight="520">
-        <content>
-            <VBox spacing="12">
-                <Separator/>
-                <Label text="Позиции"/>
-                <TableView fx:id="itemsTable" prefHeight="200">
-                    <columns>
-                        <TableColumn fx:id="itemSelectedColumn" text="Выбор" prefWidth="70"/>
-                        <TableColumn fx:id="itemPositionColumn" text="Позиция" prefWidth="180"/>
-                        <TableColumn fx:id="itemStatusColumn" text="Статус" prefWidth="140"/>
-                        <TableColumn fx:id="itemOrderedColumn" text="Заказано" prefWidth="80"/>
-                        <TableColumn fx:id="itemActiveColumn" text="Активно" prefWidth="80"/>
-                        <TableColumn fx:id="itemReleasedColumn" text="Выпущено" prefWidth="80"/>
-                        <TableColumn fx:id="itemSpecColumn" text="Specification ID" prefWidth="220"/>
-                        <TableColumn fx:id="itemCuttingColumn" text="Карта раскроя" prefWidth="180"/>
-                        <TableColumn fx:id="itemReleaseQtyColumn" text="К выпуску" prefWidth="90"/>
-                    </columns>
-                </TableView>
+    <VBox fx:id="detailPane" spacing="12" visible="false" managed="false" VBox.vgrow="ALWAYS">
+        <HBox spacing="8">
+            <Button fx:id="backToTreeButton" text="← К списку"/>
+            <Button fx:id="detailRefreshButton" text="Обновить"/>
+        </HBox>
 
-                <Label text="Наличие материалов"/>
-                <TableView fx:id="materialsTable" prefHeight="160">
-                    <columns>
-                        <TableColumn fx:id="materialNameColumn" text="Материал" prefWidth="220"/>
-                        <TableColumn fx:id="materialRequiredColumn" text="Требуется" prefWidth="90"/>
-                        <TableColumn fx:id="materialMainColumn" text="Другие склады" prefWidth="110"/>
-                        <TableColumn fx:id="materialProductionColumn" text="Склад производства" prefWidth="130"/>
-                        <TableColumn fx:id="materialTotalColumn" text="Доступно всего" prefWidth="110"/>
-                        <TableColumn fx:id="materialDeficitColumn" text="Дефицит" prefWidth="160"/>
-                        <TableColumn fx:id="materialSourceColumn" text="Источник планирования" prefWidth="140"/>
-                    </columns>
-                </TableView>
+        <HBox spacing="16">
+            <Label text="Заказ:"/>
+            <Label fx:id="orderNumberLabel"/>
+            <Label text="Клиент:"/>
+            <Label fx:id="customerLabel"/>
+            <Label text="Статус:"/>
+            <Label fx:id="statusLabel"/>
+            <Label fx:id="statusDetailLabel"/>
+        </HBox>
 
-                <Label text="История"/>
-                <TableView fx:id="historyTable" prefHeight="140">
-                    <columns>
-                        <TableColumn fx:id="historyTimeColumn" text="Время" prefWidth="150"/>
-                        <TableColumn fx:id="historyTypeColumn" text="Событие" prefWidth="240"/>
-                        <TableColumn fx:id="historyActorColumn" text="Актор" prefWidth="120"/>
-                        <TableColumn fx:id="historySummaryColumn" text="Сводка" prefWidth="280"/>
-                    </columns>
-                </TableView>
+        <HBox spacing="8">
+            <Button fx:id="acceptButton" text="Принять в производство"/>
+            <Button fx:id="checkMaterialsButton" text="Проверить наличие материалов"/>
+            <Button fx:id="prepareTransferButton" text="Запросить материалы"/>
+            <Button fx:id="prepareReleaseButton" text="Выпустить изделия"/>
+            <Button fx:id="cancelProductionButton" text="Отменить производство заказа"/>
+        </HBox>
 
-                <HBox spacing="8">
-                    <Label text="Логическое перемещение:"/>
-                    <ComboBox fx:id="logicalTransferCombo" prefWidth="360" promptText="Выберите перемещение"/>
-                </HBox>
-
-                <VBox fx:id="materialRequirementPanel" spacing="8" visible="false" managed="false">
+        <ScrollPane fx:id="rootScroll" fitToWidth="true" VBox.vgrow="ALWAYS" prefHeight="420">
+            <content>
+                <VBox spacing="12">
                     <Separator/>
-                    <Label text="Потребность в материалах"/>
-                    <TableView fx:id="requirementLinesTable" prefHeight="160">
+                    <Label text="Позиции"/>
+                    <TableView fx:id="itemsTable" prefHeight="200">
                         <columns>
-                            <TableColumn fx:id="requirementCodeColumn" text="Артикул" prefWidth="120"/>
-                            <TableColumn fx:id="requirementNameColumn" text="Наименование" prefWidth="220"/>
-                            <TableColumn fx:id="requirementColorColumn" text="Цвет" prefWidth="100"/>
-                            <TableColumn fx:id="requirementQtyColumn" text="Количество" prefWidth="100"/>
-                            <TableColumn fx:id="requirementUomColumn" text="Ед." prefWidth="70"/>
+                            <TableColumn fx:id="itemSelectedColumn" text="Выбор" prefWidth="70"/>
+                            <TableColumn fx:id="itemPositionColumn" text="Позиция" prefWidth="120"/>
+                            <TableColumn fx:id="itemStatusColumn" text="Статус" prefWidth="140"/>
+                            <TableColumn fx:id="itemOrderedColumn" text="Заказано" prefWidth="80"/>
+                            <TableColumn fx:id="itemActiveColumn" text="Активно" prefWidth="80"/>
+                            <TableColumn fx:id="itemReleasedColumn" text="Выпущено" prefWidth="80"/>
+                            <TableColumn fx:id="itemReleaseQtyColumn" text="К выпуску" prefWidth="90"/>
                         </columns>
                     </TableView>
-                    <HBox spacing="8">
-                        <Button fx:id="applyRequirementQtyButton" text="Применить количество"/>
-                        <Button fx:id="submitRequirementButton" text="Отправить требование"/>
-                    </HBox>
-                </VBox>
 
-                <VBox fx:id="releasePanel" spacing="8" visible="false" managed="false">
-                    <Separator/>
-                    <Label text="Выпуск изделий — план/факт материалов"/>
-                    <TableView fx:id="releaseMaterialsTable" prefHeight="160">
+                    <Label text="Наличие материалов"/>
+                    <TableView fx:id="materialsTable" prefHeight="160">
                         <columns>
-                            <TableColumn fx:id="releaseMaterialColumn" text="Материал" prefWidth="220"/>
-                            <TableColumn fx:id="releasePlannedColumn" text="План" prefWidth="100"/>
-                            <TableColumn fx:id="releaseActualColumn" text="Факт" prefWidth="100"/>
-                            <TableColumn fx:id="releaseAllocationSummaryColumn" text="Распределения" prefWidth="140"/>
+                            <TableColumn fx:id="materialNameColumn" text="Материал" prefWidth="220"/>
+                            <TableColumn fx:id="materialRequiredColumn" text="Требуется" prefWidth="90"/>
+                            <TableColumn fx:id="materialMainColumn" text="Другие склады" prefWidth="110"/>
+                            <TableColumn fx:id="materialProductionColumn" text="Склад производства" prefWidth="130"/>
+                            <TableColumn fx:id="materialTotalColumn" text="Доступно всего" prefWidth="110"/>
+                            <TableColumn fx:id="materialDeficitColumn" text="Дефицит" prefWidth="160"/>
+                            <TableColumn fx:id="materialSourceColumn" text="Источник планирования" prefWidth="140"/>
                         </columns>
                     </TableView>
-                    <Label text="Распределения выбранного материала по ячейкам производства"/>
-                    <TableView fx:id="releaseAllocationsTable" prefHeight="140">
+
+                    <Label text="История"/>
+                    <TableView fx:id="historyTable" prefHeight="140">
                         <columns>
-                            <TableColumn fx:id="releaseAllocCellColumn" text="Ячейка производства" prefWidth="200"/>
-                            <TableColumn fx:id="releaseAllocQtyColumn" text="Количество" prefWidth="120"/>
+                            <TableColumn fx:id="historyTimeColumn" text="Время" prefWidth="150"/>
+                            <TableColumn fx:id="historyTypeColumn" text="Событие" prefWidth="240"/>
+                            <TableColumn fx:id="historyActorColumn" text="Актор" prefWidth="120"/>
+                            <TableColumn fx:id="historySummaryColumn" text="Сводка" prefWidth="280"/>
                         </columns>
                     </TableView>
-                    <HBox spacing="8">
-                        <Button fx:id="addReleaseAllocationButton" text="Добавить распределение"/>
-                        <Button fx:id="removeReleaseAllocationButton" text="Удалить распределение"/>
-                        <Button fx:id="confirmReleaseButton" text="Подтвердить выпуск"/>
-                    </HBox>
+
+                    <VBox fx:id="materialRequirementPanel" spacing="8" visible="false" managed="false">
+                        <Separator/>
+                        <Label text="Потребность в материалах"/>
+                        <TableView fx:id="requirementLinesTable" prefHeight="160">
+                            <columns>
+                                <TableColumn fx:id="requirementCodeColumn" text="Артикул" prefWidth="120"/>
+                                <TableColumn fx:id="requirementNameColumn" text="Наименование" prefWidth="220"/>
+                                <TableColumn fx:id="requirementColorColumn" text="Цвет" prefWidth="100"/>
+                                <TableColumn fx:id="requirementQtyColumn" text="Количество" prefWidth="100"/>
+                                <TableColumn fx:id="requirementUomColumn" text="Ед." prefWidth="70"/>
+                            </columns>
+                        </TableView>
+                        <HBox spacing="8">
+                            <Button fx:id="applyRequirementQtyButton" text="Применить количество"/>
+                            <Button fx:id="submitRequirementButton" text="Отправить требование"/>
+                        </HBox>
+                    </VBox>
+
+                    <VBox fx:id="releasePanel" spacing="8" visible="false" managed="false">
+                        <Separator/>
+                        <Label text="Выпуск изделий — план/факт материалов"/>
+                        <TableView fx:id="releaseMaterialsTable" prefHeight="160">
+                            <columns>
+                                <TableColumn fx:id="releaseMaterialColumn" text="Материал" prefWidth="220"/>
+                                <TableColumn fx:id="releasePlannedColumn" text="План" prefWidth="100"/>
+                                <TableColumn fx:id="releaseActualColumn" text="Факт" prefWidth="100"/>
+                                <TableColumn fx:id="releaseAllocationSummaryColumn" text="Распределения" prefWidth="140"/>
+                            </columns>
+                        </TableView>
+                        <Label text="Распределения выбранного материала по ячейкам производства"/>
+                        <TableView fx:id="releaseAllocationsTable" prefHeight="140">
+                            <columns>
+                                <TableColumn fx:id="releaseAllocCellColumn" text="Ячейка производства" prefWidth="200"/>
+                                <TableColumn fx:id="releaseAllocQtyColumn" text="Количество" prefWidth="120"/>
+                            </columns>
+                        </TableView>
+                        <HBox spacing="8">
+                            <Button fx:id="addReleaseAllocationButton" text="Добавить распределение"/>
+                            <Button fx:id="removeReleaseAllocationButton" text="Удалить распределение"/>
+                            <Button fx:id="confirmReleaseButton" text="Подтвердить выпуск"/>
+                        </HBox>
+                    </VBox>
                 </VBox>
-            </VBox>
-        </content>
-    </ScrollPane>
+            </content>
+        </ScrollPane>
+    </VBox>
 </VBox>

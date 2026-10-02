@@ -41,7 +41,7 @@ public final class ProductionPresentationLabels {
 
     public static String itemStatus(ItemProductionStateStatus status) {
         if (status == null) {
-            return "—";
+            return "Не принято";
         }
         return switch (status) {
             case IN_PRODUCTION -> "В производстве";

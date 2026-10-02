@@ -125,6 +125,10 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         checkMaterialAvailabilityService.check(SourceOrderId.of(orderId));
     }
 
+    /**
+     * TEMPORARY COMPATIBILITY — single-order prepare for the current Workbench UI until Phase 3
+     * migrates to list-based prepare.
+     */
     @Override
     public MaterialRequirementView prepareMaterialRequirement(
             UUID orderId, List<UUID> selectedOrderItemIds) {
@@ -150,7 +154,7 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
 
     @Override
     public Optional<MaterialRequirementView> getMaterialRequirement(UUID requirementId) {
-        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
         Objects.requireNonNull(requirementId, "requirementId");
         return materialRequirementService
                 .findById(MaterialRequirementId.of(requirementId))
@@ -160,7 +164,7 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     @Override
     public List<MaterialRequirementProductCoverageView> getMaterialRequirementProductCoverage(
             List<MaterialRequirementSourceItemRefView> sourceItems) {
-        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
         Objects.requireNonNull(sourceItems, "sourceItems");
         List<MaterialRequirementSourceItemKey> keys =
                 sourceItems.stream()

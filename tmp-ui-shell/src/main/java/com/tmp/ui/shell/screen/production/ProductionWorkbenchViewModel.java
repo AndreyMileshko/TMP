@@ -1,11 +1,16 @@
 package com.tmp.ui.shell.screen.production;
 
 import com.tmp.order.api.OrderDto;
+import com.tmp.order.api.OrderForProductionDto;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderItemDto;
+import com.tmp.order.api.OrderItemForProductionDto;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderSearchCriteria;
 import com.tmp.order.api.OrderSummaryDto;
+import com.tmp.order.api.OrderWorklistCriteria;
+import com.tmp.order.api.OrderWorklistQuery;
+import com.tmp.order.api.OrderWorklistRowDto;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
 import com.tmp.production.api.ProductionApplicationApi;
@@ -13,6 +18,7 @@ import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSourceItemRefView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
@@ -25,6 +31,7 @@ import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
 import com.tmp.production.api.ProductionQueryApi.MaterialAvailabilityLineView;
 import com.tmp.production.api.ProductionQueryApi.MaterialAvailabilityResultView;
+import com.tmp.production.api.ProductionQueryApi.OrderProductionListFacts;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionView;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionViewStatus;
 import com.tmp.production.api.ProductionQueryApi.ProductionHistoryEntryView;
@@ -34,15 +41,21 @@ import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.order.DecimalQuantityParser;
+import com.tmp.ui.shell.order.worklist.OrderListPeriod;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -68,22 +81,110 @@ public final class ProductionWorkbenchViewModel {
     private static final DateTimeFormatter TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
+    private static final String TREE_LOAD_FAILED = "Не удалось загрузить производство";
+    private static final String EMPTY_TREE = "Нет заказов в производстве";
+    private static final String EMPTY_FILTERED = "Нет заказов, подходящих под фильтр";
+
+    public enum ScreenMode {
+        TREE,
+        DETAIL
+    }
+
+    public static final class TreeOrderModel {
+        private final ProductionTreeNode orderNode;
+        private final List<ProductionTreeNode> items;
+        private final boolean expanded;
+
+        public TreeOrderModel(
+                ProductionTreeNode orderNode, List<ProductionTreeNode> items, boolean expanded) {
+            this.orderNode = Objects.requireNonNull(orderNode, "orderNode");
+            this.items = List.copyOf(items);
+            this.expanded = expanded;
+        }
+
+        public ProductionTreeNode orderNode() {
+            return orderNode;
+        }
+
+        public List<ProductionTreeNode> items() {
+            return items;
+        }
+
+        public boolean expanded() {
+            return expanded;
+        }
+    }
+
+    public static final class LoadedProductionItem {
+        private final OrderItemDto item;
+        private final ItemProductionStateView state;
+        private final int index1Based;
+
+        LoadedProductionItem(OrderItemDto item, ItemProductionStateView state, int index1Based) {
+            this.item = Objects.requireNonNull(item, "item");
+            this.state = state;
+            this.index1Based = index1Based;
+        }
+
+        ProductionOrderItemRef ref() {
+            return new ProductionOrderItemRef(
+                    item.orderId().value(), item.orderItemId().value());
+        }
+    }
+
+    public static final class LoadedProductionOrder {
+        private final UUID orderId;
+        private final String orderNumber;
+        private final String customerName;
+        private final OrderProductionViewStatus status;
+        private final OrderProductionListFacts facts;
+        private final List<LoadedProductionItem> items;
+        private final Map<UUID, Long> orderedQuantityFallback;
+
+        LoadedProductionOrder(
+                UUID orderId,
+                String orderNumber,
+                String customerName,
+                OrderProductionViewStatus status,
+                OrderProductionListFacts facts,
+                List<LoadedProductionItem> items,
+                Map<UUID, Long> orderedQuantityFallback) {
+            this.orderId = Objects.requireNonNull(orderId, "orderId");
+            this.orderNumber = Objects.requireNonNull(orderNumber, "orderNumber");
+            this.customerName = customerName == null ? "" : customerName;
+            this.status = Objects.requireNonNull(status, "status");
+            this.facts = facts;
+            this.items = List.copyOf(items);
+            this.orderedQuantityFallback = Map.copyOf(orderedQuantityFallback);
+        }
+
+        List<ProductionOrderItemRef> allItemRefs() {
+            return items.stream().map(LoadedProductionItem::ref).toList();
+        }
+    }
+
     private final ProductionQueryApi queryApi;
     private final ProductionApplicationApi applicationApi;
     private final OrderQueryService orderQueryService;
+    private final OrderWorklistQuery worklistQuery;
     private final WarehouseApi warehouseApi;
     private final AuthorizationService authorizationService;
     private final AuthenticationService authenticationService;
+    private final Clock clock;
+    private final ZoneId zoneId;
+
+    private final ProductionTreeSelectionModel treeSelection = new ProductionTreeSelectionModel();
 
     private final StringProperty orderSelectorInput = new SimpleStringProperty("");
     private final StringProperty orderNumber = new SimpleStringProperty("");
     private final StringProperty customerLabel = new SimpleStringProperty("");
     private final StringProperty statusLabel = new SimpleStringProperty("");
     private final StringProperty statusDetailLabel = new SimpleStringProperty("");
-    private final StringProperty emptyStateMessage =
-            new SimpleStringProperty("Выберите заказ для работы с производством.");
+    private final StringProperty emptyStateMessage = new SimpleStringProperty(EMPTY_TREE);
     private final StringProperty statusMessage = new SimpleStringProperty("");
     private final StringProperty errorMessage = new SimpleStringProperty("");
+    private final StringProperty selectionCountLabel =
+            new SimpleStringProperty("Выбрано: 0 позиций");
     private final BooleanProperty loading = new SimpleBooleanProperty(false);
     private final BooleanProperty orderSelected = new SimpleBooleanProperty(false);
     private final BooleanProperty materialRequirementPanelVisible = new SimpleBooleanProperty(false);
@@ -96,6 +197,17 @@ public final class ProductionWorkbenchViewModel {
     private final BooleanProperty canReceipt = new SimpleBooleanProperty(false);
     private final BooleanProperty canRelease = new SimpleBooleanProperty(false);
     private final BooleanProperty canCancel = new SimpleBooleanProperty(false);
+
+    private final BooleanProperty treeVisible = new SimpleBooleanProperty(true);
+    private final BooleanProperty detailVisible = new SimpleBooleanProperty(false);
+
+    private final StringProperty searchText = new SimpleStringProperty("");
+    private final ObjectProperty<ProductionTreeStatusFilter> statusFilter =
+            new SimpleObjectProperty<>(ProductionTreeStatusFilter.IN_PROGRESS);
+    private final ObjectProperty<OrderListPeriod.Preset> periodPreset =
+            new SimpleObjectProperty<>(OrderListPeriod.Preset.LAST_30_DAYS);
+    private final ObjectProperty<List<TreeOrderModel>> visibleTree =
+            new SimpleObjectProperty<>(List.of());
 
     private final ObservableList<ProductionItemRow> itemRows = FXCollections.observableArrayList();
     private final ObservableList<MaterialAvailabilityRow> materialRows =
@@ -116,6 +228,10 @@ public final class ProductionWorkbenchViewModel {
 
     private final ObjectProperty<UUID> selectedRequirementLineId = new SimpleObjectProperty<>();
 
+    private ScreenMode screenMode = ScreenMode.TREE;
+    private List<LoadedProductionOrder> authoritativeOrders = List.of();
+    private final Set<UUID> expandedOrderIds = new LinkedHashSet<>();
+
     private UUID currentOrderId;
     private OrderProductionViewStatus currentStatus;
     private MaterialRequirementView currentRequirement;
@@ -126,18 +242,203 @@ public final class ProductionWorkbenchViewModel {
             ProductionQueryApi queryApi,
             ProductionApplicationApi applicationApi,
             OrderQueryService orderQueryService,
+            OrderWorklistQuery worklistQuery,
             WarehouseApi warehouseApi,
             AuthorizationService authorizationService,
             AuthenticationService authenticationService) {
+        this(
+                queryApi,
+                applicationApi,
+                orderQueryService,
+                worklistQuery,
+                warehouseApi,
+                authorizationService,
+                authenticationService,
+                Clock.systemDefaultZone(),
+                ZoneId.systemDefault());
+    }
+
+    ProductionWorkbenchViewModel(
+            ProductionQueryApi queryApi,
+            ProductionApplicationApi applicationApi,
+            OrderQueryService orderQueryService,
+            OrderWorklistQuery worklistQuery,
+            WarehouseApi warehouseApi,
+            AuthorizationService authorizationService,
+            AuthenticationService authenticationService,
+            Clock clock,
+            ZoneId zoneId) {
         this.queryApi = Objects.requireNonNull(queryApi, "queryApi");
         this.applicationApi = Objects.requireNonNull(applicationApi, "applicationApi");
         this.orderQueryService = Objects.requireNonNull(orderQueryService, "orderQueryService");
+        this.worklistQuery = Objects.requireNonNull(worklistQuery, "worklistQuery");
         this.warehouseApi = Objects.requireNonNull(warehouseApi, "warehouseApi");
         this.authorizationService =
                 Objects.requireNonNull(authorizationService, "authorizationService");
         this.authenticationService =
                 Objects.requireNonNull(authenticationService, "authenticationService");
+        this.clock = Objects.requireNonNull(clock, "clock");
+        this.zoneId = Objects.requireNonNull(zoneId, "zoneId");
         selectedLogicalTransfer.addListener((obs, oldValue, newValue) -> refreshActionPolicy());
+        treeSelection
+                .selectedCountProperty()
+                .addListener(
+                        (obs, oldValue, newValue) ->
+                                selectionCountLabel.set(
+                                        "Выбрано: " + newValue.intValue() + " позиций"));
+        searchText.addListener((obs, oldValue, newValue) -> applyFilters());
+        statusFilter.addListener((obs, oldValue, newValue) -> applyFilters());
+        periodPreset.addListener(
+                (obs, oldValue, newValue) -> {
+                    if (oldValue != null && !detailMode()) {
+                        loadTree();
+                    }
+                });
+    }
+
+    public void loadTree() {
+        if (loading.get()) {
+            return;
+        }
+        run(null, this::loadTreeInternal);
+    }
+
+    public void applyFilters() {
+        if (detailMode()) {
+            return;
+        }
+        List<LoadedProductionOrder> visible = visibleOrders();
+        visibleTree.set(buildVisibleTreeModels(visible));
+        updateTreeEmptyStateMessage(visible);
+    }
+
+    public List<LoadedProductionOrder> visibleOrders() {
+        String needle = normalizeSearchNeedle(searchText.get());
+        ProductionTreeStatusFilter filter =
+                statusFilter.get() == null
+                        ? ProductionTreeStatusFilter.IN_PROGRESS
+                        : statusFilter.get();
+        List<LoadedProductionOrder> result = new ArrayList<>();
+        for (LoadedProductionOrder order : authoritativeOrders) {
+            if (!filter.matches(order.status)) {
+                continue;
+            }
+            if (needle.isEmpty()) {
+                result.add(order);
+                continue;
+            }
+            if (orderMatchesSearch(order, needle)) {
+                result.add(order);
+                continue;
+            }
+            List<LoadedProductionItem> matchingItems = new ArrayList<>();
+            for (LoadedProductionItem item : order.items) {
+                if (itemMatchesSearch(item, needle)) {
+                    matchingItems.add(item);
+                }
+            }
+            if (!matchingItems.isEmpty()) {
+                result.add(
+                        new LoadedProductionOrder(
+                                order.orderId,
+                                order.orderNumber,
+                                order.customerName,
+                                order.status,
+                                order.facts,
+                                matchingItems,
+                                order.orderedQuantityFallback));
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    public ProductionTreeSelectionModel selectionModel() {
+        return treeSelection;
+    }
+
+    public void selectOrder(UUID orderId) {
+        Objects.requireNonNull(orderId, "orderId");
+        LoadedProductionOrder order = findAuthoritativeOrder(orderId);
+        if (order != null) {
+            treeSelection.selectAll(order.allItemRefs());
+        }
+    }
+
+    public void deselectOrder(UUID orderId) {
+        Objects.requireNonNull(orderId, "orderId");
+        LoadedProductionOrder order = findAuthoritativeOrder(orderId);
+        if (order != null) {
+            treeSelection.deselectAll(order.allItemRefs());
+        }
+    }
+
+    public void setItemSelected(ProductionOrderItemRef ref, boolean selected) {
+        treeSelection.setItemSelected(ref, selected);
+    }
+
+    public List<ProductionOrderItemRef> selectedOrderItemRefs() {
+        return treeSelection.selectedOrderItemRefs();
+    }
+
+    public List<MaterialRequirementSourceItemRefView> selectedItemsForMaterialRequirement() {
+        List<MaterialRequirementSourceItemRefView> refs = new ArrayList<>();
+        for (ProductionOrderItemRef ref : treeSelection.selectedOrderItemRefs()) {
+            refs.add(
+                    new MaterialRequirementSourceItemRefView(
+                            ref.sourceOrderId(), ref.sourceOrderItemId()));
+        }
+        return List.copyOf(refs);
+    }
+
+    public int selectedCount() {
+        return treeSelection.size();
+    }
+
+    public Set<UUID> expandedOrderIds() {
+        return Set.copyOf(expandedOrderIds);
+    }
+
+    public void setOrderExpanded(UUID orderId, boolean expanded) {
+        Objects.requireNonNull(orderId, "orderId");
+        if (expanded) {
+            expandedOrderIds.add(orderId);
+        } else {
+            expandedOrderIds.remove(orderId);
+        }
+    }
+
+    public boolean detailMode() {
+        return screenMode == ScreenMode.DETAIL;
+    }
+
+    public void openOrderDetail(OrderId orderId) {
+        openForOrder(orderId);
+    }
+
+    public void backToTree() {
+        screenMode = ScreenMode.TREE;
+        treeVisible.set(true);
+        detailVisible.set(false);
+        materialRequirementPanelVisible.set(false);
+        releasePanelVisible.set(false);
+        currentOrderId = null;
+        currentStatus = null;
+        orderSelected.set(false);
+        orderNumber.set("");
+        customerLabel.set("");
+        statusLabel.set("");
+        statusDetailLabel.set("");
+        itemRows.clear();
+        materialRows.clear();
+        historyRows.clear();
+        logicalTransfers.clear();
+        requirementLines.clear();
+        releaseMaterialRows.clear();
+        productionCellChoices.clear();
+        selectedLogicalTransfer.set(null);
+        selectedRequirementLineId.set(null);
+        refreshActionPolicy();
+        loadTree();
     }
 
     public void openSelectedOrder() {
@@ -377,11 +678,15 @@ public final class ProductionWorkbenchViewModel {
         if (loading.get()) {
             return;
         }
-        if (currentOrderId == null) {
-            clearOrderState();
-            return;
+        if (detailMode()) {
+            if (currentOrderId == null) {
+                clearOrderState();
+                return;
+            }
+            run("Данные обновлены", this::reloadCurrentOrder);
+        } else {
+            run(null, this::loadTreeInternal);
         }
-        run("Данные обновлены", this::reloadCurrentOrder);
     }
 
     public StringProperty orderSelectorInputProperty() {
@@ -416,12 +721,40 @@ public final class ProductionWorkbenchViewModel {
         return errorMessage;
     }
 
+    public StringProperty selectionCountLabelProperty() {
+        return selectionCountLabel;
+    }
+
+    public StringProperty searchTextProperty() {
+        return searchText;
+    }
+
+    public ObjectProperty<ProductionTreeStatusFilter> statusFilterProperty() {
+        return statusFilter;
+    }
+
+    public ObjectProperty<OrderListPeriod.Preset> periodPresetProperty() {
+        return periodPreset;
+    }
+
+    public ObjectProperty<List<TreeOrderModel>> visibleTreeProperty() {
+        return visibleTree;
+    }
+
     public BooleanProperty loadingProperty() {
         return loading;
     }
 
     public BooleanProperty orderSelectedProperty() {
         return orderSelected;
+    }
+
+    public BooleanProperty treeVisibleProperty() {
+        return treeVisible;
+    }
+
+    public BooleanProperty detailVisibleProperty() {
+        return detailVisible;
     }
 
     public BooleanProperty materialRequirementPanelVisibleProperty() {
@@ -526,6 +859,245 @@ public final class ProductionWorkbenchViewModel {
         return currentReleasePreview;
     }
 
+    private void loadTreeInternal() {
+        OrderListPeriod.Range range = resolvePeriod();
+        OrderWorklistCriteria criteria =
+                OrderWorklistCriteria.builder()
+                        .createdFrom(range.fromInclusive())
+                        .createdToExclusive(range.toExclusive())
+                        .build();
+        List<OrderWorklistRowDto> rows = worklistQuery.listWorklistRows(criteria);
+        List<UUID> ids = rows.stream().map(row -> row.orderId().value()).toList();
+        Map<UUID, OrderProductionListFacts> factsByOrder =
+                ids.isEmpty() ? Map.of() : queryApi.getOrderProductionListFacts(ids);
+
+        List<LoadedProductionOrder> loaded = new ArrayList<>();
+        List<ProductionOrderItemRef> allRefs = new ArrayList<>();
+        for (OrderWorklistRowDto row : rows) {
+            UUID orderId = row.orderId().value();
+            OrderProductionListFacts facts = factsByOrder.get(orderId);
+            OrderProductionViewStatus status =
+                    facts == null ? OrderProductionViewStatus.NOT_ACCEPTED : facts.status();
+
+            List<OrderItemDto> orderItems =
+                    ProductionOrderItemsLoader.loadAll(orderQueryService, row.orderId());
+            Map<UUID, ItemProductionStateView> statesByItem =
+                    queryApi.getItemProductionStatesByOrderId(orderId);
+
+            Map<UUID, Long> orderedFromProduction =
+                    resolveOrderedQuantitiesWhenNeeded(orderId, orderItems, statesByItem);
+
+            List<LoadedProductionItem> items = new ArrayList<>();
+            int index = 1;
+            for (OrderItemDto item : orderItems) {
+                ItemProductionStateView state = statesByItem.get(item.orderItemId().value());
+                items.add(new LoadedProductionItem(item, state, index));
+                allRefs.add(
+                        new ProductionOrderItemRef(
+                                orderId, item.orderItemId().value()));
+                index++;
+            }
+
+            loaded.add(
+                    new LoadedProductionOrder(
+                            orderId,
+                            row.orderNumber(),
+                            blankToEmpty(row.customerName()),
+                            status,
+                            facts,
+                            items,
+                            orderedFromProduction));
+        }
+
+        authoritativeOrders = List.copyOf(loaded);
+        treeSelection.retainOnly(allRefs);
+        Set<UUID> stillPresent = new HashSet<>();
+        for (LoadedProductionOrder order : loaded) {
+            stillPresent.add(order.orderId);
+        }
+        expandedOrderIds.retainAll(stillPresent);
+        applyFilters();
+    }
+
+    private Map<UUID, Long> resolveOrderedQuantitiesWhenNeeded(
+            UUID orderId,
+            List<OrderItemDto> orderItems,
+            Map<UUID, ItemProductionStateView> statesByItem) {
+        boolean needsProductionOrder = false;
+        for (OrderItemDto item : orderItems) {
+            ItemProductionStateView state = statesByItem.get(item.orderItemId().value());
+            if (state == null) {
+                needsProductionOrder = true;
+                break;
+            }
+        }
+        if (!needsProductionOrder) {
+            return Map.of();
+        }
+        Optional<OrderForProductionDto> productionOrder =
+                orderQueryService.getOrderForProduction(OrderId.of(orderId));
+        if (productionOrder.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Long> quantities = new HashMap<>();
+        for (OrderItemForProductionDto item : productionOrder.get().items()) {
+            BigDecimal ordered = item.specification().orderedQuantity();
+            if (ordered != null) {
+                quantities.put(item.orderItemId().value(), ordered.longValue());
+            }
+        }
+        return quantities;
+    }
+
+    private List<TreeOrderModel> buildVisibleTreeModels(List<LoadedProductionOrder> visible) {
+        List<TreeOrderModel> models = new ArrayList<>();
+        for (LoadedProductionOrder order : visible) {
+            // Parent checkbox semantics always use authoritative children, not the filter-visible
+            // subset — selection must survive temporary search/filter hiding.
+            LoadedProductionOrder authoritative = findAuthoritativeOrder(order.orderId);
+            List<ProductionOrderItemRef> childRefs =
+                    authoritative == null ? order.allItemRefs() : authoritative.allItemRefs();
+            String orderQty;
+            String orderReleased;
+            String orderRemaining;
+            if (order.status == OrderProductionViewStatus.NOT_ACCEPTED || order.facts == null) {
+                orderQty = "—";
+                orderReleased = "—";
+                orderRemaining = "—";
+            } else {
+                orderQty = Long.toString(order.facts.orderedQuantity());
+                orderReleased = Long.toString(order.facts.releasedQuantity());
+                orderRemaining = Long.toString(order.facts.activeProductionQuantity());
+            }
+            ProductionTreeNode orderNode =
+                    ProductionTreeNode.order(
+                            order.orderId,
+                            order.orderNumber,
+                            order.customerName,
+                            order.status,
+                            orderQty,
+                            orderReleased,
+                            orderRemaining,
+                            childRefs);
+
+            List<ProductionTreeNode> itemNodes = new ArrayList<>();
+            for (LoadedProductionItem loadedItem : order.items) {
+                itemNodes.add(buildItemTreeNode(loadedItem, order.orderedQuantityFallback));
+            }
+            models.add(
+                    new TreeOrderModel(
+                            orderNode, itemNodes, expandedOrderIds.contains(order.orderId)));
+        }
+        return List.copyOf(models);
+    }
+
+    private ProductionTreeNode buildItemTreeNode(
+            LoadedProductionItem loadedItem, Map<UUID, Long> orderedFallback) {
+        OrderItemDto item = loadedItem.item;
+        ItemProductionStateView state = loadedItem.state;
+        String position =
+                ProductionTreeNode.humanReadablePosition(
+                        item.externalPositionNumber(), loadedItem.index1Based);
+        String productLabel = formatProductLabel(item.productCode(), item.name());
+        String quantity;
+        String released;
+        String remaining;
+        if (state != null) {
+            quantity = Long.toString(state.orderedQuantity());
+            released = Long.toString(state.releasedQuantity());
+            remaining = Long.toString(state.activeProductionQuantity());
+        } else {
+            Long fallback = orderedFallback.get(item.orderItemId().value());
+            quantity = fallback == null ? "—" : Long.toString(fallback);
+            released = "—";
+            remaining = "—";
+        }
+        String status =
+                ProductionPresentationLabels.itemStatus(
+                        state == null ? null : state.status());
+        return ProductionTreeNode.item(
+                item.orderId().value(),
+                item.orderItemId().value(),
+                position,
+                productLabel,
+                quantity,
+                status,
+                released,
+                remaining,
+                loadedItem.index1Based);
+    }
+
+    private void updateTreeEmptyStateMessage(List<LoadedProductionOrder> visible) {
+        if (detailMode()) {
+            return;
+        }
+        if (authoritativeOrders.isEmpty()) {
+            emptyStateMessage.set(EMPTY_TREE);
+        } else if (visible.isEmpty()) {
+            emptyStateMessage.set(EMPTY_FILTERED);
+        } else {
+            emptyStateMessage.set("");
+        }
+    }
+
+    private LoadedProductionOrder findAuthoritativeOrder(UUID orderId) {
+        for (LoadedProductionOrder order : authoritativeOrders) {
+            if (order.orderId.equals(orderId)) {
+                return order;
+            }
+        }
+        return null;
+    }
+
+    private static boolean orderMatchesSearch(LoadedProductionOrder order, String needle) {
+        return containsIgnoreCase(order.orderNumber, needle)
+                || containsIgnoreCase(order.customerName, needle);
+    }
+
+    private static boolean itemMatchesSearch(LoadedProductionItem loadedItem, String needle) {
+        OrderItemDto item = loadedItem.item;
+        return containsIgnoreCase(item.externalPositionNumber(), needle)
+                || containsIgnoreCase(item.name(), needle)
+                || containsIgnoreCase(item.productCode(), needle);
+    }
+
+    private static String normalizeSearchNeedle(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        return raw.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean containsIgnoreCase(String value, String needle) {
+        if (needle.isEmpty() || value == null || value.isBlank()) {
+            return false;
+        }
+        return value.toLowerCase(Locale.ROOT).contains(needle);
+    }
+
+    private static String formatProductLabel(String productCode, String name) {
+        String code = blankToEmpty(productCode).trim();
+        String itemName = blankToEmpty(name).trim();
+        if (!code.isEmpty() && !itemName.isEmpty()) {
+            return code + " — " + itemName;
+        }
+        if (!itemName.isEmpty()) {
+            return itemName;
+        }
+        if (!code.isEmpty()) {
+            return code;
+        }
+        return "—";
+    }
+
+    private OrderListPeriod.Range resolvePeriod() {
+        OrderListPeriod.Preset preset =
+                periodPreset.get() == null
+                        ? OrderListPeriod.Preset.LAST_30_DAYS
+                        : periodPreset.get();
+        return OrderListPeriod.resolve(preset, zoneId, clock, null, null);
+    }
+
     private void loadOrder(OrderId orderId) {
         OrderDto order =
                 orderQueryService
@@ -540,6 +1112,9 @@ public final class ProductionWorkbenchViewModel {
                                 : " (" + order.customerRef() + ")"));
         orderSelected.set(true);
         emptyStateMessage.set("");
+        screenMode = ScreenMode.DETAIL;
+        treeVisible.set(false);
+        detailVisible.set(true);
         reloadCurrentOrder();
     }
 
@@ -553,13 +1128,18 @@ public final class ProductionWorkbenchViewModel {
         statusLabel.set(ProductionPresentationLabels.orderStatus(view.status()));
         statusDetailLabel.set(ProductionPresentationLabels.orderStatusDetail(view.status()));
 
-        PageResult<OrderItemDto> itemsPage =
-                orderQueryService.getOrderItems(OrderId.of(currentOrderId), PageRequest.firstPage());
+        List<OrderItemDto> orderItems =
+                ProductionOrderItemsLoader.loadAll(
+                        orderQueryService, OrderId.of(currentOrderId));
+        Map<UUID, ItemProductionStateView> statesByItem =
+                resolveDetailItemStates(currentOrderId, orderItems);
+
         List<ProductionItemRow> mappedItems = new ArrayList<>();
-        for (OrderItemDto item : itemsPage.content()) {
-            Optional<ItemProductionStateView> state =
-                    queryApi.getItemProductionState(item.orderItemId().value());
-            mappedItems.add(mapItemRow(item, state.orElse(null)));
+        int index = 1;
+        for (OrderItemDto item : orderItems) {
+            ItemProductionStateView state = statesByItem.get(item.orderItemId().value());
+            mappedItems.add(mapItemRow(item, state, index));
+            index++;
         }
         itemRows.setAll(mappedItems);
 
@@ -585,15 +1165,27 @@ public final class ProductionWorkbenchViewModel {
             selectedLogicalTransfer.set(null);
         }
 
-        // Authoritative Production state is loaded — recompute actions before optional panels.
         refreshActionPolicy();
 
-        // Material availability is informational and must not abort a successful open/reload
-        // into a false "order not found" / stale button matrix.
         materialRows.clear();
         if (view.status() == OrderProductionViewStatus.IN_PRODUCTION) {
             loadMaterialAvailabilityRows();
         }
+    }
+
+    private Map<UUID, ItemProductionStateView> resolveDetailItemStates(
+            UUID orderId, List<OrderItemDto> items) {
+        Map<UUID, ItemProductionStateView> states =
+                new HashMap<>(queryApi.getItemProductionStatesByOrderId(orderId));
+        if (states.size() < items.size()) {
+            for (OrderItemDto item : items) {
+                UUID itemId = item.orderItemId().value();
+                if (!states.containsKey(itemId)) {
+                    queryApi.getItemProductionState(itemId).ifPresent(state -> states.put(itemId, state));
+                }
+            }
+        }
+        return states;
     }
 
     private void loadMaterialAvailabilityRows() {
@@ -689,7 +1281,6 @@ public final class ProductionWorkbenchViewModel {
                             actual.plannedQuantity().toPlainString(),
                             actual.actualQuantity().toPlainString());
             row.cellChoices().setAll(cells);
-            // No auto-first-cell selection — user adds allocations explicitly.
             rows.add(row);
         }
         releaseMaterialRows.setAll(rows);
@@ -787,16 +1378,16 @@ public final class ProductionWorkbenchViewModel {
         return choices;
     }
 
-    private ProductionItemRow mapItemRow(OrderItemDto item, ItemProductionStateView state) {
+    private ProductionItemRow mapItemRow(
+            OrderItemDto item, ItemProductionStateView state, int index1Based) {
         String position =
-                blankToEmpty(item.externalPositionNumber()).isBlank()
-                        ? item.orderItemId().value().toString()
-                        : item.externalPositionNumber() + " / " + item.orderItemId().value();
+                ProductionTreeNode.humanReadablePosition(
+                        item.externalPositionNumber(), index1Based);
         if (state == null) {
             return new ProductionItemRow(
                     item.orderItemId().value(),
                     position,
-                    "—",
+                    ProductionPresentationLabels.itemStatus(null),
                     "—",
                     "—",
                     "—",
@@ -922,7 +1513,11 @@ public final class ProductionWorkbenchViewModel {
         customerLabel.set("");
         statusLabel.set("");
         statusDetailLabel.set("");
-        emptyStateMessage.set("Выберите заказ для работы с производством.");
+        if (detailMode()) {
+            emptyStateMessage.set("Выберите заказ для работы с производством.");
+        } else {
+            updateTreeEmptyStateMessage(visibleOrders());
+        }
         itemRows.clear();
         materialRows.clear();
         historyRows.clear();
@@ -974,14 +1569,30 @@ public final class ProductionWorkbenchViewModel {
         statusMessage.set("");
         try {
             action.run();
-            if (statusMessage.get() == null || statusMessage.get().isBlank()) {
+            if (successMessage != null
+                    && (statusMessage.get() == null || statusMessage.get().isBlank())) {
                 statusMessage.set(successMessage);
             }
         } catch (AccessDeniedException ex) {
-            errorMessage.set(ProductionUiErrorMapper.text(ex));
+            if (detailMode() || currentOrderId != null) {
+                errorMessage.set(ProductionUiErrorMapper.text(ex));
+            } else {
+                errorMessage.set(TREE_LOAD_FAILED);
+            }
+            statusMessage.set(ProductionUiErrorMapper.LOAD_FAILED);
+        } catch (IllegalArgumentException ex) {
+            if ("Order not found".equals(ex.getMessage())) {
+                errorMessage.set(ProductionUiErrorMapper.ORDER_NOT_FOUND);
+            } else {
+                errorMessage.set(ProductionUiErrorMapper.text(ex));
+            }
             statusMessage.set(ProductionUiErrorMapper.LOAD_FAILED);
         } catch (RuntimeException ex) {
-            errorMessage.set(ProductionUiErrorMapper.text(ex));
+            if (detailMode() || currentOrderId != null) {
+                errorMessage.set(ProductionUiErrorMapper.text(ex));
+            } else {
+                errorMessage.set(TREE_LOAD_FAILED);
+            }
             statusMessage.set(ProductionUiErrorMapper.LOAD_FAILED);
             if (refreshOnStale || ProductionUiErrorMapper.isConcurrentOrStale(ex)) {
                 try {

@@ -36,6 +36,7 @@ import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubA
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubOrderQuery;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubQueryApi;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubWarehouseApi;
+import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubWorklistQuery;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
 import com.tmp.warehouse.api.WarehouseApi.TransferStatusView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
@@ -52,6 +53,7 @@ class ProductionWorkbenchViewModelTest {
     private StubQueryApi queryApi;
     private StubApplicationApi applicationApi;
     private StubOrderQuery orderQuery;
+    private StubWorklistQuery worklistQuery;
     private StubWarehouseApi warehouseApi;
     private AllowAllAuthorization auth;
     private StubAuthentication authentication;
@@ -78,6 +80,7 @@ class ProductionWorkbenchViewModelTest {
         queryApi = new StubQueryApi();
         applicationApi = new StubApplicationApi();
         orderQuery = new StubOrderQuery();
+        worklistQuery = new StubWorklistQuery();
         warehouseApi = new StubWarehouseApi();
         auth = new AllowAllAuthorization();
         authentication = new StubAuthentication();
@@ -86,6 +89,7 @@ class ProductionWorkbenchViewModelTest {
                         queryApi,
                         applicationApi,
                         orderQuery,
+                        worklistQuery,
                         warehouseApi,
                         auth,
                         authentication);
@@ -600,7 +604,7 @@ class ProductionWorkbenchViewModelTest {
     void emptyStateDisablesMutations() {
         assertFalse(viewModel.orderSelectedProperty().get());
         assertFalse(viewModel.canAcceptProperty().get());
-        assertTrue(viewModel.emptyStateMessageProperty().get().contains("Выберите заказ"));
+        assertTrue(viewModel.emptyStateMessageProperty().get().contains("Нет заказов"));
     }
 
     @Test

@@ -7,17 +7,23 @@ import java.util.Objects;
  *
  * <p>{@code requestedProductQuantity} is the number of products (not material quantity) included in
  * this requirement for the given order item.
+ *
+ * <p>{@code countsTowardProductCoverage} is {@code true} for Phase 2+ authoritative coverage.
+ * Pre-V49 historical rows may be reconstructed for provenance/reopen with {@code false} so invented
+ * quantities never enter cumulative submitted coverage.
  */
 public final class MaterialRequirementSourceItem {
 
     private final SourceOrderId sourceOrderId;
     private final SourceOrderItemId sourceOrderItemId;
     private final long requestedProductQuantity;
+    private final boolean countsTowardProductCoverage;
 
     private MaterialRequirementSourceItem(
             SourceOrderId sourceOrderId,
             SourceOrderItemId sourceOrderItemId,
-            long requestedProductQuantity) {
+            long requestedProductQuantity,
+            boolean countsTowardProductCoverage) {
         this.sourceOrderId = Objects.requireNonNull(sourceOrderId, "sourceOrderId");
         this.sourceOrderItemId = Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
         if (requestedProductQuantity <= 0L) {
@@ -25,14 +31,29 @@ public final class MaterialRequirementSourceItem {
                     "requestedProductQuantity must be > 0: " + requestedProductQuantity);
         }
         this.requestedProductQuantity = requestedProductQuantity;
+        this.countsTowardProductCoverage = countsTowardProductCoverage;
     }
 
+    /** Authoritative Phase 2+ source item (counts toward submitted product coverage). */
     public static MaterialRequirementSourceItem of(
             SourceOrderId sourceOrderId,
             SourceOrderItemId sourceOrderItemId,
             long requestedProductQuantity) {
         return new MaterialRequirementSourceItem(
-                sourceOrderId, sourceOrderItemId, requestedProductQuantity);
+                sourceOrderId, sourceOrderItemId, requestedProductQuantity, true);
+    }
+
+    /** Persistence / historical reconstruction entry point. */
+    public static MaterialRequirementSourceItem rehydrate(
+            SourceOrderId sourceOrderId,
+            SourceOrderItemId sourceOrderItemId,
+            long requestedProductQuantity,
+            boolean countsTowardProductCoverage) {
+        return new MaterialRequirementSourceItem(
+                sourceOrderId,
+                sourceOrderItemId,
+                requestedProductQuantity,
+                countsTowardProductCoverage);
     }
 
     public SourceOrderId sourceOrderId() {
@@ -47,6 +68,10 @@ public final class MaterialRequirementSourceItem {
         return requestedProductQuantity;
     }
 
+    public boolean countsTowardProductCoverage() {
+        return countsTowardProductCoverage;
+    }
+
     @Override
     public boolean equals(Object other) {
         if (this == other) {
@@ -56,13 +81,18 @@ public final class MaterialRequirementSourceItem {
             return false;
         }
         return requestedProductQuantity == that.requestedProductQuantity
+                && countsTowardProductCoverage == that.countsTowardProductCoverage
                 && sourceOrderId.equals(that.sourceOrderId)
                 && sourceOrderItemId.equals(that.sourceOrderItemId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(sourceOrderId, sourceOrderItemId, requestedProductQuantity);
+        return Objects.hash(
+                sourceOrderId,
+                sourceOrderItemId,
+                requestedProductQuantity,
+                countsTowardProductCoverage);
     }
 
     @Override
@@ -73,6 +103,8 @@ public final class MaterialRequirementSourceItem {
                 + sourceOrderItemId
                 + " x"
                 + requestedProductQuantity
+                + ", coverage="
+                + countsTowardProductCoverage
                 + "}";
     }
 }

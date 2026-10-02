@@ -1,6 +1,10 @@
 -- Stage 7 Phase 2: cross-order Material Requirement + product quantity coverage.
 -- Preserves historical V43/V44 rows. Active source of truth for covered products moves to
 -- material_requirement_source_items. Header source_order_id becomes nullable historical/legacy.
+--
+-- CRITICAL: pre-V49 MRs never stored requested product quantity. Legacy backfill therefore
+-- reconstructs provenance for reopen/history but MUST NOT invent authoritative product coverage
+-- (counts_toward_product_coverage = FALSE). Coverage sums ignore those rows.
 
 ALTER TABLE production.material_requirements
     ALTER COLUMN source_order_id DROP NOT NULL;
@@ -10,6 +14,7 @@ CREATE TABLE production.material_requirement_source_items (
     source_order_id UUID NOT NULL,
     source_order_item_id UUID NOT NULL,
     requested_product_quantity BIGINT NOT NULL,
+    counts_toward_product_coverage BOOLEAN NOT NULL DEFAULT TRUE,
     CONSTRAINT pk_material_requirement_source_items
         PRIMARY KEY (requirement_id, source_order_id, source_order_item_id),
     CONSTRAINT fk_material_requirement_source_items_requirement
@@ -45,19 +50,22 @@ WHERE lsi.line_id = mrl.id
   AND lsi.source_order_id IS NULL
   AND mr.source_order_id IS NOT NULL;
 
--- Backfill requirement-level source items for historical MRs.
--- Product quantity: launched_quantity when item state exists (old path selected whole items);
--- otherwise 1 to satisfy NOT NULL / CHECK without inventing cross-order semantics.
+-- Backfill requirement-level source items for historical MRs (provenance only).
+-- requested_product_quantity is a non-authoritative placeholder (launched_quantity or 1) so the
+-- NOT NULL / CHECK constraints hold; counts_toward_product_coverage = FALSE ensures these rows
+-- never enter cumulativeSubmittedProductQuantity.
 INSERT INTO production.material_requirement_source_items (
     requirement_id,
     source_order_id,
     source_order_item_id,
-    requested_product_quantity)
+    requested_product_quantity,
+    counts_toward_product_coverage)
 SELECT DISTINCT
     mr.id,
     mr.source_order_id,
     lsi.source_order_item_id,
-    COALESCE(pis.launched_quantity, 1)
+    COALESCE(pis.launched_quantity, 1),
+    FALSE
 FROM production.material_requirements mr
 JOIN production.material_requirement_lines mrl ON mrl.requirement_id = mr.id
 JOIN production.material_requirement_line_source_items lsi ON lsi.line_id = mrl.id

@@ -142,6 +142,7 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                         FROM production.material_requirement_source_items si
                         JOIN production.material_requirements mr ON mr.id = si.requirement_id
                         WHERE mr.status = 'SUBMITTED'
+                          AND si.counts_toward_product_coverage = TRUE
                           AND (
                         """);
         List<Object> args = new ArrayList<>();
@@ -322,30 +323,33 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                     """
                     INSERT INTO production.material_requirement_source_items (
                         requirement_id, source_order_id, source_order_item_id,
-                        requested_product_quantity)
-                    VALUES (?, ?, ?, ?)
+                        requested_product_quantity, counts_toward_product_coverage)
+                    VALUES (?, ?, ?, ?, ?)
                     """,
                     requirementId.value(),
                     item.sourceOrderId().value(),
                     item.sourceOrderItemId().value(),
-                    item.requestedProductQuantity());
+                    item.requestedProductQuantity(),
+                    item.countsTowardProductCoverage());
         }
     }
 
     private List<MaterialRequirementSourceItem> loadSourceItems(MaterialRequirementId requirementId) {
         return jdbcTemplate.query(
                 """
-                SELECT source_order_id, source_order_item_id, requested_product_quantity
+                SELECT source_order_id, source_order_item_id, requested_product_quantity,
+                       counts_toward_product_coverage
                 FROM production.material_requirement_source_items
                 WHERE requirement_id = ?
                 ORDER BY source_order_id, source_order_item_id
                 """,
                 (rs, rowNum) ->
-                        MaterialRequirementSourceItem.of(
+                        MaterialRequirementSourceItem.rehydrate(
                                 SourceOrderId.of(rs.getObject("source_order_id", UUID.class)),
                                 SourceOrderItemId.of(
                                         rs.getObject("source_order_item_id", UUID.class)),
-                                rs.getLong("requested_product_quantity")),
+                                rs.getLong("requested_product_quantity"),
+                                rs.getBoolean("counts_toward_product_coverage")),
                 requirementId.value());
     }
 

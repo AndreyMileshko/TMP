@@ -265,6 +265,7 @@ public class UiShellAutoConfiguration {
             ProductionQueryApi productionQueryApi,
             ProductionApplicationApi productionApplicationApi,
             OrderQueryService orderQueryService,
+            OrderWorklistQuery orderWorklistQuery,
             WarehouseApi warehouseApi,
             AuthorizationService authorizationService,
             AuthenticationService authenticationService) {
@@ -272,6 +273,7 @@ public class UiShellAutoConfiguration {
                 productionQueryApi,
                 productionApplicationApi,
                 orderQueryService,
+                orderWorklistQuery,
                 warehouseApi,
                 authorizationService,
                 authenticationService);

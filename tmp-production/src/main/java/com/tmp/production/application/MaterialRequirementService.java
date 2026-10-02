@@ -110,8 +110,11 @@ public final class MaterialRequirementService {
     }
 
     /**
-     * Legacy single-order prepare: maps selected items to selections without explicit product
-     * quantities (STANDARD resolves full requestable; FLEXIBLE rejects without quantity).
+     * TEMPORARY COMPATIBILITY — single-order prepare shim for the current Workbench UI.
+     *
+     * <p>Maps selected items to selections without explicit product quantities (STANDARD resolves
+     * full requestable; FLEXIBLE rejects without quantity). Remove after Phase 3 Workbench migrates
+     * to {@link #prepareMaterialRequirement(List)}.
      */
     public MaterialRequirement prepareMaterialRequirement(
             SourceOrderId orderId, List<SourceOrderItemId> selectedOrderItemIds) {

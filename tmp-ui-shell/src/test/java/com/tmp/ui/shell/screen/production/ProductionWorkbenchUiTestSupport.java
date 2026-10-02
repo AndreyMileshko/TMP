@@ -12,6 +12,10 @@ import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderSearchCriteria;
 import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.OrderSummaryDto;
+import com.tmp.order.api.OrderCustomerOptionDto;
+import com.tmp.order.api.OrderWorklistCriteria;
+import com.tmp.order.api.OrderWorklistQuery;
+import com.tmp.order.api.OrderWorklistRowDto;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
 import com.tmp.order.api.ProductionSpecificationDto;
@@ -39,6 +43,12 @@ import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
 import com.tmp.production.api.ProductionApplicationApi.ReleaseResultView;
 import com.tmp.production.api.ProductionQueryApi;
+import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
+import com.tmp.production.api.ProductionQueryApi.MaterialAvailabilityResultView;
+import com.tmp.production.api.ProductionQueryApi.OrderProductionListFacts;
+import com.tmp.production.api.ProductionQueryApi.OrderProductionView;
+import com.tmp.production.api.ProductionQueryApi.OrderProductionViewStatus;
+import com.tmp.production.api.ProductionQueryApi.ProductionHistoryEntryView;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
@@ -74,8 +84,10 @@ import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -165,11 +177,20 @@ final class ProductionWorkbenchUiTestSupport {
     static final class StubQueryApi implements ProductionQueryApi {
         OrderProductionView view;
         final Map<UUID, ItemProductionStateView> itemStates = new HashMap<>();
+        final Map<UUID, OrderProductionListFacts> listFacts = new HashMap<>();
+        final Map<UUID, Map<UUID, ItemProductionStateView>> statesByOrder = new HashMap<>();
         Optional<MaterialAvailabilityResultView> availability = Optional.empty();
         RuntimeException availabilityFailure;
         final List<ProductionHistoryEntryView> history = new ArrayList<>();
         int getOrderProductionViewCalls;
         int getMaterialAvailabilityCalls;
+
+        void putItemState(ItemProductionStateView state) {
+            itemStates.put(state.sourceOrderItemId(), state);
+            statesByOrder
+                    .computeIfAbsent(state.sourceOrderId(), ignored -> new HashMap<>())
+                    .put(state.sourceOrderItemId(), state);
+        }
 
         @Override
         public OrderProductionView getOrderProductionView(UUID orderId) {
@@ -178,8 +199,25 @@ final class ProductionWorkbenchUiTestSupport {
         }
 
         @Override
+        public Map<UUID, OrderProductionListFacts> getOrderProductionListFacts(
+                Collection<UUID> orderIds) {
+            Map<UUID, OrderProductionListFacts> out = new LinkedHashMap<>();
+            for (UUID id : orderIds) {
+                if (listFacts.containsKey(id)) {
+                    out.put(id, listFacts.get(id));
+                }
+            }
+            return out;
+        }
+
+        @Override
         public Optional<ItemProductionStateView> getItemProductionState(UUID orderItemId) {
             return Optional.ofNullable(itemStates.get(orderItemId));
+        }
+
+        @Override
+        public Map<UUID, ItemProductionStateView> getItemProductionStatesByOrderId(UUID orderId) {
+            return Map.copyOf(statesByOrder.getOrDefault(orderId, Map.of()));
         }
 
         @Override
@@ -393,8 +431,23 @@ final class ProductionWorkbenchUiTestSupport {
         }
     }
 
+    static final class StubWorklistQuery implements OrderWorklistQuery {
+        final List<OrderWorklistRowDto> rows = new ArrayList<>();
+
+        @Override
+        public List<OrderWorklistRowDto> listWorklistRows(OrderWorklistCriteria criteria) {
+            return List.copyOf(rows);
+        }
+
+        @Override
+        public List<OrderCustomerOptionDto> listKnownCustomers() {
+            return List.of();
+        }
+    }
+
     static final class StubOrderQuery implements OrderQueryService {
         OrderDto order;
+        final Map<OrderId, OrderDto> orders = new HashMap<>();
         final List<OrderItemDto> items = new ArrayList<>();
         final List<OrderSummaryDto> searchResults = new ArrayList<>();
 
@@ -410,6 +463,10 @@ final class ProductionWorkbenchUiTestSupport {
 
         @Override
         public Optional<OrderDto> getOrder(OrderId orderId) {
+            OrderDto mapped = orders.get(orderId);
+            if (mapped != null) {
+                return Optional.of(mapped);
+            }
             if (order != null && order.orderId().equals(orderId)) {
                 return Optional.of(order);
             }
@@ -418,8 +475,17 @@ final class ProductionWorkbenchUiTestSupport {
 
         @Override
         public PageResult<OrderItemDto> getOrderItems(OrderId orderId, PageRequest pageRequest) {
+            List<OrderItemDto> forOrder =
+                    items.stream().filter(i -> i.orderId().equals(orderId)).toList();
+            int pageIndex = pageRequest.pageIndex();
+            int pageSize = pageRequest.pageSize();
+            int from = pageIndex * pageSize;
+            if (from >= forOrder.size()) {
+                return PageResult.of(List.of(), pageIndex, pageSize, forOrder.size());
+            }
+            int to = Math.min(from + pageSize, forOrder.size());
             return PageResult.of(
-                    items, pageRequest.pageIndex(), pageRequest.pageSize(), items.size());
+                    forOrder.subList(from, to), pageIndex, pageSize, forOrder.size());
         }
 
         @Override
@@ -761,5 +827,29 @@ final class ProductionWorkbenchUiTestSupport {
                 RevisionNumber.first(),
                 Instant.parse("2026-01-01T00:00:00Z"),
                 Instant.parse("2026-01-01T00:00:00Z"));
+    }
+
+    static OrderItemDto item(UUID orderId, UUID itemId) {
+        return item(orderId, itemId, null);
+    }
+
+    static OrderWorklistRowDto worklistRow(UUID orderId, String number, String customer) {
+        return OrderWorklistRowDto.of(
+                OrderId.of(orderId),
+                number,
+                OrderStatus.ACTIVE,
+                null,
+                customer,
+                Instant.parse("2026-01-01T00:00:00Z"),
+                1L);
+    }
+
+    static OrderProductionListFacts productionListFacts(
+            UUID orderId,
+            OrderProductionViewStatus status,
+            long ordered,
+            long released,
+            long active) {
+        return new OrderProductionListFacts(orderId, status, ordered, released, active, false);
     }
 }

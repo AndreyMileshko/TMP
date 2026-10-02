@@ -52,6 +52,7 @@ class ProductionWorkbenchControllerFxTest {
                         new ProductionWorkbenchUiTestSupport.StubQueryApi(),
                         new ProductionWorkbenchUiTestSupport.StubApplicationApi(),
                         new ProductionWorkbenchUiTestSupport.StubOrderQuery(),
+                        new ProductionWorkbenchUiTestSupport.StubWorklistQuery(),
                         new ProductionWorkbenchUiTestSupport.StubWarehouseApi(),
                         new ProductionWorkbenchUiTestSupport.AllowAllAuthorization(),
                         new ProductionWorkbenchUiTestSupport.StubAuthentication());
@@ -79,8 +80,11 @@ class ProductionWorkbenchControllerFxTest {
                         root.applyCss();
                         root.layout();
 
+                        assertNotNull(root.lookup("#productionTree"));
+                        assertNull(root.lookup("#orderSelectorField"));
+                        assertNull(root.lookup("#confirmReceiptButton"));
+                        assertNull(root.lookup("#logicalTransferCombo"));
                         assertNotNull(root.lookup("#acceptButton"));
-                        assertNotNull(root.lookup("#confirmReceiptButton"));
                         assertNotNull(root.lookup("#prepareReleaseButton"));
                         assertEquals(
                                 "Принять в производство",
@@ -208,6 +212,7 @@ class ProductionWorkbenchControllerFxTest {
                         queryApi,
                         applicationApi,
                         orderQuery,
+                        new ProductionWorkbenchUiTestSupport.StubWorklistQuery(),
                         warehouseApi,
                         new ProductionWorkbenchUiTestSupport.AllowAllAuthorization(),
                         new ProductionWorkbenchUiTestSupport.StubAuthentication());

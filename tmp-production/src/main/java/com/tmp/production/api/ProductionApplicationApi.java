@@ -30,9 +30,9 @@ public interface ProductionApplicationApi {
     void checkMaterialAvailability(UUID orderId);
 
     /**
-     * Creates a DRAFT Material Requirement from selected Order Items of one order (compatibility
-     * path). Quantity Mode STANDARD resolves full requestable product quantity; FLEXIBLE requires
-     * {@link #prepareMaterialRequirement(List)}.
+     * TEMPORARY COMPATIBILITY — single-order prepare for the current Workbench UI until Phase 3
+     * migrates to {@link #prepareMaterialRequirement(List)}. Quantity Mode STANDARD resolves full
+     * requestable product quantity; FLEXIBLE requires the list-based prepare.
      */
     MaterialRequirementView prepareMaterialRequirement(
             UUID orderId, List<UUID> selectedOrderItemIds);
@@ -46,13 +46,13 @@ public interface ProductionApplicationApi {
 
     /**
      * Loads a persisted Material Requirement by id (reopen / DEP-1). Requires
-     * {@code production.transfer.create}.
+     * {@code production.order.view}.
      */
     Optional<MaterialRequirementView> getMaterialRequirement(UUID requirementId);
 
     /**
      * Batch product-coverage facts for the given Order Items. Requires
-     * {@code production.transfer.create}.
+     * {@code production.order.view}.
      */
     List<MaterialRequirementProductCoverageView> getMaterialRequirementProductCoverage(
             List<MaterialRequirementSourceItemRefView> sourceItems);

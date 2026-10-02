@@ -270,6 +270,61 @@ class MaterialRequirementServiceTest {
     }
 
     @Test
+    void rejectsDuplicateCrossOrderSelection() {
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        launchItem(orderId, itemId, specId, 5L);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        spec(
+                                specId,
+                                itemId,
+                                BigDecimal.valueOf(5),
+                                List.of(materialLine("MAT-D", "WHITE", "PCS", 1))));
+        warehouseQuery.materialReferences =
+                List.of(reference(UUID.randomUUID(), "MAT-D", "D", "WHITE", "PCS"));
+
+        MaterialRequirementSelectionException ex =
+                assertThrows(
+                        MaterialRequirementSelectionException.class,
+                        () ->
+                                service.prepareMaterialRequirement(
+                                        List.of(
+                                                MaterialRequirementProductSelection.of(
+                                                        orderId, itemId),
+                                                MaterialRequirementProductSelection.of(
+                                                        orderId, itemId))));
+        assertTrue(ex.getMessage().contains("Duplicate"));
+    }
+
+    @Test
+    void rejectsSelectionWhereOrderIdDoesNotOwnItem() {
+        SourceOrderId orderA = SourceOrderId.generate();
+        SourceOrderId orderB = SourceOrderId.generate();
+        SourceOrderItemId itemOnB = SourceOrderItemId.generate();
+        SpecificationId specB = SpecificationId.generate();
+        launchItem(orderA, SourceOrderItemId.generate(), SpecificationId.generate(), 3L);
+        launchItem(orderB, itemOnB, specB, 4L);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        spec(
+                                specB,
+                                itemOnB,
+                                BigDecimal.valueOf(4),
+                                List.of(materialLine("MAT-O", "WHITE", "PCS", 1))));
+        warehouseQuery.materialReferences =
+                List.of(reference(UUID.randomUUID(), "MAT-O", "O", "WHITE", "PCS"));
+
+        assertThrows(
+                MaterialRequirementSelectionException.class,
+                () ->
+                        service.prepareMaterialRequirement(
+                                List.of(
+                                        MaterialRequirementProductSelection.of(
+                                                orderA, itemOnB))));
+    }
+
+    @Test
     void rejectsItemFromAnotherOrder() {
         SourceOrderItemId localItem = SourceOrderItemId.generate();
         launchItem(orderId, localItem, SpecificationId.generate());

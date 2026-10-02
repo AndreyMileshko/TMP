@@ -34,6 +34,7 @@ import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineContribution;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
+import com.tmp.production.domain.MaterialRequirementSourceItemKey;
 import com.tmp.production.domain.MaterialTransferTemplateId;
 import com.tmp.production.domain.MaterialTransferTemplateLineId;
 import com.tmp.production.domain.OrderQuantityModeOptimisticLockException;
@@ -61,6 +62,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -367,8 +369,6 @@ class DefaultProductionApplicationApiTest {
                                                 .MaterialRequirementProductSelectionView(
                                                 orderId, itemId, Optional.empty()))));
         assertThrows(
-                AccessDeniedException.class, () -> api.getMaterialRequirement(requirementId));
-        assertThrows(
                 AccessDeniedException.class,
                 () ->
                         api.changeMaterialRequirementQuantity(
@@ -379,9 +379,72 @@ class DefaultProductionApplicationApiTest {
 
         verify(materialRequirementService, never()).prepareMaterialRequirement(any(), any());
         verify(materialRequirementService, never()).prepareMaterialRequirement(any());
-        verify(materialRequirementService, never()).findById(any());
         verify(materialRequirementService, never()).changeQuantity(any(), any(), any(), anyLong());
         verify(submitMaterialRequirementService, never()).submit(any(), anyLong(), any());
+    }
+
+    @Test
+    void materialRequirementReadsRequireViewPermission() {
+        doThrow(new AccessDeniedException("Access denied: production.order.view"))
+                .when(authorizationService)
+                .requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+
+        UUID requirementId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+
+        assertThrows(
+                AccessDeniedException.class, () -> api.getMaterialRequirement(requirementId));
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        api.getMaterialRequirementProductCoverage(
+                                List.of(
+                                        new ProductionApplicationApi
+                                                .MaterialRequirementSourceItemRefView(
+                                                orderId, itemId))));
+
+        verify(materialRequirementService, never()).findById(any());
+        verify(materialRequirementCoverageService, never()).coverageForItems(any());
+    }
+
+    @Test
+    void materialRequirementReadsAllowedWithViewPermissionWithoutTransfer() {
+        MaterialRequirement requirement = sampleRequirement();
+        when(materialRequirementService.findById(requirement.requirementId()))
+                .thenReturn(Optional.of(requirement));
+        when(materialRequirementCoverageService.coverageForItems(any()))
+                .thenReturn(
+                        Map.of(
+                                MaterialRequirementSourceItemKey.of(
+                                        requirement.sourceItems().getFirst().sourceOrderId(),
+                                        requirement.sourceItems().getFirst().sourceOrderItemId()),
+                                new MaterialRequirementProductCoverageCalculator.ProductItemCoverage(
+                                        10L, 10L, 0L, 0L, 0L, 10L)));
+
+        assertTrue(api.getMaterialRequirement(requirement.requirementId().value()).isPresent());
+        assertEquals(
+                1,
+                api.getMaterialRequirementProductCoverage(
+                                List.of(
+                                        new ProductionApplicationApi
+                                                .MaterialRequirementSourceItemRefView(
+                                                requirement
+                                                        .sourceItems()
+                                                        .getFirst()
+                                                        .sourceOrderId()
+                                                        .value(),
+                                                requirement
+                                                        .sourceItems()
+                                                        .getFirst()
+                                                        .sourceOrderItemId()
+                                                        .value())))
+                        .size());
+
+        verify(authorizationService, org.mockito.Mockito.atLeast(2))
+                .requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+        verify(authorizationService, never())
+                .requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
     }
 
     @Test
@@ -391,8 +454,6 @@ class DefaultProductionApplicationApiTest {
                 .thenReturn(requirement);
         when(materialRequirementService.prepareMaterialRequirement(any()))
                 .thenReturn(requirement);
-        when(materialRequirementService.findById(requirement.requirementId()))
-                .thenReturn(Optional.of(requirement));
         when(materialRequirementService.changeQuantity(any(), any(), any(), anyLong()))
                 .thenReturn(requirement);
         when(submitMaterialRequirementService.submit(any(), anyLong(), any()))
@@ -412,7 +473,6 @@ class DefaultProductionApplicationApiTest {
                                 requirement.sourceItems().getFirst().sourceOrderId().value(),
                                 requirement.sourceItems().getFirst().sourceOrderItemId().value(),
                                 Optional.empty())));
-        assertTrue(api.getMaterialRequirement(requirement.requirementId().value()).isPresent());
         api.changeMaterialRequirementQuantity(
                 requirement.requirementId().value(),
                 requirement.lines().getFirst().lineId().value(),
@@ -420,7 +480,7 @@ class DefaultProductionApplicationApiTest {
                 0L);
         api.submitMaterialRequirement(requirement.requirementId().value(), 0L);
 
-        verify(authorizationService, org.mockito.Mockito.atLeast(5))
+        verify(authorizationService, org.mockito.Mockito.atLeast(4))
                 .requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
     }
 

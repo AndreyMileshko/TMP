@@ -13,6 +13,33 @@
 
 ---
 
+## 0.1 IMPLEMENTATION PHASE 3 — Production Workbench Tree (2026-10-02)
+
+**Статус:** IMPLEMENTED (LEVEL 1 tree + selection model). Phase 4+ не начаты.
+
+| Элемент | Реализация |
+|---|---|
+| Primary LEVEL 1 | `TreeTableView` Order → Order Items (`ProductionWorkbenchScreen.fxml`) |
+| Control | `TreeTableView` + checkbox column (business selection ≠ row focus) |
+| Order node | № заказа, заказчик, Production state, qty / изготовлено / осталось из `OrderProductionListFacts` (без Quantity Mode / UUID / Spec / Cutting) |
+| Item node | `externalPositionNumber` → «Поз. …»; fallback «Позиция N»; изделие; qty; state; изготовлено; осталось |
+| Selection SoT | `ProductionTreeSelectionModel` / `selectedOrderItemRefs` (`sourceOrderId` + `sourceOrderItemId`) |
+| Parent checkbox | UNCHECKED / CHECKED / INDETERMINATE; select/deselect all children |
+| Cross-order | Да; deterministic order by OrderId then ItemId |
+| Filter/search | State filter (`ProductionTreeStatusFilter`); search by order number, customer, position, product name/code; hidden selection retained |
+| Refresh | Retains selection + expanded Order ids when still authoritative |
+| Pagination | `ProductionOrderItemsLoader` loads all pages (`MAX_PAGE_SIZE`); no first-page truncation |
+| Future actions on LEVEL 1 | Not shown (no fake Material Requirement / Release dialogs) |
+| Permissions | Open: `production.order.view`; selection needs no mutation rights |
+| Transitional DETAIL | Double-click Order → existing detail panels (Accept / MR / Release); back «← К списку» |
+| Removed from LEVEL 1 | UUID input, Spec/Cutting columns, logical transfer, «Подтвердить получение» |
+| Phase 2 shim | **KEPT** — transitional detail still calls `prepareMaterialRequirement(orderId, itemIds)` |
+| Adapter | `selectedItemsForMaterialRequirement()` → `MaterialRequirementSourceItemRefView` list (no Submit) |
+
+**Следующая фаза:** Phase 4 — Order Production Card + Quantity Mode editor.
+
+---
+
 ## 1. BASELINE
 
 | Параметр | Значение |
