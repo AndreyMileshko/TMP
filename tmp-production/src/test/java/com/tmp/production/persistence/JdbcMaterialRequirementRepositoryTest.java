@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tmp.production.domain.MaterialReferenceId;
 import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementLine;
+import com.tmp.production.domain.MaterialRequirementLineContribution;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
+import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialRequirementStatus;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
@@ -18,7 +20,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
@@ -71,6 +72,7 @@ class JdbcMaterialRequirementRepositoryTest {
         jdbc.update("DELETE FROM production.material_requirement_generated_documents");
         jdbc.update("DELETE FROM production.material_requirement_line_source_items");
         jdbc.update("DELETE FROM production.material_requirement_lines");
+        jdbc.update("DELETE FROM production.material_requirement_source_items");
         jdbc.update("DELETE FROM production.material_requirements");
         repository =
                 new JdbcMaterialRequirementRepository(
@@ -79,8 +81,11 @@ class JdbcMaterialRequirementRepositoryTest {
 
     @Test
     void saveAndLoadRoundTripPreservesRequirement() {
+        SourceOrderId orderId = SourceOrderId.generate();
         SourceOrderItemId itemA = SourceOrderItemId.generate();
         SourceOrderItemId itemB = SourceOrderItemId.generate();
+        BigDecimal qtyA = BigDecimal.valueOf(5);
+        BigDecimal qtyB = BigDecimal.valueOf(7);
         MaterialRequirementLine line =
                 MaterialRequirementLine.create(
                         MaterialReferenceId.generate(),
@@ -89,15 +94,24 @@ class JdbcMaterialRequirementRepositoryTest {
                         "WHITE",
                         "PCS",
                         BigDecimal.valueOf(12),
-                        Set.of(itemA, itemB));
+                        List.of(
+                                MaterialRequirementLineContribution.of(orderId, itemA, qtyA),
+                                MaterialRequirementLineContribution.of(orderId, itemB, qtyB)));
         MaterialRequirement created =
-                MaterialRequirement.create(SourceOrderId.generate(), PROD, T0, List.of(line));
+                MaterialRequirement.create(
+                        PROD,
+                        T0,
+                        List.of(
+                                MaterialRequirementSourceItem.of(orderId, itemA, 1L),
+                                MaterialRequirementSourceItem.of(orderId, itemB, 1L)),
+                        List.of(line));
 
         MaterialRequirement saved = repository.save(created);
         MaterialRequirement loaded = repository.findById(saved.requirementId()).orElseThrow();
 
         assertEquals(saved.requirementId(), loaded.requirementId());
-        assertEquals(saved.sourceOrderId(), loaded.sourceOrderId());
+        assertEquals(2, loaded.sourceItems().size());
+        assertEquals(orderId, loaded.sourceItems().getFirst().sourceOrderId());
         assertEquals(PROD, loaded.destinationWarehouseId());
         assertEquals(0L, loaded.version());
         assertEquals(MaterialRequirementStatus.DRAFT, loaded.status());
@@ -107,17 +121,13 @@ class JdbcMaterialRequirementRepositoryTest {
         assertEquals(2, loadedLine.sourceOrderItemIds().size());
         assertTrue(loadedLine.sourceOrderItemIds().contains(itemA));
         assertTrue(loadedLine.sourceOrderItemIds().contains(itemB));
+        assertEquals(2, loadedLine.contributions().size());
     }
 
     @Test
     void editRoundTripUpdatesQuantityAndVersion() {
         MaterialRequirement created =
-                repository.save(
-                        MaterialRequirement.create(
-                                SourceOrderId.generate(),
-                                PROD,
-                                T0,
-                                List.of(sampleLine(BigDecimal.TEN))));
+                repository.save(sampleRequirement(BigDecimal.TEN));
         MaterialRequirement edited =
                 created.changeLineQuantity(
                         created.lines().getFirst().lineId(), BigDecimal.valueOf(30), T0);
@@ -132,12 +142,7 @@ class JdbcMaterialRequirementRepositoryTest {
     @Test
     void optimisticLockRejectsStaleUpdate() {
         MaterialRequirement created =
-                repository.save(
-                        MaterialRequirement.create(
-                                SourceOrderId.generate(),
-                                PROD,
-                                T0,
-                                List.of(sampleLine(BigDecimal.TEN))));
+                repository.save(sampleRequirement(BigDecimal.TEN));
         MaterialRequirement firstEdit =
                 created.changeLineQuantity(
                         created.lines().getFirst().lineId(), BigDecimal.valueOf(7), T0);
@@ -153,12 +158,7 @@ class JdbcMaterialRequirementRepositoryTest {
     @Test
     void markSubmittedIncrementsVersionAndPersistsMetadata() {
         MaterialRequirement created =
-                repository.save(
-                        MaterialRequirement.create(
-                                SourceOrderId.generate(),
-                                PROD,
-                                T0,
-                                List.of(sampleLine(BigDecimal.TEN))));
+                repository.save(sampleRequirement(BigDecimal.TEN));
         MaterialRequirement submitted = created.submit("user-1", T0);
         MaterialRequirement saved = repository.markSubmitted(submitted);
         MaterialRequirement loaded = repository.findById(saved.requirementId()).orElseThrow();
@@ -169,7 +169,18 @@ class JdbcMaterialRequirementRepositoryTest {
         assertTrue(repository.findByIdForUpdate(loaded.requirementId()).isPresent());
     }
 
-    private static MaterialRequirementLine sampleLine(BigDecimal quantity) {
+    private static MaterialRequirement sampleRequirement(BigDecimal quantity) {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        return MaterialRequirement.create(
+                PROD,
+                T0,
+                List.of(MaterialRequirementSourceItem.of(orderId, itemId, 1L)),
+                List.of(sampleLine(orderId, itemId, quantity)));
+    }
+
+    private static MaterialRequirementLine sampleLine(
+            SourceOrderId orderId, SourceOrderItemId itemId, BigDecimal quantity) {
         return MaterialRequirementLine.create(
                 MaterialReferenceId.generate(),
                 "MAT-Z",
@@ -177,6 +188,6 @@ class JdbcMaterialRequirementRepositoryTest {
                 "WHITE",
                 "PCS",
                 quantity,
-                Set.of(SourceOrderItemId.generate()));
+                List.of(MaterialRequirementLineContribution.of(orderId, itemId, quantity)));
     }
 }

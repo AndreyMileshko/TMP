@@ -30,11 +30,32 @@ public interface ProductionApplicationApi {
     void checkMaterialAvailability(UUID orderId);
 
     /**
-     * Creates a DRAFT Material Requirement from selected Order Items (Stage 3.5.9). Does not create
-     * Warehouse transfers or mutate stock.
+     * Creates a DRAFT Material Requirement from selected Order Items of one order (compatibility
+     * path). Quantity Mode STANDARD resolves full requestable product quantity; FLEXIBLE requires
+     * {@link #prepareMaterialRequirement(List)}.
      */
     MaterialRequirementView prepareMaterialRequirement(
             UUID orderId, List<UUID> selectedOrderItemIds);
+
+    /**
+     * Creates a DRAFT Material Requirement from cross-order product selections (Stage 7 Phase 2).
+     * Does not create Warehouse transfers or mutate stock.
+     */
+    MaterialRequirementView prepareMaterialRequirement(
+            List<MaterialRequirementProductSelectionView> selections);
+
+    /**
+     * Loads a persisted Material Requirement by id (reopen / DEP-1). Requires
+     * {@code production.transfer.create}.
+     */
+    Optional<MaterialRequirementView> getMaterialRequirement(UUID requirementId);
+
+    /**
+     * Batch product-coverage facts for the given Order Items. Requires
+     * {@code production.transfer.create}.
+     */
+    List<MaterialRequirementProductCoverageView> getMaterialRequirementProductCoverage(
+            List<MaterialRequirementSourceItemRefView> sourceItems);
 
     /**
      * Edits one Material Requirement line quantity with optimistic concurrency (Stage 3.5.9).
@@ -112,6 +133,56 @@ public interface ProductionApplicationApi {
         MULTIPLE_REFERENCES
     }
 
+    record MaterialRequirementSourceItemView(
+            UUID sourceOrderId, UUID sourceOrderItemId, long requestedProductQuantity) {
+        public MaterialRequirementSourceItemView {
+            Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+            Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
+            if (requestedProductQuantity <= 0L) {
+                throw new IllegalArgumentException(
+                        "requestedProductQuantity must be > 0: " + requestedProductQuantity);
+            }
+        }
+    }
+
+    record MaterialRequirementSourceItemRefView(UUID sourceOrderId, UUID sourceOrderItemId) {
+        public MaterialRequirementSourceItemRefView {
+            Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+            Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
+        }
+    }
+
+    /**
+     * Product selection for prepare. {@code requestedProductQuantity} empty means STANDARD
+     * (backend computes). Present value is required for FLEXIBLE.
+     */
+    record MaterialRequirementProductSelectionView(
+            UUID sourceOrderId,
+            UUID sourceOrderItemId,
+            Optional<Long> requestedProductQuantity) {
+        public MaterialRequirementProductSelectionView {
+            Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+            Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
+            requestedProductQuantity =
+                    requestedProductQuantity == null ? Optional.empty() : requestedProductQuantity;
+        }
+    }
+
+    record MaterialRequirementProductCoverageView(
+            UUID sourceOrderId,
+            UUID sourceOrderItemId,
+            long orderedQuantity,
+            long activeProductionQuantity,
+            long releasedQuantity,
+            long submittedProductCoverage,
+            long outstandingSubmittedCoverage,
+            long requestableProductQuantity) {
+        public MaterialRequirementProductCoverageView {
+            Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+            Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
+        }
+    }
+
     record MaterialRequirementLineView(
             UUID lineId,
             UUID materialReferenceId,
@@ -136,7 +207,7 @@ public interface ProductionApplicationApi {
 
     record MaterialRequirementView(
             UUID requirementId,
-            UUID sourceOrderId,
+            List<MaterialRequirementSourceItemView> sourceItems,
             UUID destinationWarehouseId,
             Instant createdAt,
             Instant updatedAt,
@@ -147,7 +218,7 @@ public interface ProductionApplicationApi {
             List<MaterialRequirementLineView> lines) {
         public MaterialRequirementView {
             Objects.requireNonNull(requirementId, "requirementId");
-            Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+            Objects.requireNonNull(sourceItems, "sourceItems");
             Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
             Objects.requireNonNull(createdAt, "createdAt");
             Objects.requireNonNull(updatedAt, "updatedAt");
@@ -155,6 +226,7 @@ public interface ProductionApplicationApi {
             Objects.requireNonNull(submittedAt, "submittedAt");
             Objects.requireNonNull(submittedBy, "submittedBy");
             Objects.requireNonNull(lines, "lines");
+            sourceItems = List.copyOf(sourceItems);
             lines = List.copyOf(lines);
         }
     }

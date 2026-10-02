@@ -4,8 +4,11 @@ import com.tmp.production.domain.MaterialReferenceId;
 import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementLine;
+import com.tmp.production.domain.MaterialRequirementLineContribution;
 import com.tmp.production.domain.MaterialRequirementLineId;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
+import com.tmp.production.domain.MaterialRequirementSourceItem;
+import com.tmp.production.domain.MaterialRequirementSourceItemKey;
 import com.tmp.production.domain.MaterialRequirementStatus;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
@@ -16,11 +19,12 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -30,7 +34,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * JDBC adapter for Production-owned Material Requirements ({@code production.*} only).
  *
- * <p>Header + child rows are persisted atomically in one local transaction (ADR-036 / REQUIRED).
+ * <p>Header + source items + lines are persisted atomically in one local transaction (ADR-036 /
+ * REQUIRED). Cross-order requirements store {@code source_order_id = NULL} on the header; covered
+ * products live in {@code material_requirement_source_items}.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -82,35 +88,12 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
     @Override
     public Optional<MaterialRequirement> findByIdForUpdate(MaterialRequirementId id) {
         Objects.requireNonNull(id, "id");
-        // No own TransactionTemplate: uses the caller's ambient transaction so the FOR UPDATE row
-        // lock is held until the outer Submit transaction commits.
         return load(id, findHeaderForUpdate(id));
-    }
-
-    private Optional<MaterialRequirement> load(MaterialRequirementId id, Optional<HeaderRow> header) {
-        if (header.isEmpty()) {
-            return Optional.empty();
-        }
-        List<MaterialRequirementLine> lines = loadLines(id);
-        HeaderRow row = header.orElseThrow();
-        return Optional.of(
-                MaterialRequirement.rehydrate(
-                        id,
-                        SourceOrderId.of(row.sourceOrderId()),
-                        row.destinationWarehouseId(),
-                        row.createdAt(),
-                        row.updatedAt(),
-                        row.version(),
-                        row.status(),
-                        row.submittedAt(),
-                        row.submittedBy(),
-                        lines));
     }
 
     @Override
     public MaterialRequirement markSubmitted(MaterialRequirement requirement) {
         Objects.requireNonNull(requirement, "requirement");
-        // Header-only optimistic update; participates in the caller's ambient transaction.
         Instant now = clock.instant();
         long nextVersion = requirement.version() + 1;
         int updated =
@@ -138,6 +121,136 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
         return findById(requirement.requirementId()).orElseThrow();
     }
 
+    @Override
+    public Map<MaterialRequirementSourceItemKey, Long> sumSubmittedProductQuantities(
+            Collection<MaterialRequirementSourceItemKey> keys) {
+        Objects.requireNonNull(keys, "keys");
+        Map<MaterialRequirementSourceItemKey, Long> result = new LinkedHashMap<>();
+        if (keys.isEmpty()) {
+            return result;
+        }
+        for (MaterialRequirementSourceItemKey key : keys) {
+            Objects.requireNonNull(key, "key");
+            result.put(key, 0L);
+        }
+        List<MaterialRequirementSourceItemKey> keyList = List.copyOf(keys);
+        StringBuilder sql =
+                new StringBuilder(
+                        """
+                        SELECT si.source_order_id, si.source_order_item_id,
+                               COALESCE(SUM(si.requested_product_quantity), 0) AS submitted_qty
+                        FROM production.material_requirement_source_items si
+                        JOIN production.material_requirements mr ON mr.id = si.requirement_id
+                        WHERE mr.status = 'SUBMITTED'
+                          AND (
+                        """);
+        List<Object> args = new ArrayList<>();
+        for (int i = 0; i < keyList.size(); i++) {
+            if (i > 0) {
+                sql.append(" OR ");
+            }
+            sql.append("(si.source_order_id = ? AND si.source_order_item_id = ?)");
+            MaterialRequirementSourceItemKey key = keyList.get(i);
+            args.add(key.sourceOrderId().value());
+            args.add(key.sourceOrderItemId().value());
+        }
+        sql.append(
+                """
+                          )
+                        GROUP BY si.source_order_id, si.source_order_item_id
+                        """);
+        jdbcTemplate.query(
+                sql.toString(),
+                (rs) -> {
+                    MaterialRequirementSourceItemKey key =
+                            MaterialRequirementSourceItemKey.of(
+                                    SourceOrderId.of(rs.getObject("source_order_id", UUID.class)),
+                                    SourceOrderItemId.of(
+                                            rs.getObject("source_order_item_id", UUID.class)));
+                    result.put(key, rs.getLong("submitted_qty"));
+                },
+                args.toArray());
+        return Map.copyOf(result);
+    }
+
+    @Override
+    public List<MaterialRequirement> findByIds(Collection<MaterialRequirementId> ids) {
+        Objects.requireNonNull(ids, "ids");
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        List<MaterialRequirement> loaded = new ArrayList<>();
+        for (MaterialRequirementId id : ids) {
+            findById(Objects.requireNonNull(id, "id")).ifPresent(loaded::add);
+        }
+        return List.copyOf(loaded);
+    }
+
+    @Override
+    public List<MaterialRequirement> findBySourceOrderItemIds(
+            Collection<SourceOrderItemId> itemIds) {
+        Objects.requireNonNull(itemIds, "itemIds");
+        if (itemIds.isEmpty()) {
+            return List.of();
+        }
+        List<SourceOrderItemId> unique = itemIds.stream().distinct().toList();
+        StringBuilder sql =
+                new StringBuilder(
+                        """
+                        SELECT mr.id
+                        FROM production.material_requirements mr
+                        JOIN production.material_requirement_source_items si
+                          ON si.requirement_id = mr.id
+                        WHERE si.source_order_item_id IN (
+                        """);
+        List<Object> args = new ArrayList<>();
+        for (int i = 0; i < unique.size(); i++) {
+            if (i > 0) {
+                sql.append(", ");
+            }
+            sql.append("?");
+            args.add(unique.get(i).value());
+        }
+        sql.append(
+                """
+                )
+                GROUP BY mr.id, mr.created_at
+                ORDER BY mr.created_at ASC, mr.id ASC
+                """);
+        List<UUID> requirementIds =
+                jdbcTemplate.query(
+                        sql.toString(),
+                        (rs, rowNum) -> rs.getObject("id", UUID.class),
+                        args.toArray());
+        List<MaterialRequirement> loaded = new ArrayList<>(requirementIds.size());
+        for (UUID id : requirementIds) {
+            findById(MaterialRequirementId.of(id)).ifPresent(loaded::add);
+        }
+        return List.copyOf(loaded);
+    }
+
+    private Optional<MaterialRequirement> load(
+            MaterialRequirementId id, Optional<HeaderRow> header) {
+        if (header.isEmpty()) {
+            return Optional.empty();
+        }
+        List<MaterialRequirementSourceItem> sourceItems = loadSourceItems(id);
+        List<MaterialRequirementLine> lines = loadLines(id);
+        HeaderRow row = header.orElseThrow();
+        return Optional.of(
+                MaterialRequirement.rehydrate(
+                        id,
+                        row.destinationWarehouseId(),
+                        row.createdAt(),
+                        row.updatedAt(),
+                        row.version(),
+                        row.status(),
+                        row.submittedAt(),
+                        row.submittedBy(),
+                        sourceItems,
+                        lines));
+    }
+
     private void insert(MaterialRequirement requirement) {
         Instant now = clock.instant();
         jdbcTemplate.update(
@@ -148,7 +261,7 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 requirement.requirementId().value(),
-                requirement.sourceOrderId().value(),
+                null,
                 requirement.destinationWarehouseId(),
                 Timestamp.from(requirement.createdAt()),
                 Timestamp.from(now),
@@ -156,6 +269,7 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                 requirement.status().name(),
                 requirement.submittedAt().map(Timestamp::from).orElse(null),
                 requirement.submittedBy().orElse(null));
+        insertSourceItems(requirement.requirementId(), requirement.sourceItems());
         insertLines(requirement.requirementId(), requirement.lines());
     }
 
@@ -166,8 +280,7 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                 jdbcTemplate.update(
                         """
                         UPDATE production.material_requirements
-                        SET source_order_id = ?,
-                            destination_warehouse_id = ?,
+                        SET destination_warehouse_id = ?,
                             updated_at = ?,
                             version = ?,
                             status = ?,
@@ -175,7 +288,6 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                             submitted_by = ?
                         WHERE id = ? AND version = ?
                         """,
-                        requirement.sourceOrderId().value(),
                         requirement.destinationWarehouseId(),
                         Timestamp.from(now),
                         nextVersion,
@@ -189,7 +301,52 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                     requirement.requirementId(), requirement.version());
         }
         deleteLines(requirement.requirementId());
+        deleteSourceItems(requirement.requirementId());
+        insertSourceItems(requirement.requirementId(), requirement.sourceItems());
         insertLines(requirement.requirementId(), requirement.lines());
+    }
+
+    private void deleteSourceItems(MaterialRequirementId requirementId) {
+        jdbcTemplate.update(
+                """
+                DELETE FROM production.material_requirement_source_items
+                WHERE requirement_id = ?
+                """,
+                requirementId.value());
+    }
+
+    private void insertSourceItems(
+            MaterialRequirementId requirementId, List<MaterialRequirementSourceItem> sourceItems) {
+        for (MaterialRequirementSourceItem item : sourceItems) {
+            jdbcTemplate.update(
+                    """
+                    INSERT INTO production.material_requirement_source_items (
+                        requirement_id, source_order_id, source_order_item_id,
+                        requested_product_quantity)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    requirementId.value(),
+                    item.sourceOrderId().value(),
+                    item.sourceOrderItemId().value(),
+                    item.requestedProductQuantity());
+        }
+    }
+
+    private List<MaterialRequirementSourceItem> loadSourceItems(MaterialRequirementId requirementId) {
+        return jdbcTemplate.query(
+                """
+                SELECT source_order_id, source_order_item_id, requested_product_quantity
+                FROM production.material_requirement_source_items
+                WHERE requirement_id = ?
+                ORDER BY source_order_id, source_order_item_id
+                """,
+                (rs, rowNum) ->
+                        MaterialRequirementSourceItem.of(
+                                SourceOrderId.of(rs.getObject("source_order_id", UUID.class)),
+                                SourceOrderItemId.of(
+                                        rs.getObject("source_order_item_id", UUID.class)),
+                                rs.getLong("requested_product_quantity")),
+                requirementId.value());
     }
 
     private void deleteLines(MaterialRequirementId requirementId) {
@@ -237,15 +394,18 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                     line.unitOfMeasure(),
                     line.quantity(),
                     order++);
-            for (SourceOrderItemId itemId : line.sourceOrderItemIds()) {
+            for (MaterialRequirementLineContribution contribution : line.contributions()) {
                 jdbcTemplate.update(
                         """
                         INSERT INTO production.material_requirement_line_source_items (
-                            line_id, source_order_item_id)
-                        VALUES (?, ?)
+                            line_id, source_order_item_id, source_order_id,
+                            contributed_material_quantity)
+                        VALUES (?, ?, ?, ?)
                         """,
                         line.lineId().value(),
-                        itemId.value());
+                        contribution.sourceOrderItemId().value(),
+                        contribution.sourceOrderId().value(),
+                        contribution.contributedMaterialQuantity());
             }
         }
     }
@@ -273,7 +433,8 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
 
         List<MaterialRequirementLine> lines = new ArrayList<>(rows.size());
         for (LineRow row : rows) {
-            Set<SourceOrderItemId> sourceItems = loadSourceItems(row.id());
+            List<MaterialRequirementLineContribution> contributions =
+                    loadLineContributions(requirementId, row.id());
             lines.add(
                     MaterialRequirementLine.rehydrate(
                             MaterialRequirementLineId.of(row.id()),
@@ -283,25 +444,37 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                             row.color(),
                             row.unitOfMeasure(),
                             row.quantity(),
-                            sourceItems));
+                            contributions));
         }
         return lines;
     }
 
-    private Set<SourceOrderItemId> loadSourceItems(UUID lineId) {
-        List<SourceOrderItemId> items =
-                jdbcTemplate.query(
-                        """
-                        SELECT source_order_item_id
-                        FROM production.material_requirement_line_source_items
-                        WHERE line_id = ?
-                        ORDER BY source_order_item_id
-                        """,
-                        (rs, rowNum) ->
+    private List<MaterialRequirementLineContribution> loadLineContributions(
+            MaterialRequirementId requirementId, UUID lineId) {
+        return jdbcTemplate.query(
+                """
+                SELECT COALESCE(lsi.source_order_id, si.source_order_id) AS source_order_id,
+                       lsi.source_order_item_id,
+                       COALESCE(lsi.contributed_material_quantity, mrl.quantity)
+                           AS contributed_material_quantity
+                FROM production.material_requirement_line_source_items lsi
+                JOIN production.material_requirement_lines mrl ON mrl.id = lsi.line_id
+                LEFT JOIN production.material_requirement_source_items si
+                  ON si.requirement_id = mrl.requirement_id
+                 AND si.source_order_item_id = lsi.source_order_item_id
+                 AND (lsi.source_order_id IS NULL OR si.source_order_id = lsi.source_order_id)
+                WHERE lsi.line_id = ?
+                  AND mrl.requirement_id = ?
+                ORDER BY source_order_id, lsi.source_order_item_id
+                """,
+                (rs, rowNum) ->
+                        MaterialRequirementLineContribution.of(
+                                SourceOrderId.of(rs.getObject("source_order_id", UUID.class)),
                                 SourceOrderItemId.of(
                                         rs.getObject("source_order_item_id", UUID.class)),
-                        lineId);
-        return new LinkedHashSet<>(items);
+                                rs.getBigDecimal("contributed_material_quantity")),
+                lineId,
+                requirementId.value());
     }
 
     private Optional<HeaderRow> findHeader(MaterialRequirementId requirementId) {
@@ -315,7 +488,7 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
     private Optional<HeaderRow> queryHeader(MaterialRequirementId requirementId, boolean forUpdate) {
         String sql =
                 """
-                SELECT id, source_order_id, destination_warehouse_id,
+                SELECT destination_warehouse_id,
                        created_at, updated_at, version, status, submitted_at, submitted_by
                 FROM production.material_requirements
                 WHERE id = ?
@@ -327,7 +500,6 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                             sql,
                             (rs, rowNum) ->
                                     new HeaderRow(
-                                            rs.getObject("source_order_id", UUID.class),
                                             rs.getObject("destination_warehouse_id", UUID.class),
                                             rs.getTimestamp("created_at").toInstant(),
                                             rs.getTimestamp("updated_at").toInstant(),
@@ -346,7 +518,6 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
     }
 
     private record HeaderRow(
-            UUID sourceOrderId,
             UUID destinationWarehouseId,
             Instant createdAt,
             Instant updatedAt,

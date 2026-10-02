@@ -15,21 +15,28 @@ import com.tmp.production.domain.CuttingPlanLinks;
 import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementLine;
+import com.tmp.production.domain.MaterialRequirementLineContribution;
 import com.tmp.production.domain.MaterialRequirementLineId;
 import com.tmp.production.domain.MaterialRequirementNotAllowedException;
 import com.tmp.production.domain.MaterialRequirementNotReadyException;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSelectionException;
+import com.tmp.production.domain.MaterialRequirementSourceItem;
+import com.tmp.production.domain.MaterialRequirementSourceItemKey;
+import com.tmp.production.domain.MaterialRequirementStatus;
 import com.tmp.production.domain.InvalidProductionDestinationWarehouseException;
 import com.tmp.production.domain.OrderProductionViewStatus;
+import com.tmp.production.domain.OrderQuantityModeSetting;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
+import com.tmp.production.domain.ProductionQuantityMode;
 import com.tmp.production.domain.ProductionStatus;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
+import com.tmp.production.domain.repository.OrderQuantityModeRepository;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -38,6 +45,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -60,8 +69,10 @@ class MaterialRequirementServiceTest {
 
     private InMemoryItemRepository itemRepository;
     private InMemoryRequirementRepository requirementRepository;
+    private InMemoryQuantityModeRepository quantityModeRepository;
     private TrackingSpecificationQuery specificationQuery;
     private TrackingWarehouseQuery warehouseQuery;
+    private MaterialRequirementCoverageService coverageService;
     private MaterialRequirementService service;
     private SourceOrderId orderId;
 
@@ -69,6 +80,7 @@ class MaterialRequirementServiceTest {
     void setUp() {
         itemRepository = new InMemoryItemRepository();
         requirementRepository = new InMemoryRequirementRepository();
+        quantityModeRepository = new InMemoryQuantityModeRepository();
         specificationQuery = new TrackingSpecificationQuery();
         warehouseQuery = new TrackingWarehouseQuery();
         warehouseQuery.warehouses =
@@ -79,6 +91,8 @@ class MaterialRequirementServiceTest {
         ProductionOrderViewService viewService = new ProductionOrderViewService(itemRepository);
         ProductionFoundationQueryService foundationQuery =
                 new ProductionFoundationQueryService(specificationQuery);
+        coverageService =
+                new MaterialRequirementCoverageService(viewService, requirementRepository);
         service =
                 new MaterialRequirementService(
                         viewService,
@@ -86,6 +100,8 @@ class MaterialRequirementServiceTest {
                         new ProductionDestinationWarehouse(PROD_WAREHOUSE),
                         warehouseQuery,
                         requirementRepository,
+                        quantityModeRepository,
+                        coverageService,
                         Clock.fixed(T0, ZoneOffset.UTC));
         orderId = SourceOrderId.generate();
     }
@@ -120,13 +136,16 @@ class MaterialRequirementServiceTest {
         launchItem(orderId, itemId, specId);
         specificationQuery.byIdSpec =
                 Optional.of(spec(specId, itemId, List.of(materialLine("MAT-A", "WHITE", "PCS", 10))));
+        ProductionOrderViewService viewService = new ProductionOrderViewService(itemRepository);
         MaterialRequirementService noneAssigned =
                 new MaterialRequirementService(
-                        new ProductionOrderViewService(itemRepository),
+                        viewService,
                         new ProductionFoundationQueryService(specificationQuery),
                         new ProductionDestinationWarehouse(Optional::empty),
                         warehouseQuery,
                         requirementRepository,
+                        quantityModeRepository,
+                        new MaterialRequirementCoverageService(viewService, requirementRepository),
                         Clock.fixed(T0, ZoneOffset.UTC));
         InvalidProductionDestinationWarehouseException ex =
                 assertThrows(
@@ -477,7 +496,7 @@ class MaterialRequirementServiceTest {
     }
 
     @Test
-    void doesNotMultiplyLineQuantityByOrderedQuantity() {
+    void multipliesPerProductNormByRequestedProductQuantity() {
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specId = SpecificationId.generate();
         launchItem(orderId, itemId, specId, 5L);
@@ -491,11 +510,12 @@ class MaterialRequirementServiceTest {
         warehouseQuery.materialReferences =
                 List.of(reference(UUID.randomUUID(), "MAT-Q", "Q", "WHITE", "PCS"));
 
-        MaterialRequirementLine line =
-                service.prepareMaterialRequirement(orderId, List.of(itemId)).lines().getFirst();
+        MaterialRequirement requirement =
+                service.prepareMaterialRequirement(orderId, List.of(itemId));
+        MaterialRequirementLine line = requirement.lines().getFirst();
 
-        assertEquals(0, line.quantity().compareTo(BigDecimal.TEN));
-        assertFalse(0 == line.quantity().compareTo(BigDecimal.valueOf(50)));
+        assertEquals(0, line.quantity().compareTo(BigDecimal.valueOf(50)));
+        assertEquals(5L, requirement.sourceItems().getFirst().requestedProductQuantity());
     }
 
     @Test
@@ -548,6 +568,200 @@ class MaterialRequirementServiceTest {
                                 service.prepareMaterialRequirement(
                                         orderId, List.of(SourceOrderItemId.generate())));
         assertEquals(OrderProductionViewStatus.NOT_ACCEPTED, ex.viewStatus());
+    }
+
+    @Test
+    void flexiblePrepareAcceptsWithinRequestableAndRejectsOutside() {
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        launchItem(orderId, itemId, specId, 6L);
+        quantityModeRepository.save(orderId, ProductionQuantityMode.FLEXIBLE, 0L);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        spec(
+                                specId,
+                                itemId,
+                                BigDecimal.valueOf(6),
+                                List.of(materialLine("MAT-F", "WHITE", "PCS", 1))));
+        warehouseQuery.materialReferences =
+                List.of(reference(UUID.randomUUID(), "MAT-F", "F", "WHITE", "PCS"));
+
+        for (long qty : List.of(1L, 3L, 6L)) {
+            MaterialRequirement prepared =
+                    service.prepareMaterialRequirement(
+                            List.of(MaterialRequirementProductSelection.of(orderId, itemId, qty)));
+            assertEquals(qty, prepared.sourceItems().getFirst().requestedProductQuantity());
+        }
+
+        for (long qty : List.of(0L, -1L, 7L)) {
+            assertThrows(
+                    MaterialRequirementSelectionException.class,
+                    () ->
+                            service.prepareMaterialRequirement(
+                                    List.of(
+                                            MaterialRequirementProductSelection.of(
+                                                    orderId, itemId, qty))));
+        }
+    }
+
+    @Test
+    void preparesOneCrossOrderRequirementWithMixedModesAndProvenance() {
+        SourceOrderId orderA = SourceOrderId.generate();
+        SourceOrderId orderB = SourceOrderId.generate();
+        SourceOrderId orderC = SourceOrderId.generate();
+        SourceOrderItemId itemA = SourceOrderItemId.generate();
+        SourceOrderItemId itemB = SourceOrderItemId.generate();
+        SourceOrderItemId itemC = SourceOrderItemId.generate();
+        SpecificationId specA = SpecificationId.generate();
+        SpecificationId specB = SpecificationId.generate();
+        SpecificationId specC = SpecificationId.generate();
+        launchItem(orderA, itemA, specA, 10L);
+        launchItem(orderB, itemB, specB, 6L);
+        launchItem(orderC, itemC, specC, 5L);
+        quantityModeRepository.save(orderB, ProductionQuantityMode.FLEXIBLE, 0L);
+
+        UUID materialId = UUID.randomUUID();
+        warehouseQuery.materialReferences =
+                List.of(reference(materialId, "MAT-X", "X", "WHITE", "M"));
+        specificationQuery.byIdResolver =
+                id -> {
+                    if (id.equals(specA)) {
+                        return Optional.of(
+                                spec(
+                                        specA,
+                                        itemA,
+                                        BigDecimal.TEN,
+                                        List.of(materialLine("MAT-X", "WHITE", "M", 4))));
+                    }
+                    if (id.equals(specB)) {
+                        return Optional.of(
+                                spec(
+                                        specB,
+                                        itemB,
+                                        BigDecimal.valueOf(6),
+                                        List.of(materialLine("MAT-X", "WHITE", "M", 4))));
+                    }
+                    if (id.equals(specC)) {
+                        return Optional.of(
+                                spec(
+                                        specC,
+                                        itemC,
+                                        BigDecimal.valueOf(5),
+                                        List.of(materialLine("MAT-X", "WHITE", "M", 4))));
+                    }
+                    return Optional.empty();
+                };
+
+        MaterialRequirement requirement =
+                service.prepareMaterialRequirement(
+                        List.of(
+                                MaterialRequirementProductSelection.of(orderA, itemA),
+                                MaterialRequirementProductSelection.of(orderB, itemB, 3L),
+                                MaterialRequirementProductSelection.of(orderC, itemC)));
+
+        assertEquals(1, requirementRepository.findById(requirement.requirementId()).stream().count());
+        assertEquals(3, requirement.sourceItems().size());
+        Map<SourceOrderItemId, Long> productQtys =
+                requirement.sourceItems().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        MaterialRequirementSourceItem::sourceOrderItemId,
+                                        MaterialRequirementSourceItem::requestedProductQuantity));
+        assertEquals(10L, productQtys.get(itemA));
+        assertEquals(3L, productQtys.get(itemB));
+        assertEquals(5L, productQtys.get(itemC));
+        assertEquals(1, requirement.lines().size());
+        MaterialRequirementLine line = requirement.lines().getFirst();
+        // 4m/product × (10+3+5) products
+        assertEquals(0, line.quantity().compareTo(BigDecimal.valueOf(72)));
+        assertEquals(3, line.contributions().size());
+        Map<SourceOrderItemId, BigDecimal> contributionQtys =
+                line.contributions().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        MaterialRequirementLineContribution::sourceOrderItemId,
+                                        MaterialRequirementLineContribution::contributedMaterialQuantity));
+        assertEquals(0, contributionQtys.get(itemA).compareTo(BigDecimal.valueOf(40)));
+        assertEquals(0, contributionQtys.get(itemB).compareTo(BigDecimal.valueOf(12)));
+        assertEquals(0, contributionQtys.get(itemC).compareTo(BigDecimal.valueOf(20)));
+    }
+
+    @Test
+    void reopenDraftViaFindByIdPreservesIdentityStatusVersionAndQuantities() {
+        MaterialRequirement prepared = prepareSimpleRequirement(BigDecimal.valueOf(40));
+        MaterialRequirement reloaded =
+                service.findById(prepared.requirementId()).orElseThrow();
+
+        assertEquals(prepared.requirementId(), reloaded.requirementId());
+        assertEquals(MaterialRequirementStatus.DRAFT, reloaded.status());
+        assertEquals(prepared.version(), reloaded.version());
+        assertEquals(prepared.sourceItems().size(), reloaded.sourceItems().size());
+        assertEquals(
+                prepared.sourceItems().getFirst().requestedProductQuantity(),
+                reloaded.sourceItems().getFirst().requestedProductQuantity());
+        assertEquals(
+                0,
+                prepared.lines().getFirst().quantity().compareTo(reloaded.lines().getFirst().quantity()));
+    }
+
+    @Test
+    void modeChangeDoesNotReinterpretExistingFlexibleDraft() {
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        launchItem(orderId, itemId, specId, 10L);
+        quantityModeRepository.save(orderId, ProductionQuantityMode.FLEXIBLE, 0L);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        spec(
+                                specId,
+                                itemId,
+                                BigDecimal.TEN,
+                                List.of(materialLine("MAT-M", "WHITE", "PCS", 1))));
+        warehouseQuery.materialReferences =
+                List.of(reference(UUID.randomUUID(), "MAT-M", "M", "WHITE", "PCS"));
+
+        MaterialRequirement draft =
+                service.prepareMaterialRequirement(
+                        List.of(MaterialRequirementProductSelection.of(orderId, itemId, 4L)));
+        assertEquals(4L, draft.sourceItems().getFirst().requestedProductQuantity());
+
+        quantityModeRepository.save(orderId, ProductionQuantityMode.STANDARD, 1L);
+
+        MaterialRequirement reloaded = service.findById(draft.requirementId()).orElseThrow();
+        assertEquals(4L, reloaded.sourceItems().getFirst().requestedProductQuantity());
+        assertEquals(MaterialRequirementStatus.DRAFT, reloaded.status());
+    }
+
+    @Test
+    void manualMaterialEditPreservesSourceProductQuantity() {
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        launchItem(orderId, itemId, specId, 10L);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        spec(
+                                specId,
+                                itemId,
+                                BigDecimal.TEN,
+                                List.of(materialLine("MAT-E", "WHITE", "M", 4))));
+        warehouseQuery.materialReferences =
+                List.of(reference(UUID.randomUUID(), "MAT-E", "E", "WHITE", "M"));
+
+        MaterialRequirement prepared =
+                service.prepareMaterialRequirement(orderId, List.of(itemId));
+        assertEquals(10L, prepared.sourceItems().getFirst().requestedProductQuantity());
+        assertEquals(0, prepared.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(40)));
+
+        MaterialRequirement edited =
+                service.changeQuantity(
+                        prepared.requirementId(),
+                        prepared.lines().getFirst().lineId(),
+                        BigDecimal.valueOf(42),
+                        prepared.version());
+
+        MaterialRequirement reloaded = service.findById(edited.requirementId()).orElseThrow();
+        assertEquals(0, reloaded.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(42)));
+        assertEquals(10L, reloaded.sourceItems().getFirst().requestedProductQuantity());
     }
 
     private MaterialRequirement prepareSimpleRequirement(BigDecimal quantity) {
@@ -645,6 +859,31 @@ class MaterialRequirementServiceTest {
         }
     }
 
+    private static final class InMemoryQuantityModeRepository implements OrderQuantityModeRepository {
+        private final Map<SourceOrderId, OrderQuantityModeSetting> store = new ConcurrentHashMap<>();
+
+        @Override
+        public Optional<OrderQuantityModeSetting> findBySourceOrderId(SourceOrderId sourceOrderId) {
+            return Optional.ofNullable(store.get(sourceOrderId));
+        }
+
+        @Override
+        public OrderQuantityModeSetting save(
+                SourceOrderId sourceOrderId,
+                ProductionQuantityMode quantityMode,
+                long expectedVersion) {
+            OrderQuantityModeSetting existing = store.get(sourceOrderId);
+            long currentVersion = existing == null ? 0L : existing.version();
+            if (currentVersion != expectedVersion) {
+                throw new IllegalStateException("stale quantity mode version");
+            }
+            OrderQuantityModeSetting saved =
+                    new OrderQuantityModeSetting(sourceOrderId, quantityMode, expectedVersion + 1);
+            store.put(sourceOrderId, saved);
+            return saved;
+        }
+    }
+
     private static final class InMemoryRequirementRepository implements MaterialRequirementRepository {
         private final Map<MaterialRequirementId, MaterialRequirement> store =
                 new ConcurrentHashMap<>();
@@ -659,7 +898,6 @@ class MaterialRequirementServiceTest {
             MaterialRequirement saved =
                     MaterialRequirement.rehydrate(
                             requirement.requirementId(),
-                            requirement.sourceOrderId(),
                             requirement.destinationWarehouseId(),
                             requirement.createdAt(),
                             requirement.updatedAt(),
@@ -667,6 +905,7 @@ class MaterialRequirementServiceTest {
                             requirement.status(),
                             requirement.submittedAt().orElse(null),
                             requirement.submittedBy().orElse(null),
+                            requirement.sourceItems(),
                             requirement.lines());
             store.put(saved.requirementId(), saved);
             return saved;
@@ -692,7 +931,6 @@ class MaterialRequirementServiceTest {
             MaterialRequirement saved =
                     MaterialRequirement.rehydrate(
                             requirement.requirementId(),
-                            requirement.sourceOrderId(),
                             requirement.destinationWarehouseId(),
                             requirement.createdAt(),
                             requirement.updatedAt(),
@@ -700,9 +938,50 @@ class MaterialRequirementServiceTest {
                             requirement.status(),
                             requirement.submittedAt().orElse(null),
                             requirement.submittedBy().orElse(null),
+                            requirement.sourceItems(),
                             requirement.lines());
             store.put(saved.requirementId(), saved);
             return saved;
+        }
+
+        @Override
+        public Map<MaterialRequirementSourceItemKey, Long> sumSubmittedProductQuantities(
+                Collection<MaterialRequirementSourceItemKey> keys) {
+            Map<MaterialRequirementSourceItemKey, Long> sums = new LinkedHashMap<>();
+            for (MaterialRequirement requirement : store.values()) {
+                if (requirement.status() != com.tmp.production.domain.MaterialRequirementStatus.SUBMITTED) {
+                    continue;
+                }
+                for (var item : requirement.sourceItems()) {
+                    MaterialRequirementSourceItemKey key =
+                            MaterialRequirementSourceItemKey.of(
+                                    item.sourceOrderId(), item.sourceOrderItemId());
+                    if (keys.contains(key)) {
+                        sums.merge(key, item.requestedProductQuantity(), Long::sum);
+                    }
+                }
+            }
+            return sums;
+        }
+
+        @Override
+        public List<MaterialRequirement> findByIds(Collection<MaterialRequirementId> ids) {
+            return ids.stream().map(store::get).filter(java.util.Objects::nonNull).toList();
+        }
+
+        @Override
+        public List<MaterialRequirement> findBySourceOrderItemIds(
+                Collection<SourceOrderItemId> itemIds) {
+            Set<SourceOrderItemId> wanted = Set.copyOf(itemIds);
+            return store.values().stream()
+                    .filter(
+                            requirement ->
+                                    requirement.sourceItems().stream()
+                                            .anyMatch(
+                                                    item ->
+                                                            wanted.contains(
+                                                                    item.sourceOrderItemId())))
+                    .toList();
         }
     }
 

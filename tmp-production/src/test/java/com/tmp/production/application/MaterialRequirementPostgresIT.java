@@ -23,6 +23,7 @@ import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.persistence.JdbcMaterialRequirementRepository;
+import com.tmp.production.persistence.JdbcOrderQuantityModeRepository;
 import com.tmp.production.persistence.JdbcProductionItemStateRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -100,6 +101,7 @@ class MaterialRequirementPostgresIT {
         jdbc.update("DELETE FROM production.material_requirement_generated_documents");
         jdbc.update("DELETE FROM production.material_requirement_line_source_items");
         jdbc.update("DELETE FROM production.material_requirement_lines");
+        jdbc.update("DELETE FROM production.material_requirement_source_items");
         jdbc.update("DELETE FROM production.material_requirements");
         jdbc.update("DELETE FROM production.production_item_cutting_plan_links");
         jdbc.update("DELETE FROM production.production_item_states");
@@ -114,13 +116,18 @@ class MaterialRequirementPostgresIT {
         warehouseQuery = new TrackingWarehouseQuery();
         warehouseQuery.warehouses =
                 List.of(new WarehouseReferenceEntry(PROD_WAREHOUSE, "PROD", "Production", true));
+        JdbcMaterialRequirementRepository requirementRepository =
+                new JdbcMaterialRequirementRepository(jdbc, CLOCK, txManager);
+        ProductionOrderViewService orderViewService = new ProductionOrderViewService(itemStates);
         service =
                 new MaterialRequirementService(
-                        new ProductionOrderViewService(itemStates),
+                        orderViewService,
                         new ProductionFoundationQueryService(specificationQuery),
                         new ProductionDestinationWarehouse(PROD_WAREHOUSE),
                         warehouseQuery,
-                        new JdbcMaterialRequirementRepository(jdbc, CLOCK, txManager),
+                        requirementRepository,
+                        new JdbcOrderQuantityModeRepository(jdbc, CLOCK),
+                        new MaterialRequirementCoverageService(orderViewService, requirementRepository),
                         CLOCK);
     }
 
@@ -174,6 +181,46 @@ class MaterialRequirementPostgresIT {
 
         assertWarehouseUnchanged(before, snapshotWarehouse());
         assertTrue(warehouseQuery.findMaterialReferencesCalls >= 1);
+    }
+
+    @Test
+    void reopenDraftPreservesSourceItemsAndQuantitiesOnPostgreSQL() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        launchItem(orderId, itemId, specId, 10L);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        new ResolvedSpecification(
+                                specId,
+                                itemId,
+                                BigDecimal.TEN,
+                                List.of(
+                                        new ResolvedMaterialLine(
+                                                "MAT-REOPEN",
+                                                "Reopen",
+                                                "WHITE",
+                                                null,
+                                                BigDecimal.valueOf(4),
+                                                "M"))));
+        warehouseQuery.materialReferences =
+                List.of(
+                        new MaterialReferenceEntry(
+                                UUID.randomUUID(), "MAT-REOPEN", "Reopen", "WHITE", "", "M"));
+
+        MaterialRequirement prepared =
+                service.prepareMaterialRequirement(orderId, List.of(itemId));
+        assertEquals(10L, prepared.sourceItems().getFirst().requestedProductQuantity());
+        assertEquals(0, prepared.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(40)));
+
+        MaterialRequirement reloaded =
+                service.findById(prepared.requirementId()).orElseThrow();
+        assertEquals(prepared.requirementId(), reloaded.requirementId());
+        assertEquals(prepared.status(), reloaded.status());
+        assertEquals(prepared.version(), reloaded.version());
+        assertEquals(1, reloaded.sourceItems().size());
+        assertEquals(10L, reloaded.sourceItems().getFirst().requestedProductQuantity());
+        assertEquals(0, reloaded.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(40)));
     }
 
     @Test
@@ -403,6 +450,7 @@ class MaterialRequirementPostgresIT {
                         "material_requirement_line_source_items",
                         "material_requirement_lines",
                         "material_requirement_routing_snapshot",
+                        "material_requirement_source_items",
                         "material_requirements"),
                 tables);
         assertTrue(tableExists("warehouse", "warehouse_operations"));
@@ -413,12 +461,20 @@ class MaterialRequirementPostgresIT {
 
     private void launchItem(
             SourceOrderId orderId, SourceOrderItemId itemId, SpecificationId specId) {
+        launchItem(orderId, itemId, specId, 1L);
+    }
+
+    private void launchItem(
+            SourceOrderId orderId,
+            SourceOrderItemId itemId,
+            SpecificationId specId,
+            long orderedQuantity) {
         ProductionFoundation foundation =
                 ProductionFoundation.freeze(orderId, itemId, specId, T0);
         itemStates.save(
                 ProductionItemState.launch(
                         foundation,
-                        ProductionQuantity.positive(5),
+                        ProductionQuantity.positive(orderedQuantity),
                         T0,
                         CuttingPlanLinks.empty()));
     }

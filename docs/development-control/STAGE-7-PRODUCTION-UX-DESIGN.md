@@ -50,7 +50,22 @@
 | Конкурентность | Optimistic `version`; устаревшая версия → `OrderQuantityModeOptimisticLockException` без перезаписи |
 | API | `ProductionApplicationApi.getOrderQuantityMode(orderId)` / `changeOrderQuantityMode(orderId, mode, expectedVersion)` → `OrderQuantityModeView(orderId, quantityMode, version)` |
 
-**Зависимость Phase 2 (не реализовано):** текущая Material Requirement имеет один `source_order_id` и связывает строки с позициями без количества изделий (`material_requirement_line_source_items`). Для общей потребности по нескольким заказам и защиты от повторного запроса нужна модель покрытия «позиция заказа → количество изделий» в submitted потребностях. Не путать с quantity строки материала; поля `calculatedQuantity` / `requestedQuantity` / `recommendedQuantity` в строке не вводятся.
+**Зависимость Phase 2 (финализировано):** Material Requirement — кросс-заказная модель покрытия «позиция заказа → количество изделий».
+
+| Правило | Решение |
+|---|---|
+| Выбор в дереве | Можно выбирать Order Items из разных Orders |
+| Один документ потребности | Одна Material Requirement покрывает выбранные позиции нескольких заказов |
+| Quantity Mode | Влияет на product quantity при prepare: STANDARD — всё requestable; FLEXIBLE — явное количество ≤ requestable |
+| `lineQuantity` / норма | Количество материала в спецификации — **на одно изделие** (per product) |
+| Материал | `material quantity = norm × product quantity` (агрегация по позициям с provenance/contributions) |
+| Submitted coverage | Submitted product coverage блокирует повторный спрос на те же изделия |
+| DRAFT | DRAFT **не** резервирует coverage |
+| Submit | Revalidate coverage под row-lock заказов (OrderId ascending); конфликт → `MaterialRequirementCoverageConflictException` |
+| Ручное редактирование | Количество материала в строке остаётся редактируемым; product quantity в source items не меняется |
+| Смена режима | Mode change **не** переинтерпретирует уже созданный DRAFT |
+
+Не путать product coverage с quantity строки материала; поля `calculatedQuantity` / `requestedQuantity` / `recommendedQuantity` в строке не вводятся.
 
 ---
 

@@ -648,7 +648,7 @@ public final class ProductionWorkbenchViewModel {
         currentRequirement =
                 new MaterialRequirementView(
                         current.requirementId(),
-                        current.sourceOrderId(),
+                        current.sourceItems(),
                         current.destinationWarehouseId(),
                         current.createdAt(),
                         current.updatedAt(),

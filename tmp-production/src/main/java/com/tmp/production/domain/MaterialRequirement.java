@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -11,15 +12,17 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Production-owned editable Material Requirement (Production Spec §13 TARGET / Stage 3.5.9).
+ * Production-owned editable Material Requirement (Production Spec §13 TARGET / Stage 3.5.9 /
+ * Stage 7 Phase 2).
  *
- * <p>Not a Document Engine business document and not a Warehouse Transfer. Submit / routing is
- * Stage 3.5.10.
+ * <p>One requirement may cover product quantities from Order Items across multiple Orders. Active
+ * source of truth for covered products is {@link #sourceItems()}, not a single header order id.
+ *
+ * <p>Not a Document Engine business document and not a Warehouse Transfer.
  */
 public final class MaterialRequirement {
 
     private final MaterialRequirementId requirementId;
-    private final SourceOrderId sourceOrderId;
     private final UUID destinationWarehouseId;
     private final Instant createdAt;
     private final Instant updatedAt;
@@ -27,11 +30,11 @@ public final class MaterialRequirement {
     private final MaterialRequirementStatus status;
     private final Instant submittedAt;
     private final String submittedBy;
+    private final List<MaterialRequirementSourceItem> sourceItems;
     private final List<MaterialRequirementLine> lines;
 
     private MaterialRequirement(
             MaterialRequirementId requirementId,
-            SourceOrderId sourceOrderId,
             UUID destinationWarehouseId,
             Instant createdAt,
             Instant updatedAt,
@@ -39,9 +42,9 @@ public final class MaterialRequirement {
             MaterialRequirementStatus status,
             Instant submittedAt,
             String submittedBy,
+            List<MaterialRequirementSourceItem> sourceItems,
             List<MaterialRequirementLine> lines) {
         this.requirementId = Objects.requireNonNull(requirementId, "requirementId");
-        this.sourceOrderId = Objects.requireNonNull(sourceOrderId, "sourceOrderId");
         this.destinationWarehouseId =
                 Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
@@ -50,11 +53,16 @@ public final class MaterialRequirement {
         this.status = Objects.requireNonNull(status, "status");
         this.submittedAt = submittedAt;
         this.submittedBy = submittedBy;
+        this.sourceItems = List.copyOf(Objects.requireNonNull(sourceItems, "sourceItems"));
         this.lines = List.copyOf(Objects.requireNonNull(lines, "lines"));
         if (version < 0) {
             throw new IllegalArgumentException("version must be >= 0");
         }
+        if (this.sourceItems.isEmpty()) {
+            throw new IllegalArgumentException("sourceItems must not be empty");
+        }
         validateSubmissionMetadata(status, submittedAt, submittedBy);
+        validateSourceItems(this.sourceItems);
         validateLines(this.lines);
     }
 
@@ -77,13 +85,12 @@ public final class MaterialRequirement {
     }
 
     public static MaterialRequirement create(
-            SourceOrderId sourceOrderId,
             UUID destinationWarehouseId,
             Instant createdAt,
+            List<MaterialRequirementSourceItem> sourceItems,
             List<MaterialRequirementLine> lines) {
         return new MaterialRequirement(
                 MaterialRequirementId.generate(),
-                sourceOrderId,
                 destinationWarehouseId,
                 createdAt,
                 createdAt,
@@ -91,12 +98,12 @@ public final class MaterialRequirement {
                 MaterialRequirementStatus.DRAFT,
                 null,
                 null,
+                sourceItems,
                 lines);
     }
 
     public static MaterialRequirement rehydrate(
             MaterialRequirementId requirementId,
-            SourceOrderId sourceOrderId,
             UUID destinationWarehouseId,
             Instant createdAt,
             Instant updatedAt,
@@ -104,10 +111,10 @@ public final class MaterialRequirement {
             MaterialRequirementStatus status,
             Instant submittedAt,
             String submittedBy,
+            List<MaterialRequirementSourceItem> sourceItems,
             List<MaterialRequirementLine> lines) {
         return new MaterialRequirement(
                 requirementId,
-                sourceOrderId,
                 destinationWarehouseId,
                 createdAt,
                 updatedAt,
@@ -115,6 +122,7 @@ public final class MaterialRequirement {
                 status,
                 submittedAt,
                 submittedBy,
+                sourceItems,
                 lines);
     }
 
@@ -139,7 +147,6 @@ public final class MaterialRequirement {
         }
         return new MaterialRequirement(
                 requirementId,
-                sourceOrderId,
                 destinationWarehouseId,
                 createdAt,
                 submittedAt,
@@ -147,12 +154,14 @@ public final class MaterialRequirement {
                 MaterialRequirementStatus.SUBMITTED,
                 submittedAt,
                 submittedBy,
+                sourceItems,
                 lines);
     }
 
     /**
      * Changes line quantity. Domain keeps the same optimistic-lock {@code version}; the repository
      * increments version on successful save (same pattern as {@link MaterialTransferTemplate}).
+     * Product coverage on {@link #sourceItems()} is unchanged.
      */
     public MaterialRequirement changeLineQuantity(
             MaterialRequirementLineId lineId, BigDecimal quantity, Instant updatedAt) {
@@ -175,7 +184,6 @@ public final class MaterialRequirement {
         }
         return new MaterialRequirement(
                 requirementId,
-                sourceOrderId,
                 destinationWarehouseId,
                 createdAt,
                 updatedAt,
@@ -183,6 +191,7 @@ public final class MaterialRequirement {
                 status,
                 submittedAt,
                 submittedBy,
+                sourceItems,
                 next);
     }
 
@@ -195,10 +204,6 @@ public final class MaterialRequirement {
 
     public MaterialRequirementId requirementId() {
         return requirementId;
-    }
-
-    public SourceOrderId sourceOrderId() {
-        return sourceOrderId;
     }
 
     public UUID destinationWarehouseId() {
@@ -229,8 +234,34 @@ public final class MaterialRequirement {
         return Optional.ofNullable(submittedBy);
     }
 
+    public List<MaterialRequirementSourceItem> sourceItems() {
+        return sourceItems;
+    }
+
+    /** Distinct source Order ids covered by this requirement, in first-seen order. */
+    public List<SourceOrderId> sourceOrderIds() {
+        Set<SourceOrderId> seen = new LinkedHashSet<>();
+        for (MaterialRequirementSourceItem item : sourceItems) {
+            seen.add(item.sourceOrderId());
+        }
+        return List.copyOf(seen);
+    }
+
     public List<MaterialRequirementLine> lines() {
         return lines;
+    }
+
+    private static void validateSourceItems(List<MaterialRequirementSourceItem> sourceItems) {
+        Set<MaterialRequirementSourceItemKey> keys = new HashSet<>();
+        for (MaterialRequirementSourceItem item : sourceItems) {
+            Objects.requireNonNull(item, "sourceItem");
+            MaterialRequirementSourceItemKey key =
+                    MaterialRequirementSourceItemKey.of(
+                            item.sourceOrderId(), item.sourceOrderItemId());
+            if (!keys.add(key)) {
+                throw new IllegalArgumentException("Duplicate source item: " + key);
+            }
+        }
     }
 
     private static void validateLines(List<MaterialRequirementLine> lines) {

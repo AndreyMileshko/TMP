@@ -11,6 +11,7 @@ import com.tmp.production.application.ConfirmMaterialReceiptService;
 import com.tmp.production.application.CurrentMaterialAvailabilityQueryService;
 import com.tmp.production.application.DefaultProductionApplicationApi;
 import com.tmp.production.application.DefaultProductionQueryApi;
+import com.tmp.production.application.MaterialRequirementCoverageService;
 import com.tmp.production.application.MaterialRequirementService;
 import com.tmp.production.application.ProductionDestinationWarehouse;
 import com.tmp.production.application.ProductionFoundationQueryService;
@@ -200,6 +201,8 @@ final class ProductionPublicBoundaryComposition {
         CheckMaterialAvailabilityService checkService =
                 new CheckMaterialAvailabilityService(
                         currentAvailability, historyService, txManager);
+        MaterialRequirementCoverageService materialRequirementCoverageService =
+                new MaterialRequirementCoverageService(orderViewService, requirements);
         MaterialRequirementService materialRequirementService =
                 new MaterialRequirementService(
                         orderViewService,
@@ -207,10 +210,18 @@ final class ProductionPublicBoundaryComposition {
                         destination,
                         warehouseReferenceQuery,
                         requirements,
+                        new JdbcOrderQuantityModeRepository(jdbc, clock),
+                        materialRequirementCoverageService,
                         clock);
         SubmitMaterialRequirementService submitMaterialRequirementService =
                 new SubmitMaterialRequirementService(
-                        requirements, submissions, warehouseDemandCommandApi, txManager, clock);
+                        requirements,
+                        submissions,
+                        warehouseDemandCommandApi,
+                        orderViewService,
+                        materialRequirementCoverageService,
+                        txManager,
+                        clock);
         ConfirmMaterialReceiptService confirmReceiptService =
                 new ConfirmMaterialReceiptService(
                         materialTransfers,
@@ -251,6 +262,7 @@ final class ProductionPublicBoundaryComposition {
                         launchService,
                         checkService,
                         materialRequirementService,
+                        materialRequirementCoverageService,
                         submitMaterialRequirementService,
                         confirmReceiptService,
                         releaseProductsService,

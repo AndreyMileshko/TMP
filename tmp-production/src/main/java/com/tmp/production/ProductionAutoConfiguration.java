@@ -11,6 +11,7 @@ import com.tmp.production.application.ConfirmMaterialReceiptService;
 import com.tmp.production.application.CurrentMaterialAvailabilityQueryService;
 import com.tmp.production.application.DefaultProductionApplicationApi;
 import com.tmp.production.application.DefaultProductionQueryApi;
+import com.tmp.production.application.MaterialRequirementCoverageService;
 import com.tmp.production.application.MaterialRequirementService;
 import com.tmp.production.application.ProductionDestinationWarehouse;
 import com.tmp.production.application.ProductionFoundationQueryService;
@@ -277,12 +278,22 @@ public class ProductionAutoConfiguration {
     }
 
     @Bean
+    MaterialRequirementCoverageService materialRequirementCoverageService(
+            ProductionOrderViewService orderViewService,
+            MaterialRequirementRepository materialRequirementRepository) {
+        return new MaterialRequirementCoverageService(
+                orderViewService, materialRequirementRepository);
+    }
+
+    @Bean
     MaterialRequirementService materialRequirementService(
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQueryService,
             ProductionDestinationWarehouse destinationWarehouse,
             WarehouseReferenceQueryPort warehouseReferenceQueryPort,
             MaterialRequirementRepository materialRequirementRepository,
+            OrderQuantityModeRepository orderQuantityModeRepository,
+            MaterialRequirementCoverageService materialRequirementCoverageService,
             Clock clock) {
         return new MaterialRequirementService(
                 orderViewService,
@@ -290,6 +301,8 @@ public class ProductionAutoConfiguration {
                 destinationWarehouse,
                 warehouseReferenceQueryPort,
                 materialRequirementRepository,
+                orderQuantityModeRepository,
+                materialRequirementCoverageService,
                 clock);
     }
 
@@ -298,12 +311,16 @@ public class ProductionAutoConfiguration {
             MaterialRequirementRepository materialRequirementRepository,
             MaterialRequirementSubmissionRepository materialRequirementSubmissionRepository,
             @Qualifier("warehouseDemandCommandApi") WarehouseDemandCommandApi warehouseDemandCommandApi,
+            ProductionOrderViewService orderViewService,
+            MaterialRequirementCoverageService materialRequirementCoverageService,
             PlatformTransactionManager transactionManager,
             Clock clock) {
         return new SubmitMaterialRequirementService(
                 materialRequirementRepository,
                 materialRequirementSubmissionRepository,
                 warehouseDemandCommandApi,
+                orderViewService,
+                materialRequirementCoverageService,
                 transactionManager,
                 clock);
     }
@@ -387,6 +404,7 @@ public class ProductionAutoConfiguration {
             ProductionLaunchService launchService,
             CheckMaterialAvailabilityService checkMaterialAvailabilityService,
             MaterialRequirementService materialRequirementService,
+            MaterialRequirementCoverageService materialRequirementCoverageService,
             SubmitMaterialRequirementService submitMaterialRequirementService,
             ConfirmMaterialReceiptService confirmMaterialReceiptService,
             ReleaseProductsService releaseProductsService,
@@ -400,6 +418,7 @@ public class ProductionAutoConfiguration {
                 launchService,
                 checkMaterialAvailabilityService,
                 materialRequirementService,
+                materialRequirementCoverageService,
                 submitMaterialRequirementService,
                 confirmMaterialReceiptService,
                 releaseProductsService,

@@ -56,6 +56,7 @@ class ProductionSchemaFlywayTest {
                         "material_requirement_line_source_items",
                         "material_requirement_lines",
                         "material_requirement_routing_snapshot",
+                        "material_requirement_source_items",
                         "material_requirements",
                         "material_transfer_operation_refs",
                         "material_transfer_template_line_cutting_refs",

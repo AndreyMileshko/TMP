@@ -9,6 +9,8 @@ import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
 import com.tmp.production.domain.MaterialReferenceId;
 import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementLine;
+import com.tmp.production.domain.MaterialRequirementLineContribution;
+import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
@@ -30,7 +32,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import javax.sql.DataSource;
@@ -98,6 +99,7 @@ class OrderQuantityModePostgresIT {
                         mock(ProductionLaunchService.class),
                         mock(CheckMaterialAvailabilityService.class),
                         mock(MaterialRequirementService.class),
+                        mock(MaterialRequirementCoverageService.class),
                         mock(SubmitMaterialRequirementService.class),
                         mock(ConfirmMaterialReceiptService.class),
                         mock(ReleaseProductsService.class),
@@ -191,9 +193,9 @@ class OrderQuantityModePostgresIT {
         MaterialRequirement draft =
                 requirements.save(
                         MaterialRequirement.create(
-                                orderId,
                                 PROD_WH,
                                 T0,
+                                List.of(MaterialRequirementSourceItem.of(orderId, itemId, 1L)),
                                 List.of(
                                         MaterialRequirementLine.create(
                                                 MaterialReferenceId.generate(),
@@ -202,7 +204,11 @@ class OrderQuantityModePostgresIT {
                                                 "WHITE",
                                                 "PCS",
                                                 BigDecimal.valueOf(7),
-                                                Set.of(itemId)))));
+                                                List.of(
+                                                        MaterialRequirementLineContribution.of(
+                                                                orderId,
+                                                                itemId,
+                                                                BigDecimal.valueOf(7)))))));
         Map<String, Object> stateBefore = itemStateRow(orderId);
 
         OrderQuantityModeView flexible =

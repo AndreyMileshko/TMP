@@ -1,13 +1,17 @@
 package com.tmp.production.domain;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
 /**
  * One editable line of a Production-owned Material Requirement.
  *
- * <p>Holds a single master-editable {@code quantity} (no recommended/requested dual model).
+ * <p>Holds a single master-editable {@code quantity} (no recommended/requested dual model). Source
+ * contributions preserve per-item material provenance; manual quantity edits do not change product
+ * coverage on source items.
  */
 public final class MaterialRequirementLine {
 
@@ -18,7 +22,7 @@ public final class MaterialRequirementLine {
     private final String color;
     private final String unitOfMeasure;
     private final BigDecimal quantity;
-    private final Set<SourceOrderItemId> sourceOrderItemIds;
+    private final List<MaterialRequirementLineContribution> contributions;
 
     private MaterialRequirementLine(
             MaterialRequirementLineId lineId,
@@ -28,7 +32,7 @@ public final class MaterialRequirementLine {
             String color,
             String unitOfMeasure,
             BigDecimal quantity,
-            Set<SourceOrderItemId> sourceOrderItemIds) {
+            List<MaterialRequirementLineContribution> contributions) {
         this.lineId = Objects.requireNonNull(lineId, "lineId");
         this.materialReferenceId =
                 Objects.requireNonNull(materialReferenceId, "materialReferenceId");
@@ -37,8 +41,12 @@ public final class MaterialRequirementLine {
         this.color = SpecificationMaterialIdentity.normalizeColor(color);
         this.unitOfMeasure = Objects.requireNonNull(unitOfMeasure, "unitOfMeasure").trim();
         this.quantity = requirePositive(quantity, "quantity");
-        this.sourceOrderItemIds =
-                Set.copyOf(Objects.requireNonNull(sourceOrderItemIds, "sourceOrderItemIds"));
+        this.contributions =
+                List.copyOf(Objects.requireNonNull(contributions, "contributions"));
+        if (this.contributions.isEmpty()) {
+            throw new IllegalArgumentException("contributions must not be empty");
+        }
+        validateContributionKeys(this.contributions);
     }
 
     public static MaterialRequirementLine create(
@@ -48,7 +56,7 @@ public final class MaterialRequirementLine {
             String color,
             String unitOfMeasure,
             BigDecimal quantity,
-            Set<SourceOrderItemId> sourceOrderItemIds) {
+            List<MaterialRequirementLineContribution> contributions) {
         return new MaterialRequirementLine(
                 MaterialRequirementLineId.generate(),
                 materialReferenceId,
@@ -57,7 +65,7 @@ public final class MaterialRequirementLine {
                 color,
                 unitOfMeasure,
                 quantity,
-                sourceOrderItemIds);
+                contributions);
     }
 
     /** Persistence / reconstruction entry point. */
@@ -69,7 +77,7 @@ public final class MaterialRequirementLine {
             String color,
             String unitOfMeasure,
             BigDecimal quantity,
-            Set<SourceOrderItemId> sourceOrderItemIds) {
+            List<MaterialRequirementLineContribution> contributions) {
         return new MaterialRequirementLine(
                 lineId,
                 materialReferenceId,
@@ -78,7 +86,7 @@ public final class MaterialRequirementLine {
                 color,
                 unitOfMeasure,
                 quantity,
-                sourceOrderItemIds);
+                contributions);
     }
 
     public MaterialRequirementLine changeQuantity(BigDecimal quantity) {
@@ -90,7 +98,7 @@ public final class MaterialRequirementLine {
                 color,
                 unitOfMeasure,
                 quantity,
-                sourceOrderItemIds);
+                contributions);
     }
 
     public MaterialRequirementLineId lineId() {
@@ -121,8 +129,32 @@ public final class MaterialRequirementLine {
         return quantity;
     }
 
+    public List<MaterialRequirementLineContribution> contributions() {
+        return contributions;
+    }
+
+    /** Distinct source Order Item ids contributing to this material line. */
     public Set<SourceOrderItemId> sourceOrderItemIds() {
-        return sourceOrderItemIds;
+        Set<SourceOrderItemId> ids = new LinkedHashSet<>();
+        for (MaterialRequirementLineContribution contribution : contributions) {
+            ids.add(contribution.sourceOrderItemId());
+        }
+        return Set.copyOf(ids);
+    }
+
+    private static void validateContributionKeys(
+            List<MaterialRequirementLineContribution> contributions) {
+        Set<MaterialRequirementSourceItemKey> keys = new LinkedHashSet<>();
+        for (MaterialRequirementLineContribution contribution : contributions) {
+            Objects.requireNonNull(contribution, "contribution");
+            MaterialRequirementSourceItemKey key =
+                    MaterialRequirementSourceItemKey.of(
+                            contribution.sourceOrderId(), contribution.sourceOrderItemId());
+            if (!keys.add(key)) {
+                throw new IllegalArgumentException(
+                        "Duplicate line contribution for source item: " + key);
+            }
+        }
     }
 
     private static BigDecimal requirePositive(BigDecimal value, String name) {

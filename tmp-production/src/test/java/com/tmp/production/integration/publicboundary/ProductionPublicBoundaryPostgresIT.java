@@ -1486,6 +1486,7 @@ class ProductionPublicBoundaryPostgresIT {
         jdbc.update("DELETE FROM production.material_requirement_generated_documents");
         jdbc.update("DELETE FROM production.material_requirement_line_source_items");
         jdbc.update("DELETE FROM production.material_requirement_lines");
+        jdbc.update("DELETE FROM production.material_requirement_source_items");
         jdbc.update("DELETE FROM production.material_requirements");
         jdbc.update("DELETE FROM production.production_item_cutting_plan_links");
         jdbc.update("DELETE FROM production.production_item_states");

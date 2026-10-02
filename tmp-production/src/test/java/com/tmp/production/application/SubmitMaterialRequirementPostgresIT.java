@@ -4,20 +4,28 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tmp.production.domain.CuttingPlanLinks;
 import com.tmp.production.domain.MaterialReferenceId;
 import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementLine;
+import com.tmp.production.domain.MaterialRequirementLineContribution;
 import com.tmp.production.domain.MaterialRequirementShortageException;
+import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialRequirementStatus;
 import com.tmp.production.domain.MaterialRequirementSubmissionCorruptedException;
+import com.tmp.production.domain.ProductionFoundation;
+import com.tmp.production.domain.ProductionItemState;
+import com.tmp.production.domain.ProductionQuantity;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
+import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.GeneratedDocumentLink;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.RoutingSnapshotRow;
 import com.tmp.production.persistence.JdbcMaterialRequirementRepository;
 import com.tmp.production.persistence.JdbcMaterialRequirementSubmissionRepository;
+import com.tmp.production.persistence.JdbcProductionItemStateRepository;
 import com.tmp.production.testsupport.WarehouseTestDoubles;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi;
 import com.tmp.warehouse.application.DefaultWarehouseDemandCommandApi;
@@ -43,9 +51,9 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -89,6 +97,7 @@ class SubmitMaterialRequirementPostgresIT {
 
     private JdbcMaterialRequirementRepository requirements;
     private JdbcMaterialRequirementSubmissionRepository submissions;
+    private JdbcProductionItemStateRepository itemStates;
     private WarehouseCatalogRepository catalog;
     private MaterialReferenceRepository materials;
     private StockPositionRepository stockPositions;
@@ -126,7 +135,10 @@ class SubmitMaterialRequirementPostgresIT {
         jdbc.update("DELETE FROM production.material_requirement_generated_documents");
         jdbc.update("DELETE FROM production.material_requirement_line_source_items");
         jdbc.update("DELETE FROM production.material_requirement_lines");
+        jdbc.update("DELETE FROM production.material_requirement_source_items");
         jdbc.update("DELETE FROM production.material_requirements");
+        jdbc.update("DELETE FROM production.production_item_cutting_plan_links");
+        jdbc.update("DELETE FROM production.production_item_states");
         jdbc.update("DELETE FROM warehouse.transfer_return_settlement_item");
         jdbc.update("DELETE FROM warehouse.transfer_receipt_settlement_item");
         jdbc.update("DELETE FROM warehouse.transfer_document_settlement");
@@ -159,6 +171,7 @@ class SubmitMaterialRequirementPostgresIT {
                         warehouseTx);
         requirements = new JdbcMaterialRequirementRepository(jdbc, CLOCK, txManager);
         submissions = new JdbcMaterialRequirementSubmissionRepository(jdbc);
+        itemStates = new JdbcProductionItemStateRepository(jdbc, CLOCK);
         service = newService(transferDocuments, submissions);
 
         destination = WarehouseId.generate();
@@ -436,17 +449,49 @@ class SubmitMaterialRequirementPostgresIT {
                         catalog,
                         materials,
                         new TransactionTemplate(txManager));
+        ProductionOrderViewService orderViewService = new ProductionOrderViewService(itemStates);
+        MaterialRequirementCoverageService coverageService =
+                new MaterialRequirementCoverageService(orderViewService, requirements);
         return new SubmitMaterialRequirementService(
-                requirements, submissionRepository, demand, txManager, CLOCK);
+                requirements,
+                submissionRepository,
+                demand,
+                orderViewService,
+                coverageService,
+                txManager,
+                CLOCK);
     }
 
     private MaterialRequirement persistDraft(MaterialRequirementLine... lines) {
+        List<MaterialRequirementSourceItem> sourceItems = new ArrayList<>();
+        for (MaterialRequirementLine line : lines) {
+            for (MaterialRequirementLineContribution contribution : line.contributions()) {
+                itemStates.save(
+                        ProductionItemState.launch(
+                                ProductionFoundation.freeze(
+                                        contribution.sourceOrderId(),
+                                        contribution.sourceOrderItemId(),
+                                        SpecificationId.generate(),
+                                        T0),
+                                ProductionQuantity.positive(1),
+                                T0,
+                                CuttingPlanLinks.empty()));
+                sourceItems.add(
+                        MaterialRequirementSourceItem.of(
+                                contribution.sourceOrderId(),
+                                contribution.sourceOrderItemId(),
+                                1L));
+            }
+        }
         return requirements.save(
                 MaterialRequirement.create(
-                        SourceOrderId.generate(), destination.value(), T0, List.of(lines)));
+                        destination.value(), T0, sourceItems, List.of(lines)));
     }
 
     private MaterialRequirementLine line(MaterialReference material, String qty) {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        BigDecimal quantity = new BigDecimal(qty);
         return MaterialRequirementLine.create(
                 MaterialReferenceId.of(material.id().value()),
                 material.article(),
@@ -455,8 +500,10 @@ class SubmitMaterialRequirementPostgresIT {
                 material.unitOfMeasure() == null || material.unitOfMeasure().isBlank()
                         ? "шт"
                         : material.unitOfMeasure(),
-                new BigDecimal(qty),
-                Set.of(SourceOrderItemId.generate()));
+                quantity,
+                List.of(
+                        MaterialRequirementLineContribution.of(
+                                orderId, itemId, quantity)));
     }
 
     private void seed(

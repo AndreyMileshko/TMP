@@ -109,6 +109,7 @@ class MaterialRequirementFlywayMigrationIT {
                         "material_requirement_line_source_items",
                         "material_requirement_lines",
                         "material_requirement_routing_snapshot",
+                        "material_requirement_source_items",
                         "material_requirements"),
                 tables);
     }

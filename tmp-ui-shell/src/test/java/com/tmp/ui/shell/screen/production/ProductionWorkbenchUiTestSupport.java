@@ -24,6 +24,10 @@ import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductCoverageView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductSelectionView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSourceItemRefView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSourceItemView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.OrderQuantityModeView;
@@ -243,6 +247,33 @@ final class ProductionWorkbenchUiTestSupport {
         }
 
         @Override
+        public MaterialRequirementView prepareMaterialRequirement(
+                List<MaterialRequirementProductSelectionView> selections) {
+            if (!selections.isEmpty()) {
+                prepareMaterialRequirementCalls.add(selections.getFirst().sourceOrderId());
+                prepareMaterialRequirementItemIds.add(
+                        selections.stream()
+                                .map(MaterialRequirementProductSelectionView::sourceOrderItemId)
+                                .toList());
+            }
+            return requirement;
+        }
+
+        @Override
+        public Optional<MaterialRequirementView> getMaterialRequirement(UUID requirementId) {
+            if (requirement != null && requirement.requirementId().equals(requirementId)) {
+                return Optional.of(requirement);
+            }
+            return Optional.empty();
+        }
+
+        @Override
+        public List<MaterialRequirementProductCoverageView> getMaterialRequirementProductCoverage(
+                List<MaterialRequirementSourceItemRefView> sourceItems) {
+            return List.of();
+        }
+
+        @Override
         public MaterialRequirementView changeMaterialRequirementQuantity(
                 UUID requirementId, UUID lineId, BigDecimal quantity, long expectedVersion) {
             changeQtyCalls.add(new Object[] {requirementId, lineId, quantity, expectedVersion});
@@ -267,7 +298,7 @@ final class ProductionWorkbenchUiTestSupport {
                 requirement =
                         new MaterialRequirementView(
                                 requirement.requirementId(),
-                                requirement.sourceOrderId(),
+                                requirement.sourceItems(),
                                 requirement.destinationWarehouseId(),
                                 requirement.createdAt(),
                                 Instant.parse("2026-01-02T00:00:00Z"),
@@ -291,7 +322,7 @@ final class ProductionWorkbenchUiTestSupport {
                 requirement =
                         new MaterialRequirementView(
                                 requirement.requirementId(),
-                                requirement.sourceOrderId(),
+                                requirement.sourceItems(),
                                 requirement.destinationWarehouseId(),
                                 requirement.createdAt(),
                                 Instant.parse("2026-01-03T00:00:00Z"),

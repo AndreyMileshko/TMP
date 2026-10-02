@@ -7,7 +7,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -21,19 +20,20 @@ class MaterialRequirementTest {
     void createStartsAtVersionZeroDraft() {
         MaterialRequirementLine line = sampleLine(bd(28));
         MaterialRequirement requirement =
-                MaterialRequirement.create(SourceOrderId.generate(), PROD, T0, List.of(line));
+                MaterialRequirement.create(PROD, T0, sampleSourceItems(line), List.of(line));
 
         assertEquals(0L, requirement.version());
         assertEquals(MaterialRequirementStatus.DRAFT, requirement.status());
         assertEquals(T0, requirement.createdAt());
         assertEquals(T0, requirement.updatedAt());
+        assertEquals(1, requirement.sourceItems().size());
     }
 
     @Test
     void changeLineQuantityKeepsDomainVersionAndUpdatesQuantity() {
         MaterialRequirementLine line = sampleLine(bd(28));
         MaterialRequirement requirement =
-                MaterialRequirement.create(SourceOrderId.generate(), PROD, T0, List.of(line));
+                MaterialRequirement.create(PROD, T0, sampleSourceItems(line), List.of(line));
 
         MaterialRequirement edited =
                 requirement.changeLineQuantity(line.lineId(), bd(30), T1);
@@ -47,7 +47,7 @@ class MaterialRequirementTest {
     void rejectsZeroOrNegativeQuantity() {
         MaterialRequirementLine line = sampleLine(bd(10));
         MaterialRequirement requirement =
-                MaterialRequirement.create(SourceOrderId.generate(), PROD, T0, List.of(line));
+                MaterialRequirement.create(PROD, T0, sampleSourceItems(line), List.of(line));
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -62,9 +62,9 @@ class MaterialRequirementTest {
 
     @Test
     void rejectsUnknownLineId() {
+        MaterialRequirementLine line = sampleLine(bd(5));
         MaterialRequirement requirement =
-                MaterialRequirement.create(
-                        SourceOrderId.generate(), PROD, T0, List.of(sampleLine(bd(5))));
+                MaterialRequirement.create(PROD, T0, sampleSourceItems(line), List.of(line));
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -77,7 +77,7 @@ class MaterialRequirementTest {
     void submitTransitionsDraftToSubmittedAndFreezesLines() {
         MaterialRequirementLine line = sampleLine(bd(100));
         MaterialRequirement requirement =
-                MaterialRequirement.create(SourceOrderId.generate(), PROD, T0, List.of(line));
+                MaterialRequirement.create(PROD, T0, sampleSourceItems(line), List.of(line));
 
         MaterialRequirement submitted = requirement.submit("user-1", T1);
 
@@ -94,7 +94,19 @@ class MaterialRequirementTest {
         assertThrows(IllegalStateException.class, () -> submitted.submit("user-2", T1));
     }
 
+    private static List<MaterialRequirementSourceItem> sampleSourceItems(
+            MaterialRequirementLine line) {
+        MaterialRequirementLineContribution contribution = line.contributions().getFirst();
+        return List.of(
+                MaterialRequirementSourceItem.of(
+                        contribution.sourceOrderId(),
+                        contribution.sourceOrderItemId(),
+                        1L));
+    }
+
     private static MaterialRequirementLine sampleLine(BigDecimal quantity) {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
         return MaterialRequirementLine.create(
                 MaterialReferenceId.generate(),
                 "MAT-1",
@@ -102,7 +114,7 @@ class MaterialRequirementTest {
                 "WHITE",
                 "PCS",
                 quantity,
-                Set.of(SourceOrderItemId.generate()));
+                List.of(MaterialRequirementLineContribution.of(orderId, itemId, quantity)));
     }
 
     private static BigDecimal bd(long value) {

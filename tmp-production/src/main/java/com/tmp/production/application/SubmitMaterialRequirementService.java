@@ -2,14 +2,21 @@ package com.tmp.production.application;
 
 import com.tmp.production.domain.MaterialReferenceId;
 import com.tmp.production.domain.MaterialRequirement;
+import com.tmp.production.domain.MaterialRequirementCoverageConflictException;
 import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineId;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
+import com.tmp.production.domain.MaterialRequirementSelectionException;
 import com.tmp.production.domain.MaterialRequirementShortageException;
 import com.tmp.production.domain.MaterialRequirementShortageException.ShortageLine;
+import com.tmp.production.domain.MaterialRequirementSourceItem;
+import com.tmp.production.domain.MaterialRequirementSourceItemKey;
 import com.tmp.production.domain.MaterialRequirementStatus;
 import com.tmp.production.domain.MaterialRequirementSubmissionCorruptedException;
+import com.tmp.production.domain.ProductionItemState;
+import com.tmp.production.domain.ProductionStatus;
+import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.GeneratedDocumentLink;
@@ -25,6 +32,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,15 +42,12 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Production-owned transaction owner for «Отправить требование» (Stage 3.5.10).
+ * Production-owned transaction owner for «Отправить требование» (Stage 3.5.10 / Stage 7 Phase 2).
  *
  * <p>One outer REQUIRED transaction: lock requirement → idempotent SUBMITTED short-circuit → verify
- * DRAFT + expectedVersion → Warehouse demand routing/creation → mark SUBMITTED → persist generated
- * document links + routing snapshot. Any failure rolls back everything (requirement stays DRAFT,
- * zero generated documents / tasks / snapshot rows, stock unchanged).
- *
- * <p>Does not compute source routing itself, does not select source warehouses, does not touch
- * Warehouse repositories, and uses only the Warehouse demand command contract.
+ * DRAFT + expectedVersion → lock affected Production item states in deterministic OrderId order →
+ * revalidate product coverage → Warehouse demand routing/creation → mark SUBMITTED → persist
+ * generated document links + routing snapshot.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -52,6 +57,8 @@ public final class SubmitMaterialRequirementService {
     private final MaterialRequirementRepository requirementRepository;
     private final MaterialRequirementSubmissionRepository submissionRepository;
     private final WarehouseDemandCommandApi warehouseDemandCommandApi;
+    private final ProductionOrderStateLockService orderStateLockService;
+    private final MaterialRequirementCoverageService coverageService;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -59,6 +66,26 @@ public final class SubmitMaterialRequirementService {
             MaterialRequirementRepository requirementRepository,
             MaterialRequirementSubmissionRepository submissionRepository,
             WarehouseDemandCommandApi warehouseDemandCommandApi,
+            ProductionOrderViewService orderViewService,
+            MaterialRequirementCoverageService coverageService,
+            PlatformTransactionManager transactionManager,
+            Clock clock) {
+        this(
+                requirementRepository,
+                submissionRepository,
+                warehouseDemandCommandApi,
+                new ProductionOrderStateLockService(orderViewService),
+                coverageService,
+                transactionManager,
+                clock);
+    }
+
+    SubmitMaterialRequirementService(
+            MaterialRequirementRepository requirementRepository,
+            MaterialRequirementSubmissionRepository submissionRepository,
+            WarehouseDemandCommandApi warehouseDemandCommandApi,
+            ProductionOrderStateLockService orderStateLockService,
+            MaterialRequirementCoverageService coverageService,
             PlatformTransactionManager transactionManager,
             Clock clock) {
         this.requirementRepository =
@@ -67,6 +94,9 @@ public final class SubmitMaterialRequirementService {
                 Objects.requireNonNull(submissionRepository, "submissionRepository");
         this.warehouseDemandCommandApi =
                 Objects.requireNonNull(warehouseDemandCommandApi, "warehouseDemandCommandApi");
+        this.orderStateLockService =
+                Objects.requireNonNull(orderStateLockService, "orderStateLockService");
+        this.coverageService = Objects.requireNonNull(coverageService, "coverageService");
         this.transactionTemplate =
                 new TransactionTemplate(
                         Objects.requireNonNull(transactionManager, "transactionManager"));
@@ -101,7 +131,6 @@ public final class SubmitMaterialRequirementService {
                                                 "Material requirement not found: "
                                                         + requirementId));
 
-        // Idempotent retry: locked state already SUBMITTED → return persisted result, no new docs.
         if (requirement.status() == MaterialRequirementStatus.SUBMITTED) {
             return existingResult(requirement);
         }
@@ -113,6 +142,8 @@ public final class SubmitMaterialRequirementService {
             throw new IllegalStateException(
                     "Material requirement with no lines cannot be submitted: " + requirementId);
         }
+
+        revalidateProductCoverage(requirement);
 
         RoutedTransferResult routed = routeAndCreate(requirement);
 
@@ -127,6 +158,66 @@ public final class SubmitMaterialRequirementService {
         submissionRepository.saveRoutingSnapshot(requirementId, snapshot);
 
         return new SubmitMaterialRequirementResult(persisted, documentLinks, snapshot, true);
+    }
+
+    /**
+     * Locks all affected orders' item states in opaque OrderId ascending order, then rechecks that
+     * each frozen DRAFT product quantity is still requestable under SUBMITTED coverage.
+     */
+    private void revalidateProductCoverage(MaterialRequirement requirement) {
+        List<SourceOrderId> orderIds =
+                requirement.sourceOrderIds().stream()
+                        .sorted(Comparator.comparing(id -> id.value()))
+                        .toList();
+        Map<MaterialRequirementSourceItemKey, ProductionItemState> lockedStates =
+                new LinkedHashMap<>();
+        for (SourceOrderId orderId : orderIds) {
+            for (ProductionItemState state : orderStateLockService.lockAllItemStates(orderId)) {
+                lockedStates.put(
+                        MaterialRequirementSourceItemKey.of(
+                                state.sourceOrderId(), state.sourceOrderItemId()),
+                        state);
+            }
+        }
+
+        List<MaterialRequirementSourceItemKey> keys =
+                requirement.sourceItems().stream()
+                        .map(
+                                item ->
+                                        MaterialRequirementSourceItemKey.of(
+                                                item.sourceOrderId(), item.sourceOrderItemId()))
+                        .toList();
+        Map<MaterialRequirementSourceItemKey, Long> submitted =
+                requirementRepository.sumSubmittedProductQuantities(keys);
+
+        for (MaterialRequirementSourceItem sourceItem : requirement.sourceItems()) {
+            MaterialRequirementSourceItemKey key =
+                    MaterialRequirementSourceItemKey.of(
+                            sourceItem.sourceOrderId(), sourceItem.sourceOrderItemId());
+            ProductionItemState state = lockedStates.get(key);
+            if (state == null) {
+                throw new MaterialRequirementSelectionException(
+                        "Source order item is no longer in Production: " + key);
+            }
+            if (state.status() != ProductionStatus.IN_PRODUCTION
+                    && state.status() != ProductionStatus.PARTIALLY_RELEASED) {
+                throw new MaterialRequirementSelectionException(
+                        "Source order item is not eligible for material requirement submit: "
+                                + key
+                                + ", status="
+                                + state.status());
+            }
+            var coverage =
+                    coverageService.coverageFor(state, submitted.getOrDefault(key, 0L));
+            long requestable = coverage.requestableProductQuantity();
+            if (sourceItem.requestedProductQuantity() > requestable) {
+                throw new MaterialRequirementCoverageConflictException(
+                        sourceItem.sourceOrderId(),
+                        sourceItem.sourceOrderItemId(),
+                        sourceItem.requestedProductQuantity(),
+                        requestable);
+            }
+        }
     }
 
     private RoutedTransferResult routeAndCreate(MaterialRequirement requirement) {

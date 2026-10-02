@@ -31,7 +31,9 @@ import com.tmp.production.application.ReleaseProductsResult.PrepareReleasePrevie
 import com.tmp.production.domain.MaterialReferenceId;
 import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementLine;
+import com.tmp.production.domain.MaterialRequirementLineContribution;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
+import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialTransferTemplateId;
 import com.tmp.production.domain.MaterialTransferTemplateLineId;
 import com.tmp.production.domain.OrderQuantityModeOptimisticLockException;
@@ -76,6 +78,7 @@ class DefaultProductionApplicationApiTest {
     private ProductionLaunchService launchService;
     private CheckMaterialAvailabilityService checkMaterialAvailabilityService;
     private MaterialRequirementService materialRequirementService;
+    private MaterialRequirementCoverageService materialRequirementCoverageService;
     private SubmitMaterialRequirementService submitMaterialRequirementService;
     private ConfirmMaterialReceiptService confirmMaterialReceiptService;
     private ReleaseProductsService releaseProductsService;
@@ -99,6 +102,7 @@ class DefaultProductionApplicationApiTest {
         launchService = mock(ProductionLaunchService.class);
         checkMaterialAvailabilityService = mock(CheckMaterialAvailabilityService.class);
         materialRequirementService = mock(MaterialRequirementService.class);
+        materialRequirementCoverageService = mock(MaterialRequirementCoverageService.class);
         submitMaterialRequirementService = mock(SubmitMaterialRequirementService.class);
         confirmMaterialReceiptService = mock(ConfirmMaterialReceiptService.class);
         releaseProductsService = mock(ReleaseProductsService.class);
@@ -113,6 +117,7 @@ class DefaultProductionApplicationApiTest {
                         launchService,
                         checkMaterialAvailabilityService,
                         materialRequirementService,
+                        materialRequirementCoverageService,
                         submitMaterialRequirementService,
                         confirmMaterialReceiptService,
                         releaseProductsService,
@@ -235,7 +240,7 @@ class DefaultProductionApplicationApiTest {
 
         MaterialRequirementView view =
                 api.prepareMaterialRequirement(
-                        requirement.sourceOrderId().value(),
+                        requirement.sourceItems().getFirst().sourceOrderId().value(),
                         requirement.lines().getFirst().sourceOrderItemIds().stream()
                                 .map(SourceOrderItemId::value)
                                 .toList());
@@ -243,7 +248,10 @@ class DefaultProductionApplicationApiTest {
         verify(authorizationService)
                 .requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
         assertEquals(requirement.requirementId().value(), view.requirementId());
-        assertEquals(requirement.sourceOrderId().value(), view.sourceOrderId());
+        assertEquals(1, view.sourceItems().size());
+        assertEquals(
+                requirement.sourceItems().getFirst().sourceOrderId().value(),
+                view.sourceItems().getFirst().sourceOrderId());
         assertEquals(MaterialRequirementStatusView.DRAFT, view.status());
         assertEquals(1, view.lines().size());
         assertEquals(
@@ -334,6 +342,86 @@ class DefaultProductionApplicationApiTest {
         assertEquals(1, view.documents().size());
         assertEquals(documentId, view.documents().getFirst().documentId());
         assertEquals(sourceWarehouseId, view.documents().getFirst().sourceWarehouseId());
+    }
+
+    @Test
+    void materialRequirementMutationsRequireCreateTransferPermission() {
+        doThrow(new AccessDeniedException("Access denied: production.transfer.create"))
+                .when(authorizationService)
+                .requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
+
+        UUID orderId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        UUID requirementId = UUID.randomUUID();
+        UUID lineId = UUID.randomUUID();
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> api.prepareMaterialRequirement(orderId, List.of(itemId)));
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        api.prepareMaterialRequirement(
+                                List.of(
+                                        new ProductionApplicationApi
+                                                .MaterialRequirementProductSelectionView(
+                                                orderId, itemId, Optional.empty()))));
+        assertThrows(
+                AccessDeniedException.class, () -> api.getMaterialRequirement(requirementId));
+        assertThrows(
+                AccessDeniedException.class,
+                () ->
+                        api.changeMaterialRequirementQuantity(
+                                requirementId, lineId, BigDecimal.TEN, 0L));
+        assertThrows(
+                AccessDeniedException.class,
+                () -> api.submitMaterialRequirement(requirementId, 0L));
+
+        verify(materialRequirementService, never()).prepareMaterialRequirement(any(), any());
+        verify(materialRequirementService, never()).prepareMaterialRequirement(any());
+        verify(materialRequirementService, never()).findById(any());
+        verify(materialRequirementService, never()).changeQuantity(any(), any(), any(), anyLong());
+        verify(submitMaterialRequirementService, never()).submit(any(), anyLong(), any());
+    }
+
+    @Test
+    void materialRequirementMutationsAllowedWithCreateTransferPermission() {
+        MaterialRequirement requirement = sampleRequirement();
+        when(materialRequirementService.prepareMaterialRequirement(any(), any()))
+                .thenReturn(requirement);
+        when(materialRequirementService.prepareMaterialRequirement(any()))
+                .thenReturn(requirement);
+        when(materialRequirementService.findById(requirement.requirementId()))
+                .thenReturn(Optional.of(requirement));
+        when(materialRequirementService.changeQuantity(any(), any(), any(), anyLong()))
+                .thenReturn(requirement);
+        when(submitMaterialRequirementService.submit(any(), anyLong(), any()))
+                .thenReturn(
+                        new SubmitMaterialRequirementResult(
+                                requirement.submit("user-1", Instant.parse("2026-09-10T01:00:00Z")),
+                                List.of(),
+                                List.of(),
+                                true));
+
+        api.prepareMaterialRequirement(
+                requirement.sourceItems().getFirst().sourceOrderId().value(),
+                List.of(requirement.sourceItems().getFirst().sourceOrderItemId().value()));
+        api.prepareMaterialRequirement(
+                List.of(
+                        new ProductionApplicationApi.MaterialRequirementProductSelectionView(
+                                requirement.sourceItems().getFirst().sourceOrderId().value(),
+                                requirement.sourceItems().getFirst().sourceOrderItemId().value(),
+                                Optional.empty())));
+        assertTrue(api.getMaterialRequirement(requirement.requirementId().value()).isPresent());
+        api.changeMaterialRequirementQuantity(
+                requirement.requirementId().value(),
+                requirement.lines().getFirst().lineId().value(),
+                BigDecimal.TEN,
+                0L);
+        api.submitMaterialRequirement(requirement.requirementId().value(), 0L);
+
+        verify(authorizationService, org.mockito.Mockito.atLeast(5))
+                .requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
     }
 
     @Test
@@ -465,6 +553,9 @@ class DefaultProductionApplicationApiTest {
     }
 
     private static MaterialRequirement sampleRequirement() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        BigDecimal quantity = new BigDecimal("5.000");
         MaterialRequirementLine line =
                 MaterialRequirementLine.create(
                         MaterialReferenceId.generate(),
@@ -472,12 +563,14 @@ class DefaultProductionApplicationApiTest {
                         "Material 1",
                         "RED",
                         "m",
-                        new BigDecimal("5.000"),
-                        Set.of(SourceOrderItemId.generate()));
+                        quantity,
+                        List.of(
+                                MaterialRequirementLineContribution.of(
+                                        orderId, itemId, quantity)));
         return MaterialRequirement.create(
-                SourceOrderId.generate(),
                 PROD_WH,
                 Instant.parse("2026-08-20T09:00:00Z"),
+                List.of(MaterialRequirementSourceItem.of(orderId, itemId, 1L)),
                 List.of(line));
     }
 }

@@ -16,6 +16,7 @@ import com.tmp.production.api.ProductionApplicationApi.PlannedMaterialLineView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
 import com.tmp.production.api.ProductionApplicationApi.ReleaseResultView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSourceItemView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionQueryApi.CuttingPlanLinkView;
@@ -782,7 +783,7 @@ class ProductionWorkbenchViewModelTest {
     private MaterialRequirementView sampleTemplate(BigDecimal quantity) {
         return new MaterialRequirementView(
                 templateId,
-                orderId,
+                List.of(new MaterialRequirementSourceItemView(orderId, itemId, 1L)),
                 destWh,
                 Instant.parse("2026-01-01T12:00:00Z"),
                 Instant.parse("2026-01-01T12:00:00Z"),

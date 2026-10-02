@@ -10,6 +10,8 @@ import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineId;
+import com.tmp.production.domain.MaterialRequirementSourceItem;
+import com.tmp.production.domain.MaterialRequirementSourceItemKey;
 import com.tmp.production.domain.MaterialRequirementStatus;
 import com.tmp.production.domain.OrderQuantityModeSetting;
 import com.tmp.production.domain.ProductionMaterialTransfer;
@@ -27,6 +29,7 @@ import com.tmp.security.api.AuthorizationService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,6 +50,7 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     private final ProductionLaunchService launchService;
     private final CheckMaterialAvailabilityService checkMaterialAvailabilityService;
     private final MaterialRequirementService materialRequirementService;
+    private final MaterialRequirementCoverageService materialRequirementCoverageService;
     private final SubmitMaterialRequirementService submitMaterialRequirementService;
     private final ConfirmMaterialReceiptService confirmMaterialReceiptService;
     private final ReleaseProductsService releaseProductsService;
@@ -61,6 +65,7 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
             ProductionLaunchService launchService,
             CheckMaterialAvailabilityService checkMaterialAvailabilityService,
             MaterialRequirementService materialRequirementService,
+            MaterialRequirementCoverageService materialRequirementCoverageService,
             SubmitMaterialRequirementService submitMaterialRequirementService,
             ConfirmMaterialReceiptService confirmMaterialReceiptService,
             ReleaseProductsService releaseProductsService,
@@ -79,6 +84,9 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                         checkMaterialAvailabilityService, "checkMaterialAvailabilityService");
         this.materialRequirementService =
                 Objects.requireNonNull(materialRequirementService, "materialRequirementService");
+        this.materialRequirementCoverageService =
+                Objects.requireNonNull(
+                        materialRequirementCoverageService, "materialRequirementCoverageService");
         this.submitMaterialRequirementService =
                 Objects.requireNonNull(
                         submitMaterialRequirementService, "submitMaterialRequirementService");
@@ -128,6 +136,57 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         return map(
                 materialRequirementService.prepareMaterialRequirement(
                         SourceOrderId.of(orderId), itemIds));
+    }
+
+    @Override
+    public MaterialRequirementView prepareMaterialRequirement(
+            List<MaterialRequirementProductSelectionView> selections) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
+        Objects.requireNonNull(selections, "selections");
+        List<MaterialRequirementProductSelection> domainSelections =
+                selections.stream().map(this::map).toList();
+        return map(materialRequirementService.prepareMaterialRequirement(domainSelections));
+    }
+
+    @Override
+    public Optional<MaterialRequirementView> getMaterialRequirement(UUID requirementId) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
+        Objects.requireNonNull(requirementId, "requirementId");
+        return materialRequirementService
+                .findById(MaterialRequirementId.of(requirementId))
+                .map(this::map);
+    }
+
+    @Override
+    public List<MaterialRequirementProductCoverageView> getMaterialRequirementProductCoverage(
+            List<MaterialRequirementSourceItemRefView> sourceItems) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
+        Objects.requireNonNull(sourceItems, "sourceItems");
+        List<MaterialRequirementSourceItemKey> keys =
+                sourceItems.stream()
+                        .map(
+                                item ->
+                                        MaterialRequirementSourceItemKey.of(
+                                                SourceOrderId.of(item.sourceOrderId()),
+                                                SourceOrderItemId.of(item.sourceOrderItemId())))
+                        .toList();
+        Map<MaterialRequirementSourceItemKey, MaterialRequirementProductCoverageCalculator.ProductItemCoverage>
+                coverage = materialRequirementCoverageService.coverageForItems(keys);
+        List<MaterialRequirementProductCoverageView> views = new java.util.ArrayList<>();
+        for (MaterialRequirementSourceItemKey key : keys) {
+            var item = coverage.get(key);
+            views.add(
+                    new MaterialRequirementProductCoverageView(
+                            key.sourceOrderId().value(),
+                            key.sourceOrderItemId().value(),
+                            item.orderedQuantity(),
+                            item.activeProductionQuantity(),
+                            item.releasedQuantity(),
+                            item.submittedProductCoverage(),
+                            item.outstandingSubmittedCoverage(),
+                            item.requestableProductQuantity()));
+        }
+        return List.copyOf(views);
     }
 
     @Override
@@ -318,10 +377,23 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 .toList();
     }
 
+    private MaterialRequirementProductSelection map(
+            MaterialRequirementProductSelectionView selection) {
+        if (selection.requestedProductQuantity().isPresent()) {
+            return MaterialRequirementProductSelection.of(
+                    SourceOrderId.of(selection.sourceOrderId()),
+                    SourceOrderItemId.of(selection.sourceOrderItemId()),
+                    selection.requestedProductQuantity().orElseThrow());
+        }
+        return MaterialRequirementProductSelection.of(
+                SourceOrderId.of(selection.sourceOrderId()),
+                SourceOrderItemId.of(selection.sourceOrderItemId()));
+    }
+
     private MaterialRequirementView map(MaterialRequirement requirement) {
         return new MaterialRequirementView(
                 requirement.requirementId().value(),
-                requirement.sourceOrderId().value(),
+                requirement.sourceItems().stream().map(this::map).toList(),
                 requirement.destinationWarehouseId(),
                 requirement.createdAt(),
                 requirement.updatedAt(),
@@ -330,6 +402,13 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 requirement.submittedAt(),
                 requirement.submittedBy(),
                 requirement.lines().stream().map(this::map).toList());
+    }
+
+    private MaterialRequirementSourceItemView map(MaterialRequirementSourceItem item) {
+        return new MaterialRequirementSourceItemView(
+                item.sourceOrderId().value(),
+                item.sourceOrderItemId().value(),
+                item.requestedProductQuantity());
     }
 
     private MaterialRequirementLineView map(MaterialRequirementLine line) {
