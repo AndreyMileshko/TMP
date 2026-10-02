@@ -96,6 +96,33 @@
 
 ---
 
+## 0.6 IMPLEMENTATION PHASE 8 — Final Consolidation (2026-10-02)
+
+**Статус:** IMPLEMENTED (Cancellation + History Order Card UX; legacy audit; Stage 7 acceptance).
+
+| Элемент | Реализация |
+|---|---|
+| Completeness | LEVEL 1 tree + Order Card + Launch + Quantity Mode + MR + Readiness + Release + Cancellation + History |
+| Cancellation entry | Order Card **[Действия ▾]** → «Отменить производство…» (not primary) |
+| Cancellation permission | `production.cancellation.create`; visible only when Order View = `IN_PRODUCTION` |
+| Cancellation confirm | Human dialog: unfinished cancelled / released preserved / no Warehouse return; optional reason (API supports `Optional<String>`) |
+| Cancellation backend | Existing `cancelOrderProduction` / `CancelOrderProductionService` (order lock; whole-order; no Warehouse) |
+| History block | Order Card compact «ИСТОРИЯ»: latest operation or empty state |
+| History details | Dialog via `listProductionHistory`; Russian type labels; no raw English summary / UUID / entryId |
+| Actor | `actorRef` shown when human-readable (login); UUID → «—»; no new Security display-name API |
+| MR history gap | Submit MR still does **not** write history — **KNOWN NON-BLOCKING GAP** (DEP-9 retained) |
+| Material Transfer Template | **RETAINED** — public `listLogicalTransfers` / receipt path + ArchUnit rules + historical DB; not used by new MR flow |
+| Production receipt backend | **RETAINED** — `confirmMaterialReceipt` public API + ArchUnit; no Production UI action (Warehouse owns physical receipt) |
+| Legacy DB | **RETAINED** — no DROP / no migration edits |
+| Permissions | All 7 audited; `production.receipt.confirm` / `production.materials.check` retained as security contract (legacy-capable) |
+| Reservation | Unchanged — snapshot readiness + authoritative Release confirm |
+| Cutting | Deferred (`STAGE7-008A`) |
+| Docs | This file Phase 8 + `STAGE-7-PRODUCTION-COMPLETION.md` |
+
+**Stage 7 Production:** ready for closure after Phase 8 acceptance (tests / package / startup).
+
+---
+
 ## 0.4 IMPLEMENTATION PHASE 6 — Material Readiness Read Model (2026-10-02)
 
 **Статус:** IMPLEMENTED (Production-owned readiness read model + Order Card materials block). Phase 7 Release UX implemented (§0.5).
@@ -294,7 +321,7 @@ Production **не дублирует Warehouse**: остатки, ячейки, 
 | Изготовлено | `releasedQuantity` | |
 | Осталось | `activeProductionQuantity` | для `CANCELLED` — `0`, подпись «отменено» |
 
-Связь строк: `ItemProductionStateView.sourceOrderItemId` ↔ `OrderItemDto.orderItemId` (`OrderQueryService.getOrderItems`, сейчас `firstPage()` — см. OQ-8).
+Связь строк: `ItemProductionStateView.sourceOrderItemId` ↔ `OrderItemDto.orderItemId` (`OrderQueryService.getOrderItems` via `ProductionOrderItemsLoader` — all pages).
 
 **Удаляется:** Specification ID, UUID позиции (сейчас «номер / UUID»), Cutting UUID/count, Revision, checkbox-выбор строк на основном экране (выбор для выпуска переносится в мастер выпуска §11).
 
@@ -625,17 +652,18 @@ Release разрешён, если для каждой строки матери
 
 ---
 
-## 17. OPEN QUESTIONS (не решаются из существующих API)
+## 17. OPEN QUESTIONS — Phase 8 status
 
-1. **OQ-1:** Как точно вычислять «Получено» для каждой строки MR — по принятому количеству Transfer Documents (вкл. continuation) или по AVAILABLE на производственном складе? До ответа v1 показывает только «Доступно / Требуется / Не хватает» (Phase 6).
-2. **OQ-2:** Как определять readiness для partial release — по плановому расходу конкретного выпуска (R1) или по всему остатку заказа? Можно ли выпускать часть при нехватке для остатка? → Phase 6 foundation: both APIs exist; Phase 7 UX decides.
-3. **OQ-3 (UPDATED Phase 6):** Readiness = current AVAILABLE snapshot on production warehouse. **No new reservation** in Phase 6. Concurrent consumption remains possible between card view and Release; **Release confirm stays authoritative** (FOR UPDATE / stock precheck / consume). Cross-order stock competition is accepted for the read model.
-4. **OQ-4 (RESOLVED Phase 5):** Tree checkbox selection retained; cross-order prepare; repeated prepare creates a new DRAFT (allowed).
-5. **OQ-5:** Нужен ли отдельный Warehouse public query для material requirement fulfillment (DEP-3), или достаточно Production read-model поверх существующих Warehouse queries? (Phase 6 did not implement fulfillment tracking.)
-6. **OQ-6 (RESOLVED Phase 6):** Order Card readiness uses a dedicated read-only path (`MaterialReadinessQueryService`); does **not** write `MATERIALS_CHECKED`.
-7. **OQ-7:** Как отображать `actorRef` как ФИО пользователя (какой Security public query использовать)?
-8. **OQ-8 (RESOLVED):** `ProductionOrderItemsLoader` loads all item pages; no first-page truncation.
-9. **OQ-9 (RESOLVED Phase 2/5):** Material Requirement uses product quantity × norm (`lineQuantity` = per one product). Release readiness uses Release plan calculator (§15.1.1) — different semantics by design; do not mix.
+1. **OQ-1:** «Получено» per MR line (fulfillment tracking) — **OUT OF SCOPE / DEFERRED** for Stage 7. v1 shows Available / Required / Shortage (Phase 6).
+2. **OQ-2:** Partial release readiness basis — **RESOLVED (Phase 7):** readiness preflight uses selected release quantities via `getMaterialReadinessForRelease`; Release confirm remains authoritative.
+3. **OQ-3:** Reservation — **RESOLVED FOR STAGE 7:** no new reservation; AVAILABLE snapshot + authoritative Release confirm.
+4. **OQ-4:** MR selection / DRAFT — **RESOLVED (Phase 5).**
+5. **OQ-5:** Warehouse fulfillment public query — **DEFERRED / OUT OF SCOPE** Stage 7.
+6. **OQ-6:** MATERIALS_CHECKED side effect on card — **RESOLVED (Phase 6):** readiness is read-only.
+7. **OQ-7:** Actor display name — **DEFERRED:** show human-readable `actorRef` (login) when present; UUID → «—»; no new Security display-name subsystem in Phase 8.
+8. **OQ-8:** Item pagination — **RESOLVED:** `ProductionOrderItemsLoader` loads all pages.
+9. **OQ-9:** lineQuantity semantics — **RESOLVED (Phase 2/5 vs Release plan).**
+10. **DEP-9:** MR Submit history event — **KNOWN NON-BLOCKING GAP** (business flow works; no new history architecture in Phase 8).
 
 ---
 

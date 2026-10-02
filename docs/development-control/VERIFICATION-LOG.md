@@ -2,6 +2,34 @@
 
 ## Latest result
 
+**Date:** 2026-10-02
+**Scope:** Stage 7 Production — IMPLEMENTATION PHASE 8 Final Consolidation / Cleanup / Acceptance
+**Overall:** PASS
+**Migration:** NONE added by Phase 8 (Flyway validated **49** / current **49** on `tmp_gui_stage5`; V48/V49 already in repo from prior phases)
+**Base HEAD:** `9d0a7f7bc7deb8d0f0298096d5fe70b244b39451`
+**Working tree:** dirty (Phase 8 UX + docs); **no commit / no push**
+
+### Stage 7 Phase 8 Final Acceptance (2026-10-02)
+
+| Check | Result |
+|-------|--------|
+| Completeness gaps closed | Cancellation + History Order Card UX |
+| Legacy Template / Receipt | RETAINED (public API + ArchUnit + historical DB) — no destructive delete |
+| Targeted UI suites | PASS (67) |
+| `CancelOrderProductionServiceTest` + `DefaultProductionApplicationApiTest` | PASS (27) |
+| `Stage7ProductionArchitectureTest` | PASS (83) — not weakened |
+| Full reactor `mvn clean verify` | PASS — **29:02 min** (EXIT=0); Failures=0 |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS → `dist/jpackage/TMP/TMP.exe` **15:54:35** (453632 bytes) |
+| Startup `scripts/run-tmp-package.ps1` → `localhost:55432/tmp_gui_stage5` | PASS — Flyway validated 49 / current 49 / no migration; `Started DesktopBootstrap` **5.015s**; JavaFX unnamed-module WARN only; TMP PIDs alive |
+| Docs | `STAGE-7-PRODUCTION-UX-DESIGN.md` Phase 8; `STAGE-7-PRODUCTION-COMPLETION.md` STATUS COMPLETE |
+| Stage 8 | NOT STARTED |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
 **Date:** 2026-09-28
 **Scope:** Stage 3.5 Final Regression & Checkpoint — Warehouse + Security Stabilization
 **Overall:** PASS (targeted Warehouse/Security/Architecture + empty-state fix + clean install + fresh package + startup); Stage 3.5 remains IN PROGRESS; Full reactor NOT RUN

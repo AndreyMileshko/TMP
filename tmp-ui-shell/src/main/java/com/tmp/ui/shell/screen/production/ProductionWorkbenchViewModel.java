@@ -33,6 +33,8 @@ import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionListFacts;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionView;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionViewStatus;
+import com.tmp.production.api.ProductionQueryApi.ProductionHistoryEntryView;
+import com.tmp.production.api.ProductionQueryApi.ProductionHistoryType;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
@@ -46,7 +48,9 @@ import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -80,6 +84,8 @@ public final class ProductionWorkbenchViewModel {
 
     private static final String EMPTY_TREE = "Нет заказов в производстве";
     private static final String EMPTY_FILTERED = "Нет заказов, подходящих под фильтр";
+    private static final DateTimeFormatter HISTORY_AT =
+            DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
     public enum ScreenMode {
         TREE,
@@ -188,6 +194,7 @@ public final class ProductionWorkbenchViewModel {
     private final BooleanProperty loading = new SimpleBooleanProperty(false);
     private final BooleanProperty orderSelected = new SimpleBooleanProperty(false);
     private final BooleanProperty canAccept = new SimpleBooleanProperty(false);
+    private final BooleanProperty canCancel = new SimpleBooleanProperty(false);
     private final BooleanProperty canEditQuantityMode = new SimpleBooleanProperty(false);
     private final BooleanProperty quantityModeDirty = new SimpleBooleanProperty(false);
     private final BooleanProperty canRequestMaterials = new SimpleBooleanProperty(false);
@@ -197,6 +204,10 @@ public final class ProductionWorkbenchViewModel {
     private final BooleanProperty releaseEnabled = new SimpleBooleanProperty(false);
     private final BooleanProperty treeVisible = new SimpleBooleanProperty(true);
     private final BooleanProperty detailVisible = new SimpleBooleanProperty(false);
+    private final BooleanProperty historyEmpty = new SimpleBooleanProperty(true);
+    private final BooleanProperty historyDetailsVisible = new SimpleBooleanProperty(false);
+    private final StringProperty historyLatestAt = new SimpleStringProperty("");
+    private final StringProperty historyLatestOperation = new SimpleStringProperty("");
 
     private final StringProperty searchText = new SimpleStringProperty("");
     private final ObjectProperty<ProductionTreeStatusFilter> statusFilter =
@@ -209,6 +220,8 @@ public final class ProductionWorkbenchViewModel {
             new SimpleObjectProperty<>(QuantityModeView.STANDARD);
 
     private final ObservableList<ProductionItemRow> itemRows = FXCollections.observableArrayList();
+    private final ObservableList<ProductionHistoryRow> historyRows =
+            FXCollections.observableArrayList();
 
     private ScreenMode screenMode = ScreenMode.TREE;
     private List<LoadedProductionOrder> authoritativeOrders = List.of();
@@ -217,6 +230,8 @@ public final class ProductionWorkbenchViewModel {
     private UUID currentOrderId;
     private String currentOrderNumber = "";
     private OrderProductionViewStatus currentStatus;
+    private long currentRemainingQuantity;
+    private long currentReleasedQuantity;
     private QuantityModeView savedQuantityMode = QuantityModeView.STANDARD;
     private long quantityModeVersion;
     private boolean suppressingModeListener;
@@ -455,6 +470,34 @@ public final class ProductionWorkbenchViewModel {
                 ProductionUiErrorMapper.ACCEPT_FAILED);
     }
 
+    public void cancelOrderProduction(Optional<String> reason) {
+        if (loading.get()) {
+            return;
+        }
+        if (!canCancel.get() || currentOrderId == null) {
+            deny();
+            return;
+        }
+        Optional<String> safeReason = reason == null ? Optional.empty() : reason;
+        String success = ProductionUiErrorMapper.cancelSuccess(currentOrderNumber);
+        run(
+                success,
+                () -> {
+                    applicationApi.cancelOrderProduction(currentOrderId, safeReason);
+                    reloadCurrentOrder(true);
+                },
+                true,
+                ProductionUiErrorMapper.CANCEL_FAILED);
+    }
+
+    public long currentRemainingQuantity() {
+        return currentRemainingQuantity;
+    }
+
+    public long currentReleasedQuantity() {
+        return currentReleasedQuantity;
+    }
+
     public void selectQuantityMode(QuantityModeView mode) {
         Objects.requireNonNull(mode, "mode");
         if (!canEditQuantityMode.get()) {
@@ -607,6 +650,10 @@ public final class ProductionWorkbenchViewModel {
         return canAccept;
     }
 
+    public BooleanProperty canCancelProperty() {
+        return canCancel;
+    }
+
     public BooleanProperty canEditQuantityModeProperty() {
         return canEditQuantityMode;
     }
@@ -635,8 +682,28 @@ public final class ProductionWorkbenchViewModel {
         return releaseEnabled;
     }
 
+    public BooleanProperty historyEmptyProperty() {
+        return historyEmpty;
+    }
+
+    public BooleanProperty historyDetailsVisibleProperty() {
+        return historyDetailsVisible;
+    }
+
+    public StringProperty historyLatestAtProperty() {
+        return historyLatestAt;
+    }
+
+    public StringProperty historyLatestOperationProperty() {
+        return historyLatestOperation;
+    }
+
     public ObservableList<ProductionItemRow> itemRows() {
         return itemRows;
+    }
+
+    public ObservableList<ProductionHistoryRow> historyRows() {
+        return historyRows;
     }
 
     public UUID currentOrderId() {
@@ -1703,6 +1770,7 @@ public final class ProductionWorkbenchViewModel {
 
         long releasedTotal = 0L;
         long orderedTotal = 0L;
+        long remainingTotal = 0L;
         boolean hasState = false;
         List<ProductionItemRow> mappedItems = new ArrayList<>();
         int index = 1;
@@ -1712,6 +1780,7 @@ public final class ProductionWorkbenchViewModel {
                 hasState = true;
                 releasedTotal += state.releasedQuantity();
                 orderedTotal += state.orderedQuantity();
+                remainingTotal += state.activeProductionQuantity();
             } else {
                 Long fallback = orderedFallback.get(item.orderItemId().value());
                 if (fallback != null) {
@@ -1722,6 +1791,8 @@ public final class ProductionWorkbenchViewModel {
             index++;
         }
         itemRows.setAll(mappedItems);
+        currentReleasedQuantity = releasedTotal;
+        currentRemainingQuantity = remainingTotal;
         if (!hasState && orderedTotal == 0L) {
             progressLabel.set("—");
         } else {
@@ -1731,7 +1802,73 @@ public final class ProductionWorkbenchViewModel {
         OrderQuantityModeView modeView = applicationApi.getOrderQuantityMode(currentOrderId);
         applyQuantityMode(modeView, discardModeDraft);
         loadMaterialReadiness();
+        loadHistory();
         refreshActionPolicy();
+    }
+
+    private void loadHistory() {
+        if (currentOrderId == null) {
+            clearHistoryState();
+            return;
+        }
+        try {
+            List<ProductionHistoryEntryView> entries =
+                    queryApi.listProductionHistory(currentOrderId);
+            List<ProductionHistoryEntryView> sorted =
+                    entries.stream()
+                            .sorted(
+                                    Comparator.comparing(ProductionHistoryEntryView::occurredAt)
+                                            .reversed()
+                                            .thenComparing(
+                                                    ProductionHistoryEntryView::recordedAt,
+                                                    Comparator.reverseOrder()))
+                            .toList();
+            List<ProductionHistoryRow> rows = new ArrayList<>(sorted.size());
+            for (ProductionHistoryEntryView entry : sorted) {
+                ProductionHistoryType type = entry.historyType();
+                String operation = ProductionPresentationLabels.historyType(type);
+                rows.add(
+                        new ProductionHistoryRow(
+                                formatHistoryAt(entry.occurredAt()),
+                                operation,
+                                ProductionPresentationLabels.historyActor(entry.actorRef()),
+                                ProductionPresentationLabels.historyDescription(type)));
+            }
+            historyRows.setAll(rows);
+            if (rows.isEmpty()) {
+                historyEmpty.set(true);
+                historyDetailsVisible.set(false);
+                historyLatestAt.set("");
+                historyLatestOperation.set("");
+            } else {
+                historyEmpty.set(false);
+                historyDetailsVisible.set(true);
+                ProductionHistoryRow latest = rows.get(0);
+                historyLatestAt.set(latest.occurredAtLabel());
+                historyLatestOperation.set(latest.operationLabel());
+            }
+        } catch (RuntimeException ex) {
+            clearHistoryState();
+            historyEmpty.set(true);
+            historyLatestOperation.set(ProductionUiErrorMapper.HISTORY_LOAD_FAILED);
+            historyLatestAt.set("");
+            historyDetailsVisible.set(false);
+        }
+    }
+
+    private String formatHistoryAt(Instant instant) {
+        if (instant == null) {
+            return "—";
+        }
+        return HISTORY_AT.format(instant.atZone(zoneId));
+    }
+
+    private void clearHistoryState() {
+        historyRows.clear();
+        historyEmpty.set(true);
+        historyDetailsVisible.set(false);
+        historyLatestAt.set("");
+        historyLatestOperation.set("");
     }
 
     private void loadMaterialReadiness() {
@@ -1828,8 +1965,10 @@ public final class ProductionWorkbenchViewModel {
                 ProductionActionPolicy.evaluate(
                         orderSelected.get(),
                         currentStatus,
-                        has(UiShellScreens.PRODUCTION_ACCEPT_PERMISSION));
+                        has(UiShellScreens.PRODUCTION_ACCEPT_PERMISSION),
+                        has(UiShellScreens.PRODUCTION_CANCEL_PERMISSION));
         canAccept.set(decision.accept());
+        canCancel.set(decision.cancel());
         canEditQuantityMode.set(
                 orderSelected.get() && has(UiShellScreens.PRODUCTION_ACCEPT_PERMISSION));
     }
@@ -1838,6 +1977,8 @@ public final class ProductionWorkbenchViewModel {
         currentOrderId = null;
         currentOrderNumber = "";
         currentStatus = null;
+        currentRemainingQuantity = 0L;
+        currentReleasedQuantity = 0L;
         savedQuantityMode = QuantityModeView.STANDARD;
         quantityModeVersion = 0L;
         orderSelected.set(false);
@@ -1848,6 +1989,7 @@ public final class ProductionWorkbenchViewModel {
         statusLabel.set("");
         progressLabel.set("—");
         itemRows.clear();
+        clearHistoryState();
         suppressingModeListener = true;
         try {
             selectedQuantityMode.set(QuantityModeView.STANDARD);
@@ -1858,6 +2000,7 @@ public final class ProductionWorkbenchViewModel {
             suppressingModeListener = false;
         }
         canAccept.set(false);
+        canCancel.set(false);
         canEditQuantityMode.set(false);
         currentMaterialReadiness = null;
         materialsSummary.set("");
@@ -1906,7 +2049,8 @@ public final class ProductionWorkbenchViewModel {
         } catch (RuntimeException ex) {
             String mapped = ProductionUiErrorMapper.text(ex);
             if (ProductionUiErrorMapper.isQuantityModeConflict(ex)
-                    || ProductionUiErrorMapper.isAcceptConflict(ex)) {
+                    || ProductionUiErrorMapper.isAcceptConflict(ex)
+                    || ProductionUiErrorMapper.isCancelConflict(ex)) {
                 errorMessage.set(mapped);
                 statusMessage.set("");
                 if (currentOrderId != null) {

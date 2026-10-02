@@ -3,12 +3,19 @@ package com.tmp.ui.shell.screen.production;
 import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateStatus;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionViewStatus;
+import com.tmp.production.api.ProductionQueryApi.ProductionHistoryType;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * Russian presentation labels for Production Query DTOs. No business logic.
  */
 public final class ProductionPresentationLabels {
+
+    private static final Pattern UUID_PATTERN =
+            Pattern.compile(
+                    "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
     private ProductionPresentationLabels() {}
 
@@ -50,6 +57,39 @@ public final class ProductionPresentationLabels {
             case FLEXIBLE ->
                     "Количество можно указать вручную при запросе материалов и выпуске.";
         };
+    }
+
+    public static String historyType(ProductionHistoryType type) {
+        Objects.requireNonNull(type, "type");
+        return switch (type) {
+            case ORDER_ACCEPTED -> "Заказ принят в производство";
+            case MATERIALS_CHECKED -> "Проверка материалов";
+            case MATERIAL_TRANSFER_CREATED -> "Создано перемещение материалов";
+            case MATERIAL_RECEIPT_CONFIRMED -> "Получение материалов подтверждено";
+            case PRODUCTS_RELEASED -> "Выпуск изделий";
+            case PLAN_FACT_DEVIATION -> "Отклонение фактического расхода";
+            case PRODUCTION_CANCELLED -> "Производство отменено";
+        };
+    }
+
+    /**
+     * Actor display for history. Shows human-readable actorRef (login) when present; never shows
+     * UUID. Fallback «—» when missing or technical.
+     */
+    public static String historyActor(Optional<String> actorRef) {
+        if (actorRef == null || actorRef.isEmpty()) {
+            return "—";
+        }
+        String value = actorRef.get().trim();
+        if (value.isEmpty() || UUID_PATTERN.matcher(value).matches()) {
+            return "—";
+        }
+        return value;
+    }
+
+    /** Short operation label only — never raw English summary or technical payload. */
+    public static String historyDescription(ProductionHistoryType type) {
+        return historyType(type);
     }
 
     public static String materialsSummary(

@@ -26,6 +26,13 @@ public final class ProductionUiErrorMapper {
     public static final String ACCEPT_CONFLICT =
             "Заказ уже принят в производство. Данные обновлены.";
     public static final String ACCEPT_FAILED = "Не удалось принять заказ в производство.";
+    public static final String CANCEL_CONFLICT =
+            "Производство заказа уже отменено или состояние изменилось. Данные обновлены.";
+    public static final String CANCEL_FAILED = "Не удалось отменить производство заказа.";
+    public static final String CANCEL_SUCCESS_PREFIX = "Производство заказа №";
+    public static final String CANCEL_SUCCESS_SUFFIX = " отменено.";
+    public static final String HISTORY_EMPTY = "Операций по производству пока не было";
+    public static final String HISTORY_LOAD_FAILED = "Не удалось загрузить историю производства.";
     public static final String VALIDATION = "Проверьте заполненные данные.";
     public static final String TECHNICAL_FAILURE =
             "Не удалось выполнить операцию. Повторите попытку.";
@@ -115,6 +122,13 @@ public final class ProductionUiErrorMapper {
                     || simple.contains("AlreadyLaunched")) {
                 return ACCEPT_CONFLICT;
             }
+            if (simple.contains("ProductionCancellationAlreadyExists")
+                    || (lower.contains("cancellation")
+                            && (lower.contains("already")
+                                    || lower.contains("only when order production view is"
+                                            + " in_production")))) {
+                return CANCEL_CONFLICT;
+            }
             if (isReleaseCancelled(simple, lower)) {
                 return RELEASE_CANCELLED;
             }
@@ -194,6 +208,18 @@ public final class ProductionUiErrorMapper {
         return ACCEPT_CONFLICT.equals(text(error));
     }
 
+    public static boolean isCancelConflict(Throwable error) {
+        return CANCEL_CONFLICT.equals(text(error));
+    }
+
+    public static String cancelSuccess(String orderNumber) {
+        String number = orderNumber == null || orderNumber.isBlank() ? "" : orderNumber.trim();
+        if (number.isEmpty()) {
+            return "Производство заказа отменено.";
+        }
+        return CANCEL_SUCCESS_PREFIX + number + CANCEL_SUCCESS_SUFFIX;
+    }
+
     public static boolean isReleaseQuantityConflict(Throwable error) {
         return RELEASE_QUANTITY_CONFLICT.equals(text(error));
     }
@@ -213,6 +239,7 @@ public final class ProductionUiErrorMapper {
                 || QUANTITY_MODE_CONFLICT.equals(mapped)
                 || QUANTITY_MODE_CHANGED_FOR_REQUEST.equals(mapped)
                 || ACCEPT_CONFLICT.equals(mapped)
+                || CANCEL_CONFLICT.equals(mapped)
                 || MATERIAL_DRAFT_CONFLICT.equals(mapped)
                 || MATERIAL_COVERAGE_CHANGED.equals(mapped)
                 || RELEASE_QUANTITY_CONFLICT.equals(mapped)

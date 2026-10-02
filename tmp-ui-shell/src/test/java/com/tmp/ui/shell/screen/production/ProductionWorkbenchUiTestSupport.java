@@ -256,6 +256,7 @@ final class ProductionWorkbenchUiTestSupport {
         final List<List<MaterialActualUsageView>> releaseUsageCalls = new CopyOnWriteArrayList<>();
         final List<UUID> cancelCalls = new CopyOnWriteArrayList<>();
         final List<Optional<String>> cancelReasons = new CopyOnWriteArrayList<>();
+        RuntimeException cancelFailure;
         List<MaterialRequirementProductSelectionView> lastPrepareSelections = List.of();
 
         MaterialRequirementView requirement;
@@ -494,6 +495,9 @@ final class ProductionWorkbenchUiTestSupport {
         public void cancelOrderProduction(UUID orderId, Optional<String> reason) {
             cancelCalls.add(orderId);
             cancelReasons.add(reason);
+            if (cancelFailure != null) {
+                throw cancelFailure;
+            }
         }
 
         @Override

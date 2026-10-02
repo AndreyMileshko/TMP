@@ -20,13 +20,19 @@ import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuButton;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.RadioButton;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TreeItem;
@@ -36,6 +42,7 @@ import javafx.scene.control.TreeTableRow;
 import javafx.scene.control.TreeTableView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.util.StringConverter;
 
@@ -122,7 +129,16 @@ public final class ProductionWorkbenchController
     private Button backToTreeButton;
 
     @FXML
-    private Button detailRefreshButton;
+    private MenuButton actionsMenuButton;
+
+    @FXML
+    private MenuItem actionsRefreshMenuItem;
+
+    @FXML
+    private SeparatorMenuItem actionsCancelSeparator;
+
+    @FXML
+    private MenuItem actionsCancelMenuItem;
 
     @FXML
     private Label orderTitleLabel;
@@ -168,6 +184,24 @@ public final class ProductionWorkbenchController
 
     @FXML
     private Button materialsDetailsButton;
+
+    @FXML
+    private VBox historyBlock;
+
+    @FXML
+    private Label historyEmptyLabel;
+
+    @FXML
+    private VBox historyLatestPane;
+
+    @FXML
+    private Label historyLatestAtLabel;
+
+    @FXML
+    private Label historyLatestOperationLabel;
+
+    @FXML
+    private Button historyDetailsButton;
 
     @FXML
     private TableView<ProductionItemRow> itemsTable;
@@ -272,8 +306,12 @@ public final class ProductionWorkbenchController
         periodPresetCombo.valueProperty().bindBidirectional(viewModel.periodPresetProperty());
 
         refreshButton.setOnAction(e -> viewModel.refresh());
-        detailRefreshButton.setOnAction(e -> viewModel.refresh());
         backToTreeButton.setOnAction(e -> viewModel.backToTree());
+        actionsRefreshMenuItem.setOnAction(e -> viewModel.refresh());
+        actionsCancelMenuItem.setOnAction(e -> confirmCancelProduction());
+        actionsCancelMenuItem.visibleProperty().bind(viewModel.canCancelProperty());
+        actionsCancelSeparator.visibleProperty().bind(viewModel.canCancelProperty());
+        actionsMenuButton.disableProperty().bind(viewModel.loadingProperty());
 
         requestMaterialsButton.visibleProperty().bind(viewModel.canRequestMaterialsProperty());
         requestMaterialsButton.managedProperty().bind(viewModel.canRequestMaterialsProperty());
@@ -310,8 +348,22 @@ public final class ProductionWorkbenchController
         acceptButton.setOnAction(e -> confirmAccept());
 
         bindQuantityModeControls();
+        bindHistoryBlock();
         bindProductionTree();
         bindItemsTable();
+    }
+
+    private void bindHistoryBlock() {
+        historyEmptyLabel.visibleProperty().bind(viewModel.historyEmptyProperty());
+        historyEmptyLabel.managedProperty().bind(viewModel.historyEmptyProperty());
+        historyLatestPane.visibleProperty().bind(viewModel.historyDetailsVisibleProperty());
+        historyLatestPane.managedProperty().bind(viewModel.historyDetailsVisibleProperty());
+        historyLatestAtLabel.textProperty().bind(viewModel.historyLatestAtProperty());
+        historyLatestOperationLabel
+                .textProperty()
+                .bind(viewModel.historyLatestOperationProperty());
+        historyDetailsButton.disableProperty().bind(viewModel.loadingProperty());
+        historyDetailsButton.setOnAction(e -> showHistoryDetails());
     }
 
     private void bindQuantityModeControls() {
@@ -584,6 +636,94 @@ public final class ProductionWorkbenchController
         alert.showAndWait()
                 .filter(response -> response == ButtonType.OK)
                 .ifPresent(response -> viewModel.acceptOrder());
+    }
+
+    private void confirmCancelProduction() {
+        String number = viewModel.currentOrderNumber();
+        String orderCaption = number == null || number.isBlank() ? "заказ" : "Заказ №" + number;
+        Dialog<ButtonType> dialog = new Dialog<>();
+        TmpTheme.apply(dialog.getDialogPane());
+        dialog.setTitle("Отменить производство");
+        dialog.setHeaderText("ОТМЕНИТЬ ПРОИЗВОДСТВО?");
+
+        Label orderLabel = new Label(orderCaption);
+        Label unfinished =
+                new Label("Незавершённые изделия будут отменены.");
+        Label remaining =
+                new Label("Осталось: " + viewModel.currentRemainingQuantity() + " шт.");
+        Label released =
+                new Label("Уже выпущено: " + viewModel.currentReleasedQuantity() + " шт.");
+        Label warehouseNote =
+                new Label(
+                        "Материалы на производственном складе автоматически не возвращаются.");
+        warehouseNote.setWrapText(true);
+        Label reasonCaption = new Label("Причина:");
+        TextArea reasonArea = new TextArea();
+        reasonArea.setPrefRowCount(3);
+        reasonArea.setWrapText(true);
+        reasonArea.setPromptText("Необязательно");
+
+        VBox content =
+                new VBox(
+                        8,
+                        orderLabel,
+                        unfinished,
+                        remaining,
+                        released,
+                        warehouseNote,
+                        reasonCaption,
+                        reasonArea);
+        dialog.getDialogPane().setContent(content);
+
+        ButtonType confirmType =
+                new ButtonType("Отменить производство", ButtonBar.ButtonData.OK_DONE);
+        ButtonType dismissType =
+                new ButtonType("Не отменять", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().setAll(confirmType, dismissType);
+
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (result.isEmpty() || result.get() != confirmType) {
+            return;
+        }
+        String reasonText = reasonArea.getText() == null ? "" : reasonArea.getText().trim();
+        viewModel.cancelOrderProduction(
+                reasonText.isEmpty() ? Optional.empty() : Optional.of(reasonText));
+    }
+
+    private void showHistoryDetails() {
+        Dialog<Void> dialog = new Dialog<>();
+        TmpTheme.apply(dialog.getDialogPane());
+        dialog.setTitle("История производства");
+        dialog.setHeaderText("ИСТОРИЯ ПРОИЗВОДСТВА");
+
+        TableView<ProductionHistoryRow> table = new TableView<>();
+        table.setEditable(false);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        TableColumn<ProductionHistoryRow, String> atColumn = new TableColumn<>("Дата / время");
+        TableColumn<ProductionHistoryRow, String> operationColumn = new TableColumn<>("Операция");
+        TableColumn<ProductionHistoryRow, String> actorColumn = new TableColumn<>("Пользователь");
+        TableColumn<ProductionHistoryRow, String> descriptionColumn =
+                new TableColumn<>("Описание");
+        atColumn.setCellValueFactory(
+                c -> new SimpleStringProperty(c.getValue().occurredAtLabel()));
+        operationColumn.setCellValueFactory(
+                c -> new SimpleStringProperty(c.getValue().operationLabel()));
+        actorColumn.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().actorLabel()));
+        descriptionColumn.setCellValueFactory(
+                c -> new SimpleStringProperty(c.getValue().descriptionLabel()));
+        table.getColumns().setAll(atColumn, operationColumn, actorColumn, descriptionColumn);
+        table.setItems(FXCollections.observableArrayList(viewModel.historyRows()));
+        table.setPrefHeight(360);
+        table.setPrefWidth(720);
+        VBox.setVgrow(table, Priority.ALWAYS);
+
+        dialog.getDialogPane().setContent(table);
+        dialog.getDialogPane().getButtonTypes().setAll(ButtonType.CLOSE);
+        Button close = (Button) dialog.getDialogPane().lookupButton(ButtonType.CLOSE);
+        if (close != null) {
+            close.setText("Закрыть");
+        }
+        dialog.showAndWait();
     }
 
     private void startMaterialRequest() {

@@ -345,6 +345,162 @@ class ProductionWorkbenchViewModelTest {
                         ORDER_ID, OrderProductionViewStatus.IN_PRODUCTION, 20, 0, 20));
     }
 
+    @Test
+    void cancelAvailableInProductionWithPermission() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+
+        assertTrue(viewModel.canCancelProperty().get());
+        assertEquals(20L, viewModel.currentRemainingQuantity());
+        assertEquals(0L, viewModel.currentReleasedQuantity());
+    }
+
+    @Test
+    void cancelHiddenWithoutPermission() {
+        auth =
+                new AllowAllAuthorization(
+                        Set.of(
+                                UiShellScreens.PRODUCTION_VIEW_PERMISSION,
+                                UiShellScreens.PRODUCTION_ACCEPT_PERMISSION));
+        viewModel = newViewModel(auth);
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+
+        assertFalse(viewModel.canCancelProperty().get());
+    }
+
+    @Test
+    void cancelUnavailableForManufacturedAndCancelled() {
+        seedDetailOrder(OrderProductionViewStatus.MANUFACTURED);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+        assertFalse(viewModel.canCancelProperty().get());
+
+        seedDetailOrder(OrderProductionViewStatus.CANCELLED);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+        assertFalse(viewModel.canCancelProperty().get());
+    }
+
+    @Test
+    void cancelUnavailableForNotAccepted() {
+        seedDetailOrder(OrderProductionViewStatus.NOT_ACCEPTED);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+        assertFalse(viewModel.canCancelProperty().get());
+    }
+
+    @Test
+    void cancelSuccessCallsApiAndRefreshes() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+        queryApi.view =
+                new OrderProductionView(
+                        ORDER_ID, OrderProductionViewStatus.CANCELLED, 2, 20, 0, 0, 0);
+
+        viewModel.cancelOrderProduction(Optional.of("тест"));
+
+        assertEquals(List.of(ORDER_ID), applicationApi.cancelCalls);
+        assertEquals(List.of(Optional.of("тест")), applicationApi.cancelReasons);
+        assertEquals(
+                ProductionUiErrorMapper.cancelSuccess("ORD-1"),
+                viewModel.statusMessageProperty().get());
+        assertEquals("Отменён", viewModel.statusLabelProperty().get());
+        assertFalse(viewModel.canCancelProperty().get());
+    }
+
+    @Test
+    void cancelConflictShowsMessageAndRefreshes() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+        applicationApi.cancelFailure =
+                new RuntimeException("ProductionCancellationAlreadyExistsException");
+        queryApi.view =
+                new OrderProductionView(
+                        ORDER_ID, OrderProductionViewStatus.CANCELLED, 2, 20, 0, 0, 0);
+
+        viewModel.cancelOrderProduction(Optional.empty());
+
+        assertEquals(
+                ProductionUiErrorMapper.CANCEL_CONFLICT, viewModel.errorMessageProperty().get());
+        assertEquals("Отменён", viewModel.statusLabelProperty().get());
+    }
+
+    @Test
+    void historyEmptyStateWhenNoEntries() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+
+        assertTrue(viewModel.historyEmptyProperty().get());
+        assertFalse(viewModel.historyDetailsVisibleProperty().get());
+        assertTrue(viewModel.historyRows().isEmpty());
+    }
+
+    @Test
+    void historyShowsLatestHumanReadableWithoutRawSummary() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        Instant older = Instant.parse("2026-10-02T07:00:00Z");
+        Instant newer = Instant.parse("2026-10-02T07:05:00Z");
+        queryApi.history.add(
+                new com.tmp.production.api.ProductionQueryApi.ProductionHistoryEntryView(
+                        UUID.randomUUID(),
+                        ORDER_ID,
+                        com.tmp.production.api.ProductionQueryApi.ProductionHistoryType
+                                .ORDER_ACCEPTED,
+                        older,
+                        older,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of("tester"),
+                        Optional.of("Order accepted into production")));
+        queryApi.history.add(
+                new com.tmp.production.api.ProductionQueryApi.ProductionHistoryEntryView(
+                        UUID.randomUUID(),
+                        ORDER_ID,
+                        com.tmp.production.api.ProductionQueryApi.ProductionHistoryType
+                                .PRODUCTS_RELEASED,
+                        newer,
+                        newer,
+                        Optional.empty(),
+                        Optional.of(UUID.randomUUID()),
+                        Optional.of(UUID.randomUUID()),
+                        Optional.empty(),
+                        Optional.of("Products released")));
+
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+
+        assertFalse(viewModel.historyEmptyProperty().get());
+        assertTrue(viewModel.historyDetailsVisibleProperty().get());
+        assertEquals("Выпуск изделий", viewModel.historyLatestOperationProperty().get());
+        assertEquals(2, viewModel.historyRows().size());
+        assertEquals("Выпуск изделий", viewModel.historyRows().get(0).operationLabel());
+        assertEquals("—", viewModel.historyRows().get(0).actorLabel());
+        assertEquals("tester", viewModel.historyRows().get(1).actorLabel());
+        assertFalse(viewModel.historyLatestOperationProperty().get().contains("Products"));
+        assertFalse(viewModel.historyRows().get(0).descriptionLabel().contains("UUID"));
+    }
+
+    @Test
+    void historyActorUuidFallbackIsDash() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        Instant at = Instant.parse("2026-10-02T07:05:00Z");
+        queryApi.history.add(
+                new com.tmp.production.api.ProductionQueryApi.ProductionHistoryEntryView(
+                        UUID.randomUUID(),
+                        ORDER_ID,
+                        com.tmp.production.api.ProductionQueryApi.ProductionHistoryType
+                                .ORDER_ACCEPTED,
+                        at,
+                        at,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of("11111111-1111-4111-8111-111111111111"),
+                        Optional.of("Order accepted into production")));
+
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+
+        assertEquals("—", viewModel.historyRows().get(0).actorLabel());
+    }
+
     private void seedDetailOrder(OrderProductionViewStatus status) {
         seedTreeOrder();
         queryApi.view = new OrderProductionView(ORDER_ID, status, 2, 20, 0, 0, 0);

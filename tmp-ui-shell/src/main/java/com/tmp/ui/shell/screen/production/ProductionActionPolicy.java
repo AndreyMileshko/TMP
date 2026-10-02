@@ -10,21 +10,26 @@ public final class ProductionActionPolicy {
 
     private ProductionActionPolicy() {}
 
-    public record Decision(boolean accept) {
+    public record Decision(boolean accept, boolean cancel) {
 
         public static Decision none() {
-            return new Decision(false);
+            return new Decision(false, false);
         }
     }
 
     public static Decision evaluate(
-            boolean orderSelected, OrderProductionViewStatus status, boolean acceptPermission) {
+            boolean orderSelected,
+            OrderProductionViewStatus status,
+            boolean acceptPermission,
+            boolean cancelPermission) {
         if (!orderSelected || status == null) {
             return Decision.none();
         }
-        if (status == OrderProductionViewStatus.NOT_ACCEPTED && acceptPermission) {
-            return new Decision(true);
-        }
-        return Decision.none();
+        boolean accept =
+                status == OrderProductionViewStatus.NOT_ACCEPTED && acceptPermission;
+        // Backend allows cancellation only when Order Production View is IN_PRODUCTION.
+        boolean cancel =
+                status == OrderProductionViewStatus.IN_PRODUCTION && cancelPermission;
+        return new Decision(accept, cancel);
     }
 }
