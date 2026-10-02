@@ -115,6 +115,17 @@
 
         <Separator/>
 
+        <VBox fx:id="materialsBlock" spacing="6">
+            <Label text="МАТЕРИАЛЫ" style="-fx-font-weight: bold;"/>
+            <Label fx:id="materialsSummaryLabel" style="-fx-wrap-text: true;"/>
+            <Label fx:id="materialsDetailLabel" style="-fx-wrap-text: true; -fx-opacity: 0.85;"/>
+            <HBox spacing="8">
+                <Button fx:id="materialsDetailsButton" text="Подробнее"/>
+            </HBox>
+        </VBox>
+
+        <Separator/>
+
         <Label text="Позиции" style="-fx-font-weight: bold;"/>
         <TableView fx:id="itemsTable" prefHeight="280" VBox.vgrow="ALWAYS">
             <columns>

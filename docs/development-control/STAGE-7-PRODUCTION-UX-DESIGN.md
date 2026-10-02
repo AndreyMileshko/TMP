@@ -36,13 +36,13 @@
 | Phase 2 shim | **DELETED in Phase 4** — no remaining `src/main` callers of single-order prepare |
 | Adapter | `selectedItemsForMaterialRequirement()` → `MaterialRequirementSourceItemRefView` list; Phase 5 prepare/submit wired |
 
-**Следующая фаза:** Phase 6 — Materials Read Model / readiness.
+**Следующая фаза:** Phase 7 — Release UX.
 
 ---
 
 ## 0.3 IMPLEMENTATION PHASE 5 — Cross-Order Material Requirement UX (2026-10-02)
 
-**Статус:** IMPLEMENTED (LEVEL 1 tree → Material Request wizard). Phase 6+ не начаты.
+**Статус:** IMPLEMENTED (LEVEL 1 tree → Material Request wizard). Phase 6 Materials Readiness implemented (§0.4).
 
 | Элемент | Реализация |
 |---|---|
@@ -60,15 +60,36 @@
 | DRAFT persistence | Close не удаляет; reopen через **[Черновики материалов]** + `listMaterialRequirementDrafts` / `getMaterialRequirement` |
 | Multiple DRAFTs | Список по дате/времени + N позиций / M заказов (без UUID) |
 | After Submit | Toast; clear selection submitted items; remain on LEVEL 1 tree |
-| Out of scope | Release UX, readiness, receipt, reservation, Cutting, History redesign |
+| Out of scope | Release UX, readiness (→ Phase 6), receipt, reservation, Cutting, History redesign |
 
-**Следующая фаза:** Phase 6 — Production Materials Read Model / Warehouse fulfillment visibility / readiness gate foundation.
+**Следующая фаза:** Phase 7 — Release UX.
+
+---
+
+## 0.4 IMPLEMENTATION PHASE 6 — Material Readiness Read Model (2026-10-02)
+
+**Статус:** IMPLEMENTED (Production-owned readiness read model + Order Card materials block). Phase 7+ не начаты.
+
+| Элемент | Реализация |
+|---|---|
+| Required source | Same as Release: `ReleaseMaterialPlanBuilder` / `PartialReleaseMaterialPlanCalculator` (§15.1.1) — **not** Material Requirement quantity |
+| Available source | Warehouse `AVAILABLE` on production warehouse only (`WarehouseAvailabilityQueryPort.availableQuantities` → `getStockByWarehouse`, AVAILABLE cells aggregated) |
+| Overall | READY iff every line `available >= required`; else NOT_READY; missing warehouse → `NO_PRODUCTION_WAREHOUSE`; NOT_ACCEPTED/MANUFACTURED/CANCELLED → `NOT_APPLICABLE` |
+| Public API | `getOrderRemainingMaterialReadiness(orderId)`; `getMaterialReadinessForRelease(orderId, itemReleases)` |
+| Permission | `production.order.view` only (read-only; no `materials.check`, no `release.create`) |
+| Side effects | None: no MATERIALS_CHECKED history, no reservation, no Warehouse mutation |
+| Persistence | None (volatile Warehouse snapshot) |
+| Order Card | Materials block: summary + [Подробнее] dialog (Требуется / Доступно / Не хватает / Ед.); no cells/docs/UUID; no «Получено» |
+| Reservation | **Not introduced.** Snapshot only; Release confirm remains authoritative |
+| Out of scope | Release UX, fulfillment tracking, Warehouse receipt, MR redesign |
+
+**Следующая фаза:** Phase 7 — Release UX (tree selection → Release; STANDARD/FLEXIBLE quantities; readiness preflight; confirm under locks).
 
 ---
 
 ## 0.2 IMPLEMENTATION PHASE 4 — Order Production Card + Quantity Mode UX (2026-10-02)
 
-**Статус:** IMPLEMENTED (LEVEL 2 Order Card). Phase 5 Material Request UX implemented (§0.3).
+**Статус:** IMPLEMENTED (LEVEL 2 Order Card). Phase 5 Material Request UX implemented (§0.3). Phase 6 Materials block implemented (§0.4).
 
 | Элемент | Реализация |
 |---|---|
@@ -87,7 +108,7 @@
 | Legacy MR shim | **DELETED** — `prepareMaterialRequirement(orderId, itemIds)` API/service overload removed (no `src/main` callers) |
 | Backend preserved | Quantity Mode, cross-order MR list prepare, Release / Partial Release unchanged |
 
-**Следующая фаза:** Phase 6 — Production Materials Read Model / readiness (см. §0.3).
+**Следующая фаза:** Phase 7 — Release UX (см. §0.4).
 
 ---
 
@@ -317,22 +338,17 @@ Production **не дублирует Warehouse**: остатки, ячейки, 
 
 Состояние строки: «Готов» / «Не хватает N ед.» — без технических статусов `MATERIAL_UNRESOLVED/AMBIGUOUS`; для них — «Материал не найден в справочнике склада» / «Материал определён неоднозначно — обратитесь к складу».
 
-### 7.3 Material Requirement flow (основа сохраняется: DRAFT → edit → Submit → Warehouse Transfer Documents)
+### 7.3 Material Requirement flow (IMPLEMENTED Phase 5 — cross-order)
 
-1. **[Запросить материалы]** → `prepareMaterialRequirement(orderId, selectedOrderItemIds)`. В целевом UX выбор позиций не показывается: передаются все позиции заказа с `activeProductionQuantity > 0` (согласовано с whole-order моделью). Подтверждение этого выбора — OQ-4.
-2. Открывается окно **«Потребность в материалах»** (статус «Черновик»): таблица Артикул / Наименование / Цвет / Ед. / Количество. Количество редактируется inline только в `DRAFT` (`changeMaterialRequirementQuantity`, optimistic version). Отдельная кнопка «Применить количество» заменяется сохранением при подтверждении ячейки; контрол gated `production.transfer.create` (устраняет audit mismatch #1).
-3. **[Отправить на склад]** → `submitMaterialRequirement`. Результат: «Материалы запрошены. Склад подготовит перемещение». Номера/UUID Transfer Documents не показываются.
-4. После Submit окно только для чтения. Добавление/удаление строк не проектируется (текущий API поддерживает только изменение количества).
+> Historical single-order assumption removed. See §0.3 for the authoritative Phase 5 implementation.
 
-Ошибки submit → понятные сообщения:
+1. LEVEL 1 Tree selection (cross-order) → **[Запросить материалы]** → STEP 1 product quantities (STANDARD/FLEXIBLE via `getOrderQuantityModes` + coverage).
+2. `prepareMaterialRequirement(List<MaterialRequirementProductSelectionView>)` creates a persisted DRAFT (not ViewModel-only memory).
+3. STEP 2: edit line quantities (`changeMaterialRequirementQuantity` + optimistic version) → **[Отправить на склад]** → `submitMaterialRequirement`.
+4. Reopen DRAFTs via **[Черновики материалов]** (`listMaterialRequirementDrafts` / `getMaterialRequirement`).
+5. Selection of positions is retained (checkbox tree); repeated prepare creates a new DRAFT (allowed).
 
-| Техническая причина | Сообщение |
-|---|---|
-| `DemandSourceUnavailableException` (нет AVAILABLE источника) | «Материал 101.305 отсутствует на складах. Запрос не отправлен — уточните количество или обратитесь к складу» |
-| Нет производственного склада (`destinationWarehouse` пуст) | «Не назначен производственный склад. Обратитесь к администратору склада» |
-| Optimistic conflict | «Потребность изменена другим пользователем. Данные обновлены» |
-
-Терминология «шаблон», «логическое перемещение», «Material Transfer Template» в UX отсутствует.
+Ошибки submit → понятные сообщения (см. Phase 5 UI mapper). Терминология «шаблон» / «логическое перемещение» в UX отсутствует.
 
 ---
 
@@ -340,13 +356,13 @@ Production **не дублирует Warehouse**: остатки, ячейки, 
 
 | Presentation state | Смысл | Источник | Доступность источника |
 |---|---|---|---|
-| **НЕ ЗАПРОШЕНЫ** | Потребность не создана или черновик не отправлен | наличие/статус MR по заказу | **DEP-1** — нет публичного запроса MR по заказу; сейчас MR хранится только в памяти ViewModel |
-| **ЗАПРОШЕНЫ** | MR `SUBMITTED`, склад ещё не отправил | MR `SUBMITTED` + сгенерированные документы в `DocumentStatus.DRAFT` (`WarehouseQueryApi.getTransferDocument(id).documentStatus`) | **DEP-1 + DEP-2** — id сгенерированных документов есть только в `SubmitMaterialRequirementResultView` в момент submit |
-| **ОЖИДАЮТСЯ** | Отправлено, в пути, не принято | документы `POSTED` + `settlementState = AWAITING_RECEIPT` | **DEP-2** (+ continuation-документы `continuationOfDocumentId` — DEP-3) |
-| **ЧАСТИЧНО ПОЛУЧЕНЫ** | Часть получена | часть документов `SETTLED`/`CLOSED` или частичная приёмка / открытый continuation; либо (вариант по складу) часть строк покрыта AVAILABLE на произв. складе | per-line received — **DEP-3**; вариант по складу — AVAILABLE (§9) |
-| **ГОТОВЫ** | Необходимые материалы доступны на производственном складе | AVAILABLE на production warehouse ≥ требуемого (§9) | AVAILABLE через существующие источники; Production-owned read model — **DEP-8** |
+| **НЕ ЗАПРОШЕНЫ** | Потребность не создана или черновик не отправлен | наличие/статус MR | **DEP-1 RESOLVED (partial):** DRAFT reopen via `listMaterialRequirementDrafts` / `getMaterialRequirement`; per-order MR list for card S1–S3 still optional |
+| **ЗАПРОШЕНЫ** | MR `SUBMITTED`, склад ещё не отправил | MR `SUBMITTED` + generated Transfer Documents | **DEP-1 + DEP-2** — document ids after submit still not a durable public per-order query |
+| **ОЖИДАЮТСЯ** | Отправлено, в пути, не принято | документы `POSTED` + `AWAITING_RECEIPT` | **DEP-2** (out of Phase 6 scope) |
+| **ЧАСТИЧНО ПОЛУЧЕНЫ** | Часть получена | Transfer fulfillment | **DEP-3** (out of Phase 6 scope) |
+| **ГОТОВЫ** | Необходимые материалы AVAILABLE на производственном складе | Release plan vs production-warehouse AVAILABLE | **DEP-8 RESOLVED (Phase 6):** `getOrderRemainingMaterialReadiness` / `getMaterialReadinessForRelease` |
 
-Правило приоритета: состояние **ГОТОВЫ** определяется **фактическим наличием на производственном складе** (D2), а не статусом документов. Состояния ЗАПРОШЕНЫ/ОЖИДАЮТСЯ/ЧАСТИЧНО — информационные, описывают ход снабжения.
+Правило приоритета: состояние **ГОТОВЫ** определяется **фактическим наличием на производственном складе**, а не статусом MR (`SUBMITTED ≠ READY`). Phase 6 Order Card показывает Требуется / Доступно / Не хватает — без «Получено».
 
 ---
 
@@ -368,19 +384,21 @@ Release разрешён, если для каждой строки матери
 
 ### 9.3 Целевое поведение
 
-- **Карточка (S3/S4):** готовность заказа к выпуску остатка. Источник данных — R1 (для всего `activeProductionQuantity`) + R2 + R3, либо R5. Вычисление готовности — бизнес-правило, поэтому оно должно жить в Production application layer, а не в UI. Публичного Production read-метода «готовность к выпуску» нет → **DEP-8**. UI не должен самостоятельно комбинировать Warehouse API для вывода правила допуска.
-- **Мастер выпуска (§11):** после ввода «К выпуску» — R1 для введённых количеств; строки, где AVAILABLE < план, подсвечиваются; [Выпустить] disabled.
-- **Confirm:** R4 остаётся последней линией защиты (concurrency: остаток мог быть израсходован между preview и confirm). Ошибка R4 маппится в сообщение: «Недостаточно материала 101.305 на производственном складе (доступно 25 м, требуется 40 м). Выпуск не выполнен».
-- Отдельная кнопка «Проверить наличие» удаляется из рабочего потока; если выбран R5, проверка вызывается неявно при открытии карточки/«Обновить» — решение по побочной записи истории — OQ-6.
+- **Карточка (S3/S4):** готовность заказа к выпуску остатка через `getOrderRemainingMaterialReadiness` (Phase 6 / DEP-8). Required = Release plan for active remainder; Available = production-warehouse AVAILABLE. UI only displays the result.
+- **Мастер выпуска (§11 / Phase 7):** `getMaterialReadinessForRelease` for entered quantities; [Выпустить] gating.
+- **Confirm:** R4 остаётся последней линией защиты. Phase 6 snapshot **не** заменяет confirm validation.
+- Кнопка «Проверить наличие» удалена; Order Card readiness path is read-only (no MATERIALS_CHECKED).
 
 ### 9.4 Тексты причины
 
-| Ситуация | Текст под disabled [Выпустить] |
+| Ситуация | Текст |
 |---|---|
-| Материалы не запрошены | «Материалы ещё не запрошены» |
-| Не хватает материалов | «Недостаточно материалов для выпуска» + [Подробнее] |
-| Нет производственного склада | «Не назначен производственный склад» |
-| Нет прав | кнопка скрыта |
+| READY | «✓ Материалов достаточно для выпуска оставшихся изделий.» + [Подробнее] |
+| NOT_READY | «Недостаточно материалов…» + «Не хватает: N позиций» + [Подробнее] |
+| Нет производственного склада | «Не назначен производственный склад.» |
+| NOT_ACCEPTED | «Материалы будут доступны после принятия заказа в производство.» |
+| MANUFACTURED | «Все изделия выпущены.» |
+| CANCELLED | «Производство заказа отменено.» |
 
 ---
 
@@ -551,14 +569,14 @@ Release разрешён, если для каждой строки матери
 
 | ID | Нужно для | Факт текущего состояния | Владелец |
 |---|---|---|---|
-| **DEP-1** | Состояния S1/S2/S3, сводка и детализация материалов после повторного открытия заказа | Нет публичного чтения Material Requirement по заказу: ни `ProductionQueryApi`, ни `ProductionApplicationApi` не имеют get/list MR; Workbench держит `currentRequirement` только в памяти | Production |
-| **DEP-2** | ЗАПРОШЕНЫ / ОЖИДАЮТСЯ | Ссылки на сгенерированные Transfer Documents (`material_requirement_generated_documents`) не доступны через публичный API после Submit | Production |
-| **DEP-3** | «Получено / Осталось» по строке MR | `TransferDocumentView.lines` содержат только запрошенное количество; принятое количество по строке, связь строки MR ↔ строка документа ↔ continuation-документы не доступны публично | Warehouse (+ Production для связи) |
-| **DEP-4** | Колонка «Позиция» | `OrderItemDto.externalPositionNumber` может быть пустым; иного человекочитаемого идентификатора позиции нет — **нужен человекочитаемый идентификатор** (OM не меняется в рамках UX) | Order Management |
+| **DEP-1** | MR reopen / drafts | **RESOLVED (Phase 5):** `getMaterialRequirement`, `listMaterialRequirementDrafts`, product coverage APIs. Per-order MR status strip for card S1–S3 still optional / not Phase 6 | Production |
+| **DEP-2** | ЗАПРОШЕНЫ / ОЖИДАЮТСЯ | Ссылки на сгенерированные Transfer Documents не доступны через публичный API после Submit | Production |
+| **DEP-3** | «Получено / Осталось» по строке MR | Out of Phase 6 scope; Card uses AVAILABLE/shortage terminology instead | Warehouse (+ Production) |
+| **DEP-4** | Колонка «Позиция» | `externalPositionNumber` fallback «Позиция N» implemented in tree/card | Order Management / UI |
 | **DEP-5** | «Размер / характеристики» изделия | В `OrderItemDto` / `ProductionSpecificationDto` нет полей размеров/характеристик | Order Management |
 | **DEP-6** | Колонка «Материалы» в списке | Нет batch-источника состояния материалов по набору заказов | Production |
-| **DEP-7** | Колонка «Позиций» в списке | `OrderProductionListFacts` не содержит количество позиций; `itemCount` есть только в per-order `OrderProductionView` | Production |
-| **DEP-8** | Release gate как бизнес-правило | Источники есть (R1–R5), но Production-owned read-метода «готовность материалов к выпуску» нет; комбинировать правило в UI запрещено (no business logic in UI) | Production |
+| **DEP-7** | Колонка «Позиций» / all item pages | **RESOLVED:** `ProductionOrderItemsLoader` loads all pages (`MAX_PAGE_SIZE`); tree/card no longer truncate to first page | Production / UI |
+| **DEP-8** | Release gate readiness | **RESOLVED (Phase 6):** `getOrderRemainingMaterialReadiness` / `getMaterialReadinessForRelease`; snapshot AVAILABLE only; no new reservation | Production |
 | **DEP-9** | История «Материалы запрошены» | Submit MR не пишет `production_history` | Production |
 | **DEP-10** | Понятная ошибка нехватки при confirm | `ReleaseProductsException` из `precheckStock` содержит UUID в тексте; нужен типизированный признак причины для маппинга в UI-сообщение | Production |
 
@@ -566,15 +584,15 @@ Release разрешён, если для каждой строки матери
 
 ## 17. OPEN QUESTIONS (не решаются из существующих API)
 
-1. **OQ-1:** Как точно вычислять «Получено» для каждой строки MR — по принятому количеству Transfer Documents (вкл. continuation) или по AVAILABLE на производственном складе? До ответа v1 может показывать только «Доступно на производственном складе».
-2. **OQ-2:** Как определять readiness для partial release — по плановому расходу конкретного выпуска (R1) или по всему остатку заказа? Можно ли выпускать часть при нехватке для остатка?
-3. **OQ-3:** AVAILABLE на производственном складе не закреплён за заказом. Если два заказа используют один материал, «готово» для одного может означать нехватку для другого. Нужно ли закрепление (reservation `PRODUCTION_DEMAND` существует как тип в Warehouse API) — или достаточно общего остатка?
-4. **OQ-4:** «Запросить материалы» — всегда по всем позициям заказа с `activeProductionQuantity > 0`, или сохранить выбор позиций? Допустим ли повторный запрос (сейчас каждый prepare создаёт новый DRAFT)?
-5. **OQ-5:** Нужен ли отдельный Warehouse public query для material requirement fulfillment (DEP-3), или достаточно Production read-model поверх существующих Warehouse queries?
-6. **OQ-6:** Если для готовности используется R5, допустима ли запись `MATERIALS_CHECKED` в историю при каждом открытии карточки, или нужен read-only вариант?
+1. **OQ-1:** Как точно вычислять «Получено» для каждой строки MR — по принятому количеству Transfer Documents (вкл. continuation) или по AVAILABLE на производственном складе? До ответа v1 показывает только «Доступно / Требуется / Не хватает» (Phase 6).
+2. **OQ-2:** Как определять readiness для partial release — по плановому расходу конкретного выпуска (R1) или по всему остатку заказа? Можно ли выпускать часть при нехватке для остатка? → Phase 6 foundation: both APIs exist; Phase 7 UX decides.
+3. **OQ-3 (UPDATED Phase 6):** Readiness = current AVAILABLE snapshot on production warehouse. **No new reservation** in Phase 6. Concurrent consumption remains possible between card view and Release; **Release confirm stays authoritative** (FOR UPDATE / stock precheck / consume). Cross-order stock competition is accepted for the read model.
+4. **OQ-4 (RESOLVED Phase 5):** Tree checkbox selection retained; cross-order prepare; repeated prepare creates a new DRAFT (allowed).
+5. **OQ-5:** Нужен ли отдельный Warehouse public query для material requirement fulfillment (DEP-3), или достаточно Production read-model поверх существующих Warehouse queries? (Phase 6 did not implement fulfillment tracking.)
+6. **OQ-6 (RESOLVED Phase 6):** Order Card readiness uses a dedicated read-only path (`MaterialReadinessQueryService`); does **not** write `MATERIALS_CHECKED`.
 7. **OQ-7:** Как отображать `actorRef` как ФИО пользователя (какой Security public query использовать)?
-8. **OQ-8:** Workbench читает позиции через `getOrderItems(..., firstPage())` — для заказов с числом позиций больше размера страницы нужна полная загрузка; подтвердить ожидаемый максимум позиций в заказе.
-9. **OQ-9:** Количество MR рассчитывается как сумма `lineQuantity` спецификаций (не × количество изделий, audit §12). Подтвердить, что это ожидаемый базис для «Требуется» в UX.
+8. **OQ-8 (RESOLVED):** `ProductionOrderItemsLoader` loads all item pages; no first-page truncation.
+9. **OQ-9 (RESOLVED Phase 2/5):** Material Requirement uses product quantity × norm (`lineQuantity` = per one product). Release readiness uses Release plan calculator (§15.1.1) — different semantics by design; do not mix.
 
 ---
 

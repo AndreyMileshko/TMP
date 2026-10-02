@@ -16,6 +16,8 @@ import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProduc
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSourceItemRefView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSourceItemView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessStatusView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessView;
 import com.tmp.production.api.ProductionApplicationApi.OrderQuantityModeView;
 import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
 import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
@@ -167,6 +169,9 @@ public final class ProductionWorkbenchViewModel {
     private final StringProperty selectionCountLabel =
             new SimpleStringProperty("Выбрано: 0 позиций");
     private final StringProperty quantityModeHint = new SimpleStringProperty("");
+    private final StringProperty materialsSummary = new SimpleStringProperty("");
+    private final StringProperty materialsDetail = new SimpleStringProperty("");
+    private final BooleanProperty materialsDetailsVisible = new SimpleBooleanProperty(false);
     private final BooleanProperty loading = new SimpleBooleanProperty(false);
     private final BooleanProperty orderSelected = new SimpleBooleanProperty(false);
     private final BooleanProperty canAccept = new SimpleBooleanProperty(false);
@@ -200,6 +205,7 @@ public final class ProductionWorkbenchViewModel {
     private QuantityModeView savedQuantityMode = QuantityModeView.STANDARD;
     private long quantityModeVersion;
     private boolean suppressingModeListener;
+    private MaterialReadinessView currentMaterialReadiness;
 
     public ProductionWorkbenchViewModel(
             ProductionQueryApi queryApi,
@@ -525,6 +531,22 @@ public final class ProductionWorkbenchViewModel {
 
     public StringProperty quantityModeHintProperty() {
         return quantityModeHint;
+    }
+
+    public StringProperty materialsSummaryProperty() {
+        return materialsSummary;
+    }
+
+    public StringProperty materialsDetailProperty() {
+        return materialsDetail;
+    }
+
+    public BooleanProperty materialsDetailsVisibleProperty() {
+        return materialsDetailsVisible;
+    }
+
+    public MaterialReadinessView currentMaterialReadiness() {
+        return currentMaterialReadiness;
     }
 
     public ObjectProperty<ProductionTreeStatusFilter> statusFilterProperty() {
@@ -1163,7 +1185,31 @@ public final class ProductionWorkbenchViewModel {
 
         OrderQuantityModeView modeView = applicationApi.getOrderQuantityMode(currentOrderId);
         applyQuantityMode(modeView, discardModeDraft);
+        loadMaterialReadiness();
         refreshActionPolicy();
+    }
+
+    private void loadMaterialReadiness() {
+        try {
+            applyMaterialReadiness(
+                    applicationApi.getOrderRemainingMaterialReadiness(currentOrderId));
+        } catch (RuntimeException ex) {
+            currentMaterialReadiness = null;
+            materialsSummary.set(ProductionUiErrorMapper.MATERIALS_CHECK_FAILED);
+            materialsDetail.set("");
+            materialsDetailsVisible.set(false);
+        }
+    }
+
+    private void applyMaterialReadiness(MaterialReadinessView readiness) {
+        currentMaterialReadiness = readiness;
+        materialsSummary.set(ProductionPresentationLabels.materialsSummary(readiness));
+        materialsDetail.set(ProductionPresentationLabels.materialsDetail(readiness));
+        materialsDetailsVisible.set(
+                readiness != null
+                        && (readiness.status() == MaterialReadinessStatusView.READY
+                                || readiness.status() == MaterialReadinessStatusView.NOT_READY)
+                        && !readiness.lines().isEmpty());
     }
 
     private Map<UUID, ItemProductionStateView> resolveDetailItemStates(
@@ -1268,6 +1314,10 @@ public final class ProductionWorkbenchViewModel {
         }
         canAccept.set(false);
         canEditQuantityMode.set(false);
+        currentMaterialReadiness = null;
+        materialsSummary.set("");
+        materialsDetail.set("");
+        materialsDetailsVisible.set(false);
         if (!detailMode()) {
             updateTreeEmptyStateMessage(visibleOrders());
         }

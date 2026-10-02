@@ -49,6 +49,12 @@ public final class ProductionUiErrorMapper {
             "Запрос материалов отправлен на склад.\nСклад сформирует необходимые перемещения.";
     public static final String MATERIAL_PREPARE_FAILED =
             "Не удалось подготовить запрос материалов. Повторите попытку.";
+    public static final String MATERIALS_CHECK_FAILED =
+            "Не удалось проверить наличие материалов.";
+    public static final String MATERIALS_UNRESOLVED =
+            "Материал не найден в справочнике склада.";
+    public static final String NO_PRODUCTION_WAREHOUSE =
+            "Не назначен производственный склад.";
 
     private ProductionUiErrorMapper() {}
 

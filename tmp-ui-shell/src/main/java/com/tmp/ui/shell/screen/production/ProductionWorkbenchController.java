@@ -9,6 +9,7 @@ import com.tmp.ui.shell.navigation.ViewModelAware;
 import com.tmp.ui.shell.order.worklist.OrderListPeriod;
 import com.tmp.ui.shell.theme.TmpTheme;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -152,6 +153,18 @@ public final class ProductionWorkbenchController
 
     @FXML
     private Button saveQuantityModeButton;
+
+    @FXML
+    private VBox materialsBlock;
+
+    @FXML
+    private Label materialsSummaryLabel;
+
+    @FXML
+    private Label materialsDetailLabel;
+
+    @FXML
+    private Button materialsDetailsButton;
 
     @FXML
     private TableView<ProductionItemRow> itemsTable;
@@ -313,6 +326,14 @@ public final class ProductionWorkbenchController
         saveQuantityModeButton.visibleProperty().bind(viewModel.canEditQuantityModeProperty());
         saveQuantityModeButton.managedProperty().bind(viewModel.canEditQuantityModeProperty());
         saveQuantityModeButton.setOnAction(e -> viewModel.saveQuantityMode());
+
+        materialsSummaryLabel.textProperty().bind(viewModel.materialsSummaryProperty());
+        materialsDetailLabel.textProperty().bind(viewModel.materialsDetailProperty());
+        materialsDetailLabel.visibleProperty().bind(viewModel.materialsDetailProperty().isNotEmpty());
+        materialsDetailLabel.managedProperty().bind(materialsDetailLabel.visibleProperty());
+        materialsDetailsButton.visibleProperty().bind(viewModel.materialsDetailsVisibleProperty());
+        materialsDetailsButton.managedProperty().bind(viewModel.materialsDetailsVisibleProperty());
+        materialsDetailsButton.setOnAction(e -> showMaterialReadinessDetails());
 
         standardModeRadio.setOnAction(
                 e -> {
@@ -691,5 +712,44 @@ public final class ProductionWorkbenchController
         if (action == MaterialRequestDialogSupport.Step2Action.SUBMITTED) {
             viewModel.refresh();
         }
+    }
+
+    private void showMaterialReadinessDetails() {
+        var readiness = viewModel.currentMaterialReadiness();
+        if (readiness == null || readiness.lines().isEmpty()) {
+            return;
+        }
+        TableView<MaterialReadinessLineRow> table = new TableView<>();
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        table.getColumns()
+                .addAll(
+                        stringColumn("Артикул", MaterialReadinessLineRow::materialCode),
+                        stringColumn("Наименование", MaterialReadinessLineRow::materialName),
+                        stringColumn("Цвет", MaterialReadinessLineRow::color),
+                        stringColumn("Требуется", MaterialReadinessLineRow::requiredQuantity),
+                        stringColumn("Доступно", MaterialReadinessLineRow::availableQuantity),
+                        stringColumn("Не хватает", MaterialReadinessLineRow::shortageQuantity),
+                        stringColumn("Ед.", MaterialReadinessLineRow::unitOfMeasure));
+        List<MaterialReadinessLineRow> rows = new ArrayList<>();
+        for (var line : readiness.lines()) {
+            rows.add(MaterialReadinessLineRow.from(line));
+        }
+        table.setItems(FXCollections.observableArrayList(rows));
+        table.setPrefHeight(Math.min(360, 48 + rows.size() * 28.0));
+
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Материалы");
+        alert.setHeaderText("МАТЕРИАЛЫ ДЛЯ ВЫПУСКА ОСТАТКА");
+        alert.getDialogPane().setContent(table);
+        alert.getDialogPane().setPrefWidth(760);
+        alert.showAndWait();
+    }
+
+    private static TableColumn<MaterialReadinessLineRow, String> stringColumn(
+            String title, java.util.function.Function<MaterialReadinessLineRow, String> getter) {
+        TableColumn<MaterialReadinessLineRow, String> column = new TableColumn<>(title);
+        column.setCellValueFactory(
+                cell -> new SimpleStringProperty(getter.apply(cell.getValue())));
+        return column;
     }
 }

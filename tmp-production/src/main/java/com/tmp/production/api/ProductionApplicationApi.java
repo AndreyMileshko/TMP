@@ -104,9 +104,82 @@ public interface ProductionApplicationApi {
     OrderQuantityModeView changeOrderQuantityMode(
             UUID orderId, QuantityModeView quantityMode, long expectedVersion);
 
+    /**
+     * Side-effect-free material readiness for releasing the entire active remainder of the order.
+     * Uses the Release material plan calculator and current AVAILABLE on the production warehouse.
+     * Requires {@code production.order.view}. Does not write MATERIALS_CHECKED history.
+     */
+    MaterialReadinessView getOrderRemainingMaterialReadiness(UUID orderId);
+
+    /**
+     * Side-effect-free material readiness for an explicit future release quantity set (Phase 7
+     * foundation). Requires {@code production.order.view}. Does not write MATERIALS_CHECKED
+     * history.
+     */
+    MaterialReadinessView getMaterialReadinessForRelease(
+            UUID orderId, List<ItemReleaseView> itemReleases);
+
     enum QuantityModeView {
         STANDARD,
         FLEXIBLE
+    }
+
+    enum MaterialReadinessStatusView {
+        READY,
+        NOT_READY,
+        NO_PRODUCTION_WAREHOUSE,
+        NOT_APPLICABLE,
+        MATERIAL_REFERENCE_UNRESOLVED
+    }
+
+    enum MaterialReadinessReasonView {
+        NONE,
+        NOT_ACCEPTED,
+        MANUFACTURED,
+        CANCELLED,
+        NO_RELEASABLE_QUANTITY,
+        INSUFFICIENT_STOCK,
+        NO_PRODUCTION_WAREHOUSE,
+        MATERIAL_REFERENCE_UNRESOLVED
+    }
+
+    record MaterialReadinessLineView(
+            UUID materialReferenceId,
+            String materialCode,
+            String materialName,
+            String color,
+            String unitOfMeasure,
+            BigDecimal requiredQuantity,
+            BigDecimal availableQuantity,
+            BigDecimal shortageQuantity) {
+
+        public MaterialReadinessLineView {
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            Objects.requireNonNull(materialCode, "materialCode");
+            Objects.requireNonNull(materialName, "materialName");
+            Objects.requireNonNull(color, "color");
+            Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
+            Objects.requireNonNull(requiredQuantity, "requiredQuantity");
+            Objects.requireNonNull(availableQuantity, "availableQuantity");
+            Objects.requireNonNull(shortageQuantity, "shortageQuantity");
+        }
+    }
+
+    record MaterialReadinessView(
+            MaterialReadinessStatusView status,
+            MaterialReadinessReasonView reason,
+            int deficientLineCount,
+            List<MaterialReadinessLineView> lines) {
+
+        public MaterialReadinessView {
+            Objects.requireNonNull(status, "status");
+            Objects.requireNonNull(reason, "reason");
+            Objects.requireNonNull(lines, "lines");
+            if (deficientLineCount < 0) {
+                throw new IllegalArgumentException("deficientLineCount must be >= 0");
+            }
+            lines = List.copyOf(lines);
+        }
     }
 
     record OrderQuantityModeView(UUID orderId, QuantityModeView quantityMode, long version) {

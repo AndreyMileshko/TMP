@@ -13,6 +13,7 @@ import com.tmp.production.application.DefaultProductionApplicationApi;
 import com.tmp.production.application.DefaultProductionQueryApi;
 import com.tmp.production.application.MaterialRequirementCoverageService;
 import com.tmp.production.application.MaterialRequirementService;
+import com.tmp.production.application.MaterialReadinessQueryService;
 import com.tmp.production.application.ProductionDestinationWarehouse;
 import com.tmp.production.application.ProductionFoundationQueryService;
 import com.tmp.production.application.ProductionHistoryService;
@@ -214,6 +215,19 @@ public class ProductionAutoConfiguration {
     }
 
     @Bean
+    MaterialReadinessQueryService materialReadinessQueryService(
+            ProductionOrderViewService orderViewService,
+            ProductionFoundationQueryService foundationQueryService,
+            WarehouseAvailabilityQueryPort warehouseQueryPort,
+            ProductionDestinationWarehouse destinationWarehouse) {
+        return new MaterialReadinessQueryService(
+                orderViewService,
+                foundationQueryService,
+                warehouseQueryPort,
+                destinationWarehouse);
+    }
+
+    @Bean
     ProductionLaunchPayloadHolder productionLaunchPayloadHolder() {
         return new ProductionLaunchPayloadHolder();
     }
@@ -409,6 +423,7 @@ public class ProductionAutoConfiguration {
             ConfirmMaterialReceiptService confirmMaterialReceiptService,
             ReleaseProductsService releaseProductsService,
             CancelOrderProductionService cancelOrderProductionService,
+            MaterialReadinessQueryService materialReadinessQueryService,
             ProductionMaterialTransferRepository materialTransferRepository,
             OrderQuantityModeRepository orderQuantityModeRepository) {
         return new DefaultProductionApplicationApi(
@@ -423,6 +438,7 @@ public class ProductionAutoConfiguration {
                 confirmMaterialReceiptService,
                 releaseProductsService,
                 cancelOrderProductionService,
+                materialReadinessQueryService,
                 materialTransferRepository,
                 orderQuantityModeRepository);
     }

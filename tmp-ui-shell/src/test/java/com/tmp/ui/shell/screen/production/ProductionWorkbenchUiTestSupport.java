@@ -35,6 +35,10 @@ import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSource
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSourceItemView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessLineView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessReasonView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessStatusView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessView;
 import com.tmp.production.api.ProductionApplicationApi.OrderQuantityModeView;
 import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
 import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
@@ -264,6 +268,14 @@ final class ProductionWorkbenchUiTestSupport {
         final Map<UUID, OrderQuantityModeView> quantityModes = new HashMap<>();
         final Map<UUID, MaterialRequirementProductCoverageView> coverageByItem = new HashMap<>();
         RuntimeException changeOrderQuantityModeFailure;
+        MaterialReadinessView remainingReadiness =
+                new MaterialReadinessView(
+                        MaterialReadinessStatusView.READY,
+                        MaterialReadinessReasonView.NONE,
+                        0,
+                        List.of());
+        final List<UUID> remainingReadinessCalls = new CopyOnWriteArrayList<>();
+        final List<List<ItemReleaseView>> releaseReadinessCalls = new CopyOnWriteArrayList<>();
         RuntimeException prepareFailure;
 
         @Override
@@ -488,6 +500,19 @@ final class ProductionWorkbenchUiTestSupport {
                     new OrderQuantityModeView(orderId, quantityMode, expectedVersion + 1);
             quantityModes.put(orderId, saved);
             return saved;
+        }
+
+        @Override
+        public MaterialReadinessView getOrderRemainingMaterialReadiness(UUID orderId) {
+            remainingReadinessCalls.add(orderId);
+            return remainingReadiness;
+        }
+
+        @Override
+        public MaterialReadinessView getMaterialReadinessForRelease(
+                UUID orderId, List<ItemReleaseView> itemReleases) {
+            releaseReadinessCalls.add(List.copyOf(itemReleases));
+            return remainingReadiness;
         }
     }
 

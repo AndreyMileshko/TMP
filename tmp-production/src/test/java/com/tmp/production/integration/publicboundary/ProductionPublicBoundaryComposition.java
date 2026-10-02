@@ -13,6 +13,7 @@ import com.tmp.production.application.DefaultProductionApplicationApi;
 import com.tmp.production.application.DefaultProductionQueryApi;
 import com.tmp.production.application.MaterialRequirementCoverageService;
 import com.tmp.production.application.MaterialRequirementService;
+import com.tmp.production.application.MaterialReadinessQueryService;
 import com.tmp.production.application.ProductionDestinationWarehouse;
 import com.tmp.production.application.ProductionFoundationQueryService;
 import com.tmp.production.application.ProductionHistoryService;
@@ -253,6 +254,9 @@ final class ProductionPublicBoundaryComposition {
                         cancellationDocumentService,
                         txManager,
                         clock);
+        MaterialReadinessQueryService materialReadinessQueryService =
+                new MaterialReadinessQueryService(
+                        orderViewService, foundationQuery, warehouseAvailabilityQuery, destination);
 
         ProductionApplicationApi applicationApi =
                 new DefaultProductionApplicationApi(
@@ -267,6 +271,7 @@ final class ProductionPublicBoundaryComposition {
                         confirmReceiptService,
                         releaseProductsService,
                         cancelService,
+                        materialReadinessQueryService,
                         materialTransfers,
                         new JdbcOrderQuantityModeRepository(jdbc, clock));
         ProductionQueryApi queryApi =

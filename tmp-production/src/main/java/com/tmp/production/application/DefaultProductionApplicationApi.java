@@ -55,6 +55,7 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     private final ConfirmMaterialReceiptService confirmMaterialReceiptService;
     private final ReleaseProductsService releaseProductsService;
     private final CancelOrderProductionService cancelOrderProductionService;
+    private final MaterialReadinessQueryService materialReadinessQueryService;
     private final ProductionMaterialTransferRepository materialTransferRepository;
     private final OrderQuantityModeRepository quantityModeRepository;
 
@@ -70,6 +71,7 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
             ConfirmMaterialReceiptService confirmMaterialReceiptService,
             ReleaseProductsService releaseProductsService,
             CancelOrderProductionService cancelOrderProductionService,
+            MaterialReadinessQueryService materialReadinessQueryService,
             ProductionMaterialTransferRepository materialTransferRepository,
             OrderQuantityModeRepository quantityModeRepository) {
         this.authorizationService =
@@ -98,6 +100,9 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         this.cancelOrderProductionService =
                 Objects.requireNonNull(
                         cancelOrderProductionService, "cancelOrderProductionService");
+        this.materialReadinessQueryService =
+                Objects.requireNonNull(
+                        materialReadinessQueryService, "materialReadinessQueryService");
         this.materialTransferRepository =
                 Objects.requireNonNull(materialTransferRepository, "materialTransferRepository");
         this.quantityModeRepository =
@@ -352,6 +357,76 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         return map(
                 quantityModeRepository.save(
                         SourceOrderId.of(orderId), map(quantityMode), expectedVersion));
+    }
+
+    @Override
+    public MaterialReadinessView getOrderRemainingMaterialReadiness(UUID orderId) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+        Objects.requireNonNull(orderId, "orderId");
+        return map(materialReadinessQueryService.evaluateOrderRemaining(SourceOrderId.of(orderId)));
+    }
+
+    @Override
+    public MaterialReadinessView getMaterialReadinessForRelease(
+            UUID orderId, List<ItemReleaseView> itemReleases) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+        Objects.requireNonNull(orderId, "orderId");
+        Objects.requireNonNull(itemReleases, "itemReleases");
+        List<MaterialReadinessQueryService.ItemReleaseQuantity> quantities =
+                itemReleases.stream()
+                        .map(
+                                item ->
+                                        new MaterialReadinessQueryService.ItemReleaseQuantity(
+                                                item.sourceOrderItemId(), item.releaseQuantity()))
+                        .toList();
+        return map(
+                materialReadinessQueryService.evaluateForRelease(
+                        SourceOrderId.of(orderId), quantities));
+    }
+
+    private MaterialReadinessView map(MaterialReadinessResult result) {
+        return new MaterialReadinessView(
+                map(result.status()),
+                map(result.reason()),
+                result.deficientLineCount(),
+                result.lines().stream().map(this::map).toList());
+    }
+
+    private MaterialReadinessStatusView map(MaterialReadinessResult.MaterialReadinessStatus status) {
+        return switch (status) {
+            case READY -> MaterialReadinessStatusView.READY;
+            case NOT_READY -> MaterialReadinessStatusView.NOT_READY;
+            case NO_PRODUCTION_WAREHOUSE -> MaterialReadinessStatusView.NO_PRODUCTION_WAREHOUSE;
+            case NOT_APPLICABLE -> MaterialReadinessStatusView.NOT_APPLICABLE;
+            case MATERIAL_REFERENCE_UNRESOLVED ->
+                    MaterialReadinessStatusView.MATERIAL_REFERENCE_UNRESOLVED;
+        };
+    }
+
+    private MaterialReadinessReasonView map(MaterialReadinessResult.MaterialReadinessReason reason) {
+        return switch (reason) {
+            case NONE -> MaterialReadinessReasonView.NONE;
+            case NOT_ACCEPTED -> MaterialReadinessReasonView.NOT_ACCEPTED;
+            case MANUFACTURED -> MaterialReadinessReasonView.MANUFACTURED;
+            case CANCELLED -> MaterialReadinessReasonView.CANCELLED;
+            case NO_RELEASABLE_QUANTITY -> MaterialReadinessReasonView.NO_RELEASABLE_QUANTITY;
+            case INSUFFICIENT_STOCK -> MaterialReadinessReasonView.INSUFFICIENT_STOCK;
+            case NO_PRODUCTION_WAREHOUSE -> MaterialReadinessReasonView.NO_PRODUCTION_WAREHOUSE;
+            case MATERIAL_REFERENCE_UNRESOLVED ->
+                    MaterialReadinessReasonView.MATERIAL_REFERENCE_UNRESOLVED;
+        };
+    }
+
+    private MaterialReadinessLineView map(MaterialReadinessResult.MaterialReadinessLine line) {
+        return new MaterialReadinessLineView(
+                line.materialReferenceId(),
+                line.materialCode(),
+                line.materialName(),
+                line.color(),
+                line.unitOfMeasure(),
+                line.requiredQuantity(),
+                line.availableQuantity(),
+                line.shortageQuantity());
     }
 
     private OrderQuantityModeView map(OrderQuantityModeSetting setting) {

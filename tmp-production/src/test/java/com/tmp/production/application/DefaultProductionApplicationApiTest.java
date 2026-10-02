@@ -85,6 +85,7 @@ class DefaultProductionApplicationApiTest {
     private ConfirmMaterialReceiptService confirmMaterialReceiptService;
     private ReleaseProductsService releaseProductsService;
     private CancelOrderProductionService cancelOrderProductionService;
+    private MaterialReadinessQueryService materialReadinessQueryService;
     private ProductionMaterialTransferRepository materialTransferRepository;
     private OrderQuantityModeRepository quantityModeRepository;
     private DefaultProductionApplicationApi api;
@@ -109,6 +110,7 @@ class DefaultProductionApplicationApiTest {
         confirmMaterialReceiptService = mock(ConfirmMaterialReceiptService.class);
         releaseProductsService = mock(ReleaseProductsService.class);
         cancelOrderProductionService = mock(CancelOrderProductionService.class);
+        materialReadinessQueryService = mock(MaterialReadinessQueryService.class);
         materialTransferRepository = mock(ProductionMaterialTransferRepository.class);
         quantityModeRepository = mock(OrderQuantityModeRepository.class);
         api =
@@ -124,6 +126,7 @@ class DefaultProductionApplicationApiTest {
                         confirmMaterialReceiptService,
                         releaseProductsService,
                         cancelOrderProductionService,
+                        materialReadinessQueryService,
                         materialTransferRepository,
                         quantityModeRepository);
     }
