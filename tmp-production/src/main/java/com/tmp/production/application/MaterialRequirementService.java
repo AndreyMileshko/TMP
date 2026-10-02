@@ -270,6 +270,11 @@ public final class MaterialRequirementService {
         return requirementRepository.findBySourceOrderItemIds(itemIds);
     }
 
+    /** Persisted DRAFT requirements newest-first for reopen UX. */
+    public List<MaterialRequirement> listDraftsNewestFirst() {
+        return requirementRepository.findDraftsNewestFirst();
+    }
+
     /**
      * Changes line quantity with caller {@code expectedVersion} participating in the same load →
      * compare → mutate → optimistic save flow (no separate facade pre-check).

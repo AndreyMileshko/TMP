@@ -160,6 +160,46 @@ class DefaultProductionApplicationApiTest {
     }
 
     @Test
+    void getOrderQuantityModesBatchesAndDefaultsMissingOrders() {
+        UUID orderA = UUID.randomUUID();
+        UUID orderB = UUID.randomUUID();
+        when(quantityModeRepository.findBySourceOrderIds(
+                        List.of(SourceOrderId.of(orderA), SourceOrderId.of(orderB))))
+                .thenReturn(
+                        Map.of(
+                                SourceOrderId.of(orderA),
+                                new OrderQuantityModeSetting(
+                                        SourceOrderId.of(orderA),
+                                        ProductionQuantityMode.FLEXIBLE,
+                                        2L)));
+
+        List<OrderQuantityModeView> views = api.getOrderQuantityModes(List.of(orderA, orderB));
+
+        verify(authorizationService).requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+        assertEquals(2, views.size());
+        assertEquals(QuantityModeView.FLEXIBLE, views.get(0).quantityMode());
+        assertEquals(2L, views.get(0).version());
+        assertEquals(orderB, views.get(1).orderId());
+        assertEquals(QuantityModeView.STANDARD, views.get(1).quantityMode());
+        assertEquals(0L, views.get(1).version());
+    }
+
+    @Test
+    void listMaterialRequirementDraftsMapsSummaries() {
+        MaterialRequirement draft = sampleRequirement();
+        when(materialRequirementService.listDraftsNewestFirst()).thenReturn(List.of(draft));
+
+        var summaries = api.listMaterialRequirementDrafts();
+
+        verify(authorizationService).requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+        assertEquals(1, summaries.size());
+        assertEquals(draft.requirementId().value(), summaries.getFirst().requirementId());
+        assertEquals(draft.createdAt(), summaries.getFirst().createdAt());
+        assertEquals(1, summaries.getFirst().sourceItemCount());
+        assertEquals(1, summaries.getFirst().orderCount());
+    }
+
+    @Test
     void changeOrderQuantityModeRequiresAcceptPermissionAndReturnsSavedState() {
         UUID orderId = UUID.randomUUID();
         when(quantityModeRepository.save(

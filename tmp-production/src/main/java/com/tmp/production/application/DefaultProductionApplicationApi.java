@@ -145,6 +145,14 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     }
 
     @Override
+    public List<MaterialRequirementDraftSummaryView> listMaterialRequirementDrafts() {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+        return materialRequirementService.listDraftsNewestFirst().stream()
+                .map(this::mapDraftSummary)
+                .toList();
+    }
+
+    @Override
     public List<MaterialRequirementProductCoverageView> getMaterialRequirementProductCoverage(
             List<MaterialRequirementSourceItemRefView> sourceItems) {
         authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
@@ -311,6 +319,31 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     }
 
     @Override
+    public List<OrderQuantityModeView> getOrderQuantityModes(List<UUID> orderIds) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+        Objects.requireNonNull(orderIds, "orderIds");
+        List<SourceOrderId> unique =
+                orderIds.stream()
+                        .map(
+                                id -> {
+                                    Objects.requireNonNull(id, "orderId");
+                                    return SourceOrderId.of(id);
+                                })
+                        .distinct()
+                        .toList();
+        Map<SourceOrderId, OrderQuantityModeSetting> stored =
+                quantityModeRepository.findBySourceOrderIds(unique);
+        List<OrderQuantityModeView> views = new java.util.ArrayList<>(unique.size());
+        for (SourceOrderId orderId : unique) {
+            views.add(
+                    map(
+                            stored.getOrDefault(
+                                    orderId, OrderQuantityModeSetting.defaultFor(orderId))));
+        }
+        return List.copyOf(views);
+    }
+
+    @Override
     public OrderQuantityModeView changeOrderQuantityMode(
             UUID orderId, QuantityModeView quantityMode, long expectedVersion) {
         authorizationService.requirePermission(ProductionPermissions.PRODUCTION_ACCEPT);
@@ -389,6 +422,19 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 requirement.submittedAt(),
                 requirement.submittedBy(),
                 requirement.lines().stream().map(this::map).toList());
+    }
+
+    private MaterialRequirementDraftSummaryView mapDraftSummary(MaterialRequirement requirement) {
+        long orderCount =
+                requirement.sourceItems().stream()
+                        .map(MaterialRequirementSourceItem::sourceOrderId)
+                        .distinct()
+                        .count();
+        return new MaterialRequirementDraftSummaryView(
+                requirement.requirementId().value(),
+                requirement.createdAt(),
+                requirement.sourceItems().size(),
+                Math.toIntExact(orderCount));
     }
 
     private MaterialRequirementSourceItemView map(MaterialRequirementSourceItem item) {

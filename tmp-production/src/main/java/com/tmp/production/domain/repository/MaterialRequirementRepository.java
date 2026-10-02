@@ -52,4 +52,10 @@ public interface MaterialRequirementRepository {
      * Ordered by created_at ascending for stable reopen/list behaviour.
      */
     List<MaterialRequirement> findBySourceOrderItemIds(Collection<SourceOrderItemId> itemIds);
+
+    /**
+     * Lists persisted DRAFT Material Requirements newest-first for reopen UX. Does not include
+     * SUBMITTED rows.
+     */
+    List<MaterialRequirement> findDraftsNewestFirst();
 }

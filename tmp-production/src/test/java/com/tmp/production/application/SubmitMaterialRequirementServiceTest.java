@@ -495,6 +495,23 @@ class SubmitMaterialRequirementServiceTest {
                                                                     item.sourceOrderItemId())))
                     .toList();
         }
+
+        @Override
+        public List<MaterialRequirement> findDraftsNewestFirst() {
+            return store.values().stream()
+                    .filter(requirement -> requirement.status() == MaterialRequirementStatus.DRAFT)
+                    .sorted(
+                            (a, b) -> {
+                                int byCreated = b.createdAt().compareTo(a.createdAt());
+                                if (byCreated != 0) {
+                                    return byCreated;
+                                }
+                                return b.requirementId()
+                                        .value()
+                                        .compareTo(a.requirementId().value());
+                            })
+                    .toList();
+        }
     }
 
     private static final class InMemorySubmissionRepository implements MaterialRequirementSubmissionRepository {

@@ -8,9 +8,14 @@ import com.tmp.production.domain.repository.OrderQuantityModeRepository;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -36,21 +41,49 @@ public final class JdbcOrderQuantityModeRepository implements OrderQuantityModeR
     @Override
     public Optional<OrderQuantityModeSetting> findBySourceOrderId(SourceOrderId sourceOrderId) {
         Objects.requireNonNull(sourceOrderId, "sourceOrderId");
-        List<OrderQuantityModeSetting> rows =
-                jdbcTemplate.query(
+        return Optional.ofNullable(
+                findBySourceOrderIds(List.of(sourceOrderId)).get(sourceOrderId));
+    }
+
+    @Override
+    public Map<SourceOrderId, OrderQuantityModeSetting> findBySourceOrderIds(
+            Collection<SourceOrderId> sourceOrderIds) {
+        Objects.requireNonNull(sourceOrderIds, "sourceOrderIds");
+        if (sourceOrderIds.isEmpty()) {
+            return Map.of();
+        }
+        List<SourceOrderId> unique = sourceOrderIds.stream().distinct().toList();
+        StringBuilder sql =
+                new StringBuilder(
                         """
-                        SELECT quantity_mode, version
+                        SELECT source_order_id, quantity_mode, version
                         FROM production.order_quantity_modes
-                        WHERE source_order_id = ?
-                        """,
-                        (rs, rowNum) ->
-                                new OrderQuantityModeSetting(
-                                        sourceOrderId,
-                                        ProductionQuantityMode.valueOf(
-                                                rs.getString("quantity_mode")),
-                                        rs.getLong("version")),
-                        sourceOrderId.value());
-        return rows.stream().findFirst();
+                        WHERE source_order_id IN (
+                        """);
+        List<Object> args = new ArrayList<>();
+        for (int i = 0; i < unique.size(); i++) {
+            if (i > 0) {
+                sql.append(", ");
+            }
+            sql.append("?");
+            args.add(unique.get(i).value());
+        }
+        sql.append(")");
+        Map<SourceOrderId, OrderQuantityModeSetting> result = new LinkedHashMap<>();
+        jdbcTemplate.query(
+                sql.toString(),
+                rs -> {
+                    SourceOrderId orderId =
+                            SourceOrderId.of(rs.getObject("source_order_id", UUID.class));
+                    result.put(
+                            orderId,
+                            new OrderQuantityModeSetting(
+                                    orderId,
+                                    ProductionQuantityMode.valueOf(rs.getString("quantity_mode")),
+                                    rs.getLong("version")));
+                },
+                args.toArray());
+        return Map.copyOf(result);
     }
 
     @Override

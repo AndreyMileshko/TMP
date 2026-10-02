@@ -1,5 +1,6 @@
 package com.tmp.ui.shell.screen.production;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -17,6 +18,9 @@ import javafx.beans.property.SimpleIntegerProperty;
  * Business checkbox selection for the Production tree. Independent of JavaFX row focus selection.
  * Source of truth is {@link ProductionOrderItemRef} identities.
  */
+@SuppressFBWarnings(
+        value = "EI_EXPOSE_REP",
+        justification = "JavaFX property accessors intentionally expose mutable observables")
 public final class ProductionTreeSelectionModel {
 
     public enum OrderCheckState {

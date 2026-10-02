@@ -10,10 +10,17 @@ import com.tmp.order.api.OrderWorklistCriteria;
 import com.tmp.order.api.OrderWorklistQuery;
 import com.tmp.order.api.OrderWorklistRowDto;
 import com.tmp.production.api.ProductionApplicationApi;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSummaryView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductCoverageView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductSelectionView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSourceItemRefView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSourceItemView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.OrderQuantityModeView;
 import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
+import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
 import com.tmp.production.api.ProductionQueryApi;
+import com.tmp.production.api.ProductionQueryApi.ItemProductionStateStatus;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionListFacts;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionView;
@@ -165,6 +172,9 @@ public final class ProductionWorkbenchViewModel {
     private final BooleanProperty canAccept = new SimpleBooleanProperty(false);
     private final BooleanProperty canEditQuantityMode = new SimpleBooleanProperty(false);
     private final BooleanProperty quantityModeDirty = new SimpleBooleanProperty(false);
+    private final BooleanProperty canRequestMaterials = new SimpleBooleanProperty(false);
+    private final BooleanProperty canOpenMaterialDrafts = new SimpleBooleanProperty(false);
+    private final BooleanProperty requestMaterialsEnabled = new SimpleBooleanProperty(false);
     private final BooleanProperty treeVisible = new SimpleBooleanProperty(true);
     private final BooleanProperty detailVisible = new SimpleBooleanProperty(false);
 
@@ -231,9 +241,11 @@ public final class ProductionWorkbenchViewModel {
         treeSelection
                 .selectedCountProperty()
                 .addListener(
-                        (obs, oldValue, newValue) ->
-                                selectionCountLabel.set(
-                                        "Выбрано: " + newValue.intValue() + " позиций"));
+                        (obs, oldValue, newValue) -> {
+                            selectionCountLabel.set(
+                                    "Выбрано: " + newValue.intValue() + " позиций");
+                            refreshMaterialRequestActionState();
+                        });
         searchText.addListener((obs, oldValue, newValue) -> applyFilters());
         statusFilter.addListener((obs, oldValue, newValue) -> applyFilters());
         periodPreset.addListener(
@@ -250,6 +262,7 @@ public final class ProductionWorkbenchViewModel {
                     quantityModeDirty.set(newValue != savedQuantityMode);
                     quantityModeHint.set(ProductionPresentationLabels.quantityModeHint(newValue));
                 });
+        refreshMaterialRequestActionState();
     }
 
     public void loadTree() {
@@ -377,6 +390,7 @@ public final class ProductionWorkbenchViewModel {
         detailVisible.set(false);
         clearOrderCardState();
         applyFilters();
+        refreshMaterialRequestActionState();
     }
 
     public void openForOrder(OrderId orderId) {
@@ -557,6 +571,18 @@ public final class ProductionWorkbenchViewModel {
         return quantityModeDirty;
     }
 
+    public BooleanProperty canRequestMaterialsProperty() {
+        return canRequestMaterials;
+    }
+
+    public BooleanProperty canOpenMaterialDraftsProperty() {
+        return canOpenMaterialDrafts;
+    }
+
+    public BooleanProperty requestMaterialsEnabledProperty() {
+        return requestMaterialsEnabled;
+    }
+
     public ObservableList<ProductionItemRow> itemRows() {
         return itemRows;
     }
@@ -579,6 +605,260 @@ public final class ProductionWorkbenchViewModel {
 
     public long quantityModeVersion() {
         return quantityModeVersion;
+    }
+
+    /**
+     * Loads authoritative coverage + Quantity Modes for the current tree selection. Never silently
+     * drops invalid items — returns a validation message instead.
+     */
+    public MaterialRequestStep1LoadResult loadMaterialRequestStep1() {
+        if (!has(UiShellScreens.PRODUCTION_TRANSFER_PERMISSION)) {
+            return MaterialRequestStep1LoadResult.permissionDenied();
+        }
+        List<ProductionOrderItemRef> selected = treeSelection.selectedOrderItemRefs();
+        if (selected.isEmpty()) {
+            return MaterialRequestStep1LoadResult.validation("Выберите хотя бы одну позицию.");
+        }
+
+        List<MaterialRequirementSourceItemRefView> refs = selectedItemsForMaterialRequirement();
+        List<MaterialRequirementProductCoverageView> coverage =
+                applicationApi.getMaterialRequirementProductCoverage(refs);
+
+        Map<UUID, MaterialRequirementProductCoverageView> coverageByItem = new HashMap<>();
+        for (MaterialRequirementProductCoverageView row : coverage) {
+            coverageByItem.put(row.sourceOrderItemId(), row);
+        }
+
+        Set<UUID> orderIds = new LinkedHashSet<>();
+        for (ProductionOrderItemRef ref : selected) {
+            orderIds.add(ref.sourceOrderId());
+        }
+        Map<UUID, QuantityModeView> modesByOrder = new HashMap<>();
+        for (OrderQuantityModeView modeView :
+                applicationApi.getOrderQuantityModes(List.copyOf(orderIds))) {
+            modesByOrder.put(modeView.orderId(), modeView.quantityMode());
+        }
+
+        List<String> invalid = new ArrayList<>();
+        List<MaterialRequestQuantityRow> rows = new ArrayList<>();
+        for (ProductionOrderItemRef ref : selected) {
+            LoadedProductionOrder order = findAuthoritativeOrder(ref.sourceOrderId());
+            LoadedProductionItem item = findAuthoritativeItem(order, ref.sourceOrderItemId());
+            String orderLabel =
+                    order == null
+                            ? "Заказ"
+                            : (order.orderNumber.startsWith("№")
+                                    ? "Заказ " + order.orderNumber
+                                    : "Заказ №" + order.orderNumber);
+            String positionLabel =
+                    item == null
+                            ? "Позиция"
+                            : ProductionTreeNode.humanReadablePosition(
+                                    item.item.externalPositionNumber(), item.index1Based);
+            String productLabel =
+                    item == null
+                            ? "—"
+                            : formatProductLabel(item.item.productCode(), item.item.name());
+
+            MaterialRequirementProductCoverageView itemCoverage =
+                    coverageByItem.get(ref.sourceOrderItemId());
+            long requestable =
+                    itemCoverage == null ? 0L : itemCoverage.requestableProductQuantity();
+            if (requestable <= 0L) {
+                invalid.add(
+                        orderLabel
+                                + " / "
+                                + positionLabel
+                                + ":\n"
+                                + describeNotRequestable(item, itemCoverage));
+                continue;
+            }
+            QuantityModeView mode =
+                    modesByOrder.getOrDefault(ref.sourceOrderId(), QuantityModeView.STANDARD);
+            rows.add(
+                    new MaterialRequestQuantityRow(
+                            ref.sourceOrderId(),
+                            ref.sourceOrderItemId(),
+                            orderLabel,
+                            positionLabel,
+                            productLabel,
+                            mode,
+                            requestable,
+                            requestable));
+        }
+
+        if (!invalid.isEmpty()) {
+            StringBuilder message = new StringBuilder();
+            message.append(
+                    "Для некоторых выбранных позиций материалы больше нельзя запросить:\n\n");
+            for (String line : invalid) {
+                message.append(line).append("\n\n");
+            }
+            return MaterialRequestStep1LoadResult.validation(message.toString().trim());
+        }
+        return MaterialRequestStep1LoadResult.ok(rows);
+    }
+
+    public MaterialRequirementView prepareMaterialRequirement(
+            List<MaterialRequestQuantityRow> rows) {
+        Objects.requireNonNull(rows, "rows");
+        List<MaterialRequirementProductSelectionView> selections = new ArrayList<>();
+        for (MaterialRequestQuantityRow row : rows) {
+            if (row.standardMode()) {
+                selections.add(
+                        new MaterialRequirementProductSelectionView(
+                                row.sourceOrderId(),
+                                row.sourceOrderItemId(),
+                                Optional.empty()));
+            } else {
+                selections.add(
+                        new MaterialRequirementProductSelectionView(
+                                row.sourceOrderId(),
+                                row.sourceOrderItemId(),
+                                Optional.of(row.requestedProductQuantity())));
+            }
+        }
+        return applicationApi.prepareMaterialRequirement(selections);
+    }
+
+    public MaterialRequirementView changeMaterialRequirementLineQuantity(
+            UUID requirementId, UUID lineId, BigDecimal quantity, long expectedVersion) {
+        return applicationApi.changeMaterialRequirementQuantity(
+                requirementId, lineId, quantity, expectedVersion);
+    }
+
+    public SubmitMaterialRequirementResultView submitMaterialRequirement(
+            UUID requirementId, long expectedVersion) {
+        return applicationApi.submitMaterialRequirement(requirementId, expectedVersion);
+    }
+
+    public List<MaterialRequirementDraftSummaryView> listMaterialRequirementDrafts() {
+        return applicationApi.listMaterialRequirementDrafts();
+    }
+
+    public Optional<MaterialRequirementView> getMaterialRequirement(UUID requirementId) {
+        return applicationApi.getMaterialRequirement(requirementId);
+    }
+
+    public List<String> materialRequirementSourceSummary(MaterialRequirementView requirement) {
+        Objects.requireNonNull(requirement, "requirement");
+        List<String> lines = new ArrayList<>();
+        for (MaterialRequirementSourceItemView source : requirement.sourceItems()) {
+            LoadedProductionOrder order = findAuthoritativeOrder(source.sourceOrderId());
+            LoadedProductionItem item =
+                    findAuthoritativeItem(order, source.sourceOrderItemId());
+            String orderLabel =
+                    order == null
+                            ? "Заказ"
+                            : (order.orderNumber.startsWith("№")
+                                    ? "Заказ " + order.orderNumber
+                                    : "Заказ №" + order.orderNumber);
+            String positionLabel =
+                    item == null
+                            ? "Позиция"
+                            : ProductionTreeNode.humanReadablePosition(
+                                    item.item.externalPositionNumber(), item.index1Based);
+            String productLabel =
+                    item == null
+                            ? ""
+                            : formatProductLabel(item.item.productCode(), item.item.name());
+            StringBuilder line = new StringBuilder();
+            line.append(orderLabel)
+                    .append(" / ")
+                    .append(positionLabel)
+                    .append(" — ")
+                    .append(source.requestedProductQuantity())
+                    .append(" изд.");
+            if (!productLabel.isBlank() && !"—".equals(productLabel)) {
+                line.append(" (").append(productLabel).append(")");
+            }
+            lines.add(line.toString());
+        }
+        return List.copyOf(lines);
+    }
+
+    public void afterSuccessfulMaterialSubmit(MaterialRequirementView submitted) {
+        Objects.requireNonNull(submitted, "submitted");
+        List<ProductionOrderItemRef> toClear = new ArrayList<>();
+        for (MaterialRequirementSourceItemView source : submitted.sourceItems()) {
+            toClear.add(
+                    new ProductionOrderItemRef(
+                            source.sourceOrderId(), source.sourceOrderItemId()));
+        }
+        treeSelection.deselectAll(toClear);
+        statusMessage.set(ProductionUiErrorMapper.MATERIAL_SUBMIT_SUCCESS);
+        errorMessage.set("");
+        loadTreeInternal();
+        refreshMaterialRequestActionState();
+    }
+
+    public void setStatusMessage(String message) {
+        statusMessage.set(message == null ? "" : message);
+    }
+
+    public void setErrorMessage(String message) {
+        errorMessage.set(message == null ? "" : message);
+    }
+
+    public record MaterialRequestStep1LoadResult(
+            boolean ok,
+            boolean accessDenied,
+            String validationMessage,
+            List<MaterialRequestQuantityRow> rows) {
+
+        public static MaterialRequestStep1LoadResult ok(List<MaterialRequestQuantityRow> rows) {
+            return new MaterialRequestStep1LoadResult(true, false, "", List.copyOf(rows));
+        }
+
+        public static MaterialRequestStep1LoadResult validation(String message) {
+            return new MaterialRequestStep1LoadResult(false, false, message, List.of());
+        }
+
+        public static MaterialRequestStep1LoadResult permissionDenied() {
+            return new MaterialRequestStep1LoadResult(
+                    false, true, ProductionUiErrorMapper.ACCESS_DENIED, List.of());
+        }
+    }
+
+    private void refreshMaterialRequestActionState() {
+        boolean transfer = has(UiShellScreens.PRODUCTION_TRANSFER_PERMISSION);
+        boolean view = has(UiShellScreens.PRODUCTION_VIEW_PERMISSION);
+        canRequestMaterials.set(transfer);
+        canOpenMaterialDrafts.set(view);
+        requestMaterialsEnabled.set(transfer && treeSelection.size() > 0 && !detailMode());
+    }
+
+    private static String describeNotRequestable(
+            LoadedProductionItem item, MaterialRequirementProductCoverageView coverage) {
+        if (item == null || item.state == null) {
+            return "позиция недоступна для запроса материалов.";
+        }
+        if (item.state.status() == ItemProductionStateStatus.CANCELLED) {
+            return "позиция отменена.";
+        }
+        if (item.state.status() == ItemProductionStateStatus.RELEASED) {
+            return "позиция уже полностью выпущена.";
+        }
+        if (coverage != null && coverage.requestableProductQuantity() <= 0L) {
+            if (coverage.submittedProductCoverage() > 0L) {
+                return "всё необходимое количество уже запрошено.";
+            }
+            return "доступное для запроса количество равно 0.";
+        }
+        return "материалы больше нельзя запросить.";
+    }
+
+    private LoadedProductionItem findAuthoritativeItem(
+            LoadedProductionOrder order, UUID sourceOrderItemId) {
+        if (order == null) {
+            return null;
+        }
+        for (LoadedProductionItem item : order.items) {
+            if (item.item.orderItemId().value().equals(sourceOrderItemId)) {
+                return item;
+            }
+        }
+        return null;
     }
 
     private void loadTreeInternal() {
@@ -637,6 +917,7 @@ public final class ProductionWorkbenchViewModel {
         }
         expandedOrderIds.retainAll(stillPresent);
         applyFilters();
+        refreshMaterialRequestActionState();
     }
 
     private Map<UUID, Long> resolveOrderedQuantitiesWhenNeeded(

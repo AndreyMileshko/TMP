@@ -43,6 +43,13 @@ public interface ProductionApplicationApi {
     Optional<MaterialRequirementView> getMaterialRequirement(UUID requirementId);
 
     /**
+     * Lists persisted DRAFT Material Requirements newest-first for reopen UX. Requires
+     * {@code production.order.view}. Requirement ids are for API reload only — UI must not show
+     * them.
+     */
+    List<MaterialRequirementDraftSummaryView> listMaterialRequirementDrafts();
+
+    /**
      * Batch product-coverage facts for the given Order Items. Requires
      * {@code production.order.view}.
      */
@@ -81,6 +88,13 @@ public interface ProductionApplicationApi {
      * the mode was never changed. Requires {@code production.order.view}.
      */
     OrderQuantityModeView getOrderQuantityMode(UUID orderId);
+
+    /**
+     * Batch Quantity Modes for the given orders. Missing stored settings return {@code STANDARD}
+     * with {@code version 0}. Requires {@code production.order.view}. One backend call for
+     * multi-order Material Request STEP 1.
+     */
+    List<OrderQuantityModeView> getOrderQuantityModes(List<UUID> orderIds);
 
     /**
      * Changes the order's Production quantity mode with optimistic concurrency and returns the
@@ -220,6 +234,27 @@ public interface ProductionApplicationApi {
             Objects.requireNonNull(lines, "lines");
             sourceItems = List.copyOf(sourceItems);
             lines = List.copyOf(lines);
+        }
+    }
+
+    /**
+     * Human-facing DRAFT list row. {@code requirementId} is for reopen API only — UI must not
+     * display it.
+     */
+    record MaterialRequirementDraftSummaryView(
+            UUID requirementId,
+            Instant createdAt,
+            int sourceItemCount,
+            int orderCount) {
+        public MaterialRequirementDraftSummaryView {
+            Objects.requireNonNull(requirementId, "requirementId");
+            Objects.requireNonNull(createdAt, "createdAt");
+            if (sourceItemCount <= 0) {
+                throw new IllegalArgumentException("sourceItemCount must be > 0");
+            }
+            if (orderCount <= 0) {
+                throw new IllegalArgumentException("orderCount must be > 0");
+            }
         }
     }
 

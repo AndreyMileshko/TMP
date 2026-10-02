@@ -230,6 +230,24 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
         return List.copyOf(loaded);
     }
 
+    @Override
+    public List<MaterialRequirement> findDraftsNewestFirst() {
+        List<UUID> requirementIds =
+                jdbcTemplate.query(
+                        """
+                        SELECT id
+                        FROM production.material_requirements
+                        WHERE status = 'DRAFT'
+                        ORDER BY created_at DESC, id DESC
+                        """,
+                        (rs, rowNum) -> rs.getObject("id", UUID.class));
+        List<MaterialRequirement> loaded = new ArrayList<>(requirementIds.size());
+        for (UUID id : requirementIds) {
+            findById(MaterialRequirementId.of(id)).ifPresent(loaded::add);
+        }
+        return List.copyOf(loaded);
+    }
+
     private Optional<MaterialRequirement> load(
             MaterialRequirementId id, Optional<HeaderRow> header) {
         if (header.isEmpty()) {

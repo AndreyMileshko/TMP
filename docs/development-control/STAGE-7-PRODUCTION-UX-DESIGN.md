@@ -15,7 +15,7 @@
 
 ## 0.1 IMPLEMENTATION PHASE 3 — Production Workbench Tree (2026-10-02)
 
-**Статус:** IMPLEMENTED (LEVEL 1 tree + selection model). Phase 4 Order Card implemented (§0.2).
+**Статус:** IMPLEMENTED (LEVEL 1 tree + selection model). Phase 4 Order Card implemented (§0.2). Phase 5 Material Request UX implemented (§0.3).
 
 | Элемент | Реализация |
 |---|---|
@@ -29,20 +29,46 @@
 | Filter/search | State filter (`ProductionTreeStatusFilter`); search by order number, customer, position, product name/code; hidden selection retained |
 | Refresh | Retains selection + expanded Order ids when still authoritative |
 | Pagination | `ProductionOrderItemsLoader` loads all pages (`MAX_PAGE_SIZE`); no first-page truncation |
-| Future actions on LEVEL 1 | Not shown (no fake Material Requirement / Release dialogs) |
-| Permissions | Open: `production.order.view`; selection needs no mutation rights |
+| Future actions on LEVEL 1 | Material Request: **[Запросить материалы]** + **[Черновики материалов]** (Phase 5); Release not shown |
+| Permissions | Open: `production.order.view`; selection needs no mutation rights; Material Request create: `production.transfer.create` |
 | Transitional DETAIL | Replaced in Phase 4 by Order Card (§0.2) |
 | Removed from LEVEL 1 | UUID input, Spec/Cutting columns, logical transfer, «Подтвердить получение» |
 | Phase 2 shim | **DELETED in Phase 4** — no remaining `src/main` callers of single-order prepare |
-| Adapter | `selectedItemsForMaterialRequirement()` → `MaterialRequirementSourceItemRefView` list (no Submit; Phase 5) |
+| Adapter | `selectedItemsForMaterialRequirement()` → `MaterialRequirementSourceItemRefView` list; Phase 5 prepare/submit wired |
 
-**Следующая фаза:** Phase 5 — LEVEL 1 tree selection → cross-order Material Requirement UX.
+**Следующая фаза:** Phase 6 — Materials Read Model / readiness.
+
+---
+
+## 0.3 IMPLEMENTATION PHASE 5 — Cross-Order Material Requirement UX (2026-10-02)
+
+**Статус:** IMPLEMENTED (LEVEL 1 tree → Material Request wizard). Phase 6+ не начаты.
+
+| Элемент | Реализация |
+|---|---|
+| Entry point | LEVEL 1 Tree: **[Запросить материалы]** (`production.transfer.create` only; hidden without permission) |
+| Selection | `ProductionTreeSelectionModel` / `selectedItemsForMaterialRequirement()` — без второй selection model |
+| Invalid items | Не silent skip: validation message со списком позиций (requestable=0 / CANCELLED / RELEASED) |
+| Batch preload | `getMaterialRequirementProductCoverage` + **`getOrderQuantityModes(List)`** (без N+1) |
+| STEP 1 | Product quantities: STANDARD read-only = requestable; FLEXIBLE editable 1..requestable (default = requestable) |
+| Mixed modes | Один dialog / один `prepareMaterialRequirement` / один DRAFT |
+| Mode/coverage race | Prepare reject → human message + reload STEP 1 |
+| STEP 2 DRAFT | Source summary + material lines; edit quantity via `changeMaterialRequirementQuantity` + expectedVersion |
+| Product coverage | Material edit не меняет `requestedProductQuantity` source items |
+| Submit | `submitMaterialRequirement` → Warehouse demand; success без UUID документов |
+| Shortage / coverage conflict | DRAFT остаётся; human messages |
+| DRAFT persistence | Close не удаляет; reopen через **[Черновики материалов]** + `listMaterialRequirementDrafts` / `getMaterialRequirement` |
+| Multiple DRAFTs | Список по дате/времени + N позиций / M заказов (без UUID) |
+| After Submit | Toast; clear selection submitted items; remain on LEVEL 1 tree |
+| Out of scope | Release UX, readiness, receipt, reservation, Cutting, History redesign |
+
+**Следующая фаза:** Phase 6 — Production Materials Read Model / Warehouse fulfillment visibility / readiness gate foundation.
 
 ---
 
 ## 0.2 IMPLEMENTATION PHASE 4 — Order Production Card + Quantity Mode UX (2026-10-02)
 
-**Статус:** IMPLEMENTED (LEVEL 2 Order Card). Phase 5+ не начаты.
+**Статус:** IMPLEMENTED (LEVEL 2 Order Card). Phase 5 Material Request UX implemented (§0.3).
 
 | Элемент | Реализация |
 |---|---|
@@ -61,7 +87,7 @@
 | Legacy MR shim | **DELETED** — `prepareMaterialRequirement(orderId, itemIds)` API/service overload removed (no `src/main` callers) |
 | Backend preserved | Quantity Mode, cross-order MR list prepare, Release / Partial Release unchanged |
 
-**Следующая фаза:** Phase 5 — LEVEL 1 tree selection → real cross-order Material Requirement UX (STANDARD/FLEXIBLE quantities, DRAFT edit, Submit).
+**Следующая фаза:** Phase 6 — Production Materials Read Model / readiness (см. §0.3).
 
 ---
 

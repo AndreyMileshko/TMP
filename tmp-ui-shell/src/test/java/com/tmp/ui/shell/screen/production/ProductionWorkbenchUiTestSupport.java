@@ -27,6 +27,7 @@ import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSummaryView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductCoverageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductSelectionView;
@@ -250,6 +251,7 @@ final class ProductionWorkbenchUiTestSupport {
         final List<List<MaterialActualUsageView>> releaseUsageCalls = new CopyOnWriteArrayList<>();
         final List<UUID> cancelCalls = new CopyOnWriteArrayList<>();
         final List<Optional<String>> cancelReasons = new CopyOnWriteArrayList<>();
+        List<MaterialRequirementProductSelectionView> lastPrepareSelections = List.of();
 
         MaterialRequirementView requirement;
         RuntimeException submitFailure;
@@ -260,7 +262,9 @@ final class ProductionWorkbenchUiTestSupport {
         ReleaseResultView releaseResult;
         UUID productionWarehouseId = UUID.fromString("22222222-2222-4222-8222-222222222222");
         final Map<UUID, OrderQuantityModeView> quantityModes = new HashMap<>();
+        final Map<UUID, MaterialRequirementProductCoverageView> coverageByItem = new HashMap<>();
         RuntimeException changeOrderQuantityModeFailure;
+        RuntimeException prepareFailure;
 
         @Override
         public DestinationWarehouseView destinationWarehouse() {
@@ -282,9 +286,16 @@ final class ProductionWorkbenchUiTestSupport {
             quantityModes.put(orderId, new OrderQuantityModeView(orderId, mode, version));
         }
 
+        void putCoverage(MaterialRequirementProductCoverageView coverage) {
+            coverageByItem.put(coverage.sourceOrderItemId(), coverage);
+        }
+
         @Override
         public MaterialRequirementView prepareMaterialRequirement(
                 List<MaterialRequirementProductSelectionView> selections) {
+            if (prepareFailure != null) {
+                throw prepareFailure;
+            }
             if (!selections.isEmpty()) {
                 prepareMaterialRequirementCalls.add(selections.getFirst().sourceOrderId());
                 prepareMaterialRequirementItemIds.add(
@@ -292,6 +303,7 @@ final class ProductionWorkbenchUiTestSupport {
                                 .map(MaterialRequirementProductSelectionView::sourceOrderItemId)
                                 .toList());
             }
+            lastPrepareSelections = List.copyOf(selections);
             return requirement;
         }
 
@@ -304,9 +316,39 @@ final class ProductionWorkbenchUiTestSupport {
         }
 
         @Override
+        public List<MaterialRequirementDraftSummaryView> listMaterialRequirementDrafts() {
+            if (requirement == null
+                    || requirement.status() != MaterialRequirementStatusView.DRAFT) {
+                return List.of();
+            }
+            long orderCount =
+                    requirement.sourceItems().stream()
+                            .map(MaterialRequirementSourceItemView::sourceOrderId)
+                            .distinct()
+                            .count();
+            return List.of(
+                    new MaterialRequirementDraftSummaryView(
+                            requirement.requirementId(),
+                            requirement.createdAt(),
+                            requirement.sourceItems().size(),
+                            Math.toIntExact(orderCount)));
+        }
+
+        @Override
         public List<MaterialRequirementProductCoverageView> getMaterialRequirementProductCoverage(
                 List<MaterialRequirementSourceItemRefView> sourceItems) {
-            return List.of();
+            if (coverageByItem.isEmpty()) {
+                return List.of();
+            }
+            List<MaterialRequirementProductCoverageView> out = new ArrayList<>();
+            for (MaterialRequirementSourceItemRefView ref : sourceItems) {
+                MaterialRequirementProductCoverageView coverage =
+                        coverageByItem.get(ref.sourceOrderItemId());
+                if (coverage != null) {
+                    out.add(coverage);
+                }
+            }
+            return List.copyOf(out);
         }
 
         @Override
@@ -421,6 +463,15 @@ final class ProductionWorkbenchUiTestSupport {
         public OrderQuantityModeView getOrderQuantityMode(UUID orderId) {
             return quantityModes.getOrDefault(
                     orderId, new OrderQuantityModeView(orderId, QuantityModeView.STANDARD, 0L));
+        }
+
+        @Override
+        public List<OrderQuantityModeView> getOrderQuantityModes(List<UUID> orderIds) {
+            List<OrderQuantityModeView> views = new ArrayList<>();
+            for (UUID orderId : orderIds.stream().distinct().toList()) {
+                views.add(getOrderQuantityMode(orderId));
+            }
+            return List.copyOf(views);
         }
 
         @Override

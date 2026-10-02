@@ -926,6 +926,19 @@ class MaterialRequirementServiceTest {
         }
 
         @Override
+        public Map<SourceOrderId, OrderQuantityModeSetting> findBySourceOrderIds(
+                Collection<SourceOrderId> sourceOrderIds) {
+            Map<SourceOrderId, OrderQuantityModeSetting> result = new LinkedHashMap<>();
+            for (SourceOrderId id : sourceOrderIds) {
+                OrderQuantityModeSetting setting = store.get(id);
+                if (setting != null) {
+                    result.put(id, setting);
+                }
+            }
+            return Map.copyOf(result);
+        }
+
+        @Override
         public OrderQuantityModeSetting save(
                 SourceOrderId sourceOrderId,
                 ProductionQuantityMode quantityMode,
@@ -1039,6 +1052,23 @@ class MaterialRequirementServiceTest {
                                                     item ->
                                                             wanted.contains(
                                                                     item.sourceOrderItemId())))
+                    .toList();
+        }
+
+        @Override
+        public List<MaterialRequirement> findDraftsNewestFirst() {
+            return store.values().stream()
+                    .filter(requirement -> requirement.status() == MaterialRequirementStatus.DRAFT)
+                    .sorted(
+                            (a, b) -> {
+                                int byCreated = b.createdAt().compareTo(a.createdAt());
+                                if (byCreated != 0) {
+                                    return byCreated;
+                                }
+                                return b.requirementId()
+                                        .value()
+                                        .compareTo(a.requirementId().value());
+                            })
                     .toList();
         }
     }
