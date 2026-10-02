@@ -74,6 +74,9 @@ public final class ProductionWorkbenchController
     private Button materialDraftsButton;
 
     @FXML
+    private Button releaseButton;
+
+    @FXML
     private VBox treePane;
 
     @FXML
@@ -287,6 +290,17 @@ public final class ProductionWorkbenchController
         materialDraftsButton.managedProperty().bind(viewModel.canOpenMaterialDraftsProperty());
         materialDraftsButton.disableProperty().bind(viewModel.loadingProperty());
         materialDraftsButton.setOnAction(e -> openMaterialDrafts());
+
+        releaseButton.visibleProperty().bind(viewModel.canReleaseProperty());
+        releaseButton.managedProperty().bind(viewModel.canReleaseProperty());
+        releaseButton
+                .disableProperty()
+                .bind(
+                        viewModel
+                                .releaseEnabledProperty()
+                                .not()
+                                .or(viewModel.loadingProperty()));
+        releaseButton.setOnAction(e -> startRelease());
 
         acceptButton
                 .disableProperty()
@@ -589,6 +603,111 @@ public final class ProductionWorkbenchController
             return;
         }
         runMaterialRequestFromStep1(loaded.rows());
+    }
+
+    private void startRelease() {
+        ProductionWorkbenchViewModel.ReleaseStep1LoadResult loaded;
+        try {
+            loaded = viewModel.loadReleaseStep1();
+        } catch (RuntimeException ex) {
+            viewModel.setErrorMessage(ProductionUiErrorMapper.text(ex));
+            return;
+        }
+        if (loaded.accessDenied()) {
+            viewModel.setErrorMessage(loaded.validationMessage());
+            return;
+        }
+        if (!loaded.ok()) {
+            ReleaseDialogSupport.showValidation(loaded.validationMessage());
+            return;
+        }
+        runReleaseFromStep1(loaded.rows());
+    }
+
+    private void runReleaseFromStep1(List<ReleaseQuantityRow> rows) {
+        while (true) {
+            ReleaseDialogSupport.Step1Outcome step1 = ReleaseDialogSupport.showStep1(rows);
+            if (!step1.proceed()) {
+                return;
+            }
+            ProductionWorkbenchViewModel.ReleaseStep1StaleResult stale;
+            try {
+                stale = viewModel.detectReleaseStep1Stale(step1.rows());
+            } catch (RuntimeException ex) {
+                viewModel.setErrorMessage(ProductionUiErrorMapper.text(ex));
+                return;
+            }
+            if (stale.stale()) {
+                ReleaseDialogSupport.showValidation(stale.message());
+                if (stale.message().equals(ProductionUiErrorMapper.RELEASE_CANCELLED)) {
+                    return;
+                }
+                ProductionWorkbenchViewModel.ReleaseStep1LoadResult reloaded;
+                try {
+                    reloaded = viewModel.loadReleaseStep1();
+                } catch (RuntimeException ex) {
+                    viewModel.setErrorMessage(ProductionUiErrorMapper.text(ex));
+                    return;
+                }
+                if (!reloaded.ok()) {
+                    if (!reloaded.validationMessage().isBlank()) {
+                        ReleaseDialogSupport.showValidation(reloaded.validationMessage());
+                    }
+                    return;
+                }
+                rows = reloaded.rows();
+                continue;
+            }
+
+            ProductionWorkbenchViewModel.ReleaseReadinessBatchResult readiness;
+            try {
+                readiness = viewModel.checkReleaseReadiness(step1.rows());
+            } catch (RuntimeException ex) {
+                viewModel.setErrorMessage(ProductionUiErrorMapper.text(ex));
+                return;
+            }
+            if (!readiness.ready()) {
+                ReleaseDialogSupport.showReadinessBlocked(readiness.blocking());
+                return;
+            }
+
+            List<ReleaseMaterialRow> materials;
+            try {
+                materials = viewModel.prepareReleaseMaterialRows(step1.rows());
+            } catch (RuntimeException ex) {
+                viewModel.setErrorMessage(ProductionUiErrorMapper.text(ex));
+                return;
+            }
+            ReleaseDialogSupport.Step2Outcome step2 =
+                    ReleaseDialogSupport.showStep2(
+                            materials, viewModel.canReleaseProperty().get());
+            if (!step2.proceed()) {
+                return;
+            }
+            if (!ReleaseDialogSupport.showConfirmSummary(step1.rows())) {
+                return;
+            }
+
+            releaseButton.setDisable(true);
+            try {
+                ProductionWorkbenchViewModel.MultiOrderReleaseResult result =
+                        viewModel.confirmReleases(step1.rows(), step2.materials());
+                viewModel.afterSuccessfulRelease(result, step1.rows());
+                ReleaseDialogSupport.showInfo(
+                        ReleaseDialogSupport.STEP1_TITLE, result.summaryMessage());
+            } catch (RuntimeException ex) {
+                viewModel.setErrorMessage(ProductionUiErrorMapper.text(ex));
+            } finally {
+                releaseButton
+                        .disableProperty()
+                        .bind(
+                                viewModel
+                                        .releaseEnabledProperty()
+                                        .not()
+                                        .or(viewModel.loadingProperty()));
+            }
+            return;
+        }
     }
 
     private void runMaterialRequestFromStep1(List<MaterialRequestQuantityRow> rows) {

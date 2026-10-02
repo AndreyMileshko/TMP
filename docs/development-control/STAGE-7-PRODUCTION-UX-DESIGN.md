@@ -29,8 +29,8 @@
 | Filter/search | State filter (`ProductionTreeStatusFilter`); search by order number, customer, position, product name/code; hidden selection retained |
 | Refresh | Retains selection + expanded Order ids when still authoritative |
 | Pagination | `ProductionOrderItemsLoader` loads all pages (`MAX_PAGE_SIZE`); no first-page truncation |
-| Future actions on LEVEL 1 | Material Request: **[Запросить материалы]** + **[Черновики материалов]** (Phase 5); Release not shown |
-| Permissions | Open: `production.order.view`; selection needs no mutation rights; Material Request create: `production.transfer.create` |
+| Future actions on LEVEL 1 | Material Request: **[Запросить материалы]** + **[Черновики материалов]** (Phase 5); Release: **[Выпустить]** (Phase 7) |
+| Permissions | Open: `production.order.view`; selection needs no mutation rights; Material Request create: `production.transfer.create`; Release: `production.release.create` |
 | Transitional DETAIL | Replaced in Phase 4 by Order Card (§0.2) |
 | Removed from LEVEL 1 | UUID input, Spec/Cutting columns, logical transfer, «Подтвердить получение» |
 | Phase 2 shim | **DELETED in Phase 4** — no remaining `src/main` callers of single-order prepare |
@@ -62,13 +62,43 @@
 | After Submit | Toast; clear selection submitted items; remain on LEVEL 1 tree |
 | Out of scope | Release UX, readiness (→ Phase 6), receipt, reservation, Cutting, History redesign |
 
-**Следующая фаза:** Phase 7 — Release UX.
+**Следующая фаза:** Phase 8 — Stage 7 consolidation / cleanup.
+
+---
+
+## 0.5 IMPLEMENTATION PHASE 7 — Release UX (2026-10-02)
+
+**Статус:** IMPLEMENTED (LEVEL 1 tree selection → Release wizard).
+
+| Элемент | Реализация |
+|---|---|
+| Entry point | LEVEL 1 Tree: **[Выпустить]** (`production.release.create`; hidden without permission; disabled when selection empty) |
+| Selection | Same `ProductionTreeSelectionModel` — no second selection model; Launch remains whole-order only |
+| Invalid items | Not silently skipped: RELEASED / CANCELLED / NOT_ACCEPTED / active=0 → validation with order + position |
+| Quantity Mode | Read from order via `getOrderQuantityModes`; **no mode selector** in Release dialog |
+| STANDARD | releaseQuantity = full `activeProductionQuantity` (read-only) |
+| FLEXIBLE | default = active; editable 1..active |
+| Mixed orders | One wizard; items grouped by OrderId; modes may differ per order |
+| Mode/quantity race | Before leaving STEP 1: authoritative reload; mode change / quantity change messages; no reinterpret of stale FLEXIBLE input |
+| Readiness preflight | `getMaterialReadinessForRelease(orderId, itemReleaseQuantities)` per order; NOT Material Requirement; snapshot only; no reservation |
+| NOT_READY | «Недостаточно материалов для выпуска.» + [Подробнее]; cannot continue |
+| NO_PRODUCTION_WAREHOUSE | «Не назначен производственный склад.»; cannot continue |
+| Plan / fact | Existing `prepareRelease` → `ReleasePreviewView.defaultActuals`; plan read-only; fact editable; cell codes via Warehouse `listStorageCells`; no new allocation algorithm; deviation allowed |
+| Multi-order | Group by OrderId; per-order Release command/TX; OrderId ascending; **not** cross-order atomic |
+| Partial failure | Stop after first authoritative confirm failure; UI shows A success / B failed / C not processed; no UI rollback of POSTED Release |
+| Confirm | Existing `releaseProducts` (lock → revalidate → plan → stock precheck → consume → persist → item states) |
+| After success | Refresh tree; clear successfully released selection; remain LEVEL 1 |
+| Reservation | **Not introduced** |
+| Permissions | Release action: `production.release.create`; readiness read: `production.order.view` |
+| Out of scope | Order Card competing Release selection; legacy backend deletion; Cutting; Warehouse reservation redesign |
+
+**Следующая фаза:** Phase 8 — Stage 7 consolidation / cleanup.
 
 ---
 
 ## 0.4 IMPLEMENTATION PHASE 6 — Material Readiness Read Model (2026-10-02)
 
-**Статус:** IMPLEMENTED (Production-owned readiness read model + Order Card materials block). Phase 7+ не начаты.
+**Статус:** IMPLEMENTED (Production-owned readiness read model + Order Card materials block). Phase 7 Release UX implemented (§0.5).
 
 | Элемент | Реализация |
 |---|---|
@@ -420,24 +450,35 @@ Release разрешён, если для каждой строки матери
 
 ## 11. RELEASE UX
 
+**Implemented (Phase 7):** Tree is the Release entry point. Quantity Mode is informational (STANDARD = full active remainder, read-only; FLEXIBLE editable). Mixed orders supported. Preflight is snapshot readiness; confirm is authoritative per-order Release. Plan/fact kept; cells shown by code; no reservation; multi-order batch uses per-order transactions with honest partial-success semantics.
+
 ### 11.1 Шаг 1 — «Выпуск изделий: количество»
 
 ```text
-ВЫПУСК ИЗДЕЛИЙ — Заказ №4183
+ВЫПУСК ИЗДЕЛИЙ
 
-| Позиция | Изделие        | Заказано | Изготовлено | Осталось | К выпуску |
-|---------|----------------|---------:|------------:|---------:|----------:|
-| 1       | Окно ПВХ 2-ств |       10 |           6 |        4 |      [4]  |
-| 2       | Дверь балкон.  |        5 |           5 |        0 |       —   |
+Заказ №4183 — Стандартный
+Поз. 1   Окно
+Заказано: 10
+Изготовлено: 6
+Осталось: 4
+К выпуску: 4
 
-Материалы для этого выпуска:  ✓ готовы   [Подробнее]
+Заказ №4184 — Гибкий
+Поз. 3   Дверь
+Заказано: 8
+Изготовлено: 2
+Осталось: 6
+К выпуску: [4]
 
                                    [Далее]  [Отмена]
 ```
 
-- «К выпуску» по умолчанию = «Осталось» (`activeProductionQuantity`), редактируемо в диапазоне 0..Осталось; полный и частичный выпуск — одним и тем же полем.
-- Строки с «Осталось = 0» не редактируются.
-- После изменения количеств — preview R1 + проверка готовности (§9.3). При нехватке — [Далее] disabled + «Недостаточно материалов для выпуска».
+- STANDARD: «К выпуску» = «Осталось» (`activeProductionQuantity`), **not editable**.
+- FLEXIBLE: default = «Осталось»; editable in range 1..Осталось.
+- Quantity Mode is **not** chosen in the dialog — only read from the order.
+- After quantities — readiness via `getMaterialReadinessForRelease` for selected release quantities. При нехватке — cannot continue + «Недостаточно материалов для выпуска» + [Подробнее].
+- Mode/quantity race before Next: reload authoritative data; do not reinterpret stale FLEXIBLE input.
 
 ### 11.2 Шаг 2 — «Фактический расход материалов» (существующий plan/fact)
 
@@ -451,9 +492,11 @@ Release разрешён, если для каждой строки матери
 
 ### 11.3 Подтверждение и результат
 
-- [Выпустить] блокируется на время операции (устраняет audit mismatch #3).
-- Успех: «Выпущено: 4 шт.» (сумма `releaseQuantity`), либо «Изделия выпущены. Заказ изготовлен полностью» при переходе в `MANUFACTURED`. `documentId` / UUID не показываются.
-- Ошибки: over-release / конкурентный выпуск → «Количество к выпуску изменилось — другой пользователь уже выпустил часть изделий. Данные обновлены»; precheck R4 → §9.3; отменённое производство → «Производство заказа отменено, выпуск невозможен».
+- Final summary then [Выпустить]; button blocked during operation (double-submit guard).
+- Multi-order: OrderId ascending; each order own TX; stop after first authoritative failure; UI shows partial success honestly (not all-or-nothing).
+- Успех: «Выпущено: N изделия.» / «Изделия выпущены. Заказ изготовлен полностью» при MANUFACTURED. `documentId` / UUID не показываются.
+- Ошибки: over-release / конкурентный выпуск → «Количество к выпуску изменилось…»; stock race → human shortage message; отменённое производство → «Производство заказа отменено. Выпуск невозможен.»
+- After success: refresh tree; clear successfully released items from selection; remain on LEVEL 1.
 
 ---
 

@@ -64,6 +64,7 @@ class ProductionWorkbenchTreeViewModelTest {
                         applicationApi,
                         orderQuery,
                         worklistQuery,
+                        new ProductionWorkbenchUiTestSupport.StubWarehouseApi(),
                         auth,
                         authentication);
     }
@@ -353,6 +354,7 @@ class ProductionWorkbenchTreeViewModelTest {
                         applicationApi,
                         orderQuery,
                         worklistQuery,
+                        new ProductionWorkbenchUiTestSupport.StubWarehouseApi(),
                         auth,
                         authentication);
         seedSingleOrderThreeItems();

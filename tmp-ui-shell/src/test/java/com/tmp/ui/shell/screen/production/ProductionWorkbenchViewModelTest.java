@@ -327,6 +327,7 @@ class ProductionWorkbenchViewModelTest {
                 applicationApi,
                 orderQuery,
                 worklistQuery,
+                new ProductionWorkbenchUiTestSupport.StubWarehouseApi(),
                 authorization,
                 authentication);
     }

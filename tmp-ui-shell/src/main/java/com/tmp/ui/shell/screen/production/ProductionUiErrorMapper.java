@@ -55,6 +55,22 @@ public final class ProductionUiErrorMapper {
             "Материал не найден в справочнике склада.";
     public static final String NO_PRODUCTION_WAREHOUSE =
             "Не назначен производственный склад.";
+    public static final String RELEASE_MATERIALS_NOT_READY =
+            "Недостаточно материалов для выпуска.";
+    public static final String RELEASE_MODE_CHANGED =
+            "Режим работы заказа изменён.\nДанные обновлены.";
+    public static final String RELEASE_QUANTITY_CHANGED =
+            "Количество к выпуску изменилось.\nДанные обновлены.";
+    public static final String RELEASE_QUANTITY_CONFLICT =
+            "Количество к выпуску изменилось — другой пользователь уже выпустил часть изделий.\n"
+                    + "Данные обновлены.";
+    public static final String RELEASE_CANCELLED =
+            "Производство заказа отменено.\nВыпуск невозможен.";
+    public static final String RELEASE_STOCK_CHANGED =
+            "Недостаточно материала на производственном складе.\n\nВыпуск не выполнен.";
+    public static final String RELEASE_INVALID_ALLOCATION =
+            "Проверьте фактический расход и распределение по ячейкам.";
+    public static final String RELEASE_PARTIAL_SUCCESS = "Выпуск завершён частично.";
 
     private ProductionUiErrorMapper() {}
 
@@ -98,6 +114,18 @@ public final class ProductionUiErrorMapper {
             if (simple.contains("ProductionLaunchConflict")
                     || simple.contains("AlreadyLaunched")) {
                 return ACCEPT_CONFLICT;
+            }
+            if (isReleaseCancelled(simple, lower)) {
+                return RELEASE_CANCELLED;
+            }
+            if (isReleaseQuantityConflict(simple, lower)) {
+                return RELEASE_QUANTITY_CONFLICT;
+            }
+            if (isReleaseStockShortage(simple, lower)) {
+                return formatReleaseStockShortage(message);
+            }
+            if (isReleaseInvalidAllocation(simple, lower)) {
+                return RELEASE_INVALID_ALLOCATION;
             }
             if (simple.contains("OptimisticLock")
                     || simple.contains("Concurrent")
@@ -166,6 +194,19 @@ public final class ProductionUiErrorMapper {
         return ACCEPT_CONFLICT.equals(text(error));
     }
 
+    public static boolean isReleaseQuantityConflict(Throwable error) {
+        return RELEASE_QUANTITY_CONFLICT.equals(text(error));
+    }
+
+    public static boolean isReleaseCancelled(Throwable error) {
+        return RELEASE_CANCELLED.equals(text(error));
+    }
+
+    public static boolean isReleaseStockShortage(Throwable error) {
+        String mapped = text(error);
+        return RELEASE_STOCK_CHANGED.equals(mapped) || mapped.contains("Недостаточно материала");
+    }
+
     public static boolean isConcurrentOrStale(Throwable error) {
         String mapped = text(error);
         return CONCURRENT_STALE.equals(mapped)
@@ -173,7 +214,76 @@ public final class ProductionUiErrorMapper {
                 || QUANTITY_MODE_CHANGED_FOR_REQUEST.equals(mapped)
                 || ACCEPT_CONFLICT.equals(mapped)
                 || MATERIAL_DRAFT_CONFLICT.equals(mapped)
-                || MATERIAL_COVERAGE_CHANGED.equals(mapped);
+                || MATERIAL_COVERAGE_CHANGED.equals(mapped)
+                || RELEASE_QUANTITY_CONFLICT.equals(mapped)
+                || RELEASE_CANCELLED.equals(mapped);
+    }
+
+    private static boolean isReleaseCancelled(String simple, String lower) {
+        return lower.contains("release is allowed only when order production view is in_production")
+                || (lower.contains("release rejected for item status")
+                        && lower.contains("cancelled"));
+    }
+
+    private static boolean isReleaseQuantityConflict(String simple, String lower) {
+        return lower.contains("exceeds active production quantity")
+                || lower.contains("release quantity exceeds")
+                || (simple.contains("ReleaseProducts")
+                        && lower.contains("active production quantity"));
+    }
+
+    private static boolean isReleaseStockShortage(String simple, String lower) {
+        return lower.contains("insufficient production warehouse stock")
+                || (lower.contains("insufficient")
+                        && lower.contains("stock")
+                        && (lower.contains("production") || lower.contains("material")));
+    }
+
+    private static boolean isReleaseInvalidAllocation(String simple, String lower) {
+        return lower.contains("allocation total must equal")
+                || lower.contains("duplicate storage cell")
+                || lower.contains("storage cell not found")
+                || lower.contains("zero actual requires empty allocations")
+                || lower.contains("missing confirmed actual usage")
+                || lower.contains("extra material not in system-calculated plan");
+    }
+
+    private static String formatReleaseStockShortage(String message) {
+        // Keep UUID-free human message; detailed code/qty may be appended by caller after readiness
+        // refresh.
+        if (message == null || message.isBlank()) {
+            return RELEASE_STOCK_CHANGED;
+        }
+        String available = extractAfter(message, "available=");
+        String required = extractAfter(message, "required=");
+        if (available != null && required != null) {
+            return "Недостаточно материала на производственном складе.\n\nДоступно: "
+                    + available
+                    + "\nТребуется: "
+                    + required
+                    + ".\n\nВыпуск не выполнен.";
+        }
+        return RELEASE_STOCK_CHANGED;
+    }
+
+    private static String extractAfter(String message, String marker) {
+        int index = message.indexOf(marker);
+        if (index < 0) {
+            return null;
+        }
+        int start = index + marker.length();
+        int end = start;
+        while (end < message.length()) {
+            char c = message.charAt(end);
+            if (c == ',' || c == ' ' || c == ')' || c == ';' || c == '\n') {
+                break;
+            }
+            end++;
+        }
+        if (end <= start) {
+            return null;
+        }
+        return message.substring(start, end);
     }
 
     private static boolean isModeChangedForMaterialRequest(String simple, String lower) {

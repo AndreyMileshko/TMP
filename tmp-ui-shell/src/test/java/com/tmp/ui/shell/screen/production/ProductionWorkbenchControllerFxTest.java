@@ -39,6 +39,7 @@ class ProductionWorkbenchControllerFxTest {
                         new ProductionWorkbenchUiTestSupport.StubApplicationApi(),
                         new ProductionWorkbenchUiTestSupport.StubOrderQuery(),
                         new ProductionWorkbenchUiTestSupport.StubWorklistQuery(),
+                        new ProductionWorkbenchUiTestSupport.StubWarehouseApi(),
                         new ProductionWorkbenchUiTestSupport.AllowAllAuthorization(),
                         new ProductionWorkbenchUiTestSupport.StubAuthentication());
 
@@ -71,6 +72,9 @@ class ProductionWorkbenchControllerFxTest {
                                 "Гибкий",
                                 ((RadioButton) root.lookup("#flexibleModeRadio")).getText());
                         assertNotNull(root.lookup("#saveQuantityModeButton"));
+                        assertNotNull(root.lookup("#releaseButton"));
+                        assertEquals(
+                                "Выпустить", ((Button) root.lookup("#releaseButton")).getText());
                         assertNull(root.lookup("#materialRequirementPanel"));
                         assertNull(root.lookup("#prepareTransferButton"));
                         assertNull(root.lookup("#prepareReleaseButton"));
@@ -123,6 +127,7 @@ class ProductionWorkbenchControllerFxTest {
                         new ProductionWorkbenchUiTestSupport.StubApplicationApi(),
                         new ProductionWorkbenchUiTestSupport.StubOrderQuery(),
                         new ProductionWorkbenchUiTestSupport.StubWorklistQuery(),
+                        new ProductionWorkbenchUiTestSupport.StubWarehouseApi(),
                         new ProductionWorkbenchUiTestSupport.AllowAllAuthorization(),
                         new ProductionWorkbenchUiTestSupport.StubAuthentication()));
         Stage stage = new Stage();

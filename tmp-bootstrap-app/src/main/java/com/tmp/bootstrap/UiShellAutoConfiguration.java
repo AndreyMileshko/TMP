@@ -266,6 +266,7 @@ public class UiShellAutoConfiguration {
             ProductionApplicationApi productionApplicationApi,
             OrderQueryService orderQueryService,
             OrderWorklistQuery orderWorklistQuery,
+            com.tmp.warehouse.api.WarehouseApi warehouseApi,
             AuthorizationService authorizationService,
             AuthenticationService authenticationService) {
         return new ProductionWorkbenchViewModel(
@@ -273,6 +274,7 @@ public class UiShellAutoConfiguration {
                 productionApplicationApi,
                 orderQueryService,
                 orderWorklistQuery,
+                warehouseApi,
                 authorizationService,
                 authenticationService);
     }

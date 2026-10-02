@@ -26,6 +26,7 @@ import com.tmp.production.api.ProductionApplicationApi.DestinationWarehouseView;
 import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialActualDefaultView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSummaryView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
@@ -276,6 +277,9 @@ final class ProductionWorkbenchUiTestSupport {
                         List.of());
         final List<UUID> remainingReadinessCalls = new CopyOnWriteArrayList<>();
         final List<List<ItemReleaseView>> releaseReadinessCalls = new CopyOnWriteArrayList<>();
+        final Map<UUID, MaterialReadinessView> releaseReadinessByOrder = new HashMap<>();
+        final Map<UUID, RuntimeException> releaseFailuresByOrder = new HashMap<>();
+        final List<UUID> releaseOrderCalls = new CopyOnWriteArrayList<>();
         RuntimeException prepareFailure;
 
         @Override
@@ -452,7 +456,21 @@ final class ProductionWorkbenchUiTestSupport {
         @Override
         public ReleasePreviewView prepareRelease(UUID orderId, List<ItemReleaseView> itemReleases) {
             prepareReleaseCalls.add(List.copyOf(itemReleases));
-            return releasePreview;
+            if (releasePreview != null) {
+                return releasePreview;
+            }
+            List<MaterialActualDefaultView> defaults =
+                    itemReleases.stream()
+                            .map(
+                                    item ->
+                                            new MaterialActualDefaultView(
+                                                    item.sourceOrderItemId(),
+                                                    UUID.fromString(
+                                                            "77777777-7777-4777-8777-777777777777"),
+                                                    BigDecimal.TEN,
+                                                    BigDecimal.TEN))
+                            .toList();
+            return new ReleasePreviewView(orderId, itemReleases, List.of(), defaults);
         }
 
         @Override
@@ -460,9 +478,16 @@ final class ProductionWorkbenchUiTestSupport {
                 UUID orderId,
                 List<ItemReleaseView> itemReleases,
                 List<MaterialActualUsageView> materialActualUsages) {
+            releaseOrderCalls.add(orderId);
             releaseProductCalls.add(List.copyOf(itemReleases));
             releaseUsageCalls.add(List.copyOf(materialActualUsages));
-            return releaseResult;
+            RuntimeException failure = releaseFailuresByOrder.get(orderId);
+            if (failure != null) {
+                throw failure;
+            }
+            return releaseResult == null
+                    ? new ReleaseResultView(UUID.randomUUID(), orderId, Instant.now())
+                    : releaseResult;
         }
 
         @Override
@@ -512,7 +537,7 @@ final class ProductionWorkbenchUiTestSupport {
         public MaterialReadinessView getMaterialReadinessForRelease(
                 UUID orderId, List<ItemReleaseView> itemReleases) {
             releaseReadinessCalls.add(List.copyOf(itemReleases));
-            return remainingReadiness;
+            return releaseReadinessByOrder.getOrDefault(orderId, remainingReadiness);
         }
     }
 

@@ -75,6 +75,7 @@ class MaterialRequestPhase5ViewModelTest {
                         applicationApi,
                         orderQuery,
                         worklistQuery,
+                        new ProductionWorkbenchUiTestSupport.StubWarehouseApi(),
                         auth,
                         authentication);
     }
@@ -100,6 +101,7 @@ class MaterialRequestPhase5ViewModelTest {
                         applicationApi,
                         orderQuery,
                         worklistQuery,
+                        new ProductionWorkbenchUiTestSupport.StubWarehouseApi(),
                         auth,
                         authentication);
         seedThreeOrders();

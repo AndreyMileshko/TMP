@@ -10,6 +10,9 @@ import com.tmp.order.api.OrderWorklistCriteria;
 import com.tmp.order.api.OrderWorklistQuery;
 import com.tmp.order.api.OrderWorklistRowDto;
 import com.tmp.production.api.ProductionApplicationApi;
+import com.tmp.production.api.ProductionApplicationApi.CellAllocationView;
+import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSummaryView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductCoverageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductSelectionView;
@@ -19,7 +22,10 @@ import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessView;
 import com.tmp.production.api.ProductionApplicationApi.OrderQuantityModeView;
+import com.tmp.production.api.ProductionApplicationApi.PlannedMaterialLineView;
 import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
+import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
+import com.tmp.production.api.ProductionApplicationApi.ReleaseResultView;
 import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateStatus;
@@ -32,14 +38,20 @@ import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
+import com.tmp.ui.shell.order.DecimalQuantityParser;
+import com.tmp.ui.shell.order.DecimalUiFormat;
 import com.tmp.ui.shell.order.worklist.OrderListPeriod;
+import com.tmp.warehouse.api.WarehouseApi;
+import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -59,7 +71,7 @@ import javafx.collections.ObservableList;
 
 /**
  * Production workbench ViewModel. LEVEL 1 tree + LEVEL 2 Order Card. Reads/writes go through public
- * Production/Order APIs only.
+ * Production/Order APIs; Warehouse public API is used only for Release cell choices.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
@@ -150,6 +162,7 @@ public final class ProductionWorkbenchViewModel {
     private final ProductionApplicationApi applicationApi;
     private final OrderQueryService orderQueryService;
     private final OrderWorklistQuery worklistQuery;
+    private final WarehouseApi warehouseApi;
     private final AuthorizationService authorizationService;
     private final AuthenticationService authenticationService;
     private final Clock clock;
@@ -180,6 +193,8 @@ public final class ProductionWorkbenchViewModel {
     private final BooleanProperty canRequestMaterials = new SimpleBooleanProperty(false);
     private final BooleanProperty canOpenMaterialDrafts = new SimpleBooleanProperty(false);
     private final BooleanProperty requestMaterialsEnabled = new SimpleBooleanProperty(false);
+    private final BooleanProperty canRelease = new SimpleBooleanProperty(false);
+    private final BooleanProperty releaseEnabled = new SimpleBooleanProperty(false);
     private final BooleanProperty treeVisible = new SimpleBooleanProperty(true);
     private final BooleanProperty detailVisible = new SimpleBooleanProperty(false);
 
@@ -212,6 +227,7 @@ public final class ProductionWorkbenchViewModel {
             ProductionApplicationApi applicationApi,
             OrderQueryService orderQueryService,
             OrderWorklistQuery worklistQuery,
+            WarehouseApi warehouseApi,
             AuthorizationService authorizationService,
             AuthenticationService authenticationService) {
         this(
@@ -219,6 +235,7 @@ public final class ProductionWorkbenchViewModel {
                 applicationApi,
                 orderQueryService,
                 worklistQuery,
+                warehouseApi,
                 authorizationService,
                 authenticationService,
                 Clock.systemDefaultZone(),
@@ -230,6 +247,7 @@ public final class ProductionWorkbenchViewModel {
             ProductionApplicationApi applicationApi,
             OrderQueryService orderQueryService,
             OrderWorklistQuery worklistQuery,
+            WarehouseApi warehouseApi,
             AuthorizationService authorizationService,
             AuthenticationService authenticationService,
             Clock clock,
@@ -238,6 +256,7 @@ public final class ProductionWorkbenchViewModel {
         this.applicationApi = Objects.requireNonNull(applicationApi, "applicationApi");
         this.orderQueryService = Objects.requireNonNull(orderQueryService, "orderQueryService");
         this.worklistQuery = Objects.requireNonNull(worklistQuery, "worklistQuery");
+        this.warehouseApi = Objects.requireNonNull(warehouseApi, "warehouseApi");
         this.authorizationService =
                 Objects.requireNonNull(authorizationService, "authorizationService");
         this.authenticationService =
@@ -251,6 +270,7 @@ public final class ProductionWorkbenchViewModel {
                             selectionCountLabel.set(
                                     "Выбрано: " + newValue.intValue() + " позиций");
                             refreshMaterialRequestActionState();
+                            refreshReleaseActionState();
                         });
         searchText.addListener((obs, oldValue, newValue) -> applyFilters());
         statusFilter.addListener((obs, oldValue, newValue) -> applyFilters());
@@ -269,6 +289,7 @@ public final class ProductionWorkbenchViewModel {
                     quantityModeHint.set(ProductionPresentationLabels.quantityModeHint(newValue));
                 });
         refreshMaterialRequestActionState();
+        refreshReleaseActionState();
     }
 
     public void loadTree() {
@@ -397,6 +418,7 @@ public final class ProductionWorkbenchViewModel {
         clearOrderCardState();
         applyFilters();
         refreshMaterialRequestActionState();
+        refreshReleaseActionState();
     }
 
     public void openForOrder(OrderId orderId) {
@@ -603,6 +625,14 @@ public final class ProductionWorkbenchViewModel {
 
     public BooleanProperty requestMaterialsEnabledProperty() {
         return requestMaterialsEnabled;
+    }
+
+    public BooleanProperty canReleaseProperty() {
+        return canRelease;
+    }
+
+    public BooleanProperty releaseEnabledProperty() {
+        return releaseEnabled;
     }
 
     public ObservableList<ProductionItemRow> itemRows() {
@@ -812,6 +842,288 @@ public final class ProductionWorkbenchViewModel {
         errorMessage.set("");
         loadTreeInternal();
         refreshMaterialRequestActionState();
+        refreshReleaseActionState();
+    }
+
+    /**
+     * Loads authoritative active quantities + Quantity Modes for the current tree selection. Never
+     * silently drops invalid items — returns a validation message instead.
+     */
+    public ReleaseStep1LoadResult loadReleaseStep1() {
+        if (!has(UiShellScreens.PRODUCTION_RELEASE_PERMISSION)) {
+            return ReleaseStep1LoadResult.permissionDenied();
+        }
+        List<ProductionOrderItemRef> selected = treeSelection.selectedOrderItemRefs();
+        if (selected.isEmpty()) {
+            return ReleaseStep1LoadResult.validation("Выберите хотя бы одну позицию.");
+        }
+
+        Set<UUID> orderIds = new LinkedHashSet<>();
+        for (ProductionOrderItemRef ref : selected) {
+            orderIds.add(ref.sourceOrderId());
+        }
+        Map<UUID, QuantityModeView> modesByOrder = new HashMap<>();
+        for (OrderQuantityModeView modeView :
+                applicationApi.getOrderQuantityModes(List.copyOf(orderIds))) {
+            modesByOrder.put(modeView.orderId(), modeView.quantityMode());
+        }
+
+        List<String> invalid = new ArrayList<>();
+        List<ReleaseQuantityRow> rows = new ArrayList<>();
+        for (ProductionOrderItemRef ref : selected) {
+            LoadedProductionOrder order = findAuthoritativeOrder(ref.sourceOrderId());
+            LoadedProductionItem item = findAuthoritativeItem(order, ref.sourceOrderItemId());
+            String orderLabel = orderLabel(order);
+            String positionLabel = positionLabel(item);
+            String productLabel =
+                    item == null
+                            ? "—"
+                            : formatProductLabel(item.item.productCode(), item.item.name());
+
+            if (order != null && order.status == OrderProductionViewStatus.CANCELLED) {
+                invalid.add(orderLabel + " / " + positionLabel + ":\nпроизводство заказа отменено.");
+                continue;
+            }
+            if (order != null && order.status == OrderProductionViewStatus.NOT_ACCEPTED) {
+                invalid.add(
+                        orderLabel
+                                + " / "
+                                + positionLabel
+                                + ":\nзаказ ещё не принят в производство.");
+                continue;
+            }
+            if (item == null || item.state == null) {
+                invalid.add(orderLabel + " / " + positionLabel + ":\nпозиция недоступна для выпуска.");
+                continue;
+            }
+            if (item.state.status() == ItemProductionStateStatus.CANCELLED) {
+                invalid.add(orderLabel + " / " + positionLabel + ":\nпозиция отменена.");
+                continue;
+            }
+            if (item.state.status() == ItemProductionStateStatus.RELEASED
+                    || item.state.activeProductionQuantity() <= 0L) {
+                invalid.add(
+                        orderLabel
+                                + " / "
+                                + positionLabel
+                                + ":\nактивное количество к выпуску равно 0.");
+                continue;
+            }
+
+            QuantityModeView mode =
+                    modesByOrder.getOrDefault(ref.sourceOrderId(), QuantityModeView.STANDARD);
+            long active = item.state.activeProductionQuantity();
+            rows.add(
+                    new ReleaseQuantityRow(
+                            ref.sourceOrderId(),
+                            ref.sourceOrderItemId(),
+                            orderLabel,
+                            positionLabel,
+                            productLabel,
+                            mode,
+                            item.state.orderedQuantity(),
+                            item.state.releasedQuantity(),
+                            active,
+                            active));
+        }
+
+        if (!invalid.isEmpty()) {
+            StringBuilder message = new StringBuilder();
+            message.append("Для некоторых выбранных позиций выпуск невозможен:\n\n");
+            for (String line : invalid) {
+                message.append(line).append("\n\n");
+            }
+            return ReleaseStep1LoadResult.validation(message.toString().trim());
+        }
+        return ReleaseStep1LoadResult.ok(rows);
+    }
+
+    /**
+     * Re-reads authoritative mode/quantities before leaving STEP 1. Returns a stale reason without
+     * reinterpreting user-entered FLEXIBLE quantities.
+     */
+    public ReleaseStep1StaleResult detectReleaseStep1Stale(List<ReleaseQuantityRow> rows) {
+        Objects.requireNonNull(rows, "rows");
+        // Refresh authoritative Production item states before leaving STEP 1.
+        loadTreeInternal();
+
+        Set<UUID> orderIds = new LinkedHashSet<>();
+        for (ReleaseQuantityRow row : rows) {
+            orderIds.add(row.sourceOrderId());
+        }
+        Map<UUID, QuantityModeView> modesByOrder = new HashMap<>();
+        for (OrderQuantityModeView modeView :
+                applicationApi.getOrderQuantityModes(List.copyOf(orderIds))) {
+            modesByOrder.put(modeView.orderId(), modeView.quantityMode());
+        }
+
+        boolean modeChanged = false;
+        boolean quantityChanged = false;
+        for (ReleaseQuantityRow row : rows) {
+            QuantityModeView currentMode =
+                    modesByOrder.getOrDefault(row.sourceOrderId(), QuantityModeView.STANDARD);
+            if (currentMode != row.quantityMode()) {
+                modeChanged = true;
+            }
+            LoadedProductionOrder order = findAuthoritativeOrder(row.sourceOrderId());
+            LoadedProductionItem item = findAuthoritativeItem(order, row.sourceOrderItemId());
+            long active =
+                    item == null || item.state == null ? 0L : item.state.activeProductionQuantity();
+            if (active != row.activeProductionQuantity()) {
+                quantityChanged = true;
+            }
+            if (row.standardMode() && ReleaseDialogSupport.resolvedReleaseQuantity(row) != active) {
+                quantityChanged = true;
+            }
+            if (!row.standardMode() && row.releaseQuantity() > active) {
+                quantityChanged = true;
+            }
+            if (order != null && order.status == OrderProductionViewStatus.CANCELLED) {
+                return ReleaseStep1StaleResult.cancelled();
+            }
+        }
+        if (modeChanged) {
+            return ReleaseStep1StaleResult.staleMode();
+        }
+        if (quantityChanged) {
+            return ReleaseStep1StaleResult.staleQuantity();
+        }
+        return ReleaseStep1StaleResult.ok();
+    }
+
+    public ReleaseReadinessBatchResult checkReleaseReadiness(List<ReleaseQuantityRow> rows) {
+        Objects.requireNonNull(rows, "rows");
+        Map<UUID, List<ReleaseQuantityRow>> byOrder = groupReleaseRowsByOrder(rows);
+        MaterialReadinessView firstBlocking = null;
+        for (Map.Entry<UUID, List<ReleaseQuantityRow>> entry : byOrder.entrySet()) {
+            List<ItemReleaseView> itemReleases = toItemReleases(entry.getValue());
+            MaterialReadinessView readiness =
+                    applicationApi.getMaterialReadinessForRelease(entry.getKey(), itemReleases);
+            if (readiness.status() == MaterialReadinessStatusView.READY) {
+                continue;
+            }
+            firstBlocking = readiness;
+            break;
+        }
+        if (firstBlocking == null) {
+            return ReleaseReadinessBatchResult.allReady();
+        }
+        return ReleaseReadinessBatchResult.blocked(firstBlocking);
+    }
+
+    public List<ReleaseMaterialRow> prepareReleaseMaterialRows(List<ReleaseQuantityRow> rows) {
+        Objects.requireNonNull(rows, "rows");
+        Optional<UUID> warehouseId = applicationApi.destinationWarehouse().productionWarehouseId();
+        List<StorageCellChoice> cells =
+                warehouseId.map(this::loadProductionCells).orElse(List.of());
+
+        Map<UUID, List<ReleaseQuantityRow>> byOrder = groupReleaseRowsByOrder(rows);
+        List<ReleaseMaterialRow> materials = new ArrayList<>();
+        for (Map.Entry<UUID, List<ReleaseQuantityRow>> entry : byOrder.entrySet()) {
+            UUID orderId = entry.getKey();
+            List<ItemReleaseView> itemReleases = toItemReleases(entry.getValue());
+            ReleasePreviewView preview = applicationApi.prepareRelease(orderId, itemReleases);
+            String orderLabel = entry.getValue().getFirst().orderNumberLabel();
+            Map<String, String> names = new HashMap<>();
+            for (PlannedMaterialLineView planned : preview.plannedMaterialLines()) {
+                String key =
+                        planned.sourceOrderItemId() + "|" + planned.materialReferenceId();
+                names.put(
+                        key,
+                        planned.materialName().orElse("Материал"));
+            }
+            for (var actual : preview.defaultActuals()) {
+                String key = actual.sourceOrderItemId() + "|" + actual.materialReferenceId();
+                String label = names.getOrDefault(key, "Материал");
+                ReleaseMaterialRow row =
+                        new ReleaseMaterialRow(
+                                orderId,
+                                actual.sourceOrderItemId(),
+                                actual.materialReferenceId(),
+                                orderLabel,
+                                label,
+                                DecimalUiFormat.format(actual.plannedQuantity()),
+                                DecimalUiFormat.format(actual.actualQuantity()));
+                row.cellChoices().setAll(cells);
+                materials.add(row);
+            }
+        }
+        return List.copyOf(materials);
+    }
+
+    public MultiOrderReleaseResult confirmReleases(
+            List<ReleaseQuantityRow> quantityRows, List<ReleaseMaterialRow> materialRows) {
+        Objects.requireNonNull(quantityRows, "quantityRows");
+        Objects.requireNonNull(materialRows, "materialRows");
+
+        Map<UUID, List<ReleaseQuantityRow>> quantitiesByOrder = groupReleaseRowsByOrder(quantityRows);
+        Map<UUID, List<ReleaseMaterialRow>> materialsByOrder = new LinkedHashMap<>();
+        for (ReleaseMaterialRow row : materialRows) {
+            materialsByOrder
+                    .computeIfAbsent(row.sourceOrderId(), id -> new ArrayList<>())
+                    .add(row);
+        }
+
+        List<UUID> orderIds = new ArrayList<>(quantitiesByOrder.keySet());
+        orderIds.sort(Comparator.naturalOrder());
+
+        List<OrderReleaseOutcome> outcomes = new ArrayList<>();
+        boolean stopFurther = false;
+        for (UUID orderId : orderIds) {
+            String orderLabel = quantitiesByOrder.get(orderId).getFirst().orderNumberLabel();
+            if (stopFurther) {
+                outcomes.add(OrderReleaseOutcome.skipped(orderId, orderLabel));
+                continue;
+            }
+            try {
+                List<ItemReleaseView> itemReleases = toItemReleases(quantitiesByOrder.get(orderId));
+                List<MaterialActualUsageView> usages =
+                        buildMaterialActualUsages(materialsByOrder.getOrDefault(orderId, List.of()));
+                ReleaseResultView result =
+                        applicationApi.releaseProducts(orderId, itemReleases, usages);
+                long total =
+                        quantitiesByOrder.get(orderId).stream()
+                                .mapToLong(ReleaseDialogSupport::resolvedReleaseQuantity)
+                                .sum();
+                OrderProductionView view = queryApi.getOrderProductionView(orderId);
+                boolean manufactured =
+                        view != null && view.status() == OrderProductionViewStatus.MANUFACTURED;
+                outcomes.add(
+                        OrderReleaseOutcome.succeeded(
+                                orderId, orderLabel, total, manufactured, result));
+            } catch (RuntimeException ex) {
+                outcomes.add(
+                        OrderReleaseOutcome.failed(
+                                orderId, orderLabel, ProductionUiErrorMapper.text(ex)));
+                stopFurther = true;
+            }
+        }
+        return new MultiOrderReleaseResult(List.copyOf(outcomes));
+    }
+
+    public void afterSuccessfulRelease(
+            MultiOrderReleaseResult result, List<ReleaseQuantityRow> quantityRows) {
+        Objects.requireNonNull(result, "result");
+        Objects.requireNonNull(quantityRows, "quantityRows");
+        List<ProductionOrderItemRef> toClear = new ArrayList<>();
+        Set<UUID> successfulOrders = new HashSet<>();
+        for (OrderReleaseOutcome outcome : result.outcomes()) {
+            if (outcome.success()) {
+                successfulOrders.add(outcome.orderId());
+            }
+        }
+        for (ReleaseQuantityRow row : quantityRows) {
+            if (successfulOrders.contains(row.sourceOrderId())) {
+                toClear.add(
+                        new ProductionOrderItemRef(row.sourceOrderId(), row.sourceOrderItemId()));
+            }
+        }
+        treeSelection.deselectAll(toClear);
+        statusMessage.set(result.summaryMessage());
+        errorMessage.set("");
+        loadTreeInternal();
+        refreshMaterialRequestActionState();
+        refreshReleaseActionState();
     }
 
     public void setStatusMessage(String message) {
@@ -842,12 +1154,244 @@ public final class ProductionWorkbenchViewModel {
         }
     }
 
+    public record ReleaseStep1LoadResult(
+            boolean ok,
+            boolean accessDenied,
+            String validationMessage,
+            List<ReleaseQuantityRow> rows) {
+
+        public static ReleaseStep1LoadResult ok(List<ReleaseQuantityRow> rows) {
+            return new ReleaseStep1LoadResult(true, false, "", List.copyOf(rows));
+        }
+
+        public static ReleaseStep1LoadResult validation(String message) {
+            return new ReleaseStep1LoadResult(false, false, message, List.of());
+        }
+
+        public static ReleaseStep1LoadResult permissionDenied() {
+            return new ReleaseStep1LoadResult(
+                    false, true, ProductionUiErrorMapper.ACCESS_DENIED, List.of());
+        }
+    }
+
+    public record ReleaseStep1StaleResult(boolean stale, boolean modeChanged, String message) {
+        public static ReleaseStep1StaleResult ok() {
+            return new ReleaseStep1StaleResult(false, false, "");
+        }
+
+        public static ReleaseStep1StaleResult staleMode() {
+            return new ReleaseStep1StaleResult(
+                    true, true, ProductionUiErrorMapper.RELEASE_MODE_CHANGED);
+        }
+
+        public static ReleaseStep1StaleResult staleQuantity() {
+            return new ReleaseStep1StaleResult(
+                    true, false, ProductionUiErrorMapper.RELEASE_QUANTITY_CHANGED);
+        }
+
+        public static ReleaseStep1StaleResult cancelled() {
+            return new ReleaseStep1StaleResult(
+                    true, false, ProductionUiErrorMapper.RELEASE_CANCELLED);
+        }
+    }
+
+    public record ReleaseReadinessBatchResult(boolean ready, MaterialReadinessView blocking) {
+        public static ReleaseReadinessBatchResult allReady() {
+            return new ReleaseReadinessBatchResult(true, null);
+        }
+
+        public static ReleaseReadinessBatchResult blocked(MaterialReadinessView readiness) {
+            return new ReleaseReadinessBatchResult(false, readiness);
+        }
+    }
+
+    public record OrderReleaseOutcome(
+            UUID orderId,
+            String orderLabel,
+            boolean success,
+            boolean skipped,
+            boolean manufactured,
+            long releasedQuantity,
+            String errorMessage,
+            ReleaseResultView result) {
+
+        public static OrderReleaseOutcome succeeded(
+                UUID orderId,
+                String orderLabel,
+                long releasedQuantity,
+                boolean manufactured,
+                ReleaseResultView result) {
+            return new OrderReleaseOutcome(
+                    orderId,
+                    orderLabel,
+                    true,
+                    false,
+                    manufactured,
+                    releasedQuantity,
+                    "",
+                    result);
+        }
+
+        public static OrderReleaseOutcome failed(
+                UUID orderId, String orderLabel, String errorMessage) {
+            return new OrderReleaseOutcome(
+                    orderId, orderLabel, false, false, false, 0L, errorMessage, null);
+        }
+
+        public static OrderReleaseOutcome skipped(UUID orderId, String orderLabel) {
+            return new OrderReleaseOutcome(
+                    orderId, orderLabel, false, true, false, 0L, "не запускалось", null);
+        }
+    }
+
+    public record MultiOrderReleaseResult(List<OrderReleaseOutcome> outcomes) {
+        public MultiOrderReleaseResult {
+            outcomes = List.copyOf(outcomes);
+        }
+
+        public boolean anySuccess() {
+            return outcomes.stream().anyMatch(OrderReleaseOutcome::success);
+        }
+
+        public boolean allSuccess() {
+            return !outcomes.isEmpty() && outcomes.stream().allMatch(OrderReleaseOutcome::success);
+        }
+
+        public String summaryMessage() {
+            if (outcomes.isEmpty()) {
+                return "";
+            }
+            if (outcomes.size() == 1) {
+                OrderReleaseOutcome only = outcomes.getFirst();
+                if (only.success()) {
+                    if (only.manufactured()) {
+                        return "Изделия выпущены.\nЗаказ изготовлен полностью.";
+                    }
+                    return "Выпущено: " + only.releasedQuantity() + " изделия.";
+                }
+                return only.errorMessage();
+            }
+            if (allSuccess()) {
+                StringBuilder text = new StringBuilder("Выпуск выполнен.\n\n");
+                for (OrderReleaseOutcome outcome : outcomes) {
+                    text.append(outcome.orderLabel())
+                            .append(" — Выпущено: ")
+                            .append(outcome.releasedQuantity())
+                            .append("\n");
+                }
+                return text.toString().trim();
+            }
+            if (anySuccess()) {
+                StringBuilder text =
+                        new StringBuilder(ProductionUiErrorMapper.RELEASE_PARTIAL_SUCCESS)
+                                .append("\n\n");
+                for (OrderReleaseOutcome outcome : outcomes) {
+                    text.append(outcome.orderLabel()).append(" — ");
+                    if (outcome.success()) {
+                        text.append("Выпущено");
+                    } else if (outcome.skipped()) {
+                        text.append("Не выполнено / не запускалось");
+                    } else {
+                        text.append("Не выполнено:\n").append(outcome.errorMessage());
+                    }
+                    text.append("\n\n");
+                }
+                return text.toString().trim();
+            }
+            return outcomes.getFirst().errorMessage();
+        }
+    }
+
     private void refreshMaterialRequestActionState() {
         boolean transfer = has(UiShellScreens.PRODUCTION_TRANSFER_PERMISSION);
         boolean view = has(UiShellScreens.PRODUCTION_VIEW_PERMISSION);
         canRequestMaterials.set(transfer);
         canOpenMaterialDrafts.set(view);
         requestMaterialsEnabled.set(transfer && treeSelection.size() > 0 && !detailMode());
+    }
+
+    private void refreshReleaseActionState() {
+        boolean release = has(UiShellScreens.PRODUCTION_RELEASE_PERMISSION);
+        canRelease.set(release);
+        releaseEnabled.set(release && treeSelection.size() > 0 && !detailMode());
+    }
+
+    private Map<UUID, List<ReleaseQuantityRow>> groupReleaseRowsByOrder(
+            List<ReleaseQuantityRow> rows) {
+        Map<UUID, List<ReleaseQuantityRow>> byOrder = new LinkedHashMap<>();
+        for (ReleaseQuantityRow row : rows) {
+            byOrder.computeIfAbsent(row.sourceOrderId(), id -> new ArrayList<>()).add(row);
+        }
+        return byOrder;
+    }
+
+    private static List<ItemReleaseView> toItemReleases(List<ReleaseQuantityRow> rows) {
+        List<ItemReleaseView> releases = new ArrayList<>();
+        for (ReleaseQuantityRow row : rows) {
+            releases.add(
+                    new ItemReleaseView(
+                            row.sourceOrderItemId(),
+                            ReleaseDialogSupport.resolvedReleaseQuantity(row)));
+        }
+        return releases;
+    }
+
+    private List<MaterialActualUsageView> buildMaterialActualUsages(List<ReleaseMaterialRow> rows) {
+        List<MaterialActualUsageView> usages = new ArrayList<>();
+        for (ReleaseMaterialRow row : rows) {
+            BigDecimal actual =
+                    DecimalQuantityParser.parseNonNegative(
+                            row.actualQuantity(), "Фактическое количество");
+            List<CellAllocationView> allocations = new ArrayList<>();
+            if (actual.signum() > 0) {
+                for (ReleaseMaterialRow.CellAllocation allocation : row.allocations()) {
+                    if (allocation.productionCell() == null) {
+                        throw new IllegalArgumentException(
+                                "Выберите ячейку склада производства");
+                    }
+                    BigDecimal qty =
+                            DecimalQuantityParser.parsePositive(
+                                    allocation.quantity(), "Количество по ячейке");
+                    allocations.add(
+                            new CellAllocationView(allocation.productionCell().id(), qty));
+                }
+            }
+            usages.add(
+                    new MaterialActualUsageView(
+                            row.sourceOrderItemId(),
+                            row.materialReferenceId(),
+                            actual,
+                            allocations));
+        }
+        return usages;
+    }
+
+    private List<StorageCellChoice> loadProductionCells(UUID warehouseId) {
+        List<StorageCellView> cells = warehouseApi.listStorageCells(warehouseId);
+        List<StorageCellChoice> choices = new ArrayList<>();
+        for (StorageCellView cell : cells) {
+            if (cell.active()) {
+                choices.add(StorageCellChoice.from(cell));
+            }
+        }
+        return choices;
+    }
+
+    private String orderLabel(LoadedProductionOrder order) {
+        if (order == null) {
+            return "Заказ";
+        }
+        return order.orderNumber.startsWith("№")
+                ? "Заказ " + order.orderNumber
+                : "Заказ №" + order.orderNumber;
+    }
+
+    private String positionLabel(LoadedProductionItem item) {
+        if (item == null) {
+            return "Позиция";
+        }
+        return ProductionTreeNode.humanReadablePosition(
+                item.item.externalPositionNumber(), item.index1Based);
     }
 
     private static String describeNotRequestable(
@@ -940,6 +1484,7 @@ public final class ProductionWorkbenchViewModel {
         expandedOrderIds.retainAll(stillPresent);
         applyFilters();
         refreshMaterialRequestActionState();
+        refreshReleaseActionState();
     }
 
     private Map<UUID, Long> resolveOrderedQuantitiesWhenNeeded(

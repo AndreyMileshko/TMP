@@ -60,6 +60,7 @@
             <Label fx:id="selectionCountLabel" text="Выбрано: 0 позиций"/>
             <Button fx:id="requestMaterialsButton" text="Запросить материалы"/>
             <Button fx:id="materialDraftsButton" text="Черновики материалов"/>
+            <Button fx:id="releaseButton" text="Выпустить"/>
         </HBox>
     </VBox>
 

@@ -63,6 +63,7 @@ class MaterialReadinessPhase6ViewModelTest {
                         applicationApi,
                         orderQuery,
                         worklistQuery,
+                        new ProductionWorkbenchUiTestSupport.StubWarehouseApi(),
                         new AllowAllAuthorization(),
                         new StubAuthentication());
     }
