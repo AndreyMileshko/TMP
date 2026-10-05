@@ -151,6 +151,7 @@ public final class ReleaseDialogSupport {
         TableView<ReleaseQuantityRow> table = new TableView<>();
         table.setItems(FXCollections.observableArrayList(rows));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        table.setPlaceholder(new Label("Нет данных"));
         table.setPrefHeight(320);
         table.getColumns()
                 .setAll(
@@ -241,6 +242,7 @@ public final class ReleaseDialogSupport {
         }
         table.setItems(FXCollections.observableArrayList(lines));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        table.setPlaceholder(new Label("Нет данных"));
         table.setPrefHeight(280);
         table.getColumns()
                 .setAll(
@@ -288,6 +290,7 @@ public final class ReleaseDialogSupport {
         TableView<ReleaseMaterialRow> table = new TableView<>();
         table.setItems(FXCollections.observableArrayList(materials));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        table.setPlaceholder(new Label("Нет данных"));
         table.setPrefHeight(300);
         table.getColumns()
                 .setAll(
@@ -374,20 +377,26 @@ public final class ReleaseDialogSupport {
     }
 
     public static void showValidation(String message) {
-        Alert alert = new Alert(Alert.AlertType.WARNING);
-        TmpTheme.apply(alert.getDialogPane());
-        alert.setTitle(STEP1_TITLE);
-        alert.setHeaderText(null);
-        alert.setContentText(message == null ? "" : message);
-        alert.showAndWait();
+        showWrappedMessage(Alert.AlertType.WARNING, STEP1_TITLE, message);
     }
 
     public static void showInfo(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        showWrappedMessage(Alert.AlertType.INFORMATION, title, message);
+    }
+
+    private static void showWrappedMessage(Alert.AlertType type, String title, String message) {
+        Alert alert = new Alert(type);
         TmpTheme.apply(alert.getDialogPane());
         alert.setTitle(title);
         alert.setHeaderText(null);
-        alert.setContentText(message == null ? "" : message);
+        Label content = new Label(message == null ? "" : message);
+        content.setWrapText(true);
+        content.setMaxWidth(560);
+        content.setMinHeight(Label.USE_PREF_SIZE);
+        alert.getDialogPane().setContent(content);
+        alert.getDialogPane().setPrefWidth(620);
+        alert.getDialogPane().setMinHeight(180);
+        alert.setResizable(true);
         alert.showAndWait();
     }
 

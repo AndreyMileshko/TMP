@@ -7,13 +7,14 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Bounded commercial criteria for the Orders worklist read. Period is mandatory
- * ({@code createdAt >= createdFrom} and {@code createdAt < createdToExclusive}).
+ * Commercial criteria for the Orders worklist read. Created-at bounds are optional open-range
+ * filters ({@code createdAt >= createdFrom} and/or {@code createdAt < createdToExclusive}). When
+ * both are absent the period is unbounded (subject to {@link #MAX_ROWS}).
  *
  * <p>{@code quickSearch} matches order number <em>or</em> customer name (partial,
- * case-insensitive). Customer filter uses stable {@code customerRef} values, legacy
- * null-ref {@code customerName} values, and true unassigned (neither ref nor name).
- * When {@link #filterByCustomers()} is {@code false} the customer predicate is absent.
+ * case-insensitive). Customer filter uses stable {@code customerRef} values, legacy null-ref
+ * {@code customerName} values, and true unassigned (neither ref nor name). When {@link
+ * #filterByCustomers()} is {@code false} the customer predicate is absent.
  */
 public final class OrderWorklistCriteria {
 
@@ -48,12 +49,12 @@ public final class OrderWorklistCriteria {
         return new Builder();
     }
 
-    public Instant createdFrom() {
-        return createdFrom;
+    public Optional<Instant> createdFrom() {
+        return Optional.ofNullable(createdFrom);
     }
 
-    public Instant createdToExclusive() {
-        return createdToExclusive;
+    public Optional<Instant> createdToExclusive() {
+        return Optional.ofNullable(createdToExclusive);
     }
 
     public Optional<String> quickSearch() {
@@ -124,9 +125,9 @@ public final class OrderWorklistCriteria {
         }
 
         public OrderWorklistCriteria build() {
-            Objects.requireNonNull(createdFrom, "createdFrom");
-            Objects.requireNonNull(createdToExclusive, "createdToExclusive");
-            if (!createdFrom.isBefore(createdToExclusive)) {
+            if (createdFrom != null
+                    && createdToExclusive != null
+                    && !createdFrom.isBefore(createdToExclusive)) {
                 throw new IllegalArgumentException(
                         "createdFrom must be before createdToExclusive: "
                                 + createdFrom

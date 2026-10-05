@@ -112,8 +112,12 @@ public final class OrderListTestSupport {
             lastCriteria = criteria;
             List<OrderWorklistRowDto> matched = new ArrayList<>();
             for (OrderWorklistRowDto row : rows) {
-                if (row.createdAt().isBefore(criteria.createdFrom())
-                        || !row.createdAt().isBefore(criteria.createdToExclusive())) {
+                if (criteria.createdFrom().isPresent()
+                        && row.createdAt().isBefore(criteria.createdFrom().get())) {
+                    continue;
+                }
+                if (criteria.createdToExclusive().isPresent()
+                        && !row.createdAt().isBefore(criteria.createdToExclusive().get())) {
                     continue;
                 }
                 if (criteria.quickSearch().isPresent()) {

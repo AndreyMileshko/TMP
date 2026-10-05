@@ -286,6 +286,9 @@ class ProductionWorkbenchTreeViewModelTest {
                 ORDER_1,
                 ProductionWorkbenchUiTestSupport.productionListFacts(
                         ORDER_1, OrderProductionViewStatus.IN_PRODUCTION, 30, 0, 30));
+        queryApi.putItemState(ProductionWorkbenchUiTestSupport.activeItemState(ORDER_1, ITEM_1A, 10));
+        queryApi.putItemState(ProductionWorkbenchUiTestSupport.activeItemState(ORDER_1, ITEM_1B, 10));
+        queryApi.putItemState(ProductionWorkbenchUiTestSupport.activeItemState(ORDER_1, ITEM_1C, 10));
         viewModel.loadTree();
         viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_1, ITEM_1C), true);
 
@@ -338,11 +341,114 @@ class ProductionWorkbenchTreeViewModelTest {
         for (int i = 0; i < 101; i++) {
             UUID itemId = UUID.nameUUIDFromBytes(("tree-item-" + i).getBytes());
             orderQuery.items.add(ProductionWorkbenchUiTestSupport.item(ORDER_1, itemId, String.valueOf(i + 1)));
+            queryApi.putItemState(ProductionWorkbenchUiTestSupport.activeItemState(ORDER_1, itemId, 1));
         }
 
         viewModel.loadTree();
 
         assertEquals(101, viewModel.visibleTreeProperty().get().get(0).items().size());
+    }
+
+    @Test
+    void treeOrderIdentityIsBareOrderNumber() {
+        seedSingleOrderThreeItems();
+        viewModel.loadTree();
+        assertEquals("ORD-1", viewModel.visibleTreeProperty().get().get(0).orderNode().identityLabel());
+        assertFalse(
+                viewModel
+                        .visibleTreeProperty()
+                        .get()
+                        .get(0)
+                        .orderNode()
+                        .identityLabel()
+                        .contains("Заказ"));
+    }
+
+    @Test
+    void searchByDisplayedPositionLabelFindsChild() {
+        seedSingleOrderThreeItems();
+        viewModel.loadTree();
+        viewModel.searchTextProperty().set("Поз. 2");
+        assertEquals(1, viewModel.visibleTreeProperty().get().size());
+        assertEquals(1, viewModel.visibleTreeProperty().get().get(0).items().size());
+        assertEquals(
+                "Поз. 2",
+                viewModel.visibleTreeProperty().get().get(0).items().get(0).identityLabel());
+    }
+
+    @Test
+    void cancelledItemIsNotSelectableAndParentDisabledWhenAllCancelled() {
+        worklistQuery.rows.add(ProductionWorkbenchUiTestSupport.worklistRow(ORDER_1, "ORD-1", "Клиент A"));
+        orderQuery.orders.put(OrderId.of(ORDER_1), ProductionWorkbenchUiTestSupport.order(ORDER_1, "ORD-1"));
+        orderQuery.items.add(ProductionWorkbenchUiTestSupport.item(ORDER_1, ITEM_1A, "1"));
+        orderQuery.items.add(ProductionWorkbenchUiTestSupport.item(ORDER_1, ITEM_1B, "2"));
+        queryApi.listFacts.put(
+                ORDER_1,
+                ProductionWorkbenchUiTestSupport.productionListFacts(
+                        ORDER_1, OrderProductionViewStatus.CANCELLED, 20, 0, 0));
+        queryApi.putItemState(
+                ProductionWorkbenchUiTestSupport.itemProductionState(
+                        ORDER_1,
+                        ITEM_1A,
+                        ItemProductionStateStatus.CANCELLED,
+                        10,
+                        0,
+                        0));
+        queryApi.putItemState(
+                ProductionWorkbenchUiTestSupport.itemProductionState(
+                        ORDER_1,
+                        ITEM_1B,
+                        ItemProductionStateStatus.CANCELLED,
+                        10,
+                        0,
+                        0));
+        viewModel.statusFilterProperty().set(ProductionTreeStatusFilter.CANCELLED);
+        viewModel.loadTree();
+
+        assertFalse(viewModel.visibleTreeProperty().get().isEmpty());
+        ProductionTreeNode orderNode = viewModel.visibleTreeProperty().get().get(0).orderNode();
+        assertFalse(orderNode.selectable());
+        assertTrue(orderNode.childRefs().isEmpty());
+        assertFalse(viewModel.visibleTreeProperty().get().get(0).items().get(0).selectable());
+
+        viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_1, ITEM_1A), true);
+        assertTrue(viewModel.selectedOrderItemRefs().isEmpty());
+        viewModel.selectOrder(ORDER_1);
+        assertTrue(viewModel.selectedOrderItemRefs().isEmpty());
+        assertFalse(viewModel.requestMaterialsEnabledProperty().get());
+        assertFalse(viewModel.releaseEnabledProperty().get());
+    }
+
+    @Test
+    void toggleOrderFromUncheckedAndIndeterminateSelectsAllSelectable() {
+        seedSingleOrderThreeItems();
+        queryApi.putItemState(
+                ProductionWorkbenchUiTestSupport.itemProductionState(
+                        ORDER_1,
+                        ITEM_1C,
+                        ItemProductionStateStatus.CANCELLED,
+                        10,
+                        0,
+                        0));
+        viewModel.loadTree();
+
+        viewModel.toggleOrderSelection(ORDER_1);
+        assertEquals(2, viewModel.selectedOrderItemRefs().size());
+
+        viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_1, ITEM_1B), false);
+        assertEquals(
+                OrderCheckState.INDETERMINATE,
+                viewModel
+                        .selectionModel()
+                        .orderCheckState(
+                                ORDER_1,
+                                viewModel.visibleTreeProperty().get().get(0).orderNode().childRefs()));
+
+        viewModel.toggleOrderSelection(ORDER_1);
+        assertEquals(2, viewModel.selectedOrderItemRefs().size());
+
+        viewModel.toggleOrderSelection(ORDER_1);
+        assertTrue(viewModel.selectedOrderItemRefs().isEmpty());
     }
 
     @Test
@@ -377,6 +483,9 @@ class ProductionWorkbenchTreeViewModelTest {
                 ORDER_1,
                 ProductionWorkbenchUiTestSupport.productionListFacts(
                         ORDER_1, OrderProductionViewStatus.IN_PRODUCTION, 30, 0, 30));
+        queryApi.putItemState(ProductionWorkbenchUiTestSupport.activeItemState(ORDER_1, ITEM_1A, 10));
+        queryApi.putItemState(ProductionWorkbenchUiTestSupport.activeItemState(ORDER_1, ITEM_1B, 10));
+        queryApi.putItemState(ProductionWorkbenchUiTestSupport.activeItemState(ORDER_1, ITEM_1C, 10));
     }
 
     private void seedTwoOrders() {
@@ -396,6 +505,10 @@ class ProductionWorkbenchTreeViewModelTest {
                 ORDER_2,
                 ProductionWorkbenchUiTestSupport.productionListFacts(
                         ORDER_2, OrderProductionViewStatus.IN_PRODUCTION, 20, 0, 20));
+        queryApi.putItemState(ProductionWorkbenchUiTestSupport.activeItemState(ORDER_1, ITEM_2A, 10));
+        queryApi.putItemState(ProductionWorkbenchUiTestSupport.activeItemState(ORDER_2, ITEM_1A, 5));
+        queryApi.putItemState(ProductionWorkbenchUiTestSupport.activeItemState(ORDER_2, ITEM_1B, 5));
+        queryApi.putItemState(ProductionWorkbenchUiTestSupport.activeItemState(ORDER_2, ITEM_1C, 10));
     }
 
     private static ItemProductionStateView itemState(

@@ -113,4 +113,44 @@ class ProductionTreeSelectionModelTest {
 
         assertEquals(List.of(refA1, refA3, refB1), model.selectedOrderItemRefs());
     }
+
+    @Test
+    void leafToggleIsBinaryNeverIndeterminate() {
+        assertFalse(model.isItemSelected(refA1));
+        model.setItemSelected(refA1, true);
+        assertTrue(model.isItemSelected(refA1));
+        model.setItemSelected(refA1, false);
+        assertFalse(model.isItemSelected(refA1));
+        assertEquals(
+                ProductionTreeSelectionModel.OrderCheckState.UNCHECKED,
+                model.orderCheckState(ORDER_A, List.of(refA1)));
+    }
+
+    @Test
+    void parentPartialIsIndeterminateAndSelectAllClearsIndeterminateViaChecked() {
+        model.setItemSelected(refA1, true);
+        assertEquals(
+                ProductionTreeSelectionModel.OrderCheckState.INDETERMINATE,
+                model.orderCheckState(ORDER_A, orderAChildren));
+        model.selectAll(orderAChildren);
+        assertEquals(
+                ProductionTreeSelectionModel.OrderCheckState.CHECKED,
+                model.orderCheckState(ORDER_A, orderAChildren));
+        model.deselectAll(orderAChildren);
+        assertEquals(
+                ProductionTreeSelectionModel.OrderCheckState.UNCHECKED,
+                model.orderCheckState(ORDER_A, orderAChildren));
+    }
+
+    @Test
+    void orderCheckStateUsesOnlyProvidedSelectableChildren() {
+        model.setItemSelected(refA1, true);
+        model.setItemSelected(refA2, true);
+        assertEquals(
+                ProductionTreeSelectionModel.OrderCheckState.CHECKED,
+                model.orderCheckState(ORDER_A, List.of(refA1, refA2)));
+        assertEquals(
+                ProductionTreeSelectionModel.OrderCheckState.INDETERMINATE,
+                model.orderCheckState(ORDER_A, orderAChildren));
+    }
 }

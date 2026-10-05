@@ -1,7 +1,9 @@
 package com.tmp.ui.shell.order.worklist;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -62,5 +64,14 @@ class OrderListPeriodTest {
                                 CLOCK,
                                 LocalDate.of(2026, 8, 10),
                                 LocalDate.of(2026, 8, 1)));
+    }
+
+    @Test
+    void allPeriodIsUnbounded() {
+        OrderListPeriod.Range range =
+                OrderListPeriod.resolve(OrderListPeriod.Preset.ALL_PERIOD, ZONE, CLOCK, null, null);
+        assertNull(range.fromInclusive());
+        assertNull(range.toExclusive());
+        assertTrue(range.unbounded());
     }
 }

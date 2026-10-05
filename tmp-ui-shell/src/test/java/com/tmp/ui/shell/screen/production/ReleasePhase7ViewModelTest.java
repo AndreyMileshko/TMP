@@ -197,7 +197,8 @@ class ReleasePhase7ViewModelTest {
                         10L,
                         0L));
         viewModel.loadTree();
-        viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_A, ITEM_A1), true);
+        // Bypass UI selectability guard: mutation path must not silently drop invalid refs.
+        viewModel.selectionModel().selectItem(new ProductionOrderItemRef(ORDER_A, ITEM_A1));
         var loaded = viewModel.loadReleaseStep1();
         assertFalse(loaded.ok());
         assertTrue(loaded.validationMessage().contains("активное количество"));

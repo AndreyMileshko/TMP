@@ -24,12 +24,15 @@ import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
@@ -99,7 +102,28 @@ public final class ProductionWorkbenchController
     private ComboBox<OrderListPeriod.Preset> periodPresetCombo;
 
     @FXML
+    private Label periodFromCaption;
+
+    @FXML
+    private DatePicker periodFromPicker;
+
+    @FXML
+    private Label periodToCaption;
+
+    @FXML
+    private DatePicker periodToPicker;
+
+    @FXML
     private Button refreshButton;
+
+    @FXML
+    private TabPane orderCardTabs;
+
+    @FXML
+    private Tab overviewTab;
+
+    @FXML
+    private Tab positionsTab;
 
     @FXML
     private TreeTableView<ProductionTreeNode> productionTree;
@@ -234,6 +258,7 @@ public final class ProductionWorkbenchController
     @Override
     public void setViewModel(ProductionWorkbenchViewModel viewModel) {
         this.viewModel = viewModel;
+        viewModel.ensurePreferencesLoaded();
         bind();
         viewModel.loadTree();
     }
@@ -281,7 +306,9 @@ public final class ProductionWorkbenchController
                         OrderListPeriod.Preset.TODAY,
                         OrderListPeriod.Preset.LAST_7_DAYS,
                         OrderListPeriod.Preset.LAST_30_DAYS,
-                        OrderListPeriod.Preset.CURRENT_MONTH));
+                        OrderListPeriod.Preset.CURRENT_MONTH,
+                        OrderListPeriod.Preset.ALL_PERIOD,
+                        OrderListPeriod.Preset.CUSTOM));
         periodPresetCombo.setConverter(
                 new StringConverter<>() {
                     @Override
@@ -294,7 +321,8 @@ public final class ProductionWorkbenchController
                             case LAST_7_DAYS -> "7 дней";
                             case LAST_30_DAYS -> "30 дней";
                             case CURRENT_MONTH -> "Текущий месяц";
-                            case CUSTOM -> "Период";
+                            case ALL_PERIOD -> "Весь период";
+                            case CUSTOM -> "Произвольный период…";
                         };
                     }
 
@@ -304,9 +332,21 @@ public final class ProductionWorkbenchController
                     }
                 });
         periodPresetCombo.valueProperty().bindBidirectional(viewModel.periodPresetProperty());
+        periodFromPicker.valueProperty().bindBidirectional(viewModel.customFromProperty());
+        periodToPicker.valueProperty().bindBidirectional(viewModel.customToProperty());
+        periodPresetCombo
+                .valueProperty()
+                .addListener((obs, oldValue, newValue) -> updateCustomPeriodVisibility(newValue));
+        updateCustomPeriodVisibility(viewModel.periodPresetProperty().get());
 
         refreshButton.setOnAction(e -> viewModel.refresh());
-        backToTreeButton.setOnAction(e -> viewModel.backToTree());
+        backToTreeButton.setOnAction(
+                e -> {
+                    if (orderCardTabs != null && overviewTab != null) {
+                        orderCardTabs.getSelectionModel().select(overviewTab);
+                    }
+                    viewModel.backToTree();
+                });
         actionsRefreshMenuItem.setOnAction(e -> viewModel.refresh());
         actionsCancelMenuItem.setOnAction(e -> confirmCancelProduction());
         actionsCancelMenuItem.visibleProperty().bind(viewModel.canCancelProperty());
@@ -547,25 +587,22 @@ public final class ProductionWorkbenchController
         private final CheckBox checkBox = new CheckBox();
 
         private SelectionCheckCell() {
-            checkBox.setAllowIndeterminate(true);
-            checkBox.addEventFilter(MouseEvent.MOUSE_CLICKED, MouseEvent::consume);
-            checkBox.setOnAction(
-                    e -> {
+            checkBox.addEventFilter(
+                    MouseEvent.MOUSE_PRESSED,
+                    event -> {
+                        event.consume();
                         ProductionTreeNode node =
                                 getTreeTableRow() == null ? null : getTreeTableRow().getItem();
-                        if (node == null) {
+                        if (node == null || checkBox.isDisable()) {
                             return;
                         }
                         if (node.isOrder()) {
-                            if (checkBox.isSelected() && !checkBox.isIndeterminate()) {
-                                viewModel.selectOrder(node.sourceOrderId());
-                            } else {
-                                viewModel.deselectOrder(node.sourceOrderId());
-                            }
-                        } else {
-                            viewModel.setItemSelected(node.itemRef(), checkBox.isSelected());
+                            viewModel.toggleOrderSelection(node.sourceOrderId());
+                        } else if (node.selectable()) {
+                            viewModel.toggleItemSelection(node.itemRef());
                         }
                     });
+            checkBox.addEventFilter(MouseEvent.MOUSE_CLICKED, MouseEvent::consume);
         }
 
         @Override
@@ -577,6 +614,8 @@ public final class ProductionWorkbenchController
             }
             ProductionTreeNode node = getTreeTableRow().getItem();
             if (node.isOrder()) {
+                checkBox.setAllowIndeterminate(true);
+                checkBox.setDisable(!node.selectable());
                 ProductionTreeSelectionModel.OrderCheckState state =
                         viewModel
                                 .selectionModel()
@@ -593,7 +632,9 @@ public final class ProductionWorkbenchController
                     case INDETERMINATE -> checkBox.setIndeterminate(true);
                 }
             } else {
+                checkBox.setAllowIndeterminate(false);
                 checkBox.setIndeterminate(false);
+                checkBox.setDisable(!node.selectable());
                 checkBox.setSelected(viewModel.selectionModel().isItemSelected(node.itemRef()));
             }
             setGraphic(checkBox);
@@ -602,6 +643,7 @@ public final class ProductionWorkbenchController
 
     private void bindItemsTable() {
         itemsTable.setEditable(false);
+        itemsTable.setPlaceholder(new Label("Нет данных"));
         itemPositionColumn.setCellValueFactory(
                 c -> new SimpleStringProperty(c.getValue().positionLabel()));
         itemProductColumn.setCellValueFactory(
@@ -615,6 +657,44 @@ public final class ProductionWorkbenchController
         itemRemainingColumn.setCellValueFactory(
                 c -> new SimpleStringProperty(c.getValue().remainingLabel()));
         itemsTable.setItems(viewModel.itemRows());
+        viewModel
+                .itemRows()
+                .addListener(
+                        (javafx.collections.ListChangeListener<ProductionItemRow>)
+                                change -> updatePositionsTabLabel());
+        updatePositionsTabLabel();
+        if (orderCardTabs != null && overviewTab != null) {
+            orderCardTabs.getSelectionModel().select(overviewTab);
+        }
+        productionTree.setPlaceholder(new Label("Нет данных"));
+    }
+
+    private void updatePositionsTabLabel() {
+        if (positionsTab == null) {
+            return;
+        }
+        int count = viewModel == null ? 0 : viewModel.itemRows().size();
+        positionsTab.setText("Позиции (" + count + ")");
+    }
+
+    private void updateCustomPeriodVisibility(OrderListPeriod.Preset preset) {
+        boolean custom = preset == OrderListPeriod.Preset.CUSTOM;
+        if (periodFromCaption != null) {
+            periodFromCaption.setVisible(custom);
+            periodFromCaption.setManaged(custom);
+        }
+        if (periodToCaption != null) {
+            periodToCaption.setVisible(custom);
+            periodToCaption.setManaged(custom);
+        }
+        if (periodFromPicker != null) {
+            periodFromPicker.setVisible(custom);
+            periodFromPicker.setManaged(custom);
+        }
+        if (periodToPicker != null) {
+            periodToPicker.setVisible(custom);
+            periodToPicker.setManaged(custom);
+        }
     }
 
     private void confirmAccept() {
@@ -713,6 +793,7 @@ public final class ProductionWorkbenchController
                 c -> new SimpleStringProperty(c.getValue().descriptionLabel()));
         table.getColumns().setAll(atColumn, operationColumn, actorColumn, descriptionColumn);
         table.setItems(FXCollections.observableArrayList(viewModel.historyRows()));
+        table.setPlaceholder(new Label("Нет данных"));
         table.setPrefHeight(360);
         table.setPrefWidth(720);
         VBox.setVgrow(table, Priority.ALWAYS);
@@ -994,6 +1075,7 @@ public final class ProductionWorkbenchController
             rows.add(MaterialReadinessLineRow.from(line));
         }
         table.setItems(FXCollections.observableArrayList(rows));
+        table.setPlaceholder(new Label("Нет данных"));
         table.setPrefHeight(Math.min(360, 48 + rows.size() * 28.0));
 
         Alert alert = new Alert(Alert.AlertType.INFORMATION);

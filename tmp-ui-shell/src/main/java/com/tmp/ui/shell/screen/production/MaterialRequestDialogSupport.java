@@ -102,19 +102,12 @@ public final class MaterialRequestDialogSupport {
                 continue;
             }
             long requested = row.requestedProductQuantity();
-            if (requested <= 0L) {
+            long max = row.requestableProductQuantity();
+            if (requested < 1L || requested > max) {
                 return Optional.of(
-                        "Укажите количество изделий больше 0 для "
-                                + row.orderNumberLabel()
-                                + " / "
-                                + row.positionLabel()
-                                + ".");
-            }
-            if (requested > row.requestableProductQuantity()) {
-                return Optional.of(
-                        "Количество изделий не может превышать доступное ("
-                                + row.requestableProductQuantity()
-                                + ") для "
+                        "Количество должно быть от 1 до "
+                                + max
+                                + " для "
                                 + row.orderNumberLabel()
                                 + " / "
                                 + row.positionLabel()
@@ -122,6 +115,10 @@ public final class MaterialRequestDialogSupport {
             }
         }
         return Optional.empty();
+    }
+
+    public static boolean step1QuantitiesValid(List<MaterialRequestQuantityRow> rows) {
+        return validateStep1Quantities(rows).isEmpty();
     }
 
     public static List<MaterialRequestDraftLineRow> toLineRows(MaterialRequirementView requirement) {
@@ -197,6 +194,7 @@ public final class MaterialRequestDialogSupport {
         table.setItems(FXCollections.observableArrayList(rows));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         table.setPrefHeight(320);
+        table.setPlaceholder(new Label("Нет данных"));
 
         table.getColumns()
                 .addAll(
@@ -219,12 +217,26 @@ public final class MaterialRequestDialogSupport {
         dialog.getDialogPane().getButtonTypes().addAll(nextType, cancelType);
 
         Button nextButton = (Button) dialog.getDialogPane().lookupButton(nextType);
+        Runnable refreshNextEnablement =
+                () -> {
+                    boolean valid = step1QuantitiesValid(table.getItems());
+                    nextButton.setDisable(!valid);
+                    if (valid) {
+                        errorLabel.setText("");
+                    }
+                };
+        for (MaterialRequestQuantityRow row : table.getItems()) {
+            row.requestedProductQuantityProperty()
+                    .addListener((obs, oldValue, newValue) -> refreshNextEnablement.run());
+        }
+        refreshNextEnablement.run();
         nextButton.addEventFilter(
                 javafx.event.ActionEvent.ACTION,
                 event -> {
                     Optional<String> validation = validateStep1Quantities(table.getItems());
                     if (validation.isPresent()) {
                         errorLabel.setText(validation.get());
+                        nextButton.setDisable(true);
                         event.consume();
                     } else {
                         errorLabel.setText("");
@@ -280,6 +292,7 @@ public final class MaterialRequestDialogSupport {
         TableView<MaterialRequestDraftLineRow> table = new TableView<>();
         table.setItems(FXCollections.observableArrayList(lineRows));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        table.setPlaceholder(new Label("Нет данных"));
         table.setPrefHeight(280);
         table.setEditable(canMutate && requirement.status() == MaterialRequirementStatusView.DRAFT);
 
@@ -392,6 +405,7 @@ public final class MaterialRequestDialogSupport {
         dialog.setTitle(DRAFT_LIST_TITLE);
 
         TableView<MaterialRequirementDraftSummaryView> table = new TableView<>();
+        table.setPlaceholder(new Label("Нет данных"));
         table.setItems(FXCollections.observableArrayList(drafts));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         table.setPrefHeight(280);
@@ -442,7 +456,13 @@ public final class MaterialRequestDialogSupport {
         TmpTheme.apply(alert.getDialogPane());
         alert.setTitle(STEP1_TITLE);
         alert.setHeaderText(null);
-        alert.setContentText(message);
+        Label content = new Label(message == null ? "" : message);
+        content.setWrapText(true);
+        content.setMaxWidth(560);
+        content.setMinHeight(Label.USE_PREF_SIZE);
+        alert.getDialogPane().setContent(content);
+        alert.getDialogPane().setPrefWidth(620);
+        alert.setResizable(true);
         alert.showAndWait();
     }
 
@@ -461,13 +481,41 @@ public final class MaterialRequestDialogSupport {
                 col ->
                         new TableCell<>() {
                             private final TextField field = new TextField();
+                            private boolean syncing;
 
                             {
+                                field.textProperty()
+                                        .addListener(
+                                                (obs, oldValue, newValue) -> {
+                                                    if (syncing
+                                                            || getTableRow() == null
+                                                            || getTableRow().getItem() == null) {
+                                                        return;
+                                                    }
+                                                    applyFlexibleQuantityText(
+                                                            newValue, getTableRow().getItem());
+                                                });
                                 field.focusedProperty()
                                         .addListener(
                                                 (obs, was, focused) -> {
-                                                    if (!focused && getItem() != null) {
-                                                        commitFlexible(field, getTableRow().getItem());
+                                                    if (!focused
+                                                            && getTableRow() != null
+                                                            && getTableRow().getItem() != null) {
+                                                        MaterialRequestQuantityRow row =
+                                                                getTableRow().getItem();
+                                                        if (!row.standardMode()) {
+                                                            syncing = true;
+                                                            try {
+                                                                field.setText(
+                                                                        Long.toString(
+                                                                                Math.max(
+                                                                                        0L,
+                                                                                        row
+                                                                                                .requestedProductQuantity())));
+                                                            } finally {
+                                                                syncing = false;
+                                                            }
+                                                        }
                                                     }
                                                 });
                             }
@@ -485,7 +533,16 @@ public final class MaterialRequestDialogSupport {
                                     setGraphic(null);
                                     setText(Long.toString(row.requestableProductQuantity()));
                                 } else {
-                                    field.setText(Long.toString(row.requestedProductQuantity()));
+                                    syncing = true;
+                                    try {
+                                        long shown =
+                                                row.requestedProductQuantity() < 0L
+                                                        ? 0L
+                                                        : row.requestedProductQuantity();
+                                        field.setText(Long.toString(shown));
+                                    } finally {
+                                        syncing = false;
+                                    }
                                     setText(null);
                                     setGraphic(field);
                                 }
@@ -494,21 +551,24 @@ public final class MaterialRequestDialogSupport {
         return column;
     }
 
-    private static void commitFlexible(TextField field, MaterialRequestQuantityRow row) {
+    private static void applyFlexibleQuantityText(String text, MaterialRequestQuantityRow row) {
         if (row == null || row.standardMode()) {
             return;
         }
+        if (text == null || text.isBlank()) {
+            row.setRequestedProductQuantity(0L);
+            return;
+        }
         try {
-            BigDecimal parsed = DecimalQuantityParser.parsePositive(field.getText(), "Количество");
-            if (parsed.scale() > 0 && parsed.stripTrailingZeros().scale() > 0) {
-                field.setText(Long.toString(row.requestedProductQuantity()));
+            BigDecimal parsed = DecimalQuantityParser.parseRequired(text, "Количество");
+            if (parsed.signum() < 0
+                    || (parsed.scale() > 0 && parsed.stripTrailingZeros().scale() > 0)) {
+                row.setRequestedProductQuantity(0L);
                 return;
             }
-            long value = parsed.longValueExact();
-            row.setRequestedProductQuantity(value);
-            field.setText(Long.toString(value));
+            row.setRequestedProductQuantity(parsed.longValueExact());
         } catch (RuntimeException ex) {
-            field.setText(Long.toString(row.requestedProductQuantity()));
+            row.setRequestedProductQuantity(0L);
         }
     }
 

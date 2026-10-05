@@ -17,9 +17,12 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TreeTableView;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -72,6 +75,8 @@ class ProductionWorkbenchControllerFxTest {
                                 "Гибкий",
                                 ((RadioButton) root.lookup("#flexibleModeRadio")).getText());
                         assertNotNull(root.lookup("#saveQuantityModeButton"));
+                        assertNotNull(root.lookup("#materialsBlock"));
+                        assertNotNull(root.lookup("#historyBlock"));
                         assertNotNull(root.lookup("#releaseButton"));
                         assertEquals(
                                 "Выпустить", ((Button) root.lookup("#releaseButton")).getText());
@@ -80,6 +85,13 @@ class ProductionWorkbenchControllerFxTest {
                         assertNull(root.lookup("#prepareReleaseButton"));
                         assertNull(root.lookup("#confirmReceiptButton"));
                         assertNull(root.lookup("#logicalTransferCombo"));
+
+                        TabPane tabs = (TabPane) root.lookup("#orderCardTabs");
+                        assertNotNull(tabs);
+                        assertEquals(2, tabs.getTabs().size());
+                        assertEquals("Обзор", tabs.getTabs().get(0).getText());
+                        assertTrue(tabs.getTabs().get(1).getText().startsWith("Позиции"));
+                        assertEquals(tabs.getTabs().get(0), tabs.getSelectionModel().getSelectedItem());
 
                         @SuppressWarnings("unchecked")
                         TableView<ProductionItemRow> itemsTable =
@@ -96,6 +108,13 @@ class ProductionWorkbenchControllerFxTest {
                                 itemsTable.getColumns().stream()
                                         .map(TableColumn::getText)
                                         .toList());
+                        assertTrue(itemsTable.getPlaceholder() instanceof Label);
+                        assertEquals("Нет данных", ((Label) itemsTable.getPlaceholder()).getText());
+                        @SuppressWarnings("unchecked")
+                        TreeTableView<?> tree =
+                                (TreeTableView<?>) root.lookup("#productionTree");
+                        assertTrue(tree.getPlaceholder() instanceof Label);
+                        assertEquals("Нет данных", ((Label) tree.getPlaceholder()).getText());
                         ok.set(true);
                     } catch (Throwable throwable) {
                         error.set(throwable);

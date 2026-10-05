@@ -268,7 +268,8 @@ public class UiShellAutoConfiguration {
             OrderWorklistQuery orderWorklistQuery,
             com.tmp.warehouse.api.WarehouseApi warehouseApi,
             AuthorizationService authorizationService,
-            AuthenticationService authenticationService) {
+            AuthenticationService authenticationService,
+            UserUiPreferenceService userUiPreferenceService) {
         return new ProductionWorkbenchViewModel(
                 productionQueryApi,
                 productionApplicationApi,
@@ -276,7 +277,8 @@ public class UiShellAutoConfiguration {
                 orderWorklistQuery,
                 warehouseApi,
                 authorizationService,
-                authenticationService);
+                authenticationService,
+                userUiPreferenceService);
     }
 
     @Bean

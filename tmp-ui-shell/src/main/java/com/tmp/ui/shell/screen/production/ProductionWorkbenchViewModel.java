@@ -39,6 +39,9 @@ import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
+import com.tmp.security.api.SessionSummary;
+import com.tmp.security.api.UserId;
+import com.tmp.security.api.UserUiPreferenceService;
 import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.order.DecimalQuantityParser;
 import com.tmp.ui.shell.order.DecimalUiFormat;
@@ -49,6 +52,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -162,6 +166,16 @@ public final class ProductionWorkbenchViewModel {
         List<ProductionOrderItemRef> allItemRefs() {
             return items.stream().map(LoadedProductionItem::ref).toList();
         }
+
+        List<ProductionOrderItemRef> selectableItemRefs() {
+            List<ProductionOrderItemRef> refs = new ArrayList<>();
+            for (LoadedProductionItem item : items) {
+                if (isItemSelectable(item)) {
+                    refs.add(item.ref());
+                }
+            }
+            return List.copyOf(refs);
+        }
     }
 
     private final ProductionQueryApi queryApi;
@@ -171,6 +185,7 @@ public final class ProductionWorkbenchViewModel {
     private final WarehouseApi warehouseApi;
     private final AuthorizationService authorizationService;
     private final AuthenticationService authenticationService;
+    private final UserUiPreferenceService preferenceService;
     private final Clock clock;
     private final ZoneId zoneId;
 
@@ -214,6 +229,8 @@ public final class ProductionWorkbenchViewModel {
             new SimpleObjectProperty<>(ProductionTreeStatusFilter.IN_PROGRESS);
     private final ObjectProperty<OrderListPeriod.Preset> periodPreset =
             new SimpleObjectProperty<>(OrderListPeriod.Preset.LAST_30_DAYS);
+    private final ObjectProperty<LocalDate> customFrom = new SimpleObjectProperty<>();
+    private final ObjectProperty<LocalDate> customTo = new SimpleObjectProperty<>();
     private final ObjectProperty<List<TreeOrderModel>> visibleTree =
             new SimpleObjectProperty<>(List.of());
     private final ObjectProperty<QuantityModeView> selectedQuantityMode =
@@ -235,6 +252,8 @@ public final class ProductionWorkbenchViewModel {
     private QuantityModeView savedQuantityMode = QuantityModeView.STANDARD;
     private long quantityModeVersion;
     private boolean suppressingModeListener;
+    private boolean suppressingPeriodListener;
+    private boolean preferencesLoaded;
     private MaterialReadinessView currentMaterialReadiness;
 
     public ProductionWorkbenchViewModel(
@@ -253,6 +272,29 @@ public final class ProductionWorkbenchViewModel {
                 warehouseApi,
                 authorizationService,
                 authenticationService,
+                null,
+                Clock.systemDefaultZone(),
+                ZoneId.systemDefault());
+    }
+
+    public ProductionWorkbenchViewModel(
+            ProductionQueryApi queryApi,
+            ProductionApplicationApi applicationApi,
+            OrderQueryService orderQueryService,
+            OrderWorklistQuery worklistQuery,
+            WarehouseApi warehouseApi,
+            AuthorizationService authorizationService,
+            AuthenticationService authenticationService,
+            UserUiPreferenceService preferenceService) {
+        this(
+                queryApi,
+                applicationApi,
+                orderQueryService,
+                worklistQuery,
+                warehouseApi,
+                authorizationService,
+                authenticationService,
+                preferenceService,
                 Clock.systemDefaultZone(),
                 ZoneId.systemDefault());
     }
@@ -267,6 +309,30 @@ public final class ProductionWorkbenchViewModel {
             AuthenticationService authenticationService,
             Clock clock,
             ZoneId zoneId) {
+        this(
+                queryApi,
+                applicationApi,
+                orderQueryService,
+                worklistQuery,
+                warehouseApi,
+                authorizationService,
+                authenticationService,
+                null,
+                clock,
+                zoneId);
+    }
+
+    ProductionWorkbenchViewModel(
+            ProductionQueryApi queryApi,
+            ProductionApplicationApi applicationApi,
+            OrderQueryService orderQueryService,
+            OrderWorklistQuery worklistQuery,
+            WarehouseApi warehouseApi,
+            AuthorizationService authorizationService,
+            AuthenticationService authenticationService,
+            UserUiPreferenceService preferenceService,
+            Clock clock,
+            ZoneId zoneId) {
         this.queryApi = Objects.requireNonNull(queryApi, "queryApi");
         this.applicationApi = Objects.requireNonNull(applicationApi, "applicationApi");
         this.orderQueryService = Objects.requireNonNull(orderQueryService, "orderQueryService");
@@ -276,8 +342,10 @@ public final class ProductionWorkbenchViewModel {
                 Objects.requireNonNull(authorizationService, "authorizationService");
         this.authenticationService =
                 Objects.requireNonNull(authenticationService, "authenticationService");
+        this.preferenceService = preferenceService;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.zoneId = Objects.requireNonNull(zoneId, "zoneId");
+        applyPeriodPreference(ProductionWorkbenchFilterPreference.defaults(), false);
         treeSelection
                 .selectedCountProperty()
                 .addListener(
@@ -291,9 +359,31 @@ public final class ProductionWorkbenchViewModel {
         statusFilter.addListener((obs, oldValue, newValue) -> applyFilters());
         periodPreset.addListener(
                 (obs, oldValue, newValue) -> {
-                    if (oldValue != null && !detailMode()) {
-                        loadTree();
+                    if (suppressingPeriodListener || oldValue == null || detailMode()) {
+                        return;
                     }
+                    persistPeriodPreference();
+                    loadTree();
+                });
+        customFrom.addListener(
+                (obs, oldValue, newValue) -> {
+                    if (suppressingPeriodListener
+                            || detailMode()
+                            || periodPreset.get() != OrderListPeriod.Preset.CUSTOM) {
+                        return;
+                    }
+                    persistPeriodPreference();
+                    loadTree();
+                });
+        customTo.addListener(
+                (obs, oldValue, newValue) -> {
+                    if (suppressingPeriodListener
+                            || detailMode()
+                            || periodPreset.get() != OrderListPeriod.Preset.CUSTOM) {
+                        return;
+                    }
+                    persistPeriodPreference();
+                    loadTree();
                 });
         selectedQuantityMode.addListener(
                 (obs, oldValue, newValue) -> {
@@ -371,7 +461,7 @@ public final class ProductionWorkbenchViewModel {
         Objects.requireNonNull(orderId, "orderId");
         LoadedProductionOrder order = findAuthoritativeOrder(orderId);
         if (order != null) {
-            treeSelection.selectAll(order.allItemRefs());
+            treeSelection.selectAll(order.selectableItemRefs());
         }
     }
 
@@ -384,7 +474,39 @@ public final class ProductionWorkbenchViewModel {
     }
 
     public void setItemSelected(ProductionOrderItemRef ref, boolean selected) {
+        Objects.requireNonNull(ref, "ref");
+        if (selected) {
+            LoadedProductionOrder order = findAuthoritativeOrder(ref.sourceOrderId());
+            LoadedProductionItem item =
+                    order == null ? null : findAuthoritativeItem(order, ref.sourceOrderItemId());
+            if (item == null || !isItemSelectable(item)) {
+                return;
+            }
+        }
         treeSelection.setItemSelected(ref, selected);
+    }
+
+    public void toggleOrderSelection(UUID orderId) {
+        Objects.requireNonNull(orderId, "orderId");
+        LoadedProductionOrder order = findAuthoritativeOrder(orderId);
+        if (order == null) {
+            return;
+        }
+        List<ProductionOrderItemRef> selectable = order.selectableItemRefs();
+        if (selectable.isEmpty()) {
+            return;
+        }
+        ProductionTreeSelectionModel.OrderCheckState state =
+                treeSelection.orderCheckState(orderId, selectable);
+        if (state == ProductionTreeSelectionModel.OrderCheckState.CHECKED) {
+            deselectOrder(orderId);
+        } else {
+            selectOrder(orderId);
+        }
+    }
+
+    public void toggleItemSelection(ProductionOrderItemRef ref) {
+        setItemSelected(ref, !treeSelection.isItemSelected(ref));
     }
 
     public List<ProductionOrderItemRef> selectedOrderItemRefs() {
@@ -431,9 +553,31 @@ public final class ProductionWorkbenchViewModel {
         treeVisible.set(true);
         detailVisible.set(false);
         clearOrderCardState();
-        applyFilters();
-        refreshMaterialRequestActionState();
-        refreshReleaseActionState();
+        loadTree();
+    }
+
+    /** Loads persisted period preference once per session open (search is never persisted). */
+    public void ensurePreferencesLoaded() {
+        if (preferencesLoaded || preferenceService == null) {
+            preferencesLoaded = true;
+            return;
+        }
+        preferencesLoaded = true;
+        Optional<UserId> userId = currentUserId();
+        if (userId.isEmpty()) {
+            return;
+        }
+        Optional<String> raw =
+                preferenceService.load(
+                        userId.get(),
+                        ProductionWorkbenchFilterPreference.NAMESPACE,
+                        ProductionWorkbenchFilterPreference.KEY);
+        if (raw.isEmpty()) {
+            return;
+        }
+        ProductionWorkbenchFilterPreference preference =
+                ProductionWorkbenchFilterPreferenceCodec.decode(raw.get());
+        applyPeriodPreference(preference, false);
     }
 
     public void openForOrder(OrderId orderId) {
@@ -763,12 +907,8 @@ public final class ProductionWorkbenchViewModel {
         for (ProductionOrderItemRef ref : selected) {
             LoadedProductionOrder order = findAuthoritativeOrder(ref.sourceOrderId());
             LoadedProductionItem item = findAuthoritativeItem(order, ref.sourceOrderItemId());
-            String orderLabel =
-                    order == null
-                            ? "Заказ"
-                            : (order.orderNumber.startsWith("№")
-                                    ? "Заказ " + order.orderNumber
-                                    : "Заказ №" + order.orderNumber);
+            String tableOrderNumber = order == null ? "—" : order.orderNumber;
+            String humanOrderLabel = orderLabel(order);
             String positionLabel =
                     item == null
                             ? "Позиция"
@@ -785,7 +925,7 @@ public final class ProductionWorkbenchViewModel {
                     itemCoverage == null ? 0L : itemCoverage.requestableProductQuantity();
             if (requestable <= 0L) {
                 invalid.add(
-                        orderLabel
+                        humanOrderLabel
                                 + " / "
                                 + positionLabel
                                 + ":\n"
@@ -798,7 +938,7 @@ public final class ProductionWorkbenchViewModel {
                     new MaterialRequestQuantityRow(
                             ref.sourceOrderId(),
                             ref.sourceOrderItemId(),
-                            orderLabel,
+                            tableOrderNumber,
                             positionLabel,
                             productLabel,
                             mode,
@@ -940,7 +1080,8 @@ public final class ProductionWorkbenchViewModel {
         for (ProductionOrderItemRef ref : selected) {
             LoadedProductionOrder order = findAuthoritativeOrder(ref.sourceOrderId());
             LoadedProductionItem item = findAuthoritativeItem(order, ref.sourceOrderItemId());
-            String orderLabel = orderLabel(order);
+            String humanOrderLabel = orderLabel(order);
+            String tableOrderNumber = order == null ? "—" : order.orderNumber;
             String positionLabel = positionLabel(item);
             String productLabel =
                     item == null
@@ -948,29 +1089,34 @@ public final class ProductionWorkbenchViewModel {
                             : formatProductLabel(item.item.productCode(), item.item.name());
 
             if (order != null && order.status == OrderProductionViewStatus.CANCELLED) {
-                invalid.add(orderLabel + " / " + positionLabel + ":\nпроизводство заказа отменено.");
+                invalid.add(
+                        humanOrderLabel + " / " + positionLabel + ":\nпроизводство заказа отменено.");
                 continue;
             }
             if (order != null && order.status == OrderProductionViewStatus.NOT_ACCEPTED) {
                 invalid.add(
-                        orderLabel
+                        humanOrderLabel
                                 + " / "
                                 + positionLabel
                                 + ":\nзаказ ещё не принят в производство.");
                 continue;
             }
             if (item == null || item.state == null) {
-                invalid.add(orderLabel + " / " + positionLabel + ":\nпозиция недоступна для выпуска.");
+                invalid.add(
+                        humanOrderLabel
+                                + " / "
+                                + positionLabel
+                                + ":\nпозиция недоступна для выпуска.");
                 continue;
             }
             if (item.state.status() == ItemProductionStateStatus.CANCELLED) {
-                invalid.add(orderLabel + " / " + positionLabel + ":\nпозиция отменена.");
+                invalid.add(humanOrderLabel + " / " + positionLabel + ":\nпозиция отменена.");
                 continue;
             }
             if (item.state.status() == ItemProductionStateStatus.RELEASED
                     || item.state.activeProductionQuantity() <= 0L) {
                 invalid.add(
-                        orderLabel
+                        humanOrderLabel
                                 + " / "
                                 + positionLabel
                                 + ":\nактивное количество к выпуску равно 0.");
@@ -984,7 +1130,7 @@ public final class ProductionWorkbenchViewModel {
                     new ReleaseQuantityRow(
                             ref.sourceOrderId(),
                             ref.sourceOrderItemId(),
-                            orderLabel,
+                            tableOrderNumber,
                             positionLabel,
                             productLabel,
                             mode,
@@ -1495,19 +1641,30 @@ public final class ProductionWorkbenchViewModel {
     }
 
     private void loadTreeInternal() {
-        OrderListPeriod.Range range = resolvePeriod();
-        OrderWorklistCriteria criteria =
-                OrderWorklistCriteria.builder()
-                        .createdFrom(range.fromInclusive())
-                        .createdToExclusive(range.toExclusive())
-                        .build();
+        ensurePreferencesLoaded();
+        OrderListPeriod.Range range;
+        try {
+            range = resolvePeriod();
+        } catch (IllegalArgumentException ex) {
+            errorMessage.set(ex.getMessage());
+            return;
+        }
+        errorMessage.set("");
+        OrderWorklistCriteria.Builder criteriaBuilder = OrderWorklistCriteria.builder();
+        if (range.fromInclusive() != null) {
+            criteriaBuilder.createdFrom(range.fromInclusive());
+        }
+        if (range.toExclusive() != null) {
+            criteriaBuilder.createdToExclusive(range.toExclusive());
+        }
+        OrderWorklistCriteria criteria = criteriaBuilder.build();
         List<OrderWorklistRowDto> rows = worklistQuery.listWorklistRows(criteria);
         List<UUID> ids = rows.stream().map(row -> row.orderId().value()).toList();
         Map<UUID, OrderProductionListFacts> factsByOrder =
                 ids.isEmpty() ? Map.of() : queryApi.getOrderProductionListFacts(ids);
 
         List<LoadedProductionOrder> loaded = new ArrayList<>();
-        List<ProductionOrderItemRef> allRefs = new ArrayList<>();
+        List<ProductionOrderItemRef> selectableRefs = new ArrayList<>();
         for (OrderWorklistRowDto row : rows) {
             UUID orderId = row.orderId().value();
             OrderProductionListFacts facts = factsByOrder.get(orderId);
@@ -1526,8 +1683,11 @@ public final class ProductionWorkbenchViewModel {
             int index = 1;
             for (OrderItemDto item : orderItems) {
                 ItemProductionStateView state = statesByItem.get(item.orderItemId().value());
-                items.add(new LoadedProductionItem(item, state, index));
-                allRefs.add(new ProductionOrderItemRef(orderId, item.orderItemId().value()));
+                LoadedProductionItem loadedItem = new LoadedProductionItem(item, state, index);
+                items.add(loadedItem);
+                if (isItemSelectable(loadedItem)) {
+                    selectableRefs.add(loadedItem.ref());
+                }
                 index++;
             }
 
@@ -1543,7 +1703,7 @@ public final class ProductionWorkbenchViewModel {
         }
 
         authoritativeOrders = List.copyOf(loaded);
-        treeSelection.retainOnly(allRefs);
+        treeSelection.retainOnly(selectableRefs);
         Set<UUID> stillPresent = new HashSet<>();
         for (LoadedProductionOrder order : loaded) {
             stillPresent.add(order.orderId);
@@ -1588,8 +1748,10 @@ public final class ProductionWorkbenchViewModel {
         List<TreeOrderModel> models = new ArrayList<>();
         for (LoadedProductionOrder order : visible) {
             LoadedProductionOrder authoritative = findAuthoritativeOrder(order.orderId);
-            List<ProductionOrderItemRef> childRefs =
-                    authoritative == null ? order.allItemRefs() : authoritative.allItemRefs();
+            List<ProductionOrderItemRef> selectableChildRefs =
+                    authoritative == null
+                            ? order.selectableItemRefs()
+                            : authoritative.selectableItemRefs();
             String orderQty;
             String orderReleased;
             String orderRemaining;
@@ -1611,7 +1773,7 @@ public final class ProductionWorkbenchViewModel {
                             orderQty,
                             orderReleased,
                             orderRemaining,
-                            childRefs);
+                            selectableChildRefs);
 
             List<ProductionTreeNode> itemNodes = new ArrayList<>();
             for (LoadedProductionItem loadedItem : order.items) {
@@ -1656,7 +1818,8 @@ public final class ProductionWorkbenchViewModel {
                 status,
                 released,
                 remaining,
-                loadedItem.index1Based);
+                loadedItem.index1Based,
+                isItemSelectable(loadedItem));
     }
 
     private void updateTreeEmptyStateMessage(List<LoadedProductionOrder> visible) {
@@ -1688,9 +1851,36 @@ public final class ProductionWorkbenchViewModel {
 
     private static boolean itemMatchesSearch(LoadedProductionItem loadedItem, String needle) {
         OrderItemDto item = loadedItem.item;
+        String positionLabel =
+                ProductionTreeNode.humanReadablePosition(
+                        item.externalPositionNumber(), loadedItem.index1Based);
+        String normalizedNeedle = normalizePositionSearch(needle);
+        String normalizedLabel = normalizePositionSearch(positionLabel);
         return containsIgnoreCase(item.externalPositionNumber(), needle)
+                || containsIgnoreCase(positionLabel, needle)
+                || (!normalizedNeedle.isEmpty() && normalizedLabel.contains(normalizedNeedle))
                 || containsIgnoreCase(item.name(), needle)
                 || containsIgnoreCase(item.productCode(), needle);
+    }
+
+    /** Allows matching «Поз 2» / «поз. 2» against displayed «Поз. 2». */
+    private static String normalizePositionSearch(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.toLowerCase(Locale.ROOT).replace(".", "").replace("  ", " ").trim();
+    }
+
+    private static boolean isItemSelectable(LoadedProductionItem item) {
+        if (item == null || item.state == null) {
+            return false;
+        }
+        ItemProductionStateStatus status = item.state.status();
+        if (status == ItemProductionStateStatus.CANCELLED
+                || status == ItemProductionStateStatus.RELEASED) {
+            return false;
+        }
+        return item.state.activeProductionQuantity() > 0L;
     }
 
     private static String normalizeSearchNeedle(String raw) {
@@ -1727,7 +1917,68 @@ public final class ProductionWorkbenchViewModel {
                 periodPreset.get() == null
                         ? OrderListPeriod.Preset.LAST_30_DAYS
                         : periodPreset.get();
-        return OrderListPeriod.resolve(preset, zoneId, clock, null, null);
+        if (preset == OrderListPeriod.Preset.CUSTOM) {
+            LocalDate from = customFrom.get();
+            LocalDate to = customTo.get();
+            if (from == null || to == null) {
+                throw new IllegalArgumentException(
+                        "Укажите дату начала и дату окончания периода.");
+            }
+            if (from.isAfter(to)) {
+                throw new IllegalArgumentException(
+                        "Дата начала периода не может быть позже даты окончания.");
+            }
+        }
+        return OrderListPeriod.resolve(preset, zoneId, clock, customFrom.get(), customTo.get());
+    }
+
+    public ObjectProperty<LocalDate> customFromProperty() {
+        return customFrom;
+    }
+
+    public ObjectProperty<LocalDate> customToProperty() {
+        return customTo;
+    }
+
+    private void applyPeriodPreference(
+            ProductionWorkbenchFilterPreference preference, boolean persist) {
+        suppressingPeriodListener = true;
+        try {
+            periodPreset.set(preference.periodPreset());
+            customFrom.set(preference.customFrom());
+            customTo.set(preference.customTo());
+        } finally {
+            suppressingPeriodListener = false;
+        }
+        if (persist) {
+            persistPeriodPreference();
+        }
+    }
+
+    private void persistPeriodPreference() {
+        if (preferenceService == null) {
+            return;
+        }
+        Optional<UserId> userId = currentUserId();
+        if (userId.isEmpty()) {
+            return;
+        }
+        OrderListPeriod.Preset preset =
+                periodPreset.get() == null
+                        ? OrderListPeriod.Preset.LAST_30_DAYS
+                        : periodPreset.get();
+        ProductionWorkbenchFilterPreference preference =
+                new ProductionWorkbenchFilterPreference(preset, customFrom.get(), customTo.get());
+        preferenceService.save(
+                userId.get(),
+                ProductionWorkbenchFilterPreference.NAMESPACE,
+                ProductionWorkbenchFilterPreference.KEY,
+                ProductionWorkbenchFilterPreference.VERSION,
+                ProductionWorkbenchFilterPreferenceCodec.encode(preference));
+    }
+
+    private Optional<UserId> currentUserId() {
+        return authenticationService.currentSession().map(SessionSummary::userId);
     }
 
     private void loadOrder(OrderId orderId) {

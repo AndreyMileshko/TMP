@@ -7,7 +7,8 @@ import java.time.ZoneId;
 import java.util.Objects;
 
 /**
- * Mandatory created-at period for the Orders list. Dynamic presets are resolved against {@link Clock}.
+ * Created-at period for Orders / Production list filters. Bounded presets resolve against
+ * {@link Clock}. {@link Preset#ALL_PERIOD} uses an open (unbounded) range.
  */
 public final class OrderListPeriod {
 
@@ -16,20 +17,31 @@ public final class OrderListPeriod {
         LAST_7_DAYS,
         LAST_30_DAYS,
         CURRENT_MONTH,
+        ALL_PERIOD,
         CUSTOM
     }
 
+    /**
+     * Inclusive lower / exclusive upper created-at bounds. Both null means unbounded (all period).
+     * When present, both must be non-null and {@code fromInclusive < toExclusive}.
+     */
     public record Range(Instant fromInclusive, Instant toExclusive) {
         public Range {
-            Objects.requireNonNull(fromInclusive, "fromInclusive");
-            Objects.requireNonNull(toExclusive, "toExclusive");
-            if (!fromInclusive.isBefore(toExclusive)) {
+            if ((fromInclusive == null) != (toExclusive == null)) {
+                throw new IllegalArgumentException(
+                        "fromInclusive and toExclusive must both be present or both absent");
+            }
+            if (fromInclusive != null && !fromInclusive.isBefore(toExclusive)) {
                 throw new IllegalArgumentException(
                         "fromInclusive must be before toExclusive: "
                                 + fromInclusive
                                 + " / "
                                 + toExclusive);
             }
+        }
+
+        public boolean unbounded() {
+            return fromInclusive == null;
         }
     }
 
@@ -45,7 +57,9 @@ public final class OrderListPeriod {
             case TODAY -> ofDays(today, today.plusDays(1), zoneId);
             case LAST_7_DAYS -> ofDays(today.minusDays(6), today.plusDays(1), zoneId);
             case LAST_30_DAYS -> ofDays(today.minusDays(29), today.plusDays(1), zoneId);
-            case CURRENT_MONTH -> ofDays(today.withDayOfMonth(1), today.withDayOfMonth(1).plusMonths(1), zoneId);
+            case CURRENT_MONTH ->
+                    ofDays(today.withDayOfMonth(1), today.withDayOfMonth(1).plusMonths(1), zoneId);
+            case ALL_PERIOD -> new Range(null, null);
             case CUSTOM -> resolveCustom(customFrom, customTo, zoneId);
         };
     }

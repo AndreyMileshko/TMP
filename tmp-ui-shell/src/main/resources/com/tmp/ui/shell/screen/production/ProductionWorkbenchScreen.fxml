@@ -3,12 +3,15 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.DatePicker?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.MenuButton?>
 <?import javafx.scene.control.MenuItem?>
 <?import javafx.scene.control.RadioButton?>
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.SeparatorMenuItem?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
@@ -35,11 +38,17 @@
     <Label fx:id="errorMessageLabel" style="-fx-text-fill: #b00020;"/>
 
     <VBox fx:id="treePane" spacing="8" VBox.vgrow="ALWAYS">
-        <HBox spacing="8">
+        <HBox spacing="8" alignment="CENTER_LEFT">
             <TextField fx:id="searchField" promptText="Поиск: заказ, заказчик, позиция, изделие"
                        prefWidth="360" HBox.hgrow="ALWAYS"/>
             <ComboBox fx:id="statusFilterCombo" prefWidth="160"/>
             <ComboBox fx:id="periodPresetCombo" prefWidth="160"/>
+            <Label fx:id="periodFromCaption" text="С:" visible="false" managed="false"/>
+            <DatePicker fx:id="periodFromPicker" promptText="С" visible="false" managed="false"
+                        prefWidth="130"/>
+            <Label fx:id="periodToCaption" text="По:" visible="false" managed="false"/>
+            <DatePicker fx:id="periodToPicker" promptText="По" visible="false" managed="false"
+                        prefWidth="130"/>
             <Button fx:id="refreshButton" text="Обновить"/>
         </HBox>
 
@@ -104,64 +113,75 @@
             <Button fx:id="acceptButton" text="Принять в производство"/>
         </HBox>
 
-        <Separator/>
+        <TabPane fx:id="orderCardTabs" VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
+            <Tab fx:id="overviewTab" text="Обзор" closable="false">
+                <VBox spacing="12">
+                    <padding>
+                        <Insets top="12" right="0" bottom="0" left="0"/>
+                    </padding>
 
-        <VBox spacing="8">
-            <Label text="РЕЖИМ РАБОТЫ" style="-fx-font-weight: bold;"/>
-            <fx:define>
-                <ToggleGroup fx:id="quantityModeGroup"/>
-            </fx:define>
-            <HBox spacing="16">
-                <RadioButton fx:id="standardModeRadio" text="Стандартный"
-                             toggleGroup="$quantityModeGroup"/>
-                <RadioButton fx:id="flexibleModeRadio" text="Гибкий"
-                             toggleGroup="$quantityModeGroup"/>
-            </HBox>
-            <Label fx:id="quantityModeHintLabel" style="-fx-opacity: 0.8; -fx-wrap-text: true;"/>
-            <HBox spacing="8">
-                <Button fx:id="saveQuantityModeButton" text="Сохранить"/>
-            </HBox>
-        </VBox>
+                    <VBox spacing="8">
+                        <Label text="РЕЖИМ РАБОТЫ" style="-fx-font-weight: bold;"/>
+                        <fx:define>
+                            <ToggleGroup fx:id="quantityModeGroup"/>
+                        </fx:define>
+                        <HBox spacing="16">
+                            <RadioButton fx:id="standardModeRadio" text="Стандартный"
+                                         toggleGroup="$quantityModeGroup"/>
+                            <RadioButton fx:id="flexibleModeRadio" text="Гибкий"
+                                         toggleGroup="$quantityModeGroup"/>
+                        </HBox>
+                        <Label fx:id="quantityModeHintLabel" style="-fx-opacity: 0.8; -fx-wrap-text: true;"/>
+                        <HBox spacing="8">
+                            <Button fx:id="saveQuantityModeButton" text="Сохранить"/>
+                        </HBox>
+                    </VBox>
 
-        <Separator/>
+                    <Separator/>
 
-        <VBox fx:id="materialsBlock" spacing="6">
-            <Label text="МАТЕРИАЛЫ" style="-fx-font-weight: bold;"/>
-            <Label fx:id="materialsSummaryLabel" style="-fx-wrap-text: true;"/>
-            <Label fx:id="materialsDetailLabel" style="-fx-wrap-text: true; -fx-opacity: 0.85;"/>
-            <HBox spacing="8">
-                <Button fx:id="materialsDetailsButton" text="Подробнее"/>
-            </HBox>
-        </VBox>
+                    <VBox fx:id="materialsBlock" spacing="6">
+                        <Label text="МАТЕРИАЛЫ" style="-fx-font-weight: bold;"/>
+                        <Label fx:id="materialsSummaryLabel" style="-fx-wrap-text: true;"/>
+                        <Label fx:id="materialsDetailLabel" style="-fx-wrap-text: true; -fx-opacity: 0.85;"/>
+                        <HBox spacing="8">
+                            <Button fx:id="materialsDetailsButton" text="Подробнее"/>
+                        </HBox>
+                    </VBox>
 
-        <Separator/>
+                    <Separator/>
 
-        <VBox fx:id="historyBlock" spacing="6">
-            <Label text="ИСТОРИЯ" style="-fx-font-weight: bold;"/>
-            <Label fx:id="historyEmptyLabel" text="Операций по производству пока не было"
-                   style="-fx-wrap-text: true;"/>
-            <VBox fx:id="historyLatestPane" spacing="4" visible="false" managed="false">
-                <Label text="Последняя операция:" style="-fx-opacity: 0.85;"/>
-                <Label fx:id="historyLatestAtLabel"/>
-                <Label fx:id="historyLatestOperationLabel" style="-fx-font-weight: bold;"/>
-                <HBox spacing="8">
-                    <Button fx:id="historyDetailsButton" text="Подробнее"/>
-                </HBox>
-            </VBox>
-        </VBox>
-
-        <Separator/>
-
-        <Label text="Позиции" style="-fx-font-weight: bold;"/>
-        <TableView fx:id="itemsTable" prefHeight="280" VBox.vgrow="ALWAYS">
-            <columns>
-                <TableColumn fx:id="itemPositionColumn" text="Позиция" prefWidth="120"/>
-                <TableColumn fx:id="itemProductColumn" text="Изделие" prefWidth="220"/>
-                <TableColumn fx:id="itemQuantityColumn" text="Кол-во" prefWidth="80"/>
-                <TableColumn fx:id="itemStatusColumn" text="Состояние" prefWidth="140"/>
-                <TableColumn fx:id="itemReleasedColumn" text="Изготовлено" prefWidth="100"/>
-                <TableColumn fx:id="itemRemainingColumn" text="Осталось" prefWidth="100"/>
-            </columns>
-        </TableView>
+                    <VBox fx:id="historyBlock" spacing="6">
+                        <Label text="ИСТОРИЯ" style="-fx-font-weight: bold;"/>
+                        <Label fx:id="historyEmptyLabel" text="Операций по производству пока не было"
+                               style="-fx-wrap-text: true;"/>
+                        <VBox fx:id="historyLatestPane" spacing="4" visible="false" managed="false">
+                            <Label text="Последняя операция:" style="-fx-opacity: 0.85;"/>
+                            <Label fx:id="historyLatestAtLabel"/>
+                            <Label fx:id="historyLatestOperationLabel" style="-fx-font-weight: bold;"/>
+                            <HBox spacing="8">
+                                <Button fx:id="historyDetailsButton" text="Подробнее"/>
+                            </HBox>
+                        </VBox>
+                    </VBox>
+                </VBox>
+            </Tab>
+            <Tab fx:id="positionsTab" text="Позиции (0)" closable="false">
+                <VBox spacing="8" VBox.vgrow="ALWAYS">
+                    <padding>
+                        <Insets top="12" right="0" bottom="0" left="0"/>
+                    </padding>
+                    <TableView fx:id="itemsTable" prefHeight="280" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="itemPositionColumn" text="Позиция" prefWidth="120"/>
+                            <TableColumn fx:id="itemProductColumn" text="Изделие" prefWidth="220"/>
+                            <TableColumn fx:id="itemQuantityColumn" text="Кол-во" prefWidth="80"/>
+                            <TableColumn fx:id="itemStatusColumn" text="Состояние" prefWidth="140"/>
+                            <TableColumn fx:id="itemReleasedColumn" text="Изготовлено" prefWidth="100"/>
+                            <TableColumn fx:id="itemRemainingColumn" text="Осталось" prefWidth="100"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+            </Tab>
+        </TabPane>
     </VBox>
 </VBox>

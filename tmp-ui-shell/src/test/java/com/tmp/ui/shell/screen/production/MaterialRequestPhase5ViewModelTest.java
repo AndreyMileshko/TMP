@@ -268,16 +268,53 @@ class MaterialRequestPhase5ViewModelTest {
                 new MaterialRequestQuantityRow(
                         ORDER_B,
                         ITEM_B3,
-                        "Заказ №4184",
+                        "4184",
                         "Поз. 3",
                         "Дверь",
                         QuantityModeView.FLEXIBLE,
-                        8,
-                        8);
+                        1,
+                        1);
         row.setRequestedProductQuantity(0L);
 
         Optional<String> error = MaterialRequestDialogSupport.validateStep1Quantities(List.of(row));
         assertTrue(error.isPresent());
+        assertTrue(error.get().contains("от 1 до 1"));
+    }
+
+    @Test
+    void step1ValidationRejectsAboveRequestableFlexibleQuantity() {
+        MaterialRequestQuantityRow row =
+                new MaterialRequestQuantityRow(
+                        ORDER_B,
+                        ITEM_B3,
+                        "4184",
+                        "Поз. 3",
+                        "Дверь",
+                        QuantityModeView.FLEXIBLE,
+                        1,
+                        1);
+        row.setRequestedProductQuantity(2L);
+
+        Optional<String> error = MaterialRequestDialogSupport.validateStep1Quantities(List.of(row));
+        assertTrue(error.isPresent());
+        assertTrue(error.get().contains("от 1 до 1"));
+    }
+
+    @Test
+    void step1ValidationAcceptsExactRequestableFlexibleQuantity() {
+        MaterialRequestQuantityRow row =
+                new MaterialRequestQuantityRow(
+                        ORDER_B,
+                        ITEM_B3,
+                        "4184",
+                        "Поз. 3",
+                        "Дверь",
+                        QuantityModeView.FLEXIBLE,
+                        1,
+                        1);
+        row.setRequestedProductQuantity(1L);
+
+        assertTrue(MaterialRequestDialogSupport.validateStep1Quantities(List.of(row)).isEmpty());
     }
 
     @Test

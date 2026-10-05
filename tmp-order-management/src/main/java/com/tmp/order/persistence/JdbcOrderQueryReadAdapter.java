@@ -579,10 +579,20 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
     }
 
     private static FilterSql buildWorklistFilter(OrderWorklistCriteria criteria) {
-        StringBuilder where = new StringBuilder(" WHERE o.created_at >= ? AND o.created_at < ?");
+        StringBuilder where = new StringBuilder(" WHERE 1=1");
         List<Object> args = new ArrayList<>();
-        args.add(Timestamp.from(criteria.createdFrom()));
-        args.add(Timestamp.from(criteria.createdToExclusive()));
+        criteria.createdFrom()
+                .ifPresent(
+                        from -> {
+                            where.append(" AND o.created_at >= ?");
+                            args.add(Timestamp.from(from));
+                        });
+        criteria.createdToExclusive()
+                .ifPresent(
+                        toExclusive -> {
+                            where.append(" AND o.created_at < ?");
+                            args.add(Timestamp.from(toExclusive));
+                        });
         criteria.quickSearch().ifPresent(value -> {
             String pattern = '%' + escapeIlike(value) + '%';
             where.append(" AND (o.order_number ILIKE ? ESCAPE '\\' OR o.customer_name ILIKE ? ESCAPE '\\')");

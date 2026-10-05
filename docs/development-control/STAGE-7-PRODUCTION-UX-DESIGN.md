@@ -833,21 +833,55 @@ Release разрешён, если для каждой строки матери
 
 ---
 
+## POST-ACCEPTANCE PHASE A
+
+Manual-acceptance UI/UX corrections after Stage 7 Production closure. No Material Requirement
+backend root-cause fix, no readiness identity investigation, no cancellation actor/reason fix,
+no «Вернуть в производство», no Order reimport, no Stage 8.
+
+### Implemented corrections
+
+| Area | Correction |
+|------|------------|
+| Checkbox leaf | First click `unchecked → checked`; leaf never indeterminate |
+| Checkbox parent | Tri-state display only; click: unchecked/indeterminate → select all selectable; checked → clear |
+| Non-actionable selection | CANCELLED / RELEASED / `activeProductionQuantity <= 0` → checkbox disabled; parent disabled when no selectable children; invalid selection pruned on authoritative refresh |
+| Order Card tabs | Header + actions outside tabs; default **Обзор** (Mode / Materials / History); **Позиции (N)** holds positions table only |
+| Order number in tables | LEVEL 1 tree + Material Request / Release quantity tables show bare number (`25096174`); card/dialog messages may keep `Заказ №…` |
+| Empty states | Production tables/dialogs use Russian placeholders (`Нет данных`); no `No content in table` |
+| Period filter | Added **Весь период** (open/nullable created-at bounds via `OrderWorklistCriteria`) and **Произвольный период…** with С/По DatePickers; validation `from <= to` |
+| Period persistence | `ui.production.workbench.v1` / `period` via `UserUiPreferenceService`; custom from/to persisted; quick search not persisted; default 30 days |
+| Position search | Matches displayed label (`Поз. 2` / `поз. 2` / `Поз 2`) in addition to raw fields |
+| Expanded retention | Expanded order IDs retained across LEVEL 1 → Order Card → LEVEL 1 |
+| Card return refresh | `backToTree()` performs authoritative tree reload; filters/selection/expanded retained where still valid |
+| Material Request qty | FLEXIBLE local validation `1..requestable` before prepare; Next disabled while invalid; dialog stays open |
+| Release error dialog | Long validation messages wrap with sufficient dialog size; no technical IDs |
+
+### Deferred (Phase B / later)
+
+- Valid Material Request submit failure (STANDARD/FLEXIBLE)
+- Material Readiness empty deficit / «Материал не найден в справочнике склада»
+- Cancellation history actor/reason
+- Restore Production
+- Order reimport / snapshots
+
+---
+
 ## 20. CODE CHANGES
 
-NONE
+Phase A UI/presentation corrections (see POST-ACCEPTANCE PHASE A).
 
 ## 21. DATABASE
 
-NONE
+NONE (preferences use existing `UserUiPreferenceService` storage)
 
 ## 22. PACKAGE
 
-NOT RUN
+After targeted tests — `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests`
 
 ## 23. STARTUP
 
-NOT RUN
+Manual retest package
 
 ## 24. GIT
 

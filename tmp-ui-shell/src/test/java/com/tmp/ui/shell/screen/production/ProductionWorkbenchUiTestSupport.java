@@ -49,6 +49,7 @@ import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
 import com.tmp.production.api.ProductionApplicationApi.ReleaseResultView;
 import com.tmp.production.api.ProductionQueryApi;
+import com.tmp.production.api.ProductionQueryApi.ItemProductionStateStatus;
 import com.tmp.production.api.ProductionQueryApi.ItemProductionStateView;
 import com.tmp.production.api.ProductionQueryApi.MaterialAvailabilityResultView;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionListFacts;
@@ -975,5 +976,36 @@ final class ProductionWorkbenchUiTestSupport {
             long released,
             long active) {
         return new OrderProductionListFacts(orderId, status, ordered, released, active, false);
+    }
+
+    static ItemProductionStateView itemProductionState(
+            UUID orderId,
+            UUID itemId,
+            ItemProductionStateStatus status,
+            long ordered,
+            long released,
+            long active) {
+        return new ItemProductionStateView(
+                orderId,
+                itemId,
+                UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+                status,
+                ordered,
+                ordered,
+                active,
+                released,
+                Optional.empty(),
+                Instant.parse("2026-01-01T10:00:00Z"),
+                List.of());
+    }
+
+    static ItemProductionStateView activeItemState(UUID orderId, UUID itemId, long quantity) {
+        return itemProductionState(
+                orderId,
+                itemId,
+                ItemProductionStateStatus.IN_PRODUCTION,
+                quantity,
+                0L,
+                quantity);
     }
 }

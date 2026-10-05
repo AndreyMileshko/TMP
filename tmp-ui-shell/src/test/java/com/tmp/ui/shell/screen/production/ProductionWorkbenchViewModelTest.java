@@ -285,6 +285,53 @@ class ProductionWorkbenchViewModelTest {
     }
 
     @Test
+    void backToTreeAfterCancelRefreshesAuthoritativeTreeState() {
+        seedTreeOrder();
+        viewModel.loadTree();
+        viewModel.setOrderExpanded(ORDER_ID, true);
+        viewModel.statusFilterProperty().set(ProductionTreeStatusFilter.IN_PROGRESS);
+        viewModel.openOrderDetail(OrderId.of(ORDER_ID));
+
+        queryApi.view =
+                new OrderProductionView(
+                        ORDER_ID, OrderProductionViewStatus.CANCELLED, 2, 20, 0, 0, 0);
+        queryApi.listFacts.put(
+                ORDER_ID,
+                ProductionWorkbenchUiTestSupport.productionListFacts(
+                        ORDER_ID, OrderProductionViewStatus.CANCELLED, 20, 20, 0));
+        queryApi.putItemState(
+                ProductionWorkbenchUiTestSupport.itemProductionState(
+                        ORDER_ID,
+                        ITEM_A,
+                        ItemProductionStateStatus.CANCELLED,
+                        10,
+                        0,
+                        0));
+        queryApi.putItemState(
+                ProductionWorkbenchUiTestSupport.itemProductionState(
+                        ORDER_ID,
+                        ITEM_B,
+                        ItemProductionStateStatus.CANCELLED,
+                        10,
+                        0,
+                        0));
+        viewModel.cancelOrderProduction(Optional.of("тест"));
+
+        viewModel.backToTree();
+
+        assertTrue(viewModel.visibleTreeProperty().get().isEmpty());
+        viewModel.statusFilterProperty().set(ProductionTreeStatusFilter.ALL);
+        viewModel.applyFilters();
+        assertEquals(1, viewModel.visibleTreeProperty().get().size());
+        assertEquals(
+                "Отменён",
+                viewModel.visibleTreeProperty().get().get(0).orderNode().statusLabel());
+        assertEquals(
+                "0",
+                viewModel.visibleTreeProperty().get().get(0).orderNode().remainingLabel());
+    }
+
+    @Test
     void itemRowsDoNotExposeUuidInPresentationLabels() {
         seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
         viewModel.openForOrder(OrderId.of(ORDER_ID));
@@ -343,6 +390,8 @@ class ProductionWorkbenchViewModelTest {
                 ORDER_ID,
                 ProductionWorkbenchUiTestSupport.productionListFacts(
                         ORDER_ID, OrderProductionViewStatus.IN_PRODUCTION, 20, 0, 20));
+        queryApi.putItemState(ProductionWorkbenchUiTestSupport.activeItemState(ORDER_ID, ITEM_A, 10));
+        queryApi.putItemState(ProductionWorkbenchUiTestSupport.activeItemState(ORDER_ID, ITEM_B, 10));
     }
 
     @Test
@@ -508,7 +557,8 @@ class ProductionWorkbenchViewModelTest {
     }
 
     private java.util.Map<UUID, ItemProductionStateView> itemStates() {
-        return java.util.Map.of(
+        java.util.Map<UUID, ItemProductionStateView> states = new java.util.HashMap<>();
+        states.put(
                 ITEM_A,
                 new ItemProductionStateView(
                         ORDER_ID,
@@ -521,7 +571,8 @@ class ProductionWorkbenchViewModelTest {
                         0,
                         Optional.empty(),
                         Instant.parse("2026-01-01T10:00:00Z"),
-                        List.of()),
+                        List.of()));
+        states.put(
                 ITEM_B,
                 new ItemProductionStateView(
                         ORDER_ID,
@@ -535,5 +586,6 @@ class ProductionWorkbenchViewModelTest {
                         Optional.empty(),
                         Instant.parse("2026-01-01T10:00:00Z"),
                         List.of()));
+        return states;
     }
 }

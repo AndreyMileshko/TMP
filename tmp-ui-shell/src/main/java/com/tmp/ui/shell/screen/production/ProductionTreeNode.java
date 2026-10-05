@@ -29,6 +29,7 @@ public final class ProductionTreeNode {
     private final OrderProductionViewStatus orderStatus;
     private final int displayIndex;
     private final List<ProductionOrderItemRef> childRefs;
+    private final boolean selectable;
 
     private ProductionTreeNode(
             Kind kind,
@@ -42,7 +43,8 @@ public final class ProductionTreeNode {
             String remainingLabel,
             OrderProductionViewStatus orderStatus,
             int displayIndex,
-            List<ProductionOrderItemRef> childRefs) {
+            List<ProductionOrderItemRef> childRefs,
+            boolean selectable) {
         this.kind = kind;
         this.sourceOrderId = sourceOrderId;
         this.sourceOrderItemId = sourceOrderItemId;
@@ -55,6 +57,7 @@ public final class ProductionTreeNode {
         this.orderStatus = orderStatus;
         this.displayIndex = displayIndex;
         this.childRefs = List.copyOf(childRefs);
+        this.selectable = selectable;
     }
 
     public static ProductionTreeNode order(
@@ -65,20 +68,16 @@ public final class ProductionTreeNode {
             String quantityLabel,
             String releasedLabel,
             String remainingLabel,
-            List<ProductionOrderItemRef> childRefs) {
+            List<ProductionOrderItemRef> selectableChildRefs) {
         Objects.requireNonNull(sourceOrderId, "sourceOrderId");
         Objects.requireNonNull(orderNumber, "orderNumber");
         Objects.requireNonNull(status, "status");
-        Objects.requireNonNull(childRefs, "childRefs");
-        String identity =
-                orderNumber.startsWith("№") || orderNumber.startsWith("Заказ")
-                        ? orderNumber
-                        : "Заказ №" + orderNumber;
+        Objects.requireNonNull(selectableChildRefs, "selectableChildRefs");
         return new ProductionTreeNode(
                 Kind.ORDER,
                 sourceOrderId,
                 null,
-                identity,
+                orderNumber,
                 blankToDash(customerName),
                 blankToDash(quantityLabel),
                 ProductionPresentationLabels.orderStatus(status),
@@ -86,7 +85,8 @@ public final class ProductionTreeNode {
                 blankToDash(remainingLabel),
                 status,
                 0,
-                childRefs);
+                selectableChildRefs,
+                !selectableChildRefs.isEmpty());
     }
 
     public static ProductionTreeNode item(
@@ -98,7 +98,8 @@ public final class ProductionTreeNode {
             String statusLabel,
             String releasedLabel,
             String remainingLabel,
-            int displayIndex) {
+            int displayIndex,
+            boolean selectable) {
         Objects.requireNonNull(sourceOrderId, "sourceOrderId");
         Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
         Objects.requireNonNull(identityLabel, "identityLabel");
@@ -114,7 +115,8 @@ public final class ProductionTreeNode {
                 blankToDash(remainingLabel),
                 null,
                 displayIndex,
-                List.of());
+                List.of(),
+                selectable);
     }
 
     public Kind kind() {
@@ -176,8 +178,17 @@ public final class ProductionTreeNode {
         return displayIndex;
     }
 
+    /** Selectable children for order checkbox state; empty for item nodes. */
     public List<ProductionOrderItemRef> childRefs() {
         return childRefs;
+    }
+
+    /**
+     * Item: whether the checkbox may be toggled. Order: whether the parent checkbox is enabled
+     * (has at least one selectable child).
+     */
+    public boolean selectable() {
+        return selectable;
     }
 
     public static String humanReadablePosition(String externalPositionNumber, int displayIndex1Based) {

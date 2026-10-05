@@ -150,7 +150,13 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
             searchDebounce.playFromStart();
         });
 
-        periodCombo.setItems(FXCollections.observableArrayList(OrderListPeriod.Preset.values()));
+        periodCombo.setItems(
+                FXCollections.observableArrayList(
+                        OrderListPeriod.Preset.TODAY,
+                        OrderListPeriod.Preset.LAST_7_DAYS,
+                        OrderListPeriod.Preset.LAST_30_DAYS,
+                        OrderListPeriod.Preset.CURRENT_MONTH,
+                        OrderListPeriod.Preset.CUSTOM));
         periodCombo.setConverter(periodConverter());
         periodCombo.setValue(viewModel.periodPresetProperty().get());
         periodCombo.valueProperty().addListener((obs, old, value) -> {
@@ -452,6 +458,7 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
                     case LAST_7_DAYS -> "Последние 7 дней";
                     case LAST_30_DAYS -> "Последние 30 дней";
                     case CURRENT_MONTH -> "Текущий месяц";
+                    case ALL_PERIOD -> "Весь период";
                     case CUSTOM -> "Другой период";
                 };
             }
