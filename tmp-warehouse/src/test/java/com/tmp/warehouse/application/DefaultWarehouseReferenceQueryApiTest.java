@@ -90,4 +90,29 @@ class DefaultWarehouseReferenceQueryApiTest {
 
         assertTrue(api.findMaterialReferencesByIdentity("MISSING", "WHITE", "шт.").isEmpty());
     }
+
+    @Test
+    void findMaterialReferencesByIdentityCanonicalizesOmUomAliases() {
+        MaterialReference match =
+                MaterialReference.create("MAT-001", "Name", "White", "", "шт.");
+        materials.create(match);
+
+        List<MaterialReferenceView> found =
+                api.findMaterialReferencesByIdentity("MAT-001", "White", "шт");
+
+        assertEquals(1, found.size());
+        assertEquals(match.id().value(), found.getFirst().materialReferenceId());
+
+        List<MaterialReferenceView> spaced =
+                api.findMaterialReferencesByIdentity("MAT-001", "White", " ШТ ");
+        assertEquals(1, spaced.size());
+        assertEquals(match.id().value(), spaced.getFirst().materialReferenceId());
+    }
+
+    @Test
+    void findMaterialReferencesByIdentityDoesNotFuzzyMatchDifferentUnits() {
+        materials.create(MaterialReference.create("MAT-001", "Name", "White", "", "шт."));
+
+        assertTrue(api.findMaterialReferencesByIdentity("MAT-001", "White", "м").isEmpty());
+    }
 }

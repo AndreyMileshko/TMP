@@ -3,6 +3,7 @@ package com.tmp.warehouse.application;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
 import com.tmp.warehouse.api.WarehouseReferenceQueryApi;
 import com.tmp.warehouse.domain.MaterialReference;
+import com.tmp.warehouse.domain.UnitOfMeasure;
 import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
@@ -51,13 +52,13 @@ public final class DefaultWarehouseReferenceQueryApi implements WarehouseReferen
         Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
         String articleKey = article.trim();
         String colorKey = normalizeColor(color);
-        String unitKey = unitOfMeasure.trim();
         return materials.findAll().stream()
                 .filter(
                         material ->
                                 material.article().equals(articleKey)
                                         && normalizeColor(material.color()).equals(colorKey)
-                                        && material.unitOfMeasure().trim().equals(unitKey))
+                                        && UnitOfMeasure.equalForKey(
+                                                material.unitOfMeasure(), unitOfMeasure))
                 .map(this::toView)
                 .toList();
     }

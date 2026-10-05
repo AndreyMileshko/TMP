@@ -71,6 +71,24 @@ public enum UnitOfMeasure {
         return requireCode(raw);
     }
 
+    /**
+     * Comparison-time equality using the Warehouse canonical UoM rule.
+     *
+     * <p>When both sides resolve to a Warehouse canonical code, those codes are compared. When
+     * either side is unsupported, falls back to exact trimmed equality so legacy/test non-catalog
+     * units still match themselves without inventing fuzzy aliases.
+     */
+    public static boolean equalForKey(String left, String right) {
+        Optional<String> leftCanonical = tryCanonicalKey(left);
+        Optional<String> rightCanonical = tryCanonicalKey(right);
+        if (leftCanonical.isPresent() && rightCanonical.isPresent()) {
+            return leftCanonical.get().equals(rightCanonical.get());
+        }
+        String leftTrim = left == null ? "" : left.trim();
+        String rightTrim = right == null ? "" : right.trim();
+        return leftTrim.equals(rightTrim);
+    }
+
     public static boolean isCanonical(String raw) {
         if (raw == null) {
             return false;
@@ -81,6 +99,13 @@ public enum UnitOfMeasure {
             }
         }
         return false;
+    }
+
+    private static Optional<String> tryCanonicalKey(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return Optional.of("");
+        }
+        return resolveCanonical(raw);
     }
 
     private static Optional<String> resolveCanonical(String raw) {

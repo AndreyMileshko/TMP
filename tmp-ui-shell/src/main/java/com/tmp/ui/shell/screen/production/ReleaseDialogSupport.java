@@ -204,15 +204,12 @@ public final class ReleaseDialogSupport {
         Alert alert = new Alert(Alert.AlertType.WARNING);
         TmpTheme.apply(alert.getDialogPane());
         alert.setTitle(STEP1_TITLE);
-        if (readiness.status()
-                == com.tmp.production.api.ProductionApplicationApi.MaterialReadinessStatusView
-                        .NO_PRODUCTION_WAREHOUSE) {
-            alert.setHeaderText(ProductionUiErrorMapper.NO_PRODUCTION_WAREHOUSE);
+        alert.setHeaderText(readinessBlockedHeader(readiness));
+        if (!readinessDetailsAvailable(readiness)) {
             alert.setContentText("Выпуск нельзя продолжить.");
             alert.showAndWait();
             return;
         }
-        alert.setHeaderText(ProductionUiErrorMapper.RELEASE_MATERIALS_NOT_READY);
         alert.setContentText("Нажмите «Подробнее», чтобы увидеть дефицит по материалам.");
         ButtonType details =
                 new ButtonType(DETAILS_BUTTON, ButtonBar.ButtonData.OTHER);
@@ -223,6 +220,32 @@ public final class ReleaseDialogSupport {
         if (choice.isPresent() && choice.get() == details) {
             showReadinessDetails(readiness);
         }
+    }
+
+    /** Header text for a release readiness block — never treats unresolved identity as shortage. */
+    public static String readinessBlockedHeader(MaterialReadinessView readiness) {
+        Objects.requireNonNull(readiness, "readiness");
+        return switch (readiness.status()) {
+            case NO_PRODUCTION_WAREHOUSE -> ProductionUiErrorMapper.NO_PRODUCTION_WAREHOUSE;
+            case MATERIAL_REFERENCE_UNRESOLVED -> ProductionUiErrorMapper.MATERIALS_UNRESOLVED;
+            default -> ProductionUiErrorMapper.RELEASE_MATERIALS_NOT_READY;
+        };
+    }
+
+    /**
+     * Details are available only for true shortage readiness with at least one shortage line.
+     * Unresolved identity with empty lines must not open an empty table.
+     */
+    public static boolean readinessDetailsAvailable(MaterialReadinessView readiness) {
+        Objects.requireNonNull(readiness, "readiness");
+        if (readiness.status()
+                != com.tmp.production.api.ProductionApplicationApi.MaterialReadinessStatusView
+                        .NOT_READY) {
+            return false;
+        }
+        return readiness.lines() != null
+                && readiness.lines().stream()
+                        .anyMatch(line -> line.shortageQuantity().signum() > 0);
     }
 
     public static void showReadinessDetails(MaterialReadinessView readiness) {

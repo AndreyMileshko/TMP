@@ -59,7 +59,9 @@ public final class ProductionUiErrorMapper {
     public static final String MATERIALS_CHECK_FAILED =
             "Не удалось проверить наличие материалов.";
     public static final String MATERIALS_UNRESOLVED =
-            "Материал не найден в справочнике склада.";
+            "Не удалось сопоставить материал из спецификации со складскими данными.";
+    public static final String MATERIALS_AMBIGUOUS =
+            "Материал из спецификации определён неоднозначно в складских данных.";
     public static final String NO_PRODUCTION_WAREHOUSE =
             "Не назначен производственный склад.";
     public static final String RELEASE_MATERIALS_NOT_READY =
@@ -92,6 +94,12 @@ public final class ProductionUiErrorMapper {
             String lower = message.toLowerCase(Locale.ROOT);
             String simple = current.getClass().getSimpleName();
 
+            if (simple.contains("MaterialRequirementNotReady")) {
+                if (lower.contains("ambiguous")) {
+                    return formatMaterialsIdentityMessage(MATERIALS_AMBIGUOUS, message);
+                }
+                return formatMaterialsIdentityMessage(MATERIALS_UNRESOLVED, message);
+            }
             if (simple.contains("MaterialRequirementCoverageConflict")
                     || lower.contains("product coverage conflict")
                     || lower.contains("materialrequirementcoverageconflict")
@@ -291,6 +299,69 @@ public final class ProductionUiErrorMapper {
                     + ".\n\nВыпуск не выполнен.";
         }
         return RELEASE_STOCK_CHANGED;
+    }
+
+    /**
+     * Appends article/color/UoM from a record-style identity fragment when present; never appends
+     * UUID or technical class names.
+     */
+    private static String formatMaterialsIdentityMessage(String base, String message) {
+        if (message == null || message.isBlank()) {
+            return base;
+        }
+        String article = extractRecordField(message, "materialCode");
+        if (article == null) {
+            article = extractRecordField(message, "article");
+        }
+        String color = extractRecordField(message, "color");
+        String unit = extractRecordField(message, "unitOfMeasure");
+        if (article == null && color == null && unit == null) {
+            return base;
+        }
+        StringBuilder context = new StringBuilder();
+        if (article != null && !article.isBlank()) {
+            context.append(article.trim());
+        }
+        if (color != null && !color.isBlank()) {
+            if (!context.isEmpty()) {
+                context.append(", ");
+            }
+            context.append(color.trim());
+        }
+        if (unit != null && !unit.isBlank()) {
+            if (!context.isEmpty()) {
+                context.append(", ");
+            }
+            context.append(unit.trim());
+        }
+        if (context.isEmpty()) {
+            return base;
+        }
+        return base + "\n" + context;
+    }
+
+    private static String extractRecordField(String message, String field) {
+        String marker = field + "=";
+        int index = message.indexOf(marker);
+        if (index < 0) {
+            return null;
+        }
+        int start = index + marker.length();
+        if (start >= message.length()) {
+            return null;
+        }
+        int end = start;
+        while (end < message.length()) {
+            char c = message.charAt(end);
+            if (c == ',' || c == ']' || c == ')' || c == '\n') {
+                break;
+            }
+            end++;
+        }
+        if (end <= start) {
+            return null;
+        }
+        return message.substring(start, end).trim();
     }
 
     private static String extractAfter(String message, String marker) {

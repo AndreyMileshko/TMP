@@ -1,6 +1,7 @@
 package com.tmp.ui.shell.screen.production;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -60,9 +61,58 @@ class ProductionUiErrorMapperTest {
                 ProductionUiErrorMapper.CARD_LOAD_FAILED);
     }
 
+    @Test
+    void mapsMaterialRequirementUnresolvedAndAmbiguous() {
+        RuntimeException unresolved =
+                new MaterialRequirementNotReadyStubException(
+                        "Material requirement is not ready: UNRESOLVED material for order x,"
+                                + " identity=SpecificationMaterialIdentity[materialCode=MAT-001,"
+                                + " color=White, unitOfMeasure=шт]");
+        String unresolvedText = ProductionUiErrorMapper.text(unresolved);
+        assertTrue(unresolvedText.startsWith(ProductionUiErrorMapper.MATERIALS_UNRESOLVED));
+        assertTrue(unresolvedText.contains("MAT-001"));
+        assertTrue(unresolvedText.contains("White"));
+        assertTrue(unresolvedText.contains("шт"));
+        assertFalse(unresolvedText.contains("справочник"));
+        assertNotEquals(ProductionUiErrorMapper.TECHNICAL_FAILURE, unresolvedText);
+
+        RuntimeException ambiguous =
+                new MaterialRequirementNotReadyStubException(
+                        "Material requirement is not ready: AMBIGUOUS material for order x,"
+                                + " identity=SpecificationMaterialIdentity[materialCode=MAT-001,"
+                                + " color=White, unitOfMeasure=шт.]");
+        String ambiguousText = ProductionUiErrorMapper.text(ambiguous);
+        assertTrue(ambiguousText.startsWith(ProductionUiErrorMapper.MATERIALS_AMBIGUOUS));
+        assertTrue(ambiguousText.contains("MAT-001"));
+        assertNotEquals(ProductionUiErrorMapper.TECHNICAL_FAILURE, ambiguousText);
+    }
+
+    @Test
+    void keepsMaterialShortageMessageForZeroStockSubmit() {
+        assertEquals(
+                ProductionUiErrorMapper.MATERIAL_SHORTAGE,
+                ProductionUiErrorMapper.text(
+                        new MaterialRequirementShortageStubException(
+                                "MaterialRequirementShortage: no positive AVAILABLE source")));
+        assertTrue(ProductionUiErrorMapper.MATERIAL_SHORTAGE.contains("Черновик сохранён"));
+        assertFalse(ProductionUiErrorMapper.MATERIAL_SHORTAGE.contains("отправлен на склад"));
+    }
+
     private static final class ProductionLaunchConflictStubException extends RuntimeException {
         ProductionLaunchConflictStubException() {
             super("ProductionLaunchConflict: already launched");
+        }
+    }
+
+    private static final class MaterialRequirementNotReadyStubException extends RuntimeException {
+        MaterialRequirementNotReadyStubException(String message) {
+            super(message);
+        }
+    }
+
+    private static final class MaterialRequirementShortageStubException extends RuntimeException {
+        MaterialRequirementShortageStubException(String message) {
+            super(message);
         }
     }
 }

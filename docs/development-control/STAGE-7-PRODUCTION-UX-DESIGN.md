@@ -867,13 +867,43 @@ no «Вернуть в производство», no Order reimport, no Stage 8
 
 ---
 
+## POST-ACCEPTANCE PHASE B2
+
+Material identity + MR / readiness UI corrections after Phase B1 audit. No Material Catalog,
+no Color Catalog, no zero-stock SUBMIT redesign, no reservation, no Restore Production, no Order
+reimport.
+
+### Implemented corrections
+
+| Area | Correction |
+|------|------------|
+| UoM identity matching | Comparison-time canonicalization via Warehouse `UnitOfMeasure.equalForKey` exposed as public `UnitOfMeasureKeys.equalForKey` (single Warehouse rule). OM `"шт"` / `" ШТ "` matches Warehouse `"шт."`. Display UoM strings unchanged; no OM/Warehouse UoM migration. |
+| Matching location | `DefaultWarehouseReferenceQueryApi.findMaterialReferencesByIdentity` + `MaterialReferenceResolver` via `com.tmp.warehouse.api.UnitOfMeasureKeys`. No new catalog subsystem. |
+| Size behavior | Unchanged: size not part of Production identity match. Multiple Warehouse refs with same article+color+canonical UoM → AMBIGUOUS (no arbitrary pick). |
+| MR PREPARE | Matching ref + AVAILABLE=0 still creates DRAFT; PREPARE does not query stock. |
+| MR unresolved / ambiguous UI | `MaterialRequirementNotReadyException` → business messages (`MATERIALS_UNRESOLVED` / `MATERIALS_AMBIGUOUS`), not technical failure; optional article/color/UoM context. |
+| Release readiness UNRESOLVED | Shows identity mismatch wording; **not** «Недостаточно материалов». Details button hidden when no shortage lines. |
+| Release readiness SHORTAGE | Unchanged: «Недостаточно материалов для выпуска.» + Подробнее with shortage rows. |
+| Order Card | `MATERIAL_REFERENCE_UNRESOLVED` wording aligned; no «справочник материалов/цветов». |
+| Zero-stock SUBMIT | **Unchanged** (deferred architectural decision). Existing `MATERIAL_SHORTAGE` presentation kept; DRAFT retained on failed submit. |
+
+### Deferred (still)
+
+- Zero-stock Warehouse demand / SUBMIT semantics (Phase B3+)
+- Restore Production
+- Order reimport
+- Cancellation history actor/reason
+
+---
+
 ## 20. CODE CHANGES
 
 Phase A UI/presentation corrections (see POST-ACCEPTANCE PHASE A).
+Phase B2 material identity + MR/readiness presentation (see POST-ACCEPTANCE PHASE B2).
 
 ## 21. DATABASE
 
-NONE (preferences use existing `UserUiPreferenceService` storage)
+NONE (preferences use existing `UserUiPreferenceService` storage; Phase B2 — no Flyway)
 
 ## 22. PACKAGE
 

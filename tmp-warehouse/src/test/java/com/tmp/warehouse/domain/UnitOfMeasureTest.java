@@ -1,7 +1,9 @@
 package com.tmp.warehouse.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -37,5 +39,15 @@ class UnitOfMeasureTest {
     void legacyEmptyIsAllowedOnlyForPersistedPath() {
         assertEquals("", UnitOfMeasure.requirePersistedOrLegacyEmpty(""));
         assertEquals("м.", UnitOfMeasure.requirePersistedOrLegacyEmpty("метр"));
+    }
+
+    @Test
+    void equalForKeyMatchesCanonicalAliases() {
+        assertTrue(UnitOfMeasure.equalForKey("шт", "шт."));
+        assertTrue(UnitOfMeasure.equalForKey(" ШТ ", "шт."));
+        assertTrue(UnitOfMeasure.equalForKey("шт. ", "шт."));
+        assertFalse(UnitOfMeasure.equalForKey("м", "шт."));
+        assertTrue(UnitOfMeasure.equalForKey("PCS", "PCS"));
+        assertFalse(UnitOfMeasure.equalForKey("PCS", "шт."));
     }
 }

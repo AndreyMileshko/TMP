@@ -511,6 +511,52 @@ class MaterialRequirementServiceTest {
     }
 
     @Test
+    void prepareMatchesCanonicalUomAliasesAndIgnoresZeroStock() {
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        launchItem(orderId, itemId, specId);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        spec(specId, itemId, List.of(materialLine("MAT-001", "White", "шт", 2))));
+        UUID materialId = UUID.randomUUID();
+        warehouseQuery.materialReferences =
+                List.of(reference(materialId, "MAT-001", "Mat 001", "White", "шт."));
+
+        MaterialRequirement requirement =
+                service.prepareMaterialRequirement(
+                        List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
+
+        assertEquals(1, requirement.lines().size());
+        assertEquals(materialId, requirement.lines().getFirst().materialReferenceId().value());
+        assertEquals(0, warehouseQuery.availableQuantityCalls.get());
+    }
+
+    @Test
+    void prepareAmbiguousWhenCanonicalUomCollapsesDistinctReferences() {
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        launchItem(orderId, itemId, specId);
+        specificationQuery.byIdSpec =
+                Optional.of(
+                        spec(specId, itemId, List.of(materialLine("MAT-001", "White", "шт", 1))));
+        warehouseQuery.materialReferences =
+                List.of(
+                        reference(UUID.randomUUID(), "MAT-001", "A", "White", "шт."),
+                        reference(UUID.randomUUID(), "MAT-001", "B", "White", "шт"));
+
+        MaterialRequirementNotReadyException ex =
+                assertThrows(
+                        MaterialRequirementNotReadyException.class,
+                        () ->
+                                service.prepareMaterialRequirement(
+                                        List.of(
+                                                MaterialRequirementProductSelection.of(
+                                                        orderId, itemId))));
+        assertEquals(MaterialRequirementNotReadyException.Problem.AMBIGUOUS, ex.problem());
+        assertEquals(0, warehouseQuery.availableQuantityCalls.get());
+    }
+
+    @Test
     void usesFrozenSpecificationIdNotCurrent() {
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId frozenSpecA = SpecificationId.generate();
@@ -1124,13 +1170,13 @@ class MaterialRequirementServiceTest {
                 String article, String color, String unitOfMeasure) {
             findMaterialReferencesCalls.incrementAndGet();
             String colorKey = color == null ? "" : color.trim();
-            String unitKey = unitOfMeasure.trim();
             return materialReferences.stream()
                     .filter(
                             entry ->
                                     entry.article().equals(article)
                                             && entry.color().trim().equals(colorKey)
-                                            && entry.unitOfMeasure().trim().equals(unitKey))
+                                            && com.tmp.warehouse.api.UnitOfMeasureKeys.equalForKey(
+                                                    entry.unitOfMeasure(), unitOfMeasure))
                     .toList();
         }
     }

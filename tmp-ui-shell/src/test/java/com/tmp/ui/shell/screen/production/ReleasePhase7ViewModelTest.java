@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.api.OrderId;
+import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessLineView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessReasonView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessView;
@@ -23,6 +24,7 @@ import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubQ
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubWarehouseApi;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchUiTestSupport.StubWorklistQuery;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -234,6 +236,47 @@ class ReleasePhase7ViewModelTest {
                         0,
                         List.of());
         assertFalse(viewModel.checkReleaseReadiness(rows).ready());
+    }
+
+    @Test
+    void unresolvedReadinessUsesIdentityMessageWithoutDetails() {
+        MaterialReadinessView unresolved =
+                new MaterialReadinessView(
+                        MaterialReadinessStatusView.MATERIAL_REFERENCE_UNRESOLVED,
+                        MaterialReadinessReasonView.MATERIAL_REFERENCE_UNRESOLVED,
+                        0,
+                        List.of());
+        assertEquals(
+                ProductionUiErrorMapper.MATERIALS_UNRESOLVED,
+                ReleaseDialogSupport.readinessBlockedHeader(unresolved));
+        assertFalse(ReleaseDialogSupport.readinessDetailsAvailable(unresolved));
+        assertFalse(
+                ReleaseDialogSupport.readinessBlockedHeader(unresolved)
+                        .contains("Недостаточно материалов"));
+    }
+
+    @Test
+    void shortageReadinessKeepsShortageMessageAndDetails() {
+        MaterialReadinessLineView shortageLine =
+                new MaterialReadinessLineView(
+                        MAT,
+                        "MAT-1",
+                        "Профиль",
+                        "Белый",
+                        "шт.",
+                        new BigDecimal("10"),
+                        BigDecimal.ZERO,
+                        new BigDecimal("10"));
+        MaterialReadinessView shortage =
+                new MaterialReadinessView(
+                        MaterialReadinessStatusView.NOT_READY,
+                        MaterialReadinessReasonView.INSUFFICIENT_STOCK,
+                        1,
+                        List.of(shortageLine));
+        assertEquals(
+                ProductionUiErrorMapper.RELEASE_MATERIALS_NOT_READY,
+                ReleaseDialogSupport.readinessBlockedHeader(shortage));
+        assertTrue(ReleaseDialogSupport.readinessDetailsAvailable(shortage));
     }
 
     @Test

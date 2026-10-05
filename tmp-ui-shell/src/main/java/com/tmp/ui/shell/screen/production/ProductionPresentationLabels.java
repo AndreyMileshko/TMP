@@ -103,8 +103,7 @@ public final class ProductionPresentationLabels {
             case NOT_READY ->
                     "Недостаточно материалов для выпуска оставшихся изделий.";
             case NO_PRODUCTION_WAREHOUSE -> "Не назначен производственный склад.";
-            case MATERIAL_REFERENCE_UNRESOLVED ->
-                    "Материал не найден в справочнике склада.";
+            case MATERIAL_REFERENCE_UNRESOLVED -> ProductionUiErrorMapper.MATERIALS_UNRESOLVED;
             case NOT_APPLICABLE ->
                     switch (readiness.reason()) {
                         case NOT_ACCEPTED ->

@@ -172,6 +172,28 @@ class MaterialReadinessPhase6ViewModelTest {
         assertFalse(viewModel.materialsDetailsVisibleProperty().get());
     }
 
+    @Test
+    void orderCardShowsUnresolvedWithoutCatalogOrShortageWording() {
+        seedDetailOrder(OrderProductionViewStatus.IN_PRODUCTION);
+        applicationApi.remainingReadiness =
+                new MaterialReadinessView(
+                        MaterialReadinessStatusView.MATERIAL_REFERENCE_UNRESOLVED,
+                        MaterialReadinessReasonView.MATERIAL_REFERENCE_UNRESOLVED,
+                        0,
+                        List.of());
+
+        viewModel.openForOrder(OrderId.of(ORDER_ID));
+
+        assertEquals(
+                ProductionUiErrorMapper.MATERIALS_UNRESOLVED,
+                viewModel.materialsSummaryProperty().get());
+        assertFalse(viewModel.materialsDetailsVisibleProperty().get());
+        String summary = viewModel.materialsSummaryProperty().get();
+        assertFalse(summary.contains("справочник материалов"));
+        assertFalse(summary.contains("справочник цветов"));
+        assertFalse(summary.contains("Недостаточно материалов"));
+    }
+
     private void seedDetailOrder(OrderProductionViewStatus status) {
         worklistQuery.rows.add(
                 ProductionWorkbenchUiTestSupport.worklistRow(ORDER_ID, "ORD-1", "Клиент"));

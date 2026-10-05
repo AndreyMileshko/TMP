@@ -343,6 +343,19 @@ class MaterialRequestPhase5ViewModelTest {
     }
 
     @Test
+    void errorMapperMapsUnresolvedMaterialRequirementToBusinessMessage() {
+        RuntimeException unresolved =
+                new MaterialRequirementNotReadyStubException(
+                        "Material requirement is not ready: UNRESOLVED material for order x,"
+                                + " identity=SpecificationMaterialIdentity[materialCode=MAT-9,"
+                                + " color=Black, unitOfMeasure=шт]");
+        String mapped = ProductionUiErrorMapper.text(unresolved);
+        assertTrue(mapped.startsWith(ProductionUiErrorMapper.MATERIALS_UNRESOLVED));
+        assertFalse(mapped.equals(ProductionUiErrorMapper.TECHNICAL_FAILURE));
+        assertFalse(mapped.contains("Не удалось выполнить операцию"));
+    }
+
+    @Test
     void draftListCaptionNeverExposesUuid() {
         MaterialRequirementDraftSummaryView draft =
                 new MaterialRequirementDraftSummaryView(
@@ -447,5 +460,11 @@ class MaterialRequestPhase5ViewModelTest {
                                 sources.stream()
                                         .map(MaterialRequirementSourceItemView::sourceOrderItemId)
                                         .toList())));
+    }
+
+    private static final class MaterialRequirementNotReadyStubException extends RuntimeException {
+        MaterialRequirementNotReadyStubException(String message) {
+            super(message);
+        }
     }
 }

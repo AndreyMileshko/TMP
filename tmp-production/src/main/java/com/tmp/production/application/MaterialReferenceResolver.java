@@ -1,6 +1,7 @@
 package com.tmp.production.application;
 
 import com.tmp.production.domain.SpecificationMaterialIdentity;
+import com.tmp.warehouse.api.UnitOfMeasureKeys;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -9,8 +10,9 @@ import java.util.UUID;
  * Resolves a frozen Specification material identity to a Warehouse {@code MaterialReferenceId}.
  *
  * <p>Uses the accepted rule: {@code article/materialCode + normalized color + unitOfMeasure}.
- * {@code lengthMm} is never mapped to Warehouse size. Zero candidates → unresolved; more than one
- * → ambiguous (never pick first).
+ * Unit comparison reuses Warehouse {@link UnitOfMeasureKeys#equalForKey(String, String)} at
+ * comparison time (display strings are not mutated). {@code lengthMm} is never mapped to Warehouse
+ * size. Zero candidates → unresolved; more than one → ambiguous (never pick first).
  */
 public final class MaterialReferenceResolver {
 
@@ -68,9 +70,9 @@ public final class MaterialReferenceResolver {
                                                 && SpecificationMaterialIdentity.normalizeColor(
                                                                 entry.color())
                                                         .equals(identity.color())
-                                                && entry.unitOfMeasure()
-                                                        .trim()
-                                                        .equals(identity.unitOfMeasure()))
+                                                && UnitOfMeasureKeys.equalForKey(
+                                                        entry.unitOfMeasure(),
+                                                        identity.unitOfMeasure()))
                         .toList();
 
         if (candidates.isEmpty()) {
