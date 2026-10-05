@@ -2,6 +2,32 @@
 
 ## Latest result
 
+**Date:** 2026-10-05
+**Scope:** Stage 7 / Warehouse — B3B-1 Warehouse Demand Foundation
+**Overall:** PASS
+**Migration:** V50 (`warehouse.warehouse_demands` / `warehouse_demand_lines` / `warehouse_demand_transfer_links`); no Production FK
+**Base HEAD:** `e5f5531a70230be4377902eea16b6bd3af0d27ca`
+**Working tree:** dirty (Demand foundation + ADR-038 + Spec v1.9); **no commit / no push**
+
+### B3B-1 checks (2026-10-05)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD + clean tree | PASS |
+| Domain `WarehouseDemandTest` | PASS (9) |
+| Persistence `JdbcWarehouseDemandRepositoryIT` | PASS (7) — atomic persist, idempotency, transfer links 0..N + unique |
+| `WarehouseSchemaFlywayTest` | PASS (11) — V50 applies |
+| `Stage7ProductionArchitectureTest` | PASS (83) |
+| Full reactor | NOT RUN |
+| Package | NOT RUN |
+| Production / routing / receive / UI changes | NONE |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
 **Date:** 2026-10-02
 **Scope:** Stage 7 Production — IMPLEMENTATION PHASE 8 Final Consolidation / Cleanup / Acceptance
 **Overall:** PASS

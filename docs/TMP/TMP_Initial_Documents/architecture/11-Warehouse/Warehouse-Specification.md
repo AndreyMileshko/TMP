@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.8
+**Version:** 1.9
 
 ---
 
@@ -17,6 +17,7 @@ Warehouse является единственным владельцем:
 - `Stock Position`;
 - `Warehouse Operation`;
 - `Warehouse Movement`.
+- `Warehouse Demand` (operational warehouse need accepted from Production; ADR-038).
 
 Warehouse не рассчитывает производственную потребность и не определяет состав изделия.
 
@@ -350,18 +351,36 @@ Production:
 - до Submit мастер может редактировать итоговое требование (без dual calculated/requested model и без recommendation formula в target);
 - после Submit передаёт **финальное** требование в Warehouse;
 - не выбирает source warehouse;
-- не владеет Stock Position / Warehouse Movement / Warehouse Operation.
+- не владеет Stock Position / Warehouse Movement / Warehouse Operation;
+- не обращается напрямую к Warehouse Demand tables/repository.
 
 Warehouse:
 
 - остаётся владельцем Transfer / Consumption documents, Stock Position и operational transfer workflow;
+- владеет **Warehouse Demand** — operational warehouse need, принятая от Production (ADR-038);
 - выполняет **automatic source warehouse routing** по AVAILABLE (исключая destination);
-- при необходимости создаёт несколько internal Warehouse tasks / transfer documents из одного требования;
+- при необходимости создаёт несколько internal Warehouse tasks / transfer documents из одного требования / Demand;
 - предлагает source cell allocations; receive с destination cells выполняет получатель;
 - выполняет send (`AVAILABLE` → `IN_TRANSIT`) и receive (`IN_TRANSIT` → destination `AVAILABLE`);
 - проверяет наличие и выполняет Consumption;
 - не рассчитывает производственную потребность;
-- не изменяет производственное состояние Production.
+- не изменяет производственное состояние Production;
+- не обращается к Production tables.
+
+### 15.1.1 Warehouse Demand foundation (ADR-038 / B3B-1)
+
+Warehouse Demand — отдельный Warehouse-owned aggregate относительно Production Material Requirement и относительно Transfer.
+
+- **Demand ≠ Transfer.** Transfer — конкретное физическое перемещение. Demand может существовать с 0, 1 или N Transfer lines.
+- Snapshot identity: Demand хранит immutable snapshot specification-данных на момент acceptance (`materialCode`, `materialName`, `color`, `unitOfMeasure`, `lengthMm`, `requiredQuantity`) плюс opaque `sourceMaterialRequirementId` / `sourceMaterialRequirementLineId` (без PostgreSQL FK в Production).
+- `materialReferenceId` nullable: Demand может существовать без MaterialReference; auto-create / resolver — вне foundation.
+- `lengthMm` сохраняется в snapshot как information only; **не** входит в текущий MaterialReference matching key (`article/materialCode` + `color` + canonical UoM).
+- Status / `receivedQuantity` **не** persistятся как source of truth; future statuses derived. Terminal whole-Demand cancellation metadata — только на header (`cancelledAt` / `cancelledBy`).
+- `waitingReason` — attribute на line (`MATERIAL_UNMATCHED` / `MATERIAL_AMBIGUOUS` / `NO_AVAILABLE_STOCK` / `ROUTING_DEFERRED`), не business status.
+- Demand line ↔ Transfer line links: 0..N; duplicate link к одному Transfer line запрещён.
+- Нет Material Catalog / Color Catalog / Procurement / нового reference-data subsystem.
+
+Foundation (B3B-1) не подключает Production Submit, не создаёт Transfer из Demand и не меняет receive/routing/cancellation flows.
 
 ## 15.2 CURRENT IMPLEMENTATION (Stage 7 — until Stage 3.5 refactor)
 
@@ -579,3 +598,4 @@ Warehouse выполняет только складскую часть опер
 | 1.6 | §15: атомарность Release + Consumption ссылается на ADR-036 (механизм) при сохранении ADR-035 (бизнес-граница). |
 | 1.7 | §13.2 / §20: Transfer quantity > 0; exactly-once receive на completed TRANSFER_SEND; логический статус DRAFT/SENT/RECEIVED; Warehouse остаётся line-operation, группировка — Production. |
 | 1.8 | Stage 3.5.0 / ADR-037: User↔Warehouse responsibility; no material→warehouse mapping; automatic source routing; Warehouse-owned multi-line Transfer document over Operation layer; source cell suggestion; destination cell on receive; shortfall continuation; reject/return; partial receive; CURRENT vs TARGET Production integration; supersede ADR-013/014; qualify ADR-035. |
+| 1.9 | B3B-1 / ADR-038: Warehouse Demand foundation — Demand ≠ Transfer; nullable MaterialReference; immutable specification snapshot incl. informational `lengthMm`; no status/received SoT; header-only cancellation metadata; no cross-capability FK. |

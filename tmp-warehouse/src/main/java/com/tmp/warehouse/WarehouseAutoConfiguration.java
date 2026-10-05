@@ -17,6 +17,7 @@ import com.tmp.warehouse.application.DefaultWarehouseReferenceQueryApi;
 import com.tmp.warehouse.application.DefaultWarehouseResponsibilityGuard;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
 import com.tmp.warehouse.application.WarehouseConsumptionService;
+import com.tmp.warehouse.application.WarehouseDemandAcceptanceService;
 import com.tmp.warehouse.application.WarehouseInventoryService;
 import com.tmp.warehouse.application.WarehouseMoveService;
 import com.tmp.warehouse.application.WarehouseOperationEngine;
@@ -43,6 +44,7 @@ import com.tmp.warehouse.domain.repository.TransferReceiptSettlementItemReposito
 import com.tmp.warehouse.domain.repository.TransferReturnSettlementItemRepository;
 import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
+import com.tmp.warehouse.domain.repository.WarehouseDemandRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
@@ -60,6 +62,7 @@ import com.tmp.warehouse.persistence.JdbcTransferReceiptSettlementItemRepository
 import com.tmp.warehouse.persistence.JdbcTransferReturnSettlementItemRepository;
 import com.tmp.warehouse.persistence.JdbcTransferTaskStateRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseDemandRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseHistoryReadQuery;
 import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseOperationRepository;
@@ -194,6 +197,17 @@ public class WarehouseAutoConfiguration {
     WarehouseTransferDocumentRepository warehouseTransferDocumentRepository(
             JdbcTemplate jdbcTemplate, Clock clock) {
         return new JdbcWarehouseTransferDocumentRepository(jdbcTemplate, clock);
+    }
+
+    @Bean
+    WarehouseDemandRepository warehouseDemandRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcWarehouseDemandRepository(jdbcTemplate);
+    }
+
+    @Bean
+    WarehouseDemandAcceptanceService warehouseDemandAcceptanceService(
+            WarehouseDemandRepository warehouseDemandRepository, Clock clock) {
+        return new WarehouseDemandAcceptanceService(warehouseDemandRepository, clock);
     }
 
     @Bean

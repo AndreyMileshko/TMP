@@ -4,6 +4,34 @@
 
 ---
 
+## Stage 7 / Warehouse — B3B-1 Warehouse Demand Foundation — 2026-10-05
+
+**Date:** 2026-10-05  
+**Stage:** 7 Production / Warehouse Phase B3B-1  
+**Base HEAD:** `e5f5531a70230be4377902eea16b6bd3af0d27ca`  
+**Status:** PASS — foundation only; STOP before B3B-2; no commit / no push
+
+### Scope
+
+- Flyway V50: `warehouse_demands` / `warehouse_demand_lines` / `warehouse_demand_transfer_links`
+- Warehouse domain: `WarehouseDemand`, `WarehouseDemandLine`, `WarehouseDemandTransferLink`, waiting reason enum
+- JDBC repository + internal `WarehouseDemandAcceptanceService` (idempotent by source MR id)
+- Domain + persistence IT; ADR-038; Warehouse Spec v1.9 §15.1.1
+
+### Explicitly not done
+
+- Production Submit / MR nullability
+- Routing / Transfer creation from Demand
+- Receive fulfillment / cancellation command
+- Warehouse UI / public Production accept API
+- Full reactor / package
+
+### Verification
+
+See VERIFICATION-LOG B3B-1 entry (2026-10-05).
+
+---
+
 ## Stage 7 Production — IMPLEMENTATION PHASE 8 Final Consolidation — 2026-10-02
 
 **Date:** 2026-10-02  

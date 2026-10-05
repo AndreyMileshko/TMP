@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-005  
 **Status:** Accepted  
-**Version:** 1.14
+**Version:** 1.15
 
 ---
 
@@ -1755,6 +1755,45 @@ Warehouse владеет складским состоянием; StockPosition 
 
 ---
 
+# ADR-038
+
+## Название
+
+Warehouse-owned Demand Aggregate Distinct from Production Material Requirement and Transfer.
+
+### Статус
+
+Accepted
+
+### Контекст
+
+Production Material Requirement фиксирует, что Production запросил. Warehouse Transfer — конкретное физическое перемещение. Между ними нужна Warehouse-owned operational потребность (Demand), принятая от Production: она может существовать без Transfer, с одним Transfer или с несколькими Transfer lines, и не должна дублировать Production tables или invent Material Catalog.
+
+Ранее Submit создавал Transfer Documents напрямую через `WarehouseDemandCommandApi.createRoutedTransferDocuments` без отдельного Demand aggregate. Для zero-stock / unmatched / deferred routing и derived fulfillment status нужен foundation aggregate без premature status engine.
+
+### Решение
+
+1. **Demand ≠ Material Requirement ≠ Transfer.** Три разных concept: Production MR (что запрошено), Warehouse Demand (принятая складская потребность), Transfer (физическое перемещение).
+2. Warehouse полностью владеет Demand (schema, domain, repository). Production не обращается к Demand tables/repository напрямую; Warehouse не обращается к Production tables. `sourceMaterialRequirementId` / `sourceMaterialRequirementLineId` — opaque UUID без PostgreSQL FK.
+3. Demand хранит immutable specification snapshot (`materialCode`, `materialName`, `color`, `unitOfMeasure`, `lengthMm`, `requiredQuantity`). `materialReferenceId` nullable. `lengthMm` — information only; matching key остаётся article/color/canonical UoM.
+4. Не persistить mutable `header.status` / `line.status` / `receivedQuantity` как source of truth. Future statuses derived. Whole-Demand cancellation metadata только на header.
+5. Line may store `waitingReason` attribute (not business status). Demand line ↔ Transfer line links support 0..N; one Transfer line linked at most once.
+6. No Material Catalog / Color Catalog / Procurement subsystem. No Production Submit / routing / receive / cancellation flow changes in foundation step.
+
+### Последствия
+
+- Foundation (B3B-1) добавляет schema + domain + persistence + internal acceptance idempotency.
+- Legacy MR→Transfer submission path остаётся ACTIVE до B3B-2 switch.
+- Subsequent phases: accept API + resolution/routing (B3B-2), receive fulfillment (B3B-3).
+
+### Связанные документы
+
+- Warehouse-Specification.md
+- Production-Specification.md
+- ADR-032, ADR-037
+
+---
+
 # 5. Матрица соответствия спецификациям
 
 Данный раздел показывает, в какой спецификации подробно раскрывается каждое архитектурное решение.
@@ -1798,6 +1837,7 @@ Warehouse владеет складским состоянием; StockPosition 
 | ADR-035 | Production-Specification.md, Warehouse-Specification.md, Document-Engine-Specification.md (**Accepted; qualified by ADR-037**) |
 | ADR-036 | Document-Engine-Specification.md, Production-Specification.md, Warehouse-Specification.md |
 | ADR-037 | Warehouse-Specification.md, Production-Specification.md, TMP-UI-Standard.md |
+| ADR-038 | Warehouse-Specification.md, Production-Specification.md |
 
 > **Architecture Rule**  
 > Настоящий документ фиксирует только архитектурные решения. Подробная реализация и бизнес-логика описываются в соответствующих спецификациях.
@@ -1864,6 +1904,7 @@ Warehouse владеет складским состоянием; StockPosition 
 | 1.12 | Corrective pass Stage 7 docs: Specification ID reference; Cutting Plan 0..N by material; ADR-034 не уничтожает detailed Cutting scope; ADR-035 Query vs Document boundary. |
 | 1.13 | ADR-036: shared ACID transaction for cross-capability document orchestration; ADR-035 уточнён ссылкой на механизм атомарности без supersede. |
 | 1.14 | Stage 3.5.0 Warehouse Architecture Alignment: ADR-037 (operational workflow, User↔Warehouse responsibility, automatic source routing, transfer document layer, shortfall continuation, reject/return); ADR-013 и ADR-014 Superseded; ADR-035 qualified (recommendation/fixed main warehouse/Production multi-line grouping superseded in target scope). |
+| 1.15 | ADR-038: Warehouse-owned Demand aggregate foundation (Demand ≠ MR ≠ Transfer; nullable MaterialReference; snapshot + informational lengthMm; no status/received SoT; no cross-capability FK). |
 
 ---
 
