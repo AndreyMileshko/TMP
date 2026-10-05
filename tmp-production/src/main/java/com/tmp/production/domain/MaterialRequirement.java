@@ -266,17 +266,16 @@ public final class MaterialRequirement {
 
     private static void validateLines(List<MaterialRequirementLine> lines) {
         Set<MaterialRequirementLineId> lineIds = new HashSet<>();
-        Set<MaterialReferenceId> materials = new HashSet<>();
+        Set<SpecificationMaterialIdentity> identities = new HashSet<>();
         for (MaterialRequirementLine line : lines) {
             Objects.requireNonNull(line, "line");
             if (!lineIds.add(line.lineId())) {
                 throw new IllegalArgumentException(
                         "Duplicate requirement lineId: " + line.lineId());
             }
-            if (!materials.add(line.materialReferenceId())) {
+            if (!identities.add(line.identity())) {
                 throw new IllegalArgumentException(
-                        "Duplicate requirement line for materialReferenceId: "
-                                + line.materialReferenceId());
+                        "Duplicate requirement line for material identity: " + line.identity());
             }
         }
     }

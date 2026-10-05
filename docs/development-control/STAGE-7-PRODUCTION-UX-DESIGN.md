@@ -55,7 +55,7 @@
 | Mode/coverage race | Prepare reject → human message + reload STEP 1 |
 | STEP 2 DRAFT | Source summary + material lines; edit quantity via `changeMaterialRequirementQuantity` + expectedVersion |
 | Product coverage | Material edit не меняет `requestedProductQuantity` source items |
-| Submit | `submitMaterialRequirement` → Warehouse demand; success без UUID документов |
+| Submit | `submitMaterialRequirement` → Warehouse Demand accept + best-effort Transfer; success even when lines WAIT (unmatched/ambiguous/zero stock); Demand ≠ Transfer |
 | Shortage / coverage conflict | DRAFT остаётся; human messages |
 | DRAFT persistence | Close не удаляет; reopen через **[Черновики материалов]** + `listMaterialRequirementDrafts` / `getMaterialRequirement` |
 | Multiple DRAFTs | Список по дате/времени + N позиций / M заказов (без UUID) |

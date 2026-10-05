@@ -93,6 +93,7 @@ class JdbcMaterialRequirementRepositoryTest {
                         "Material One",
                         "WHITE",
                         "PCS",
+                        null,
                         BigDecimal.valueOf(12),
                         List.of(
                                 MaterialRequirementLineContribution.of(orderId, itemA, qtyA),
@@ -187,6 +188,7 @@ class JdbcMaterialRequirementRepositoryTest {
                 "Material Z",
                 "WHITE",
                 "PCS",
+                null,
                 quantity,
                 List.of(MaterialRequirementLineContribution.of(orderId, itemId, quantity)));
     }

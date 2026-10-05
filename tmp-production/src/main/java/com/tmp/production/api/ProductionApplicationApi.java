@@ -269,13 +269,12 @@ public interface ProductionApplicationApi {
             String materialName,
             String color,
             String unitOfMeasure,
+            BigDecimal lengthMm,
             BigDecimal quantity,
             List<UUID> sourceOrderItemIds) {
         public MaterialRequirementLineView {
             Objects.requireNonNull(lineId, "lineId");
-            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
             Objects.requireNonNull(materialCode, "materialCode");
-            Objects.requireNonNull(materialName, "materialName");
             Objects.requireNonNull(color, "color");
             Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
             Objects.requireNonNull(quantity, "quantity");

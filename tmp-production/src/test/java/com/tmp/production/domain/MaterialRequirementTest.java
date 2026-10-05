@@ -113,6 +113,7 @@ class MaterialRequirementTest {
                 "Material",
                 "WHITE",
                 "PCS",
+                null,
                 quantity,
                 List.of(MaterialRequirementLineContribution.of(orderId, itemId, quantity)));
     }

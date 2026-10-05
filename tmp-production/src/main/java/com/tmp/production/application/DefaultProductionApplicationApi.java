@@ -522,11 +522,12 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     private MaterialRequirementLineView map(MaterialRequirementLine line) {
         return new MaterialRequirementLineView(
                 line.lineId().value(),
-                line.materialReferenceId().value(),
+                line.materialReferenceId().map(id -> id.value()).orElse(null),
                 line.materialCode(),
                 line.materialName() == null ? "" : line.materialName(),
                 line.color(),
                 line.unitOfMeasure(),
+                line.lengthMm().orElse(null),
                 line.quantity(),
                 line.sourceOrderItemIds().stream().map(SourceOrderItemId::value).toList());
     }

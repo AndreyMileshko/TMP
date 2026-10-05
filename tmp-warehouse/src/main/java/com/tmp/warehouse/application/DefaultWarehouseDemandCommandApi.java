@@ -1,35 +1,47 @@
 package com.tmp.warehouse.application;
 
-import com.tmp.warehouse.api.DemandSourceUnavailableException;
-import com.tmp.warehouse.api.DemandSourceUnavailableException.UnavailableDemand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialDemand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingOutcome;
 import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi;
+import com.tmp.warehouse.api.WarehouseDemandPayloadConflictException;
 import com.tmp.warehouse.application.WarehouseTransferDocumentService.CreatedTransferDocument;
 import com.tmp.warehouse.application.WarehouseTransferDocumentService.LineInput;
 import com.tmp.warehouse.domain.InvalidWarehouseStateException;
+import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.MaterialReferenceId;
+import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.Warehouse;
+import com.tmp.warehouse.domain.WarehouseDemand;
+import com.tmp.warehouse.domain.WarehouseDemandLine;
+import com.tmp.warehouse.domain.WarehouseDemandTransferLink;
+import com.tmp.warehouse.domain.WarehouseDemandWaitingReason;
 import com.tmp.warehouse.domain.WarehouseId;
+import com.tmp.warehouse.domain.WarehouseTransferLineId;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
+import com.tmp.warehouse.domain.repository.WarehouseDemandRepository;
+import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Default {@link WarehouseDemandCommandApi} implementation (Stage 3.5.10).
+ * Default {@link WarehouseDemandCommandApi}: accept Production Demand, resolve materials, and
+ * best-effort create Transfer DRAFTs for uniquely resolved lines with positive AVAILABLE stock.
  *
- * <p>Single trusted demand-driven creation path without the responsibility guard. Reuses {@link
- * MaterialSourceRoutingService} for source selection and {@link WarehouseTransferDocumentService}
- * for DRAFT creation. Route-all → validate-all → group → create. Created document line quantities
- * equal the FULL requested demand (never routed quantity).
+ * <p>Business no-route outcomes persist WAITING reasons and do not throw. Technical failures
+ * propagate and roll back with the caller's outer transaction.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -40,146 +52,365 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
     private final WarehouseTransferDocumentService transferDocuments;
     private final WarehouseCatalogRepository warehouses;
     private final MaterialReferenceRepository materials;
+    private final WarehouseDemandRepository demands;
+    private final WarehouseTransferDocumentRepository transferDocumentRepository;
+    private final WarehouseMaterialReferenceResolver materialResolver;
     private final TransactionTemplate transactionTemplate;
+    private final Clock clock;
 
     public DefaultWarehouseDemandCommandApi(
             MaterialSourceRoutingService sourceRouting,
             WarehouseTransferDocumentService transferDocuments,
             WarehouseCatalogRepository warehouses,
             MaterialReferenceRepository materials,
+            WarehouseDemandRepository demands,
+            WarehouseTransferDocumentRepository transferDocumentRepository,
+            Clock clock,
             TransactionTemplate transactionTemplate) {
         this.sourceRouting = Objects.requireNonNull(sourceRouting, "sourceRouting");
         this.transferDocuments = Objects.requireNonNull(transferDocuments, "transferDocuments");
         this.warehouses = Objects.requireNonNull(warehouses, "warehouses");
         this.materials = Objects.requireNonNull(materials, "materials");
+        this.demands = Objects.requireNonNull(demands, "demands");
+        this.transferDocumentRepository =
+                Objects.requireNonNull(transferDocumentRepository, "transferDocumentRepository");
+        this.materialResolver = new WarehouseMaterialReferenceResolver();
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.transactionTemplate =
                 Objects.requireNonNull(transactionTemplate, "transactionTemplate");
     }
 
     @Override
-    public RoutedTransferResult createRoutedTransferDocuments(CreateRoutedTransferCommand command) {
+    public AcceptProductionDemandResult acceptProductionDemand(
+            AcceptProductionDemandCommand command) {
         Objects.requireNonNull(command, "command");
-        RoutedTransferResult result =
-                transactionTemplate.execute(status -> route(command));
+        AcceptProductionDemandResult result =
+                transactionTemplate.execute(status -> accept(command));
         if (result == null) {
-            throw new IllegalStateException("Routed transfer creation returned null");
+            throw new IllegalStateException("acceptProductionDemand returned null");
         }
         return result;
     }
 
-    private RoutedTransferResult route(CreateRoutedTransferCommand command) {
-        UUID destinationWarehouseId = command.destinationWarehouseId();
-        requireActiveWarehouse(destinationWarehouseId);
-
-        List<DemandLine> demandLines = command.lines();
-        if (demandLines.isEmpty()) {
+    private AcceptProductionDemandResult accept(AcceptProductionDemandCommand command) {
+        requireActiveWarehouse(command.destinationWarehouseId());
+        if (command.lines().isEmpty()) {
             throw new InvalidWarehouseStateException(
-                    "Routed transfer requires at least one demand line");
+                    "Production Demand acceptance requires at least one line");
         }
-        for (DemandLine line : demandLines) {
-            if (materials.findById(MaterialReferenceId.of(line.materialReferenceId())).isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Material reference not found: " + line.materialReferenceId());
+
+        Optional<WarehouseDemand> existing =
+                demands.findBySourceMaterialRequirementId(command.sourceMaterialRequirementId());
+        if (existing.isPresent()) {
+            assertPayloadMatches(existing.get(), command);
+            return toResult(existing.get(), false);
+        }
+
+        List<MaterialReference> catalog = materials.findAll();
+        List<PreparedLine> prepared = new ArrayList<>(command.lines().size());
+        for (ProductionDemandLine line : command.lines()) {
+            prepared.add(prepareLine(line, catalog));
+        }
+
+        List<PreparedLine> routable =
+                prepared.stream()
+                        .filter(p -> p.waitingReason() == null && p.materialReferenceId() != null)
+                        .toList();
+        Map<String, MaterialSourceRoutingResult> routingBySourceLine = new LinkedHashMap<>();
+        if (!routable.isEmpty()) {
+            List<MaterialDemand> routingDemands = new ArrayList<>(routable.size());
+            for (PreparedLine line : routable) {
+                routingDemands.add(
+                        new MaterialDemand(
+                                line.sourceLineId().toString(),
+                                line.materialReferenceId().value(),
+                                line.quantity()));
+            }
+            List<MaterialSourceRoutingResult> routing =
+                    sourceRouting.routeMaterials(command.destinationWarehouseId(), routingDemands);
+            for (MaterialSourceRoutingResult r : routing) {
+                routingBySourceLine.put(r.demandKey(), r);
+            }
+            for (int i = 0; i < prepared.size(); i++) {
+                PreparedLine line = prepared.get(i);
+                if (line.waitingReason() != null || line.materialReferenceId() == null) {
+                    continue;
+                }
+                MaterialSourceRoutingResult r =
+                        routingBySourceLine.get(line.sourceLineId().toString());
+                if (r == null
+                        || r.outcome() != MaterialSourceRoutingOutcome.SOURCE_SELECTED) {
+                    prepared.set(
+                            i,
+                            line.withWaiting(WarehouseDemandWaitingReason.NO_AVAILABLE_STOCK));
+                }
             }
         }
 
-        // Route ALL lines first (Stage 3.5.10 §10). demandKey correlates results in input order.
-        List<MaterialDemand> demands = new ArrayList<>(demandLines.size());
-        for (DemandLine line : demandLines) {
-            demands.add(
-                    new MaterialDemand(
-                            line.demandKey(), line.materialReferenceId(), line.quantity()));
+        Instant acceptedAt = clock.instant();
+        List<WarehouseDemandLine> demandLines = new ArrayList<>(prepared.size());
+        Map<UUID, PreparedLine> preparedBySourceLine = new LinkedHashMap<>();
+        for (PreparedLine line : prepared) {
+            WarehouseDemandLine demandLine =
+                    WarehouseDemandLine.create(
+                            line.sourceLineId(),
+                            line.materialCode(),
+                            line.materialName(),
+                            line.color(),
+                            line.unitOfMeasure(),
+                            line.lengthMm(),
+                            StockQuantity.of(line.quantity()),
+                            line.materialReferenceId(),
+                            line.waitingReason());
+            demandLines.add(demandLine);
+            preparedBySourceLine.put(line.sourceLineId(), line.withDemandLineId(demandLine.id()));
         }
-        List<MaterialSourceRoutingResult> routing =
-                sourceRouting.routeMaterials(destinationWarehouseId, demands);
 
-        // Validate ALL: every line must have a selected source (§9).
-        List<UnavailableDemand> unavailable = new ArrayList<>();
-        for (MaterialSourceRoutingResult r : routing) {
-            if (r.outcome() != MaterialSourceRoutingOutcome.SOURCE_SELECTED) {
-                unavailable.add(new UnavailableDemand(r.demandKey(), r.materialReferenceId()));
+        WarehouseDemand demand =
+                WarehouseDemand.accept(
+                        command.sourceMaterialRequirementId(),
+                        WarehouseId.of(command.destinationWarehouseId()),
+                        acceptedAt,
+                        command.acceptedBy(),
+                        demandLines);
+        demands.insert(demand);
+
+        Map<UUID, List<PlannedTransferLine>> bySource = new LinkedHashMap<>();
+        for (WarehouseDemandLine demandLine : demand.lines()) {
+            PreparedLine preparedLine =
+                    preparedBySourceLine.get(demandLine.sourceMaterialRequirementLineId());
+            if (preparedLine.waitingReason() != null) {
+                continue;
             }
-        }
-        if (!unavailable.isEmpty()) {
-            throw new DemandSourceUnavailableException(unavailable);
-        }
-
-        // Correlate routing back to demand lines by demandKey (preserving input order).
-        Map<String, DemandLine> demandByKey = new LinkedHashMap<>();
-        for (DemandLine line : demandLines) {
-            if (demandByKey.put(line.demandKey(), line) != null) {
-                throw new InvalidWarehouseStateException(
-                        "Duplicate demandKey in routed transfer command: " + line.demandKey());
+            MaterialSourceRoutingResult routing =
+                    routingBySourceLine.get(
+                            demandLine.sourceMaterialRequirementLineId().toString());
+            if (routing == null
+                    || routing.outcome() != MaterialSourceRoutingOutcome.SOURCE_SELECTED) {
+                continue;
             }
-        }
-
-        // Group by selected source warehouse, preserving original demand order (§11).
-        Map<UUID, List<PlannedLine>> bySource = new LinkedHashMap<>();
-        for (MaterialSourceRoutingResult r : routing) {
-            DemandLine demand = demandByKey.get(r.demandKey());
-            PlannedLine planned = new PlannedLine(demand, r, UUID.randomUUID());
-            bySource.computeIfAbsent(r.sourceWarehouseId(), ignored -> new ArrayList<>())
+            UUID transferLineId = UUID.randomUUID();
+            PlannedTransferLine planned =
+                    new PlannedTransferLine(
+                            demandLine,
+                            routing,
+                            transferLineId,
+                            demandLine.requiredQuantity().value());
+            bySource
+                    .computeIfAbsent(routing.sourceWarehouseId(), ignored -> new ArrayList<>())
                     .add(planned);
         }
 
         List<GeneratedDocument> documents = new ArrayList<>();
-        Map<String, UUID> documentIdByKey = new LinkedHashMap<>();
-        for (Map.Entry<UUID, List<PlannedLine>> group : bySource.entrySet()) {
+        Map<UUID, PlannedTransferLine> plannedByDemandLineId = new LinkedHashMap<>();
+        for (Map.Entry<UUID, List<PlannedTransferLine>> group : bySource.entrySet()) {
             UUID sourceWarehouseId = group.getKey();
-            List<PlannedLine> plannedLines = group.getValue();
+            List<PlannedTransferLine> plannedLines = group.getValue();
             List<LineInput> lineInputs = new ArrayList<>(plannedLines.size());
             int order = 1;
-            for (PlannedLine planned : plannedLines) {
-                // Document line quantity = FULL requested demand quantity, NOT routed (§8).
+            for (PlannedTransferLine planned : plannedLines) {
                 lineInputs.add(
                         new LineInput(
                                 planned.transferLineId(),
-                                planned.demand().materialReferenceId(),
-                                planned.demand().quantity(),
+                                planned.demandLine().materialReferenceId().orElseThrow().value(),
+                                planned.linkedQuantity(),
                                 order++));
             }
             CreatedTransferDocument created =
                     transferDocuments.createDemandDraft(
                             WarehouseId.of(sourceWarehouseId),
-                            WarehouseId.of(destinationWarehouseId),
+                            WarehouseId.of(command.destinationWarehouseId()),
                             lineInputs);
             UUID documentId = created.metadata().id();
             documents.add(
-                    new GeneratedDocument(documentId, sourceWarehouseId, destinationWarehouseId));
-            for (PlannedLine planned : plannedLines) {
-                documentIdByKey.put(planned.demand().demandKey(), documentId);
+                    new GeneratedDocument(
+                            documentId, sourceWarehouseId, command.destinationWarehouseId()));
+            for (PlannedTransferLine planned : plannedLines) {
+                demands.insertTransferLink(
+                        WarehouseDemandTransferLink.create(
+                                planned.demandLine().id(),
+                                documentId,
+                                WarehouseTransferLineId.of(planned.transferLineId()),
+                                StockQuantity.of(planned.linkedQuantity())));
+                plannedByDemandLineId.put(
+                        planned.demandLine().id().value(), planned.withDocument(documentId));
             }
         }
 
-        // Build routing snapshot in the original demand-line order.
-        List<RoutedLine> routedLines = new ArrayList<>(routing.size());
-        for (MaterialSourceRoutingResult r : routing) {
-            UUID documentId = documentIdByKey.get(r.demandKey());
-            UUID transferLineId =
-                    bySource.values().stream()
-                            .flatMap(List::stream)
-                            .filter(p -> p.demand().demandKey().equals(r.demandKey()))
-                            .map(PlannedLine::transferLineId)
-                            .findFirst()
-                            .orElseThrow(
-                                    () ->
-                                            new IllegalStateException(
-                                                    "Missing transfer line for demandKey: "
-                                                            + r.demandKey()));
-            routedLines.add(
-                    new RoutedLine(
-                            r.demandKey(),
-                            r.materialReferenceId(),
-                            r.sourceWarehouseId(),
-                            r.sourceWarehouseCode(),
-                            r.availableAtSelectedSource(),
-                            r.routedQuantity(),
-                            r.uncoveredQuantity(),
-                            documentId,
-                            transferLineId));
+        List<DemandLineOutcome> outcomes = new ArrayList<>(demand.lines().size());
+        for (WarehouseDemandLine demandLine : demand.lines()) {
+            outcomes.add(toOutcome(demandLine, plannedByDemandLineId.get(demandLine.id().value())));
         }
+        return new AcceptProductionDemandResult(
+                demand.id().value(), true, outcomes, documents);
+    }
 
-        return new RoutedTransferResult(documents, routedLines);
+    private PreparedLine prepareLine(ProductionDemandLine line, List<MaterialReference> catalog) {
+        WarehouseMaterialReferenceResolver.Result resolution =
+                materialResolver.resolve(
+                        line.materialCode(), line.color(), line.unitOfMeasure(), catalog);
+        return switch (resolution.status()) {
+            case UNMATCHED ->
+                    new PreparedLine(
+                            line.sourceMaterialRequirementLineId(),
+                            line.materialCode(),
+                            line.materialName(),
+                            line.color(),
+                            line.unitOfMeasure(),
+                            line.lengthMm(),
+                            line.quantity(),
+                            null,
+                            WarehouseDemandWaitingReason.MATERIAL_UNMATCHED,
+                            null);
+            case AMBIGUOUS ->
+                    new PreparedLine(
+                            line.sourceMaterialRequirementLineId(),
+                            line.materialCode(),
+                            line.materialName(),
+                            line.color(),
+                            line.unitOfMeasure(),
+                            line.lengthMm(),
+                            line.quantity(),
+                            null,
+                            WarehouseDemandWaitingReason.MATERIAL_AMBIGUOUS,
+                            null);
+            case RESOLVED ->
+                    new PreparedLine(
+                            line.sourceMaterialRequirementLineId(),
+                            line.materialCode(),
+                            line.materialName(),
+                            line.color(),
+                            line.unitOfMeasure(),
+                            line.lengthMm(),
+                            line.quantity(),
+                            MaterialReferenceId.of(resolution.materialReferenceId()),
+                            null,
+                            null);
+        };
+    }
+
+    private void assertPayloadMatches(
+            WarehouseDemand existing, AcceptProductionDemandCommand command) {
+        if (!existing.destinationWarehouseId().value().equals(command.destinationWarehouseId())) {
+            throw conflict(existing, command, "destinationWarehouseId mismatch");
+        }
+        if (existing.lines().size() != command.lines().size()) {
+            throw conflict(existing, command, "line count mismatch");
+        }
+        Map<UUID, WarehouseDemandLine> bySource = new LinkedHashMap<>();
+        for (WarehouseDemandLine line : existing.lines()) {
+            bySource.put(line.sourceMaterialRequirementLineId(), line);
+        }
+        for (ProductionDemandLine incoming : command.lines()) {
+            WarehouseDemandLine existingLine = bySource.get(incoming.sourceMaterialRequirementLineId());
+            if (existingLine == null) {
+                throw conflict(
+                        existing,
+                        command,
+                        "unknown source line " + incoming.sourceMaterialRequirementLineId());
+            }
+            if (!existingLine.materialCode().equals(incoming.materialCode().trim())) {
+                throw conflict(existing, command, "materialCode mismatch");
+            }
+            String existingName =
+                    existingLine.materialName() == null ? "" : existingLine.materialName();
+            String incomingName =
+                    incoming.materialName() == null ? "" : incoming.materialName().trim();
+            if (!existingName.equals(incomingName)) {
+                throw conflict(existing, command, "materialName mismatch");
+            }
+            String existingColor = existingLine.color() == null ? "" : existingLine.color();
+            String incomingColor = incoming.color() == null ? "" : incoming.color().trim();
+            if (!existingColor.equals(incomingColor)) {
+                throw conflict(existing, command, "color mismatch");
+            }
+            if (!existingLine.unitOfMeasure().equals(incoming.unitOfMeasure().trim())) {
+                throw conflict(existing, command, "unitOfMeasure mismatch");
+            }
+            if (!Objects.equals(
+                    existingLine.lengthMm().orElse(null), incoming.lengthMm())) {
+                throw conflict(existing, command, "lengthMm mismatch");
+            }
+            if (existingLine.requiredQuantity().value().compareTo(incoming.quantity()) != 0) {
+                throw conflict(existing, command, "quantity mismatch");
+            }
+        }
+    }
+
+    private static WarehouseDemandPayloadConflictException conflict(
+            WarehouseDemand existing, AcceptProductionDemandCommand command, String detail) {
+        return new WarehouseDemandPayloadConflictException(
+                command.sourceMaterialRequirementId(), existing.id().value(), detail);
+    }
+
+    private AcceptProductionDemandResult toResult(WarehouseDemand demand, boolean created) {
+        List<DemandLineOutcome> outcomes = new ArrayList<>(demand.lines().size());
+        Map<UUID, GeneratedDocument> documentsById = new LinkedHashMap<>();
+        for (WarehouseDemandLine line : demand.lines()) {
+            List<WarehouseDemandTransferLink> links =
+                    demands.findTransferLinksByDemandLineId(line.id());
+            if (links.isEmpty()) {
+                outcomes.add(toOutcome(line, null));
+                continue;
+            }
+            WarehouseDemandTransferLink link =
+                    links.stream()
+                            .sorted(Comparator.comparing(l -> l.transferLineId().value()))
+                            .findFirst()
+                            .orElseThrow();
+            PlannedTransferLine planned =
+                    new PlannedTransferLine(
+                            line,
+                            null,
+                            link.transferLineId().value(),
+                            link.linkedQuantity().value(),
+                            link.transferDocumentId());
+            outcomes.add(toOutcome(line, planned));
+            if (!documentsById.containsKey(link.transferDocumentId())) {
+                var document =
+                        transferDocumentRepository
+                                .findByDocumentId(link.transferDocumentId())
+                                .orElseThrow(
+                                        () ->
+                                                new IllegalStateException(
+                                                        "Transfer document missing for demand link: "
+                                                                + link.transferDocumentId()));
+                documentsById.put(
+                        link.transferDocumentId(),
+                        new GeneratedDocument(
+                                link.transferDocumentId(),
+                                document.sourceWarehouseId().value(),
+                                document.destinationWarehouseId().value()));
+            }
+        }
+        return new AcceptProductionDemandResult(
+                demand.id().value(), created, outcomes, List.copyOf(documentsById.values()));
+    }
+
+    private static DemandLineOutcome toOutcome(
+            WarehouseDemandLine demandLine, PlannedTransferLine planned) {
+        DemandLineRoutingOutcome outcome;
+        if (planned != null) {
+            outcome = DemandLineRoutingOutcome.ROUTED;
+        } else if (demandLine.waitingReason().isEmpty()) {
+            outcome = DemandLineRoutingOutcome.NO_AVAILABLE_STOCK;
+        } else {
+            outcome =
+                    switch (demandLine.waitingReason().orElseThrow()) {
+                        case MATERIAL_UNMATCHED -> DemandLineRoutingOutcome.MATERIAL_UNMATCHED;
+                        case MATERIAL_AMBIGUOUS -> DemandLineRoutingOutcome.MATERIAL_AMBIGUOUS;
+                        case NO_AVAILABLE_STOCK, ROUTING_DEFERRED ->
+                                DemandLineRoutingOutcome.NO_AVAILABLE_STOCK;
+                    };
+        }
+        return new DemandLineOutcome(
+                demandLine.sourceMaterialRequirementLineId(),
+                demandLine.id().value(),
+                demandLine.materialReferenceId().map(MaterialReferenceId::value).orElse(null),
+                outcome,
+                planned == null ? null : planned.documentId(),
+                planned == null ? null : planned.transferLineId(),
+                planned == null ? null : planned.linkedQuantity());
     }
 
     private void requireActiveWarehouse(UUID warehouseId) {
@@ -197,6 +428,65 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
         }
     }
 
-    private record PlannedLine(
-            DemandLine demand, MaterialSourceRoutingResult routing, UUID transferLineId) {}
+    private record PreparedLine(
+            UUID sourceLineId,
+            String materialCode,
+            String materialName,
+            String color,
+            String unitOfMeasure,
+            BigDecimal lengthMm,
+            BigDecimal quantity,
+            MaterialReferenceId materialReferenceId,
+            WarehouseDemandWaitingReason waitingReason,
+            UUID demandLineId) {
+
+        PreparedLine withWaiting(WarehouseDemandWaitingReason reason) {
+            return new PreparedLine(
+                    sourceLineId,
+                    materialCode,
+                    materialName,
+                    color,
+                    unitOfMeasure,
+                    lengthMm,
+                    quantity,
+                    materialReferenceId,
+                    reason,
+                    demandLineId);
+        }
+
+        PreparedLine withDemandLineId(com.tmp.warehouse.domain.WarehouseDemandLineId id) {
+            return new PreparedLine(
+                    sourceLineId,
+                    materialCode,
+                    materialName,
+                    color,
+                    unitOfMeasure,
+                    lengthMm,
+                    quantity,
+                    materialReferenceId,
+                    waitingReason,
+                    id.value());
+        }
+    }
+
+    private record PlannedTransferLine(
+            WarehouseDemandLine demandLine,
+            MaterialSourceRoutingResult routing,
+            UUID transferLineId,
+            BigDecimal linkedQuantity,
+            UUID documentId) {
+
+        PlannedTransferLine(
+                WarehouseDemandLine demandLine,
+                MaterialSourceRoutingResult routing,
+                UUID transferLineId,
+                BigDecimal linkedQuantity) {
+            this(demandLine, routing, transferLineId, linkedQuantity, null);
+        }
+
+        PlannedTransferLine withDocument(UUID documentId) {
+            return new PlannedTransferLine(
+                    demandLine, routing, transferLineId, linkedQuantity, documentId);
+        }
+    }
 }

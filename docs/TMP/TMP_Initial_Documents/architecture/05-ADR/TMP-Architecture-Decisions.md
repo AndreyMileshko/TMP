@@ -1778,13 +1778,22 @@ Production Material Requirement фиксирует, что Production запро
 3. Demand хранит immutable specification snapshot (`materialCode`, `materialName`, `color`, `unitOfMeasure`, `lengthMm`, `requiredQuantity`). `materialReferenceId` nullable. `lengthMm` — information only; matching key остаётся article/color/canonical UoM.
 4. Не persistить mutable `header.status` / `line.status` / `receivedQuantity` как source of truth. Future statuses derived. Whole-Demand cancellation metadata только на header.
 5. Line may store `waitingReason` attribute (not business status). Demand line ↔ Transfer line links support 0..N; one Transfer line linked at most once.
-6. No Material Catalog / Color Catalog / Procurement subsystem. No Production Submit / routing / receive / cancellation flow changes in foundation step.
+6. No Material Catalog / Color Catalog / Procurement subsystem.
+
+### Amendment (B3B-2 — 2026-10-05)
+
+7. Production MR PREPARE no longer requires MaterialReference or stock. PREPARE persists DRAFT from Specification identity (`materialCode` + color + UoM); `materialReferenceId` and `lengthMm` are snapshot/hint fields only.
+8. Production MR SUBMIT calls Warehouse public `acceptProductionDemand`. Warehouse always persists Demand for correctly described materials, resolves MaterialReference operationally, and best-effort routes uniquely resolved positive-AVAILABLE lines to Transfer DRAFTs + DemandTransferLinks.
+9. Business no-route outcomes (`MATERIAL_UNMATCHED` / `MATERIAL_AMBIGUOUS` / `NO_AVAILABLE_STOCK`) are successful Demand acceptance with WAITING reasons — not Submit failures. Demand ≠ Transfer.
+10. MR becomes SUBMITTED only after durable Warehouse Demand acceptance in the shared outer transaction. SUBMITTED means «потребность передана Warehouse», not stock availability or Transfer completion.
+11. Idempotency: `UNIQUE(sourceMaterialRequirementId)`; identical repeat accept returns existing Demand; semantic payload mismatch raises controlled conflict (no silent overwrite).
+12. Legacy `createRoutedTransferDocuments` path is DEAD and removed. New writes to Production routing snapshot stop; generated document links remain for composition order-number reads when Transfers exist.
 
 ### Последствия
 
 - Foundation (B3B-1) добавляет schema + domain + persistence + internal acceptance idempotency.
-- Legacy MR→Transfer submission path остаётся ACTIVE до B3B-2 switch.
-- Subsequent phases: accept API + resolution/routing (B3B-2), receive fulfillment (B3B-3).
+- B3B-2 switches Production Submit to Warehouse Demand acceptance + initial routing.
+- Subsequent phase: receive fulfillment / cancellation / retry / Demand UI (B3B-3).
 
 ### Связанные документы
 

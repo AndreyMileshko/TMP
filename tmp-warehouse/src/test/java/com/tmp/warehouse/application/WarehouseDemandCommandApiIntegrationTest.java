@@ -13,7 +13,6 @@ import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.SessionId;
 import com.tmp.security.api.SessionSummary;
 import com.tmp.security.api.UserId;
-import com.tmp.warehouse.api.DemandSourceUnavailableException;
 import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentLineInput;
@@ -21,9 +20,10 @@ import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceAllocationInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskKind;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi;
-import com.tmp.warehouse.api.WarehouseDemandCommandApi.CreateRoutedTransferCommand;
-import com.tmp.warehouse.api.WarehouseDemandCommandApi.DemandLine;
-import com.tmp.warehouse.api.WarehouseDemandCommandApi.RoutedTransferResult;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi.AcceptProductionDemandCommand;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi.AcceptProductionDemandResult;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi.DemandLineRoutingOutcome;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi.ProductionDemandLine;
 import com.tmp.warehouse.application.document.WarehouseTransferDocumentProcessor;
 import com.tmp.warehouse.domain.InvalidWarehouseStateException;
 import com.tmp.warehouse.domain.MaterialReference;
@@ -36,6 +36,7 @@ import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseTransferDocument;
 import com.tmp.warehouse.persistence.JdbcAvailableStockAggregationQuery;
+import com.tmp.warehouse.persistence.JdbcWarehouseDemandRepository;
 import com.tmp.warehouse.security.WarehousePermissions;
 import com.tmp.warehouse.testsupport.WarehouseIntegrationTestSupport;
 import com.tmp.warehouse.testsupport.WarehouseJdbcTestSupport;
@@ -43,6 +44,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -62,8 +64,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * Stage 3.5.10: Warehouse-owned demand command — routing reuse, full-quantity DRAFT documents,
- * grouping, no stock mutation, no responsibility guard.
+ * Warehouse-owned Demand command — accept Production Demand, best-effort Transfer DRAFTs, no stock
+ * mutation, no responsibility guard.
  */
 @Testcontainers
 class WarehouseDemandCommandApiIntegrationTest {
@@ -112,6 +114,9 @@ class WarehouseDemandCommandApiIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM warehouse.warehouse_demand_transfer_links");
+        jdbc.update("DELETE FROM warehouse.warehouse_demand_lines");
+        jdbc.update("DELETE FROM warehouse.warehouse_demands");
         jdbc.update("DELETE FROM warehouse.transfer_return_settlement_item");
         jdbc.update("DELETE FROM warehouse.transfer_receipt_settlement_item");
         jdbc.update("DELETE FROM warehouse.transfer_document_settlement");
@@ -163,6 +168,9 @@ class WarehouseDemandCommandApiIntegrationTest {
                         bundle.transferDocumentService(),
                         bundle.catalog(),
                         bundle.materials(),
+                        new JdbcWarehouseDemandRepository(jdbc),
+                        bundle.transferDocuments(),
+                        CLOCK,
                         new TransactionTemplate(new DataSourceTransactionManager(dataSource)));
 
         destination = WarehouseId.generate();
@@ -177,10 +185,14 @@ class WarehouseDemandCommandApiIntegrationTest {
         bundle.catalog().save(StorageCell.create(cellB, sourceB, "B-1"));
         materialA =
                 WarehouseJdbcTestSupport.persistMaterial(
-                        jdbc, CLOCK, MaterialReference.legacyArticle("ART-A"));
+                        jdbc,
+                        CLOCK,
+                        MaterialReference.create("ART-A", "ART-A", "", "", "шт."));
         materialB =
                 WarehouseJdbcTestSupport.persistMaterial(
-                        jdbc, CLOCK, MaterialReference.legacyArticle("ART-B"));
+                        jdbc,
+                        CLOCK,
+                        MaterialReference.create("ART-B", "ART-B", "", "", "шт."));
     }
 
     @Test
@@ -189,23 +201,18 @@ class WarehouseDemandCommandApiIntegrationTest {
         int stock = count("warehouse.stock_positions");
         int ops = count("warehouse.warehouse_operations");
         int moves = count("warehouse.warehouse_movements");
+        UUID sourceLineId = UUID.randomUUID();
 
-        RoutedTransferResult result =
-                demandApi.createRoutedTransferDocuments(
-                        new CreateRoutedTransferCommand(
-                                destination.value(),
-                                List.of(
-                                        new DemandLine(
-                                                "line-1",
-                                                materialA.id().value(),
-                                                new BigDecimal("40")))));
+        AcceptProductionDemandResult result =
+                demandApi.acceptProductionDemand(
+                        command(line(sourceLineId, materialA, "40")));
 
+        assertTrue(result.created());
         assertEquals(1, result.documents().size());
         assertEquals(sourceA.value(), result.documents().getFirst().sourceWarehouseId());
         assertEquals(destination.value(), result.documents().getFirst().destinationWarehouseId());
-        assertEquals(1, result.routing().size());
-        assertEquals(0, new BigDecimal("40").compareTo(result.routing().getFirst().routedQuantity()));
-        assertEquals(0, BigDecimal.ZERO.compareTo(result.routing().getFirst().uncoveredQuantity()));
+        assertEquals(1, result.lineOutcomes().size());
+        assertEquals(DemandLineRoutingOutcome.ROUTED, result.lineOutcomes().getFirst().outcome());
         assertEquals(
                 0,
                 new BigDecimal("40")
@@ -235,30 +242,24 @@ class WarehouseDemandCommandApiIntegrationTest {
         seedAvailable(sourceA, cellA, materialA, "50");
         seedAvailable(sourceB, cellB, materialA, "80");
 
-        RoutedTransferResult result =
-                demandApi.createRoutedTransferDocuments(
-                        command(
-                                new DemandLine(
-                                        "k1", materialA.id().value(), new BigDecimal("60"))));
+        AcceptProductionDemandResult result =
+                demandApi.acceptProductionDemand(
+                        command(line(UUID.randomUUID(), materialA, "60")));
 
-        assertEquals(sourceB.value(), result.routing().getFirst().sourceWarehouseId());
         assertEquals(1, result.documents().size());
+        assertEquals(sourceB.value(), result.documents().getFirst().sourceWarehouseId());
     }
 
     @Test
-    void partialPositiveSourceIsSelectedAndDocumentKeepsFullDemandQuantity() {
+    void partialPositiveSourceStillCreatesFullDemandQuantityDocument() {
         seedAvailable(sourceA, cellA, materialA, "60");
 
-        RoutedTransferResult result =
-                demandApi.createRoutedTransferDocuments(
-                        command(
-                                new DemandLine(
-                                        "k1", materialA.id().value(), new BigDecimal("100"))));
+        AcceptProductionDemandResult result =
+                demandApi.acceptProductionDemand(
+                        command(line(UUID.randomUUID(), materialA, "100")));
 
         assertEquals(1, result.documents().size());
-        assertEquals(sourceA.value(), result.routing().getFirst().sourceWarehouseId());
-        assertEquals(0, new BigDecimal("60").compareTo(result.routing().getFirst().routedQuantity()));
-        assertEquals(0, new BigDecimal("40").compareTo(result.routing().getFirst().uncoveredQuantity()));
+        assertEquals(DemandLineRoutingOutcome.ROUTED, result.lineOutcomes().getFirst().outcome());
         assertEquals(
                 0,
                 new BigDecimal("100")
@@ -266,23 +267,30 @@ class WarehouseDemandCommandApiIntegrationTest {
     }
 
     @Test
-    void noAvailableSourceCreatesNothing() {
+    void noAvailableSourcePersistsDemandWithWaitingReasonAndNoDocuments() {
         seedAvailable(sourceA, cellA, materialA, "10");
-        assertThrows(
-                DemandSourceUnavailableException.class,
-                () ->
-                        demandApi.createRoutedTransferDocuments(
-                                command(
-                                        new DemandLine(
-                                                "ok",
-                                                materialA.id().value(),
-                                                new BigDecimal("5")),
-                                        new DemandLine(
-                                                "missing",
-                                                materialB.id().value(),
-                                                new BigDecimal("5")))));
-        assertEquals(0, count("warehouse.transfer_document_payload"));
-        assertEquals(0, count("warehouse.transfer_document_lines"));
+
+        AcceptProductionDemandResult result =
+                demandApi.acceptProductionDemand(
+                        command(
+                                line(UUID.randomUUID(), materialA, "5"),
+                                line(UUID.randomUUID(), materialB, "5")));
+
+        assertTrue(result.created());
+        assertEquals(1, result.documents().size());
+        assertEquals(2, result.lineOutcomes().size());
+        assertEquals(
+                1,
+                result.lineOutcomes().stream()
+                        .filter(o -> o.outcome() == DemandLineRoutingOutcome.ROUTED)
+                        .count());
+        assertEquals(
+                1,
+                result.lineOutcomes().stream()
+                        .filter(o -> o.outcome() == DemandLineRoutingOutcome.NO_AVAILABLE_STOCK)
+                        .count());
+        assertEquals(1, count("warehouse.transfer_document_payload"));
+        assertEquals(1, count("warehouse.warehouse_demands"));
     }
 
     @Test
@@ -290,12 +298,11 @@ class WarehouseDemandCommandApiIntegrationTest {
         seedAvailable(sourceA, cellA, materialA, "50");
         seedAvailable(sourceA, cellA, materialB, "50");
 
-        RoutedTransferResult result =
-                demandApi.createRoutedTransferDocuments(
+        AcceptProductionDemandResult result =
+                demandApi.acceptProductionDemand(
                         command(
-                                new DemandLine("first", materialA.id().value(), new BigDecimal("10")),
-                                new DemandLine(
-                                        "second", materialB.id().value(), new BigDecimal("20"))));
+                                line(UUID.randomUUID(), materialA, "10"),
+                                line(UUID.randomUUID(), materialB, "20")));
 
         assertEquals(1, result.documents().size());
         WarehouseTransferDocument payload =
@@ -314,11 +321,11 @@ class WarehouseDemandCommandApiIntegrationTest {
         seedAvailable(sourceA, cellA, materialA, "50");
         seedAvailable(sourceB, cellB, materialB, "50");
 
-        RoutedTransferResult result =
-                demandApi.createRoutedTransferDocuments(
+        AcceptProductionDemandResult result =
+                demandApi.acceptProductionDemand(
                         command(
-                                new DemandLine("a", materialA.id().value(), new BigDecimal("10")),
-                                new DemandLine("b", materialB.id().value(), new BigDecimal("20"))));
+                                line(UUID.randomUUID(), materialA, "10"),
+                                line(UUID.randomUUID(), materialB, "20")));
 
         assertEquals(2, result.documents().size());
         assertEquals(sourceA.value(), result.documents().get(0).sourceWarehouseId());
@@ -330,11 +337,9 @@ class WarehouseDemandCommandApiIntegrationTest {
         seedAvailable(sourceA, cellA, materialA, "50");
         session.set(sessionFor(stranger));
 
-        RoutedTransferResult result =
-                demandApi.createRoutedTransferDocuments(
-                        command(
-                                new DemandLine(
-                                        "k1", materialA.id().value(), new BigDecimal("10"))));
+        AcceptProductionDemandResult result =
+                demandApi.acceptProductionDemand(
+                        command(line(UUID.randomUUID(), materialA, "10")));
         assertEquals(1, result.documents().size());
 
         assertThrows(
@@ -355,11 +360,9 @@ class WarehouseDemandCommandApiIntegrationTest {
     @Test
     void generatedDraftAppearsInOperationalInboxForSourceResponsibleUser() {
         seedAvailable(sourceA, cellA, materialA, "50");
-        RoutedTransferResult result =
-                demandApi.createRoutedTransferDocuments(
-                        command(
-                                new DemandLine(
-                                        "k1", materialA.id().value(), new BigDecimal("10"))));
+        AcceptProductionDemandResult result =
+                demandApi.acceptProductionDemand(
+                        command(line(UUID.randomUUID(), materialA, "10")));
 
         api.assignUserToWarehouse(sourceA.value(), worker);
         session.set(sessionFor(worker));
@@ -377,40 +380,50 @@ class WarehouseDemandCommandApiIntegrationTest {
         assertThrows(
                 InvalidWarehouseStateException.class,
                 () ->
-                        demandApi.createRoutedTransferDocuments(
-                                new CreateRoutedTransferCommand(
+                        demandApi.acceptProductionDemand(
+                                new AcceptProductionDemandCommand(
+                                        UUID.randomUUID(),
                                         inactive.value(),
-                                        List.of(
-                                                new DemandLine(
-                                                        "k1",
-                                                        materialA.id().value(),
-                                                        new BigDecimal("10"))))));
+                                        "system",
+                                        List.of(line(UUID.randomUUID(), materialA, "10")))));
         assertEquals(0, count("warehouse.transfer_document_payload"));
+        assertEquals(0, count("warehouse.warehouse_demands"));
     }
 
     @Test
-    void unknownMaterialIsRejected() {
+    void unmatchedMaterialSucceedsWithWaitingReason() {
         seedAvailable(sourceA, cellA, materialA, "50");
-        assertThrows(
-                IllegalArgumentException.class,
-                () ->
-                        demandApi.createRoutedTransferDocuments(
-                                command(
-                                        new DemandLine(
-                                                "k1",
-                                                UUID.randomUUID(),
-                                                new BigDecimal("10")))));
+        UUID sourceLineId = UUID.randomUUID();
+
+        AcceptProductionDemandResult result =
+                demandApi.acceptProductionDemand(
+                        command(
+                                new ProductionDemandLine(
+                                        sourceLineId,
+                                        "UNKNOWN-ART",
+                                        "Unknown",
+                                        "",
+                                        "шт.",
+                                        null,
+                                        new BigDecimal("10"),
+                                        null)));
+
+        assertTrue(result.created());
+        assertTrue(result.documents().isEmpty());
+        assertEquals(1, result.lineOutcomes().size());
+        assertEquals(
+                DemandLineRoutingOutcome.MATERIAL_UNMATCHED,
+                result.lineOutcomes().getFirst().outcome());
+        assertEquals(1, count("warehouse.warehouse_demands"));
         assertEquals(0, count("warehouse.transfer_document_payload"));
     }
 
     @Test
     void stage357PartialSendCreatesShortfallContinuationWithoutExtraDemandDocs() {
         seedAvailable(sourceA, cellA, materialA, "60");
-        RoutedTransferResult result =
-                demandApi.createRoutedTransferDocuments(
-                        command(
-                                new DemandLine(
-                                        "k1", materialA.id().value(), new BigDecimal("100"))));
+        AcceptProductionDemandResult result =
+                demandApi.acceptProductionDemand(
+                        command(line(UUID.randomUUID(), materialA, "100")));
         UUID documentId = result.documents().getFirst().documentId();
         assertEquals(0, new BigDecimal("100").compareTo(documentLineQuantity(documentId)));
 
@@ -443,18 +456,29 @@ class WarehouseDemandCommandApiIntegrationTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        demandApi.createRoutedTransferDocuments(
-                                new CreateRoutedTransferCommand(
+                        demandApi.acceptProductionDemand(
+                                new AcceptProductionDemandCommand(
                                         UUID.randomUUID(),
-                                        List.of(
-                                                new DemandLine(
-                                                        "k1",
-                                                        materialA.id().value(),
-                                                        new BigDecimal("10"))))));
+                                        UUID.randomUUID(),
+                                        "system",
+                                        List.of(line(UUID.randomUUID(), materialA, "10")))));
     }
 
-    private CreateRoutedTransferCommand command(DemandLine... lines) {
-        return new CreateRoutedTransferCommand(destination.value(), List.of(lines));
+    private AcceptProductionDemandCommand command(ProductionDemandLine... lines) {
+        return new AcceptProductionDemandCommand(
+                UUID.randomUUID(), destination.value(), "system", Arrays.asList(lines));
+    }
+
+    private ProductionDemandLine line(UUID sourceLineId, MaterialReference material, String qty) {
+        return new ProductionDemandLine(
+                sourceLineId,
+                material.article(),
+                material.name(),
+                material.color(),
+                material.unitOfMeasure(),
+                null,
+                new BigDecimal(qty),
+                material.id().value());
     }
 
     private void seedAvailable(

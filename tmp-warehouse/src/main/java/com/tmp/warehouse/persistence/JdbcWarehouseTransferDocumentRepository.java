@@ -165,11 +165,81 @@ public final class JdbcWarehouseTransferDocumentRepository
                     expectedPayloadRevision,
                     existing.orElseThrow().payloadRevision());
         }
+        // Demand transfer links FK transfer_line_id. Payload updates rewrite lines via
+        // delete+insert (including shortfall shrink that keeps the same line ids). Park and
+        // restore links for line ids that survive so Stage 3.5.7 send remains compatible.
+        List<DemandLinkRow> parkedLinks = parkDemandTransferLinks(document.documentId());
         jdbc.update(
                 "DELETE FROM warehouse.transfer_document_lines WHERE document_id = ?",
                 document.documentId());
         insertLines(document);
+        restoreDemandTransferLinks(parkedLinks, survivingTransferLineIds(document));
     }
+
+    private List<DemandLinkRow> parkDemandTransferLinks(UUID documentId) {
+        List<DemandLinkRow> links =
+                jdbc.query(
+                        """
+                        SELECT l.id, l.demand_line_id, l.transfer_document_id, l.transfer_line_id,
+                               l.linked_quantity
+                          FROM warehouse.warehouse_demand_transfer_links l
+                          JOIN warehouse.transfer_document_lines tl
+                            ON tl.id = l.transfer_line_id
+                         WHERE tl.document_id = ?
+                        """,
+                        (rs, rowNum) ->
+                                new DemandLinkRow(
+                                        (UUID) rs.getObject("id"),
+                                        (UUID) rs.getObject("demand_line_id"),
+                                        (UUID) rs.getObject("transfer_document_id"),
+                                        (UUID) rs.getObject("transfer_line_id"),
+                                        rs.getBigDecimal("linked_quantity")),
+                        documentId);
+        if (!links.isEmpty()) {
+            jdbc.update(
+                    """
+                    DELETE FROM warehouse.warehouse_demand_transfer_links
+                     WHERE transfer_line_id IN (
+                        SELECT id FROM warehouse.transfer_document_lines WHERE document_id = ?)
+                    """,
+                    documentId);
+        }
+        return links;
+    }
+
+    private void restoreDemandTransferLinks(
+            List<DemandLinkRow> parkedLinks, java.util.Set<UUID> survivingLineIds) {
+        for (DemandLinkRow link : parkedLinks) {
+            if (!survivingLineIds.contains(link.transferLineId())) {
+                continue;
+            }
+            jdbc.update(
+                    """
+                    INSERT INTO warehouse.warehouse_demand_transfer_links (
+                        id, demand_line_id, transfer_document_id, transfer_line_id, linked_quantity)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    link.id(),
+                    link.demandLineId(),
+                    link.transferDocumentId(),
+                    link.transferLineId(),
+                    link.linkedQuantity());
+        }
+    }
+
+    private static java.util.Set<UUID> survivingTransferLineIds(WarehouseTransferDocument document) {
+        return document.orderedLines().stream()
+                .map(line -> line.id().value())
+                .collect(Collectors.toSet());
+    }
+
+    private record DemandLinkRow(
+            UUID id,
+            UUID demandLineId,
+            UUID transferDocumentId,
+            UUID transferLineId,
+            java.math.BigDecimal linkedQuantity) {}
+
 
     @Override
     public void deleteByDocumentId(UUID documentId) {

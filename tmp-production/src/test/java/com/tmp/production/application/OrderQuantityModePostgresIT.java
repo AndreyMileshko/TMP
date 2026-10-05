@@ -204,6 +204,7 @@ class OrderQuantityModePostgresIT {
                                                 "Material 1",
                                                 "WHITE",
                                                 "PCS",
+                                                null,
                                                 BigDecimal.valueOf(7),
                                                 List.of(
                                                         MaterialRequirementLineContribution.of(

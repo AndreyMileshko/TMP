@@ -456,6 +456,7 @@ class MaterialRequestPhase5ViewModelTest {
                                 "Профиль",
                                 "Белый",
                                 "м",
+                                null,
                                 new BigDecimal(quantity),
                                 sources.stream()
                                         .map(MaterialRequirementSourceItemView::sourceOrderItemId)

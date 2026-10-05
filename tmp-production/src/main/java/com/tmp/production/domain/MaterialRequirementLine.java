@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -12,6 +13,9 @@ import java.util.Set;
  * <p>Holds a single master-editable {@code quantity} (no recommended/requested dual model). Source
  * contributions preserve per-item material provenance; manual quantity edits do not change product
  * coverage on source items.
+ *
+ * <p>{@code materialReferenceId} is an optional Warehouse hint only — PREPARE does not require it.
+ * {@code lengthMm} is an immutable snapshot field and is never part of material identity matching.
  */
 public final class MaterialRequirementLine {
 
@@ -21,6 +25,7 @@ public final class MaterialRequirementLine {
     private final String materialName;
     private final String color;
     private final String unitOfMeasure;
+    private final BigDecimal lengthMm;
     private final BigDecimal quantity;
     private final List<MaterialRequirementLineContribution> contributions;
 
@@ -31,15 +36,19 @@ public final class MaterialRequirementLine {
             String materialName,
             String color,
             String unitOfMeasure,
+            BigDecimal lengthMm,
             BigDecimal quantity,
             List<MaterialRequirementLineContribution> contributions) {
         this.lineId = Objects.requireNonNull(lineId, "lineId");
-        this.materialReferenceId =
-                Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+        this.materialReferenceId = materialReferenceId;
         this.materialCode = Objects.requireNonNull(materialCode, "materialCode");
         this.materialName = materialName;
         this.color = SpecificationMaterialIdentity.normalizeColor(color);
         this.unitOfMeasure = Objects.requireNonNull(unitOfMeasure, "unitOfMeasure").trim();
+        if (lengthMm != null && lengthMm.signum() <= 0) {
+            throw new IllegalArgumentException("lengthMm must be > 0 when present: " + lengthMm);
+        }
+        this.lengthMm = lengthMm;
         this.quantity = requirePositive(quantity, "quantity");
         this.contributions =
                 List.copyOf(Objects.requireNonNull(contributions, "contributions"));
@@ -55,6 +64,7 @@ public final class MaterialRequirementLine {
             String materialName,
             String color,
             String unitOfMeasure,
+            BigDecimal lengthMm,
             BigDecimal quantity,
             List<MaterialRequirementLineContribution> contributions) {
         return new MaterialRequirementLine(
@@ -64,6 +74,7 @@ public final class MaterialRequirementLine {
                 materialName,
                 color,
                 unitOfMeasure,
+                lengthMm,
                 quantity,
                 contributions);
     }
@@ -76,6 +87,7 @@ public final class MaterialRequirementLine {
             String materialName,
             String color,
             String unitOfMeasure,
+            BigDecimal lengthMm,
             BigDecimal quantity,
             List<MaterialRequirementLineContribution> contributions) {
         return new MaterialRequirementLine(
@@ -85,6 +97,7 @@ public final class MaterialRequirementLine {
                 materialName,
                 color,
                 unitOfMeasure,
+                lengthMm,
                 quantity,
                 contributions);
     }
@@ -97,6 +110,7 @@ public final class MaterialRequirementLine {
                 materialName,
                 color,
                 unitOfMeasure,
+                lengthMm,
                 quantity,
                 contributions);
     }
@@ -105,8 +119,9 @@ public final class MaterialRequirementLine {
         return lineId;
     }
 
-    public MaterialReferenceId materialReferenceId() {
-        return materialReferenceId;
+    /** Optional Warehouse MaterialReference hint; may be absent for unresolved materials. */
+    public Optional<MaterialReferenceId> materialReferenceId() {
+        return Optional.ofNullable(materialReferenceId);
     }
 
     public String materialCode() {
@@ -125,12 +140,20 @@ public final class MaterialRequirementLine {
         return unitOfMeasure;
     }
 
+    public Optional<BigDecimal> lengthMm() {
+        return Optional.ofNullable(lengthMm);
+    }
+
     public BigDecimal quantity() {
         return quantity;
     }
 
     public List<MaterialRequirementLineContribution> contributions() {
         return contributions;
+    }
+
+    public SpecificationMaterialIdentity identity() {
+        return SpecificationMaterialIdentity.of(materialCode, color, unitOfMeasure);
     }
 
     /** Distinct source Order Item ids contributing to this material line. */

@@ -3,6 +3,35 @@
 ## Latest result
 
 **Date:** 2026-10-05
+**Scope:** Stage 7 / Warehouse — B3B-2 Material Requirement → Warehouse Demand Accept + Initial Routing
+**Overall:** PASS
+**Migration:** V51 Production (`material_reference_id` nullable + `length_mm`); V50 unchanged
+**Base HEAD:** `d3b37e07e71551ff9469d06e18a8f4f01647ae12`
+**Working tree:** dirty (B3B-2 integration + docs); **no commit / no push**
+
+### B3B-2 checks (2026-10-05)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD + clean tree | PASS |
+| Transfer-line aggregation audit (1 LineInput → 1 transfer line) | PASS — V50 UNIQUE(transfer_line_id) valid |
+| `MaterialRequirementServiceTest` | PASS (30) |
+| `SubmitMaterialRequirementServiceTest` | PASS |
+| `JdbcMaterialRequirementRepositoryTest` | PASS (4) — V50+V51 |
+| `ProductionSchemaFlywayTest` | PASS — V51 nullable ref + length_mm |
+| `WarehouseDemandCommandApiIntegrationTest` + resolver/domain/IT | PASS (31) |
+| `Stage7ProductionArchitectureTest` | PASS |
+| Full reactor | NOT RUN |
+| Package | NOT RUN |
+| Receive / cancel / retry / Demand UI | NONE (deferred B3B-3) |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-10-05
 **Scope:** Stage 7 / Warehouse — B3B-1 Warehouse Demand Foundation
 **Overall:** PASS
 **Migration:** V50 (`warehouse.warehouse_demands` / `warehouse_demand_lines` / `warehouse_demand_transfer_links`); no Production FK

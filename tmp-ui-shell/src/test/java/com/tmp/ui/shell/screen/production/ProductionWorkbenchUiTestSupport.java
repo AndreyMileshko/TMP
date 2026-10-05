@@ -385,6 +385,7 @@ final class ProductionWorkbenchUiTestSupport {
                                         line.materialName(),
                                         line.color(),
                                         line.unitOfMeasure(),
+                                        line.lengthMm(),
                                         quantity,
                                         line.sourceOrderItemIds()));
                     } else {

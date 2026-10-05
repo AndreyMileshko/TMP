@@ -404,16 +404,17 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                     """
                     INSERT INTO production.material_requirement_lines (
                         id, requirement_id, material_reference_id, material_code, material_name,
-                        color, unit_of_measure, quantity, line_order)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        color, unit_of_measure, length_mm, quantity, line_order)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     line.lineId().value(),
                     requirementId.value(),
-                    line.materialReferenceId().value(),
+                    line.materialReferenceId().map(MaterialReferenceId::value).orElse(null),
                     line.materialCode(),
                     line.materialName(),
                     line.color(),
                     line.unitOfMeasure(),
+                    line.lengthMm().orElse(null),
                     line.quantity(),
                     order++);
             for (MaterialRequirementLineContribution contribution : line.contributions()) {
@@ -437,7 +438,7 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                 jdbcTemplate.query(
                         """
                         SELECT id, material_reference_id, material_code, material_name, color,
-                               unit_of_measure, quantity
+                               unit_of_measure, length_mm, quantity
                         FROM production.material_requirement_lines
                         WHERE requirement_id = ?
                         ORDER BY line_order
@@ -450,6 +451,7 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                                         rs.getString("material_name"),
                                         rs.getString("color"),
                                         rs.getString("unit_of_measure"),
+                                        rs.getBigDecimal("length_mm"),
                                         rs.getBigDecimal("quantity")),
                         requirementId.value());
 
@@ -460,11 +462,14 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
             lines.add(
                     MaterialRequirementLine.rehydrate(
                             MaterialRequirementLineId.of(row.id()),
-                            MaterialReferenceId.of(row.materialReferenceId()),
+                            row.materialReferenceId() == null
+                                    ? null
+                                    : MaterialReferenceId.of(row.materialReferenceId()),
                             row.materialCode(),
                             row.materialName(),
                             row.color(),
                             row.unitOfMeasure(),
+                            row.lengthMm(),
                             row.quantity(),
                             contributions));
         }
@@ -555,5 +560,6 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
             String materialName,
             String color,
             String unitOfMeasure,
+            BigDecimal lengthMm,
             BigDecimal quantity) {}
 }

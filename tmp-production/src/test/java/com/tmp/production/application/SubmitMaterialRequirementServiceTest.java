@@ -18,11 +18,9 @@ import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineContribution;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
-import com.tmp.production.domain.MaterialRequirementShortageException;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialRequirementSourceItemKey;
 import com.tmp.production.domain.MaterialRequirementStatus;
-import com.tmp.production.domain.MaterialRequirementSubmissionCorruptedException;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
@@ -34,12 +32,12 @@ import com.tmp.production.domain.repository.MaterialRequirementSubmissionReposit
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.GeneratedDocumentLink;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.RoutingSnapshotRow;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
-import com.tmp.warehouse.api.DemandSourceUnavailableException;
-import com.tmp.warehouse.api.DemandSourceUnavailableException.UnavailableDemand;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi.AcceptProductionDemandCommand;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi.AcceptProductionDemandResult;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi.DemandLineOutcome;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi.DemandLineRoutingOutcome;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi.GeneratedDocument;
-import com.tmp.warehouse.api.WarehouseDemandCommandApi.RoutedLine;
-import com.tmp.warehouse.api.WarehouseDemandCommandApi.RoutedTransferResult;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -98,9 +96,8 @@ class SubmitMaterialRequirementServiceTest {
     @Test
     void firstSubmitRoutesCreatesDocumentsAndMarksSubmitted() {
         UUID documentId = UUID.randomUUID();
-        UUID transferLineId = UUID.randomUUID();
-        when(warehouseDemand.createRoutedTransferDocuments(any()))
-                .thenReturn(successResult(draft, documentId, transferLineId, "60", "40"));
+        when(warehouseDemand.acceptProductionDemand(any()))
+                .thenReturn(successResult(draft, documentId, UUID.randomUUID()));
 
         SubmitMaterialRequirementResult result = service.submit(draft.requirementId(), 0L, "user-1");
 
@@ -110,13 +107,14 @@ class SubmitMaterialRequirementServiceTest {
         assertEquals(1L, result.requirement().version());
         assertEquals(1, result.documents().size());
         assertEquals(documentId, result.documents().getFirst().warehouseDocumentId());
-        assertEquals(1, result.routing().size());
-        assertEquals(0, new BigDecimal("60").compareTo(result.routing().getFirst().routedQuantity()));
-        assertEquals(0, new BigDecimal("40").compareTo(result.routing().getFirst().uncoveredQuantity()));
-        verify(warehouseDemand, times(1)).createRoutedTransferDocuments(any());
+        assertTrue(result.routing().isEmpty());
+        verify(warehouseDemand, times(1)).acceptProductionDemand(any());
         assertThrows(
                 IllegalStateException.class,
-                () -> result.requirement().changeLineQuantity(draft.lines().getFirst().lineId(), BigDecimal.ONE, T0));
+                () ->
+                        result.requirement()
+                                .changeLineQuantity(
+                                        draft.lines().getFirst().lineId(), BigDecimal.ONE, T0));
     }
 
     @Test
@@ -124,37 +122,49 @@ class SubmitMaterialRequirementServiceTest {
         assertThrows(
                 MaterialRequirementOptimisticLockException.class,
                 () -> service.submit(draft.requirementId(), 5L, "user-1"));
-        verify(warehouseDemand, never()).createRoutedTransferDocuments(any());
-        assertEquals(MaterialRequirementStatus.DRAFT, requirements.findById(draft.requirementId()).orElseThrow().status());
+        verify(warehouseDemand, never()).acceptProductionDemand(any());
+        assertEquals(
+                MaterialRequirementStatus.DRAFT,
+                requirements.findById(draft.requirementId()).orElseThrow().status());
         assertTrue(submissions.documents.isEmpty());
     }
 
     @Test
-    void shortageFailsClosedWithoutPersistingSubmission() {
-        when(warehouseDemand.createRoutedTransferDocuments(any()))
-                .thenThrow(
-                        new DemandSourceUnavailableException(
+    void zeroStockAcceptanceSucceedsWithoutDocuments() {
+        when(warehouseDemand.acceptProductionDemand(any()))
+                .thenReturn(
+                        new AcceptProductionDemandResult(
+                                UUID.randomUUID(),
+                                true,
                                 List.of(
-                                        new UnavailableDemand(
-                                                draft.lines().getFirst().lineId().value().toString(),
-                                                draft.lines().getFirst().materialReferenceId().value()))));
+                                        new DemandLineOutcome(
+                                                draft.lines().getFirst().lineId().value(),
+                                                UUID.randomUUID(),
+                                                draft.lines()
+                                                        .getFirst()
+                                                        .materialReferenceId()
+                                                        .map(MaterialReferenceId::value)
+                                                        .orElse(null),
+                                                DemandLineRoutingOutcome.NO_AVAILABLE_STOCK,
+                                                null,
+                                                null,
+                                                null)),
+                                List.of()));
 
-        MaterialRequirementShortageException ex =
-                assertThrows(
-                        MaterialRequirementShortageException.class,
-                        () -> service.submit(draft.requirementId(), 0L, "user-1"));
-        assertEquals(1, ex.shortages().size());
-        assertEquals("MAT-1", ex.shortages().getFirst().materialCode());
-        assertEquals(MaterialRequirementStatus.DRAFT, requirements.findById(draft.requirementId()).orElseThrow().status());
+        SubmitMaterialRequirementResult result = service.submit(draft.requirementId(), 0L, "user-1");
+
+        assertTrue(result.created());
+        assertEquals(MaterialRequirementStatus.SUBMITTED, result.requirement().status());
+        assertTrue(result.documents().isEmpty());
         assertTrue(submissions.documents.isEmpty());
-        assertTrue(submissions.snapshots.isEmpty());
+        verify(warehouseDemand, times(1)).acceptProductionDemand(any());
     }
 
     @Test
     void submittedRetryReturnsPersistedResultWithoutReroute() {
         UUID documentId = UUID.randomUUID();
-        when(warehouseDemand.createRoutedTransferDocuments(any()))
-                .thenReturn(successResult(draft, documentId, UUID.randomUUID(), "10", "0"));
+        when(warehouseDemand.acceptProductionDemand(any()))
+                .thenReturn(successResult(draft, documentId, UUID.randomUUID()));
         service.submit(draft.requirementId(), 0L, "user-1");
 
         SubmitMaterialRequirementResult retry =
@@ -163,18 +173,20 @@ class SubmitMaterialRequirementServiceTest {
         assertFalse(retry.created());
         assertEquals(MaterialRequirementStatus.SUBMITTED, retry.requirement().status());
         assertEquals(documentId, retry.documents().getFirst().warehouseDocumentId());
-        verify(warehouseDemand, times(1)).createRoutedTransferDocuments(any());
+        verify(warehouseDemand, times(1)).acceptProductionDemand(any());
     }
 
     @Test
-    void submittedWithoutLinksFailsClosed() {
+    void submittedWithoutLinksReturnsEmptyDocuments() {
         MaterialRequirement submitted = draft.submit("user-1", T0);
         requirements.store.put(submitted.requirementId(), submitted);
 
-        assertThrows(
-                MaterialRequirementSubmissionCorruptedException.class,
-                () -> service.submit(submitted.requirementId(), 99L, "user-1"));
-        verify(warehouseDemand, never()).createRoutedTransferDocuments(any());
+        SubmitMaterialRequirementResult result =
+                service.submit(submitted.requirementId(), 99L, "user-1");
+
+        assertFalse(result.created());
+        assertTrue(result.documents().isEmpty());
+        verify(warehouseDemand, never()).acceptProductionDemand(any());
     }
 
     @Test
@@ -192,15 +204,14 @@ class SubmitMaterialRequirementServiceTest {
                 MaterialRequirementSourceItemKey.of(orderId, itemId);
 
         MaterialRequirement first = requirements.save(draftFor(orderId, itemId, 4L, "10"));
-        when(warehouseDemand.createRoutedTransferDocuments(any()))
-                .thenReturn(successResult(first, UUID.randomUUID(), UUID.randomUUID(), "10", "0"));
+        when(warehouseDemand.acceptProductionDemand(any()))
+                .thenReturn(successResult(first, UUID.randomUUID(), UUID.randomUUID()));
         service.submit(first.requirementId(), 0L, "user-1");
         assertEquals(
                 4L,
                 requirements.sumSubmittedProductQuantities(List.of(key)).getOrDefault(key, 0L));
 
-        ProductionItemState state =
-                itemStates.findBySourceOrderId(orderId).getFirst();
+        ProductionItemState state = itemStates.findBySourceOrderId(orderId).getFirst();
         assertEquals(
                 6L,
                 new MaterialRequirementCoverageService(
@@ -209,8 +220,8 @@ class SubmitMaterialRequirementServiceTest {
                         .requestableProductQuantity());
 
         MaterialRequirement second = requirements.save(draftFor(orderId, itemId, 6L, "10"));
-        when(warehouseDemand.createRoutedTransferDocuments(any()))
-                .thenReturn(successResult(second, UUID.randomUUID(), UUID.randomUUID(), "10", "0"));
+        when(warehouseDemand.acceptProductionDemand(any()))
+                .thenReturn(successResult(second, UUID.randomUUID(), UUID.randomUUID()));
         service.submit(second.requirementId(), 0L, "user-1");
         assertEquals(
                 10L,
@@ -248,8 +259,8 @@ class SubmitMaterialRequirementServiceTest {
                 0L,
                 requirements.sumSubmittedProductQuantities(List.of(key)).getOrDefault(key, 0L));
 
-        when(warehouseDemand.createRoutedTransferDocuments(any()))
-                .thenReturn(successResult(draftA, UUID.randomUUID(), UUID.randomUUID(), "10", "0"));
+        when(warehouseDemand.acceptProductionDemand(any()))
+                .thenReturn(successResult(draftA, UUID.randomUUID(), UUID.randomUUID()));
         service.submit(draftA.requirementId(), 0L, "user-1");
 
         assertThrows(
@@ -283,16 +294,16 @@ class SubmitMaterialRequirementServiceTest {
         assertEquals(10L, persisted.sourceItems().getFirst().requestedProductQuantity());
         assertEquals(0, persisted.lines().getFirst().quantity().compareTo(new BigDecimal("42")));
 
-        when(warehouseDemand.createRoutedTransferDocuments(any()))
-                .thenReturn(
-                        successResult(persisted, UUID.randomUUID(), UUID.randomUUID(), "42", "0"));
+        when(warehouseDemand.acceptProductionDemand(any()))
+                .thenReturn(successResult(persisted, UUID.randomUUID(), UUID.randomUUID()));
 
         service.submit(persisted.requirementId(), persisted.version(), "user-1");
 
-        ArgumentCaptor<WarehouseDemandCommandApi.CreateRoutedTransferCommand> captor =
-                ArgumentCaptor.forClass(WarehouseDemandCommandApi.CreateRoutedTransferCommand.class);
-        verify(warehouseDemand).createRoutedTransferDocuments(captor.capture());
-        assertEquals(0, new BigDecimal("42").compareTo(captor.getValue().lines().getFirst().quantity()));
+        ArgumentCaptor<AcceptProductionDemandCommand> captor =
+                ArgumentCaptor.forClass(AcceptProductionDemandCommand.class);
+        verify(warehouseDemand).acceptProductionDemand(captor.capture());
+        assertEquals(
+                0, new BigDecimal("42").compareTo(captor.getValue().lines().getFirst().quantity()));
     }
 
     @Test
@@ -307,8 +318,8 @@ class SubmitMaterialRequirementServiceTest {
                         T0,
                         CuttingPlanLinks.empty()));
         MaterialRequirement draft = requirements.save(draftFor(orderId, itemId, 4L, "16"));
-        when(warehouseDemand.createRoutedTransferDocuments(any()))
-                .thenReturn(successResult(draft, UUID.randomUUID(), UUID.randomUUID(), "16", "0"));
+        when(warehouseDemand.acceptProductionDemand(any()))
+                .thenReturn(successResult(draft, UUID.randomUUID(), UUID.randomUUID()));
 
         SubmitMaterialRequirementResult result =
                 service.submit(draft.requirementId(), 0L, "user-1");
@@ -331,6 +342,7 @@ class SubmitMaterialRequirementServiceTest {
                                 "Material",
                                 "WHITE",
                                 "M",
+                                null,
                                 qty,
                                 List.of(
                                         MaterialRequirementLineContribution.of(
@@ -359,32 +371,31 @@ class SubmitMaterialRequirementServiceTest {
                                 "Material",
                                 "WHITE",
                                 "PCS",
+                                null,
                                 materialQty,
                                 List.of(
                                         MaterialRequirementLineContribution.of(
                                                 orderId, itemId, materialQty)))));
     }
 
-    private static RoutedTransferResult successResult(
-            MaterialRequirement requirement,
-            UUID documentId,
-            UUID transferLineId,
-            String routed,
-            String uncovered) {
+    private static AcceptProductionDemandResult successResult(
+            MaterialRequirement requirement, UUID documentId, UUID transferLineId) {
         MaterialRequirementLine line = requirement.lines().getFirst();
-        return new RoutedTransferResult(
-                List.of(new GeneratedDocument(documentId, SOURCE, DEST)),
+        UUID materialRef =
+                line.materialReferenceId().map(MaterialReferenceId::value).orElse(null);
+        return new AcceptProductionDemandResult(
+                UUID.randomUUID(),
+                true,
                 List.of(
-                        new RoutedLine(
-                                line.lineId().value().toString(),
-                                line.materialReferenceId().value(),
-                                SOURCE,
-                                "SRC-A",
-                                new BigDecimal(routed),
-                                new BigDecimal(routed),
-                                new BigDecimal(uncovered),
+                        new DemandLineOutcome(
+                                line.lineId().value(),
+                                UUID.randomUUID(),
+                                materialRef,
+                                DemandLineRoutingOutcome.ROUTED,
                                 documentId,
-                                transferLineId)));
+                                transferLineId,
+                                line.quantity())),
+                List.of(new GeneratedDocument(documentId, SOURCE, DEST)));
     }
 
     private static final class InMemoryItemRepository implements ProductionItemStateRepository {
@@ -514,9 +525,12 @@ class SubmitMaterialRequirementServiceTest {
         }
     }
 
-    private static final class InMemorySubmissionRepository implements MaterialRequirementSubmissionRepository {
-        private final Map<MaterialRequirementId, List<GeneratedDocumentLink>> documents = new ConcurrentHashMap<>();
-        private final Map<MaterialRequirementId, List<RoutingSnapshotRow>> snapshots = new ConcurrentHashMap<>();
+    private static final class InMemorySubmissionRepository
+            implements MaterialRequirementSubmissionRepository {
+        private final Map<MaterialRequirementId, List<GeneratedDocumentLink>> documents =
+                new ConcurrentHashMap<>();
+        private final Map<MaterialRequirementId, List<RoutingSnapshotRow>> snapshots =
+                new ConcurrentHashMap<>();
 
         @Override
         public void saveGeneratedDocuments(
@@ -531,7 +545,8 @@ class SubmitMaterialRequirementServiceTest {
         }
 
         @Override
-        public List<GeneratedDocumentLink> findGeneratedDocuments(MaterialRequirementId requirementId) {
+        public List<GeneratedDocumentLink> findGeneratedDocuments(
+                MaterialRequirementId requirementId) {
             return documents.getOrDefault(requirementId, List.of());
         }
 

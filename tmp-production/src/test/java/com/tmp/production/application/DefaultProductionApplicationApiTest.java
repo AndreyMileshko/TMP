@@ -533,6 +533,7 @@ class DefaultProductionApplicationApiTest {
                         "materialName",
                         "color",
                         "unitOfMeasure",
+                        "lengthMm",
                         "quantity",
                         "sourceOrderItemIds"),
                 names);
@@ -658,6 +659,7 @@ class DefaultProductionApplicationApiTest {
                         "Material 1",
                         "RED",
                         "m",
+                        null,
                         quantity,
                         List.of(
                                 MaterialRequirementLineContribution.of(

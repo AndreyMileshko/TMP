@@ -33,15 +33,16 @@ public final class SpecificationMaterialRequirementCalculator {
         Objects.requireNonNull(materialLines, "materialLines");
         Map<SpecificationMaterialIdentity, MutableAggregate> aggregates = new LinkedHashMap<>();
         for (ResolvedMaterialLine line : materialLines) {
-            addContribution(
-                    aggregates,
-                    line.materialCode(),
-                    line.materialName(),
-                    line.color(),
-                    line.unitOfMeasure(),
-                    line.lineQuantity(),
-                    null,
-                    null);
+                addContribution(
+                        aggregates,
+                        line.materialCode(),
+                        line.materialName(),
+                        line.color(),
+                        line.unitOfMeasure(),
+                        line.lengthMm(),
+                        line.lineQuantity(),
+                        null,
+                        null);
         }
         return toAggregates(aggregates);
     }
@@ -70,6 +71,7 @@ public final class SpecificationMaterialRequirementCalculator {
                         line.materialName(),
                         line.color(),
                         line.unitOfMeasure(),
+                        line.lengthMm(),
                         contribution,
                         input.sourceOrderId(),
                         input.sourceOrderItemId());
@@ -83,6 +85,7 @@ public final class SpecificationMaterialRequirementCalculator {
                     new ScaledAggregate(
                             entry.getKey(),
                             aggregate.materialName,
+                            aggregate.lengthMm,
                             aggregate.requiredQuantity,
                             List.copyOf(aggregate.contributions)));
         }
@@ -95,6 +98,7 @@ public final class SpecificationMaterialRequirementCalculator {
             String materialName,
             String color,
             String unitOfMeasure,
+            BigDecimal lengthMm,
             BigDecimal quantity,
             SourceOrderId sourceOrderId,
             SourceOrderItemId sourceOrderItemId) {
@@ -105,9 +109,32 @@ public final class SpecificationMaterialRequirementCalculator {
         if (aggregate.materialName == null && materialName != null) {
             aggregate.materialName = materialName;
         }
+        mergeLengthMm(aggregate, lengthMm);
         aggregate.requiredQuantity = aggregate.requiredQuantity.add(quantity);
         if (sourceOrderId != null && sourceOrderItemId != null && quantity.signum() > 0) {
             mergeContribution(aggregate, sourceOrderId, sourceOrderItemId, quantity);
+        }
+    }
+
+    private static void mergeLengthMm(MutableAggregate aggregate, BigDecimal lengthMm) {
+        if (aggregate.lengthMmConflict) {
+            return;
+        }
+        if (lengthMm == null) {
+            if (aggregate.lengthMmSeen) {
+                return;
+            }
+            aggregate.lengthMmSeen = true;
+            return;
+        }
+        if (!aggregate.lengthMmSeen) {
+            aggregate.lengthMm = lengthMm;
+            aggregate.lengthMmSeen = true;
+            return;
+        }
+        if (aggregate.lengthMm == null || aggregate.lengthMm.compareTo(lengthMm) != 0) {
+            aggregate.lengthMm = null;
+            aggregate.lengthMmConflict = true;
         }
     }
 
@@ -165,6 +192,7 @@ public final class SpecificationMaterialRequirementCalculator {
     public record ScaledAggregate(
             SpecificationMaterialIdentity identity,
             String materialName,
+            BigDecimal lengthMm,
             BigDecimal requiredQuantity,
             List<MaterialRequirementLineContribution> contributions) {
         public ScaledAggregate {
@@ -177,6 +205,9 @@ public final class SpecificationMaterialRequirementCalculator {
 
     private static final class MutableAggregate {
         private String materialName;
+        private BigDecimal lengthMm;
+        private boolean lengthMmSeen;
+        private boolean lengthMmConflict;
         private BigDecimal requiredQuantity = BigDecimal.ZERO;
         private final List<MaterialRequirementLineContribution> contributions = new ArrayList<>();
     }

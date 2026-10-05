@@ -580,12 +580,18 @@ public class WarehouseAutoConfiguration {
             WarehouseTransferDocumentService warehouseTransferDocumentService,
             WarehouseCatalogRepository warehouseCatalogRepository,
             MaterialReferenceRepository materialReferenceRepository,
+            WarehouseDemandRepository warehouseDemandRepository,
+            WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
+            Clock clock,
             PlatformTransactionManager platformTransactionManager) {
         return new DefaultWarehouseDemandCommandApi(
                 materialSourceRoutingService,
                 warehouseTransferDocumentService,
                 warehouseCatalogRepository,
                 materialReferenceRepository,
+                warehouseDemandRepository,
+                warehouseTransferDocumentRepository,
+                clock,
                 new TransactionTemplate(platformTransactionManager));
     }
 

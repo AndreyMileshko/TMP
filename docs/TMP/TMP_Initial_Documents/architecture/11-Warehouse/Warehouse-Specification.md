@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.9
+**Version:** 1.10
 
 ---
 
@@ -382,6 +382,16 @@ Warehouse Demand — отдельный Warehouse-owned aggregate относит
 
 Foundation (B3B-1) не подключает Production Submit, не создаёт Transfer из Demand и не меняет receive/routing/cancellation flows.
 
+### 15.1.2 Warehouse Demand acceptance + initial routing (ADR-038 / B3B-2)
+
+- Production вызывает только `WarehouseDemandCommandApi.acceptProductionDemand` (не repository / не infrastructure).
+- Warehouse всегда принимает Demand для корректно описанных materials; `materialReferenceId` hint from Production is not trusted blindly — Warehouse re-resolves via article/color/canonical UoM (`lengthMm` ignored for matching).
+- Resolution outcomes: zero → `MATERIAL_UNMATCHED`; one → continue routing; multiple → `MATERIAL_AMBIGUOUS` (no arbitrary pick). Business outcomes do not throw.
+- Initial routing reuses `MaterialSourceRoutingService`. Positive AVAILABLE → Transfer DRAFT + DemandTransferLink (`linkedQuantity` = full demand-line qty). Zero AVAILABLE → `NO_AVAILABLE_STOCK`, no Transfer. Partial stock → full demand qty Transfer (Stage 3.5.7 shortfall later).
+- Mixed Demand (routed + waiting lines) is one accepted Demand; line business outcomes do not roll back siblings.
+- Idempotent by `sourceMaterialRequirementId`; payload mismatch → conflict exception.
+- No Demand UI / retryDemandRouting / receive-fulfillment / Demand cancellation / reservation / Material Catalog in B3B-2.
+
 ## 15.2 CURRENT IMPLEMENTATION (Stage 7 — until Stage 3.5 refactor)
 
 Текущий runtime (не удалять и не менять в 3.5.0):
@@ -599,3 +609,4 @@ Warehouse выполняет только складскую часть опер
 | 1.7 | §13.2 / §20: Transfer quantity > 0; exactly-once receive на completed TRANSFER_SEND; логический статус DRAFT/SENT/RECEIVED; Warehouse остаётся line-operation, группировка — Production. |
 | 1.8 | Stage 3.5.0 / ADR-037: User↔Warehouse responsibility; no material→warehouse mapping; automatic source routing; Warehouse-owned multi-line Transfer document over Operation layer; source cell suggestion; destination cell on receive; shortfall continuation; reject/return; partial receive; CURRENT vs TARGET Production integration; supersede ADR-013/014; qualify ADR-035. |
 | 1.9 | B3B-1 / ADR-038: Warehouse Demand foundation — Demand ≠ Transfer; nullable MaterialReference; immutable specification snapshot incl. informational `lengthMm`; no status/received SoT; header-only cancellation metadata; no cross-capability FK. |
+| 1.10 | B3B-2 / ADR-038 amendment: `acceptProductionDemand` — Demand acceptance + operational MaterialReference resolution + best-effort initial Transfer routing; business no-route = WAITING; Demand ≠ Transfer; no Demand UI/receive/retry. |

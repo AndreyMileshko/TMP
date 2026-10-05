@@ -1,19 +1,14 @@
 package com.tmp.production.application;
 
-import com.tmp.production.domain.MaterialReferenceId;
 import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementCoverageConflictException;
 import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementLine;
-import com.tmp.production.domain.MaterialRequirementLineId;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSelectionException;
-import com.tmp.production.domain.MaterialRequirementShortageException;
-import com.tmp.production.domain.MaterialRequirementShortageException.ShortageLine;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialRequirementSourceItemKey;
 import com.tmp.production.domain.MaterialRequirementStatus;
-import com.tmp.production.domain.MaterialRequirementSubmissionCorruptedException;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionStatus;
 import com.tmp.production.domain.SourceOrderId;
@@ -21,13 +16,11 @@ import com.tmp.production.domain.repository.MaterialRequirementRepository;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.GeneratedDocumentLink;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.RoutingSnapshotRow;
-import com.tmp.warehouse.api.DemandSourceUnavailableException;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi;
-import com.tmp.warehouse.api.WarehouseDemandCommandApi.CreateRoutedTransferCommand;
-import com.tmp.warehouse.api.WarehouseDemandCommandApi.DemandLine;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi.AcceptProductionDemandCommand;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi.AcceptProductionDemandResult;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi.GeneratedDocument;
-import com.tmp.warehouse.api.WarehouseDemandCommandApi.RoutedLine;
-import com.tmp.warehouse.api.WarehouseDemandCommandApi.RoutedTransferResult;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi.ProductionDemandLine;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Clock;
 import java.time.Instant;
@@ -37,17 +30,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Production-owned transaction owner for «Отправить требование» (Stage 3.5.10 / Stage 7 Phase 2).
+ * Production-owned transaction owner for «Отправить требование» (B3B-2).
  *
  * <p>One outer REQUIRED transaction: lock requirement → idempotent SUBMITTED short-circuit → verify
- * DRAFT + expectedVersion → lock affected Production item states in deterministic OrderId order →
- * revalidate product coverage → Warehouse demand routing/creation → mark SUBMITTED → persist
- * generated document links + routing snapshot.
+ * DRAFT + expectedVersion → lock affected Production item states → revalidate product coverage →
+ * Warehouse Demand acceptance (with best-effort initial routing) → mark SUBMITTED → persist
+ * generated Transfer document links when any Transfers were created.
+ *
+ * <p>Business no-route outcomes (unmatched / ambiguous / zero stock) are successful Submit. Warehouse
+ * Demand is the operational source of truth; Production routing snapshot is no longer written.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -145,25 +140,20 @@ public final class SubmitMaterialRequirementService {
 
         revalidateProductCoverage(requirement);
 
-        RoutedTransferResult routed = routeAndCreate(requirement);
+        AcceptProductionDemandResult accepted = acceptDemand(requirement, submittedBy);
 
         Instant now = clock.instant();
         MaterialRequirement submitted = requirement.submit(submittedBy, now);
         MaterialRequirement persisted = requirementRepository.markSubmitted(submitted);
 
-        List<GeneratedDocumentLink> documentLinks = toDocumentLinks(routed.documents(), now);
-        submissionRepository.saveGeneratedDocuments(requirementId, documentLinks);
+        List<GeneratedDocumentLink> documentLinks = toDocumentLinks(accepted.documents(), now);
+        if (!documentLinks.isEmpty()) {
+            submissionRepository.saveGeneratedDocuments(requirementId, documentLinks);
+        }
 
-        List<RoutingSnapshotRow> snapshot = toSnapshot(requirement, routed.routing());
-        submissionRepository.saveRoutingSnapshot(requirementId, snapshot);
-
-        return new SubmitMaterialRequirementResult(persisted, documentLinks, snapshot, true);
+        return new SubmitMaterialRequirementResult(persisted, documentLinks, List.of(), true);
     }
 
-    /**
-     * Locks all affected orders' item states in opaque OrderId ascending order, then rechecks that
-     * each frozen DRAFT product quantity is still requestable under SUBMITTED coverage.
-     */
     private void revalidateProductCoverage(MaterialRequirement requirement) {
         List<SourceOrderId> orderIds =
                 requirement.sourceOrderIds().stream()
@@ -220,40 +210,27 @@ public final class SubmitMaterialRequirementService {
         }
     }
 
-    private RoutedTransferResult routeAndCreate(MaterialRequirement requirement) {
-        List<DemandLine> demandLines = new ArrayList<>(requirement.lines().size());
+    private AcceptProductionDemandResult acceptDemand(
+            MaterialRequirement requirement, String submittedBy) {
+        List<ProductionDemandLine> lines = new ArrayList<>(requirement.lines().size());
         for (MaterialRequirementLine line : requirement.lines()) {
-            demandLines.add(
-                    new DemandLine(
-                            line.lineId().value().toString(),
-                            line.materialReferenceId().value(),
-                            line.quantity()));
+            lines.add(
+                    new ProductionDemandLine(
+                            line.lineId().value(),
+                            line.materialCode(),
+                            line.materialName(),
+                            line.color(),
+                            line.unitOfMeasure(),
+                            line.lengthMm().orElse(null),
+                            line.quantity(),
+                            line.materialReferenceId().map(id -> id.value()).orElse(null)));
         }
-        try {
-            return warehouseDemandCommandApi.createRoutedTransferDocuments(
-                    new CreateRoutedTransferCommand(
-                            requirement.destinationWarehouseId(), demandLines));
-        } catch (DemandSourceUnavailableException ex) {
-            throw new MaterialRequirementShortageException(
-                    requirement.requirementId(), toShortageLines(requirement, ex));
-        }
-    }
-
-    private static List<ShortageLine> toShortageLines(
-            MaterialRequirement requirement, DemandSourceUnavailableException ex) {
-        List<ShortageLine> shortages = new ArrayList<>();
-        for (DemandSourceUnavailableException.UnavailableDemand demand : ex.unavailableDemands()) {
-            MaterialRequirementLineId lineId =
-                    MaterialRequirementLineId.of(UUID.fromString(demand.demandKey()));
-            String materialCode =
-                    requirement.lines().stream()
-                            .filter(line -> line.lineId().equals(lineId))
-                            .map(MaterialRequirementLine::materialCode)
-                            .findFirst()
-                            .orElse("");
-            shortages.add(new ShortageLine(lineId, demand.materialReferenceId(), materialCode));
-        }
-        return shortages;
+        return warehouseDemandCommandApi.acceptProductionDemand(
+                new AcceptProductionDemandCommand(
+                        requirement.requirementId().value(),
+                        requirement.destinationWarehouseId(),
+                        submittedBy,
+                        lines));
     }
 
     private static List<GeneratedDocumentLink> toDocumentLinks(
@@ -272,53 +249,11 @@ public final class SubmitMaterialRequirementService {
         return links;
     }
 
-    private static List<RoutingSnapshotRow> toSnapshot(
-            MaterialRequirement requirement, List<RoutedLine> routing) {
-        Map<String, RoutedLine> byKey = new LinkedHashMap<>();
-        for (RoutedLine line : routing) {
-            byKey.put(line.demandKey(), line);
-        }
-        List<RoutingSnapshotRow> snapshot = new ArrayList<>(requirement.lines().size());
-        for (MaterialRequirementLine line : requirement.lines()) {
-            String key = line.lineId().value().toString();
-            RoutedLine routed = byKey.get(key);
-            if (routed == null) {
-                throw new IllegalStateException(
-                        "Warehouse routing did not cover requirement line: " + line.lineId());
-            }
-            snapshot.add(
-                    new RoutingSnapshotRow(
-                            line.lineId(),
-                            MaterialReferenceId.of(routed.materialReferenceId()),
-                            routed.sourceWarehouseId(),
-                            routed.sourceWarehouseCode(),
-                            routed.warehouseDocumentId(),
-                            routed.warehouseTransferLineId(),
-                            routed.availableAtRouting(),
-                            routed.routedQuantity(),
-                            routed.uncoveredQuantity()));
-        }
-        return snapshot;
-    }
-
     private SubmitMaterialRequirementResult existingResult(MaterialRequirement requirement) {
         List<GeneratedDocumentLink> documents =
                 submissionRepository.findGeneratedDocuments(requirement.requirementId());
         List<RoutingSnapshotRow> snapshot =
                 submissionRepository.findRoutingSnapshot(requirement.requirementId());
-        if (documents.isEmpty()) {
-            throw new MaterialRequirementSubmissionCorruptedException(
-                    requirement.requirementId(), "no generated document links");
-        }
-        if (snapshot.size() != requirement.lines().size()) {
-            throw new MaterialRequirementSubmissionCorruptedException(
-                    requirement.requirementId(),
-                    "routing snapshot rows ("
-                            + snapshot.size()
-                            + ") do not match requirement lines ("
-                            + requirement.lines().size()
-                            + ")");
-        }
         return new SubmitMaterialRequirementResult(requirement, documents, snapshot, false);
     }
 }

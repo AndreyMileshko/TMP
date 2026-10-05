@@ -41,7 +41,9 @@ import com.tmp.warehouse.persistence.JdbcAvailableStockAggregationQuery;
 import com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository;
 import com.tmp.warehouse.persistence.JdbcStockPositionRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseDemandRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseStockRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseTransferDocumentRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -128,6 +130,9 @@ class MaterialRequirementCoverageConcurrencyPostgresIT {
         jdbc.update("DELETE FROM production.material_requirements");
         jdbc.update("DELETE FROM production.production_item_cutting_plan_links");
         jdbc.update("DELETE FROM production.production_item_states");
+        jdbc.update("DELETE FROM warehouse.warehouse_demand_transfer_links");
+        jdbc.update("DELETE FROM warehouse.warehouse_demand_lines");
+        jdbc.update("DELETE FROM warehouse.warehouse_demands");
         jdbc.update("DELETE FROM warehouse.transfer_return_settlement_item");
         jdbc.update("DELETE FROM warehouse.transfer_receipt_settlement_item");
         jdbc.update("DELETE FROM warehouse.transfer_document_settlement");
@@ -169,7 +174,7 @@ class MaterialRequirementCoverageConcurrencyPostgresIT {
         catalog.save(Warehouse.create(sourceA, "SRC-A", "Source A"));
         cellA = StorageCellId.generate();
         catalog.save(StorageCell.create(cellA, sourceA, "A-1"));
-        materialA = materials.create(MaterialReference.legacyArticle("ART-COV"));
+        materialA = materials.create(MaterialReference.create("ART-COV", "ART-COV", "", "", "шт."));
     }
 
     @Test
@@ -323,10 +328,14 @@ class MaterialRequirementCoverageConcurrencyPostgresIT {
             MaterialRequirementSubmissionRepository submissionRepository) {
         WarehouseDemandCommandApi demand =
                 new DefaultWarehouseDemandCommandApi(
-                        new MaterialSourceRoutingService(new JdbcAvailableStockAggregationQuery(jdbc)),
+                        new MaterialSourceRoutingService(
+                                new JdbcAvailableStockAggregationQuery(jdbc)),
                         transfers,
                         catalog,
                         materials,
+                        new JdbcWarehouseDemandRepository(jdbc),
+                        new JdbcWarehouseTransferDocumentRepository(jdbc, CLOCK),
+                        CLOCK,
                         new TransactionTemplate(txManager));
         ProductionOrderViewService orderViewService = new ProductionOrderViewService(itemStates);
         MaterialRequirementCoverageService coverageService =
@@ -379,8 +388,9 @@ class MaterialRequirementCoverageConcurrencyPostgresIT {
                         MaterialReferenceId.of(material.id().value()),
                         material.article(),
                         material.article(),
-                        "",
-                        "PCS",
+                        material.color() == null ? "" : material.color(),
+                        material.unitOfMeasure(),
+                        null,
                         qty,
                         contributions);
         return requirements.save(

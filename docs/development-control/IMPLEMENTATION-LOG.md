@@ -4,6 +4,34 @@
 
 ---
 
+## Stage 7 / Warehouse — B3B-2 Material Requirement → Warehouse Demand Accept + Initial Routing — 2026-10-05
+
+**Date:** 2026-10-05  
+**Stage:** 7 Production / Warehouse Phase B3B-2  
+**Base HEAD:** `d3b37e07e71551ff9469d06e18a8f4f01647ae12`  
+**Status:** PASS — STOP before B3B-3; no commit / no push
+
+### Scope
+
+- Production V51: `material_reference_id` nullable + `length_mm` snapshot on MR lines
+- PREPARE: no MaterialReference / stock gate; aggregate by SpecificationMaterialIdentity
+- Warehouse `acceptProductionDemand`: resolve materials, persist Demand, best-effort Transfer DRAFT + links
+- Business WAITING (unmatched / ambiguous / zero stock) succeeds; MR → SUBMITTED after durable accept
+- Idempotency + payload conflict; delete DEAD `createRoutedTransferDocuments` / shortage exceptions
+- ADR-038 amendment; Warehouse Spec §15.1.2 / v1.10
+
+### Explicitly not done
+
+- Receive fulfillment / Demand cancellation / retryDemandRouting / Demand UI
+- Material Catalog / reservation / Order reimport
+- Full reactor / package
+
+### Verification
+
+See VERIFICATION-LOG B3B-2 entry (2026-10-05).
+
+---
+
 ## Stage 7 / Warehouse — B3B-1 Warehouse Demand Foundation — 2026-10-05
 
 **Date:** 2026-10-05  

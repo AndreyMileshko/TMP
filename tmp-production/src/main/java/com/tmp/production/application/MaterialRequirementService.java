@@ -2,16 +2,13 @@ package com.tmp.production.application;
 
 import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedMaterialLine;
 import com.tmp.production.application.port.WarehouseReferenceQueryPort;
-import com.tmp.production.application.port.WarehouseReferenceQueryPort.MaterialReferenceEntry;
 import com.tmp.production.application.port.WarehouseReferenceQueryPort.WarehouseReferenceEntry;
 import com.tmp.production.domain.InvalidProductionDestinationWarehouseException;
-import com.tmp.production.domain.MaterialReferenceId;
 import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineId;
 import com.tmp.production.domain.MaterialRequirementNotAllowedException;
-import com.tmp.production.domain.MaterialRequirementNotReadyException;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSelectionException;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
@@ -35,14 +32,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 /**
  * Application use cases for Production-owned editable Material Requirements (Stage 3.5.9 / Stage 7
- * Phase 2 cross-order product coverage).
+ * Phase B3B-2).
  *
- * <p>prepare → persist → edit/read. Submit / Warehouse routing is Stage 3.5.10.
+ * <p>prepare → persist DRAFT without requiring Warehouse MaterialReference or stock. Submit /
+ * Warehouse Demand acceptance is owned by {@link SubmitMaterialRequirementService}.
  */
 public final class MaterialRequirementService {
 
@@ -54,7 +51,6 @@ public final class MaterialRequirementService {
     private final OrderQuantityModeRepository quantityModeRepository;
     private final MaterialRequirementCoverageService coverageService;
     private final SpecificationMaterialRequirementCalculator requirementCalculator;
-    private final MaterialReferenceResolver materialReferenceResolver;
     private final Clock clock;
 
     public MaterialRequirementService(
@@ -75,7 +71,6 @@ public final class MaterialRequirementService {
                 quantityModeRepository,
                 coverageService,
                 new SpecificationMaterialRequirementCalculator(),
-                new MaterialReferenceResolver(),
                 clock);
     }
 
@@ -88,7 +83,6 @@ public final class MaterialRequirementService {
             OrderQuantityModeRepository quantityModeRepository,
             MaterialRequirementCoverageService coverageService,
             SpecificationMaterialRequirementCalculator requirementCalculator,
-            MaterialReferenceResolver materialReferenceResolver,
             Clock clock) {
         this.orderViewService = Objects.requireNonNull(orderViewService, "orderViewService");
         this.foundationQuery = Objects.requireNonNull(foundationQuery, "foundationQuery");
@@ -103,8 +97,6 @@ public final class MaterialRequirementService {
         this.coverageService = Objects.requireNonNull(coverageService, "coverageService");
         this.requirementCalculator =
                 Objects.requireNonNull(requirementCalculator, "requirementCalculator");
-        this.materialReferenceResolver =
-                Objects.requireNonNull(materialReferenceResolver, "materialReferenceResolver");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -112,6 +104,9 @@ public final class MaterialRequirementService {
      * Creates and persists a DRAFT Material Requirement from cross-order product selections and
      * frozen Specifications. Product quantities are resolved from Quantity Mode at prepare time and
      * frozen into the DRAFT; later mode changes do not reinterpret the DRAFT.
+     *
+     * <p>Does not require MaterialReference resolution or stock. Warehouse owns operational
+     * resolution at Submit / Demand acceptance.
      */
     public MaterialRequirement prepareMaterialRequirement(
             List<MaterialRequirementProductSelection> selections) {
@@ -205,47 +200,14 @@ public final class MaterialRequirementService {
             if (aggregate.requiredQuantity().signum() <= 0) {
                 continue;
             }
-            List<MaterialReferenceEntry> candidates =
-                    warehouseReferences.findMaterialReferencesByIdentity(
-                            aggregate.identity().materialCode(),
-                            aggregate.identity().color(),
-                            aggregate.identity().unitOfMeasure());
-            List<MaterialReferenceResolver.CatalogEntry> catalog =
-                    candidates.stream().map(this::toCatalogEntry).toList();
-            MaterialReferenceResolver.Result resolution =
-                    materialReferenceResolver.resolve(aggregate.identity(), catalog);
-            SourceOrderId failureOrder = sourceItems.getFirst().sourceOrderId();
-            if (resolution.status() == MaterialReferenceResolver.ResolutionStatus.UNRESOLVED) {
-                throw new MaterialRequirementNotReadyException(
-                        failureOrder,
-                        aggregate.identity(),
-                        MaterialRequirementNotReadyException.Problem.UNRESOLVED);
-            }
-            if (resolution.status() == MaterialReferenceResolver.ResolutionStatus.AMBIGUOUS) {
-                throw new MaterialRequirementNotReadyException(
-                        failureOrder,
-                        aggregate.identity(),
-                        MaterialRequirementNotReadyException.Problem.AMBIGUOUS);
-            }
-
-            MaterialReferenceEntry matched =
-                    candidates.stream()
-                            .filter(
-                                    entry ->
-                                            entry.materialReferenceId()
-                                                    .equals(resolution.materialReferenceId()))
-                            .findFirst()
-                            .orElse(null);
-            String materialName =
-                    matched != null ? matched.name() : aggregate.materialName();
-
             lines.add(
                     MaterialRequirementLine.create(
-                            MaterialReferenceId.of(resolution.materialReferenceId()),
+                            null,
                             aggregate.identity().materialCode(),
-                            materialName,
+                            aggregate.materialName(),
                             aggregate.identity().color(),
                             aggregate.identity().unitOfMeasure(),
+                            aggregate.lengthMm(),
                             aggregate.requiredQuantity(),
                             aggregate.contributions()));
         }
@@ -362,13 +324,5 @@ public final class MaterialRequirementService {
         if (!entry.active()) {
             throw InvalidProductionDestinationWarehouseException.warehouseInactive(warehouseId);
         }
-    }
-
-    private MaterialReferenceResolver.CatalogEntry toCatalogEntry(MaterialReferenceEntry entry) {
-        return new MaterialReferenceResolver.CatalogEntry(
-                entry.materialReferenceId(),
-                entry.article(),
-                entry.color(),
-                entry.unitOfMeasure());
     }
 }

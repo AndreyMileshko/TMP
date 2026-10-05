@@ -18,7 +18,6 @@ import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineContribution;
 import com.tmp.production.domain.MaterialRequirementLineId;
 import com.tmp.production.domain.MaterialRequirementNotAllowedException;
-import com.tmp.production.domain.MaterialRequirementNotReadyException;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSelectionException;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
@@ -124,9 +123,11 @@ class MaterialRequirementServiceTest {
         assertEquals(1, requirement.lines().size());
         MaterialRequirementLine line = requirement.lines().getFirst();
         assertEquals(0, line.quantity().compareTo(BigDecimal.TEN));
-        assertEquals("Catalog A", line.materialName());
+        assertEquals("MAT-A", line.materialName());
+        assertTrue(line.materialReferenceId().isEmpty());
         assertTrue(line.sourceOrderItemIds().contains(itemId));
         assertEquals(0, warehouseQuery.availableQuantityCalls.get());
+        assertEquals(0, warehouseQuery.findMaterialReferencesCalls.get());
     }
 
     @Test
@@ -465,7 +466,7 @@ class MaterialRequirementServiceTest {
     }
 
     @Test
-    void rejectsUnresolvedMaterial() {
+    void prepareSucceedsWithoutWarehouseMaterialReference() {
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specId = SpecificationId.generate();
         launchItem(orderId, itemId, specId);
@@ -474,16 +475,19 @@ class MaterialRequirementServiceTest {
                         spec(specId, itemId, List.of(materialLine("UNKNOWN", "WHITE", "PCS", 1))));
         warehouseQuery.materialReferences = List.of();
 
-        MaterialRequirementNotReadyException ex =
-                assertThrows(
-                        MaterialRequirementNotReadyException.class,
-                        () -> service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId))));
-        assertEquals(MaterialRequirementNotReadyException.Problem.UNRESOLVED, ex.problem());
+        MaterialRequirement requirement =
+                service.prepareMaterialRequirement(
+                        List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
+
+        assertEquals(1, requirement.lines().size());
+        assertTrue(requirement.lines().getFirst().materialReferenceId().isEmpty());
+        assertEquals("UNKNOWN", requirement.lines().getFirst().materialCode());
         assertEquals(0, warehouseQuery.availableQuantityCalls.get());
+        assertEquals(0, warehouseQuery.findMaterialReferencesCalls.get());
     }
 
     @Test
-    void rejectsAmbiguousMaterial() {
+    void prepareSucceedsWhenWarehouseCatalogHasAmbiguousMatches() {
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specId = SpecificationId.generate();
         launchItem(orderId, itemId, specId);
@@ -494,24 +498,26 @@ class MaterialRequirementServiceTest {
                         reference(UUID.randomUUID(), "AMB", "A1", "WHITE", "PCS"),
                         reference(UUID.randomUUID(), "AMB", "A2", "WHITE", "PCS"));
 
-        MaterialRequirementNotReadyException ex =
-                assertThrows(
-                        MaterialRequirementNotReadyException.class,
-                        () -> service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId))));
-        assertEquals(MaterialRequirementNotReadyException.Problem.AMBIGUOUS, ex.problem());
+        MaterialRequirement requirement =
+                service.prepareMaterialRequirement(
+                        List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
+
+        assertEquals(1, requirement.lines().size());
+        assertTrue(requirement.lines().getFirst().materialReferenceId().isEmpty());
         assertEquals(0, warehouseQuery.availableQuantityCalls.get());
+        assertEquals(0, warehouseQuery.findMaterialReferencesCalls.get());
     }
 
     @Test
     void prepareDoesNotCallAvailableQuantity() {
         prepareSimpleRequirement(BigDecimal.TEN);
         assertEquals(0, warehouseQuery.availableQuantityCalls.get());
-        assertTrue(warehouseQuery.findMaterialReferencesCalls.get() >= 1);
+        assertEquals(0, warehouseQuery.findMaterialReferencesCalls.get());
         assertTrue(warehouseQuery.getWarehouseCalls.get() >= 1);
     }
 
     @Test
-    void prepareMatchesCanonicalUomAliasesAndIgnoresZeroStock() {
+    void prepareDoesNotResolveMaterialReferenceEvenWhenCatalogMatches() {
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specId = SpecificationId.generate();
         launchItem(orderId, itemId, specId);
@@ -527,12 +533,14 @@ class MaterialRequirementServiceTest {
                         List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
 
         assertEquals(1, requirement.lines().size());
-        assertEquals(materialId, requirement.lines().getFirst().materialReferenceId().value());
+        assertTrue(requirement.lines().getFirst().materialReferenceId().isEmpty());
+        assertEquals("MAT-001", requirement.lines().getFirst().materialCode());
         assertEquals(0, warehouseQuery.availableQuantityCalls.get());
+        assertEquals(0, warehouseQuery.findMaterialReferencesCalls.get());
     }
 
     @Test
-    void prepareAmbiguousWhenCanonicalUomCollapsesDistinctReferences() {
+    void prepareDoesNotFailWhenCanonicalUomCollapsesDistinctReferences() {
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specId = SpecificationId.generate();
         launchItem(orderId, itemId, specId);
@@ -544,16 +552,14 @@ class MaterialRequirementServiceTest {
                         reference(UUID.randomUUID(), "MAT-001", "A", "White", "шт."),
                         reference(UUID.randomUUID(), "MAT-001", "B", "White", "шт"));
 
-        MaterialRequirementNotReadyException ex =
-                assertThrows(
-                        MaterialRequirementNotReadyException.class,
-                        () ->
-                                service.prepareMaterialRequirement(
-                                        List.of(
-                                                MaterialRequirementProductSelection.of(
-                                                        orderId, itemId))));
-        assertEquals(MaterialRequirementNotReadyException.Problem.AMBIGUOUS, ex.problem());
+        MaterialRequirement requirement =
+                service.prepareMaterialRequirement(
+                        List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
+
+        assertEquals(1, requirement.lines().size());
+        assertTrue(requirement.lines().getFirst().materialReferenceId().isEmpty());
         assertEquals(0, warehouseQuery.availableQuantityCalls.get());
+        assertEquals(0, warehouseQuery.findMaterialReferencesCalls.get());
     }
 
     @Test

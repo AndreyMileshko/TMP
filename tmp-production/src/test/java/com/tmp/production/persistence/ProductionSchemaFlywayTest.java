@@ -173,6 +173,13 @@ class ProductionSchemaFlywayTest {
                         WHERE version = '44' AND success = TRUE
                         """,
                         Integer.class);
+        Integer applied51 =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '51' AND success = TRUE
+                        """,
+                        Integer.class);
         assertEquals(1, applied23);
         assertEquals(1, applied26);
         assertEquals(1, applied27);
@@ -182,6 +189,32 @@ class ProductionSchemaFlywayTest {
         assertEquals(1, applied31);
         assertEquals(1, applied43);
         assertEquals(1, applied44);
+        assertEquals(1, applied51);
+    }
+
+    @Test
+    void materialRequirementLineReferenceIsNullableAndLengthMmExists() {
+        Integer nullableRef =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.columns
+                        WHERE table_schema = 'production'
+                          AND table_name = 'material_requirement_lines'
+                          AND column_name = 'material_reference_id'
+                          AND is_nullable = 'YES'
+                        """,
+                        Integer.class);
+        Integer lengthMm =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.columns
+                        WHERE table_schema = 'production'
+                          AND table_name = 'material_requirement_lines'
+                          AND column_name = 'length_mm'
+                        """,
+                        Integer.class);
+        assertEquals(1, nullableRef);
+        assertEquals(1, lengthMm);
     }
 
     @Test

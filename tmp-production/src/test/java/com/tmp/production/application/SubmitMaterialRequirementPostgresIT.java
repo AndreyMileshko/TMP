@@ -10,10 +10,8 @@ import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineContribution;
-import com.tmp.production.domain.MaterialRequirementShortageException;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialRequirementStatus;
-import com.tmp.production.domain.MaterialRequirementSubmissionCorruptedException;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
@@ -46,7 +44,9 @@ import com.tmp.warehouse.persistence.JdbcAvailableStockAggregationQuery;
 import com.tmp.warehouse.persistence.JdbcMaterialReferenceRepository;
 import com.tmp.warehouse.persistence.JdbcStockPositionRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseDemandRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseStockRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseTransferDocumentRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -77,8 +77,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * Stage 3.5.10 PostgreSQL proofs: Submit ACID transaction, concurrency, idempotency, rollback,
- * routing snapshot, zero stock mutation.
+ * Stage 3.5.10 / B3B-2 PostgreSQL proofs: Submit ACID transaction, concurrency, idempotency,
+ * rollback, Demand acceptance, zero stock mutation.
  */
 @Testcontainers
 class SubmitMaterialRequirementPostgresIT {
@@ -139,6 +139,9 @@ class SubmitMaterialRequirementPostgresIT {
         jdbc.update("DELETE FROM production.material_requirements");
         jdbc.update("DELETE FROM production.production_item_cutting_plan_links");
         jdbc.update("DELETE FROM production.production_item_states");
+        jdbc.update("DELETE FROM warehouse.warehouse_demand_transfer_links");
+        jdbc.update("DELETE FROM warehouse.warehouse_demand_lines");
+        jdbc.update("DELETE FROM warehouse.warehouse_demands");
         jdbc.update("DELETE FROM warehouse.transfer_return_settlement_item");
         jdbc.update("DELETE FROM warehouse.transfer_receipt_settlement_item");
         jdbc.update("DELETE FROM warehouse.transfer_document_settlement");
@@ -184,12 +187,12 @@ class SubmitMaterialRequirementPostgresIT {
         cellB = StorageCellId.generate();
         catalog.save(StorageCell.create(cellA, sourceA, "A-1"));
         catalog.save(StorageCell.create(cellB, sourceB, "B-1"));
-        materialA = materials.create(MaterialReference.legacyArticle("ART-A"));
-        materialB = materials.create(MaterialReference.legacyArticle("ART-B"));
+        materialA = materials.create(MaterialReference.create("ART-A", "ART-A", "", "", "шт."));
+        materialB = materials.create(MaterialReference.create("ART-B", "ART-B", "", "", "шт."));
     }
 
     @Test
-    void submitPersistsSubmittedStateDocumentsAndSnapshotWithoutStockDelta() {
+    void submitPersistsSubmittedStateAndDocumentsWithoutStockDelta() {
         seed(sourceA, cellA, materialA, "100");
         MaterialRequirement draft = persistDraft(line(materialA, "40"));
         int stockRows = count("warehouse.stock_positions");
@@ -207,8 +210,10 @@ class SubmitMaterialRequirementPostgresIT {
         assertEquals(draft.version() + 1, loaded.version());
         assertEquals(1, result.documents().size());
         assertEquals(1, submissions.findGeneratedDocuments(draft.requirementId()).size());
-        assertEquals(1, submissions.findRoutingSnapshot(draft.requirementId()).size());
+        assertTrue(result.routing().isEmpty());
+        assertEquals(0, submissions.findRoutingSnapshot(draft.requirementId()).size());
         assertEquals(1, count("warehouse.transfer_document_payload"));
+        assertEquals(1, count("warehouse.warehouse_demands"));
         assertEquals(stockRows, count("warehouse.stock_positions"));
         assertEquals(0, stockSum.compareTo(stockSum()));
         assertEquals(ops, count("warehouse.warehouse_operations"));
@@ -234,7 +239,7 @@ class SubmitMaterialRequirementPostgresIT {
 
         assertEquals(2, result.documents().size());
         assertEquals(2, submissions.findGeneratedDocuments(draft.requirementId()).size());
-        assertEquals(2, submissions.findRoutingSnapshot(draft.requirementId()).size());
+        assertTrue(result.routing().isEmpty());
         assertEquals(2, count("warehouse.transfer_document_payload"));
     }
 
@@ -255,22 +260,31 @@ class SubmitMaterialRequirementPostgresIT {
     }
 
     @Test
-    void shortageRollsBackEverything() {
+    void zeroStockLineStillSubmitsSuccessfully() {
         seed(sourceA, cellA, materialA, "50");
         MaterialRequirement draft =
                 persistDraft(line(materialA, "10"), line(materialB, "10"));
 
-        assertThrows(
-                MaterialRequirementShortageException.class,
-                () -> service.submit(draft.requirementId(), 0L, "user-1"));
+        SubmitMaterialRequirementResult result =
+                service.submit(draft.requirementId(), 0L, "user-1");
 
+        assertTrue(result.created());
         assertEquals(
-                MaterialRequirementStatus.DRAFT,
+                MaterialRequirementStatus.SUBMITTED,
                 requirements.findById(draft.requirementId()).orElseThrow().status());
-        assertEquals(0, submissions.findGeneratedDocuments(draft.requirementId()).size());
-        assertEquals(0, submissions.findRoutingSnapshot(draft.requirementId()).size());
-        assertEquals(0, count("warehouse.transfer_document_payload"));
-        assertEquals(0, count("documents.documents"));
+        assertEquals(1, result.documents().size());
+        assertEquals(1, submissions.findGeneratedDocuments(draft.requirementId()).size());
+        assertEquals(1, count("warehouse.transfer_document_payload"));
+        assertEquals(1, count("warehouse.warehouse_demands"));
+        assertEquals(2, count("warehouse.warehouse_demand_lines"));
+        Integer waitingLines =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM warehouse.warehouse_demand_lines
+                        WHERE waiting_reason = 'NO_AVAILABLE_STOCK'
+                        """,
+                        Integer.class);
+        assertEquals(1, waitingLines == null ? 0 : waitingLines);
     }
 
     @Test
@@ -408,15 +422,17 @@ class SubmitMaterialRequirementPostgresIT {
     }
 
     @Test
-    void corruptedSubmittedWithoutLinksFailsClosed() {
+    void submittedWithoutGeneratedLinksReturnsEmptyDocuments() {
         seed(sourceA, cellA, materialA, "50");
         MaterialRequirement draft = persistDraft(line(materialA, "10"));
         service.submit(draft.requirementId(), 0L, "user-1");
         jdbc.update("DELETE FROM production.material_requirement_generated_documents");
 
-        assertThrows(
-                MaterialRequirementSubmissionCorruptedException.class,
-                () -> service.submit(draft.requirementId(), 0L, "user-1"));
+        SubmitMaterialRequirementResult retry =
+                service.submit(draft.requirementId(), 0L, "user-1");
+
+        assertTrue(!retry.created());
+        assertTrue(retry.documents().isEmpty());
         assertEquals(1, count("warehouse.transfer_document_payload"));
     }
 
@@ -428,8 +444,8 @@ class SubmitMaterialRequirementPostgresIT {
         SubmitMaterialRequirementResult result =
                 service.submit(draft.requirementId(), 0L, "user-1");
 
-        assertEquals(0, new BigDecimal("60").compareTo(result.routing().getFirst().routedQuantity()));
-        assertEquals(0, new BigDecimal("40").compareTo(result.routing().getFirst().uncoveredQuantity()));
+        assertTrue(result.created());
+        assertEquals(1, result.documents().size());
         assertEquals(
                 0,
                 new BigDecimal("100")
@@ -444,10 +460,14 @@ class SubmitMaterialRequirementPostgresIT {
             MaterialRequirementSubmissionRepository submissionRepository) {
         WarehouseDemandCommandApi demand =
                 new DefaultWarehouseDemandCommandApi(
-                        new MaterialSourceRoutingService(new JdbcAvailableStockAggregationQuery(jdbc)),
+                        new MaterialSourceRoutingService(
+                                new JdbcAvailableStockAggregationQuery(jdbc)),
                         transfers,
                         catalog,
                         materials,
+                        new JdbcWarehouseDemandRepository(jdbc),
+                        new JdbcWarehouseTransferDocumentRepository(jdbc, CLOCK),
+                        CLOCK,
                         new TransactionTemplate(txManager));
         ProductionOrderViewService orderViewService = new ProductionOrderViewService(itemStates);
         MaterialRequirementCoverageService coverageService =
@@ -492,14 +512,15 @@ class SubmitMaterialRequirementPostgresIT {
         SourceOrderId orderId = SourceOrderId.generate();
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         BigDecimal quantity = new BigDecimal(qty);
+        String unitOfMeasure =
+                material.unitOfMeasure() == null ? "" : material.unitOfMeasure();
         return MaterialRequirementLine.create(
                 MaterialReferenceId.of(material.id().value()),
                 material.article(),
                 material.article(),
-                "",
-                material.unitOfMeasure() == null || material.unitOfMeasure().isBlank()
-                        ? "шт"
-                        : material.unitOfMeasure(),
+                material.color() == null ? "" : material.color(),
+                unitOfMeasure,
+                null,
                 quantity,
                 List.of(
                         MaterialRequirementLineContribution.of(
