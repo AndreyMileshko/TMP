@@ -436,7 +436,7 @@ Foundation (B3B-1) не подключает Production Submit, не созда�
 - confirm → N Warehouse line Transfer drafts; grouping refs в Production;
 - receive confirmation может инициироваться из Production UI.
 
-Это **CURRENT IMPLEMENTATION**, подлежащая refactor на последующих Stage 3.5 implementation steps. Документация target contract (§15.1) **не** утверждает, что код уже соответствует ADR-037.
+Это **HISTORICAL / scaffolding** relative to the B3 Warehouse Demand path (§15.1.1–15.1.5). Operational MR Submit SoT is Warehouse Demand + Склад → Задачи (`TRANSFER_PREPARATION` / `PRODUCTION_MATERIAL_SUPPLY` / `TRANSFER_RECEIPT`). Legacy template services remain unwired for the MR user flow. Документация target contract (§15.1) is the current operational story for Production → Warehouse material supply.
 
 Production не создаёт вторую складскую модель и не пишет в таблицы Warehouse напрямую.
 
@@ -649,3 +649,4 @@ Warehouse выполняет только складскую часть опер
 | 1.13 | B3B-3C1 / ADR-038 amendment: Demand-backed `PRODUCTION_MATERIAL_SUPPLY` in Склад → Задачи; typed `WAREHOUSE_DEMAND` task source; `demand_task_state` assignment (V52); no separate Demand screen; no Retry UX; no «Подготовить перемещение» yet. |
 | 1.14 | B3B-3C2 / ADR-038 amendment: «Подготовить перемещение» = `prepareProductionDemandTransfers`; reuses B3B-3B1 routing engine; Retry public API/DTOs removed; assignment cleanup when supply work ends; no UI wiring / migration / Production changes. |
 | 1.15 | B3B-3C3 / ADR-038 amendment: Warehouse Tasks UI wires Supply Task — take-in-work → «Подготовить перемещение»; waiting-line table; prepare result messages; no new screen / Production receipt / Retry UX / migration. |
+| 1.16 | B3B-3C4 / ADR-038 amendment: focused dead-code cleanup + full regression; §15.2 marked historical vs B3 Demand SoT; B3 implementation complete; manual acceptance PENDING. |

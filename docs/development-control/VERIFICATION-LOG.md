@@ -3,6 +3,46 @@
 ## Latest result
 
 **Date:** 2026-10-06
+**Scope:** Stage 7 / Warehouse — B3B-3C4 Final Cleanup + Full Regression
+**Overall:** PASS
+**Migration:** NONE modified — V50/V51/V52 unchanged (checksums valid); runtime Flyway current = **V52**
+**Base HEAD:** `68144b197539f4864731ecffa64ff0640b7bec06`
+**Working tree:** dirty (C4 cleanup + docs/tests); **no commit / no push**
+
+### B3B-3C4 checks (2026-10-06)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD + clean tree before work | PASS |
+| Dead-code: Retry public API / DTOs / UI | ABSENT |
+| Dead-code: `createRoutedTransferDocuments` / shortage exceptions | ABSENT |
+| DEAD deleted: `saveRoutingSnapshot` write helper | DELETED (find retained HISTORICAL) |
+| SpotBugs VA_FORMAT_STRING_USES_NEWLINE (Demand SQL) | FIXED |
+| Public-boundary / MR IT Demand FK cleanup | FIXED |
+| MR PostgresIT PREPARE MaterialReference assertion | ALIGNED to B3 (0 calls) |
+| Targeted Production (submit/cancel/MR) | PASS (59) |
+| Targeted Warehouse Demand/Transfer/Flyway | PASS (220) |
+| Targeted UI supply/tasks/MR | PASS (110) |
+| `Stage6WarehouseArchitectureTest` + `Stage7ProductionArchitectureTest` | PASS (95) |
+| `mvn clean verify` full reactor | PASS (~30:25; all modules SUCCESS) |
+| Package `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS |
+| Artifact `dist/jpackage/TMP/TMP.exe` | EXISTS (453632 bytes; 2026-10-06 15:41:13) |
+| Startup smoke (existing `tmp-stage5-pg` :55432) | PASS — Flyway applied/validated through V52; main window `TOP Manufacturing Platform` |
+| User-facing Retry / Demand screen / Production receipt UI | NONE |
+| Manual acceptance | PENDING |
+
+### Reactor fix cycle notes
+
+1. First full reactor: SpotBugs 3× `VA_FORMAT_STRING_USES_NEWLINE` on Demand JDBC — fixed narrowly.
+2. Second full reactor: IT cleanup missing Demand FKs + obsolete PREPARE assertion — fixed; ITs re-verified; third full reactor GREEN.
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-10-06
 **Scope:** Stage 7 / Warehouse — B3B-3C3 Supply Task User Workflow UI
 **Overall:** PASS
 **Migration:** NONE — V50/V51/V52 unchanged

@@ -4,6 +4,34 @@
 
 ---
 
+## Stage 7 / Warehouse — B3B-3C4 Final Cleanup + Full Regression — 2026-10-06
+
+**Date:** 2026-10-06
+**Stage:** 7 Production / Warehouse Phase B3B-3C4
+**Base HEAD:** `68144b197539f4864731ecffa64ff0640b7bec06`
+**Status:** PASS — B3 **IMPLEMENTATION COMPLETE**; **MANUAL ACCEPTANCE PENDING**; no commit / no push
+
+### Scope
+
+- Focused dead-code audit of B3B-1…C3 contour (no new business features)
+- Removed write-dead Production `saveRoutingSnapshot` (historical `findRoutingSnapshot` retained)
+- SpotBugs: Demand SQL `.formatted` on text-blocks → single-line `%s` concatenation
+- IT hygiene: Demand FK cleanup in `ProductionPublicBoundaryPostgresIT` / `MaterialRequirementPostgresIT`; obsolete PREPARE MaterialReference call assertion aligned to B3
+- Current-state docs: ADR-038 C4 amendment; Warehouse Spec §15.2 historical note + v1.16; Stage-7 audit/UX superseding notes
+- Full `mvn clean verify`; package `TMP.exe`; startup smoke against existing `tmp-stage5-pg` (Flyway → V52)
+
+### Explicitly not done
+
+- Manual acceptance scenarios (listed in C4 report — PENDING)
+- Restore Production / Order reimport / Material Catalog / Stage 8 / Cutting
+- Demand withdrawal / cancellation / Retry UX / separate Demand screen / Production receipt UI
+
+### Verification
+
+See VERIFICATION-LOG B3B-3C4 entry (2026-10-06).
+
+---
+
 ## Stage 7 / Warehouse — B3B-3C3 Supply Task User Workflow UI — 2026-10-06
 
 **Date:** 2026-10-06  

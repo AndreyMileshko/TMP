@@ -1492,6 +1492,10 @@ class ProductionPublicBoundaryPostgresIT {
         jdbc.update("DELETE FROM warehouse.transfer_document_settlement");
         jdbc.update("DELETE FROM warehouse.transfer_document_send_allocation");
         jdbc.update("DELETE FROM warehouse.transfer_task_state");
+        jdbc.update("DELETE FROM warehouse.demand_task_state");
+        jdbc.update("DELETE FROM warehouse.warehouse_demand_transfer_links");
+        jdbc.update("DELETE FROM warehouse.warehouse_demand_lines");
+        jdbc.update("DELETE FROM warehouse.warehouse_demands");
         jdbc.update("DELETE FROM warehouse.transfer_document_lines");
         jdbc.update("DELETE FROM warehouse.transfer_document_payload");
         jdbc.update("DELETE FROM warehouse.transfer_operation_context");

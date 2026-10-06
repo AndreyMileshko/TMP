@@ -108,6 +108,10 @@ class MaterialRequirementPostgresIT {
         jdbc.update("DELETE FROM warehouse.warehouse_movements");
         jdbc.update("DELETE FROM warehouse.warehouse_operations");
         jdbc.update("DELETE FROM warehouse.stock_positions");
+        jdbc.update("DELETE FROM warehouse.demand_task_state");
+        jdbc.update("DELETE FROM warehouse.warehouse_demand_transfer_links");
+        jdbc.update("DELETE FROM warehouse.warehouse_demand_lines");
+        jdbc.update("DELETE FROM warehouse.warehouse_demands");
         jdbc.update("DELETE FROM warehouse.transfer_document_lines");
         jdbc.update("DELETE FROM warehouse.transfer_document_payload");
 
@@ -180,7 +184,8 @@ class MaterialRequirementPostgresIT {
         assertEquals(0, reloaded.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(12)));
 
         assertWarehouseUnchanged(before, snapshotWarehouse());
-        assertTrue(warehouseQuery.findMaterialReferencesCalls >= 1);
+        // B3: PREPARE persists DRAFT from Specification identity; no MaterialReference lookup.
+        assertEquals(0, warehouseQuery.findMaterialReferencesCalls);
     }
 
     @Test

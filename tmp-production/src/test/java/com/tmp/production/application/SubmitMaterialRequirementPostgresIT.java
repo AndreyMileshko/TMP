@@ -341,10 +341,6 @@ class SubmitMaterialRequirementPostgresIT {
                     }
 
                     @Override
-                    public void saveRoutingSnapshot(
-                            MaterialRequirementId requirementId, List<RoutingSnapshotRow> snapshot) {}
-
-                    @Override
                     public List<GeneratedDocumentLink> findGeneratedDocuments(
                             MaterialRequirementId requirementId) {
                         return List.of();

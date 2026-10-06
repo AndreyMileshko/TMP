@@ -1797,8 +1797,8 @@ Production Material Requirement фиксирует, что Production запро
 
 ### Amendment (B3B-3B1 — 2026-10-06)
 
-16. Manual `WarehouseDemandCommandApi.retryDemandRouting(demandId)` re-processes only lines currently derived as `WAITING_FOR_SUPPLY`, routing **remaining** quantity (`max(0, required − received)`), with MaterialReference re-resolution from the immutable snapshot. No new Demand / MR; no scheduler.
-17. Active linked Transfer (`IN_FULFILLMENT`) blocks duplicate Transfer creation. Business no-route outcomes remain successful. Concurrent retries serialize via Demand `lockById` (`FOR UPDATE`). Cancellation command and Demand UI remain out of scope for B3B-3B1.
+16. ~~Manual `WarehouseDemandCommandApi.retryDemandRouting(demandId)`~~ **Superseded by amendment 20 (B3B-3C2):** the WAITING/remaining-quantity re-routing engine remains; the public name is now `prepareProductionDemandTransfers`. Historical B3B-3B1 shipped under the Retry name; that public API / Retry DTOs are deleted.
+17. Active linked Transfer (`IN_FULFILLMENT`) blocks duplicate Transfer creation. Business no-route outcomes remain successful. Concurrent prepare/retry serialize via Demand `lockById` (`FOR UPDATE`). Cancellation command and Demand UI remain out of scope.
 
 ### Amendment (B3B-3C1 — 2026-10-06)
 
@@ -1814,6 +1814,10 @@ Production Material Requirement фиксирует, что Production запро
 
 22. Warehouse Tasks UI wires the full Supply Task user workflow in the existing Склад → Задачи dialog: informational «Взять в работу» / takeover, then «Подготовить перемещение» via user-facing `WarehouseCommandApi.prepareProductionDemandTransfers` (never `WarehouseDemandCommandApi`). Waiting-line table from `WarehouseDemandQueryApi.getDemandSupplyTask`. Prepare result messages: all routed / partial / nothing routable / stale. No separate Demand screen, warehouse picker, Production receipt UI, Retry UX, Material Catalog, or schema change.
 
+### Amendment (B3B-3C4 — 2026-10-06)
+
+23. Focused dead-code cleanup + full reactor / package / startup smoke. No new business behavior. Write-dead Production `saveRoutingSnapshot` helper removed; historical `findRoutingSnapshot` retained. Public Retry API remains absent. Production cancellation remains independent of Demand/Transfer/Warehouse tasks.
+
 ### Последствия
 
 - Foundation (B3B-1) добавляет schema + domain + persistence + internal acceptance idempotency.
@@ -1823,7 +1827,7 @@ Production Material Requirement фиксирует, что Production запро
 - B3B-3C1 surfaces WAITING Demand as derived supply tasks in Warehouse Tasks with informational assignment.
 - B3B-3C2 exposes «Подготовить перемещение» as `prepareProductionDemandTransfers` (Retry public contract removed).
 - B3B-3C3 wires take-in-work → prepare in existing Warehouse Tasks UI.
-- Subsequent: C4 focused cleanup / full reactor / package / startup smoke.
+- B3B-3C4 closes implementation with cleanup + full regression; manual acceptance PENDING.
 
 ### Связанные документы
 
@@ -1949,6 +1953,7 @@ Production Material Requirement фиксирует, что Production запро
 | 1.18 | ADR-038 amendment B3B-3C1: Demand-backed `PRODUCTION_MATERIAL_SUPPLY` in Warehouse Tasks; typed `WAREHOUSE_DEMAND` source; `demand_task_state` V52; no separate Demand screen / Retry UX / prepare action. |
 | 1.19 | ADR-038 amendment B3B-3C2: «Подготовить перемещение» = `prepareProductionDemandTransfers`; Retry public API/DTOs removed; assignment cleanup on completed supply work; no UI wiring / migration. |
 | 1.20 | ADR-038 amendment B3B-3C3: Warehouse Tasks UI wires Supply Task take → prepare; waiting-line detail; prepare result messages; no new screen / Production receipt / Retry UX / migration. |
+| 1.21 | ADR-038 amendment B3B-3C4: focused dead-code cleanup; remove write-dead routing-snapshot helper; full reactor / package / startup; B3 implementation complete; manual acceptance PENDING. |
 
 ---
 

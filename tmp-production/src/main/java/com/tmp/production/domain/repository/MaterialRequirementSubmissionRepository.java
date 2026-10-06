@@ -11,10 +11,12 @@ import java.util.UUID;
 
 /**
  * Production-owned persistence port for Material Requirement Submit traceability (Stage 3.5.10):
- * generated Warehouse Transfer Document links + immutable routing snapshot. UUIDs are stored as
- * external references only (no FK to Warehouse / Document Engine schema).
+ * generated Warehouse Transfer Document links + historical routing-snapshot reads. UUIDs are stored
+ * as external references only (no FK to Warehouse / Document Engine schema).
  *
- * <p>All methods participate in the caller's Submit transaction.
+ * <p>New routing-snapshot writes are stopped (Warehouse Demand is operational SoT). {@link
+ * #findRoutingSnapshot} remains for historical Submit result reads. All methods participate in the
+ * caller's Submit transaction.
  */
 public interface MaterialRequirementSubmissionRepository {
 
@@ -22,12 +24,9 @@ public interface MaterialRequirementSubmissionRepository {
     void saveGeneratedDocuments(
             MaterialRequirementId requirementId, List<GeneratedDocumentLink> documents);
 
-    /** Persists the immutable routing snapshot (one row per requirement line). */
-    void saveRoutingSnapshot(
-            MaterialRequirementId requirementId, List<RoutingSnapshotRow> snapshot);
-
     List<GeneratedDocumentLink> findGeneratedDocuments(MaterialRequirementId requirementId);
 
+    /** Historical read only — no new writes after B3B-2. */
     List<RoutingSnapshotRow> findRoutingSnapshot(MaterialRequirementId requirementId);
 
     /** One generated DRAFT Warehouse Transfer Document link. */

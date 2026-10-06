@@ -539,12 +539,6 @@ class SubmitMaterialRequirementServiceTest {
         }
 
         @Override
-        public void saveRoutingSnapshot(
-                MaterialRequirementId requirementId, List<RoutingSnapshotRow> snapshot) {
-            snapshots.put(requirementId, List.copyOf(snapshot));
-        }
-
-        @Override
         public List<GeneratedDocumentLink> findGeneratedDocuments(
                 MaterialRequirementId requirementId) {
             return documents.getOrDefault(requirementId, List.of());

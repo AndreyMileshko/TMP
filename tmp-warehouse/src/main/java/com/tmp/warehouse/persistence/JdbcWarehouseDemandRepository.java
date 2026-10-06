@@ -124,15 +124,14 @@ public final class JdbcWarehouseDemandRepository implements WarehouseDemandRepos
         List<UUID> demandIds = headers.stream().map(HeaderRow::id).toList();
         String placeholders = String.join(",", java.util.Collections.nCopies(demandIds.size(), "?"));
         String lineSql =
-                ("""
+                """
                 SELECT demand_id, id, source_material_requirement_line_id,
                        material_code, material_name, color, unit_of_measure, length_mm,
                        required_quantity, material_reference_id, waiting_reason
                   FROM warehouse.warehouse_demand_lines
-                 WHERE demand_id IN (%s)
-                 ORDER BY demand_id, id
-                """)
-                        .formatted(placeholders);
+                """
+                        + ("WHERE demand_id IN (%s) " + "ORDER BY demand_id, id")
+                                .formatted(placeholders);
         java.util.Map<UUID, List<WarehouseDemandLine>> linesByDemand = new java.util.HashMap<>();
         jdbc.query(
                 lineSql,

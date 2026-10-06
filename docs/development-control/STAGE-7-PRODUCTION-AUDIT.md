@@ -76,7 +76,7 @@ Stage 7 Production is **feature-complete at backend/document/domain level** and 
 | Order Production View (computed) | **IMPLEMENTED** | `OrderProductionViewCalculator`, `ProductionOrderViewService` |
 | Material availability check | **IMPLEMENTED** (informational) | `CheckMaterialAvailabilityService`; does **not** gate Launch/Release |
 | Material requirement (DRAFT/edit/submit) | **IMPLEMENTED** + **UI** | `MaterialRequirementService`, `SubmitMaterialRequirementService`, Workbench panel |
-| Warehouse interaction (demand → Transfer Documents) | **IMPLEMENTED** (backend) | `WarehouseDemandCommandApi.createRoutedTransferDocuments` |
+| Warehouse interaction (demand → Transfer Documents) | **IMPLEMENTED** (backend) | `WarehouseDemandCommandApi.acceptProductionDemand` (+ later `prepareProductionDemandTransfers` for WAITING supply) |
 | Warehouse physical send/receive of MR documents | **WAREHOUSE-OWNED / OUTSIDE Production UI** | Production does not call `sendTransferDocument` |
 | Legacy material transfer template | **SCAFFOLDING / HISTORICAL** | Tables V27/V28; `ConfirmMaterialTransferService` **not** Spring-wired; not on `ProductionApplicationApi` |
 | Launch (accept into production) | **IMPLEMENTED** + **UI** | Whole-order `ProductionLaunchService` |
@@ -320,7 +320,7 @@ Workbench additionally uses OM `OrderQueryService` for display (order number, cu
 | Production action | Warehouse API | Operation | Stock effect |
 |-------------------|---------------|-----------|--------------|
 | Material availability | `WarehouseQueryApi` (+ reference APIs) | Read AVAILABLE | None |
-| MR Submit | `WarehouseDemandCommandApi.createRoutedTransferDocuments` | Create DRAFT Transfer Documents | None at submit |
+| MR Submit | `WarehouseDemandCommandApi.acceptProductionDemand` | Persist Warehouse Demand; best-effort Transfer DRAFTs for routable lines | None at submit (stock changes on later send/receive) |
 | Legacy template confirm (unwired) | `WarehouseCommandApi.createTransferDraft` | DRAFT transfer operations | None until send |
 | Receipt (logical transfer) | `getTransferStatus` + `receiveTransfer` | Receive SENT ops | Stock moves on Warehouse receive |
 | Release | `getStockByMaterialReferenceId` / `listStorageCells` + `consume` | Consumption | Decrements production warehouse stock |

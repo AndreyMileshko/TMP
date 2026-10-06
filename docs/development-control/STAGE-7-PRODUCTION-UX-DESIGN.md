@@ -894,6 +894,8 @@ reimport.
 - Order reimport
 - Cancellation history actor/reason
 
+> **Superseding note (B3 / ADR-038 — current state):** Zero-stock / unmatched / ambiguous materials are accepted as Warehouse Demand with WAITING lines (not Submit failure). Obsolete `MaterialRequirementNotReadyException` / `MaterialRequirementShortageException` types are removed; UI may still map legacy exception *names* to business messages. Operational flow: Production «Отправить на склад» → Warehouse Demand → Supply Task / Transfer Preparation in Склад → Задачи → ordinary `TRANSFER_RECEIPT`. No Retry UX, no Demand screen, no Production receipt UI. Restore Production / Order reimport / Material Catalog remain NOT IMPLEMENTED (outside B3).
+
 ---
 
 ## 20. CODE CHANGES

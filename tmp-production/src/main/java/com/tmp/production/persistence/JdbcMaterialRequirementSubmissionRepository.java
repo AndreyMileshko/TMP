@@ -52,34 +52,6 @@ public final class JdbcMaterialRequirementSubmissionRepository
     }
 
     @Override
-    public void saveRoutingSnapshot(
-            MaterialRequirementId requirementId, List<RoutingSnapshotRow> snapshot) {
-        Objects.requireNonNull(requirementId, "requirementId");
-        Objects.requireNonNull(snapshot, "snapshot");
-        for (RoutingSnapshotRow row : snapshot) {
-            jdbcTemplate.update(
-                    """
-                    INSERT INTO production.material_requirement_routing_snapshot (
-                        requirement_id, requirement_line_id, material_reference_id,
-                        source_warehouse_id, source_warehouse_code, warehouse_document_id,
-                        warehouse_transfer_line_id, available_at_routing, routed_quantity,
-                        uncovered_quantity)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    requirementId.value(),
-                    row.requirementLineId().value(),
-                    row.materialReferenceId().value(),
-                    row.sourceWarehouseId(),
-                    row.sourceWarehouseCode(),
-                    row.warehouseDocumentId(),
-                    row.warehouseTransferLineId(),
-                    row.availableAtRouting(),
-                    row.routedQuantity(),
-                    row.uncoveredQuantity());
-        }
-    }
-
-    @Override
     public List<GeneratedDocumentLink> findGeneratedDocuments(MaterialRequirementId requirementId) {
         Objects.requireNonNull(requirementId, "requirementId");
         return jdbcTemplate.query(

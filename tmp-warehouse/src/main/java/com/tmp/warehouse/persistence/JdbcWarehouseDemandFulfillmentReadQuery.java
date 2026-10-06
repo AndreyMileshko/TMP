@@ -60,7 +60,7 @@ public final class JdbcWarehouseDemandFulfillmentReadQuery {
         List<UUID> ids = List.copyOf(demandIds);
         String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
         String sql =
-                ("""
+                """
                 SELECT dtl.demand_line_id AS demand_line_id,
                        COALESCE(SUM(ri.quantity), 0) AS received_quantity
                   FROM warehouse.warehouse_demand_transfer_links dtl
@@ -74,11 +74,11 @@ public final class JdbcWarehouseDemandFulfillmentReadQuery {
                     ON sa.line_id = dtl.transfer_line_id
                   JOIN warehouse.transfer_receipt_settlement_item ri
                     ON ri.send_allocation_id = sa.id
-                 WHERE dl.demand_id IN (%s)
-                   AND tdp.destination_warehouse_id = wd.destination_warehouse_id
-                 GROUP BY dtl.demand_line_id
-                """)
-                        .formatted(placeholders);
+                """
+                        + ("WHERE dl.demand_id IN (%s) "
+                                        + "AND tdp.destination_warehouse_id = wd.destination_warehouse_id "
+                                        + "GROUP BY dtl.demand_line_id")
+                                .formatted(placeholders);
         Map<WarehouseDemandLineId, BigDecimal> totals = new HashMap<>();
         jdbc.query(
                 sql,
@@ -109,7 +109,7 @@ public final class JdbcWarehouseDemandFulfillmentReadQuery {
         List<UUID> ids = List.copyOf(demandIds);
         String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
         String sql =
-                ("""
+                """
                 SELECT dtl.demand_line_id AS demand_line_id,
                        d.status AS document_status,
                        s.settlement_state AS settlement_state
@@ -120,9 +120,8 @@ public final class JdbcWarehouseDemandFulfillmentReadQuery {
                     ON d.id = dtl.transfer_document_id
                   LEFT JOIN warehouse.transfer_document_settlement s
                     ON s.document_id = dtl.transfer_document_id
-                 WHERE dl.demand_id IN (%s)
-                """)
-                        .formatted(placeholders);
+                """
+                        + "WHERE dl.demand_id IN (%s)".formatted(placeholders);
         Set<WarehouseDemandLineId> active = new HashSet<>();
         List<ActiveLinkRow> rows =
                 jdbc.query(
