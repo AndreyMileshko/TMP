@@ -210,6 +210,30 @@ public final class JdbcWarehouseDemandRepository implements WarehouseDemandRepos
         return Optional.of(rows.get(0));
     }
 
+    @Override
+    public void updateLineOperationalResolution(
+            WarehouseDemandLineId demandLineId,
+            MaterialReferenceId materialReferenceId,
+            WarehouseDemandWaitingReason waitingReason) {
+        Objects.requireNonNull(demandLineId, "demandLineId");
+        int updated =
+                jdbc.update(
+                        """
+                        UPDATE warehouse.warehouse_demand_lines
+                           SET material_reference_id = ?,
+                               waiting_reason = ?
+                         WHERE id = ?
+                        """,
+                        materialReferenceId == null ? null : materialReferenceId.value(),
+                        waitingReason == null ? null : waitingReason.name(),
+                        demandLineId.value());
+        if (updated != 1) {
+            throw new IllegalStateException(
+                    "Demand line not found for operational resolution update: "
+                            + demandLineId.value());
+        }
+    }
+
     private Optional<HeaderRow> loadHeader(String sql, Object id) {
         List<HeaderRow> rows = jdbc.query(sql, (rs, rowNum) -> mapHeader(rs), id);
         if (rows.isEmpty()) {

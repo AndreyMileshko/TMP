@@ -2,6 +2,35 @@
 
 ## Latest result
 
+**Date:** 2026-10-06
+**Scope:** Stage 7 / Warehouse — B3B-3B1 Retry Warehouse Demand Routing
+**Overall:** PASS
+**Migration:** NO new migration; V50/V51 unchanged
+**Base HEAD:** `2e70892ce3f60e8ef6b41ced0e4cf34b887a77d7`
+**Working tree:** dirty (B3B-3B1 retry command + docs/tests); **no commit / no push**
+
+### B3B-3B1 checks (2026-10-06)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD + clean tree | PASS |
+| `WarehouseDemandRetryRoutingIntegrationTest` | PASS (14) |
+| `WarehouseDemandCommandApiIntegrationTest` | PASS (12) |
+| `WarehouseDemandFulfillmentQueryIntegrationTest` | PASS (14) |
+| Domain deriver / MaterialReferenceResolver / source routing | PASS |
+| Partial receive / shortfall continuation | PASS (14+12) |
+| `WarehouseSchemaFlywayTest` | PASS (11) — V50 present; no new migration |
+| `Stage6WarehouseArchitectureTest` + `Stage7ProductionArchitectureTest` | PASS (11+83) |
+| Full reactor | NOT RUN |
+| Package | NOT RUN |
+| Demand cancellation / Demand UI / scheduler | NONE (deferred B3B-3B2 / 3C) |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
 **Date:** 2026-10-05
 **Scope:** Stage 7 / Warehouse — B3B-3A Warehouse Demand Fulfillment Derived Status + Query Model
 **Overall:** PASS
@@ -30,7 +59,7 @@
 
 # TMP Verification Log
 
-## Previous latest result
+## Previous result
 
 **Date:** 2026-10-05
 **Scope:** Stage 7 / Warehouse — B3B-2 Material Requirement → Warehouse Demand Accept + Initial Routing

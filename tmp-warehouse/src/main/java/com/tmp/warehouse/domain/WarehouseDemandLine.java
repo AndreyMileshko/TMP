@@ -150,6 +150,25 @@ public final class WarehouseDemandLine {
         return Optional.ofNullable(waitingReason);
     }
 
+    /**
+     * Returns a copy with updated operational resolution attributes. Snapshot identity fields are
+     * unchanged.
+     */
+    public WarehouseDemandLine withOperationalResolution(
+            MaterialReferenceId materialReferenceId, WarehouseDemandWaitingReason waitingReason) {
+        return of(
+                id,
+                sourceMaterialRequirementLineId,
+                materialCode,
+                materialName,
+                color,
+                unitOfMeasure,
+                lengthMm,
+                requiredQuantity,
+                materialReferenceId,
+                waitingReason);
+    }
+
     private static String requireNonBlank(String value, String field) {
         Objects.requireNonNull(value, field);
         String trimmed = value.trim();

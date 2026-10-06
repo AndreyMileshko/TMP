@@ -179,6 +179,7 @@ class WarehouseDemandFulfillmentQueryIntegrationTest {
                         bundle.materials(),
                         demands,
                         bundle.transferDocuments(),
+                        new JdbcWarehouseDemandFulfillmentReadQuery(jdbc),
                         CLOCK,
                         new TransactionTemplate(new DataSourceTransactionManager(dataSource)));
         demandQuery =

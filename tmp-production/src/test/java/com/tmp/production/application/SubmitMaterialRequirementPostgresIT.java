@@ -467,6 +467,8 @@ class SubmitMaterialRequirementPostgresIT {
                         materials,
                         new JdbcWarehouseDemandRepository(jdbc),
                         new JdbcWarehouseTransferDocumentRepository(jdbc, CLOCK),
+                        new com.tmp.warehouse.persistence.JdbcWarehouseDemandFulfillmentReadQuery(
+                                jdbc),
                         CLOCK,
                         new TransactionTemplate(txManager));
         ProductionOrderViewService orderViewService = new ProductionOrderViewService(itemStates);

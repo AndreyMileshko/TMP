@@ -38,6 +38,18 @@ public interface WarehouseDemandCommandApi {
      */
     AcceptProductionDemandResult acceptProductionDemand(AcceptProductionDemandCommand command);
 
+    /**
+     * Manually retries routing for all Demand lines currently derived as {@code
+     * WAITING_FOR_SUPPLY}. Re-resolves MaterialReference from the immutable snapshot and routes
+     * only the remaining quantity ({@code max(0, required − received)}). Does not create a new
+     * Demand. Business no-route outcomes succeed without exception. Lines that are fulfilled, in
+     * fulfillment (active Transfer), or cancelled are skipped. Must not be invoked from UI in
+     * this phase.
+     *
+     * @throws IllegalArgumentException if the Demand does not exist
+     */
+    RetryDemandRoutingResult retryDemandRouting(UUID demandId);
+
     /** Production → Warehouse acceptance command. */
     record AcceptProductionDemandCommand(
             UUID sourceMaterialRequirementId,
@@ -127,6 +139,48 @@ public interface WarehouseDemandCommandApi {
             Objects.requireNonNull(documentId, "documentId");
             Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
             Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+        }
+    }
+
+    /** Per-line business outcome of {@link #retryDemandRouting(UUID)}. */
+    enum RetryDemandLineOutcome {
+        ROUTED,
+        STILL_UNMATCHED,
+        STILL_AMBIGUOUS,
+        NO_AVAILABLE_STOCK,
+        SKIPPED_IN_FULFILLMENT,
+        SKIPPED_FULFILLED,
+        SKIPPED_CANCELLED
+    }
+
+    record RetryDemandLineResult(
+            UUID demandLineId,
+            UUID sourceMaterialRequirementLineId,
+            RetryDemandLineOutcome outcome,
+            UUID materialReferenceId,
+            BigDecimal routedQuantity,
+            UUID warehouseDocumentId,
+            UUID warehouseTransferLineId) {
+        public RetryDemandLineResult {
+            Objects.requireNonNull(demandLineId, "demandLineId");
+            Objects.requireNonNull(
+                    sourceMaterialRequirementLineId, "sourceMaterialRequirementLineId");
+            Objects.requireNonNull(outcome, "outcome");
+        }
+    }
+
+    /**
+     * Compact typed result of manual Demand routing retry. Empty {@code documents} means nothing
+     * was routed (already fulfilled / cancelled / still waiting / active fulfillment).
+     */
+    record RetryDemandRoutingResult(
+            UUID demandId,
+            List<RetryDemandLineResult> lineOutcomes,
+            List<GeneratedDocument> documents) {
+        public RetryDemandRoutingResult {
+            Objects.requireNonNull(demandId, "demandId");
+            lineOutcomes = lineOutcomes == null ? List.of() : List.copyOf(lineOutcomes);
+            documents = documents == null ? List.of() : List.copyOf(documents);
         }
     }
 }

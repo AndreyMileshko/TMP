@@ -4,6 +4,37 @@
 
 ---
 
+## Stage 7 / Warehouse — B3B-3B1 Retry Warehouse Demand Routing — 2026-10-06
+
+**Date:** 2026-10-06  
+**Stage:** 7 Production / Warehouse Phase B3B-3B1  
+**Base HEAD:** `2e70892ce3f60e8ef6b41ced0e4cf34b887a77d7`  
+**Status:** PASS — STOP before B3B-3B2; no commit / no push
+
+### Scope
+
+- Public `WarehouseDemandCommandApi.retryDemandRouting(demandId)` — manual retry of all WAITING Demand lines
+- Re-resolve MaterialReference from immutable snapshot; route **remaining** quantity only
+- Active-Transfer guard (B3B-3A rules); `lockById` FOR UPDATE concurrency
+- Compact typed per-line outcomes; business no-route ≠ failure
+- Warehouse Spec §15.1.4 / v1.12; ADR-038 amendment B3B-3B1
+- Reuse B3B-2 Transfer draft + DemandTransferLink; continuation lineage unchanged
+
+### Explicitly not done
+
+- Production cancellation → Demand cancellation (B3B-3B2)
+- Warehouse Demand UI (B3B-3C)
+- Background scheduler / automatic periodic retry
+- Material Catalog / reservation / Order reimport
+- Full reactor / package
+- New Flyway migration (V50/V51 unchanged)
+
+### Verification
+
+See VERIFICATION-LOG B3B-3B1 entry (2026-10-06).
+
+---
+
 ## Stage 7 / Warehouse — B3B-3A Warehouse Demand Fulfillment Derived Status + Query Model — 2026-10-05
 
 **Date:** 2026-10-05  

@@ -170,6 +170,8 @@ class WarehouseDemandCommandApiIntegrationTest {
                         bundle.materials(),
                         new JdbcWarehouseDemandRepository(jdbc),
                         bundle.transferDocuments(),
+                        new com.tmp.warehouse.persistence.JdbcWarehouseDemandFulfillmentReadQuery(
+                                jdbc),
                         CLOCK,
                         new TransactionTemplate(new DataSourceTransactionManager(dataSource)));
 

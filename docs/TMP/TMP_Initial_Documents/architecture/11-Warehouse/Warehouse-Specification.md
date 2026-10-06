@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.11
+**Version:** 1.12
 
 ---
 
@@ -407,6 +407,20 @@ Foundation (B3B-1) не подключает Production Submit, не созда�
 - Public read API: `WarehouseDemandQueryApi.getDemand` / `getDemandBySourceMaterialRequirementId` — immutable views; no Production dependency; no CRUD; no Demand UI in this phase.
 - No new migration; V50/V51 unchanged. No `retryDemandRouting` / Demand cancellation command / Production cancellation hook in B3B-3A.
 
+### 15.1.4 Warehouse Demand manual retry routing (ADR-038 / B3B-3B1)
+
+- Explicit/manual command only: `WarehouseDemandCommandApi.retryDemandRouting(demandId)`. No background scheduler, cron, timer, or automatic periodic retry.
+- Does **not** create a new Demand or Production MR. Does not change Production coverage.
+- Eligibility: only lines currently derived as `WAITING_FOR_SUPPLY`. Skip `IN_FULFILLMENT` (active linked Transfer), `FULFILLED`, and `CANCELLED` (header cancelled → all lines skipped). Historical terminal Transfer links do **not** block retry when remaining > 0 and no ACTIVE link exists.
+- Routing quantity = remaining = `max(0, required − derived received)`. Never re-route full `requiredQuantity` after partial receipt.
+- On each retry Warehouse re-resolves MaterialReference from immutable snapshot (article/color/canonical UoM; `lengthMm` preserved, not in key). Zero → `MATERIAL_UNMATCHED` + null ref; one → persist ref then route; multiple → `MATERIAL_AMBIGUOUS` + null ref (clear stale id). No fuzzy match / auto-create.
+- Positive AVAILABLE → Transfer DRAFT for **full remaining** + DemandTransferLink (reuse B3B-2 `createDemandDraft` / link model). Zero AVAILABLE → `NO_AVAILABLE_STOCK`, no Transfer. Partial stock → same initial-routing semantics (full remaining qty; shortfall later). Continuations (SHORTFALL / RECEIVE_SHORTFALL) inherit lineage as in B3B-3A — no special retry Transfer type.
+- Business no-route (unmatched / ambiguous / zero stock) is successful command execution, not exception; mixed Demand commits routed lines even when siblings remain waiting.
+- One Warehouse transaction per Demand retry; `lockById` (`SELECT … FOR UPDATE`) serializes concurrent retries — second caller observes `IN_FULFILLMENT` and creates 0 duplicate Transfers. Technical failure rolls back Transfer/link/resolution updates.
+- Return does not reopen Demand (B3B-3A); fulfilled-then-return must not re-route.
+- Compact typed result with per-line outcomes (`ROUTED` / `STILL_*` / `NO_AVAILABLE_STOCK` / `SKIPPED_*`) and created Transfer refs. No Demand UI / cancellation command / Production hook / reservation / Material Catalog in B3B-3B1.
+- No new migration; V50/V51 unchanged.
+
 ## 15.2 CURRENT IMPLEMENTATION (Stage 7 — until Stage 3.5 refactor)
 
 Текущий runtime (не удалять и не менять в 3.5.0):
@@ -625,3 +639,5 @@ Warehouse выполняет только складскую часть опер
 | 1.8 | Stage 3.5.0 / ADR-037: User↔Warehouse responsibility; no material→warehouse mapping; automatic source routing; Warehouse-owned multi-line Transfer document over Operation layer; source cell suggestion; destination cell on receive; shortfall continuation; reject/return; partial receive; CURRENT vs TARGET Production integration; supersede ADR-013/014; qualify ADR-035. |
 | 1.9 | B3B-1 / ADR-038: Warehouse Demand foundation — Demand ≠ Transfer; nullable MaterialReference; immutable specification snapshot incl. informational `lengthMm`; no status/received SoT; header-only cancellation metadata; no cross-capability FK. |
 | 1.10 | B3B-2 / ADR-038 amendment: `acceptProductionDemand` — Demand acceptance + operational MaterialReference resolution + best-effort initial Transfer routing; business no-route = WAITING; Demand ≠ Transfer; no Demand UI/receive/retry. |
+| 1.11 | B3B-3A / ADR-038 amendment: derived Demand fulfillment query (`receivedQuantity` / remaining / statuses); SHORTFALL/RECEIVE_SHORTFALL Demand link propagation; `WarehouseDemandQueryApi`; no mutable counters; no retry/cancel/UI. |
+| 1.12 | B3B-3B1 / ADR-038 amendment: manual `retryDemandRouting` for WAITING lines only; remaining-quantity routing; material re-resolution; active-Transfer duplicate guard; no scheduler/UI/cancellation. |

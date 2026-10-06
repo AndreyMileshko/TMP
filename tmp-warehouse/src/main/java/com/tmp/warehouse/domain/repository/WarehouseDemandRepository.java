@@ -1,9 +1,11 @@
 package com.tmp.warehouse.domain.repository;
 
+import com.tmp.warehouse.domain.MaterialReferenceId;
 import com.tmp.warehouse.domain.WarehouseDemand;
 import com.tmp.warehouse.domain.WarehouseDemandId;
 import com.tmp.warehouse.domain.WarehouseDemandLineId;
 import com.tmp.warehouse.domain.WarehouseDemandTransferLink;
+import com.tmp.warehouse.domain.WarehouseDemandWaitingReason;
 import com.tmp.warehouse.domain.WarehouseTransferLineId;
 import java.util.List;
 import java.util.Optional;
@@ -44,4 +46,13 @@ public interface WarehouseDemandRepository {
 
     Optional<WarehouseDemandTransferLink> findTransferLinkByTransferLineId(
             WarehouseTransferLineId transferLineId);
+
+    /**
+     * Updates mutable operational resolution on a Demand line ({@code materialReferenceId}, {@code
+     * waitingReason}). Snapshot identity fields are never changed.
+     */
+    void updateLineOperationalResolution(
+            WarehouseDemandLineId demandLineId,
+            MaterialReferenceId materialReferenceId,
+            WarehouseDemandWaitingReason waitingReason);
 }

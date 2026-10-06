@@ -1795,12 +1795,18 @@ Production Material Requirement фиксирует, что Production запро
 14. Fulfillment credit only on successful physical receive settlement. SHORTFALL / RECEIVE_SHORTFALL continuation Transfer lines propagate DemandTransferLink atomically when the parent line was Demand-linked. Returns do not reopen Demand; rejects contribute 0 received.
 15. Public `WarehouseDemandQueryApi` exposes immutable derived views. Effective `waitingReason` only when status is `WAITING_FOR_SUPPLY` (null stored → derived `ROUTING_DEFERRED` fallback). No retry routing / cancellation command / Demand UI in B3B-3A.
 
+### Amendment (B3B-3B1 — 2026-10-06)
+
+16. Manual `WarehouseDemandCommandApi.retryDemandRouting(demandId)` re-processes only lines currently derived as `WAITING_FOR_SUPPLY`, routing **remaining** quantity (`max(0, required − received)`), with MaterialReference re-resolution from the immutable snapshot. No new Demand / MR; no scheduler.
+17. Active linked Transfer (`IN_FULFILLMENT`) blocks duplicate Transfer creation. Business no-route outcomes remain successful. Concurrent retries serialize via Demand `lockById` (`FOR UPDATE`). Cancellation command and Demand UI remain out of scope for B3B-3B1.
+
 ### Последствия
 
 - Foundation (B3B-1) добавляет schema + domain + persistence + internal acceptance idempotency.
 - B3B-2 switches Production Submit to Warehouse Demand acceptance + initial routing.
 - B3B-3A adds derived fulfillment query + continuation Demand lineage on shortfall continuations.
-- Subsequent: cancellation / retry routing (B3B-3B); Demand UI (B3B-3C).
+- B3B-3B1 adds manual retry routing for WAITING Demand lines (remaining quantity).
+- Subsequent: Production cancellation → Demand cancellation (B3B-3B2); Demand UI (B3B-3C).
 
 ### Связанные документы
 
@@ -1922,6 +1928,7 @@ Production Material Requirement фиксирует, что Production запро
 | 1.14 | Stage 3.5.0 Warehouse Architecture Alignment: ADR-037 (operational workflow, User↔Warehouse responsibility, automatic source routing, transfer document layer, shortfall continuation, reject/return); ADR-013 и ADR-014 Superseded; ADR-035 qualified (recommendation/fixed main warehouse/Production multi-line grouping superseded in target scope). |
 | 1.15 | ADR-038: Warehouse-owned Demand aggregate foundation (Demand ≠ MR ≠ Transfer; nullable MaterialReference; snapshot + informational lengthMm; no status/received SoT; no cross-capability FK). |
 | 1.16 | ADR-038 amendment B3B-3A: derived Demand receivedQuantity/status from settled Transfer receipt facts; SHORTFALL/RECEIVE_SHORTFALL Demand link propagation; WarehouseDemandQueryApi; no mutable counters. |
+| 1.17 | ADR-038 amendment B3B-3B1: manual `retryDemandRouting` for WAITING lines; remaining-quantity routing; material re-resolution; active-Transfer duplicate guard; no scheduler/UI/cancellation. |
 
 ---
 

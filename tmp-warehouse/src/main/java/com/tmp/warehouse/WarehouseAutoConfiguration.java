@@ -610,6 +610,7 @@ public class WarehouseAutoConfiguration {
             MaterialReferenceRepository materialReferenceRepository,
             WarehouseDemandRepository warehouseDemandRepository,
             WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
+            JdbcWarehouseDemandFulfillmentReadQuery warehouseDemandFulfillmentReadQuery,
             Clock clock,
             PlatformTransactionManager platformTransactionManager) {
         return new DefaultWarehouseDemandCommandApi(
@@ -619,6 +620,7 @@ public class WarehouseAutoConfiguration {
                 materialReferenceRepository,
                 warehouseDemandRepository,
                 warehouseTransferDocumentRepository,
+                warehouseDemandFulfillmentReadQuery,
                 clock,
                 new TransactionTemplate(platformTransactionManager));
     }
