@@ -507,6 +507,87 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
+    /** Per-line outcome of «Подготовить перемещение» (B3B-3C2). */
+    enum PrepareDemandTransferLineOutcome {
+        TRANSFER_CREATED,
+        MATERIAL_UNMATCHED,
+        MATERIAL_AMBIGUOUS,
+        NO_AVAILABLE_STOCK,
+        SKIPPED_ACTIVE_TRANSFER,
+        SKIPPED_FULFILLED,
+        SKIPPED_CANCELLED
+    }
+
+    record PrepareDemandTransferLineResult(
+            UUID demandLineId,
+            UUID sourceMaterialRequirementLineId,
+            PrepareDemandTransferLineOutcome outcome,
+            UUID materialReferenceId,
+            BigDecimal routedQuantity,
+            UUID warehouseDocumentId,
+            UUID warehouseTransferLineId) {
+        public PrepareDemandTransferLineResult {
+            Objects.requireNonNull(demandLineId, "demandLineId");
+            Objects.requireNonNull(
+                    sourceMaterialRequirementLineId, "sourceMaterialRequirementLineId");
+            Objects.requireNonNull(outcome, "outcome");
+        }
+    }
+
+    /** Created Transfer DRAFT reference from supply preparation (no Warehouse internals). */
+    record PreparedTransferDocument(
+            UUID documentId, UUID sourceWarehouseId, UUID destinationWarehouseId) {
+        public PreparedTransferDocument {
+            Objects.requireNonNull(documentId, "documentId");
+            Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+            Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+        }
+    }
+
+    /**
+     * Compact typed result of supply-task Transfer preparation. Empty {@code documents} means
+     * nothing was routed. Summary counts support UI messages without exposing Warehouse internals.
+     */
+    record PrepareProductionDemandTransfersResult(
+            UUID demandId,
+            List<PrepareDemandTransferLineResult> lineOutcomes,
+            List<PreparedTransferDocument> documents,
+            int transfersCreated,
+            int linesRouted,
+            int linesStillWaiting) {
+        public PrepareProductionDemandTransfersResult {
+            Objects.requireNonNull(demandId, "demandId");
+            lineOutcomes = lineOutcomes == null ? List.of() : List.copyOf(lineOutcomes);
+            documents = documents == null ? List.of() : List.copyOf(documents);
+            if (transfersCreated < 0 || linesRouted < 0 || linesStillWaiting < 0) {
+                throw new IllegalArgumentException("summary counts must be >= 0");
+            }
+        }
+
+        public static PrepareProductionDemandTransfersResult of(
+                UUID demandId,
+                List<PrepareDemandTransferLineResult> lineOutcomes,
+                List<PreparedTransferDocument> documents) {
+            List<PrepareDemandTransferLineResult> outcomes =
+                    lineOutcomes == null ? List.of() : List.copyOf(lineOutcomes);
+            List<PreparedTransferDocument> docs =
+                    documents == null ? List.of() : List.copyOf(documents);
+            int routed = 0;
+            int waiting = 0;
+            for (PrepareDemandTransferLineResult line : outcomes) {
+                switch (line.outcome()) {
+                    case TRANSFER_CREATED -> routed++;
+                    case MATERIAL_UNMATCHED, MATERIAL_AMBIGUOUS, NO_AVAILABLE_STOCK -> waiting++;
+                    case SKIPPED_ACTIVE_TRANSFER, SKIPPED_FULFILLED, SKIPPED_CANCELLED -> {
+                        // not waiting supply work for this command summary
+                    }
+                }
+            }
+            return new PrepareProductionDemandTransfersResult(
+                    demandId, outcomes, docs, docs.size(), routed, waiting);
+        }
+    }
+
     /**
      * Logical transfer status for a send reference (or receive operation).
      *

@@ -1803,16 +1803,22 @@ Production Material Requirement фиксирует, что Production запро
 ### Amendment (B3B-3C1 — 2026-10-06)
 
 18. Unroutable / uncovered WAITING Demand lines appear as one derived operational task `PRODUCTION_MATERIAL_SUPPLY` («Подать материалы в производство») inside the existing Склад → Задачи inbox. No separate Demand screen. Typed source `WAREHOUSE_DEMAND` (never fake `documentId = demandId`).
-19. Supply task eligibility reuses B3B-3A line derivation: not cancelled + at least one line `WAITING_FOR_SUPPLY` with remaining &gt; 0 and no ACTIVE Transfer for that line. Visibility requires responsibility for at least one non-production warehouse. Informational assignment/takeover uses Warehouse-owned `warehouse.demand_task_state` (Flyway V52). Take does not route or create Transfer. `retryDemandRouting` unchanged (C2 RENAME-REUSE candidate). No Retry UX / prepare-transfer action / Production cancellation in C1.
+19. Supply task eligibility reuses B3B-3A line derivation: not cancelled + at least one line `WAITING_FOR_SUPPLY` with remaining &gt; 0 and no ACTIVE Transfer for that line. Visibility requires responsibility for at least one non-production warehouse. Informational assignment/takeover uses Warehouse-owned `warehouse.demand_task_state` (Flyway V52). Take does not route or create Transfer. No prepare-transfer UI in C1.
+
+### Amendment (B3B-3C2 — 2026-10-06)
+
+20. Supply-task business action «Подготовить перемещение» is `prepareProductionDemandTransfers(demandId)` on `WarehouseDemandCommandApi` (trusted) and `WarehouseCommandApi` (user-facing: `warehouse.transfer.create` + non-production responsibility). Reuses the B3B-3B1 WAITING/remaining-quantity routing engine under business naming. Obsolete public `retryDemandRouting` / Retry DTOs deleted (0 real callers).
+21. Assignment remains informational (not a concurrency/auth gate). When prepare clears all WAITING supply work, `demand_task_state` is removed in the same successful operation. Stale assignment after ordinary Transfer receipt is ignored by derived Inbox (no background cleanup). No UI dialog wiring / schema / Production / Transfer send-receive changes in C2.
 
 ### Последствия
 
 - Foundation (B3B-1) добавляет schema + domain + persistence + internal acceptance idempotency.
 - B3B-2 switches Production Submit to Warehouse Demand acceptance + initial routing.
 - B3B-3A adds derived fulfillment query + continuation Demand lineage on shortfall continuations.
-- B3B-3B1 adds manual retry routing for WAITING Demand lines (remaining quantity).
+- B3B-3B1 added WAITING-line re-routing engine (historically named retry; superseded by C2 business contract).
 - B3B-3C1 surfaces WAITING Demand as derived supply tasks in Warehouse Tasks with informational assignment.
-- Subsequent: Production cancellation → Demand cancellation (B3B-3B2); supply action «Подготовить перемещение» (B3B-3C2); UI polish (B3B-3C3).
+- B3B-3C2 exposes «Подготовить перемещение» as `prepareProductionDemandTransfers` (Retry public contract removed).
+- Subsequent: C3 UI/dialog wiring for take-in-work → prepare; C4 focused cleanup / reactor / package.
 
 ### Связанные документы
 
@@ -1936,6 +1942,7 @@ Production Material Requirement фиксирует, что Production запро
 | 1.16 | ADR-038 amendment B3B-3A: derived Demand receivedQuantity/status from settled Transfer receipt facts; SHORTFALL/RECEIVE_SHORTFALL Demand link propagation; WarehouseDemandQueryApi; no mutable counters. |
 | 1.17 | ADR-038 amendment B3B-3B1: manual `retryDemandRouting` for WAITING lines; remaining-quantity routing; material re-resolution; active-Transfer duplicate guard; no scheduler/UI/cancellation. |
 | 1.18 | ADR-038 amendment B3B-3C1: Demand-backed `PRODUCTION_MATERIAL_SUPPLY` in Warehouse Tasks; typed `WAREHOUSE_DEMAND` source; `demand_task_state` V52; no separate Demand screen / Retry UX / prepare action. |
+| 1.19 | ADR-038 amendment B3B-3C2: «Подготовить перемещение» = `prepareProductionDemandTransfers`; Retry public API/DTOs removed; assignment cleanup on completed supply work; no UI wiring / migration. |
 
 ---
 

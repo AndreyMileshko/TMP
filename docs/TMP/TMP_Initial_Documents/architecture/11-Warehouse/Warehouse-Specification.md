@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.12
+**Version:** 1.14
 
 ---
 
@@ -402,28 +402,28 @@ Foundation (B3B-1) не подключает Production Submit, не созда�
 - Public read API: `WarehouseDemandQueryApi.getDemand` / `getDemandBySourceMaterialRequirementId` — immutable views; no Production dependency; no CRUD; no Demand UI in this phase.
 - No new migration; V50/V51 unchanged. No `retryDemandRouting` / Demand cancellation command / Production cancellation hook in B3B-3A.
 
-### 15.1.4 Warehouse Demand manual retry routing (ADR-038 / B3B-3B1)
+### 15.1.4 Warehouse Demand supply Transfer preparation (ADR-038 / B3B-3C2)
 
-- Explicit/manual command only: `WarehouseDemandCommandApi.retryDemandRouting(demandId)`. No background scheduler, cron, timer, or automatic periodic retry.
-- Does **not** create a new Demand or Production MR. Does not change Production coverage.
+- Business action «Подготовить перемещение»: `WarehouseDemandCommandApi.prepareProductionDemandTransfers(demandId)` (trusted backend) and user-facing `WarehouseCommandApi.prepareProductionDemandTransfers(demandId)` (`warehouse.transfer.create` + non-production responsibility). No background scheduler / automatic mutation on inbox refresh.
+- Does **not** create a new Demand or Production MR. Does not change Production coverage. Assignment is informational only — not an authorization or concurrency gate.
 - Re-processes only lines currently derived as `WAITING_FOR_SUPPLY`, routing **remaining** quantity (`max(0, required − received)`), with MaterialReference re-resolution from the immutable snapshot.
-- Positive AVAILABLE → Transfer DRAFT for **full remaining** + DemandTransferLink (reuse B3B-2 `createDemandDraft` / link model). Zero AVAILABLE → `NO_AVAILABLE_STOCK`, no Transfer. Partial stock → same initial-routing semantics (full remaining qty; shortfall later). Continuations (SHORTFALL / RECEIVE_SHORTFALL) inherit lineage as in B3B-3A — no special retry Transfer type.
-- Business no-route (unmatched / ambiguous / zero stock) is successful command execution, not exception; mixed Demand commits routed lines even when siblings remain waiting.
-- One Warehouse transaction per Demand retry; `lockById` (`SELECT … FOR UPDATE`) serializes concurrent retries — second caller observes `IN_FULFILLMENT` and creates 0 duplicate Transfers. Technical failure rolls back Transfer/link/resolution updates.
-- Return does not reopen Demand (B3B-3A); fulfilled-then-return must not re-route.
-- Compact typed result with per-line outcomes (`ROUTED` / `STILL_*` / `NO_AVAILABLE_STOCK` / `SKIPPED_*`) and created Transfer refs. No Demand UI / cancellation command / Production hook / reservation / Material Catalog in B3B-3B1.
+- Positive AVAILABLE → ordinary Transfer DRAFT for **full remaining** + DemandTransferLink (reuse B3B-2 `createDemandDraft` / link model) → normal `TRANSFER_PREPARATION`. Zero AVAILABLE → `NO_AVAILABLE_STOCK`, no Transfer, Supply Task remains. Partial stock → same initial-routing semantics (full remaining qty; shortfall later). Continuations inherit lineage as in B3B-3A — no special Transfer type.
+- Business no-route (unmatched / ambiguous / zero stock) is successful command execution, not exception; mixed Demand commits routed lines even when siblings remain waiting. Typed result includes `transfersCreated` / `linesRouted` / `linesStillWaiting` and per-line outcomes (`TRANSFER_CREATED` / `MATERIAL_*` / `NO_AVAILABLE_STOCK` / `SKIPPED_*`).
+- One Warehouse transaction per Demand; `lockById` (`SELECT … FOR UPDATE`) serializes concurrent prepares — second caller observes active Transfer and creates 0 duplicates. Technical failure rolls back Transfer/link/resolution updates.
+- When no WAITING supply work remains after a successful prepare, `warehouse.demand_task_state` assignment for that Demand is cleared in the same operation. Stale rows after ordinary Transfer receipt (without prepare) are ignored by derived Inbox (no background cleanup).
+- Obsolete public name `retryDemandRouting` and Retry-specific DTOs are removed. No Demand cancellation / Production hook / reservation / Material Catalog / UI dialog wiring in C2 (C3 wires UX).
 
-### 15.1.5 Production material supply task in Warehouse Tasks inbox (ADR-038 / B3B-3C1)
+### 15.1.5 Production material supply task in Warehouse Tasks inbox (ADR-038 / B3B-3C1+C2)
 
 - **One worklist:** Склад → Задачи. No separate «Потребности производства» / Demand screen.
-- New derived task kind `PRODUCTION_MATERIAL_SUPPLY` (human label: «Подать материалы в производство»).
+- Derived task kind `PRODUCTION_MATERIAL_SUPPLY` (human label: «Подать материалы в производство»).
 - Typed task source: `TRANSFER_DOCUMENT` vs `WAREHOUSE_DEMAND` (Demand id is never faked as Transfer `documentId`).
 - Supply task exists only when Demand is not cancelled **and** at least one Demand line has derived status `WAITING_FOR_SUPPLY` with `remainingQuantity > 0` (no ACTIVE Transfer for **that** line). Reuses B3B-3A deriver / active-Transfer rules — no parallel status model.
 - Routable initial submit → Transfer DRAFT + `TRANSFER_PREPARATION` only (no supply task for covered lines). Mixed Demand may show Transfer preparation for routed lines **and** one Demand-backed supply task for remaining WAITING siblings (not duplicate work for the same line).
 - Visibility: users with Warehouse task view permission who are responsible for **at least one non-production** warehouse. Production-only responsibility → no supply task. Destination/production warehouse is **not** the assignment target for supply.
 - Assignment: informational «Взять в работу» / takeover via `warehouse.demand_task_state` (Flyway V52). Same semantics as Transfer tasks (not exclusive lock). Take does **not** route, create Transfer, or mutate stock.
-- Details projection: `WarehouseDemandQueryApi.getDemandSupplyTask` — WAITING lines only (material identity, required/received/remaining, effective waiting reason). No Retry UX; no «Подготовить перемещение» action in C1 (`retryDemandRouting` remains backend RENAME-REUSE candidate for C2).
-- No Production cancellation integration, Material Catalog, reservation, or separate Demand receipt task.
+- Details projection: `WarehouseDemandQueryApi.getDemandSupplyTask` — WAITING lines only (material identity, required/received/remaining, effective waiting reason).
+- Backend action «Подготовить перемещение» is available (C2). UI/dialog wiring of the action is C3. No Production cancellation integration, Material Catalog, reservation, or separate Demand receipt task.
 
 ## 15.2 CURRENT IMPLEMENTATION (Stage 7 — until Stage 3.5 refactor)
 
@@ -646,3 +646,4 @@ Warehouse выполняет только складскую часть опер
 | 1.11 | B3B-3A / ADR-038 amendment: derived Demand fulfillment query (`receivedQuantity` / remaining / statuses); SHORTFALL/RECEIVE_SHORTFALL Demand link propagation; `WarehouseDemandQueryApi`; no mutable counters; no retry/cancel/UI. |
 | 1.12 | B3B-3B1 / ADR-038 amendment: manual `retryDemandRouting` for WAITING lines only; remaining-quantity routing; material re-resolution; active-Transfer duplicate guard; no scheduler/UI/cancellation. |
 | 1.13 | B3B-3C1 / ADR-038 amendment: Demand-backed `PRODUCTION_MATERIAL_SUPPLY` in Склад → Задачи; typed `WAREHOUSE_DEMAND` task source; `demand_task_state` assignment (V52); no separate Demand screen; no Retry UX; no «Подготовить перемещение» yet. |
+| 1.14 | B3B-3C2 / ADR-038 amendment: «Подготовить перемещение» = `prepareProductionDemandTransfers`; reuses B3B-3B1 routing engine; Retry public API/DTOs removed; assignment cleanup when supply work ends; no UI wiring / migration / Production changes. |

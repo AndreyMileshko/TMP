@@ -25,9 +25,9 @@ import com.tmp.warehouse.api.WarehouseDemandCommandApi.AcceptProductionDemandCom
 import com.tmp.warehouse.api.WarehouseDemandCommandApi.AcceptProductionDemandResult;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi.DemandLineRoutingOutcome;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi.ProductionDemandLine;
-import com.tmp.warehouse.api.WarehouseDemandCommandApi.RetryDemandLineOutcome;
-import com.tmp.warehouse.api.WarehouseDemandCommandApi.RetryDemandLineResult;
-import com.tmp.warehouse.api.WarehouseDemandCommandApi.RetryDemandRoutingResult;
+import com.tmp.warehouse.api.WarehouseApi.PrepareDemandTransferLineOutcome;
+import com.tmp.warehouse.api.WarehouseApi.PrepareDemandTransferLineResult;
+import com.tmp.warehouse.api.WarehouseApi.PrepareProductionDemandTransfersResult;
 import com.tmp.warehouse.api.WarehouseDemandDerivedStatus;
 import com.tmp.warehouse.api.WarehouseDemandQueryApi;
 import com.tmp.warehouse.api.WarehouseDemandQueryApi.WarehouseDemandLineView;
@@ -84,11 +84,11 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * B3B-3B1: manual {@code retryDemandRouting} — WAITING lines only, remaining quantity, no
- * duplicate active Transfer.
+ * B3B-3C2: {@code prepareProductionDemandTransfers} («Подготовить перемещение») — WAITING lines
+ * only, remaining quantity, no duplicate active Transfer; assignment cleanup when supply work ends.
  */
 @Testcontainers
-class WarehouseDemandRetryRoutingIntegrationTest {
+class WarehouseDemandPrepareTransfersIntegrationTest {
 
     private static final Clock CLOCK =
             Clock.fixed(Instant.parse("2026-10-06T09:00:00Z"), ZoneOffset.UTC);
@@ -236,9 +236,9 @@ class WarehouseDemandRetryRoutingIntegrationTest {
                         MaterialReference.create("MAT-NEW", "New material", "", "", "шт."));
         seedAvailable(source, sourceCell, resolved, "100");
 
-        RetryDemandRoutingResult retry = demandApi.retryDemandRouting(accepted.demandId());
+        PrepareProductionDemandTransfersResult retry = demandApi.prepareProductionDemandTransfers(accepted.demandId());
         assertEquals(1, retry.documents().size());
-        assertEquals(RetryDemandLineOutcome.ROUTED, retry.lineOutcomes().getFirst().outcome());
+        assertEquals(PrepareDemandTransferLineOutcome.TRANSFER_CREATED, retry.lineOutcomes().getFirst().outcome());
         assertEquals(resolved.id().value(), retry.lineOutcomes().getFirst().materialReferenceId());
         assertEquals(0, new BigDecimal("10").compareTo(retry.lineOutcomes().getFirst().routedQuantity()));
 
@@ -261,9 +261,9 @@ class WarehouseDemandRetryRoutingIntegrationTest {
         assertEquals(0, count("warehouse.transfer_document_payload"));
 
         seedAvailable(source, sourceCell, materialA, "50");
-        RetryDemandRoutingResult retry = demandApi.retryDemandRouting(accepted.demandId());
+        PrepareProductionDemandTransfersResult retry = demandApi.prepareProductionDemandTransfers(accepted.demandId());
         assertEquals(1, retry.documents().size());
-        assertEquals(RetryDemandLineOutcome.ROUTED, retry.lineOutcomes().getFirst().outcome());
+        assertEquals(PrepareDemandTransferLineOutcome.TRANSFER_CREATED, retry.lineOutcomes().getFirst().outcome());
         assertEquals(0, new BigDecimal("8").compareTo(retry.lineOutcomes().getFirst().routedQuantity()));
         assertEquals(1, count("warehouse.warehouse_demands"));
         assertEquals(1, count("warehouse.transfer_document_payload"));
@@ -273,10 +273,10 @@ class WarehouseDemandRetryRoutingIntegrationTest {
     void stillZeroStockKeepsWaitingWithoutException() {
         AcceptProductionDemandResult accepted =
                 demandApi.acceptProductionDemand(command(line(UUID.randomUUID(), materialA, "5")));
-        RetryDemandRoutingResult retry = demandApi.retryDemandRouting(accepted.demandId());
+        PrepareProductionDemandTransfersResult retry = demandApi.prepareProductionDemandTransfers(accepted.demandId());
         assertTrue(retry.documents().isEmpty());
         assertEquals(
-                RetryDemandLineOutcome.NO_AVAILABLE_STOCK, retry.lineOutcomes().getFirst().outcome());
+                PrepareDemandTransferLineOutcome.NO_AVAILABLE_STOCK, retry.lineOutcomes().getFirst().outcome());
         WarehouseDemandLineView line =
                 demandQuery.getDemand(accepted.demandId()).orElseThrow().lines().getFirst();
         assertEquals(WarehouseDemandDerivedStatus.WAITING_FOR_SUPPLY, line.derivedStatus());
@@ -312,10 +312,10 @@ class WarehouseDemandRetryRoutingIntegrationTest {
                 DemandLineRoutingOutcome.MATERIAL_AMBIGUOUS,
                 accepted.lineOutcomes().getFirst().outcome());
 
-        RetryDemandRoutingResult stillAmbiguous =
-                demandApi.retryDemandRouting(accepted.demandId());
+        PrepareProductionDemandTransfersResult stillAmbiguous =
+                demandApi.prepareProductionDemandTransfers(accepted.demandId());
         assertEquals(
-                RetryDemandLineOutcome.STILL_AMBIGUOUS,
+                PrepareDemandTransferLineOutcome.MATERIAL_AMBIGUOUS,
                 stillAmbiguous.lineOutcomes().getFirst().outcome());
         assertNull(stillAmbiguous.lineOutcomes().getFirst().materialReferenceId());
         assertTrue(stillAmbiguous.documents().isEmpty());
@@ -323,8 +323,8 @@ class WarehouseDemandRetryRoutingIntegrationTest {
         jdbc.update("DELETE FROM warehouse.material_references WHERE id = ?", amb2.id().value());
         seedAvailable(source, sourceCell, amb1, "20");
 
-        RetryDemandRoutingResult routed = demandApi.retryDemandRouting(accepted.demandId());
-        assertEquals(RetryDemandLineOutcome.ROUTED, routed.lineOutcomes().getFirst().outcome());
+        PrepareProductionDemandTransfersResult routed = demandApi.prepareProductionDemandTransfers(accepted.demandId());
+        assertEquals(PrepareDemandTransferLineOutcome.TRANSFER_CREATED, routed.lineOutcomes().getFirst().outcome());
         assertEquals(amb1.id().value(), routed.lineOutcomes().getFirst().materialReferenceId());
         assertEquals(1, routed.documents().size());
     }
@@ -340,9 +340,9 @@ class WarehouseDemandRetryRoutingIntegrationTest {
         closeContinuationAsTerminal(partial.continuationDocumentId());
 
         int linksBefore = count("warehouse.warehouse_demand_transfer_links");
-        RetryDemandRoutingResult retry = demandApi.retryDemandRouting(accepted.demandId());
+        PrepareProductionDemandTransfersResult retry = demandApi.prepareProductionDemandTransfers(accepted.demandId());
         assertEquals(1, retry.documents().size());
-        assertEquals(RetryDemandLineOutcome.ROUTED, retry.lineOutcomes().getFirst().outcome());
+        assertEquals(PrepareDemandTransferLineOutcome.TRANSFER_CREATED, retry.lineOutcomes().getFirst().outcome());
         assertEquals(0, new BigDecimal("6").compareTo(retry.lineOutcomes().getFirst().routedQuantity()));
         assertEquals(
                 0,
@@ -361,7 +361,7 @@ class WarehouseDemandRetryRoutingIntegrationTest {
     }
 
     @Test
-    void activeContinuationBlocksDuplicateRetry() {
+    void activeContinuationBlocksDuplicatePrepare() {
         seedAvailable(source, sourceCell, materialA, "100");
         AcceptProductionDemandResult accepted =
                 demandApi.acceptProductionDemand(command(line(UUID.randomUUID(), materialA, "10")));
@@ -372,10 +372,10 @@ class WarehouseDemandRetryRoutingIntegrationTest {
 
         int docsBefore = count("warehouse.transfer_document_payload");
         int linksBefore = count("warehouse.warehouse_demand_transfer_links");
-        RetryDemandRoutingResult retry = demandApi.retryDemandRouting(accepted.demandId());
+        PrepareProductionDemandTransfersResult retry = demandApi.prepareProductionDemandTransfers(accepted.demandId());
         assertTrue(retry.documents().isEmpty());
         assertEquals(
-                RetryDemandLineOutcome.SKIPPED_IN_FULFILLMENT,
+                PrepareDemandTransferLineOutcome.SKIPPED_ACTIVE_TRANSFER,
                 retry.lineOutcomes().getFirst().outcome());
         assertEquals(docsBefore, count("warehouse.transfer_document_payload"));
         assertEquals(linksBefore, count("warehouse.warehouse_demand_transfer_links"));
@@ -401,10 +401,10 @@ class WarehouseDemandRetryRoutingIntegrationTest {
 
         int docsBefore = count("warehouse.transfer_document_payload");
         int linksBefore = count("warehouse.warehouse_demand_transfer_links");
-        RetryDemandRoutingResult retry = demandApi.retryDemandRouting(accepted.demandId());
+        PrepareProductionDemandTransfersResult retry = demandApi.prepareProductionDemandTransfers(accepted.demandId());
         assertTrue(retry.documents().isEmpty());
         assertEquals(
-                RetryDemandLineOutcome.SKIPPED_FULFILLED, retry.lineOutcomes().getFirst().outcome());
+                PrepareDemandTransferLineOutcome.SKIPPED_FULFILLED, retry.lineOutcomes().getFirst().outcome());
         assertEquals(docsBefore, count("warehouse.transfer_document_payload"));
         assertEquals(linksBefore, count("warehouse.warehouse_demand_transfer_links"));
         assertEquals(
@@ -428,10 +428,10 @@ class WarehouseDemandRetryRoutingIntegrationTest {
                 accepted.demandId());
 
         int docsBefore = count("warehouse.transfer_document_payload");
-        RetryDemandRoutingResult retry = demandApi.retryDemandRouting(accepted.demandId());
+        PrepareProductionDemandTransfersResult retry = demandApi.prepareProductionDemandTransfers(accepted.demandId());
         assertTrue(retry.documents().isEmpty());
         assertEquals(
-                RetryDemandLineOutcome.SKIPPED_CANCELLED, retry.lineOutcomes().getFirst().outcome());
+                PrepareDemandTransferLineOutcome.SKIPPED_CANCELLED, retry.lineOutcomes().getFirst().outcome());
         assertEquals(docsBefore, count("warehouse.transfer_document_payload"));
         WarehouseDemandView view = demandQuery.getDemand(accepted.demandId()).orElseThrow();
         assertEquals(WarehouseDemandDerivedStatus.CANCELLED, view.derivedStatus());
@@ -440,10 +440,10 @@ class WarehouseDemandRetryRoutingIntegrationTest {
 
     @Test
     void mixedDemandRoutesOnlyEligibleWaitingLines() {
-        // A WAITING unmatched → later resolved + stock → ROUTED
+        // A WAITING unmatched → later resolved + stock → TRANSFER_CREATED
         // B WAITING unique material, still zero stock → NO_AVAILABLE_STOCK
-        // C WAITING unmatched → STILL_UNMATCHED
-        // D IN_FULFILLMENT (active DRAFT) → SKIPPED_IN_FULFILLMENT
+        // C WAITING unmatched → MATERIAL_UNMATCHED
+        // D IN_FULFILLMENT (active DRAFT) → SKIPPED_ACTIVE_TRANSFER
         // E FULFILLED → SKIPPED_FULFILLED
         // Separate source for D so E gets a single-line Transfer (send/receive helpers are single-line).
         WarehouseId sourceD = WarehouseId.generate();
@@ -501,14 +501,14 @@ class WarehouseDemandRetryRoutingIntegrationTest {
         seedAvailable(source, sourceCell, nowOk, "50");
 
         int docsBefore = count("warehouse.transfer_document_payload");
-        RetryDemandRoutingResult retry = demandApi.retryDemandRouting(accepted.demandId());
+        PrepareProductionDemandTransfersResult retry = demandApi.prepareProductionDemandTransfers(accepted.demandId());
 
-        assertEquals(RetryDemandLineOutcome.ROUTED, bySource(retry, lineA).outcome());
-        assertEquals(RetryDemandLineOutcome.NO_AVAILABLE_STOCK, bySource(retry, lineB).outcome());
-        assertEquals(RetryDemandLineOutcome.STILL_UNMATCHED, bySource(retry, lineC).outcome());
+        assertEquals(PrepareDemandTransferLineOutcome.TRANSFER_CREATED, bySource(retry, lineA).outcome());
+        assertEquals(PrepareDemandTransferLineOutcome.NO_AVAILABLE_STOCK, bySource(retry, lineB).outcome());
+        assertEquals(PrepareDemandTransferLineOutcome.MATERIAL_UNMATCHED, bySource(retry, lineC).outcome());
         assertEquals(
-                RetryDemandLineOutcome.SKIPPED_IN_FULFILLMENT, bySource(retry, lineD).outcome());
-        assertEquals(RetryDemandLineOutcome.SKIPPED_FULFILLED, bySource(retry, lineE).outcome());
+                PrepareDemandTransferLineOutcome.SKIPPED_ACTIVE_TRANSFER, bySource(retry, lineD).outcome());
+        assertEquals(PrepareDemandTransferLineOutcome.SKIPPED_FULFILLED, bySource(retry, lineE).outcome());
         assertEquals(1, retry.documents().size());
         assertEquals(docsBefore + 1, count("warehouse.transfer_document_payload"));
         assertEquals(0, new BigDecimal("5").compareTo(bySource(retry, lineA).routedQuantity()));
@@ -517,27 +517,27 @@ class WarehouseDemandRetryRoutingIntegrationTest {
     }
 
     @Test
-    void sequentialRetryDoesNotDuplicateTransfer() {
+    void sequentialPrepareDoesNotDuplicateTransfer() {
         AcceptProductionDemandResult accepted =
                 demandApi.acceptProductionDemand(command(line(UUID.randomUUID(), materialA, "6")));
         seedAvailable(source, sourceCell, materialA, "40");
 
-        RetryDemandRoutingResult first = demandApi.retryDemandRouting(accepted.demandId());
+        PrepareProductionDemandTransfersResult first = demandApi.prepareProductionDemandTransfers(accepted.demandId());
         assertEquals(1, first.documents().size());
         int docsAfterFirst = count("warehouse.transfer_document_payload");
         int linksAfterFirst = count("warehouse.warehouse_demand_transfer_links");
 
-        RetryDemandRoutingResult second = demandApi.retryDemandRouting(accepted.demandId());
+        PrepareProductionDemandTransfersResult second = demandApi.prepareProductionDemandTransfers(accepted.demandId());
         assertTrue(second.documents().isEmpty());
         assertEquals(
-                RetryDemandLineOutcome.SKIPPED_IN_FULFILLMENT,
+                PrepareDemandTransferLineOutcome.SKIPPED_ACTIVE_TRANSFER,
                 second.lineOutcomes().getFirst().outcome());
         assertEquals(docsAfterFirst, count("warehouse.transfer_document_payload"));
         assertEquals(linksAfterFirst, count("warehouse.warehouse_demand_transfer_links"));
     }
 
     @Test
-    void concurrentRetryCreatesExactlyOneTransferSet() throws Exception {
+    void concurrentPrepareCreatesExactlyOneTransferSet() throws Exception {
         AcceptProductionDemandResult accepted =
                 demandApi.acceptProductionDemand(command(line(UUID.randomUUID(), materialA, "9")));
         seedAvailable(source, sourceCell, materialA, "50");
@@ -553,8 +553,8 @@ class WarehouseDemandRetryRoutingIntegrationTest {
                             () -> {
                                 ready.countDown();
                                 start.await(10, TimeUnit.SECONDS);
-                                RetryDemandRoutingResult r =
-                                        demandApi.retryDemandRouting(accepted.demandId());
+                                PrepareProductionDemandTransfersResult r =
+                                        demandApi.prepareProductionDemandTransfers(accepted.demandId());
                                 successes.incrementAndGet();
                                 routedDocs.addAndGet(r.documents().size());
                                 return null;
@@ -564,8 +564,8 @@ class WarehouseDemandRetryRoutingIntegrationTest {
                             () -> {
                                 ready.countDown();
                                 start.await(10, TimeUnit.SECONDS);
-                                RetryDemandRoutingResult r =
-                                        demandApi.retryDemandRouting(accepted.demandId());
+                                PrepareProductionDemandTransfersResult r =
+                                        demandApi.prepareProductionDemandTransfers(accepted.demandId());
                                 successes.incrementAndGet();
                                 routedDocs.addAndGet(r.documents().size());
                                 return null;
@@ -596,7 +596,7 @@ class WarehouseDemandRetryRoutingIntegrationTest {
 
         assertThrows(
                 IllegalStateException.class,
-                () -> failingApi.retryDemandRouting(accepted.demandId()));
+                () -> failingApi.prepareProductionDemandTransfers(accepted.demandId()));
 
         assertEquals(0, count("warehouse.transfer_document_payload"));
         assertEquals(0, count("warehouse.warehouse_demand_transfer_links"));
@@ -608,7 +608,7 @@ class WarehouseDemandRetryRoutingIntegrationTest {
     }
 
     @Test
-    void terminalHistoricalLinkDoesNotBlockRetry() {
+    void terminalHistoricalLinkDoesNotBlockPrepare() {
         seedAvailable(source, sourceCell, materialA, "100");
         AcceptProductionDemandResult accepted =
                 demandApi.acceptProductionDemand(command(line(UUID.randomUUID(), materialA, "10")));
@@ -625,18 +625,179 @@ class WarehouseDemandRetryRoutingIntegrationTest {
         assertEquals(1, before.linkedTransfers().size());
         assertEquals(0, before.receivedQuantity().compareTo(BigDecimal.ZERO));
 
-        RetryDemandRoutingResult retry = demandApi.retryDemandRouting(accepted.demandId());
+        PrepareProductionDemandTransfersResult retry = demandApi.prepareProductionDemandTransfers(accepted.demandId());
         assertEquals(1, retry.documents().size());
-        assertEquals(RetryDemandLineOutcome.ROUTED, retry.lineOutcomes().getFirst().outcome());
+        assertEquals(PrepareDemandTransferLineOutcome.TRANSFER_CREATED, retry.lineOutcomes().getFirst().outcome());
         assertEquals(0, new BigDecimal("10").compareTo(retry.lineOutcomes().getFirst().routedQuantity()));
         assertEquals(2, count("warehouse.warehouse_demand_transfer_links"));
+    }
+
+    @Test
+    void assignmentClearedWhenAllWaitingRouted() {
+        AcceptProductionDemandResult accepted =
+                demandApi.acceptProductionDemand(command(line(UUID.randomUUID(), materialA, "5")));
+        assertEquals(0, count("warehouse.transfer_document_payload"));
+        api.takeDemandSupplyTaskInWork(accepted.demandId());
+        assertEquals(1, count("warehouse.demand_task_state"));
+
+        seedAvailable(source, sourceCell, materialA, "40");
+        PrepareProductionDemandTransfersResult prepared =
+                demandApi.prepareProductionDemandTransfers(accepted.demandId());
+        assertEquals(1, prepared.transfersCreated());
+        assertEquals(1, prepared.linesRouted());
+        assertEquals(0, prepared.linesStillWaiting());
+        assertEquals(0, count("warehouse.demand_task_state"));
+        assertTrue(
+                api.listMyWarehouseTasks(null).stream()
+                        .noneMatch(
+                                t ->
+                                        t.taskKind()
+                                                == com.tmp.warehouse.api.WarehouseApi
+                                                        .WarehouseTaskKind
+                                                        .PRODUCTION_MATERIAL_SUPPLY));
+        assertTrue(
+                api.listMyWarehouseTasks(null).stream()
+                        .anyMatch(
+                                t ->
+                                        t.taskKind()
+                                                == com.tmp.warehouse.api.WarehouseApi
+                                                        .WarehouseTaskKind.TRANSFER_PREPARATION));
+    }
+
+    @Test
+    void assignmentRetainedWhenPartialOrNoRoute() {
+        AcceptProductionDemandResult accepted =
+                demandApi.acceptProductionDemand(
+                        command(
+                                line(UUID.randomUUID(), materialA, "4"),
+                                line(UUID.randomUUID(), materialB, "4")));
+        api.takeDemandSupplyTaskInWork(accepted.demandId());
+        assertEquals(1, count("warehouse.demand_task_state"));
+
+        PrepareProductionDemandTransfersResult noChange =
+                demandApi.prepareProductionDemandTransfers(accepted.demandId());
+        assertEquals(0, noChange.transfersCreated());
+        assertEquals(2, noChange.linesStillWaiting());
+        assertEquals(1, count("warehouse.demand_task_state"));
+
+        seedAvailable(source, sourceCell, materialA, "20");
+        PrepareProductionDemandTransfersResult partial =
+                demandApi.prepareProductionDemandTransfers(accepted.demandId());
+        assertEquals(1, partial.transfersCreated());
+        assertEquals(1, partial.linesRouted());
+        assertEquals(1, partial.linesStillWaiting());
+        assertEquals(1, count("warehouse.demand_task_state"));
+        assertEquals(
+                1,
+                api.listMyWarehouseTasks(null).stream()
+                        .filter(
+                                t ->
+                                        t.taskKind()
+                                                == com.tmp.warehouse.api.WarehouseApi
+                                                        .WarehouseTaskKind
+                                                        .PRODUCTION_MATERIAL_SUPPLY)
+                        .count());
+    }
+
+    @Test
+    void multiSourcePrepareCreatesGroupedTransferDrafts() {
+        WarehouseId source2 = WarehouseId.generate();
+        StorageCellId cell2 = StorageCellId.generate();
+        bundle.catalog().save(Warehouse.create(source2, "SRC2", "Source 2"));
+        bundle.catalog().save(StorageCell.create(cell2, source2, "S-2"));
+        api.assignUserToWarehouse(source2.value(), worker);
+
+        AcceptProductionDemandResult accepted =
+                demandApi.acceptProductionDemand(
+                        command(
+                                line(UUID.randomUUID(), materialA, "3"),
+                                line(UUID.randomUUID(), materialB, "5")));
+        seedAvailable(source, sourceCell, materialA, "30");
+        seedAvailable(source2, cell2, materialB, "30");
+
+        PrepareProductionDemandTransfersResult prepared =
+                demandApi.prepareProductionDemandTransfers(accepted.demandId());
+        assertEquals(2, prepared.transfersCreated());
+        assertEquals(2, prepared.linesRouted());
+        assertEquals(0, prepared.linesStillWaiting());
+        assertEquals(2, prepared.documents().size());
+        assertEquals(
+                Set.of(source.value(), source2.value()),
+                prepared.documents().stream()
+                        .map(
+                                com.tmp.warehouse.api.WarehouseApi.PreparedTransferDocument
+                                        ::sourceWarehouseId)
+                        .collect(java.util.stream.Collectors.toSet()));
+        assertEquals(
+                2,
+                api.listMyWarehouseTasks(null).stream()
+                        .filter(
+                                t ->
+                                        t.taskKind()
+                                                == com.tmp.warehouse.api.WarehouseApi
+                                                        .WarehouseTaskKind.TRANSFER_PREPARATION)
+                        .count());
+    }
+
+    @Test
+    void userFacingPrepareRequiresTransferPermissionAndResponsibility() {
+        AcceptProductionDemandResult accepted =
+                demandApi.acceptProductionDemand(command(line(UUID.randomUUID(), materialA, "2")));
+        seedAvailable(source, sourceCell, materialA, "10");
+
+        permissions.set(Set.of(WarehousePermissions.WAREHOUSE_VIEW));
+        assertThrows(
+                AccessDeniedException.class,
+                () -> api.prepareProductionDemandTransfers(accepted.demandId()));
+
+        grantFullWarehousePermissions();
+        UUID outsider = UUID.randomUUID();
+        session.set(sessionFor(outsider));
+        assertThrows(
+                AccessDeniedException.class,
+                () -> api.prepareProductionDemandTransfers(accepted.demandId()));
+
+        session.set(sessionFor(worker));
+        PrepareProductionDemandTransfersResult prepared =
+                api.prepareProductionDemandTransfers(accepted.demandId());
+        assertEquals(1, prepared.transfersCreated());
+        assertEquals(
+                PrepareDemandTransferLineOutcome.TRANSFER_CREATED,
+                prepared.lineOutcomes().getFirst().outcome());
+    }
+
+    @Test
+    void takeInWorkDoesNotRoute() {
+        AcceptProductionDemandResult accepted =
+                demandApi.acceptProductionDemand(command(line(UUID.randomUUID(), materialA, "7")));
+        seedAvailable(source, sourceCell, materialA, "50");
+        int docsBefore = count("warehouse.transfer_document_payload");
+        String waitingBefore =
+                demandQuery
+                        .getDemand(accepted.demandId())
+                        .orElseThrow()
+                        .lines()
+                        .getFirst()
+                        .effectiveWaitingReason();
+
+        api.takeDemandSupplyTaskInWork(accepted.demandId());
+        assertEquals(docsBefore, count("warehouse.transfer_document_payload"));
+        assertEquals(
+                waitingBefore,
+                demandQuery
+                        .getDemand(accepted.demandId())
+                        .orElseThrow()
+                        .lines()
+                        .getFirst()
+                        .effectiveWaitingReason());
+        assertEquals(1, count("warehouse.demand_task_state"));
     }
 
     @Test
     void unknownDemandRejected() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> demandApi.retryDemandRouting(UUID.randomUUID()));
+                () -> demandApi.prepareProductionDemandTransfers(UUID.randomUUID()));
     }
 
     private WarehouseDemandCommandApi newDemandApi(
@@ -650,6 +811,7 @@ class WarehouseDemandRetryRoutingIntegrationTest {
                 repository,
                 bundle.transferDocuments(),
                 new JdbcWarehouseDemandFulfillmentReadQuery(jdbc),
+                new com.tmp.warehouse.persistence.JdbcDemandTaskStateRepository(jdbc, CLOCK),
                 CLOCK,
                 txTemplate);
     }
@@ -739,7 +901,7 @@ class WarehouseDemandRetryRoutingIntegrationTest {
                 documentId);
     }
 
-    private static RetryDemandLineResult bySource(RetryDemandRoutingResult retry, UUID sourceLineId) {
+    private static PrepareDemandTransferLineResult bySource(PrepareProductionDemandTransfersResult retry, UUID sourceLineId) {
         return retry.lineOutcomes().stream()
                 .filter(o -> o.sourceMaterialRequirementLineId().equals(sourceLineId))
                 .findFirst()
@@ -820,7 +982,7 @@ class WarehouseDemandRetryRoutingIntegrationTest {
     }
 
     /**
-     * Delegates to JDBC repository; throws once on {@link #insertTransferLink} to force retry TX
+     * Delegates to JDBC repository; throws once on {@link #insertTransferLink} to force prepare TX
      * rollback after Transfer DRAFT creation attempt.
      */
     private static final class FailingLinkRepository implements WarehouseDemandRepository {

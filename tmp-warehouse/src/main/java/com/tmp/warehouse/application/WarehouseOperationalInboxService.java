@@ -23,6 +23,8 @@ import com.tmp.warehouse.domain.WarehouseDemandLineId;
 import com.tmp.warehouse.domain.WarehouseDemandSupplyTaskRules;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseTransferDocument;
+import com.tmp.warehouse.api.WarehouseApi.PrepareProductionDemandTransfersResult;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi;
 import com.tmp.warehouse.domain.repository.DemandTaskStateRepository;
 import com.tmp.warehouse.domain.repository.TransferDocumentSettlementRepository;
 import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
@@ -95,6 +97,7 @@ public final class WarehouseOperationalInboxService {
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
     private final TransferDocumentOrderReferenceQuery orderReferences;
+    private final WarehouseDemandCommandApi demandCommands;
 
     public WarehouseOperationalInboxService(
             DocumentEngine documentEngine,
@@ -120,6 +123,7 @@ public final class WarehouseOperationalInboxService {
                 authentication,
                 transactionTemplate,
                 clock,
+                null,
                 null);
     }
 
@@ -148,6 +152,7 @@ public final class WarehouseOperationalInboxService {
                 authentication,
                 transactionTemplate,
                 clock,
+                null,
                 null);
     }
 
@@ -177,7 +182,8 @@ public final class WarehouseOperationalInboxService {
                 authentication,
                 transactionTemplate,
                 clock,
-                orderReferences);
+                orderReferences,
+                null);
     }
 
     public WarehouseOperationalInboxService(
@@ -195,6 +201,40 @@ public final class WarehouseOperationalInboxService {
             TransactionTemplate transactionTemplate,
             Clock clock,
             TransferDocumentOrderReferenceQuery orderReferences) {
+        this(
+                documentEngine,
+                transferDocuments,
+                settlements,
+                taskStates,
+                demandTaskStates,
+                demands,
+                demandFulfillment,
+                responsibilities,
+                warehouses,
+                responsibilityGuard,
+                authentication,
+                transactionTemplate,
+                clock,
+                orderReferences,
+                null);
+    }
+
+    public WarehouseOperationalInboxService(
+            DocumentEngine documentEngine,
+            WarehouseTransferDocumentRepository transferDocuments,
+            TransferDocumentSettlementRepository settlements,
+            TransferTaskStateRepository taskStates,
+            DemandTaskStateRepository demandTaskStates,
+            WarehouseDemandRepository demands,
+            JdbcWarehouseDemandFulfillmentReadQuery demandFulfillment,
+            WarehouseUserResponsibilityRepository responsibilities,
+            WarehouseCatalogRepository warehouses,
+            WarehouseResponsibilityGuard responsibilityGuard,
+            AuthenticationService authentication,
+            TransactionTemplate transactionTemplate,
+            Clock clock,
+            TransferDocumentOrderReferenceQuery orderReferences,
+            WarehouseDemandCommandApi demandCommands) {
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
         this.transferDocuments = Objects.requireNonNull(transferDocuments, "transferDocuments");
         this.settlements = settlements;
@@ -211,6 +251,7 @@ public final class WarehouseOperationalInboxService {
                 Objects.requireNonNull(transactionTemplate, "transactionTemplate");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.orderReferences = orderReferences;
+        this.demandCommands = demandCommands;
     }
 
     /**
@@ -569,6 +610,26 @@ public final class WarehouseOperationalInboxService {
             throw new IllegalStateException("takeDemandSupplyTaskInWork returned null");
         }
         return view;
+    }
+
+    /**
+     * «Подготовить перемещение» for a Demand supply task. Requires non-production warehouse
+     * responsibility. Does not require assignment. Delegates routing to {@link
+     * WarehouseDemandCommandApi#prepareProductionDemandTransfers(UUID)}.
+     */
+    public PrepareProductionDemandTransfersResult prepareProductionDemandTransfers(UUID demandId) {
+        Objects.requireNonNull(demandId, "demandId");
+        if (demandCommands == null) {
+            throw new IllegalStateException("Demand transfer preparation is not configured");
+        }
+        UUID userId = requireAuthenticatedUserId();
+        Map<UUID, Warehouse> warehouseById = warehouseIndex();
+        Set<UUID> responsible = responsibleWarehouseIds(userId);
+        if (!eligibleForSupplyTasks(responsible, warehouseById)) {
+            throw new AccessDeniedException(
+                    "Access denied: production material supply requires non-production warehouse responsibility");
+        }
+        return demandCommands.prepareProductionDemandTransfers(demandId);
     }
 
     private List<DocumentMetadata> scanTransferDocuments(DocumentStatus status) {

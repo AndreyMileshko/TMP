@@ -16,7 +16,9 @@ import com.tmp.document.persistence.JdbcDocumentStorageAdapter;
 import com.tmp.document.persistence.JdbcDocumentVersionAdapter;
 import com.tmp.document.persistence.JdbcLifecycleJournalAdapter;
 import com.tmp.security.api.AuthorizationService;
+import com.tmp.warehouse.api.WarehouseDemandCommandApi;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
+import com.tmp.warehouse.application.DefaultWarehouseDemandCommandApi;
 import com.tmp.warehouse.application.FixedMaterialReferenceDisplayPort;
 import com.tmp.warehouse.application.MaterialSourceRoutingService;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
@@ -270,6 +272,19 @@ public final class WarehouseIntegrationTestSupport {
                         responsibilityGuard,
                         tx,
                         clock);
+        WarehouseDemandCommandApi demandCommands =
+                new DefaultWarehouseDemandCommandApi(
+                        new MaterialSourceRoutingService(
+                                new JdbcAvailableStockAggregationQuery(jdbc)),
+                        transferDocumentService,
+                        catalog,
+                        materials,
+                        demandRepository,
+                        transferDocumentRepository,
+                        demandFulfillment,
+                        demandTaskStates,
+                        clock,
+                        tx);
         WarehouseOperationalInboxService operationalInbox =
                 new WarehouseOperationalInboxService(
                         documentEngine,
@@ -285,7 +300,8 @@ public final class WarehouseIntegrationTestSupport {
                         authentication,
                         tx,
                         clock,
-                        null);
+                        null,
+                        demandCommands);
 
         DefaultWarehouseApi api =
                 new DefaultWarehouseApi(

@@ -3,6 +3,44 @@
 ## Latest result
 
 **Date:** 2026-10-06
+**Scope:** Stage 7 / Warehouse — B3B-3C2 Prepare Production Demand Transfers
+**Overall:** PASS
+**Migration:** NONE — V50/V51/V52 unchanged
+**Base HEAD:** `2b627e38ec0732c5c3a8ee566d3c5bd406853146`
+**Working tree:** dirty (C2 prepare action + Retry cleanup + docs/tests); **no commit / no push**
+
+### B3B-3C2 checks (2026-10-06)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD + clean tree | PASS |
+| `WarehouseDemandPrepareTransfersIntegrationTest` | PASS (19) |
+| `WarehouseDemandSupplyTaskInboxIntegrationTest` | PASS (9) |
+| `WarehouseDemandCommandApiIntegrationTest` | PASS |
+| `WarehouseDemandFulfillmentQueryIntegrationTest` | PASS |
+| `WarehouseOperationalInboxIntegrationTest` | PASS (17) |
+| `WarehouseDemandStatusDeriverTest` + `WarehouseDemandSupplyTaskRulesTest` | PASS (8+3) |
+| MaterialReference / MaterialSourceRouting tests | PASS |
+| `WarehouseSchemaFlywayTest` (incl. V50/V52) | PASS (11) |
+| Prepare IT: remaining qty / mixed / sequential / concurrent / assignment / multi-source / take-in-work | PASS |
+| `Stage6WarehouseArchitectureTest` + `Stage7ProductionArchitectureTest` | PASS (95) |
+| Full reactor | NOT RUN |
+| Package | NOT RUN |
+| UI prepare wiring | NONE (C3) |
+| Production code changes | NONE |
+| Obsolete `retryDemandRouting` / Retry DTOs / Retry IT | DELETED |
+
+### Stale `demand_task_state` policy
+
+Cleanup on successful prepare when Supply Task disappears. No receive-path cleanup hook in C2. Derived Inbox ignores stale assignment rows (no ghost tasks).
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-10-06
 **Scope:** Stage 7 / Warehouse — B3B-3C1 Production Supply Tasks in Warehouse Inbox
 **Overall:** PASS
 **Migration:** V52 `warehouse.demand_task_state` (assignment only); V50/V51 unchanged

@@ -24,6 +24,7 @@ import com.tmp.warehouse.api.WarehouseApi.TransferRequestView;
 import com.tmp.warehouse.api.WarehouseApi.UpdateStorageCellCommand;
 import com.tmp.warehouse.api.WarehouseApi.UpdateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.UpdateWarehouseCommand;
+import com.tmp.warehouse.api.WarehouseApi.PrepareProductionDemandTransfersResult;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
 import java.util.UUID;
@@ -151,5 +152,15 @@ public interface WarehouseCommandApi {
      */
     default WarehouseTaskView takeDemandSupplyTaskInWork(UUID demandId) {
         throw new UnsupportedOperationException("takeDemandSupplyTaskInWork");
+    }
+
+    /**
+     * «Подготовить перемещение» for a Demand-backed production material supply task (B3B-3C2).
+     * Requires {@code warehouse.transfer.create} and non-production warehouse responsibility.
+     * Assignment is informational only and is not an authorization or concurrency gate. Creates
+     * ordinary Transfer DRAFT(s) where WAITING lines can be routed.
+     */
+    default PrepareProductionDemandTransfersResult prepareProductionDemandTransfers(UUID demandId) {
+        throw new UnsupportedOperationException("prepareProductionDemandTransfers");
     }
 }

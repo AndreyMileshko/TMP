@@ -3,6 +3,10 @@ package com.tmp.warehouse.application;
 import com.tmp.warehouse.api.WarehouseApi.MaterialDemand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingOutcome;
 import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult;
+import com.tmp.warehouse.api.WarehouseApi.PrepareDemandTransferLineOutcome;
+import com.tmp.warehouse.api.WarehouseApi.PrepareDemandTransferLineResult;
+import com.tmp.warehouse.api.WarehouseApi.PrepareProductionDemandTransfersResult;
+import com.tmp.warehouse.api.WarehouseApi.PreparedTransferDocument;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi;
 import com.tmp.warehouse.api.WarehouseDemandDerivedStatus;
 import com.tmp.warehouse.api.WarehouseDemandPayloadConflictException;
@@ -47,7 +51,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Default {@link WarehouseDemandCommandApi}: accept Production Demand, resolve materials, and
  * best-effort create Transfer DRAFTs for uniquely resolved lines with positive AVAILABLE stock.
- * Also owns manual {@link #retryDemandRouting(UUID)} for WAITING lines (B3B-3B1).
+ * Also owns {@link #prepareProductionDemandTransfers(UUID)} for WAITING supply lines
+ * («Подготовить перемещение»).
  *
  * <p>Business no-route outcomes persist WAITING reasons and do not throw. Technical failures
  * propagate and roll back with the caller's outer transaction.
@@ -131,12 +136,13 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
     }
 
     @Override
-    public RetryDemandRoutingResult retryDemandRouting(UUID demandId) {
+    public PrepareProductionDemandTransfersResult prepareProductionDemandTransfers(UUID demandId) {
         Objects.requireNonNull(demandId, "demandId");
-        RetryDemandRoutingResult result =
-                transactionTemplate.execute(status -> retry(WarehouseDemandId.of(demandId)));
+        PrepareProductionDemandTransfersResult result =
+                transactionTemplate.execute(
+                        status -> prepareWaitingDemandTransfers(WarehouseDemandId.of(demandId)));
         if (result == null) {
-            throw new IllegalStateException("retryDemandRouting returned null");
+            throw new IllegalStateException("prepareProductionDemandTransfers returned null");
         }
         return result;
     }
@@ -295,7 +301,8 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
                 demand.id().value(), true, outcomes, documents);
     }
 
-    private RetryDemandRoutingResult retry(WarehouseDemandId demandId) {
+    private PrepareProductionDemandTransfersResult prepareWaitingDemandTransfers(
+            WarehouseDemandId demandId) {
         WarehouseDemand demand =
                 demands.lockById(demandId)
                         .orElseThrow(
@@ -303,21 +310,23 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
                                         new IllegalArgumentException(
                                                 "Warehouse Demand not found: " + demandId.value()));
 
-        Map<UUID, RetryDemandLineResult> outcomeByLineId = new LinkedHashMap<>();
+        Map<UUID, PrepareDemandTransferLineResult> outcomeByLineId = new LinkedHashMap<>();
         if (demand.isCancelled()) {
             for (WarehouseDemandLine line : demand.lines()) {
                 outcomeByLineId.put(
                         line.id().value(),
-                        skippedRetry(
+                        skippedPrepare(
                                 line,
-                                RetryDemandLineOutcome.SKIPPED_CANCELLED,
+                                PrepareDemandTransferLineOutcome.SKIPPED_CANCELLED,
                                 line.materialReferenceId()
                                         .map(MaterialReferenceId::value)
                                         .orElse(null)));
             }
             clearSupplyAssignmentIfNoLongerWaiting(demand);
-            return new RetryDemandRoutingResult(
-                    demand.id().value(), orderedRetryOutcomes(demand, outcomeByLineId), List.of());
+            return PrepareProductionDemandTransfersResult.of(
+                    demand.id().value(),
+                    orderedPrepareOutcomes(demand, outcomeByLineId),
+                    List.of());
         }
 
         Map<WarehouseDemandLineId, BigDecimal> receivedByLine =
@@ -326,7 +335,7 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
         Set<WarehouseDemandLineId> activeLines =
                 fulfillmentRead.demandLinesWithActiveTransfer(demand.id());
         List<MaterialReference> catalog = materials.findAll();
-        List<RetryRoutableLine> routable = new ArrayList<>();
+        List<WaitingRoutableLine> routable = new ArrayList<>();
 
         for (WarehouseDemandLine line : demand.lines()) {
             BigDecimal required = line.requiredQuantity().value();
@@ -341,9 +350,9 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
             if (derived == WarehouseDemandDerivedStatus.FULFILLED) {
                 outcomeByLineId.put(
                         line.id().value(),
-                        skippedRetry(
+                        skippedPrepare(
                                 line,
-                                RetryDemandLineOutcome.SKIPPED_FULFILLED,
+                                PrepareDemandTransferLineOutcome.SKIPPED_FULFILLED,
                                 line.materialReferenceId()
                                         .map(MaterialReferenceId::value)
                                         .orElse(null)));
@@ -352,9 +361,9 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
             if (derived == WarehouseDemandDerivedStatus.IN_FULFILLMENT) {
                 outcomeByLineId.put(
                         line.id().value(),
-                        skippedRetry(
+                        skippedPrepare(
                                 line,
-                                RetryDemandLineOutcome.SKIPPED_IN_FULFILLMENT,
+                                PrepareDemandTransferLineOutcome.SKIPPED_ACTIVE_TRANSFER,
                                 line.materialReferenceId()
                                         .map(MaterialReferenceId::value)
                                         .orElse(null)));
@@ -370,10 +379,10 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
                             line.id(), null, WarehouseDemandWaitingReason.MATERIAL_UNMATCHED);
                     outcomeByLineId.put(
                             line.id().value(),
-                            new RetryDemandLineResult(
+                            new PrepareDemandTransferLineResult(
                                     line.id().value(),
                                     line.sourceMaterialRequirementLineId(),
-                                    RetryDemandLineOutcome.STILL_UNMATCHED,
+                                    PrepareDemandTransferLineOutcome.MATERIAL_UNMATCHED,
                                     null,
                                     null,
                                     null,
@@ -384,10 +393,10 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
                             line.id(), null, WarehouseDemandWaitingReason.MATERIAL_AMBIGUOUS);
                     outcomeByLineId.put(
                             line.id().value(),
-                            new RetryDemandLineResult(
+                            new PrepareDemandTransferLineResult(
                                     line.id().value(),
                                     line.sourceMaterialRequirementLineId(),
-                                    RetryDemandLineOutcome.STILL_AMBIGUOUS,
+                                    PrepareDemandTransferLineOutcome.MATERIAL_AMBIGUOUS,
                                     null,
                                     null,
                                     null,
@@ -397,13 +406,13 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
                     if (remaining.signum() <= 0) {
                         outcomeByLineId.put(
                                 line.id().value(),
-                                skippedRetry(
+                                skippedPrepare(
                                         line,
-                                        RetryDemandLineOutcome.SKIPPED_FULFILLED,
+                                        PrepareDemandTransferLineOutcome.SKIPPED_FULFILLED,
                                         resolution.materialReferenceId()));
                     } else {
                         routable.add(
-                                new RetryRoutableLine(
+                                new WaitingRoutableLine(
                                         line,
                                         MaterialReferenceId.of(resolution.materialReferenceId()),
                                         remaining));
@@ -412,10 +421,10 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
             }
         }
 
-        List<GeneratedDocument> documents = new ArrayList<>();
+        List<PreparedTransferDocument> documents = new ArrayList<>();
         if (!routable.isEmpty()) {
             List<MaterialDemand> routingDemands = new ArrayList<>(routable.size());
-            for (RetryRoutableLine line : routable) {
+            for (WaitingRoutableLine line : routable) {
                 routingDemands.add(
                         new MaterialDemand(
                                 line.demandLine().id().value().toString(),
@@ -430,7 +439,7 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
             }
 
             Map<UUID, List<PlannedTransferLine>> bySource = new LinkedHashMap<>();
-            for (RetryRoutableLine line : routable) {
+            for (WaitingRoutableLine line : routable) {
                 MaterialSourceRoutingResult routing =
                         routingByLine.get(line.demandLine().id().value().toString());
                 if (routing == null
@@ -441,10 +450,10 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
                             WarehouseDemandWaitingReason.NO_AVAILABLE_STOCK);
                     outcomeByLineId.put(
                             line.demandLine().id().value(),
-                            new RetryDemandLineResult(
+                            new PrepareDemandTransferLineResult(
                                     line.demandLine().id().value(),
                                     line.demandLine().sourceMaterialRequirementLineId(),
-                                    RetryDemandLineOutcome.NO_AVAILABLE_STOCK,
+                                    PrepareDemandTransferLineOutcome.NO_AVAILABLE_STOCK,
                                     line.materialReferenceId().value(),
                                     null,
                                     null,
@@ -488,7 +497,7 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
                                 lineInputs);
                 UUID documentId = created.metadata().id();
                 documents.add(
-                        new GeneratedDocument(
+                        new PreparedTransferDocument(
                                 documentId,
                                 sourceWarehouseId,
                                 demand.destinationWarehouseId().value()));
@@ -505,10 +514,10 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
                                     StockQuantity.of(planned.linkedQuantity())));
                     outcomeByLineId.put(
                             planned.demandLine().id().value(),
-                            new RetryDemandLineResult(
+                            new PrepareDemandTransferLineResult(
                                     planned.demandLine().id().value(),
                                     planned.demandLine().sourceMaterialRequirementLineId(),
-                                    RetryDemandLineOutcome.ROUTED,
+                                    PrepareDemandTransferLineOutcome.TRANSFER_CREATED,
                                     planned.demandLine()
                                             .materialReferenceId()
                                             .orElseThrow()
@@ -521,8 +530,10 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
         }
 
         clearSupplyAssignmentIfNoLongerWaiting(demand);
-        return new RetryDemandRoutingResult(
-                demand.id().value(), orderedRetryOutcomes(demand, outcomeByLineId), documents);
+        return PrepareProductionDemandTransfersResult.of(
+                demand.id().value(),
+                orderedPrepareOutcomes(demand, outcomeByLineId),
+                documents);
     }
 
     private void clearSupplyAssignmentIfNoLongerWaiting(WarehouseDemand demand) {
@@ -540,23 +551,25 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
         }
     }
 
-    private static List<RetryDemandLineResult> orderedRetryOutcomes(
-            WarehouseDemand demand, Map<UUID, RetryDemandLineResult> outcomeByLineId) {
-        List<RetryDemandLineResult> ordered = new ArrayList<>(demand.lines().size());
+    private static List<PrepareDemandTransferLineResult> orderedPrepareOutcomes(
+            WarehouseDemand demand, Map<UUID, PrepareDemandTransferLineResult> outcomeByLineId) {
+        List<PrepareDemandTransferLineResult> ordered = new ArrayList<>(demand.lines().size());
         for (WarehouseDemandLine line : demand.lines()) {
-            RetryDemandLineResult outcome = outcomeByLineId.get(line.id().value());
+            PrepareDemandTransferLineResult outcome = outcomeByLineId.get(line.id().value());
             if (outcome == null) {
                 throw new IllegalStateException(
-                        "Retry outcome missing for demand line " + line.id().value());
+                        "Prepare outcome missing for demand line " + line.id().value());
             }
             ordered.add(outcome);
         }
         return ordered;
     }
 
-    private static RetryDemandLineResult skippedRetry(
-            WarehouseDemandLine line, RetryDemandLineOutcome outcome, UUID materialReferenceId) {
-        return new RetryDemandLineResult(
+    private static PrepareDemandTransferLineResult skippedPrepare(
+            WarehouseDemandLine line,
+            PrepareDemandTransferLineOutcome outcome,
+            UUID materialReferenceId) {
+        return new PrepareDemandTransferLineResult(
                 line.id().value(),
                 line.sourceMaterialRequirementLineId(),
                 outcome,
@@ -811,7 +824,7 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
         }
     }
 
-    private record RetryRoutableLine(
+    private record WaitingRoutableLine(
             WarehouseDemandLine demandLine,
             MaterialReferenceId materialReferenceId,
             BigDecimal remainingQuantity) {}

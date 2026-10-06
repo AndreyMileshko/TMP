@@ -30,6 +30,7 @@ import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnPlanItem;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine;
+import com.tmp.warehouse.api.WarehouseApi.PrepareProductionDemandTransfersResult;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.domain.InvalidWarehouseStateException;
 import com.tmp.warehouse.domain.MaterialReservationLink;
@@ -1663,6 +1664,13 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         Objects.requireNonNull(demandId, "demandId");
         authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
         return requireOperationalInbox().takeDemandSupplyTaskInWork(demandId);
+    }
+
+    @Override
+    public PrepareProductionDemandTransfersResult prepareProductionDemandTransfers(UUID demandId) {
+        Objects.requireNonNull(demandId, "demandId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
+        return requireOperationalInbox().prepareProductionDemandTransfers(demandId);
     }
 
     private WarehouseStockReadQuery requireStockRead() {

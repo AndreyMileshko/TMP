@@ -4,6 +4,38 @@
 
 ---
 
+## Stage 7 / Warehouse — B3B-3C2 Prepare Production Demand Transfers — 2026-10-06
+
+**Date:** 2026-10-06  
+**Stage:** 7 Production / Warehouse Phase B3B-3C2  
+**Base HEAD:** `2b627e38ec0732c5c3a8ee566d3c5bd406853146`  
+**Status:** PASS — STOP before C3; no commit / no push
+
+### Scope
+
+- Business action «Подготовить перемещение»: `WarehouseDemandCommandApi.prepareProductionDemandTransfers` + user-facing `WarehouseCommandApi.prepareProductionDemandTransfers` (`warehouse.transfer.create` + non-production responsibility)
+- Reused B3B-3B1 WAITING / remaining-quantity / material re-resolution / active-Transfer / concurrency engine under business naming (`prepareWaitingDemandTransfers`)
+- Typed result: `PrepareProductionDemandTransfersResult` with `transfersCreated` / `linesRouted` / `linesStillWaiting` + per-line outcomes
+- Assignment cleanup when no WAITING supply work remains after prepare; stale rows after ordinary receipt ignored by derived Inbox
+- Deleted obsolete Retry public API / DTOs / `WarehouseDemandRetryRoutingIntegrationTest` (replaced by prepare IT)
+- Warehouse Spec §15.1.4 v1.14; ADR-038 amendment B3B-3C2
+
+### Explicitly not done
+
+- C3 UI/dialog wiring of «Взять в работу» → «Подготовить перемещение»
+- Production / Transfer send-receive / Demand cancellation / schema changes
+- Full reactor / package
+
+### Supersedes (current-state)
+
+B3B-3B1 public name `retryDemandRouting` and Retry-specific result types are **removed** (historical log entries below remain accurate for what was shipped then).
+
+### Verification
+
+See VERIFICATION-LOG B3B-3C2 entry (2026-10-06).
+
+---
+
 ## Stage 7 / Warehouse — B3B-3C1 Production Supply Tasks in Warehouse Inbox — 2026-10-06
 
 **Date:** 2026-10-06  
@@ -24,10 +56,9 @@
 
 ### Explicitly not done
 
-- «Подготовить перемещение» action (C2) — will reuse `retryDemandRouting` engine
+- «Подготовить перемещение» action (C2) — **done in B3B-3C2** (reused this engine under `prepareProductionDemandTransfers`)
 - Warehouse UI details polish / dialog (C3)
-- Production cancellation → Demand cancellation (B3B-3B2)
-- Separate Demand screen / Material Catalog / reservation / background retry
+- Separate Demand screen / Material Catalog / reservation / background automation
 - Full reactor / package
 
 ### Verification
@@ -37,6 +68,8 @@ See VERIFICATION-LOG B3B-3C1 entry (2026-10-06).
 ---
 
 ## Stage 7 / Warehouse — B3B-3B1 Retry Warehouse Demand Routing — 2026-10-06
+
+> **Superseding note (B3B-3C2):** public `retryDemandRouting` / Retry DTOs were renamed/removed in favor of `prepareProductionDemandTransfers`. Routing semantics below remain the engine baseline.
 
 **Date:** 2026-10-06  
 **Stage:** 7 Production / Warehouse Phase B3B-3B1  

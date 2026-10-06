@@ -443,7 +443,8 @@ public class WarehouseAutoConfiguration {
             AuthenticationService authenticationService,
             PlatformTransactionManager platformTransactionManager,
             Clock clock,
-            ObjectProvider<TransferDocumentOrderReferenceQuery> transferDocumentOrderReferenceQuery) {
+            ObjectProvider<TransferDocumentOrderReferenceQuery> transferDocumentOrderReferenceQuery,
+            WarehouseDemandCommandApi warehouseDemandCommandApi) {
         return new WarehouseOperationalInboxService(
                 documentEngine,
                 warehouseTransferDocumentRepository,
@@ -458,7 +459,8 @@ public class WarehouseAutoConfiguration {
                 authenticationService,
                 new TransactionTemplate(platformTransactionManager),
                 clock,
-                transferDocumentOrderReferenceQuery.getIfAvailable());
+                transferDocumentOrderReferenceQuery.getIfAvailable(),
+                warehouseDemandCommandApi);
     }
 
     @Bean
