@@ -12,6 +12,7 @@ import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ActionEditR
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReceiveAllocationEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.TaskRow;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskKind;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskSource;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskState;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import java.math.BigDecimal;
@@ -328,7 +329,9 @@ class WarehouseTaskDialogSupportTest {
     private static WarehouseTaskView taskView(WarehouseTaskKind kind, WarehouseTaskState state) {
         UUID documentId = UUID.randomUUID();
         return new WarehouseTaskView(
+                WarehouseTaskSource.TRANSFER_DOCUMENT,
                 documentId,
+                null,
                 "TR-1",
                 "25096174",
                 kind,

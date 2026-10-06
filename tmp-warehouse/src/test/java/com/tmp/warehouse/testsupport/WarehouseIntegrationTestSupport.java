@@ -44,12 +44,14 @@ import com.tmp.warehouse.domain.repository.TransferOperationContextRepository;
 import com.tmp.warehouse.domain.repository.TransferReceiptSettlementItemRepository;
 import com.tmp.warehouse.domain.repository.TransferReturnSettlementItemRepository;
 import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
+import com.tmp.warehouse.domain.repository.DemandTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseDemandRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
 import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.persistence.JdbcAvailableStockAggregationQuery;
+import com.tmp.warehouse.persistence.JdbcDemandTaskStateRepository;
 import com.tmp.warehouse.persistence.JdbcMaterialReservationLinkRepository;
 import com.tmp.warehouse.persistence.JdbcTransferDocumentSendAllocationRepository;
 import com.tmp.warehouse.persistence.JdbcTransferDocumentSettlementRepository;
@@ -57,6 +59,7 @@ import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
 import com.tmp.warehouse.persistence.JdbcTransferReceiptSettlementItemRepository;
 import com.tmp.warehouse.persistence.JdbcTransferReturnSettlementItemRepository;
 import com.tmp.warehouse.persistence.JdbcTransferTaskStateRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseDemandFulfillmentReadQuery;
 import com.tmp.warehouse.persistence.JdbcWarehouseDemandRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseTransferDocumentRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseUserResponsibilityRepository;
@@ -184,7 +187,10 @@ public final class WarehouseIntegrationTestSupport {
         TransferReturnSettlementItemRepository returnItems =
                 new JdbcTransferReturnSettlementItemRepository(jdbc);
         TransferTaskStateRepository taskStates = new JdbcTransferTaskStateRepository(jdbc, clock);
+        DemandTaskStateRepository demandTaskStates = new JdbcDemandTaskStateRepository(jdbc, clock);
         WarehouseDemandRepository demandRepository = new JdbcWarehouseDemandRepository(jdbc);
+        JdbcWarehouseDemandFulfillmentReadQuery demandFulfillment =
+                new JdbcWarehouseDemandFulfillmentReadQuery(jdbc);
         WarehouseDemandContinuationLinkPropagator demandContinuationLinks =
                 new WarehouseDemandContinuationLinkPropagator(demandRepository);
         DocumentEngine documentEngine = createDocumentEngine(jdbc);
@@ -270,12 +276,16 @@ public final class WarehouseIntegrationTestSupport {
                         transferDocumentRepository,
                         settlements,
                         taskStates,
+                        demandTaskStates,
+                        demandRepository,
+                        demandFulfillment,
                         responsibilities,
                         catalog,
                         responsibilityGuard,
                         authentication,
                         tx,
-                        clock);
+                        clock,
+                        null);
 
         DefaultWarehouseApi api =
                 new DefaultWarehouseApi(

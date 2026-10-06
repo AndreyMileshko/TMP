@@ -21,6 +21,13 @@ public interface WarehouseDemandQueryApi {
     Optional<WarehouseDemandView> getDemandBySourceMaterialRequirementId(
             UUID sourceMaterialRequirementId);
 
+    /**
+     * Demand-backed supply-task detail projection (B3B-3C1): waiting lines only when the Demand
+     * currently qualifies for {@code PRODUCTION_MATERIAL_SUPPLY}. Empty when cancelled, fulfilled,
+     * or every open obligation is already covered by an active Transfer.
+     */
+    Optional<WarehouseDemandSupplyTaskView> getDemandSupplyTask(UUID demandId);
+
     /** Immutable Demand header + derived status + lines. */
     record WarehouseDemandView(
             UUID demandId,
@@ -84,6 +91,52 @@ public interface WarehouseDemandQueryApi {
             Objects.requireNonNull(transferDocumentId, "transferDocumentId");
             Objects.requireNonNull(transferLineId, "transferLineId");
             Objects.requireNonNull(linkedQuantity, "linkedQuantity");
+        }
+    }
+
+    /**
+     * Compact supply-task projection: Demand header + WAITING lines only (B3B-3C1). Does not expose
+     * Demand/MR UUIDs in UI contracts beyond opaque ids required for take-in-work identity.
+     */
+    record WarehouseDemandSupplyTaskView(
+            UUID demandId,
+            UUID destinationWarehouseId,
+            Instant acceptedAt,
+            List<WarehouseDemandSupplyWaitingLineView> waitingLines) {
+
+        public WarehouseDemandSupplyTaskView {
+            Objects.requireNonNull(demandId, "demandId");
+            Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+            Objects.requireNonNull(acceptedAt, "acceptedAt");
+            waitingLines = waitingLines == null ? List.of() : List.copyOf(waitingLines);
+            if (waitingLines.isEmpty()) {
+                throw new IllegalArgumentException("waitingLines must not be empty");
+            }
+        }
+    }
+
+    /** Waiting-line facts for future supply-task detail UI (C2/C3). */
+    record WarehouseDemandSupplyWaitingLineView(
+            UUID demandLineId,
+            String materialCode,
+            String materialName,
+            String color,
+            String unitOfMeasure,
+            BigDecimal lengthMm,
+            BigDecimal requiredQuantity,
+            BigDecimal receivedQuantity,
+            BigDecimal remainingQuantity,
+            String effectiveWaitingReason) {
+
+        public WarehouseDemandSupplyWaitingLineView {
+            Objects.requireNonNull(demandLineId, "demandLineId");
+            Objects.requireNonNull(materialCode, "materialCode");
+            Objects.requireNonNull(color, "color");
+            Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
+            Objects.requireNonNull(requiredQuantity, "requiredQuantity");
+            Objects.requireNonNull(receivedQuantity, "receivedQuantity");
+            Objects.requireNonNull(remainingQuantity, "remainingQuantity");
+            Objects.requireNonNull(effectiveWaitingReason, "effectiveWaitingReason");
         }
     }
 }

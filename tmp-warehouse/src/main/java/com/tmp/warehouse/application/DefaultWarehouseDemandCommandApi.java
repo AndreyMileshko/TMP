@@ -23,9 +23,11 @@ import com.tmp.warehouse.domain.WarehouseDemandWaitingReason;
 import com.tmp.warehouse.domain.WarehouseId;
 import com.tmp.warehouse.domain.WarehouseTransferLineId;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
+import com.tmp.warehouse.domain.repository.DemandTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseDemandRepository;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
+import com.tmp.warehouse.domain.WarehouseDemandSupplyTaskRules;
 import com.tmp.warehouse.persistence.JdbcWarehouseDemandFulfillmentReadQuery;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
@@ -62,6 +64,7 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
     private final WarehouseDemandRepository demands;
     private final WarehouseTransferDocumentRepository transferDocumentRepository;
     private final JdbcWarehouseDemandFulfillmentReadQuery fulfillmentRead;
+    private final DemandTaskStateRepository demandTaskStates;
     private final WarehouseMaterialReferenceResolver materialResolver;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
@@ -76,6 +79,30 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
             JdbcWarehouseDemandFulfillmentReadQuery fulfillmentRead,
             Clock clock,
             TransactionTemplate transactionTemplate) {
+        this(
+                sourceRouting,
+                transferDocuments,
+                warehouses,
+                materials,
+                demands,
+                transferDocumentRepository,
+                fulfillmentRead,
+                null,
+                clock,
+                transactionTemplate);
+    }
+
+    public DefaultWarehouseDemandCommandApi(
+            MaterialSourceRoutingService sourceRouting,
+            WarehouseTransferDocumentService transferDocuments,
+            WarehouseCatalogRepository warehouses,
+            MaterialReferenceRepository materials,
+            WarehouseDemandRepository demands,
+            WarehouseTransferDocumentRepository transferDocumentRepository,
+            JdbcWarehouseDemandFulfillmentReadQuery fulfillmentRead,
+            DemandTaskStateRepository demandTaskStates,
+            Clock clock,
+            TransactionTemplate transactionTemplate) {
         this.sourceRouting = Objects.requireNonNull(sourceRouting, "sourceRouting");
         this.transferDocuments = Objects.requireNonNull(transferDocuments, "transferDocuments");
         this.warehouses = Objects.requireNonNull(warehouses, "warehouses");
@@ -84,6 +111,7 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
         this.transferDocumentRepository =
                 Objects.requireNonNull(transferDocumentRepository, "transferDocumentRepository");
         this.fulfillmentRead = Objects.requireNonNull(fulfillmentRead, "fulfillmentRead");
+        this.demandTaskStates = demandTaskStates;
         this.materialResolver = new WarehouseMaterialReferenceResolver();
         this.clock = Objects.requireNonNull(clock, "clock");
         this.transactionTemplate =
@@ -262,6 +290,7 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
         for (WarehouseDemandLine demandLine : demand.lines()) {
             outcomes.add(toOutcome(demandLine, plannedByDemandLineId.get(demandLine.id().value())));
         }
+        clearSupplyAssignmentIfNoLongerWaiting(demand);
         return new AcceptProductionDemandResult(
                 demand.id().value(), true, outcomes, documents);
     }
@@ -286,6 +315,7 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
                                         .map(MaterialReferenceId::value)
                                         .orElse(null)));
             }
+            clearSupplyAssignmentIfNoLongerWaiting(demand);
             return new RetryDemandRoutingResult(
                     demand.id().value(), orderedRetryOutcomes(demand, outcomeByLineId), List.of());
         }
@@ -490,8 +520,24 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
             }
         }
 
+        clearSupplyAssignmentIfNoLongerWaiting(demand);
         return new RetryDemandRoutingResult(
                 demand.id().value(), orderedRetryOutcomes(demand, outcomeByLineId), documents);
+    }
+
+    private void clearSupplyAssignmentIfNoLongerWaiting(WarehouseDemand demand) {
+        if (demandTaskStates == null) {
+            return;
+        }
+        Map<WarehouseDemandLineId, BigDecimal> receivedByLine =
+                fulfillmentRead.receivedQuantitiesByDemandLine(
+                        demand.id(), demand.destinationWarehouseId());
+        Set<WarehouseDemandLineId> activeLines =
+                fulfillmentRead.demandLinesWithActiveTransfer(demand.id());
+        if (!WarehouseDemandSupplyTaskRules.qualifiesForSupplyTask(
+                demand, receivedByLine, activeLines)) {
+            demandTaskStates.clear(demand.id().value());
+        }
     }
 
     private static List<RetryDemandLineResult> orderedRetryOutcomes(

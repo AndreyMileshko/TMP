@@ -143,4 +143,13 @@ public interface WarehouseCommandApi {
      * supply userId). Not an exclusive lock — another responsible user may take over.
      */
     WarehouseTaskView takeTransferTaskInWork(UUID documentId);
+
+    /**
+     * Informational «Взять в работу» / takeover for a Demand-backed production material supply task
+     * (B3B-3C1). Assignment only — does not route, create Transfer, or mutate stock. Takeover
+     * allowed for any authorized non-production warehouse responsible user.
+     */
+    default WarehouseTaskView takeDemandSupplyTaskInWork(UUID demandId) {
+        throw new UnsupportedOperationException("takeDemandSupplyTaskInWork");
+    }
 }

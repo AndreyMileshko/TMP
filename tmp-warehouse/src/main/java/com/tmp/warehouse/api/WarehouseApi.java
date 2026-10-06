@@ -399,13 +399,22 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     }
 
     /**
-     * Stage 3.5 task kinds: preparation (DRAFT), receipt (POSTED+AWAITING_RECEIPT), return materials
-     * (POSTED+RETURN_PENDING). Physical return action is Stage 3.5.8.3.
+     * Stage 3.5 / B3B-3C1 task kinds: preparation (DRAFT), receipt (POSTED+AWAITING_RECEIPT),
+     * return materials (POSTED+RETURN_PENDING), and Demand-backed production material supply when
+     * uncovered WAITING lines exist. Physical return action is Stage 3.5.8.3. Supply action
+     * «Подготовить перемещение» is B3B-3C2.
      */
     enum WarehouseTaskKind {
         TRANSFER_PREPARATION,
         TRANSFER_RECEIPT,
-        RETURN_MATERIALS
+        RETURN_MATERIALS,
+        PRODUCTION_MATERIAL_SUPPLY
+    }
+
+    /** Typed operational-task source identity (B3B-3C1). */
+    enum WarehouseTaskSource {
+        TRANSFER_DOCUMENT,
+        WAREHOUSE_DEMAND
     }
 
     /** Derived informational task state: no assignment row → NEW; assignment present → IN_WORK. */
@@ -415,16 +424,22 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     }
 
     /**
-     * Compact operational inbox projection over a {@code warehouse.transfer} document.
-     * Task identity is {@code documentId}. Worker fields are opaque Security UUIDs / timestamps.
-     * {@code createdAt} is the authoritative moment this projected task became actionable
-     * (preparation = document create; receipt = settlement create at Send; return = settlement
-     * update into RETURN_PENDING) — not reused document createdAt across phases.
-     * For {@code RETURN_MATERIALS}, {@code settlementDecision}/{@code rejectionReason} expose
-     * reject metadata when decision is {@code REJECTED}.
+     * Compact operational inbox projection.
+     *
+     * <p>Transfer-backed tasks use {@link WarehouseTaskSource#TRANSFER_DOCUMENT} with
+     * {@code documentId}. Demand-backed supply tasks use {@link
+     * WarehouseTaskSource#WAREHOUSE_DEMAND} with {@code demandId} (never faked as documentId).
+     * Worker fields are opaque Security UUIDs / timestamps. {@code createdAt} is the authoritative
+     * moment this projected task became actionable (preparation = document create; receipt =
+     * settlement create at Send; return = settlement update into RETURN_PENDING; supply = Demand
+     * acceptedAt) — not reused document createdAt across phases. For {@code RETURN_MATERIALS},
+     * {@code settlementDecision}/{@code rejectionReason} expose reject metadata when decision is
+     * {@code REJECTED}. Supply tasks have no source warehouse yet ({@code sourceWarehouseId} null).
      */
     record WarehouseTaskView(
+            WarehouseTaskSource taskSource,
             UUID documentId,
+            UUID demandId,
             String documentNumber,
             String sourceOrderNumber,
             WarehouseTaskKind taskKind,
@@ -447,16 +462,48 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             String rejectionReason) {
 
         public WarehouseTaskView {
-            java.util.Objects.requireNonNull(documentId, "documentId");
-            java.util.Objects.requireNonNull(documentNumber, "documentNumber");
+            java.util.Objects.requireNonNull(taskSource, "taskSource");
             java.util.Objects.requireNonNull(taskKind, "taskKind");
             java.util.Objects.requireNonNull(taskState, "taskState");
-            java.util.Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
             java.util.Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
             java.util.Objects.requireNonNull(createdAt, "createdAt");
             if (lineCount < 0) {
                 throw new IllegalArgumentException("lineCount must not be negative");
             }
+            switch (taskSource) {
+                case TRANSFER_DOCUMENT -> {
+                    java.util.Objects.requireNonNull(documentId, "documentId");
+                    java.util.Objects.requireNonNull(documentNumber, "documentNumber");
+                    java.util.Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+                    if (demandId != null) {
+                        throw new IllegalArgumentException(
+                                "demandId must be null for TRANSFER_DOCUMENT tasks");
+                    }
+                    if (taskKind == WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY) {
+                        throw new IllegalArgumentException(
+                                "PRODUCTION_MATERIAL_SUPPLY requires WAREHOUSE_DEMAND source");
+                    }
+                }
+                case WAREHOUSE_DEMAND -> {
+                    java.util.Objects.requireNonNull(demandId, "demandId");
+                    if (documentId != null) {
+                        throw new IllegalArgumentException(
+                                "documentId must be null for WAREHOUSE_DEMAND tasks");
+                    }
+                    if (taskKind != WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY) {
+                        throw new IllegalArgumentException(
+                                "WAREHOUSE_DEMAND source requires PRODUCTION_MATERIAL_SUPPLY");
+                    }
+                    if (documentNumber == null || documentNumber.isBlank()) {
+                        documentNumber = "—";
+                    }
+                }
+            }
+        }
+
+        /** Stable sort/identity key: document id for transfers, demand id for supply tasks. */
+        public UUID taskIdentity() {
+            return taskSource == WarehouseTaskSource.WAREHOUSE_DEMAND ? demandId : documentId;
         }
     }
 

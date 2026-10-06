@@ -46,6 +46,7 @@ import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellFilterOptionView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellLineView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellPage;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskKind;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskSource;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskState;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
@@ -2272,7 +2273,9 @@ class WarehouseWorkspaceViewModelTest {
             UUID workingUserId,
             Instant createdAt) {
         return new WarehouseTaskView(
+                WarehouseTaskSource.TRANSFER_DOCUMENT,
                 documentId,
+                null,
                 number,
                 sourceOrderNumber,
                 kind,

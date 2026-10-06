@@ -34,6 +34,7 @@ import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellFilterOptionView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellLineView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellPage;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskKind;
+import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskSource;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskState;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
@@ -473,7 +474,9 @@ public final class WarehouseWorkspaceViewModel {
 
     public static final class TaskRow {
 
+        private final WarehouseTaskSource taskSource;
         private final UUID documentId;
+        private final UUID demandId;
         private final WarehouseTaskKind taskKind;
         private final WarehouseTaskState taskState;
         private final UUID workingUserId;
@@ -490,7 +493,9 @@ public final class WarehouseWorkspaceViewModel {
         private final String workerDisplay;
 
         TaskRow(WarehouseTaskView view, String workerLogin) {
+            this.taskSource = view.taskSource();
             this.documentId = view.documentId();
+            this.demandId = view.demandId();
             this.taskKind = view.taskKind();
             this.taskState = view.taskState();
             this.workingUserId = view.workingUserId();
@@ -508,14 +513,29 @@ public final class WarehouseWorkspaceViewModel {
             this.destinationWarehouseLabel =
                     formatWarehouse(
                             view.destinationWarehouseCode(), view.destinationWarehouseName());
-            this.routeLabel = sourceWarehouseLabel + " → " + destinationWarehouseLabel;
+            this.routeLabel =
+                    view.taskKind() == WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY
+                            ? destinationWarehouseLabel
+                            : sourceWarehouseLabel + " → " + destinationWarehouseLabel;
             this.lineCount = view.lineCount();
             this.workerDisplay =
                     formatWorkerDisplay(view.taskState(), view.workingUserId(), workerLogin);
         }
 
+        public WarehouseTaskSource taskSource() {
+            return taskSource;
+        }
+
         public UUID documentId() {
             return documentId;
+        }
+
+        public UUID demandId() {
+            return demandId;
+        }
+
+        public UUID taskIdentity() {
+            return taskSource == WarehouseTaskSource.WAREHOUSE_DEMAND ? demandId : documentId;
         }
 
         public WarehouseTaskKind taskKind() {
@@ -583,6 +603,7 @@ public final class WarehouseWorkspaceViewModel {
                 case TRANSFER_PREPARATION -> "Подготовка";
                 case TRANSFER_RECEIPT -> "Приёмка";
                 case RETURN_MATERIALS -> "Возврат";
+                case PRODUCTION_MATERIAL_SUPPLY -> "Подать материалы в производство";
             };
         }
 
@@ -595,7 +616,7 @@ public final class WarehouseWorkspaceViewModel {
 
         private static String formatWarehouse(String code, String name) {
             if (code == null || code.isBlank()) {
-                return name == null ? "" : name;
+                return name == null || name.isBlank() ? "—" : name;
             }
             if (name == null || name.isBlank()) {
                 return code;
@@ -1198,13 +1219,19 @@ public final class WarehouseWorkspaceViewModel {
         if (row == null || !canTakeSelectedTaskInWork.get() || commandInFlight.get()) {
             return;
         }
+        WarehouseTaskSource source = row.taskSource();
         UUID documentId = row.documentId();
+        UUID demandId = row.demandId();
         commandInFlight.set(true);
         errorMessage.set("");
         backgroundExecutor.execute(
                 () -> {
                     try {
-                        warehouseApi.takeTransferTaskInWork(documentId);
+                        if (source == WarehouseTaskSource.WAREHOUSE_DEMAND) {
+                            warehouseApi.takeDemandSupplyTaskInWork(demandId);
+                        } else {
+                            warehouseApi.takeTransferTaskInWork(documentId);
+                        }
                         uiExecutor.accept(
                                 () -> {
                                     commandInFlight.set(false);
@@ -1893,7 +1920,8 @@ public final class WarehouseWorkspaceViewModel {
         if (selectedTab.get() == WorkspaceTab.TASKS) {
             loading.set(false);
         }
-        UUID previousSelection = selectedTask.get() == null ? null : selectedTask.get().documentId();
+        UUID previousSelection =
+                selectedTask.get() == null ? null : selectedTask.get().taskIdentity();
         List<TaskRow> rows = new ArrayList<>();
         for (WarehouseTaskView task : tasks) {
             String workerLogin = sessionLoginMatching(task.workingUserId());
@@ -1906,7 +1934,7 @@ public final class WarehouseWorkspaceViewModel {
                 previousSelection == null
                         ? null
                         : rows.stream()
-                                .filter(r -> previousSelection.equals(r.documentId()))
+                                .filter(r -> previousSelection.equals(r.taskIdentity()))
                                 .findFirst()
                                 .orElse(null);
         selectedTask.set(restored);
@@ -1971,6 +1999,10 @@ public final class WarehouseWorkspaceViewModel {
             taskDetailsText.set(TASK_DETAILS_PLACEHOLDER);
             return;
         }
+        if (row.taskKind() == WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY) {
+            loadSelectedSupplyTaskDetails(row);
+            return;
+        }
         UUID documentId = row.documentId();
         WarehouseTaskKind kind = row.taskKind();
         long requestId = ++taskDetailLoadGeneration;
@@ -1984,6 +2016,43 @@ public final class WarehouseWorkspaceViewModel {
                         DetailPackage detail = loadDetailPackage(kind, document);
                         uiExecutor.accept(
                                 () -> applyTaskDetailPackage(document, detail, row, requestId));
+                    } catch (RuntimeException ex) {
+                        uiExecutor.accept(() -> applyTaskDetailError(row, ex, requestId));
+                    }
+                });
+    }
+
+    private void loadSelectedSupplyTaskDetails(TaskRow row) {
+        long requestId = ++taskDetailLoadGeneration;
+        taskDetailsText.set(formatTaskHeader(row, null));
+        taskDetailLoading.set(true);
+        loadedDocument = null;
+        loadedReturnPlan = List.of();
+        actionCellChoices.clear();
+        actionLines.clear();
+        backgroundExecutor.execute(
+                () -> {
+                    try {
+                        String details =
+                                formatTaskHeader(row, null)
+                                        + "\nОжидает обеспечения: "
+                                        + row.lineCount()
+                                        + " материал(ов).\nДействие «Подготовить перемещение» — в следующей фазе.";
+                        uiExecutor.accept(
+                                () -> {
+                                    if (requestId != taskDetailLoadGeneration
+                                            || !Objects.equals(selectedTask.get(), row)) {
+                                        return;
+                                    }
+                                    taskDetailLoading.set(false);
+                                    taskDetailsText.set(details);
+                                    updateTransferActionsHint();
+                                    updateActionAvailability();
+                                    Runnable detailsLoaded = afterTaskDetailsLoaded;
+                                    if (detailsLoaded != null) {
+                                        detailsLoaded.run();
+                                    }
+                                });
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(() -> applyTaskDetailError(row, ex, requestId));
                     }
@@ -2020,6 +2089,9 @@ public final class WarehouseWorkspaceViewModel {
                         loadActiveCellChoices(document.sourceWarehouseId());
                 yield new DetailPackage(List.of(), plan, cells);
             }
+            case PRODUCTION_MATERIAL_SUPPLY ->
+                    throw new IllegalStateException(
+                            "PRODUCTION_MATERIAL_SUPPLY does not load transfer document details");
         };
     }
 
@@ -2048,6 +2120,7 @@ public final class WarehouseWorkspaceViewModel {
                     case TRANSFER_PREPARATION -> buildSourceRows(detail.suggestions(), detail.cells());
                     case TRANSFER_RECEIPT -> buildReceiveRows(document);
                     case RETURN_MATERIALS -> buildReturnRows(detail.returnPlan(), detail.cells());
+                    case PRODUCTION_MATERIAL_SUPPLY -> List.of();
                 };
         actionLines.setAll(rows);
         updateTransferActionsHint();
@@ -2247,6 +2320,8 @@ public final class WarehouseWorkspaceViewModel {
                     case TRANSFER_PREPARATION -> HINT_PREPARATION;
                     case TRANSFER_RECEIPT -> HINT_RECEIPT;
                     case RETURN_MATERIALS -> HINT_RETURN;
+                    case PRODUCTION_MATERIAL_SUPPLY ->
+                            "Взять в работу — информационное назначение. Подготовка перемещения — в следующей фазе.";
                 });
     }
 

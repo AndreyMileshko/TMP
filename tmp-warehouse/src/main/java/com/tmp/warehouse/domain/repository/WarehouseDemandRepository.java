@@ -23,6 +23,12 @@ public interface WarehouseDemandRepository {
     Optional<WarehouseDemand> findBySourceMaterialRequirementId(UUID sourceMaterialRequirementId);
 
     /**
+     * Non-cancelled Demands with lines (B3B-3C1 inbox batch). Does not load Transfer links or
+     * history — fulfillment facts are joined separately.
+     */
+    List<WarehouseDemand> findAllNonCancelled();
+
+    /**
      * Loads the demand header with {@code SELECT … FOR UPDATE} for future cancel/receive/routing
      * serialization.
      */

@@ -64,12 +64,13 @@ public final class WarehouseTaskDialogSupport {
             case TRANSFER_PREPARATION -> "Подготовка материалов";
             case TRANSFER_RECEIPT -> "Приёмка материалов";
             case RETURN_MATERIALS -> "Возврат материалов";
+            case PRODUCTION_MATERIAL_SUPPLY -> "Подать материалы в производство";
         };
     }
 
     public static String referenceQuantityHeader(WarehouseTaskKind kind) {
         return switch (kind) {
-            case TRANSFER_PREPARATION -> "Требуется";
+            case TRANSFER_PREPARATION, PRODUCTION_MATERIAL_SUPPLY -> "Требуется";
             case TRANSFER_RECEIPT -> "Отправлено";
             case RETURN_MATERIALS -> "К возврату";
         };

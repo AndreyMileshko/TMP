@@ -136,6 +136,7 @@ class WarehouseDemandRetryRoutingIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM warehouse.demand_task_state");
         jdbc.update("DELETE FROM warehouse.warehouse_demand_transfer_links");
         jdbc.update("DELETE FROM warehouse.warehouse_demand_lines");
         jdbc.update("DELETE FROM warehouse.warehouse_demands");
@@ -845,6 +846,11 @@ class WarehouseDemandRetryRoutingIntegrationTest {
         public Optional<WarehouseDemand> findBySourceMaterialRequirementId(
                 UUID sourceMaterialRequirementId) {
             return delegate.findBySourceMaterialRequirementId(sourceMaterialRequirementId);
+        }
+
+        @Override
+        public List<WarehouseDemand> findAllNonCancelled() {
+            return delegate.findAllNonCancelled();
         }
 
         @Override

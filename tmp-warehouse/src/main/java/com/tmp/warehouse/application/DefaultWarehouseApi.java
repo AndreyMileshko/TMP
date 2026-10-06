@@ -1658,6 +1658,13 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         return requireOperationalInbox().takeTransferTaskInWork(documentId);
     }
 
+    @Override
+    public WarehouseTaskView takeDemandSupplyTaskInWork(UUID demandId) {
+        Objects.requireNonNull(demandId, "demandId");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_TRANSFER);
+        return requireOperationalInbox().takeDemandSupplyTaskInWork(demandId);
+    }
+
     private WarehouseStockReadQuery requireStockRead() {
         if (stockRead == null) {
             throw new IllegalStateException("Warehouse stock read query is not configured");

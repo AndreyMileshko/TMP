@@ -123,6 +123,7 @@ class WarehouseDemandFulfillmentQueryIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM warehouse.demand_task_state");
         jdbc.update("DELETE FROM warehouse.warehouse_demand_transfer_links");
         jdbc.update("DELETE FROM warehouse.warehouse_demand_lines");
         jdbc.update("DELETE FROM warehouse.warehouse_demands");

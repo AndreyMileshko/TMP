@@ -3,6 +3,41 @@
 ## Latest result
 
 **Date:** 2026-10-06
+**Scope:** Stage 7 / Warehouse — B3B-3C1 Production Supply Tasks in Warehouse Inbox
+**Overall:** PASS
+**Migration:** V52 `warehouse.demand_task_state` (assignment only); V50/V51 unchanged
+**Base HEAD:** `241ea89239da9380209a5bea508408a23f3cdc34`
+**Working tree:** dirty (B3B-3C1 supply inbox + assignment + docs/tests); **no commit / no push**
+
+### B3B-3C1 checks (2026-10-06)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD + clean tree | PASS |
+| `WarehouseDemandSupplyTaskInboxIntegrationTest` | PASS (9) |
+| `WarehouseDemandSupplyTaskRulesTest` | PASS (3) |
+| `WarehouseOperationalInboxIntegrationTest` | PASS (17) |
+| `WarehouseDemandCommandApiIntegrationTest` | PASS |
+| `WarehouseDemandFulfillmentQueryIntegrationTest` | PASS |
+| `WarehouseDemandRetryRoutingIntegrationTest` | PASS |
+| `WarehouseDemandStatusDeriverTest` | PASS (8) |
+| `WarehouseWorkspaceViewModelTest` + `WarehouseTaskDialogSupportTest` | PASS (74+6) |
+| `Stage6WarehouseArchitectureTest` + `Stage7ProductionArchitectureTest` | PASS |
+| Full reactor | NOT RUN |
+| Package | NOT RUN |
+| Prepare-transfer action / Retry UX / Demand screen / cancel | NONE (deferred C2/C3 / B3B-3B2) |
+
+### Supply-task list query approach
+
+Batch: `findAllNonCancelled()` (2 SQL: headers + lines) + one received-qty aggregate + one active-Transfer scan over all open Demand ids + one assignment batch. No N×`getDemand()`.
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-10-06
 **Scope:** Stage 7 / Warehouse — B3B-3B1 Retry Warehouse Demand Routing
 **Overall:** PASS
 **Migration:** NO new migration; V50/V51 unchanged

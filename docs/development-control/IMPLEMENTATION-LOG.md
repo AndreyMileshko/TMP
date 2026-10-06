@@ -4,6 +4,38 @@
 
 ---
 
+## Stage 7 / Warehouse — B3B-3C1 Production Supply Tasks in Warehouse Inbox — 2026-10-06
+
+**Date:** 2026-10-06  
+**Stage:** 7 Production / Warehouse Phase B3B-3C1  
+**Base HEAD:** `241ea89239da9380209a5bea508408a23f3cdc34`  
+**Status:** PASS — STOP before C2; no commit / no push
+
+### Scope
+
+- Derived `PRODUCTION_MATERIAL_SUPPLY` («Подать материалы в производство») in existing Склад → Задачи inbox
+- Typed task source `WAREHOUSE_DEMAND` vs `TRANSFER_DOCUMENT`; Demand id never faked as documentId
+- Batch open-Demand projection + B3B-3A deriver reuse (line-granular ACTIVE Transfer duplicate prevention)
+- Visibility: ≥1 non-production warehouse responsibility; production-only users excluded
+- Informational take-in-work / takeover via `warehouse.demand_task_state` (Flyway V52)
+- `WarehouseDemandQueryApi.getDemandSupplyTask` — WAITING-line details for future C2/C3
+- Warehouse Spec §15.1.5 / v1.13; ADR-038 amendment B3B-3C1
+- Minimal UI list/kind/take wiring; no prepare-transfer action; no Retry UX
+
+### Explicitly not done
+
+- «Подготовить перемещение» action (C2) — will reuse `retryDemandRouting` engine
+- Warehouse UI details polish / dialog (C3)
+- Production cancellation → Demand cancellation (B3B-3B2)
+- Separate Demand screen / Material Catalog / reservation / background retry
+- Full reactor / package
+
+### Verification
+
+See VERIFICATION-LOG B3B-3C1 entry (2026-10-06).
+
+---
+
 ## Stage 7 / Warehouse — B3B-3B1 Retry Warehouse Demand Routing — 2026-10-06
 
 **Date:** 2026-10-06  

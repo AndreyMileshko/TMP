@@ -8,6 +8,7 @@ import com.tmp.warehouse.domain.WarehouseDemandId;
 import com.tmp.warehouse.domain.WarehouseDemandLine;
 import com.tmp.warehouse.domain.WarehouseDemandLineId;
 import com.tmp.warehouse.domain.WarehouseDemandStatusDeriver;
+import com.tmp.warehouse.domain.WarehouseDemandSupplyTaskRules;
 import com.tmp.warehouse.domain.WarehouseDemandTransferLink;
 import com.tmp.warehouse.domain.WarehouseDemandWaitingReason;
 import com.tmp.warehouse.domain.repository.WarehouseDemandRepository;
@@ -59,6 +60,52 @@ public final class DefaultWarehouseDemandQueryApi implements WarehouseDemandQuer
         return demands
                 .findBySourceMaterialRequirementId(sourceMaterialRequirementId)
                 .map(this::toView);
+    }
+
+    @Override
+    public Optional<WarehouseDemandSupplyTaskView> getDemandSupplyTask(UUID demandId) {
+        Objects.requireNonNull(demandId, "demandId");
+        return demands
+                .findById(WarehouseDemandId.of(demandId))
+                .flatMap(
+                        demand -> {
+                            Map<WarehouseDemandLineId, BigDecimal> receivedByLine =
+                                    fulfillmentRead.receivedQuantitiesByDemandLine(
+                                            demand.id(), demand.destinationWarehouseId());
+                            Set<WarehouseDemandLineId> activeLines =
+                                    fulfillmentRead.demandLinesWithActiveTransfer(demand.id());
+                            List<WarehouseDemandSupplyTaskRules.WaitingLine> waiting =
+                                    WarehouseDemandSupplyTaskRules.waitingLines(
+                                            demand, receivedByLine, activeLines);
+                            if (waiting.isEmpty()) {
+                                return Optional.empty();
+                            }
+                            List<WarehouseDemandSupplyWaitingLineView> lines =
+                                    waiting.stream()
+                                            .map(
+                                                    w ->
+                                                            new WarehouseDemandSupplyWaitingLineView(
+                                                                    w.line().id().value(),
+                                                                    w.line().materialCode(),
+                                                                    w.line().materialName(),
+                                                                    w.line().color(),
+                                                                    w.line().unitOfMeasure(),
+                                                                    w.line()
+                                                                            .lengthMm()
+                                                                            .orElse(null),
+                                                                    w.requiredQuantity(),
+                                                                    w.receivedQuantity(),
+                                                                    w.remainingQuantity(),
+                                                                    w.effectiveWaitingReason()
+                                                                            .name()))
+                                            .toList();
+                            return Optional.of(
+                                    new WarehouseDemandSupplyTaskView(
+                                            demand.id().value(),
+                                            demand.destinationWarehouseId().value(),
+                                            demand.acceptedAt(),
+                                            lines));
+                        });
     }
 
     private WarehouseDemandView toView(WarehouseDemand demand) {

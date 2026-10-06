@@ -107,6 +107,61 @@ public final class JdbcWarehouseDemandRepository implements WarehouseDemandRepos
     }
 
     @Override
+    public List<WarehouseDemand> findAllNonCancelled() {
+        List<HeaderRow> headers =
+                jdbc.query(
+                        """
+                        SELECT id, source_material_requirement_id, destination_warehouse_id,
+                               accepted_at, accepted_by, cancelled_at, cancelled_by, version
+                          FROM warehouse.warehouse_demands
+                         WHERE cancelled_at IS NULL
+                         ORDER BY accepted_at DESC, id
+                        """,
+                        (rs, rowNum) -> mapHeader(rs));
+        if (headers.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> demandIds = headers.stream().map(HeaderRow::id).toList();
+        String placeholders = String.join(",", java.util.Collections.nCopies(demandIds.size(), "?"));
+        String lineSql =
+                ("""
+                SELECT demand_id, id, source_material_requirement_line_id,
+                       material_code, material_name, color, unit_of_measure, length_mm,
+                       required_quantity, material_reference_id, waiting_reason
+                  FROM warehouse.warehouse_demand_lines
+                 WHERE demand_id IN (%s)
+                 ORDER BY demand_id, id
+                """)
+                        .formatted(placeholders);
+        java.util.Map<UUID, List<WarehouseDemandLine>> linesByDemand = new java.util.HashMap<>();
+        jdbc.query(
+                lineSql,
+                rs -> {
+                    UUID demandId = (UUID) rs.getObject("demand_id");
+                    linesByDemand
+                            .computeIfAbsent(demandId, ignored -> new java.util.ArrayList<>())
+                            .add(mapLine(rs));
+                },
+                demandIds.toArray());
+        List<WarehouseDemand> result = new java.util.ArrayList<>(headers.size());
+        for (HeaderRow header : headers) {
+            List<WarehouseDemandLine> lines = linesByDemand.getOrDefault(header.id(), List.of());
+            result.add(
+                    WarehouseDemand.of(
+                            WarehouseDemandId.of(header.id()),
+                            header.sourceMaterialRequirementId(),
+                            WarehouseId.of(header.destinationWarehouseId()),
+                            header.acceptedAt(),
+                            header.acceptedBy(),
+                            header.cancelledAt(),
+                            header.cancelledBy(),
+                            header.version(),
+                            lines));
+        }
+        return List.copyOf(result);
+    }
+
+    @Override
     public Optional<WarehouseDemand> lockById(WarehouseDemandId demandId) {
         Objects.requireNonNull(demandId, "demandId");
         return loadHeader(
