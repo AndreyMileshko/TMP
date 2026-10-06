@@ -423,7 +423,8 @@ Foundation (B3B-1) не подключает Production Submit, не созда�
 - Visibility: users with Warehouse task view permission who are responsible for **at least one non-production** warehouse. Production-only responsibility → no supply task. Destination/production warehouse is **not** the assignment target for supply.
 - Assignment: informational «Взять в работу» / takeover via `warehouse.demand_task_state` (Flyway V52). Same semantics as Transfer tasks (not exclusive lock). Take does **not** route, create Transfer, or mutate stock.
 - Details projection: `WarehouseDemandQueryApi.getDemandSupplyTask` — WAITING lines only (material identity, required/received/remaining, effective waiting reason).
-- Backend action «Подготовить перемещение» is available (C2). UI/dialog wiring of the action is C3. No Production cancellation integration, Material Catalog, reservation, or separate Demand receipt task.
+- UI (B3B-3C3): existing Склад → Задачи dialog — «Взять в работу» / takeover, then «Подготовить перемещение» via `WarehouseCommandApi.prepareProductionDemandTransfers`. No separate Demand screen; no warehouse picker; no Production receipt UI; no Retry UX. Master accepts materials via ordinary `TRANSFER_RECEIPT` in Склад → Задачи.
+- No Production cancellation integration, Material Catalog, reservation, or Demand withdrawal.
 
 ## 15.2 CURRENT IMPLEMENTATION (Stage 7 — until Stage 3.5 refactor)
 
@@ -647,3 +648,4 @@ Warehouse выполняет только складскую часть опер
 | 1.12 | B3B-3B1 / ADR-038 amendment: manual `retryDemandRouting` for WAITING lines only; remaining-quantity routing; material re-resolution; active-Transfer duplicate guard; no scheduler/UI/cancellation. |
 | 1.13 | B3B-3C1 / ADR-038 amendment: Demand-backed `PRODUCTION_MATERIAL_SUPPLY` in Склад → Задачи; typed `WAREHOUSE_DEMAND` task source; `demand_task_state` assignment (V52); no separate Demand screen; no Retry UX; no «Подготовить перемещение» yet. |
 | 1.14 | B3B-3C2 / ADR-038 amendment: «Подготовить перемещение» = `prepareProductionDemandTransfers`; reuses B3B-3B1 routing engine; Retry public API/DTOs removed; assignment cleanup when supply work ends; no UI wiring / migration / Production changes. |
+| 1.15 | B3B-3C3 / ADR-038 amendment: Warehouse Tasks UI wires Supply Task — take-in-work → «Подготовить перемещение»; waiting-line table; prepare result messages; no new screen / Production receipt / Retry UX / migration. |

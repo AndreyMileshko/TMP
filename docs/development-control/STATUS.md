@@ -3,10 +3,10 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**Post-closure Warehouse Demand:** **B3B-3C2 DONE** (2026-10-06) — «Подготовить перемещение» = `prepareProductionDemandTransfers`; Retry public API deleted; assignment cleanup; STOP before C3 UI wiring; no commit
+**Post-closure Warehouse Demand:** **B3B-3C3 DONE** (2026-10-06) — Supply Task UI in Склад → Задачи: take → «Подготовить перемещение»; STOP before C4; no commit
 **UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Final Regression & Checkpoint PASS 2026-09-28; awaiting manual confirmation; Write-off deferred)
-**Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS — Final Regression & Checkpoint PASS 2026-09-28; awaiting manual confirmation); B3B-3C2 prepare-transfers PASS awaiting review
-**Last completed task:** B3B-3C2 Normalize Supply Task prepare Transfers (2026-10-06) — `prepareProductionDemandTransfers`; Retry API/DTOs/tests removed; summary result; assignment cleanup; Spec §15.1.4 / ADR-038 amendment; no UI wiring / migration / Production; no commit
+**Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS — Final Regression & Checkpoint PASS 2026-09-28; awaiting manual confirmation); B3B-3C3 Supply Task UI PASS awaiting review
+**Last completed task:** B3B-3C3 Supply Task User Workflow UI (2026-10-06) — existing Tasks dialog; prepare via WarehouseCommandApi; waiting-line table; result messages; Spec §15.1.5 / ADR-038 amendment; no migration / Production; no commit
 **Stage 3.5 Checkpoint (2026-09-28):** PASS — `docs/development-control/STAGE-3.5-CHECKPOINT.md`; DB delta 0; Flyway 47; Full reactor NOT RUN
 **RBAC UX completion (2026-09-28):** PASS — User double-click card; roles + effective permissions (roles ∪ GRANT/REVOKE via `listEffectivePermissionsForUser` / EffectivePermissionCalculator); Roles assignment search no longer faded; Apply button dirty gating; no migration / no RBAC model change
 **RBAC audit immediate corrections (2026-09-28):** PASS — Security Administrator ensure Order (13) + Production (7); Order item Save UI requires `order.item.approve` on approve-path; Order Import UI requires full backend permission set; deferred: delete permissions, inventory, reservation, revision.create, role templates, analytics

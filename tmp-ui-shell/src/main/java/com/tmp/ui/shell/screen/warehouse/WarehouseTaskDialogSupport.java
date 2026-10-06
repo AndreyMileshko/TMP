@@ -1,6 +1,7 @@
 package com.tmp.ui.shell.screen.warehouse;
 
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ActionEditRow;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.SupplyWaitingLineRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.TaskRow;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskKind;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskState;
@@ -12,6 +13,7 @@ import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -30,7 +32,6 @@ import javafx.scene.control.TextFormatter;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-import javafx.beans.property.SimpleStringProperty;
 
 /**
  * Compact warehouse task dialog: header, material lines, contextual actions. Does not create
@@ -45,6 +46,9 @@ public final class WarehouseTaskDialogSupport {
     public static final String RECEIVE_BUTTON = "Принять";
     public static final String REJECT_BUTTON = "Отклонить";
     public static final String RETURN_BUTTON = "Вернуть материалы";
+    public static final String PREPARE_BUTTON = "Подготовить перемещение";
+    public static final String SUPPLY_EMPTY_PLACEHOLDER =
+            "Нет материалов, ожидающих обеспечения.";
 
     public static final List<String> COLUMN_HEADERS =
             List.of(
@@ -56,6 +60,17 @@ public final class WarehouseTaskDialogSupport {
                     "Ед.",
                     "Ячейка",
                     "Количество");
+
+    public static final List<String> SUPPLY_COLUMN_HEADERS =
+            List.of(
+                    "Материал",
+                    "Наименование",
+                    "Цвет",
+                    "Ед.",
+                    "Требуется",
+                    "Поступило",
+                    "Осталось",
+                    "Причина");
 
     private WarehouseTaskDialogSupport() {}
 
@@ -74,6 +89,24 @@ public final class WarehouseTaskDialogSupport {
             case TRANSFER_RECEIPT -> "Отправлено";
             case RETURN_MATERIALS -> "К возврату";
         };
+    }
+
+    /** Multi-line supply header: destination / created / assignee. No UUIDs. */
+    public static String supplyRouteHeader(TaskRow task) {
+        Objects.requireNonNull(task, "task");
+        return "Склад-получатель: "
+                + displayOrDash(task.destinationWarehouseLabel())
+                + "\nСоздано: "
+                + displayOrDash(task.createdAtText())
+                + "\nОтветственный: "
+                + displayOrDash(task.workerDisplay());
+    }
+
+    private static String displayOrDash(String value) {
+        if (value == null || value.isBlank()) {
+            return "—";
+        }
+        return value;
     }
 
     /**
@@ -121,16 +154,22 @@ public final class WarehouseTaskDialogSupport {
             BooleanProperty canReceive,
             BooleanProperty canReject,
             BooleanProperty canReturn,
+            BooleanProperty canPrepare,
             BooleanProperty detailLoading,
             Runnable onTake,
             Runnable onSend,
             Runnable onReceive,
             Consumer<String> onReject,
-            Runnable onReturn) {
+            Runnable onReturn,
+            Runnable onPrepare) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(actionLines, "actionLines");
         Objects.requireNonNull(cellChoices, "cellChoices");
         Objects.requireNonNull(editorsEnabled, "editorsEnabled");
+        Objects.requireNonNull(canPrepare, "canPrepare");
+        Objects.requireNonNull(onPrepare, "onPrepare");
+
+        boolean supply = task.taskKind() == WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY;
 
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle(TITLE);
@@ -144,7 +183,8 @@ public final class WarehouseTaskDialogSupport {
         Label titleLabel = new Label(dialogTitleFor(task.taskKind()));
         titleLabel.getStyleClass().add("tmp-screen-title");
 
-        Label routeLabel = new Label(task.routeLabel());
+        Label routeLabel =
+                new Label(supply ? supplyRouteHeader(task) : task.routeLabel());
         routeLabel.getStyleClass().add("tmp-text-muted");
         routeLabel.setWrapText(true);
 
@@ -162,49 +202,26 @@ public final class WarehouseTaskDialogSupport {
         errorLabel.setVisible(false);
         errorLabel.setManaged(false);
 
+        Label infoLabel = new Label();
+        infoLabel.getStyleClass().add("tmp-text-muted");
+        infoLabel.setWrapText(true);
+        infoLabel.setVisible(false);
+        infoLabel.setManaged(false);
+
         TableView<ActionEditRow> table = new TableView<>(actionLines);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         table.setPrefHeight(280);
-        table.setPlaceholder(new Label("Нет строк материалов"));
+        table.setPlaceholder(
+                new Label(supply ? SUPPLY_EMPTY_PLACEHOLDER : "Нет строк материалов"));
         VBox.setVgrow(table, Priority.ALWAYS);
 
-        TableColumn<ActionEditRow, String> articleCol = new TableColumn<>(COLUMN_HEADERS.get(0));
-        articleCol.setCellValueFactory(
-                c -> new SimpleStringProperty(nullToEmpty(c.getValue().article())));
-        TableColumn<ActionEditRow, String> nameCol = new TableColumn<>(COLUMN_HEADERS.get(1));
-        nameCol.setCellValueFactory(
-                c -> new SimpleStringProperty(nullToEmpty(c.getValue().name())));
-        TableColumn<ActionEditRow, String> colorCol = new TableColumn<>(COLUMN_HEADERS.get(2));
-        colorCol.setCellValueFactory(
-                c -> new SimpleStringProperty(nullToEmpty(c.getValue().color())));
-        TableColumn<ActionEditRow, String> sizeCol = new TableColumn<>(COLUMN_HEADERS.get(3));
-        sizeCol.setCellValueFactory(
-                c -> new SimpleStringProperty(nullToEmpty(c.getValue().size())));
-        TableColumn<ActionEditRow, String> refQtyCol =
-                new TableColumn<>(referenceQuantityHeader(task.taskKind()));
-        refQtyCol.setCellValueFactory(
-                c -> new SimpleStringProperty(c.getValue().referenceQuantityText()));
-        TableColumn<ActionEditRow, String> unitCol = new TableColumn<>(COLUMN_HEADERS.get(5));
-        unitCol.setCellValueFactory(
-                c -> new SimpleStringProperty(nullToEmpty(c.getValue().unitOfMeasure())));
-        TableColumn<ActionEditRow, StorageCellChoice> cellCol =
-                new TableColumn<>(COLUMN_HEADERS.get(6));
-        cellCol.setCellValueFactory(c -> c.getValue().storageCellProperty());
-        cellCol.setCellFactory(col -> cellComboCell(cellChoices, editorsEnabled));
-        TableColumn<ActionEditRow, String> qtyCol = new TableColumn<>(COLUMN_HEADERS.get(7));
-        qtyCol.setCellValueFactory(c -> c.getValue().quantityTextProperty());
-        qtyCol.setCellFactory(col -> quantityCell(editorsEnabled));
-
-        table.getColumns()
-                .setAll(
-                        articleCol,
-                        nameCol,
-                        colorCol,
-                        sizeCol,
-                        refQtyCol,
-                        unitCol,
-                        cellCol,
-                        qtyCol);
+        TableColumn<ActionEditRow, String> refQtyCol;
+        if (supply) {
+            refQtyCol = configureSupplyColumns(table);
+        } else {
+            refQtyCol =
+                    configureTransferColumns(table, task, cellChoices, editorsEnabled);
+        }
 
         Button takeButton = new Button(TAKE_BUTTON);
         takeButton.getStyleClass().add("tmp-button-secondary");
@@ -212,6 +229,13 @@ public final class WarehouseTaskDialogSupport {
         takeButton.visibleProperty().bind(canTake);
         takeButton.managedProperty().bind(canTake);
         takeButton.setOnAction(e -> onTake.run());
+
+        Button prepareButton = new Button(PREPARE_BUTTON);
+        prepareButton.getStyleClass().add("tmp-button-primary");
+        prepareButton.disableProperty().bind(canPrepare.not());
+        prepareButton.visibleProperty().bind(canPrepare);
+        prepareButton.managedProperty().bind(canPrepare);
+        prepareButton.setOnAction(e -> onPrepare.run());
 
         Button sendButton = new Button(SEND_BUTTON);
         sendButton.getStyleClass().add("tmp-button-primary");
@@ -246,7 +270,14 @@ public final class WarehouseTaskDialogSupport {
         returnButton.setOnAction(e -> onReturn.run());
 
         HBox actions =
-                new HBox(8, takeButton, sendButton, receiveButton, rejectButton, returnButton);
+                new HBox(
+                        8,
+                        takeButton,
+                        prepareButton,
+                        sendButton,
+                        receiveButton,
+                        rejectButton,
+                        returnButton);
         actions.setAlignment(Pos.CENTER_LEFT);
 
         VBox root =
@@ -258,6 +289,7 @@ public final class WarehouseTaskDialogSupport {
                         loadingLabel,
                         table,
                         actions,
+                        infoLabel,
                         errorLabel);
         root.setPadding(new Insets(12));
         dialog.getDialogPane().setContent(root);
@@ -271,7 +303,131 @@ public final class WarehouseTaskDialogSupport {
                 });
 
         return new TaskDialogSession(
-                dialog, closeType, titleLabel, routeLabel, orderLabel, refQtyCol, errorLabel, table);
+                dialog,
+                closeType,
+                titleLabel,
+                routeLabel,
+                orderLabel,
+                refQtyCol,
+                errorLabel,
+                infoLabel,
+                table);
+    }
+
+    private static TableColumn<ActionEditRow, String> configureTransferColumns(
+            TableView<ActionEditRow> table,
+            TaskRow task,
+            ObservableList<StorageCellChoice> cellChoices,
+            BooleanProperty editorsEnabled) {
+        TableColumn<ActionEditRow, String> articleCol = new TableColumn<>(COLUMN_HEADERS.get(0));
+        articleCol.setCellValueFactory(
+                c -> new SimpleStringProperty(nullToEmpty(c.getValue().article())));
+        TableColumn<ActionEditRow, String> nameCol = new TableColumn<>(COLUMN_HEADERS.get(1));
+        nameCol.setCellValueFactory(
+                c -> new SimpleStringProperty(nullToEmpty(c.getValue().name())));
+        TableColumn<ActionEditRow, String> colorCol = new TableColumn<>(COLUMN_HEADERS.get(2));
+        colorCol.setCellValueFactory(
+                c -> new SimpleStringProperty(nullToEmpty(c.getValue().color())));
+        TableColumn<ActionEditRow, String> sizeCol = new TableColumn<>(COLUMN_HEADERS.get(3));
+        sizeCol.setCellValueFactory(
+                c -> new SimpleStringProperty(nullToEmpty(c.getValue().size())));
+        TableColumn<ActionEditRow, String> refQtyCol =
+                new TableColumn<>(referenceQuantityHeader(task.taskKind()));
+        refQtyCol.setCellValueFactory(
+                c -> new SimpleStringProperty(c.getValue().referenceQuantityText()));
+        TableColumn<ActionEditRow, String> unitCol = new TableColumn<>(COLUMN_HEADERS.get(5));
+        unitCol.setCellValueFactory(
+                c -> new SimpleStringProperty(nullToEmpty(c.getValue().unitOfMeasure())));
+        TableColumn<ActionEditRow, StorageCellChoice> cellCol =
+                new TableColumn<>(COLUMN_HEADERS.get(6));
+        cellCol.setCellValueFactory(c -> c.getValue().storageCellProperty());
+        cellCol.setCellFactory(col -> cellComboCell(cellChoices, editorsEnabled));
+        TableColumn<ActionEditRow, String> qtyCol = new TableColumn<>(COLUMN_HEADERS.get(7));
+        qtyCol.setCellValueFactory(c -> c.getValue().quantityTextProperty());
+        qtyCol.setCellFactory(col -> quantityCell(editorsEnabled));
+        table.getColumns()
+                .setAll(
+                        articleCol,
+                        nameCol,
+                        colorCol,
+                        sizeCol,
+                        refQtyCol,
+                        unitCol,
+                        cellCol,
+                        qtyCol);
+        return refQtyCol;
+    }
+
+    private static TableColumn<ActionEditRow, String> configureSupplyColumns(
+            TableView<ActionEditRow> table) {
+        TableColumn<ActionEditRow, String> materialCol =
+                new TableColumn<>(SUPPLY_COLUMN_HEADERS.get(0));
+        materialCol.setCellValueFactory(
+                c -> new SimpleStringProperty(dashIfBlank(c.getValue().article())));
+        TableColumn<ActionEditRow, String> nameCol =
+                new TableColumn<>(SUPPLY_COLUMN_HEADERS.get(1));
+        nameCol.setCellValueFactory(
+                c -> {
+                    String name = dashIfBlank(c.getValue().name());
+                    String lengthHint =
+                            c.getValue() instanceof SupplyWaitingLineRow supply
+                                    ? supply.lengthHint()
+                                    : "";
+                    if (lengthHint.isBlank()) {
+                        return new SimpleStringProperty(name);
+                    }
+                    if ("—".equals(name)) {
+                        return new SimpleStringProperty(lengthHint);
+                    }
+                    return new SimpleStringProperty(name + " (" + lengthHint + ")");
+                });
+        TableColumn<ActionEditRow, String> colorCol =
+                new TableColumn<>(SUPPLY_COLUMN_HEADERS.get(2));
+        colorCol.setCellValueFactory(
+                c -> new SimpleStringProperty(dashIfBlank(c.getValue().color())));
+        TableColumn<ActionEditRow, String> unitCol =
+                new TableColumn<>(SUPPLY_COLUMN_HEADERS.get(3));
+        unitCol.setCellValueFactory(
+                c -> new SimpleStringProperty(dashIfBlank(c.getValue().unitOfMeasure())));
+        TableColumn<ActionEditRow, String> requiredCol =
+                new TableColumn<>(SUPPLY_COLUMN_HEADERS.get(4));
+        requiredCol.setCellValueFactory(
+                c -> new SimpleStringProperty(c.getValue().referenceQuantityText()));
+        TableColumn<ActionEditRow, String> receivedCol =
+                new TableColumn<>(SUPPLY_COLUMN_HEADERS.get(5));
+        receivedCol.setCellValueFactory(
+                c ->
+                        new SimpleStringProperty(
+                                c.getValue() instanceof SupplyWaitingLineRow supply
+                                        ? supply.receivedQuantityText()
+                                        : ""));
+        TableColumn<ActionEditRow, String> remainingCol =
+                new TableColumn<>(SUPPLY_COLUMN_HEADERS.get(6));
+        remainingCol.setCellValueFactory(
+                c ->
+                        new SimpleStringProperty(
+                                c.getValue() instanceof SupplyWaitingLineRow supply
+                                        ? supply.remainingQuantityText()
+                                        : ""));
+        TableColumn<ActionEditRow, String> reasonCol =
+                new TableColumn<>(SUPPLY_COLUMN_HEADERS.get(7));
+        reasonCol.setCellValueFactory(
+                c ->
+                        new SimpleStringProperty(
+                                c.getValue() instanceof SupplyWaitingLineRow supply
+                                        ? supply.reasonLabel()
+                                        : ""));
+        table.getColumns()
+                .setAll(
+                        materialCol,
+                        nameCol,
+                        colorCol,
+                        unitCol,
+                        requiredCol,
+                        receivedCol,
+                        remainingCol,
+                        reasonCol);
+        return requiredCol;
     }
 
     public static void refreshHeader(TaskDialogSession session, TaskRow task) {
@@ -279,9 +435,22 @@ public final class WarehouseTaskDialogSupport {
             return;
         }
         session.titleLabel().setText(dialogTitleFor(task.taskKind()));
-        session.routeLabel().setText(task.routeLabel());
+        if (task.taskKind() == WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY) {
+            session.routeLabel().setText(supplyRouteHeader(task));
+        } else {
+            session.routeLabel().setText(task.routeLabel());
+        }
         updateOrderLabel(session.orderLabel(), task);
-        session.referenceQuantityColumn().setText(referenceQuantityHeader(task.taskKind()));
+        if (session.referenceQuantityColumn() != null) {
+            session.referenceQuantityColumn().setText(referenceQuantityHeader(task.taskKind()));
+        }
+    }
+
+    private static String dashIfBlank(String value) {
+        if (value == null || value.isBlank()) {
+            return "—";
+        }
+        return value;
     }
 
     private static void updateOrderLabel(Label orderLabel, TaskRow task) {
@@ -442,6 +611,7 @@ public final class WarehouseTaskDialogSupport {
         private final Label orderLabel;
         private final TableColumn<ActionEditRow, String> referenceQuantityColumn;
         private final Label errorLabel;
+        private final Label infoLabel;
         private final TableView<ActionEditRow> table;
 
         TaskDialogSession(
@@ -452,6 +622,7 @@ public final class WarehouseTaskDialogSupport {
                 Label orderLabel,
                 TableColumn<ActionEditRow, String> referenceQuantityColumn,
                 Label errorLabel,
+                Label infoLabel,
                 TableView<ActionEditRow> table) {
             this.dialog = dialog;
             this.closeType = closeType;
@@ -460,6 +631,7 @@ public final class WarehouseTaskDialogSupport {
             this.orderLabel = orderLabel;
             this.referenceQuantityColumn = referenceQuantityColumn;
             this.errorLabel = errorLabel;
+            this.infoLabel = infoLabel;
             this.table = table;
         }
 
@@ -496,6 +668,7 @@ public final class WarehouseTaskDialogSupport {
                 clearError();
                 return;
             }
+            clearInfo();
             errorLabel.setText(message);
             errorLabel.setVisible(true);
             errorLabel.setManaged(true);
@@ -505,6 +678,23 @@ public final class WarehouseTaskDialogSupport {
             errorLabel.setText("");
             errorLabel.setVisible(false);
             errorLabel.setManaged(false);
+        }
+
+        public void showInfo(String message) {
+            if (message == null || message.isBlank()) {
+                clearInfo();
+                return;
+            }
+            clearError();
+            infoLabel.setText(message);
+            infoLabel.setVisible(true);
+            infoLabel.setManaged(true);
+        }
+
+        public void clearInfo() {
+            infoLabel.setText("");
+            infoLabel.setVisible(false);
+            infoLabel.setManaged(false);
         }
 
         public void close() {

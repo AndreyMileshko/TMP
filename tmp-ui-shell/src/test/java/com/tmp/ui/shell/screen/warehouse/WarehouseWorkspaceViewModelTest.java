@@ -15,6 +15,7 @@ import com.tmp.security.api.PermissionId;
 import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.order.worklist.DateTimePresentation;
 import com.tmp.ui.shell.screen.warehouse.WarehouseUiErrorMapper;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.SupplyWaitingLineRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReceiveAllocationEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReturnAllocationEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.SourceAllocationEditRow;
@@ -25,6 +26,8 @@ import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
 import com.tmp.warehouse.api.WarehouseApi.OperationResult;
+import com.tmp.warehouse.api.WarehouseApi.PrepareProductionDemandTransfersResult;
+import com.tmp.warehouse.api.WarehouseApi.PreparedTransferDocument;
 import com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.RejectTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.ReturnTransferMaterialsCommand;
@@ -42,6 +45,10 @@ import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceAllocationInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
+import com.tmp.warehouse.api.WarehouseDemandQueryApi;
+import com.tmp.warehouse.api.WarehouseDemandQueryApi.WarehouseDemandSupplyTaskView;
+import com.tmp.warehouse.api.WarehouseDemandQueryApi.WarehouseDemandSupplyWaitingLineView;
+import com.tmp.warehouse.api.WarehouseDemandQueryApi.WarehouseDemandView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellFilterOptionView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellLineView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseStockCellPage;
@@ -63,7 +70,14 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Optional;
+import com.tmp.security.api.AuthenticationService;
+import com.tmp.security.api.Login;
+import com.tmp.security.api.SessionId;
+import com.tmp.security.api.SessionSummary;
+import com.tmp.security.api.UserId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -1947,6 +1961,276 @@ class WarehouseWorkspaceViewModelTest {
         assertTrue(viewModel.canMoveSelectedStockProperty().get());
     }
 
+    @Test
+    void supplyTaskNewShowsTakeWithoutPrepare() {
+        UUID destId = UUID.randomUUID();
+        UUID demandId = UUID.randomUUID();
+        FakeDemandQuery demandQuery = new FakeDemandQuery();
+        demandQuery.tasks.put(
+                demandId,
+                supplyDetail(
+                        demandId,
+                        destId,
+                        waitingLine("ART-1", "Name", "NO_AVAILABLE_STOCK", "10", "0", "10")));
+        api.warehouses.add(new WarehouseView(destId, "PROD", "Production", true));
+        api.tasks.add(supplyTask(demandId, destId, WarehouseTaskState.NEW, null));
+        viewModel =
+                new WarehouseWorkspaceViewModel(
+                        api, transferAuth(), null, demandQuery, Runnable::run, Runnable::run);
+        viewModel.onScreenOpened();
+        TaskRow row = viewModel.taskRows().get(0);
+        assertEquals("Подать материалы в производство", row.kindLabel());
+        assertFalse(row.routeLabel().contains("→"));
+        viewModel.openTaskDialogDetails(row);
+
+        assertTrue(viewModel.canTakeSelectedTaskInWorkProperty().get());
+        assertFalse(viewModel.canPrepareSelectedSupplyTaskProperty().get());
+        assertEquals(1, viewModel.actionLines().size());
+        SupplyWaitingLineRow line = (SupplyWaitingLineRow) viewModel.actionLines().get(0);
+        assertEquals("ART-1", line.article());
+        assertEquals("Name", line.name());
+        assertEquals("Нет доступного остатка", line.reasonLabel());
+        assertFalse(viewModel.taskDetailsTextProperty().get().contains(demandId.toString()));
+    }
+
+    @Test
+    void supplyTaskTakeInWorkThenPrepareAvailable() {
+        UUID destId = UUID.randomUUID();
+        UUID demandId = UUID.randomUUID();
+        FakeDemandQuery demandQuery = new FakeDemandQuery();
+        demandQuery.tasks.put(
+                demandId,
+                supplyDetail(
+                        demandId,
+                        destId,
+                        waitingLine("ART-1", "Name", "NO_AVAILABLE_STOCK", "10", "4", "6")));
+        api.warehouses.add(new WarehouseView(destId, "PROD", "Production", true));
+        api.tasks.add(supplyTask(demandId, destId, WarehouseTaskState.NEW, null));
+        viewModel =
+                new WarehouseWorkspaceViewModel(
+                        api, transferAuth(), null, demandQuery, Runnable::run, Runnable::run);
+        viewModel.onScreenOpened();
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
+        viewModel.takeSelectedTaskInWork();
+
+        assertEquals(1, api.takeDemandSupplyTaskInWorkCalls.size());
+        assertEquals(demandId, api.takeDemandSupplyTaskInWorkCalls.get(0));
+        assertEquals(WarehouseTaskState.IN_WORK, viewModel.taskRows().get(0).taskState());
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
+        assertFalse(viewModel.canTakeSelectedTaskInWorkProperty().get());
+        assertTrue(viewModel.canPrepareSelectedSupplyTaskProperty().get());
+        SupplyWaitingLineRow line = (SupplyWaitingLineRow) viewModel.actionLines().get(0);
+        assertEquals("10", line.referenceQuantityText());
+        assertEquals("4", line.receivedQuantityText());
+        assertEquals("6", line.remainingQuantityText());
+        assertEquals(0, api.prepareProductionDemandTransfersCalls.size());
+    }
+
+    @Test
+    void supplyPrepareNothingRoutableKeepsDialogAndAssignment() {
+        UUID destId = UUID.randomUUID();
+        UUID demandId = UUID.randomUUID();
+        UUID worker = UUID.randomUUID();
+        FakeDemandQuery demandQuery = new FakeDemandQuery();
+        demandQuery.tasks.put(
+                demandId,
+                supplyDetail(
+                        demandId,
+                        destId,
+                        waitingLine("ART-1", "Name", "NO_AVAILABLE_STOCK", "5", "0", "5")));
+        api.warehouses.add(new WarehouseView(destId, "PROD", "Production", true));
+        api.tasks.add(supplyTask(demandId, destId, WarehouseTaskState.IN_WORK, worker));
+        api.prepareResult =
+                new PrepareProductionDemandTransfersResult(
+                        demandId, List.of(), List.of(), 0, 0, 1);
+        viewModel =
+                new WarehouseWorkspaceViewModel(
+                        api, transferAuth(), null, demandQuery, Runnable::run, Runnable::run);
+        viewModel.onScreenOpened();
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
+        assertTrue(viewModel.canPrepareSelectedSupplyTaskProperty().get());
+
+        viewModel.prepareSelectedSupplyTaskTransfers();
+
+        assertEquals(1, api.prepareProductionDemandTransfersCalls.size());
+        assertEquals(
+                WarehouseSupplyPrepareResultPresentation.NOTHING_ROUTABLE,
+                viewModel.statusMessageProperty().get());
+        assertTrue(viewModel.isTaskDialogOpen());
+        assertEquals(WarehouseTaskState.IN_WORK, viewModel.selectedTaskProperty().get().taskState());
+        assertEquals(1, viewModel.actionLines().size());
+    }
+
+    @Test
+    void supplyPrepareAllRoutedClosesDialogAndRefreshes() {
+        UUID destId = UUID.randomUUID();
+        UUID demandId = UUID.randomUUID();
+        FakeDemandQuery demandQuery = new FakeDemandQuery();
+        demandQuery.tasks.put(
+                demandId,
+                supplyDetail(
+                        demandId,
+                        destId,
+                        waitingLine("ART-1", "Name", "ROUTING_DEFERRED", "5", "0", "5")));
+        api.warehouses.add(new WarehouseView(destId, "PROD", "Production", true));
+        api.tasks.add(supplyTask(demandId, destId, WarehouseTaskState.IN_WORK, UUID.randomUUID()));
+        api.prepareResult =
+                new PrepareProductionDemandTransfersResult(
+                        demandId,
+                        List.of(),
+                        List.of(
+                                new PreparedTransferDocument(
+                                        UUID.randomUUID(), UUID.randomUUID(), destId)),
+                        1,
+                        1,
+                        0);
+        AtomicBoolean closed = new AtomicBoolean(false);
+        viewModel =
+                new WarehouseWorkspaceViewModel(
+                        api, transferAuth(), null, demandQuery, Runnable::run, Runnable::run);
+        viewModel.setAfterTerminalTaskAction(() -> closed.set(true));
+        viewModel.onScreenOpened();
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
+
+        // After successful prepare, inbox no longer contains the supply task.
+        api.tasks.clear();
+        viewModel.prepareSelectedSupplyTaskTransfers();
+
+        assertTrue(closed.get());
+        assertEquals(
+                WarehouseSupplyPrepareResultPresentation.SINGLE_TRANSFER,
+                viewModel.statusMessageProperty().get());
+        assertTrue(viewModel.taskRows().isEmpty());
+    }
+
+    @Test
+    void supplyPreparePartialKeepsDialogAndRefreshesLines() {
+        UUID destId = UUID.randomUUID();
+        UUID demandId = UUID.randomUUID();
+        FakeDemandQuery demandQuery = new FakeDemandQuery();
+        WarehouseDemandSupplyWaitingLineView waitingA =
+                waitingLine("A", "Alpha", "ROUTING_DEFERRED", "2", "0", "2");
+        WarehouseDemandSupplyWaitingLineView waitingB =
+                waitingLine("B", "Beta", "NO_AVAILABLE_STOCK", "3", "0", "3");
+        demandQuery.tasks.put(demandId, supplyDetail(demandId, destId, waitingA, waitingB));
+        api.warehouses.add(new WarehouseView(destId, "PROD", "Production", true));
+        api.tasks.add(supplyTask(demandId, destId, WarehouseTaskState.IN_WORK, UUID.randomUUID()));
+        api.prepareResult =
+                new PrepareProductionDemandTransfersResult(
+                        demandId,
+                        List.of(),
+                        List.of(
+                                new PreparedTransferDocument(
+                                        UUID.randomUUID(), UUID.randomUUID(), destId)),
+                        1,
+                        1,
+                        1);
+        viewModel =
+                new WarehouseWorkspaceViewModel(
+                        api, transferAuth(), null, demandQuery, Runnable::run, Runnable::run);
+        viewModel.onScreenOpened();
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
+        assertEquals(2, viewModel.actionLines().size());
+
+        demandQuery.tasks.put(demandId, supplyDetail(demandId, destId, waitingB));
+        viewModel.prepareSelectedSupplyTaskTransfers();
+
+        assertTrue(viewModel.isTaskDialogOpen());
+        assertTrue(
+                viewModel
+                        .statusMessageProperty()
+                        .get()
+                        .contains(WarehouseSupplyPrepareResultPresentation.PARTIAL_SUFFIX));
+        assertEquals(1, viewModel.actionLines().size());
+        assertEquals("B", ((SupplyWaitingLineRow) viewModel.actionLines().get(0)).article());
+    }
+
+    @Test
+    void supplyPrepareStaleClosesWhenTaskGone() {
+        UUID destId = UUID.randomUUID();
+        UUID demandId = UUID.randomUUID();
+        FakeDemandQuery demandQuery = new FakeDemandQuery();
+        demandQuery.tasks.put(
+                demandId,
+                supplyDetail(
+                        demandId,
+                        destId,
+                        waitingLine("ART-1", "Name", "ROUTING_DEFERRED", "1", "0", "1")));
+        api.warehouses.add(new WarehouseView(destId, "PROD", "Production", true));
+        api.tasks.add(supplyTask(demandId, destId, WarehouseTaskState.IN_WORK, UUID.randomUUID()));
+        api.prepareResult =
+                new PrepareProductionDemandTransfersResult(
+                        demandId, List.of(), List.of(), 0, 0, 0);
+        AtomicBoolean closed = new AtomicBoolean(false);
+        viewModel =
+                new WarehouseWorkspaceViewModel(
+                        api, transferAuth(), null, demandQuery, Runnable::run, Runnable::run);
+        viewModel.setAfterTerminalTaskAction(() -> closed.set(true));
+        viewModel.onScreenOpened();
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
+        api.tasks.clear();
+        demandQuery.tasks.clear();
+
+        viewModel.prepareSelectedSupplyTaskTransfers();
+
+        assertTrue(closed.get());
+        assertEquals(
+                WarehouseSupplyPrepareResultPresentation.STALE_TASK,
+                viewModel.statusMessageProperty().get());
+    }
+
+    @Test
+    void supplyPrepareTechnicalFailureShowsMappedError() {
+        UUID destId = UUID.randomUUID();
+        UUID demandId = UUID.randomUUID();
+        FakeDemandQuery demandQuery = new FakeDemandQuery();
+        demandQuery.tasks.put(
+                demandId,
+                supplyDetail(
+                        demandId,
+                        destId,
+                        waitingLine("ART-1", "Name", "ROUTING_DEFERRED", "1", "0", "1")));
+        api.warehouses.add(new WarehouseView(destId, "PROD", "Production", true));
+        api.tasks.add(supplyTask(demandId, destId, WarehouseTaskState.IN_WORK, UUID.randomUUID()));
+        api.prepareThrows = new IllegalStateException("database locked");
+        viewModel =
+                new WarehouseWorkspaceViewModel(
+                        api, transferAuth(), null, demandQuery, Runnable::run, Runnable::run);
+        viewModel.onScreenOpened();
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
+
+        viewModel.prepareSelectedSupplyTaskTransfers();
+
+        assertEquals(WarehouseUiErrorMapper.text(api.prepareThrows), viewModel.errorMessageProperty().get());
+        assertTrue(viewModel.isTaskDialogOpen());
+    }
+
+    @Test
+    void supplyTakeoverShowsTakeWhenAssignedToAnotherUser() {
+        UUID destId = UUID.randomUUID();
+        UUID demandId = UUID.randomUUID();
+        UUID currentUser = UUID.randomUUID();
+        UUID otherUser = UUID.randomUUID();
+        FakeDemandQuery demandQuery = new FakeDemandQuery();
+        demandQuery.tasks.put(
+                demandId,
+                supplyDetail(
+                        demandId,
+                        destId,
+                        waitingLine("ART-1", "Name", "NO_AVAILABLE_STOCK", "1", "0", "1")));
+        api.warehouses.add(new WarehouseView(destId, "PROD", "Production", true));
+        api.tasks.add(supplyTask(demandId, destId, WarehouseTaskState.IN_WORK, otherUser));
+        FakeAuthentication authService = new FakeAuthentication(currentUser, "worker-b");
+        viewModel =
+                new WarehouseWorkspaceViewModel(
+                        api, transferAuth(), authService, demandQuery, Runnable::run, Runnable::run);
+        viewModel.onScreenOpened();
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
+
+        assertTrue(viewModel.canTakeSelectedTaskInWorkProperty().get());
+        assertFalse(viewModel.canPrepareSelectedSupplyTaskProperty().get());
+    }
+
     private PreparationFixture openPreparation() {
         auth = transferAuth();
         viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
@@ -2298,6 +2582,117 @@ class WarehouseWorkspaceViewModelTest {
                 null);
     }
 
+    private static WarehouseTaskView supplyTask(
+            UUID demandId, UUID destId, WarehouseTaskState state, UUID workingUserId) {
+        return new WarehouseTaskView(
+                WarehouseTaskSource.WAREHOUSE_DEMAND,
+                null,
+                demandId,
+                "—",
+                null,
+                WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY,
+                state,
+                null,
+                null,
+                null,
+                destId,
+                "PROD",
+                "Production",
+                1,
+                workingUserId,
+                workingUserId == null ? null : Instant.EPOCH,
+                Instant.EPOCH,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
+    }
+
+    private static WarehouseDemandSupplyTaskView supplyDetail(
+            UUID demandId, UUID destId, WarehouseDemandSupplyWaitingLineView... lines) {
+        return new WarehouseDemandSupplyTaskView(
+                demandId, destId, Instant.EPOCH, List.of(lines));
+    }
+
+    private static WarehouseDemandSupplyWaitingLineView waitingLine(
+            String code,
+            String name,
+            String reason,
+            String required,
+            String received,
+            String remaining) {
+        return new WarehouseDemandSupplyWaitingLineView(
+                UUID.randomUUID(),
+                code,
+                name,
+                "",
+                "шт",
+                null,
+                new BigDecimal(required),
+                new BigDecimal(received),
+                new BigDecimal(remaining),
+                reason);
+    }
+
+    private static final class FakeDemandQuery implements WarehouseDemandQueryApi {
+        private final Map<UUID, WarehouseDemandSupplyTaskView> tasks = new HashMap<>();
+
+        @Override
+        public Optional<WarehouseDemandView> getDemand(UUID demandId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<WarehouseDemandView> getDemandBySourceMaterialRequirementId(
+                UUID sourceMaterialRequirementId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<WarehouseDemandSupplyTaskView> getDemandSupplyTask(UUID demandId) {
+            return Optional.ofNullable(tasks.get(demandId));
+        }
+    }
+
+    private static final class FakeAuthentication implements AuthenticationService {
+        private final SessionSummary session;
+
+        private FakeAuthentication(UUID userId, String login) {
+            this.session =
+                    new SessionSummary(
+                            SessionId.generate(),
+                            UserId.of(userId),
+                            Login.of(login),
+                            Instant.EPOCH);
+        }
+
+        @Override
+        public Optional<SessionSummary> currentSession() {
+            return Optional.of(session);
+        }
+
+        @Override
+        public SessionSummary login(Login login, char[] password) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public SessionSummary completePasswordSetup(
+                Login login, String activationCode, char[] newPassword, char[] confirmPassword) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void logout() {}
+
+        @Override
+        public boolean isAuthenticated() {
+            return true;
+        }
+    }
+
     private static final class PreparationFixture {
         final UUID documentId = UUID.randomUUID();
         final UUID sourceId = UUID.randomUUID();
@@ -2493,6 +2888,62 @@ class WarehouseWorkspaceViewModelTest {
                     .filter(t -> documentId.equals(t.documentId()))
                     .findFirst()
                     .orElseThrow();
+        }
+
+        private final List<UUID> takeDemandSupplyTaskInWorkCalls = new CopyOnWriteArrayList<>();
+        private final List<UUID> prepareProductionDemandTransfersCalls = new CopyOnWriteArrayList<>();
+        PrepareProductionDemandTransfersResult prepareResult;
+        RuntimeException prepareThrows;
+
+        @Override
+        public WarehouseTaskView takeDemandSupplyTaskInWork(UUID demandId) {
+            takeDemandSupplyTaskInWorkCalls.add(demandId);
+            for (int i = 0; i < tasks.size(); i++) {
+                WarehouseTaskView task = tasks.get(i);
+                if (demandId.equals(task.demandId())) {
+                    WarehouseTaskView updated =
+                            new WarehouseTaskView(
+                                    task.taskSource(),
+                                    task.documentId(),
+                                    task.demandId(),
+                                    task.documentNumber(),
+                                    task.sourceOrderNumber(),
+                                    task.taskKind(),
+                                    WarehouseTaskState.IN_WORK,
+                                    task.sourceWarehouseId(),
+                                    task.sourceWarehouseCode(),
+                                    task.sourceWarehouseName(),
+                                    task.destinationWarehouseId(),
+                                    task.destinationWarehouseCode(),
+                                    task.destinationWarehouseName(),
+                                    task.lineCount(),
+                                    UUID.randomUUID(),
+                                    Instant.EPOCH,
+                                    task.createdAt(),
+                                    task.continuationOfDocumentId(),
+                                    task.continuationReason(),
+                                    task.settlementState(),
+                                    task.operationalRevision(),
+                                    task.settlementDecision(),
+                                    task.rejectionReason());
+                    tasks.set(i, updated);
+                    return updated;
+                }
+            }
+            throw new IllegalStateException("supply task not stubbed");
+        }
+
+        @Override
+        public PrepareProductionDemandTransfersResult prepareProductionDemandTransfers(UUID demandId) {
+            prepareProductionDemandTransfersCalls.add(demandId);
+            if (prepareThrows != null) {
+                throw prepareThrows;
+            }
+            if (prepareResult != null) {
+                return prepareResult;
+            }
+            return new PrepareProductionDemandTransfersResult(
+                    demandId, List.of(), List.of(), 0, 0, 0);
         }
 
         @Override

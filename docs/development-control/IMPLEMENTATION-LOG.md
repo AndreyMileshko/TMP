@@ -4,6 +4,33 @@
 
 ---
 
+## Stage 7 / Warehouse — B3B-3C3 Supply Task User Workflow UI — 2026-10-06
+
+**Date:** 2026-10-06  
+**Stage:** 7 Production / Warehouse Phase B3B-3C3  
+**Base HEAD:** `2c1b7f316e69e6bd45d95d15f89adc172dc9879f`  
+**Status:** PASS — STOP before C4; no commit / no push
+
+### Scope
+
+- Existing Склад → Задачи dialog wiring for `PRODUCTION_MATERIAL_SUPPLY` («Подать материалы в производство»)
+- Take-in-work / takeover via `WarehouseCommandApi.takeDemandSupplyTaskInWork`
+- «Подготовить перемещение» via `WarehouseCommandApi.prepareProductionDemandTransfers` (not DemandCommandApi)
+- Waiting-line detail from `WarehouseDemandQueryApi.getDemandSupplyTask`
+- Human waiting-reason + prepare-result presentation helpers
+- Warehouse Spec §15.1.5 v1.15; ADR-038 amendment B3B-3C3
+
+### Explicitly not done
+
+- C4 focused dead-code audit / full reactor / package / startup smoke
+- Production UI receipt / Demand screen / Material Catalog / migration
+
+### Verification
+
+See VERIFICATION-LOG B3B-3C3 entry (2026-10-06).
+
+---
+
 ## Stage 7 / Warehouse — B3B-3C2 Prepare Production Demand Transfers — 2026-10-06
 
 **Date:** 2026-10-06  

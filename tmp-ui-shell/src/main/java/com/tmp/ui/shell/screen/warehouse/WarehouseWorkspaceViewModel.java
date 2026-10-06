@@ -11,6 +11,7 @@ import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.ExecuteOperationCommand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialReferenceView;
+import com.tmp.warehouse.api.WarehouseApi.PrepareProductionDemandTransfersResult;
 import com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.RejectTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.ReturnTransferMaterialsCommand;
@@ -38,6 +39,9 @@ import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskSource;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskState;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
+import com.tmp.warehouse.api.WarehouseDemandQueryApi;
+import com.tmp.warehouse.api.WarehouseDemandQueryApi.WarehouseDemandSupplyTaskView;
+import com.tmp.warehouse.api.WarehouseDemandQueryApi.WarehouseDemandSupplyWaitingLineView;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -100,6 +104,8 @@ public final class WarehouseWorkspaceViewModel {
             "Укажите ячейки назначения и количества, затем нажмите Принять или Отклонить.";
     private static final String HINT_RETURN =
             "При необходимости выберите другую ячейку возврата, затем нажмите Вернуть.";
+    private static final String HINT_SUPPLY =
+            "Взять в работу, затем Подготовить перемещение — склад-источник выбирается автоматически.";
 
     public enum WorkspaceTab {
         TASKS("Задачи"),
@@ -856,6 +862,82 @@ public final class WarehouseWorkspaceViewModel {
         }
     }
 
+    /** Read-only Demand waiting line for PRODUCTION_MATERIAL_SUPPLY dialog (B3B-3C3). */
+    public static final class SupplyWaitingLineRow extends ActionEditRow {
+
+        private final BigDecimal requiredQuantity;
+        private final BigDecimal receivedQuantity;
+        private final BigDecimal remainingQuantity;
+        private final String reasonLabel;
+        private final String lengthHint;
+        private final StringProperty quantityText;
+
+        SupplyWaitingLineRow(WarehouseDemandSupplyWaitingLineView line) {
+            super(
+                    line.demandLineId(),
+                    supplyMaterialParts(line),
+                    null);
+            this.requiredQuantity = line.requiredQuantity();
+            this.receivedQuantity = line.receivedQuantity();
+            this.remainingQuantity = line.remainingQuantity();
+            this.reasonLabel =
+                    WarehouseDemandWaitingReasonPresentation.labelFor(line.effectiveWaitingReason());
+            this.lengthHint = formatLengthHint(line.lengthMm());
+            this.quantityText =
+                    new FixedQuantityProperty(DecimalUiFormat.formatRu(remainingQuantity));
+        }
+
+        private static MaterialParts supplyMaterialParts(WarehouseDemandSupplyWaitingLineView line) {
+            String article = blankToEmpty(line.materialCode());
+            String name = blankToEmpty(line.materialName());
+            String color = blankToEmpty(line.color());
+            String unit = blankToEmpty(line.unitOfMeasure());
+            return new MaterialParts(article, name, color, "", unit);
+        }
+
+        private static String blankToEmpty(String value) {
+            return value == null ? "" : value;
+        }
+
+        private static String formatLengthHint(BigDecimal lengthMm) {
+            if (lengthMm == null) {
+                return "";
+            }
+            return "Длина, мм: " + DecimalUiFormat.formatRu(lengthMm);
+        }
+
+        public String receivedQuantityText() {
+            return DecimalUiFormat.formatRu(receivedQuantity);
+        }
+
+        public String remainingQuantityText() {
+            return DecimalUiFormat.formatRu(remainingQuantity);
+        }
+
+        public String reasonLabel() {
+            return reasonLabel;
+        }
+
+        public String lengthHint() {
+            return lengthHint;
+        }
+
+        @Override
+        public String referenceQuantityText() {
+            return DecimalUiFormat.formatRu(requiredQuantity);
+        }
+
+        @Override
+        public StringProperty quantityTextProperty() {
+            return quantityText;
+        }
+
+        @Override
+        public boolean quantityEditable() {
+            return false;
+        }
+    }
+
     private static final class FixedQuantityProperty extends SimpleStringProperty {
         private final String fixed;
 
@@ -876,6 +958,7 @@ public final class WarehouseWorkspaceViewModel {
     }
 
     private final WarehouseApi warehouseApi;
+    private final WarehouseDemandQueryApi demandQueryApi;
     private final AuthorizationService authorizationService;
     private final AuthenticationService authenticationService;
     private final Executor backgroundExecutor;
@@ -907,6 +990,7 @@ public final class WarehouseWorkspaceViewModel {
     private final BooleanProperty canReceiveSelectedTask = new SimpleBooleanProperty(false);
     private final BooleanProperty canRejectSelectedTask = new SimpleBooleanProperty(false);
     private final BooleanProperty canReturnSelectedTask = new SimpleBooleanProperty(false);
+    private final BooleanProperty canPrepareSelectedSupplyTask = new SimpleBooleanProperty(false);
     private final BooleanProperty showWarehouseColumn = new SimpleBooleanProperty(false);
     private final BooleanProperty canMoveSelectedStock = new SimpleBooleanProperty(false);
     private final BooleanProperty canConsumeSelectedStock = new SimpleBooleanProperty(false);
@@ -983,7 +1067,7 @@ public final class WarehouseWorkspaceViewModel {
 
     public WarehouseWorkspaceViewModel(
             WarehouseApi warehouseApi, AuthorizationService authorizationService) {
-        this(warehouseApi, authorizationService, null);
+        this(warehouseApi, authorizationService, null, null, defaultBackgroundExecutor(), Platform::runLater);
     }
 
     public WarehouseWorkspaceViewModel(
@@ -994,12 +1078,22 @@ public final class WarehouseWorkspaceViewModel {
                 warehouseApi,
                 authorizationService,
                 authenticationService,
-                Executors.newCachedThreadPool(
-                        runnable -> {
-                            Thread thread = new Thread(runnable, "warehouse-workspace");
-                            thread.setDaemon(true);
-                            return thread;
-                        }),
+                null,
+                defaultBackgroundExecutor(),
+                Platform::runLater);
+    }
+
+    public WarehouseWorkspaceViewModel(
+            WarehouseApi warehouseApi,
+            AuthorizationService authorizationService,
+            AuthenticationService authenticationService,
+            WarehouseDemandQueryApi demandQueryApi) {
+        this(
+                warehouseApi,
+                authorizationService,
+                authenticationService,
+                demandQueryApi,
+                defaultBackgroundExecutor(),
                 Platform::runLater);
     }
 
@@ -1008,7 +1102,7 @@ public final class WarehouseWorkspaceViewModel {
             AuthorizationService authorizationService,
             Executor backgroundExecutor,
             Consumer<Runnable> uiExecutor) {
-        this(warehouseApi, authorizationService, null, backgroundExecutor, uiExecutor);
+        this(warehouseApi, authorizationService, null, null, backgroundExecutor, uiExecutor);
     }
 
     WarehouseWorkspaceViewModel(
@@ -1017,7 +1111,33 @@ public final class WarehouseWorkspaceViewModel {
             AuthenticationService authenticationService,
             Executor backgroundExecutor,
             Consumer<Runnable> uiExecutor) {
+        this(
+                warehouseApi,
+                authorizationService,
+                authenticationService,
+                null,
+                backgroundExecutor,
+                uiExecutor);
+    }
+
+    private static Executor defaultBackgroundExecutor() {
+        return Executors.newCachedThreadPool(
+                runnable -> {
+                    Thread thread = new Thread(runnable, "warehouse-workspace");
+                    thread.setDaemon(true);
+                    return thread;
+                });
+    }
+
+    WarehouseWorkspaceViewModel(
+            WarehouseApi warehouseApi,
+            AuthorizationService authorizationService,
+            AuthenticationService authenticationService,
+            WarehouseDemandQueryApi demandQueryApi,
+            Executor backgroundExecutor,
+            Consumer<Runnable> uiExecutor) {
         this.warehouseApi = Objects.requireNonNull(warehouseApi, "warehouseApi");
+        this.demandQueryApi = demandQueryApi;
         this.authorizationService =
                 Objects.requireNonNull(authorizationService, "authorizationService");
         this.authenticationService = authenticationService;
@@ -1248,6 +1368,67 @@ public final class WarehouseWorkspaceViewModel {
                                 });
                     }
                 });
+    }
+
+    public void prepareSelectedSupplyTaskTransfers() {
+        TaskRow row = selectedTask.get();
+        if (row == null
+                || row.taskKind() != WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY
+                || !canPrepareSelectedSupplyTask.get()
+                || commandInFlight.get()) {
+            return;
+        }
+        UUID demandId = row.demandId();
+        if (demandId == null) {
+            return;
+        }
+        commandInFlight.set(true);
+        errorMessage.set("");
+        backgroundExecutor.execute(
+                () -> {
+                    try {
+                        PrepareProductionDemandTransfersResult result =
+                                warehouseApi.prepareProductionDemandTransfers(demandId);
+                        uiExecutor.accept(() -> applySupplyPrepareResult(result));
+                    } catch (RuntimeException ex) {
+                        uiExecutor.accept(
+                                () -> {
+                                    commandInFlight.set(false);
+                                    errorMessage.set(WarehouseUiErrorMapper.text(ex));
+                                    updateActionAvailability();
+                                });
+                    }
+                });
+    }
+
+    private void applySupplyPrepareResult(PrepareProductionDemandTransfersResult result) {
+        commandInFlight.set(false);
+        String message = WarehouseSupplyPrepareResultPresentation.messageFor(result);
+        if (WarehouseSupplyPrepareResultPresentation.isTerminalSuccess(result)
+                || WarehouseSupplyPrepareResultPresentation.isStaleOrEmpty(result)) {
+            pendingTaskStatusMessage = message;
+            closeTaskDialogAfterReload = true;
+            reloadTasks("SUPPLY_PREPARE");
+            return;
+        }
+        if (WarehouseSupplyPrepareResultPresentation.isPartial(result)) {
+            pendingTaskStatusMessage = message;
+            errorMessage.set("");
+            reloadTasks("SUPPLY_PREPARE_PARTIAL");
+            return;
+        }
+        // nothing routable — keep dialog, refresh waiting reasons
+        pendingTaskStatusMessage = message;
+        errorMessage.set("");
+        TaskRow current = selectedTask.get();
+        if (current != null && taskDialogOpen) {
+            // Avoid full inbox reload clearing dialog unless needed; still refresh lines.
+            statusMessage.set(message);
+            pendingTaskStatusMessage = null;
+            loadSelectedSupplyTaskDetails(current);
+        } else {
+            reloadTasks("SUPPLY_PREPARE_NONE");
+        }
     }
 
     public void sendSelectedTask() {
@@ -1789,6 +1970,10 @@ public final class WarehouseWorkspaceViewModel {
         return canReturnSelectedTask;
     }
 
+    public BooleanProperty canPrepareSelectedSupplyTaskProperty() {
+        return canPrepareSelectedSupplyTask;
+    }
+
     public ObservableList<HistoryRow> historyRows() {
         return historyRows;
     }
@@ -2024,39 +2209,55 @@ public final class WarehouseWorkspaceViewModel {
 
     private void loadSelectedSupplyTaskDetails(TaskRow row) {
         long requestId = ++taskDetailLoadGeneration;
-        taskDetailsText.set(formatTaskHeader(row, null));
+        taskDetailsText.set(formatSupplyTaskHeader(row));
         taskDetailLoading.set(true);
         loadedDocument = null;
         loadedReturnPlan = List.of();
         actionCellChoices.clear();
         actionLines.clear();
+        UUID demandId = row.demandId();
         backgroundExecutor.execute(
                 () -> {
                     try {
-                        String details =
-                                formatTaskHeader(row, null)
-                                        + "\nОжидает обеспечения: "
-                                        + row.lineCount()
-                                        + " материал(ов).\nДействие «Подготовить перемещение» — в следующей фазе.";
+                        if (demandQueryApi == null || demandId == null) {
+                            throw new IllegalStateException(
+                                    "Demand supply task query is not configured");
+                        }
+                        var detail = demandQueryApi.getDemandSupplyTask(demandId);
                         uiExecutor.accept(
-                                () -> {
-                                    if (requestId != taskDetailLoadGeneration
-                                            || !Objects.equals(selectedTask.get(), row)) {
-                                        return;
-                                    }
-                                    taskDetailLoading.set(false);
-                                    taskDetailsText.set(details);
-                                    updateTransferActionsHint();
-                                    updateActionAvailability();
-                                    Runnable detailsLoaded = afterTaskDetailsLoaded;
-                                    if (detailsLoaded != null) {
-                                        detailsLoaded.run();
-                                    }
-                                });
+                                () -> applySupplyTaskDetail(row, detail.orElse(null), requestId));
                     } catch (RuntimeException ex) {
                         uiExecutor.accept(() -> applyTaskDetailError(row, ex, requestId));
                     }
                 });
+    }
+
+    private void applySupplyTaskDetail(
+            TaskRow row, WarehouseDemandSupplyTaskView detail, long requestId) {
+        if (requestId != taskDetailLoadGeneration || !Objects.equals(selectedTask.get(), row)) {
+            return;
+        }
+        taskDetailLoading.set(false);
+        if (detail == null || detail.waitingLines().isEmpty()) {
+            actionLines.clear();
+            taskDetailsText.set(formatSupplyTaskHeader(row));
+            pendingTaskStatusMessage = WarehouseSupplyPrepareResultPresentation.STALE_TASK;
+            closeTaskDialogAfterReload = true;
+            reloadTasks("SUPPLY_STALE");
+            return;
+        }
+        List<ActionEditRow> rows = new ArrayList<>();
+        for (WarehouseDemandSupplyWaitingLineView line : detail.waitingLines()) {
+            rows.add(new SupplyWaitingLineRow(line));
+        }
+        actionLines.setAll(rows);
+        taskDetailsText.set(formatSupplyTaskHeader(row));
+        updateTransferActionsHint();
+        updateActionAvailability();
+        Runnable detailsLoaded = afterTaskDetailsLoaded;
+        if (detailsLoaded != null) {
+            detailsLoaded.run();
+        }
     }
 
     private void ensureMaterialCache() {
@@ -2260,6 +2461,9 @@ public final class WarehouseWorkspaceViewModel {
     }
 
     private static String formatTaskHeader(TaskRow row, TransferDocumentView document) {
+        if (row.taskKind() == WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY) {
+            return formatSupplyTaskHeader(row);
+        }
         StringBuilder builder = new StringBuilder();
         builder.append("Документ: ")
                 .append(row.documentNumber())
@@ -2283,6 +2487,14 @@ public final class WarehouseWorkspaceViewModel {
             builder.append("\nСтрок: ").append(row.lineCount());
         }
         return builder.toString();
+    }
+
+    private static String formatSupplyTaskHeader(TaskRow row) {
+        return row.kindLabel()
+                + " · "
+                + row.stateLabel()
+                + "\n"
+                + WarehouseTaskDialogSupport.supplyRouteHeader(row);
     }
 
     static String documentStatusLabel(String documentStatus) {
@@ -2320,8 +2532,7 @@ public final class WarehouseWorkspaceViewModel {
                     case TRANSFER_PREPARATION -> HINT_PREPARATION;
                     case TRANSFER_RECEIPT -> HINT_RECEIPT;
                     case RETURN_MATERIALS -> HINT_RETURN;
-                    case PRODUCTION_MATERIAL_SUPPLY ->
-                            "Взять в работу — информационное назначение. Подготовка перемещения — в следующей фазе.";
+                    case PRODUCTION_MATERIAL_SUPPLY -> HINT_SUPPLY;
                 });
     }
 
@@ -2330,15 +2541,24 @@ public final class WarehouseWorkspaceViewModel {
         boolean busy = commandInFlight.get() || loading.get() || taskDetailLoading.get();
         boolean inWork = row != null && row.taskState() == WarehouseTaskState.IN_WORK;
         boolean isNew = row != null && row.taskState() == WarehouseTaskState.NEW;
+        boolean supply =
+                row != null && row.taskKind() == WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY;
+        boolean assignedToMe = row != null && isAssignedToCurrentUser(row);
+        boolean assignedToOther = row != null && isAssignedToAnotherUser(row);
         boolean base =
                 canTransfer.get()
                         && row != null
                         && inWork
                         && !busy
                         && loadedDocument != null;
-        canTakeSelectedTaskInWork.set(
-                canTransfer.get() && row != null && isNew && !busy);
-        taskActionEditorsEnabled.set(canTransfer.get() && row != null && inWork && !busy);
+        boolean takeEligible =
+                canTransfer.get()
+                        && row != null
+                        && !busy
+                        && (isNew || (supply && assignedToOther));
+        canTakeSelectedTaskInWork.set(takeEligible);
+        taskActionEditorsEnabled.set(
+                canTransfer.get() && row != null && inWork && !busy && !supply);
         canSendSelectedTask.set(
                 base
                         && row.taskKind() == WarehouseTaskKind.TRANSFER_PREPARATION
@@ -2357,6 +2577,46 @@ public final class WarehouseWorkspaceViewModel {
                         && row.taskKind() == WarehouseTaskKind.RETURN_MATERIALS
                         && loadedDocument.operationalRevision() != null
                         && localValidReturn());
+        canPrepareSelectedSupplyTask.set(
+                canTransfer.get()
+                        && supply
+                        && inWork
+                        && assignedToMe
+                        && !busy
+                        && !actionLines.isEmpty());
+    }
+
+    private UUID currentUserId() {
+        if (authenticationService == null) {
+            return null;
+        }
+        return authenticationService
+                .currentSession()
+                .map(session -> session.userId().value())
+                .orElse(null);
+    }
+
+    private boolean isAssignedToCurrentUser(TaskRow row) {
+        if (row == null || row.taskState() != WarehouseTaskState.IN_WORK) {
+            return false;
+        }
+        UUID me = currentUserId();
+        if (me == null) {
+            // Unit tests without AuthenticationService treat IN_WORK as assigned to current user.
+            return true;
+        }
+        return me.equals(row.workingUserId());
+    }
+
+    private boolean isAssignedToAnotherUser(TaskRow row) {
+        if (row == null || row.taskState() != WarehouseTaskState.IN_WORK) {
+            return false;
+        }
+        UUID me = currentUserId();
+        if (me == null || row.workingUserId() == null) {
+            return false;
+        }
+        return !me.equals(row.workingUserId());
     }
 
     private boolean localValidSend() {

@@ -3,11 +3,34 @@
 ## Latest result
 
 **Date:** 2026-10-06
-**Scope:** Stage 7 / Warehouse — B3B-3C2 Prepare Production Demand Transfers
+**Scope:** Stage 7 / Warehouse — B3B-3C3 Supply Task User Workflow UI
 **Overall:** PASS
 **Migration:** NONE — V50/V51/V52 unchanged
-**Base HEAD:** `2b627e38ec0732c5c3a8ee566d3c5bd406853146`
-**Working tree:** dirty (C2 prepare action + Retry cleanup + docs/tests); **no commit / no push**
+**Base HEAD:** `2c1b7f316e69e6bd45d95d15f89adc172dc9879f`
+**Working tree:** dirty (C3 UI wiring + docs/tests); **no commit / no push**
+
+### B3B-3C3 checks (2026-10-06)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD + clean tree before work | PASS |
+| `WarehouseWorkspaceViewModelTest` (incl. supply NEW/take/prepare/partial/stale/takeover) | PASS (82) |
+| `WarehouseTaskDialogSupportTest` | PASS (6) |
+| `WarehouseSupplyPrepareResultPresentationTest` | PASS (5) |
+| `WarehouseDemandWaitingReasonPresentationTest` | PASS (2) |
+| Tasks FXML / navigation regression | PASS (7) |
+| `WarehouseDemandPrepareTransfersIntegrationTest` | PASS (19) |
+| `WarehouseDemandSupplyTaskInboxIntegrationTest` | PASS (9) |
+| `Stage6WarehouseArchitectureTest` + `Stage7ProductionArchitectureTest` | PASS (95) |
+| Bootstrap compile (UiShellAutoConfiguration DemandQuery inject) | PASS |
+| User-facing Retry / «Повторить» in touched UI | 0 |
+| New Demand screen / Production receipt UI | NONE |
+| Full reactor | NOT RUN |
+| Package | NOT RUN |
+
+---
+
+# TMP Verification Log
 
 ### B3B-3C2 checks (2026-10-06)
 

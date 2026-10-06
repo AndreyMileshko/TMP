@@ -647,18 +647,30 @@ public final class WarehouseWorkspaceController
                         viewModel.canReceiveSelectedTaskProperty(),
                         viewModel.canRejectSelectedTaskProperty(),
                         viewModel.canReturnSelectedTaskProperty(),
+                        viewModel.canPrepareSelectedSupplyTaskProperty(),
                         viewModel.taskDetailLoadingProperty(),
                         viewModel::takeSelectedTaskInWork,
                         viewModel::sendSelectedTask,
                         viewModel::receiveSelectedTask,
                         viewModel::rejectSelectedTask,
-                        viewModel::returnSelectedTask);
+                        viewModel::returnSelectedTask,
+                        viewModel::prepareSelectedSupplyTaskTransfers);
         openTaskDialogSession = session;
         viewModel.errorMessageProperty()
                 .addListener(
                         (obs, oldValue, newValue) -> {
                             if (openTaskDialogSession == session && newValue != null && !newValue.isBlank()) {
                                 session.showError(newValue);
+                            }
+                        });
+        viewModel.statusMessageProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> {
+                            if (openTaskDialogSession == session
+                                    && newValue != null
+                                    && !newValue.isBlank()
+                                    && viewModel.isTaskDialogOpen()) {
+                                session.showInfo(newValue);
                             }
                         });
         session.dialog()

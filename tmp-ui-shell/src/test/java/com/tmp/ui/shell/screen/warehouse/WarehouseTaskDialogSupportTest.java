@@ -54,9 +54,17 @@ class WarehouseTaskDialogSupportTest {
                 "Возврат материалов",
                 WarehouseTaskDialogSupport.dialogTitleFor(WarehouseTaskKind.RETURN_MATERIALS));
         assertEquals(
+                "Подать материалы в производство",
+                WarehouseTaskDialogSupport.dialogTitleFor(
+                        WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY));
+        assertEquals(
                 "Требуется",
                 WarehouseTaskDialogSupport.referenceQuantityHeader(
                         WarehouseTaskKind.TRANSFER_PREPARATION));
+        assertEquals(
+                "Требуется",
+                WarehouseTaskDialogSupport.referenceQuantityHeader(
+                        WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY));
         assertEquals(
                 "Отправлено",
                 WarehouseTaskDialogSupport.referenceQuantityHeader(
@@ -132,6 +140,7 @@ class WarehouseTaskDialogSupportTest {
                         SimpleBooleanProperty canReceive = new SimpleBooleanProperty(false);
                         SimpleBooleanProperty canReject = new SimpleBooleanProperty(false);
                         SimpleBooleanProperty canReturn = new SimpleBooleanProperty(false);
+                        SimpleBooleanProperty canPrepare = new SimpleBooleanProperty(false);
                         SimpleBooleanProperty loading = new SimpleBooleanProperty(false);
 
                         WarehouseTaskDialogSupport.TaskDialogSession session =
@@ -145,11 +154,13 @@ class WarehouseTaskDialogSupportTest {
                                         canReceive,
                                         canReject,
                                         canReturn,
+                                        canPrepare,
                                         loading,
                                         () -> {},
                                         () -> {},
                                         () -> {},
                                         reason -> {},
+                                        () -> {},
                                         () -> {});
 
                         assertEquals(
@@ -195,6 +206,7 @@ class WarehouseTaskDialogSupportTest {
                     SimpleBooleanProperty canReceive = new SimpleBooleanProperty(false);
                     SimpleBooleanProperty canReject = new SimpleBooleanProperty(false);
                     SimpleBooleanProperty canReturn = new SimpleBooleanProperty(false);
+                    SimpleBooleanProperty canPrepare = new SimpleBooleanProperty(false);
                     SimpleBooleanProperty loading = new SimpleBooleanProperty(false);
 
                     WarehouseTaskDialogSupport.TaskDialogSession session =
@@ -212,11 +224,13 @@ class WarehouseTaskDialogSupportTest {
                                     canReceive,
                                     canReject,
                                     canReturn,
+                                    canPrepare,
                                     loading,
                                     () -> {},
                                     () -> {},
                                     () -> {},
                                     reason -> {},
+                                    () -> {},
                                     () -> {});
 
                     TableView<ActionEditRow> table = session.table();
