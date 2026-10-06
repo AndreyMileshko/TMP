@@ -112,6 +112,28 @@ class Stage6WarehouseArchitectureTest {
                     .because("WarehouseDemandCommandApi is trusted backend orchestration, not a UI API");
 
     @ArchTest
+    static final ArchRule uiShellMustNotDependOnWarehouseDemandRepository =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.tmp.ui.shell..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("WarehouseDemandRepository")
+                    .because("UI must use WarehouseDemandQueryApi, not Warehouse Demand repositories");
+
+    @ArchTest
+    static final ArchRule warehouseDemandQueryApiMustNotDependOnProduction =
+            noClasses()
+                    .that()
+                    .haveSimpleName("WarehouseDemandQueryApi")
+                    .or()
+                    .haveSimpleName("DefaultWarehouseDemandQueryApi")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("com.tmp.production..")
+                    .because("Warehouse Demand Query must not depend on Production internals");
+
+    @ArchTest
     static final ArchRule uiShellMustNotDependOnWarehouseReferenceQueryApi =
             noClasses()
                     .that()

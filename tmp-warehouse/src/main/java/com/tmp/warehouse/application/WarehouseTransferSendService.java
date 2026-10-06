@@ -33,7 +33,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p>Shortfall: shrink DRAFT payload to actual sent quantities → create continuation DRAFT for
  * remainder → stage allocations against retained original line IDs → POST adjusted original → clear
- * original task. Processor still requires exact coverage of the posted payload.
+ * original task. Processor still requires exact coverage of the posted payload. When parent lines
+ * carry Demand links, SHORTFALL continuation lines inherit Demand lineage atomically (B3B-3A).
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -47,6 +48,7 @@ public final class WarehouseTransferSendService {
     private final TransferTaskStateRepository taskStates;
     private final WarehouseCatalogRepository catalog;
     private final WarehouseResponsibilityGuard responsibilityGuard;
+    private final WarehouseDemandContinuationLinkPropagator demandContinuationLinks;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -58,6 +60,7 @@ public final class WarehouseTransferSendService {
             TransferTaskStateRepository taskStates,
             WarehouseCatalogRepository catalog,
             WarehouseResponsibilityGuard responsibilityGuard,
+            WarehouseDemandContinuationLinkPropagator demandContinuationLinks,
             TransactionTemplate transactionTemplate,
             Clock clock) {
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
@@ -69,6 +72,8 @@ public final class WarehouseTransferSendService {
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.responsibilityGuard =
                 Objects.requireNonNull(responsibilityGuard, "responsibilityGuard");
+        this.demandContinuationLinks =
+                Objects.requireNonNull(demandContinuationLinks, "demandContinuationLinks");
         this.transactionTemplate =
                 Objects.requireNonNull(transactionTemplate, "transactionTemplate");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -242,6 +247,7 @@ public final class WarehouseTransferSendService {
                         original.sourceWarehouseId(),
                         original.destinationWarehouseId(),
                         remainderLines);
+        demandContinuationLinks.propagate(original.orderedLines(), continuation.payload());
 
         WarehouseTransferDocument persisted =
                 transferDocuments

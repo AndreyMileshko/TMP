@@ -830,6 +830,9 @@ class WarehouseTransferDocumentPartialReceiveIntegrationTest {
                                 authenticationFromSession(),
                                 new com.tmp.warehouse.persistence
                                         .JdbcWarehouseUserResponsibilityRepository(jdbc, CLOCK)),
+                        new WarehouseDemandContinuationLinkPropagator(
+                                new com.tmp.warehouse.persistence.JdbcWarehouseDemandRepository(
+                                        jdbc)),
                         new TransactionTemplate(new DataSourceTransactionManager(dataSource)),
                         CLOCK);
 

@@ -3,6 +3,36 @@
 ## Latest result
 
 **Date:** 2026-10-05
+**Scope:** Stage 7 / Warehouse — B3B-3A Warehouse Demand Fulfillment Derived Status + Query Model
+**Overall:** PASS
+**Migration:** NO new migration; V50/V51 unchanged
+**Base HEAD:** `0f5e356c66edff1ddea7eccb39dbf8a20f4153c2`
+**Working tree:** dirty (B3B-3A query + continuation links + docs); **no commit / no push**
+
+### B3B-3A checks (2026-10-05)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD + clean tree | PASS |
+| Fulfillment SoT = `transfer_receipt_settlement_item` | PASS |
+| No persisted received/status columns | PASS |
+| Domain deriver unit tests | PASS (8) |
+| `WarehouseDemandFulfillmentQueryIntegrationTest` | PASS (14) |
+| `WarehouseDemandCommandApiIntegrationTest` | PASS (12) |
+| Transfer receive / partial receive / shortfall | PASS (21+14+12) |
+| `WarehouseSchemaFlywayTest` | PASS (11) — V50 present |
+| `Stage6WarehouseArchitectureTest` + `Stage7ProductionArchitectureTest` | PASS |
+| Full reactor | NOT RUN |
+| Package | NOT RUN |
+| Cancel / retry / Demand UI | NONE (deferred B3B-3B / 3C) |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-10-05
 **Scope:** Stage 7 / Warehouse — B3B-2 Material Requirement → Warehouse Demand Accept + Initial Routing
 **Overall:** PASS
 **Migration:** V51 Production (`material_reference_id` nullable + `length_mm`); V50 unchanged

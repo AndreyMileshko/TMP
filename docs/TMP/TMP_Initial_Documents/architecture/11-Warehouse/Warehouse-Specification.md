@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.10
+**Version:** 1.11
 
 ---
 
@@ -391,6 +391,21 @@ Foundation (B3B-1) не подключает Production Submit, не созда�
 - Mixed Demand (routed + waiting lines) is one accepted Demand; line business outcomes do not roll back siblings.
 - Idempotent by `sourceMaterialRequirementId`; payload mismatch → conflict exception.
 - No Demand UI / retryDemandRouting / receive-fulfillment / Demand cancellation / reservation / Material Catalog in B3B-2.
+
+### 15.1.3 Warehouse Demand fulfillment derivation + query (ADR-038 / B3B-3A)
+
+- `requiredQuantity` — Demand snapshot fact.
+- `receivedQuantity` — **derived** from settled physical receipts: sum of `warehouse.transfer_receipt_settlement_item.quantity` for Demand-linked Transfer lines received at the Demand destination warehouse. Not a mutable Demand counter.
+- `remainingQuantity` = `max(0, required − received)`. Over-receipt is visible (`received` may exceed `required`; remaining clamped to 0); historical receipt facts are not mutated.
+- Line / header **status is derived** (no DB status column): `WAITING_FOR_SUPPLY` / `IN_FULFILLMENT` / `FULFILLED` / `CANCELLED`.
+- Line status precedence: header cancelled → `CANCELLED`; else `received >= required` → `FULFILLED`; else any **ACTIVE** linked Transfer → `IN_FULFILLMENT`; else `WAITING_FOR_SUPPLY`. Partial received alone does **not** imply `IN_FULFILLMENT`.
+- ACTIVE Transfer for Demand: Document `DRAFT`, or Document `POSTED` + settlement `AWAITING_RECEIPT`. Terminal: `RETURN_PENDING`, `SETTLED` / `CLOSED`, reject/return settled states.
+- Header aggregation: cancelled → `CANCELLED`; all lines `FULFILLED` → `FULFILLED`; any `IN_FULFILLMENT` → `IN_FULFILLMENT`; else `WAITING_FOR_SUPPLY`.
+- `waitingReason` remains persisted routing attribute; query exposes **effective** waiting reason only when derived status is `WAITING_FOR_SUPPLY` (else null). If waiting and stored reason is null → derived fallback `ROUTING_DEFERRED` (not necessarily persisted).
+- Fulfillment credit only on successful receive settlement — not on DRAFT / send / awaiting receipt / MR submit.
+- SHORTFALL and RECEIVE_SHORTFALL continuation Transfer lines inherit DemandTransferLink from the parent line (same Demand line) atomically inside the existing send/receive transaction when a parent Demand link exists. Legacy Transfers without links unchanged. Returns / rejects are not positive fulfillment; receive-then-return does not reopen or decrement historical Demand fulfillment in B3B-3A.
+- Public read API: `WarehouseDemandQueryApi.getDemand` / `getDemandBySourceMaterialRequirementId` — immutable views; no Production dependency; no CRUD; no Demand UI in this phase.
+- No new migration; V50/V51 unchanged. No `retryDemandRouting` / Demand cancellation command / Production cancellation hook in B3B-3A.
 
 ## 15.2 CURRENT IMPLEMENTATION (Stage 7 — until Stage 3.5 refactor)
 

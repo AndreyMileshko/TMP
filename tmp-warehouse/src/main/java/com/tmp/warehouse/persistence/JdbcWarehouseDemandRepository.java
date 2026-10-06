@@ -138,6 +138,28 @@ public final class JdbcWarehouseDemandRepository implements WarehouseDemandRepos
     }
 
     @Override
+    public boolean insertTransferLinkIfAbsent(WarehouseDemandTransferLink link) {
+        Objects.requireNonNull(link, "link");
+        if (findTransferLinkByTransferLineId(link.transferLineId()).isPresent()) {
+            return false;
+        }
+        int inserted =
+                jdbc.update(
+                        """
+                        INSERT INTO warehouse.warehouse_demand_transfer_links (
+                            id, demand_line_id, transfer_document_id, transfer_line_id, linked_quantity)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT (transfer_line_id) DO NOTHING
+                        """,
+                        link.id().value(),
+                        link.demandLineId().value(),
+                        link.transferDocumentId(),
+                        link.transferLineId().value(),
+                        link.linkedQuantity().value());
+        return inserted > 0;
+    }
+
+    @Override
     public List<WarehouseDemandTransferLink> findTransferLinksByDemandLineId(
             WarehouseDemandLineId demandLineId) {
         Objects.requireNonNull(demandLineId, "demandLineId");
@@ -150,6 +172,42 @@ public final class JdbcWarehouseDemandRepository implements WarehouseDemandRepos
                 """,
                 (rs, rowNum) -> mapLink(rs),
                 demandLineId.value());
+    }
+
+    @Override
+    public List<WarehouseDemandTransferLink> findTransferLinksByDemandId(WarehouseDemandId demandId) {
+        Objects.requireNonNull(demandId, "demandId");
+        return jdbc.query(
+                """
+                SELECT l.id, l.demand_line_id, l.transfer_document_id, l.transfer_line_id,
+                       l.linked_quantity
+                  FROM warehouse.warehouse_demand_transfer_links l
+                  JOIN warehouse.warehouse_demand_lines dl ON dl.id = l.demand_line_id
+                 WHERE dl.demand_id = ?
+                 ORDER BY l.id
+                """,
+                (rs, rowNum) -> mapLink(rs),
+                demandId.value());
+    }
+
+    @Override
+    public Optional<WarehouseDemandTransferLink> findTransferLinkByTransferLineId(
+            WarehouseTransferLineId transferLineId) {
+        Objects.requireNonNull(transferLineId, "transferLineId");
+        List<WarehouseDemandTransferLink> rows =
+                jdbc.query(
+                        """
+                        SELECT id, demand_line_id, transfer_document_id, transfer_line_id,
+                               linked_quantity
+                          FROM warehouse.warehouse_demand_transfer_links
+                         WHERE transfer_line_id = ?
+                        """,
+                        (rs, rowNum) -> mapLink(rs),
+                        transferLineId.value());
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(rows.get(0));
     }
 
     private Optional<HeaderRow> loadHeader(String sql, Object id) {

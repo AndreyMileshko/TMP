@@ -47,7 +47,10 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p>Full accept → SETTLED + Document CLOSED. Partial accept → RETURN_PENDING; demand-driven
  * documents also get a RECEIVE_SHORTFALL continuation DRAFT, while manual stock transfers do not.
- * Original POSTED payload remains immutable. Full reject is Stage 3.5.8.3.
+ * Demand lineage is propagated onto RECEIVE_SHORTFALL continuation lines when the parent line was
+ * Demand-linked (B3B-3A). Demand received quantity is not mutated here — query derives it from
+ * {@code transfer_receipt_settlement_item}. Original POSTED payload remains immutable. Full reject
+ * is Stage 3.5.8.3.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -65,6 +68,7 @@ public final class WarehouseTransferReceiveService {
     private final MaterialReferenceRepository materials;
     private final WarehouseCatalogRepository catalog;
     private final WarehouseResponsibilityGuard responsibilityGuard;
+    private final WarehouseDemandContinuationLinkPropagator demandContinuationLinks;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -80,6 +84,7 @@ public final class WarehouseTransferReceiveService {
             MaterialReferenceRepository materials,
             WarehouseCatalogRepository catalog,
             WarehouseResponsibilityGuard responsibilityGuard,
+            WarehouseDemandContinuationLinkPropagator demandContinuationLinks,
             TransactionTemplate transactionTemplate,
             Clock clock) {
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
@@ -95,6 +100,8 @@ public final class WarehouseTransferReceiveService {
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.responsibilityGuard =
                 Objects.requireNonNull(responsibilityGuard, "responsibilityGuard");
+        this.demandContinuationLinks =
+                Objects.requireNonNull(demandContinuationLinks, "demandContinuationLinks");
         this.transactionTemplate =
                 Objects.requireNonNull(transactionTemplate, "transactionTemplate");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -238,6 +245,8 @@ public final class WarehouseTransferReceiveService {
                                                             payload.sourceWarehouseId(),
                                                             payload.destinationWarehouseId(),
                                                             remainderLines);
+                                    demandContinuationLinks.propagate(
+                                            payload.orderedLines(), continuation.payload());
                                     continuationDocumentId = continuation.metadata().id();
                                 }
                                 TransferDocumentSettlement returnPending =

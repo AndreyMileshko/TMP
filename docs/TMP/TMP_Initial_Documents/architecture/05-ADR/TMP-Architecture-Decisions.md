@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-005  
 **Status:** Accepted  
-**Version:** 1.15
+**Version:** 1.16
 
 ---
 
@@ -1789,11 +1789,18 @@ Production Material Requirement фиксирует, что Production запро
 11. Idempotency: `UNIQUE(sourceMaterialRequirementId)`; identical repeat accept returns existing Demand; semantic payload mismatch raises controlled conflict (no silent overwrite).
 12. Legacy `createRoutedTransferDocuments` path is DEAD and removed. New writes to Production routing snapshot stop; generated document links remain for composition order-number reads when Transfers exist.
 
+### Amendment (B3B-3A — 2026-10-05)
+
+13. Demand fulfillment is derived, not stored: `receivedQuantity` from settled `transfer_receipt_settlement_item` facts on Demand-linked Transfer lines at the Demand destination; line/header status derived (`WAITING_FOR_SUPPLY` / `IN_FULFILLMENT` / `FULFILLED` / `CANCELLED`) with no status / received SoT columns.
+14. Fulfillment credit only on successful physical receive settlement. SHORTFALL / RECEIVE_SHORTFALL continuation Transfer lines propagate DemandTransferLink atomically when the parent line was Demand-linked. Returns do not reopen Demand; rejects contribute 0 received.
+15. Public `WarehouseDemandQueryApi` exposes immutable derived views. Effective `waitingReason` only when status is `WAITING_FOR_SUPPLY` (null stored → derived `ROUTING_DEFERRED` fallback). No retry routing / cancellation command / Demand UI in B3B-3A.
+
 ### Последствия
 
 - Foundation (B3B-1) добавляет schema + domain + persistence + internal acceptance idempotency.
 - B3B-2 switches Production Submit to Warehouse Demand acceptance + initial routing.
-- Subsequent phase: receive fulfillment / cancellation / retry / Demand UI (B3B-3).
+- B3B-3A adds derived fulfillment query + continuation Demand lineage on shortfall continuations.
+- Subsequent: cancellation / retry routing (B3B-3B); Demand UI (B3B-3C).
 
 ### Связанные документы
 
@@ -1914,6 +1921,7 @@ Production Material Requirement фиксирует, что Production запро
 | 1.13 | ADR-036: shared ACID transaction for cross-capability document orchestration; ADR-035 уточнён ссылкой на механизм атомарности без supersede. |
 | 1.14 | Stage 3.5.0 Warehouse Architecture Alignment: ADR-037 (operational workflow, User↔Warehouse responsibility, automatic source routing, transfer document layer, shortfall continuation, reject/return); ADR-013 и ADR-014 Superseded; ADR-035 qualified (recommendation/fixed main warehouse/Production multi-line grouping superseded in target scope). |
 | 1.15 | ADR-038: Warehouse-owned Demand aggregate foundation (Demand ≠ MR ≠ Transfer; nullable MaterialReference; snapshot + informational lengthMm; no status/received SoT; no cross-capability FK). |
+| 1.16 | ADR-038 amendment B3B-3A: derived Demand receivedQuantity/status from settled Transfer receipt facts; SHORTFALL/RECEIVE_SHORTFALL Demand link propagation; WarehouseDemandQueryApi; no mutable counters. |
 
 ---
 

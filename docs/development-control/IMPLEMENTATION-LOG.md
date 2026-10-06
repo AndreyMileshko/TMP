@@ -4,6 +4,34 @@
 
 ---
 
+## Stage 7 / Warehouse — B3B-3A Warehouse Demand Fulfillment Derived Status + Query Model — 2026-10-05
+
+**Date:** 2026-10-05  
+**Stage:** 7 Production / Warehouse Phase B3B-3A  
+**Base HEAD:** `0f5e356c66edff1ddea7eccb39dbf8a20f4153c2`  
+**Status:** PASS — STOP before B3B-3B; no commit / no push
+
+### Scope
+
+- `WarehouseDemandQueryApi` + derived views (received / remaining / line+header status / effective waitingReason)
+- Received quantity from settled `transfer_receipt_settlement_item` (destination-filtered); no mutable counters
+- ACTIVE Transfer mapping: DRAFT | POSTED+AWAITING_RECEIPT
+- Atomic DemandTransferLink propagation on SHORTFALL (send) and RECEIVE_SHORTFALL (receive) continuations
+- ADR-038 amendment; Warehouse Spec §15.1.3 / v1.11
+
+### Explicitly not done
+
+- Production cancellation → Demand cancellation / retryDemandRouting / Demand UI
+- Material Catalog / reservation / Order reimport
+- Full reactor / package
+- New Flyway migration (V50/V51 unchanged)
+
+### Verification
+
+See VERIFICATION-LOG B3B-3A entry (2026-10-05).
+
+---
+
 ## Stage 7 / Warehouse — B3B-2 Material Requirement → Warehouse Demand Accept + Initial Routing — 2026-10-05
 
 **Date:** 2026-10-05  

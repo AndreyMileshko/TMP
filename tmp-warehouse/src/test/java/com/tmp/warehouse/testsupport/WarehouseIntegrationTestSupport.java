@@ -21,6 +21,7 @@ import com.tmp.warehouse.application.FixedMaterialReferenceDisplayPort;
 import com.tmp.warehouse.application.MaterialSourceRoutingService;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
 import com.tmp.warehouse.application.WarehouseConsumptionService;
+import com.tmp.warehouse.application.WarehouseDemandContinuationLinkPropagator;
 import com.tmp.warehouse.application.WarehouseMoveService;
 import com.tmp.warehouse.application.WarehouseOperationEngine;
 import com.tmp.warehouse.application.WarehouseOperationalInboxService;
@@ -44,6 +45,7 @@ import com.tmp.warehouse.domain.repository.TransferReceiptSettlementItemReposito
 import com.tmp.warehouse.domain.repository.TransferReturnSettlementItemRepository;
 import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
+import com.tmp.warehouse.domain.repository.WarehouseDemandRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
 import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
@@ -55,6 +57,7 @@ import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
 import com.tmp.warehouse.persistence.JdbcTransferReceiptSettlementItemRepository;
 import com.tmp.warehouse.persistence.JdbcTransferReturnSettlementItemRepository;
 import com.tmp.warehouse.persistence.JdbcTransferTaskStateRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseDemandRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseTransferDocumentRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseUserResponsibilityRepository;
 import java.time.Clock;
@@ -181,6 +184,9 @@ public final class WarehouseIntegrationTestSupport {
         TransferReturnSettlementItemRepository returnItems =
                 new JdbcTransferReturnSettlementItemRepository(jdbc);
         TransferTaskStateRepository taskStates = new JdbcTransferTaskStateRepository(jdbc, clock);
+        WarehouseDemandRepository demandRepository = new JdbcWarehouseDemandRepository(jdbc);
+        WarehouseDemandContinuationLinkPropagator demandContinuationLinks =
+                new WarehouseDemandContinuationLinkPropagator(demandRepository);
         DocumentEngine documentEngine = createDocumentEngine(jdbc);
         documentEngine.registerProcessor(
                 new WarehouseTransferDocumentProcessor(
@@ -212,6 +218,7 @@ public final class WarehouseIntegrationTestSupport {
                         taskStates,
                         catalog,
                         responsibilityGuard,
+                        demandContinuationLinks,
                         tx,
                         clock);
         WarehouseTransferReceiveService transferReceive =
@@ -227,6 +234,7 @@ public final class WarehouseIntegrationTestSupport {
                         materials,
                         catalog,
                         responsibilityGuard,
+                        demandContinuationLinks,
                         tx,
                         clock);
         WarehouseTransferRejectService transferReject =

@@ -8,16 +8,19 @@ import com.tmp.warehouse.api.TransferDocumentOrderReferenceQuery;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi;
+import com.tmp.warehouse.api.WarehouseDemandQueryApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tmp.warehouse.api.WarehouseReferenceQueryApi;
 import com.tmp.warehouse.application.CodeOnlyMaterialReferenceDisplayPort;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
 import com.tmp.warehouse.application.DefaultWarehouseDemandCommandApi;
+import com.tmp.warehouse.application.DefaultWarehouseDemandQueryApi;
 import com.tmp.warehouse.application.DefaultWarehouseReferenceQueryApi;
 import com.tmp.warehouse.application.DefaultWarehouseResponsibilityGuard;
 import com.tmp.warehouse.application.WarehouseAdjustmentService;
 import com.tmp.warehouse.application.WarehouseConsumptionService;
 import com.tmp.warehouse.application.WarehouseDemandAcceptanceService;
+import com.tmp.warehouse.application.WarehouseDemandContinuationLinkPropagator;
 import com.tmp.warehouse.application.WarehouseInventoryService;
 import com.tmp.warehouse.application.WarehouseMoveService;
 import com.tmp.warehouse.application.WarehouseOperationEngine;
@@ -62,6 +65,7 @@ import com.tmp.warehouse.persistence.JdbcTransferReceiptSettlementItemRepository
 import com.tmp.warehouse.persistence.JdbcTransferReturnSettlementItemRepository;
 import com.tmp.warehouse.persistence.JdbcTransferTaskStateRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseDemandFulfillmentReadQuery;
 import com.tmp.warehouse.persistence.JdbcWarehouseDemandRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseHistoryReadQuery;
 import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
@@ -284,6 +288,26 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
+    WarehouseDemandContinuationLinkPropagator warehouseDemandContinuationLinkPropagator(
+            WarehouseDemandRepository warehouseDemandRepository) {
+        return new WarehouseDemandContinuationLinkPropagator(warehouseDemandRepository);
+    }
+
+    @Bean
+    JdbcWarehouseDemandFulfillmentReadQuery warehouseDemandFulfillmentReadQuery(
+            JdbcTemplate jdbcTemplate) {
+        return new JdbcWarehouseDemandFulfillmentReadQuery(jdbcTemplate);
+    }
+
+    @Bean
+    WarehouseDemandQueryApi warehouseDemandQueryApi(
+            WarehouseDemandRepository warehouseDemandRepository,
+            JdbcWarehouseDemandFulfillmentReadQuery warehouseDemandFulfillmentReadQuery) {
+        return new DefaultWarehouseDemandQueryApi(
+                warehouseDemandRepository, warehouseDemandFulfillmentReadQuery);
+    }
+
+    @Bean
     WarehouseTransferSendService warehouseTransferSendService(
             DocumentEngine documentEngine,
             WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
@@ -292,6 +316,7 @@ public class WarehouseAutoConfiguration {
             TransferTaskStateRepository transferTaskStateRepository,
             WarehouseCatalogRepository warehouseCatalogRepository,
             WarehouseResponsibilityGuard warehouseResponsibilityGuard,
+            WarehouseDemandContinuationLinkPropagator warehouseDemandContinuationLinkPropagator,
             PlatformTransactionManager platformTransactionManager,
             Clock clock) {
         return new WarehouseTransferSendService(
@@ -302,6 +327,7 @@ public class WarehouseAutoConfiguration {
                 transferTaskStateRepository,
                 warehouseCatalogRepository,
                 warehouseResponsibilityGuard,
+                warehouseDemandContinuationLinkPropagator,
                 new TransactionTemplate(platformTransactionManager),
                 clock);
     }
@@ -319,6 +345,7 @@ public class WarehouseAutoConfiguration {
             MaterialReferenceRepository materialReferenceRepository,
             WarehouseCatalogRepository warehouseCatalogRepository,
             WarehouseResponsibilityGuard warehouseResponsibilityGuard,
+            WarehouseDemandContinuationLinkPropagator warehouseDemandContinuationLinkPropagator,
             PlatformTransactionManager platformTransactionManager,
             Clock clock) {
         return new WarehouseTransferReceiveService(
@@ -333,6 +360,7 @@ public class WarehouseAutoConfiguration {
                 materialReferenceRepository,
                 warehouseCatalogRepository,
                 warehouseResponsibilityGuard,
+                warehouseDemandContinuationLinkPropagator,
                 new TransactionTemplate(platformTransactionManager),
                 clock);
     }
