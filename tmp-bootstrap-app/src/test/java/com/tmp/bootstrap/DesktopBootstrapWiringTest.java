@@ -18,6 +18,7 @@ import com.tmp.ui.shell.screen.orderitemeditor.OrderItemEditorViewModel;
 import com.tmp.ui.shell.screen.orderitemlist.OrderItemListViewModel;
 import com.tmp.ui.shell.screen.orderlist.OrderListViewModel;
 import com.tmp.ui.shell.screen.orderspecificationeditor.OrderItemSpecificationEditorViewModel;
+import com.tmp.warehouse.api.TransferDocumentOrderReferenceQuery;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -67,5 +68,10 @@ class DesktopBootstrapWiringTest extends AbstractBootstrapPostgresSpringTest {
         assertNotNull(applicationContext.getBean(OrderImportService.class));
         assertNotNull(applicationContext.getBean(StxtOrderFileParser.class));
         assertNotNull(applicationContext.getBean(OrderImportViewModel.class));
+    }
+
+    @Test
+    void warehouseOrderReferenceCompositionQueryIsWired() {
+        assertNotNull(applicationContext.getBean(TransferDocumentOrderReferenceQuery.class));
     }
 }

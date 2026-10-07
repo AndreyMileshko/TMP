@@ -459,7 +459,7 @@ public class WarehouseAutoConfiguration {
                 authenticationService,
                 new TransactionTemplate(platformTransactionManager),
                 clock,
-                transferDocumentOrderReferenceQuery.getIfAvailable(),
+                transferDocumentOrderReferenceQuery,
                 warehouseDemandCommandApi);
     }
 

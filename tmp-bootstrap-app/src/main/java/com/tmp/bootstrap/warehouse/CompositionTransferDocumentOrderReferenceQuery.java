@@ -25,7 +25,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *   <li>Demand supply task via {@code warehouse_demands.source_material_requirement_id}
  * </ul>
  *
- * <p>Order numbers come from {@code material_requirement_source_items} (supports cross-order MR).
+ * <p>Order numbers come from {@code material_requirement_line_source_items} (line-accurate) and
+ * {@code material_requirement_source_items} (MR header / cross-order MR).
  */
 public final class CompositionTransferDocumentOrderReferenceQuery
         implements TransferDocumentOrderReferenceQuery {
@@ -65,6 +66,13 @@ public final class CompositionTransferDocumentOrderReferenceQuery
             Objects.requireNonNull(demandId, "demandId");
             collected.put(demandId, new TreeSet<>());
         }
+        collectDemandOrdersFromLineSourceItems(ids, collected);
+        collectDemandOrdersFromHeaderSourceItems(ids, collected);
+        return compose(collected);
+    }
+
+    private void collectDemandOrdersFromHeaderSourceItems(
+            List<UUID> demandIds, Map<UUID, Set<String>> collected) {
         String sql =
                 "SELECT d.id AS demand_id, o.order_number"
                         + " FROM warehouse.warehouse_demands d"
@@ -73,7 +81,7 @@ public final class CompositionTransferDocumentOrderReferenceQuery
                         + " JOIN order_management.orders o"
                         + " ON o.order_id = si.source_order_id"
                         + " WHERE d.id IN ("
-                        + placeholders(ids.size())
+                        + placeholders(demandIds.size())
                         + ")";
         jdbcTemplate.query(
                 sql,
@@ -82,8 +90,31 @@ public final class CompositionTransferDocumentOrderReferenceQuery
                     String orderNumber = rs.getString("order_number");
                     addOrderNumber(collected, demandId, orderNumber);
                 },
-                ids.toArray());
-        return compose(collected);
+                demandIds.toArray());
+    }
+
+    private void collectDemandOrdersFromLineSourceItems(
+            List<UUID> demandIds, Map<UUID, Set<String>> collected) {
+        String sql =
+                "SELECT d.id AS demand_id, o.order_number"
+                        + " FROM warehouse.warehouse_demands d"
+                        + " JOIN production.material_requirement_lines mrl"
+                        + " ON mrl.requirement_id = d.source_material_requirement_id"
+                        + " JOIN production.material_requirement_line_source_items lsi"
+                        + " ON lsi.line_id = mrl.id"
+                        + " JOIN order_management.orders o"
+                        + " ON o.order_id = lsi.source_order_id"
+                        + " WHERE d.id IN ("
+                        + placeholders(demandIds.size())
+                        + ")";
+        jdbcTemplate.query(
+                sql,
+                rs -> {
+                    UUID demandId = rs.getObject("demand_id", UUID.class);
+                    String orderNumber = rs.getString("order_number");
+                    addOrderNumber(collected, demandId, orderNumber);
+                },
+                demandIds.toArray());
     }
 
     private void collectFromGeneratedDocuments(
@@ -109,6 +140,36 @@ public final class CompositionTransferDocumentOrderReferenceQuery
     }
 
     private void collectFromDemandTransferLinks(
+            List<UUID> documentIds, Map<UUID, Set<String>> collected) {
+        collectTransferOrdersFromLinkedDemandLines(documentIds, collected);
+        collectTransferOrdersFromLinkedDemandHeader(documentIds, collected);
+    }
+
+    private void collectTransferOrdersFromLinkedDemandLines(
+            List<UUID> documentIds, Map<UUID, Set<String>> collected) {
+        String sql =
+                "SELECT link.transfer_document_id, o.order_number"
+                        + " FROM warehouse.warehouse_demand_transfer_links link"
+                        + " JOIN warehouse.warehouse_demand_lines dl"
+                        + " ON dl.id = link.demand_line_id"
+                        + " JOIN production.material_requirement_line_source_items lsi"
+                        + " ON lsi.line_id = dl.source_material_requirement_line_id"
+                        + " JOIN order_management.orders o"
+                        + " ON o.order_id = lsi.source_order_id"
+                        + " WHERE link.transfer_document_id IN ("
+                        + placeholders(documentIds.size())
+                        + ")";
+        jdbcTemplate.query(
+                sql,
+                rs -> {
+                    UUID documentId = rs.getObject("transfer_document_id", UUID.class);
+                    String orderNumber = rs.getString("order_number");
+                    addOrderNumber(collected, documentId, orderNumber);
+                },
+                documentIds.toArray());
+    }
+
+    private void collectTransferOrdersFromLinkedDemandHeader(
             List<UUID> documentIds, Map<UUID, Set<String>> collected) {
         String sql =
                 "SELECT link.transfer_document_id, o.order_number"

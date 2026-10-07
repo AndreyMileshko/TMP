@@ -47,6 +47,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -96,7 +97,7 @@ public final class WarehouseOperationalInboxService {
     private final AuthenticationService authentication;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
-    private final TransferDocumentOrderReferenceQuery orderReferences;
+    private final ObjectProvider<TransferDocumentOrderReferenceQuery> orderReferences;
     private final WarehouseDemandCommandApi demandCommands;
 
     public WarehouseOperationalInboxService(
@@ -167,7 +168,7 @@ public final class WarehouseOperationalInboxService {
             AuthenticationService authentication,
             TransactionTemplate transactionTemplate,
             Clock clock,
-            TransferDocumentOrderReferenceQuery orderReferences) {
+            ObjectProvider<TransferDocumentOrderReferenceQuery> orderReferences) {
         this(
                 documentEngine,
                 transferDocuments,
@@ -200,7 +201,7 @@ public final class WarehouseOperationalInboxService {
             AuthenticationService authentication,
             TransactionTemplate transactionTemplate,
             Clock clock,
-            TransferDocumentOrderReferenceQuery orderReferences) {
+            ObjectProvider<TransferDocumentOrderReferenceQuery> orderReferences) {
         this(
                 documentEngine,
                 transferDocuments,
@@ -233,7 +234,7 @@ public final class WarehouseOperationalInboxService {
             AuthenticationService authentication,
             TransactionTemplate transactionTemplate,
             Clock clock,
-            TransferDocumentOrderReferenceQuery orderReferences,
+            ObjectProvider<TransferDocumentOrderReferenceQuery> orderReferences,
             WarehouseDemandCommandApi demandCommands) {
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
         this.transferDocuments = Objects.requireNonNull(transferDocuments, "transferDocuments");
@@ -410,6 +411,10 @@ public final class WarehouseOperationalInboxService {
         if (orderReferences == null || tasks.isEmpty()) {
             return tasks;
         }
+        TransferDocumentOrderReferenceQuery query = orderReferences.getIfAvailable();
+        if (query == null) {
+            return tasks;
+        }
         List<UUID> documentIds =
                 tasks.stream()
                         .filter(t -> t.taskSource() == WarehouseTaskSource.TRANSFER_DOCUMENT)
@@ -423,11 +428,11 @@ public final class WarehouseOperationalInboxService {
         Map<UUID, String> byDocument =
                 documentIds.isEmpty()
                         ? Map.of()
-                        : orderReferences.findOrderNumbersByDocumentIds(documentIds);
+                        : query.findOrderNumbersByDocumentIds(documentIds);
         Map<UUID, String> byDemand =
                 demandIds.isEmpty()
                         ? Map.of()
-                        : orderReferences.findOrderNumbersByDemandIds(demandIds);
+                        : query.findOrderNumbersByDemandIds(demandIds);
         if (byDocument.isEmpty() && byDemand.isEmpty()) {
             return tasks;
         }
