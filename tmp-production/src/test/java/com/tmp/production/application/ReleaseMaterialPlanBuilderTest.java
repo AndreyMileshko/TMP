@@ -34,6 +34,7 @@ class ReleaseMaterialPlanBuilderTest {
                         T0);
 
         UUID materialRef = UUID.randomUUID();
+        // Two spec lines, each norm 0.5 per product → 1.0 material per product released
         List<ResolvedMaterialLine> specLines =
                 List.of(
                         line("MAT-A", new BigDecimal("0.5")),
@@ -43,15 +44,37 @@ class ReleaseMaterialPlanBuilderTest {
 
         var planned =
                 builder.buildPlannedLines(state, 1, specLines, catalog).getFirst();
-        assertEquals(new BigDecimal("0.333334"), planned.plannedQuantity());
+        assertEquals(new BigDecimal("1.000000"), planned.plannedQuantity());
 
-        BigDecimal aggregateFirst =
+        BigDecimal singleLine =
                 new PartialReleaseMaterialPlanCalculator()
                         .calculate(
                                 new PartialReleaseMaterialPlanCalculator.Input(
-                                        new BigDecimal("1"), 3, 0, 1))
+                                        new BigDecimal("0.5"), 3, 0, 1))
                         .planCurrent();
-        assertEquals(new BigDecimal("0.333333"), aggregateFirst);
+        assertEquals(new BigDecimal("0.500000"), singleLine);
+    }
+
+    @Test
+    void selectedReleaseQuantityTimesPerProductNorm() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        ProductionItemState state =
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(orderId, itemId, specId, T0),
+                        ProductionQuantity.positive(10),
+                        T0);
+
+        UUID materialRef = UUID.randomUUID();
+        var planned =
+                builder.buildPlannedLines(
+                                state,
+                                3,
+                                List.of(line("MAT-B", new BigDecimal("2"))),
+                                List.of(entry(materialRef, "MAT-B", "", "шт.")))
+                        .getFirst();
+        assertEquals(new BigDecimal("6.000000"), planned.plannedQuantity());
     }
 
     private static ResolvedMaterialLine line(String code, BigDecimal q) {

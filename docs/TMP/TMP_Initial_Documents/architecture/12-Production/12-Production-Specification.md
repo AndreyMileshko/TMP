@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-012  
 **Status:** Accepted  
-**Version:** 2.6
+**Version:** 2.7
 
 ---
 
@@ -542,53 +542,51 @@ Warehouse списывает **подтверждённое фактическо
 
 ### 15.1.1 Partial Release Material Plan
 
-Нормативный **plannedQuantity** для Production Release при частичном или повторном выпуске позиции рассчитывается по зафиксированной Specification и cumulative proportional allocation (Stage 7 v1.0).
+Нормативный **plannedQuantity** для Production Release при частичном или повторном выпуске позиции рассчитывается по зафиксированной Specification и cumulative allocation (Stage 7; B3-MA-FIX2).
+
+Тот же калькулятор (`PartialReleaseMaterialPlanCalculator` / `ReleaseMaterialPlanBuilder`) используется Material Readiness для remaining / selected release quantity.
 
 #### Semantics: frozen Specification и Order Management contract
 
 - Frozen Specification (по `ProductionItemState.specificationId`) — единственная нормативная основа расчёта plan для Stage 7.
 - Запрещено использовать current Specification, latest Specification, active Revision или RevisionNumber.
-- Order Management contract: `Specification.lineQuantity` для строки материала означает **общее нормативное количество одинаковых элементов для всей расчётной позиции** (на весь Order Item), а не «на одно изделие».
+- Order Management contract: `Specification.lineQuantity` для строки материала означает **норму материала на одно производимое изделие** (per one product), не «на всю позицию заказа».
 - `ProductionItemState.orderedQuantity` (`N`) — количество одинаковых изделий позиции.
-- **Запрещено** повторно умножать `lineQuantity * orderedQuantity` при расчёте plan Release.
+- Полная нормативная потребность на позицию = `lineQuantity × orderedQuantity`.
+- Material Requirement: `lineQuantity × requestedProductQuantity` (без двойного умножения).
+- Material Readiness (остаток): `lineQuantity × remainingProductQuantity` (`activeProductionQuantity`).
+- Release / readiness for selected qty: `lineQuantity × releaseQuantity`.
 
 Для каждой строки frozen Specification (материал):
 
 | Symbol | Meaning |
 |--------|---------|
-| `Q` | `Specification.lineQuantity` (норматив на всю позицию) |
+| `Q` | `Specification.lineQuantity` (норма на одно изделие) |
 | `N` | `ProductionItemState.orderedQuantity` |
 | `R_before` | `ProductionItemState.releasedQuantity` до текущего Release |
 | `R_current` | количество изделий, выпускаемое текущим Release |
 | `R_after` | `R_before + R_current` |
 
-#### Cumulative proportional allocation
+#### Cumulative allocation (per-product norm)
 
-Plan текущего Release — **приращение** cumulative target, а не независимое масштабирование только `R_current`:
+Plan текущего Release — **приращение** cumulative target `Q × R`:
 
 ```text
-C_before = normalized(Q * R_before / N)
-C_after  = normalized(Q * R_after / N)   // except final closure below
+C_before = normalized(Q * R_before)   // 0 если R_before == 0
+C_after  = normalized(Q * R_after)
 Plan_current = C_after - C_before
 ```
 
 `normalized(x)` — округление `x` до scale = 6, `RoundingMode.HALF_UP` (`BigDecimal`; не `double` / `float`).
 
-**Критически:** запрещено рассчитывать каждый Release независимо как `round(Q * R_current / N)` без cumulative target — это накапливает ошибку округления при repeated partial Release.
+Cumulative приращение сохраняет точность при repeated partial Release (избегает накопления ошибки от независимых `normalize(Q * R_current)`).
 
 #### Final Release closure
 
-Если `R_after == N` (полный выпуск позиции):
+После полного выпуска позиции по материалу:
 
 ```text
-C_after = Q   // EXACT, без округления Q * N / N
-Plan_current = C_after - C_before
-```
-
-Инвариант после полного выпуска позиции по материалу:
-
-```text
-SUM(Plan_current по всем Release данной позиции/материала) == Q
+SUM(Plan_current по всем Release данной позиции/материала) == normalized(Q * N)
 ```
 
 #### Plan vs fact
@@ -605,21 +603,27 @@ SUM(Plan_current по всем Release данной позиции/матери�
 
 #### Normative examples
 
-**CASE A** — proportional partial releases, exact closure:
+**CASE A** — partial releases, exact closure at `Q × N`:
 
-- `N = 10`, `Q = 17`
+- `N = 10`, `Q = 1.7` (норма на одно изделие) → полная потребность `17`
 - Release #1: `R_current = 3`, `R_before = 0`, `R_after = 3` → `C_after = 5.100000`, `Plan = 5.100000`
 - Release #2: `R_current = 4`, `R_before = 3`, `R_after = 7` → `C_before = 5.100000`, `C_after = 11.900000`, `Plan = 6.800000`
-- Release #3: `R_current = 3`, `R_before = 7`, `R_after = 10` → `C_before = 11.900000`, `C_after = 17` (EXACT), `Plan = 5.100000`
-- Total plan: `17.000000`
+- Release #3: `R_current = 3`, `R_before = 7`, `R_after = 10` → `C_before = 11.900000`, `C_after = 17.000000`, `Plan = 5.100000`
+- Total plan: `17.000000` (= `Q × N`)
 
-**CASE B** — rounding closure on final Release:
+**CASE B** — manual acceptance / readiness (TEST-002 semantics):
 
-- `N = 3`, `Q = 1`
-- Release 1: `R_current = 1` → cumulative `0.333333`, plan `0.333333`
-- Release 2: `R_current = 1` → cumulative `0.666667`, plan `0.333334`
-- Final Release 3: `R_current = 1` → cumulative `1` (EXACT), plan `0.333333`
-- Total plan: `1.000000`
+- `N = 115`, `Q = 2`, released = 0, remaining = 115
+- Required = `2 × 115 = 230`
+- Production AVAILABLE = 6 → shortage = 224, NOT READY
+
+**CASE C** — selected release quantity:
+
+- Remaining = 10, selected release = 3, `Q = 2` → required = `6` (не `20`)
+
+**CASE D** — per-product integer release:
+
+- `N = 3`, `Q = 1` (per product) → each unit release plans `1.000000`; total `3.000000`
 
 ## 15.2 Недостаток материала
 
@@ -960,6 +964,7 @@ Order Management — владелец Order / Order Item / Revision / Specificat
 | 2.4 | Production permission shorthand normalized to canonical 3-segment Security PermissionId format. Business semantics unchanged. Warehouse-owned permissions remain Warehouse-owned. |
 | 2.5 | §16: partial cancellation preserves RELEASED facts; Orders UI operational status «Частично выполнен» is a presentation/read-model, not a Production enum. |
 | 2.6 | Stage 3.5.0 Warehouse boundary alignment (ADR-037): TARGET Material Requirement → Warehouse routing; CURRENT IMPLEMENTATION (fixed mainWarehouse + recommendation formula + Production template) явно отделён; dual quantity / supply-warehouse choice superseded for target; plan/fact Release unchanged. |
+| 2.7 | §15.1.1 B3-MA-FIX2: `lineQuantity` = material norm **per one product**; plan/readiness = `Q × R` (cumulative); full close at `Q × N`; aligns Release/Readiness with Material Requirement per-product scaling. |
 
 ---
 

@@ -4,6 +4,34 @@
 
 ---
 
+## Stage 7 Production — B3-MA-FIX2 Material Readiness Quantity — 2026-10-07
+
+**Date:** 2026-10-07
+**Stage:** 7 Production / Manual Acceptance Fix B3-MA-FIX2
+**Base HEAD:** `8e68d17a102ea074c8f902b872b045b14428f86d`
+**Status:** PASS — B3-MA-04 FIXED (authoritative calculator); no commit / no push
+
+### Scope
+
+- **Root cause:** `PartialReleaseMaterialPlanCalculator` treated `Specification.lineQuantity` as total for the whole Order Item (`Q * R / N`, final close at `Q`) instead of per-product norm
+- **Fix:** cumulative `Q × R` (per-product); full release closes at `Q × N`; shared by Readiness + Release via existing `ReleaseMaterialPlanBuilder`
+- Remaining product quantity: `ProductionItemState.activeProductionQuantity` (unchanged)
+- Docs: Production Spec §15.1.1 + Stage-7 UX OQ-9 aligned to per-product semantics
+- Regression: TEST-002 manual case (115×2=230), partial, selected release, multi-material, same-material aggregation, MR no double-multiply
+- B3-MA-01 / Warehouse Demand / Transfer / reservation: NOT TOUCHED
+- Full reactor: NOT RUN
+
+### Explicitly not done
+
+- Manual retest of TEST-002 (STOP for review)
+- CheckMaterialAvailability legacy unscaled `aggregate()` path (separate from Phase 6 readiness)
+
+### Verification
+
+See VERIFICATION-LOG B3-MA-FIX2 entry (2026-10-07).
+
+---
+
 ## Stage 7 / Warehouse — B3-MA-FIX1 Manual Acceptance Fixes — 2026-10-07
 
 **Date:** 2026-10-07

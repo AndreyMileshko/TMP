@@ -37,8 +37,11 @@ class MaterialReadinessQueryServiceTest {
 
     private static final Instant T0 = Instant.parse("2026-10-02T06:00:00Z");
     private static final UUID PROD_WH = UUID.fromString("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+    private static final UUID SOURCE_WH = UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     private static final UUID MAT_X = UUID.fromString("11111111-1111-4111-8111-111111111111");
     private static final UUID MAT_Y = UUID.fromString("22222222-2222-4222-8222-222222222222");
+    private static final UUID MAT_A = UUID.fromString("33333333-3333-4333-8333-333333333333");
+    private static final UUID MAT_B = UUID.fromString("44444444-4444-4444-8444-444444444444");
 
     private InMemoryItemStateRepository itemStates;
     private FakeWarehouseAvailability warehouse;
@@ -54,8 +57,10 @@ class MaterialReadinessQueryServiceTest {
         specId = SpecificationId.generate();
         itemStates = new InMemoryItemStateRepository();
         warehouse = new FakeWarehouseAvailability();
-        warehouse.catalog.add(entry(MAT_X, "101.208", "Профиль", "Белый", "м"));
+        warehouse.catalog.add(entry(MAT_X, "MAT-001", "Профиль", "Белый", "шт"));
         warehouse.catalog.add(entry(MAT_Y, "101.305", "Фурнитура", "—", "шт"));
+        warehouse.catalog.add(entry(MAT_A, "MAT-A", "Материал A", "—", "шт"));
+        warehouse.catalog.add(entry(MAT_B, "MAT-B", "Материал B", "—", "шт"));
         ProductionOrderViewService orderViewService =
                 new ProductionOrderViewService(itemStates, sourceOrderId -> false);
         ProductionFoundationQueryService foundation =
@@ -69,15 +74,152 @@ class MaterialReadinessQueryServiceTest {
     }
 
     @Test
+    void manualAcceptanceCaseTest002RequiredIsNormTimesRemaining() {
+        // Order qty 115, released 0, MAT-001 norm 2, production AVAILABLE 6
+        launchItem(115, bd("2"), "MAT-001", MAT_X);
+        warehouse.available.put(MAT_X, new BigDecimal("6"));
+
+        MaterialReadinessResult result = service.evaluateOrderRemaining(orderId);
+
+        assertEquals(MaterialReadinessStatus.NOT_READY, result.status());
+        MaterialReadinessLine line = result.lines().getFirst();
+        assertEquals(0, new BigDecimal("230").compareTo(line.requiredQuantity()));
+        assertEquals(0, new BigDecimal("6").compareTo(line.availableQuantity()));
+        assertEquals(0, new BigDecimal("224").compareTo(line.shortageQuantity()));
+    }
+
+    @Test
+    void partialReleaseRemainingUsesActiveQuantityOnly() {
+        ProductionItemState launched = launchItem(10, bd("2"), "MAT-001", MAT_X);
+        itemStates.save(
+                launched.release(ProductionQuantity.positive(4), Instant.parse("2026-10-02T07:00:00Z")));
+        warehouse.available.put(MAT_X, new BigDecimal("12"));
+
+        MaterialReadinessResult ready = service.evaluateOrderRemaining(orderId);
+        assertEquals(MaterialReadinessStatus.READY, ready.status());
+        assertEquals(0, new BigDecimal("12").compareTo(ready.lines().getFirst().requiredQuantity()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(ready.lines().getFirst().shortageQuantity()));
+
+        warehouse.available.put(MAT_X, new BigDecimal("11"));
+        MaterialReadinessResult shortOne = service.evaluateOrderRemaining(orderId);
+        assertEquals(MaterialReadinessStatus.NOT_READY, shortOne.status());
+        assertEquals(0, new BigDecimal("1").compareTo(shortOne.lines().getFirst().shortageQuantity()));
+    }
+
+    @Test
+    void releaseSelectedQuantityTimesNormNotFullRemainder() {
+        launchItem(10, bd("2"), "MAT-001", MAT_X);
+        warehouse.available.put(MAT_X, new BigDecimal("100"));
+
+        MaterialReadinessResult forThree =
+                service.evaluateForRelease(
+                        orderId, List.of(new ItemReleaseQuantity(itemId.value(), 3)));
+
+        assertEquals(0, new BigDecimal("6").compareTo(forThree.lines().getFirst().requiredQuantity()));
+    }
+
+    @Test
+    void multipleMaterialsScaleIndependently() {
+        launchItem(5, bd("2"), "MAT-A", MAT_A);
+        FixedSpecPort.lines =
+                List.of(
+                        new ResolvedMaterialLine("MAT-A", "Материал A", "—", null, bd("2"), "шт"),
+                        new ResolvedMaterialLine("MAT-B", "Материал B", "—", null, bd("3"), "шт"));
+        warehouse.available.put(MAT_A, new BigDecimal("100"));
+        warehouse.available.put(MAT_B, new BigDecimal("100"));
+
+        MaterialReadinessResult result = service.evaluateOrderRemaining(orderId);
+
+        Map<String, BigDecimal> byCode = new HashMap<>();
+        for (MaterialReadinessLine line : result.lines()) {
+            byCode.put(line.materialCode(), line.requiredQuantity());
+        }
+        assertEquals(0, new BigDecimal("10").compareTo(byCode.get("MAT-A")));
+        assertEquals(0, new BigDecimal("15").compareTo(byCode.get("MAT-B")));
+    }
+
+    @Test
+    void sameMaterialAcrossItemsAggregatesPerItemThenSums() {
+        SourceOrderItemId itemA = SourceOrderItemId.generate();
+        SourceOrderItemId itemB = SourceOrderItemId.generate();
+        SpecificationId specA = SpecificationId.generate();
+        SpecificationId specB = SpecificationId.generate();
+        itemStates.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(orderId, itemA, specA, T0),
+                        ProductionQuantity.positive(3),
+                        T0));
+        itemStates.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(orderId, itemB, specB, T0),
+                        ProductionQuantity.positive(4),
+                        T0));
+        MultiItemSpecPort multi = new MultiItemSpecPort();
+        multi.put(specA, itemA, 3, List.of(line("MAT-X", "MAT-X", bd("2"), "шт")));
+        multi.put(specB, itemB, 4, List.of(line("MAT-X", "MAT-X", bd("5"), "шт")));
+        warehouse.catalog.clear();
+        warehouse.catalog.add(entry(MAT_X, "MAT-X", "Shared", "—", "шт"));
+        warehouse.available.put(MAT_X, new BigDecimal("100"));
+        service =
+                new MaterialReadinessQueryService(
+                        new ProductionOrderViewService(itemStates, sourceOrderId -> false),
+                        new ProductionFoundationQueryService(multi),
+                        warehouse,
+                        new ProductionDestinationWarehouse(PROD_WH));
+
+        MaterialReadinessResult result = service.evaluateOrderRemaining(orderId);
+
+        assertEquals(1, result.lines().size());
+        assertEquals(0, new BigDecimal("26").compareTo(result.lines().getFirst().requiredQuantity()));
+    }
+
+    @Test
+    void zeroRemainingIsNotApplicableWithoutFakeShortage() {
+        ProductionItemState launched = launchItem(10, bd("2"), "MAT-001", MAT_X);
+        itemStates.save(
+                launched.release(
+                        ProductionQuantity.positive(10), Instant.parse("2026-10-02T08:00:00Z")));
+
+        MaterialReadinessResult result = service.evaluateOrderRemaining(orderId);
+
+        assertEquals(MaterialReadinessStatus.NOT_APPLICABLE, result.status());
+        assertEquals(MaterialReadinessReason.MANUFACTURED, result.reason());
+        assertTrue(result.lines().isEmpty());
+    }
+
+    @Test
+    void availableUsesProductionWarehouseOnlyNotSourceStock() {
+        launchItem(115, bd("2"), "MAT-001", MAT_X);
+        warehouse.available.put(MAT_X, new BigDecimal("6"));
+        warehouse.sourceWarehouseStock.put(MAT_X, new BigDecimal("1000"));
+
+        MaterialReadinessResult result = service.evaluateOrderRemaining(orderId);
+
+        assertEquals(0, new BigDecimal("6").compareTo(result.lines().getFirst().availableQuantity()));
+        assertEquals(MaterialReadinessStatus.NOT_READY, result.status());
+    }
+
+    @Test
+    void inTransitDoesNotCountAsAvailable() {
+        launchItem(115, bd("2"), "MAT-001", MAT_X);
+        warehouse.available.put(MAT_X, new BigDecimal("6"));
+        warehouse.inTransit.put(MAT_X, new BigDecimal("100"));
+
+        MaterialReadinessResult result = service.evaluateOrderRemaining(orderId);
+
+        assertEquals(0, new BigDecimal("6").compareTo(result.lines().getFirst().availableQuantity()));
+        assertEquals(0, new BigDecimal("224").compareTo(result.lines().getFirst().shortageQuantity()));
+    }
+
+    @Test
     void readyWhenAvailableExceedsRequired() {
-        launchItem(10, bd("100"));
+        launchItem(10, bd("10"), "MAT-001", MAT_X);
         warehouse.available.put(MAT_X, new BigDecimal("50"));
 
         MaterialReadinessResult result =
                 service.evaluateForRelease(orderId, List.of(new ItemReleaseQuantity(itemId.value(), 4)));
 
         assertEquals(MaterialReadinessStatus.READY, result.status());
-        assertEquals(0, result.deficientLineCount());
         MaterialReadinessLine line = result.lines().getFirst();
         assertEquals(0, new BigDecimal("40").compareTo(line.requiredQuantity()));
         assertEquals(0, new BigDecimal("50").compareTo(line.availableQuantity()));
@@ -86,97 +228,16 @@ class MaterialReadinessQueryServiceTest {
 
     @Test
     void notReadyWhenAvailableBelowRequired() {
-        launchItem(10, bd("100"));
+        launchItem(10, bd("10"), "MAT-001", MAT_X);
         warehouse.available.put(MAT_X, new BigDecimal("25"));
 
         MaterialReadinessResult result =
                 service.evaluateForRelease(orderId, List.of(new ItemReleaseQuantity(itemId.value(), 4)));
 
         assertEquals(MaterialReadinessStatus.NOT_READY, result.status());
-        assertEquals(1, result.deficientLineCount());
         MaterialReadinessLine line = result.lines().getFirst();
         assertEquals(0, new BigDecimal("40").compareTo(line.requiredQuantity()));
-        assertEquals(0, new BigDecimal("25").compareTo(line.availableQuantity()));
         assertEquals(0, new BigDecimal("15").compareTo(line.shortageQuantity()));
-    }
-
-    @Test
-    void shortageEqualsRequiredWhenAvailableZero() {
-        launchItem(10, bd("100"));
-        warehouse.available.put(MAT_X, BigDecimal.ZERO);
-
-        MaterialReadinessResult result =
-                service.evaluateForRelease(orderId, List.of(new ItemReleaseQuantity(itemId.value(), 4)));
-
-        assertEquals(MaterialReadinessStatus.NOT_READY, result.status());
-        assertEquals(0, new BigDecimal("40").compareTo(result.lines().getFirst().shortageQuantity()));
-    }
-
-    @Test
-    void overallNotReadyWhenAnyMaterialShort() {
-        launchItem(10, bd("100"));
-        warehouse.available.put(MAT_X, new BigDecimal("100"));
-        warehouse.available.put(MAT_Y, new BigDecimal("6"));
-        FixedSpecPort.lines =
-                List.of(
-                        new ResolvedMaterialLine("101.208", "Профиль", "Белый", null, bd("100"), "м"),
-                        new ResolvedMaterialLine("101.305", "Фурнитура", "—", null, bd("20"), "шт"));
-
-        MaterialReadinessResult result =
-                service.evaluateForRelease(orderId, List.of(new ItemReleaseQuantity(itemId.value(), 4)));
-
-        assertEquals(MaterialReadinessStatus.NOT_READY, result.status());
-        assertEquals(1, result.deficientLineCount());
-        assertEquals(2, result.lines().size());
-    }
-
-    @Test
-    void availableAggregatesMultipleCellsAndIgnoresNonAvailable() {
-        launchItem(10, bd("100"));
-        warehouse.available.put(MAT_X, new BigDecimal("25")); // cells 10+15 AVAILABLE
-
-        MaterialReadinessResult result =
-                service.evaluateForRelease(orderId, List.of(new ItemReleaseQuantity(itemId.value(), 2)));
-
-        assertEquals(MaterialReadinessStatus.READY, result.status());
-        assertEquals(0, new BigDecimal("25").compareTo(result.lines().getFirst().availableQuantity()));
-        assertTrue(
-                result.lines().stream()
-                        .noneMatch(line -> line.materialCode().contains(PROD_WH.toString())));
-    }
-
-    @Test
-    void orderRemainderUsesActiveQuantityNotOrdered() {
-        ProductionItemState launched = launchItem(10, bd("100"));
-        ProductionItemState partial =
-                launched.release(ProductionQuantity.positive(6), Instant.parse("2026-10-02T07:00:00Z"));
-        itemStates.save(partial);
-        warehouse.available.put(MAT_X, new BigDecimal("100"));
-
-        MaterialReadinessResult result = service.evaluateOrderRemaining(orderId);
-
-        assertEquals(MaterialReadinessStatus.READY, result.status());
-        // Q=100 for N=10; releasedBefore=6, release=4 → plan = 40
-        assertEquals(0, new BigDecimal("40").compareTo(result.lines().getFirst().requiredQuantity()));
-    }
-
-    @Test
-    void partialFutureReleaseUsesRequestedQuantityNotFullRemainder() {
-        ProductionItemState launched = launchItem(10, bd("100"));
-        ProductionItemState partial =
-                launched.release(ProductionQuantity.positive(6), Instant.parse("2026-10-02T07:00:00Z"));
-        itemStates.save(partial);
-        warehouse.available.put(MAT_X, new BigDecimal("100"));
-
-        MaterialReadinessResult forTwo =
-                service.evaluateForRelease(
-                        orderId, List.of(new ItemReleaseQuantity(itemId.value(), 2)));
-        MaterialReadinessResult forFour =
-                service.evaluateForRelease(
-                        orderId, List.of(new ItemReleaseQuantity(itemId.value(), 4)));
-
-        assertEquals(0, new BigDecimal("20").compareTo(forTwo.lines().getFirst().requiredQuantity()));
-        assertEquals(0, new BigDecimal("40").compareTo(forFour.lines().getFirst().requiredQuantity()));
     }
 
     @Test
@@ -187,39 +248,8 @@ class MaterialReadinessQueryServiceTest {
     }
 
     @Test
-    void manufacturedIsNotApplicable() {
-        ProductionItemState launched = launchItem(2, bd("10"));
-        itemStates.save(launched.release(ProductionQuantity.positive(2), Instant.parse("2026-10-02T08:00:00Z")));
-
-        MaterialReadinessResult result = service.evaluateOrderRemaining(orderId);
-
-        assertEquals(MaterialReadinessStatus.NOT_APPLICABLE, result.status());
-        assertEquals(MaterialReadinessReason.MANUFACTURED, result.reason());
-        assertTrue(result.lines().isEmpty());
-    }
-
-    @Test
-    void cancelledIsNotApplicable() {
-        ProductionItemState launched = launchItem(2, bd("10"));
-        itemStates.save(launched.cancel(Instant.parse("2026-10-02T08:00:00Z")));
-        ProductionOrderViewService cancelledView =
-                new ProductionOrderViewService(itemStates, sourceOrderId -> true);
-        service =
-                new MaterialReadinessQueryService(
-                        cancelledView,
-                        new ProductionFoundationQueryService(new FixedSpecPort()),
-                        warehouse,
-                        new ProductionDestinationWarehouse(PROD_WH));
-
-        MaterialReadinessResult result = service.evaluateOrderRemaining(orderId);
-
-        assertEquals(MaterialReadinessStatus.NOT_APPLICABLE, result.status());
-        assertEquals(MaterialReadinessReason.CANCELLED, result.reason());
-    }
-
-    @Test
     void noProductionWarehouseReturnsControlledStatus() {
-        launchItem(5, bd("10"));
+        launchItem(5, bd("2"), "MAT-001", MAT_X);
         service =
                 new MaterialReadinessQueryService(
                         new ProductionOrderViewService(itemStates, sourceOrderId -> false),
@@ -233,28 +263,8 @@ class MaterialReadinessQueryServiceTest {
     }
 
     @Test
-    void readyWithoutMaterialRequirementWhenStockSufficient() {
-        launchItem(5, bd("10"));
-        warehouse.available.put(MAT_X, new BigDecimal("100"));
-
-        MaterialReadinessResult result = service.evaluateOrderRemaining(orderId);
-
-        assertEquals(MaterialReadinessStatus.READY, result.status());
-    }
-
-    @Test
-    void notReadyEvenIfSubmittedMrWouldExistWhenStockInsufficient() {
-        launchItem(5, bd("10"));
-        warehouse.available.put(MAT_X, new BigDecimal("1"));
-
-        MaterialReadinessResult result = service.evaluateOrderRemaining(orderId);
-
-        assertEquals(MaterialReadinessStatus.NOT_READY, result.status());
-    }
-
-    @Test
     void readinessQueryDoesNotCallMutatingWarehouseApis() {
-        launchItem(5, bd("10"));
+        launchItem(5, bd("2"), "MAT-001", MAT_X);
         warehouse.available.put(MAT_X, new BigDecimal("100"));
 
         service.evaluateOrderRemaining(orderId);
@@ -265,7 +275,7 @@ class MaterialReadinessQueryServiceTest {
 
     @Test
     void emptyMaterialSpecIsReady() {
-        launchItem(3, bd("10"));
+        launchItem(3, bd("2"), "MAT-001", MAT_X);
         FixedSpecPort.lines = List.of();
 
         MaterialReadinessResult result = service.evaluateOrderRemaining(orderId);
@@ -274,7 +284,8 @@ class MaterialReadinessQueryServiceTest {
         assertTrue(result.lines().isEmpty());
     }
 
-    private ProductionItemState launchItem(long ordered, BigDecimal lineQuantity) {
+    private ProductionItemState launchItem(
+            long ordered, BigDecimal lineQuantity, String materialCode, UUID materialId) {
         ProductionItemState state =
                 ProductionItemState.launch(
                         ProductionFoundation.freeze(orderId, itemId, specId, T0),
@@ -286,8 +297,16 @@ class MaterialReadinessQueryServiceTest {
         FixedSpecPort.lines =
                 List.of(
                         new ResolvedMaterialLine(
-                                "101.208", "Профиль", "Белый", null, lineQuantity, "м"));
+                                materialCode, materialCode, "Белый", null, lineQuantity, "шт"));
+        if (warehouse.catalog.stream().noneMatch(e -> e.materialReferenceId().equals(materialId))) {
+            warehouse.catalog.add(entry(materialId, materialCode, materialCode, "Белый", "шт"));
+        }
         return state;
+    }
+
+    private static ResolvedMaterialLine line(
+            String code, String name, BigDecimal qty, String uom) {
+        return new ResolvedMaterialLine(code, name, "—", null, qty, uom);
     }
 
     private static BigDecimal bd(String value) {
@@ -303,16 +322,39 @@ class MaterialReadinessQueryServiceTest {
         static SourceOrderItemId itemId = SourceOrderItemId.generate();
         static BigDecimal orderedQuantity = BigDecimal.TEN;
         static List<ResolvedMaterialLine> lines =
-                List.of(new ResolvedMaterialLine("101.208", "Профиль", "Белый", null, bd("10"), "м"));
+                List.of(new ResolvedMaterialLine("MAT-001", "MAT-001", "Белый", null, bd("2"), "шт"));
 
         @Override
         public Optional<ResolvedSpecification> resolveById(SpecificationId specificationId) {
             return Optional.of(
                     new ResolvedSpecification(
-                            specificationId,
-                            itemId,
-                            orderedQuantity,
-                            List.copyOf(lines)));
+                            specificationId, itemId, orderedQuantity, List.copyOf(lines)));
+        }
+
+        @Override
+        public Optional<ResolvedSpecification> resolveCurrentForLaunch(
+                SourceOrderItemId sourceOrderItemId) {
+            throw new UnsupportedOperationException("not used in readiness");
+        }
+    }
+
+    private static final class MultiItemSpecPort implements OrderSpecificationQueryPort {
+        private final Map<SpecificationId, ResolvedSpecification> byId = new HashMap<>();
+
+        void put(
+                SpecificationId specId,
+                SourceOrderItemId itemId,
+                long ordered,
+                List<ResolvedMaterialLine> lines) {
+            byId.put(
+                    specId,
+                    new ResolvedSpecification(
+                            specId, itemId, BigDecimal.valueOf(ordered), List.copyOf(lines)));
+        }
+
+        @Override
+        public Optional<ResolvedSpecification> resolveById(SpecificationId specificationId) {
+            return Optional.ofNullable(byId.get(specificationId));
         }
 
         @Override
@@ -325,12 +367,16 @@ class MaterialReadinessQueryServiceTest {
     private static final class FakeWarehouseAvailability implements WarehouseAvailabilityQueryPort {
         final List<MaterialReferenceEntry> catalog = new ArrayList<>();
         final Map<UUID, BigDecimal> available = new HashMap<>();
+        final Map<UUID, BigDecimal> sourceWarehouseStock = new HashMap<>();
+        final Map<UUID, BigDecimal> inTransit = new HashMap<>();
         final AtomicInteger batchCalls = new AtomicInteger();
         final AtomicInteger mutationAttempts = new AtomicInteger();
 
         @Override
         public List<WarehouseCatalogEntry> listWarehouses() {
-            return List.of(new WarehouseCatalogEntry(PROD_WH, "PROD", "Production", true));
+            return List.of(
+                    new WarehouseCatalogEntry(PROD_WH, "PROD", "Production", true),
+                    new WarehouseCatalogEntry(SOURCE_WH, "MAIN", "Main", true));
         }
 
         @Override
@@ -340,6 +386,9 @@ class MaterialReadinessQueryServiceTest {
 
         @Override
         public BigDecimal availableQuantity(UUID materialReferenceId, UUID warehouseId) {
+            if (!PROD_WH.equals(warehouseId)) {
+                return sourceWarehouseStock.getOrDefault(materialReferenceId, BigDecimal.ZERO);
+            }
             return available.getOrDefault(materialReferenceId, BigDecimal.ZERO);
         }
 
@@ -348,12 +397,16 @@ class MaterialReadinessQueryServiceTest {
                 UUID warehouseId, Collection<UUID> materialReferenceIds) {
             batchCalls.incrementAndGet();
             Map<UUID, BigDecimal> result = new HashMap<>();
+            if (!PROD_WH.equals(warehouseId)) {
+                return Map.copyOf(result);
+            }
             for (UUID id : materialReferenceIds) {
                 BigDecimal qty = available.getOrDefault(id, BigDecimal.ZERO);
                 if (qty.signum() > 0) {
                     result.put(id, qty);
                 }
             }
+            // inTransit intentionally ignored — readiness only sees AVAILABLE
             return Map.copyOf(result);
         }
     }

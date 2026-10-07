@@ -290,7 +290,9 @@ class ProductionPublicBoundaryPostgresIT {
                         .filter(line -> MATERIAL_CODE.equals(line.materialCode()))
                         .findFirst()
                         .orElseThrow();
-        assertEquals(0, bd(10).compareTo(primary.requiredQuantity()));
+        // CheckMaterialAvailability still sums raw lineQuantity (legacy path); Phase 6 readiness
+        // uses PartialReleaseMaterialPlanCalculator (norm × product qty).
+        assertEquals(0, bd(1).compareTo(primary.requiredQuantity()));
         assertEquals(0, bd(10).compareTo(primary.mainWarehouseAvailable()));
         assertEquals(0, bd(0).compareTo(primary.productionWarehouseAvailable()));
         assertEquals(0, bd(10).compareTo(primary.totalAvailable()));
@@ -716,7 +718,7 @@ class ProductionPublicBoundaryPostgresIT {
 
     @Test
     void partialReleaseCumulativePlanningThroughPublicBoundary() {
-        ImportedOrder order = importOrder(bd(17), 10, bd(1), 5);
+        ImportedOrder order = importOrder(bd("1.7"), 10, bd("0.2"), 5);
         seedStockForOrderMaterial(bd(17));
         putOtherMaterialInProduction(bd(1));
         production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
@@ -864,7 +866,7 @@ class ProductionPublicBoundaryPostgresIT {
 
     @Test
     void fullPartialReleaseThreeFourThreeClosesExactlyThroughPublicBoundary() {
-        ImportedOrder order = importOrder(bd(1), 10, bd(1), 5);
+        ImportedOrder order = importOrder(bd("0.1"), 10, bd("0.2"), 5);
         seedStockForOrderMaterial(bd(1));
         putOtherMaterialInProduction(bd(1));
         production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
@@ -973,7 +975,7 @@ class ProductionPublicBoundaryPostgresIT {
 
     @Test
     void partialReleasePlanFactDeviationConsumesActualOnlyThroughPublicBoundary() {
-        ImportedOrder order = importOrder(bd(1), 10, bd(1), 5);
+        ImportedOrder order = importOrder(bd("0.1"), 10, bd("0.2"), 5);
         seedStockForOrderMaterial(bd(1));
         putOtherMaterialInProduction(bd(1));
         production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
@@ -1056,7 +1058,7 @@ class ProductionPublicBoundaryPostgresIT {
 
     @Test
     void zeroActualReleaseSkipsWarehouseConsumptionThroughPublicBoundary() {
-        ImportedOrder order = importOrder(bd(1), 10, bd(1), 5);
+        ImportedOrder order = importOrder(bd("0.1"), 10, bd("0.2"), 5);
         seedStockForOrderMaterial(bd(1));
         production.applicationApi().acceptOrderIntoProduction(order.orderId(), "operator");
         transferSingleMaterialToProduction(order, bd(1));
@@ -1220,7 +1222,8 @@ class ProductionPublicBoundaryPostgresIT {
     private record CellMove(UUID sourceCellId, UUID destinationCellId, BigDecimal quantity) {}
 
     private ImportedOrder importStandardOrder() {
-        return importOrder(bd(10), 10, bd(1), 5);
+        // lineQuantity = per-product norm: item A 1×10 products; item B 0.2×5 products
+        return importOrder(bd(1), 10, bd("0.2"), 5);
     }
 
     private ImportedOrder importOrder(

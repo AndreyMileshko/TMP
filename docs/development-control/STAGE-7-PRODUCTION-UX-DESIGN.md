@@ -662,7 +662,7 @@ Release разрешён, если для каждой строки матери
 6. **OQ-6:** MATERIALS_CHECKED side effect on card — **RESOLVED (Phase 6):** readiness is read-only.
 7. **OQ-7:** Actor display name — **DEFERRED:** show human-readable `actorRef` (login) when present; UUID → «—»; no new Security display-name subsystem in Phase 8.
 8. **OQ-8:** Item pagination — **RESOLVED:** `ProductionOrderItemsLoader` loads all pages.
-9. **OQ-9:** lineQuantity semantics — **RESOLVED (Phase 2/5 vs Release plan).**
+9. **OQ-9:** lineQuantity semantics — **RESOLVED (B3-MA-FIX2):** `lineQuantity` = norm per one product; MR / Readiness / Release all use `norm × relevant product quantity` via shared `PartialReleaseMaterialPlanCalculator` (Release/Readiness) and `aggregateScaled` (MR).
 10. **DEP-9:** MR Submit history event — **KNOWN NON-BLOCKING GAP** (business flow works; no new history architecture in Phase 8).
 
 ---

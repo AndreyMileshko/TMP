@@ -20,8 +20,9 @@ import java.util.Objects;
  * one product</strong>. Material Requirement contribution =
  * {@code lineQuantity × requestedProductQuantity}.
  *
- * <p>{@link #aggregate(List)} remains for informational availability checks that still sum raw
- * specification line quantities without product scaling (unchanged readiness path).
+ * <p>{@link #aggregate(List)} remains for legacy explicit {@code CheckMaterialAvailability} that
+ * still sums raw specification line quantities without product scaling. Material Readiness / Release
+ * use {@link PartialReleaseMaterialPlanCalculator} ({@code lineQuantity × product quantity}).
  */
 public final class SpecificationMaterialRequirementCalculator {
 

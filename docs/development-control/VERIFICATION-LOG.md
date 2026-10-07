@@ -3,6 +3,36 @@
 ## Latest result
 
 **Date:** 2026-10-07
+**Scope:** Stage 7 Production — B3-MA-FIX2 Material Readiness Quantity (B3-MA-04)
+**Overall:** PASS
+**Migration:** NONE — V50/V51/V52 UNCHANGED
+**Base HEAD:** `8e68d17a102ea074c8f902b872b045b14428f86d`
+**Working tree:** dirty (calculator + tests + docs); **no commit / no push**
+
+### B3-MA-FIX2 checks (2026-10-07)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD + clean tree before work | PASS (`8e68d17…`) |
+| Manual case TEST-002 unit (`required=230`, shortage=224) | PASS |
+| Partial remaining / selected release / multi-material / aggregation | PASS |
+| `PartialReleaseMaterialPlanCalculator` + `ReleaseMaterialPlanBuilder` + `ReleaseProductsServiceTest` | PASS |
+| MR `aggregateScaled` 3×2=6 no double-multiply | PASS |
+| UI `MaterialReadinessPhase6ViewModelTest` | PASS |
+| `Stage7ProductionArchitectureTest` / `Stage6WarehouseArchitectureTest` | PASS |
+| Release ITs (Postgres + PublicBoundary) | PASS (40 IT methods) |
+| Full reactor | NOT RUN |
+| Package (`-am install -DskipTests` then `pre-integration-test -Ppackage`) | PASS → `dist/jpackage/TMP/TMP.exe` **453632** bytes; **2026-10-07 14:07:34** |
+| Startup smoke `tmp-stage5-pg:55432` | PASS — Flyway validated 52 / current 52 / no migration; `Started DesktopBootstrap` ~5.0s; JavaFX unnamed-module WARN only; TMP alive |
+| Manual acceptance TEST-002 | READY TO RETEST |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-10-07
 **Scope:** Stage 7 / Warehouse — B3-MA-FIX1 Manual Acceptance Fixes
 **Overall:** PASS
 **Migration:** NONE — V50/V51/V52 UNCHANGED; runtime Flyway current = **V52**

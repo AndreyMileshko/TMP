@@ -582,7 +582,7 @@ class ProductionDomainEventsPostgresIT {
                                                 "MAT-EVT",
                                                 "",
                                                 null,
-                                                new BigDecimal("17"),
+                                                new BigDecimal("1.7"),
                                                 "шт."))));
         stockPositions.create(
                 StockPosition.of(
@@ -695,7 +695,7 @@ class ProductionDomainEventsPostgresIT {
                                                 materialCode,
                                                 "",
                                                 null,
-                                                new BigDecimal("17"),
+                                                new BigDecimal("1.7"),
                                                 "шт."))));
     }
 

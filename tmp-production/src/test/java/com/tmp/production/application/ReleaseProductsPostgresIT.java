@@ -607,7 +607,7 @@ class ReleaseProductsPostgresIT {
                                                 "MAT-IT",
                                                 "",
                                                 null,
-                                                new BigDecimal("17"),
+                                                new BigDecimal("1.7"),
                                                 "шт."))));
         stockPositions.create(
                 StockPosition.of(

@@ -125,6 +125,16 @@ class SpecificationMaterialRequirementCalculatorTest {
     }
 
     @Test
+    void aggregateScaledThreeProductsTimesNormTwoIsSixWithoutDoubleMultiply() {
+        List<ScaledAggregate> result =
+                calculator.aggregateScaled(
+                        List.of(scaledInput(3L, List.of(materialLine("MAT", "WHITE", "PCS", 2)))));
+
+        assertEquals(1, result.size());
+        assertEquals(0, result.getFirst().requiredQuantity().compareTo(BigDecimal.valueOf(6)));
+    }
+
+    @Test
     void aggregateScaledThreeProductsTimesPointSeventyFive() {
         List<ScaledAggregate> result =
                 calculator.aggregateScaled(

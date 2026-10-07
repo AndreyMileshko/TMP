@@ -139,7 +139,7 @@ class ReleaseProductsServiceTest {
         SpecificationId specId = SpecificationId.generate();
         UUID materialId = UUID.randomUUID();
         launchItem(orderId, itemId, specId, 10);
-        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-PREV");
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-PREV");
 
         PrepareReleasePreview preview =
                 service.prepareRelease(
@@ -162,7 +162,7 @@ class ReleaseProductsServiceTest {
         SpecificationId specId = SpecificationId.generate();
         UUID materialId = UUID.randomUUID();
         launchItem(orderId, itemId, specId, 10);
-        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-RECALC");
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-RECALC");
         warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(100));
 
         PrepareReleasePreview stalePreview =
@@ -210,7 +210,7 @@ class ReleaseProductsServiceTest {
         SpecificationId specId = SpecificationId.generate();
         UUID materialId = UUID.randomUUID();
         launchItem(orderId, itemId, specId, 10);
-        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-NORM");
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-NORM");
 
         warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(100));
 
@@ -252,7 +252,7 @@ class ReleaseProductsServiceTest {
         SpecificationId specId = SpecificationId.generate();
         UUID materialId = UUID.randomUUID();
         launchItem(orderId, itemId, specId, 10);
-        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-FACT");
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-FACT");
 
         warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(100));
 
@@ -304,7 +304,7 @@ class ReleaseProductsServiceTest {
         SpecificationId specId = SpecificationId.generate();
         UUID materialId = UUID.randomUUID();
         launchItem(orderId, itemId, specId, 10);
-        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-SHORT");
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-SHORT");
 
         warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(2));
 
@@ -332,7 +332,7 @@ class ReleaseProductsServiceTest {
         SpecificationId specId = SpecificationId.generate();
         UUID materialId = UUID.randomUUID();
         launchItem(orderId, itemId, specId, 10);
-        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-MAIN");
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-MAIN");
 
         warehouseQueries.setStock(materialId, MAIN, MAIN_CELL, bd(100));
         warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(1));
@@ -359,7 +359,7 @@ class ReleaseProductsServiceTest {
         SpecificationId specId = SpecificationId.generate();
         UUID materialId = UUID.randomUUID();
         launchItem(orderId, itemId, specId, 10);
-        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-MULTI");
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-MULTI");
 
         warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(4));
         warehouseQueries.setStock(materialId, PROD, PROD_CELL_B, bd(4));
@@ -390,7 +390,7 @@ class ReleaseProductsServiceTest {
         SpecificationId specId = SpecificationId.generate();
         UUID materialId = UUID.randomUUID();
         launchItem(orderId, itemId, specId, 10);
-        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-MISMATCH");
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-MISMATCH");
 
         warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(100));
 
@@ -416,7 +416,7 @@ class ReleaseProductsServiceTest {
         SpecificationId specId = SpecificationId.generate();
         UUID materialId = UUID.randomUUID();
         launchItem(orderId, itemId, specId, 10);
-        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-CELL");
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-CELL");
 
         warehouseQueries.setStock(materialId, MAIN, MAIN_CELL, bd(100));
         warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(100));
@@ -443,7 +443,7 @@ class ReleaseProductsServiceTest {
         SpecificationId specId = SpecificationId.generate();
         UUID materialId = UUID.randomUUID();
         launchItem(orderId, itemId, specId, 10);
-        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-ZERO");
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-ZERO");
 
         ReleaseProductsResult result =
                 service.releaseProducts(
@@ -470,7 +470,7 @@ class ReleaseProductsServiceTest {
         UUID materialId = UUID.randomUUID();
         UUID extraMaterialId = UUID.randomUUID();
         launchItem(orderId, itemId, specId, 10);
-        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-PLAN");
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-PLAN");
         warehouseAvailabilityQuery.materialReferences =
                 List.of(
                         reference(materialId, "MAT-PLAN"),
@@ -509,7 +509,7 @@ class ReleaseProductsServiceTest {
         SpecificationId specId = SpecificationId.generate();
         UUID materialId = UUID.randomUUID();
         launchItem(orderId, itemId, specId, 10);
-        bindFrozenSpec(specId, itemId, bd(17), materialId, "MAT-DUP");
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-DUP");
 
         assertThrows(
                 ReleaseProductsException.class,
@@ -544,7 +544,7 @@ class ReleaseProductsServiceTest {
                         spec(
                                 frozenSpec,
                                 itemId,
-                                List.of(materialLine("MAT-FROZEN", bd(17)))));
+                                List.of(materialLine("MAT-FROZEN", bd("1.7")))));
         specificationQuery.currentSpec =
                 Optional.of(
                         spec(

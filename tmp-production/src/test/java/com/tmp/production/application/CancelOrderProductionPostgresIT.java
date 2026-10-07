@@ -570,7 +570,7 @@ class CancelOrderProductionPostgresIT {
                                                 "MAT-CAN",
                                                 "",
                                                 null,
-                                                new BigDecimal("17"),
+                                                new BigDecimal("1.7"),
                                                 "шт."))));
         if (productionStock.signum() > 0) {
             stockPositions.create(
