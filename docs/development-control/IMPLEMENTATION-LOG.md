@@ -4,6 +4,32 @@
 
 ---
 
+## Stage 7 / Warehouse — B3-MA-FIX1 Manual Acceptance Fixes — 2026-10-07
+
+**Date:** 2026-10-07
+**Stage:** 7 Production / Warehouse Phase B3-MA-FIX1
+**Base HEAD:** `23a11215013e9ad06bbc5505f060eba0866b4104`
+**Status:** PASS — B3-MA-01/02/03 FIXED; resume manual acceptance; no commit / no push
+
+### Scope
+
+- **B3-MA-03:** Transfer Preparation/Receipt/Return read models resolve article/name/color/size/UoM from Warehouse `MaterialReference` at query time (`DefaultWarehouseApi.materialHumanDisplay`); UI uses enriched suggestion/line views; never UUID-as-article (`MaterialParts.unknown` empty)
+- **B3-MA-01:** Composition `TransferDocumentOrderReferenceQuery` extended for Demand ids + Demand-linked Transfers via `warehouse_demand_transfer_links` → MR source items → `order_number` (cross-order compose); inbox enriches supply + transfer tasks; no migration / no Warehouse→Production UI query
+- **B3-MA-02:** User-facing «Создать перемещение» + result messages; backend `prepareProductionDemandTransfers` name unchanged; Transfer task «Подготовка» / «Передать» / «Принять» unchanged
+- Docs: Warehouse Spec v1.17; ADR-038 amendment 24
+- Targeted tests + package + startup smoke; full reactor NOT run
+
+### Explicitly not done
+
+- Manual acceptance re-run (STOP for review)
+- Schema / V53 / Demand withdrawal / catalog / routing redesign
+
+### Verification
+
+See VERIFICATION-LOG B3-MA-FIX1 entry (2026-10-07).
+
+---
+
 ## Stage 7 / Warehouse — B3B-3C4 Final Cleanup + Full Regression — 2026-10-06
 
 **Date:** 2026-10-06

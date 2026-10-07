@@ -46,7 +46,7 @@ public final class WarehouseTaskDialogSupport {
     public static final String RECEIVE_BUTTON = "Принять";
     public static final String REJECT_BUTTON = "Отклонить";
     public static final String RETURN_BUTTON = "Вернуть материалы";
-    public static final String PREPARE_BUTTON = "Подготовить перемещение";
+    public static final String PREPARE_BUTTON = "Создать перемещение";
     public static final String SUPPLY_EMPTY_PLACEHOLDER =
             "Нет материалов, ожидающих обеспечения.";
 

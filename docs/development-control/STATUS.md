@@ -3,10 +3,10 @@
 **Mode:** Autonomous Cursor Agent
 **Project status:** Stage 6 complete; Stage 7 Production complete (closure audit PASS); Stage 8 NOT STARTED
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
-**Post-closure Warehouse Demand:** **B3B-3C4 DONE** (2026-10-06) — Final cleanup + full regression; B3 Production → Warehouse integration **IMPLEMENTATION COMPLETE**; **MANUAL ACCEPTANCE PENDING**; no commit
+**Post-closure Warehouse Demand:** **B3-MA-FIX1 DONE** (2026-10-07) — manual-acceptance bugfixes (order display + «Создать перемещение» + Transfer material read model); B3 **READY TO RESUME MANUAL ACCEPTANCE**; no commit
 **UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Final Regression & Checkpoint PASS 2026-09-28; awaiting manual confirmation; Write-off deferred)
-**Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS — Final Regression & Checkpoint PASS 2026-09-28; awaiting manual confirmation); B3B-3C4 PASS — awaiting manual B3 acceptance
-**Last completed task:** B3B-3C4 Final Cleanup + Full Regression (2026-10-06) — dead-code cleanup; SpotBugs SQL format fix; IT cleanup for Demand FKs; `mvn clean verify` GREEN; package TMP.exe; startup smoke Flyway V52 + main shell; no commit
+**Current Task:** Stage 3.5.15 Final Warehouse Acceptance (IN PROGRESS — Final Regression & Checkpoint PASS 2026-09-28; awaiting manual confirmation); B3-MA-FIX1 PASS — resume B3 manual acceptance
+**Last completed task:** B3-MA-FIX1 Manual Acceptance Fix (2026-10-07) — Transfer MaterialReference human fields; Demand/Transfer order composition; UX «Создать перемещение»; targeted tests GREEN; package TMP.exe; startup smoke Flyway V52; no commit
 **Stage 3.5 Checkpoint (2026-09-28):** PASS — `docs/development-control/STAGE-3.5-CHECKPOINT.md`; DB delta 0; Flyway 47; Full reactor NOT RUN
 **RBAC UX completion (2026-09-28):** PASS — User double-click card; roles + effective permissions (roles ∪ GRANT/REVOKE via `listEffectivePermissionsForUser` / EffectivePermissionCalculator); Roles assignment search no longer faded; Apply button dirty gating; no migration / no RBAC model change
 **RBAC audit immediate corrections (2026-09-28):** PASS — Security Administrator ensure Order (13) + Production (7); Order item Save UI requires `order.item.approve` on approve-path; Order Import UI requires full backend permission set; deferred: delete permissions, inventory, reservation, revision.create, role templates, analytics
@@ -20,7 +20,7 @@
 **Stage 7 Post-Closure Correction (2026-08-31):** PASS
 **Completed Stage 7 tasks:** 27 / 27 mandatory
 **Production Specification:** v2.6 Accepted (Warehouse boundary aligned; Stage 3.5.9 Material Requirement DRAFT live; Stage 3.5.10 Submit → Warehouse demand routing COMPLETE)
-**Warehouse Specification:** v1.16 Accepted (ADR-038 C4; §15A admin API note for 3.5.1)
+**Warehouse Specification:** v1.17 Accepted (ADR-038 B3-MA-FIX1; §15A admin API note for 3.5.1)
 **Full verify baseline:** GREEN — B3B-3C4 `mvn clean verify` PASS (2026-10-06) ~30m; prior Stage 3.5.10 baseline at `49592e11c1e0b3694bcc81fb93ba55b8f7705f8d`
 **First READY implementation task:** none (3.5.15 acceptance in progress; B3 implementation complete — manual acceptance PENDING)
 **Warehouse Operational Task Actions UI:** COMPLETE (take/takeover, preparation send, receive, reject, return; **Tasks list-only + «Задача склада» dialog**; Supply Task prepare wired)

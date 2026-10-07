@@ -3,6 +3,7 @@ package com.tmp.ui.shell.screen.warehouse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -199,6 +200,54 @@ class WarehouseWorkspaceViewModelTest {
         assertFalse(viewModel.canTakeSelectedTaskInWorkProperty().get());
         assertTrue(viewModel.canSendSelectedTaskProperty().get());
         assertEquals(fx.documentId, viewModel.selectedTaskProperty().get().documentId());
+    }
+
+    @Test
+    void preparationUsesReadModelMaterialFieldsWithoutMaterialCache() {
+        auth = transferAuth();
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        PreparationFixture fx = new PreparationFixture();
+        stubPreparation(fx);
+        api.materials.clear();
+        viewModel.onScreenOpened();
+        viewModel.openTaskDialogDetails(viewModel.taskRows().get(0));
+
+        SourceAllocationEditRow row = (SourceAllocationEditRow) viewModel.actionLines().get(0);
+        assertEquals("ART-P", row.article());
+        assertEquals("Profile", row.name());
+        assertEquals("шт", row.unitOfMeasure());
+        assertNotEquals(fx.materialId.toString(), row.article());
+    }
+
+    @Test
+    void taskOrderNumberShownInListAndHeader() {
+        UUID sourceId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        UUID docId = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(sourceId, "WH-1", "Main", true));
+        auth = transferAuth();
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        api.tasks.add(
+                task(
+                        docId,
+                        sourceId,
+                        destId,
+                        "TR-ORD",
+                        "TEST-001",
+                        WarehouseTaskKind.TRANSFER_PREPARATION,
+                        WarehouseTaskState.NEW,
+                        null));
+        viewModel.onScreenOpened();
+        TaskRow row = viewModel.taskRows().get(0);
+        assertEquals("TEST-001", row.orderNumberText());
+        viewModel.openTaskDialogDetails(row);
+        assertTrue(viewModel.taskDetailsTextProperty().get().contains("Заказ: TEST-001"));
+    }
+
+    @Test
+    void supplyPrepareActionLabelIsCreateTransfer() {
+        assertEquals("Создать перемещение", WarehouseTaskDialogSupport.PREPARE_BUTTON);
+        assertFalse(WarehouseTaskDialogSupport.PREPARE_BUTTON.contains("Подготовить"));
     }
 
     @Test
@@ -1393,8 +1442,7 @@ class WarehouseWorkspaceViewModelTest {
                         sourceId,
                         destId,
                         List.of(
-                                new TransferDocumentLineView(
-                                        lineId, materialId, new BigDecimal("98"), 1)),
+                                new TransferDocumentLineView(lineId, materialId, new BigDecimal("98"), 1, "", "", "", "", "")),
                         3L,
                         6L,
                         20L));
@@ -1709,8 +1757,7 @@ class WarehouseWorkspaceViewModelTest {
                         fx.sourceId,
                         fx.destId,
                         List.of(
-                                new TransferDocumentLineView(
-                                        fx.lineId, fx.materialId, new BigDecimal("8"), 1)),
+                                new TransferDocumentLineView(fx.lineId, fx.materialId, new BigDecimal("8"), 1, "", "", "", "", "")),
                         2L,
                         4L,
                         11L));
@@ -2256,18 +2303,14 @@ class WarehouseWorkspaceViewModelTest {
                         fx.documentId,
                         fx.sourceId,
                         fx.destId,
-                        List.of(new TransferDocumentLineView(fx.lineId, fx.materialId, new BigDecimal("10"), 1)),
+                        List.of(new TransferDocumentLineView(fx.lineId, fx.materialId, new BigDecimal("10"), 1, "", "", "", "", "")),
                         3L,
                         5L,
                         null));
         api.suggestions.put(
                 fx.documentId,
                 List.of(
-                        new TransferDocumentSourceSuggestionLine(
-                                fx.lineId,
-                                fx.materialId,
-                                new BigDecimal("10"),
-                                List.of(
+                        new TransferDocumentSourceSuggestionLine(fx.lineId, fx.materialId, "ART-P", "Profile", "", "", "шт", new BigDecimal("10"), List.of(
                                         new SourceCellSuggestion(
                                                 fx.cellA,
                                                 "A-01",
@@ -2314,7 +2357,7 @@ class WarehouseWorkspaceViewModelTest {
                         fx.documentId,
                         fx.sourceId,
                         fx.destId,
-                        List.of(new TransferDocumentLineView(fx.lineId, fx.materialId, new BigDecimal("8"), 1)),
+                        List.of(new TransferDocumentLineView(fx.lineId, fx.materialId, new BigDecimal("8"), 1, "", "", "", "", "")),
                         2L,
                         4L,
                         11L));
@@ -2350,7 +2393,7 @@ class WarehouseWorkspaceViewModelTest {
                         fx.documentId,
                         fx.sourceId,
                         fx.destId,
-                        List.of(new TransferDocumentLineView(fx.lineId, fx.materialId, new BigDecimal("6"), 1)),
+                        List.of(new TransferDocumentLineView(fx.lineId, fx.materialId, new BigDecimal("6"), 1, "", "", "", "", "")),
                         1L,
                         2L,
                         21L));
@@ -2360,6 +2403,11 @@ class WarehouseWorkspaceViewModelTest {
                         new TransferDocumentReturnPlanItem(
                                 fx.lineId,
                                 fx.materialId,
+                                "ART-T",
+                                "Tube",
+                                "",
+                                "",
+                                "шт",
                                 new BigDecimal("6"),
                                 fx.defaultCell,
                                 "S-01")));
@@ -3072,7 +3120,12 @@ class WarehouseWorkspaceViewModelTest {
                                 line.lineId() == null ? UUID.randomUUID() : line.lineId(),
                                 line.materialReferenceId(),
                                 line.quantity(),
-                                line.lineOrder() == null ? order : line.lineOrder()));
+                                line.lineOrder() == null ? order : line.lineOrder(),
+                                "",
+                                "",
+                                "",
+                                "",
+                                ""));
                 order++;
             }
             TransferDocumentView document =

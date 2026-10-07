@@ -3,13 +3,14 @@ package com.tmp.ui.shell.screen.warehouse;
 import com.tmp.warehouse.api.WarehouseApi.PrepareProductionDemandTransfersResult;
 
 /**
- * Human messages for «Подготовить перемещение» outcomes (B3B-3C3). Keeps result wording in one place.
+ * Human messages for «Создать перемещение» outcomes (B3B-3C3 / B3-MA-02). Keeps result wording in
+ * one place. Action creates Transfer DRAFT only — no physical send.
  */
 public final class WarehouseSupplyPrepareResultPresentation {
 
     public static final String STALE_TASK = "Задача уже обработана.";
-    public static final String NOTHING_ROUTABLE = "Перемещение пока невозможно подготовить.";
-    public static final String SINGLE_TRANSFER = "Перемещение подготовлено.";
+    public static final String NOTHING_ROUTABLE = "Перемещение пока невозможно создать.";
+    public static final String SINGLE_TRANSFER = "Перемещение создано.";
     public static final String PARTIAL_SUFFIX =
             "Часть материалов пока ожидает обеспечения.";
 
@@ -30,7 +31,7 @@ public final class WarehouseSupplyPrepareResultPresentation {
         String prepared =
                 created == 1
                         ? SINGLE_TRANSFER
-                        : "Подготовлено перемещений: " + created + ".";
+                        : "Создано перемещений: " + created + ".";
         if (stillWaiting > 0) {
             return prepared + "\n" + PARTIAL_SUFFIX;
         }

@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.14
+**Version:** 1.17
 
 ---
 
@@ -404,7 +404,8 @@ Foundation (B3B-1) не подключает Production Submit, не созда�
 
 ### 15.1.4 Warehouse Demand supply Transfer preparation (ADR-038 / B3B-3C2)
 
-- Business action «Подготовить перемещение»: `WarehouseDemandCommandApi.prepareProductionDemandTransfers(demandId)` (trusted backend) and user-facing `WarehouseCommandApi.prepareProductionDemandTransfers(demandId)` (`warehouse.transfer.create` + non-production responsibility). No background scheduler / automatic mutation on inbox refresh.
+- Business action «Создать перемещение»: `WarehouseDemandCommandApi.prepareProductionDemandTransfers(demandId)` (trusted backend) and user-facing `WarehouseCommandApi.prepareProductionDemandTransfers(demandId)` (`warehouse.transfer.create` + non-production responsibility). Creates Transfer DRAFT only — no physical send. Physical send = «Передать»; destination confirm = «Принять». No background scheduler / automatic mutation on inbox refresh.
+- Warehouse Tasks «Заказ» column: human order number(s) via composition `TransferDocumentOrderReferenceQuery` (Demand / Demand-linked Transfer → MR source items → `order_number`). Cross-order MR composes unique numbers as `ORDER-101, ORDER-102`. Never UUID.
 - Does **not** create a new Demand or Production MR. Does not change Production coverage. Assignment is informational only — not an authorization or concurrency gate.
 - Re-processes only lines currently derived as `WAITING_FOR_SUPPLY`, routing **remaining** quantity (`max(0, required − received)`), with MaterialReference re-resolution from the immutable snapshot.
 - Positive AVAILABLE → ordinary Transfer DRAFT for **full remaining** + DemandTransferLink (reuse B3B-2 `createDemandDraft` / link model) → normal `TRANSFER_PREPARATION`. Zero AVAILABLE → `NO_AVAILABLE_STOCK`, no Transfer, Supply Task remains. Partial stock → same initial-routing semantics (full remaining qty; shortfall later). Continuations inherit lineage as in B3B-3A — no special Transfer type.
@@ -423,7 +424,7 @@ Foundation (B3B-1) не подключает Production Submit, не созда�
 - Visibility: users with Warehouse task view permission who are responsible for **at least one non-production** warehouse. Production-only responsibility → no supply task. Destination/production warehouse is **not** the assignment target for supply.
 - Assignment: informational «Взять в работу» / takeover via `warehouse.demand_task_state` (Flyway V52). Same semantics as Transfer tasks (not exclusive lock). Take does **not** route, create Transfer, or mutate stock.
 - Details projection: `WarehouseDemandQueryApi.getDemandSupplyTask` — WAITING lines only (material identity, required/received/remaining, effective waiting reason).
-- UI (B3B-3C3): existing Склад → Задачи dialog — «Взять в работу» / takeover, then «Подготовить перемещение» via `WarehouseCommandApi.prepareProductionDemandTransfers`. No separate Demand screen; no warehouse picker; no Production receipt UI; no Retry UX. Master accepts materials via ordinary `TRANSFER_RECEIPT` in Склад → Задачи.
+- UI (B3B-3C3 / B3-MA-02): existing Склад → Задачи dialog — «Взять в работу» / takeover, then «Создать перемещение» via `WarehouseCommandApi.prepareProductionDemandTransfers`. Transfer Preparation task remains «Подготовка» with physical «Передать» / «Принять». Transfer line human material fields (article/name/UoM) resolved from Warehouse MaterialReference at query time — never MaterialReference UUID as article. No separate Demand screen; no warehouse picker; no Production receipt UI; no Retry UX. Master accepts materials via ordinary `TRANSFER_RECEIPT` in Склад → Задачи.
 - No Production cancellation integration, Material Catalog, reservation, or Demand withdrawal.
 
 ## 15.2 CURRENT IMPLEMENTATION (Stage 7 — until Stage 3.5 refactor)
@@ -650,3 +651,4 @@ Warehouse выполняет только складскую часть опер
 | 1.14 | B3B-3C2 / ADR-038 amendment: «Подготовить перемещение» = `prepareProductionDemandTransfers`; reuses B3B-3B1 routing engine; Retry public API/DTOs removed; assignment cleanup when supply work ends; no UI wiring / migration / Production changes. |
 | 1.15 | B3B-3C3 / ADR-038 amendment: Warehouse Tasks UI wires Supply Task — take-in-work → «Подготовить перемещение»; waiting-line table; prepare result messages; no new screen / Production receipt / Retry UX / migration. |
 | 1.16 | B3B-3C4 / ADR-038 amendment: focused dead-code cleanup + full regression; §15.2 marked historical vs B3 Demand SoT; B3 implementation complete; manual acceptance PENDING. |
+| 1.17 | B3-MA-FIX1: Transfer read model resolves MaterialReference article/name/UoM (never UUID as article); Warehouse Tasks order column via Demand/Demand-link composition (cross-order compose); UI action «Создать перемещение» + result messages; no migration. |

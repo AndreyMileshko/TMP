@@ -41,7 +41,7 @@ public interface WarehouseDemandCommandApi {
 
     /**
      * Prepares Transfer DRAFT(s) for Demand lines currently derived as {@code
-     * WAITING_FOR_SUPPLY} («Подготовить перемещение»). Re-resolves MaterialReference from the
+     * WAITING_FOR_SUPPLY} («Создать перемещение»). Re-resolves MaterialReference from the
      * immutable snapshot and routes only the remaining quantity ({@code max(0, required −
      * received)}). Does not create a new Demand or Production MR. Business no-route outcomes
      * succeed without exception. Lines that are fulfilled, in fulfillment (active Transfer), or

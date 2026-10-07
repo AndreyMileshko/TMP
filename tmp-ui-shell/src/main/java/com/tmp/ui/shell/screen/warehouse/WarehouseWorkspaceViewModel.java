@@ -20,6 +20,7 @@ import com.tmp.warehouse.api.WarehouseApi.SourceCellSuggestion;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentDestinationAllocationInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentLineInput;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentLineView;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentRejectResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnAllocationInput;
@@ -105,7 +106,7 @@ public final class WarehouseWorkspaceViewModel {
     private static final String HINT_RETURN =
             "При необходимости выберите другую ячейку возврата, затем нажмите Вернуть.";
     private static final String HINT_SUPPLY =
-            "Взять в работу, затем Подготовить перемещение — склад-источник выбирается автоматически.";
+            "Взять в работу, затем Создать перемещение — склад-источник выбирается автоматически.";
 
     public enum WorkspaceTab {
         TASKS("Задачи"),
@@ -730,9 +731,54 @@ public final class WarehouseWorkspaceViewModel {
                     view.article(), view.name(), view.color(), view.size(), view.unitOfMeasure());
         }
 
+        /** Missing MaterialReference — never stringify technical UUID as article. */
         static MaterialParts unknown(UUID materialReferenceId) {
-            String id = materialReferenceId == null ? "" : materialReferenceId.toString();
-            return new MaterialParts(id, "", "", "", "");
+            return new MaterialParts("", "", "", "", "");
+        }
+
+        static MaterialParts fromTransferLine(TransferDocumentLineView line) {
+            if (line == null) {
+                return new MaterialParts("", "", "", "", "");
+            }
+            if (line.article() != null && !line.article().isBlank()) {
+                return new MaterialParts(
+                        line.article(),
+                        line.materialName(),
+                        line.color(),
+                        line.size(),
+                        line.unitOfMeasure());
+            }
+            return unknown(line.materialReferenceId());
+        }
+
+        static MaterialParts fromSuggestion(TransferDocumentSourceSuggestionLine line) {
+            if (line == null) {
+                return new MaterialParts("", "", "", "", "");
+            }
+            if (line.article() != null && !line.article().isBlank()) {
+                return new MaterialParts(
+                        line.article(),
+                        line.materialName(),
+                        line.color(),
+                        line.size(),
+                        line.unitOfMeasure());
+            }
+            return unknown(line.materialReferenceId());
+        }
+
+        static MaterialParts fromReturnPlan(TransferDocumentReturnPlanItem item) {
+            if (item == null) {
+                return new MaterialParts("", "", "", "", "");
+            }
+            if (item.article() != null && !item.article().isBlank()) {
+                return new MaterialParts(
+                        item.article(),
+                        item.materialName(),
+                        item.color(),
+                        item.size(),
+                        item.unitOfMeasure());
+            }
+            return unknown(item.materialReferenceId());
         }
 
         String combinedLabel() {
@@ -2261,9 +2307,6 @@ public final class WarehouseWorkspaceViewModel {
     }
 
     private void ensureMaterialCache() {
-        if (!materialById.isEmpty()) {
-            return;
-        }
         for (MaterialReferenceView material : warehouseApi.listMaterialReferences()) {
             materialById.put(material.materialReferenceId(), material);
         }
@@ -2337,7 +2380,7 @@ public final class WarehouseWorkspaceViewModel {
         Map<UUID, StorageCellChoice> byId = indexCells(cells);
         List<ActionEditRow> rows = new ArrayList<>();
         for (TransferDocumentSourceSuggestionLine line : suggestions) {
-            MaterialParts material = materialParts(line.materialReferenceId());
+            MaterialParts material = resolveTransferMaterial(line);
             if (line.suggestions().isEmpty()) {
                 rows.add(
                         new SourceAllocationEditRow(
@@ -2363,7 +2406,7 @@ public final class WarehouseWorkspaceViewModel {
             rows.add(
                     new ReceiveAllocationEditRow(
                             line.lineId(),
-                            materialParts(line.materialReferenceId()),
+                            resolveTransferMaterial(line),
                             line.quantity(),
                             null,
                             line.quantity()));
@@ -2390,12 +2433,36 @@ public final class WarehouseWorkspaceViewModel {
             rows.add(
                     new ReturnAllocationEditRow(
                             item.lineId(),
-                            materialParts(item.materialReferenceId()),
+                            resolveTransferMaterial(item),
                             item.outstandingQuantity(),
                             item.defaultReturnStorageCellId(),
                             cell));
         }
         return rows;
+    }
+
+    private MaterialParts resolveTransferMaterial(TransferDocumentSourceSuggestionLine line) {
+        MaterialParts fromReadModel = MaterialParts.fromSuggestion(line);
+        if (!fromReadModel.article().isBlank()) {
+            return fromReadModel;
+        }
+        return materialParts(line.materialReferenceId());
+    }
+
+    private MaterialParts resolveTransferMaterial(TransferDocumentLineView line) {
+        MaterialParts fromReadModel = MaterialParts.fromTransferLine(line);
+        if (!fromReadModel.article().isBlank()) {
+            return fromReadModel;
+        }
+        return materialParts(line.materialReferenceId());
+    }
+
+    private MaterialParts resolveTransferMaterial(TransferDocumentReturnPlanItem item) {
+        MaterialParts fromReadModel = MaterialParts.fromReturnPlan(item);
+        if (!fromReadModel.article().isBlank()) {
+            return fromReadModel;
+        }
+        return materialParts(item.materialReferenceId());
     }
 
     private static Map<UUID, StorageCellChoice> indexCells(List<StorageCellChoice> cells) {
@@ -2471,6 +2538,8 @@ public final class WarehouseWorkspaceViewModel {
                 .append(row.kindLabel())
                 .append(" · ")
                 .append(row.stateLabel())
+                .append("\n")
+                .append(orderHeaderLine(row))
                 .append("\nОткуда → Куда: ")
                 .append(row.routeLabel())
                 .append("\nИсполнитель: ")
@@ -2494,7 +2563,17 @@ public final class WarehouseWorkspaceViewModel {
                 + " · "
                 + row.stateLabel()
                 + "\n"
+                + orderHeaderLine(row)
+                + "\n"
                 + WarehouseTaskDialogSupport.supplyRouteHeader(row);
+    }
+
+    private static String orderHeaderLine(TaskRow row) {
+        String order = row.orderNumberText();
+        if (order == null || order.isBlank() || "—".equals(order)) {
+            return "Заказ: —";
+        }
+        return order.contains(",") ? "Заказы: " + order : "Заказ: " + order;
     }
 
     static String documentStatusLabel(String documentStatus) {

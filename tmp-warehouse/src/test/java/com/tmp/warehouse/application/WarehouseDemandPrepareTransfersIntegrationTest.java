@@ -1,6 +1,7 @@
 package com.tmp.warehouse.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -248,6 +249,54 @@ class WarehouseDemandPrepareTransfersIntegrationTest {
         assertEquals(resolved.id().value(), line.materialReferenceId());
         assertNull(line.effectiveWaitingReason());
         assertEquals(1, line.linkedTransfers().size());
+    }
+
+    @Test
+    void demandPreparedTransferExposesHumanMaterialFieldsNotUuid() {
+        AcceptProductionDemandResult accepted =
+                demandApi.acceptProductionDemand(
+                        command(
+                                new ProductionDemandLine(
+                                        UUID.randomUUID(),
+                                        "MAT-001",
+                                        "Тестовый материал",
+                                        "",
+                                        "шт.",
+                                        null,
+                                        new BigDecimal("6"),
+                                        null)));
+        assertEquals(0, accepted.documents().size());
+
+        MaterialReference resolved =
+                WarehouseJdbcTestSupport.persistMaterial(
+                        jdbc,
+                        CLOCK,
+                        MaterialReference.create(
+                                "MAT-001", "Тестовый материал", "", "", "шт."));
+        seedAvailable(source, sourceCell, resolved, "20");
+
+        PrepareProductionDemandTransfersResult prepared =
+                demandApi.prepareProductionDemandTransfers(accepted.demandId());
+        assertEquals(1, prepared.documents().size());
+        UUID documentId = prepared.documents().getFirst().documentId();
+
+        TransferDocumentView document = api.getTransferDocument(documentId);
+        assertEquals(1, document.lines().size());
+        assertEquals("MAT-001", document.lines().getFirst().article());
+        assertEquals("Тестовый материал", document.lines().getFirst().materialName());
+        assertEquals("шт.", document.lines().getFirst().unitOfMeasure());
+        assertTrue(document.lines().getFirst().color().isBlank());
+        assertTrue(
+                !document.lines().getFirst().article().equals(resolved.id().value().toString()));
+
+        var suggestions = api.suggestTransferDocumentSourceAllocations(documentId);
+        assertEquals(1, suggestions.size());
+        assertEquals("MAT-001", suggestions.getFirst().article());
+        assertEquals("Тестовый материал", suggestions.getFirst().materialName());
+        assertEquals("шт.", suggestions.getFirst().unitOfMeasure());
+        assertEquals(0, new BigDecimal("6").compareTo(suggestions.getFirst().requiredQuantity()));
+        assertFalse(suggestions.getFirst().suggestions().isEmpty());
+        assertEquals(sourceCell.value(), suggestions.getFirst().suggestions().getFirst().storageCellId());
     }
 
     @Test

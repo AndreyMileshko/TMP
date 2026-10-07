@@ -415,21 +415,29 @@ public final class WarehouseOperationalInboxService {
                         .filter(t -> t.taskSource() == WarehouseTaskSource.TRANSFER_DOCUMENT)
                         .map(WarehouseTaskView::documentId)
                         .toList();
-        if (documentIds.isEmpty()) {
-            return tasks;
-        }
-        Map<UUID, String> orderNumbers =
-                orderReferences.findOrderNumbersByDocumentIds(documentIds);
-        if (orderNumbers.isEmpty()) {
+        List<UUID> demandIds =
+                tasks.stream()
+                        .filter(t -> t.taskSource() == WarehouseTaskSource.WAREHOUSE_DEMAND)
+                        .map(WarehouseTaskView::demandId)
+                        .toList();
+        Map<UUID, String> byDocument =
+                documentIds.isEmpty()
+                        ? Map.of()
+                        : orderReferences.findOrderNumbersByDocumentIds(documentIds);
+        Map<UUID, String> byDemand =
+                demandIds.isEmpty()
+                        ? Map.of()
+                        : orderReferences.findOrderNumbersByDemandIds(demandIds);
+        if (byDocument.isEmpty() && byDemand.isEmpty()) {
             return tasks;
         }
         List<WarehouseTaskView> enriched = new ArrayList<>(tasks.size());
         for (WarehouseTaskView task : tasks) {
-            if (task.taskSource() != WarehouseTaskSource.TRANSFER_DOCUMENT) {
-                enriched.add(task);
-                continue;
-            }
-            String orderNumber = orderNumbers.get(task.documentId());
+            String orderNumber =
+                    switch (task.taskSource()) {
+                        case TRANSFER_DOCUMENT -> byDocument.get(task.documentId());
+                        case WAREHOUSE_DEMAND -> byDemand.get(task.demandId());
+                    };
             if (orderNumber == null || orderNumber.isBlank()) {
                 enriched.add(task);
             } else {
@@ -609,12 +617,13 @@ public final class WarehouseOperationalInboxService {
         if (view == null) {
             throw new IllegalStateException("takeDemandSupplyTaskInWork returned null");
         }
-        return view;
+        return enrichOrderNumbers(List.of(view)).get(0);
     }
 
     /**
-     * «Подготовить перемещение» for a Demand supply task. Requires non-production warehouse
-     * responsibility. Does not require assignment. Delegates routing to {@link
+     * «Создать перемещение» for a Demand supply task. Requires non-production warehouse
+     * responsibility. Does not require assignment. Creates Transfer DRAFT(s) only (no stock
+     * movement). Delegates routing to {@link
      * WarehouseDemandCommandApi#prepareProductionDemandTransfers(UUID)}.
      */
     public PrepareProductionDemandTransfersResult prepareProductionDemandTransfers(UUID demandId) {

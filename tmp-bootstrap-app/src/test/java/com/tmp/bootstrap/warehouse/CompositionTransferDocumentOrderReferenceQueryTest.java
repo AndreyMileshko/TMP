@@ -19,5 +19,6 @@ class CompositionTransferDocumentOrderReferenceQueryTest {
                 new CompositionTransferDocumentOrderReferenceQuery(new JdbcTemplate(unused));
         Map<UUID, String> result = query.findOrderNumbersByDocumentIds(List.of());
         assertTrue(result.isEmpty());
+        assertTrue(query.findOrderNumbersByDemandIds(List.of()).isEmpty());
     }
 }

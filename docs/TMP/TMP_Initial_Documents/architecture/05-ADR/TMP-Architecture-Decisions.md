@@ -1807,16 +1807,20 @@ Production Material Requirement фиксирует, что Production запро
 
 ### Amendment (B3B-3C2 — 2026-10-06)
 
-20. Supply-task business action «Подготовить перемещение» is `prepareProductionDemandTransfers(demandId)` on `WarehouseDemandCommandApi` (trusted) and `WarehouseCommandApi` (user-facing: `warehouse.transfer.create` + non-production responsibility). Reuses the B3B-3B1 WAITING/remaining-quantity routing engine under business naming. Obsolete public `retryDemandRouting` / Retry DTOs deleted (0 real callers).
+20. Supply-task business action «Создать перемещение» (user-facing; historically «Подготовить перемещение») is `prepareProductionDemandTransfers(demandId)` on `WarehouseDemandCommandApi` (trusted) and `WarehouseCommandApi` (user-facing: `warehouse.transfer.create` + non-production responsibility). Creates Transfer DRAFT only — no stock movement. Physical send remains «Передать»; receive remains «Принять». Reuses the B3B-3B1 WAITING/remaining-quantity routing engine. Obsolete public `retryDemandRouting` / Retry DTOs deleted (0 real callers).
 21. Assignment remains informational (not a concurrency/auth gate). When prepare clears all WAITING supply work, `demand_task_state` is removed in the same successful operation. Stale assignment after ordinary Transfer receipt is ignored by derived Inbox (no background cleanup). No UI dialog wiring / schema / Production / Transfer send-receive changes in C2.
 
 ### Amendment (B3B-3C3 — 2026-10-06)
 
-22. Warehouse Tasks UI wires the full Supply Task user workflow in the existing Склад → Задачи dialog: informational «Взять в работу» / takeover, then «Подготовить перемещение» via user-facing `WarehouseCommandApi.prepareProductionDemandTransfers` (never `WarehouseDemandCommandApi`). Waiting-line table from `WarehouseDemandQueryApi.getDemandSupplyTask`. Prepare result messages: all routed / partial / nothing routable / stale. No separate Demand screen, warehouse picker, Production receipt UI, Retry UX, Material Catalog, or schema change.
+22. Warehouse Tasks UI wires the full Supply Task user workflow in the existing Склад → Задачи dialog: informational «Взять в работу» / takeover, then «Создать перемещение» via user-facing `WarehouseCommandApi.prepareProductionDemandTransfers` (never `WarehouseDemandCommandApi`). Waiting-line table from `WarehouseDemandQueryApi.getDemandSupplyTask`. Prepare result messages: all routed / partial / nothing routable / stale. No separate Demand screen, warehouse picker, Production receipt UI, Retry UX, Material Catalog, or schema change.
 
 ### Amendment (B3B-3C4 — 2026-10-06)
 
 23. Focused dead-code cleanup + full reactor / package / startup smoke. No new business behavior. Write-dead Production `saveRoutingSnapshot` helper removed; historical `findRoutingSnapshot` retained. Public Retry API remains absent. Production cancellation remains independent of Demand/Transfer/Warehouse tasks.
+
+### Amendment (B3-MA-FIX1 — 2026-10-07)
+
+24. Manual-acceptance fixes: Transfer Preparation/Receipt/Return read models resolve human material fields from Warehouse `MaterialReference` at query time (never `materialReferenceId` as article). Warehouse Tasks «Заказ» uses composition `TransferDocumentOrderReferenceQuery` for Transfer documents (generated-docs + Demand transfer links) and Demand supply tasks (Demand → MR source items → order_number); cross-order composes unique sorted numbers. UI wording «Создать перемещение» / «Перемещение создано.» No schema migration.
 
 ### Последствия
 
@@ -1825,9 +1829,10 @@ Production Material Requirement фиксирует, что Production запро
 - B3B-3A adds derived fulfillment query + continuation Demand lineage on shortfall continuations.
 - B3B-3B1 added WAITING-line re-routing engine (historically named retry; superseded by C2 business contract).
 - B3B-3C1 surfaces WAITING Demand as derived supply tasks in Warehouse Tasks with informational assignment.
-- B3B-3C2 exposes «Подготовить перемещение» as `prepareProductionDemandTransfers` (Retry public contract removed).
+- B3B-3C2 exposes «Создать перемещение» as `prepareProductionDemandTransfers` (Retry public contract removed).
 - B3B-3C3 wires take-in-work → prepare in existing Warehouse Tasks UI.
 - B3B-3C4 closes implementation with cleanup + full regression; manual acceptance PENDING.
+- B3-MA-FIX1 corrects material presentation + order display + UX wording for manual acceptance.
 
 ### Связанные документы
 
@@ -1954,6 +1959,7 @@ Production Material Requirement фиксирует, что Production запро
 | 1.19 | ADR-038 amendment B3B-3C2: «Подготовить перемещение» = `prepareProductionDemandTransfers`; Retry public API/DTOs removed; assignment cleanup on completed supply work; no UI wiring / migration. |
 | 1.20 | ADR-038 amendment B3B-3C3: Warehouse Tasks UI wires Supply Task take → prepare; waiting-line detail; prepare result messages; no new screen / Production receipt / Retry UX / migration. |
 | 1.21 | ADR-038 amendment B3B-3C4: focused dead-code cleanup; remove write-dead routing-snapshot helper; full reactor / package / startup; B3 implementation complete; manual acceptance PENDING. |
+| 1.22 | ADR-038 amendment B3-MA-FIX1: MaterialReference human fields on Transfer read model; Demand/Transfer order composition; «Создать перемещение» UX wording; no migration. |
 
 ---
 

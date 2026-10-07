@@ -2,6 +2,35 @@
 
 ## Latest result
 
+**Date:** 2026-10-07
+**Scope:** Stage 7 / Warehouse — B3-MA-FIX1 Manual Acceptance Fixes
+**Overall:** PASS
+**Migration:** NONE — V50/V51/V52 UNCHANGED; runtime Flyway current = **V52**
+**Base HEAD:** `23a11215013e9ad06bbc5505f060eba0866b4104`
+**Working tree:** dirty (MA fixes + docs/tests); **no commit / no push**
+
+### B3-MA-FIX1 checks (2026-10-07)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD + clean tree before work | PASS |
+| Demand Transfer material display IT (`demandPreparedTransferExposesHumanMaterialFieldsNotUuid`) | PASS |
+| Manual Transfer / Send / Receive ITs | PASS |
+| Supply Inbox + Operational Inbox ITs | PASS |
+| UI Workspace / Dialog / Prepare messages | PASS |
+| Composition order-reference empty-input | PASS |
+| Architecture / Flyway / access ensure (targeted) | PASS |
+| Full reactor | NOT RUN (bounded bugfix; prior C4 GREEN) |
+| Package after `-am install -DskipTests` | PASS → `dist/jpackage/TMP/TMP.exe` **453632** bytes; **2026-10-07 12:57:26** |
+| Startup smoke `tmp-stage5-pg:55432` | PASS — Flyway validated 52 / current 52; `Started DesktopBootstrap` ~4.9s; JavaFX unnamed-module WARN only |
+| Manual acceptance | READY TO RESUME (do not auto-continue) |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
 **Date:** 2026-10-06
 **Scope:** Stage 7 / Warehouse — B3B-3C4 Final Cleanup + Full Regression
 **Overall:** PASS

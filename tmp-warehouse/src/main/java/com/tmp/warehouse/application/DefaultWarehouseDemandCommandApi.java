@@ -52,7 +52,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Default {@link WarehouseDemandCommandApi}: accept Production Demand, resolve materials, and
  * best-effort create Transfer DRAFTs for uniquely resolved lines with positive AVAILABLE stock.
  * Also owns {@link #prepareProductionDemandTransfers(UUID)} for WAITING supply lines
- * («Подготовить перемещение»).
+ * («Создать перемещение»).
  *
  * <p>Business no-route outcomes persist WAITING reasons and do not throw. Technical failures
  * propagate and roll back with the caller's outer transaction.

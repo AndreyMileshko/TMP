@@ -40,7 +40,7 @@ class WarehouseSupplyPrepareResultPresentationTest {
                         2,
                         0);
         assertEquals(
-                "Подготовлено перемещений: 2.",
+                "Создано перемещений: 2.",
                 WarehouseSupplyPrepareResultPresentation.messageFor(result));
         assertTrue(WarehouseSupplyPrepareResultPresentation.isTerminalSuccess(result));
     }
@@ -56,7 +56,7 @@ class WarehouseSupplyPrepareResultPresentationTest {
                         1,
                         2);
         assertEquals(
-                "Перемещение подготовлено.\n"
+                "Перемещение создано.\n"
                         + WarehouseSupplyPrepareResultPresentation.PARTIAL_SUFFIX,
                 WarehouseSupplyPrepareResultPresentation.messageFor(result));
         assertTrue(WarehouseSupplyPrepareResultPresentation.isPartial(result));

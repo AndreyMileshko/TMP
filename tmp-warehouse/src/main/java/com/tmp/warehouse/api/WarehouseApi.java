@@ -113,13 +113,30 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
+    /**
+     * Transfer line read model. Human material fields are resolved from Warehouse {@code
+     * MaterialReference} at query time — never stringify {@code materialReferenceId} as article.
+     */
     record TransferDocumentLineView(
-            UUID lineId, UUID materialReferenceId, BigDecimal quantity, int lineOrder) {
+            UUID lineId,
+            UUID materialReferenceId,
+            BigDecimal quantity,
+            int lineOrder,
+            String article,
+            String materialName,
+            String color,
+            String size,
+            String unitOfMeasure) {
 
         public TransferDocumentLineView {
             java.util.Objects.requireNonNull(lineId, "lineId");
             java.util.Objects.requireNonNull(materialReferenceId, "materialReferenceId");
             java.util.Objects.requireNonNull(quantity, "quantity");
+            article = article == null ? "" : article;
+            materialName = materialName == null ? "" : materialName;
+            color = color == null ? "" : color;
+            size = size == null ? "" : size;
+            unitOfMeasure = unitOfMeasure == null ? "" : unitOfMeasure;
         }
     }
 
@@ -195,6 +212,11 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     record TransferDocumentSourceSuggestionLine(
             UUID lineId,
             UUID materialReferenceId,
+            String article,
+            String materialName,
+            String color,
+            String size,
+            String unitOfMeasure,
             BigDecimal requiredQuantity,
             List<SourceCellSuggestion> suggestions) {
 
@@ -202,6 +224,11 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             java.util.Objects.requireNonNull(lineId, "lineId");
             java.util.Objects.requireNonNull(materialReferenceId, "materialReferenceId");
             java.util.Objects.requireNonNull(requiredQuantity, "requiredQuantity");
+            article = article == null ? "" : article;
+            materialName = materialName == null ? "" : materialName;
+            color = color == null ? "" : color;
+            size = size == null ? "" : size;
+            unitOfMeasure = unitOfMeasure == null ? "" : unitOfMeasure;
             suggestions = suggestions == null ? List.of() : List.copyOf(suggestions);
         }
     }
@@ -213,6 +240,11 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     record TransferDocumentReturnPlanItem(
             UUID lineId,
             UUID materialReferenceId,
+            String article,
+            String materialName,
+            String color,
+            String size,
+            String unitOfMeasure,
             BigDecimal outstandingQuantity,
             UUID defaultReturnStorageCellId,
             String defaultReturnStorageCellCode) {
@@ -225,6 +257,11 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
                     defaultReturnStorageCellId, "defaultReturnStorageCellId");
             java.util.Objects.requireNonNull(
                     defaultReturnStorageCellCode, "defaultReturnStorageCellCode");
+            article = article == null ? "" : article;
+            materialName = materialName == null ? "" : materialName;
+            color = color == null ? "" : color;
+            size = size == null ? "" : size;
+            unitOfMeasure = unitOfMeasure == null ? "" : unitOfMeasure;
         }
     }
 
@@ -402,7 +439,7 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
      * Stage 3.5 / B3B-3C1 task kinds: preparation (DRAFT), receipt (POSTED+AWAITING_RECEIPT),
      * return materials (POSTED+RETURN_PENDING), and Demand-backed production material supply when
      * uncovered WAITING lines exist. Physical return action is Stage 3.5.8.3. Supply action
-     * «Подготовить перемещение» is B3B-3C2.
+     * «Создать перемещение» is B3B-3C2 / B3-MA-02 (creates Transfer DRAFT only).
      */
     enum WarehouseTaskKind {
         TRANSFER_PREPARATION,
@@ -507,7 +544,7 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
-    /** Per-line outcome of «Подготовить перемещение» (B3B-3C2). */
+    /** Per-line outcome of «Создать перемещение» (B3B-3C2 / B3-MA-02). */
     enum PrepareDemandTransferLineOutcome {
         TRANSFER_CREATED,
         MATERIAL_UNMATCHED,

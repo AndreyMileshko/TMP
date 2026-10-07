@@ -155,7 +155,8 @@ public interface WarehouseCommandApi {
     }
 
     /**
-     * «Подготовить перемещение» for a Demand-backed production material supply task (B3B-3C2).
+     * «Создать перемещение» for a Demand-backed production material supply task (B3B-3C2 / B3-MA-02).
+     * Creates Transfer DRAFT(s) only — does not physically send stock.
      * Requires {@code warehouse.transfer.create} and non-production warehouse responsibility.
      * Assignment is informational only and is not an authorization or concurrency gate. Creates
      * ordinary Transfer DRAFT(s) where WAITING lines can be routed.

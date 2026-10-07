@@ -1337,10 +1337,16 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         UUID sourceWarehouseId = loaded.payload().sourceWarehouseId().value();
         List<TransferDocumentSourceSuggestionLine> lines = new ArrayList<>();
         for (var line : loaded.payload().orderedLines()) {
+            MaterialHumanDisplay material = materialHumanDisplay(line.materialReferenceId().value());
             lines.add(
                     new TransferDocumentSourceSuggestionLine(
                             line.id().value(),
                             line.materialReferenceId().value(),
+                            material.article(),
+                            material.materialName(),
+                            material.color(),
+                            material.size(),
+                            material.unitOfMeasure(),
                             line.quantity().value(),
                             sourceRouting.suggestCellsForWarehouse(
                                     sourceWarehouseId,
@@ -1410,10 +1416,16 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                         "Return cell not found in source warehouse: "
                                 + target.returnStorageCellId());
             }
+            MaterialHumanDisplay material = materialHumanDisplay(materialReferenceId);
             items.add(
                     new TransferDocumentReturnPlanItem(
                             target.lineId(),
                             materialReferenceId,
+                            material.article(),
+                            material.materialName(),
+                            material.color(),
+                            material.size(),
+                            material.unitOfMeasure(),
                             target.quantity(),
                             target.returnStorageCellId(),
                             cellCode));
@@ -1824,12 +1836,21 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         List<TransferDocumentLineView> lineViews =
                 payload.orderedLines().stream()
                         .map(
-                                line ->
-                                        new TransferDocumentLineView(
-                                                line.id().value(),
-                                                line.materialReferenceId().value(),
-                                                line.quantity().value(),
-                                                line.lineOrder()))
+                                line -> {
+                                    MaterialHumanDisplay material =
+                                            materialHumanDisplay(
+                                                    line.materialReferenceId().value());
+                                    return new TransferDocumentLineView(
+                                            line.id().value(),
+                                            line.materialReferenceId().value(),
+                                            line.quantity().value(),
+                                            line.lineOrder(),
+                                            material.article(),
+                                            material.materialName(),
+                                            material.color(),
+                                            material.size(),
+                                            material.unitOfMeasure());
+                                })
                         .toList();
         TransferDocumentSettlement settlement =
                 settlements == null
@@ -2111,6 +2132,42 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 material.color(),
                 material.size(),
                 material.unitOfMeasure());
+    }
+
+    /**
+     * Human material fields for Transfer task/detail projections. Resolves Warehouse {@link
+     * MaterialReference}; never stringifies the technical id as article.
+     */
+    private MaterialHumanDisplay materialHumanDisplay(UUID materialReferenceId) {
+        return materials
+                .findById(MaterialReferenceId.of(materialReferenceId))
+                .map(
+                        material ->
+                                new MaterialHumanDisplay(
+                                        material.article(),
+                                        material.name(),
+                                        material.color(),
+                                        material.size(),
+                                        material.unitOfMeasure()))
+                .orElse(MaterialHumanDisplay.EMPTY);
+    }
+
+    private record MaterialHumanDisplay(
+            String article,
+            String materialName,
+            String color,
+            String size,
+            String unitOfMeasure) {
+
+        static final MaterialHumanDisplay EMPTY = new MaterialHumanDisplay("", "", "", "", "");
+
+        private MaterialHumanDisplay {
+            article = article == null ? "" : article;
+            materialName = materialName == null ? "" : materialName;
+            color = color == null ? "" : color;
+            size = size == null ? "" : size;
+            unitOfMeasure = unitOfMeasure == null ? "" : unitOfMeasure;
+        }
     }
 
     private List<StockView> toPositiveQuantityStockViews(List<StockPosition> positions) {
