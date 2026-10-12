@@ -14,6 +14,7 @@ import com.tmp.production.api.ProductionApplicationApi.CellAllocationView;
 import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSummaryView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineProductionStockView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductCoverageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductSelectionView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSourceItemRefView;
@@ -997,6 +998,11 @@ public final class ProductionWorkbenchViewModel {
 
     public Optional<MaterialRequirementView> getMaterialRequirement(UUID requirementId) {
         return applicationApi.getMaterialRequirement(requirementId);
+    }
+
+    public List<MaterialRequirementLineProductionStockView> getMaterialRequirementProductionStock(
+            UUID requirementId) {
+        return applicationApi.getMaterialRequirementProductionStock(requirementId);
     }
 
     public List<String> materialRequirementSourceSummary(MaterialRequirementView requirement) {

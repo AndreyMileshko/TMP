@@ -2,6 +2,69 @@
 
 ## Latest result
 
+**Date:** 2026-10-08
+**Scope:** Stage 7 Production — B3-MA-FIX4B Editable «К запросу»
+**Overall:** PASS
+**Migration:** V53 — `quantity >= 0` (V50/V51/V52 UNTOUCHED)
+**Base HEAD:** `d9b2287705a0fb561adc381e63a63b4280f10fd5` (on top of uncommitted FIX4)
+**Working tree:** dirty (FIX4 + FIX4B); **no commit / no push**
+
+### B3-MA-FIX4B checks (2026-10-08)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD + dirty FIX4 retained | PASS (`d9b2287…`) |
+| Domain `MaterialRequirementTest` (zero / above-required / required from contributions) | PASS (7) |
+| `MaterialRequirementServiceTest` + `SubmitMaterialRequirementServiceTest` (zero-one / zero-all / reduced Demand) | PASS (30 + 11) |
+| `DefaultProductionApplicationApiTest` (`requiredQuantity` on line view) | PASS (22) |
+| FIX4 stock + FIX4B UI (`MaterialRequestDialogSupportFix4Test` / Phase5) | PASS (8 + 15) |
+| `JdbcMaterialRequirementRepositoryTest` (zero persist) | PASS (5) |
+| `MaterialRequirementPostgresIT` + `OrderQuantityModePostgresIT` | PASS (12) |
+| `ProductionSchemaFlywayTest` (V53 + zero CHECK) | PASS (16) |
+| `Stage7ProductionArchitectureTest` / `Stage6WarehouseArchitectureTest` | PASS (83 + 12) |
+| Coverage unchanged / no reservation / Readiness unchanged / B3-MA-05 untouched | PASS |
+| Full reactor | NOT RUN |
+| Package (`-am install -DskipTests` then `pre-integration-test -Ppackage`) | PASS → `dist/jpackage/TMP/TMP.exe` **453632** bytes; **2026-10-08 00:59:15** |
+| Startup smoke `tmp-stage5-pg:55432` / `tmp_gui_stage5` | PASS — Flyway validated 53 / applied V53 / current 53; `Started DesktopBootstrap` ~5.0s; JavaFX unnamed-module WARN only; constraint `quantity >= 0`; TMP alive |
+| Manual acceptance | READY TO VERIFY editable «К запросу» + zero / reduced submit |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-10-07
+**Scope:** Stage 7 Production — B3-MA-FIX4 Production Stock Visibility in Material Request
+**Overall:** PASS
+**Migration:** NONE — V50/V51/V52 UNCHANGED
+**Base HEAD:** `d9b2287705a0fb561adc381e63a63b4280f10fd5`
+**Working tree:** dirty (MR stock visibility + docs/tests); **no commit / no push**
+
+### B3-MA-FIX4 checks (2026-10-07)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD + clean tree before work | PASS (`d9b2287…`) |
+| `MaterialRequirementProductionStockQueryServiceTest` (TEST-002 / zero / unmatched / ambiguous / IN_TRANSIT / other WH / batch / flexible) | PASS (10) |
+| UI `MaterialRequestDialogSupportFix4Test` + `MaterialRequestPhase5ViewModelTest` | PASS (8 + 15) |
+| MR calc / service / coverage / resolver / readiness / submit unit | PASS |
+| `DefaultProductionApplicationApiTest` (VIEW permission for stock snapshot) | PASS |
+| `Stage7ProductionArchitectureTest` / `Stage6WarehouseArchitectureTest` | PASS (83 + 12) |
+| `ProductionSchemaFlywayTest` | PASS (15) — V52; no new migration |
+| Coverage / Demand quantity semantics unchanged | PASS (no subtraction / no coverage code change) |
+| B3-MA-06 CLOSED AS DESIGN / B3-MA-05 NOT TOUCHED | PASS |
+| Full reactor | NOT RUN |
+| Package (`-am install -DskipTests` then `pre-integration-test -Ppackage`) | PASS → `dist/jpackage/TMP/TMP.exe` **453632** bytes; **2026-10-08 00:18:47** |
+| Startup smoke `tmp-stage5-pg:55432` / `tmp_gui_stage5` | PASS — Flyway validated 52 / current 52 / no migration; `Started DesktopBootstrap` ~5.1s; JavaFX unnamed-module WARN only; no ERROR |
+| Manual acceptance | READY TO VERIFY informational «На производстве» column |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
 **Date:** 2026-10-07
 **Scope:** Stage 7 Production — B3-MA-FIX2 Material Readiness Quantity (B3-MA-04)
 **Overall:** PASS

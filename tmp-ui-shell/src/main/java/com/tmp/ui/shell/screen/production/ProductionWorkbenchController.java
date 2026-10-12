@@ -2,6 +2,7 @@ package com.tmp.ui.shell.screen.production;
 
 import com.tmp.order.api.OrderId;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSummaryView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineProductionStockView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
 import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
@@ -1000,9 +1001,18 @@ public final class ProductionWorkbenchController
         java.util.concurrent.atomic.AtomicReference<MaterialRequirementView> current =
                 new java.util.concurrent.atomic.AtomicReference<>(requirement);
         List<String> sources = viewModel.materialRequirementSourceSummary(requirement);
+        List<MaterialRequirementLineProductionStockView> productionStock;
+        try {
+            productionStock =
+                    viewModel.getMaterialRequirementProductionStock(requirement.requirementId());
+        } catch (RuntimeException ex) {
+            viewModel.setErrorMessage(ProductionUiErrorMapper.text(ex));
+            return;
+        }
         MaterialRequestDialogSupport.Step2Action action =
                 MaterialRequestDialogSupport.showStep2(
                         requirement,
+                        productionStock,
                         sources,
                         canMutate,
                         row -> {

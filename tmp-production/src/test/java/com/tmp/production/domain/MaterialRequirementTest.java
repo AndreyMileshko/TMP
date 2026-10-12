@@ -36,28 +36,57 @@ class MaterialRequirementTest {
                 MaterialRequirement.create(PROD, T0, sampleSourceItems(line), List.of(line));
 
         MaterialRequirement edited =
-                requirement.changeLineQuantity(line.lineId(), bd(30), T1);
+                requirement.changeLineQuantity(line.lineId(), bd(25), T1);
 
         assertEquals(0L, edited.version());
         assertEquals(T1, edited.updatedAt());
-        assertEquals(0, edited.lines().getFirst().quantity().compareTo(bd(30)));
+        assertEquals(0, edited.lines().getFirst().quantity().compareTo(bd(25)));
+        assertEquals(0, edited.lines().getFirst().requiredQuantity().compareTo(bd(28)));
     }
 
     @Test
-    void rejectsZeroOrNegativeQuantity() {
+    void acceptsZeroRequestQuantityAndRejectsNegativeOrAboveRequired() {
         MaterialRequirementLine line = sampleLine(bd(10));
         MaterialRequirement requirement =
                 MaterialRequirement.create(PROD, T0, sampleSourceItems(line), List.of(line));
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> requirement.changeLineQuantity(line.lineId(), BigDecimal.ZERO, T1));
+        MaterialRequirement zeroed =
+                requirement.changeLineQuantity(line.lineId(), BigDecimal.ZERO, T1);
+        assertEquals(0, zeroed.lines().getFirst().quantity().compareTo(BigDecimal.ZERO));
+        assertEquals(0, zeroed.lines().getFirst().requiredQuantity().compareTo(bd(10)));
+
         assertThrows(
                 IllegalArgumentException.class,
                 () -> requirement.changeLineQuantity(line.lineId(), bd(-1), T1));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> sampleLine(BigDecimal.ZERO));
+                () -> requirement.changeLineQuantity(line.lineId(), bd(11), T1));
+    }
+
+    @Test
+    void requiredQuantityIsSumOfContributions() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemA = SourceOrderItemId.generate();
+        SourceOrderItemId itemB = SourceOrderItemId.generate();
+        MaterialRequirementLine line =
+                MaterialRequirementLine.create(
+                        MaterialReferenceId.generate(),
+                        "MAT-1",
+                        "Material",
+                        "WHITE",
+                        "PCS",
+                        null,
+                        bd(15),
+                        List.of(
+                                MaterialRequirementLineContribution.of(orderId, itemA, bd(10)),
+                                MaterialRequirementLineContribution.of(orderId, itemB, bd(5))));
+
+        assertEquals(0, line.requiredQuantity().compareTo(bd(15)));
+        assertEquals(0, line.quantity().compareTo(bd(15)));
+
+        MaterialRequirementLine reduced = line.changeQuantity(bd(12));
+        assertEquals(0, reduced.requiredQuantity().compareTo(bd(15)));
+        assertEquals(0, reduced.quantity().compareTo(bd(12)));
     }
 
     @Test
@@ -70,7 +99,7 @@ class MaterialRequirementTest {
                 IllegalArgumentException.class,
                 () ->
                         requirement.changeLineQuantity(
-                                MaterialRequirementLineId.generate(), bd(6), T1));
+                                MaterialRequirementLineId.generate(), bd(4), T1));
     }
 
     @Test
@@ -92,6 +121,20 @@ class MaterialRequirementTest {
                 IllegalStateException.class,
                 () -> submitted.changeLineQuantity(line.lineId(), bd(90), T1));
         assertThrows(IllegalStateException.class, () -> submitted.submit("user-2", T1));
+    }
+
+    @Test
+    void submitAllowsAllZeroRequestQuantities() {
+        MaterialRequirementLine line = sampleLine(bd(20));
+        MaterialRequirement requirement =
+                MaterialRequirement.create(PROD, T0, sampleSourceItems(line), List.of(line))
+                        .changeLineQuantity(line.lineId(), BigDecimal.ZERO, T1);
+
+        MaterialRequirement submitted = requirement.submit("user-1", T1);
+
+        assertEquals(MaterialRequirementStatus.SUBMITTED, submitted.status());
+        assertEquals(0, submitted.lines().getFirst().quantity().compareTo(BigDecimal.ZERO));
+        assertEquals(0, submitted.lines().getFirst().requiredQuantity().compareTo(bd(20)));
     }
 
     private static List<MaterialRequirementSourceItem> sampleSourceItems(

@@ -12,6 +12,7 @@ import com.tmp.production.application.CurrentMaterialAvailabilityQueryService;
 import com.tmp.production.application.DefaultProductionApplicationApi;
 import com.tmp.production.application.DefaultProductionQueryApi;
 import com.tmp.production.application.MaterialRequirementCoverageService;
+import com.tmp.production.application.MaterialRequirementProductionStockQueryService;
 import com.tmp.production.application.MaterialRequirementService;
 import com.tmp.production.application.MaterialReadinessQueryService;
 import com.tmp.production.application.ProductionDestinationWarehouse;
@@ -257,6 +258,8 @@ final class ProductionPublicBoundaryComposition {
         MaterialReadinessQueryService materialReadinessQueryService =
                 new MaterialReadinessQueryService(
                         orderViewService, foundationQuery, warehouseAvailabilityQuery, destination);
+        MaterialRequirementProductionStockQueryService materialRequirementProductionStockQueryService =
+                new MaterialRequirementProductionStockQueryService(warehouseAvailabilityQuery);
 
         ProductionApplicationApi applicationApi =
                 new DefaultProductionApplicationApi(
@@ -272,6 +275,7 @@ final class ProductionPublicBoundaryComposition {
                         releaseProductsService,
                         cancelService,
                         materialReadinessQueryService,
+                        materialRequirementProductionStockQueryService,
                         materialTransfers,
                         new JdbcOrderQuantityModeRepository(jdbc, clock));
         ProductionQueryApi queryApi =

@@ -4,6 +4,67 @@
 
 ---
 
+## Stage 7 Production — B3-MA-FIX4B Editable «К запросу» — 2026-10-08
+
+**Date:** 2026-10-08
+**Stage:** 7 Production / Manual Acceptance Fix B3-MA-FIX4B
+**Base HEAD:** `d9b2287705a0fb561adc381e63a63b4280f10fd5` (on top of uncommitted B3-MA-FIX4)
+**Status:** PASS — editable request quantity; V53; zero Demand omit; no commit / no push
+
+### Scope
+
+- STEP 2 columns: «Требуется» (prepare-time contributions sum, read-only), «На производстве» (FIX4 informational), «К запросу» (editable request)
+- Default request = required; master may set `0..required`; zero displayed as `0`
+- Domain invariant on `MaterialRequirementLine`: `0 <= quantity <= requiredQuantity()`
+- No persisted `required_quantity` column; `material_requirement_lines.quantity` remains request quantity
+- Flyway **V53**: `chk_material_requirement_lines_quantity` → `quantity >= 0` (V50/V51/V52 untouched)
+- Submit: positive lines → `acceptProductionDemand`; all-zero → skip Demand; coverage unchanged
+- UI restores optimistic `changeMaterialRequirementQuantity` save path
+- B3-MA-06 remains CLOSED AS DESIGN; B3-MA-05 / RBAC / supplemental request NOT TOUCHED
+
+### Explicitly not done
+
+- Supplemental Warehouse material request from stock UI
+- B3-MA-05 return dialog
+- Full reactor
+- RBAC changes
+
+### Verification
+
+See VERIFICATION-LOG B3-MA-FIX4B entry (2026-10-08).
+
+---
+
+## Stage 7 Production — B3-MA-FIX4 Production Stock Visibility in Material Request — 2026-10-07
+
+**Date:** 2026-10-07
+**Stage:** 7 Production / Manual Acceptance Fix B3-MA-FIX4
+**Base HEAD:** `d9b2287705a0fb561adc381e63a63b4280f10fd5`
+**Status:** PASS — informational production stock in MR STEP 2; B3-MA-06 CLOSED AS DESIGN; no commit / no push
+
+### Scope
+
+- Business rule: Material Request = full need (`norm × requested products`); production AVAILABLE is **informational only**
+- No reservation / allocation by Order; stock not subtracted from «К запросу»
+- UI STEP 2 («Потребность в материалах»): column «На производстве»; rename quantity → «К запросу»; hint; material qty read-only; neutral styling
+- Live read-side: `MaterialRequirementProductionStockQueryService` + `getMaterialRequirementProductionStock` (PRODUCTION_VIEW; batch AVAILABLE on destination warehouse)
+- Unmatched/ambiguous → «—»; unique zero → `0`; IN_TRANSIT / other warehouses excluded
+- Save keeps draft UX without material quantity mutation; backend `changeQuantity` retained as public contract
+- Docs: Stage-7 UX §2 / §18.6; B3-MA-06 CLOSED AS DESIGN; B3-MA-05 NOT TOUCHED
+- Migration: NONE (V50/V51/V52 unchanged)
+
+### Explicitly not done
+
+- B3-MA-05 return dialog direction
+- Full reactor
+- Data migration / historical SUBMITTED rewrite
+
+### Verification
+
+See VERIFICATION-LOG B3-MA-FIX4 entry (2026-10-07).
+
+---
+
 ## Stage 7 Production — B3-MA-FIX2 Material Readiness Quantity — 2026-10-07
 
 **Date:** 2026-10-07

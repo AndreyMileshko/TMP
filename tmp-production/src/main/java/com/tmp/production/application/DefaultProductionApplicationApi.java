@@ -56,6 +56,8 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     private final ReleaseProductsService releaseProductsService;
     private final CancelOrderProductionService cancelOrderProductionService;
     private final MaterialReadinessQueryService materialReadinessQueryService;
+    private final MaterialRequirementProductionStockQueryService
+            materialRequirementProductionStockQueryService;
     private final ProductionMaterialTransferRepository materialTransferRepository;
     private final OrderQuantityModeRepository quantityModeRepository;
 
@@ -72,6 +74,8 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
             ReleaseProductsService releaseProductsService,
             CancelOrderProductionService cancelOrderProductionService,
             MaterialReadinessQueryService materialReadinessQueryService,
+            MaterialRequirementProductionStockQueryService
+                    materialRequirementProductionStockQueryService,
             ProductionMaterialTransferRepository materialTransferRepository,
             OrderQuantityModeRepository quantityModeRepository) {
         this.authorizationService =
@@ -103,6 +107,10 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         this.materialReadinessQueryService =
                 Objects.requireNonNull(
                         materialReadinessQueryService, "materialReadinessQueryService");
+        this.materialRequirementProductionStockQueryService =
+                Objects.requireNonNull(
+                        materialRequirementProductionStockQueryService,
+                        "materialRequirementProductionStockQueryService");
         this.materialTransferRepository =
                 Objects.requireNonNull(materialTransferRepository, "materialTransferRepository");
         this.quantityModeRepository =
@@ -147,6 +155,27 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         return materialRequirementService
                 .findById(MaterialRequirementId.of(requirementId))
                 .map(this::map);
+    }
+
+    @Override
+    public List<MaterialRequirementLineProductionStockView> getMaterialRequirementProductionStock(
+            UUID requirementId) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
+        Objects.requireNonNull(requirementId, "requirementId");
+        MaterialRequirement requirement =
+                materialRequirementService
+                        .findById(MaterialRequirementId.of(requirementId))
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Material requirement not found: "
+                                                        + requirementId));
+        return materialRequirementProductionStockQueryService.stockFor(requirement).stream()
+                .map(
+                        row ->
+                                new MaterialRequirementLineProductionStockView(
+                                        row.lineId(), row.onProductionAvailable()))
+                .toList();
     }
 
     @Override
@@ -528,6 +557,7 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 line.color(),
                 line.unitOfMeasure(),
                 line.lengthMm().orElse(null),
+                line.requiredQuantity(),
                 line.quantity(),
                 line.sourceOrderItemIds().stream().map(SourceOrderItemId::value).toList());
     }

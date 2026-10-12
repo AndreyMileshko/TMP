@@ -43,6 +43,17 @@ public interface ProductionApplicationApi {
     Optional<MaterialRequirementView> getMaterialRequirement(UUID requirementId);
 
     /**
+     * Live AVAILABLE snapshot on the Material Requirement destination (production) warehouse for
+     * each line. Informational only — not subtracted from request quantity, not reserved, not
+     * persisted. Requires {@code production.order.view} (no Warehouse stock permission).
+     *
+     * <p>{@code onProductionAvailable} is {@code null} when the Specification material is
+     * unmatched or ambiguous; otherwise the summed AVAILABLE quantity (including zero).
+     */
+    List<MaterialRequirementLineProductionStockView> getMaterialRequirementProductionStock(
+            UUID requirementId);
+
+    /**
      * Lists persisted DRAFT Material Requirements newest-first for reopen UX. Requires
      * {@code production.order.view}. Requirement ids are for API reload only — UI must not show
      * them.
@@ -262,6 +273,10 @@ public interface ProductionApplicationApi {
         }
     }
 
+    /**
+     * Material Requirement line read model. {@code requiredQuantity} is prepare-time need
+     * («Требуется», sum of contributions). {@code quantity} is master request («К запросу»).
+     */
     record MaterialRequirementLineView(
             UUID lineId,
             UUID materialReferenceId,
@@ -270,6 +285,7 @@ public interface ProductionApplicationApi {
             String color,
             String unitOfMeasure,
             BigDecimal lengthMm,
+            BigDecimal requiredQuantity,
             BigDecimal quantity,
             List<UUID> sourceOrderItemIds) {
         public MaterialRequirementLineView {
@@ -277,9 +293,21 @@ public interface ProductionApplicationApi {
             Objects.requireNonNull(materialCode, "materialCode");
             Objects.requireNonNull(color, "color");
             Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
+            Objects.requireNonNull(requiredQuantity, "requiredQuantity");
             Objects.requireNonNull(quantity, "quantity");
             Objects.requireNonNull(sourceOrderItemIds, "sourceOrderItemIds");
             sourceOrderItemIds = List.copyOf(sourceOrderItemIds);
+        }
+    }
+
+    /**
+     * Read-side production-warehouse AVAILABLE for one Material Requirement line. {@code
+     * onProductionAvailable == null} means unmatched/ambiguous MaterialReference (UI: "—").
+     */
+    record MaterialRequirementLineProductionStockView(
+            UUID lineId, BigDecimal onProductionAvailable) {
+        public MaterialRequirementLineProductionStockView {
+            Objects.requireNonNull(lineId, "lineId");
         }
     }
 

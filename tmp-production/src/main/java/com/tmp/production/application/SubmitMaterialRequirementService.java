@@ -38,8 +38,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p>One outer REQUIRED transaction: lock requirement → idempotent SUBMITTED short-circuit → verify
  * DRAFT + expectedVersion → lock affected Production item states → revalidate product coverage →
- * Warehouse Demand acceptance (with best-effort initial routing) → mark SUBMITTED → persist
- * generated Transfer document links when any Transfers were created.
+ * Warehouse Demand acceptance for positive request lines (skip when all zero) → mark SUBMITTED →
+ * persist generated Transfer document links when any Transfers were created.
  *
  * <p>Business no-route outcomes (unmatched / ambiguous / zero stock) are successful Submit. Warehouse
  * Demand is the operational source of truth; Production routing snapshot is no longer written.
@@ -140,13 +140,18 @@ public final class SubmitMaterialRequirementService {
 
         revalidateProductCoverage(requirement);
 
-        AcceptProductionDemandResult accepted = acceptDemand(requirement, submittedBy);
-
         Instant now = clock.instant();
+        List<GeneratedDocumentLink> documentLinks = List.of();
+        List<ProductionDemandLine> positiveLines = positiveDemandLines(requirement);
+        if (!positiveLines.isEmpty()) {
+            AcceptProductionDemandResult accepted =
+                    acceptDemand(requirement, submittedBy, positiveLines);
+            documentLinks = toDocumentLinks(accepted.documents(), now);
+        }
+
         MaterialRequirement submitted = requirement.submit(submittedBy, now);
         MaterialRequirement persisted = requirementRepository.markSubmitted(submitted);
 
-        List<GeneratedDocumentLink> documentLinks = toDocumentLinks(accepted.documents(), now);
         if (!documentLinks.isEmpty()) {
             submissionRepository.saveGeneratedDocuments(requirementId, documentLinks);
         }
@@ -210,10 +215,16 @@ public final class SubmitMaterialRequirementService {
         }
     }
 
-    private AcceptProductionDemandResult acceptDemand(
-            MaterialRequirement requirement, String submittedBy) {
+    /**
+     * Warehouse Demand lines for request quantity &gt; 0 only. Zero-request lines are omitted; when
+     * every line is zero, acceptance is skipped entirely (no empty Demand header).
+     */
+    static List<ProductionDemandLine> positiveDemandLines(MaterialRequirement requirement) {
         List<ProductionDemandLine> lines = new ArrayList<>(requirement.lines().size());
         for (MaterialRequirementLine line : requirement.lines()) {
+            if (line.quantity().signum() <= 0) {
+                continue;
+            }
             lines.add(
                     new ProductionDemandLine(
                             line.lineId().value(),
@@ -225,12 +236,19 @@ public final class SubmitMaterialRequirementService {
                             line.quantity(),
                             line.materialReferenceId().map(id -> id.value()).orElse(null)));
         }
+        return List.copyOf(lines);
+    }
+
+    private AcceptProductionDemandResult acceptDemand(
+            MaterialRequirement requirement,
+            String submittedBy,
+            List<ProductionDemandLine> positiveLines) {
         return warehouseDemandCommandApi.acceptProductionDemand(
                 new AcceptProductionDemandCommand(
                         requirement.requirementId().value(),
                         requirement.destinationWarehouseId(),
                         submittedBy,
-                        lines));
+                        positiveLines));
     }
 
     private static List<GeneratedDocumentLink> toDocumentLinks(

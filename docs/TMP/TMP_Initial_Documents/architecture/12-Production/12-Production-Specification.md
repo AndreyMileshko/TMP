@@ -427,18 +427,24 @@ Until Stage 3.5.9 the runtime used:
 
 That active recommendation path is retired. Historical persistence may remain.
 
-Production forms an **editable Material Requirement DRAFT** (CURRENT after 3.5.9):
+Production forms a Material Requirement DRAFT (CURRENT after 3.5.9 / B3-MA-FIX4 / B3-MA-FIX4B):
 
 - materials;
-- one quantity per line (initially aggregated from frozen Specification);
+- «Требуется» = prepare-time need: sum of immutable contribution quantities (`specification norm × selected product quantity`); not a persisted column; not reduced by production AVAILABLE;
+- «На производстве» = live informational production warehouse AVAILABLE — not SoT, not reserved, not subtracted;
+- «К запросу» = persisted request quantity (`material_requirement_lines.quantity`); defaults to «Требуется»; master may reduce including to `0`; invariant `0 <= request <= required`;
 - provenance to Order Item IDs as needed for audit.
 
-Master (CURRENT after 3.5.9):
+Master (CURRENT after B3-MA-FIX4B):
 
-1. selects Order Items;
-2. reviews aggregated requirement;
-3. may change quantity;
-4. submits DRAFT → Warehouse DRAFT Transfer Documents + TRANSFER_PREPARATION tasks (Stage 3.5.10 COMPLETE).
+1. selects Order Items and product quantities (STEP 1; FLEXIBLE may edit product qty);
+2. reviews aggregated requirement with informational production stock (STEP 2);
+3. may manually edit «К запросу» within `0..Требуется` (no automatic stock subtraction);
+4. submits DRAFT → Warehouse Demand only for lines with request > 0; all-zero request may SUBMIT with coverage and **no** Warehouse Demand / Transfer; otherwise DRAFT Transfer Documents + TRANSFER_PREPARATION tasks (Stage 3.5.10 COMPLETE).
+
+Product coverage remains based on `MaterialRequirementSourceItem.requestedProductQuantity` and SUBMITTED rows with `counts_toward_product_coverage = TRUE` — independent of reduced material request quantities.
+
+**B3-MA-06 CLOSED AS DESIGN:** production warehouse stock is common physical inventory without Order reservation; automatic subtraction does not occur. FIX4B only adds manual master override of request quantity. Future supplemental Warehouse request (from stock UI) is a separate phase — not implemented here.
 
 ## 13.2 Владение
 

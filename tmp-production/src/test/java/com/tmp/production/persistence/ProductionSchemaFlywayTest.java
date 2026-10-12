@@ -180,6 +180,13 @@ class ProductionSchemaFlywayTest {
                         WHERE version = '51' AND success = TRUE
                         """,
                         Integer.class);
+        Integer applied53 =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM flyway_schema_history
+                        WHERE version = '53' AND success = TRUE
+                        """,
+                        Integer.class);
         assertEquals(1, applied23);
         assertEquals(1, applied26);
         assertEquals(1, applied27);
@@ -190,6 +197,21 @@ class ProductionSchemaFlywayTest {
         assertEquals(1, applied43);
         assertEquals(1, applied44);
         assertEquals(1, applied51);
+        assertEquals(1, applied53);
+    }
+
+    @Test
+    void materialRequirementLineQuantityAllowsZero() {
+        Integer check =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM information_schema.check_constraints
+                        WHERE constraint_schema = 'production'
+                          AND constraint_name = 'chk_material_requirement_lines_quantity'
+                          AND check_clause ILIKE '%quantity%>=%0%'
+                        """,
+                        Integer.class);
+        assertEquals(1, check);
     }
 
     @Test

@@ -105,6 +105,7 @@ class OrderQuantityModePostgresIT {
                         mock(ReleaseProductsService.class),
                         mock(CancelOrderProductionService.class),
                         mock(MaterialReadinessQueryService.class),
+                        mock(MaterialRequirementProductionStockQueryService.class),
                         mock(ProductionMaterialTransferRepository.class),
                         new JdbcOrderQuantityModeRepository(jdbc, CLOCK));
     }

@@ -86,6 +86,8 @@ class DefaultProductionApplicationApiTest {
     private ReleaseProductsService releaseProductsService;
     private CancelOrderProductionService cancelOrderProductionService;
     private MaterialReadinessQueryService materialReadinessQueryService;
+    private MaterialRequirementProductionStockQueryService
+            materialRequirementProductionStockQueryService;
     private ProductionMaterialTransferRepository materialTransferRepository;
     private OrderQuantityModeRepository quantityModeRepository;
     private DefaultProductionApplicationApi api;
@@ -111,6 +113,8 @@ class DefaultProductionApplicationApiTest {
         releaseProductsService = mock(ReleaseProductsService.class);
         cancelOrderProductionService = mock(CancelOrderProductionService.class);
         materialReadinessQueryService = mock(MaterialReadinessQueryService.class);
+        materialRequirementProductionStockQueryService =
+                mock(MaterialRequirementProductionStockQueryService.class);
         materialTransferRepository = mock(ProductionMaterialTransferRepository.class);
         quantityModeRepository = mock(OrderQuantityModeRepository.class);
         api =
@@ -127,6 +131,7 @@ class DefaultProductionApplicationApiTest {
                         releaseProductsService,
                         cancelOrderProductionService,
                         materialReadinessQueryService,
+                        materialRequirementProductionStockQueryService,
                         materialTransferRepository,
                         quantityModeRepository);
     }
@@ -305,6 +310,9 @@ class DefaultProductionApplicationApiTest {
                 view.lines().getFirst().lineId());
         assertEquals(
                 requirement.lines().getFirst().quantity(), view.lines().getFirst().quantity());
+        assertEquals(
+                requirement.lines().getFirst().requiredQuantity(),
+                view.lines().getFirst().requiredQuantity());
         assertTrue(view.submittedAt().isEmpty());
         assertTrue(view.submittedBy().isEmpty());
     }
@@ -437,6 +445,9 @@ class DefaultProductionApplicationApiTest {
                 AccessDeniedException.class, () -> api.getMaterialRequirement(requirementId));
         assertThrows(
                 AccessDeniedException.class,
+                () -> api.getMaterialRequirementProductionStock(requirementId));
+        assertThrows(
+                AccessDeniedException.class,
                 () ->
                         api.getMaterialRequirementProductCoverage(
                                 List.of(
@@ -446,6 +457,7 @@ class DefaultProductionApplicationApiTest {
 
         verify(materialRequirementService, never()).findById(any());
         verify(materialRequirementCoverageService, never()).coverageForItems(any());
+        verify(materialRequirementProductionStockQueryService, never()).stockFor(any());
     }
 
     @Test
@@ -534,6 +546,7 @@ class DefaultProductionApplicationApiTest {
                         "color",
                         "unitOfMeasure",
                         "lengthMm",
+                        "requiredQuantity",
                         "quantity",
                         "sourceOrderItemIds"),
                 names);

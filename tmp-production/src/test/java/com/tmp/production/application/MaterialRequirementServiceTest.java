@@ -386,7 +386,7 @@ class MaterialRequirementServiceTest {
     }
 
     @Test
-    void changesQuantityFrom28To30() {
+    void changesQuantityWithinRequiredBound() {
         MaterialRequirement requirement = prepareSimpleRequirement(BigDecimal.valueOf(28));
         MaterialRequirementLineId lineId = requirement.lines().getFirst().lineId();
 
@@ -394,10 +394,12 @@ class MaterialRequirementServiceTest {
                 service.changeQuantity(
                         requirement.requirementId(),
                         lineId,
-                        BigDecimal.valueOf(30),
+                        BigDecimal.valueOf(25),
                         requirement.version());
 
-        assertEquals(0, edited.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(30)));
+        assertEquals(0, edited.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(25)));
+        assertEquals(
+                0, edited.lines().getFirst().requiredQuantity().compareTo(BigDecimal.valueOf(28)));
         assertEquals(1L, edited.version());
     }
 
@@ -443,26 +445,35 @@ class MaterialRequirementServiceTest {
     }
 
     @Test
-    void rejectsNonPositiveQuantityChange() {
+    void acceptsZeroRequestQuantityAndRejectsNegativeOrAboveRequired() {
         MaterialRequirement requirement = prepareSimpleRequirement(BigDecimal.TEN);
         MaterialRequirementLineId lineId = requirement.lines().getFirst().lineId();
+
+        MaterialRequirement zeroed =
+                service.changeQuantity(
+                        requirement.requirementId(),
+                        lineId,
+                        BigDecimal.ZERO,
+                        requirement.version());
+        assertEquals(0, zeroed.lines().getFirst().quantity().compareTo(BigDecimal.ZERO));
+        assertEquals(0, zeroed.lines().getFirst().requiredQuantity().compareTo(BigDecimal.TEN));
 
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
                         service.changeQuantity(
-                                requirement.requirementId(),
+                                zeroed.requirementId(),
                                 lineId,
-                                BigDecimal.ZERO,
-                                requirement.version()));
+                                BigDecimal.valueOf(-1),
+                                zeroed.version()));
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
                         service.changeQuantity(
-                                requirement.requirementId(),
+                                zeroed.requirementId(),
                                 lineId,
-                                BigDecimal.valueOf(-1),
-                                requirement.version()));
+                                BigDecimal.valueOf(11),
+                                zeroed.version()));
     }
 
     @Test
@@ -862,15 +873,18 @@ class MaterialRequirementServiceTest {
         assertEquals(10L, prepared.sourceItems().getFirst().requestedProductQuantity());
         assertEquals(0, prepared.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(40)));
 
+        BigDecimal required = prepared.lines().getFirst().requiredQuantity();
+        BigDecimal reduced = required.subtract(BigDecimal.ONE);
         MaterialRequirement edited =
                 service.changeQuantity(
                         prepared.requirementId(),
                         prepared.lines().getFirst().lineId(),
-                        BigDecimal.valueOf(42),
+                        reduced,
                         prepared.version());
 
         MaterialRequirement reloaded = service.findById(edited.requirementId()).orElseThrow();
-        assertEquals(0, reloaded.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(42)));
+        assertEquals(0, reloaded.lines().getFirst().quantity().compareTo(reduced));
+        assertEquals(0, reloaded.lines().getFirst().requiredQuantity().compareTo(required));
         assertEquals(10L, reloaded.sourceItems().getFirst().requestedProductQuantity());
     }
 

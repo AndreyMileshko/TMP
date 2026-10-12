@@ -10,9 +10,9 @@ import java.util.Set;
 /**
  * One editable line of a Production-owned Material Requirement.
  *
- * <p>Holds a single master-editable {@code quantity} (no recommended/requested dual model). Source
- * contributions preserve per-item material provenance; manual quantity edits do not change product
- * coverage on source items.
+ * <p>Holds a master-editable request {@code quantity} («К запросу»), bounded by prepare-time
+ * {@link #requiredQuantity()} from immutable contributions («Требуется»). Zero request is valid
+ * (no Warehouse Demand line). Manual edits do not change product coverage on source items.
  *
  * <p>{@code materialReferenceId} is an optional Warehouse hint only — PREPARE does not require it.
  * {@code lengthMm} is an immutable snapshot field and is never part of material identity matching.
@@ -49,13 +49,13 @@ public final class MaterialRequirementLine {
             throw new IllegalArgumentException("lengthMm must be > 0 when present: " + lengthMm);
         }
         this.lengthMm = lengthMm;
-        this.quantity = requirePositive(quantity, "quantity");
         this.contributions =
                 List.copyOf(Objects.requireNonNull(contributions, "contributions"));
         if (this.contributions.isEmpty()) {
             throw new IllegalArgumentException("contributions must not be empty");
         }
         validateContributionKeys(this.contributions);
+        this.quantity = requireRequestQuantity(quantity, requiredQuantityFrom(this.contributions));
     }
 
     public static MaterialRequirementLine create(
@@ -144,8 +144,20 @@ public final class MaterialRequirementLine {
         return Optional.ofNullable(lengthMm);
     }
 
+    /**
+     * Request quantity («К запросу») persisted on the line. May be zero; never exceeds {@link
+     * #requiredQuantity()}.
+     */
     public BigDecimal quantity() {
         return quantity;
+    }
+
+    /**
+     * Full prepare-time material need («Требуется»): sum of immutable contribution quantities. Not
+     * a separate persisted column.
+     */
+    public BigDecimal requiredQuantity() {
+        return requiredQuantityFrom(contributions);
     }
 
     public List<MaterialRequirementLineContribution> contributions() {
@@ -180,10 +192,28 @@ public final class MaterialRequirementLine {
         }
     }
 
-    private static BigDecimal requirePositive(BigDecimal value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.signum() <= 0) {
-            throw new IllegalArgumentException(name + " must be > 0: " + value);
+    private static BigDecimal requiredQuantityFrom(
+            List<MaterialRequirementLineContribution> contributions) {
+        BigDecimal sum = BigDecimal.ZERO;
+        for (MaterialRequirementLineContribution contribution : contributions) {
+            sum = sum.add(contribution.contributedMaterialQuantity());
+        }
+        return sum;
+    }
+
+    /** Request quantity: {@code 0 <= quantity <= requiredQuantity}. */
+    private static BigDecimal requireRequestQuantity(BigDecimal value, BigDecimal requiredQuantity) {
+        Objects.requireNonNull(value, "quantity");
+        Objects.requireNonNull(requiredQuantity, "requiredQuantity");
+        if (value.signum() < 0) {
+            throw new IllegalArgumentException("quantity must be >= 0: " + value);
+        }
+        if (value.compareTo(requiredQuantity) > 0) {
+            throw new IllegalArgumentException(
+                    "quantity must be <= requiredQuantity ("
+                            + requiredQuantity
+                            + "): "
+                            + value);
         }
         return value;
     }

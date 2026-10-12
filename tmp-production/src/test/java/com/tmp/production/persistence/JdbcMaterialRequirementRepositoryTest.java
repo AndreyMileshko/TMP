@@ -131,13 +131,30 @@ class JdbcMaterialRequirementRepositoryTest {
                 repository.save(sampleRequirement(BigDecimal.TEN));
         MaterialRequirement edited =
                 created.changeLineQuantity(
-                        created.lines().getFirst().lineId(), BigDecimal.valueOf(30), T0);
+                        created.lines().getFirst().lineId(), BigDecimal.valueOf(8), T0);
 
         MaterialRequirement saved = repository.save(edited);
         MaterialRequirement loaded = repository.findById(saved.requirementId()).orElseThrow();
 
         assertEquals(1L, loaded.version());
-        assertEquals(0, loaded.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(30)));
+        assertEquals(0, loaded.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(8)));
+        assertEquals(
+                0, loaded.lines().getFirst().requiredQuantity().compareTo(BigDecimal.TEN));
+    }
+
+    @Test
+    void zeroRequestQuantityRoundTripPersists() {
+        MaterialRequirement created = repository.save(sampleRequirement(BigDecimal.TEN));
+        MaterialRequirement edited =
+                created.changeLineQuantity(
+                        created.lines().getFirst().lineId(), BigDecimal.ZERO, T0);
+
+        MaterialRequirement saved = repository.save(edited);
+        MaterialRequirement loaded = repository.findById(saved.requirementId()).orElseThrow();
+
+        assertEquals(0, loaded.lines().getFirst().quantity().compareTo(BigDecimal.ZERO));
+        assertEquals(
+                0, loaded.lines().getFirst().requiredQuantity().compareTo(BigDecimal.TEN));
     }
 
     @Test

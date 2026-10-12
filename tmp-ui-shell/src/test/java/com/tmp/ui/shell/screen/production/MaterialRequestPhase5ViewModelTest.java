@@ -458,6 +458,7 @@ class MaterialRequestPhase5ViewModelTest {
                                 "м",
                                 null,
                                 new BigDecimal(quantity),
+                                new BigDecimal(quantity),
                                 sources.stream()
                                         .map(MaterialRequirementSourceItemView::sourceOrderItemId)
                                         .toList())));

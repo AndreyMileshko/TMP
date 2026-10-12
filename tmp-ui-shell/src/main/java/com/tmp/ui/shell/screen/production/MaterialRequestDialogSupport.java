@@ -1,6 +1,7 @@
 package com.tmp.ui.shell.screen.production;
 
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSummaryView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineProductionStockView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSourceItemView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
@@ -14,7 +15,9 @@ import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -60,6 +63,20 @@ public final class MaterialRequestDialogSupport {
     public static final String CANCEL_BUTTON = "Отмена";
     public static final String OPEN_DRAFT_BUTTON = "Открыть";
     public static final String DRAFT_LIST_TITLE = "Черновики запросов материалов";
+    public static final String COLUMN_ARTICLE = "Артикул";
+    public static final String COLUMN_NAME = "Наименование";
+    public static final String COLUMN_COLOR = "Цвет";
+    public static final String COLUMN_UOM = "Ед.";
+    public static final String COLUMN_REQUIRED = "Требуется";
+    public static final String COLUMN_ON_PRODUCTION = "На производстве";
+    public static final String COLUMN_TO_REQUEST = "К запросу";
+    public static final String STOCK_INFO_HINT =
+            "Остаток на производстве показан справочно. Он общий для всех заказов и не уменьшает"
+                    + " количество к запросу.";
+    public static final String REQUEST_QUANTITY_RANGE_MESSAGE =
+            "Количество к запросу должно быть от 0 до требуемого количества.";
+    public static final String QUANTITY_SAVED_MESSAGE = "Количество сохранено.";
+    public static final String SELECT_LINE_MESSAGE = "Выберите строку материала для сохранения.";
 
     private static final DateTimeFormatter DRAFT_WHEN =
             DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
@@ -121,8 +138,15 @@ public final class MaterialRequestDialogSupport {
         return validateStep1Quantities(rows).isEmpty();
     }
 
-    public static List<MaterialRequestDraftLineRow> toLineRows(MaterialRequirementView requirement) {
+    public static List<MaterialRequestDraftLineRow> toLineRows(
+            MaterialRequirementView requirement,
+            List<MaterialRequirementLineProductionStockView> productionStock) {
         Objects.requireNonNull(requirement, "requirement");
+        Objects.requireNonNull(productionStock, "productionStock");
+        Map<UUID, BigDecimal> stockByLineId = new HashMap<>();
+        for (MaterialRequirementLineProductionStockView stock : productionStock) {
+            stockByLineId.put(stock.lineId(), stock.onProductionAvailable());
+        }
         List<MaterialRequestDraftLineRow> rows = new ArrayList<>();
         for (MaterialRequirementLineView line : requirement.lines()) {
             rows.add(
@@ -132,9 +156,28 @@ public final class MaterialRequestDialogSupport {
                             line.materialName(),
                             line.color(),
                             line.unitOfMeasure(),
-                            line.quantity()));
+                            line.requiredQuantity(),
+                            line.quantity(),
+                            stockByLineId.get(line.lineId())));
         }
         return rows;
+    }
+
+    /**
+     * Validates request quantity («К запросу»): {@code 0 <= quantity <= requiredQuantity}.
+     *
+     * @return empty when valid; otherwise a concise Russian validation message
+     */
+    public static Optional<String> validateRequestQuantity(
+            BigDecimal quantity, BigDecimal requiredQuantity) {
+        Objects.requireNonNull(requiredQuantity, "requiredQuantity");
+        if (quantity == null) {
+            return Optional.of(REQUEST_QUANTITY_RANGE_MESSAGE);
+        }
+        if (quantity.signum() < 0 || quantity.compareTo(requiredQuantity) > 0) {
+            return Optional.of(REQUEST_QUANTITY_RANGE_MESSAGE);
+        }
+        return Optional.empty();
     }
 
     public static String sourceSummaryLine(
@@ -258,17 +301,20 @@ public final class MaterialRequestDialogSupport {
 
     public static Step2Action showStep2(
             MaterialRequirementView requirement,
+            List<MaterialRequirementLineProductionStockView> productionStock,
             List<String> sourceSummaryLines,
             boolean canMutate,
             Function<MaterialRequestDraftLineRow, Optional<MaterialRequirementView>> saveLine,
             Function<MaterialRequirementView, Optional<String>> submit) {
         Objects.requireNonNull(requirement, "requirement");
+        Objects.requireNonNull(productionStock, "productionStock");
         Objects.requireNonNull(sourceSummaryLines, "sourceSummaryLines");
         Objects.requireNonNull(saveLine, "saveLine");
         Objects.requireNonNull(submit, "submit");
 
         MaterialRequirementView[] current = {requirement};
-        List<MaterialRequestDraftLineRow> lineRows = toLineRows(requirement);
+        List<MaterialRequirementLineProductionStockView> stockSnapshot = List.copyOf(productionStock);
+        List<MaterialRequestDraftLineRow> lineRows = toLineRows(requirement, stockSnapshot);
 
         Dialog<ButtonType> dialog = new Dialog<>();
         TmpTheme.apply(dialog.getDialogPane());
@@ -294,16 +340,30 @@ public final class MaterialRequestDialogSupport {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         table.setPlaceholder(new Label("Нет данных"));
         table.setPrefHeight(280);
-        table.setEditable(canMutate && requirement.status() == MaterialRequirementStatusView.DRAFT);
+        boolean editable =
+                canMutate && requirement.status() == MaterialRequirementStatusView.DRAFT;
+        table.setEditable(editable);
 
         table.getColumns()
                 .addAll(
-                        draftStringColumn("Артикул", 100, MaterialRequestDraftLineRow::materialCode),
+                        draftStringColumn(COLUMN_ARTICLE, 100, MaterialRequestDraftLineRow::materialCode),
                         draftStringColumn(
-                                "Наименование", 180, MaterialRequestDraftLineRow::materialName),
-                        draftStringColumn("Цвет", 100, MaterialRequestDraftLineRow::color),
-                        draftStringColumn("Ед.", 60, MaterialRequestDraftLineRow::unitOfMeasure),
-                        draftQuantityColumn(table.isEditable()));
+                                COLUMN_NAME, 180, MaterialRequestDraftLineRow::materialName),
+                        draftStringColumn(COLUMN_COLOR, 100, MaterialRequestDraftLineRow::color),
+                        draftStringColumn(COLUMN_UOM, 60, MaterialRequestDraftLineRow::unitOfMeasure),
+                        draftStringColumn(
+                                COLUMN_REQUIRED,
+                                100,
+                                MaterialRequestDraftLineRow::requiredQuantityLabel),
+                        draftStringColumn(
+                                COLUMN_ON_PRODUCTION,
+                                120,
+                                MaterialRequestDraftLineRow::onProductionAvailableLabel),
+                        draftRequestQuantityColumn(editable));
+
+        Label stockHintLabel = new Label(STOCK_INFO_HINT);
+        stockHintLabel.setWrapText(true);
+        stockHintLabel.getStyleClass().add("tmp-text-muted");
 
         Label messageLabel = new Label();
         messageLabel.setWrapText(true);
@@ -311,22 +371,34 @@ public final class MaterialRequestDialogSupport {
         ButtonType submitType = new ButtonType(SUBMIT_BUTTON, ButtonBar.ButtonData.APPLY);
         ButtonType saveType = new ButtonType(SAVE_LINE_BUTTON, ButtonBar.ButtonData.OTHER);
         ButtonType closeType = new ButtonType(CANCEL_BUTTON, ButtonBar.ButtonData.CANCEL_CLOSE);
-        if (canMutate && requirement.status() == MaterialRequirementStatusView.DRAFT) {
+        if (editable) {
             dialog.getDialogPane().getButtonTypes().addAll(submitType, saveType, closeType);
         } else {
             dialog.getDialogPane().getButtonTypes().add(closeType);
         }
 
-        if (canMutate && requirement.status() == MaterialRequirementStatusView.DRAFT) {
+        if (editable) {
             Button saveButton = (Button) dialog.getDialogPane().lookupButton(saveType);
             Button submitButton = (Button) dialog.getDialogPane().lookupButton(submitType);
             saveButton.addEventFilter(
                     javafx.event.ActionEvent.ACTION,
                     event -> {
                         event.consume();
-                        MaterialRequestDraftLineRow selected = table.getSelectionModel().getSelectedItem();
+                        MaterialRequestDraftLineRow selected =
+                                table.getSelectionModel().getSelectedItem();
                         if (selected == null) {
-                            messageLabel.setText("Выберите строку материала для сохранения.");
+                            messageLabel.setText(SELECT_LINE_MESSAGE);
+                            messageLabel.getStyleClass().remove("tmp-message-success");
+                            if (!messageLabel.getStyleClass().contains("tmp-message-error")) {
+                                messageLabel.getStyleClass().add("tmp-message-error");
+                            }
+                            return;
+                        }
+                        Optional<String> validation =
+                                validateRequestQuantity(
+                                        selected.quantity(), selected.requiredQuantity());
+                        if (validation.isPresent()) {
+                            messageLabel.setText(validation.get());
                             messageLabel.getStyleClass().remove("tmp-message-success");
                             if (!messageLabel.getStyleClass().contains("tmp-message-error")) {
                                 messageLabel.getStyleClass().add("tmp-message-error");
@@ -340,8 +412,9 @@ public final class MaterialRequestDialogSupport {
                             if (saved.isPresent()) {
                                 current[0] = saved.get();
                                 table.setItems(
-                                        FXCollections.observableArrayList(toLineRows(saved.get())));
-                                messageLabel.setText("Количество сохранено.");
+                                        FXCollections.observableArrayList(
+                                                toLineRows(saved.get(), stockSnapshot)));
+                                messageLabel.setText(QUANTITY_SAVED_MESSAGE);
                                 messageLabel.getStyleClass().remove("tmp-message-error");
                                 if (!messageLabel.getStyleClass().contains("tmp-message-success")) {
                                     messageLabel.getStyleClass().add("tmp-message-success");
@@ -385,11 +458,12 @@ public final class MaterialRequestDialogSupport {
                         sourcesBox,
                         materialsHeader,
                         table,
+                        stockHintLabel,
                         messageLabel);
         content.setPadding(new Insets(8));
         VBox.setVgrow(table, Priority.ALWAYS);
         dialog.getDialogPane().setContent(content);
-        dialog.getDialogPane().setPrefWidth(920);
+        dialog.getDialogPane().setPrefWidth(1040);
 
         Optional<ButtonType> result = dialog.showAndWait();
         if (result.isPresent() && result.get() == submitType) {
@@ -576,14 +650,15 @@ public final class MaterialRequestDialogSupport {
             String title, double pref, Function<MaterialRequestDraftLineRow, String> value) {
         TableColumn<MaterialRequestDraftLineRow, String> column = new TableColumn<>(title);
         column.setPrefWidth(pref);
+        column.setEditable(false);
         column.setCellValueFactory(c -> new SimpleStringProperty(value.apply(c.getValue())));
         return column;
     }
 
-    private static TableColumn<MaterialRequestDraftLineRow, String> draftQuantityColumn(
+    private static TableColumn<MaterialRequestDraftLineRow, String> draftRequestQuantityColumn(
             boolean editable) {
-        TableColumn<MaterialRequestDraftLineRow, String> column = new TableColumn<>("Количество");
-        column.setPrefWidth(120);
+        TableColumn<MaterialRequestDraftLineRow, String> column = new TableColumn<>(COLUMN_TO_REQUEST);
+        column.setPrefWidth(110);
         column.setCellFactory(
                 col ->
                         new TableCell<>() {
@@ -596,7 +671,7 @@ public final class MaterialRequestDialogSupport {
                                                     if (!focused
                                                             && getTableRow() != null
                                                             && getTableRow().getItem() != null) {
-                                                        commitMaterialQuantity(
+                                                        commitRequestQuantity(
                                                                 field, getTableRow().getItem());
                                                     }
                                                 });
@@ -624,9 +699,15 @@ public final class MaterialRequestDialogSupport {
         return column;
     }
 
-    private static void commitMaterialQuantity(TextField field, MaterialRequestDraftLineRow row) {
+    private static void commitRequestQuantity(TextField field, MaterialRequestDraftLineRow row) {
         try {
-            BigDecimal value = DecimalQuantityParser.parsePositive(field.getText(), "Количество");
+            BigDecimal value =
+                    DecimalQuantityParser.parseNonNegative(field.getText(), COLUMN_TO_REQUEST);
+            Optional<String> validation = validateRequestQuantity(value, row.requiredQuantity());
+            if (validation.isPresent()) {
+                field.setText(DecimalUiFormat.format(row.quantity()));
+                return;
+            }
             row.setQuantity(value);
             field.setText(DecimalUiFormat.format(value));
         } catch (RuntimeException ex) {

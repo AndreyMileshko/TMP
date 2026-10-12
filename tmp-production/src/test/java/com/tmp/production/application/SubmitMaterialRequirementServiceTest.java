@@ -288,11 +288,13 @@ class SubmitMaterialRequirementServiceTest {
         MaterialRequirement edited =
                 calculated.changeLineQuantity(
                         calculated.lines().getFirst().lineId(),
-                        new BigDecimal("42"),
+                        new BigDecimal("35"),
                         T0);
         MaterialRequirement persisted = requirements.save(edited);
         assertEquals(10L, persisted.sourceItems().getFirst().requestedProductQuantity());
-        assertEquals(0, persisted.lines().getFirst().quantity().compareTo(new BigDecimal("42")));
+        assertEquals(0, persisted.lines().getFirst().quantity().compareTo(new BigDecimal("35")));
+        assertEquals(
+                0, persisted.lines().getFirst().requiredQuantity().compareTo(new BigDecimal("40")));
 
         when(warehouseDemand.acceptProductionDemand(any()))
                 .thenReturn(successResult(persisted, UUID.randomUUID(), UUID.randomUUID()));
@@ -303,7 +305,127 @@ class SubmitMaterialRequirementServiceTest {
                 ArgumentCaptor.forClass(AcceptProductionDemandCommand.class);
         verify(warehouseDemand).acceptProductionDemand(captor.capture());
         assertEquals(
-                0, new BigDecimal("42").compareTo(captor.getValue().lines().getFirst().quantity()));
+                0, new BigDecimal("35").compareTo(captor.getValue().lines().getFirst().quantity()));
+    }
+
+    @Test
+    void submitOmitsZeroRequestLinesFromWarehouseDemand() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        itemStates.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(
+                                orderId, itemId, SpecificationId.generate(), T0),
+                        ProductionQuantity.positive(10),
+                        T0,
+                        CuttingPlanLinks.empty()));
+        MaterialRequirementLine zeroLine =
+                MaterialRequirementLine.create(
+                        MaterialReferenceId.generate(),
+                        "MAT-A",
+                        "A",
+                        "WHITE",
+                        "PCS",
+                        null,
+                        BigDecimal.ZERO,
+                        List.of(
+                                MaterialRequirementLineContribution.of(
+                                        orderId, itemId, new BigDecimal("20"))));
+        MaterialRequirementLine positiveLine =
+                MaterialRequirementLine.create(
+                        MaterialReferenceId.generate(),
+                        "MAT-B",
+                        "B",
+                        "WHITE",
+                        "PCS",
+                        null,
+                        new BigDecimal("30"),
+                        List.of(
+                                MaterialRequirementLineContribution.of(
+                                        orderId, itemId, new BigDecimal("30"))));
+        MaterialRequirement draft =
+                requirements.save(
+                        MaterialRequirement.create(
+                                DEST,
+                                T0,
+                                List.of(MaterialRequirementSourceItem.of(orderId, itemId, 10L)),
+                                List.of(zeroLine, positiveLine)));
+        when(warehouseDemand.acceptProductionDemand(any()))
+                .thenReturn(successResult(draft, UUID.randomUUID(), UUID.randomUUID()));
+
+        service.submit(draft.requirementId(), 0L, "user-1");
+
+        ArgumentCaptor<AcceptProductionDemandCommand> captor =
+                ArgumentCaptor.forClass(AcceptProductionDemandCommand.class);
+        verify(warehouseDemand).acceptProductionDemand(captor.capture());
+        assertEquals(1, captor.getValue().lines().size());
+        assertEquals("MAT-B", captor.getValue().lines().getFirst().materialCode());
+        assertEquals(
+                0, new BigDecimal("30").compareTo(captor.getValue().lines().getFirst().quantity()));
+        assertEquals(
+                10L,
+                requirements
+                        .findById(draft.requirementId())
+                        .orElseThrow()
+                        .sourceItems()
+                        .getFirst()
+                        .requestedProductQuantity());
+    }
+
+    @Test
+    void submitAllZeroSkipsWarehouseDemandAndRecordsCoverage() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        itemStates.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(
+                                orderId, itemId, SpecificationId.generate(), T0),
+                        ProductionQuantity.positive(10),
+                        T0,
+                        CuttingPlanLinks.empty()));
+        MaterialRequirementLine lineA =
+                MaterialRequirementLine.create(
+                        MaterialReferenceId.generate(),
+                        "MAT-A",
+                        "A",
+                        "WHITE",
+                        "PCS",
+                        null,
+                        BigDecimal.ZERO,
+                        List.of(
+                                MaterialRequirementLineContribution.of(
+                                        orderId, itemId, new BigDecimal("20"))));
+        MaterialRequirementLine lineB =
+                MaterialRequirementLine.create(
+                        MaterialReferenceId.generate(),
+                        "MAT-B",
+                        "B",
+                        "WHITE",
+                        "PCS",
+                        null,
+                        BigDecimal.ZERO,
+                        List.of(
+                                MaterialRequirementLineContribution.of(
+                                        orderId, itemId, new BigDecimal("30"))));
+        MaterialRequirement draft =
+                requirements.save(
+                        MaterialRequirement.create(
+                                DEST,
+                                T0,
+                                List.of(MaterialRequirementSourceItem.of(orderId, itemId, 10L)),
+                                List.of(lineA, lineB)));
+
+        SubmitMaterialRequirementResult result = service.submit(draft.requirementId(), 0L, "user-1");
+
+        assertTrue(result.created());
+        assertEquals(MaterialRequirementStatus.SUBMITTED, result.requirement().status());
+        assertTrue(result.documents().isEmpty());
+        verify(warehouseDemand, never()).acceptProductionDemand(any());
+        MaterialRequirementSourceItemKey key =
+                MaterialRequirementSourceItemKey.of(orderId, itemId);
+        assertEquals(
+                10L,
+                requirements.sumSubmittedProductQuantities(List.of(key)).getOrDefault(key, 0L));
     }
 
     @Test

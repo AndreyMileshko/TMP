@@ -173,15 +173,16 @@ class MaterialRequirementPostgresIT {
                 service.changeQuantity(
                         prepared.requirementId(),
                         line.lineId(),
-                        BigDecimal.valueOf(12),
+                        BigDecimal.valueOf(8),
                         prepared.version());
         assertEquals(1L, edited.version());
-        assertEquals(0, edited.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(12)));
+        assertEquals(0, edited.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(8)));
+        assertEquals(0, edited.lines().getFirst().requiredQuantity().compareTo(BigDecimal.TEN));
 
         MaterialRequirement reloaded =
                 service.findById(prepared.requirementId()).orElseThrow();
         assertEquals(1L, reloaded.version());
-        assertEquals(0, reloaded.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(12)));
+        assertEquals(0, reloaded.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(8)));
 
         assertWarehouseUnchanged(before, snapshotWarehouse());
         // B3: PREPARE persists DRAFT from Specification identity; no MaterialReference lookup.
@@ -257,7 +258,7 @@ class MaterialRequirementPostgresIT {
                 service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
         MaterialRequirementLine line = prepared.lines().getFirst();
         service.changeQuantity(
-                prepared.requirementId(), line.lineId(), BigDecimal.valueOf(11), prepared.version());
+                prepared.requirementId(), line.lineId(), BigDecimal.valueOf(9), prepared.version());
 
         assertThrows(
                 com.tmp.production.domain.MaterialRequirementOptimisticLockException.class,
@@ -265,8 +266,16 @@ class MaterialRequirementPostgresIT {
                         service.changeQuantity(
                                 prepared.requirementId(),
                                 line.lineId(),
-                                BigDecimal.valueOf(99),
+                                BigDecimal.valueOf(8),
                                 prepared.version()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        service.changeQuantity(
+                                prepared.requirementId(),
+                                line.lineId(),
+                                BigDecimal.valueOf(11),
+                                1L));
     }
 
     @Test
@@ -298,8 +307,8 @@ class MaterialRequirementPostgresIT {
                 service.prepareMaterialRequirement(List.of(MaterialRequirementProductSelection.of(orderId, itemId)));
         MaterialRequirementLineId lineId = prepared.lines().getFirst().lineId();
         long versionN = prepared.version();
-        BigDecimal qtyA = BigDecimal.valueOf(21);
-        BigDecimal qtyB = BigDecimal.valueOf(34);
+        BigDecimal qtyA = BigDecimal.valueOf(7);
+        BigDecimal qtyB = BigDecimal.valueOf(8);
 
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
@@ -412,7 +421,7 @@ class MaterialRequirementPostgresIT {
         service.changeQuantity(
                 prepared.requirementId(),
                 prepared.lines().getFirst().lineId(),
-                BigDecimal.valueOf(3),
+                BigDecimal.ZERO,
                 prepared.version());
         assertWarehouseUnchanged(before, snapshotWarehouse());
         assertEquals(0, before.operations());

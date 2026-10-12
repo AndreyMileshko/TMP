@@ -29,6 +29,7 @@ import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualDefaultView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSummaryView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineProductionStockView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductCoverageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductSelectionView;
@@ -334,6 +335,20 @@ final class ProductionWorkbenchUiTestSupport {
         }
 
         @Override
+        public List<MaterialRequirementLineProductionStockView> getMaterialRequirementProductionStock(
+                UUID requirementId) {
+            if (requirement == null || !requirement.requirementId().equals(requirementId)) {
+                return List.of();
+            }
+            return requirement.lines().stream()
+                    .map(
+                            line ->
+                                    new MaterialRequirementLineProductionStockView(
+                                            line.lineId(), null))
+                    .toList();
+        }
+
+        @Override
         public List<MaterialRequirementDraftSummaryView> listMaterialRequirementDrafts() {
             if (requirement == null
                     || requirement.status() != MaterialRequirementStatusView.DRAFT) {
@@ -386,6 +401,7 @@ final class ProductionWorkbenchUiTestSupport {
                                         line.color(),
                                         line.unitOfMeasure(),
                                         line.lengthMm(),
+                                        line.requiredQuantity(),
                                         quantity,
                                         line.sourceOrderItemIds()));
                     } else {

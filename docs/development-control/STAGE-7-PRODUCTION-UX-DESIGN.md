@@ -218,10 +218,15 @@
 | Submitted coverage | Submitted product coverage блокирует повторный спрос на те же изделия |
 | DRAFT | DRAFT **не** резервирует coverage |
 | Submit | Revalidate coverage под row-lock заказов (OrderId ascending); конфликт → `MaterialRequirementCoverageConflictException` |
-| Ручное редактирование | Количество материала в строке остаётся редактируемым; product quantity в source items не меняется |
+| Ручное редактирование «К запросу» | **Разрешено (B3-MA-FIX4B).** «Требуется» = prepare-time need (read-only). «К запросу» defaults to «Требуется»; master may reduce to `0..required`. STEP 1 FLEXIBLE still edits product qty. |
+| Остаток «На производстве» | Справочный live AVAILABLE на production warehouse destination; **не** вычитается из «К запросу»; **нет** reservation / allocation by Order |
+| Zero request | `0` valid; Demand line omitted; all-zero MR may SUBMIT without Warehouse Demand; coverage still recorded |
+| Demand vs Readiness | Warehouse Demand outstanding и Production Readiness shortage **могут различаться** — это корректно (общий физический остаток без reservation) |
 | Смена режима | Mode change **не** переинтерпретирует уже созданный DRAFT |
 
-Не путать product coverage с quantity строки материала; поля `calculatedQuantity` / `requestedQuantity` / `recommendedQuantity` в строке не вводятся.
+Не путать product coverage с quantity строки материала. Persisted line field is request quantity («К запросу»); «Требуется» is domain-derived from contributions (not a DB column). Dual fields `calculatedQuantity` / `recommendedQuantity` are not introduced.
+
+**B3-MA-06 CLOSED AS DESIGN:** production stock is common physical inventory, not reserved for an Order; automatic subtraction does not occur. FIX4B adds only manual master override. Future supplemental Warehouse request is not implemented.
 
 ---
 
@@ -769,14 +774,17 @@ Release разрешён, если для каждой строки матери
 ================================================================================
 ПОТРЕБНОСТЬ В МАТЕРИАЛАХ — Заказ №4183                         Черновик
 ================================================================================
-| Артикул | Наименование | Цвет     | Ед. | Количество |
-|---------|--------------|----------|-----|-----------:|
-| 101.208 | Профиль      | Белый    | м   |   [50.000] |
-| 101.305 | Профиль      | Антрацит | м   |   [40.000] |
+| Артикул | Наименование | Цвет     | Ед. | Требуется | На производстве | К запросу |
+|---------|--------------|----------|-----|----------:|-----------------:|----------:|
+| 101.208 | Профиль      | Белый    | м   |        50 |               20 |        50 |
+| 101.305 | Профиль      | Антрацит | м   |        40 |                — |        40 |
 
+Остаток на производстве показан справочно. Он общий для всех заказов и не уменьшает количество к запросу.
 Склад сам выберет, откуда переместить материалы на производственный склад.
-                                       [Отправить на склад]  [Закрыть]
+                                       [Отправить на склад]  [Сохранить]  [Отмена]
 ```
+
+Колонка «Требуется»: prepare-time need (read-only). «На производстве»: live AVAILABLE только на production warehouse (сумма ячеек); unmatched/ambiguous → «—»; zero → `0`. «К запросу»: editable request quantity, default = «Требуется», range `0..Требуется` (display `0` as `0`). Neutral row styling — без зелёной подсветки «достаточно».
 
 ### 18.7 Окно «Материалы — подробнее»
 

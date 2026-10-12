@@ -12,6 +12,7 @@ import com.tmp.production.application.CurrentMaterialAvailabilityQueryService;
 import com.tmp.production.application.DefaultProductionApplicationApi;
 import com.tmp.production.application.DefaultProductionQueryApi;
 import com.tmp.production.application.MaterialRequirementCoverageService;
+import com.tmp.production.application.MaterialRequirementProductionStockQueryService;
 import com.tmp.production.application.MaterialRequirementService;
 import com.tmp.production.application.MaterialReadinessQueryService;
 import com.tmp.production.application.ProductionDestinationWarehouse;
@@ -300,6 +301,12 @@ public class ProductionAutoConfiguration {
     }
 
     @Bean
+    MaterialRequirementProductionStockQueryService materialRequirementProductionStockQueryService(
+            WarehouseAvailabilityQueryPort warehouseAvailabilityQueryPort) {
+        return new MaterialRequirementProductionStockQueryService(warehouseAvailabilityQueryPort);
+    }
+
+    @Bean
     MaterialRequirementService materialRequirementService(
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQueryService,
@@ -424,6 +431,8 @@ public class ProductionAutoConfiguration {
             ReleaseProductsService releaseProductsService,
             CancelOrderProductionService cancelOrderProductionService,
             MaterialReadinessQueryService materialReadinessQueryService,
+            MaterialRequirementProductionStockQueryService
+                    materialRequirementProductionStockQueryService,
             ProductionMaterialTransferRepository materialTransferRepository,
             OrderQuantityModeRepository orderQuantityModeRepository) {
         return new DefaultProductionApplicationApi(
@@ -439,6 +448,7 @@ public class ProductionAutoConfiguration {
                 releaseProductsService,
                 cancelOrderProductionService,
                 materialReadinessQueryService,
+                materialRequirementProductionStockQueryService,
                 materialTransferRepository,
                 orderQuantityModeRepository);
     }
