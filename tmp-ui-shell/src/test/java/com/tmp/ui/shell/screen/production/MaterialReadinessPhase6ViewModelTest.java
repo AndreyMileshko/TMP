@@ -240,6 +240,8 @@ class MaterialReadinessPhase6ViewModelTest {
                 "м",
                 new BigDecimal(required),
                 new BigDecimal(available),
-                new BigDecimal(shortage));
+                new BigDecimal(shortage),
+                null,
+                null);
     }
 }

@@ -162,7 +162,9 @@ public interface ProductionApplicationApi {
             String unitOfMeasure,
             BigDecimal requiredQuantity,
             BigDecimal availableQuantity,
-            BigDecimal shortageQuantity) {
+            BigDecimal shortageQuantity,
+            BigDecimal lengthMm,
+            BigDecimal technologicalPieceCount) {
 
         public MaterialReadinessLineView {
             Objects.requireNonNull(materialReferenceId, "materialReferenceId");
@@ -274,8 +276,10 @@ public interface ProductionApplicationApi {
     }
 
     /**
-     * Material Requirement line read model. {@code requiredQuantity} is prepare-time need
-     * («Требуется», sum of contributions). {@code quantity} is master request («К запросу»).
+     * Material Requirement line read model. {@code requiredQuantity} is preliminary warehouse
+     * demand («Требуется», sum of contributions). {@code quantity} is master request («К
+     * запросу», ≥ 0, may differ from required). {@code technologicalPieceCount} is set for Rule A
+     * meter rows with unambiguous length.
      */
     record MaterialRequirementLineView(
             UUID lineId,
@@ -287,7 +291,8 @@ public interface ProductionApplicationApi {
             BigDecimal lengthMm,
             BigDecimal requiredQuantity,
             BigDecimal quantity,
-            List<UUID> sourceOrderItemIds) {
+            List<UUID> sourceOrderItemIds,
+            BigDecimal technologicalPieceCount) {
         public MaterialRequirementLineView {
             Objects.requireNonNull(lineId, "lineId");
             Objects.requireNonNull(materialCode, "materialCode");

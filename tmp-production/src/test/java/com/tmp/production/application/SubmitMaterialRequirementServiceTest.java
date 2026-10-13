@@ -309,6 +309,41 @@ class SubmitMaterialRequirementServiceTest {
     }
 
     @Test
+    void submitUsesRequestAbovePreliminaryRequiredAsWarehouseDemand() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        itemStates.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(
+                                orderId, itemId, SpecificationId.generate(), T0),
+                        ProductionQuantity.positive(10),
+                        T0,
+                        CuttingPlanLinks.empty()));
+        MaterialRequirement calculated =
+                requirements.save(draftFor(orderId, itemId, 10L, "40"));
+        MaterialRequirement edited =
+                calculated.changeLineQuantity(
+                        calculated.lines().getFirst().lineId(),
+                        new BigDecimal("55"),
+                        T0);
+        MaterialRequirement persisted = requirements.save(edited);
+        assertEquals(0, persisted.lines().getFirst().quantity().compareTo(new BigDecimal("55")));
+        assertEquals(
+                0, persisted.lines().getFirst().requiredQuantity().compareTo(new BigDecimal("40")));
+
+        when(warehouseDemand.acceptProductionDemand(any()))
+                .thenReturn(successResult(persisted, UUID.randomUUID(), UUID.randomUUID()));
+
+        service.submit(persisted.requirementId(), persisted.version(), "user-1");
+
+        ArgumentCaptor<AcceptProductionDemandCommand> captor =
+                ArgumentCaptor.forClass(AcceptProductionDemandCommand.class);
+        verify(warehouseDemand).acceptProductionDemand(captor.capture());
+        assertEquals(
+                0, new BigDecimal("55").compareTo(captor.getValue().lines().getFirst().quantity()));
+    }
+
+    @Test
     void submitOmitsZeroRequestLinesFromWarehouseDemand() {
         SourceOrderId orderId = SourceOrderId.generate();
         SourceOrderItemId itemId = SourceOrderItemId.generate();

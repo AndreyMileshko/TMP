@@ -214,11 +214,11 @@
 | Один документ потребности | Одна Material Requirement покрывает выбранные позиции нескольких заказов |
 | Quantity Mode | Влияет на product quantity при prepare: STANDARD — всё requestable; FLEXIBLE — явное количество ≤ requestable |
 | `lineQuantity` / норма | Количество материала в спецификации — **на одно изделие** (per product) |
-| Материал | `material quantity = norm × product quantity` (агрегация по позициям с provenance/contributions) |
+| Материал | Shared `SpecificationWarehouseQuantityCalculator`: **Rule A** meters+`lengthMm` → `lineQuantity × lengthMm × productQty / 1000` (м); **Rule B** meters without length → `lineQuantity × productQty`; **Rule C** other UoM unchanged. No name/category heuristics. |
 | Submitted coverage | Submitted product coverage блокирует повторный спрос на те же изделия |
 | DRAFT | DRAFT **не** резервирует coverage |
 | Submit | Revalidate coverage под row-lock заказов (OrderId ascending); конфликт → `MaterialRequirementCoverageConflictException` |
-| Ручное редактирование «К запросу» | **Разрешено (B3-MA-FIX4B).** «Требуется» = prepare-time need (read-only). «К запросу» defaults to «Требуется»; master may reduce to `0..required`. STEP 1 FLEXIBLE still edits product qty. |
+| Ручное редактирование «К запросу» | **Разрешено (B3-MA-07).** «Требуется» = preliminary warehouse demand (read-only). «К запросу» defaults to «Требуется»; master may set `≥ 0` (below / equal / above required). Warehouse Demand uses request quantity. STEP 1 FLEXIBLE still edits product qty. |
 | Остаток «На производстве» | Справочный live AVAILABLE на production warehouse destination; **не** вычитается из «К запросу»; **нет** reservation / allocation by Order |
 | Zero request | `0` valid; Demand line omitted; all-zero MR may SUBMIT without Warehouse Demand; coverage still recorded |
 | Demand vs Readiness | Warehouse Demand outstanding и Production Readiness shortage **могут различаться** — это корректно (общий физический остаток без reservation) |

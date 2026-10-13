@@ -76,7 +76,9 @@ public record MaterialReadinessResult(
             String unitOfMeasure,
             BigDecimal requiredQuantity,
             BigDecimal availableQuantity,
-            BigDecimal shortageQuantity) {
+            BigDecimal shortageQuantity,
+            BigDecimal lengthMm,
+            BigDecimal technologicalPieceCount) {
 
         public MaterialReadinessLine {
             Objects.requireNonNull(materialReferenceId, "materialReferenceId");

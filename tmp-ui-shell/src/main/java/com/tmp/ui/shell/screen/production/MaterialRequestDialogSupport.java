@@ -74,7 +74,7 @@ public final class MaterialRequestDialogSupport {
             "Остаток на производстве показан справочно. Он общий для всех заказов и не уменьшает"
                     + " количество к запросу.";
     public static final String REQUEST_QUANTITY_RANGE_MESSAGE =
-            "Количество к запросу должно быть от 0 до требуемого количества.";
+            "Количество к запросу должно быть не меньше 0.";
     public static final String QUANTITY_SAVED_MESSAGE = "Количество сохранено.";
     public static final String SELECT_LINE_MESSAGE = "Выберите строку материала для сохранения.";
 
@@ -156,6 +156,8 @@ public final class MaterialRequestDialogSupport {
                             line.materialName(),
                             line.color(),
                             line.unitOfMeasure(),
+                            line.lengthMm(),
+                            line.technologicalPieceCount(),
                             line.requiredQuantity(),
                             line.quantity(),
                             stockByLineId.get(line.lineId())));
@@ -164,7 +166,8 @@ public final class MaterialRequestDialogSupport {
     }
 
     /**
-     * Validates request quantity («К запросу»): {@code 0 <= quantity <= requiredQuantity}.
+     * Validates request quantity («К запросу»): {@code quantity >= 0}. May be below, equal to, or
+     * above preliminary required.
      *
      * @return empty when valid; otherwise a concise Russian validation message
      */
@@ -174,7 +177,7 @@ public final class MaterialRequestDialogSupport {
         if (quantity == null) {
             return Optional.of(REQUEST_QUANTITY_RANGE_MESSAGE);
         }
-        if (quantity.signum() < 0 || quantity.compareTo(requiredQuantity) > 0) {
+        if (quantity.signum() < 0) {
             return Optional.of(REQUEST_QUANTITY_RANGE_MESSAGE);
         }
         return Optional.empty();

@@ -10,9 +10,10 @@ import java.util.Set;
 /**
  * One editable line of a Production-owned Material Requirement.
  *
- * <p>Holds a master-editable request {@code quantity} («К запросу»), bounded by prepare-time
- * {@link #requiredQuantity()} from immutable contributions («Требуется»). Zero request is valid
- * (no Warehouse Demand line). Manual edits do not change product coverage on source items.
+ * <p>Holds a master-editable request {@code quantity} («К запросу»). Prepare-time
+ * {@link #requiredQuantity()} from immutable contributions is «Требуется» (preliminary warehouse
+ * demand). Request may be {@code 0}, below, equal to, or above required. Zero request omits the
+ * Warehouse Demand line. Manual edits do not change product coverage on source items.
  *
  * <p>{@code materialReferenceId} is an optional Warehouse hint only — PREPARE does not require it.
  * {@code lengthMm} is an immutable snapshot field and is never part of material identity matching.
@@ -55,7 +56,7 @@ public final class MaterialRequirementLine {
             throw new IllegalArgumentException("contributions must not be empty");
         }
         validateContributionKeys(this.contributions);
-        this.quantity = requireRequestQuantity(quantity, requiredQuantityFrom(this.contributions));
+        this.quantity = requireRequestQuantity(quantity);
     }
 
     public static MaterialRequirementLine create(
@@ -145,8 +146,8 @@ public final class MaterialRequirementLine {
     }
 
     /**
-     * Request quantity («К запросу») persisted on the line. May be zero; never exceeds {@link
-     * #requiredQuantity()}.
+     * Request quantity («К запросу») persisted on the line. May be zero, below, equal to, or above
+     * {@link #requiredQuantity()}.
      */
     public BigDecimal quantity() {
         return quantity;
@@ -201,19 +202,11 @@ public final class MaterialRequirementLine {
         return sum;
     }
 
-    /** Request quantity: {@code 0 <= quantity <= requiredQuantity}. */
-    private static BigDecimal requireRequestQuantity(BigDecimal value, BigDecimal requiredQuantity) {
+    /** Request quantity: {@code quantity >= 0} (may exceed preliminary required). */
+    private static BigDecimal requireRequestQuantity(BigDecimal value) {
         Objects.requireNonNull(value, "quantity");
-        Objects.requireNonNull(requiredQuantity, "requiredQuantity");
         if (value.signum() < 0) {
             throw new IllegalArgumentException("quantity must be >= 0: " + value);
-        }
-        if (value.compareTo(requiredQuantity) > 0) {
-            throw new IllegalArgumentException(
-                    "quantity must be <= requiredQuantity ("
-                            + requiredQuantity
-                            + "): "
-                            + value);
         }
         return value;
     }

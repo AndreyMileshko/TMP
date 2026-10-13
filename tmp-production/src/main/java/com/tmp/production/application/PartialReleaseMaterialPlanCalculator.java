@@ -7,9 +7,10 @@ import java.util.Objects;
 /**
  * Pure calculator for partial/repeated Production Release material plan.
  *
- * <p>{@code Q} = frozen {@code Specification.lineQuantity} = material norm <strong>per one
- * manufactured product</strong>. {@code N} = ordered product quantity. Cumulative target after
- * releasing {@code R} products is {@code Q × R}; full release closes exactly at {@code Q × N}.
+ * <p>{@code Q} = warehouse quantity <strong>per one manufactured product</strong> (already
+ * converted by {@link SpecificationWarehouseQuantityCalculator} when Rule A meters×length apply).
+ * {@code N} = ordered product quantity. Cumulative target after releasing {@code R} products is
+ * {@code Q × R}; full release closes exactly at {@code Q × N}.
  *
  * <p>Shared by Release preview/confirm and Material Readiness (Stage 7).
  */

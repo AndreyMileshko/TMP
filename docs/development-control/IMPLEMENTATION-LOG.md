@@ -4,6 +4,27 @@
 
 ---
 
+## Stage 7 Production — B3-MA-07 Dimensional meter quantity semantics — 2026-10-13
+
+**Date:** 2026-10-13
+**Stage:** 7 Production / Manual Acceptance B3-MA-07
+**Base HEAD:** `fa98cabb709b7884a1ef3654ccc1d7b9a6a859e8`
+**Status:** PASS — shared Rule A/B/C calculator; Readiness/MR/Release aligned; request may exceed required; no commit / no push
+
+### Scope
+
+- `SpecificationWarehouseQuantityCalculator`: Rule A meters+`lengthMm` → pieces×mm×products/1000; Rule B meters without length; Rule C other UoM
+- Wired into `SpecificationMaterialRequirementCalculator.aggregateScaled` and `ReleaseMaterialPlanBuilder` (Readiness shares Release plan)
+- «К запросу» ≥ 0 may be below/equal/above «Требуется»; Warehouse Demand uses master request quantity
+- UI shows technological pieces × length on applicable Readiness/MR rows
+- Cutting remains optional; no migration; B3-MA-05 / RBAC / deferred Warehouse context-menu NOT TOUCHED
+
+### Verification
+
+See VERIFICATION-LOG B3-MA-07 entry (2026-10-13).
+
+---
+
 ## Stage 7 Production — B3-MA-FIX4B Editable «К запросу» — 2026-10-08
 
 **Date:** 2026-10-08

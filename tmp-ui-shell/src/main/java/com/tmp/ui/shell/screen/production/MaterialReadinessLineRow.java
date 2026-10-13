@@ -38,10 +38,23 @@ public final class MaterialReadinessLineRow {
                 line.materialCode(),
                 line.materialName(),
                 line.color(),
-                format(line.requiredQuantity()),
+                formatRequired(line),
                 format(line.availableQuantity()),
                 format(line.shortageQuantity()),
                 line.unitOfMeasure());
+    }
+
+    private static String formatRequired(MaterialReadinessLineView line) {
+        String base = format(line.requiredQuantity());
+        if (line.technologicalPieceCount() == null || line.lengthMm() == null) {
+            return base;
+        }
+        return base
+                + " ("
+                + format(line.technologicalPieceCount())
+                + " × "
+                + format(line.lengthMm())
+                + " мм)";
     }
 
     public String materialCode() {

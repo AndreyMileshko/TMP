@@ -281,8 +281,8 @@ public final class ReleaseDialogSupport {
                                                         : " (" + line.color() + ")")),
                         readinessStringColumn(
                                 "Требуется",
-                                90,
-                                line -> DecimalUiFormat.format(line.requiredQuantity())),
+                                140,
+                                ReleaseDialogSupport::formatReadinessRequired),
                         readinessStringColumn(
                                 "Доступно",
                                 90,
@@ -684,6 +684,19 @@ public final class ReleaseDialogSupport {
                             }
                         });
         return column;
+    }
+
+    private static String formatReadinessRequired(MaterialReadinessLineView line) {
+        String base = DecimalUiFormat.format(line.requiredQuantity());
+        if (line.technologicalPieceCount() == null || line.lengthMm() == null) {
+            return base;
+        }
+        return base
+                + " ("
+                + DecimalUiFormat.format(line.technologicalPieceCount())
+                + " × "
+                + DecimalUiFormat.format(line.lengthMm())
+                + " мм)";
     }
 
     private static TableColumn<MaterialReadinessLineView, String> readinessStringColumn(

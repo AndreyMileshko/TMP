@@ -16,13 +16,13 @@ import java.util.Objects;
 /**
  * Pure calculator for planned material requirements from frozen specification material lines.
  *
- * <p>Stage 7 Phase 2: {@link ResolvedMaterialLine#lineQuantity()} is the material norm <strong>per
- * one product</strong>. Material Requirement contribution =
- * {@code lineQuantity × requestedProductQuantity}.
+ * <p>Scaled aggregation uses {@link SpecificationWarehouseQuantityCalculator} so meter lines with
+ * {@code lengthMm} contribute preliminary warehouse meters (Rule A), while meter-without-length and
+ * non-meter UoMs keep {@code lineQuantity × productQuantity} (Rules B/C).
  *
  * <p>{@link #aggregate(List)} remains for legacy explicit {@code CheckMaterialAvailability} that
  * still sums raw specification line quantities without product scaling. Material Readiness / Release
- * use {@link PartialReleaseMaterialPlanCalculator} ({@code lineQuantity × product quantity}).
+ * use the same warehouse-quantity conversion via {@link ReleaseMaterialPlanBuilder}.
  */
 public final class SpecificationMaterialRequirementCalculator {
 
@@ -49,8 +49,8 @@ public final class SpecificationMaterialRequirementCalculator {
     }
 
     /**
-     * Aggregates material requirements using per-product norms × requested product quantities, and
-     * retains source-item contribution provenance.
+     * Aggregates material requirements using warehouse demand per product × requested product
+     * quantities, and retains source-item contribution provenance.
      */
     public List<ScaledAggregate> aggregateScaled(List<ScaledMaterialInput> inputs) {
         Objects.requireNonNull(inputs, "inputs");
@@ -64,8 +64,11 @@ public final class SpecificationMaterialRequirementCalculator {
             }
             for (ResolvedMaterialLine line : input.materialLines()) {
                 BigDecimal contribution =
-                        line.lineQuantity()
-                                .multiply(BigDecimal.valueOf(input.requestedProductQuantity()));
+                        SpecificationWarehouseQuantityCalculator.warehouseDemand(
+                                line.lineQuantity(),
+                                line.lengthMm(),
+                                line.unitOfMeasure(),
+                                input.requestedProductQuantity());
                 addContribution(
                         aggregates,
                         line.materialCode(),

@@ -24,6 +24,8 @@ public final class MaterialRequestDraftLineRow {
     private final String materialName;
     private final String color;
     private final String unitOfMeasure;
+    private final BigDecimal lengthMm;
+    private final BigDecimal technologicalPieceCount;
     private final BigDecimal requiredQuantity;
     private final ObjectProperty<BigDecimal> quantity;
     /** {@code null} means unmatched/ambiguous MaterialReference — display "—". */
@@ -35,6 +37,8 @@ public final class MaterialRequestDraftLineRow {
             String materialName,
             String color,
             String unitOfMeasure,
+            BigDecimal lengthMm,
+            BigDecimal technologicalPieceCount,
             BigDecimal requiredQuantity,
             BigDecimal quantity,
             BigDecimal onProductionAvailable) {
@@ -43,6 +47,8 @@ public final class MaterialRequestDraftLineRow {
         this.materialName = Objects.requireNonNull(materialName, "materialName");
         this.color = color == null ? "" : color;
         this.unitOfMeasure = Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
+        this.lengthMm = lengthMm;
+        this.technologicalPieceCount = technologicalPieceCount;
         this.requiredQuantity = Objects.requireNonNull(requiredQuantity, "requiredQuantity");
         this.quantity = new SimpleObjectProperty<>(Objects.requireNonNull(quantity, "quantity"));
         this.onProductionAvailable = onProductionAvailable;
@@ -68,6 +74,14 @@ public final class MaterialRequestDraftLineRow {
         return unitOfMeasure;
     }
 
+    public BigDecimal lengthMm() {
+        return lengthMm;
+    }
+
+    public BigDecimal technologicalPieceCount() {
+        return technologicalPieceCount;
+    }
+
     public BigDecimal requiredQuantity() {
         return requiredQuantity;
     }
@@ -89,7 +103,16 @@ public final class MaterialRequestDraftLineRow {
     }
 
     public String requiredQuantityLabel() {
-        return DecimalUiFormat.format(requiredQuantity);
+        String base = DecimalUiFormat.format(requiredQuantity);
+        if (technologicalPieceCount == null || lengthMm == null) {
+            return base;
+        }
+        return base
+                + " ("
+                + DecimalUiFormat.format(technologicalPieceCount)
+                + " × "
+                + DecimalUiFormat.format(lengthMm)
+                + " мм)";
     }
 
     public String onProductionAvailableLabel() {

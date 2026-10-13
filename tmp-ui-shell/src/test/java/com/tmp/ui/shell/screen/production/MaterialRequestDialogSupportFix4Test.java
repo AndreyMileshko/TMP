@@ -141,9 +141,8 @@ class MaterialRequestDialogSupportFix4Test {
         assertTrue(
                 MaterialRequestDialogSupport.validateRequestQuantity(bd("10.25"), bd("12.5"))
                         .isEmpty());
-        assertEquals(
-                Optional.of(MaterialRequestDialogSupport.REQUEST_QUANTITY_RANGE_MESSAGE),
-                MaterialRequestDialogSupport.validateRequestQuantity(bd("21"), bd("20")));
+        assertTrue(
+                MaterialRequestDialogSupport.validateRequestQuantity(bd("21"), bd("20")).isEmpty());
         assertEquals(
                 Optional.of(MaterialRequestDialogSupport.REQUEST_QUANTITY_RANGE_MESSAGE),
                 MaterialRequestDialogSupport.validateRequestQuantity(bd("-1"), bd("20")));
@@ -187,7 +186,8 @@ class MaterialRequestDialogSupportFix4Test {
                                 null,
                                 required,
                                 request,
-                                List.of(ITEM_ID))));
+                                List.of(ITEM_ID),
+                                null)));
     }
 
     private static BigDecimal bd(String value) {

@@ -268,14 +268,14 @@ class MaterialRequirementPostgresIT {
                                 line.lineId(),
                                 BigDecimal.valueOf(8),
                                 prepared.version()));
-        assertThrows(
-                IllegalArgumentException.class,
-                () ->
-                        service.changeQuantity(
-                                prepared.requirementId(),
-                                line.lineId(),
-                                BigDecimal.valueOf(11),
-                                1L));
+        MaterialRequirement above =
+                service.changeQuantity(
+                        prepared.requirementId(),
+                        line.lineId(),
+                        BigDecimal.valueOf(11),
+                        1L);
+        assertEquals(0, above.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(11)));
+        assertEquals(0, above.lines().getFirst().requiredQuantity().compareTo(BigDecimal.TEN));
     }
 
     @Test

@@ -461,7 +461,8 @@ class MaterialRequestPhase5ViewModelTest {
                                 new BigDecimal(quantity),
                                 sources.stream()
                                         .map(MaterialRequirementSourceItemView::sourceOrderItemId)
-                                        .toList())));
+                                        .toList(),
+                                null)));
     }
 
     private static final class MaterialRequirementNotReadyStubException extends RuntimeException {

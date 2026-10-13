@@ -266,7 +266,9 @@ class ReleasePhase7ViewModelTest {
                         "шт.",
                         new BigDecimal("10"),
                         BigDecimal.ZERO,
-                        new BigDecimal("10"));
+                        new BigDecimal("10"),
+                        null,
+                        null);
         MaterialReadinessView shortage =
                 new MaterialReadinessView(
                         MaterialReadinessStatusView.NOT_READY,

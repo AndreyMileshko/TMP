@@ -2,6 +2,36 @@
 
 ## Latest result
 
+**Date:** 2026-10-13
+**Scope:** Stage 7 Production — B3-MA-07 Dimensional meter quantity semantics
+**Overall:** PASS
+**Migration:** NONE
+**Base HEAD:** `fa98cabb709b7884a1ef3654ccc1d7b9a6a859e8`
+**Working tree:** dirty (B3-MA-07); **no commit / no push**
+
+### B3-MA-07 checks (2026-10-13)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD clean then implement | PASS (`fa98cabb…`) |
+| TEST-004 `1 × 1226 × 12 / 1000 = 14.712` | PASS |
+| Multiple pieces / multiple lengths aggregation | PASS |
+| Meter without length + non-meter unchanged | PASS |
+| Request 0 / below / equal / above required | PASS |
+| Warehouse Demand uses selected request (incl. above) | PASS |
+| Release default preliminary meters + piece/length display fields | PASS |
+| Focused production tests (92) | PASS |
+| Focused UI tests (43) + `ReleaseProductsServiceTest` (13) | PASS |
+| Full reactor | NOT RUN |
+| Runtime DB mutated | NO |
+| Manual acceptance | READY TO VERIFY TEST-004 Readiness 14.712 м |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
 **Date:** 2026-10-08
 **Scope:** Stage 7 Production — B3-MA-FIX4B Editable «К запросу»
 **Overall:** PASS

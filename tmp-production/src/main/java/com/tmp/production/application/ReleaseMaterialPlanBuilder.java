@@ -61,10 +61,15 @@ public final class ReleaseMaterialPlanBuilder {
 
         Map<AggregationKey, MutableAggregate> aggregates = new LinkedHashMap<>();
         for (ResolvedMaterialLine specLine : specificationLines) {
+            BigDecimal warehousePerProduct =
+                    SpecificationWarehouseQuantityCalculator.warehouseQuantityPerProduct(
+                            specLine.lineQuantity(),
+                            specLine.lengthMm(),
+                            specLine.unitOfMeasure());
             LinePlan plan =
                     calculator.calculate(
                             new Input(
-                                    specLine.lineQuantity(),
+                                    warehousePerProduct,
                                     ordered,
                                     releasedBefore,
                                     releaseQuantity));
@@ -99,6 +104,15 @@ public final class ReleaseMaterialPlanBuilder {
             if (aggregate.materialName == null && specLine.materialName() != null) {
                 aggregate.materialName = specLine.materialName();
             }
+            mergeLengthMm(aggregate, specLine.lengthMm());
+            if (SpecificationWarehouseQuantityCalculator.isDimensionalMeter(
+                    specLine.unitOfMeasure(), specLine.lengthMm())) {
+                aggregate.technologicalPieceCount =
+                        aggregate.technologicalPieceCount.add(
+                                specLine
+                                        .lineQuantity()
+                                        .multiply(BigDecimal.valueOf(releaseQuantity)));
+            }
         }
 
         List<PlannedMaterialLine> lines = new ArrayList<>(aggregates.size());
@@ -113,9 +127,35 @@ public final class ReleaseMaterialPlanBuilder {
                             aggregate.plannedQuantity,
                             key.planningSource(),
                             Optional.empty(),
-                            aggregate.materialName));
+                            aggregate.materialName,
+                            aggregate.lengthMmConflict ? null : aggregate.lengthMm,
+                            aggregate.technologicalPieceCount.signum() > 0
+                                    ? aggregate.technologicalPieceCount
+                                    : null));
         }
         return List.copyOf(lines);
+    }
+
+    private static void mergeLengthMm(MutableAggregate aggregate, BigDecimal lengthMm) {
+        if (aggregate.lengthMmConflict) {
+            return;
+        }
+        if (lengthMm == null) {
+            if (aggregate.lengthMmSeen) {
+                return;
+            }
+            aggregate.lengthMmSeen = true;
+            return;
+        }
+        if (!aggregate.lengthMmSeen) {
+            aggregate.lengthMm = lengthMm;
+            aggregate.lengthMmSeen = true;
+            return;
+        }
+        if (aggregate.lengthMm == null || aggregate.lengthMm.compareTo(lengthMm) != 0) {
+            aggregate.lengthMm = null;
+            aggregate.lengthMmConflict = true;
+        }
     }
 
     private static List<MaterialReferenceResolver.CatalogEntry> toCatalog(
@@ -138,7 +178,9 @@ public final class ReleaseMaterialPlanBuilder {
             BigDecimal plannedQuantity,
             MaterialPlanningSource planningSource,
             Optional<UUID> cuttingPlanId,
-            String materialName) {
+            String materialName,
+            BigDecimal lengthMm,
+            BigDecimal technologicalPieceCount) {
 
         public PlannedMaterialLine {
             Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
@@ -163,5 +205,9 @@ public final class ReleaseMaterialPlanBuilder {
     private static final class MutableAggregate {
         private String materialName;
         private BigDecimal plannedQuantity = BigDecimal.ZERO;
+        private BigDecimal lengthMm;
+        private boolean lengthMmSeen;
+        private boolean lengthMmConflict;
+        private BigDecimal technologicalPieceCount = BigDecimal.ZERO;
     }
 }

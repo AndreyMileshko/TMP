@@ -403,7 +403,8 @@ final class ProductionWorkbenchUiTestSupport {
                                         line.lengthMm(),
                                         line.requiredQuantity(),
                                         quantity,
-                                        line.sourceOrderItemIds()));
+                                        line.sourceOrderItemIds(),
+                                        line.technologicalPieceCount()));
                     } else {
                         lines.add(line);
                     }

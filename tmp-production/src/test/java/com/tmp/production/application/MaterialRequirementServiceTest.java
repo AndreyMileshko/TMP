@@ -445,7 +445,7 @@ class MaterialRequirementServiceTest {
     }
 
     @Test
-    void acceptsZeroRequestQuantityAndRejectsNegativeOrAboveRequired() {
+    void acceptsZeroBelowEqualAndAboveRequiredRejectsNegative() {
         MaterialRequirement requirement = prepareSimpleRequirement(BigDecimal.TEN);
         MaterialRequirementLineId lineId = requirement.lines().getFirst().lineId();
 
@@ -458,22 +458,23 @@ class MaterialRequirementServiceTest {
         assertEquals(0, zeroed.lines().getFirst().quantity().compareTo(BigDecimal.ZERO));
         assertEquals(0, zeroed.lines().getFirst().requiredQuantity().compareTo(BigDecimal.TEN));
 
+        MaterialRequirement above =
+                service.changeQuantity(
+                        zeroed.requirementId(),
+                        lineId,
+                        BigDecimal.valueOf(11),
+                        zeroed.version());
+        assertEquals(0, above.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(11)));
+        assertEquals(0, above.lines().getFirst().requiredQuantity().compareTo(BigDecimal.TEN));
+
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
                         service.changeQuantity(
-                                zeroed.requirementId(),
+                                above.requirementId(),
                                 lineId,
                                 BigDecimal.valueOf(-1),
-                                zeroed.version()));
-        assertThrows(
-                IllegalArgumentException.class,
-                () ->
-                        service.changeQuantity(
-                                zeroed.requirementId(),
-                                lineId,
-                                BigDecimal.valueOf(11),
-                                zeroed.version()));
+                                above.version()));
     }
 
     @Test

@@ -45,7 +45,7 @@ class MaterialRequirementTest {
     }
 
     @Test
-    void acceptsZeroRequestQuantityAndRejectsNegativeOrAboveRequired() {
+    void acceptsZeroBelowEqualAndAboveRequiredRejectsNegative() {
         MaterialRequirementLine line = sampleLine(bd(10));
         MaterialRequirement requirement =
                 MaterialRequirement.create(PROD, T0, sampleSourceItems(line), List.of(line));
@@ -55,12 +55,14 @@ class MaterialRequirementTest {
         assertEquals(0, zeroed.lines().getFirst().quantity().compareTo(BigDecimal.ZERO));
         assertEquals(0, zeroed.lines().getFirst().requiredQuantity().compareTo(bd(10)));
 
+        MaterialRequirement above =
+                zeroed.changeLineQuantity(line.lineId(), bd(11), Instant.parse("2026-09-09T06:00:00Z"));
+        assertEquals(0, above.lines().getFirst().quantity().compareTo(bd(11)));
+        assertEquals(0, above.lines().getFirst().requiredQuantity().compareTo(bd(10)));
+
         assertThrows(
                 IllegalArgumentException.class,
                 () -> requirement.changeLineQuantity(line.lineId(), bd(-1), T1));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> requirement.changeLineQuantity(line.lineId(), bd(11), T1));
     }
 
     @Test

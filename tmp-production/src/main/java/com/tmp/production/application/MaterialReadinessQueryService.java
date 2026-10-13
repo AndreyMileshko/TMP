@@ -151,6 +151,11 @@ public final class MaterialReadinessQueryService {
                     if (demand.materialName == null && line.materialName() != null) {
                         demand.materialName = line.materialName();
                     }
+                    mergeLengthMm(demand, line.lengthMm());
+                    if (line.technologicalPieceCount() != null) {
+                        demand.technologicalPieceCount =
+                                demand.technologicalPieceCount.add(line.technologicalPieceCount());
+                    }
                 }
             }
         } catch (ReleaseProductsException ex) {
@@ -198,7 +203,11 @@ public final class MaterialReadinessQueryService {
                             catalog == null ? "" : catalog.unitOfMeasure(),
                             demand.required,
                             available,
-                            shortage));
+                            shortage,
+                            demand.lengthMmConflict ? null : demand.lengthMm,
+                            demand.technologicalPieceCount.signum() > 0
+                                    ? demand.technologicalPieceCount
+                                    : null));
         }
 
         if (deficient > 0) {
@@ -304,6 +313,28 @@ public final class MaterialReadinessQueryService {
         return catalog == null ? "" : catalog.name();
     }
 
+    private static void mergeLengthMm(MutableDemand demand, BigDecimal lengthMm) {
+        if (demand.lengthMmConflict) {
+            return;
+        }
+        if (lengthMm == null) {
+            if (demand.lengthMmSeen) {
+                return;
+            }
+            demand.lengthMmSeen = true;
+            return;
+        }
+        if (!demand.lengthMmSeen) {
+            demand.lengthMm = lengthMm;
+            demand.lengthMmSeen = true;
+            return;
+        }
+        if (demand.lengthMm == null || demand.lengthMm.compareTo(lengthMm) != 0) {
+            demand.lengthMm = null;
+            demand.lengthMmConflict = true;
+        }
+    }
+
     /** Explicit release quantity for one Order Item. */
     public record ItemReleaseQuantity(UUID sourceOrderItemId, long releaseQuantity) {
 
@@ -318,5 +349,9 @@ public final class MaterialReadinessQueryService {
     private static final class MutableDemand {
         private String materialName;
         private BigDecimal required = BigDecimal.ZERO;
+        private BigDecimal lengthMm;
+        private boolean lengthMmSeen;
+        private boolean lengthMmConflict;
+        private BigDecimal technologicalPieceCount = BigDecimal.ZERO;
     }
 }

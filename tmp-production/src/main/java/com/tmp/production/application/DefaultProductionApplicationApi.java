@@ -455,7 +455,9 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 line.unitOfMeasure(),
                 line.requiredQuantity(),
                 line.availableQuantity(),
-                line.shortageQuantity());
+                line.shortageQuantity(),
+                line.lengthMm(),
+                line.technologicalPieceCount());
     }
 
     private OrderQuantityModeView map(OrderQuantityModeSetting setting) {
@@ -549,6 +551,7 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     }
 
     private MaterialRequirementLineView map(MaterialRequirementLine line) {
+        BigDecimal lengthMm = line.lengthMm().orElse(null);
         return new MaterialRequirementLineView(
                 line.lineId().value(),
                 line.materialReferenceId().map(id -> id.value()).orElse(null),
@@ -556,10 +559,12 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 line.materialName() == null ? "" : line.materialName(),
                 line.color(),
                 line.unitOfMeasure(),
-                line.lengthMm().orElse(null),
+                lengthMm,
                 line.requiredQuantity(),
                 line.quantity(),
-                line.sourceOrderItemIds().stream().map(SourceOrderItemId::value).toList());
+                line.sourceOrderItemIds().stream().map(SourceOrderItemId::value).toList(),
+                SpecificationWarehouseQuantityCalculator.technologicalPieceCount(
+                        line.requiredQuantity(), lengthMm, line.unitOfMeasure()));
     }
 
     private LogicalTransferView map(ProductionMaterialTransfer transfer) {
