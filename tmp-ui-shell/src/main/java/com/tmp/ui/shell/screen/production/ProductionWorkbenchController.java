@@ -913,13 +913,13 @@ public final class ProductionWorkbenchController
             if (!step2.proceed()) {
                 return;
             }
-            if (!ReleaseDialogSupport.showConfirmSummary(step1.rows())) {
+            if (!ReleaseDialogSupport.showConfirmSummary(step1.rows(), step2.materials())) {
                 return;
             }
 
             ReleasePostConfirmOutcome outcome =
                     executeConfirmedRelease(viewModel, step1.rows(), step2.materials());
-            presentConfirmedReleaseOutcome(outcome);
+            presentConfirmedReleaseOutcome(viewModel, outcome);
             return;
         }
     }
@@ -953,20 +953,48 @@ public final class ProductionWorkbenchController
         }
     }
 
-    static void presentConfirmedReleaseOutcome(ReleasePostConfirmOutcome outcome) {
+    /**
+     * Presents post-confirm release outcome. Failure text stays on the error channel until the
+     * modal is shown, then the duplicate inline banner is cleared (one user-facing notification).
+     */
+    static void presentConfirmedReleaseOutcome(
+            ProductionWorkbenchViewModel viewModel, ReleasePostConfirmOutcome outcome) {
+        Objects.requireNonNull(viewModel, "viewModel");
         Objects.requireNonNull(outcome, "outcome");
         if (outcome.unexpected()) {
             ReleaseDialogSupport.showWarning(
                     ReleaseDialogSupport.STEP1_TITLE, outcome.summary());
+            clearPostConfirmDuplicateInlineError(viewModel, outcome);
             return;
         }
         switch (outcome.kind()) {
             case FULL_SUCCESS ->
                     ReleaseDialogSupport.showInfo(
                             ReleaseDialogSupport.STEP1_TITLE, outcome.summary());
-            case PARTIAL_SUCCESS, TOTAL_FAILURE ->
-                    ReleaseDialogSupport.showWarning(
-                            ReleaseDialogSupport.STEP1_TITLE, outcome.summary());
+            case PARTIAL_SUCCESS, TOTAL_FAILURE -> {
+                ReleaseDialogSupport.showWarning(
+                        ReleaseDialogSupport.STEP1_TITLE, outcome.summary());
+                clearPostConfirmDuplicateInlineError(viewModel, outcome);
+            }
+        }
+    }
+
+    /**
+     * Clears the inline error banner after a post-confirm failure modal has been shown. Package
+     * visibility for focused regression without opening dialogs.
+     */
+    static void clearPostConfirmDuplicateInlineError(
+            ProductionWorkbenchViewModel viewModel, ReleasePostConfirmOutcome outcome) {
+        Objects.requireNonNull(viewModel, "viewModel");
+        Objects.requireNonNull(outcome, "outcome");
+        if (outcome.unexpected()) {
+            viewModel.setErrorMessage("");
+            return;
+        }
+        if (outcome.kind() == ProductionWorkbenchViewModel.ReleaseCompletionKind.TOTAL_FAILURE
+                || outcome.kind()
+                        == ProductionWorkbenchViewModel.ReleaseCompletionKind.PARTIAL_SUCCESS) {
+            viewModel.setErrorMessage("");
         }
     }
 
@@ -1142,7 +1170,11 @@ public final class ProductionWorkbenchController
                         stringColumn("Артикул", MaterialReadinessLineRow::materialCode),
                         stringColumn("Наименование", MaterialReadinessLineRow::materialName),
                         stringColumn("Цвет", MaterialReadinessLineRow::color),
-                        stringColumn("Требуется", MaterialReadinessLineRow::requiredQuantity),
+                        ProductionTableCells.tooltipStringColumn(
+                                "Требуется",
+                                160,
+                                ProductionTableCells.REQUIRED_QUANTITY_MIN_WIDTH,
+                                MaterialReadinessLineRow::requiredQuantity),
                         stringColumn("Доступно", MaterialReadinessLineRow::availableQuantity),
                         stringColumn("Не хватает", MaterialReadinessLineRow::shortageQuantity),
                         stringColumn("Ед.", MaterialReadinessLineRow::unitOfMeasure));

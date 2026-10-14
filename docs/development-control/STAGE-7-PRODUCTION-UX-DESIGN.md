@@ -483,7 +483,7 @@ Release разрешён, если для каждой строки матери
 
 ## 11. RELEASE UX
 
-**Implemented (Phase 7):** Tree is the Release entry point. Quantity Mode is informational (STANDARD = full active remainder, read-only; FLEXIBLE editable). Mixed orders supported. Preflight is snapshot readiness; confirm is authoritative per-order Release. Plan/fact kept; cells shown by code; no reservation; multi-order batch uses per-order transactions with honest partial-success semantics.
+**Implemented (Phase 7 + B3-MA-08/09):** Tree is the Release entry point. Quantity Mode is informational (STANDARD = full active remainder, read-only; FLEXIBLE editable). Mixed orders supported. Preflight is snapshot readiness; confirm is authoritative per-order Release. Plan/fact kept (actual-only Step 2; server cell allocation); compact expandable confirm (B3-MA-09); no reservation; multi-order batch uses per-order transactions with honest partial-success semantics.
 
 ### 11.1 Шаг 1 — «Выпуск изделий: количество»
 
@@ -527,15 +527,42 @@ Release разрешён, если для каждой строки матери
 - **Server-side allocation (B3-MA-08):** during final release posting TMP allocates AVAILABLE production-warehouse stock by storage cell code ASC, then cell ID ASC; splits across cells; shared remaining-stock ledger within one posting TX; never trusts client cell allocations.
 - Warehouse stock accounting / history retains the actual consumed cells and quantities.
 
-### 11.3 Подтверждение и результат
+### 11.3 Подтверждение и результат (B3-MA-09)
 
-- Final summary then [Выпустить]; button blocked during operation (double-submit guard).
-- Confirm wording must **not** claim «Материалы проверены» after preliminary readiness only. Use: posting will validate stock against master-entered actual consumption.
-- Plan/fact (Step 2): master-confirmed actual in warehouse UoM is preserved and used for posting; cells are selected automatically at post; preliminary demand remains informational (Production Spec plan/fact).
+Compact confirmation dialog (materials **collapsed by default**):
+
+```text
+ВЫПУСТИТЬ ИЗДЕЛИЯ?
+
+Заказ №4183
+Позиций: 1
+Изделий к выпуску: 4
+Уникальных материалов: 3
+Отклонений план/факт: 1
+
+[Показать материалы]
+
+При подтверждении система проверит наличие материалов для списания
+по указанному фактическому расходу.
+
+                         [Выпустить]  [Отмена]
+```
+
+- Default view: orders / positions / products / unique materials / plan–fact deviation count. Master may confirm immediately without opening materials.
+- **[Показать материалы] / [Скрыть материалы]:** expandable details; search by article/name (display-only); bounded scroll; order groups as independently expandable `TitledPane`s.
+- Display aggregation within an order by `MaterialReferenceId` + UoM (sum plan, sum actual); **never** mutates Step 2 rows or the posting payload.
+- UoM / article carried from release-preview plan identity into `ReleaseMaterialRow` (display plumbing only).
+- Confirm wording must **not** claim «Материалы проверены». Footer = stock-validation note against master-entered actual.
+- Post-confirm notifications (B3-MA-09): one modal per outcome (INFO success / WARNING failure|partial|unexpected); duplicate inline red error cleared after the modal. Pre-confirm inline validation unchanged.
+- Plan/fact (Step 2): master-confirmed actual in warehouse UoM is preserved and used for posting; cells are selected automatically at post (B3-MA-08).
 - Multi-order: OrderId ascending; each order own TX; stop after first authoritative failure; UI shows partial success honestly (not all-or-nothing).
 - Успех: «Выпущено: N изделия.» / «Изделия выпущены. Заказ изготовлен полностью» при MANUFACTURED. `documentId` / UUID не показываются.
 - Ошибки: over-release / конкурентный выпуск → «Количество к выпуску изменилось…»; stock race / insufficient actual stock → human shortage message; отменённое производство → «Производство заказа отменено. Выпуск невозможен.»
 - After success: refresh tree; clear successfully released items from selection; remain on LEVEL 1.
+
+### 11.4 Required quantity display (B3-MA-09)
+
+«Требуется» columns (Order Card readiness, Release readiness details, Material Requirement Step 2) keep existing formatters (e.g. `14.712 (12 × 1226 мм)`); full text available via Tooltip; modest column minWidth; no modal widening; no calculation/rounding changes.
 
 ---
 

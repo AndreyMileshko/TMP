@@ -101,6 +101,12 @@ public final class ReleaseMaterialPlanBuilder {
             MutableAggregate aggregate =
                     aggregates.computeIfAbsent(key, ignored -> new MutableAggregate());
             aggregate.plannedQuantity = aggregate.plannedQuantity.add(plan.planCurrent());
+            if (aggregate.materialCode == null) {
+                aggregate.materialCode = specLine.materialCode();
+            }
+            if (aggregate.unitOfMeasure == null) {
+                aggregate.unitOfMeasure = specLine.unitOfMeasure();
+            }
             if (aggregate.materialName == null && specLine.materialName() != null) {
                 aggregate.materialName = specLine.materialName();
             }
@@ -128,6 +134,8 @@ public final class ReleaseMaterialPlanBuilder {
                             key.planningSource(),
                             Optional.empty(),
                             aggregate.materialName,
+                            aggregate.materialCode == null ? "" : aggregate.materialCode,
+                            aggregate.unitOfMeasure == null ? "" : aggregate.unitOfMeasure,
                             aggregate.lengthMmConflict ? null : aggregate.lengthMm,
                             aggregate.technologicalPieceCount.signum() > 0
                                     ? aggregate.technologicalPieceCount
@@ -179,6 +187,8 @@ public final class ReleaseMaterialPlanBuilder {
             MaterialPlanningSource planningSource,
             Optional<UUID> cuttingPlanId,
             String materialName,
+            String materialCode,
+            String unitOfMeasure,
             BigDecimal lengthMm,
             BigDecimal technologicalPieceCount) {
 
@@ -189,6 +199,8 @@ public final class ReleaseMaterialPlanBuilder {
             Objects.requireNonNull(plannedQuantity, "plannedQuantity");
             Objects.requireNonNull(planningSource, "planningSource");
             Objects.requireNonNull(cuttingPlanId, "cuttingPlanId");
+            materialCode = materialCode == null ? "" : materialCode;
+            unitOfMeasure = unitOfMeasure == null ? "" : unitOfMeasure;
             plannedQuantity = PartialReleaseMaterialPlanCalculator.normalize(plannedQuantity);
         }
 
@@ -204,6 +216,8 @@ public final class ReleaseMaterialPlanBuilder {
 
     private static final class MutableAggregate {
         private String materialName;
+        private String materialCode;
+        private String unitOfMeasure;
         private BigDecimal plannedQuantity = BigDecimal.ZERO;
         private BigDecimal lengthMm;
         private boolean lengthMmSeen;

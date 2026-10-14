@@ -312,9 +312,10 @@ class ReleasePhase7ViewModelTest {
                         6L,
                         4L,
                         4L);
-        String content = ReleaseDialogSupport.confirmSummaryContent(List.of(row));
+        String content = ReleaseDialogSupport.confirmSummaryContent(List.of(row), List.of());
         assertFalse(content.contains("Материалы проверены"));
         assertTrue(content.contains(ProductionUiErrorMapper.RELEASE_CONFIRM_STOCK_NOTE));
+        assertTrue(content.contains("Изделий к выпуску: 4"));
     }
 
     @Test

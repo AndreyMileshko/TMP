@@ -4,6 +4,26 @@
 
 ---
 
+## Stage 7 Production — B3-MA-09 Production UX improvements — 2026-10-14
+
+**Date:** 2026-10-14
+**Stage:** 7 Production / Manual Acceptance B3-MA-09
+**Base HEAD:** `1112f77c29af5e5182d28b8fa66fab8691d7567a`
+**Status:** PASS — presentation-only UX; B3-MA-07/08 preserved; no migration; no commit / no push
+
+### Scope
+
+- 1.2 Compact Release confirmation: summary by default; expandable material details with search; display-only aggregation by order + MaterialReferenceId + UoM; plan/fact deviation count; UoM/article plumbed via `PlannedMaterialLine` → `PlannedMaterialLineView` → `ReleaseMaterialRow`
+- 1.3 Required-quantity Tooltip + minWidth on Order Card readiness, Release readiness details, Material Requirement Step 2
+- 1.5 Single post-confirm notification: modal INFO/WARNING; clear duplicate inline error after failure modal; pre-confirm inline unchanged
+- Docs: STAGE-7-PRODUCTION-UX-DESIGN §11.3–11.4
+
+### Verification
+
+See VERIFICATION-LOG B3-MA-09 entry (2026-10-14).
+
+---
+
 ## Stage 7 Production — B3-MA-08 Automatic warehouse cell allocation — 2026-10-14
 
 **Date:** 2026-10-14

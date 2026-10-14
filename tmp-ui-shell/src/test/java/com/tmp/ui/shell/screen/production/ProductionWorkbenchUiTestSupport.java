@@ -479,18 +479,38 @@ final class ProductionWorkbenchUiTestSupport {
             if (releasePreview != null) {
                 return releasePreview;
             }
+            UUID materialId =
+                    UUID.fromString("77777777-7777-4777-8777-777777777777");
+            UUID specificationId =
+                    UUID.fromString("44444444-4444-4444-8444-444444444444");
             List<MaterialActualDefaultView> defaults =
                     itemReleases.stream()
                             .map(
                                     item ->
                                             new MaterialActualDefaultView(
                                                     item.sourceOrderItemId(),
-                                                    UUID.fromString(
-                                                            "77777777-7777-4777-8777-777777777777"),
+                                                    materialId,
                                                     BigDecimal.TEN,
                                                     BigDecimal.TEN))
                             .toList();
-            return new ReleasePreviewView(orderId, itemReleases, List.of(), defaults);
+            List<ProductionApplicationApi.PlannedMaterialLineView> planned =
+                    itemReleases.stream()
+                            .map(
+                                    item ->
+                                            new ProductionApplicationApi.PlannedMaterialLineView(
+                                                    item.sourceOrderItemId(),
+                                                    materialId,
+                                                    specificationId,
+                                                    BigDecimal.TEN,
+                                                    ProductionApplicationApi
+                                                            .MaterialPlanningSourceView
+                                                            .SPECIFICATION,
+                                                    Optional.empty(),
+                                                    Optional.of("Материал"),
+                                                    "MAT-001",
+                                                    "м"))
+                            .toList();
+            return new ReleasePreviewView(orderId, itemReleases, planned, defaults);
         }
 
         @Override

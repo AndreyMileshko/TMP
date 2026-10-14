@@ -464,7 +464,9 @@ public interface ProductionApplicationApi {
             BigDecimal plannedQuantity,
             MaterialPlanningSourceView planningSource,
             Optional<UUID> cuttingPlanId,
-            Optional<String> materialName) {
+            Optional<String> materialName,
+            String materialCode,
+            String unitOfMeasure) {
         public PlannedMaterialLineView {
             Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
             Objects.requireNonNull(materialReferenceId, "materialReferenceId");
@@ -473,6 +475,8 @@ public interface ProductionApplicationApi {
             Objects.requireNonNull(planningSource, "planningSource");
             Objects.requireNonNull(cuttingPlanId, "cuttingPlanId");
             Objects.requireNonNull(materialName, "materialName");
+            materialCode = materialCode == null ? "" : materialCode;
+            unitOfMeasure = unitOfMeasure == null ? "" : unitOfMeasure;
         }
     }
 

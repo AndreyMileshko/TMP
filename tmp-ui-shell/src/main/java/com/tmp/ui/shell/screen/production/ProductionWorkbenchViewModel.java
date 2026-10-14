@@ -1248,24 +1248,30 @@ public final class ProductionWorkbenchViewModel {
             List<ItemReleaseView> itemReleases = toItemReleases(entry.getValue());
             ReleasePreviewView preview = applicationApi.prepareRelease(orderId, itemReleases);
             String orderLabel = entry.getValue().getFirst().orderNumberLabel();
-            Map<String, String> names = new HashMap<>();
+            Map<String, PlannedMaterialLineView> plannedByKey = new HashMap<>();
             for (PlannedMaterialLineView planned : preview.plannedMaterialLines()) {
                 String key =
                         planned.sourceOrderItemId() + "|" + planned.materialReferenceId();
-                names.put(
-                        key,
-                        planned.materialName().orElse("Материал"));
+                plannedByKey.put(key, planned);
             }
             for (var actual : preview.defaultActuals()) {
                 String key = actual.sourceOrderItemId() + "|" + actual.materialReferenceId();
-                String label = names.getOrDefault(key, "Материал");
+                PlannedMaterialLineView planned = plannedByKey.get(key);
+                String label =
+                        planned == null
+                                ? "Материал"
+                                : planned.materialName().orElse("Материал");
+                String code = planned == null ? "" : planned.materialCode();
+                String uom = planned == null ? "" : planned.unitOfMeasure();
                 materials.add(
                         new ReleaseMaterialRow(
                                 orderId,
                                 actual.sourceOrderItemId(),
                                 actual.materialReferenceId(),
                                 orderLabel,
+                                code,
                                 label,
+                                uom,
                                 DecimalUiFormat.format(actual.plannedQuantity()),
                                 DecimalUiFormat.format(actual.actualQuantity())));
             }

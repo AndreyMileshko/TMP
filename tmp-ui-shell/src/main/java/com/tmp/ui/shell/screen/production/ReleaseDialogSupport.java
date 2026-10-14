@@ -332,9 +332,10 @@ public final class ReleaseDialogSupport {
                                                 + (line.color().isBlank()
                                                         ? ""
                                                         : " (" + line.color() + ")")),
-                        readinessStringColumn(
+                        ProductionTableCells.tooltipStringColumn(
                                 "Требуется",
-                                140,
+                                160,
+                                ProductionTableCells.REQUIRED_QUANTITY_MIN_WIDTH,
                                 ReleaseDialogSupport::formatReadinessRequired),
                         readinessStringColumn(
                                 "Доступно",
@@ -404,37 +405,18 @@ public final class ReleaseDialogSupport {
         return Step2Outcome.next(List.copyOf(table.getItems()));
     }
 
-    public static boolean showConfirmSummary(List<ReleaseQuantityRow> rows) {
-        Objects.requireNonNull(rows, "rows");
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        TmpTheme.apply(alert.getDialogPane());
-        alert.setTitle(CONFIRM_TITLE);
-        alert.setHeaderText("ВЫПУСТИТЬ ИЗДЕЛИЯ?");
-        Label content = new Label(confirmSummaryContent(rows));
-        content.setWrapText(true);
-        content.setMaxWidth(560);
-        content.setMinHeight(Label.USE_PREF_SIZE);
-        alert.getDialogPane().setContent(content);
-        Button ok = (Button) alert.getDialogPane().lookupButton(ButtonType.OK);
-        if (ok != null) {
-            ok.setText(RELEASE_BUTTON);
-        }
-        Button cancel = (Button) alert.getDialogPane().lookupButton(ButtonType.CANCEL);
-        if (cancel != null) {
-            cancel.setText(CANCEL_BUTTON);
-        }
-        return alert.showAndWait().filter(ButtonType.OK::equals).isPresent();
+    public static boolean showConfirmSummary(
+            List<ReleaseQuantityRow> rows, List<ReleaseMaterialRow> materials) {
+        return ReleaseConfirmPresentation.showConfirmSummary(rows, materials);
     }
 
     /**
      * Confirm dialog body. Does not claim that materials are already verified as sufficient —
      * preliminary readiness is informational; posting validates actual consumption.
      */
-    public static String confirmSummaryContent(List<ReleaseQuantityRow> rows) {
-        Objects.requireNonNull(rows, "rows");
-        return buildConfirmSummary(rows)
-                + "\n\n"
-                + ProductionUiErrorMapper.RELEASE_CONFIRM_STOCK_NOTE;
+    public static String confirmSummaryContent(
+            List<ReleaseQuantityRow> rows, List<ReleaseMaterialRow> materials) {
+        return ReleaseConfirmPresentation.confirmSummaryContent(rows, materials);
     }
 
     public static void showValidation(String message) {
@@ -494,31 +476,6 @@ public final class ReleaseDialogSupport {
                     row.orderNumberLabel() + " — " + row.modeLabel());
         }
         return String.join("\n", modes.values());
-    }
-
-    private static String buildConfirmSummary(List<ReleaseQuantityRow> rows) {
-        Map<UUID, long[]> aggregates = new LinkedHashMap<>();
-        Map<UUID, String> labels = new LinkedHashMap<>();
-        for (ReleaseQuantityRow row : rows) {
-            labels.putIfAbsent(row.sourceOrderId(), row.orderNumberLabel());
-            long[] agg = aggregates.computeIfAbsent(row.sourceOrderId(), id -> new long[2]);
-            agg[0] += 1;
-            agg[1] += resolvedReleaseQuantity(row);
-        }
-        StringBuilder text = new StringBuilder();
-        for (Map.Entry<UUID, long[]> entry : aggregates.entrySet()) {
-            if (text.length() > 0) {
-                text.append("\n\n");
-            }
-            long[] agg = entry.getValue();
-            text.append(labels.get(entry.getKey()))
-                    .append("\n")
-                    .append(agg[0])
-                    .append(agg[0] == 1 ? " позиция" : " позиций")
-                    .append("\nВсего изделий: ")
-                    .append(agg[1]);
-        }
-        return text.toString();
     }
 
     private static TableColumn<ReleaseQuantityRow, String> stringColumn(

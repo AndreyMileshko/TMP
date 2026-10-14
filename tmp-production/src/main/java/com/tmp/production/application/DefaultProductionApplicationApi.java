@@ -608,7 +608,9 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 line.plannedQuantity(),
                 map(line.planningSource()),
                 line.cuttingPlanId(),
-                Optional.ofNullable(line.materialName()));
+                Optional.ofNullable(line.materialName()),
+                line.materialCode(),
+                line.unitOfMeasure());
     }
 
     private MaterialRequirementStatusView map(MaterialRequirementStatus status) {

@@ -354,9 +354,10 @@ public final class MaterialRequestDialogSupport {
                                 COLUMN_NAME, 180, MaterialRequestDraftLineRow::materialName),
                         draftStringColumn(COLUMN_COLOR, 100, MaterialRequestDraftLineRow::color),
                         draftStringColumn(COLUMN_UOM, 60, MaterialRequestDraftLineRow::unitOfMeasure),
-                        draftStringColumn(
+                        ProductionTableCells.tooltipStringColumn(
                                 COLUMN_REQUIRED,
-                                100,
+                                160,
+                                ProductionTableCells.REQUIRED_QUANTITY_MIN_WIDTH,
                                 MaterialRequestDraftLineRow::requiredQuantityLabel),
                         draftStringColumn(
                                 COLUMN_ON_PRODUCTION,

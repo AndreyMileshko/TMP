@@ -3,6 +3,39 @@
 ## Latest result
 
 **Date:** 2026-10-14
+**Scope:** Stage 7 Production — B3-MA-09 Production UX improvements
+**Overall:** PASS (focused UI + production unit)
+**Migration:** NONE
+**Base HEAD:** `1112f77c29af5e5182d28b8fa66fab8691d7567a`
+**Working tree:** dirty (B3-MA-09); **no commit / no push**
+
+### B3-MA-09 checks (2026-10-14)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD exact + clean working tree before start | PASS (`1112f77…`) |
+| Confirm summary / aggregation / search / deviation / UoM | PASS (`ReleaseConfirmPresentationTest` 10) |
+| Post-confirm single notification + UoM plumbing | PASS (`ReleasePostConfirmNotificationTest` 4) |
+| Release Phase 7 + post-confirm bound-button regression | PASS (`ReleasePhase7ViewModelTest` 22, `ReleasePostConfirmControllerTest` 4) |
+| Required-qty / readiness / mapper smoke | PASS (`MaterialRequestDialogSupportFix4Test`, `MaterialReadinessPhase6ViewModelTest`, `ProductionUiErrorMapperTest`) |
+| Release plan builder + products service (B3-MA-07/08) | PASS (`ReleaseMaterialPlanBuilderTest` 2, `ReleaseProductsServiceTest` 20) |
+| Full reactor | NOT RUN |
+| Runtime TEST-004 | NOT MODIFIED |
+
+Commands:
+
+```text
+mvn -pl tmp-production,tmp-ui-shell -am test -Dtest=ReleaseConfirmPresentationTest,ReleasePostConfirmNotificationTest,ReleasePhase7ViewModelTest,ReleasePostConfirmControllerTest,MaterialRequestDialogSupportFix4Test,MaterialReadinessPhase6ViewModelTest,ProductionUiErrorMapperTest -Dsurefire.failIfNoSpecifiedTests=false
+mvn -pl tmp-production test -Dtest=ReleaseProductsServiceTest,ReleaseMaterialPlanBuilder* -Dsurefire.failIfNoSpecifiedTests=false
+```
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-10-14
 **Scope:** Stage 7 Production — B3-MA-08 Automatic warehouse cell allocation
 **Overall:** PASS (focused unit + Postgres IT + UI)
 **Migration:** NONE
