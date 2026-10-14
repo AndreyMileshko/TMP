@@ -1,6 +1,8 @@
 package com.tmp.ui.shell.screen.production;
 
 import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessLineView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessReasonView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialReadinessView;
 import com.tmp.ui.shell.order.DecimalQuantityParser;
 import com.tmp.ui.shell.order.DecimalUiFormat;
@@ -50,6 +52,7 @@ public final class ReleaseDialogSupport {
     public static final String STEP2_TITLE = "Фактический расход материалов";
     public static final String CONFIRM_TITLE = "Выпустить изделия?";
     public static final String NEXT_BUTTON = "Далее";
+    public static final String CONTINUE_BUTTON = "Продолжить";
     public static final String CANCEL_BUTTON = "Отмена";
     public static final String DETAILS_BUTTON = "Подробнее";
     public static final String ADD_ALLOCATION_BUTTON = "Добавить ячейку";
@@ -222,7 +225,61 @@ public final class ReleaseDialogSupport {
         }
     }
 
-    /** Header text for a release readiness block — never treats unresolved identity as shortage. */
+    /**
+     * Exact preliminary shortage result: {@code NOT_READY} + {@code INSUFFICIENT_STOCK}.
+     * Other NOT_READY / structural statuses remain fatal blockers.
+     */
+    public static boolean isPreliminaryMaterialShortage(MaterialReadinessView readiness) {
+        Objects.requireNonNull(readiness, "readiness");
+        return readiness.status() == MaterialReadinessStatusView.NOT_READY
+                && readiness.reason() == MaterialReadinessReasonView.INSUFFICIENT_STOCK;
+    }
+
+    /**
+     * Advisory warning for preliminary geometric demand exceeding production-warehouse stock.
+     * Returns {@code true} when the master chooses Continue (Step 2 allowed).
+     */
+    public static boolean showPreliminaryShortageAdvisory(MaterialReadinessView readiness) {
+        Objects.requireNonNull(readiness, "readiness");
+        ButtonType continueType =
+                new ButtonType(CONTINUE_BUTTON, ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelType =
+                new ButtonType(CANCEL_BUTTON, ButtonBar.ButtonData.CANCEL_CLOSE);
+        ButtonType detailsType =
+                new ButtonType(DETAILS_BUTTON, ButtonBar.ButtonData.OTHER);
+        while (true) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            TmpTheme.apply(alert.getDialogPane());
+            alert.setTitle(STEP1_TITLE);
+            alert.setHeaderText(null);
+            Label content =
+                    new Label(ProductionUiErrorMapper.RELEASE_PRELIMINARY_SHORTAGE_ADVISORY);
+            content.setWrapText(true);
+            content.setMaxWidth(560);
+            content.setMinHeight(Label.USE_PREF_SIZE);
+            alert.getDialogPane().setContent(content);
+            alert.getDialogPane().setPrefWidth(620);
+            alert.getDialogPane().setMinHeight(180);
+            alert.setResizable(true);
+            if (readinessDetailsAvailable(readiness)) {
+                alert.getButtonTypes().setAll(continueType, detailsType, cancelType);
+            } else {
+                alert.getButtonTypes().setAll(continueType, cancelType);
+            }
+            Optional<ButtonType> choice = alert.showAndWait();
+            if (choice.isEmpty() || choice.get() == cancelType) {
+                return false;
+            }
+            if (choice.get() == continueType) {
+                return true;
+            }
+            if (choice.get() == detailsType) {
+                showReadinessDetails(readiness);
+            }
+        }
+    }
+
+    /** Header text for a fatal release readiness block — never treats unresolved identity as shortage. */
     public static String readinessBlockedHeader(MaterialReadinessView readiness) {
         Objects.requireNonNull(readiness, "readiness");
         return switch (readiness.status()) {
@@ -238,9 +295,7 @@ public final class ReleaseDialogSupport {
      */
     public static boolean readinessDetailsAvailable(MaterialReadinessView readiness) {
         Objects.requireNonNull(readiness, "readiness");
-        if (readiness.status()
-                != com.tmp.production.api.ProductionApplicationApi.MaterialReadinessStatusView
-                        .NOT_READY) {
+        if (readiness.status() != MaterialReadinessStatusView.NOT_READY) {
             return false;
         }
         return readiness.lines() != null
@@ -253,7 +308,10 @@ public final class ReleaseDialogSupport {
         Dialog<ButtonType> dialog = new Dialog<>();
         TmpTheme.apply(dialog.getDialogPane());
         dialog.setTitle("Готовность материалов");
-        dialog.setHeaderText(ProductionUiErrorMapper.RELEASE_MATERIALS_NOT_READY);
+        dialog.setHeaderText(
+                isPreliminaryMaterialShortage(readiness)
+                        ? "Расчётная потребность по материалам"
+                        : ProductionUiErrorMapper.RELEASE_MATERIALS_NOT_READY);
 
         TableView<MaterialReadinessLineView> table = new TableView<>();
         List<MaterialReadinessLineView> lines =
@@ -387,7 +445,11 @@ public final class ReleaseDialogSupport {
         TmpTheme.apply(alert.getDialogPane());
         alert.setTitle(CONFIRM_TITLE);
         alert.setHeaderText("ВЫПУСТИТЬ ИЗДЕЛИЯ?");
-        alert.setContentText(buildConfirmSummary(rows) + "\n\nМатериалы проверены.");
+        Label content = new Label(confirmSummaryContent(rows));
+        content.setWrapText(true);
+        content.setMaxWidth(560);
+        content.setMinHeight(Label.USE_PREF_SIZE);
+        alert.getDialogPane().setContent(content);
         Button ok = (Button) alert.getDialogPane().lookupButton(ButtonType.OK);
         if (ok != null) {
             ok.setText(RELEASE_BUTTON);
@@ -397,6 +459,17 @@ public final class ReleaseDialogSupport {
             cancel.setText(CANCEL_BUTTON);
         }
         return alert.showAndWait().filter(ButtonType.OK::equals).isPresent();
+    }
+
+    /**
+     * Confirm dialog body. Does not claim that materials are already verified as sufficient —
+     * preliminary readiness is informational; posting validates actual consumption.
+     */
+    public static String confirmSummaryContent(List<ReleaseQuantityRow> rows) {
+        Objects.requireNonNull(rows, "rows");
+        return buildConfirmSummary(rows)
+                + "\n\n"
+                + ProductionUiErrorMapper.RELEASE_CONFIRM_STOCK_NOTE;
     }
 
     public static void showValidation(String message) {

@@ -888,9 +888,15 @@ public final class ProductionWorkbenchController
                 viewModel.setErrorMessage(ProductionUiErrorMapper.text(ex));
                 return;
             }
-            if (!readiness.ready()) {
+            if (readiness.fatalBlocked()) {
                 ReleaseDialogSupport.showReadinessBlocked(readiness.blocking());
                 return;
+            }
+            if (readiness.preliminaryShortage()) {
+                if (!ReleaseDialogSupport.showPreliminaryShortageAdvisory(
+                        readiness.advisory())) {
+                    return;
+                }
             }
 
             List<ReleaseMaterialRow> materials;

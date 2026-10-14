@@ -207,7 +207,7 @@ class ReleasePhase7ViewModelTest {
     }
 
     @Test
-    void readinessReadyContinuesNotReadyBlocks() {
+    void readinessReadyContinuesPreliminaryShortageAdvisoryFatalBlocks() {
         seedOrders();
         viewModel.loadTree();
         viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_A, ITEM_A1), true);
@@ -219,7 +219,10 @@ class ReleasePhase7ViewModelTest {
                         MaterialReadinessReasonView.NONE,
                         0,
                         List.of());
-        assertTrue(viewModel.checkReleaseReadiness(rows).ready());
+        var ready = viewModel.checkReleaseReadiness(rows);
+        assertTrue(ready.ready());
+        assertFalse(ready.preliminaryShortage());
+        assertFalse(ready.fatalBlocked());
 
         applicationApi.remainingReadiness =
                 new MaterialReadinessView(
@@ -227,7 +230,10 @@ class ReleasePhase7ViewModelTest {
                         MaterialReadinessReasonView.INSUFFICIENT_STOCK,
                         1,
                         List.of());
-        assertFalse(viewModel.checkReleaseReadiness(rows).ready());
+        var shortage = viewModel.checkReleaseReadiness(rows);
+        assertFalse(shortage.ready());
+        assertTrue(shortage.preliminaryShortage());
+        assertFalse(shortage.fatalBlocked());
 
         applicationApi.remainingReadiness =
                 new MaterialReadinessView(
@@ -235,7 +241,10 @@ class ReleasePhase7ViewModelTest {
                         MaterialReadinessReasonView.NO_PRODUCTION_WAREHOUSE,
                         0,
                         List.of());
-        assertFalse(viewModel.checkReleaseReadiness(rows).ready());
+        var noWarehouse = viewModel.checkReleaseReadiness(rows);
+        assertFalse(noWarehouse.ready());
+        assertFalse(noWarehouse.preliminaryShortage());
+        assertTrue(noWarehouse.fatalBlocked());
     }
 
     @Test
@@ -246,6 +255,7 @@ class ReleasePhase7ViewModelTest {
                         MaterialReadinessReasonView.MATERIAL_REFERENCE_UNRESOLVED,
                         0,
                         List.of());
+        assertFalse(ReleaseDialogSupport.isPreliminaryMaterialShortage(unresolved));
         assertEquals(
                 ProductionUiErrorMapper.MATERIALS_UNRESOLVED,
                 ReleaseDialogSupport.readinessBlockedHeader(unresolved));
@@ -256,17 +266,17 @@ class ReleasePhase7ViewModelTest {
     }
 
     @Test
-    void shortageReadinessKeepsShortageMessageAndDetails() {
+    void preliminaryShortageIsAdvisoryWithDetailsAccess() {
         MaterialReadinessLineView shortageLine =
                 new MaterialReadinessLineView(
                         MAT,
                         "MAT-1",
                         "Профиль",
                         "Белый",
-                        "шт.",
-                        new BigDecimal("10"),
-                        BigDecimal.ZERO,
-                        new BigDecimal("10"),
+                        "м",
+                        new BigDecimal("14.712"),
+                        new BigDecimal("13"),
+                        new BigDecimal("1.712"),
                         null,
                         null);
         MaterialReadinessView shortage =
@@ -275,10 +285,109 @@ class ReleasePhase7ViewModelTest {
                         MaterialReadinessReasonView.INSUFFICIENT_STOCK,
                         1,
                         List.of(shortageLine));
-        assertEquals(
-                ProductionUiErrorMapper.RELEASE_MATERIALS_NOT_READY,
-                ReleaseDialogSupport.readinessBlockedHeader(shortage));
+        assertTrue(ReleaseDialogSupport.isPreliminaryMaterialShortage(shortage));
         assertTrue(ReleaseDialogSupport.readinessDetailsAvailable(shortage));
+        assertTrue(
+                ProductionUiErrorMapper.RELEASE_PRELIMINARY_SHORTAGE_ADVISORY.contains(
+                        "Расчётная потребность превышает остаток"));
+        assertTrue(
+                ProductionUiErrorMapper.RELEASE_PRELIMINARY_SHORTAGE_ADVISORY.contains(
+                        "указать фактический расход"));
+        assertFalse(
+                ProductionUiErrorMapper.RELEASE_PRELIMINARY_SHORTAGE_ADVISORY.contains(
+                        "Материалы проверены"));
+    }
+
+    @Test
+    void confirmSummaryDoesNotClaimMaterialsAlreadyVerified() {
+        ReleaseQuantityRow row =
+                new ReleaseQuantityRow(
+                        ORDER_A,
+                        ITEM_A1,
+                        "Заказ №4183",
+                        "1",
+                        "Окно",
+                        QuantityModeView.STANDARD,
+                        10L,
+                        6L,
+                        4L,
+                        4L);
+        String content = ReleaseDialogSupport.confirmSummaryContent(List.of(row));
+        assertFalse(content.contains("Материалы проверены"));
+        assertTrue(content.contains(ProductionUiErrorMapper.RELEASE_CONFIRM_STOCK_NOTE));
+    }
+
+    @Test
+    void multiOrderPreliminaryShortageNotSilentlyIgnored() {
+        seedOrders();
+        viewModel.loadTree();
+        viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_A, ITEM_A1), true);
+        viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_B, ITEM_B2), true);
+        var rows = viewModel.loadReleaseStep1().rows();
+
+        applicationApi.releaseReadinessByOrder.put(
+                ORDER_A,
+                new MaterialReadinessView(
+                        MaterialReadinessStatusView.READY,
+                        MaterialReadinessReasonView.NONE,
+                        0,
+                        List.of()));
+        MaterialReadinessLineView shortageLine =
+                new MaterialReadinessLineView(
+                        MAT,
+                        "MAT-1",
+                        "Профиль",
+                        "Белый",
+                        "м",
+                        new BigDecimal("14.712"),
+                        BigDecimal.ZERO,
+                        new BigDecimal("14.712"),
+                        null,
+                        null);
+        applicationApi.releaseReadinessByOrder.put(
+                ORDER_B,
+                new MaterialReadinessView(
+                        MaterialReadinessStatusView.NOT_READY,
+                        MaterialReadinessReasonView.INSUFFICIENT_STOCK,
+                        1,
+                        List.of(shortageLine)));
+
+        var result = viewModel.checkReleaseReadiness(rows);
+        assertTrue(result.preliminaryShortage());
+        assertFalse(result.fatalBlocked());
+        assertFalse(result.ready());
+        assertEquals(2, applicationApi.releaseReadinessCalls.size());
+    }
+
+    @Test
+    void multiOrderFatalPreferredOverPreliminaryShortage() {
+        seedOrders();
+        viewModel.loadTree();
+        viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_A, ITEM_A1), true);
+        viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_B, ITEM_B2), true);
+        var rows = viewModel.loadReleaseStep1().rows();
+
+        applicationApi.releaseReadinessByOrder.put(
+                ORDER_A,
+                new MaterialReadinessView(
+                        MaterialReadinessStatusView.NOT_READY,
+                        MaterialReadinessReasonView.INSUFFICIENT_STOCK,
+                        1,
+                        List.of()));
+        applicationApi.releaseReadinessByOrder.put(
+                ORDER_B,
+                new MaterialReadinessView(
+                        MaterialReadinessStatusView.MATERIAL_REFERENCE_UNRESOLVED,
+                        MaterialReadinessReasonView.MATERIAL_REFERENCE_UNRESOLVED,
+                        0,
+                        List.of()));
+
+        var result = viewModel.checkReleaseReadiness(rows);
+        assertTrue(result.fatalBlocked());
+        assertFalse(result.preliminaryShortage());
+        assertEquals(
+                MaterialReadinessStatusView.MATERIAL_REFERENCE_UNRESOLVED,
+                result.blocking().status());
     }
 
     @Test

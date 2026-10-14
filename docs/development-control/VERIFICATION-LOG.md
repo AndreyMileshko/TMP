@@ -2,6 +2,33 @@
 
 ## Latest result
 
+**Date:** 2026-10-14
+**Scope:** Stage 7 Production — B3-MA-07 Release readiness gate fix
+**Overall:** PASS (focused UI tests)
+**Migration:** NONE
+**Base HEAD:** `2de9b80d536e3f8f97dacf6a5bf084fee4bdb53b`
+**Working tree:** dirty (gate fix); **no commit / no push**
+
+### B3-MA-07 Release readiness gate fix checks (2026-10-14)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD clean then implement | PASS (`2de9b80d…`) |
+| Preliminary shortage advisory allows Step 2 | PASS (unit) |
+| Fatal blockers preserved (warehouse / unresolved) | PASS (unit) |
+| Confirm wording not «Материалы проверены» | PASS (unit) |
+| Multi-order shortage not ignored; fatal preferred | PASS (unit) |
+| `ReleasePhase7ViewModelTest` (17) | PASS |
+| Backend stock / consume / plan-fact unchanged | PASS (scope) |
+| Full reactor | NOT RUN |
+| Runtime DB mutated | NO |
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
 **Date:** 2026-10-13
 **Scope:** Stage 7 Production — B3-MA-07 Dimensional meter quantity semantics
 **Overall:** PASS

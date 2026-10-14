@@ -81,8 +81,9 @@
 | Mixed orders | One wizard; items grouped by OrderId; modes may differ per order |
 | Mode/quantity race | Before leaving STEP 1: authoritative reload; mode change / quantity change messages; no reinterpret of stale FLEXIBLE input |
 | Readiness preflight | `getMaterialReadinessForRelease(orderId, itemReleaseQuantities)` per order; NOT Material Requirement; snapshot only; no reservation |
-| NOT_READY | «Недостаточно материалов для выпуска.» + [Подробнее]; cannot continue |
+| NOT_READY / INSUFFICIENT_STOCK | Advisory: preliminary demand vs production stock; «Расчётная потребность превышает…» + [Продолжить] / [Отмена] / [Подробнее]; Step 2 allowed; posting validates actual consumption |
 | NO_PRODUCTION_WAREHOUSE | «Не назначен производственный склад.»; cannot continue |
+| MATERIAL_REFERENCE_UNRESOLVED | Identity mismatch wording; cannot continue |
 | Plan / fact | Existing `prepareRelease` → `ReleasePreviewView.defaultActuals`; plan read-only; fact editable; cell codes via Warehouse `listStorageCells`; no new allocation algorithm; deviation allowed |
 | Multi-order | Group by OrderId; per-order Release command/TX; OrderId ascending; **not** cross-order atomic |
 | Partial failure | Stop after first authoritative confirm failure; UI shows A success / B failed / C not processed; no UI rollback of POSTED Release |
@@ -509,7 +510,10 @@ Release разрешён, если для каждой строки матери
 - STANDARD: «К выпуску» = «Осталось» (`activeProductionQuantity`), **not editable**.
 - FLEXIBLE: default = «Осталось»; editable in range 1..Осталось.
 - Quantity Mode is **not** chosen in the dialog — only read from the order.
-- After quantities — readiness via `getMaterialReadinessForRelease` for selected release quantities. При нехватке — cannot continue + «Недостаточно материалов для выпуска» + [Подробнее].
+- After quantities — preliminary readiness via `getMaterialReadinessForRelease` for selected release quantities (informational geometric demand vs production-warehouse AVAILABLE; Cutting optional). Exact shortage result: `NOT_READY` + `INSUFFICIENT_STOCK`.
+  - Preliminary shortage — advisory warning: «Расчётная потребность превышает остаток материалов на производственном складе. Вы можете продолжить и указать фактический расход. При подтверждении выпуска система проверит наличие материалов для списания.» Actions: **[Продолжить]** / **[Отмена]**; **[Подробнее]** for shortage lines. Master may continue to Step 2.
+  - Fatal structural blockers remain hard stops: no production warehouse, unresolved MaterialReference, other non-shortage readiness failures.
+  - Multi-order: evaluate every selected order; one consistent decision; fatal preferred over advisory; do not silently ignore any selected item's shortage.
 - Mode/quantity race before Next: reload authoritative data; do not reinterpret stale FLEXIBLE input.
 
 ### 11.2 Шаг 2 — «Фактический расход материалов» (существующий plan/fact)
@@ -525,9 +529,11 @@ Release разрешён, если для каждой строки матери
 ### 11.3 Подтверждение и результат
 
 - Final summary then [Выпустить]; button blocked during operation (double-submit guard).
+- Confirm wording must **not** claim «Материалы проверены» after preliminary readiness only. Use: posting will validate stock against master-entered actual consumption.
+- Plan/fact (Step 2): master-confirmed actual in warehouse UoM is preserved and used for posting; preliminary demand remains informational (Production Spec plan/fact).
 - Multi-order: OrderId ascending; each order own TX; stop after first authoritative failure; UI shows partial success honestly (not all-or-nothing).
 - Успех: «Выпущено: N изделия.» / «Изделия выпущены. Заказ изготовлен полностью» при MANUFACTURED. `documentId` / UUID не показываются.
-- Ошибки: over-release / конкурентный выпуск → «Количество к выпуску изменилось…»; stock race → human shortage message; отменённое производство → «Производство заказа отменено. Выпуск невозможен.»
+- Ошибки: over-release / конкурентный выпуск → «Количество к выпуску изменилось…»; stock race / insufficient actual stock → human shortage message; отменённое производство → «Производство заказа отменено. Выпуск невозможен.»
 - After success: refresh tree; clear successfully released items from selection; remain on LEVEL 1.
 
 ---
@@ -891,7 +897,7 @@ reimport.
 | MR PREPARE | Matching ref + AVAILABLE=0 still creates DRAFT; PREPARE does not query stock. |
 | MR unresolved / ambiguous UI | `MaterialRequirementNotReadyException` → business messages (`MATERIALS_UNRESOLVED` / `MATERIALS_AMBIGUOUS`), not technical failure; optional article/color/UoM context. |
 | Release readiness UNRESOLVED | Shows identity mismatch wording; **not** «Недостаточно материалов». Details button hidden when no shortage lines. |
-| Release readiness SHORTAGE | Unchanged: «Недостаточно материалов для выпуска.» + Подробнее with shortage rows. |
+| Release readiness SHORTAGE | Advisory (B3-MA-07 gate fix): preliminary shortage allows Continue to Step 2; details retained; posting validates actual. |
 | Order Card | `MATERIAL_REFERENCE_UNRESOLVED` wording aligned; no «справочник материалов/цветов». |
 | Zero-stock SUBMIT | **Unchanged** (deferred architectural decision). Existing `MATERIAL_SHORTAGE` presentation kept; DRAFT retained on failed submit. |
 

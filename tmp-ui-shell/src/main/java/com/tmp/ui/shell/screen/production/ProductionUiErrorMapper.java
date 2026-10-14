@@ -66,6 +66,19 @@ public final class ProductionUiErrorMapper {
             "Не назначен производственный склад.";
     public static final String RELEASE_MATERIALS_NOT_READY =
             "Недостаточно материалов для выпуска.";
+    /**
+     * Advisory Step-1 warning when preliminary (geometric) demand exceeds production-warehouse
+     * AVAILABLE. Master may continue to enter actual consumption; posting still validates stock.
+     */
+    public static final String RELEASE_PRELIMINARY_SHORTAGE_ADVISORY =
+            "Расчётная потребность превышает остаток материалов на производственном складе."
+                    + " Вы можете продолжить и указать фактический расход."
+                    + " При подтверждении выпуска система проверит наличие материалов для"
+                    + " списания.";
+    /** Honest confirm note — preliminary readiness is not a claim of sufficient stock. */
+    public static final String RELEASE_CONFIRM_STOCK_NOTE =
+            "При подтверждении система проверит наличие материалов для списания по указанному"
+                    + " фактическому расходу.";
     public static final String RELEASE_MODE_CHANGED =
             "Режим работы заказа изменён.\nДанные обновлены.";
     public static final String RELEASE_QUANTITY_CHANGED =

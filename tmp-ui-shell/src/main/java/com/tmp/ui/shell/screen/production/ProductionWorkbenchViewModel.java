@@ -1213,7 +1213,8 @@ public final class ProductionWorkbenchViewModel {
     public ReleaseReadinessBatchResult checkReleaseReadiness(List<ReleaseQuantityRow> rows) {
         Objects.requireNonNull(rows, "rows");
         Map<UUID, List<ReleaseQuantityRow>> byOrder = groupReleaseRowsByOrder(rows);
-        MaterialReadinessView firstBlocking = null;
+        MaterialReadinessView firstFatal = null;
+        MaterialReadinessView firstPreliminaryShortage = null;
         for (Map.Entry<UUID, List<ReleaseQuantityRow>> entry : byOrder.entrySet()) {
             List<ItemReleaseView> itemReleases = toItemReleases(entry.getValue());
             MaterialReadinessView readiness =
@@ -1221,13 +1222,22 @@ public final class ProductionWorkbenchViewModel {
             if (readiness.status() == MaterialReadinessStatusView.READY) {
                 continue;
             }
-            firstBlocking = readiness;
+            if (ReleaseDialogSupport.isPreliminaryMaterialShortage(readiness)) {
+                if (firstPreliminaryShortage == null) {
+                    firstPreliminaryShortage = readiness;
+                }
+                continue;
+            }
+            firstFatal = readiness;
             break;
         }
-        if (firstBlocking == null) {
-            return ReleaseReadinessBatchResult.allReady();
+        if (firstFatal != null) {
+            return ReleaseReadinessBatchResult.fatalBlocked(firstFatal);
         }
-        return ReleaseReadinessBatchResult.blocked(firstBlocking);
+        if (firstPreliminaryShortage != null) {
+            return ReleaseReadinessBatchResult.preliminaryShortage(firstPreliminaryShortage);
+        }
+        return ReleaseReadinessBatchResult.allReady();
     }
 
     public List<ReleaseMaterialRow> prepareReleaseMaterialRows(List<ReleaseQuantityRow> rows) {
@@ -1414,13 +1424,44 @@ public final class ProductionWorkbenchViewModel {
         }
     }
 
-    public record ReleaseReadinessBatchResult(boolean ready, MaterialReadinessView blocking) {
-        public static ReleaseReadinessBatchResult allReady() {
-            return new ReleaseReadinessBatchResult(true, null);
+    /**
+     * Batch Step-1 release readiness across selected orders.
+     *
+     * <ul>
+     *   <li>{@code ready} — all orders READY; proceed to Step 2 without advisory
+     *   <li>{@code preliminaryShortage} — at least one order has NOT_READY/INSUFFICIENT_STOCK;
+     *       UI may continue after advisory (posting still validates actual consumption)
+     *   <li>{@code fatalBlocked} — structural blocker (no production warehouse, unresolved
+     *       MaterialReference, or other non-shortage failure); hard stop
+     * </ul>
+     */
+    public record ReleaseReadinessBatchResult(
+            boolean ready,
+            boolean preliminaryShortage,
+            boolean fatalBlocked,
+            MaterialReadinessView readiness) {
+
+        public MaterialReadinessView blocking() {
+            return readiness;
         }
 
-        public static ReleaseReadinessBatchResult blocked(MaterialReadinessView readiness) {
-            return new ReleaseReadinessBatchResult(false, readiness);
+        public MaterialReadinessView advisory() {
+            return readiness;
+        }
+
+        public static ReleaseReadinessBatchResult allReady() {
+            return new ReleaseReadinessBatchResult(true, false, false, null);
+        }
+
+        public static ReleaseReadinessBatchResult preliminaryShortage(
+                MaterialReadinessView readiness) {
+            Objects.requireNonNull(readiness, "readiness");
+            return new ReleaseReadinessBatchResult(false, true, false, readiness);
+        }
+
+        public static ReleaseReadinessBatchResult fatalBlocked(MaterialReadinessView readiness) {
+            Objects.requireNonNull(readiness, "readiness");
+            return new ReleaseReadinessBatchResult(false, false, true, readiness);
         }
     }
 

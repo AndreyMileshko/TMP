@@ -4,6 +4,27 @@
 
 ---
 
+## Stage 7 Production — B3-MA-07 Release readiness gate fix — 2026-10-14
+
+**Date:** 2026-10-14
+**Stage:** 7 Production / Manual Acceptance B3-MA-07 (Release UI gate)
+**Base HEAD:** `2de9b80d536e3f8f97dacf6a5bf084fee4bdb53b`
+**Status:** PASS — preliminary shortage advisory; fatal blockers preserved; backend stock validation unchanged; no commit / no push
+
+### Scope
+
+- UI Step 1: `NOT_READY` + `INSUFFICIENT_STOCK` is advisory (Continue / Cancel / Details), not hard block
+- Fatal hard stops unchanged: no production warehouse, unresolved MaterialReference, other non-shortage readiness
+- Confirm wording no longer claims «Материалы проверены» after preliminary-only check
+- Multi-order: scan all selected orders; fatal preferred over advisory; shortage not silently ignored
+- Backend untouched: `precheckStock`, `consume`, `validateActualAgainstPlan`, MR / Demand / Cutting
+
+### Verification
+
+See VERIFICATION-LOG B3-MA-07 Release readiness gate fix entry (2026-10-14).
+
+---
+
 ## Stage 7 Production — B3-MA-07 Dimensional meter quantity semantics — 2026-10-13
 
 **Date:** 2026-10-13
