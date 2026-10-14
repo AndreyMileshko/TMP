@@ -17,6 +17,10 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.scene.Parent;
+import javafx.stage.Window;
+import javafx.stage.Screen;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
@@ -47,6 +51,18 @@ public final class ReleaseConfirmPresentation {
     public static final String SEARCH_PROMPT = "Поиск: артикул или наименование";
     public static final String DEVIATION_MARK = "≠";
     public static final String DEVIATION_OK = "";
+
+    /** Preferred confirm dialog width (dialog pane). */
+    public static final double CONFIRM_DIALOG_PREF_WIDTH = 720;
+
+    /** Materials detail viewport preferred height when expanded. */
+    public static final double MATERIALS_VIEWPORT_PREF_HEIGHT = 260;
+
+    /** Materials detail viewport max height — keeps large lists scrollable inside the dialog. */
+    public static final double MATERIALS_VIEWPORT_MAX_HEIGHT = 320;
+
+    /** Expanded dialog may use at most this fraction of the screen visual height. */
+    public static final double CONFIRM_DIALOG_MAX_SCREEN_HEIGHT_FRACTION = 0.9;
 
     private ReleaseConfirmPresentation() {}
 
@@ -233,6 +249,17 @@ public final class ReleaseConfirmPresentation {
 
     public static boolean showConfirmSummary(
             List<ReleaseQuantityRow> quantityRows, List<ReleaseMaterialRow> materials) {
+        ConfirmDialogSession session = createConfirmDialog(quantityRows, materials);
+        Optional<ButtonType> result = session.dialog().showAndWait();
+        return result.isPresent() && result.get() == session.releaseType();
+    }
+
+    /**
+     * Builds the compact/expandable confirm dialog without showing it. Used by production UI and
+     * focused JavaFX sizing tests.
+     */
+    public static ConfirmDialogSession createConfirmDialog(
+            List<ReleaseQuantityRow> quantityRows, List<ReleaseMaterialRow> materials) {
         Objects.requireNonNull(quantityRows, "quantityRows");
         Objects.requireNonNull(materials, "materials");
         if (quantityRows.isEmpty()) {
@@ -261,8 +288,9 @@ public final class ReleaseConfirmPresentation {
         VBox orderGroupsBox = new VBox(8);
         ScrollPane materialsScroll = new ScrollPane(orderGroupsBox);
         materialsScroll.setFitToWidth(true);
-        materialsScroll.setPrefViewportHeight(260);
-        materialsScroll.setMaxHeight(320);
+        materialsScroll.setPrefViewportHeight(MATERIALS_VIEWPORT_PREF_HEIGHT);
+        materialsScroll.setMaxHeight(MATERIALS_VIEWPORT_MAX_HEIGHT);
+        materialsScroll.setMinHeight(0);
         materialsScroll.setVisible(false);
         materialsScroll.setManaged(false);
         VBox.setVgrow(materialsScroll, Priority.ALWAYS);
@@ -296,19 +324,6 @@ public final class ReleaseConfirmPresentation {
                 };
         searchField.textProperty().addListener((obs, old, value) -> applyFilter.run());
 
-        toggleButton.setOnAction(
-                event -> {
-                    boolean show = !materialsScroll.isVisible();
-                    materialsScroll.setVisible(show);
-                    materialsScroll.setManaged(show);
-                    searchField.setVisible(show);
-                    searchField.setManaged(show);
-                    toggleButton.setText(show ? HIDE_MATERIALS : SHOW_MATERIALS);
-                    if (show) {
-                        applyFilter.run();
-                    }
-                });
-
         Label footer = new Label(ProductionUiErrorMapper.RELEASE_CONFIRM_STOCK_NOTE);
         footer.setWrapText(true);
         footer.setMaxWidth(640);
@@ -331,10 +346,214 @@ public final class ReleaseConfirmPresentation {
                 new ButtonType(ReleaseDialogSupport.CANCEL_BUTTON, ButtonBar.ButtonData.CANCEL_CLOSE);
         dialog.getDialogPane().getButtonTypes().setAll(releaseType, cancelType);
         dialog.getDialogPane().setContent(root);
-        dialog.getDialogPane().setPrefWidth(720);
+        dialog.getDialogPane().setPrefWidth(CONFIRM_DIALOG_PREF_WIDTH);
 
-        Optional<ButtonType> result = dialog.showAndWait();
-        return result.isPresent() && result.get() == releaseType;
+        ConfirmDialogSizing sizing = new ConfirmDialogSizing(dialog, materialsScroll);
+        toggleButton.setOnAction(
+                event -> {
+                    boolean show = !materialsScroll.isVisible();
+                    materialsScroll.setVisible(show);
+                    materialsScroll.setManaged(show);
+                    searchField.setVisible(show);
+                    searchField.setManaged(show);
+                    toggleButton.setText(show ? HIDE_MATERIALS : SHOW_MATERIALS);
+                    if (show) {
+                        applyFilter.run();
+                    }
+                    sizing.applyMaterialsExpanded(show);
+                });
+
+        ConfirmDialogSession session =
+                new ConfirmDialogSession(
+                        dialog,
+                        toggleButton,
+                        searchField,
+                        materialsScroll,
+                        root,
+                        releaseType,
+                        cancelType,
+                        List.copyOf(groupViews),
+                        sizing);
+        sizing.install(dialog);
+        return session;
+    }
+
+    /** Clamps a desired dialog height to the usable fraction of screen visual bounds. */
+    public static double clampToScreenVisualHeight(double desiredHeight, double visualScreenHeight) {
+        if (desiredHeight <= 0) {
+            return desiredHeight;
+        }
+        if (visualScreenHeight <= 0) {
+            return desiredHeight;
+        }
+        double max = visualScreenHeight * CONFIRM_DIALOG_MAX_SCREEN_HEIGHT_FRACTION;
+        return Math.min(desiredHeight, max);
+    }
+
+    /**
+     * Testable confirm dialog handle. Presentation only — does not post Release.
+     */
+    public record ConfirmDialogSession(
+            Dialog<ButtonType> dialog,
+            Button toggleButton,
+            TextField searchField,
+            ScrollPane materialsScroll,
+            VBox root,
+            ButtonType releaseType,
+            ButtonType cancelType,
+            List<OrderGroupView> orderGroups,
+            ConfirmDialogSizing sizing) {
+
+        public ConfirmDialogSession {
+            Objects.requireNonNull(dialog, "dialog");
+            Objects.requireNonNull(toggleButton, "toggleButton");
+            Objects.requireNonNull(searchField, "searchField");
+            Objects.requireNonNull(materialsScroll, "materialsScroll");
+            Objects.requireNonNull(root, "root");
+            Objects.requireNonNull(releaseType, "releaseType");
+            Objects.requireNonNull(cancelType, "cancelType");
+            orderGroups = orderGroups == null ? List.of() : List.copyOf(orderGroups);
+            Objects.requireNonNull(sizing, "sizing");
+        }
+
+        public boolean materialsExpanded() {
+            return materialsScroll.isVisible();
+        }
+
+        public void expandMaterials() {
+            if (!materialsExpanded()) {
+                toggleButton.fire();
+            }
+        }
+
+        public void collapseMaterials() {
+            if (materialsExpanded()) {
+                toggleButton.fire();
+            }
+        }
+
+        public boolean wasManuallyResized() {
+            return sizing.userResized();
+        }
+
+        public void markManuallyResizedForTest() {
+            sizing.markUserResized();
+        }
+    }
+
+    /** Auto-resize for expand/collapse while respecting manual window resize. */
+    public static final class ConfirmDialogSizing {
+        private final Dialog<?> dialog;
+        private final ScrollPane materialsScroll;
+        private double compactHeight = -1;
+        private boolean userResized;
+        private boolean applyingSize;
+
+        ConfirmDialogSizing(Dialog<?> dialog, ScrollPane materialsScroll) {
+            this.dialog = Objects.requireNonNull(dialog, "dialog");
+            this.materialsScroll = Objects.requireNonNull(materialsScroll, "materialsScroll");
+        }
+
+        void install(Dialog<?> dialog) {
+            dialog.setOnShown(
+                    event -> {
+                        Window window = windowOrNull();
+                        if (window == null) {
+                            return;
+                        }
+                        captureCompactHeight();
+                        window.widthProperty()
+                                .addListener((obs, oldV, newV) -> noteExternalResize());
+                        window.heightProperty()
+                                .addListener((obs, oldV, newV) -> noteExternalResize());
+                    });
+        }
+
+        public boolean userResized() {
+            return userResized;
+        }
+
+        void markUserResized() {
+            userResized = true;
+        }
+
+        void applyMaterialsExpanded(boolean expanded) {
+            Window window = windowOrNull();
+            if (window == null) {
+                // Dialog not shown yet (unit construction) — still layout content sizes.
+                layoutContent();
+                return;
+            }
+            if (compactHeight <= 0) {
+                captureCompactHeight();
+            }
+            applyingSize = true;
+            try {
+                layoutContent();
+                if (expanded) {
+                    window.sizeToScene();
+                    double desired = window.getHeight();
+                    double clamped =
+                            clampToScreenVisualHeight(desired, visualScreenHeight(window));
+                    if (clamped < desired) {
+                        window.setHeight(clamped);
+                    }
+                    // Keep action button bar reachable: materials stay max-bounded + scrollable.
+                    materialsScroll.setMaxHeight(MATERIALS_VIEWPORT_MAX_HEIGHT);
+                } else if (!userResized && compactHeight > 0) {
+                    layoutContent();
+                    window.setHeight(compactHeight);
+                } else {
+                    layoutContent();
+                }
+            } finally {
+                applyingSize = false;
+            }
+        }
+
+        private void captureCompactHeight() {
+            Window window = windowOrNull();
+            if (window == null) {
+                return;
+            }
+            if (!materialsScroll.isVisible() && !userResized) {
+                compactHeight = window.getHeight();
+            }
+        }
+
+        private void noteExternalResize() {
+            if (!applyingSize) {
+                userResized = true;
+            }
+        }
+
+        private void layoutContent() {
+            var pane = dialog.getDialogPane();
+            if (pane.getContent() instanceof Parent content) {
+                content.applyCss();
+                content.layout();
+            }
+            pane.applyCss();
+            pane.layout();
+        }
+
+        private Window windowOrNull() {
+            var scene = dialog.getDialogPane().getScene();
+            return scene == null ? null : scene.getWindow();
+        }
+
+        private static double visualScreenHeight(Window window) {
+            Rectangle2D bounds = Screen.getPrimary().getVisualBounds();
+            if (window.getX() >= 0) {
+                for (Screen screen : Screen.getScreens()) {
+                    Rectangle2D vb = screen.getVisualBounds();
+                    if (vb.contains(window.getX() + 8, window.getY() + 8)) {
+                        return vb.getHeight();
+                    }
+                }
+            }
+            return bounds.getHeight();
+        }
     }
 
     private static List<OrderGroupView> buildOrderGroupViews(
@@ -458,7 +677,7 @@ public final class ReleaseConfirmPresentation {
         }
     }
 
-    private record OrderGroupView(
+    public record OrderGroupView(
             UUID orderId,
             String orderLabel,
             TitledPane pane,

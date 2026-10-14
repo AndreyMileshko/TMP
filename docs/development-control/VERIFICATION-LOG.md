@@ -3,6 +3,36 @@
 ## Latest result
 
 **Date:** 2026-10-14
+**Scope:** Stage 7 Production — B3-MA-09-FIX1 Release confirmation auto-resize
+**Overall:** PASS (focused JavaFX UI + presentation unit)
+**Migration:** NONE
+**Base HEAD:** `90fa5aceba7b997b85a1a7370beab4f7b15448e8`
+**Working tree:** dirty (B3-MA-09-FIX1); **no commit / no push**
+
+### B3-MA-09-FIX1 checks (2026-10-14)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD exact + clean working tree before start | PASS (`90fa5ace…`) |
+| Collapsed compact / expand grows / collapse restores / manual resize | PASS (`ReleaseConfirmDialogSizingFxTest` 9) |
+| Aggregation / search / deviation / UoM presentation | PASS (`ReleaseConfirmPresentationTest` 10) |
+| Screen bounds clamp + large-list internal scroll + multi-order bounded | PASS (sizing FX tests) |
+| Full reactor | NOT RUN |
+| Release posting / warehouse / RBAC | NOT MODIFIED |
+
+Commands:
+
+```text
+mvn -pl tmp-ui-shell -am "-Dtest=ReleaseConfirmDialogSizingFxTest,ReleaseConfirmPresentationTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+```
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-10-14
 **Scope:** Stage 7 Production — B3-MA-09 Production UX improvements
 **Overall:** PASS (focused UI + production unit)
 **Migration:** NONE

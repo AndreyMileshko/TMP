@@ -4,6 +4,26 @@
 
 ---
 
+
+## Stage 7 Production — B3-MA-09-FIX1 Release confirmation auto-resize — 2026-10-14
+
+**Date:** 2026-10-14
+**Stage:** 7 Production / Manual Acceptance B3-MA-09-FIX1
+**Base HEAD:** `90fa5aceba7b997b85a1a7370beab4f7b15448e8`
+**Status:** PASS — confirm dialog auto-grows on material expand; restores compact on collapse unless user resized; no migration; no commit / no push
+
+### Scope
+
+- `ReleaseConfirmPresentation`: extract `createConfirmDialog` / `ConfirmDialogSession`; `ConfirmDialogSizing` expands via `sizeToScene` clamped to 90% of screen visual bounds; collapse restores captured compact height when auto-sized; manual window resize is respected
+- Materials `ScrollPane` remains max-bounded (320px); order-group expand scrolls internally; search filter unchanged and does not drive resize
+- Focused JavaFX UI tests: `ReleaseConfirmDialogSizingFxTest` (9)
+- Out of scope: Release calc/posting, warehouse allocation, aggregation/search logic, other modals
+
+### Verification
+
+See VERIFICATION-LOG B3-MA-09-FIX1 entry (2026-10-14).
+
+---
 ## Stage 7 Production — B3-MA-09 Production UX improvements — 2026-10-14
 
 **Date:** 2026-10-14
