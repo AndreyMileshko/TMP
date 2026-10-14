@@ -576,9 +576,13 @@ final class ProductionWorkbenchUiTestSupport {
 
     static final class StubWorklistQuery implements OrderWorklistQuery {
         final List<OrderWorklistRowDto> rows = new ArrayList<>();
+        RuntimeException listFailure;
 
         @Override
         public List<OrderWorklistRowDto> listWorklistRows(OrderWorklistCriteria criteria) {
+            if (listFailure != null) {
+                throw listFailure;
+            }
             return List.copyOf(rows);
         }
 

@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import javafx.beans.property.SimpleStringProperty;
@@ -916,33 +917,84 @@ public final class ProductionWorkbenchController
                 return;
             }
 
-            releaseButton.setDisable(true);
-            try {
-                ProductionWorkbenchViewModel.MultiOrderReleaseResult result =
-                        viewModel.confirmReleases(step1.rows(), step2.materials());
-                ProductionWorkbenchViewModel.ReleaseCompletionKind kind =
-                        viewModel.applyReleaseResult(result, step1.rows());
-                String summary = result.summaryMessage();
-                switch (kind) {
-                    case FULL_SUCCESS ->
-                            ReleaseDialogSupport.showInfo(
-                                    ReleaseDialogSupport.STEP1_TITLE, summary);
-                    case PARTIAL_SUCCESS, TOTAL_FAILURE ->
-                            ReleaseDialogSupport.showWarning(
-                                    ReleaseDialogSupport.STEP1_TITLE, summary);
-                }
-            } catch (RuntimeException ex) {
-                viewModel.setErrorMessage(ProductionUiErrorMapper.text(ex));
-            } finally {
-                releaseButton
-                        .disableProperty()
-                        .bind(
-                                viewModel
-                                        .releaseEnabledProperty()
-                                        .not()
-                                        .or(viewModel.loadingProperty()));
-            }
+            ReleasePostConfirmOutcome outcome =
+                    executeConfirmedRelease(viewModel, step1.rows(), step2.materials());
+            presentConfirmedReleaseOutcome(outcome);
             return;
+        }
+    }
+
+    /**
+     * Post-confirm release execution (package-visible for FX regression).
+     *
+     * <p>Must not call {@code releaseButton.setDisable} — that property is already bound. Busy
+     * state uses {@code loadingProperty}, which participates in the existing disable binding.
+     */
+    static ReleasePostConfirmOutcome executeConfirmedRelease(
+            ProductionWorkbenchViewModel viewModel,
+            List<ReleaseQuantityRow> quantityRows,
+            List<ReleaseMaterialRow> materials) {
+        Objects.requireNonNull(viewModel, "viewModel");
+        Objects.requireNonNull(quantityRows, "quantityRows");
+        Objects.requireNonNull(materials, "materials");
+        viewModel.loadingProperty().set(true);
+        try {
+            ProductionWorkbenchViewModel.MultiOrderReleaseResult result =
+                    viewModel.confirmReleases(quantityRows, materials);
+            ProductionWorkbenchViewModel.ReleaseCompletionKind kind =
+                    viewModel.applyReleaseResult(result, quantityRows);
+            return ReleasePostConfirmOutcome.handled(kind, result.summaryMessage());
+        } catch (RuntimeException ex) {
+            String mapped = ProductionUiErrorMapper.text(ex);
+            viewModel.setErrorMessage(mapped);
+            return ReleasePostConfirmOutcome.unexpected(mapped);
+        } finally {
+            viewModel.loadingProperty().set(false);
+        }
+    }
+
+    static void presentConfirmedReleaseOutcome(ReleasePostConfirmOutcome outcome) {
+        Objects.requireNonNull(outcome, "outcome");
+        if (outcome.unexpected()) {
+            ReleaseDialogSupport.showWarning(
+                    ReleaseDialogSupport.STEP1_TITLE, outcome.summary());
+            return;
+        }
+        switch (outcome.kind()) {
+            case FULL_SUCCESS ->
+                    ReleaseDialogSupport.showInfo(
+                            ReleaseDialogSupport.STEP1_TITLE, outcome.summary());
+            case PARTIAL_SUCCESS, TOTAL_FAILURE ->
+                    ReleaseDialogSupport.showWarning(
+                            ReleaseDialogSupport.STEP1_TITLE, outcome.summary());
+        }
+    }
+
+    /**
+     * Result of post-confirm release posting before dialog presentation.
+     *
+     * @param unexpected when true, {@code kind} is null and {@code summary} is a mapped unexpected
+     *     error (dialog must still be shown by the presenter)
+     */
+    record ReleasePostConfirmOutcome(
+            boolean unexpected,
+            ProductionWorkbenchViewModel.ReleaseCompletionKind kind,
+            String summary) {
+
+        ReleasePostConfirmOutcome {
+            summary = summary == null ? "" : summary;
+            if (!unexpected) {
+                Objects.requireNonNull(kind, "kind");
+            }
+        }
+
+        static ReleasePostConfirmOutcome handled(
+                ProductionWorkbenchViewModel.ReleaseCompletionKind kind, String summary) {
+            return new ReleasePostConfirmOutcome(false, kind, summary);
+        }
+
+        static ReleasePostConfirmOutcome unexpected(String summary) {
+            return new ReleasePostConfirmOutcome(true, null, summary);
         }
     }
 
