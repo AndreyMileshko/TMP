@@ -4,6 +4,26 @@
 
 ---
 
+## Stage 7 Production — B3-MA-08 Automatic warehouse cell allocation — 2026-10-14
+
+**Date:** 2026-10-14
+**Stage:** 7 Production / Manual Acceptance B3-MA-08
+**Base HEAD:** `61b84873922f78b4e5eb5a6f26852b06d85e6e02`
+**Status:** PASS — server-side deterministic cell allocation inside Release posting TX; Step 2 UI actual-only; no migration; no commit / no push
+
+### Scope
+
+- `ReleaseProductsService`: after production-state lock, load AVAILABLE production-warehouse stock once per material; allocate by cell code ASC then cell ID ASC; shared remaining ledger across lines in one posting; ignore client allocations
+- Zero actual → no allocations / no consume; insufficient stock → existing shortage message shape (`available=` / `required=`); optimistic Warehouse consume preserved
+- Release Step 2 UI: remove cell column / add-remove cell editor; validate nonnegative actual only; UI sends empty allocation lists
+- Docs: STAGE-7-PRODUCTION-UX-DESIGN §11.2; B3-MA-05 / confirm UX 1.2 / Cutting / RBAC redesign NOT TOUCHED
+
+### Verification
+
+See VERIFICATION-LOG B3-MA-08 entry (2026-10-14).
+
+---
+
 ## Stage 7 Production — B3-MA-07 Release readiness gate fix — 2026-10-14
 
 **Date:** 2026-10-14

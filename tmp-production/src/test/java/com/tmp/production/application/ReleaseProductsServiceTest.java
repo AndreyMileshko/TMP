@@ -367,50 +367,46 @@ class ReleaseProductsServiceTest {
         BigDecimal actual = bd(8);
         ReleaseProductsResult result =
                 service.releaseProducts(
-                        releaseCommand(
-                                orderId,
-                                itemId,
-                                3,
-                                materialId,
-                                actual,
-                                List.of(
-                                        new CellAllocation(PROD_CELL, bd(4)),
-                                        new CellAllocation(PROD_CELL_B, bd(4)))));
+                        releaseCommand(orderId, itemId, 3, materialId, actual));
 
         assertEquals(2, result.consumptionReferences().size());
         assertEquals(2, warehouseCommands.consumeCalls.size());
         assertEquals(PROD_CELL, warehouseCommands.consumeCalls.get(0).storageCellId());
+        assertEquals(0, warehouseCommands.consumeCalls.get(0).quantity().compareTo(bd(4)));
         assertEquals(PROD_CELL_B, warehouseCommands.consumeCalls.get(1).storageCellId());
+        assertEquals(0, warehouseCommands.consumeCalls.get(1).quantity().compareTo(bd(4)));
     }
 
     @Test
-    void allocationTotalMismatchFails() {
+    void clientSuppliedAllocationsAreIgnoredInFavorOfServerAllocation() {
         SourceOrderId orderId = SourceOrderId.generate();
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specId = SpecificationId.generate();
         UUID materialId = UUID.randomUUID();
         launchItem(orderId, itemId, specId, 10);
-        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-MISMATCH");
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-IGNORE");
 
         warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(100));
+        warehouseQueries.setStock(materialId, PROD, PROD_CELL_B, bd(100));
 
-        assertThrows(
-                ReleaseProductsException.class,
-                () ->
-                        service.releaseProducts(
-                                releaseCommand(
-                                        orderId,
-                                        itemId,
-                                        3,
-                                        materialId,
-                                        bd(10),
-                                        List.of(new CellAllocation(PROD_CELL, bd(6))))));
+        // Client asks for a mismatched single-cell allocation; server must allocate from stock.
+        ReleaseProductsResult result =
+                service.releaseProducts(
+                        releaseCommand(
+                                orderId,
+                                itemId,
+                                3,
+                                materialId,
+                                bd(10),
+                                List.of(new CellAllocation(PROD_CELL, bd(6)))));
 
-        assertEquals(0, warehouseCommands.consumeCalls.size());
+        assertEquals(1, result.consumptionReferences().size());
+        assertEquals(PROD_CELL, warehouseCommands.consumeCalls.getFirst().storageCellId());
+        assertEquals(0, warehouseCommands.consumeCalls.getFirst().quantity().compareTo(bd(10)));
     }
 
     @Test
-    void wrongWarehouseCellMainCellFails() {
+    void mainWarehouseStockCannotBeUsedForAutomaticAllocation() {
         SourceOrderId orderId = SourceOrderId.generate();
         SourceOrderItemId itemId = SourceOrderItemId.generate();
         SpecificationId specId = SpecificationId.generate();
@@ -419,8 +415,7 @@ class ReleaseProductsServiceTest {
         bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-CELL");
 
         warehouseQueries.setStock(materialId, MAIN, MAIN_CELL, bd(100));
-        warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(100));
-
+        // Production warehouse empty — auto-allocation must fail even if client names MAIN_CELL.
         assertThrows(
                 ReleaseProductsException.class,
                 () ->
@@ -531,6 +526,227 @@ class ReleaseProductsServiceTest {
     }
 
     @Test
+    void autoAllocateSingleCellEnoughStock() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        UUID materialId = UUID.randomUUID();
+        launchItem(orderId, itemId, specId, 10);
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-A");
+        warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(100));
+
+        ReleaseProductsResult result =
+                service.releaseProducts(
+                        releaseCommand(orderId, itemId, 3, materialId, bd("5.100000")));
+
+        assertEquals(1, warehouseCommands.consumeCalls.size());
+        assertEquals(PROD_CELL, warehouseCommands.consumeCalls.getFirst().storageCellId());
+        assertEquals(
+                0, warehouseCommands.consumeCalls.getFirst().quantity().compareTo(bd("5.100000")));
+        assertEquals(1, result.consumptionReferences().size());
+    }
+
+    @Test
+    void autoAllocateMultipleCellsDeterministicCodeOrder() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        UUID materialId = UUID.randomUUID();
+        launchItem(orderId, itemId, specId, 10);
+        bindFrozenSpec(specId, itemId, bd(1), materialId, "MAT-B");
+
+        UUID cellA1 = UUID.fromString("00000000-0000-4000-8000-000000000301");
+        UUID cellA2 = UUID.fromString("00000000-0000-4000-8000-000000000302");
+        UUID cellA3 = UUID.fromString("00000000-0000-4000-8000-000000000303");
+        warehouseQueries.productionCells =
+                List.of(
+                        new StorageCellView(cellA1, PROD, "A1-1", true),
+                        new StorageCellView(cellA3, PROD, "A1-3", true),
+                        new StorageCellView(cellA2, PROD, "A1-2", true));
+        warehouseQueries.setStock(materialId, PROD, cellA1, bd(10));
+        warehouseQueries.setStock(materialId, PROD, cellA2, bd(15));
+        warehouseQueries.setStock(materialId, PROD, cellA3, bd(5));
+
+        service.releaseProducts(releaseCommand(orderId, itemId, 1, materialId, bd(18)));
+
+        assertEquals(2, warehouseCommands.consumeCalls.size());
+        assertEquals(cellA1, warehouseCommands.consumeCalls.get(0).storageCellId());
+        assertEquals(0, warehouseCommands.consumeCalls.get(0).quantity().compareTo(bd(10)));
+        assertEquals(cellA2, warehouseCommands.consumeCalls.get(1).storageCellId());
+        assertEquals(0, warehouseCommands.consumeCalls.get(1).quantity().compareTo(bd(8)));
+    }
+
+    @Test
+    void autoAllocateTieBreakByStorageCellId() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        UUID materialId = UUID.randomUUID();
+        launchItem(orderId, itemId, specId, 10);
+        bindFrozenSpec(specId, itemId, bd(1), materialId, "MAT-C");
+
+        UUID cellLowId = UUID.fromString("00000000-0000-4000-8000-000000000401");
+        UUID cellHighId = UUID.fromString("00000000-0000-4000-8000-000000000402");
+        warehouseQueries.productionCells =
+                List.of(
+                        new StorageCellView(cellHighId, PROD, "SAME", true),
+                        new StorageCellView(cellLowId, PROD, "SAME", true));
+        warehouseQueries.setStock(materialId, PROD, cellHighId, bd(5));
+        warehouseQueries.setStock(materialId, PROD, cellLowId, bd(5));
+
+        service.releaseProducts(releaseCommand(orderId, itemId, 1, materialId, bd(7)));
+
+        assertEquals(2, warehouseCommands.consumeCalls.size());
+        assertEquals(cellLowId, warehouseCommands.consumeCalls.get(0).storageCellId());
+        assertEquals(0, warehouseCommands.consumeCalls.get(0).quantity().compareTo(bd(5)));
+        assertEquals(cellHighId, warehouseCommands.consumeCalls.get(1).storageCellId());
+        assertEquals(0, warehouseCommands.consumeCalls.get(1).quantity().compareTo(bd(2)));
+    }
+
+    @Test
+    void autoAllocateInsufficientTotalStockFails() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        UUID materialId = UUID.randomUUID();
+        launchItem(orderId, itemId, specId, 10);
+        bindFrozenSpec(specId, itemId, bd(1), materialId, "MAT-D");
+        warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(3));
+        warehouseQueries.setStock(materialId, PROD, PROD_CELL_B, bd(2));
+
+        ReleaseProductsException ex =
+                assertThrows(
+                        ReleaseProductsException.class,
+                        () ->
+                                service.releaseProducts(
+                                        releaseCommand(orderId, itemId, 1, materialId, bd(8))));
+
+        assertTrue(ex.getMessage().contains("available=5"));
+        assertTrue(ex.getMessage().contains("required=8"));
+        assertEquals(0, warehouseCommands.consumeCalls.size());
+        assertTrue(releaseRepository.store.isEmpty());
+    }
+
+    @Test
+    void actualBelowAndAbovePlanBothAllowed() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        SpecificationId specId = SpecificationId.generate();
+        UUID materialId = UUID.randomUUID();
+        launchItem(orderId, itemId, specId, 10);
+        bindFrozenSpec(specId, itemId, bd("1.7"), materialId, "MAT-FG");
+        warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(100));
+
+        ReleaseProductsResult below =
+                service.releaseProducts(
+                        releaseCommand(orderId, itemId, 1, materialId, bd(1)));
+        assertEquals(0, below.materialResults().getFirst().plannedQuantity().compareTo(bd("1.700000")));
+        assertEquals(0, below.materialResults().getFirst().actualQuantity().compareTo(bd(1)));
+        assertEquals(0, warehouseCommands.consumeCalls.get(0).quantity().compareTo(bd(1)));
+
+        ReleaseProductsResult above =
+                service.releaseProducts(
+                        releaseCommand(orderId, itemId, 1, materialId, bd(5)));
+        assertEquals(0, above.materialResults().getFirst().plannedQuantity().compareTo(bd("1.700000")));
+        assertEquals(0, above.materialResults().getFirst().actualQuantity().compareTo(bd(5)));
+        assertEquals(0, warehouseCommands.consumeCalls.get(1).quantity().compareTo(bd(5)));
+    }
+
+    @Test
+    void sameMaterialAcrossItemsDoesNotDoubleAllocateStock() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId item1 = SourceOrderItemId.generate();
+        SourceOrderItemId item2 = SourceOrderItemId.generate();
+        SpecificationId spec1 = SpecificationId.generate();
+        SpecificationId spec2 = SpecificationId.generate();
+        UUID materialId = UUID.randomUUID();
+        launchItem(orderId, item1, spec1, 10);
+        launchItem(orderId, item2, spec2, 10);
+        specificationQuery.byIdSpecs =
+                Map.of(
+                        spec1,
+                        spec(spec1, item1, List.of(materialLine("MAT-H", bd(1)))),
+                        spec2,
+                        spec(spec2, item2, List.of(materialLine("MAT-H", bd(1)))));
+        warehouseAvailabilityQuery.materialReferences =
+                List.of(reference(materialId, "MAT-H"));
+        warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(10));
+
+        ReleaseProductsResult result =
+                service.releaseProducts(
+                        new ReleaseProductsCommand(
+                                orderId.value(),
+                                List.of(
+                                        new ItemRelease(item1.value(), 1),
+                                        new ItemRelease(item2.value(), 1)),
+                                List.of(
+                                        new MaterialActualUsage(
+                                                item1.value(), materialId, bd(6), List.of()),
+                                        new MaterialActualUsage(
+                                                item2.value(), materialId, bd(4), List.of()))));
+
+        assertEquals(2, warehouseCommands.consumeCalls.size());
+        assertEquals(0, warehouseCommands.consumeCalls.get(0).quantity().compareTo(bd(6)));
+        assertEquals(0, warehouseCommands.consumeCalls.get(1).quantity().compareTo(bd(4)));
+        assertEquals(PROD_CELL, warehouseCommands.consumeCalls.get(0).storageCellId());
+        assertEquals(PROD_CELL, warehouseCommands.consumeCalls.get(1).storageCellId());
+        assertEquals(2, result.materialResults().size());
+        assertEquals(item1.value(), result.materialResults().get(0).sourceOrderItemId());
+        assertEquals(item2.value(), result.materialResults().get(1).sourceOrderItemId());
+    }
+
+    @Test
+    void sameMaterialDifferentLengthsRetainReleaseAttribution() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId item1 = SourceOrderItemId.generate();
+        SourceOrderItemId item2 = SourceOrderItemId.generate();
+        SpecificationId spec1 = SpecificationId.generate();
+        SpecificationId spec2 = SpecificationId.generate();
+        UUID materialId = UUID.randomUUID();
+        launchItem(orderId, item1, spec1, 5);
+        launchItem(orderId, item2, spec2, 5);
+        specificationQuery.byIdSpecs =
+                Map.of(
+                        spec1,
+                        spec(spec1, item1, List.of(materialLine("MAT-I", bd("2.500000")))),
+                        spec2,
+                        spec(spec2, item2, List.of(materialLine("MAT-I", bd("1.200000")))));
+        warehouseAvailabilityQuery.materialReferences =
+                List.of(reference(materialId, "MAT-I"));
+        warehouseQueries.setStock(materialId, PROD, PROD_CELL, bd(20));
+
+        ReleaseProductsResult result =
+                service.releaseProducts(
+                        new ReleaseProductsCommand(
+                                orderId.value(),
+                                List.of(
+                                        new ItemRelease(item1.value(), 1),
+                                        new ItemRelease(item2.value(), 1)),
+                                List.of(
+                                        new MaterialActualUsage(
+                                                item1.value(),
+                                                materialId,
+                                                bd("2.500000"),
+                                                List.of()),
+                                        new MaterialActualUsage(
+                                                item2.value(),
+                                                materialId,
+                                                bd("1.200000"),
+                                                List.of()))));
+
+        assertEquals(2, result.materialResults().size());
+        assertEquals(
+                0,
+                result.materialResults().get(0).plannedQuantity().compareTo(bd("2.500000")));
+        assertEquals(
+                0,
+                result.materialResults().get(1).plannedQuantity().compareTo(bd("1.200000")));
+        assertEquals(item1.value(), result.materialResults().get(0).sourceOrderItemId());
+        assertEquals(item2.value(), result.materialResults().get(1).sourceOrderItemId());
+        assertEquals(2, warehouseCommands.consumeCalls.size());
+    }
+
+    @Test
     void frozenSpecOnlyByIdResolverNeverCurrent() {
         SourceOrderId orderId = SourceOrderId.generate();
         SourceOrderItemId itemId = SourceOrderItemId.generate();
@@ -609,6 +825,15 @@ class ReleaseProductsServiceTest {
             SourceOrderItemId itemId,
             long releaseQuantity,
             UUID materialId,
+            BigDecimal actual) {
+        return releaseCommand(orderId, itemId, releaseQuantity, materialId, actual, List.of());
+    }
+
+    private static ReleaseProductsCommand releaseCommand(
+            SourceOrderId orderId,
+            SourceOrderItemId itemId,
+            long releaseQuantity,
+            UUID materialId,
             BigDecimal actual,
             List<CellAllocation> allocations) {
         return new ReleaseProductsCommand(
@@ -679,6 +904,7 @@ class ReleaseProductsServiceTest {
 
         Optional<ResolvedSpecification> currentSpec = Optional.empty();
         Optional<ResolvedSpecification> byIdSpec = Optional.empty();
+        Map<SpecificationId, ResolvedSpecification> byIdSpecs = Map.of();
         int resolveCurrentCalls;
         int resolveByIdCalls;
 
@@ -692,6 +918,9 @@ class ReleaseProductsServiceTest {
         @Override
         public Optional<ResolvedSpecification> resolveById(SpecificationId specificationId) {
             resolveByIdCalls++;
+            if (!byIdSpecs.isEmpty()) {
+                return Optional.ofNullable(byIdSpecs.get(specificationId));
+            }
             return byIdSpec;
         }
     }

@@ -432,6 +432,70 @@ class ReleaseProductsPostgresIT {
     }
 
     @Test
+    void automaticMultiCellAllocationConsumesDeterministicallyAndRecordsHistory() {
+        ReleaseScenario scenario = prepareScenario(bd(4));
+        StorageCellId cellB =
+                StorageCellId.of(UUID.fromString("00000000-0000-4000-8000-000000000205"));
+        catalog.save(StorageCell.create(cellB, productionWarehouseId, "P-02"));
+        stockPositions.create(
+                StockPosition.of(
+                        productionWarehouseId,
+                        cellB,
+                        scenario.material(),
+                        StockState.AVAILABLE,
+                        StockQuantity.of(10)));
+
+        ReleaseProductsService service = newService(warehouseApi, releaseDocumentService);
+        ReleaseProductsResult result =
+                service.releaseProducts(releaseCommand(scenario, bd(8), List.of()));
+
+        assertEquals(2, result.consumptionReferences().size());
+        assertEquals(PROD_CELL, result.consumptionReferences().get(0).storageCellId());
+        assertEquals(0, result.consumptionReferences().get(0).quantity().compareTo(bd(4)));
+        assertEquals(cellB.value(), result.consumptionReferences().get(1).storageCellId());
+        assertEquals(0, result.consumptionReferences().get(1).quantity().compareTo(bd(4)));
+        assertEquals(1, countPostedReleases());
+        assertEquals(2, countConsumptionOperations());
+        assertEquals(2, countConsumptionMovements());
+        assertEquals(0, availableProductionStock(scenario.material()).compareTo(BigDecimal.ZERO));
+        assertEquals(
+                0,
+                stockPositions
+                        .findByNaturalKey(
+                                productionWarehouseId, cellB, scenario.material(), StockState.AVAILABLE)
+                        .orElseThrow()
+                        .quantity()
+                        .value()
+                        .compareTo(bd(6)));
+    }
+
+    @Test
+    void automaticAllocationInsufficientStockRollsBackFully() {
+        ReleaseScenario scenario = prepareScenario(bd(3));
+        ReleaseProductsService service = newService(warehouseApi, releaseDocumentService);
+
+        ReleaseProductsException ex =
+                assertThrows(
+                        ReleaseProductsException.class,
+                        () ->
+                                service.releaseProducts(
+                                        releaseCommand(scenario, bd("5.100000"), List.of())));
+
+        assertTrue(ex.getMessage().contains("available=3"));
+        assertTrue(ex.getMessage().contains("required=5.100000"));
+        assertEquals(0, countPostedReleases());
+        assertEquals(0, countConsumptionOperations());
+        assertEquals(0, availableProductionStock(scenario.material()).compareTo(bd(3)));
+        assertEquals(
+                ProductionStatus.IN_PRODUCTION,
+                itemRepository
+                        .findByIdentity(
+                                scenario.orderId(), scenario.itemId(), scenario.specId())
+                        .orElseThrow()
+                        .status());
+    }
+
+    @Test
     void consumptionFailureRollsBackNoPostedReleaseNoStockChange() {
         ReleaseScenario scenario = prepareScenario(bd(20));
         WarehouseCommandApi failingCommands =
@@ -709,6 +773,17 @@ class ReleaseProductsPostgresIT {
                 jdbc.queryForObject(
                         """
                         SELECT COUNT(*) FROM warehouse.warehouse_operations
+                        WHERE operation_type = 'CONSUMPTION'
+                        """,
+                        Integer.class);
+        return count == null ? 0 : count;
+    }
+
+    private int countConsumptionMovements() {
+        Integer count =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM warehouse.warehouse_movements
                         WHERE operation_type = 'CONSUMPTION'
                         """,
                         Integer.class);

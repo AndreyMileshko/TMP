@@ -442,7 +442,7 @@ Release разрешён, если для каждой строки матери
 | R1 | `ProductionApplicationApi.prepareRelease(orderId, itemReleases)` → `ReleasePreviewView.plannedMaterialLines` (`materialReferenceId`, `plannedQuantity`) | Требуемый расход **именно для этого выпуска** (§15.1.1, включая частичный) | unlocked preview; под lock пересчитывается при confirm |
 | R2 | `WarehouseQueryApi.findProductionWarehouse()` / `ProductionApplicationApi.destinationWarehouse()` | id производственного склада | пусто = склад не назначен (валидное состояние) |
 | R3 | `WarehouseQueryApi.getStockByMaterialReferenceId` (фильтр `AVAILABLE` ∧ `warehouseId = production`) или `checkAvailability(materialReferenceId, warehouseId, qty)` | Фактический AVAILABLE на производственном складе | Остаток **не закреплён за заказом** (OQ-3) |
-| R4 | `ReleaseProductsService.precheckStock` (существующий backend) | Проверка AVAILABLE по выбранным ячейкам при confirm | Срабатывает только при confirm; сейчас выдаёт техническое исключение с UUID |
+| R4 | `ReleaseProductsService` server-side cell allocation + stock check | Deterministic AVAILABLE allocation at post; insufficient stock → human shortage via mapper | Client cells ignored; shared remaining ledger within TX |
 | R5 | `CurrentMaterialAvailabilityQueryService` / `checkMaterialAvailability` + `getMaterialAvailabilityResult` | `productionWarehouseAvailable`, `deficit` по строкам спецификации заказа | базис — спецификация всего заказа, не остаток к выпуску и не отредактированная MR; `check` пишет `MATERIALS_CHECKED` в историю при каждом вызове; требует `production.materials.check` |
 
 ### 9.3 Целевое поведение
@@ -516,21 +516,22 @@ Release разрешён, если для каждой строки матери
   - Multi-order: evaluate every selected order; one consistent decision; fatal preferred over advisory; do not silently ignore any selected item's shortage.
 - Mode/quantity race before Next: reload authoritative data; do not reinterpret stale FLEXIBLE input.
 
-### 11.2 Шаг 2 — «Фактический расход материалов» (существующий plan/fact)
+### 11.2 Шаг 2 — «Фактический расход материалов» (plan/fact)
 
-| Материал | План | Факт | Ячейки производственного склада |
-|---|---:|---:|---|
-| 101.208 Профиль белый (м) | 20.000 | [20.000] | П-01: 20.000 |
+| Заказ | Материал | План | Факт |
+|---|---|---:|---:|
+| Заказ №4183 | 101.208 Профиль белый (м) | 20.000 | [20.000] |
 
 - Значения по умолчанию — `ReleasePreviewView.defaultActuals`.
-- Ячейки показываются по `StorageCellView.code`, не UUID; добавление/удаление распределения gated `production.release.create` (устраняет audit mismatch #2).
-- Это единственное место, где Production оперирует ячейками — потому что Release/Consumption требует allocations (ADR-035/036); сам остаток ячеек остаётся Warehouse.
+- Master enters **actual consumption only** (editable fact ≥ 0). No cell column, no «Добавить ячейку» / «Удалить».
+- **Server-side allocation (B3-MA-08):** during final release posting TMP allocates AVAILABLE production-warehouse stock by storage cell code ASC, then cell ID ASC; splits across cells; shared remaining-stock ledger within one posting TX; never trusts client cell allocations.
+- Warehouse stock accounting / history retains the actual consumed cells and quantities.
 
 ### 11.3 Подтверждение и результат
 
 - Final summary then [Выпустить]; button blocked during operation (double-submit guard).
 - Confirm wording must **not** claim «Материалы проверены» after preliminary readiness only. Use: posting will validate stock against master-entered actual consumption.
-- Plan/fact (Step 2): master-confirmed actual in warehouse UoM is preserved and used for posting; preliminary demand remains informational (Production Spec plan/fact).
+- Plan/fact (Step 2): master-confirmed actual in warehouse UoM is preserved and used for posting; cells are selected automatically at post; preliminary demand remains informational (Production Spec plan/fact).
 - Multi-order: OrderId ascending; each order own TX; stop after first authoritative failure; UI shows partial success honestly (not all-or-nothing).
 - Успех: «Выпущено: N изделия.» / «Изделия выпущены. Заказ изготовлен полностью» при MANUFACTURED. `documentId` / UUID не показываются.
 - Ошибки: over-release / конкурентный выпуск → «Количество к выпуску изменилось…»; stock race / insufficient actual stock → human shortage message; отменённое производство → «Производство заказа отменено. Выпуск невозможен.»

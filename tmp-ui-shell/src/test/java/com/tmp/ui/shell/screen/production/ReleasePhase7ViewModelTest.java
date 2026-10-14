@@ -406,7 +406,7 @@ class ReleasePhase7ViewModelTest {
     }
 
     @Test
-    void planFactLoadsDefaultActualsAndCellCodes() {
+    void planFactLoadsDefaultActualsWithoutManualCellAllocations() {
         seedOrders();
         viewModel.loadTree();
         viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_A, ITEM_A1), true);
@@ -417,8 +417,8 @@ class ReleasePhase7ViewModelTest {
         assertFalse(material.plannedQuantity().isBlank());
         material.setActualQuantity("9");
         assertEquals("9", material.actualQuantity());
-        assertTrue(material.cellChoices().stream().anyMatch(c -> "P-01".equals(c.label())));
-        assertTrue(material.allocations().isEmpty());
+        Optional<String> validation = ReleaseDialogSupport.validatePlanFact(materials);
+        assertTrue(validation.isEmpty());
     }
 
     @Test
@@ -624,21 +624,7 @@ class ReleasePhase7ViewModelTest {
     }
 
     private List<ReleaseMaterialRow> allocateDefaults(List<ReleaseQuantityRow> quantityRows) {
-        List<ReleaseMaterialRow> materials = viewModel.prepareReleaseMaterialRows(quantityRows);
-        for (ReleaseMaterialRow row : materials) {
-            ReleaseMaterialRow.CellAllocation allocation = row.addAllocation();
-            StorageCellChoice choice =
-                    row.cellChoices().isEmpty()
-                            ? new StorageCellChoice(
-                                    CELL, applicationApi.productionWarehouseId, "P-01", true)
-                            : row.cellChoices().getFirst();
-            if (row.cellChoices().isEmpty()) {
-                row.cellChoices().add(choice);
-            }
-            allocation.setProductionCell(choice);
-            allocation.setQuantity(row.actualQuantity());
-        }
-        return materials;
+        return viewModel.prepareReleaseMaterialRows(quantityRows);
     }
 
     private void seedOrders() {

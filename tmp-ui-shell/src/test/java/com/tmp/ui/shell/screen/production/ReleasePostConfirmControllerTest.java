@@ -224,21 +224,7 @@ class ReleasePostConfirmControllerTest {
     }
 
     private List<ReleaseMaterialRow> allocateDefaults(List<ReleaseQuantityRow> quantityRows) {
-        List<ReleaseMaterialRow> materials = viewModel.prepareReleaseMaterialRows(quantityRows);
-        for (ReleaseMaterialRow row : materials) {
-            ReleaseMaterialRow.CellAllocation allocation = row.addAllocation();
-            StorageCellChoice choice =
-                    row.cellChoices().isEmpty()
-                            ? new StorageCellChoice(
-                                    CELL, applicationApi.productionWarehouseId, "P-01", true)
-                            : row.cellChoices().getFirst();
-            if (row.cellChoices().isEmpty()) {
-                row.cellChoices().add(choice);
-            }
-            allocation.setProductionCell(choice);
-            allocation.setQuantity(row.actualQuantity());
-        }
-        return materials;
+        return viewModel.prepareReleaseMaterialRows(quantityRows);
     }
 
     private void seedOrder() {

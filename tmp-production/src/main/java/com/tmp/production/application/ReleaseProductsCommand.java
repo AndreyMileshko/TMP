@@ -30,6 +30,11 @@ public record ReleaseProductsCommand(
         }
     }
 
+    /**
+     * Confirmed actual consumption for one planned material line. {@code allocations} is retained
+     * for backward-compatible payloads only; {@link ReleaseProductsService} always computes
+     * production-cell allocations server-side and never executes client-supplied cells.
+     */
     public record MaterialActualUsage(
             UUID sourceOrderItemId,
             UUID materialReferenceId,

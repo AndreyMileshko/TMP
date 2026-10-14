@@ -3,6 +3,43 @@
 ## Latest result
 
 **Date:** 2026-10-14
+**Scope:** Stage 7 Production — B3-MA-08 Automatic warehouse cell allocation
+**Overall:** PASS (focused unit + Postgres IT + UI)
+**Migration:** NONE
+**Base HEAD:** `61b84873922f78b4e5eb5a6f26852b06d85e6e02`
+**Working tree:** dirty (B3-MA-08); **no commit / no push**
+
+### B3-MA-08 checks (2026-10-14)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD exact + clean working tree | PASS (`61b8487…`) |
+| Single / multi-cell deterministic allocation | PASS (`ReleaseProductsServiceTest`) |
+| Tie-break by storageCellId; shared ledger multi-item | PASS (unit) |
+| Insufficient stock + zero actual + below/above plan | PASS (unit) |
+| Client allocations ignored; main warehouse excluded | PASS (unit) |
+| Postgres multi-cell + insufficient rollback + concurrent | PASS (`ReleaseProductsPostgresIT` 8) |
+| Step 2 no manual cells; multi-order stop-after-failure | PASS (UI) |
+| RBAC `production.release` on prepareRelease | PASS (API unit) |
+| Full reactor | NOT RUN |
+| Runtime TEST-004 | NOT MODIFIED |
+
+Commands:
+
+```text
+mvn -pl :tmp-production -am test -Dtest=ReleaseProductsServiceTest -Dsurefire.failIfNoSpecifiedTests=false
+mvn -pl :tmp-production -am test -Dtest=ReleaseProductsPostgresIT -Dsurefire.failIfNoSpecifiedTests=false
+mvn -pl :tmp-ui-shell -am test -Dtest=ReleasePhase7ViewModelTest,ReleasePostConfirmControllerTest,ProductionUiErrorMapperTest -Dsurefire.failIfNoSpecifiedTests=false
+mvn -pl :tmp-production -am test -Dtest=DefaultProductionApplicationApiTest#prepareRelease* -Dsurefire.failIfNoSpecifiedTests=false
+```
+
+---
+
+# TMP Verification Log
+
+## Previous latest result
+
+**Date:** 2026-10-14
 **Scope:** Stage 7 Production — B3-MA-07 Release readiness gate fix
 **Overall:** PASS (focused UI tests)
 **Migration:** NONE

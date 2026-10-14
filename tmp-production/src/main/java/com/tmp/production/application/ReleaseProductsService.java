@@ -37,6 +37,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -50,7 +51,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Application orchestration for «Выпустить изделия»: system-computed plan, confirmed actual usage,
- * Warehouse Consumption and Production Release POST in one outer ACID transaction (ADR-036).
+ * server-side production-cell allocation, Warehouse Consumption and Production Release POST in one
+ * outer ACID transaction (ADR-036). Client-supplied cell allocations are never trusted.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -193,7 +195,7 @@ public final class ReleaseProductsService {
 
         List<ConsumptionReference> consumptionReferences = new ArrayList<>();
         UUID productionWarehouseId = destinationWarehouse.productionWarehouseId();
-        for (MaterialActualUsage usage : command.materialActualUsages()) {
+        for (AllocatedUsage usage : prepared.allocatedUsages()) {
             if (usage.actualQuantity().signum() == 0) {
                 continue;
             }
@@ -243,7 +245,7 @@ public final class ReleaseProductsService {
         Map<String, PlannedMaterialLine> plannedByKey = indexPlannedLines(snapshot.plannedLines());
         Map<String, MaterialActualUsage> actualByKey = indexActualUsages(command, plannedByKey);
 
-        List<MaterialResult> materialResults = new ArrayList<>(plannedByKey.size());
+        Set<UUID> materialsNeedingStock = new HashSet<>();
         for (PlannedMaterialLine planned : plannedByKey.values()) {
             MaterialActualUsage actual = actualByKey.get(planned.stableKey());
             if (actual == null) {
@@ -251,21 +253,126 @@ public final class ReleaseProductsService {
                         "Missing confirmed actual usage for planned line: " + planned.stableKey());
             }
             validateActualAgainstPlan(planned, actual);
-            validateAllocations(actual, productionCells);
-            precheckStock(actual);
+            if (actual.actualQuantity().signum() > 0) {
+                materialsNeedingStock.add(actual.materialReferenceId());
+            }
+        }
+
+        Map<UUID, List<MutableCellBalance>> remainingStock =
+                loadAvailableStockLedgers(materialsNeedingStock, productionCells);
+
+        List<MaterialResult> materialResults = new ArrayList<>(plannedByKey.size());
+        List<AllocatedUsage> allocatedUsages = new ArrayList<>(plannedByKey.size());
+        for (PlannedMaterialLine planned : plannedByKey.values()) {
+            MaterialActualUsage actual = actualByKey.get(planned.stableKey());
+            List<CellAllocation> allocations =
+                    allocateFromRemainingStock(actual, remainingStock, productionCells);
             materialResults.add(
                     new MaterialResult(
                             planned.sourceOrderItemId().value(),
                             planned.materialReferenceId().value(),
                             planned.plannedQuantity(),
                             actual.actualQuantity()));
+            allocatedUsages.add(
+                    new AllocatedUsage(
+                            actual.sourceOrderItemId(),
+                            actual.materialReferenceId(),
+                            actual.actualQuantity(),
+                            allocations));
         }
 
         return new PreparedRelease(
                 snapshot.itemResults(),
                 snapshot.plannedLines(),
                 List.copyOf(materialResults),
-                snapshot.documentItemLines());
+                snapshot.documentItemLines(),
+                List.copyOf(allocatedUsages));
+    }
+
+    /**
+     * Loads AVAILABLE production-warehouse stock once per distinct material and builds a mutable
+     * remaining ledger keyed by material + cell. Cells are ordered by code ASC, then cell ID ASC.
+     */
+    private Map<UUID, List<MutableCellBalance>> loadAvailableStockLedgers(
+            Set<UUID> materialReferenceIds, Map<UUID, StorageCellView> productionCells) {
+        UUID productionWarehouseId = destinationWarehouse.productionWarehouseId();
+        Map<UUID, List<MutableCellBalance>> ledgers = new HashMap<>();
+        for (UUID materialReferenceId : materialReferenceIds) {
+            List<StockView> stockViews =
+                    warehouseQueryApi.getStockByMaterialReferenceId(materialReferenceId);
+            Map<UUID, BigDecimal> quantityByCell = new HashMap<>();
+            for (StockView view : stockViews) {
+                if (view.stockState() != StockStateView.AVAILABLE) {
+                    continue;
+                }
+                if (!productionWarehouseId.equals(view.warehouseId())) {
+                    continue;
+                }
+                if (view.quantity() == null || view.quantity().compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
+                }
+                if (!productionCells.containsKey(view.storageCellId())) {
+                    continue;
+                }
+                quantityByCell.merge(view.storageCellId(), view.quantity(), BigDecimal::add);
+            }
+            List<MutableCellBalance> balances = new ArrayList<>(quantityByCell.size());
+            for (Map.Entry<UUID, BigDecimal> entry : quantityByCell.entrySet()) {
+                StorageCellView cell = productionCells.get(entry.getKey());
+                balances.add(
+                        new MutableCellBalance(
+                                cell.storageCellId(), cell.code(), entry.getValue()));
+            }
+            balances.sort(
+                    Comparator.comparing(MutableCellBalance::code)
+                            .thenComparing(MutableCellBalance::storageCellId));
+            ledgers.put(materialReferenceId, balances);
+        }
+        return ledgers;
+    }
+
+    /**
+     * Allocates {@code actual} against the shared remaining-AVAILABLE ledger. Client-supplied
+     * allocations on the command are ignored.
+     */
+    private List<CellAllocation> allocateFromRemainingStock(
+            MaterialActualUsage actual,
+            Map<UUID, List<MutableCellBalance>> remainingStock,
+            Map<UUID, StorageCellView> productionCells) {
+        if (actual.actualQuantity().signum() == 0) {
+            return List.of();
+        }
+        List<MutableCellBalance> cells =
+                remainingStock.getOrDefault(actual.materialReferenceId(), List.of());
+        BigDecimal availableTotal = BigDecimal.ZERO;
+        for (MutableCellBalance cell : cells) {
+            availableTotal = availableTotal.add(cell.remaining());
+        }
+        BigDecimal remaining = actual.actualQuantity();
+        List<CellAllocation> allocations = new ArrayList<>();
+        for (MutableCellBalance cell : cells) {
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+                break;
+            }
+            BigDecimal take =
+                    remaining.compareTo(cell.remaining()) <= 0 ? remaining : cell.remaining();
+            if (take.compareTo(BigDecimal.ZERO) > 0) {
+                requireProductionCell(productionCells, cell.storageCellId());
+                allocations.add(new CellAllocation(cell.storageCellId(), take));
+                cell.decrease(take);
+                remaining = remaining.subtract(take);
+            }
+        }
+        if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+            throw new ReleaseProductsException(
+                    "Insufficient production warehouse stock for material "
+                            + actual.materialReferenceId()
+                            + ": available="
+                            + availableTotal
+                            + ", required="
+                            + actual.actualQuantity());
+        }
+        return List.copyOf(allocations);
     }
 
     private PlanSnapshot computePlanSnapshot(
@@ -401,68 +508,6 @@ public final class ReleaseProductsService {
         }
     }
 
-    private void validateAllocations(
-            MaterialActualUsage actual, Map<UUID, StorageCellView> productionCells) {
-        if (actual.actualQuantity().signum() == 0) {
-            if (!actual.allocations().isEmpty()) {
-                throw new ReleaseProductsException(
-                        "Zero actual requires empty allocations for "
-                                + actual.materialReferenceId());
-            }
-            return;
-        }
-        BigDecimal allocationTotal = BigDecimal.ZERO;
-        Set<UUID> seenCells = new HashSet<>();
-        for (CellAllocation allocation : actual.allocations()) {
-            if (!seenCells.add(allocation.storageCellId())) {
-                throw new ReleaseProductsException(
-                        "Duplicate storage cell allocation: " + allocation.storageCellId());
-            }
-            requireProductionCell(productionCells, allocation.storageCellId());
-            allocationTotal = allocationTotal.add(allocation.quantity());
-        }
-        if (allocationTotal.compareTo(actual.actualQuantity()) != 0) {
-            throw new ReleaseProductsException(
-                    "Allocation total must equal actualQuantity for material "
-                            + actual.materialReferenceId()
-                            + ": allocations="
-                            + allocationTotal
-                            + ", actual="
-                            + actual.actualQuantity());
-        }
-    }
-
-    private void precheckStock(MaterialActualUsage actual) {
-        UUID productionWarehouseId = destinationWarehouse.productionWarehouseId();
-        List<StockView> stockViews =
-                warehouseQueryApi.getStockByMaterialReferenceId(actual.materialReferenceId());
-        for (CellAllocation allocation : actual.allocations()) {
-            BigDecimal available =
-                    stockViews.stream()
-                            .filter(
-                                    view ->
-                                            view.stockState() == StockStateView.AVAILABLE
-                                                    && productionWarehouseId.equals(
-                                                            view.warehouseId())
-                                                    && allocation
-                                                            .storageCellId()
-                                                            .equals(view.storageCellId()))
-                            .map(StockView::quantity)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add);
-            if (available.compareTo(allocation.quantity()) < 0) {
-                throw new ReleaseProductsException(
-                        "Insufficient production warehouse stock for material "
-                                + actual.materialReferenceId()
-                                + " in cell "
-                                + allocation.storageCellId()
-                                + ": available="
-                                + available
-                                + ", required="
-                                + allocation.quantity());
-            }
-        }
-    }
-
     private Map<UUID, StorageCellView> indexActiveProductionCells(UUID productionWarehouseId) {
         Map<UUID, StorageCellView> cells = new HashMap<>();
         for (StorageCellView cell : warehouseQueryApi.listStorageCells(productionWarehouseId)) {
@@ -551,5 +596,46 @@ public final class ReleaseProductsService {
             List<ItemResult> itemResults,
             List<PlannedMaterialLine> plannedLines,
             List<MaterialResult> materialResults,
-            List<ProductionReleaseDocumentCommand.ItemLine> documentItemLines) {}
+            List<ProductionReleaseDocumentCommand.ItemLine> documentItemLines,
+            List<AllocatedUsage> allocatedUsages) {}
+
+    /** Server-computed actual usage with authoritative cell allocations for Warehouse consume. */
+    private record AllocatedUsage(
+            UUID sourceOrderItemId,
+            UUID materialReferenceId,
+            BigDecimal actualQuantity,
+            List<CellAllocation> allocations) {
+        private AllocatedUsage {
+            allocations = List.copyOf(allocations);
+        }
+    }
+
+    /** Mutable remaining AVAILABLE balance for one production cell within a release transaction. */
+    private static final class MutableCellBalance {
+        private final UUID storageCellId;
+        private final String code;
+        private BigDecimal remaining;
+
+        private MutableCellBalance(UUID storageCellId, String code, BigDecimal remaining) {
+            this.storageCellId = storageCellId;
+            this.code = code;
+            this.remaining = remaining;
+        }
+
+        private UUID storageCellId() {
+            return storageCellId;
+        }
+
+        private String code() {
+            return code;
+        }
+
+        private BigDecimal remaining() {
+            return remaining;
+        }
+
+        private void decrease(BigDecimal take) {
+            remaining = remaining.subtract(take);
+        }
+    }
 }

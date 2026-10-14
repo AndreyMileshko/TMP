@@ -439,6 +439,10 @@ public interface ProductionApplicationApi {
         }
     }
 
+    /**
+     * Confirmed actual consumption. {@code allocations} is accepted for backward compatibility
+     * only; posting always allocates production cells server-side and ignores client cells.
+     */
     record MaterialActualUsageView(
             UUID sourceOrderItemId,
             UUID materialReferenceId,

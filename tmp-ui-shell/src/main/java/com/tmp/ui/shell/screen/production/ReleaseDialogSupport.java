@@ -8,7 +8,6 @@ import com.tmp.ui.shell.order.DecimalQuantityParser;
 import com.tmp.ui.shell.order.DecimalUiFormat;
 import com.tmp.ui.shell.theme.TmpTheme;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,14 +23,12 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
@@ -55,8 +52,6 @@ public final class ReleaseDialogSupport {
     public static final String CONTINUE_BUTTON = "Продолжить";
     public static final String CANCEL_BUTTON = "Отмена";
     public static final String DETAILS_BUTTON = "Подробнее";
-    public static final String ADD_ALLOCATION_BUTTON = "Добавить ячейку";
-    public static final String REMOVE_ALLOCATION_BUTTON = "Удалить";
 
     private ReleaseDialogSupport() {}
 
@@ -378,39 +373,9 @@ public final class ReleaseDialogSupport {
                         materialStringColumn("Заказ", 100, ReleaseMaterialRow::orderNumberLabel),
                         materialStringColumn("Материал", 180, ReleaseMaterialRow::materialLabel),
                         materialStringColumn("План", 80, ReleaseMaterialRow::plannedQuantity),
-                        actualQuantityColumn(canEdit),
-                        materialStringColumn("Ячейки", 160, ReleaseMaterialRow::allocationSummary));
+                        actualQuantityColumn(canEdit));
 
-        HBox allocationBar = new HBox(8);
-        Button addAllocation = new Button(ADD_ALLOCATION_BUTTON);
-        Button removeAllocation = new Button(REMOVE_ALLOCATION_BUTTON);
-        addAllocation.setDisable(!canEdit);
-        removeAllocation.setDisable(!canEdit);
-        addAllocation.setOnAction(
-                e -> {
-                    ReleaseMaterialRow selected = table.getSelectionModel().getSelectedItem();
-                    if (selected == null) {
-                        showValidation("Выберите материал для добавления ячейки.");
-                        return;
-                    }
-                    ReleaseMaterialRow.CellAllocation allocation = selected.addAllocation();
-                    allocation.setQuantity(selected.actualQuantity());
-                    openAllocationEditor(selected, allocation, canEdit);
-                    table.refresh();
-                });
-        removeAllocation.setOnAction(
-                e -> {
-                    ReleaseMaterialRow selected = table.getSelectionModel().getSelectedItem();
-                    if (selected == null || selected.allocations().isEmpty()) {
-                        return;
-                    }
-                    selected.removeAllocation(
-                            selected.allocations().get(selected.allocations().size() - 1));
-                    table.refresh();
-                });
-        allocationBar.getChildren().addAll(addAllocation, removeAllocation);
-
-        VBox root = new VBox(10, table, allocationBar);
+        VBox root = new VBox(10, table);
         root.setPadding(new Insets(8));
         VBox.setVgrow(table, Priority.ALWAYS);
 
@@ -501,112 +466,24 @@ public final class ReleaseDialogSupport {
         alert.showAndWait();
     }
 
+    /**
+     * Step 2 validates parseable nonnegative actual quantities only. Cell allocation is performed
+     * server-side during posting.
+     */
     public static Optional<String> validatePlanFact(List<ReleaseMaterialRow> materials) {
         Objects.requireNonNull(materials, "materials");
         for (ReleaseMaterialRow row : materials) {
-            BigDecimal actual;
             try {
-                actual =
-                        DecimalQuantityParser.parseNonNegative(
-                                row.actualQuantity(), "Фактическое количество");
+                DecimalQuantityParser.parseNonNegative(
+                        row.actualQuantity(), "Фактическое количество");
             } catch (RuntimeException ex) {
                 return Optional.of(
                         "Проверьте фактическое количество для материала "
                                 + row.materialLabel()
                                 + ".");
             }
-            if (actual.signum() == 0) {
-                if (!row.allocations().isEmpty()) {
-                    return Optional.of(
-                            "При фактическом количестве 0 распределения по ячейкам должны быть"
-                                    + " пустыми ("
-                                    + row.materialLabel()
-                                    + ").");
-                }
-                continue;
-            }
-            if (row.allocations().isEmpty()) {
-                return Optional.of(
-                        "Добавьте распределение по ячейке производства для "
-                                + row.materialLabel()
-                                + ".");
-            }
-            BigDecimal sum = BigDecimal.ZERO;
-            java.util.Set<UUID> cells = new java.util.HashSet<>();
-            for (ReleaseMaterialRow.CellAllocation allocation : row.allocations()) {
-                if (allocation.productionCell() == null) {
-                    return Optional.of(
-                            "Выберите ячейку склада производства для "
-                                    + row.materialLabel()
-                                    + ".");
-                }
-                if (!cells.add(allocation.productionCell().id())) {
-                    return Optional.of(
-                            "Дублирующая ячейка в распределении для "
-                                    + row.materialLabel()
-                                    + ".");
-                }
-                BigDecimal qty;
-                try {
-                    qty =
-                            DecimalQuantityParser.parsePositive(
-                                    allocation.quantity(), "Количество по ячейке");
-                } catch (RuntimeException ex) {
-                    return Optional.of(
-                            "Проверьте количество по ячейке для "
-                                    + row.materialLabel()
-                                    + ".");
-                }
-                sum = sum.add(qty);
-            }
-            if (sum.compareTo(actual) != 0) {
-                return Optional.of(
-                        "Сумма распределений ("
-                                + DecimalUiFormat.format(sum)
-                                + ") должна равняться факту ("
-                                + DecimalUiFormat.format(actual)
-                                + ") для "
-                                + row.materialLabel()
-                                + ".");
-            }
         }
         return Optional.empty();
-    }
-
-    private static void openAllocationEditor(
-            ReleaseMaterialRow material,
-            ReleaseMaterialRow.CellAllocation allocation,
-            boolean canEdit) {
-        Dialog<ButtonType> dialog = new Dialog<>();
-        TmpTheme.apply(dialog.getDialogPane());
-        dialog.setTitle("Ячейка расхода");
-        dialog.setHeaderText(material.materialLabel());
-
-        ComboBox<StorageCellChoice> cells = new ComboBox<>(material.cellChoices());
-        cells.setValue(allocation.productionCell());
-        cells.setDisable(!canEdit);
-        TextField quantity = new TextField(allocation.quantity());
-        quantity.setDisable(!canEdit);
-
-        VBox root =
-                new VBox(
-                        8,
-                        new Label("Ячейка"),
-                        cells,
-                        new Label("Количество"),
-                        quantity);
-        root.setPadding(new Insets(8));
-        dialog.getDialogPane().setContent(root);
-        ButtonType save =
-                new ButtonType("Сохранить", ButtonBar.ButtonData.OK_DONE);
-        ButtonType cancel =
-                new ButtonType(CANCEL_BUTTON, ButtonBar.ButtonData.CANCEL_CLOSE);
-        dialog.getDialogPane().getButtonTypes().setAll(save, cancel);
-        Optional<ButtonType> result = dialog.showAndWait();
-        if (result.isPresent() && result.get() == save && canEdit) {
-            allocation.setProductionCell(cells.getValue());
-            allocation.setQuantity(quantity.getText());
-        }
     }
 
     private static String buildOrderModeSummary(List<ReleaseQuantityRow> rows) {

@@ -10,7 +10,6 @@ import com.tmp.order.api.OrderWorklistCriteria;
 import com.tmp.order.api.OrderWorklistQuery;
 import com.tmp.order.api.OrderWorklistRowDto;
 import com.tmp.production.api.ProductionApplicationApi;
-import com.tmp.production.api.ProductionApplicationApi.CellAllocationView;
 import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSummaryView;
@@ -48,7 +47,6 @@ import com.tmp.ui.shell.order.DecimalQuantityParser;
 import com.tmp.ui.shell.order.DecimalUiFormat;
 import com.tmp.ui.shell.order.worklist.OrderListPeriod;
 import com.tmp.warehouse.api.WarehouseApi;
-import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -1242,9 +1240,6 @@ public final class ProductionWorkbenchViewModel {
 
     public List<ReleaseMaterialRow> prepareReleaseMaterialRows(List<ReleaseQuantityRow> rows) {
         Objects.requireNonNull(rows, "rows");
-        Optional<UUID> warehouseId = applicationApi.destinationWarehouse().productionWarehouseId();
-        List<StorageCellChoice> cells =
-                warehouseId.map(this::loadProductionCells).orElse(List.of());
 
         Map<UUID, List<ReleaseQuantityRow>> byOrder = groupReleaseRowsByOrder(rows);
         List<ReleaseMaterialRow> materials = new ArrayList<>();
@@ -1264,7 +1259,7 @@ public final class ProductionWorkbenchViewModel {
             for (var actual : preview.defaultActuals()) {
                 String key = actual.sourceOrderItemId() + "|" + actual.materialReferenceId();
                 String label = names.getOrDefault(key, "Материал");
-                ReleaseMaterialRow row =
+                materials.add(
                         new ReleaseMaterialRow(
                                 orderId,
                                 actual.sourceOrderItemId(),
@@ -1272,9 +1267,7 @@ public final class ProductionWorkbenchViewModel {
                                 orderLabel,
                                 label,
                                 DecimalUiFormat.format(actual.plannedQuantity()),
-                                DecimalUiFormat.format(actual.actualQuantity()));
-                row.cellChoices().setAll(cells);
-                materials.add(row);
+                                DecimalUiFormat.format(actual.actualQuantity())));
             }
         }
         return List.copyOf(materials);
@@ -1666,39 +1659,14 @@ public final class ProductionWorkbenchViewModel {
             BigDecimal actual =
                     DecimalQuantityParser.parseNonNegative(
                             row.actualQuantity(), "Фактическое количество");
-            List<CellAllocationView> allocations = new ArrayList<>();
-            if (actual.signum() > 0) {
-                for (ReleaseMaterialRow.CellAllocation allocation : row.allocations()) {
-                    if (allocation.productionCell() == null) {
-                        throw new IllegalArgumentException(
-                                "Выберите ячейку склада производства");
-                    }
-                    BigDecimal qty =
-                            DecimalQuantityParser.parsePositive(
-                                    allocation.quantity(), "Количество по ячейке");
-                    allocations.add(
-                            new CellAllocationView(allocation.productionCell().id(), qty));
-                }
-            }
             usages.add(
                     new MaterialActualUsageView(
                             row.sourceOrderItemId(),
                             row.materialReferenceId(),
                             actual,
-                            allocations));
+                            List.of()));
         }
         return usages;
-    }
-
-    private List<StorageCellChoice> loadProductionCells(UUID warehouseId) {
-        List<StorageCellView> cells = warehouseApi.listStorageCells(warehouseId);
-        List<StorageCellChoice> choices = new ArrayList<>();
-        for (StorageCellView cell : cells) {
-            if (cell.active()) {
-                choices.add(StorageCellChoice.from(cell));
-            }
-        }
-        return choices;
     }
 
     private String orderLabel(LoadedProductionOrder order) {
