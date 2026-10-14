@@ -444,20 +444,7 @@ class ReleasePhase7ViewModelTest {
         viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_C, ITEM_C3), true);
 
         var quantityRows = viewModel.loadReleaseStep1().rows();
-        List<ReleaseMaterialRow> materials = viewModel.prepareReleaseMaterialRows(quantityRows);
-        for (ReleaseMaterialRow row : materials) {
-            ReleaseMaterialRow.CellAllocation allocation = row.addAllocation();
-            StorageCellChoice choice =
-                    row.cellChoices().isEmpty()
-                            ? new StorageCellChoice(
-                                    CELL, applicationApi.productionWarehouseId, "P-01", true)
-                            : row.cellChoices().getFirst();
-            if (row.cellChoices().isEmpty()) {
-                row.cellChoices().add(choice);
-            }
-            allocation.setProductionCell(choice);
-            allocation.setQuantity(row.actualQuantity());
-        }
+        List<ReleaseMaterialRow> materials = allocateDefaults(quantityRows);
 
         var result = viewModel.confirmReleases(quantityRows, materials);
         assertEquals(3, result.outcomes().size());
@@ -469,6 +456,123 @@ class ReleasePhase7ViewModelTest {
     }
 
     @Test
+    void fullSuccessApplyReleaseResultShowsSuccessAndClearsError() {
+        seedOrders();
+        viewModel.loadTree();
+        viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_A, ITEM_A1), true);
+        var quantityRows = viewModel.loadReleaseStep1().rows();
+        List<ReleaseMaterialRow> materials = allocateDefaults(quantityRows);
+
+        var result = viewModel.confirmReleases(quantityRows, materials);
+        assertTrue(result.allSuccess());
+        assertTrue(result.anySuccess());
+
+        var kind = viewModel.applyReleaseResult(result, quantityRows);
+        assertEquals(
+                ProductionWorkbenchViewModel.ReleaseCompletionKind.FULL_SUCCESS, kind);
+        assertTrue(viewModel.statusMessageProperty().get().contains("Выпущено"));
+        assertEquals("", viewModel.errorMessageProperty().get());
+        assertFalse(
+                viewModel
+                        .selectionModel()
+                        .isItemSelected(new ProductionOrderItemRef(ORDER_A, ITEM_A1)));
+    }
+
+    @Test
+    void totalFailureApplyReleaseResultShowsWarningPathWithoutSuccessCleanup() {
+        seedOrders();
+        applicationApi.releaseFailuresByOrder.put(
+                ORDER_A,
+                new RuntimeException(
+                        "Insufficient production warehouse stock for material "
+                                + MAT
+                                + " in cell "
+                                + CELL
+                                + ": available=0, required=12.5"));
+        viewModel.loadTree();
+        ProductionOrderItemRef ref = new ProductionOrderItemRef(ORDER_A, ITEM_A1);
+        viewModel.setItemSelected(ref, true);
+        var quantityRows = viewModel.loadReleaseStep1().rows();
+        List<ReleaseMaterialRow> materials = allocateDefaults(quantityRows);
+
+        var result = viewModel.confirmReleases(quantityRows, materials);
+        assertFalse(result.allSuccess());
+        assertFalse(result.anySuccess());
+        assertTrue(result.summaryMessage().contains("Недостаточно материала"));
+        assertTrue(result.summaryMessage().contains("Доступно: 0"));
+        assertTrue(result.summaryMessage().contains("Требуется: 12.5"));
+        assertTrue(result.summaryMessage().contains("Выпуск не выполнен"));
+
+        var kind = viewModel.applyReleaseResult(result, quantityRows);
+        assertEquals(
+                ProductionWorkbenchViewModel.ReleaseCompletionKind.TOTAL_FAILURE, kind);
+        assertEquals("", viewModel.statusMessageProperty().get());
+        assertEquals(result.summaryMessage(), viewModel.errorMessageProperty().get());
+        assertTrue(viewModel.selectionModel().isItemSelected(ref));
+        assertFalse(viewModel.statusMessageProperty().get().contains("Выпущено"));
+    }
+
+    @Test
+    void partialSuccessApplyReleaseResultKeepsFailedSelectionAndWarns() {
+        seedOrders();
+        applicationApi.putOrderQuantityMode(ORDER_A, QuantityModeView.STANDARD, 1L);
+        applicationApi.putOrderQuantityMode(ORDER_B, QuantityModeView.STANDARD, 1L);
+        applicationApi.putOrderQuantityMode(ORDER_C, QuantityModeView.STANDARD, 1L);
+        applicationApi.releaseFailuresByOrder.put(
+                ORDER_B,
+                new RuntimeException(
+                        "Insufficient production warehouse stock for material "
+                                + MAT
+                                + " in cell "
+                                + CELL
+                                + ": available=0, required=12.5"));
+        queryApi.view =
+                new OrderProductionView(
+                        ORDER_A, OrderProductionViewStatus.IN_PRODUCTION, 1, 1, 0, 0, 0);
+        viewModel.loadTree();
+        ProductionOrderItemRef refA = new ProductionOrderItemRef(ORDER_A, ITEM_A1);
+        ProductionOrderItemRef refB = new ProductionOrderItemRef(ORDER_B, ITEM_B2);
+        ProductionOrderItemRef refC = new ProductionOrderItemRef(ORDER_C, ITEM_C3);
+        viewModel.setItemSelected(refA, true);
+        viewModel.setItemSelected(refB, true);
+        viewModel.setItemSelected(refC, true);
+
+        var quantityRows = viewModel.loadReleaseStep1().rows();
+        List<ReleaseMaterialRow> materials = allocateDefaults(quantityRows);
+        var result = viewModel.confirmReleases(quantityRows, materials);
+        assertTrue(result.anySuccess());
+        assertFalse(result.allSuccess());
+
+        var kind = viewModel.applyReleaseResult(result, quantityRows);
+        assertEquals(
+                ProductionWorkbenchViewModel.ReleaseCompletionKind.PARTIAL_SUCCESS, kind);
+        assertTrue(viewModel.errorMessageProperty().get().contains("частично"));
+        assertTrue(viewModel.errorMessageProperty().get().contains("Недостаточно материала"));
+        assertEquals("", viewModel.statusMessageProperty().get());
+        assertFalse(viewModel.selectionModel().isItemSelected(refA));
+        assertTrue(viewModel.selectionModel().isItemSelected(refB));
+        assertTrue(viewModel.selectionModel().isItemSelected(refC));
+    }
+
+    @Test
+    void insufficientStockMapperKeepsSpecificAvailableAndRequired() {
+        String mapped =
+                ProductionUiErrorMapper.text(
+                        new RuntimeException(
+                                "Insufficient production warehouse stock for material "
+                                        + MAT
+                                        + " in cell "
+                                        + CELL
+                                        + ": available=0, required=12.5"));
+        assertTrue(mapped.contains("Недостаточно материала на производственном складе"));
+        assertTrue(mapped.contains("Доступно: 0"));
+        assertTrue(mapped.contains("Требуется: 12.5"));
+        assertTrue(mapped.contains("Выпуск не выполнен"));
+        assertFalse(mapped.contains("ReleaseProductsException"));
+        assertFalse(mapped.contains(MAT.toString()));
+    }
+
+    @Test
     void openingWizardDoesNotMutateRelease() {
         seedOrders();
         viewModel.loadTree();
@@ -477,6 +581,25 @@ class ReleasePhase7ViewModelTest {
         viewModel.checkReleaseReadiness(viewModel.loadReleaseStep1().rows());
         assertTrue(applicationApi.releaseProductCalls.isEmpty());
         assertTrue(applicationApi.releaseOrderCalls.isEmpty());
+    }
+
+    @Test
+    void failedReleaseDoesNotAppearSuccessful() {
+        seedOrders();
+        applicationApi.releaseFailuresByOrder.put(
+                ORDER_A,
+                new RuntimeException(
+                        "Insufficient production warehouse stock for material x in cell y:"
+                                + " available=0, required=12.5"));
+        viewModel.loadTree();
+        viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_A, ITEM_A1), true);
+        var quantityRows = viewModel.loadReleaseStep1().rows();
+        var result = viewModel.confirmReleases(quantityRows, allocateDefaults(quantityRows));
+        viewModel.applyReleaseResult(result, quantityRows);
+        assertFalse(result.allSuccess());
+        assertFalse(viewModel.errorMessageProperty().get().isBlank());
+        assertFalse(viewModel.statusMessageProperty().get().contains("Выпущено"));
+        assertFalse(viewModel.errorMessageProperty().get().contains("Изделия выпущены"));
     }
 
     @Test
@@ -498,6 +621,24 @@ class ReleasePhase7ViewModelTest {
                         new RuntimeException(
                                 "Release is allowed only when order Production View is"
                                         + " IN_PRODUCTION")));
+    }
+
+    private List<ReleaseMaterialRow> allocateDefaults(List<ReleaseQuantityRow> quantityRows) {
+        List<ReleaseMaterialRow> materials = viewModel.prepareReleaseMaterialRows(quantityRows);
+        for (ReleaseMaterialRow row : materials) {
+            ReleaseMaterialRow.CellAllocation allocation = row.addAllocation();
+            StorageCellChoice choice =
+                    row.cellChoices().isEmpty()
+                            ? new StorageCellChoice(
+                                    CELL, applicationApi.productionWarehouseId, "P-01", true)
+                            : row.cellChoices().getFirst();
+            if (row.cellChoices().isEmpty()) {
+                row.cellChoices().add(choice);
+            }
+            allocation.setProductionCell(choice);
+            allocation.setQuantity(row.actualQuantity());
+        }
+        return materials;
     }
 
     private void seedOrders() {

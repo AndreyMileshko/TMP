@@ -920,9 +920,17 @@ public final class ProductionWorkbenchController
             try {
                 ProductionWorkbenchViewModel.MultiOrderReleaseResult result =
                         viewModel.confirmReleases(step1.rows(), step2.materials());
-                viewModel.afterSuccessfulRelease(result, step1.rows());
-                ReleaseDialogSupport.showInfo(
-                        ReleaseDialogSupport.STEP1_TITLE, result.summaryMessage());
+                ProductionWorkbenchViewModel.ReleaseCompletionKind kind =
+                        viewModel.applyReleaseResult(result, step1.rows());
+                String summary = result.summaryMessage();
+                switch (kind) {
+                    case FULL_SUCCESS ->
+                            ReleaseDialogSupport.showInfo(
+                                    ReleaseDialogSupport.STEP1_TITLE, summary);
+                    case PARTIAL_SUCCESS, TOTAL_FAILURE ->
+                            ReleaseDialogSupport.showWarning(
+                                    ReleaseDialogSupport.STEP1_TITLE, summary);
+                }
             } catch (RuntimeException ex) {
                 viewModel.setErrorMessage(ProductionUiErrorMapper.text(ex));
             } finally {

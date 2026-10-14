@@ -1330,10 +1330,73 @@ public final class ProductionWorkbenchViewModel {
         return new MultiOrderReleaseResult(List.copyOf(outcomes));
     }
 
+    /**
+     * Applies post-confirm UI state for a release batch. Distinguishes full success, partial
+     * success, and total failure so failures are never presented as success.
+     */
+    public ReleaseCompletionKind applyReleaseResult(
+            MultiOrderReleaseResult result, List<ReleaseQuantityRow> quantityRows) {
+        Objects.requireNonNull(result, "result");
+        Objects.requireNonNull(quantityRows, "quantityRows");
+        if (result.allSuccess()) {
+            afterSuccessfulRelease(result, quantityRows);
+            return ReleaseCompletionKind.FULL_SUCCESS;
+        }
+        if (result.anySuccess()) {
+            afterPartialRelease(result, quantityRows);
+            return ReleaseCompletionKind.PARTIAL_SUCCESS;
+        }
+        afterFailedRelease(result, quantityRows);
+        return ReleaseCompletionKind.TOTAL_FAILURE;
+    }
+
     public void afterSuccessfulRelease(
             MultiOrderReleaseResult result, List<ReleaseQuantityRow> quantityRows) {
         Objects.requireNonNull(result, "result");
         Objects.requireNonNull(quantityRows, "quantityRows");
+        clearSuccessfulReleaseSelection(result, quantityRows);
+        statusMessage.set(result.summaryMessage());
+        errorMessage.set("");
+        loadTreeInternal();
+        refreshMaterialRequestActionState();
+        refreshReleaseActionState();
+    }
+
+    /**
+     * Total failure: keep selection for retry, keep the failure visible on the error channel, do
+     * not run success-only cleanup.
+     */
+    public void afterFailedRelease(
+            MultiOrderReleaseResult result, List<ReleaseQuantityRow> quantityRows) {
+        Objects.requireNonNull(result, "result");
+        Objects.requireNonNull(quantityRows, "quantityRows");
+        statusMessage.set("");
+        // loadTreeInternal clears errorMessage — set failure text after refresh.
+        loadTreeInternal();
+        errorMessage.set(result.summaryMessage());
+        refreshMaterialRequestActionState();
+        refreshReleaseActionState();
+    }
+
+    /**
+     * Partial multi-order success: clear only succeeded orders from selection; keep failed/skipped
+     * for retry; surface the mixed outcome as an error/warning message (not overall success).
+     */
+    public void afterPartialRelease(
+            MultiOrderReleaseResult result, List<ReleaseQuantityRow> quantityRows) {
+        Objects.requireNonNull(result, "result");
+        Objects.requireNonNull(quantityRows, "quantityRows");
+        clearSuccessfulReleaseSelection(result, quantityRows);
+        statusMessage.set("");
+        // loadTreeInternal clears errorMessage — set mixed-outcome text after refresh.
+        loadTreeInternal();
+        errorMessage.set(result.summaryMessage());
+        refreshMaterialRequestActionState();
+        refreshReleaseActionState();
+    }
+
+    private void clearSuccessfulReleaseSelection(
+            MultiOrderReleaseResult result, List<ReleaseQuantityRow> quantityRows) {
         List<ProductionOrderItemRef> toClear = new ArrayList<>();
         Set<UUID> successfulOrders = new HashSet<>();
         for (OrderReleaseOutcome outcome : result.outcomes()) {
@@ -1348,11 +1411,12 @@ public final class ProductionWorkbenchViewModel {
             }
         }
         treeSelection.deselectAll(toClear);
-        statusMessage.set(result.summaryMessage());
-        errorMessage.set("");
-        loadTreeInternal();
-        refreshMaterialRequestActionState();
-        refreshReleaseActionState();
+    }
+
+    public enum ReleaseCompletionKind {
+        FULL_SUCCESS,
+        PARTIAL_SUCCESS,
+        TOTAL_FAILURE
     }
 
     public void setStatusMessage(String message) {

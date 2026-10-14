@@ -480,6 +480,11 @@ public final class ReleaseDialogSupport {
         showWrappedMessage(Alert.AlertType.INFORMATION, title, message);
     }
 
+    /** WARNING dialog for release total/partial failure — not the success INFORMATION path. */
+    public static void showWarning(String title, String message) {
+        showWrappedMessage(Alert.AlertType.WARNING, title, message);
+    }
+
     private static void showWrappedMessage(Alert.AlertType type, String title, String message) {
         Alert alert = new Alert(type);
         TmpTheme.apply(alert.getDialogPane());
