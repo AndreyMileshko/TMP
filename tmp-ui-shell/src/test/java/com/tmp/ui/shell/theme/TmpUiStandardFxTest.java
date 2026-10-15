@@ -245,6 +245,13 @@ class TmpUiStandardFxTest {
         assertTrue(themeCss.contains(".table-view .table-row-cell:filled:selected"));
         assertTrue(themeCss.contains(".table-view:focused .table-row-cell:filled:selected"));
         assertTrue(themeCss.contains("-fx-background-color: -tmp-table-selection-bg"));
+        assertTrue(themeCss.contains("-tmp-table-row-separator:"));
+        assertTrue(themeCss.contains("-tmp-table-column-separator:"));
+        assertTrue(themeCss.contains("-fx-border-color: transparent transparent -tmp-table-row-separator transparent"));
+        assertTrue(
+                themeCss.contains(
+                        "-fx-border-color: transparent -tmp-table-column-separator transparent transparent"));
+        assertTrue(themeCss.contains("-fx-table-cell-border-color: -tmp-table-column-separator"));
         assertFalse(themeCss.contains(
                 ".table-view:focused .table-row-cell:filled:selected {\r\n    -fx-background-color: -tmp-primary-soft;"));
         assertFalse(themeCss.contains(

@@ -1283,8 +1283,130 @@ class WarehouseWorkspaceViewModelTest {
         viewModel.sendSelectedTask();
 
         assertEquals(1, api.sendCommands.size());
-        assertEquals(WarehouseUiErrorMapper.STALE_STATE, viewModel.errorMessageProperty().get());
+        assertEquals(WarehouseUiErrorMapper.STALE_STATE, viewModel.taskDialogErrorMessageProperty().get());
+        assertTrue(viewModel.errorMessageProperty().get().isBlank());
         assertTrue(api.listMyWarehouseTasksCalls.size() > tasksBefore);
+    }
+
+    @Test
+    void taskDialogSendFailureShowsDialogErrorOnly() {
+        openPreparation();
+        api.sendThrows =
+                new InvalidWarehouseStateException(
+                        "Insufficient stock for transfer send: available=0.000000, requested=1.000000");
+
+        viewModel.sendSelectedTask();
+
+        assertEquals(
+                "Недостаточно материала на складе. Доступно: 0. Запрошено: 1.",
+                viewModel.taskDialogErrorMessageProperty().get());
+        assertTrue(viewModel.errorMessageProperty().get().isBlank());
+        assertTrue(viewModel.isTaskDialogOpen());
+    }
+
+    @Test
+    void taskDialogReceiveRejectReturnFailuresUseDialogErrorOnly() {
+        ReceiptFixture receipt = openReceipt();
+        ReceiveAllocationEditRow receiveRow =
+                (ReceiveAllocationEditRow) viewModel.actionLines().get(0);
+        receiveRow.storageCellProperty().set(choice(viewModel.actionCellChoices(), receipt.destCell));
+        api.receiveThrows =
+                new InvalidWarehouseStateException(
+                        "Insufficient IN_TRANSIT stock for transfer receive: available=0.000000, requested=2.000000");
+        viewModel.receiveSelectedTask();
+        assertEquals(
+                "Недостаточно материала на складе. Доступно: 0. Запрошено: 2.",
+                viewModel.taskDialogErrorMessageProperty().get());
+        assertTrue(viewModel.errorMessageProperty().get().isBlank());
+
+        api.receiveThrows = null;
+        api.rejectThrows = new IllegalStateException("database locked");
+        viewModel.rejectSelectedTask("брак");
+        assertEquals(
+                WarehouseUiErrorMapper.text(api.rejectThrows),
+                viewModel.taskDialogErrorMessageProperty().get());
+        assertTrue(viewModel.errorMessageProperty().get().isBlank());
+
+        api.tasks.clear();
+        api.documents.clear();
+        api.returnPlans.clear();
+        openReturn();
+        api.returnThrows =
+                new InvalidWarehouseStateException(
+                        "Insufficient IN_TRANSIT stock for transfer return: available=1.500000, requested=3.000000");
+        viewModel.returnSelectedTask();
+        assertEquals(
+                "Недостаточно материала на складе. Доступно: 1,5. Запрошено: 3.",
+                viewModel.taskDialogErrorMessageProperty().get());
+        assertTrue(viewModel.errorMessageProperty().get().isBlank());
+    }
+
+    @Test
+    void closingTaskDialogClearsDialogErrorWithoutStaleWorkspaceBanner() {
+        openPreparation();
+        api.sendThrows =
+                new InvalidWarehouseStateException(
+                        "Insufficient stock for transfer send: available=0.000000, requested=1.000000");
+        viewModel.sendSelectedTask();
+        assertFalse(viewModel.taskDialogErrorMessageProperty().get().isBlank());
+
+        viewModel.setTaskDialogOpen(false);
+
+        assertTrue(viewModel.taskDialogErrorMessageProperty().get().isBlank());
+        assertTrue(viewModel.errorMessageProperty().get().isBlank());
+    }
+
+    @Test
+    void mainScreenOperationFailureKeepsWorkspaceError() {
+        auth =
+                new FakeAuthorization(
+                        Set.of(
+                                UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                                UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION));
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        UUID source = UUID.randomUUID();
+        UUID dest = UUID.randomUUID();
+        UUID cell = UUID.randomUUID();
+        UUID material = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(source, "MAIN", "Main", true));
+        api.warehouses.add(new WarehouseView(dest, "SECOND", "Second", true));
+        api.stockPages.add(
+                page(
+                        List.of(
+                                new WarehouseStockCellLineView(
+                                        source,
+                                        "MAIN",
+                                        "Main",
+                                        cell,
+                                        "A-01",
+                                        material,
+                                        "A1",
+                                        "Mat",
+                                        "",
+                                        "",
+                                        "шт",
+                                        new BigDecimal("1"))),
+                        0,
+                        1));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        viewModel.tableRows().get(0).setSelected(true);
+        viewModel.onStockSelectionChanged();
+        api.sendThrows =
+                new InvalidWarehouseStateException(
+                        "Insufficient stock for transfer send: available=0.000000, requested=1.000000");
+
+        viewModel.executeInterWarehouseMove(
+                List.of(
+                        WarehouseWorkspaceViewModel.StockMoveLine.from(
+                                viewModel.tableRows().get(0), new BigDecimal("1"))),
+                dest);
+
+        assertEquals(
+                "Недостаточно материала на складе. Доступно: 0. Запрошено: 1.",
+                viewModel.errorMessageProperty().get());
+        assertTrue(viewModel.taskDialogErrorMessageProperty().get().isBlank());
+        assertFalse(viewModel.isTaskDialogOpen());
     }
 
     @Test
@@ -1487,7 +1609,10 @@ class WarehouseWorkspaceViewModelTest {
         int before = api.rejectCommands.size();
         viewModel.rejectSelectedTask("   ");
         assertEquals(before, api.rejectCommands.size());
-        assertEquals(WarehouseUiErrorMapper.VALIDATION, viewModel.errorMessageProperty().get());
+        assertEquals(
+                WarehouseUiErrorMapper.VALIDATION,
+                viewModel.taskDialogErrorMessageProperty().get());
+        assertTrue(viewModel.errorMessageProperty().get().isBlank());
 
         viewModel.rejectSelectedTask("  брак  ");
         assertEquals(1, api.rejectCommands.size());
@@ -1544,7 +1669,10 @@ class WarehouseWorkspaceViewModelTest {
         api.returnThrows = new IllegalStateException("stale operational revision");
         before = api.listMyWarehouseTasksCalls.size();
         viewModel.returnSelectedTask();
-        assertEquals(WarehouseUiErrorMapper.STALE_STATE, viewModel.errorMessageProperty().get());
+        assertEquals(
+                WarehouseUiErrorMapper.STALE_STATE,
+                viewModel.taskDialogErrorMessageProperty().get());
+        assertTrue(viewModel.errorMessageProperty().get().isBlank());
         assertTrue(api.listMyWarehouseTasksCalls.size() > before);
         assertNotNull(fx.documentId);
     }
@@ -2248,7 +2376,10 @@ class WarehouseWorkspaceViewModelTest {
 
         viewModel.prepareSelectedSupplyTaskTransfers();
 
-        assertEquals(WarehouseUiErrorMapper.text(api.prepareThrows), viewModel.errorMessageProperty().get());
+        assertEquals(
+                WarehouseUiErrorMapper.text(api.prepareThrows),
+                viewModel.taskDialogErrorMessageProperty().get());
+        assertTrue(viewModel.errorMessageProperty().get().isBlank());
         assertTrue(viewModel.isTaskDialogOpen());
     }
 
@@ -2832,6 +2963,8 @@ class WarehouseWorkspaceViewModelTest {
         long historyDelayMs;
         UUID sendResultContinuationId;
         RuntimeException sendThrows;
+        RuntimeException receiveThrows;
+        RuntimeException rejectThrows;
         RuntimeException returnThrows;
         BlockingCallback sendBlock;
         Set<UUID> myWarehouseIds;
@@ -3054,6 +3187,9 @@ class WarehouseWorkspaceViewModelTest {
         public TransferDocumentReceiveResult receiveTransferDocument(
                 ReceiveTransferDocumentCommand command) {
             receiveCommands.add(command);
+            if (receiveThrows != null) {
+                throw receiveThrows;
+            }
             return new TransferDocumentReceiveResult(
                     command.documentId(),
                     "COMPLETED",
@@ -3069,6 +3205,9 @@ class WarehouseWorkspaceViewModelTest {
         public TransferDocumentRejectResult rejectTransferDocument(
                 RejectTransferDocumentCommand command) {
             rejectCommands.add(command);
+            if (rejectThrows != null) {
+                throw rejectThrows;
+            }
             return new TransferDocumentRejectResult(
                     command.documentId(),
                     "REJECTED",
@@ -3183,5 +3322,11 @@ class WarehouseWorkspaceViewModelTest {
                 int pageSize) {}
 
         private record TaskListCall(UUID warehouseId) {}
+    }
+
+    private static final class InvalidWarehouseStateException extends RuntimeException {
+        InvalidWarehouseStateException(String message) {
+            super(message);
+        }
     }
 }

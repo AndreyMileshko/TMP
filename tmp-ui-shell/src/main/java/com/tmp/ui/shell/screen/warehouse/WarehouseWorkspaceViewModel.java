@@ -496,6 +496,12 @@ public final class WarehouseWorkspaceViewModel {
         private final String sourceWarehouseLabel;
         private final String destinationWarehouseLabel;
         private final String routeLabel;
+        private final UUID dtoSourceWarehouseId;
+        private final UUID dtoDestinationWarehouseId;
+        private final UUID badgeSourceWarehouseId;
+        private final UUID badgeDestinationWarehouseId;
+        private final boolean sourceSystemLocation;
+        private final boolean destinationSystemLocation;
         private final int lineCount;
         private final String workerDisplay;
 
@@ -515,15 +521,46 @@ public final class WarehouseWorkspaceViewModel {
                             : view.sourceOrderNumber().trim();
             this.kindLabel = kindLabel(view.taskKind());
             this.stateLabel = stateLabel(view.taskState());
-            this.sourceWarehouseLabel =
+            this.dtoSourceWarehouseId = view.sourceWarehouseId();
+            this.dtoDestinationWarehouseId = view.destinationWarehouseId();
+            String formattedSource =
                     formatWarehouse(view.sourceWarehouseCode(), view.sourceWarehouseName());
-            this.destinationWarehouseLabel =
+            String formattedDestination =
                     formatWarehouse(
                             view.destinationWarehouseCode(), view.destinationWarehouseName());
-            this.routeLabel =
-                    view.taskKind() == WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY
-                            ? destinationWarehouseLabel
-                            : sourceWarehouseLabel + " → " + destinationWarehouseLabel;
+            if (view.taskKind() == WarehouseTaskKind.RETURN_MATERIALS) {
+                // Presentation only: return moves IN_TRANSIT → original source warehouse.
+                this.sourceWarehouseLabel = WarehouseTaskVisualStyles.SYSTEM_IN_TRANSIT;
+                this.destinationWarehouseLabel = formattedSource;
+                this.routeLabel = "Возврат на: " + formattedSource;
+                this.sourceSystemLocation = true;
+                this.destinationSystemLocation = false;
+                this.badgeSourceWarehouseId = null;
+                this.badgeDestinationWarehouseId = view.sourceWarehouseId();
+            } else if (view.taskKind() == WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY) {
+                this.sourceWarehouseLabel = formattedSource;
+                this.destinationWarehouseLabel = formattedDestination;
+                this.routeLabel = formattedDestination;
+                this.sourceSystemLocation =
+                        WarehouseTaskVisualStyles.isSystemLocationLabel(formattedSource);
+                this.destinationSystemLocation =
+                        WarehouseTaskVisualStyles.isSystemLocationLabel(formattedDestination);
+                this.badgeSourceWarehouseId =
+                        this.sourceSystemLocation ? null : view.sourceWarehouseId();
+                this.badgeDestinationWarehouseId = view.destinationWarehouseId();
+            } else {
+                this.sourceWarehouseLabel = formattedSource;
+                this.destinationWarehouseLabel = formattedDestination;
+                this.routeLabel = formattedSource + " → " + formattedDestination;
+                this.sourceSystemLocation =
+                        WarehouseTaskVisualStyles.isSystemLocationLabel(formattedSource);
+                this.destinationSystemLocation =
+                        WarehouseTaskVisualStyles.isSystemLocationLabel(formattedDestination);
+                this.badgeSourceWarehouseId =
+                        this.sourceSystemLocation ? null : view.sourceWarehouseId();
+                this.badgeDestinationWarehouseId =
+                        this.destinationSystemLocation ? null : view.destinationWarehouseId();
+            }
             this.lineCount = view.lineCount();
             this.workerDisplay =
                     formatWorkerDisplay(view.taskState(), view.workingUserId(), workerLogin);
@@ -593,6 +630,32 @@ public final class WarehouseWorkspaceViewModel {
             return routeLabel;
         }
 
+        /** Unchanged DTO source warehouse id (not presentation-swapped). */
+        public UUID dtoSourceWarehouseId() {
+            return dtoSourceWarehouseId;
+        }
+
+        /** Unchanged DTO destination warehouse id (not presentation-swapped). */
+        public UUID dtoDestinationWarehouseId() {
+            return dtoDestinationWarehouseId;
+        }
+
+        public UUID badgeSourceWarehouseId() {
+            return badgeSourceWarehouseId;
+        }
+
+        public UUID badgeDestinationWarehouseId() {
+            return badgeDestinationWarehouseId;
+        }
+
+        public boolean sourceSystemLocation() {
+            return sourceSystemLocation;
+        }
+
+        public boolean destinationSystemLocation() {
+            return destinationSystemLocation;
+        }
+
         public int lineCount() {
             return lineCount;
         }
@@ -609,7 +672,7 @@ public final class WarehouseWorkspaceViewModel {
             return switch (kind) {
                 case TRANSFER_PREPARATION -> "Подготовка";
                 case TRANSFER_RECEIPT -> "Приёмка";
-                case RETURN_MATERIALS -> "Возврат";
+                case RETURN_MATERIALS -> "Возврат материалов";
                 case PRODUCTION_MATERIAL_SUPPLY -> "Подать материалы в производство";
             };
         }
@@ -1018,6 +1081,8 @@ public final class WarehouseWorkspaceViewModel {
     private final StringProperty tableEmptyMessage =
             new SimpleStringProperty(EMPTY_TASKS_MESSAGE);
     private final StringProperty errorMessage = new SimpleStringProperty("");
+    /** Task-dialog-only errors; never mirrored onto the workspace banner while the dialog is open. */
+    private final StringProperty taskDialogErrorMessage = new SimpleStringProperty("");
     private final StringProperty taskDetailsText =
             new SimpleStringProperty(TASK_DETAILS_PLACEHOLDER);
     private final StringProperty transferActionsHint = new SimpleStringProperty("");
@@ -1077,6 +1142,8 @@ public final class WarehouseWorkspaceViewModel {
     private final BooleanProperty historyCanGoNext = new SimpleBooleanProperty(false);
 
     private final Set<UUID> accessibleWarehouseIds = new HashSet<>();
+    /** Authoritative production warehouse ids from {@link WarehouseView#productionWarehouse()}. */
+    private final Set<UUID> productionWarehouseIds = new HashSet<>();
     private final Map<UUID, String> warehouseLabels = new HashMap<>();
     private final Map<UUID, MaterialReferenceView> materialById = new HashMap<>();
     private String committedSearch = "";
@@ -1353,6 +1420,7 @@ public final class WarehouseWorkspaceViewModel {
         selectedTask.set(row);
         taskDialogOpen = true;
         closeTaskDialogAfterReload = false;
+        clearOperationErrors();
         clearActionEditingState();
         updateTransferActionsHint();
         loadSelectedTaskDetails(row);
@@ -1362,6 +1430,7 @@ public final class WarehouseWorkspaceViewModel {
         this.taskDialogOpen = open;
         if (!open) {
             closeTaskDialogAfterReload = false;
+            taskDialogErrorMessage.set("");
             clearActionEditingState();
             updateActionAvailability();
             updateTransferActionsHint();
@@ -1389,7 +1458,7 @@ public final class WarehouseWorkspaceViewModel {
         UUID documentId = row.documentId();
         UUID demandId = row.demandId();
         commandInFlight.set(true);
-        errorMessage.set("");
+        clearOperationErrors();
         backgroundExecutor.execute(
                 () -> {
                     try {
@@ -1407,7 +1476,7 @@ public final class WarehouseWorkspaceViewModel {
                         uiExecutor.accept(
                                 () -> {
                                     commandInFlight.set(false);
-                                    errorMessage.set(WarehouseUiErrorMapper.text(ex));
+                                    presentOperationError(WarehouseUiErrorMapper.text(ex));
                                     if (WarehouseUiErrorMapper.isStaleConflict(ex)) {
                                         reloadTasks("TAKE_STALE");
                                     }
@@ -1429,7 +1498,7 @@ public final class WarehouseWorkspaceViewModel {
             return;
         }
         commandInFlight.set(true);
-        errorMessage.set("");
+        clearOperationErrors();
         backgroundExecutor.execute(
                 () -> {
                     try {
@@ -1440,7 +1509,7 @@ public final class WarehouseWorkspaceViewModel {
                         uiExecutor.accept(
                                 () -> {
                                     commandInFlight.set(false);
-                                    errorMessage.set(WarehouseUiErrorMapper.text(ex));
+                                    presentOperationError(WarehouseUiErrorMapper.text(ex));
                                     updateActionAvailability();
                                 });
                     }
@@ -1459,13 +1528,13 @@ public final class WarehouseWorkspaceViewModel {
         }
         if (WarehouseSupplyPrepareResultPresentation.isPartial(result)) {
             pendingTaskStatusMessage = message;
-            errorMessage.set("");
+            clearOperationErrors();
             reloadTasks("SUPPLY_PREPARE_PARTIAL");
             return;
         }
         // nothing routable — keep dialog, refresh waiting reasons
         pendingTaskStatusMessage = message;
-        errorMessage.set("");
+        clearOperationErrors();
         TaskRow current = selectedTask.get();
         if (current != null && taskDialogOpen) {
             // Avoid full inbox reload clearing dialog unless needed; still refresh lines.
@@ -1494,7 +1563,7 @@ public final class WarehouseWorkspaceViewModel {
         long documentVersion = document.documentVersion();
         long payloadRevision = document.payloadRevision();
         commandInFlight.set(true);
-        errorMessage.set("");
+        clearOperationErrors();
         backgroundExecutor.execute(
                 () -> {
                     try {
@@ -1537,7 +1606,7 @@ public final class WarehouseWorkspaceViewModel {
         UUID documentId = document.documentId();
         long operationalRevision = document.operationalRevision();
         commandInFlight.set(true);
-        errorMessage.set("");
+        clearOperationErrors();
         backgroundExecutor.execute(
                 () -> {
                     try {
@@ -1571,14 +1640,14 @@ public final class WarehouseWorkspaceViewModel {
             return;
         }
         if (reason == null || reason.isBlank()) {
-            errorMessage.set(WarehouseUiErrorMapper.VALIDATION);
+            presentOperationError(WarehouseUiErrorMapper.VALIDATION);
             return;
         }
         String trimmed = reason.trim();
         UUID documentId = document.documentId();
         long operationalRevision = document.operationalRevision();
         commandInFlight.set(true);
-        errorMessage.set("");
+        clearOperationErrors();
         backgroundExecutor.execute(
                 () -> {
                     try {
@@ -1620,7 +1689,7 @@ public final class WarehouseWorkspaceViewModel {
         UUID documentId = document.documentId();
         long operationalRevision = document.operationalRevision();
         commandInFlight.set(true);
-        errorMessage.set("");
+        clearOperationErrors();
         backgroundExecutor.execute(
                 () -> {
                     try {
@@ -1888,6 +1957,10 @@ public final class WarehouseWorkspaceViewModel {
         return errorMessage;
     }
 
+    public StringProperty taskDialogErrorMessageProperty() {
+        return taskDialogErrorMessage;
+    }
+
     public BooleanProperty loadingProperty() {
         return loading;
     }
@@ -1966,6 +2039,20 @@ public final class WarehouseWorkspaceViewModel {
 
     public ObservableList<TaskRow> taskRows() {
         return taskRows;
+    }
+
+    /** Authoritative production warehouse ids for role-based badge styling (read-only view). */
+    public Set<UUID> productionWarehouseIds() {
+        return Set.copyOf(productionWarehouseIds);
+    }
+
+    private void refreshProductionWarehouseIds() {
+        productionWarehouseIds.clear();
+        for (WarehouseView view : warehouseApi.listWarehouses()) {
+            if (view.productionWarehouse()) {
+                productionWarehouseIds.add(view.warehouseId());
+            }
+        }
     }
 
     public ObjectProperty<TaskRow> selectedTaskProperty() {
@@ -2064,6 +2151,7 @@ public final class WarehouseWorkspaceViewModel {
         errorMessage.set("");
         statusMessage.set("");
         try {
+            refreshProductionWarehouseIds();
             List<WarehouseView> mine = warehouseApi.listMyWarehouses();
             accessibleWarehouseIds.clear();
             warehouseLabels.clear();
@@ -2188,13 +2276,14 @@ public final class WarehouseWorkspaceViewModel {
                 statusMessage.set(EMPTY_TASKS_MESSAGE);
             }
             if (pendingTaskErrorMessage != null) {
-                errorMessage.set(pendingTaskErrorMessage);
+                presentOperationError(pendingTaskErrorMessage);
                 pendingTaskErrorMessage = null;
             }
         }
         if (closeTaskDialogAfterReload) {
             closeTaskDialogAfterReload = false;
             taskDialogOpen = false;
+            taskDialogErrorMessage.set("");
             Runnable closeHandler = afterTerminalTaskAction;
             if (closeHandler != null) {
                 closeHandler.run();
@@ -2540,8 +2629,11 @@ public final class WarehouseWorkspaceViewModel {
                 .append(row.stateLabel())
                 .append("\n")
                 .append(orderHeaderLine(row))
-                .append("\nОткуда → Куда: ")
-                .append(row.routeLabel())
+                .append('\n')
+                .append(
+                        row.taskKind() == WarehouseTaskKind.RETURN_MATERIALS
+                                ? row.routeLabel()
+                                : "Откуда → Куда: " + row.routeLabel())
                 .append("\nИсполнитель: ")
                 .append(row.workerDisplay());
         if (document != null) {
@@ -2846,7 +2938,27 @@ public final class WarehouseWorkspaceViewModel {
             reloadTasks();
             return;
         }
-        errorMessage.set(WarehouseUiErrorMapper.text(ex));
+        presentOperationError(WarehouseUiErrorMapper.text(ex));
+    }
+
+    /**
+     * Single-owner error presentation: task-dialog failures stay inside the dialog; main-screen
+     * failures use the workspace banner. Never mirrors the same text on both surfaces.
+     */
+    private void presentOperationError(String mapped) {
+        String text = mapped == null ? "" : mapped;
+        if (taskDialogOpen) {
+            errorMessage.set("");
+            taskDialogErrorMessage.set(text);
+        } else {
+            taskDialogErrorMessage.set("");
+            errorMessage.set(text);
+        }
+    }
+
+    private void clearOperationErrors() {
+        errorMessage.set("");
+        taskDialogErrorMessage.set("");
     }
 
     static String formatSendSuccess(

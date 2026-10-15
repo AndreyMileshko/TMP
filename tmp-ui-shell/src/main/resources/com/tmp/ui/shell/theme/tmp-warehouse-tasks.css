@@ -1,0 +1,249 @@
+/*
+ * Warehouse Tasks — semantic presentation (row tint, warehouse role badges).
+ * Colors stay here; Java only applies style class names.
+ * Tokens live on .table-view so they resolve when this sheet is attached to the Tasks TableView.
+ * Depends on TMP design tokens from tmp-theme.css (-tmp-surface, -tmp-table-selection-bg, …).
+ */
+
+.table-view {
+    -tmp-wh-task-supply-tint: #EAF2FB;
+    -tmp-wh-task-supply-stripe: #3B82F6;
+    -tmp-wh-task-supply-hover: #DCEAF8;
+
+    -tmp-wh-task-return-tint: #FFF3E8;
+    -tmp-wh-task-return-stripe: #F97316;
+    -tmp-wh-task-return-hover: #FFE6D1;
+
+    -tmp-wh-task-receipt-tint: #E8F7EE;
+    -tmp-wh-task-receipt-stripe: #2F9E55;
+    -tmp-wh-task-receipt-hover: #D8F0E1;
+
+    -tmp-wh-task-transfer-tint: #F5ECFB;
+    -tmp-wh-task-transfer-stripe: #9333EA;
+    -tmp-wh-task-transfer-hover: #ECDDF8;
+}
+
+/* Cells stay transparent so the row tint paints through the full row width. */
+.table-view .table-row-cell.tmp-wh-task-row-supply .table-cell,
+.table-view .table-row-cell.tmp-wh-task-row-return .table-cell,
+.table-view .table-row-cell.tmp-wh-task-row-receipt .table-cell,
+.table-view .table-row-cell.tmp-wh-task-row-transfer .table-cell,
+.table-view .table-row-cell.tmp-wh-task-row-neutral .table-cell {
+    -fx-background-color: transparent;
+}
+
+/* ---- Task-kind solid tint + 4px left stripe (border) ---- */
+
+.table-view .table-row-cell.tmp-wh-task-row-supply,
+.table-view .table-row-cell.tmp-wh-task-row-supply:odd {
+    -fx-background-color: -tmp-wh-task-supply-tint;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-supply-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-supply:hover {
+    -fx-background-color: -tmp-wh-task-supply-hover;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-supply-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-return,
+.table-view .table-row-cell.tmp-wh-task-row-return:odd {
+    -fx-background-color: -tmp-wh-task-return-tint;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-return-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-return:hover {
+    -fx-background-color: -tmp-wh-task-return-hover;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-return-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-receipt,
+.table-view .table-row-cell.tmp-wh-task-row-receipt:odd {
+    -fx-background-color: -tmp-wh-task-receipt-tint;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-receipt-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-receipt:hover {
+    -fx-background-color: -tmp-wh-task-receipt-hover;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-receipt-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-transfer,
+.table-view .table-row-cell.tmp-wh-task-row-transfer:odd {
+    -fx-background-color: -tmp-wh-task-transfer-tint;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-transfer-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-transfer:hover {
+    -fx-background-color: -tmp-wh-task-transfer-hover;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-transfer-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-neutral,
+.table-view .table-row-cell.tmp-wh-task-row-neutral:odd {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: transparent transparent -tmp-table-row-separator transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-neutral:hover {
+    -fx-background-color: -tmp-surface-hover;
+    -fx-border-color: transparent transparent -tmp-table-row-separator transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+/* Selected: soft-green selection token; stripe stays visible */
+.table-view .table-row-cell.tmp-wh-task-row-supply:filled:selected,
+.table-view:focused .table-row-cell.tmp-wh-task-row-supply:filled:selected {
+    -fx-background-color: -tmp-table-selection-bg;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-supply-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-return:filled:selected,
+.table-view:focused .table-row-cell.tmp-wh-task-row-return:filled:selected {
+    -fx-background-color: -tmp-table-selection-bg;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-return-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-receipt:filled:selected,
+.table-view:focused .table-row-cell.tmp-wh-task-row-receipt:filled:selected {
+    -fx-background-color: -tmp-table-selection-bg;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-receipt-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-transfer:filled:selected,
+.table-view:focused .table-row-cell.tmp-wh-task-row-transfer:filled:selected {
+    -fx-background-color: -tmp-table-selection-bg;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-transfer-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-neutral:filled:selected,
+.table-view:focused .table-row-cell.tmp-wh-task-row-neutral:filled:selected {
+    -fx-background-color: -tmp-table-selection-bg;
+    -fx-border-color: transparent transparent -tmp-table-row-separator transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-supply:filled:selected:hover,
+.table-view:focused .table-row-cell.tmp-wh-task-row-supply:filled:selected:hover {
+    -fx-background-color: -tmp-table-selection-hover-bg;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-supply-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-return:filled:selected:hover,
+.table-view:focused .table-row-cell.tmp-wh-task-row-return:filled:selected:hover {
+    -fx-background-color: -tmp-table-selection-hover-bg;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-return-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-receipt:filled:selected:hover,
+.table-view:focused .table-row-cell.tmp-wh-task-row-receipt:filled:selected:hover {
+    -fx-background-color: -tmp-table-selection-hover-bg;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-receipt-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-transfer:filled:selected:hover,
+.table-view:focused .table-row-cell.tmp-wh-task-row-transfer:filled:selected:hover {
+    -fx-background-color: -tmp-table-selection-hover-bg;
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-wh-task-transfer-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view .table-row-cell.tmp-wh-task-row-neutral:filled:selected:hover,
+.table-view:focused .table-row-cell.tmp-wh-task-row-neutral:filled:selected:hover {
+    -fx-background-color: -tmp-table-selection-hover-bg;
+    -fx-border-color: transparent transparent -tmp-table-row-separator transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+/* ---- Warehouse role badges ---- */
+
+.tmp-wh-badge {
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-padding: 1 8 1 8;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-max-width: 160;
+}
+
+.tmp-wh-badge-production {
+    -fx-background-color: -tmp-primary-soft;
+    -fx-text-fill: -tmp-primary;
+    -fx-border-color: derive(-tmp-primary, 50%);
+    -fx-border-width: 1;
+}
+
+.tmp-wh-badge-standard {
+    -fx-background-color: -tmp-success-soft;
+    -fx-text-fill: -tmp-success;
+    -fx-border-color: derive(-tmp-success, 55%);
+    -fx-border-width: 1;
+}
+
+.tmp-wh-badge-system {
+    -fx-background-color: -tmp-surface-alt;
+    -fx-text-fill: -tmp-text-secondary;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+}
+/* ---- Task-kind label: small stripe-colored dot + semibold caption ---- */
+
+.tmp-wh-kind-cell {
+    -fx-spacing: 6;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.tmp-wh-kind-dot {
+    -fx-stroke-width: 0;
+}
+
+.table-view .tmp-wh-kind-dot-supply {
+    -fx-fill: -tmp-wh-task-supply-stripe;
+}
+
+.table-view .tmp-wh-kind-dot-return {
+    -fx-fill: -tmp-wh-task-return-stripe;
+}
+
+.table-view .tmp-wh-kind-dot-receipt {
+    -fx-fill: -tmp-wh-task-receipt-stripe;
+}
+
+.table-view .tmp-wh-kind-dot-transfer {
+    -fx-fill: -tmp-wh-task-transfer-stripe;
+}
+
+.table-view .tmp-wh-kind-dot-neutral {
+    -fx-fill: -tmp-text-disabled;
+}
+
+.tmp-wh-kind-label {
+    -fx-font-weight: bold;
+    -fx-text-fill: -tmp-text;
+}
+
+/* Cell padding must stay near-zero: theme default 8px sides truncate glyphs in a ~36px column. */
+.table-view .table-cell.tmp-wh-route-arrow-cell {
+    -fx-padding: 0;
+    -fx-alignment: CENTER;
+}
+
+.tmp-wh-route-arrow {
+    -fx-fill: -tmp-text-secondary;
+    -fx-font-size: 14px;
+}

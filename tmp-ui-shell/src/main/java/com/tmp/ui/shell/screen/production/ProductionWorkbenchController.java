@@ -954,17 +954,17 @@ public final class ProductionWorkbenchController
     }
 
     /**
-     * Presents post-confirm release outcome. Failure text stays on the error channel until the
-     * modal is shown, then the duplicate inline banner is cleared (one user-facing notification).
+     * Presents post-confirm release outcome. For WARNING outcomes the duplicate inline error is
+     * cleared before the modal so the red banner is not visible behind the dialog; the full error
+     * text remains in {@code outcome.summary()} / the modal content.
      */
     static void presentConfirmedReleaseOutcome(
             ProductionWorkbenchViewModel viewModel, ReleasePostConfirmOutcome outcome) {
         Objects.requireNonNull(viewModel, "viewModel");
         Objects.requireNonNull(outcome, "outcome");
         if (outcome.unexpected()) {
-            ReleaseDialogSupport.showWarning(
-                    ReleaseDialogSupport.STEP1_TITLE, outcome.summary());
-            clearPostConfirmDuplicateInlineError(viewModel, outcome);
+            String summary = preparePostConfirmWarning(viewModel, outcome);
+            ReleaseDialogSupport.showWarning(ReleaseDialogSupport.STEP1_TITLE, summary);
             return;
         }
         switch (outcome.kind()) {
@@ -972,16 +972,28 @@ public final class ProductionWorkbenchController
                     ReleaseDialogSupport.showInfo(
                             ReleaseDialogSupport.STEP1_TITLE, outcome.summary());
             case PARTIAL_SUCCESS, TOTAL_FAILURE -> {
-                ReleaseDialogSupport.showWarning(
-                        ReleaseDialogSupport.STEP1_TITLE, outcome.summary());
-                clearPostConfirmDuplicateInlineError(viewModel, outcome);
+                String summary = preparePostConfirmWarning(viewModel, outcome);
+                ReleaseDialogSupport.showWarning(ReleaseDialogSupport.STEP1_TITLE, summary);
             }
         }
     }
 
     /**
-     * Clears the inline error banner after a post-confirm failure modal has been shown. Package
-     * visibility for focused regression without opening dialogs.
+     * Clears the duplicate inline error before a post-confirm WARNING and returns the modal text.
+     * Package-visible for focused regression without opening dialogs.
+     */
+    static String preparePostConfirmWarning(
+            ProductionWorkbenchViewModel viewModel, ReleasePostConfirmOutcome outcome) {
+        Objects.requireNonNull(viewModel, "viewModel");
+        Objects.requireNonNull(outcome, "outcome");
+        String summary = outcome.summary();
+        clearPostConfirmDuplicateInlineError(viewModel, outcome);
+        return summary;
+    }
+
+    /**
+     * Clears the inline error banner for post-confirm failure outcomes. Package visibility for
+     * focused regression without opening dialogs.
      */
     static void clearPostConfirmDuplicateInlineError(
             ProductionWorkbenchViewModel viewModel, ReleasePostConfirmOutcome outcome) {

@@ -31,7 +31,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** Focused regression: one post-confirm notification — clear duplicate inline after modal. */
+/** Focused regression: one post-confirm notification — clear duplicate inline before WARNING. */
 class ReleasePostConfirmNotificationTest {
 
     private static final UUID ORDER_A = UUID.fromString("11111111-1111-4111-8111-111111111111");
@@ -72,7 +72,7 @@ class ReleasePostConfirmNotificationTest {
     }
 
     @Test
-    void totalFailureInlineErrorClearedAfterPresenterStep() throws Exception {
+    void totalFailureInlineErrorClearedBeforeWarningKeepsModalText() throws Exception {
         runOnFxThread(
                 () -> {
                     applicationApi.releaseFailuresByOrder.put(
@@ -98,29 +98,38 @@ class ReleasePostConfirmNotificationTest {
                     assertTrue(outcome.summary().contains("Доступно: 0"));
                     assertTrue(outcome.summary().contains("Требуется: 12.5"));
 
-                    ProductionWorkbenchController.clearPostConfirmDuplicateInlineError(
-                            viewModel, outcome);
+                    String modalText =
+                            ProductionWorkbenchController.preparePostConfirmWarning(
+                                    viewModel, outcome);
                     assertEquals("", viewModel.errorMessageProperty().get());
+                    assertEquals(outcome.summary(), modalText);
+                    assertTrue(modalText.contains("Недостаточно"));
+                    assertTrue(modalText.contains("Доступно: 0"));
+                    assertTrue(modalText.contains("Требуется: 12.5"));
                 });
     }
 
     @Test
-    void partialAndUnexpectedInlineErrorsClearedAfterPresenterStep() throws Exception {
+    void partialAndUnexpectedInlineErrorsClearedBeforeWarning() throws Exception {
         runOnFxThread(
                 () -> {
                     viewModel.setErrorMessage("частично");
-                    ProductionWorkbenchController.clearPostConfirmDuplicateInlineError(
-                            viewModel,
-                            ReleasePostConfirmOutcome.handled(
-                                    ReleaseCompletionKind.PARTIAL_SUCCESS, "частично"));
+                    String partialModal =
+                            ProductionWorkbenchController.preparePostConfirmWarning(
+                                    viewModel,
+                                    ReleasePostConfirmOutcome.handled(
+                                            ReleaseCompletionKind.PARTIAL_SUCCESS, "частично"));
                     assertEquals("", viewModel.errorMessageProperty().get());
+                    assertEquals("частично", partialModal);
 
                     viewModel.setErrorMessage(ProductionUiErrorMapper.TECHNICAL_FAILURE);
-                    ProductionWorkbenchController.clearPostConfirmDuplicateInlineError(
-                            viewModel,
-                            ReleasePostConfirmOutcome.unexpected(
-                                    ProductionUiErrorMapper.TECHNICAL_FAILURE));
+                    String unexpectedModal =
+                            ProductionWorkbenchController.preparePostConfirmWarning(
+                                    viewModel,
+                                    ReleasePostConfirmOutcome.unexpected(
+                                            ProductionUiErrorMapper.TECHNICAL_FAILURE));
                     assertEquals("", viewModel.errorMessageProperty().get());
+                    assertEquals(ProductionUiErrorMapper.TECHNICAL_FAILURE, unexpectedModal);
                 });
     }
 

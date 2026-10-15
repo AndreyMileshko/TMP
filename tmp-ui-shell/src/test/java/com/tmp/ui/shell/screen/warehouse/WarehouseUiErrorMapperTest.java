@@ -46,8 +46,72 @@ class WarehouseUiErrorMapperTest {
         assertFalse(WarehouseUiErrorMapper.isStaleConflict(new IllegalArgumentException("required")));
     }
 
+    @Test
+    void mapsInsufficientStockFromInvalidWarehouseStateWithQuantities() {
+        String mapped =
+                WarehouseUiErrorMapper.text(
+                        new InvalidWarehouseStateException(
+                                "Insufficient stock for transfer send: available=0.000000, requested=1.000000"));
+        assertEquals(
+                "Недостаточно материала на складе. Доступно: 0. Запрошено: 1.", mapped);
+        assertFalse(mapped.toLowerCase().contains("insufficient"));
+        assertFalse(mapped.contains("шт."));
+    }
+
+    @Test
+    void mapsInsufficientStockDecimalQuantitiesWithRuSeparator() {
+        String mapped =
+                WarehouseUiErrorMapper.text(
+                        new InvalidWarehouseStateException(
+                                "Insufficient IN_TRANSIT stock for transfer receive: available=0.750000, requested=1.250000"));
+        assertEquals(
+                "Недостаточно материала на складе. Доступно: 0,75. Запрошено: 1,25.", mapped);
+    }
+
+    @Test
+    void mapsInsufficientStockWithoutQuantitiesToGenericRussian() {
+        assertEquals(
+                WarehouseUiErrorMapper.INSUFFICIENT_STOCK,
+                WarehouseUiErrorMapper.text(
+                        new InvalidWarehouseStateException(
+                                "Insufficient stock for transfer send: no AVAILABLE position at cell=abc")));
+    }
+
+    @Test
+    void mapsInsufficientStockWrappedInCauseChain() {
+        RuntimeException wrapped =
+                new RuntimeException(
+                        "wrapper",
+                        new InvalidWarehouseStateException(
+                                "Insufficient stock for transfer send: available=2.000000, requested=5.000000"));
+        assertEquals(
+                "Недостаточно материала на складе. Доступно: 2. Запрошено: 5.",
+                WarehouseUiErrorMapper.text(wrapped));
+    }
+
+    @Test
+    void preservesRussianDomainInvalidWarehouseStateMessage() {
+        String russian = "Склад производства недоступен для операции.";
+        assertEquals(
+                russian,
+                WarehouseUiErrorMapper.text(new InvalidWarehouseStateException(russian)));
+    }
+
+    @Test
+    void unrelatedNotFoundMappingUnchanged() {
+        assertEquals(
+                WarehouseUiErrorMapper.NOT_FOUND,
+                WarehouseUiErrorMapper.text(new IllegalStateException("document not found")));
+    }
+
     private static final class OptimisticLockException extends RuntimeException {
         OptimisticLockException(String message) {
+            super(message);
+        }
+    }
+
+    private static final class InvalidWarehouseStateException extends RuntimeException {
+        InvalidWarehouseStateException(String message) {
             super(message);
         }
     }

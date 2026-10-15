@@ -2,6 +2,95 @@
 
 ## Latest result
 
+**Date:** 2026-10-15
+**Scope:** Warehouse Tasks final UX fix — route arrow + task details column widths
+**Overall:** PASS (focused JavaFX / presentation unit + packaged smoke)
+**Migration:** NONE
+**Base HEAD:** `210cf89cb6a6417f341d6fbc3f2e18f5074eac99`
+**Working tree:** dirty (UI polish); **no commit / no push**
+
+### Checks (2026-10-15)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD exact | PASS (`210cf89…`) |
+| Arrow Text graphic; no Label ellipsis; centered; non-interactive | PASS (`WarehouseTaskTableVisualFxTest`) |
+| Return / route presentation unchanged | PASS (`WarehouseTaskPresentationTest`) |
+| Article/color prefs + tooltips clear when emptied | PASS (`WarehouseTaskDialogSupportTest`) |
+| Route-arrow-cell zero padding in warehouse CSS | PASS (`WarehouseTaskRowCssRegressionTest`) |
+| Fast package build | PASS |
+| Packaged TMP.exe smoke | PASS (launched) |
+| Full reactor | NOT RUN |
+
+---
+
+## Latest result
+
+**Date:** 2026-10-14
+**Scope:** Warehouse Tasks UX polish + global TMP table borders
+**Overall:** PASS (focused JavaFX / presentation unit + packaged smoke)
+**Migration:** NONE
+**Base HEAD:** `210cf89cb6a6417f341d6fbc3f2e18f5074eac99`
+**Working tree:** dirty (UI polish); **no commit / no push**
+
+### Checks (2026-10-14)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD exact | PASS (`210cf89…`) |
+| Kind dots / route arrow / return presentation / document on TaskRow | PASS (`WarehouseTaskPresentationTest`) |
+| Document column removed; arrow between Откуда/Куда; kind≠status dots | PASS (`WarehouseTaskTableVisualFxTest`) |
+| Document label in task details dialog | PASS (`WarehouseTaskDialogSupportTest`) |
+| Shared separator tokens; warehouse sheet no duplicate vertical borders | PASS (`TmpUiStandardFxTest`, `WarehouseTaskRowCssRegressionTest`) |
+| Fast package build | PASS (`mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests`) |
+| Packaged TMP.exe smoke (existing DB, no seed/post) | PASS (`Started DesktopBootstrap`; Flyway against `tmp_gui_stage5`) |
+| Full reactor | NOT RUN |
+| Domain / schema / workflows | NOT MODIFIED |
+
+Commands:
+
+```text
+mvn -pl :tmp-ui-shell -am "-Dtest=WarehouseTaskPresentationTest,WarehouseTaskRowCssRegressionTest,WarehouseTaskTableVisualFxTest,WarehouseTaskDialogSupportTest,TmpUiStandardFxTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DfailIfNoTests=false" test
+mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests
+```
+
+---
+
+## Latest result
+
+**Date:** 2026-10-14
+**Scope:** B3-MA-05 return route + Warehouse Tasks visual standards + B3-MA-09 clear-before-WARNING
+**Overall:** PASS (focused JavaFX / presentation unit)
+**Migration:** NONE
+**Base HEAD:** `210cf89cb6a6417f341d6fbc3f2e18f5074eac99`
+**Working tree:** dirty (presentation UI); **no commit / no push**
+
+### Checks (2026-10-14)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD exact + clean working tree before start | PASS (`210cf89…`) |
+| Return task Откуда/Куда/header; DTO unchanged; non-return route | PASS (`WarehouseTaskPresentationTest`) |
+| Kind row styles / status dots / production-role badges / row reuse | PASS (`WarehouseTaskPresentationTest`, `WarehouseTaskTableVisualFxTest`) |
+| Post-confirm clear-before-WARNING; modal text preserved; FULL_SUCCESS | PASS (`ReleasePostConfirmNotificationTest`) |
+| Fast package build | PASS (`mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests`) |
+| Packaged TMP.exe smoke (existing DB, no seed/post) | PASS (DesktopBootstrap started; Flyway 53 up to date) |
+| Full reactor | NOT RUN |
+| Domain return / transfer / release posting | NOT MODIFIED |
+
+Commands:
+
+```text
+mvn -pl tmp-ui-shell -am "-Dtest=WarehouseTaskPresentationTest,WarehouseTaskTableVisualFxTest,ReleasePostConfirmNotificationTest,WarehouseTaskDialogSupportTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests
+powershell -ExecutionPolicy Bypass -File .\scripts\run-tmp-package.ps1
+```
+
+---
+# TMP Verification Log
+
+## Latest result
+
 **Date:** 2026-10-14
 **Scope:** Stage 7 Production — B3-MA-09-FIX1 Release confirmation auto-resize
 **Overall:** PASS (focused JavaFX UI + presentation unit)

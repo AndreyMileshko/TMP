@@ -1,4 +1,4 @@
-﻿# TMP Work Queue
+# TMP Work Queue
 
 ## ???????
 
@@ -11939,6 +11939,24 @@ Production acceptance-state corrective = COMPLETE
 Warehouse-managed production destination = COMPLETE (Flyway V45)
 Manual acceptance = READY FROM Склад → Задачи (createdAt + final columns + list-only dialog); then История / Остатки / Поступление
   (write-off OUT OF SCOPE this acceptance cycle)
+
+---
+## Warehouse Tasks final UX fix — route arrow + detail widths (2026-10-15)
+
+**Status:** DONE (presentation-only; awaiting manual UI acceptance)
+**Depends on:** Warehouse Tasks UX polish + global table borders
+**Scope:** Fix `...` arrow (Text graphic + zero cell padding); widen Артикул/Цвет in task details; tooltips
+**Verification:** See VERIFICATION-LOG 2026-10-15 final UX fix entry.
+**Commit:** NONE
+
+---
+## Warehouse Tasks UX polish + global table borders (2026-10-14)
+
+**Status:** DONE (presentation-only; awaiting manual UI acceptance)
+**Depends on:** Warehouse Task Visual Standards / B3-MA-05
+**Scope:** Kind dot+label; route arrow; Document column removed (kept in details); global table separators in `tmp-theme.css`
+**Verification:** See VERIFICATION-LOG 2026-10-14 Warehouse Tasks UX polish entry.
+**Commit:** NONE
 
 ---
 ## STAGE-3.5.15 — Final Regression & Checkpoint (Warehouse + Security Stabilization)

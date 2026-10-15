@@ -51,6 +51,10 @@
     -tmp-table-selection-bg: rgba(95, 170, 110, 0.18);
     -tmp-table-selection-hover-bg: rgba(95, 170, 110, 0.28);
 
+    /* Table grid: horizontal slightly stronger; vertical lighter than horizontal. */
+    -tmp-table-row-separator: #C5CFDA;
+    -tmp-table-column-separator: #E6EBF1;
+
     -tmp-status-indicator-editing: #7A8699;
     -tmp-status-indicator-ready: #5C7A99;
     -tmp-status-indicator-waiting: #F2B705;
@@ -437,8 +441,9 @@
 
 .table-view .table-row-cell {
     -fx-background-color: -tmp-surface;
-    -fx-border-color: transparent transparent -tmp-border transparent;
+    -fx-border-color: transparent transparent -tmp-table-row-separator transparent;
     -fx-border-width: 0 0 1 0;
+    -fx-table-cell-border-color: -tmp-table-column-separator;
     -fx-padding: 0;
     -fx-cell-size: 36;
 }
@@ -454,7 +459,7 @@
 .table-view .table-row-cell:filled:selected,
 .table-view:focused .table-row-cell:filled:selected {
     -fx-background-color: -tmp-table-selection-bg;
-    -fx-table-cell-border-color: transparent;
+    -fx-table-cell-border-color: -tmp-table-column-separator;
 }
 
 .table-view .table-row-cell:filled:selected:hover,
@@ -476,6 +481,8 @@
     -fx-text-fill: -tmp-text;
     -fx-padding: 0 8 0 8;
     -fx-alignment: CENTER_LEFT;
+    -fx-border-color: transparent -tmp-table-column-separator transparent transparent;
+    -fx-border-width: 0 1 0 0;
 }
 
 .table-view .placeholder .label {

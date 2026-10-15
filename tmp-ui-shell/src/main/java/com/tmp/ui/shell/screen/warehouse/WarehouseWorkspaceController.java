@@ -3,6 +3,7 @@ package com.tmp.ui.shell.screen.warehouse;
 import com.tmp.ui.shell.navigation.ViewModelAware;
 import com.tmp.ui.shell.order.DecimalQuantityParser;
 import com.tmp.ui.shell.order.DecimalUiFormat;
+import com.tmp.ui.shell.order.worklist.OperationalStatusIndicator;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.CellFilterOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.HistoryOperationOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.HistoryRow;
@@ -11,12 +12,14 @@ import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.StockRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.TaskRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.WarehouseFilterOption;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.WorkspaceTab;
+import com.tmp.ui.shell.theme.TmpTheme;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
@@ -52,6 +55,8 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Circle;
+import javafx.scene.text.Text;
 
 /** Modern warehouse workspace controller (Задачи / Остатки / История). */
 @SuppressFBWarnings(
@@ -133,9 +138,6 @@ public final class WarehouseWorkspaceController
     private TableColumn<TaskRow, String> taskCreatedAtColumn;
 
     @FXML
-    private TableColumn<TaskRow, String> taskDocumentColumn;
-
-    @FXML
     private TableColumn<TaskRow, String> taskOrderColumn;
 
     @FXML
@@ -146,6 +148,9 @@ public final class WarehouseWorkspaceController
 
     @FXML
     private TableColumn<TaskRow, String> taskSourceColumn;
+
+    @FXML
+    private TableColumn<TaskRow, String> taskRouteArrowColumn;
 
     @FXML
     private TableColumn<TaskRow, String> taskDestinationColumn;
@@ -548,36 +553,30 @@ public final class WarehouseWorkspaceController
                 cell -> new SimpleStringProperty(cell.getValue().createdAtText()));
         taskOrderColumn.setCellValueFactory(
                 cell -> new SimpleStringProperty(cell.getValue().orderNumberText()));
+        taskOrderColumn.setCellFactory(column -> truncatedTextTooltipCell());
         taskKindColumn.setCellValueFactory(
                 cell -> new SimpleStringProperty(cell.getValue().kindLabel()));
+        taskKindColumn.setCellFactory(column -> taskKindCell());
         taskStateColumn.setCellValueFactory(
                 cell -> new SimpleStringProperty(cell.getValue().stateLabel()));
+        taskStateColumn.setCellFactory(column -> taskStateCell());
         taskSourceColumn.setCellValueFactory(
                 cell -> new SimpleStringProperty(cell.getValue().sourceWarehouseLabel()));
+        taskSourceColumn.setCellFactory(column -> warehouseBadgeCell(true));
+        taskRouteArrowColumn.setCellValueFactory(
+                cell -> new SimpleStringProperty(WarehouseTaskVisualStyles.ROUTE_ARROW_TEXT));
+        taskRouteArrowColumn.setCellFactory(column -> routeArrowCell());
+        taskRouteArrowColumn.setSortable(false);
+        taskRouteArrowColumn.setReorderable(false);
         taskDestinationColumn.setCellValueFactory(
                 cell -> new SimpleStringProperty(cell.getValue().destinationWarehouseLabel()));
+        taskDestinationColumn.setCellFactory(column -> warehouseBadgeCell(false));
         taskLinesColumn.setCellValueFactory(
                 cell -> new SimpleStringProperty(cell.getValue().lineCountText()));
         taskWorkerColumn.setCellValueFactory(
                 cell -> new SimpleStringProperty(cell.getValue().workerDisplay()));
-        taskDocumentColumn.setCellValueFactory(
-                cell -> new SimpleStringProperty(cell.getValue().documentNumber()));
-        taskDocumentColumn.setCellFactory(
-                column ->
-                        new TableCell<>() {
-                            @Override
-                            protected void updateItem(String item, boolean empty) {
-                                super.updateItem(item, empty);
-                                if (empty || item == null) {
-                                    setText(null);
-                                    setTooltip(null);
-                                } else {
-                                    setText(item);
-                                    setTooltip(new Tooltip(item));
-                                }
-                            }
-                        });
 
+        ensureWarehouseTaskStylesheet();
         tasksTable.setItems(viewModel.taskRows());
         // UNCONSTRAINED: CONSTRAINED redistributes columns when the vertical scrollbar toggles.
         tasksTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
@@ -589,7 +588,21 @@ public final class WarehouseWorkspaceController
 
         tasksTable.setRowFactory(
                 table -> {
-                    TableRow<TaskRow> row = new TableRow<>();
+                    TableRow<TaskRow> row =
+                            new TableRow<>() {
+                                @Override
+                                protected void updateItem(TaskRow item, boolean empty) {
+                                    super.updateItem(item, empty);
+                                    WarehouseTaskVisualStyles.clearRowStyleClasses(this);
+                                    if (empty || item == null) {
+                                        return;
+                                    }
+                                    getStyleClass()
+                                            .add(
+                                                    WarehouseTaskVisualStyles.rowStyleClass(
+                                                            item.taskKind()));
+                                }
+                            };
                     row.setOnMouseClicked(
                             event -> {
                                 if (event.getButton() != MouseButton.PRIMARY
@@ -656,11 +669,15 @@ public final class WarehouseWorkspaceController
                         viewModel::returnSelectedTask,
                         viewModel::prepareSelectedSupplyTaskTransfers);
         openTaskDialogSession = session;
-        viewModel.errorMessageProperty()
+        viewModel.taskDialogErrorMessageProperty()
                 .addListener(
                         (obs, oldValue, newValue) -> {
-                            if (openTaskDialogSession == session && newValue != null && !newValue.isBlank()) {
-                                session.showError(newValue);
+                            if (openTaskDialogSession == session) {
+                                if (newValue != null && !newValue.isBlank()) {
+                                    session.showError(newValue);
+                                } else {
+                                    session.clearError();
+                                }
                             }
                         });
         viewModel.statusMessageProperty()
@@ -691,6 +708,145 @@ public final class WarehouseWorkspaceController
             viewModel.setTaskDialogOpen(false);
             session.close();
         }
+    }
+
+    private void ensureWarehouseTaskStylesheet() {
+        var resource =
+                WarehouseWorkspaceController.class
+                        .getClassLoader()
+                        .getResource(WarehouseTaskVisualStyles.STYLESHEET);
+        if (resource == null) {
+            return;
+        }
+        String url = resource.toExternalForm();
+        if (!tasksTable.getStylesheets().contains(url)) {
+            tasksTable.getStylesheets().add(url);
+        }
+        if (titleLabel.getScene() != null) {
+            TmpTheme.addStylesheet(titleLabel.getScene(), WarehouseTaskVisualStyles.STYLESHEET);
+        }
+    }
+
+    private TableCell<TaskRow, String> taskKindCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                getStyleClass().removeAll(WarehouseTaskVisualStyles.ALL_KIND_DOT_STYLE_CLASSES);
+                if (empty || item == null || getTableRow() == null || getTableRow().getItem() == null) {
+                    setText(null);
+                    setGraphic(null);
+                    setTooltip(null);
+                    return;
+                }
+                TaskRow row = getTableRow().getItem();
+                String dotClass = WarehouseTaskVisualStyles.kindDotStyleClass(row.taskKind());
+                Circle dot = new Circle(4);
+                dot.getStyleClass().addAll("tmp-wh-kind-dot", dotClass);
+                Label label = new Label(item);
+                label.getStyleClass().add(WarehouseTaskVisualStyles.KIND_LABEL);
+                HBox box = new HBox(6, dot, label);
+                box.getStyleClass().add(WarehouseTaskVisualStyles.KIND_CELL);
+                box.setAlignment(Pos.CENTER_LEFT);
+                setText(null);
+                setGraphic(box);
+                setTooltip(new Tooltip(item));
+            }
+        };
+    }
+
+    private TableCell<TaskRow, String> taskStateCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || getTableRow() == null || getTableRow().getItem() == null) {
+                    setText(null);
+                    setGraphic(null);
+                    return;
+                }
+                TaskRow row = getTableRow().getItem();
+                setText(null);
+                setGraphic(
+                        OperationalStatusIndicator.create(
+                                row.stateLabel(),
+                                WarehouseTaskVisualStyles.statusDotStyleClass(row.taskState())));
+            }
+        };
+    }
+
+    private TableCell<TaskRow, String> routeArrowCell() {
+        return new TableCell<>() {
+            private final Text arrow = WarehouseTaskVisualStyles.createRouteArrowGraphic();
+
+            {
+                setAlignment(Pos.CENTER);
+                setContentDisplay(javafx.scene.control.ContentDisplay.GRAPHIC_ONLY);
+                setMouseTransparent(true);
+                getStyleClass().add(WarehouseTaskVisualStyles.ROUTE_ARROW_CELL);
+            }
+
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                // Never put the arrow in setText — TableCell Label overrun turns → into "...".
+                setText(null);
+                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                    setGraphic(null);
+                    return;
+                }
+                setGraphic(arrow);
+            }
+        };
+    }
+
+    private TableCell<TaskRow, String> truncatedTextTooltipCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setTooltip(null);
+                    return;
+                }
+                setText(item);
+                setTooltip(new Tooltip(item));
+            }
+        };
+    }
+
+    private TableCell<TaskRow, String> warehouseBadgeCell(boolean sourceColumn) {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || getTableRow() == null || getTableRow().getItem() == null) {
+                    setText(null);
+                    setGraphic(null);
+                    setTooltip(null);
+                    return;
+                }
+                TaskRow row = getTableRow().getItem();
+                boolean system =
+                        sourceColumn ? row.sourceSystemLocation() : row.destinationSystemLocation();
+                UUID warehouseId =
+                        sourceColumn
+                                ? row.badgeSourceWarehouseId()
+                                : row.badgeDestinationWarehouseId();
+                Set<UUID> productionIds =
+                        viewModel == null ? Set.of() : viewModel.productionWarehouseIds();
+                String badgeClass =
+                        WarehouseTaskVisualStyles.warehouseBadgeStyleClass(
+                                warehouseId, system, productionIds);
+                Label badge = new Label(item);
+                badge.getStyleClass().addAll("tmp-wh-badge", badgeClass);
+                badge.setTooltip(new Tooltip(item));
+                setText(null);
+                setGraphic(badge);
+                setTooltip(null);
+            }
+        };
     }
 
     private void refreshOpenTaskDialogHeader() {

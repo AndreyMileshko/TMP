@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.ui.shell.JavaFxTestSupport;
@@ -167,7 +168,21 @@ class WarehouseTaskDialogSupportTest {
                                 WarehouseTaskDialogSupport.TITLE, session.dialog().getTitle());
                         assertEquals("Подготовка материалов", session.titleLabel().getText());
                         assertTrue(session.routeLabel().getText().contains("→"));
+                        assertEquals("Документ: TR-1", session.documentLabel().getText());
+                        assertTrue(session.documentLabel().isVisible());
                         assertEquals("Требуется", session.referenceQuantityColumn().getText());
+                        TableView<?> materials = session.table();
+                        assertTrue(materials.getColumns().size() >= 3);
+                        TableColumn<?, ?> article = materials.getColumns().get(0);
+                        TableColumn<?, ?> color = materials.getColumns().get(2);
+                        assertEquals("Артикул", article.getText());
+                        assertEquals("Цвет", color.getText());
+                        assertTrue(article.getPrefWidth() >= 120.0, "article prefWidth");
+                        assertTrue(color.getPrefWidth() >= 110.0, "color prefWidth");
+                        assertTrue(article.getMinWidth() >= 90.0);
+                        assertTrue(color.getMinWidth() >= 80.0);
+                        assertEquals(1020.0, session.dialog().getDialogPane().getPrefWidth(), 0.1);
+                        assertEquals(520.0, session.dialog().getDialogPane().getPrefHeight(), 0.1);
                         assertFalse(
                                 session.dialog()
                                         .getDialogPane()
@@ -338,6 +353,84 @@ class WarehouseTaskDialogSupportTest {
             }
         }
         return null;
+    }
+
+
+    @Test
+    void transferMaterialColumnsPreferWiderArticleAndColor() throws Exception {
+        runOnFx(
+                () -> {
+                    ReceiveAllocationEditRow line =
+                            new ReceiveAllocationEditRow(
+                                    UUID.randomUUID(),
+                                    new WarehouseWorkspaceViewModel.MaterialParts(
+                                            "ART-LONG-CODE",
+                                            "Very long material name for tooltip",
+                                            "Deep azure",
+                                            "S",
+                                            "шт"),
+                                    new BigDecimal("10"),
+                                    null,
+                                    new BigDecimal("10"));
+                    ObservableList<ActionEditRow> lines = FXCollections.observableArrayList(line);
+                    WarehouseTaskDialogSupport.TaskDialogSession session =
+                            WarehouseTaskDialogSupport.createTaskDialog(
+                                    new TaskRow(
+                                            taskView(
+                                                    WarehouseTaskKind.TRANSFER_PREPARATION,
+                                                    WarehouseTaskState.NEW),
+                                            null),
+                                    lines,
+                                    FXCollections.observableArrayList(),
+                                    new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
+                                    () -> {},
+                                    () -> {},
+                                    () -> {},
+                                    reason -> {},
+                                    () -> {},
+                                    () -> {});
+                    TableView<ActionEditRow> table = session.table();
+                    session.dialog().show();
+                    table.applyCss();
+                    table.layout();
+                    assertTrue(table.getColumns().get(0).getWidth() >= 100.0);
+                    assertTrue(table.getColumns().get(2).getWidth() >= 90.0);
+                    // Scan for article text cell with tooltip
+                    boolean foundTooltip = false;
+                    for (Node node : table.lookupAll(".table-cell")) {
+                        if (node instanceof TableCell<?, ?> cell) {
+                            Object item = cell.getItem();
+                            if ("ART-LONG-CODE".equals(item)) {
+                                assertNotNull(cell.getTooltip());
+                                assertEquals("ART-LONG-CODE", cell.getTooltip().getText());
+                                foundTooltip = true;
+                                break;
+                            }
+                        }
+                    }
+                    assertTrue(foundTooltip, "expected article tooltip cell");
+                    table.getItems().clear();
+                    table.refresh();
+                    table.applyCss();
+                    table.layout();
+                    boolean staleTooltip = false;
+                    for (Node node : table.lookupAll(".table-cell")) {
+                        if (node instanceof TableCell<?, ?> cell
+                                && cell.getTableColumn() == table.getColumns().get(0)
+                                && cell.getTooltip() != null) {
+                            staleTooltip = true;
+                        }
+                    }
+                    assertFalse(staleTooltip, "article tooltip must clear when rows are emptied");
+                    session.close();
+                });
     }
 
     private static WarehouseTaskView taskView(WarehouseTaskKind kind, WarehouseTaskState state) {

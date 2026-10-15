@@ -1,4 +1,57 @@
-# TMP Implementation Log
+## Warehouse Tasks final UX fix — route arrow + detail column widths — 2026-10-15
+
+**Date:** 2026-10-15
+**Stage:** Stage 3.5 Warehouse / Tasks UI polish
+**Base HEAD:** `210cf89cb6a6417f341d6fbc3f2e18f5074eac99`
+**Status:** PASS — presentation-only; no migration; no commit / no push
+
+### Scope
+
+- Route arrow: root cause was Label text-overrun (`...`) in a narrow cell with theme 8px padding; replaced with `Text` graphic + zero-padding cell class; empty header; column 36px
+- Task details transfer table: wider Артикул/Цвет prefs; tooltips on article/name/color with clear-on-empty; dialog size unchanged (1020×520)
+
+### Verification
+
+See VERIFICATION-LOG entry (2026-10-15 Warehouse Tasks final UX fix).
+
+---
+## Warehouse Tasks UX polish + global table borders — 2026-10-14
+
+**Date:** 2026-10-14
+**Stage:** Stage 3.5 Warehouse / UI polish (post B3-MA-05 visuals)
+**Base HEAD:** `210cf89cb6a6417f341d6fbc3f2e18f5074eac99`
+**Status:** PASS — presentation-only; no migration; no commit / no push
+
+### Scope
+
+- Global table separators in `tmp-theme.css`: `-tmp-table-row-separator` / `-tmp-table-column-separator`; horizontal slightly stronger; vertical lighter; selection soft-green preserved
+- Warehouse Tasks: kind colored dot + semibold label; narrow route arrow column; Document column removed from table; document shown in task details dialog; column width reallocation + tooltips
+- Warehouse row CSS bottom edge aligned to shared row-separator token (stripe rules unchanged otherwise)
+
+### Verification
+
+See VERIFICATION-LOG entry (2026-10-14 Warehouse Tasks UX polish + global table borders).
+
+---
+
+## Stage 7 / Warehouse UI — B3-MA-05 + Warehouse Task Visual Standards + B3-MA-09 UX — 2026-10-14
+
+**Date:** 2026-10-14
+**Stage:** 7 Production MA / Warehouse Tasks presentation
+**Base HEAD:** `210cf89cb6a6417f341d6fbc3f2e18f5074eac99`
+**Status:** PASS — presentation-only; no migration; no commit / no push
+
+### Scope
+
+- B3-MA-05: `TaskRow` return presentation — Откуда «В пути», Куда original source, route «Возврат на: …»; DTO fields unchanged; domain return services untouched
+- Warehouse Tasks visuals: dedicated `tmp-warehouse-tasks.css` + `WarehouseTaskVisualStyles`; kind row tint/stripe; role badges via `WarehouseView.productionWarehouse`; status dots NEW/IN_WORK
+- B3-MA-09: clear duplicate inline error before post-confirm WARNING (`preparePostConfirmWarning`)
+
+### Verification
+
+See VERIFICATION-LOG entry (2026-10-14 B3-MA-05 / visuals / B3-MA-09).
+
+---# TMP Implementation Log
 
 Новые записи добавляются в начало. История не переписывается.
 

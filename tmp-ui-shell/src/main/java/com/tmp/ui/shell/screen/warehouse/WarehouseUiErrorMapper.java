@@ -1,6 +1,8 @@
 package com.tmp.ui.shell.screen.warehouse;
 
 import com.tmp.security.api.AccessDeniedException;
+import com.tmp.ui.shell.order.DecimalUiFormat;
+import java.math.BigDecimal;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -37,6 +39,9 @@ public final class WarehouseUiErrorMapper {
             if (isStaleConflict(simple, lower)) {
                 return STALE_STATE;
             }
+            if (isInsufficientStock(lower)) {
+                return formatInsufficientStock(message);
+            }
             if (simple.contains("InvalidWarehouseState")
                     || (containsCyrillic(message)
                             && (message.contains("склад производства")
@@ -51,9 +56,6 @@ public final class WarehouseUiErrorMapper {
             }
             if (simple.contains("NoSuchElement") || lower.contains("not found")) {
                 return NOT_FOUND;
-            }
-            if (lower.contains("insufficient") || lower.contains("недостат")) {
-                return INSUFFICIENT_STOCK;
             }
             current = current.getCause();
         }
@@ -79,6 +81,67 @@ public final class WarehouseUiErrorMapper {
                 || lowerMessage.contains("stale document")
                 || lowerMessage.contains("optimistic lock")
                 || lowerMessage.contains("payload revision");
+    }
+
+    private static boolean isInsufficientStock(String lowerMessage) {
+        return lowerMessage.contains("insufficient")
+                || lowerMessage.contains("недостат");
+    }
+
+    /**
+     * Builds a Russian insufficient-stock message. Preserves available/requested when present.
+     * Does not invent a unit of measure — backend messages do not reliably carry UoM.
+     */
+    static String formatInsufficientStock(String message) {
+        if (message == null || message.isBlank()) {
+            return INSUFFICIENT_STOCK;
+        }
+        String availableRaw = extractQuantityToken(message, "available=");
+        String requestedRaw = extractQuantityToken(message, "requested=");
+        if (requestedRaw == null) {
+            requestedRaw = extractQuantityToken(message, "required=");
+        }
+        BigDecimal available = parseQuantity(availableRaw);
+        BigDecimal requested = parseQuantity(requestedRaw);
+        if (available != null && requested != null) {
+            return "Недостаточно материала на складе. Доступно: "
+                    + DecimalUiFormat.formatRu(available)
+                    + ". Запрошено: "
+                    + DecimalUiFormat.formatRu(requested)
+                    + ".";
+        }
+        return INSUFFICIENT_STOCK;
+    }
+
+    private static String extractQuantityToken(String message, String marker) {
+        int index = message.indexOf(marker);
+        if (index < 0) {
+            return null;
+        }
+        int start = index + marker.length();
+        int end = start;
+        while (end < message.length()) {
+            char c = message.charAt(end);
+            if (c == ',' || c == ' ' || c == ')' || c == ';' || c == '\n') {
+                break;
+            }
+            end++;
+        }
+        if (end <= start) {
+            return null;
+        }
+        return message.substring(start, end);
+    }
+
+    private static BigDecimal parseQuantity(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return new BigDecimal(raw.trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private static boolean containsCyrillic(String value) {

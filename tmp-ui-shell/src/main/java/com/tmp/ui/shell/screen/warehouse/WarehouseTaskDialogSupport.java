@@ -29,6 +29,7 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -191,6 +192,10 @@ public final class WarehouseTaskDialogSupport {
         Label orderLabel = new Label();
         updateOrderLabel(orderLabel, task);
 
+        Label documentLabel = new Label();
+        documentLabel.getStyleClass().add("tmp-text-muted");
+        updateDocumentLabel(documentLabel, task);
+
         Label loadingLabel = new Label("Загрузка...");
         loadingLabel.getStyleClass().add("tmp-text-muted");
         loadingLabel.visibleProperty().bind(detailLoading);
@@ -286,6 +291,7 @@ public final class WarehouseTaskDialogSupport {
                         titleLabel,
                         routeLabel,
                         orderLabel,
+                        documentLabel,
                         loadingLabel,
                         table,
                         actions,
@@ -308,6 +314,7 @@ public final class WarehouseTaskDialogSupport {
                 titleLabel,
                 routeLabel,
                 orderLabel,
+                documentLabel,
                 refQtyCol,
                 errorLabel,
                 infoLabel,
@@ -322,29 +329,40 @@ public final class WarehouseTaskDialogSupport {
         TableColumn<ActionEditRow, String> articleCol = new TableColumn<>(COLUMN_HEADERS.get(0));
         articleCol.setCellValueFactory(
                 c -> new SimpleStringProperty(nullToEmpty(c.getValue().article())));
+        articleCol.setCellFactory(col -> tooltipTextCell());
+        configureTransferColumnWidth(articleCol, 100, 130, false);
         TableColumn<ActionEditRow, String> nameCol = new TableColumn<>(COLUMN_HEADERS.get(1));
         nameCol.setCellValueFactory(
                 c -> new SimpleStringProperty(nullToEmpty(c.getValue().name())));
+        nameCol.setCellFactory(col -> tooltipTextCell());
+        configureTransferColumnWidth(nameCol, 160, 240, true);
         TableColumn<ActionEditRow, String> colorCol = new TableColumn<>(COLUMN_HEADERS.get(2));
         colorCol.setCellValueFactory(
                 c -> new SimpleStringProperty(nullToEmpty(c.getValue().color())));
+        colorCol.setCellFactory(col -> tooltipTextCell());
+        configureTransferColumnWidth(colorCol, 90, 120, false);
         TableColumn<ActionEditRow, String> sizeCol = new TableColumn<>(COLUMN_HEADERS.get(3));
         sizeCol.setCellValueFactory(
                 c -> new SimpleStringProperty(nullToEmpty(c.getValue().size())));
+        configureTransferColumnWidth(sizeCol, 55, 70, false);
         TableColumn<ActionEditRow, String> refQtyCol =
                 new TableColumn<>(referenceQuantityHeader(task.taskKind()));
         refQtyCol.setCellValueFactory(
                 c -> new SimpleStringProperty(c.getValue().referenceQuantityText()));
+        configureTransferColumnWidth(refQtyCol, 70, 90, false);
         TableColumn<ActionEditRow, String> unitCol = new TableColumn<>(COLUMN_HEADERS.get(5));
         unitCol.setCellValueFactory(
                 c -> new SimpleStringProperty(nullToEmpty(c.getValue().unitOfMeasure())));
+        configureTransferColumnWidth(unitCol, 40, 50, false);
         TableColumn<ActionEditRow, StorageCellChoice> cellCol =
                 new TableColumn<>(COLUMN_HEADERS.get(6));
         cellCol.setCellValueFactory(c -> c.getValue().storageCellProperty());
         cellCol.setCellFactory(col -> cellComboCell(cellChoices, editorsEnabled));
+        configureTransferColumnWidth(cellCol, 120, 150, false);
         TableColumn<ActionEditRow, String> qtyCol = new TableColumn<>(COLUMN_HEADERS.get(7));
         qtyCol.setCellValueFactory(c -> c.getValue().quantityTextProperty());
         qtyCol.setCellFactory(col -> quantityCell(editorsEnabled));
+        configureTransferColumnWidth(qtyCol, 80, 100, true);
         table.getColumns()
                 .setAll(
                         articleCol,
@@ -356,6 +374,34 @@ public final class WarehouseTaskDialogSupport {
                         cellCol,
                         qtyCol);
         return refQtyCol;
+    }
+
+    private static void configureTransferColumnWidth(
+            TableColumn<?, ?> column, double minWidth, double prefWidth, boolean growable) {
+        column.setMinWidth(minWidth);
+        column.setPrefWidth(prefWidth);
+        column.setResizable(true);
+        if (growable) {
+            column.setMaxWidth(Double.MAX_VALUE);
+        } else {
+            column.setMaxWidth(Math.max(prefWidth * 1.5, minWidth + 40));
+        }
+    }
+
+    private static TableCell<ActionEditRow, String> tooltipTextCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.isBlank()) {
+                    setText(null);
+                    setTooltip(null);
+                    return;
+                }
+                setText(item);
+                setTooltip(new Tooltip(item));
+            }
+        };
     }
 
     private static TableColumn<ActionEditRow, String> configureSupplyColumns(
@@ -441,6 +487,7 @@ public final class WarehouseTaskDialogSupport {
             session.routeLabel().setText(task.routeLabel());
         }
         updateOrderLabel(session.orderLabel(), task);
+        updateDocumentLabel(session.documentLabel(), task);
         if (session.referenceQuantityColumn() != null) {
             session.referenceQuantityColumn().setText(referenceQuantityHeader(task.taskKind()));
         }
@@ -463,6 +510,19 @@ public final class WarehouseTaskDialogSupport {
             orderLabel.setText("Заказ: " + order);
             orderLabel.setManaged(true);
             orderLabel.setVisible(true);
+        }
+    }
+
+    private static void updateDocumentLabel(Label documentLabel, TaskRow task) {
+        String document = task.documentNumber();
+        if (document == null || document.isBlank() || "—".equals(document.trim())) {
+            documentLabel.setText("");
+            documentLabel.setManaged(false);
+            documentLabel.setVisible(false);
+        } else {
+            documentLabel.setText("Документ: " + document.trim());
+            documentLabel.setManaged(true);
+            documentLabel.setVisible(true);
         }
     }
 
@@ -609,6 +669,7 @@ public final class WarehouseTaskDialogSupport {
         private final Label titleLabel;
         private final Label routeLabel;
         private final Label orderLabel;
+        private final Label documentLabel;
         private final TableColumn<ActionEditRow, String> referenceQuantityColumn;
         private final Label errorLabel;
         private final Label infoLabel;
@@ -620,6 +681,7 @@ public final class WarehouseTaskDialogSupport {
                 Label titleLabel,
                 Label routeLabel,
                 Label orderLabel,
+                Label documentLabel,
                 TableColumn<ActionEditRow, String> referenceQuantityColumn,
                 Label errorLabel,
                 Label infoLabel,
@@ -629,6 +691,7 @@ public final class WarehouseTaskDialogSupport {
             this.titleLabel = titleLabel;
             this.routeLabel = routeLabel;
             this.orderLabel = orderLabel;
+            this.documentLabel = documentLabel;
             this.referenceQuantityColumn = referenceQuantityColumn;
             this.errorLabel = errorLabel;
             this.infoLabel = infoLabel;
@@ -653,6 +716,10 @@ public final class WarehouseTaskDialogSupport {
 
         public Label orderLabel() {
             return orderLabel;
+        }
+
+        public Label documentLabel() {
+            return documentLabel;
         }
 
         public TableColumn<ActionEditRow, String> referenceQuantityColumn() {
