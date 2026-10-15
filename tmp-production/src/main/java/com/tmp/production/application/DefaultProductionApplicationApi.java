@@ -14,13 +14,10 @@ import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialRequirementSourceItemKey;
 import com.tmp.production.domain.MaterialRequirementStatus;
 import com.tmp.production.domain.OrderQuantityModeSetting;
-import com.tmp.production.domain.ProductionMaterialTransfer;
-import com.tmp.production.domain.ProductionMaterialTransferId;
 import com.tmp.production.domain.ProductionQuantityMode;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.repository.OrderQuantityModeRepository;
-import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.GeneratedDocumentLink;
 import com.tmp.production.security.ProductionPermissions;
 import com.tmp.security.api.AccessDeniedException;
@@ -52,13 +49,11 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     private final MaterialRequirementService materialRequirementService;
     private final MaterialRequirementCoverageService materialRequirementCoverageService;
     private final SubmitMaterialRequirementService submitMaterialRequirementService;
-    private final ConfirmMaterialReceiptService confirmMaterialReceiptService;
     private final ReleaseProductsService releaseProductsService;
     private final CancelOrderProductionService cancelOrderProductionService;
     private final MaterialReadinessQueryService materialReadinessQueryService;
     private final MaterialRequirementProductionStockQueryService
             materialRequirementProductionStockQueryService;
-    private final ProductionMaterialTransferRepository materialTransferRepository;
     private final OrderQuantityModeRepository quantityModeRepository;
 
     public DefaultProductionApplicationApi(
@@ -70,13 +65,11 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
             MaterialRequirementService materialRequirementService,
             MaterialRequirementCoverageService materialRequirementCoverageService,
             SubmitMaterialRequirementService submitMaterialRequirementService,
-            ConfirmMaterialReceiptService confirmMaterialReceiptService,
             ReleaseProductsService releaseProductsService,
             CancelOrderProductionService cancelOrderProductionService,
             MaterialReadinessQueryService materialReadinessQueryService,
             MaterialRequirementProductionStockQueryService
                     materialRequirementProductionStockQueryService,
-            ProductionMaterialTransferRepository materialTransferRepository,
             OrderQuantityModeRepository quantityModeRepository) {
         this.authorizationService =
                 Objects.requireNonNull(authorizationService, "authorizationService");
@@ -96,9 +89,6 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         this.submitMaterialRequirementService =
                 Objects.requireNonNull(
                         submitMaterialRequirementService, "submitMaterialRequirementService");
-        this.confirmMaterialReceiptService =
-                Objects.requireNonNull(
-                        confirmMaterialReceiptService, "confirmMaterialReceiptService");
         this.releaseProductsService =
                 Objects.requireNonNull(releaseProductsService, "releaseProductsService");
         this.cancelOrderProductionService =
@@ -111,8 +101,6 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 Objects.requireNonNull(
                         materialRequirementProductionStockQueryService,
                         "materialRequirementProductionStockQueryService");
-        this.materialTransferRepository =
-                Objects.requireNonNull(materialTransferRepository, "materialTransferRepository");
         this.quantityModeRepository =
                 Objects.requireNonNull(quantityModeRepository, "quantityModeRepository");
     }
@@ -272,34 +260,6 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 link.warehouseDocumentId(),
                 link.sourceWarehouseId(),
                 link.destinationWarehouseId());
-    }
-
-    @Override
-    public List<LogicalTransferView> listLogicalTransfers(UUID orderId) {
-        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_VIEW);
-        Objects.requireNonNull(orderId, "orderId");
-        return materialTransferRepository.findBySourceOrderId(SourceOrderId.of(orderId)).stream()
-                .map(this::map)
-                .toList();
-    }
-
-    @Override
-    public ReceiptResultView confirmMaterialReceipt(UUID logicalTransferId) {
-        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CONFIRM_RECEIPT);
-        Objects.requireNonNull(logicalTransferId, "logicalTransferId");
-        MaterialReceiptConfirmationResult result =
-                confirmMaterialReceiptService.confirmMaterialReceipt(
-                        new ConfirmMaterialReceiptCommand(
-                                ProductionMaterialTransferId.of(logicalTransferId)));
-        return switch (result.status()) {
-            case RECEIVED ->
-                    new ReceiptResultView(
-                            ReceiptStatusView.RECEIVED, "Material receipt confirmed");
-            case ALREADY_RECEIVED ->
-                    new ReceiptResultView(
-                            ReceiptStatusView.ALREADY_RECEIVED,
-                            "Material receipt was already confirmed");
-        };
     }
 
     @Override
@@ -565,21 +525,6 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 line.sourceOrderItemIds().stream().map(SourceOrderItemId::value).toList(),
                 SpecificationWarehouseQuantityCalculator.technologicalPieceCount(
                         line.requiredQuantity(), lengthMm, line.unitOfMeasure()));
-    }
-
-    private LogicalTransferView map(ProductionMaterialTransfer transfer) {
-        return new LogicalTransferView(
-                transfer.logicalTransferId().value(),
-                transfer.templateId().value(),
-                transfer.createdAt(),
-                transfer.warehouseOperationRefs().stream()
-                        .map(
-                                ref ->
-                                        new WarehouseTransferRefView(
-                                                ref.warehouseDraftOperationId(),
-                                                ref.materialReferenceId().value(),
-                                                ref.quantity()))
-                        .toList());
     }
 
     private ReleasePreviewView map(PrepareReleasePreview preview) {

@@ -3,12 +3,10 @@ package com.tmp.production.application;
 import com.tmp.production.domain.MaterialAvailabilityCheckResult;
 import com.tmp.production.domain.MaterialAvailabilityLine;
 import com.tmp.production.domain.MaterialAvailabilityLineStatus;
-import com.tmp.production.domain.MaterialTransferTemplate;
 import com.tmp.production.domain.ProductionCancellation;
 import com.tmp.production.domain.ProductionHistoryEntry;
 import com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryEntryId;
 import com.tmp.production.domain.ProductionHistoryEntry.ProductionHistoryType;
-import com.tmp.production.domain.ProductionMaterialTransfer;
 import com.tmp.production.domain.ProductionRelease;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
@@ -125,74 +123,6 @@ public final class ProductionHistoryService {
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of("Materials checked: " + result.overallStatus().name()),
-                Optional.of(details));
-    }
-
-    public ProductionHistoryEntry materialTransferCreated(
-            MaterialTransferTemplate template, ProductionMaterialTransfer transfer) {
-        Objects.requireNonNull(template, "template");
-        Objects.requireNonNull(transfer, "transfer");
-        int includedLineCount = template.includedTransferLines().size();
-        int operationCount = transfer.warehouseOperationRefs().size();
-        String details =
-                "{\"templateId\":\""
-                        + template.templateId().value()
-                        + "\",\"logicalTransferId\":\""
-                        + transfer.logicalTransferId().value()
-                        + "\",\"includedLineCount\":"
-                        + includedLineCount
-                        + ",\"warehouseOperationReferenceCount\":"
-                        + operationCount
-                        + ",\"sourceWarehouseId\":\""
-                        + template.sourceWarehouseId()
-                        + "\",\"destinationWarehouseId\":\""
-                        + template.destinationWarehouseId()
-                        + "\"}";
-        return ProductionHistoryEntry.create(
-                ProductionHistoryEntryId.generate(),
-                transfer.sourceOrderId(),
-                ProductionHistoryType.MATERIAL_TRANSFER_CREATED,
-                transfer.createdAt(),
-                clock.instant(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.of(transfer.logicalTransferId().value()),
-                Optional.empty(),
-                Optional.of("Material transfer created"),
-                Optional.of(details));
-    }
-
-    public ProductionHistoryEntry materialReceiptConfirmed(
-            ProductionMaterialTransfer transfer,
-            Instant confirmedAt,
-            int confirmedReferenceCount,
-            List<UUID> receiveOperationIds) {
-        Objects.requireNonNull(transfer, "transfer");
-        Objects.requireNonNull(confirmedAt, "confirmedAt");
-        Objects.requireNonNull(receiveOperationIds, "receiveOperationIds");
-        String receiveIdsJson =
-                receiveOperationIds.stream()
-                        .map(id -> "\"" + id + "\"")
-                        .collect(Collectors.joining(",", "[", "]"));
-        String details =
-                "{\"logicalTransferId\":\""
-                        + transfer.logicalTransferId().value()
-                        + "\",\"confirmedReferenceCount\":"
-                        + confirmedReferenceCount
-                        + ",\"receiveOperationIds\":"
-                        + receiveIdsJson
-                        + "}";
-        return ProductionHistoryEntry.create(
-                ProductionHistoryEntryId.generate(),
-                transfer.sourceOrderId(),
-                ProductionHistoryType.MATERIAL_RECEIPT_CONFIRMED,
-                confirmedAt,
-                clock.instant(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.of(transfer.logicalTransferId().value()),
-                Optional.empty(),
-                Optional.of("Material receipt confirmed"),
                 Optional.of(details));
     }
 

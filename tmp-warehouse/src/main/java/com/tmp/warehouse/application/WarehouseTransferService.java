@@ -24,11 +24,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Inter-warehouse Transfer draft lifecycle via {@link WarehouseOperationEngine} (Specification
  * §13.2).
  *
- * <p>Supports Production/legacy drafts with a preselected destination cell and deferred-destination
- * drafts where the receiving user chooses the cell at receive time (Stage 3.5.3 / ADR-037).
- * Immediate unlinked send/receive without a draft context is not provided — stock mutation for
- * user transfers goes through Transfer Documents; draft send/receive remains for Production-created
- * drafts.
+ * <p>Supports one-line drafts with a preselected destination cell and deferred-destination drafts
+ * where the receiving user chooses the cell at receive time (Stage 3.5.3 / ADR-037). Immediate
+ * unlinked send/receive without a draft context is not provided — live user transfers go through
+ * Transfer Documents; one-line draft send/receive remains a Warehouse public API for non-document
+ * operations and tests.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",

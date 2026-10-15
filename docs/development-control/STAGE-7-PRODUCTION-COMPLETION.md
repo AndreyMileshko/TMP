@@ -35,16 +35,18 @@ Stage 7 Production UX Phases 1–8 are implemented. Stage 8 (Cutting) is **NOT S
 | MR Submit → history event | KNOWN NON-BLOCKING GAP (DEP-9) |
 | Actor display name (FIO) via Security | DEFERRED (login/`—` fallback) |
 
-## Legacy retention (Phase 8)
+## Legacy retention (Phase 8 → B3-MA-12)
 
 | Component | Decision | Reason |
 |---|---|---|
-| Material Transfer Template domain/persistence | RETAINED | Historical logical transfers; `listLogicalTransfers`; ArchUnit rules; Flyway tables |
-| `ConfirmMaterialTransferService` | RETAINED | Architecture / historical tests; not Spring-wired into new MR flow |
-| `confirmMaterialReceipt` / receipt services | RETAINED | Public Application API + ArchUnit; may confirm historical logical transfers |
-| Legacy Flyway tables / migrations | RETAINED | No destructive DROP; no historical migration edits |
+| Material Transfer Template / logical-transfer runtime | **REMOVED (B3-MA-12)** | Unused; live path is MR → Warehouse Demand → Transfer Documents |
+| `ConfirmMaterialTransferService` / `ConfirmMaterialReceiptService` | **REMOVED (B3-MA-12)** | Not on live UI; Receipt is Warehouse-owned via Transfer Documents |
+| `listLogicalTransfers` / `confirmMaterialReceipt` Application API | **REMOVED (B3-MA-12)** | No Production callers in live workflow |
+| Legacy Flyway tables / migrations | RETAINED | No destructive DROP; no historical migration edits; historical rows kept |
+| History enum `MATERIAL_TRANSFER_CREATED` / `MATERIAL_RECEIPT_CONFIRMED` | RETAINED | Read historical timeline entries |
 | `production.receipt.confirm` permission | RETAINED | Security/RBAC contract; UI no longer exposes receipt |
 | `production.materials.check` permission | RETAINED | Backend `checkMaterialAvailability` still exists |
+| Warehouse one-line `createTransferDraft` / `sendTransfer` / `receiveTransfer` | RETAINED | Warehouse-owned; `getTransferStatus` / `TransferOperationContext` shared with document path; broad warehouse IT surface |
 
 ## Action model (final)
 

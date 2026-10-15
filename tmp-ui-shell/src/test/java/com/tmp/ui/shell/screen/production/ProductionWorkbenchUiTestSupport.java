@@ -24,8 +24,6 @@ import com.tmp.order.api.SpecificationId;
 import com.tmp.production.api.ProductionApplicationApi;
 import com.tmp.production.api.ProductionApplicationApi.DestinationWarehouseView;
 import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
-import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
-import com.tmp.production.api.ProductionApplicationApi.WarehouseTransferRefView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualDefaultView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSummaryView;
@@ -45,8 +43,6 @@ import com.tmp.production.api.ProductionApplicationApi.OrderQuantityModeView;
 import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
 import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
 import com.tmp.production.api.ProductionApplicationApi.GeneratedTransferDocumentView;
-import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
-import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
 import com.tmp.production.api.ProductionApplicationApi.ReleaseResultView;
 import com.tmp.production.api.ProductionQueryApi;
@@ -252,7 +248,6 @@ final class ProductionWorkbenchUiTestSupport {
         final List<List<UUID>> prepareMaterialRequirementItemIds = new CopyOnWriteArrayList<>();
         final List<Object[]> changeQtyCalls = new CopyOnWriteArrayList<>();
         final List<Object[]> submitCalls = new CopyOnWriteArrayList<>();
-        final List<UUID> receiptCalls = new CopyOnWriteArrayList<>();
         final List<List<ItemReleaseView>> prepareReleaseCalls = new CopyOnWriteArrayList<>();
         final List<List<ItemReleaseView>> releaseProductCalls = new CopyOnWriteArrayList<>();
         final List<List<MaterialActualUsageView>> releaseUsageCalls = new CopyOnWriteArrayList<>();
@@ -264,9 +259,6 @@ final class ProductionWorkbenchUiTestSupport {
         MaterialRequirementView requirement;
         RuntimeException submitFailure;
         ReleasePreviewView releasePreview;
-        List<LogicalTransferView> logicalTransfers = List.of();
-        ReceiptResultView receiptResult =
-                new ReceiptResultView(ReceiptStatusView.RECEIVED, "ok");
         ReleaseResultView releaseResult;
         UUID productionWarehouseId = UUID.fromString("22222222-2222-4222-8222-222222222222");
         final Map<UUID, OrderQuantityModeView> quantityModes = new HashMap<>();
@@ -460,17 +452,6 @@ final class ProductionWorkbenchUiTestSupport {
                     MaterialRequirementStatusView.SUBMITTED,
                     submitCalls.size() == 1,
                     documents);
-        }
-
-        @Override
-        public List<LogicalTransferView> listLogicalTransfers(UUID orderId) {
-            return logicalTransfers;
-        }
-
-        @Override
-        public ReceiptResultView confirmMaterialReceipt(UUID logicalTransferId) {
-            receiptCalls.add(logicalTransferId);
-            return receiptResult;
         }
 
         @Override

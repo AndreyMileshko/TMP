@@ -14,17 +14,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.tmp.production.api.ProductionApplicationApi;
-import com.tmp.production.api.ProductionApplicationApi.LogicalTransferView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.OrderQuantityModeView;
 import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
-import com.tmp.production.api.ProductionApplicationApi.ReceiptResultView;
-import com.tmp.production.api.ProductionApplicationApi.ReceiptStatusView;
 import com.tmp.production.api.ProductionApplicationApi.ReleasePreviewView;
 import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
-import com.tmp.production.application.MaterialReceiptConfirmationResult.MaterialReceiptConfirmationStatus;
 import com.tmp.production.application.ReleaseProductsResult.ItemResult;
 import com.tmp.production.application.ReleaseProductsResult.MaterialResult;
 import com.tmp.production.application.ReleaseProductsResult.PrepareReleasePreview;
@@ -35,19 +31,13 @@ import com.tmp.production.domain.MaterialRequirementLineContribution;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialRequirementSourceItemKey;
-import com.tmp.production.domain.MaterialTransferTemplateId;
-import com.tmp.production.domain.MaterialTransferTemplateLineId;
 import com.tmp.production.domain.OrderQuantityModeOptimisticLockException;
 import com.tmp.production.domain.OrderQuantityModeSetting;
-import com.tmp.production.domain.ProductionMaterialTransfer;
-import com.tmp.production.domain.ProductionMaterialTransferId;
 import com.tmp.production.domain.ProductionQuantityMode;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
-import com.tmp.production.domain.WarehouseTransferOperationRef;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.GeneratedDocumentLink;
 import com.tmp.production.domain.repository.OrderQuantityModeRepository;
-import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.security.ProductionPermissions;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthenticationService;
@@ -82,13 +72,11 @@ class DefaultProductionApplicationApiTest {
     private MaterialRequirementService materialRequirementService;
     private MaterialRequirementCoverageService materialRequirementCoverageService;
     private SubmitMaterialRequirementService submitMaterialRequirementService;
-    private ConfirmMaterialReceiptService confirmMaterialReceiptService;
     private ReleaseProductsService releaseProductsService;
     private CancelOrderProductionService cancelOrderProductionService;
     private MaterialReadinessQueryService materialReadinessQueryService;
     private MaterialRequirementProductionStockQueryService
             materialRequirementProductionStockQueryService;
-    private ProductionMaterialTransferRepository materialTransferRepository;
     private OrderQuantityModeRepository quantityModeRepository;
     private DefaultProductionApplicationApi api;
 
@@ -109,13 +97,11 @@ class DefaultProductionApplicationApiTest {
         materialRequirementService = mock(MaterialRequirementService.class);
         materialRequirementCoverageService = mock(MaterialRequirementCoverageService.class);
         submitMaterialRequirementService = mock(SubmitMaterialRequirementService.class);
-        confirmMaterialReceiptService = mock(ConfirmMaterialReceiptService.class);
         releaseProductsService = mock(ReleaseProductsService.class);
         cancelOrderProductionService = mock(CancelOrderProductionService.class);
         materialReadinessQueryService = mock(MaterialReadinessQueryService.class);
         materialRequirementProductionStockQueryService =
                 mock(MaterialRequirementProductionStockQueryService.class);
-        materialTransferRepository = mock(ProductionMaterialTransferRepository.class);
         quantityModeRepository = mock(OrderQuantityModeRepository.class);
         api =
                 new DefaultProductionApplicationApi(
@@ -127,12 +113,10 @@ class DefaultProductionApplicationApiTest {
                         materialRequirementService,
                         materialRequirementCoverageService,
                         submitMaterialRequirementService,
-                        confirmMaterialReceiptService,
                         releaseProductsService,
                         cancelOrderProductionService,
                         materialReadinessQueryService,
                         materialRequirementProductionStockQueryService,
-                        materialTransferRepository,
                         quantityModeRepository);
     }
 
@@ -548,7 +532,8 @@ class DefaultProductionApplicationApiTest {
                         "lengthMm",
                         "requiredQuantity",
                         "quantity",
-                        "sourceOrderItemIds"),
+                        "sourceOrderItemIds",
+                        "technologicalPieceCount"),
                 names);
         assertFalse(names.contains("recommendedQuantity"));
         assertFalse(names.contains("requestedQuantity"));
@@ -557,65 +542,6 @@ class DefaultProductionApplicationApiTest {
         assertFalse(names.contains("uncoveredDeficit"));
         assertFalse(names.contains("sourceWarehouseId"));
         assertFalse(names.contains("mainWarehouseId"));
-    }
-
-    @Test
-    void listLogicalTransfersMapsRepositoryResults() {
-        SourceOrderId orderId = SourceOrderId.generate();
-        Instant createdAt = Instant.parse("2026-08-20T10:00:00Z");
-        ProductionMaterialTransfer transfer =
-                ProductionMaterialTransfer.rehydrate(
-                        ProductionMaterialTransferId.generate(),
-                        MaterialTransferTemplateId.generate(),
-                        orderId,
-                        createdAt,
-                        List.of(
-                                new WarehouseTransferOperationRef(
-                                        MaterialTransferTemplateLineId.of(UUID.randomUUID()),
-                                        UUID.randomUUID(),
-                                        MaterialReferenceId.generate(),
-                                        BigDecimal.ONE,
-                                        UUID.randomUUID(),
-                                        UUID.randomUUID())));
-        when(materialTransferRepository.findBySourceOrderId(orderId)).thenReturn(List.of(transfer));
-
-        List<LogicalTransferView> views = api.listLogicalTransfers(orderId.value());
-
-        verify(authorizationService).requirePermission(ProductionPermissions.PRODUCTION_VIEW);
-        assertEquals(1, views.size());
-        assertEquals(transfer.logicalTransferId().value(), views.getFirst().id());
-        assertEquals(transfer.templateId().value(), views.getFirst().templateId());
-        assertEquals(createdAt, views.getFirst().createdAt());
-        assertEquals(1, views.getFirst().warehouseOperations().size());
-        assertEquals(
-                transfer.warehouseOperationRefs().getFirst().warehouseDraftOperationId(),
-                views.getFirst().warehouseOperations().getFirst().warehouseDraftOperationId());
-    }
-
-    @Test
-    void confirmMaterialReceiptMapsStatusAndMessage() {
-        UUID logicalId = UUID.randomUUID();
-        MaterialReceiptConfirmationResult result =
-                new MaterialReceiptConfirmationResult(
-                        ProductionMaterialTransferId.of(logicalId),
-                        SourceOrderId.generate(),
-                        Instant.parse("2026-08-20T11:00:00Z"),
-                        MaterialReceiptConfirmationStatus.ALREADY_RECEIVED,
-                        List.of(
-                                new MaterialReceiptConfirmationResult.MaterialReceiptReferenceResult(
-                                        UUID.randomUUID(),
-                                        UUID.randomUUID(),
-                                        MaterialReferenceId.generate(),
-                                        BigDecimal.ONE,
-                                        "RECEIVED")));
-        when(confirmMaterialReceiptService.confirmMaterialReceipt(any())).thenReturn(result);
-
-        ReceiptResultView view = api.confirmMaterialReceipt(logicalId);
-
-        verify(authorizationService)
-                .requirePermission(ProductionPermissions.PRODUCTION_CONFIRM_RECEIPT);
-        assertEquals(ReceiptStatusView.ALREADY_RECEIVED, view.status());
-        assertTrue(view.message().toLowerCase().contains("already"));
     }
 
     @Test

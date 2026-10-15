@@ -3,6 +3,33 @@
 ## Latest result
 
 **Date:** 2026-10-15
+**Scope:** B3-MA-12-CLEANUP — retire unused legacy Production transfer workflow
+**Overall:** PASS (focused Production / Warehouse / ArchUnit + fast package)
+**Migration:** NONE
+**Base HEAD:** `a21b5d4180c50503f36ee50b0c824979648ea8ac`
+**Working tree:** dirty (cleanup); **no commit / no push**
+
+### Checks (2026-10-15 B3-MA-12)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD exact | PASS (`a21b5d4…`) |
+| MR submit → demand / draft docs (`SubmitMaterialRequirement*`) | PASS |
+| WAITING prepare (`WarehouseDemandPrepareTransfersIntegrationTest`) | PASS |
+| Document send/receive (`WarehouseTransferDocument*`) | PASS |
+| Standalone TRANSFER_SEND/RECEIVE rejected (`DefaultWarehouseApiTest`) | PASS |
+| Public boundary release / receipt fixtures | PASS (`ProductionPublicBoundaryPostgresIT`) |
+| Stage7 Production ArchUnit | PASS (75) |
+| Fast package `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | PASS |
+| Runtime smoke | NOT RUN (not required for cleanup; no shared DB postings) |
+| Full reactor | NOT RUN |
+| Shared stage DB `tmp_gui_stage5` | NOT MUTATED |
+
+---
+
+## Latest result
+
+**Date:** 2026-10-15
 **Scope:** Warehouse Tasks final UX fix — route arrow + task details column widths
 **Overall:** PASS (focused JavaFX / presentation unit + packaged smoke)
 **Migration:** NONE

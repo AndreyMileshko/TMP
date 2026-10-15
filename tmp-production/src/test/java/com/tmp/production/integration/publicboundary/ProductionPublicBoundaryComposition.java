@@ -7,7 +7,6 @@ import com.tmp.production.api.ProductionApplicationApi;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.application.CancelOrderProductionService;
 import com.tmp.production.application.CheckMaterialAvailabilityService;
-import com.tmp.production.application.ConfirmMaterialReceiptService;
 import com.tmp.production.application.CurrentMaterialAvailabilityQueryService;
 import com.tmp.production.application.DefaultProductionApplicationApi;
 import com.tmp.production.application.DefaultProductionQueryApi;
@@ -40,7 +39,6 @@ import com.tmp.production.domain.repository.MaterialRequirementRepository;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository;
 import com.tmp.production.domain.repository.ProductionCancellationQuery;
 import com.tmp.production.domain.repository.ProductionCancellationRepository;
-import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.domain.repository.ProductionReleaseRepository;
 import com.tmp.production.persistence.JdbcMaterialRequirementRepository;
 import com.tmp.production.persistence.JdbcMaterialRequirementSubmissionRepository;
@@ -48,7 +46,6 @@ import com.tmp.production.persistence.JdbcOrderQuantityModeRepository;
 import com.tmp.production.persistence.JdbcProductionCancellationRepository;
 import com.tmp.production.persistence.JdbcProductionHistoryRepository;
 import com.tmp.production.persistence.JdbcProductionItemStateRepository;
-import com.tmp.production.persistence.JdbcProductionMaterialTransferRepository;
 import com.tmp.production.persistence.JdbcProductionReleaseRepository;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
@@ -75,7 +72,6 @@ final class ProductionPublicBoundaryComposition {
 
     private final ControllableProductionItemStateRepository itemStates;
     private final ControllableProductionHistoryRepository historyRepository;
-    private final ProductionMaterialTransferRepository materialTransfers;
     private final ProductionApplicationApi applicationApi;
     private final ProductionQueryApi queryApi;
     private final ProductionDestinationWarehouse destinationWarehouse;
@@ -83,13 +79,11 @@ final class ProductionPublicBoundaryComposition {
     private ProductionPublicBoundaryComposition(
             ControllableProductionItemStateRepository itemStates,
             ControllableProductionHistoryRepository historyRepository,
-            ProductionMaterialTransferRepository materialTransfers,
             ProductionApplicationApi applicationApi,
             ProductionQueryApi queryApi,
             ProductionDestinationWarehouse destinationWarehouse) {
         this.itemStates = itemStates;
         this.historyRepository = historyRepository;
-        this.materialTransfers = materialTransfers;
         this.applicationApi = applicationApi;
         this.queryApi = queryApi;
         this.destinationWarehouse = destinationWarehouse;
@@ -140,8 +134,6 @@ final class ProductionPublicBoundaryComposition {
                 new JdbcMaterialRequirementRepository(jdbc, clock, txManager);
         MaterialRequirementSubmissionRepository submissions =
                 new JdbcMaterialRequirementSubmissionRepository(jdbc);
-        ProductionMaterialTransferRepository materialTransfers =
-                new JdbcProductionMaterialTransferRepository(jdbc, txManager);
 
         ProductionDestinationWarehouse destination =
                 new ProductionDestinationWarehouse(productionWarehouseId);
@@ -224,14 +216,6 @@ final class ProductionPublicBoundaryComposition {
                         materialRequirementCoverageService,
                         txManager,
                         clock);
-        ConfirmMaterialReceiptService confirmReceiptService =
-                new ConfirmMaterialReceiptService(
-                        materialTransfers,
-                        warehouseCommandApi,
-                        warehouseQueryApi,
-                        historyService,
-                        txManager,
-                        clock);
         ProductionReleaseDocumentService releaseDocumentService =
                 new ProductionReleaseDocumentService(documentEngine, releaseRepository, clock);
         ReleaseProductsService releaseProductsService =
@@ -271,12 +255,10 @@ final class ProductionPublicBoundaryComposition {
                         materialRequirementService,
                         materialRequirementCoverageService,
                         submitMaterialRequirementService,
-                        confirmReceiptService,
                         releaseProductsService,
                         cancelService,
                         materialReadinessQueryService,
                         materialRequirementProductionStockQueryService,
-                        materialTransfers,
                         new JdbcOrderQuantityModeRepository(jdbc, clock));
         ProductionQueryApi queryApi =
                 new DefaultProductionQueryApi(
@@ -285,7 +267,6 @@ final class ProductionPublicBoundaryComposition {
         return new ProductionPublicBoundaryComposition(
                 itemStates,
                 historyRepository,
-                materialTransfers,
                 applicationApi,
                 queryApi,
                 destination);
@@ -297,10 +278,6 @@ final class ProductionPublicBoundaryComposition {
 
     ControllableProductionHistoryRepository historyRepository() {
         return historyRepository;
-    }
-
-    ProductionMaterialTransferRepository materialTransfers() {
-        return materialTransfers;
     }
 
     ProductionApplicationApi applicationApi() {

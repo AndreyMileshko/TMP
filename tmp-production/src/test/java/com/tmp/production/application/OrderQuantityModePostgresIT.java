@@ -20,7 +20,6 @@ import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
-import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.persistence.JdbcMaterialRequirementRepository;
 import com.tmp.production.persistence.JdbcOrderQuantityModeRepository;
 import com.tmp.production.persistence.JdbcProductionItemStateRepository;
@@ -101,12 +100,10 @@ class OrderQuantityModePostgresIT {
                         mock(MaterialRequirementService.class),
                         mock(MaterialRequirementCoverageService.class),
                         mock(SubmitMaterialRequirementService.class),
-                        mock(ConfirmMaterialReceiptService.class),
                         mock(ReleaseProductsService.class),
                         mock(CancelOrderProductionService.class),
                         mock(MaterialReadinessQueryService.class),
                         mock(MaterialRequirementProductionStockQueryService.class),
-                        mock(ProductionMaterialTransferRepository.class),
                         new JdbcOrderQuantityModeRepository(jdbc, CLOCK));
     }
 

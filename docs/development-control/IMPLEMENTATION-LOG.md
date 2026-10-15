@@ -1,3 +1,27 @@
+## B3-MA-12-CLEANUP — Retire unused legacy Production transfer workflow — 2026-10-15
+
+**Date:** 2026-10-15
+**Stage:** Post-closure Production / Warehouse MA
+**Base HEAD:** `a21b5d4180c50503f36ee50b0c824979648ea8ac`
+**Status:** PASS — no migration; no shared DB mutation; no commit / no push
+
+### Scope
+
+- Removed unused Production Material Transfer Template / logical-transfer / confirm-receipt runtime and Application API (`listLogicalTransfers`, `confirmMaterialReceipt`)
+- Removed Spring beans and repositories for template / `ProductionMaterialTransfer`
+- Updated ArchUnit rules; public-boundary fixtures now use Warehouse one-line draft/send/receive only
+- Retained Warehouse `createTransferDraft` / `sendTransfer` / `receiveTransfer` / `getTransferStatus` / `TransferOperationContext` (shared with document path)
+- Retained Flyway tables, history enum values, and `production.receipt.confirm` RBAC permission
+
+### Live workflow preserved
+
+MR Submit → Warehouse Demand → Transfer Documents → Warehouse Tasks → receipt/reject/return → Production release consumption
+
+### Verification
+
+See VERIFICATION-LOG entry (2026-10-15 B3-MA-12-CLEANUP).
+
+---
 ## Warehouse Tasks final UX fix — route arrow + detail column widths — 2026-10-15
 
 **Date:** 2026-10-15

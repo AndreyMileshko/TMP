@@ -7,7 +7,6 @@ import com.tmp.production.api.ProductionApplicationApi;
 import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.production.application.CancelOrderProductionService;
 import com.tmp.production.application.CheckMaterialAvailabilityService;
-import com.tmp.production.application.ConfirmMaterialReceiptService;
 import com.tmp.production.application.CurrentMaterialAvailabilityQueryService;
 import com.tmp.production.application.DefaultProductionApplicationApi;
 import com.tmp.production.application.DefaultProductionQueryApi;
@@ -39,22 +38,18 @@ import com.tmp.production.application.port.WarehouseReferenceQueryPort;
 import com.tmp.production.application.port.WarehouseReferenceQueryPort;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository;
-import com.tmp.production.domain.repository.MaterialTransferTemplateRepository;
 import com.tmp.production.domain.repository.OrderQuantityModeRepository;
 import com.tmp.production.domain.repository.ProductionCancellationQuery;
 import com.tmp.production.domain.repository.ProductionCancellationRepository;
 import com.tmp.production.domain.repository.ProductionHistoryRepository;
 import com.tmp.production.domain.repository.ProductionItemStateRepository;
-import com.tmp.production.domain.repository.ProductionMaterialTransferRepository;
 import com.tmp.production.domain.repository.ProductionReleaseRepository;
 import com.tmp.production.persistence.JdbcMaterialRequirementRepository;
 import com.tmp.production.persistence.JdbcMaterialRequirementSubmissionRepository;
-import com.tmp.production.persistence.JdbcMaterialTransferTemplateRepository;
 import com.tmp.production.persistence.JdbcOrderQuantityModeRepository;
 import com.tmp.production.persistence.JdbcProductionCancellationRepository;
 import com.tmp.production.persistence.JdbcProductionHistoryRepository;
 import com.tmp.production.persistence.JdbcProductionItemStateRepository;
-import com.tmp.production.persistence.JdbcProductionMaterialTransferRepository;
 import com.tmp.production.persistence.JdbcProductionReleaseRepository;
 import com.tmp.production.security.ProductionCapability;
 import com.tmp.security.api.AuthenticationService;
@@ -125,12 +120,6 @@ public class ProductionAutoConfiguration {
     }
 
     @Bean
-    MaterialTransferTemplateRepository materialTransferTemplateRepository(
-            JdbcTemplate jdbcTemplate, Clock clock, PlatformTransactionManager transactionManager) {
-        return new JdbcMaterialTransferTemplateRepository(jdbcTemplate, clock, transactionManager);
-    }
-
-    @Bean
     MaterialRequirementRepository materialRequirementRepository(
             JdbcTemplate jdbcTemplate, Clock clock, PlatformTransactionManager transactionManager) {
         return new JdbcMaterialRequirementRepository(jdbcTemplate, clock, transactionManager);
@@ -140,12 +129,6 @@ public class ProductionAutoConfiguration {
     MaterialRequirementSubmissionRepository materialRequirementSubmissionRepository(
             JdbcTemplate jdbcTemplate) {
         return new JdbcMaterialRequirementSubmissionRepository(jdbcTemplate);
-    }
-
-    @Bean
-    ProductionMaterialTransferRepository productionMaterialTransferRepository(
-            JdbcTemplate jdbcTemplate, PlatformTransactionManager transactionManager) {
-        return new JdbcProductionMaterialTransferRepository(jdbcTemplate, transactionManager);
     }
 
     @Bean
@@ -347,23 +330,6 @@ public class ProductionAutoConfiguration {
     }
 
     @Bean
-    ConfirmMaterialReceiptService confirmMaterialReceiptService(
-            ProductionMaterialTransferRepository transferRepository,
-            @Qualifier("warehouseCommandApi") WarehouseCommandApi warehouseCommandApi,
-            @Qualifier("warehouseQueryApi") WarehouseQueryApi warehouseQueryApi,
-            ProductionHistoryService historyService,
-            PlatformTransactionManager transactionManager,
-            Clock clock) {
-        return new ConfirmMaterialReceiptService(
-                transferRepository,
-                warehouseCommandApi,
-                warehouseQueryApi,
-                historyService,
-                transactionManager,
-                clock);
-    }
-
-    @Bean
     ReleaseProductsService releaseProductsService(
             ProductionOrderViewService orderViewService,
             ProductionFoundationQueryService foundationQueryService,
@@ -427,13 +393,11 @@ public class ProductionAutoConfiguration {
             MaterialRequirementService materialRequirementService,
             MaterialRequirementCoverageService materialRequirementCoverageService,
             SubmitMaterialRequirementService submitMaterialRequirementService,
-            ConfirmMaterialReceiptService confirmMaterialReceiptService,
             ReleaseProductsService releaseProductsService,
             CancelOrderProductionService cancelOrderProductionService,
             MaterialReadinessQueryService materialReadinessQueryService,
             MaterialRequirementProductionStockQueryService
                     materialRequirementProductionStockQueryService,
-            ProductionMaterialTransferRepository materialTransferRepository,
             OrderQuantityModeRepository orderQuantityModeRepository) {
         return new DefaultProductionApplicationApi(
                 authorizationService,
@@ -444,12 +408,10 @@ public class ProductionAutoConfiguration {
                 materialRequirementService,
                 materialRequirementCoverageService,
                 submitMaterialRequirementService,
-                confirmMaterialReceiptService,
                 releaseProductsService,
                 cancelOrderProductionService,
                 materialReadinessQueryService,
                 materialRequirementProductionStockQueryService,
-                materialTransferRepository,
                 orderQuantityModeRepository);
     }
 

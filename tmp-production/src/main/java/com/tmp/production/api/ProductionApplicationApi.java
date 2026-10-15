@@ -81,10 +81,6 @@ public interface ProductionApplicationApi {
     SubmitMaterialRequirementResultView submitMaterialRequirement(
             UUID requirementId, long expectedVersion);
 
-    List<LogicalTransferView> listLogicalTransfers(UUID orderId);
-
-    ReceiptResultView confirmMaterialReceipt(UUID logicalTransferId);
-
     ReleasePreviewView prepareRelease(UUID orderId, List<ItemReleaseView> itemReleases);
 
     ReleaseResultView releaseProducts(
@@ -388,41 +384,6 @@ public interface ProductionApplicationApi {
             Objects.requireNonNull(status, "status");
             Objects.requireNonNull(documents, "documents");
             documents = List.copyOf(documents);
-        }
-    }
-
-    record WarehouseTransferRefView(
-            UUID warehouseDraftOperationId, UUID materialReferenceId, BigDecimal quantity) {
-        public WarehouseTransferRefView {
-            Objects.requireNonNull(warehouseDraftOperationId, "warehouseDraftOperationId");
-            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
-            Objects.requireNonNull(quantity, "quantity");
-        }
-    }
-
-    record LogicalTransferView(
-            UUID id,
-            UUID templateId,
-            Instant createdAt,
-            List<WarehouseTransferRefView> warehouseOperations) {
-        public LogicalTransferView {
-            Objects.requireNonNull(id, "id");
-            Objects.requireNonNull(templateId, "templateId");
-            Objects.requireNonNull(createdAt, "createdAt");
-            Objects.requireNonNull(warehouseOperations, "warehouseOperations");
-            warehouseOperations = List.copyOf(warehouseOperations);
-        }
-    }
-
-    enum ReceiptStatusView {
-        RECEIVED,
-        ALREADY_RECEIVED
-    }
-
-    record ReceiptResultView(ReceiptStatusView status, String message) {
-        public ReceiptResultView {
-            Objects.requireNonNull(status, "status");
-            Objects.requireNonNull(message, "message");
         }
     }
 

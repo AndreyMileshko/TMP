@@ -160,8 +160,8 @@ public final class MaterialRequirement {
 
     /**
      * Changes line quantity. Domain keeps the same optimistic-lock {@code version}; the repository
-     * increments version on successful save (same pattern as {@link MaterialTransferTemplate}).
-     * Product coverage on {@link #sourceItems()} is unchanged.
+     * increments version on successful save. Product coverage on {@link #sourceItems()} is
+     * unchanged.
      */
     public MaterialRequirement changeLineQuantity(
             MaterialRequirementLineId lineId, BigDecimal quantity, Instant updatedAt) {

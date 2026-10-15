@@ -484,55 +484,36 @@ class Stage7ProductionArchitectureTest {
                     .because("tmp-production must not depend on tmp-cutting / Stage 8 runtime");
 
     @ArchTest
-    static final ArchRule materialTransferTemplateMustNotUseWarehouseCommandApi =
+    static final ArchRule legacyMaterialTransferTemplateRuntimeMustRemainRemoved =
             noClasses()
                     .that()
+                    .resideInAPackage("com.tmp.production..")
+                    .and()
                     .haveSimpleNameContaining("MaterialTransferTemplate")
                     .or()
-                    .haveSimpleName("JdbcMaterialTransferTemplateRepository")
-                    .should()
-                    .dependOnClassesThat()
-                    .haveSimpleName("WarehouseCommandApi")
-                    .because(
-                            "Legacy Material Transfer Template domain must not call Warehouse commands");
-
-    @ArchTest
-    static final ArchRule materialTransferTemplateMustNotUseWarehouseInternals =
-            noClasses()
-                    .that()
-                    .haveSimpleNameContaining("MaterialTransferTemplate")
+                    .haveSimpleName("ConfirmMaterialTransferService")
+                    .or()
+                    .haveSimpleName("ConfirmMaterialTransferCommand")
+                    .or()
+                    .haveSimpleName("ConfirmMaterialReceiptService")
+                    .or()
+                    .haveSimpleName("ConfirmMaterialReceiptCommand")
+                    .or()
+                    .haveSimpleName("MaterialReceiptConfirmationResult")
                     .or()
                     .haveSimpleName("JdbcMaterialTransferTemplateRepository")
+                    .or()
+                    .haveSimpleName("JdbcProductionMaterialTransferRepository")
+                    .or()
+                    .haveSimpleNameContaining("ProductionMaterialTransfer")
+                    .or()
+                    .haveSimpleName("WarehouseTransferOperationRef")
                     .should()
-                    .dependOnClassesThat()
-                    .resideInAnyPackage(
-                            "com.tmp.warehouse.application..",
-                            "com.tmp.warehouse.domain..",
-                            "com.tmp.warehouse.persistence..")
+                    .beInterfaces()
                     .because(
-                            "Material Transfer Template stays Production-owned and must not touch "
-                                    + "Warehouse internals");
-
-    @ArchTest
-    static final ArchRule materialTransferTemplateMustNotDependOnCuttingRuntime =
-            noClasses()
-                    .that()
-                    .haveSimpleNameContaining("MaterialTransferTemplate")
-                    .should()
-                    .dependOnClassesThat()
-                    .resideInAnyPackage("com.tmp.cutting..")
-                    .because("Mere CuttingPlanId must not pull Stage 8 Cutting runtime");
-
-    @ArchTest
-    static final ArchRule materialTransferTemplateIsNotDocumentProcessor =
-            noClasses()
-                    .that()
-                    .haveSimpleNameContaining("MaterialTransferTemplate")
-                    .should()
-                    .implement(com.tmp.document.api.DocumentProcessor.class)
-                    .because(
-                            "Material Transfer Template is an editable preparation model, not a "
-                                    + "Document Engine business document");
+                            "B3-MA-12 retires unused legacy Production Material Transfer Template /"
+                                    + " logical-transfer / confirm-receipt runtime")
+                    .allowEmptyShould(true);
 
     @ArchTest
     static final ArchRule materialRequirementMustNotUseWarehouseCommandApi =
@@ -675,97 +656,6 @@ class Stage7ProductionArchitectureTest {
                                     + "MaterialTransferRecommendationCalculator; Stage 3.5.10 "
                                     + "submission links/snapshot may record Warehouse-owned "
                                     + "sourceWarehouseId as traceability only");
-
-    @ArchTest
-    static final ArchRule confirmMaterialTransferUsesWarehousePublicApiOnly =
-            classes()
-                    .that()
-                    .haveSimpleName("ConfirmMaterialTransferService")
-                    .should()
-                    .onlyDependOnClassesThat()
-                    .resideInAnyPackage(
-                            "com.tmp.production..",
-                            "com.tmp.warehouse.api..",
-                            "java..",
-                            "org.springframework.transaction..",
-                            "edu.umd.cs.findbugs.annotations..")
-                    .because(
-                            "STAGE7-010 confirmation must orchestrate only via Warehouse public API");
-
-    @ArchTest
-    static final ArchRule confirmMaterialTransferMustNotUseWarehouseInternals =
-            noClasses()
-                    .that()
-                    .haveSimpleName("ConfirmMaterialTransferService")
-                    .or()
-                    .haveSimpleName("ConfirmMaterialTransferCommand")
-                    .or()
-                    .haveSimpleName("JdbcProductionMaterialTransferRepository")
-                    .or()
-                    .haveSimpleNameContaining("ProductionMaterialTransfer")
-                    .or()
-                    .haveSimpleName("WarehouseTransferOperationRef")
-                    .should()
-                    .dependOnClassesThat()
-                    .resideInAnyPackage(
-                            "com.tmp.warehouse.application..",
-                            "com.tmp.warehouse.domain..",
-                            "com.tmp.warehouse.persistence..")
-                    .because(
-                            "Production logical transfer grouping must not touch Warehouse internals");
-
-    @ArchTest
-    static final ArchRule confirmMaterialReceiptUsesWarehousePublicApiOnly =
-            classes()
-                    .that()
-                    .haveSimpleName("ConfirmMaterialReceiptService")
-                    .should()
-                    .onlyDependOnClassesThat()
-                    .resideInAnyPackage(
-                            "com.tmp.production..",
-                            "com.tmp.warehouse.api..",
-                            "java..",
-                            "org.springframework.transaction..",
-                            "edu.umd.cs.findbugs.annotations..")
-                    .because(
-                            "STAGE7-011 receipt confirmation must orchestrate only via Warehouse"
-                                    + " public API");
-
-    @ArchTest
-    static final ArchRule confirmMaterialReceiptMustNotUseWarehouseInternals =
-            noClasses()
-                    .that()
-                    .haveSimpleName("ConfirmMaterialReceiptService")
-                    .or()
-                    .haveSimpleName("ConfirmMaterialReceiptCommand")
-                    .or()
-                    .haveSimpleName("MaterialReceiptConfirmationResult")
-                    .or()
-                    .haveSimpleName("MaterialReceiptConfirmationException")
-                    .or()
-                    .haveSimpleName("ProductionMaterialTransferNotFoundException")
-                    .should()
-                    .dependOnClassesThat()
-                    .resideInAnyPackage(
-                            "com.tmp.warehouse.application..",
-                            "com.tmp.warehouse.domain..",
-                            "com.tmp.warehouse.persistence..")
-                    .because(
-                            "STAGE7-011 receipt initiation must not depend on Warehouse internals");
-
-    @ArchTest
-    static final ArchRule confirmMaterialReceiptMustNotDependOnStockPosition =
-            noClasses()
-                    .that()
-                    .haveSimpleName("ConfirmMaterialReceiptService")
-                    .or()
-                    .haveSimpleName("ConfirmMaterialReceiptCommand")
-                    .or()
-                    .haveSimpleName("MaterialReceiptConfirmationResult")
-                    .should()
-                    .dependOnClassesThat()
-                    .haveSimpleName("StockPosition")
-                    .because("Production must not write or depend on Stock Position");
 
     @ArchTest
     static final ArchRule productionReleaseMustNotDependOnWarehouse =
