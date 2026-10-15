@@ -1171,10 +1171,12 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     /**
      * Warehouse Operation kinds exposed through Public API.
      *
-     * <p>Transfer stages: {@link #TRANSFER_SEND}, {@link #TRANSFER_RECEIVE}, and {@link
-     * #TRANSFER_RETURN}. {@link #TRANSFER_RETURN} is a read/result representation only — it must not
-     * be executed via unrestricted {@link WarehouseCommandApi#executeWarehouseOperation}; physical
-     * return is owned by Transfer Document settlement.
+     * <p>{@link #TRANSFER_SEND}, {@link #TRANSFER_RECEIVE}, and {@link #TRANSFER_RETURN} are
+     * result/history representations only. They must not be executed via unrestricted {@link
+     * WarehouseCommandApi#executeWarehouseOperation}. Inter-warehouse stock mutation is owned by
+     * Transfer Document lifecycle ({@code sendTransferDocument} / {@code receiveTransferDocument} /
+     * {@code returnTransferMaterials}) or by draft APIs ({@code sendTransfer} / {@code
+     * receiveTransfer}) for Production-created drafts.
      */
     enum OperationKind {
         RECEIPT,
@@ -1194,8 +1196,10 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
      * <ul>
      *   <li>RECEIPT — materialCode = article; materialName/color/size/unitOfMeasure required;
      *       warehouseId, storageCellId, quantity (positive)
-     *   <li>MOVE / CONSUMPTION / ADJUSTMENT / TRANSFER_* — materialReferenceId required;
-     *       warehouseId, storageCellId, quantity
+     *   <li>MOVE / CONSUMPTION / ADJUSTMENT — materialReferenceId required; warehouseId,
+     *       storageCellId, quantity
+     *   <li>TRANSFER_SEND / TRANSFER_RECEIVE / TRANSFER_RETURN — rejected by {@link
+     *       WarehouseCommandApi#executeWarehouseOperation}; factories remain for contract/tests only
      * </ul>
      */
     record ExecuteOperationCommand(

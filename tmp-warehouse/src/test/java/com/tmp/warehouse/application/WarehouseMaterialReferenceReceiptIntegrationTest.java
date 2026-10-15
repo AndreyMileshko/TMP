@@ -224,21 +224,17 @@ class WarehouseMaterialReferenceReceiptIntegrationTest {
         catalog.save(Warehouse.of(destWarehouse, "WH-2", "Second", true));
         catalog.save(StorageCell.of(destCell, destWarehouse, "C-01", true));
 
-        transfers.send(
-                new TransferSendRequest(
-                        material,
-                        StockQuantity.of(3),
-                        warehouseId,
-                        cellA,
-                        destWarehouse));
-        transfers.receive(
-                new TransferReceiveRequest(
-                        material,
-                        StockQuantity.of(3),
-                        warehouseId,
-                        cellA,
-                        destWarehouse,
-                        destCell));
+        WarehouseOperation draft =
+                transfers.createDraft(
+                        new WarehouseTransferService.TransferDraftRequest(
+                                material,
+                                StockQuantity.of(3),
+                                warehouseId,
+                                cellA,
+                                destWarehouse,
+                                destCell));
+        WarehouseOperation sent = transfers.sendDraft(draft.id());
+        transfers.receiveFromSend(sent.id());
 
         assertEquals(countAfterReceipt, materials.findAll().size());
         assertEquals(material.id(), materials.findById(material.id()).orElseThrow().id());

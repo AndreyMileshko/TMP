@@ -55,7 +55,6 @@ public final class WarehouseWorkbenchViewModel {
     private final BooleanProperty canView = new SimpleBooleanProperty(false);
     private final BooleanProperty canReceipt = new SimpleBooleanProperty(false);
     private final BooleanProperty canMove = new SimpleBooleanProperty(false);
-    private final BooleanProperty canTransfer = new SimpleBooleanProperty(false);
     private final BooleanProperty canConsumption = new SimpleBooleanProperty(false);
     private final BooleanProperty canAdjustment = new SimpleBooleanProperty(false);
     private final BooleanProperty canReservation = new SimpleBooleanProperty(false);
@@ -71,23 +70,11 @@ public final class WarehouseWorkbenchViewModel {
     private final ObservableList<StockView> stockRows = FXCollections.observableArrayList();
     private final ObservableList<ReservationLinkView> reservationLinks =
             FXCollections.observableArrayList();
-    private final ObservableList<TransferDraftRow> transferDraftRows =
-            FXCollections.observableArrayList();
-
-    private final ObjectProperty<TransferDraftRow> selectedTransferDraft =
-            new SimpleObjectProperty<>();
-
     private final ObservableList<StorageCellChoice> receiptCellChoices =
             FXCollections.observableArrayList();
     private final ObservableList<StorageCellChoice> moveSourceCellChoices =
             FXCollections.observableArrayList();
     private final ObservableList<StorageCellChoice> moveDestCellChoices =
-            FXCollections.observableArrayList();
-    private final ObservableList<StorageCellChoice> transferSendCellChoices =
-            FXCollections.observableArrayList();
-    private final ObservableList<StorageCellChoice> transferReceiveSourceCellChoices =
-            FXCollections.observableArrayList();
-    private final ObservableList<StorageCellChoice> transferReceiveDestCellChoices =
             FXCollections.observableArrayList();
     private final ObservableList<StorageCellChoice> consumptionCellChoices =
             FXCollections.observableArrayList();
@@ -124,26 +111,6 @@ public final class WarehouseWorkbenchViewModel {
     private final ObjectProperty<WarehouseChoice> moveSourceWarehouse = new SimpleObjectProperty<>();
     private final ObjectProperty<StorageCellChoice> moveSourceCell = new SimpleObjectProperty<>();
     private final ObjectProperty<StorageCellChoice> moveDestCell = new SimpleObjectProperty<>();
-
-    private final ObjectProperty<MaterialChoice> transferMaterial = new SimpleObjectProperty<>();
-    private final StringProperty transferQuantity = new SimpleStringProperty("");
-    private final ObjectProperty<WarehouseChoice> transferSourceWarehouse =
-            new SimpleObjectProperty<>();
-    private final ObjectProperty<StorageCellChoice> transferSourceCell =
-            new SimpleObjectProperty<>();
-    private final ObjectProperty<WarehouseChoice> transferDestWarehouse =
-            new SimpleObjectProperty<>();
-
-    private final ObjectProperty<MaterialChoice> transferReceiveMaterial = new SimpleObjectProperty<>();
-    private final StringProperty transferReceiveQuantity = new SimpleStringProperty("");
-    private final ObjectProperty<WarehouseChoice> transferReceiveSourceWarehouse =
-            new SimpleObjectProperty<>();
-    private final ObjectProperty<StorageCellChoice> transferReceiveSourceCell =
-            new SimpleObjectProperty<>();
-    private final ObjectProperty<WarehouseChoice> transferReceiveDestWarehouse =
-            new SimpleObjectProperty<>();
-    private final ObjectProperty<StorageCellChoice> transferReceiveDestCell =
-            new SimpleObjectProperty<>();
 
     private final ObjectProperty<MaterialChoice> consumptionMaterial = new SimpleObjectProperty<>();
     private final StringProperty consumptionQuantity = new SimpleStringProperty("");
@@ -184,21 +151,6 @@ public final class WarehouseWorkbenchViewModel {
             reloadCells(newValue, moveSourceCellChoices, moveSourceCell);
             reloadCells(newValue, moveDestCellChoices, moveDestCell);
         });
-        transferSourceWarehouse.addListener(
-                (obs, oldValue, newValue) ->
-                        reloadCells(newValue, transferSendCellChoices, transferSourceCell));
-        transferReceiveSourceWarehouse.addListener(
-                (obs, oldValue, newValue) ->
-                        reloadCells(
-                                newValue,
-                                transferReceiveSourceCellChoices,
-                                transferReceiveSourceCell));
-        transferReceiveDestWarehouse.addListener(
-                (obs, oldValue, newValue) ->
-                        reloadCells(
-                                newValue,
-                                transferReceiveDestCellChoices,
-                                transferReceiveDestCell));
         consumptionWarehouse.addListener(
                 (obs, oldValue, newValue) ->
                         reloadCells(newValue, consumptionCellChoices, consumptionCell));
@@ -220,7 +172,6 @@ public final class WarehouseWorkbenchViewModel {
         canView.set(has(UiShellScreens.WAREHOUSE_VIEW_PERMISSION));
         canReceipt.set(has(UiShellScreens.WAREHOUSE_RECEIPT_PERMISSION));
         canMove.set(has(UiShellScreens.WAREHOUSE_MOVE_PERMISSION));
-        canTransfer.set(has(UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION));
         canConsumption.set(has(UiShellScreens.WAREHOUSE_CONSUMPTION_PERMISSION));
         canAdjustment.set(has(UiShellScreens.WAREHOUSE_ADJUSTMENT_PERMISSION));
         canReservation.set(has(UiShellScreens.WAREHOUSE_RESERVATION_PERMISSION));
@@ -382,133 +333,6 @@ public final class WarehouseWorkbenchViewModel {
         });
     }
 
-    public void submitTransferSend() {
-        if (!canTransfer.get()) {
-            deny();
-            return;
-        }
-        TransferDraftRow selected = selectedTransferDraft.get();
-        if (selected == null) {
-            errorMessage.set("Выберите черновик перемещения для отправки.");
-            return;
-        }
-        run(
-                "Межскладское перемещение (отправка) выполнено",
-                () -> {
-                    OperationResult result = warehouseApi.sendTransfer(selected.operationId());
-                    statusMessage.set(
-                            "Отправлен существующий черновик: operationId="
-                                    + result.operationId());
-                    refreshTransferDraftRows();
-                });
-    }
-
-    public void submitManualTransferSend() {
-        if (!canTransfer.get()) {
-            deny();
-            return;
-        }
-        run("Межскладское перемещение (отправка) выполнено", () -> {
-            MaterialChoice material = requireChoice(transferMaterial.get(), "материал");
-            WarehouseChoice source =
-                    requireChoice(transferSourceWarehouse.get(), "склад источник");
-            StorageCellChoice sourceCell =
-                    requireChoice(transferSourceCell.get(), "ячейка источник");
-            WarehouseChoice destination =
-                    requireChoice(transferDestWarehouse.get(), "склад назначения");
-            OperationResult result =
-                    warehouseApi.executeWarehouseOperation(
-                            ExecuteOperationCommand.transferSend(
-                                    material.id(),
-                                    parsePositiveDecimal(transferQuantity.get(), "количество"),
-                                    source.id(),
-                                    sourceCell.id(),
-                                    destination.id()));
-            statusMessage.set(
-                    "Межскладская отправка выполнена: operationId=" + result.operationId());
-        });
-    }
-
-    public void loadTransferDrafts() {
-        if (!canTransfer.get() && !canView.get()) {
-            deny();
-            return;
-        }
-        run("Черновики перемещений загружены", this::refreshTransferDraftRows);
-    }
-
-    private void refreshTransferDraftRows() {
-        ensureWarehouseChoicesLoaded();
-        loadMaterialChoices();
-        List<TransferDraftRow> rows = new ArrayList<>();
-        for (var draft : warehouseApi.listTransferDrafts()) {
-            rows.add(mapTransferDraft(draft));
-        }
-        transferDraftRows.setAll(rows);
-        if (rows.isEmpty()) {
-            statusMessage.set("Черновики перемещений не найдены");
-        }
-        UUID previous =
-                selectedTransferDraft.get() == null
-                        ? null
-                        : selectedTransferDraft.get().operationId();
-        if (previous != null) {
-            selectedTransferDraft.set(
-                    rows.stream()
-                            .filter(row -> row.operationId().equals(previous))
-                            .findFirst()
-                            .orElse(null));
-        }
-    }
-
-    private TransferDraftRow mapTransferDraft(WarehouseApi.TransferRequestView draft) {
-        String materialLabel =
-                materialChoices.stream()
-                        .filter(choice -> choice.id().equals(draft.materialReferenceId()))
-                        .map(MaterialChoice::label)
-                        .findFirst()
-                        .orElse(draft.materialReferenceId().toString());
-        return new TransferDraftRow(
-                draft.operationId(),
-                draft.status(),
-                materialLabel,
-                draft.quantity().toPlainString(),
-                warehouseLabel(draft.sourceWarehouseId()),
-                cellLabel(draft.sourceStorageCellId()),
-                warehouseLabel(draft.destinationWarehouseId()),
-                cellLabel(draft.destinationStorageCellId()));
-    }
-
-    public void submitTransferReceive() {
-        if (!canTransfer.get()) {
-            deny();
-            return;
-        }
-        run("Межскладское перемещение (приём) выполнено", () -> {
-            MaterialChoice material = requireChoice(transferReceiveMaterial.get(), "материал");
-            WarehouseChoice source =
-                    requireChoice(transferReceiveSourceWarehouse.get(), "склад источник");
-            StorageCellChoice sourceCell =
-                    requireChoice(transferReceiveSourceCell.get(), "ячейка источник");
-            WarehouseChoice destination =
-                    requireChoice(transferReceiveDestWarehouse.get(), "склад назначения");
-            StorageCellChoice destCell =
-                    requireChoice(transferReceiveDestCell.get(), "ячейка назначения");
-            OperationResult result =
-                    warehouseApi.executeWarehouseOperation(
-                            ExecuteOperationCommand.transferReceive(
-                                    material.id(),
-                                    parsePositiveDecimal(
-                                            transferReceiveQuantity.get(), "количество"),
-                                    source.id(),
-                                    sourceCell.id(),
-                                    destination.id(),
-                                    destCell.id()));
-            statusMessage.set(
-                    "Межскладской приём выполнен: operationId=" + result.operationId());
-        });
-    }
-
     public void submitConsumption() {
         if (!canConsumption.get()) {
             deny();
@@ -660,10 +484,6 @@ public final class WarehouseWorkbenchViewModel {
         return canMove;
     }
 
-    public BooleanProperty canTransferProperty() {
-        return canTransfer;
-    }
-
     public BooleanProperty canConsumptionProperty() {
         return canConsumption;
     }
@@ -712,14 +532,6 @@ public final class WarehouseWorkbenchViewModel {
         return reservationLinks;
     }
 
-    public ObservableList<TransferDraftRow> transferDraftRows() {
-        return transferDraftRows;
-    }
-
-    public ObjectProperty<TransferDraftRow> selectedTransferDraftProperty() {
-        return selectedTransferDraft;
-    }
-
     public ObservableList<StorageCellChoice> receiptCellChoices() {
         return receiptCellChoices;
     }
@@ -730,18 +542,6 @@ public final class WarehouseWorkbenchViewModel {
 
     public ObservableList<StorageCellChoice> moveDestCellChoices() {
         return moveDestCellChoices;
-    }
-
-    public ObservableList<StorageCellChoice> transferSendCellChoices() {
-        return transferSendCellChoices;
-    }
-
-    public ObservableList<StorageCellChoice> transferReceiveSourceCellChoices() {
-        return transferReceiveSourceCellChoices;
-    }
-
-    public ObservableList<StorageCellChoice> transferReceiveDestCellChoices() {
-        return transferReceiveDestCellChoices;
     }
 
     public ObservableList<StorageCellChoice> consumptionCellChoices() {
@@ -834,50 +634,6 @@ public final class WarehouseWorkbenchViewModel {
 
     public ObjectProperty<StorageCellChoice> moveDestCellProperty() {
         return moveDestCell;
-    }
-
-    public ObjectProperty<MaterialChoice> transferMaterialProperty() {
-        return transferMaterial;
-    }
-
-    public StringProperty transferQuantityProperty() {
-        return transferQuantity;
-    }
-
-    public ObjectProperty<WarehouseChoice> transferSourceWarehouseProperty() {
-        return transferSourceWarehouse;
-    }
-
-    public ObjectProperty<StorageCellChoice> transferSourceCellProperty() {
-        return transferSourceCell;
-    }
-
-    public ObjectProperty<WarehouseChoice> transferDestWarehouseProperty() {
-        return transferDestWarehouse;
-    }
-
-    public ObjectProperty<MaterialChoice> transferReceiveMaterialProperty() {
-        return transferReceiveMaterial;
-    }
-
-    public StringProperty transferReceiveQuantityProperty() {
-        return transferReceiveQuantity;
-    }
-
-    public ObjectProperty<WarehouseChoice> transferReceiveSourceWarehouseProperty() {
-        return transferReceiveSourceWarehouse;
-    }
-
-    public ObjectProperty<StorageCellChoice> transferReceiveSourceCellProperty() {
-        return transferReceiveSourceCell;
-    }
-
-    public ObjectProperty<WarehouseChoice> transferReceiveDestWarehouseProperty() {
-        return transferReceiveDestWarehouse;
-    }
-
-    public ObjectProperty<StorageCellChoice> transferReceiveDestCellProperty() {
-        return transferReceiveDestCell;
     }
 
     public ObjectProperty<MaterialChoice> consumptionMaterialProperty() {
@@ -1075,7 +831,6 @@ public final class WarehouseWorkbenchViewModel {
         return canView.get()
                 || canReceipt.get()
                 || canMove.get()
-                || canTransfer.get()
                 || canConsumption.get()
                 || canAdjustment.get()
                 || canReservation.get();

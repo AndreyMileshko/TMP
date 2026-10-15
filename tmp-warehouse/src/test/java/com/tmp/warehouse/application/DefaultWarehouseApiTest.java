@@ -17,6 +17,7 @@ import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.ReservationTargetTypeView;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
+import com.tmp.warehouse.domain.InvalidWarehouseStateException;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.MaterialReservationLink;
 import com.tmp.warehouse.domain.MaterialReservationLinkId;
@@ -403,6 +404,82 @@ class DefaultWarehouseApiTest {
                                         null,
                                         materialReferenceId,
                                         null)));
+    }
+
+    @Test
+    void standaloneTransferSendIsRejectedBeforeStockMutation() {
+        WarehouseId warehouseId = WarehouseId.generate();
+        WarehouseId destinationWarehouseId = WarehouseId.generate();
+        StorageCellId cellId = StorageCellId.generate();
+        MaterialReference material = materials.create(MaterialReference.legacyArticle("SEND-BLOCK"));
+        stockPositions.create(
+                StockPosition.of(
+                        warehouseId,
+                        cellId,
+                        material,
+                        StockState.AVAILABLE,
+                        StockQuantity.of(10L)));
+
+        InvalidWarehouseStateException ex =
+                assertThrows(
+                        InvalidWarehouseStateException.class,
+                        () ->
+                                api.executeWarehouseOperation(
+                                        ExecuteOperationCommand.transferSend(
+                                                material.id().value(),
+                                                BigDecimal.valueOf(3),
+                                                warehouseId.value(),
+                                                cellId.value(),
+                                                destinationWarehouseId.value())));
+        assertTrue(ex.getMessage().contains("Standalone TRANSFER_SEND"));
+        assertEquals(
+                StockQuantity.of(10L),
+                stockPositions
+                        .findByNaturalKey(warehouseId, cellId, material, StockState.AVAILABLE)
+                        .orElseThrow()
+                        .quantity());
+        assertTrue(
+                stockPositions
+                        .findByNaturalKey(warehouseId, cellId, material, StockState.IN_TRANSIT)
+                        .isEmpty());
+    }
+
+    @Test
+    void standaloneTransferReceiveIsRejectedBeforeStockMutation() {
+        WarehouseId sourceWarehouseId = WarehouseId.generate();
+        WarehouseId destinationWarehouseId = WarehouseId.generate();
+        StorageCellId sourceCellId = StorageCellId.generate();
+        StorageCellId destinationCellId = StorageCellId.generate();
+        MaterialReference material =
+                materials.create(MaterialReference.legacyArticle("RECV-BLOCK"));
+        stockPositions.create(
+                StockPosition.of(
+                        sourceWarehouseId,
+                        sourceCellId,
+                        material,
+                        StockState.IN_TRANSIT,
+                        StockQuantity.of(5L)));
+
+        InvalidWarehouseStateException ex =
+                assertThrows(
+                        InvalidWarehouseStateException.class,
+                        () ->
+                                api.executeWarehouseOperation(
+                                        ExecuteOperationCommand.transferReceive(
+                                                material.id().value(),
+                                                BigDecimal.valueOf(5),
+                                                sourceWarehouseId.value(),
+                                                sourceCellId.value(),
+                                                destinationWarehouseId.value(),
+                                                destinationCellId.value())));
+        assertTrue(ex.getMessage().contains("Standalone TRANSFER_RECEIVE"));
+        assertEquals(
+                StockQuantity.of(5L),
+                stockPositions
+                        .findByNaturalKey(
+                                sourceWarehouseId, sourceCellId, material, StockState.IN_TRANSIT)
+                        .orElseThrow()
+                        .quantity());
     }
 
     private static final class PassthroughTransactionManager

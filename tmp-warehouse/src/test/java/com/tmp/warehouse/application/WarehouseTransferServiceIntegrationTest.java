@@ -138,14 +138,16 @@ class WarehouseTransferServiceIntegrationTest {
                         StockState.AVAILABLE,
                         StockQuantity.of(500L)));
 
-        WarehouseOperation sent =
-                transfers.send(
-                        new TransferSendRequest(
+        WarehouseOperation draft =
+                transfers.createDraft(
+                        new WarehouseTransferService.TransferDraftRequest(
                                 material,
                                 StockQuantity.of(500L),
                                 sourceWarehouse,
                                 sourceCell,
-                                destinationWarehouse));
+                                destinationWarehouse,
+                                destinationCell));
+        WarehouseOperation sent = transfers.sendDraft(draft.id());
 
         assertEquals(WarehouseOperationType.TRANSFER_SEND, sent.type());
         assertEquals(WarehouseOperationStatus.COMPLETED, sent.status());
@@ -177,15 +179,7 @@ class WarehouseTransferServiceIntegrationTest {
         assertEquals(WarehouseOperationType.TRANSFER_SEND, sendHistory.get(0).operationType());
         assertEquals(0, sendHistory.get(0).quantityDelta().compareTo(BigDecimal.valueOf(500L)));
 
-        WarehouseOperation received =
-                transfers.receive(
-                        new TransferReceiveRequest(
-                                material,
-                                StockQuantity.of(500L),
-                                sourceWarehouse,
-                                sourceCell,
-                                destinationWarehouse,
-                                destinationCell));
+        WarehouseOperation received = transfers.receiveFromSend(sent.id());
 
         assertEquals(WarehouseOperationType.TRANSFER_RECEIVE, received.type());
         assertEquals(WarehouseOperationStatus.COMPLETED, received.status());

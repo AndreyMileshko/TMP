@@ -1949,6 +1949,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     public OperationResult executeWarehouseOperation(ExecuteOperationCommand command) {
         Objects.requireNonNull(command, "command");
         requireOperationPermission(command.kind());
+        rejectStandaloneTransferExecute(command.kind());
         requireResponsibilityForExecute(command);
         WarehouseOperation completed =
                 switch (command.kind()) {
@@ -1972,23 +1973,6 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                                             StorageCellId.of(command.storageCellId()),
                                             WarehouseId.of(requireDestinationWarehouse(command)),
                                             StorageCellId.of(requireDestinationCell(command))));
-                    case TRANSFER_SEND ->
-                            transfers.send(
-                                    new TransferSendRequest(
-                                            requireMaterial(command.materialReferenceId()),
-                                            StockQuantity.of(command.quantity()),
-                                            WarehouseId.of(command.warehouseId()),
-                                            StorageCellId.of(command.storageCellId()),
-                                            WarehouseId.of(requireDestinationWarehouse(command))));
-                    case TRANSFER_RECEIVE ->
-                            transfers.receive(
-                                    new TransferReceiveRequest(
-                                            requireMaterial(command.materialReferenceId()),
-                                            StockQuantity.of(command.quantity()),
-                                            WarehouseId.of(command.warehouseId()),
-                                            StorageCellId.of(command.storageCellId()),
-                                            WarehouseId.of(requireDestinationWarehouse(command)),
-                                            StorageCellId.of(requireDestinationCell(command))));
                     case CONSUMPTION ->
                             consumptions.consume(
                                     new ConsumptionRequest(
@@ -2004,23 +1988,46 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                                             WarehouseId.of(command.warehouseId()),
                                             StorageCellId.of(command.storageCellId()),
                                             requireAdjustmentComment(command)));
-                    case TRANSFER_RETURN ->
-                            throw new InvalidWarehouseStateException(
-                                    "TRANSFER_RETURN must be executed via Transfer Document settlement return command");
+                    case TRANSFER_SEND, TRANSFER_RECEIVE, TRANSFER_RETURN ->
+                            throw new AssertionError(
+                                    "Standalone transfer execute kinds must be rejected before switch: "
+                                            + command.kind());
                 };
         return toOperationResult(command.kind(), completed);
     }
 
-    private void requireResponsibilityForExecute(ExecuteOperationCommand command) {
-        switch (command.kind()) {
-            case RECEIPT, CONSUMPTION, ADJUSTMENT, MOVE, TRANSFER_SEND ->
-                    responsibilityGuard.requireResponsible(WarehouseId.of(command.warehouseId()));
+    /**
+     * Standalone TRANSFER_* via generic execute is closed: inter-warehouse stock mutation must go
+     * through Transfer Document lifecycle (or Production draft send/receive APIs). Rejected before
+     * permission/responsibility checks and before any stock mutation.
+     */
+    private static void rejectStandaloneTransferExecute(OperationKind kind) {
+        switch (kind) {
+            case TRANSFER_SEND ->
+                    throw new InvalidWarehouseStateException(
+                            "Standalone TRANSFER_SEND is not supported via executeWarehouseOperation; "
+                                    + "use Transfer Document send (sendTransferDocument) or sendTransfer for a Production draft");
             case TRANSFER_RECEIVE ->
-                    responsibilityGuard.requireResponsible(
-                            WarehouseId.of(requireDestinationWarehouse(command)));
+                    throw new InvalidWarehouseStateException(
+                            "Standalone TRANSFER_RECEIVE is not supported via executeWarehouseOperation; "
+                                    + "use Transfer Document receive (receiveTransferDocument) or receiveTransfer for a linked send");
             case TRANSFER_RETURN ->
                     throw new InvalidWarehouseStateException(
                             "TRANSFER_RETURN must be executed via Transfer Document settlement return command");
+            default -> {
+                // non-transfer kinds proceed
+            }
+        }
+    }
+
+    private void requireResponsibilityForExecute(ExecuteOperationCommand command) {
+        switch (command.kind()) {
+            case RECEIPT, CONSUMPTION, ADJUSTMENT, MOVE ->
+                    responsibilityGuard.requireResponsible(WarehouseId.of(command.warehouseId()));
+            case TRANSFER_SEND, TRANSFER_RECEIVE, TRANSFER_RETURN ->
+                    throw new AssertionError(
+                            "Standalone transfer execute kinds must be rejected before responsibility: "
+                                    + command.kind());
         }
     }
 

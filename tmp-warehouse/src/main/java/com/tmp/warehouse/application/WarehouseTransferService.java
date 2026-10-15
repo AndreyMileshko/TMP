@@ -21,11 +21,14 @@ import java.util.Objects;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Inter-warehouse Transfer — draft request, send and receive via {@link WarehouseOperationEngine}
- * (Specification §13.2).
+ * Inter-warehouse Transfer draft lifecycle via {@link WarehouseOperationEngine} (Specification
+ * §13.2).
  *
- * <p>Supports legacy drafts with a preselected destination cell and deferred-destination drafts
- * where the receiving user chooses the cell at receive time (Stage 3.5.3 / ADR-037).
+ * <p>Supports Production/legacy drafts with a preselected destination cell and deferred-destination
+ * drafts where the receiving user chooses the cell at receive time (Stage 3.5.3 / ADR-037).
+ * Immediate unlinked send/receive without a draft context is not provided — stock mutation for
+ * user transfers goes through Transfer Documents; draft send/receive remains for Production-created
+ * drafts.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -250,30 +253,6 @@ public final class WarehouseTransferService {
             throw new InvalidWarehouseStateException(
                     "Destination storage cell is inactive: cellId=" + destinationCellId);
         }
-    }
-
-    /** Immediate send (Stage 6 UI path). */
-    public WarehouseOperation send(TransferSendRequest request) {
-        Objects.requireNonNull(request, "request");
-        requireDistinctWarehouses(request.sourceWarehouseId(), request.destinationWarehouseId());
-        return operationEngine.transferSend(
-                request.material(),
-                request.sourceWarehouseId(),
-                request.sourceCellId(),
-                request.quantity());
-    }
-
-    /** Immediate receive with explicit destination (Stage 6 UI path). */
-    public WarehouseOperation receive(TransferReceiveRequest request) {
-        Objects.requireNonNull(request, "request");
-        requireDistinctWarehouses(request.sourceWarehouseId(), request.destinationWarehouseId());
-        return operationEngine.transferReceive(
-                request.material(),
-                request.sourceWarehouseId(),
-                request.sourceCellId(),
-                request.destinationWarehouseId(),
-                request.destinationCellId(),
-                request.quantity());
     }
 
     private static InvalidWarehouseStateException alreadyReceived(WarehouseOperationId sendId) {
