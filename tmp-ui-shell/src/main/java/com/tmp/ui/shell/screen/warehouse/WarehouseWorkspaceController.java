@@ -926,11 +926,14 @@ public final class WarehouseWorkspaceController
 
         MenuItem moveItem = new MenuItem("Переместить");
         moveItem.setOnAction(e -> openMoveDialog());
+        MenuItem requestToProductionItem = new MenuItem("Запросить на производство");
+        requestToProductionItem.setOnAction(e -> openRequestToProductionDialog());
         MenuItem consumeItem = new MenuItem("Списать");
         consumeItem.setOnAction(e -> openConsumeDialog());
         MenuItem adjustItem = new MenuItem("Корректировать");
         adjustItem.setOnAction(e -> openAdjustDialog());
-        ContextMenu menu = new ContextMenu(moveItem, consumeItem, adjustItem);
+        ContextMenu menu =
+                new ContextMenu(moveItem, requestToProductionItem, consumeItem, adjustItem);
         stockTable.setRowFactory(
                 table -> {
                     TableRow<StockRow> row = new TableRow<>();
@@ -944,6 +947,10 @@ public final class WarehouseWorkspaceController
                                     viewModel.selectSingleStockRow(item);
                                 }
                                 moveItem.setDisable(!viewModel.canMoveSelectedStockProperty().get());
+                                requestToProductionItem.setDisable(
+                                        !viewModel
+                                                .canRequestToProductionSelectedStockProperty()
+                                                .get());
                                 consumeItem.setDisable(
                                         !viewModel.canConsumeSelectedStockProperty().get());
                                 adjustItem.setDisable(
@@ -1106,6 +1113,74 @@ public final class WarehouseWorkspaceController
         } catch (IllegalArgumentException ex) {
             viewModel.errorMessageProperty().set(ex.getMessage());
         }
+    }
+
+    private void openRequestToProductionDialog() {
+        List<StockRow> selected;
+        com.tmp.warehouse.api.WarehouseApi.WarehouseView production;
+        try {
+            selected = viewModel.requireSelectionForRequestToProduction();
+            production = viewModel.resolveActiveProductionWarehouse();
+        } catch (IllegalArgumentException ex) {
+            viewModel.errorMessageProperty().set(ex.getMessage());
+            return;
+        }
+        UUID sourceWarehouseId = selected.get(0).warehouseId();
+        String sourceLabel = viewModel.warehouseDisplayLabel(sourceWarehouseId);
+        String productionLabel =
+                production.code() + " — " + production.name();
+        WarehouseRequestToProductionDialogSupport.RequestDialogSession session =
+                WarehouseRequestToProductionDialogSupport.createRequestDialog(
+                        selected, sourceLabel, productionLabel);
+
+        // Clear stale workspace banner so prior errors do not linger under the dialog.
+        viewModel.errorMessageProperty().set("");
+
+        javafx.beans.value.ChangeListener<String> errorRelay =
+                (obs, oldValue, newValue) -> {
+                    if (newValue != null && !newValue.isBlank() && session.dialog().isShowing()) {
+                        session.showError(newValue);
+                        // Keep the message inside the dialog only (no duplicate workspace banner).
+                        Platform.runLater(
+                                () -> {
+                                    if (newValue.equals(
+                                            viewModel.errorMessageProperty().get())) {
+                                        viewModel.errorMessageProperty().set("");
+                                    }
+                                });
+                    }
+                };
+        javafx.beans.value.ChangeListener<String> successClose =
+                (obs, oldValue, newValue) -> {
+                    if (WarehouseWorkspaceViewModel.REQUEST_TO_PRODUCTION_SUCCESS_MESSAGE.equals(
+                                    newValue)
+                            && session.dialog().isShowing()) {
+                        session.close();
+                    }
+                };
+        viewModel.errorMessageProperty().addListener(errorRelay);
+        viewModel.statusMessageProperty().addListener(successClose);
+        session.dialog()
+                .setOnHidden(
+                        e -> {
+                            viewModel.errorMessageProperty().removeListener(errorRelay);
+                            viewModel.statusMessageProperty().removeListener(successClose);
+                        });
+
+        session.setOnValidSubmit(
+                lines -> {
+                    try {
+                        viewModel.executeRequestToProduction(lines);
+                    } catch (RuntimeException ex) {
+                        session.showError(
+                                ex.getMessage() == null || ex.getMessage().isBlank()
+                                        ? WarehouseUiErrorMapper.text(ex)
+                                        : ex.getMessage());
+                    }
+                });
+
+        // Validation + submit run inside the dialog filter; dialog stays open until success/cancel.
+        session.dialog().showAndWait();
     }
 
     private void openConsumeDialog() {

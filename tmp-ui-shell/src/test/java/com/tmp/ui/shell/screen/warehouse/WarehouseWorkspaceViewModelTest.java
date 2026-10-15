@@ -1126,6 +1126,270 @@ class WarehouseWorkspaceViewModelTest {
     }
 
     @Test
+    void requestToProductionEnabledForRegularWarehouseWithProductionDestination() {
+        auth =
+                new FakeAuthorization(
+                        Set.of(
+                                UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                                UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION));
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        UUID source = UUID.randomUUID();
+        UUID production = UUID.randomUUID();
+        UUID cell = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(source, "MAIN", "Main", true, false));
+        api.warehouses.add(new WarehouseView(production, "PROD", "Production", true, true));
+        api.stockPages.add(
+                page(List.of(cellLine(source, cell, "A-01", "A1", "Mat A", "10")), 0, 1));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+
+        assertFalse(viewModel.canRequestToProductionSelectedStockProperty().get());
+        viewModel.tableRows().get(0).setSelected(true);
+        viewModel.onStockSelectionChanged();
+        assertTrue(viewModel.canRequestToProductionSelectedStockProperty().get());
+        assertEquals(1, viewModel.requireSelectionForRequestToProduction().size());
+    }
+
+    @Test
+    void requestToProductionRejectsMixedWarehousesAndProductionSource() {
+        auth =
+                new FakeAuthorization(
+                        Set.of(
+                                UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                                UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION));
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        UUID wh1 = UUID.randomUUID();
+        UUID wh2 = UUID.randomUUID();
+        UUID production = UUID.randomUUID();
+        UUID cell1 = UUID.randomUUID();
+        UUID cell2 = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(wh1, "MAIN", "Main", true, false));
+        api.warehouses.add(new WarehouseView(wh2, "SECOND", "Second", true, false));
+        api.warehouses.add(new WarehouseView(production, "PROD", "Production", true, true));
+        api.stockPages.add(
+                page(
+                        List.of(
+                                cellLine(wh1, cell1, "A-01", "A1", "Mat A", "10"),
+                                cellLine(wh2, cell2, "B-01", "B1", "Mat B", "5"),
+                                cellLine(production, cell1, "P-01", "P1", "Mat P", "3")),
+                        0,
+                        3));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+
+        viewModel.tableRows().get(0).setSelected(true);
+        viewModel.tableRows().get(1).setSelected(true);
+        viewModel.onStockSelectionChanged();
+        assertFalse(viewModel.canRequestToProductionSelectedStockProperty().get());
+        IllegalArgumentException mixed =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> viewModel.requireSelectionForRequestToProduction());
+        assertEquals(
+                WarehouseWorkspaceViewModel.REQUEST_MIXED_WAREHOUSE_MESSAGE, mixed.getMessage());
+
+        viewModel.clearStockSelection();
+        viewModel.tableRows().get(2).setSelected(true);
+        viewModel.onStockSelectionChanged();
+        assertFalse(viewModel.canRequestToProductionSelectedStockProperty().get());
+        IllegalArgumentException fromProd =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> viewModel.requireSelectionForRequestToProduction());
+        assertEquals(
+                WarehouseWorkspaceViewModel.REQUEST_PRODUCTION_SOURCE_MESSAGE,
+                fromProd.getMessage());
+    }
+
+    @Test
+    void requestToProductionRequiresPermissionAndProductionWarehouse() {
+        UUID source = UUID.randomUUID();
+        UUID cell = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(source, "MAIN", "Main", true, false));
+        api.stockPages.add(
+                page(List.of(cellLine(source, cell, "A-01", "A1", "Mat A", "10")), 0, 1));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        viewModel.tableRows().get(0).setSelected(true);
+        viewModel.onStockSelectionChanged();
+        assertFalse(viewModel.canRequestToProductionSelectedStockProperty().get());
+
+        FakeWarehouseApi withTransfer = new FakeWarehouseApi();
+        FakeAuthorization transferAuth =
+                new FakeAuthorization(
+                        Set.of(
+                                UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                                UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION));
+        WarehouseWorkspaceViewModel transferVm =
+                new WarehouseWorkspaceViewModel(
+                        withTransfer, transferAuth, Runnable::run, Runnable::run);
+        withTransfer.warehouses.add(new WarehouseView(source, "MAIN", "Main", true, false));
+        withTransfer.stockPages.add(
+                page(List.of(cellLine(source, cell, "A-01", "A1", "Mat A", "10")), 0, 1));
+        transferVm.onScreenOpened();
+        transferVm.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        transferVm.tableRows().get(0).setSelected(true);
+        transferVm.onStockSelectionChanged();
+        assertFalse(transferVm.canRequestToProductionSelectedStockProperty().get());
+        IllegalArgumentException missing =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> transferVm.requireSelectionForRequestToProduction());
+        assertEquals(
+                WarehouseWorkspaceViewModel.REQUEST_NO_PRODUCTION_WAREHOUSE_MESSAGE,
+                missing.getMessage());
+    }
+
+    @Test
+    void requestToProductionCreatesDraftOnlyAndAggregatesSameMaterial() {
+        auth =
+                new FakeAuthorization(
+                        Set.of(
+                                UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                                UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION));
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        UUID source = UUID.randomUUID();
+        UUID production = UUID.randomUUID();
+        UUID cellA = UUID.randomUUID();
+        UUID cellB = UUID.randomUUID();
+        UUID material = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(source, "MAIN", "Main", true, false));
+        api.warehouses.add(new WarehouseView(production, "PROD", "Production", true, true));
+        api.stockPages.add(
+                page(
+                        List.of(
+                                new WarehouseStockCellLineView(
+                                        source,
+                                        "MAIN",
+                                        "Main",
+                                        cellA,
+                                        "A-01",
+                                        material,
+                                        "MAT-001",
+                                        "Profile",
+                                        "white",
+                                        "",
+                                        "шт",
+                                        new BigDecimal("3")),
+                                new WarehouseStockCellLineView(
+                                        source,
+                                        "MAIN",
+                                        "Main",
+                                        cellB,
+                                        "B-01",
+                                        material,
+                                        "MAT-001",
+                                        "Profile",
+                                        "white",
+                                        "",
+                                        "шт",
+                                        new BigDecimal("2"))),
+                        0,
+                        2));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        viewModel.tableRows().get(0).setSelected(true);
+        viewModel.tableRows().get(1).setSelected(true);
+        viewModel.onStockSelectionChanged();
+
+        List<WarehouseWorkspaceViewModel.StockMoveLine> lines =
+                List.of(
+                        WarehouseWorkspaceViewModel.StockMoveLine.from(
+                                viewModel.tableRows().get(0), new BigDecimal("3")),
+                        WarehouseWorkspaceViewModel.StockMoveLine.from(
+                                viewModel.tableRows().get(1), new BigDecimal("2")));
+        viewModel.executeRequestToProduction(lines);
+
+        assertEquals(1, api.createTransferDocumentCommands.size());
+        assertEquals(0, api.sendCommands.size());
+        assertEquals(0, api.executeCalls);
+        CreateTransferDocumentCommand command = api.createTransferDocumentCommands.get(0);
+        assertEquals(source, command.sourceWarehouseId());
+        assertEquals(production, command.destinationWarehouseId());
+        assertEquals(1, command.lines().size());
+        assertEquals(material, command.lines().get(0).materialReferenceId());
+        assertEquals(0, new BigDecimal("5").compareTo(command.lines().get(0).quantity()));
+        assertEquals(
+                WarehouseWorkspaceViewModel.REQUEST_TO_PRODUCTION_SUCCESS_MESSAGE,
+                viewModel.statusMessageProperty().get());
+        assertEquals("", viewModel.errorMessageProperty().get());
+        TransferDocumentView created = api.documents.values().iterator().next();
+        assertEquals("DRAFT", created.documentStatus());
+    }
+
+    @Test
+    void requestToProductionRejectsQuantityAboveAvailableAndStaleLiveStock() {
+        auth =
+                new FakeAuthorization(
+                        Set.of(
+                                UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                                UiShellScreens.WAREHOUSE_TRANSFER_PERMISSION));
+        viewModel = new WarehouseWorkspaceViewModel(api, auth, Runnable::run, Runnable::run);
+        UUID source = UUID.randomUUID();
+        UUID production = UUID.randomUUID();
+        UUID cell = UUID.randomUUID();
+        UUID material = UUID.randomUUID();
+        api.warehouses.add(new WarehouseView(source, "MAIN", "Main", true, false));
+        api.warehouses.add(new WarehouseView(production, "PROD", "Production", true, true));
+        api.stockPages.add(
+                page(
+                        List.of(
+                                new WarehouseStockCellLineView(
+                                        source,
+                                        "MAIN",
+                                        "Main",
+                                        cell,
+                                        "A-01",
+                                        material,
+                                        "A1",
+                                        "Mat A",
+                                        "",
+                                        "",
+                                        "шт",
+                                        new BigDecimal("10"))),
+                        0,
+                        1));
+        viewModel.onScreenOpened();
+        viewModel.selectTab(WarehouseWorkspaceViewModel.WorkspaceTab.STOCK);
+        viewModel.tableRows().get(0).setSelected(true);
+        viewModel.onStockSelectionChanged();
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        viewModel.executeRequestToProduction(
+                                List.of(
+                                        WarehouseWorkspaceViewModel.StockMoveLine.from(
+                                                viewModel.tableRows().get(0),
+                                                new BigDecimal("11")))));
+        assertEquals(0, api.createTransferDocumentCommands.size());
+
+        api.stockByMaterial.add(
+                new WarehouseApi.StockView(
+                        material,
+                        "A1",
+                        "Mat A",
+                        "",
+                        "",
+                        "шт",
+                        "MAIN",
+                        "A-01",
+                        new BigDecimal("4"),
+                        WarehouseApi.StockStateView.AVAILABLE,
+                        "A1",
+                        source,
+                        cell));
+        viewModel.executeRequestToProduction(
+                List.of(
+                        WarehouseWorkspaceViewModel.StockMoveLine.from(
+                                viewModel.tableRows().get(0), new BigDecimal("5"))));
+        assertEquals(0, api.createTransferDocumentCommands.size());
+        assertEquals(
+                WarehouseWorkspaceViewModel.REQUEST_STALE_STOCK_MESSAGE,
+                viewModel.errorMessageProperty().get());
+    }
+
+    @Test
     void interWarehouseMultiLineMoveCreatesOneDocument() {
         auth =
                 new FakeAuthorization(
@@ -2947,11 +3211,14 @@ class WarehouseWorkspaceViewModelTest {
         private final Map<UUID, List<StorageCellView>> cellsByWarehouse = new HashMap<>();
         private final List<MaterialReferenceView> materials = new ArrayList<>();
         private final List<SendTransferDocumentCommand> sendCommands = new CopyOnWriteArrayList<>();
+        private final List<CreateTransferDocumentCommand> createTransferDocumentCommands =
+                new CopyOnWriteArrayList<>();
         private final List<ReceiveTransferDocumentCommand> receiveCommands = new CopyOnWriteArrayList<>();
         private final List<RejectTransferDocumentCommand> rejectCommands = new CopyOnWriteArrayList<>();
         private final List<ReturnTransferMaterialsCommand> returnCommands = new CopyOnWriteArrayList<>();
         private final List<UUID> suggestCalls = new CopyOnWriteArrayList<>();
         private final List<UUID> getTransferDocumentCalls = new CopyOnWriteArrayList<>();
+        private final List<WarehouseApi.StockView> stockByMaterial = new ArrayList<>();
         int listMyWarehousesCalls;
         int listStorageCellsCalls;
         int executeCalls;
@@ -3251,6 +3518,7 @@ class WarehouseWorkspaceViewModelTest {
 
         @Override
         public TransferDocumentView createTransferDocument(CreateTransferDocumentCommand command) {
+            createTransferDocumentCommands.add(command);
             List<TransferDocumentLineView> lines = new ArrayList<>();
             int order = 1;
             for (var line : command.lines()) {
@@ -3287,6 +3555,13 @@ class WarehouseWorkspaceViewModelTest {
                             null);
             documents.put(document.documentId(), document);
             return document;
+        }
+
+        @Override
+        public List<WarehouseApi.StockView> getStockByMaterialReferenceId(UUID materialReferenceId) {
+            return stockByMaterial.stream()
+                    .filter(view -> materialReferenceId.equals(view.materialReferenceId()))
+                    .toList();
         }
 
         @Override

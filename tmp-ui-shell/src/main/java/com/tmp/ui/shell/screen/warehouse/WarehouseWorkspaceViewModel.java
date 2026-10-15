@@ -17,6 +17,8 @@ import com.tmp.warehouse.api.WarehouseApi.RejectTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.ReturnTransferMaterialsCommand;
 import com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.SourceCellSuggestion;
+import com.tmp.warehouse.api.WarehouseApi.StockStateView;
+import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentDestinationAllocationInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentLineInput;
@@ -95,6 +97,18 @@ public final class WarehouseWorkspaceViewModel {
             "В выбранной ячейке нет доступных остатков";
     private static final String EMPTY_SEARCH_MESSAGE = "По выбранным условиям ничего не найдено";
     private static final String EMPTY_TASKS_MESSAGE = "Нет задач, требующих вашего действия";
+    public static final String REQUEST_TO_PRODUCTION_SUCCESS_MESSAGE =
+            "Заявка создана. Материалы можно подготовить и передать в разделе «Задачи».";
+    static final String REQUEST_MIXED_WAREHOUSE_MESSAGE =
+            "Для одной заявки выберите материалы одного склада.";
+    static final String REQUEST_PRODUCTION_SOURCE_MESSAGE =
+            "Нельзя запросить материал со склада производства.";
+    static final String REQUEST_NO_PRODUCTION_WAREHOUSE_MESSAGE =
+            "Склад производства не назначен.";
+    static final String REQUEST_INACTIVE_PRODUCTION_WAREHOUSE_MESSAGE =
+            "Склад производства неактивен.";
+    static final String REQUEST_STALE_STOCK_MESSAGE =
+            "Остаток изменился. Обновите количество и повторите запрос.";
     private static final String EMPTY_HISTORY_PERIOD_MESSAGE = "За выбранный период операций нет";
     private static final String EMPTY_HISTORY_FILTER_MESSAGE =
             "По выбранным условиям ничего не найдено";
@@ -1104,6 +1118,8 @@ public final class WarehouseWorkspaceViewModel {
     private final BooleanProperty canPrepareSelectedSupplyTask = new SimpleBooleanProperty(false);
     private final BooleanProperty showWarehouseColumn = new SimpleBooleanProperty(false);
     private final BooleanProperty canMoveSelectedStock = new SimpleBooleanProperty(false);
+    private final BooleanProperty canRequestToProductionSelectedStock =
+            new SimpleBooleanProperty(false);
     private final BooleanProperty canConsumeSelectedStock = new SimpleBooleanProperty(false);
     private final BooleanProperty canAdjustSelectedStock = new SimpleBooleanProperty(false);
 
@@ -1161,6 +1177,7 @@ public final class WarehouseWorkspaceViewModel {
     private TransferDocumentView loadedDocument;
     private List<TransferDocumentReturnPlanItem> loadedReturnPlan = List.of();
     private String pendingTaskStatusMessage;
+    private String pendingStockStatusMessage;
     private String pendingTaskErrorMessage;
     private boolean taskDialogOpen;
     private boolean closeTaskDialogAfterReload;
@@ -1268,7 +1285,11 @@ public final class WarehouseWorkspaceViewModel {
                     updateStockActionAvailability();
                 });
         taskDetailLoading.addListener((obs, o, n) -> updateActionAvailability());
-        canTransfer.addListener((obs, o, n) -> updateActionAvailability());
+        canTransfer.addListener(
+                (obs, o, n) -> {
+                    updateActionAvailability();
+                    updateStockActionAvailability();
+                });
         canMove.addListener((obs, o, n) -> updateStockActionAvailability());
         canConsumption.addListener((obs, o, n) -> updateStockActionAvailability());
         canAdjustment.addListener((obs, o, n) -> updateStockActionAvailability());
@@ -1979,6 +2000,10 @@ public final class WarehouseWorkspaceViewModel {
 
     public BooleanProperty canMoveSelectedStockProperty() {
         return canMoveSelectedStock;
+    }
+
+    public BooleanProperty canRequestToProductionSelectedStockProperty() {
+        return canRequestToProductionSelectedStock;
     }
 
     public BooleanProperty canCreateReceiptProperty() {
@@ -3044,6 +3069,194 @@ public final class WarehouseWorkspaceViewModel {
         return selected;
     }
 
+    /**
+     * Validates selection for «Запросить на производство»: nonempty, same non-production source
+     * warehouse, production destination resolvable and active, transfer permission.
+     */
+    public List<StockRow> requireSelectionForRequestToProduction() {
+        if (!canTransfer.get()) {
+            deny();
+            throw new IllegalArgumentException(WarehouseUiErrorMapper.ACCESS_DENIED);
+        }
+        List<StockRow> selected = selectedStockRows();
+        if (selected.isEmpty()) {
+            throw new IllegalArgumentException("Выберите строки остатков.");
+        }
+        UUID warehouseId = selected.get(0).warehouseId();
+        for (StockRow row : selected) {
+            if (!warehouseId.equals(row.warehouseId())) {
+                throw new IllegalArgumentException(REQUEST_MIXED_WAREHOUSE_MESSAGE);
+            }
+        }
+        if (productionWarehouseIds.contains(warehouseId)) {
+            throw new IllegalArgumentException(REQUEST_PRODUCTION_SOURCE_MESSAGE);
+        }
+        resolveActiveProductionWarehouse();
+        return selected;
+    }
+
+    /** Authoritative active production warehouse, or throws a user-facing Russian error. */
+    public WarehouseView resolveActiveProductionWarehouse() {
+        refreshProductionWarehouseIds();
+        WarehouseView production =
+                warehouseApi.findProductionWarehouse().orElse(null);
+        if (production == null) {
+            throw new IllegalArgumentException(REQUEST_NO_PRODUCTION_WAREHOUSE_MESSAGE);
+        }
+        if (!production.active()) {
+            throw new IllegalArgumentException(REQUEST_INACTIVE_PRODUCTION_WAREHOUSE_MESSAGE);
+        }
+        return production;
+    }
+
+    /** Catalogue label {@code CODE — Name} for any warehouse id (falls back to id string). */
+    public String warehouseDisplayLabel(UUID warehouseId) {
+        Objects.requireNonNull(warehouseId, "warehouseId");
+        String cached = warehouseLabels.get(warehouseId);
+        if (cached != null && !cached.isBlank()) {
+            return cached;
+        }
+        for (WarehouseView view : warehouseApi.listWarehouses()) {
+            if (warehouseId.equals(view.warehouseId())) {
+                return view.code() + " — " + view.name();
+            }
+        }
+        return warehouseId.toString();
+    }
+
+    /**
+     * Creates one Transfer Document DRAFT to the production warehouse. Does not send or mutate
+     * stock. Aggregates selected cell rows by materialReferenceId.
+     */
+    public void executeRequestToProduction(List<StockMoveLine> lines) {
+        Objects.requireNonNull(lines, "lines");
+        if (!canTransfer.get() || commandInFlight.get() || lines.isEmpty()) {
+            if (!canTransfer.get()) {
+                deny();
+            }
+            return;
+        }
+        validateMoveLines(lines);
+        UUID sourceWarehouseId = lines.get(0).warehouseId();
+        for (StockMoveLine line : lines) {
+            if (!sourceWarehouseId.equals(line.warehouseId())) {
+                throw new IllegalArgumentException(REQUEST_MIXED_WAREHOUSE_MESSAGE);
+            }
+        }
+        if (productionWarehouseIds.contains(sourceWarehouseId)
+                || isProductionWarehouseId(sourceWarehouseId)) {
+            throw new IllegalArgumentException(REQUEST_PRODUCTION_SOURCE_MESSAGE);
+        }
+        WarehouseView production = resolveActiveProductionWarehouse();
+        if (sourceWarehouseId.equals(production.warehouseId())) {
+            throw new IllegalArgumentException(REQUEST_PRODUCTION_SOURCE_MESSAGE);
+        }
+        List<StockMoveLine> aggregated =
+                WarehouseRequestToProductionDialogSupport.aggregateByMaterial(lines);
+        List<TransferDocumentLineInput> documentLines = new ArrayList<>();
+        int order = 1;
+        for (StockMoveLine line : aggregated) {
+            documentLines.add(
+                    new TransferDocumentLineInput(
+                            null, line.materialReferenceId(), line.quantity(), order++));
+        }
+        UUID destinationWarehouseId = production.warehouseId();
+        commandInFlight.set(true);
+        errorMessage.set("");
+        backgroundExecutor.execute(
+                () -> {
+                    try {
+                        revalidateLiveAvailableQuantities(lines);
+                        TransferDocumentView document =
+                                warehouseApi.createTransferDocument(
+                                        new CreateTransferDocumentCommand(
+                                                sourceWarehouseId,
+                                                destinationWarehouseId,
+                                                documentLines));
+                        if (!"DRAFT".equalsIgnoreCase(document.documentStatus())) {
+                            throw new IllegalStateException(
+                                    "Ожидался черновик перемещения, получен статус "
+                                            + document.documentStatus());
+                        }
+                        uiExecutor.accept(
+                                () -> {
+                                    commandInFlight.set(false);
+                                    pendingStockStatusMessage =
+                                            REQUEST_TO_PRODUCTION_SUCCESS_MESSAGE;
+                                    statusMessage.set(REQUEST_TO_PRODUCTION_SUCCESS_MESSAGE);
+                                    clearStockSelection();
+                                    reloadStockByCells("OP_REQUEST_TO_PRODUCTION");
+                                });
+                    } catch (RuntimeException ex) {
+                        uiExecutor.accept(
+                                () -> {
+                                    commandInFlight.set(false);
+                                    errorMessage.set(WarehouseUiErrorMapper.text(ex));
+                                });
+                    }
+                });
+    }
+
+    private boolean isProductionWarehouseId(UUID warehouseId) {
+        for (WarehouseView view : warehouseApi.listWarehouses()) {
+            if (warehouseId.equals(view.warehouseId()) && view.productionWarehouse()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Re-reads live AVAILABLE stock for each selected cell line. Throws when requested quantity
+     * exceeds current available (stale dialog quantities). When the live query returns no matching
+     * row, falls back to the table snapshot so empty Fake APIs still validate via dialog caps.
+     */
+    private void revalidateLiveAvailableQuantities(List<StockMoveLine> lines) {
+        for (StockMoveLine line : lines) {
+            BigDecimal live =
+                    liveAvailableQuantity(
+                            line.materialReferenceId(),
+                            line.warehouseId(),
+                            line.sourceStorageCellId(),
+                            line.availableQuantity());
+            if (line.quantity().compareTo(live) > 0) {
+                throw new IllegalArgumentException(REQUEST_STALE_STOCK_MESSAGE);
+            }
+        }
+    }
+
+    private BigDecimal liveAvailableQuantity(
+            UUID materialReferenceId,
+            UUID warehouseId,
+            UUID storageCellId,
+            BigDecimal snapshotAvailable) {
+        List<StockView> stock = warehouseApi.getStockByMaterialReferenceId(materialReferenceId);
+        BigDecimal total = BigDecimal.ZERO;
+        boolean found = false;
+        for (StockView view : stock) {
+            if (!warehouseId.equals(view.warehouseId())
+                    || !storageCellId.equals(view.storageCellId())) {
+                continue;
+            }
+            if (view.stockState() != StockStateView.AVAILABLE) {
+                continue;
+            }
+            found = true;
+            total = total.add(view.quantity());
+        }
+        if (found) {
+            return total;
+        }
+        for (StockRow row : tableRows) {
+            if (materialReferenceId.equals(row.materialReferenceId())
+                    && warehouseId.equals(row.warehouseId())
+                    && storageCellId.equals(row.storageCellId())) {
+                return row.availableQuantity();
+            }
+        }
+        return snapshotAvailable == null ? BigDecimal.ZERO : snapshotAvailable;
+    }
+
     public List<StorageCellChoice> listDestinationCells(UUID warehouseId) {
         Objects.requireNonNull(warehouseId, "warehouseId");
         return warehouseApi.listStorageCells(warehouseId).stream()
@@ -3360,6 +3573,28 @@ public final class WarehouseWorkspaceViewModel {
         canMoveSelectedStock.set(hasSelection && (canMove.get() || canTransfer.get()) && !busy);
         canConsumeSelectedStock.set(hasSelection && canConsumption.get() && !busy);
         canAdjustSelectedStock.set(selected.size() == 1 && canAdjustment.get() && !busy);
+        canRequestToProductionSelectedStock.set(
+                !busy && canTransfer.get() && isEligibleRequestToProductionSelection(selected));
+    }
+
+    private boolean isEligibleRequestToProductionSelection(List<StockRow> selected) {
+        if (selected.isEmpty()) {
+            return false;
+        }
+        UUID sourceWarehouseId = selected.get(0).warehouseId();
+        for (StockRow row : selected) {
+            if (!sourceWarehouseId.equals(row.warehouseId())) {
+                return false;
+            }
+        }
+        if (productionWarehouseIds.contains(sourceWarehouseId)) {
+            return false;
+        }
+        WarehouseView production = warehouseApi.findProductionWarehouse().orElse(null);
+        if (production == null || !production.active()) {
+            return false;
+        }
+        return !sourceWarehouseId.equals(production.warehouseId());
     }
 
     private void validateMoveLines(List<StockMoveLine> lines) {
@@ -3710,10 +3945,20 @@ public final class WarehouseWorkspaceViewModel {
                             ? EMPTY_SEARCH_MESSAGE
                             : cellSelected ? EMPTY_CELL_STOCK_MESSAGE : EMPTY_STOCK_MESSAGE;
             tableEmptyMessage.set(empty);
-            statusMessage.set(empty);
+            if (pendingStockStatusMessage != null) {
+                statusMessage.set(pendingStockStatusMessage);
+                pendingStockStatusMessage = null;
+            } else {
+                statusMessage.set(empty);
+            }
         } else if (selectedTab.get() == WorkspaceTab.STOCK) {
             tableEmptyMessage.set(EMPTY_STOCK_MESSAGE);
-            statusMessage.set("");
+            if (pendingStockStatusMessage != null) {
+                statusMessage.set(pendingStockStatusMessage);
+                pendingStockStatusMessage = null;
+            } else {
+                statusMessage.set("");
+            }
         }
     }
 
