@@ -1,5 +1,38 @@
-# TMP Verification Log
+﻿# TMP Verification Log
 
+## Latest result
+
+**Date:** 2026-10-16
+**Scope:** B3-MA-13-01 — Isolated Pilot Database, Backup and Safe Packaged Launch
+**Overall:** PARTIAL (infrastructure PASS; manual GUI smoke remaining)
+**Migration:** Flyway V1–V53 applied to **tmp_pilot only** (explicit init); stage untouched
+**Base HEAD:** `8865559128860e131604c58d36aa8ce6ca46dbb3`
+**Working tree:** dirty (pilot scripts/docs only); **no commit / no push**
+
+### Checks (2026-10-16 B3-MA-13-01)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD exact + clean tree | PASS |
+| Container `tmp-stage5-pg` :55432 | PASS (was Exited; `docker start` only, no recreate) |
+| Stage `tmp_gui_stage5` accessible | PASS (orders=18; Flyway 53 unchanged) |
+| `tmp_pilot` absent then created empty | PASS (OWNER `tmp_pilot_app`) |
+| Pilot role non-superuser | PASS |
+| Credentials outside Git + ACL | PASS (`%LOCALAPPDATA%\TMP-Pilot\credentials.env`) |
+| No stage credential fallback in pilot launcher | PASS |
+| Explicit Flyway init on tmp_pilot | PASS (53 migrations → v53) |
+| Normal pilot launch Flyway migrate off | PASS (`SPRING_FLYWAY_ENABLED=false`; Started DesktopBootstrap) |
+| Spring Boot start on pilot | PASS |
+| JavaFX launcher | PASS (unnamed-module WARN only) |
+| Security bootstrap user present | PASS (1 user; login=credentials file) |
+| No demo warehouses/orders | PASS (warehouses=0; orders=0) |
+| Backup pg_dump -Fc outside repo | PASS |
+| Restore into `tmp_pilot_restore_check` only | PASS (then dropped) |
+| Stage DB mutated by this task | NO |
+| Auth + Warehouse/Production UI smoke | MANUAL (user) |
+| Full reactor | NOT RUN |
+
+---
 ## Latest result
 
 **Date:** 2026-10-15

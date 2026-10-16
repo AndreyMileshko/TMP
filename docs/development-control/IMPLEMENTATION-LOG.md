@@ -1,4 +1,29 @@
-## B3-MA-12-CLEANUP — Retire unused legacy Production transfer workflow — 2026-10-15
+﻿## B3-MA-13-01 — Isolated Pilot Database, Backup and Safe Packaged Launch — 2026-10-16
+
+**Date:** 2026-10-16
+**Stage:** Post-closure infrastructure / Pilot environment
+**Base HEAD:** `8865559128860e131604c58d36aa8ce6ca46dbb3`
+**Status:** PARTIAL — infrastructure complete; manual GUI acceptance pending; no commit / no push
+
+### Scope
+
+- Created empty DB `tmp_pilot` + non-superuser role `tmp_pilot_app` on shared container `tmp-stage5-pg` (no clone of `tmp_gui_stage5`)
+- Local credentials outside repo: `%LOCALAPPDATA%\TMP-Pilot\credentials.env` (restricted ACL; generated secrets; not printed)
+- Pilot launch `scripts/pilot/run-tmp-pilot.ps1` (rejects stage DB / cluster admin; default Flyway migrate OFF; `-ApplyMigrations` for controlled init)
+- Backup `scripts/pilot/backup-tmp-pilot.ps1` (binary-safe docker pg_dump -Fc → `%LOCALAPPDATA%\TMP-Pilot\backups`)
+- Restore verify `scripts/pilot/verify-tmp-pilot-backup.ps1` (only `tmp_pilot_restore_check`)
+- Guide `docs/pilot/PILOT-ENVIRONMENT.md` (RU)
+- Fast package rebuild; explicit Flyway init of tmp_pilot to v53; stage fingerprint unchanged
+
+### Out of scope (separate tasks)
+
+- Pilot warehouses/cells, real SuperOkna import, balances, business operations
+
+### Verification
+
+See VERIFICATION-LOG entry (2026-10-16 B3-MA-13-01).
+
+---## B3-MA-12-CLEANUP — Retire unused legacy Production transfer workflow — 2026-10-15
 
 **Date:** 2026-10-15
 **Stage:** Post-closure Production / Warehouse MA

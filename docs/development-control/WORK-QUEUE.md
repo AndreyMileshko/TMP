@@ -1,4 +1,4 @@
-# TMP Work Queue
+﻿# TMP Work Queue
 
 ## ???????
 
@@ -12483,3 +12483,14 @@ Stage 3.5.9 = COMPLETE.
 Stage 3.5.10 = COMPLETE.
 Stage 3.5.11 = COMPLETE.
 Stage 3.5.12 = COMPLETE.
+
+---
+
+## B3-MA-13-01 — Isolated Pilot Database, Backup and Safe Packaged Launch
+
+**Status:** PARTIAL (infrastructure DONE; manual GUI smoke PENDING)
+**Date:** 2026-10-16
+**Base HEAD:** `8865559128860e131604c58d36aa8ce6ca46dbb3`
+**Goal:** Separate safe pilot environment (DB/backup/launch) without importing real business data.
+**Result:** `tmp_pilot` + `tmp_pilot_app`; credentials in `%LOCALAPPDATA%\TMP-Pilot\`; scripts under `scripts/pilot/`; guide `docs/pilot/PILOT-ENVIRONMENT.md`; Flyway v53 on pilot only; stage unchanged; backup+restore-check PASS.
+**Commit:** NONE
