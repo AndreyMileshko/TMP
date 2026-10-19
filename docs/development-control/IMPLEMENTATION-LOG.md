@@ -1,4 +1,30 @@
-﻿## B3-MA-13-01 — Isolated Pilot Database, Backup and Safe Packaged Launch — 2026-10-16
+﻿## B3-MA-13-02-FIX1 — Manufacturing / Creation dates — BLOCKED — 2026-10-19
+
+**Date:** 2026-10-19
+**Stage:** Post-closure Order Management / Pilot UX corrective
+**Base HEAD:** `6a603cda1f620ad7d9d0dbf586f61722dc609dae`
+**Status:** BLOCKED — persistence check only; no production code; no migration; no commit / no push
+
+### Persistence check result
+
+- STXT «Дата готовности» → `StxtBlockParser` → `OrderImportBatch.readyDate` (**parsed**)
+- `DefaultOrderImportService` does not use `readyDate` when creating/activating orders (**discarded**)
+- `CustomerOrder` / `order_management.orders` / `OrderWorklistRowDto` have no manufacturing/ready date field
+- Spec §27.3 documents MVP: parsed, not persisted
+
+### Actions taken
+
+- Recorded `BLK-B3-MA-13-02-FIX1-MANUFACTURING-DATE-PERSISTENCE` in BLOCKERS.md
+- Proposed minimal V54 nullable `manufacturing_date DATE` (not applied)
+- Noted pilot historical dates require separate approved backfill from original STXT (reimport forbidden for existing ACTIVE orders)
+
+### Out of scope until approval
+
+- Flyway migration, domain/API/UI changes, package rebuild, pilot/stage data correction
+
+---
+
+## B3-MA-13-01 — Isolated Pilot Database, Backup and Safe Packaged Launch — 2026-10-16
 
 **Date:** 2026-10-16
 **Stage:** Post-closure infrastructure / Pilot environment

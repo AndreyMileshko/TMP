@@ -2,6 +2,30 @@
 
 ## Latest result
 
+**Date:** 2026-10-19
+**Scope:** B3-MA-13-02-FIX1 — Display Manufacturing Date and Creation Date Correctly
+**Overall:** BLOCKER (persistence missing; implementation stopped before code/migration)
+**Migration:** NONE applied; proposed V54 not created
+**Base HEAD:** `6a603cda1f620ad7d9d0dbf586f61722dc609dae`
+**Working tree:** control-doc updates only (BLOCKERS/STATUS/WORK-QUEUE/logs); **no commit / no push**
+
+### Checks (2026-10-19 B3-MA-13-02-FIX1)
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD exact | PASS (`6a603cda…`) |
+| Working tree before | PASS (clean) |
+| STXT «Дата готовности» parsed | PASS (`OrderImportBatch.readyDate`) |
+| Persisted on CustomerOrder / orders table | FAIL — field absent |
+| Import service maps readyDate | FAIL — discarded |
+| Worklist/API exposes manufacturing date | FAIL — `createdAt` only |
+| Stage DB modified | NO |
+| Pilot DB modified | NO |
+| Focused tests / package build | NOT RUN (stopped at persistence gate) |
+
+---
+## Previous result
+
 **Date:** 2026-10-16
 **Scope:** B3-MA-13-01 — Isolated Pilot Database, Backup and Safe Packaged Launch
 **Overall:** PARTIAL (infrastructure PASS; manual GUI smoke remaining)
